@@ -158,17 +158,81 @@ Acknowledged, deferred from v1.
 
 ## Traceability
 
-(Populated by roadmapper)
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled) | | |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Pending |
+| INFRA-06 | Phase 1 | Pending |
+| BED-01 | Phase 1 | Pending |
+| VAULT-01 | Phase 1 | Pending |
+| VAULT-02 | Phase 1 | Pending |
+| VAULT-03 | Phase 1 | Pending |
+| VAULT-04 | Phase 1 | Pending |
+| VAULT-05 | Phase 1 | Pending |
+| VAULT-06 | Phase 1 | Pending |
+| VAULT-07 | Phase 1 | Pending |
+| MCP-05 | Phase 1 | Pending |
+| MCP-08 | Phase 1 | Pending |
+| BED-02 | Phase 2 | Pending |
+| BED-03 | Phase 2 | Pending |
+| BED-04 | Phase 2 | Pending |
+| BED-05 | Phase 2 | Pending |
+| SUB-01 | Phase 2 | Pending |
+| SUB-02 | Phase 2 | Pending |
+| SUB-03 | Phase 2 | Pending |
+| SUB-04 | Phase 2 | Pending |
+| SUB-05 | Phase 2 | Pending |
+| SUB-06 | Phase 2 | Pending |
+| SUB-07 | Phase 2 | Pending |
+| OBS-01 | Phase 2 | Pending |
+| OBS-02 | Phase 2 | Pending |
+| OBS-03 | Phase 2 | Pending |
+| SEARCH-01 | Phase 3 | Pending |
+| SEARCH-02 | Phase 3 | Pending |
+| SEARCH-03 | Phase 3 | Pending |
+| SEARCH-04 | Phase 3 | Pending |
+| SEARCH-05 | Phase 3 | Pending |
+| SEARCH-06 | Phase 3 | Pending |
+| CMD-04 | Phase 3 | Pending |
+| CMD-07 | Phase 3 | Pending |
+| CMD-08 | Phase 3 | Pending |
+| MCP-02 | Phase 3 | Pending |
+| MCP-04 | Phase 3 | Pending |
+| MCP-06 | Phase 3 | Pending |
+| MCP-07 | Phase 3 | Pending |
+| CLI-01 | Phase 3 | Pending |
+| CLI-02 | Phase 3 | Pending |
+| CLI-03 | Phase 3 | Pending |
+| CLI-04 | Phase 3 | Pending |
+| CLI-05 | Phase 3 | Pending |
+| CLI-06 | Phase 3 | Pending |
+| CLI-07 | Phase 3 | Pending |
+| EVAL-01 | Phase 4 | Pending |
+| EVAL-02 | Phase 4 | Pending |
+| EVAL-03 | Phase 4 | Pending |
+| EVAL-04 | Phase 4 | Pending |
+| EVAL-05 | Phase 4 | Pending |
+| EVAL-06 | Phase 4 | Pending |
+| EVAL-07 | Phase 4 | Pending |
+| EVAL-08 | Phase 4 | Pending |
+| EVAL-09 | Phase 4 | Pending |
+| EVAL-10 | Phase 4 | Pending |
+| CMD-01 | Phase 5 | Pending |
+| CMD-02 | Phase 5 | Pending |
+| CMD-03 | Phase 5 | Pending |
+| CMD-05 | Phase 5 | Pending |
+| CMD-06 | Phase 5 | Pending |
+| MCP-01 | Phase 5 | Pending |
+| MCP-03 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: TBD
-- Mapped to phases: TBD
-- Unmapped: TBD
+- v1 requirements: 67
+- Mapped to phases: 67
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-13*
-*Last updated: 2026-05-13 after initial definition*
+*Last updated: 2026-05-13 after roadmap creation*
