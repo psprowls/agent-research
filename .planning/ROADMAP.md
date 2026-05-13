@@ -56,7 +56,12 @@ Plans:
 4. Every fan-out call produces a structured JSONL trace record (role, model, prompt hash, item id, status, latency_ms, tokens_in, tokens_out, cost_usd) written to `.code-wiki/traces/`; `code-wiki-agent trace <file>` renders it as a human-readable timeline
 5. `ModelRegistry` resolves each logical role name to a concrete model ID from `models.toml`; the file ships with sensible Bedrock defaults for all defined roles
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Workspace member scaffold + 7-role models.toml + load_role_config (BED-02..05)
+- [ ] 02-02-PLAN.md — SubagentPool implementation with partial-failure isolation, semaphore throttle, JSONL trace (SUB-01..07, OBS-01, BED-05)
+- [ ] 02-03-PLAN.md — Trace viewer CLI + real-Bedrock integration tests (OBS-02, OBS-03, SUB-02/04/05 verification)
 
 ---
 
@@ -116,7 +121,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure, Vault IO, and MCP Skeleton | 0/4 | Not started | - |
-| 2. Subagent Fan-Out Runtime | 0/0 | Not started | - |
+| 2. Subagent Fan-Out Runtime | 0/3 | Not started | - |
 | 3. Query Vertical Slice + Hybrid Search | 0/0 | Not started | - |
 | 4. Eval Harness | 0/0 | Not started | - |
 | 5. Remaining Commands | 0/0 | Not started | - |

@@ -23,14 +23,14 @@ This phase delivers `cores/subagent-runtime` — the shared fan-out primitive th
 
 ### deepagents SubAgentMiddleware Decision (SUB-02/03)
 
-- **D-01:** Researcher reads the #694 PR before writing any fan-out code. Based on the PR's complexity, researcher recommends one of two paths — and has full discretion to pick:
+- **D-01 [informational]:** Researcher reads the #694 PR before writing any fan-out code. Based on the PR's complexity, researcher recommends one of two paths — and has full discretion to pick:
   - **Vendor path:** If #694's fix is a single subclass override of `SubAgentMiddleware`, vendor it as a thin wrapper. Use it as our pool. Upgrade path: delete our subclass when deepagents ships a release with the fix included.
   - **Asyncio pool path:** If the fix touches `SubAgentMiddleware` internals at more than one point, skip SubAgentMiddleware entirely. Implement `SubagentPool` on `asyncio.gather(return_exceptions=True)` directly — this is the explicitly blessed SUB-03 fallback.
-  Researcher records their choice and evidence as a Key Decision in `PROJECT.md`.
+  *Resolved by research: asyncio pool path chosen. SubAgentMiddleware not used. Plans implement asyncio.gather path directly.*
 
-- **D-02:** deepagents bug #1698 (recursion limit / `GraphRecursionError`) is **already fixed** in 0.5.4 (PR #2194) and shipped in 0.6.1. No workaround needed. Recursion limit propagation (SUB-04) is still required but can be implemented cleanly without patching deepagents.
+- **D-02 [informational]:** deepagents bug #1698 (recursion limit / `GraphRecursionError`) is **already fixed** in 0.5.4 (PR #2194) and shipped in 0.6.1. No workaround needed. Recursion limit propagation (SUB-04) is still required but can be implemented cleanly without patching deepagents.
 
-- **D-03:** deepagents bug #694 (cancellation cascade on partial failure) was **merged but not released** as of 2026-05-13. deepagents 0.6.1 does NOT have this fix. This is why researcher must read the PR before choosing the implementation path.
+- **D-03 [informational]:** deepagents bug #694 (cancellation cascade on partial failure) was **merged but not released** as of 2026-05-13. deepagents 0.6.1 does NOT have this fix. This is why researcher must read the PR before choosing the implementation path. *Resolved: asyncio path chosen precisely because #694 is not in 0.6.1.*
 
 ### SubagentPool API Shape
 

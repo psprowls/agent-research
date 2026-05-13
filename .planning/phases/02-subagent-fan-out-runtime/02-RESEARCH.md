@@ -746,17 +746,13 @@ async def test_partial_failure_real_bedrock(tmp_path):
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`judge_b` model selection**
-   - What we know: AI-SPEC recommends Sonnet for both judges; CLAUDE.md mentions "heterogeneous judge panel" for bias mitigation.
-   - What's unclear: Does "heterogeneous" mean different model sizes (Haiku vs Sonnet) or different providers entirely?
-   - Recommendation: Default to Haiku for `judge_b` as a cost-saving measure; Pat can update `models.toml` with no code changes if a non-Claude model is desired.
+1. **`judge_b` model selection** — RESOLVED: Use `us.anthropic.claude-sonnet-4-6` for `judge_b` (per Plan 02-01 Task 2; Pat can update `models.toml` with no code changes if a non-Claude model is desired later).
+   - What we knew: AI-SPEC recommends Sonnet for both judges; CLAUDE.md mentions "heterogeneous judge panel" for bias mitigation.
+   - Resolution: "Heterogeneous" means different model sizes (Haiku vs Sonnet) within the same provider family is fine for Phase 2. Use Sonnet as the default to match AI-SPEC and avoid split-panel complexity until Phase 4 eval work.
 
-2. **`max_tokens` for `haiku` and `sonnet` base roles (Phase 1 legacy entries)**
-   - What we know: Phase 1 `models.toml` has `haiku` and `sonnet` without `max_tokens`. Phase 2 adds 7 named roles that have `max_tokens`. `make_llm()` must be updated to pass `max_tokens` if present.
-   - What's unclear: Should the base `haiku` and `sonnet` entries also get `max_tokens`? Or only the named roles?
-   - Recommendation: Add `max_tokens` to all entries including `haiku` and `sonnet` for consistency; `make_llm()` reads `role_cfg.get("max_tokens")` and passes it only if set.
+2. **`max_tokens` for `haiku` and `sonnet` base roles (Phase 1 legacy entries)** — RESOLVED: Add `max_tokens` to all entries including `haiku` and `sonnet` for consistency; `make_llm()` reads `role_cfg.get("max_tokens")` and passes it only if set (per Plan 02-01 Task 2 and AI-SPEC Section 4).
 
 ---
 
