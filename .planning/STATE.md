@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: Not started
+last_updated: "2026-05-13T16:36:09.526Z"
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
 # Project State: deep-agents
 
 **Last updated:** 2026-05-13
@@ -23,6 +36,7 @@
 **Last completed:** (none — project just initialized)
 
 **Progress:**
+
 ```
 [Phase 1] [ ] Infrastructure, Vault IO, and MCP Skeleton
 [Phase 2] [ ] Subagent Fan-Out Runtime
@@ -88,6 +102,7 @@
 **To resume:** Start with Phase 1 plan (`/gsd-plan-phase 1`).
 
 **Critical context for next session:**
+
 - 67 v1 requirements across 10 categories; all mapped; see ROADMAP.md for phase assignments
 - Phase 1 has two hard gates before any agent code: (1) Bedrock IAM cross-region inference verified, (2) vault round-trip golden test passing on real vault
 - MCP server must enforce stderr-only logging from the first commit — any stdout write corrupts JSON-RPC framing
