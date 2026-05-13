@@ -1,0 +1,23 @@
+[project]
+name = "subagent-runtime"
+version = "0.1.0"
+description = "Async fan-out primitive for code-wiki-agent subagent dispatch"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-aws>=1.4.6",
+    "langchain-core>=1.4.0",
+    "model-adapter",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+model-adapter = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = ["integration: requires real Bedrock (skipped by default)"]
