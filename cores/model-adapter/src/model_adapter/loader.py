@@ -16,7 +16,7 @@ Strategy choice (per Phase 1 RESEARCH A1):
 from __future__ import annotations
 
 import tomllib
-from pathlib import Path
+from importlib import resources
 from typing import Any
 
 import botocore.exceptions
@@ -24,9 +24,12 @@ from langchain_aws import ChatBedrockConverse
 
 from model_adapter.exceptions import BedrockAccessDenied
 
-# loader.py:  cores/model-adapter/src/model_adapter/loader.py
-# models.toml: cores/model-adapter/models.toml
-_MODELS_TOML = Path(__file__).parent.parent.parent / "models.toml"
+
+def _load_models_config() -> dict:
+    # models.toml is bundled inside the model_adapter package (src/model_adapter/models.toml)
+    # so it is accessible under any install mode (editable, wheel, or zip).
+    with resources.files("model_adapter").joinpath("models.toml").open("rb") as f:
+        return tomllib.load(f)
 
 
 def _format_access_denied_message(model_id: str, original: Exception) -> str:
@@ -75,8 +78,7 @@ def make_llm(role: str) -> ChatBedrockConverse:
     Raises:
         KeyError: when `role` is not present in `models.toml`.
     """
-    with open(_MODELS_TOML, "rb") as f:
-        config = tomllib.load(f)
+    config = _load_models_config()
     role_cfg = config["roles"][role]
     model_id = role_cfg["model_id"]
     region = role_cfg.get("region", "us-east-1")

@@ -12,6 +12,9 @@ dependencies = [
 requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
+[tool.uv.build.include]
+include = ["src/model_adapter/models.toml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
