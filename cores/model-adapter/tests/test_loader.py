@@ -9,14 +9,12 @@ from __future__ import annotations
 import botocore.exceptions
 import pytest
 
-
 HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 SONNET_ARN = "us.anthropic.claude-sonnet-4-6"
 
 
 def test_make_llm_haiku_returns_chatbedrockconverse_with_haiku_arn():
     from langchain_aws import ChatBedrockConverse
-
     from model_adapter.loader import make_llm
 
     llm = make_llm("haiku")
@@ -29,7 +27,6 @@ def test_make_llm_haiku_returns_chatbedrockconverse_with_haiku_arn():
 
 def test_make_llm_sonnet_returns_chatbedrockconverse_with_sonnet_arn():
     from langchain_aws import ChatBedrockConverse
-
     from model_adapter.loader import make_llm
 
     llm = make_llm("sonnet")
@@ -60,8 +57,11 @@ def test_invoke_wraps_access_denied_with_arn_and_iam_action(monkeypatch):
     from model_adapter.exceptions import BedrockAccessDenied
     from model_adapter.loader import make_llm
 
+    def raise_access_denied(*a, **kw):
+        raise _build_client_error("AccessDeniedException")
+
     llm = make_llm("haiku")
-    monkeypatch.setattr(llm, "_original_invoke", lambda *a, **kw: (_ for _ in ()).throw(_build_client_error("AccessDeniedException")))
+    monkeypatch.setattr(llm, "_original_invoke", raise_access_denied)
 
     with pytest.raises(BedrockAccessDenied) as exc_info:
         llm.invoke("ping")
@@ -76,12 +76,11 @@ def test_invoke_passes_through_non_access_denied_client_error(monkeypatch):
     """A ClientError whose Code is NOT AccessDeniedException must re-raise unchanged."""
     from model_adapter.loader import make_llm
 
+    def raise_validation(*a, **kw):
+        raise _build_client_error("ValidationException")
+
     llm = make_llm("haiku")
-    monkeypatch.setattr(
-        llm,
-        "_original_invoke",
-        lambda *a, **kw: (_ for _ in ()).throw(_build_client_error("ValidationException")),
-    )
+    monkeypatch.setattr(llm, "_original_invoke", raise_validation)
 
     with pytest.raises(botocore.exceptions.ClientError) as exc_info:
         llm.invoke("ping")
