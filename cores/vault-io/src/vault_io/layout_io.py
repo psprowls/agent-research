@@ -118,7 +118,10 @@ def _parse_yaml(text: str) -> dict:
             current[k.strip()] = _parse_scalar(v.strip())
             continue
     if "version" in out:
-        out["version"] = int(out["version"])
+        try:
+            out["version"] = int(out["version"])
+        except (ValueError, TypeError):
+            out["version"] = 1  # fall back to v1 schema
     return out
 
 
