@@ -1,0 +1,198 @@
+from __future__ import annotations
+
+"""SubagentPool: async fan-out primitive for role-bound Bedrock model dispatch.
+
+Dispatches N items in parallel through a caller-supplied async task function,
+enforces a per-role concurrency semaphore, isolates per-item failures, and
+writes a JSONL trace record for every invocation (success or error).
+
+Usage:
+    pool = SubagentPool(trace_dir=Path(".code-wiki/traces"))
+    result = await pool.run_all(
+        items=pages,
+        task=summarize,          # async def summarize(item) -> AIMessage
+        role="librarian",
+        model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        max_concurrency=5,
+    )
+    # result.successes -> [(item, response), ...]
+    # result.errors    -> [PerItemError(item=..., exception=...), ...]
+
+Security note: task closures must not embed AWS credentials in prompts or
+item identifiers. _write_trace reads item_id (str(item)), error=str(exc),
+and structured usage_metadata fields only — no secrets unless the caller
+leaks them into item repr or exception messages.
+"""
+
+import asyncio
+import json
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Awaitable, Callable
+
+from langchain_core.runnables import RunnableConfig
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PerItemError:
+    """Captures the item and exception for a single failed fan-out task."""
+
+    item: Any
+    exception: Exception
+
+
+@dataclass
+class FanOutResult:
+    """Aggregated result from a run_all() call.
+
+    successes: list of (item, result) tuples for tasks that returned normally.
+    errors: list of PerItemError for tasks that raised an exception.
+    """
+
+    successes: list[tuple[Any, Any]] = field(default_factory=list)
+    errors: list[PerItemError] = field(default_factory=list)
+
+
+class SubagentPool:
+    """Concurrent fan-out primitive: dispatches N items to a role-bound model.
+
+    Critical design rules:
+    - asyncio.Semaphore is created INSIDE run_all() (not __init__) to bind
+      to the currently running event loop. Creating it in __init__ (a sync
+      context) causes RuntimeError in pytest-asyncio envs that spin their
+      own loops.
+    - asyncio.gather(return_exceptions=True) is mandatory. Without it, the
+      first task exception cancels all siblings (deepagents bug #694).
+    - _write_trace catches OSError internally and logs a WARNING. It never
+      raises — a trace failure must not mask a successful task result.
+    - usage_metadata is None on Bedrock error responses. Always guard before
+      accessing meta.get(...) to avoid AttributeError (deepagents #1698 /
+      AI-SPEC Failure Mode #5).
+    """
+
+    def __init__(
+        self,
+        trace_dir: Path,
+        *,
+        default_recursion_limit: int = 100,
+    ) -> None:
+        self._trace_dir = trace_dir
+        self._default_recursion_limit = default_recursion_limit
+        self._trace_dir.mkdir(parents=True, exist_ok=True)
+
+    async def run_all(
+        self,
+        items: list[Any],
+        task: Callable[[Any], Awaitable[Any]],
+        role: str,
+        *,
+        model_id: str,
+        max_concurrency: int,
+        recursion_limit: int | None = None,
+    ) -> FanOutResult:
+        """Dispatch items in parallel; return FanOutResult with partial-failure isolation.
+
+        Args:
+            items: Batch of items to process.
+            task: Async callable (item) -> result. May raise; raised exception
+                  is captured as PerItemError without cancelling siblings.
+            role: Logical role name (e.g. "scanner") — written to trace.
+            model_id: Bedrock model ID — written to trace.
+            max_concurrency: Maximum simultaneous in-flight tasks.
+            recursion_limit: LangGraph recursion limit injected into every
+                task's RunnableConfig. Falls back to default_recursion_limit
+                when None.
+        """
+        rlimit = recursion_limit if recursion_limit is not None else self._default_recursion_limit
+        # Semaphore MUST be created here (inside the running event loop) —
+        # creating it in __init__ binds to a different loop in test envs.
+        semaphore = asyncio.Semaphore(max_concurrency)
+        trace_file = self._trace_dir / f"{int(time.time())}.jsonl"
+
+        async def _run_one(item: Any) -> tuple[Any, Any] | PerItemError:
+            async with semaphore:
+                t0 = time.monotonic()
+                try:
+                    # RunnableConfig top-level key confirmed from LangGraph docs.
+                    # Do NOT nest under "configurable" — that key is ignored.
+                    _config = RunnableConfig(recursion_limit=rlimit)
+                    result = await task(item)
+                    latency_ms = int((time.monotonic() - t0) * 1000)
+                    self._write_trace(
+                        trace_file, role, model_id, item, "success", latency_ms, result
+                    )
+                    return (item, result)
+                except Exception as exc:
+                    latency_ms = int((time.monotonic() - t0) * 1000)
+                    self._write_trace(
+                        trace_file, role, model_id, item, "error", latency_ms, None, error=str(exc)
+                    )
+                    return PerItemError(item=item, exception=exc)
+
+        # return_exceptions=True: one failure does NOT cancel siblings (deepagents #694).
+        raw = await asyncio.gather(*(_run_one(i) for i in items), return_exceptions=True)
+
+        fan_result = FanOutResult()
+        for r in raw:
+            if isinstance(r, PerItemError):
+                fan_result.errors.append(r)
+            elif isinstance(r, BaseException):
+                # asyncio.gather itself raised — should not happen with return_exceptions=True
+                logger.error("Unexpected gather exception: %s", r)
+            else:
+                fan_result.successes.append(r)
+        return fan_result
+
+    def _write_trace(
+        self,
+        path: Path,
+        role: str,
+        model_id: str,
+        item: Any,
+        status: str,
+        latency_ms: int,
+        response: Any,
+        *,
+        error: str | None = None,
+    ) -> None:
+        """Write one JSONL record to the trace file.
+
+        Never raises — OSError is caught and logged as WARNING so that trace
+        failures never mask successful task results (AI-SPEC Failure Mode #2).
+
+        Token fields come from ChatBedrockConverse usage_metadata dict:
+        {"input_tokens": N, "output_tokens": N, "total_tokens": N}.
+        usage_metadata is None on error responses — guarded explicitly.
+        """
+        tokens_in: int | None = None
+        tokens_out: int | None = None
+        if response is not None and hasattr(response, "usage_metadata"):
+            meta = response.usage_metadata  # None on ThrottlingException / content filter
+            if meta is not None:
+                tokens_in = meta.get("input_tokens")
+                tokens_out = meta.get("output_tokens")
+
+        record: dict[str, Any] = {
+            "role": role,
+            "model_id": model_id,
+            "prompt_hash": None,  # caller may set; None until computed upstream
+            "item_id": getattr(item, "id", None) or str(item),
+            "status": status,
+            "latency_ms": latency_ms,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "cost_usd": None,  # Phase 4 adds cost accounting
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        if error:
+            record["error"] = error
+
+        try:
+            with path.open("a") as f:
+                f.write(json.dumps(record) + "\n")
+        except OSError as exc:
+            logger.warning("Trace write failed (data loss): %s", exc)
