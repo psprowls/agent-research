@@ -32,7 +32,13 @@
 3. `git diff` is empty after parsing-then-writing every page in a real lattice-wiki vault (round-trip golden gate); pages with truncated frontmatter (missing closing `---`) are skipped with a stderr warning, not a crash
 4. A subprocess capture of the MCP server's stdout contains only valid JSON-RPC lines — no startup prints, no library debug output, not a single non-JSON byte
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Workspace scaffold + open-source hygiene + CLI stub (INFRA-01..06)
+- [ ] 01-02-PLAN.md — Bedrock ping: model-adapter loader + IAM verification (BED-01)
+- [ ] 01-03-PLAN.md — Vault round-trip: port lattice-wiki-core modules + golden gate (VAULT-01..07)
+- [ ] 01-04-PLAN.md — MCP stdio surface: FastMCP server + wiki_ping + stdout discipline (MCP-05, MCP-08)
 
 ---
 
@@ -108,7 +114,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure, Vault IO, and MCP Skeleton | 0/0 | Not started | - |
+| 1. Infrastructure, Vault IO, and MCP Skeleton | 0/4 | Not started | - |
 | 2. Subagent Fan-Out Runtime | 0/0 | Not started | - |
 | 3. Query Vertical Slice + Hybrid Search | 0/0 | Not started | - |
 | 4. Eval Harness | 0/0 | Not started | - |
