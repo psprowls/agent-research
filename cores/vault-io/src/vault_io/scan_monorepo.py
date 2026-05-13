@@ -12,8 +12,8 @@ Detects workspace packages from (in priority order):
   - package.json + pnpm-workspace.yaml / workspaces field  (Node/pnpm/yarn/npm)
   - pyproject.toml                                         (Python — poetry/hatch/uv)
   - Cargo.toml with [workspace]                            (Rust)
-  - go.mod + go.work                                       (Go)
   - .claude-plugin/plugin.json                             (Claude Code plugins)
+  # TODO: go.mod + go.work (Go) — not yet implemented
 
 For each detected package, emits:
   - name, path (relative to repo), type (library/app/service), language
