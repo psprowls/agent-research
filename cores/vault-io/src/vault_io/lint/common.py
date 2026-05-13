@@ -78,7 +78,7 @@ def strip_frontmatter(text: str) -> str:
     m = FRONTMATTER_RE.match(text)
     if not m:
         return text
-    return text[m.end():]
+    return text[m.end() :]
 
 
 def expand_braces(name: str) -> list[str]:

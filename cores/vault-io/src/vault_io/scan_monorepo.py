@@ -1156,7 +1156,6 @@ def main():
         dep_str = f" deps={len(w['depends_on'])}, used-by={w['depended_on_by']}"
         print(f"  - {w['name']} ({w['type']}, {w['language']}) @ {w['path']}{dep_str}")
     if wiki.exists():
-        vault = wiki
         print()
         print(f"Diff against {wiki}/{{apps,packages,domains/*/packages}}/")
         print(f"  new:       {len(diff['new'])}")

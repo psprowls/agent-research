@@ -4,6 +4,7 @@ These tests must NOT permanently break pytest's stdout capture. Each test
 that touches sys.stdout uses monkeypatch so the original interpreter stdout
 is restored on teardown.
 """
+
 from __future__ import annotations
 
 import sys

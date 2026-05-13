@@ -13,6 +13,7 @@ from pathlib import Path
 
 def _enc():
     import tiktoken
+
     return tiktoken.get_encoding("cl100k_base")
 
 

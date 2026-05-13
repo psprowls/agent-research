@@ -5,8 +5,8 @@ append_log.py — Append a standardized entry to wiki/log.md.
 The log is append-only and uses a consistent header so unix tools can parse it:
     ## [YYYY-MM-DD] <op> | <title>
 
-Discovers wiki location from the resolved lattice workspace. Requires LATTICE_WORKSPACE
-env var or git repo with lattice/ workspace directory.
+Discovers wiki location via vault_io._workspace.resolve_wiki_and_repo.
+Requires CODE_WIKI_REAL_VAULT_PATH env var (or a git repo containing a wiki/ directory).
 
 Usage:
     python append_log.py --op ingest --title "Auth Migration Spec"
@@ -30,7 +30,6 @@ import argparse
 import datetime as dt
 import json
 import sys
-from pathlib import Path
 
 from vault_io._workspace import resolve_wiki_and_repo
 

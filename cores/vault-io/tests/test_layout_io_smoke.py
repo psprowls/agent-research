@@ -59,9 +59,7 @@ def test_write_layout_replaces_existing_block(tmp_path: Path):
         "version": 1,
         "detected_at": "2026-05-01",
         "repo_root": "..",
-        "containers": [
-            {"source": "apps", "vault_dir": "apps", "classification": "app", "children_count": 1}
-        ],
+        "containers": [{"source": "apps", "vault_dir": "apps", "classification": "app", "children_count": 1}],
     }
     schema.write_text("# Preamble before\n", encoding="utf-8")
     write_layout(schema, initial_layout)

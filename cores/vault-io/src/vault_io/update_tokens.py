@@ -168,11 +168,7 @@ def main() -> None:
         return
 
     label = "Would update" if args.dry_run else "Updated"
-    print(
-        f"{label} {len(result['updated'])} • "
-        f"Unchanged {len(result['unchanged'])} • "
-        f"Skipped {len(result['skipped'])}"
-    )
+    print(f"{label} {len(result['updated'])} • Unchanged {len(result['unchanged'])} • Skipped {len(result['skipped'])}")
     for kind in ("updated", "skipped"):
         for rel in result[kind][:20]:
             print(f"  [{kind}] {rel}")

@@ -52,15 +52,11 @@ def test_round_trip_all_fixture_pages(round_trip_vault: Path, tmp_path: Path):
 
     # Second pass: MUST be a no-op.
     result = update_vault(copy)
-    assert result["updated"] == [], (
-        f"Second pass should be idempotent but reported updates: {result['updated'][:5]}"
-    )
+    assert result["updated"] == [], f"Second pass should be idempotent but reported updates: {result['updated'][:5]}"
 
     # Strong invariant: byte-identical tree before and after second pass.
     after = _hash_tree(copy)
-    assert before == after, (
-        "Tree hashes drifted on second pass — update_vault is not idempotent."
-    )
+    assert before == after, "Tree hashes drifted on second pass — update_vault is not idempotent."
 
     # Informational: surface any drift between original fixture and copy after pass 1.
     # We don't fail on this; pass 1 is expected to stamp tokens. But the diff command
