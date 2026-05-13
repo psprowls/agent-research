@@ -27,11 +27,15 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
 
+      # Per-member pytest isolation: --directory chdirs into the package so
+      # pytest's rootdir algorithm picks up the member's pyproject.toml
+      # `[tool.pytest.ini_options]` testpaths (uv `--package` alone does not
+      # change cwd, so the root pyproject would otherwise drive discovery).
       - name: vault-io tests
-        run: uv run --package vault-io pytest
+        run: uv run --directory cores/vault-io pytest
 
       - name: model-adapter tests
-        run: uv run --package model-adapter pytest
+        run: uv run --directory cores/model-adapter pytest
 
       - name: code-wiki-agent tests (non-integration)
-        run: uv run --package code-wiki-agent pytest -m "not integration"
+        run: uv run --directory agents/code-wiki-agent pytest -m "not integration"

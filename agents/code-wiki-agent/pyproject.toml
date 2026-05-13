@@ -1,0 +1,30 @@
+[project]
+name = "code-wiki-agent"
+version = "0.1.0"
+description = "AWS Bedrock-powered wiki maintenance agent (MCP server + CLI)"
+requires-python = ">=3.11"
+dependencies = [
+    "vault-io",
+    "model-adapter",
+    "mcp>=1.27.1",
+    "langchain-aws>=1.4.6",
+    "typer>=0.25.1",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+code-wiki-agent = "code_wiki_agent.cli:app"
+code-wiki-mcp   = "code_wiki_mcp.server:main"
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+vault-io      = { workspace = true }
+model-adapter = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]
