@@ -91,11 +91,15 @@ def trace(file: Path) -> None:
         raise typer.Exit(code=1)
 
     records: list[dict] = []
-    for raw_line in file.read_text().splitlines():
+    for line_number, raw_line in enumerate(file.read_text().splitlines(), start=1):
         line = raw_line.strip()
         if not line:
             continue
-        record = json.loads(line)
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            typer.echo(f"warning: skipping malformed JSONL line {line_number}: {exc.msg}", err=True)
+            continue
         records.append(record)
         typer.echo(_render_trace_record(record))
 

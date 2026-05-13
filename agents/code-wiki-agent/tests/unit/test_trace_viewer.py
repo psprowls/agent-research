@@ -133,3 +133,50 @@ def test_render_trace_record_pure_function() -> None:
     assert "page-a" in output, f"Expected 'page-a' in: {output}"
     assert "success" in output, f"Expected 'success' in: {output}"
     assert "350" in output, f"Expected '350' in: {output}"
+
+
+def test_trace_command_skips_malformed_lines(tmp_path: Path) -> None:
+    """trace command skips malformed JSONL lines with a stderr warning and continues rendering."""
+    trace_file = tmp_path / "trace_with_bad_lines.jsonl"
+
+    valid_a = {
+        "role": "scanner",
+        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "prompt_hash": None,
+        "item_id": "page-good-a",
+        "status": "success",
+        "latency_ms": 100,
+        "tokens_in": 10,
+        "tokens_out": 5,
+        "cost_usd": None,
+        "timestamp": "2026-05-13T10:00:00Z",
+    }
+    valid_b = {
+        "role": "scanner",
+        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "prompt_hash": None,
+        "item_id": "page-good-b",
+        "status": "success",
+        "latency_ms": 200,
+        "tokens_in": 20,
+        "tokens_out": 10,
+        "cost_usd": None,
+        "timestamp": "2026-05-13T10:00:01Z",
+    }
+    trace_file.write_text(
+        json.dumps(valid_a) + "\n"
+        + "not a valid {json line\n"
+        + json.dumps(valid_b) + "\n"
+    )
+
+    result = _run_trace_cmd([str(trace_file)])
+
+    assert result.returncode == 0, (
+        f"Expected exit code 0; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "page-good-a" in result.stdout, f"Expected 'page-good-a' in stdout: {result.stdout}"
+    assert "page-good-b" in result.stdout, f"Expected 'page-good-b' in stdout: {result.stdout}"
+    stderr_lower = result.stderr.lower()
+    assert "malformed" in stderr_lower or "line 2" in stderr_lower, (
+        f"Expected 'malformed' or 'line 2' in stderr; stderr was: {result.stderr}"
+    )
