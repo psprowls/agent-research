@@ -1079,10 +1079,8 @@ def main():
     )
     args = p.parse_args()
 
-    wiki, repo = resolve_wiki_and_repo()
-    if repo is None:
-        print("[error] could not resolve repo root from workspace", file=sys.stderr)
-        sys.exit(1)
+    wiki, _ = resolve_wiki_and_repo()
+    repo = wiki.parent  # v1: repo is always wiki's parent directory
     if not repo.exists():
         print(f"[error] repo not found: {repo}", file=sys.stderr)
         sys.exit(1)
