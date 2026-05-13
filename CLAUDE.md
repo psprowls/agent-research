@@ -40,7 +40,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 - Use `uv run --package code-wiki-agent pytest` to run tests scoped to one member
 - `setuptools` or `hatchling` as build backend — `uv_build` is the native backend; it handles the workspace source link correctly
 - `poetry` — workspace semantics differ and you lose the lockfile speed advantage
-- A flat (single-package) layout — tiered `packages/` + `agents/` is the correct pattern here and matches official uv workspace examples
+- A flat (single-package) layout — tiered `cores/` + `agents/` is the correct pattern here and matches official uv workspace examples
 ## 2. Agent Framework — deepagents + LangChain + LangGraph
 ### Versions
 | Package | Version | Notes |
@@ -75,7 +75,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 # Subagent role (cheap, fast)
 ### Async / streaming status
 ### Multi-model routing
-# packages/core-bedrock/src/core_bedrock/models.py
+# cores/core-bedrock/src/core_bedrock/models.py
 ### Token counting for pre-flight estimation
 - `tiktoken` — OpenAI-specific BPE tokenizer, does not work with Claude or Bedrock models
 - `langchain-anthropic` — direct Anthropic API; excluded by Bedrock-only constraint
@@ -114,7 +114,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 | Price | Free (Apache-2.0) | $1,400+/mo at 500K traces | Free (MIT) | Free |
 | Agentic tracing (intermediate steps) | LIMITED in 4.0 | Strong | Strong | None |
 ### Usage pattern for this project
-# packages/core-eval/src/core_eval/harness.py
+# cores/core-eval/src/core_eval/harness.py
 # In pytest:
 ### Why not the other candidates
 | Candidate | Verdict |

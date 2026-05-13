@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.14"
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync workspace
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      # Per-member pytest isolation: --directory chdirs into the package so
+      # pytest's rootdir algorithm picks up the member's pyproject.toml
+      # `[tool.pytest.ini_options]` testpaths (uv `--package` alone does not
+      # change cwd, so the root pyproject would otherwise drive discovery).
+      - name: vault-io tests
+        run: uv run --directory cores/vault-io pytest
+
+      - name: model-adapter tests
+        run: uv run --directory cores/model-adapter pytest
+
+      - name: code-wiki-agent tests (non-integration)
+        run: uv run --directory agents/code-wiki-agent pytest -m "not integration"
