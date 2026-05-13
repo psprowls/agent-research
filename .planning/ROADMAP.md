@@ -39,7 +39,7 @@ Plans:
 - [x] 01-02-PLAN.md — Bedrock ping: model-adapter loader + IAM verification (BED-01)
 - [x] 01-03-PLAN.md — Vault round-trip: port lattice-wiki-core modules + golden gate (VAULT-01..07)
 - [x] 01-04-PLAN.md — MCP stdio surface: FastMCP server + wiki_ping + stdout discipline (MCP-05, MCP-08)
-- [ ] 01-05-PLAN.md — Gap closure: ruff lint/format clean + strip stale lattice-workspace references (INFRA-04, INFRA-05)
+- [x] 01-05-PLAN.md — Gap closure: ruff lint/format clean + strip stale lattice-workspace references (INFRA-04, INFRA-05)
 
 ---
 
