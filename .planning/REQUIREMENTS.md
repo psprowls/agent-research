@@ -72,7 +72,7 @@
 - [ ] **MCP-04**: Errors return structured MCP error responses (no crashes that kill the stdio session)
 - [ ] **MCP-05**: ALL logging routes to stderr; nothing — not even `print()` — goes to stdout (would corrupt JSON-RPC framing)
 - [ ] **MCP-06**: Cancellation: long-running tools respond to MCP cancel requests within a reasonable window (best-effort, may not interrupt mid-Bedrock-call)
-- [ ] **MCP-07**: Server can be launched via `uv run code-wiki-agent-mcp` (entry point); DeepAgents CLI launches it as a stdio subprocess
+- [ ] **MCP-07**: Server can be launched via `uv run code-wiki-mcp` (entry point); DeepAgents CLI launches it as a stdio subprocess (entry point name amended per Phase 1 CONTEXT D-14)
 - [ ] **MCP-08**: NOT in v1: MCP resources, prompts, sampling, SSE/streamable-HTTP transport (anti-features documented in research)
 
 ### Headless CLI (CLI)
