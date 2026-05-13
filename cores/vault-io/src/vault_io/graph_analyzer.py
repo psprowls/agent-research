@@ -133,8 +133,8 @@ def build_graph(wiki):
 def connected_components(nodes, out, inb):
     adj = defaultdict(set)
     for n in nodes:
-        adj[n] |= out.get(n, set())
-        adj[n] |= inb.get(n, set())
+        adj[n] |= out.get(n, set()) & nodes  # only follow edges to real nodes
+        adj[n] |= inb.get(n, set()) & nodes  # only accept inbound from real nodes
     seen = set()
     components = []
     for n in nodes:
