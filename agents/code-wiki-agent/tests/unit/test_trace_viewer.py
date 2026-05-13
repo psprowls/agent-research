@@ -47,12 +47,15 @@ def _write_trace_fixture(tmp_path: Path) -> Path:
     return trace_file
 
 
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
+
+
 def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "trace"] + args,
         capture_output=True,
         text=True,
-        cwd="/Users/pat/Personal/deep-agents/.claude/worktrees/agent-a49a463758805387c",
+        cwd=_PROJECT_ROOT,
     )
 
 
