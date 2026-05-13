@@ -95,7 +95,7 @@ def build_graph(wiki):
             # Strip workspace-root prefix (e.g. "wiki/") so ADR-0015-form
             # wikilinks like [[wiki/packages/foo/api]] resolve to vault-relative keys.
             if target.startswith(vault_prefix):
-                target = target[len(vault_prefix):]
+                target = target[len(vault_prefix) :]
 
             resolved = None
             if target in nodes:

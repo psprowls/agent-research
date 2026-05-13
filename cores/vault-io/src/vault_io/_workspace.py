@@ -30,7 +30,4 @@ def resolve_wiki_and_repo(
     env = os.environ.get("CODE_WIKI_REAL_VAULT_PATH")
     if env:
         return Path(env).resolve(), None
-    raise RuntimeError(
-        "Vault path not specified. "
-        "Set CODE_WIKI_REAL_VAULT_PATH or pass vault_path explicitly."
-    )
+    raise RuntimeError("Vault path not specified. Set CODE_WIKI_REAL_VAULT_PATH or pass vault_path explicitly.")

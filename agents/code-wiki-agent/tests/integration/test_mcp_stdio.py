@@ -11,6 +11,7 @@ chars of stderr for fast diagnosis.
 Intentionally NOT marked as an integration-only test (D-16): runs in CI by
 default because wiki_ping never calls Bedrock.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,9 +70,7 @@ def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
         stderr=subprocess.PIPE,
     )
     try:
-        stdout_bytes, stderr_bytes = proc.communicate(
-            input=payload.encode(), timeout=15
-        )
+        stdout_bytes, stderr_bytes = proc.communicate(input=payload.encode(), timeout=15)
     finally:
         proc.kill()
     return stdout_bytes.decode(), stderr_bytes.decode()
@@ -97,19 +96,13 @@ def test_mcp_stdout_is_valid_jsonrpc():
         try:
             obj = json.loads(line)
         except json.JSONDecodeError as e:
-            pytest.fail(
-                f"Non-JSON stdout line from MCP server: {line!r}\n"
-                f"JSON error: {e}\n"
-                f"Full stderr: {stderr[:500]}"
-            )
-        assert "jsonrpc" in obj or "id" in obj, (
-            f"Line is JSON but not JSON-RPC: {line!r}"
-        )
+            pytest.fail(f"Non-JSON stdout line from MCP server: {line!r}\nJSON error: {e}\nFull stderr: {stderr[:500]}")
+        assert "jsonrpc" in obj or "id" in obj, f"Line is JSON but not JSON-RPC: {line!r}"
 
     # At least one response must carry a `result` (the tools/call reply).
-    assert any(
-        "result" in json.loads(line) for line in lines
-    ), f"No JSON-RPC response with 'result' key.\nstderr: {stderr[:500]}"
+    assert any("result" in json.loads(line) for line in lines), (
+        f"No JSON-RPC response with 'result' key.\nstderr: {stderr[:500]}"
+    )
 
 
 def test_mcp_wiki_ping_returns_pong():
@@ -129,8 +122,7 @@ def test_mcp_wiki_ping_returns_pong():
     # Find the response to id=2 (the tools/call). Notifications have no id.
     tool_resp = next((r for r in responses if r.get("id") == 2), None)
     assert tool_resp is not None, (
-        f"No response with id=2 (tools/call).\nResponses: {responses!r}\n"
-        f"stderr: {stderr[:500]}"
+        f"No response with id=2 (tools/call).\nResponses: {responses!r}\nstderr: {stderr[:500]}"
     )
     assert "result" in tool_resp, f"tools/call had no result: {tool_resp!r}"
     # FastMCP returns the typed BaseModel under `structuredContent` and a
@@ -138,6 +130,4 @@ def test_mcp_wiki_ping_returns_pong():
     blob = json.dumps(tool_resp["result"])
     assert "pong" in blob, f"'pong' missing from result: {blob}"
     assert "hello" in blob, f"'hello' (echoed input) missing from result: {blob}"
-    assert tool_resp["result"].get("isError") is False, (
-        f"tools/call result flagged as error: {tool_resp!r}"
-    )
+    assert tool_resp["result"].get("isError") is False, f"tools/call result flagged as error: {tool_resp!r}"

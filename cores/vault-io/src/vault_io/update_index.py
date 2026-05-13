@@ -46,11 +46,11 @@ CATEGORY_ORDER = [
 # `work` is intentionally absent — work items live at <workspace>/work/ (sibling of the wiki),
 # so its index is written outside the vault. See scan_work() / main().
 CATEGORY_INDEX_FILES = {
-    "concept":      "concepts/index.md",
-    "source":       "sources/index.md",
-    "adr":          "adrs/index.md",
+    "concept": "concepts/index.md",
+    "source": "sources/index.md",
+    "adr": "adrs/index.md",
     "architecture": "architecture/index.md",
-    "dependency":   "dependencies/index.md",
+    "dependency": "dependencies/index.md",
 }
 GENERATED_FILES = {"index.md", "log.md"} | set(CATEGORY_INDEX_FILES.values())
 
@@ -188,8 +188,7 @@ def _entry_link(path, title):
 def render_index(pages, wiki_name, vault_name):
     today = dt.date.today().isoformat()
     nav_total = sum(
-        sum(1 for e in pages.get(c, []) if Path(e["path"]).stem not in SUBPAGE_STEMS)
-        for c in MAIN_INDEX_CATEGORIES
+        sum(1 for e in pages.get(c, []) if Path(e["path"]).stem not in SUBPAGE_STEMS) for c in MAIN_INDEX_CATEGORIES
     )
 
     lines = [
@@ -234,9 +233,7 @@ def render_index(pages, wiki_name, vault_name):
     # so its wikilink is workspace-rooted, not wiki-rooted.
     work_entries = pages.get("work", [])
     if work_entries:
-        more_links.append(
-            f"- [[work/index]] — {CATEGORY_LABELS['work']} ({len(work_entries)} pages)"
-        )
+        more_links.append(f"- [[work/index]] — {CATEGORY_LABELS['work']} ({len(work_entries)} pages)")
     if more_links:
         lines.append("## More")
         lines.append("")

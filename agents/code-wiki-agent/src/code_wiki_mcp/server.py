@@ -11,6 +11,7 @@ The :class:`_StdoutGuard` below enforces this at module-init time: it rebinds
 write *before* any other import runs. ``logging.basicConfig(stream=sys.stderr)``
 provides the second line of defence by routing all logging output to stderr.
 """
+
 from __future__ import annotations  # noqa: I001
 
 import sys
@@ -40,10 +41,7 @@ class _StdoutGuard:
 
     def write(self, data: str) -> int:
         if data.strip():
-            raise RuntimeError(
-                f"Illegal stdout write in MCP server: {data!r}\n"
-                "All logging must go to sys.stderr."
-            )
+            raise RuntimeError(f"Illegal stdout write in MCP server: {data!r}\nAll logging must go to sys.stderr.")
         return len(data)
 
     def flush(self) -> None:
