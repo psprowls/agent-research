@@ -1033,17 +1033,17 @@ Phase 1 has a narrow security surface: no user-facing inputs, no web endpoints, 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`_workspace.py` adaptation scope**
+1. **RESOLVED — `_workspace.py` adaptation scope**
    - What we know: The ported `_workspace.py` imports `lattice_workspace` (unavailable in deep-agents). The fallback is wrong for the new context.
-   - What's unclear: Which ported modules actually call `resolve_wiki_and_repo()` vs accept a `wiki: Path` argument directly?
-   - Recommendation: Read each ported module during implementation; replace `resolve_wiki_and_repo()` calls with an explicit `Path` parameter. The vault path always comes from `CODE_WIKI_REAL_VAULT_PATH` or the test fixture path, never from workspace discovery.
+   - What's unclear (was): Which ported modules actually call `resolve_wiki_and_repo()` vs accept a `wiki: Path` argument directly?
+   - **Resolution (locked in Plan 01-03 Task 2):** Drop `lattice_workspace` import entirely. Rewrite `_workspace.py` as a two-path resolver: explicit `vault_path: Path` argument when supplied, else read `CODE_WIKI_REAL_VAULT_PATH` env var, else raise `RuntimeError` with a remediation message. Every ported module that previously called `resolve_wiki_and_repo()` is updated during import surgery (Task 2) to accept and forward `vault_path: Path` instead. No silent fallback.
 
-2. **CI integration test gating for BED-01**
+2. **RESOLVED — CI integration test gating for BED-01**
    - What we know: `@pytest.mark.integration` tests are skipped unless `CODE_WIKI_RUN_INTEGRATION=1`. CI workflow does not set this.
-   - What's unclear: Should CI run the IAM verification on any branch? On main only?
-   - Recommendation: Keep integration tests CI-skipped in Phase 1. Pat runs them locally with `make verify-bedrock`. Add a separate `eval.yml` workflow that runs them with secrets if desired in Phase 2.
+   - What's unclear (was): Should CI run the IAM verification on any branch? On main only?
+   - **Resolution (per D-08 / D-16 + Plan 01-02):** Phase 1 CI does NOT run integration tests on any branch. Pat runs them locally via `CODE_WIKI_RUN_INTEGRATION=1 uv run --package code-wiki-agent pytest -m integration` or the standalone `scripts/verify_bedrock_iam.py` diagnostic. A separate `eval.yml` workflow (Phase 2 or later) can run integration tests with AWS secrets if needed — not in scope for Phase 1.
 
 ---
 
