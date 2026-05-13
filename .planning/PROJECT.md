@@ -14,7 +14,14 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Validated
 
-(None yet — ship to validate)
+#### Phase 01 Complete — 2026-05-13 (infrastructure-vault-io-and-mcp-skeleton)
+- [x] `uv` workspace at repo root with tiered layout: `cores/vault-io`, `cores/model-adapter`, `agents/code-wiki-agent`
+- [x] Project license + README seeded (MIT, open-source-ready)
+- [x] Bedrock model adapter — `make_llm("haiku")` invokes real `ChatBedrockConverse`; `BedrockAccessDenied` raised with ARN on bad credentials
+- [x] Vault IO round-trip — reading-then-writing every page produces byte-identical output (29 tests pass)
+- [x] MCP stdio surface — FastMCP `code-wiki-mcp` server with `_StdoutGuard`; `wiki_ping` tool; provably stdout-clean
+- [x] CI pipeline (ruff + pytest); ruff clean (`ruff check .` and `ruff format --check .` both exit 0)
+- [x] **Read-compatible with existing vaults** — preserve frontmatter, layout block, wikilinks, file-map format
 
 ### Active
 
