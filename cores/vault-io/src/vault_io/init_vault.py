@@ -238,8 +238,8 @@ def init_wiki(
         "page_templates_copied": template_count,
         "layers": {
             "wiki": f"{wiki_path}/ — LLM-maintained knowledge base",
-            "raw": f"{workspace_path}/raw/ — owned by lattice-workspace",
-            "work": f"{workspace_path}/work/ — owned by lattice-workspace",
+            "raw": f"{workspace_path}/raw/ — pending Phase 5 workspace init",
+            "work": f"{workspace_path}/work/ — pending Phase 5 workspace init",
             "index": f"{wiki_path}/index.md",
             "log": f"{wiki_path}/log.md",
         },

@@ -2,8 +2,8 @@
 """
 graph_analyzer.py — Analyze the wikilink graph of a Code Wiki.
 
-Wiki path is discovered automatically via `lattice-workspace`
-(defaults to `<repo>/lattice/wiki/`).
+Wiki path is discovered automatically via vault_io._workspace.resolve_wiki_and_repo
+(reads CODE_WIKI_REAL_VAULT_PATH or walks up from cwd to find a wiki/ directory).
 
 Usage:
     python graph_analyzer.py

@@ -3,7 +3,7 @@
 detect_containers.py — Classify a repo's top-level directories into container types.
 
 Usage:
-    python detect_containers.py --json   # repo discovered via lattice-workspace
+    python detect_containers.py --json   # repo discovered via CODE_WIKI_REAL_VAULT_PATH or git
 
 Returns a list of records:
     {"source": "<dir>", "classification": "<type>", "children_count": N, "reason": "<why>"}
