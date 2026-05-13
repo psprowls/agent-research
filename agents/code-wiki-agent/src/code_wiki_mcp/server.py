@@ -17,8 +17,26 @@ import sys
 
 
 # --- Stdout guard (must run before any import that might print) ---
+#
+# We capture the original sys.stdout BEFORE rebinding so that:
+#   1. FastMCP's stdio_server can still access the raw binary stream
+#      (it grabs `sys.stdout.buffer` once to build its JSON-RPC writer).
+#   2. Any Python-level write through ``sys.stdout.write(...)`` — e.g. a
+#      stray ``print()``, a logging StreamHandler pointed at sys.stdout,
+#      or a library debug call — trips the guard with RuntimeError.
+_ORIGINAL_STDOUT = sys.stdout
+
+
 class _StdoutGuard:
     """Raise immediately if any non-FastMCP code writes to stdout."""
+
+    # Expose the original binary buffer so FastMCP's stdio_server can wrap
+    # the raw file descriptor (mcp 1.27.1: ``sys.stdout.buffer`` is read at
+    # startup inside ``mcp.server.stdio.stdio_server``). All subsequent
+    # JSON-RPC frames go through that wrapper directly, bypassing
+    # ``write()`` below — which is correct: those frames are the legitimate
+    # stdout traffic. ``write()`` only catches Python-level stray writes.
+    buffer = _ORIGINAL_STDOUT.buffer
 
     def write(self, data: str) -> int:
         if data.strip():
