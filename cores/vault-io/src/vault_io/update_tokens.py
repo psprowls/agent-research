@@ -2,13 +2,12 @@
 """
 update_tokens.py — Stamp `tokens: <count>` frontmatter on every wiki page.
 
-Counts `cl100k_base` BPE tokens against a stable baseline — the file
-content with any existing `tokens` field stripped — then idempotently
-rewrites the `tokens` field via `python-frontmatter`. Stripping the
-field before counting avoids a circular dependency: a file that already
-contains `tokens: N` would produce a different count than the same file
-before the field was added, breaking idempotency. Re-running on an
-unchanged vault is a no-op.
+Counts tokens against a stable baseline — the file content with any existing
+`tokens` field stripped — using the Bedrock CountTokens API, then idempotently
+rewrites the `tokens` field via `python-frontmatter`. Stripping the field before
+counting avoids a circular dependency: a file that already contains `tokens: N`
+would produce a different count than the same file before the field was added,
+breaking idempotency. Re-running on an unchanged vault is a no-op.
 
 Discovers wiki location from the resolved lattice workspace.
 
@@ -25,20 +24,24 @@ import sys
 from pathlib import Path
 from typing import Iterator
 
+import boto3
 import frontmatter
-import tiktoken
 
 from vault_io._workspace import resolve_wiki_and_repo
 
 SKIP_FILENAMES = {"index.md", "log.md"}
 
+DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+DEFAULT_REGION = "us-east-1"
 
-def get_encoding() -> "tiktoken.Encoding":
-    return tiktoken.get_encoding("cl100k_base")
 
-
-def count_tokens(text: str, encoding: "tiktoken.Encoding") -> int:
-    return len(encoding.encode(text))
+def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFAULT_REGION) -> int:
+    client = boto3.client("bedrock-runtime", region_name=region)
+    response = client.count_tokens(
+        modelId=model_id,
+        content=[{"text": text}],
+    )
+    return response["inputTokenCount"]
 
 
 def iter_pages(wiki: Path) -> Iterator[Path]:
@@ -54,8 +57,9 @@ def iter_pages(wiki: Path) -> Iterator[Path]:
 
 def update_page(
     path: Path,
-    encoding: "tiktoken.Encoding",
     dry_run: bool = False,
+    model_id: str = DEFAULT_MODEL_ID,
+    region: str = DEFAULT_REGION,
 ) -> tuple[str, int]:
     """Stamp the `tokens` field on a single page.
 
@@ -96,7 +100,11 @@ def update_page(
     # Reconstruct: --- + filtered_fm + --- + content + \n
     baseline = f"---\n{filtered_fm}\n---\n{parts[2]}\n"
 
-    count = count_tokens(baseline, encoding)
+    try:
+        count = count_tokens(baseline, model_id=model_id, region=region)
+    except Exception as exc:  # noqa: BLE001 — keep run going on API errors
+        print(f"[warn] skipping {path}: token count failed: {exc}", file=sys.stderr)
+        return ("skipped", 0)
 
     if post.metadata.get("tokens") == count:
         return ("unchanged", count)
@@ -104,8 +112,6 @@ def update_page(
     if not dry_run:
         # Update the tokens field while preserving original YAML formatting.
         # At this point, we know has_frontmatter is True (checked earlier)
-        parts = raw.split("---", 2)
-        # Update existing frontmatter
         fm_lines = parts[1].strip().split("\n")
         updated_lines = []
         tokens_found = False
@@ -131,22 +137,26 @@ def update_page(
     return ("updated", count)
 
 
-def update_vault(wiki: Path, dry_run: bool = False) -> dict[str, list[str]]:
+def update_vault(
+    wiki: Path,
+    dry_run: bool = False,
+    model_id: str = DEFAULT_MODEL_ID,
+    region: str = DEFAULT_REGION,
+) -> dict[str, list[str]]:
     """Walk `wiki` and `work/`, stamp `tokens` on every page, return {updated, unchanged, skipped} lists."""
-    encoding = get_encoding()
     result: dict[str, list[str]] = {"updated": [], "unchanged": [], "skipped": []}
     workspace = wiki.parent
 
     # Process wiki pages
     for page in iter_pages(wiki):
-        status, _ = update_page(page, encoding, dry_run=dry_run)
+        status, _ = update_page(page, dry_run=dry_run, model_id=model_id, region=region)
         result[status].append(str(page.relative_to(workspace)))
 
     # Process work items (sibling of wiki)
     work_dir = workspace / "work"
     if work_dir.exists():
         for page in iter_pages(work_dir):
-            status, _ = update_page(page, encoding, dry_run=dry_run)
+            status, _ = update_page(page, dry_run=dry_run, model_id=model_id, region=region)
             result[status].append(str(page.relative_to(workspace)))
 
     for bucket in result.values():
@@ -158,10 +168,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Stamp `tokens` frontmatter across the wiki")
     p.add_argument("--dry-run", action="store_true", help="Print changes without writing")
     p.add_argument("--json", action="store_true", help="Machine-readable output")
+    p.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="Bedrock model ID for token counting")
+    p.add_argument("--region", default=DEFAULT_REGION, help="AWS region for Bedrock")
     args = p.parse_args()
 
     wiki, _ = resolve_wiki_and_repo()
-    result = update_vault(wiki, dry_run=args.dry_run)
+    result = update_vault(wiki, dry_run=args.dry_run, model_id=args.model_id, region=args.region)
 
     if args.json:
         print(json.dumps(result, indent=2))
