@@ -83,9 +83,26 @@ def make_llm(role: str) -> ChatBedrockConverse:
     model_id = role_cfg["model_id"]
     region = role_cfg.get("region", "us-east-1")
 
-    llm = _GuardedChatBedrockConverse(model=model_id, region_name=region)
+    kwargs: dict[str, Any] = dict(model=model_id, region_name=region)
+    max_tokens = role_cfg.get("max_tokens")
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    llm = _GuardedChatBedrockConverse(**kwargs)
     # Bind the ARN to the instance so error messages name the exact model.
     # `object.__setattr__` bypasses Pydantic v2's `extra='forbid'` validator
     # that would otherwise reject the assignment.
     object.__setattr__(llm, "_model_id_for_errors", model_id)
     return llm
+
+
+def load_role_config(role: str) -> dict:
+    """Return the raw config dict for a role from models.toml.
+
+    Raises:
+        KeyError: when `role` is not present in `models.toml`.
+
+    Returns a dict with all keys present for the role in models.toml:
+        model_id, region, max_tokens, max_concurrency
+    """
+    config = _load_models_config()
+    return config["roles"][role]  # KeyError if role absent — intentional
