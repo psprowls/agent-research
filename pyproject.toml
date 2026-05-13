@@ -1,0 +1,21 @@
+[tool.uv.workspace]
+members = ["cores/*", "agents/*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio==1.3.0",
+    "ruff>=0.15",
+    "pre-commit",
+    "syrupy==5.1.0",
+]
+
+[tool.ruff]
+line-length = 120
+exclude = ["**/fixtures/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"

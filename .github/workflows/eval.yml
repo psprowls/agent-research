@@ -1,0 +1,11 @@
+name: eval
+
+on:
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stub
+        run: echo "Eval workflow stub - implemented in Phase 4"
