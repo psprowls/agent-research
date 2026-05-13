@@ -83,14 +83,16 @@ def _classify_dir(d: Path) -> dict:
     md_files = [p for p in files if p.suffix == ".md"]
     has_manifest_in_root = _has_manifest(d)
 
-    # Rule 1: docs container — children predominantly markdown, no manifests anywhere
-    if files and not children and not has_manifest_in_root:
-        if len(md_files) / max(len(files), 1) >= DOC_THRESHOLD:
+    # Rule 1: docs container — recursively predominantly markdown, no manifests anywhere
+    if not has_manifest_in_root and not any(_has_manifest(c) for c in children):
+        total_files = sum(1 for p in d.rglob("*") if p.is_file() and not p.name.startswith("."))
+        md_count = sum(1 for p in d.rglob("*.md") if not p.name.startswith("."))
+        if total_files and md_count / total_files >= DOC_THRESHOLD:
             return {
                 "source": d.name,
                 "classification": "docs",
-                "children_count": len(md_files),
-                "reason": f"{len(md_files)}/{len(files)} files are .md, no manifests",
+                "children_count": md_count,
+                "reason": f"{md_count}/{total_files} files are .md, no manifests",
             }
 
     # Rule 2: domain container — majority of children are themselves package containers
