@@ -74,9 +74,7 @@ def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
     except subprocess.TimeoutExpired:
         proc.kill()
         stdout_bytes, stderr_bytes = proc.communicate()  # reap zombie, collect output
-        pytest.fail(
-            f"MCP server did not respond within 15s.\nstderr: {stderr_bytes.decode()[:500]}"
-        )
+        pytest.fail(f"MCP server did not respond within 15s.\nstderr: {stderr_bytes.decode()[:500]}")
     return stdout_bytes.decode(), stderr_bytes.decode()
 
 
