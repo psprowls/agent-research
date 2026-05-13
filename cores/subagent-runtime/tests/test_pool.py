@@ -331,7 +331,6 @@ async def test_write_trace_oserror_logged_not_raised(tmp_path, fake_llm_response
 
 async def test_separate_trace_files_per_run_all(tmp_path, make_task):
     from subagent_runtime.pool import SubagentPool
-    import time
 
     traces_dir = tmp_path / "traces"
     pool = SubagentPool(trace_dir=traces_dir)
@@ -345,8 +344,7 @@ async def test_separate_trace_files_per_run_all(tmp_path, make_task):
         max_concurrency=4,
     )
 
-    # Sleep slightly more than 1 second to guarantee distinct unix timestamps
-    await asyncio.sleep(1.1)
+    # UUID suffix on trace filename guarantees uniqueness even within the same wall-clock second (CR-02 fix)
 
     await pool.run_all(
         items=["b"],
@@ -379,12 +377,15 @@ async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatc
 
     pool_a = pool_module.SubagentPool(trace_dir=traces_dir)
 
-    async def simple_task(item):
+    received_configs_a: list = []
+
+    async def simple_task_a(item, config):
+        received_configs_a.append(config)
         return MagicMock(usage_metadata={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2})
 
     await pool_a.run_all(
         items=["a", "b"],
-        task=simple_task,
+        task=simple_task_a,
         role="scanner",
         model_id="test-model-id",
         max_concurrency=4,
@@ -396,15 +397,27 @@ async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatc
     for c in mock_rc_a.call_args_list:
         assert c.kwargs.get("recursion_limit") == 42
 
+    # Config must have been DELIVERED to the task callable (CR-01 fix)
+    assert len(received_configs_a) == 2, f"Expected 2 configs delivered; got {len(received_configs_a)}"
+    for cfg in received_configs_a:
+        assert isinstance(cfg, dict), f"Expected dict (mocked RunnableConfig); got {type(cfg)}"
+        assert cfg.get("recursion_limit") == 42, f"Expected recursion_limit=42; got {cfg}"
+
     # --- Part B: default_recursion_limit from __init__ ---
     mock_rc_b = MagicMock(side_effect=lambda **kwargs: kwargs)
     monkeypatch.setattr(pool_module, "RunnableConfig", mock_rc_b)
 
     pool_b = pool_module.SubagentPool(trace_dir=traces_dir, default_recursion_limit=99)
 
+    received_configs_b: list = []
+
+    async def simple_task_b(item, config):
+        received_configs_b.append(config)
+        return MagicMock(usage_metadata={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2})
+
     await pool_b.run_all(
         items=["x"],
-        task=simple_task,
+        task=simple_task_b,
         role="scanner",
         model_id="test-model-id",
         max_concurrency=4,
@@ -413,3 +426,7 @@ async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatc
 
     assert mock_rc_b.call_count == 1
     assert mock_rc_b.call_args.kwargs.get("recursion_limit") == 99
+
+    # Config must have been DELIVERED to the task callable (CR-01 fix)
+    assert len(received_configs_b) == 1, f"Expected 1 config delivered; got {len(received_configs_b)}"
+    assert received_configs_b[0].get("recursion_limit") == 99, f"Expected recursion_limit=99; got {received_configs_b[0]}"

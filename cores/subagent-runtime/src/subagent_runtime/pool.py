@@ -25,9 +25,11 @@ leaks them into item repr or exception messages.
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -87,7 +89,7 @@ class SubagentPool:
     async def run_all(
         self,
         items: list[Any],
-        task: Callable[[Any], Awaitable[Any]],
+        task: Callable[..., Awaitable[Any]],
         role: str,
         *,
         model_id: str,
@@ -111,7 +113,10 @@ class SubagentPool:
         # Semaphore MUST be created here (inside the running event loop) —
         # creating it in __init__ binds to a different loop in test envs.
         semaphore = asyncio.Semaphore(max_concurrency)
-        trace_file = self._trace_dir / f"{int(time.time())}.jsonl"
+        # Unix timestamp prefix preserves chronological ordering; 8-hex UUID suffix gives
+        # ~4B combinations per second of collision resistance — sufficient for any realistic
+        # fan-out workload (CR-02 fix: uniqueness within same wall-clock second).
+        trace_file = self._trace_dir / f"{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
 
         async def _run_one(item: Any) -> tuple[Any, Any] | PerItemError:
             async with semaphore:
@@ -120,7 +125,14 @@ class SubagentPool:
                     # RunnableConfig top-level key confirmed from LangGraph docs.
                     # Do NOT nest under "configurable" — that key is ignored.
                     _config = RunnableConfig(recursion_limit=rlimit)
-                    result = await task(item)
+                    # SUB-04 / ROADMAP SC#2: deliver the RunnableConfig (carrying recursion_limit)
+                    # to any task that declares (item, config). Single-arg tasks remain supported
+                    # for backward compatibility with current unit tests and Plan 03 closures.
+                    sig = inspect.signature(task)
+                    if len(sig.parameters) >= 2:
+                        result = await task(item, _config)
+                    else:
+                        result = await task(item)
                     latency_ms = int((time.monotonic() - t0) * 1000)
                     self._write_trace(
                         trace_file, role, model_id, item, "success", latency_ms, result
