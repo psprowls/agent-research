@@ -30,7 +30,6 @@ import argparse
 import datetime as dt
 import json
 import sys
-from pathlib import Path
 
 from vault_io._workspace import resolve_wiki_and_repo
 

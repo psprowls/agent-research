@@ -11,7 +11,7 @@ The :class:`_StdoutGuard` below enforces this at module-init time: it rebinds
 write *before* any other import runs. ``logging.basicConfig(stream=sys.stderr)``
 provides the second line of defence by routing all logging output to stderr.
 """
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 
