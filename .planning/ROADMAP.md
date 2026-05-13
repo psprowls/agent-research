@@ -61,7 +61,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Workspace member scaffold + 7-role models.toml + load_role_config (BED-02..05)
 - [x] 02-02-PLAN.md — SubagentPool implementation with partial-failure isolation, semaphore throttle, JSONL trace (SUB-01..07, OBS-01, BED-05)
-- [ ] 02-03-PLAN.md — Trace viewer CLI + real-Bedrock integration tests (OBS-02, OBS-03, SUB-02/04/05 verification)
+- [x] 02-03-PLAN.md — Trace viewer CLI + real-Bedrock integration tests (OBS-02, OBS-03, SUB-02/04/05 verification)
 
 ---
 
