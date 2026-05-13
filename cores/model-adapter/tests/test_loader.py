@@ -96,3 +96,62 @@ def test_invoke_returns_underlying_result_on_success(monkeypatch):
     monkeypatch.setattr(llm, "_original_invoke", lambda *a, **kw: sentinel)
 
     assert llm.invoke("ping") is sentinel
+
+
+ALL_ROLES = ["haiku", "sonnet", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
+
+
+@pytest.mark.parametrize("role", ALL_ROLES)
+def test_load_role_config_returns_dict_for_all_seven_roles(role):
+    from model_adapter.loader import load_role_config
+
+    cfg = load_role_config(role)
+    assert isinstance(cfg, dict)
+    assert "model_id" in cfg
+    assert "region" in cfg
+    assert "max_tokens" in cfg
+    assert "max_concurrency" in cfg
+
+
+def test_load_role_config_librarian_values():
+    from model_adapter.loader import load_role_config
+
+    cfg = load_role_config("librarian")
+    assert cfg["model_id"] == HAIKU_ARN
+    assert cfg["max_tokens"] == 2048
+    assert cfg["max_concurrency"] == 5
+
+
+def test_load_role_config_synthesizer_uses_sonnet():
+    from model_adapter.loader import load_role_config
+
+    cfg = load_role_config("synthesizer")
+    assert cfg["model_id"] == SONNET_ARN
+    assert cfg["max_tokens"] == 4096
+    assert cfg["max_concurrency"] == 3
+
+
+def test_load_role_config_unknown_role_raises_keyerror():
+    from model_adapter.loader import load_role_config
+
+    with pytest.raises(KeyError):
+        load_role_config("nonexistent")
+
+
+def test_make_llm_librarian_sets_max_tokens():
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("librarian")
+    assert isinstance(llm, ChatBedrockConverse)
+    assert getattr(llm, "max_tokens", None) == 2048
+
+
+def test_make_llm_haiku_still_works_after_extension():
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("haiku")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual == HAIKU_ARN

@@ -1,7 +1,53 @@
 [roles.haiku]
-model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-region   = "us-east-1"
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 1024
+max_concurrency = 10
 
 [roles.sonnet]
-model_id = "us.anthropic.claude-sonnet-4-6"
-region   = "us-east-1"
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+
+[roles.librarian]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+
+[roles.scanner]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 500
+max_concurrency = 10
+
+[roles.linter]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 3000
+max_concurrency = 10
+
+[roles.ingestor]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+
+[roles.synthesizer]
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+
+[roles.judge_a]
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
+
+[roles.judge_b]
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
