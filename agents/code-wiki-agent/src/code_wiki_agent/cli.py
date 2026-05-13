@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.metadata
+
 import typer
 
 app = typer.Typer(
@@ -12,7 +14,8 @@ app = typer.Typer(
 @app.command()
 def version() -> None:
     """Print version and exit."""
-    typer.echo("code-wiki-agent 0.1.0")
+    v = importlib.metadata.version("code-wiki-agent")
+    typer.echo(f"code-wiki-agent {v}")
 
 
 if __name__ == "__main__":
