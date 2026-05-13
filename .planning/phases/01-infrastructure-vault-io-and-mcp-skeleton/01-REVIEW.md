@@ -2,15 +2,11 @@
 phase: 01-infrastructure-vault-io-and-mcp-skeleton
 reviewed: 2026-05-13T00:00:00Z
 depth: standard
-files_reviewed: 39
+files_reviewed: 33
 files_reviewed_list:
   - .github/workflows/ci.yml
-  - .github/workflows/eval.yml
-  - .pre-commit-config.yaml
   - agents/code-wiki-agent/pyproject.toml
-  - agents/code-wiki-agent/src/code_wiki_agent/__init__.py
   - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-  - agents/code-wiki-agent/src/code_wiki_mcp/__init__.py
   - agents/code-wiki-agent/src/code_wiki_mcp/server.py
   - agents/code-wiki-agent/tests/integration/test_bedrock_iam.py
   - agents/code-wiki-agent/tests/integration/test_mcp_stdio.py
@@ -18,12 +14,10 @@ files_reviewed_list:
   - agents/code-wiki-agent/tests/unit/test_stdout_guard.py
   - cores/model-adapter/models.toml
   - cores/model-adapter/pyproject.toml
-  - cores/model-adapter/src/model_adapter/__init__.py
   - cores/model-adapter/src/model_adapter/exceptions.py
   - cores/model-adapter/src/model_adapter/loader.py
   - cores/model-adapter/tests/test_loader.py
   - cores/vault-io/pyproject.toml
-  - cores/vault-io/src/vault_io/__init__.py
   - cores/vault-io/src/vault_io/_workspace.py
   - cores/vault-io/src/vault_io/append_log.py
   - cores/vault-io/src/vault_io/detect_containers.py
@@ -31,7 +25,6 @@ files_reviewed_list:
   - cores/vault-io/src/vault_io/graph_analyzer.py
   - cores/vault-io/src/vault_io/init_vault.py
   - cores/vault-io/src/vault_io/layout_io.py
-  - cores/vault-io/src/vault_io/lint/__init__.py
   - cores/vault-io/src/vault_io/lint/common.py
   - cores/vault-io/src/vault_io/scan_monorepo.py
   - cores/vault-io/src/vault_io/update_index.py
@@ -45,47 +38,140 @@ files_reviewed_list:
   - pyproject.toml
   - scripts/verify_bedrock_iam.py
 findings:
-  critical: 1
-  warning: 7
-  info: 4
+  critical: 4
+  warning: 5
+  info: 3
   total: 12
 status: issues_found
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-05-13
+**Reviewed:** 2026-05-13T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 39 (vault-io ports treated as historical; new code scrutinized in depth)
+**Files Reviewed:** 33
 **Status:** issues_found
 
 ## Summary
 
-Phase 1 ships a walking skeleton (Bedrock loader + FastMCP stdio entry + vault-io port + CI). The new code is generally tight: the `_StdoutGuard` is correctly installed before any other import; the `_GuardedChatBedrockConverse` subclass-override strategy works around Pydantic v2 `extra='forbid'`; the integration vs unit split is sound and tests pass locally.
+Phase 1 ships a walking skeleton: a Bedrock model loader, a FastMCP stdio server, a vault-io port, and a CI pipeline. The MCP server wiring is clean — the `_StdoutGuard` is correctly installed before any other import and the `_GuardedChatBedrockConverse` subclass-override strategy soundly works around Pydantic v2's `extra='forbid'`. The test suite is well-structured with clear integration/unit separation.
 
-Primary defect: **`cores/model-adapter/models.toml` is not packaged into the built wheel**, so `make_llm()` raises `FileNotFoundError` for any consumer that installs the package from a wheel rather than the editable workspace. This is a distribution-time blocker that the editable-install CI does not catch.
+Four blockers were found:
 
-Secondary defects: stale `lattice-workspace` references in three vault-io module docstrings actively mislead readers (they document an env var that this codebase does not read), and one of those strings leaks into the user-facing `init_wiki` result JSON.
+1. `update_tokens.py` uses `tiktoken` with `cl100k_base` (OpenAI's GPT-4 tokenizer). CLAUDE.md explicitly prohibits this for Bedrock/Claude models and mandates the Bedrock CountTokens API. Token counts stored in vault frontmatter will be systematically wrong for Claude models.
 
-vault-io modules are verbatim ports per the format-compatibility constraint and were not scrutinized for stylistic issues; only correctness regressions and leaked references that affect this project are reported below.
+2. Three CLI `main()` entry points (`detect_containers`, `scan_monorepo`, `init_vault`) always exit with error code 1 in v1 because `resolve_wiki_and_repo()` always returns `(wiki, None)` for `repo`, and each `main()` immediately exits on `repo is None`. These scripts are completely non-functional as standalone tools.
+
+3. `graph_analyzer.connected_components()` produces phantom nodes (`"log"` and `"index"`) in component membership. Wikilinks found in `log.md` / `index.md` add those files' keys to `inb[resolved]` sets, then the BFS traverses those keys even though they were excluded from `nodes`. Component size counts and sample arrays in the output are corrupted.
+
+4. `layout_io._parse_yaml()` crashes with an unhandled `ValueError` if the `version:` field is not a pure integer (e.g., `version: 2.0` or `version: draft`). Line 121 calls `int(out["version"])` with no error handling.
+
+Five warnings were found including a fragile `models.toml` path that breaks on non-editable installs, a false Go workspace discovery claim in `scan_monorepo`'s docstring, a zombie-process risk in the MCP stdio test, a hardcoded version string in `cli.py` that will drift, and a subprocess resource leak on timeout.
 
 ## Critical Issues
 
-### CR-01: `models.toml` is not included in the model-adapter wheel; `make_llm()` will FileNotFoundError under any non-editable install
+### CR-01: `tiktoken` (`cl100k_base`) used for token counting — wrong tokenizer for Claude/Bedrock models
 
-**File:** `cores/model-adapter/pyproject.toml` (whole file) + `cores/model-adapter/src/model_adapter/loader.py:29`
+**File:** `cores/vault-io/src/vault_io/update_tokens.py:29-41`
+**Issue:** `update_tokens.py` imports `tiktoken` and uses the `cl100k_base` encoding (GPT-4's BPE tokenizer) to count tokens stamped into vault frontmatter. CLAUDE.md explicitly prohibits `tiktoken` for this project: "tiktoken — OpenAI-specific BPE tokenizer, does not work with Claude or Bedrock models" and lists it in the Avoid table. The `vault-io/pyproject.toml` also lists `tiktoken>=0.7` as a direct dependency, violating the project constraint. Token counts stored under `tokens:` frontmatter keys will be systematically incorrect for Claude/Bedrock models, making any downstream budget estimation based on those counts unreliable.
 
-**Issue:** `loader.py` computes `_MODELS_TOML = Path(__file__).parent.parent.parent / "models.toml"`, which resolves to `cores/model-adapter/models.toml` only in the editable workspace layout (`cores/model-adapter/src/model_adapter/loader.py` → `../../models.toml`). The `pyproject.toml` uses `uv_build` with no `[tool.uv.build.include]`, `[tool.hatch.build.targets.wheel.shared-data]`, or PEP 517 `package-data` declaration. Therefore `uv build` produces a wheel that contains only `src/model_adapter/`; `models.toml` is silently dropped. Once installed from that wheel, `make_llm()` calls `Path(__file__).parent.parent.parent` which now points two directories above `site-packages/model_adapter/` — not a project root — and `open(_MODELS_TOML, "rb")` raises `FileNotFoundError`.
-
-CI currently runs everything through `uv sync` (editable) so the bug is invisible. The first time the package is installed as a wheel (release, CI cache rebuild on a non-workspace consumer, or Docker image build), every `make_llm()` call breaks.
-
-**Fix:** Ship `models.toml` alongside the package and load it via `importlib.resources`:
+**Fix:** Replace with the Bedrock CountTokens API. The boto3 call is synchronous and requires model ID and region:
 
 ```python
-# 1) Move models.toml under the package so it's auto-included in the wheel:
-#    cores/model-adapter/src/model_adapter/models.toml
+import boto3
 
-# 2) Replace the path math in loader.py with importlib.resources:
+def count_tokens(text: str, model_id: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0", region: str = "us-east-1") -> int:
+    client = boto3.client("bedrock-runtime", region_name=region)
+    response = client.count_tokens(
+        modelId=model_id,
+        content=[{"text": text}],
+    )
+    return response["inputTokenCount"]
+```
+
+Remove `tiktoken>=0.7` from `cores/vault-io/pyproject.toml` and replace with `boto3>=1.38` (already required by model-adapter).
+
+---
+
+### CR-02: `detect_containers.py`, `scan_monorepo.py`, and `init_vault.py` CLI `main()` entry points always exit with error code 1
+
+**File:** `cores/vault-io/src/vault_io/detect_containers.py:172-175`, `cores/vault-io/src/vault_io/scan_monorepo.py:1082-1085`, `cores/vault-io/src/vault_io/init_vault.py:295-298`
+**Issue:** All three scripts call `resolve_wiki_and_repo()` and then check `if repo is None: sys.exit(1)`. The `_workspace.resolve_wiki_and_repo()` implementation always returns `(wiki, None)` for `repo` in v1 (the docstring at line 18 explicitly states "repo_root is always None in v1"). This means all three CLI scripts are broken as standalone commands — they always print `"[error] could not resolve repo root from workspace"` and exit. The underlying library functions (`detect()`, `discover_workspaces()`, `init_wiki()`) are fine when called programmatically with explicit arguments; only the CLI entry points are broken.
+
+**Fix:** Each `main()` should derive `repo_root` from `wiki.parent` or accept it as an explicit `--repo` argument, rather than depending on `resolve_wiki_and_repo()` to supply it:
+
+```python
+# detect_containers.py main()
+wiki, _ = resolve_wiki_and_repo()
+repo = wiki.parent  # v1: repo is always wiki's parent directory
+if not repo.exists():
+    print(f"[error] repo not found: {repo}", file=sys.stderr)
+    sys.exit(1)
+```
+
+Apply the same pattern to `scan_monorepo.main()` and `init_vault.main()`.
+
+---
+
+### CR-03: `graph_analyzer.connected_components()` introduces phantom nodes from `log.md`/`index.md`
+
+**File:** `cores/vault-io/src/vault_io/graph_analyzer.py:113-114`, `133-154`
+**Issue:** In `build_graph()`, `index.md` and `log.md` are excluded from `nodes` (first loop, line 76) but are still processed in the second loop (line 84). For these `is_index=True` files, wikilinks add their key (`"log"` or `"index"`) to `inb[resolved]` sets (line 114: `inb[resolved].add(key)`). In `connected_components()`, the BFS builds `adj[n]` as `out[n] | inb[n]` and traverses the entire adjacency, including non-`nodes` keys. When a real page links to something and that link is recorded with `"log"` as the source, `adj[real_page]` includes `"log"`. The BFS adds `"log"` to the component even though it is not in `nodes`. The component's `size` and `sample` arrays are then wrong.
+
+**Fix:** Filter the BFS traversal to only include keys that are in `nodes`:
+
+```python
+def connected_components(nodes, out, inb):
+    adj = defaultdict(set)
+    for n in nodes:
+        adj[n] |= (out.get(n, set()) & nodes)   # only follow edges to real nodes
+        adj[n] |= (inb.get(n, set()) & nodes)   # only accept inbound from real nodes
+    seen = set()
+    components = []
+    for n in nodes:
+        if n in seen:
+            continue
+        stack = [n]
+        comp = set()
+        while stack:
+            v = stack.pop()
+            if v in seen:
+                continue
+            seen.add(v)
+            comp.add(v)
+            stack.extend(adj[v] - seen)
+        components.append(comp)
+    components.sort(key=len, reverse=True)
+    return components
+```
+
+---
+
+### CR-04: `layout_io._parse_yaml()` crashes with unhandled `ValueError` on non-integer `version:` field
+
+**File:** `cores/vault-io/src/vault_io/layout_io.py:120-122`
+**Issue:** `_parse_yaml()` calls `int(out["version"])` unconditionally if the key exists. If a layout block contains a version value that is not a pure integer (for example `version: 2.0` produced by a different YAML serializer, or `version: draft` in a hand-edited file), `int()` raises `ValueError` which propagates uncaught to all callers of `read_layout()`. Callers include `scan_monorepo._load_existing_pages()` (called on every scan) and `init_vault.init_wiki()`. A single malformed `CLAUDE.md` would break the entire scan.
+
+**Fix:** Wrap the conversion defensively:
+
+```python
+if "version" in out:
+    try:
+        out["version"] = int(out["version"])
+    except (ValueError, TypeError):
+        out["version"] = 1  # fall back to v1 schema
+```
+
+## Warnings
+
+### WR-01: `models.toml` path fragile — breaks on non-editable install
+
+**File:** `cores/model-adapter/src/model_adapter/loader.py:29`
+**Issue:** `_MODELS_TOML = Path(__file__).parent.parent.parent / "models.toml"` resolves correctly only in the editable workspace layout (`src/model_adapter/loader.py` → `../../models.toml`). Under a non-editable wheel install `__file__` points inside `site-packages/model_adapter/` and the three-parent traversal lands outside the project. `pyproject.toml` declares no `[tool.uv.build.include]` or `package-data` entry, so `models.toml` is not bundled into the wheel. While uv workspaces always install editable, this is a brittle assumption that will break at first non-editable install (Docker, release wheel, CI outside the workspace).
+
+**Fix:** Move `models.toml` under `src/model_adapter/models.toml` and load it via `importlib.resources`:
+
+```python
 from importlib import resources
 
 def _load_models_config() -> dict:
@@ -93,110 +179,30 @@ def _load_models_config() -> dict:
         return tomllib.load(f)
 ```
 
-Alternatively, keep `models.toml` at the package root and declare it explicitly:
+---
 
-```toml
-# cores/model-adapter/pyproject.toml
-[tool.uv.build]
-module-name = "model_adapter"
-# Include the sibling config file in the sdist; then move it under src/ for the wheel.
+### WR-02: `scan_monorepo.py` docstring claims Go workspace discovery that is not implemented
+
+**File:** `cores/vault-io/src/vault_io/scan_monorepo.py:15`
+**Issue:** The module docstring lists "go.mod + go.work (Go)" as a supported discovery method. `_discover_heuristic()` does not contain any Go workspace collection code — it handles Node/pnpm, Rust Cargo, Python pyproject, and Claude plugins only. `_infer_language()` can detect Go as the language of an already-found package (line 166), but no code walks `go.work` or discovers Go module roots. A developer relying on the documented behavior to scan a Go monorepo will get an empty workspace list with no error.
+
+**Fix:** Either implement Go workspace discovery, or remove "go.mod + go.work (Go)" from the docstring and add a TODO:
+
+```
+Detects workspace packages from (in priority order):
+  - package.json + pnpm-workspace.yaml / workspaces field  (Node/pnpm/yarn/npm)
+  - pyproject.toml                                         (Python — poetry/hatch/uv)
+  - Cargo.toml with [workspace]                            (Rust)
+  - .claude-plugin/plugin.json                             (Claude Code plugins)
+  # TODO: go.mod + go.work (Go) — not yet implemented
 ```
 
-The `importlib.resources` approach is the standard fix and removes the `parent.parent.parent` fragility. Add a regression test that builds the wheel (`uv build`) and verifies `make_llm("haiku")` works against the installed artifact.
+---
 
-## Warnings
+### WR-03: `_run_server` timeout leaves zombie process and swallows diagnostic
 
-### WR-01: `vault_io/append_log.py` docstring claims `LATTICE_WORKSPACE` env var; codebase actually reads `CODE_WIKI_REAL_VAULT_PATH`
-
-**File:** `cores/vault-io/src/vault_io/append_log.py:8-9`
-
-**Issue:** The module docstring says "Discovers wiki location from the resolved lattice workspace. Requires LATTICE_WORKSPACE env var or git repo with lattice/ workspace directory." That description was true upstream but is false here: `_workspace.resolve_wiki_and_repo` only consults `CODE_WIKI_REAL_VAULT_PATH` and the explicit `vault_path` argument. A developer following the docstring will set the wrong env var and get a `RuntimeError`. The same false claim appears in `detect_containers.py:6` and `graph_analyzer.py:5`.
-
-**Fix:** Update the three docstrings to reflect the actual contract:
-
-```python
-# append_log.py top docstring
-"""
-append_log.py — Append a standardized entry to wiki/log.md.
-
-The log is append-only and uses a consistent header so unix tools can parse it:
-    ## [YYYY-MM-DD] <op> | <title>
-
-Discovers wiki location via vault_io._workspace.resolve_wiki_and_repo, which
-requires either an explicit vault_path argument or the
-CODE_WIKI_REAL_VAULT_PATH environment variable.
-"""
-```
-
-### WR-02: `init_vault.py` emits `"owned by lattice-workspace"` strings into the user-facing result JSON
-
-**File:** `cores/vault-io/src/vault_io/init_vault.py:241-242,246-247`
-
-**Issue:** The `result["layers"]` dict returned by `init_wiki()` (and printed to stdout / surfaced via JSON) contains:
-
-```python
-"raw": f"{workspace_path}/raw/ — owned by lattice-workspace",
-"work": f"{workspace_path}/work/ — owned by lattice-workspace",
-```
-
-`lattice-workspace` is not part of this codebase; the `raw/` and `work/` directories are never created here (the TODO at line 155 even says "Phase 5: workspace init (lattice-workspace equivalent)"). Users see a layer description that points at non-existent directories owned by a non-existent component. The `next_steps` strings at 246-247 ("Open `{workspace_path}` in Obsidian") share the same confusion.
-
-**Fix:** Either suppress the `raw`/`work` entries until Phase 5 lands a workspace bootstrap equivalent, or replace the "owned by lattice-workspace" annotation with a Phase 5 deferral notice:
-
-```python
-"layers": {
-    "wiki": f"{wiki_path}/ — LLM-maintained knowledge base",
-    "index": f"{wiki_path}/index.md",
-    "log": f"{wiki_path}/log.md",
-    # raw/ and work/ layers deferred to Phase 5 workspace bootstrap.
-},
-```
-
-### WR-03: `_MODELS_TOML` parent-traversal is path-fragile and breaks under any layout move
-
-**File:** `cores/model-adapter/src/model_adapter/loader.py:29`
-
-**Issue:** `Path(__file__).parent.parent.parent / "models.toml"` hardcodes the assumption that `loader.py` sits exactly three directories above `models.toml`. Any future restructuring (e.g., flattening `src/` into the package root, splitting modules into subpackages) silently breaks model loading. This is the same root cause as CR-01 but separable: even within the editable workspace, the path math is brittle. `importlib.resources` removes both problems at once.
-
-**Fix:** Use `importlib.resources` as shown in CR-01; this both packages the file correctly and removes the parent-traversal.
-
-### WR-04: `scripts/verify_bedrock_iam.py` has no test coverage and no smoke import check
-
-**File:** `scripts/verify_bedrock_iam.py` (whole file)
-
-**Issue:** The script is the documented manual gate for IAM verification, but no test imports it. A typo, accidental top-level `print` (which would later be discovered when the script is run from an MCP host), or broken import chain would not be caught by any CI run. The script's `main()` does its imports lazily so it's importable cheaply — a 3-line smoke test would catch regressions for free.
-
-**Fix:** Add a unit test under `agents/code-wiki-agent/tests/unit/` or a new `scripts/tests/`:
-
-```python
-def test_verify_bedrock_iam_module_imports():
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "verify_bedrock_iam",
-        Path(__file__).parents[3] / "scripts" / "verify_bedrock_iam.py",
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    assert callable(mod.main)
-```
-
-### WR-05: MCP stdio integration tests run unmarked in the default ("not integration") set despite spawning a subprocess
-
-**File:** `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py:80,115`
-
-**Issue:** The file's docstring asserts this is intentional ("Intentionally NOT marked as an integration-only test (D-16): runs in CI by default because wiki_ping never calls Bedrock"). But the tests still:
-1. Spawn `uv run --package code-wiki-agent code-wiki-mcp` (cold-starts uv, resolves the workspace, builds and launches a subprocess) — ~1 second per test;
-2. Live inside `tests/integration/` so a developer naturally assumes the `-m integration` filter excludes them.
-
-The directory placement plus the absence of the marker is misleading: it violates the convention the rest of the file structure sets. Either the tests belong in `tests/unit/` (since they exercise wiring, not Bedrock), or they should carry a separate `subprocess` marker.
-
-**Fix:** Move the file to `tests/unit/test_mcp_stdio.py` (the docstring already explains why it runs in the unit set), or add a `subprocess` pytest marker registered in `pyproject.toml` and used to filter slow-but-network-free tests.
-
-### WR-06: `proc.kill()` in `_run_server` finally-block leaves zombie processes on timeout
-
-**File:** `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py:71-77`
-
-**Issue:** When `proc.communicate(timeout=15)` raises `TimeoutExpired`, the `finally` block calls `proc.kill()` and then the exception propagates without a second `communicate()` call to reap the child. On Linux CI runners the kill signal will be reaped by the runner's init eventually, but during local runs the test process holds onto a defunct child until the parent exits. More importantly, the test fails with a stack trace pointing at `communicate` rather than a clean assertion failure.
+**File:** `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py:71-76`
+**Issue:** `proc.communicate(timeout=15)` raises `subprocess.TimeoutExpired` on timeout. The `finally` block calls `proc.kill()` but does not follow up with `proc.communicate()` to reap stdout/stderr from the killed process. The `TimeoutExpired` exception then propagates with no useful diagnostic (no stderr dump). The child process becomes a zombie until the test runner exits.
 
 **Fix:**
 
@@ -210,92 +216,114 @@ def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
         stderr=subprocess.PIPE,
     )
     try:
-        stdout_bytes, stderr_bytes = proc.communicate(
-            input=payload.encode(), timeout=15
-        )
+        stdout_bytes, stderr_bytes = proc.communicate(input=payload.encode(), timeout=15)
     except subprocess.TimeoutExpired:
         proc.kill()
-        stdout_bytes, stderr_bytes = proc.communicate()
-        raise
+        stdout_bytes, stderr_bytes = proc.communicate()  # reap zombie, collect output
+        pytest.fail(
+            f"MCP server did not respond within 15s.\nstderr: {stderr_bytes.decode()[:500]}"
+        )
     return stdout_bytes.decode(), stderr_bytes.decode()
-```
-
-This reaps the child on timeout and avoids the unconditional `proc.kill()` after a successful `communicate()` (which is harmless but pointless).
-
-### WR-07: `_StdoutGuard` exposes the raw binary buffer; any library writing via `sys.stdout.buffer.write(b"...")` bypasses the guard silently
-
-**File:** `agents/code-wiki-agent/src/code_wiki_mcp/server.py:39`
-
-**Issue:** The guard caches `buffer = _ORIGINAL_STDOUT.buffer` so FastMCP can build its JSON-RPC writer. That is correct and necessary — FastMCP must own the raw fd. But any other library that imports `sys.stdout` and writes through `.buffer.write(b"oops\n")` will corrupt the JSON-RPC stream without tripping the guard. The class docstring acknowledges this ("All subsequent JSON-RPC frames go through that wrapper directly, bypassing write() below"), but it does not warn that the same hole exists for arbitrary writers.
-
-This is currently a theoretical hole — boto3/botocore/anyio do not write to `sys.stdout.buffer` directly. But the protection is one-sided: high-level text writes are caught loudly, low-level binary writes pass silently. If a future dependency starts emitting telemetry through `sys.stdout.buffer` (e.g., a tracing library that thinks it owns stdout), MCP framing breaks with no diagnostic.
-
-**Fix:** Wrap the buffer in a similar guard that distinguishes "framing writes from FastMCP" (legal) from "everyone else" (illegal). Since FastMCP captures `.buffer` exactly once at startup, you can hand it a wrapper that flips to read-only after first capture:
-
-```python
-class _BufferGuard:
-    def __init__(self, real_buffer):
-        self._real = real_buffer
-        self._captured = False
-
-    def write(self, b):
-        if self._captured:
-            raise RuntimeError(f"Illegal stdout.buffer write: {b!r}")
-        return self._real.write(b)
-    # ... proxy the rest of the BufferedWriter API FastMCP uses,
-    # and flip self._captured = True after FastMCP grabs the buffer.
-```
-
-If that is too invasive for v1, at minimum document the gap as a known hole in the module docstring so future maintainers do not assume the guard is airtight.
-
-## Info
-
-### IN-01: `code_wiki_agent/__init__.py` and `code_wiki_mcp/__init__.py` are empty
-
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/__init__.py`, `agents/code-wiki-agent/src/code_wiki_mcp/__init__.py`
-
-**Issue:** Both files are single blank lines. Acceptable as namespace markers under PEP 420-compatible layouts, but `__init__.py` could declare `__all__` and a package version. Optional polish.
-
-**Fix:** Either leave as-is or add a minimal:
-```python
-__version__ = "0.1.0"
-```
-
-### IN-02: `eval.yml` workflow is a literal stub
-
-**File:** `.github/workflows/eval.yml:10-11`
-
-**Issue:** The workflow only runs `echo "Eval workflow stub - implemented in Phase 4"`. Acceptable per the Phase 4 deferral, but the file ships in `main` with a `workflow_dispatch` trigger that does nothing useful. A developer who runs it gets no signal.
-
-**Fix:** Either gate behind a TODO and remove the trigger until Phase 4, or have the stub run a smoke test (e.g., `uv run --directory cores/model-adapter pytest`) so the workflow at least proves it can boot.
-
-### IN-03: `pyproject.toml` ruff lint selection is narrow
-
-**File:** `pyproject.toml:18-19`
-
-**Issue:** `select = ["E", "F", "I"]` covers pycodestyle errors, pyflakes, and import ordering but omits `B` (flake8-bugbear catches mutable defaults, useless except, etc.) and `UP` (pyupgrade). For a Python 3.11+ codebase, `UP` would catch deprecated patterns automatically. Optional.
-
-**Fix:**
-```toml
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-```
-
-### IN-04: Ruff pre-commit hook auto-fixes can mask CI failures
-
-**File:** `.pre-commit-config.yaml:5-6`
-
-**Issue:** The pre-commit hook runs `ruff --fix`, which silently rewrites code before commit. CI runs `ruff check .` (no `--fix`). The hook will fix issues that would otherwise fail in CI — fine for clean diffs, but it means the developer never sees the diagnostic. If they push without running pre-commit (e.g., `git commit --no-verify`), CI catches the issue but the developer has no local muscle memory for the rule. Optional behavioral note; common pattern; flag-only.
-
-**Fix:** No change required. If desired, swap `--fix` for the default (report-only) so developers see the diagnostic locally too:
-
-```yaml
-- id: ruff
-  # remove `args: [--fix]` so the hook reports rather than rewrites
 ```
 
 ---
 
-_Reviewed: 2026-05-13_
+### WR-04: `cli.py` version string is hardcoded and will drift from `pyproject.toml`
+
+**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:15`
+**Issue:** `typer.echo("code-wiki-agent 0.1.0")` hardcodes the version string. When the version in `pyproject.toml` is bumped, the `version` command output will silently fall behind. This is particularly misleading because Typer and pip both support `importlib.metadata.version()` for dynamic version reads.
+
+**Fix:**
+
+```python
+import importlib.metadata
+
+@app.command()
+def version() -> None:
+    """Print version and exit."""
+    v = importlib.metadata.version("code-wiki-agent")
+    typer.echo(f"code-wiki-agent {v}")
+```
+
+---
+
+### WR-05: `detect_containers.py` Rule 1 (docs) only fires on flat directories; subdirectoried docs containers are never classified as docs
+
+**File:** `cores/vault-io/src/vault_io/detect_containers.py:87`
+**Issue:** Rule 1 classifies a directory as `docs` only when `not children` (no subdirectories). A typical `docs/` container with nested subdirectories (`docs/api/`, `docs/guides/`) would never receive the `docs` classification — it falls through to the ambiguous bucket. This is a logic error: the classification should be based on the overall proportion of markdown content, not on whether any subdirectories exist at all.
+
+**Fix:** Remove the `not children` guard and extend the markdown-ratio check to cover both files and recursed children, or at minimum add a recursive markdown check:
+
+```python
+# Rule 1: docs container — predominantly markdown, no manifests anywhere
+total_files = sum(1 for p in d.rglob("*") if p.is_file() and not p.name.startswith("."))
+md_count = sum(1 for p in d.rglob("*.md") if not p.name.startswith("."))
+if total_files and not has_manifest_in_root and md_count / total_files >= DOC_THRESHOLD:
+    if not any(_has_manifest(c) for c in children):
+        return {"source": d.name, "classification": "docs", ...}
+```
+
+## Info
+
+### IN-01: `update_tokens.py` reconstructs `parts = raw.split("---", 2)` twice
+
+**File:** `cores/vault-io/src/vault_io/update_tokens.py:87,107`
+**Issue:** The same `raw.split("---", 2)` call appears at line 87 (for baseline construction) and again at line 107 (for the write path). This is redundant: `parts` from the first split is still in scope and valid. The duplication can cause confusion if one call is modified and the other is not.
+
+**Fix:**
+
+```python
+parts = raw.split("---", 2)
+if len(parts) < 3:
+    print(f"[warn] skipping {path}: no closing frontmatter fence", file=sys.stderr)
+    return ("skipped", 0)
+# ... use parts for both baseline and write path
+```
+
+---
+
+### IN-02: `Cargo.toml` multi-line `members` arrays are silently skipped in `_parse_cargo_toml`
+
+**File:** `cores/vault-io/src/vault_io/scan_monorepo.py:105`
+**Issue:** `_parse_cargo_toml` applies `re.search(r"members\s*=\s*\[(.*?)\]", s, re.DOTALL)` to a single line `s` inside the line-by-line loop. Real `Cargo.toml` files almost always declare members across multiple lines:
+
+```toml
+members = [
+  "crates/foo",
+  "crates/bar",
+]
+```
+
+The single-line regex never matches this form, so Rust workspaces with multi-line member arrays are silently treated as having no members. The `re.DOTALL` flag is ineffective when applied to a single-line string.
+
+**Fix:** Collect all lines in the `[workspace]` section first, then apply the regex to the full section text:
+
+```python
+if section == "[workspace]":
+    workspace_lines.append(s)
+# After the loop:
+workspace_text = "\n".join(workspace_lines)
+m = re.search(r"members\s*=\s*\[(.*?)\]", workspace_text, re.DOTALL)
+```
+
+---
+
+### IN-03: CI workflow `push` trigger has no branch filter — runs on every branch push
+
+**File:** `.github/workflows/ci.yml:3-5`
+**Issue:** The `on: push` trigger fires on every branch without restriction. For a solo project this is fine, but as the repo gains contributors or feature branches, every push (including WIP pushes) triggers a full CI run including `uv sync`. Adding a branch filter or a path filter prevents unnecessary runs.
+
+**Fix:**
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+```
+
+---
+
+_Reviewed: 2026-05-13T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
