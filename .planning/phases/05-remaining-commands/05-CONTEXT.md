@@ -26,20 +26,20 @@ Five deliverables:
 
 ### ingest Command
 
-- **D-01:** Port **both** `ingest_source.py` (source files: `.md/.txt/.html/.json/.csv`) AND `ingest_work_item.py` (work items / issues) from `lattice-wiki-core` into `vault_io`. Both are needed for full parity.
+- **D-01** [informational]: Port **both** `ingest_source.py` (source files: `.md/.txt/.html/.json/.csv`) AND `ingest_work_item.py` (work items / issues) from `lattice-wiki-core` into `vault_io`. Both are needed for full parity.
 - **D-02:** The `ingestor` subagent determines the **target page type** (package/concept/adr) AND generates the page summary. No deterministic routing — LLM receives the extracted source text and metadata and decides where to file it and what to write.
 - **D-03:** After writing a new or updated page, run a **full cross-reference update**: refresh `index.md` and update wikilink back-references in related pages. Full parity with lattice-wiki-core ingest behavior.
 - **D-04:** Two **separate CLI subcommands**: `code-wiki-agent ingest source <path>` and `code-wiki-agent ingest work-item <path>`. The MCP surface should mirror this split — planner decides whether to register two MCP tools (`wiki_ingest_source`, `wiki_ingest_work_item`) or one `wiki_ingest` tool with a `type` field.
 
 ### Scan Command
 
-- **D-05:** Scanner fan-out is **LLM-driven**: the scanner subagent receives package metadata + `build_file_map()` output + sampled source files (README, entry point, etc.) and uses LLM to write the stub page body. Stubs have meaningful content from day one.
-- **D-06:** Package discovery, diff, and file_map come from `scan_monorepo.py` (deterministic). Only stub *content generation* goes through the scanner subagent. `SubagentPool.run_all()` fans out across packages that need new/updated stubs.
+- **D-05** [informational]: Scanner fan-out is **LLM-driven**: the scanner subagent receives package metadata + `build_file_map()` output + sampled source files (README, entry point, etc.) and uses LLM to write the stub page body. Stubs have meaningful content from day one.
+- **D-06** [informational]: Package discovery, diff, and file_map come from `scan_monorepo.py` (deterministic). Only stub *content generation* goes through the scanner subagent. `SubagentPool.run_all()` fans out across packages that need new/updated stubs.
 - **D-07:** When scan detects a **renamed or deleted package**: mark the vault page with a `stale` tag in frontmatter, append a deletion/rename event to `log.md`. No auto-delete. The flag shows up in the `{added, updated, deleted}` JSON diff output (success criterion 2).
 
 ### Lint Command
 
-- **D-08:** Port **all 7 lint rule modules** from `lattice-wiki-core/lint/` (`container`, `dependency`, `domain`, `file_map`, `package_sync`, `source_sync`, `workflow_hints`) into `vault_io/lint/`. Full mechanical parity — this is what "full parity" means.
+- **D-08** [informational]: Port **all 7 lint rule modules** from `lattice-wiki-core/lint/` (`container`, `dependency`, `domain`, `file_map`, `package_sync`, `source_sync`, `workflow_hints`) into `vault_io/lint/`. Full mechanical parity — this is what "full parity" means.
 - **D-09:** Semantic LLM pass uses **3 broader rule-groups** (not one-per-module). Each group runs as a parallel linter subagent:
   1. **Page quality + contradictions** — intra-page coherence, internal contradictions, factual accuracy
   2. **ADR chain integrity** — ADR cross-references, decision history consistency
@@ -48,9 +48,9 @@ Five deliverables:
 
 ### `--config` Flag (CLI-05)
 
-- **D-11:** `--config <path>` is a **global app-level Typer option** (Typer callback pattern) — available on all subcommands automatically with no per-subcommand repetition.
-- **D-12:** The config file is a **full JSON/TOML config** covering models.toml path, default vault path, and other agent settings (not just models). Planner designs the schema — suggest: `models_path`, `vault_path`, `state_gate_enabled` as initial fields.
-- **D-13:** The MCP server reads config path from a **`CODE_WIKI_CONFIG` env var** — same pattern as `CODE_WIKI_REAL_VAULT_PATH`. No CLI argument to the MCP server process itself.
+- **D-11** [informational]: `--config <path>` is a **global app-level Typer option** (Typer callback pattern) — available on all subcommands automatically with no per-subcommand repetition.
+- **D-12** [informational]: The config file is a **full JSON/TOML config** covering models.toml path, default vault path, and other agent settings (not just models). Planner designs the schema — suggest: `models_path`, `vault_path`, `state_gate_enabled` as initial fields.
+- **D-13** [informational]: The MCP server reads config path from a **`CODE_WIKI_CONFIG` env var** — same pattern as `CODE_WIKI_REAL_VAULT_PATH`. No CLI argument to the MCP server process itself.
 
 ### Claude's Discretion
 
