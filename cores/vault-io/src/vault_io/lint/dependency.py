@@ -54,10 +54,13 @@ def check(pages: dict, *, workspaces: list[dict] | None = None) -> list[str]:
             family_name = (fm.get("family_name") or Path(key).name).strip()
             family_pages[family_name] = {"key": key, "fm": fm, "members": members}
 
-        # dep-detail-without-load-bearing: detail page exists ⇒ load_bearing must be true
-        load_bearing = (fm.get("load_bearing") or "").strip().lower()
-        if load_bearing not in ("true", "yes", "1"):
-            findings.append(f"{key}: dep-detail-without-load-bearing: detail page exists but load_bearing != true")
+        # dep-detail-without-load-bearing: package detail pages must declare load_bearing.
+        # Only applies to kind == "package" — service and package-family pages are not
+        # individual dependency detail pages in the same semantic sense.
+        if kind == "package":
+            load_bearing = (fm.get("load_bearing") or "").strip().lower()
+            if load_bearing not in ("true", "yes", "1"):
+                findings.append(f"{key}: dep-detail-without-load-bearing: detail page exists but load_bearing != true")
 
         # dep-stub-detail-page: body <15 lines beyond frontmatter
         body_lines = _body_line_count(page["text"])
