@@ -438,7 +438,8 @@ def bm25_query(
 
     # update_vocab=False: prevents expanding the frozen index vocabulary (Pitfall 1)
     query_tokens = tokenizer.tokenize([query_text], update_vocab=False)
-    results, scores = retriever.retrieve(query_tokens, k=top_k)
+    num_docs = retriever.scores["num_docs"]
+    results, scores = retriever.retrieve(query_tokens, k=min(top_k, num_docs))
 
     # results[0, i] is a dict {'id': int, 'text': str} when load_corpus=True
     def _corpus_text(item: object) -> str:
