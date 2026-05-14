@@ -99,10 +99,13 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
     (wiki / "index.md").write_text("# Index\n", encoding="utf-8")
     concepts_dir = wiki / "concepts"
     concepts_dir.mkdir()
+    # Use the exact placeholder formats: [[wiki/packages/...]] (contains ...) and
+    # [[work/<slug>]] (contains < and >). Per _is_placeholder_target(), these are
+    # filtered because they contain "...", "<", or ">" tokens.
     (concepts_dir / "test-page.md").write_text(
         "---\ntitle: Test Page\ncategory: concept\nsummary: test\nupdated: 2026-05-14\n---\n\n"
-        "[[wiki/packages/...]] placeholder should be ignored\n"
-        "[[work/bar]] placeholder should be ignored\n"
+        "[[wiki/packages/...]] placeholder should be ignored (contains ...)\n"
+        "[[work/<slug>]] placeholder should be ignored (contains <)\n"
         "[[real-broken]] this is really broken\n",
         encoding="utf-8",
     )
@@ -119,9 +122,11 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
         result = await run_lint(vault_path=wiki)
 
     broken_targets = [t for _, t in result.broken_links]
+    # Placeholder targets (... or < or >) must NOT appear in broken_links
     for t in broken_targets:
-        assert not t.startswith("wiki/"), f"Placeholder target leaked into broken_links: {t}"
-        assert not t.startswith("work/"), f"Placeholder target leaked into broken_links: {t}"
+        assert "..." not in t, f"Placeholder target with '...' leaked into broken_links: {t}"
+        assert "<" not in t, f"Placeholder target with '<' leaked into broken_links: {t}"
+    # The real broken link should appear
     assert any("real-broken" in t for t in broken_targets), (
         f"Expected 'real-broken' in broken_links, got: {result.broken_links}"
     )
@@ -162,9 +167,16 @@ def test_run_lint_log_gap_days_threshold_default_14() -> None:
 
 @pytest.mark.asyncio
 async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> None:
-    """run_lint calls all 7 lint module check() functions."""
+    """run_lint calls all 7 lint module check() functions.
+
+    We mock resolve_wiki_and_repo to return a non-None repo path so that all 7
+    module checks are exercised (the 4 repo-dependent checks are guarded by
+    repo is not None in _module_pass).
+    """
     wiki = tmp_path / "wiki"
     wiki.mkdir()
+    repo = tmp_path / "repo"
+    repo.mkdir()
     (wiki / "CLAUDE.md").write_text(
         "# wiki\n\n```yaml\nversion: 1\ncontainers: []\n```\n",
         encoding="utf-8",
@@ -183,6 +195,7 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
     mock_workflow = MagicMock(return_value=[])
 
     with (
+        patch("code_wiki_agent.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
         patch("code_wiki_agent.commands.lint.check_container_drift", mock_container),
         patch("code_wiki_agent.commands.lint.check_dependency_layer", mock_dependency),
         patch("code_wiki_agent.commands.lint.check_domain_placement", mock_domain),
