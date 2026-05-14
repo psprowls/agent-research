@@ -11,6 +11,7 @@ from typing import Optional
 
 import typer
 
+from code_wiki_agent.commands.log import run_log
 from code_wiki_agent.commands.query import run_query
 
 app = typer.Typer(
@@ -172,6 +173,28 @@ def query(
 
     if partial:
         raise typer.Exit(code=3)
+
+
+@app.command()
+def log(
+    op: str = typer.Option(..., "--op", help="Log operation type (scan/ingest/lint/create/update/delete/note/query)"),
+    title: str = typer.Option(..., "--title", help="Short title for the log entry"),
+    detail: Optional[str] = typer.Option(None, "--detail", help="Optional extended detail text"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit LogResult as JSON"),
+) -> None:
+    """Append a timestamped event to the wiki log.md."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_log(op=op, title=title, detail=detail, vault_path=vault_path))
+    except (RuntimeError, FileNotFoundError, SystemExit) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[{result.date}] {result.op}: {result.title}")
 
 
 if __name__ == "__main__":

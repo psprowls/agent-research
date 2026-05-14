@@ -142,6 +142,46 @@ async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
     )
 
 
+# --- wiki_log tool ---
+
+from code_wiki_agent.commands.log import LogResult, run_log  # noqa: E402
+
+
+class WikiLogInput(BaseModel):
+    op: str = Field(..., description="Log operation type (scan/ingest/lint/create/update/delete/note/query)")
+    title: str = Field(..., description="Short title for the log entry")
+    detail: str | None = Field(None, description="Optional extended detail")
+    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+
+
+class WikiLogOutput(BaseModel):
+    status: str
+    log_path: str
+    date: str
+    op: str
+    title: str
+    header: str
+
+
+@mcp.tool(name="wiki_log", description="Append a timestamped event to log.md.")
+async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    result: LogResult = await run_log(
+        op=input.op,
+        title=input.title,
+        detail=input.detail,
+        vault_path=vault,
+    )
+    return WikiLogOutput(
+        status=result.status,
+        log_path=result.log_path,
+        date=result.date,
+        op=result.op,
+        title=result.title,
+        header=result.header,
+    )
+
+
 def main() -> None:
     import os
 
