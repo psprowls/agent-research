@@ -190,6 +190,31 @@ def test_apply_guardrails_g1_no_warning_when_page_exists(tmp_path: Path) -> None
     assert "did not resolve" not in guarded.answer
 
 
+def test_apply_guardrails_g1_no_double_md_extension(tmp_path: Path) -> None:
+    """G1: citation already containing .md suffix (e.g. [[concepts/foo.md]]) resolves correctly.
+
+    Regression: prior implementation appended .md unconditionally, producing
+    'concepts/foo.md.md' which never existed even for valid drilled pages.
+    """
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+
+    # Create the page at its actual path (as returned by the search layer)
+    (tmp_path / "concepts").mkdir()
+    (tmp_path / "concepts" / "foo.md").write_text("content")
+
+    fan_result = FanOutResult(successes=[("concepts/foo.md", "excerpt")], errors=[])
+    result = QueryResult(
+        answer="see [[concepts/foo.md]] for info",
+        citations=["concepts/foo.md"],
+        pages_drilled=1,
+        search_scores={},
+    )
+    guarded = apply_guardrails(result, tmp_path, fan_result)
+    assert "did not resolve" not in guarded.answer
+
+
 # ---------------------------------------------------------------------------
 # Constants present
 # ---------------------------------------------------------------------------

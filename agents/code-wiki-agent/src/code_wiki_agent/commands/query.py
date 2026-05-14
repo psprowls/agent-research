@@ -309,11 +309,15 @@ def apply_guardrails(
         )
 
     # G1: citation resolution
+    # Links may already include .md (e.g. [[concepts/foo.md]]) or omit it
+    # (e.g. [[concepts/foo]]). Normalise before checking.
     unresolved: list[str] = []
     for link in _extract_wikilinks(result.answer):
-        candidate = vault_path / f"{link}.md"
+        link_path = link if link.endswith(".md") else f"{link}.md"
+        candidate = vault_path / link_path
         if not candidate.exists():
-            matches = list(vault_path.glob(f"**/{link}.md"))
+            base = link.removesuffix(".md")
+            matches = list(vault_path.glob(f"**/{base}.md"))
             if not matches:
                 unresolved.append(link)
 
