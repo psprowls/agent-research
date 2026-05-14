@@ -209,8 +209,14 @@ def _add_stale_tag(page_path: Path) -> None:
 
     text = page_path.read_text(encoding="utf-8")
 
-    # Already stale
-    if "stale: true" in text:
+    # Already stale — check only within frontmatter to avoid false positives
+    # from body prose that mentions "stale: true"
+    frontmatter_end = text.find("\n---", 3)
+    if frontmatter_end != -1:
+        frontmatter = text[:frontmatter_end]
+    else:
+        frontmatter = text
+    if "stale: true" in frontmatter:
         return
 
     # Insert stale: true as the first field after the opening ---
