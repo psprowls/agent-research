@@ -248,6 +248,8 @@ async def run_ingest_source(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    if repo is None:
+        repo = Path.cwd()
 
     # Step 2: extract text and title
     text, title = extract(source_path)

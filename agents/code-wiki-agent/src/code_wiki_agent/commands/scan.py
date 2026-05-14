@@ -268,6 +268,8 @@ async def run_scan(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    if repo is None:
+        repo = Path.cwd()
 
     # Step 2: read layout block
     pinned: list[dict] | None = None

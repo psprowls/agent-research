@@ -523,6 +523,8 @@ async def run_lint(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    if repo is None:
+        repo = Path.cwd()
     workspace = wiki.parent
 
     # Step 2: mechanical inline pass
