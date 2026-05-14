@@ -13,6 +13,7 @@ import typer
 
 from code_wiki_agent.commands.init import run_init
 from code_wiki_agent.commands.ingest import run_ingest_source, run_ingest_work_item
+from code_wiki_agent.commands.lint import run_lint
 from code_wiki_agent.commands.log import run_log
 from code_wiki_agent.commands.query import run_query
 from code_wiki_agent.commands.scan import run_scan
@@ -314,6 +315,81 @@ def ingest_work_item(
     else:
         typer.echo(f"[ok] Filed work item: {result.page_path}")
         typer.echo(f"     slug: {result.slug}")
+
+
+# ---------------------------------------------------------------------------
+# lint command
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def lint(
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    stale_days: int = typer.Option(90, "--stale-days", help="Days before a page is flagged as stale"),
+    log_gap_days: int = typer.Option(14, "--log-gap-days", help="Days before a log gap is flagged"),
+    json_output: bool = typer.Option(False, "--json", help="Emit LintResult as JSON"),
+) -> None:
+    """Run mechanical + semantic lint pass over the wiki and report findings."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_lint(vault_path=vault_path, stale_days=stale_days, log_gap_days=log_gap_days))
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        import dataclasses as _dc
+        typer.echo(json.dumps(_dc.asdict(result), indent=2, default=list))
+    else:
+        # Human-readable multi-section report
+        typer.echo(f"Code Wiki lint — {result.wiki}")
+        typer.echo(f"Total pages: {result.total_pages}")
+        typer.echo("")
+
+        def _section(label: str, items: list) -> None:
+            sym = "OK" if not items else "WARN"
+            typer.echo(f"[{sym}] {label}: {len(items)}")
+            for item in items[:20]:
+                typer.echo(f"   - {item}")
+            typer.echo("")
+
+        _section("Orphans", result.orphans)
+        broken = [f"{src} -> [[{tgt}]]" for src, tgt in result.broken_links]
+        _section("Broken wikilinks", broken)
+        stale_items = [f"{p} (updated {d})" for p, d in result.stale]
+        _section("Stale pages", stale_items)
+        _section("Missing frontmatter", result.missing_frontmatter)
+
+        if result.duplicate_titles:
+            typer.echo(f"[WARN] Duplicate titles: {len(result.duplicate_titles)}")
+            for title, keys in list(result.duplicate_titles.items())[:10]:
+                typer.echo(f"   - '{title}': {keys}")
+            typer.echo("")
+        else:
+            typer.echo("[OK] Duplicate titles: 0\n")
+
+        if result.log_gap:
+            typer.echo(
+                f"[WARN] Log gap: last entry {result.log_gap.get('last_entry')} "
+                f"({result.log_gap.get('days_ago')} days ago)\n"
+            )
+        else:
+            typer.echo("[OK] Log gap: recent\n")
+
+        _section("Container drift", result.container_drift)
+        _section("Source sync drift", result.source_sync_drift)
+        _section("File map drift", result.file_map_drift)
+        _section("Package sync drift", result.package_sync_drift)
+        _section("Domain placement", result.domain_placement)
+        _section("Workflow hints", result.workflow_hints)
+
+        for group, findings in result.semantic_findings.items():
+            _section(f"Semantic: {group}", findings)
+
+    if result.errors:
+        for err in result.errors:
+            typer.echo(f"  error: {err}", err=True)
+        raise typer.Exit(code=3)
 
 
 if __name__ == "__main__":

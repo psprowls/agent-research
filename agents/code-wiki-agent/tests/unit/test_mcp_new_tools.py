@@ -234,3 +234,64 @@ async def test_wiki_ingest_emits_progress() -> None:
     assert mock_ctx.report_progress.await_count >= 2, (
         f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
     )
+
+
+# ---------------------------------------------------------------------------
+# wiki_lint tool registration (Plan 05-06)
+# ---------------------------------------------------------------------------
+
+
+def test_wiki_lint_tool_registered() -> None:
+    """wiki_lint tool is importable and callable (MCP-01)."""
+    from code_wiki_mcp.server import wiki_lint
+
+    assert callable(wiki_lint)
+    assert wiki_lint.__name__ == "wiki_lint"
+
+
+def test_wiki_lint_input_schema() -> None:
+    """WikiLintInput has vault_path, stale_days, log_gap_days with correct defaults."""
+    from code_wiki_mcp.server import WikiLintInput
+
+    inp = WikiLintInput()
+    assert inp.vault_path == ""
+    assert inp.stale_days == 90
+    assert inp.log_gap_days == 14
+
+
+async def test_wiki_lint_emits_progress() -> None:
+    """wiki_lint calls ctx.report_progress at least 2 times (MCP-03)."""
+    from code_wiki_agent.commands.lint import LintResult
+    from code_wiki_mcp.server import WikiLintInput, wiki_lint
+
+    mock_result = LintResult(
+        wiki="/fake/wiki",
+        total_pages=5,
+        orphans=[],
+        broken_links=[],
+        stale=[],
+        missing_frontmatter=[],
+        duplicate_titles={},
+        log_gap=None,
+        code_drift={"skipped": True},
+        container_drift=[],
+        source_sync_drift=[],
+        file_map_drift=[],
+        package_sync_drift=[],
+        domain_placement=[],
+        workflow_hints=[],
+        dependency_layer=None,
+        semantic_findings={"page_quality": [], "adr_chain": [], "stale_claims": []},
+        errors=[],
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with patch("code_wiki_mcp.server.run_lint", new_callable=AsyncMock) as mock_run_lint:
+        mock_run_lint.return_value = mock_result
+        await wiki_lint(WikiLintInput(), mock_ctx)
+
+    assert mock_ctx.report_progress.await_count >= 2, (
+        f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
+    )
