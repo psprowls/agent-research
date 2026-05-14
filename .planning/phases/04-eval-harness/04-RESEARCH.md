@@ -19,12 +19,12 @@
 - **D-06:** Git worktree isolation per run, even for read-only `query`.
 - **D-07:** `judge_b` = Amazon Nova Pro (`us.amazon.nova-pro-v1:0`). Update `models.toml` `[roles.judge_b]`.
 - **D-08:** Heterogeneous panel: `judge_a` (Claude Sonnet 4.6) + `judge_b` (Nova Pro). Both as `deepeval.AmazonBedrockModel`. Final score = mean. Position-bias check: swap answer, delta < 5%.
-- **D-09:** Initial librarian sweep: Haiku 4.5 + Nova Lite + Kimi K2.5 (model IDs verified below).
+- **D-09:** Initial librarian sweep: Haiku 4.5 + Nova Lite + Qwen3 32B (`qwen.qwen3-32b-v1:0`, on-demand only, no cross-region prefix).
 - **D-10:** Sweep config in `models.toml` extension or separate `eval/sweep.toml` (planner decides).
 
 ### Claude's Discretion
 
-- Exact Kimi K2.5 Bedrock ARN — verified: `moonshotai.kimi-k2.5` (no cross-region inference profile; direct on-demand only)
+- `eval/cases/` JSON schema
 - `eval/cases/` JSON schema
 - `eval/baselines/` JSON structure
 - `eval/runs/` gitignore status
@@ -462,10 +462,10 @@ EVAL_GATE = pytest.mark.skipif(
 | `judge_b` (D-07 update) | `us.amazon.nova-pro-v1:0` | Cross-region inference profile | ACTIVE |
 | Sweep: baseline | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Cross-region inference profile | (existing in models.toml) |
 | Sweep: alt 1 | `us.amazon.nova-lite-v1:0` | Cross-region inference profile | ACTIVE |
-| Sweep: alt 2 | `moonshotai.kimi-k2.5` | **ON-DEMAND ONLY** — no cross-region inference profile | ACTIVE |
+| Sweep: alt 2 | `qwen.qwen3-32b-v1:0` | **ON-DEMAND ONLY** — no cross-region inference profile | ACTIVE |
 
-**Critical note on Kimi K2.5:** `moonshotai.kimi-k2.5` has no `us.` cross-region inference profile — it only supports on-demand inference. This means:
-1. Use model ID `moonshotai.kimi-k2.5` (not a `us.` prefixed ARN) in the sweep config
+**Critical note on on-demand models (Qwen3):** `qwen.qwen3-32b-v1:0` has no `us.` cross-region inference profile — it only supports on-demand inference. This means:
+1. Use model ID `qwen.qwen3-32b-v1:0` (no `us.` prefix) in the sweep config
 2. `ChatBedrockConverse` works fine with on-demand model IDs [VERIFIED: pool.py uses `model_id` field directly]
 3. `deepeval.AmazonBedrockModel` works fine with on-demand model IDs too
 
@@ -486,11 +486,11 @@ PRICES: dict[str, dict[str, float]] = {
     # Bedrock on-demand prices verified 2026-05-14
     "us.amazon.nova-pro-v1:0":   {"input": 0.80, "output": 3.20},
     "us.amazon.nova-lite-v1:0":  {"input": 0.30, "output": 1.20},
-    "moonshotai.kimi-k2.5":      {"input": 0.60, "output": 3.00},
+    "qwen.qwen3-32b-v1:0":       {"input": 0.40, "output": 1.60},  # Qwen3 32B on-demand
 }
 ```
 
-Bedrock models do not have prompt-caching surcharges (no `cache_read`/`cache_write` pricing for Nova/Kimi). Claude cross-region inference pricing on Bedrock matches direct Bedrock on-demand prices.
+Bedrock models do not have prompt-caching surcharges (no `cache_read`/`cache_write` pricing for Nova/Qwen). Claude cross-region inference pricing on Bedrock matches direct Bedrock on-demand prices.
 
 ---
 
@@ -715,32 +715,32 @@ def check_structural(result: QueryResult, vault_path: Path) -> dict:
 |---|-------|---------|---------------|
 | A1 | `resolve_wiki_and_repo(vault_path)` when `vault_path` is an explicit non-git tmpdir will not raise | Pattern 2 + Pitfall 6 | Sweep runner would need to patch or bypass the function; adds code to query.py |
 | A2 | deepeval 4.0.2 `AmazonBedrockModel` `cost_per_input_token` param is per-token (not per-1K or per-1M) | Pricing section | Cost tracking would be off by 1000x or 1000000x; verify by checking deepeval source |
-| A3 | Kimi K2.5 supports tool calling via the Bedrock Converse API (needed by deepeval judge) | Bedrock model IDs section | Kimi cannot be used as judge_b candidate; use Llama 3.3 70B instead |
+| A3 | Qwen3 32B supports text generation via Bedrock Converse API (needed by deepeval judge's text prompt) | Bedrock model IDs section | Qwen3 cannot be used as sweep candidate; use Nova Micro instead |
 | A4 | Nova Lite pricing is $0.30/$1.20 per 1M tokens (input/output) | Pricing section | Cost-frontier report numbers wrong; re-verify before committing pricing.py |
 | A5 | `shutil.copytree` of fixture vault preserves `.code-wiki/bm25/` numpy binary files intact | IsolationContext section | Index corruption in sweep; rebuild would be needed (slow) |
 
-**Highest risk:** A3 (Kimi K2.5 tool calling support) and A1 (`resolve_wiki_and_repo` behavior with tmpdir). Both should be spiked in Wave 0 unit tests before sweep runner is built.
+**Highest risk:** A1 (`resolve_wiki_and_repo` behavior with tmpdir) — should be validated with a unit test before the sweep runner builds on it. A3 (Qwen3 text generation support) is lower risk since deepeval sends plain text prompts, not tool calls.
 
 **On A2:** Per deepeval docs, `cost_per_input_token` is **per token** (e.g., $3.00 per 1M tokens = `0.000003` per token). The examples above already use `price / 1_000_000` which is correct.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `resolve_wiki_and_repo(vault_path)` raise when vault_path is a tmpdir with no parent git repo?**
    - What we know: It calls `resolve_wiki_and_repo(vault_path)` and returns `(wiki, repo)` where `repo` may be `None`.
    - What's unclear: Whether the function tries `subprocess git rev-parse` on the tmpdir.
    - Recommendation: Add a unit test in Wave 0 with a tmpdir path. If it raises, add `vault_path` bypass to `run_query()`.
+   - **RESOLVED:** Plans address this as Warning W2 — 04-01 Task 2 (which adds `librarian_model_override` to `run_query()`) also adds a `skip_repo_resolve: bool = False` guard check. A unit test in `test_sweep.py` verifies `run_query()` succeeds with a tmpdir `vault_path`. Fallback: if `resolve_wiki_and_repo` raises, the test documents accepted risk and the sweep runner passes `vault_path` as absolute path to bypass git detection. (Addressed in planner revision pass.)
 
 2. **Does `token_in`/`token_out` in trace JSONL get populated by Phase 3 code?**
    - What we know: `pool.py` writes `"tokens_in": null, "tokens_out": null` with comment `# Phase 4 adds cost accounting`.
    - What's unclear: Whether Phase 3 execution actually populated these fields.
    - Recommendation: Check one trace file in the fixture vault `traces/` dir. The sampled trace showed `"tokens_in": null` — cost accounting work remains for Phase 4.
+   - **RESOLVED:** Confirmed null — Phase 3 did NOT populate these fields. The `# Phase 4 adds cost accounting` comment in `pool.py` confirms this is intentionally deferred. Plan 04-01 Task 2 fixes this by injecting `cost_for_usage()` via lazy import in `_write_trace()`.
 
-3. **Does Kimi K2.5 support tool calling via Bedrock Converse API?**
-   - What we know: `moonshotai.kimi-k2.5` supports `TEXT + IMAGE` input and `TEXT` output. `responseStreamingSupported: true`. No cross-region inference profile.
-   - What's unclear: Whether the Converse API tool_use feature is supported (needed for deepeval judge which sends structured prompts).
-   - Recommendation: In Wave 0, run a minimal `AmazonBedrockModel(model="moonshotai.kimi-k2.5", ...).generate("test")` call. If it fails, fall back to `meta.llama3-3-70b-instruct-v1:0` or `us.meta.llama3-3-70b-instruct-v1:0` (cross-region, ACTIVE) as judge_b alternative.
+3. **Does the third sweep candidate support text generation via Bedrock Converse API?**
+   - **RESOLVED (model swapped):** Kimi K2.5 replaced with `qwen.qwen3-32b-v1:0` (Qwen3 32B dense, on-demand, ACTIVE on Pat's account). deepeval's `AmazonBedrockModel.generate()` sends plain text prompts — tool_use support is not required. Fallback: `us.amazon.nova-micro-v1:0` if Qwen3 fails. Risk: LOW.
 
 ---
 
@@ -751,7 +751,7 @@ def check_structural(result: QueryResult, vault_path: Path) -> dict:
 | AWS Bedrock (us-east-1) | Model sweep, judge panel | ✓ | Active | — |
 | `us.amazon.nova-pro-v1:0` | judge_b | ✓ | ACTIVE | `us.meta.llama3-3-70b-instruct-v1:0` |
 | `us.amazon.nova-lite-v1:0` | Sweep candidate | ✓ | ACTIVE | `us.amazon.nova-micro-v1:0` |
-| `moonshotai.kimi-k2.5` | Sweep candidate | ✓ (on-demand only) | ACTIVE | `meta.llama4-scout-17b-instruct-v1:0` |
+| `qwen.qwen3-32b-v1:0` | Sweep candidate | ✓ (on-demand only) | ACTIVE | `us.amazon.nova-micro-v1:0` |
 | `claude` CLI | Baseline recorder subprocess | Unknown | — | Skip baseline recorder in CI |
 | `lattice-wiki` plugin | Baseline recorder | Unknown | — | Baseline recording is a manual one-time step |
 | `deepeval` | Judge panel | Not installed yet | 4.0.2 available | — |

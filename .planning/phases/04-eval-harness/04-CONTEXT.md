@@ -48,7 +48,7 @@ First target: validate against the `query` command before any other command's ba
 
 ### Model Sweep Candidates (EVAL-04)
 
-- **D-09:** Initial librarian sweep: **Haiku 4.5** (current default, baseline speed/cost reference) + **Nova Lite** (cheapest Amazon alternative) + **Kimi K2.5** (researcher verifies the exact Bedrock model ID / cross-region ARN for Pat's account).
+- **D-09:** Initial librarian sweep: **Haiku 4.5** (current default, baseline speed/cost reference) + **Nova Lite** (cheapest Amazon alternative) + **Qwen3 32B** (`qwen.qwen3-32b-v1:0` — dense 32B, on-demand, no cross-region prefix needed).
 - **D-10:** Sweep configuration lives in `models.toml` or a separate `eval/sweep.toml` (planner decides); the sweep runner reads it to enumerate candidate models per role.
 
 ### Claude's Discretion
