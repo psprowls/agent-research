@@ -12,6 +12,7 @@ from typing import Optional
 import typer
 
 from code_wiki_agent.commands.init import run_init
+from code_wiki_agent.commands.ingest import run_ingest_source, run_ingest_work_item
 from code_wiki_agent.commands.log import run_log
 from code_wiki_agent.commands.query import run_query
 from code_wiki_agent.commands.scan import run_scan
@@ -250,6 +251,69 @@ def scan(
 
     if result.errors:
         raise typer.Exit(code=3)
+
+
+# ---------------------------------------------------------------------------
+# ingest sub-app
+# ---------------------------------------------------------------------------
+
+ingest_app = typer.Typer(help="Ingest a source file or work item into the wiki.")
+app.add_typer(ingest_app, name="ingest")
+
+
+@ingest_app.command(name="source")
+def ingest_source(
+    path: Path = typer.Argument(..., help="Path to the source file to ingest"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
+) -> None:
+    """Ingest a source file into the wiki via the ingestor LLM."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_ingest_source(path, vault_path))
+    except (RuntimeError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[ok] Ingested: {result.page_path}")
+        typer.echo(f"     page_type: {result.page_type}, slug: {result.slug}")
+
+
+@ingest_app.command(name="work-item")
+def ingest_work_item(
+    frontmatter: str = typer.Option(..., "--frontmatter", help="YAML frontmatter string for the work item"),
+    body: str = typer.Option(..., "--body", help="Markdown body text for the work item"),
+    slug: Optional[str] = typer.Option(None, "--slug", help="Page slug (derived from title if omitted)"),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing page"),
+    pkg_dir: Optional[Path] = typer.Option(None, "--pkg-dir", help="Optional vault package directory for work sub-page linking"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
+) -> None:
+    """File a structured work item into the wiki workspace."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(
+            run_ingest_work_item(
+                frontmatter_text=frontmatter,
+                body=body,
+                slug=slug,
+                force=force,
+                pkg_dir=pkg_dir,
+                vault_path=vault_path,
+            )
+        )
+    except (RuntimeError, ValueError, FileExistsError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[ok] Filed work item: {result.page_path}")
+        typer.echo(f"     slug: {result.slug}")
 
 
 if __name__ == "__main__":

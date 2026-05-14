@@ -282,6 +282,83 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
     )
 
 
+# --- wiki_ingest tool ---
+
+from typing import Literal  # noqa: E402
+
+from code_wiki_agent.commands.ingest import IngestResult, run_ingest_source, run_ingest_work_item  # noqa: E402
+
+
+class WikiIngestInput(BaseModel):
+    type: Literal["source", "work-item"] = Field(
+        ..., description="Ingest type: 'source' for files, 'work-item' for structured tickets"
+    )
+    source_path: str = Field("", description="Path to source file (required when type='source')")
+    frontmatter: str = Field("", description="YAML frontmatter string (required when type='work-item')")
+    body: str = Field("", description="Markdown body text (required when type='work-item')")
+    slug: str | None = Field(None, description="Page slug (derived from title if omitted)")
+    force: bool = Field(False, description="Overwrite existing page")
+    pkg_dir: str = Field("", description="Optional vault package directory path for work sub-page linking")
+    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+
+
+class WikiIngestOutput(BaseModel):
+    status: str
+    page_path: str
+    slug: str
+    title: str
+    page_type: str
+    source_path: str
+    cross_refs_updated: int
+
+
+@mcp.tool(
+    name="wiki_ingest",
+    description=(
+        "Ingest a source file or work item into the wiki. "
+        "Use type='source' to route a file through the ingestor LLM into the vault. "
+        "Use type='work-item' to file a structured work ticket into <workspace>/work/. "
+        "vault_path defaults to CODE_WIKI_REAL_VAULT_PATH env var."
+    ),
+)
+async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    await ctx.report_progress(progress=0, total=2, message="Starting ingest")
+    try:
+        if input.type == "source":
+            result: IngestResult = await run_ingest_source(
+                Path(input.source_path),
+                vault,
+            )
+        else:  # work-item
+            result = await run_ingest_work_item(
+                frontmatter_text=input.frontmatter,
+                body=input.body,
+                slug=input.slug,
+                force=input.force,
+                pkg_dir=Path(input.pkg_dir) if input.pkg_dir else None,
+                vault_path=vault,
+            )
+    except (ValueError, FileExistsError) as e:
+        # Surface validation errors as a structured MCP error (no stdout crash)
+        raise RuntimeError(f"ingest failed: {e}") from e
+
+    await ctx.report_progress(
+        progress=2,
+        total=2,
+        message=f"Ingest complete: {result.page_path}",
+    )
+    return WikiIngestOutput(
+        status=result.status,
+        page_path=result.page_path,
+        slug=result.slug,
+        title=result.title,
+        page_type=result.page_type,
+        source_path=result.source_path,
+        cross_refs_updated=result.cross_refs_updated,
+    )
+
+
 def main() -> None:
     import os
 
