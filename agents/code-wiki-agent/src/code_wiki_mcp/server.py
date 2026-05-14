@@ -359,6 +359,79 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
     )
 
 
+# --- wiki_lint tool ---
+
+from code_wiki_agent.commands.lint import LintResult, run_lint  # noqa: E402
+
+
+class WikiLintInput(BaseModel):
+    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    stale_days: int = Field(90, description="Days before a page is flagged as stale")
+    log_gap_days: int = Field(14, description="Days before a log gap is flagged")
+
+
+class WikiLintOutput(BaseModel):
+    wiki: str
+    total_pages: int
+    orphans: list[str]
+    broken_links: list[list[str]]  # tuples serialized as lists
+    stale: list[list[str]]  # tuples serialized as lists
+    missing_frontmatter: list[str]
+    duplicate_titles: dict
+    log_gap: dict | None
+    code_drift: dict
+    container_drift: list[str]
+    source_sync_drift: list[str]
+    file_map_drift: list[str]
+    package_sync_drift: list[str]
+    domain_placement: list[str]
+    workflow_hints: list[str]
+    dependency_layer: list[str] | None
+    semantic_findings: dict
+    errors: list[str]
+
+
+@mcp.tool(
+    name="wiki_lint",
+    description="Run mechanical + semantic lint pass over the wiki.",
+)
+async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    await ctx.report_progress(progress=0, total=2, message="Starting lint")
+    result: LintResult = await run_lint(
+        vault_path=vault,
+        stale_days=input.stale_days,
+        log_gap_days=input.log_gap_days,
+    )
+    n_mech = len(result.broken_links) + len(result.orphans) + len(result.missing_frontmatter)
+    n_sem = sum(len(v) for v in result.semantic_findings.values())
+    await ctx.report_progress(
+        progress=2,
+        total=2,
+        message=f"Lint complete: {n_mech} mechanical + {n_sem} semantic findings",
+    )
+    return WikiLintOutput(
+        wiki=result.wiki,
+        total_pages=result.total_pages,
+        orphans=result.orphans,
+        broken_links=[list(pair) for pair in result.broken_links],
+        stale=[list(pair) for pair in result.stale],
+        missing_frontmatter=result.missing_frontmatter,
+        duplicate_titles=result.duplicate_titles,
+        log_gap=result.log_gap,
+        code_drift=result.code_drift,
+        container_drift=result.container_drift,
+        source_sync_drift=result.source_sync_drift,
+        file_map_drift=result.file_map_drift,
+        package_sync_drift=result.package_sync_drift,
+        domain_placement=result.domain_placement,
+        workflow_hints=result.workflow_hints,
+        dependency_layer=result.dependency_layer,
+        semantic_findings=result.semantic_findings,
+        errors=result.errors,
+    )
+
+
 def main() -> None:
     import os
 

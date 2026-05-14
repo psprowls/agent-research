@@ -164,6 +164,12 @@ def _mechanical_pass(
     inbound: dict[str, set] = defaultdict(set)
     outbound: dict[str, set] = defaultdict(set)
 
+    # Build effective linted tops: the wiki directory name (usually "wiki") + "work",
+    # plus the wiki directory name for any vault that uses a different name (e.g. fixtures).
+    # This matches lint_wiki.py behavior where LINTED_TOPS = {"wiki", "work"} and the
+    # vault is always named "wiki".
+    effective_linted_tops = LINTED_TOPS | {wiki.name}
+
     for md in workspace.rglob("*.md"):
         rel = md.relative_to(workspace)
         # Exclude any path that has a dotdir component (.graph/, .obsidian/, etc.)
@@ -187,7 +193,7 @@ def _mechanical_pass(
             "path": key + ".md",
             "fm": fm,
             "text": text,
-            "linted": top in LINTED_TOPS,
+            "linted": top in effective_linted_tops,
             "is_work": top == "work",
         }
 
