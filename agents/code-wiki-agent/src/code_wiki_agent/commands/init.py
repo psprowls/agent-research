@@ -58,6 +58,8 @@ async def run_init(
         RuntimeError: If wiki creation fails.
     """
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    if repo is None:
+        repo = Path.cwd()
     logger.debug("run_init: wiki=%s repo=%s topic=%r tool=%r force=%r", wiki, repo, topic, tool, force)
     result = init_wiki(
         wiki_path=wiki,
