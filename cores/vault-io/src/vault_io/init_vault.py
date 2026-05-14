@@ -26,8 +26,11 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.detect_containers import detect as _detect_containers
@@ -84,17 +87,23 @@ def _resolve_pinned_containers(repo: Path, non_interactive: bool) -> list[dict]:
     """Run the detector, prompt for ambiguous rows, return the pinned list."""
     records = _detect_containers(repo)
     if records and records[0]["classification"] == "single-package":
-        print("Detected: single-package repo (no structural containers).")
+        if not non_interactive:
+            print("Detected: single-package repo (no structural containers).")
+        else:
+            logger.info("Detected: single-package repo (no structural containers).")
         return []
     if not records:
         return []
 
-    print(f"Detected {len(records)} top-level container(s):")
-    print()
-    for r in records:
-        src = r["source"] or "<root>"
-        print(f"  {src:30s} -> {r['classification']:14s} ({r['children_count']} children) - {r['reason']}")
-    print()
+    if not non_interactive:
+        print(f"Detected {len(records)} top-level container(s):")
+        print()
+        for r in records:
+            src = r["source"] or "<root>"
+            print(f"  {src:30s} -> {r['classification']:14s} ({r['children_count']} children) - {r['reason']}")
+        print()
+    else:
+        logger.info("Detected %d top-level container(s).", len(records))
 
     pinned = []
     for r in records:
@@ -128,8 +137,8 @@ def _error(message, as_json=False):
     if as_json:
         print(json.dumps({"status": "error", "message": message}))
     else:
-        print(f"[error] {message}", file=sys.stderr)
-    sys.exit(1)
+        logger.error("%s", message)
+    raise RuntimeError(message)
 
 
 def init_wiki(
@@ -258,18 +267,17 @@ def init_wiki(
         print(json.dumps(result, indent=2))
         return result
 
-    print(f"[ok] Initialized Code Wiki at: {wiki_path}")
-    print(f"     Workspace: {workspace_path}")
-    print(f"     Repo:      {repo_path}")
-    print(f"     Topic:     {topic}")
-    print(f"     Tool:      {tool}")
-    print(f"     Installed: {', '.join(installed_files)}")
-    print(f"     Page templates copied: {template_count}")
-    print()
-    print("Next steps:")
-    print(f"  1. Open {workspace_path} in Obsidian (workspace root)")
-    print("  2. Run /lattice-wiki:scan to populate wiki/packages/")
-    print(f"  3. Stage a source under {workspace_path}/raw/ and run /lattice-wiki:ingest <path>")
+    logger.info("[ok] Initialized Code Wiki at: %s", wiki_path)
+    logger.info("     Workspace: %s", workspace_path)
+    logger.info("     Repo:      %s", repo_path)
+    logger.info("     Topic:     %s", topic)
+    logger.info("     Tool:      %s", tool)
+    logger.info("     Installed: %s", ", ".join(installed_files))
+    logger.info("     Page templates copied: %d", template_count)
+    logger.info("Next steps:")
+    logger.info("  1. Open %s in Obsidian (workspace root)", workspace_path)
+    logger.info("  2. Run /lattice-wiki:scan to populate wiki/packages/")
+    logger.info("  3. Stage a source under %s/raw/ and run /lattice-wiki:ingest <path>", workspace_path)
     return result
 
 

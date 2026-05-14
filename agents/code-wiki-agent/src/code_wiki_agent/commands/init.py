@@ -56,7 +56,6 @@ async def run_init(
 
     Raises:
         RuntimeError: If wiki creation fails.
-        SystemExit: If init_wiki calls sys.exit() on error (converted upstream).
     """
     wiki, repo = resolve_wiki_and_repo(vault_path)
     logger.debug("run_init: wiki=%s repo=%s topic=%r tool=%r force=%r", wiki, repo, topic, tool, force)
@@ -67,6 +66,7 @@ async def run_init(
         tool=tool,
         force=force,
         non_interactive=True,
+        as_json=True,  # suppress stdout prints — required for MCP safety
     )
     return InitResult(
         status=result["status"],
