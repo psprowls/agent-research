@@ -161,6 +161,7 @@ class WikiLogOutput(BaseModel):
     op: str
     title: str
     header: str
+    detail: str | None = None
 
 
 @mcp.tool(name="wiki_log", description="Append a timestamped event to log.md.")
@@ -179,6 +180,7 @@ async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
         op=result.op,
         title=result.title,
         header=result.header,
+        detail=result.detail,
     )
 
 
