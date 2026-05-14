@@ -133,3 +133,66 @@ def test_mcp_wiki_ping_returns_pong():
     assert "pong" in blob, f"'pong' missing from result: {blob}"
     assert "hello" in blob, f"'hello' (echoed input) missing from result: {blob}"
     assert tool_resp["result"].get("isError") is False, f"tools/call result flagged as error: {tool_resp!r}"
+
+
+import os
+
+
+INTEGRATION_GATE = pytest.mark.skipif(
+    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
+    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run integration tests",
+)
+
+
+def _send_tools_list() -> dict:
+    """Build a tools/list request."""
+    return {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/list",
+        "params": {},
+    }
+
+
+@pytest.mark.integration
+@INTEGRATION_GATE
+def test_wiki_query_in_tools_list() -> None:
+    """tools/list response from code-wiki-mcp includes wiki_query with hybrid description (MCP-07).
+
+    Gated by CODE_WIKI_RUN_INTEGRATION=1 because the subprocess launch
+    triggers import of code_wiki_agent.commands.query, which imports bm25s,
+    langchain-aws, and other heavy deps that might fail without AWS config.
+    The test is intentionally lightweight (no Bedrock calls) but requires
+    a working install of all deps.
+    """
+    if shutil.which("uv") is None:
+        pytest.skip("uv not on PATH; required to spawn code-wiki-mcp")
+
+    stdout, stderr = _run_server(
+        [
+            _send_initialize(),
+            _send_initialized_notification(),
+            _send_tools_list(),
+        ]
+    )
+
+    responses = [json.loads(line) for line in stdout.splitlines() if line.strip()]
+    # Find the response to id=3 (the tools/list).
+    list_resp = next((r for r in responses if r.get("id") == 3), None)
+    assert list_resp is not None, (
+        f"No response with id=3 (tools/list).\nResponses: {responses!r}\nstderr: {stderr[:500]}"
+    )
+    assert "result" in list_resp, f"tools/list had no result: {list_resp!r}"
+
+    tools = list_resp["result"].get("tools", [])
+    tool_names = [t.get("name") for t in tools]
+    assert "wiki_query" in tool_names, (
+        f"wiki_query not found in tools/list response.\nTool names: {tool_names!r}\nstderr: {stderr[:500]}"
+    )
+
+    # Verify description contains the expected signal strings (MCP-02)
+    wiki_query_tool = next(t for t in tools if t.get("name") == "wiki_query")
+    description = wiki_query_tool.get("description", "")
+    assert "hybrid" in description or "BM25" in description, (
+        f"wiki_query description missing 'hybrid'/'BM25' signal.\ndescription: {description!r}"
+    )
