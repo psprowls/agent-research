@@ -1,19 +1,18 @@
-from __future__ import annotations
+"""Vault isolation layer for eval sweeps.
 
-"""EvalWorktree: isolated copy of a vault for one eval run.
+EvalWorktree copies the source vault to a fresh tmpdir on enter and removes
+the tmpdir on exit. This ensures each sweep run is isolated — trace JSONL
+files from different runs don't collide, and no run can corrupt the fixture
+vault source.
 
-Creates a temporary directory, copies the source vault into it via
-shutil.copytree, and cleans up on __aexit__. The .code-wiki/ subdirectory
-(pre-built BM25 + SQLite indexes) is included in the copy so each run
-starts with a fully-initialized vault.
-
-This is a simplified port of lattice-evals/isolation.py — the OAuth,
-git-worktree, and CLAUDE_CONFIG_DIR management sections are dropped
-because the code-wiki-agent eval uses --plugin-dir flags instead.
+The copy includes .code-wiki/ (BM25 index + SQLite embedding DB) so indexes
+travel with the vault. No index rebuild is needed at sweep time.
 
 Threat mitigation T-4-01: source_vault is anchored to caller-supplied
 Path; no user input is interpolated into the copy operation.
 """
+
+from __future__ import annotations
 
 import shutil
 import tempfile
@@ -21,29 +20,27 @@ from pathlib import Path
 
 
 class EvalWorktree:
-    """Isolated copy of a vault for one eval run.
+    """Async context manager that copies a vault into a fresh tmpdir.
 
-    Uses shutil.copytree into a tempdir — not a git worktree.
-    Sufficient for read-heavy query eval where git history is irrelevant.
-    Cleans up on __aexit__.
+    Usage:
+        async with EvalWorktree(source_vault) as wt:
+            result = await run_query(query, vault_path=wt.path)
 
-    Usage::
-
-        async with EvalWorktree(vault_path) as wt:
-            result = run_headless(prompt=..., worktree_path=wt.path, ...)
+    The tmpdir (and all contents) is removed on __aexit__, even on error.
+    Two concurrent EvalWorktrees always get distinct paths.
     """
 
     def __init__(self, source_vault: Path) -> None:
         self._source = source_vault
         self.path: Path | None = None
-        self._tmp: Path | None = None
+        self._tmp: str | None = None
 
     async def __aenter__(self) -> EvalWorktree:
-        self._tmp = Path(tempfile.mkdtemp(prefix="eval-wt-"))
-        self.path = self._tmp / "vault"
+        self._tmp = tempfile.mkdtemp(prefix="eval-wt-")
+        self.path = Path(self._tmp) / "vault"
         shutil.copytree(self._source, self.path, dirs_exist_ok=False)
         return self
 
     async def __aexit__(self, *exc: object) -> None:
-        if self._tmp and self._tmp.exists():
-            shutil.rmtree(self._tmp, ignore_errors=True)
+        if self._tmp and Path(self._tmp).exists():
+            shutil.rmtree(Path(self._tmp), ignore_errors=True)
