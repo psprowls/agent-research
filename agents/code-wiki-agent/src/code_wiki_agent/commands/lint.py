@@ -295,7 +295,12 @@ def _mechanical_pass(
     log_gap = None
     if log_path.exists():
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
-        dates = [dt.date.fromisoformat(m) for m in LOG_ENTRY_RE.findall(log_text)]
+        dates = []
+        for m in LOG_ENTRY_RE.findall(log_text):
+            try:
+                dates.append(dt.date.fromisoformat(m))
+            except ValueError:
+                pass  # malformed date in log header — skip
         if dates:
             last = max(dates)
             gap = (today - last).days
