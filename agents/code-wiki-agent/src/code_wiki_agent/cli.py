@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+import dataclasses
 import importlib.metadata
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import typer
+
+from code_wiki_agent.commands.query import run_query
 
 app = typer.Typer(
     name="code-wiki-agent",
@@ -118,6 +123,43 @@ def trace(file: Path) -> None:
         )
     typer.echo("")
     typer.echo("Cost USD: (Phase 4)")
+
+
+@app.command()
+def query(
+    query_text: str = typer.Argument(..., help="Natural language query"),
+    top_k: int = typer.Option(5, "--top-k", help="Pages to drill (3-10)", min=3, max=10),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit QueryResult as JSON"),
+    no_state_gate: bool = typer.Option(False, "--no-state-gate", help="No-op; query is read-only"),
+    quiet: bool = typer.Option(False, "--quiet", help="Suppress progress output (headless mode)"),
+) -> None:
+    """Query the wiki using hybrid BM25+embedding search with librarian fan-out."""
+    # state gate is a no-op for query (read-only) — D-08
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_query(query_text, vault_path, top_k=top_k))
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    partial = result.pages_drilled < top_k
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(result.answer)
+        if result.citations:
+            typer.echo(f"\nCitations: {', '.join(result.citations)}")
+        if not quiet:
+            # Non-TTY mode: route meta line to stderr so stdout is clean for piping
+            typer.echo(
+                f"Pages drilled: {result.pages_drilled}",
+                err=not sys.stdout.isatty(),
+            )
+
+    if partial:
+        raise typer.Exit(code=3)
 
 
 if __name__ == "__main__":

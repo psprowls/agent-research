@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Hybrid BM25 + embedding search layer for code-wiki-agent.
+"""Hybrid BM25 + embedding search layer and query pipeline for code-wiki-agent.
 
 Public API (Plan 02):
     build_index(vault_path)          -- Build/refresh BM25 + SQLite embedding index
@@ -10,21 +10,35 @@ Public API (Plan 02):
     _rrf_fuse(bm25_ranks, embed_ranks, k) -- Reciprocal Rank Fusion
     _cosine_search_sqlite(vault_path, query_vec, top_k) -- Cosine similarity search
 
-Plan 03 will add: run_query(), QueryResult, librarian fan-out, synthesizer.
+Public API (Plan 03):
+    QueryResult                      -- Dataclass: answer, citations, pages_drilled, search_scores
+    LIBRARIAN_SYSTEM                 -- System prompt for librarian role
+    SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role
+    run_query(query, vault_path, top_k) -- End-to-end query pipeline
+    apply_guardrails(result, vault_path, fan_result) -- G1 + G4 online guardrails
+    _extract_wikilinks(text)         -- Extract [[wikilink]] targets from text
 """
 
+import datetime
 import hashlib
+import json
 import logging
 import math
 import re
 import sqlite3
 import struct
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 import bm25s
 from bm25s.tokenization import Tokenizer
 from langchain_aws import BedrockEmbeddings
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from model_adapter.loader import load_role_config, make_llm
+from subagent_runtime.pool import FanOutResult, SubagentPool
+from vault_io._workspace import resolve_wiki_and_repo
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +124,46 @@ CREATE TABLE IF NOT EXISTS pages (
 )
 """
 _PRAGMA_WAL = "PRAGMA journal_mode=WAL"
+
+# ---------------------------------------------------------------------------
+# Plan 03: System prompt constants (AI-SPEC §3 lines 216-228)
+# ---------------------------------------------------------------------------
+
+LIBRARIAN_SYSTEM = (
+    "You are a wiki librarian. Given a user query and a single wiki page, "
+    "extract every passage from the page that is directly relevant to the query. "
+    "Quote the relevant text verbatim, annotating each excerpt with its wikilink. "
+    "If the page contains nothing relevant, respond with exactly: NO_RELEVANT_CONTENT"
+)
+
+SYNTHESIZER_SYSTEM = (
+    "You are a wiki synthesizer. Given a user query and a set of excerpts from "
+    "relevant wiki pages, produce a concise, accurate answer. "
+    "Cite every wiki page you draw from using [[wikilink]] notation. "
+    "Include direct file paths and code references when present in the excerpts."
+)
+
+
+# ---------------------------------------------------------------------------
+# Plan 03: QueryResult dataclass
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class QueryResult:
+    """Result of a run_query() call.
+
+    Fields:
+        answer:        Synthesized answer string (may contain [[wikilink]] tokens).
+        citations:     List of wikilink targets extracted from the answer.
+        pages_drilled: Number of librarian fan-out calls that succeeded.
+        search_scores: Per-page scores dict: {page_path: {bm25, embed, rrf}}.
+    """
+
+    answer: str
+    citations: list[str]
+    pages_drilled: int
+    search_scores: dict  # {page_path: {"bm25": float, "embed": float, "rrf": float}}
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +261,76 @@ def _cosine_search_sqlite(
         results.append((path, score))
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:top_k]
+
+
+# ---------------------------------------------------------------------------
+# Plan 03: wikilink extraction
+# ---------------------------------------------------------------------------
+
+
+def _extract_wikilinks(text: str) -> list[str]:
+    """Extract [[wikilink]] target strings from text."""
+    return re.findall(r"\[\[([^\]]+)\]\]", text)
+
+
+# ---------------------------------------------------------------------------
+# Plan 03: Online guardrails (G1 + G4)
+# ---------------------------------------------------------------------------
+
+
+def apply_guardrails(
+    result: QueryResult,
+    vault_path: Path,
+    fan_result: FanOutResult,
+) -> QueryResult:
+    """Apply online guardrails G1 and G4. Returns a (possibly mutated) QueryResult.
+
+    G4 (empty-result safety): If fan_result.successes is empty AND result.citations
+    is non-empty, clear citations and prepend an unsupported-answer warning.
+    G4 runs BEFORE G1 to avoid false-positive unresolved-citation warnings on
+    an already-cleared citation list.
+
+    G1 (citation resolution): For each [[wikilink]] in result.answer, check if
+    vault_path/<link>.md exists (direct or via glob). Unresolved citations trigger
+    an appended warning listing them.
+    """
+    flags: list[str] = []
+
+    # G4: empty excerpts + confident citations
+    if not fan_result.successes and result.citations:
+        flags.append(
+            "[warning: no librarian excerpts; answer is unsupported by retrieved pages]"
+        )
+        result = QueryResult(
+            answer=result.answer,
+            citations=[],  # clear to avoid G1 false-positives
+            pages_drilled=result.pages_drilled,
+            search_scores=result.search_scores,
+        )
+
+    # G1: citation resolution
+    unresolved: list[str] = []
+    for link in _extract_wikilinks(result.answer):
+        candidate = vault_path / f"{link}.md"
+        if not candidate.exists():
+            matches = list(vault_path.glob(f"**/{link}.md"))
+            if not matches:
+                unresolved.append(link)
+
+    if unresolved:
+        flags.append(
+            f"[warning: {len(unresolved)} citation(s) did not resolve: {unresolved}]"
+        )
+
+    if flags:
+        flagged_answer = result.answer + "\n" + "\n".join(flags)
+        return QueryResult(
+            answer=flagged_answer,
+            citations=result.citations,
+            pages_drilled=result.pages_drilled,
+            search_scores=result.search_scores,
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -322,3 +446,164 @@ def bm25_query(
     page_paths = [_corpus_text(results[0, i]) for i in range(results.shape[1])]
     bm25_scores = [float(scores[0, i]) for i in range(scores.shape[1])]
     return page_paths, bm25_scores
+
+
+# ---------------------------------------------------------------------------
+# Plan 03: run_query — end-to-end query pipeline
+# ---------------------------------------------------------------------------
+
+
+async def run_query(
+    query: str,
+    vault_path: Path | None = None,
+    top_k: int = 5,
+) -> QueryResult:
+    """End-to-end query: hybrid search -> librarian fan-out -> synthesis -> guardrails.
+
+    Steps:
+        1. Resolve vault path via resolve_wiki_and_repo().
+        2. Auto-build index if missing (.code-wiki/bm25/ or .code-wiki/search.db absent).
+        3. BM25 search (top_k * 3 candidates).
+        4. Embedding search via Titan v2 (top_k * 3 candidates).
+        5. RRF fusion -> top_k pages.
+        6. Librarian fan-out via SubagentPool.run_all (role=librarian, max_concurrency=5).
+        7. Synthesizer call (single, Sonnet, 4096 tokens).
+        8. Build QueryResult with search_scores per top page.
+        9. Apply G1 + G4 guardrails.
+        10. Return guarded QueryResult.
+
+    Args:
+        query:      Natural language query string.
+        vault_path: Path to vault root. None uses CODE_WIKI_REAL_VAULT_PATH env var.
+        top_k:      Pages to drill. Must be in [3, 10].
+
+    Raises:
+        RuntimeError: If top_k out of range or vault not resolvable.
+    """
+    if not (3 <= top_k <= 10):
+        raise RuntimeError(
+            f"top_k must be between 3 and 10 (got {top_k})"
+        )
+
+    query_id = uuid.uuid4().hex[:12]
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+
+    # Step 1: resolve vault
+    wiki, _ = resolve_wiki_and_repo(vault_path)
+
+    # Step 2: auto-build index if missing
+    bm25_dir = wiki / ".code-wiki" / _BM25_SUBDIR
+    db_path = wiki / ".code-wiki" / _SEARCH_DB_NAME
+    if not bm25_dir.exists() or not db_path.exists():
+        logger.warning(
+            "First-time index build — may take a moment. query_id=%s", query_id
+        )
+        build_index(wiki)
+
+    # Step 3: BM25 search (over-retrieve: top_k * 3)
+    bm25_paths, bm25_raw = bm25_query(query, wiki, top_k * 3)
+    bm25_rank_map = {p: i + 1 for i, p in enumerate(bm25_paths)}
+    bm25_score_map = {p: s for p, s in zip(bm25_paths, bm25_raw)}
+
+    # Step 4: Embedding search
+    embeddings = BedrockEmbeddings(
+        model_id="amazon.titan-embed-text-v2:0",  # no "us." prefix for Titan
+        region_name="us-east-1",
+        normalize=True,
+    )
+    query_vec = embeddings.embed_query(query)
+    embed_hits = _cosine_search_sqlite(wiki, query_vec, top_k * 3)
+    embed_rank_map = {path: i + 1 for i, (path, _) in enumerate(embed_hits)}
+    embed_score_map = {path: score for path, score in embed_hits}
+
+    # Step 5: RRF fusion -> top_k pages
+    fused = _rrf_fuse(bm25_rank_map, embed_rank_map)
+    top_pages = sorted(fused, key=fused.get, reverse=True)[:top_k]  # type: ignore[arg-type]
+
+    # Step 6: Librarian fan-out
+    lib_cfg = load_role_config("librarian")
+    librarian_llm = make_llm("librarian")
+    pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
+
+    async def drill_page(page_path: str) -> str:
+        page_text = (wiki / page_path).read_text(encoding="utf-8", errors="replace")
+        # Truncation guard per AI-SPEC §4b.4: cap at 24000 chars
+        if len(page_text) > 24000:
+            page_text = page_text[:24000] + "\n[TRUNCATED]"
+            logger.warning("Truncated oversized page: %s", page_path)
+        msgs = [
+            SystemMessage(content=LIBRARIAN_SYSTEM),
+            HumanMessage(content=f"Query: {query}\n\nPage ({page_path}):\n{page_text}"),
+        ]
+        resp = await librarian_llm.ainvoke(msgs)
+        return resp.content
+
+    fan_result: FanOutResult = await pool.run_all(
+        items=top_pages,
+        task=drill_page,
+        role="librarian",
+        model_id=lib_cfg["model_id"],
+        max_concurrency=lib_cfg["max_concurrency"],
+    )
+
+    # Step 7: Synthesizer (single call)
+    excerpts_text = "\n\n---\n\n".join(
+        f"[{item}]\n{result}"
+        for item, result in fan_result.successes
+        if (result or "").strip() != "NO_RELEVANT_CONTENT"
+    )
+    # Optional safety truncation per AI-SPEC §4b.4
+    if len(excerpts_text) > 60000:
+        logger.warning(
+            "Truncating librarian excerpts before synthesis (query_id=%s)", query_id
+        )
+        excerpts_text = excerpts_text[:60000]
+
+    synth_llm = make_llm("synthesizer")
+    synth_msgs = [
+        SystemMessage(content=SYNTHESIZER_SYSTEM),
+        HumanMessage(content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"),
+    ]
+    synth_resp = await synth_llm.ainvoke(synth_msgs)
+
+    # Step 8: Build QueryResult with search_scores
+    answer = synth_resp.content
+    query_result = QueryResult(
+        answer=answer,
+        citations=_extract_wikilinks(answer),
+        pages_drilled=len(fan_result.successes),
+        search_scores={
+            p: {
+                "bm25": bm25_score_map.get(p, 0.0),
+                "embed": embed_score_map.get(p, 0.0),
+                "rrf": fused.get(p, 0.0),
+            }
+            for p in top_pages
+        },
+    )
+
+    # Step 9: Apply guardrails (G1 + G4)
+    query_result = apply_guardrails(query_result, wiki, fan_result)
+
+    # Write query summary trace record (RESEARCH Open Question 1 — write directly)
+    ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    summary_file = trace_dir / f"query_{query_id}.jsonl"
+    try:
+        summary_record = {
+            "kind": "query_summary",
+            "query_id": query_id,
+            "query": query,
+            "top_k": top_k,
+            "pages_retrieved": len(top_pages),
+            "pages_drilled": query_result.pages_drilled,
+            "started_at": started_at,
+            "ended_at": ended_at,
+        }
+        with summary_file.open("w") as f:
+            f.write(json.dumps(summary_record) + "\n")
+    except OSError as exc:
+        logger.warning("Could not write query summary trace: %s", exc)
+
+    return query_result
