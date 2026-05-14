@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "pkg-lookup-01",
+    "query": "What does lattice-wiki-core do?",
+    "expected_answer": "lattice-wiki-core provides the core wiki maintenance logic",
+    "tags": ["package-lookup"]
+  },
+  {
+    "case_id": "concept-01",
+    "query": "How does the wiki index work?",
+    "expected_answer": "the wiki index tracks package pages and enables BM25 search",
+    "tags": ["concept"]
+  },
+  {
+    "case_id": "cross-ref-01",
+    "query": "Which packages use lattice-source-parser?",
+    "expected_answer": "lattice-wiki-core uses lattice-source-parser for source ingestion",
+    "tags": ["cross-reference"]
+  },
+  {
+    "case_id": "format-01",
+    "query": "What is the log.md format?",
+    "expected_answer": "log.md uses append-only entries with op and title headers",
+    "tags": ["log", "format"]
+  }
+]

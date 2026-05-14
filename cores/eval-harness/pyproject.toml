@@ -1,0 +1,31 @@
+[project]
+name = "eval-harness"
+version = "0.1.0"
+description = "Deterministic eval checks, pricing, and sweep runner for code-wiki-agent"
+requires-python = ">=3.11"
+dependencies = [
+    "deepeval>=4.0.0",
+    "pytest-evals>=0.3.4",
+    "python-frontmatter>=1.1.0",
+    "code-wiki-agent",
+    "subagent-runtime",
+    "model-adapter",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+code-wiki-agent = { workspace = true }
+subagent-runtime = { workspace = true }
+model-adapter = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = [
+    "integration: requires real Bedrock (skipped by default)",
+    "eval: requires CODE_WIKI_RUN_EVAL=1 to run sweep evaluations",
+]
