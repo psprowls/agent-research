@@ -101,7 +101,13 @@ Plans:
 4. Structural metrics (wikilinks resolve, all packages present, frontmatter valid, output matches expected JSON schema) pass on every run without requiring LLM calls; `@pytest.mark.eval` marks eval cases as opt-in and CI-skippable
 5. Each eval result JSON includes the concrete model ARN (not alias), prompt hash, timestamp, and seed; a regression check raises a CI-friendly failure if quality drops below the configured threshold for any role
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Package scaffold + pricing + structural + query.py/pool.py/models.toml modifications (EVAL-01, EVAL-02, EVAL-06, EVAL-07)
+- [ ] 04-02-PLAN.md — EvalWorktree isolation + sweep runner (EVAL-04, EVAL-06, EVAL-08)
+- [ ] 04-03-PLAN.md — Judge panel + cost-frontier report + pytest-evals integration (EVAL-05, EVAL-07, EVAL-09, EVAL-10)
+- [ ] 04-04-PLAN.md — Baseline recorder: headless claude -p subprocess port from lattice-evals (EVAL-03, EVAL-08)
 
 ---
 
@@ -126,10 +132,10 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure, Vault IO, and MCP Skeleton | 0/4 | Not started | - |
+| 1. Infrastructure, Vault IO, and MCP Skeleton | 0/5 | Not started | - |
 | 2. Subagent Fan-Out Runtime | 0/3 | Not started | - |
-| 3. Query Vertical Slice + Hybrid Search | 0/0 | Not started | - |
-| 4. Eval Harness | 0/0 | Not started | - |
+| 3. Query Vertical Slice + Hybrid Search | 0/4 | Not started | - |
+| 4. Eval Harness | 0/4 | Ready to execute | - |
 | 5. Remaining Commands | 0/0 | Not started | - |
 
 ---
@@ -146,3 +152,6 @@ Plans:
 | lint wikilink placeholder filter before any wikilink resolver | Phase 5 success criterion 3 + VAULT-06 in Phase 1 |
 | Bedrock IAM (cross-region inference profiles) is explicit Phase 1 gate | Phase 1 success criterion 2 + BED-01 in Phase 1 |
 | MCP-08 (anti-features not in v1) documented in Phase 1 | MCP-08 maps to Phase 1 as a documented constraint |
+| judge_b = Nova Pro (us.amazon.nova-pro-v1:0) — verified ACTIVE on Pat's account | Phase 4 models.toml modification (04-01) + D-07 |
+| IsolationContext = shutil.copytree to tmpdir (not git worktree) | Phase 4 isolation.py — fixture vault is not a git HEAD; pre-built indexes travel with vault |
+| eval/runs/ is gitignored; eval/baselines/ is committed | Phase 4 — baselines are the oracle; run outputs are transient |
