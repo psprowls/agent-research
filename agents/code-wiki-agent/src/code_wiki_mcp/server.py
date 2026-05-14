@@ -232,6 +232,56 @@ async def wiki_init(input: WikiInitInput, ctx: Context) -> WikiInitOutput:
     )
 
 
+# --- wiki_scan tool ---
+
+from code_wiki_agent.commands.scan import ScanResult, run_scan  # noqa: E402
+
+
+class WikiScanInput(BaseModel):
+    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    no_file_map: bool = Field(False, description="Skip per-package file-map generation")
+    max_depth: int = Field(3, description="Max directory depth for file map headers")
+
+
+class WikiScanOutput(BaseModel):
+    added: list[str]
+    updated: list[str]
+    deleted: list[str]
+    renamed: list[list[str]]
+    errors: list[str]
+    state_gate: dict
+
+
+@mcp.tool(
+    name="wiki_scan",
+    description="Walk repo, diff packages vs vault, create/update stubs via scanner fan-out.",
+)
+async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    await ctx.report_progress(progress=0, total=2, message="Starting scan")
+    result: ScanResult = await run_scan(
+        vault_path=vault,
+        no_file_map=input.no_file_map,
+        max_depth=input.max_depth,
+    )
+    added = len(result.added)
+    updated = len(result.updated)
+    deleted = len(result.deleted)
+    await ctx.report_progress(
+        progress=2,
+        total=2,
+        message=f"Scan complete: +{added} ~{updated} -{deleted}",
+    )
+    return WikiScanOutput(
+        added=result.added,
+        updated=result.updated,
+        deleted=result.deleted,
+        renamed=result.renamed,
+        errors=result.errors,
+        state_gate=result.state_gate,
+    )
+
+
 def main() -> None:
     import os
 
