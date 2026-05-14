@@ -32,8 +32,10 @@ def main_callback(
     """code-wiki-agent: AWS Bedrock-powered wiki maintenance."""
     if config is not None:
         import code_wiki_agent.config as _cfg_module
+        from model_adapter.loader import set_models_path
 
         _cfg_module._active_config = _cfg_module.load_config(config)
+        set_models_path(_cfg_module._active_config.models_path)
 
 
 @app.command()

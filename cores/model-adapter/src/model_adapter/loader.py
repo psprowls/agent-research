@@ -24,8 +24,20 @@ from langchain_aws import ChatBedrockConverse
 
 from model_adapter.exceptions import BedrockAccessDenied
 
+# Override set by the CLI/MCP startup when WikiConfig.models_path is configured.
+_models_path_override: str | None = None
+
+
+def set_models_path(path: str | None) -> None:
+    """Point the loader at a custom models.toml, or pass None to use the bundled default."""
+    global _models_path_override
+    _models_path_override = path
+
 
 def _load_models_config() -> dict:
+    if _models_path_override:
+        with open(_models_path_override, "rb") as f:
+            return tomllib.load(f)
     # models.toml is bundled inside the model_adapter package (src/model_adapter/models.toml)
     # so it is accessible under any install mode (editable, wheel, or zip).
     with resources.files("model_adapter").joinpath("models.toml").open("rb") as f:

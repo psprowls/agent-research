@@ -1,0 +1,57 @@
+# Model role overrides — Qwen fan-out configuration
+# Fan-out roles (scanner, linter, ingestor): Qwen3 32B (on-demand, no us. prefix)
+# Reasoning roles (librarian, synthesizer): Qwen3 Coder 480B A35B
+
+[roles.haiku]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 1024
+max_concurrency = 10
+
+[roles.sonnet]
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+
+[roles.librarian]
+model_id        = "qwen.qwen3-coder-480b-a35b-instruct-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
+
+[roles.scanner]
+model_id        = "qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 500
+max_concurrency = 10
+
+[roles.linter]
+model_id        = "qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 3000
+max_concurrency = 10
+
+[roles.ingestor]
+model_id        = "qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+
+[roles.synthesizer]
+model_id        = "qwen.qwen3-coder-480b-a35b-instruct-v1:0"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 1
+
+[roles.judge_a]
+model_id        = "us.anthropic.claude-sonnet-4-6"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
+
+[roles.judge_b]
+model_id        = "us.amazon.nova-pro-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2

@@ -9,6 +9,6 @@ Public API:
 from __future__ import annotations
 
 from model_adapter.exceptions import BedrockAccessDenied
-from model_adapter.loader import load_role_config, make_llm
+from model_adapter.loader import load_role_config, make_llm, set_models_path
 
-__all__ = ["BedrockAccessDenied", "load_role_config", "make_llm"]
+__all__ = ["BedrockAccessDenied", "load_role_config", "make_llm", "set_models_path"]
