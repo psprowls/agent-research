@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-"""MCP tool registration tests for wiki_scan (Plan 05-04).
+"""MCP tool registration tests for wiki_scan (Plan 05-04) and wiki_ingest (Plan 05-05).
 
 Requirements: MCP-01, MCP-03.
-Tests for wiki_ingest and wiki_lint remain as stubs for plan-05-05/06.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -122,3 +121,116 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
     assert result.renamed == [["x", "y"]]
     assert result.errors == []
     assert result.state_gate["allowed"] is True
+
+
+# ---------------------------------------------------------------------------
+# wiki_ingest tool registration (Plan 05-05)
+# ---------------------------------------------------------------------------
+
+
+def test_wiki_ingest_tool_registered() -> None:
+    """wiki_ingest tool is importable and callable (MCP-01)."""
+    from code_wiki_mcp.server import wiki_ingest
+
+    assert callable(wiki_ingest)
+    assert wiki_ingest.__name__ == "wiki_ingest"
+
+
+def test_wiki_ingest_input_type_discriminator() -> None:
+    """WikiIngestInput has a type field with Literal['source','work-item'] (D-04)."""
+    from code_wiki_mcp.server import WikiIngestInput
+    import typing
+
+    inp_source = WikiIngestInput(type="source", source_path="/some/file.md")
+    assert inp_source.type == "source"
+
+    inp_work = WikiIngestInput(type="work-item", frontmatter="title: X", body="Body.")
+    assert inp_work.type == "work-item"
+
+
+async def test_wiki_ingest_dispatches_to_source() -> None:
+    """wiki_ingest with type='source' calls run_ingest_source, not run_ingest_work_item."""
+    from code_wiki_agent.commands.ingest import IngestResult
+    from code_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="concepts/foo.md",
+        slug="foo",
+        title="Foo",
+        page_type="concept",
+        source_path="/some/file.md",
+        cross_refs_updated=1,
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with (
+        patch("code_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
+        patch("code_wiki_mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
+    ):
+        mock_source.return_value = mock_result
+        await wiki_ingest(WikiIngestInput(type="source", source_path="/some/file.md"), mock_ctx)
+
+    mock_source.assert_called_once()
+    mock_work_item.assert_not_called()
+
+
+async def test_wiki_ingest_dispatches_to_work_item() -> None:
+    """wiki_ingest with type='work-item' calls run_ingest_work_item, not run_ingest_source."""
+    from code_wiki_agent.commands.ingest import IngestResult
+    from code_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="work/2026-05-14-fix-bug.md",
+        slug="fix-bug",
+        title="Fix Bug",
+        page_type="work",
+        source_path="",
+        cross_refs_updated=1,
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with (
+        patch("code_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
+        patch("code_wiki_mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
+    ):
+        mock_work_item.return_value = mock_result
+        await wiki_ingest(
+            WikiIngestInput(type="work-item", frontmatter="title: Fix Bug", body="Body."),
+            mock_ctx,
+        )
+
+    mock_work_item.assert_called_once()
+    mock_source.assert_not_called()
+
+
+async def test_wiki_ingest_emits_progress() -> None:
+    """wiki_ingest calls ctx.report_progress at least 2 times (MCP-03)."""
+    from code_wiki_agent.commands.ingest import IngestResult
+    from code_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="concepts/bar.md",
+        slug="bar",
+        title="Bar",
+        page_type="concept",
+        source_path="/path/bar.md",
+        cross_refs_updated=1,
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with patch("code_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source:
+        mock_source.return_value = mock_result
+        await wiki_ingest(WikiIngestInput(type="source", source_path="/path/bar.md"), mock_ctx)
+
+    assert mock_ctx.report_progress.await_count >= 2, (
+        f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
+    )
