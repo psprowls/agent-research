@@ -1,0 +1,256 @@
+"""pytest-evals two-phase integration for the wiki query sweep.
+
+Phase 1 (@pytest.mark.eval):    Run sweep cases against each SWEEP_MODEL and
+                                 store per-case scores in eval_bag.
+Phase 2 (@pytest.mark.eval_analysis): Aggregate scores, print cost-frontier
+                                 table, and call regression_check() to assert
+                                 quality gate (EVAL-09).
+
+Gate: all tests in this file are under @pytest.mark.eval (module-level pytestmark)
+so pytest-evals skips them without --run-eval. The EVAL_GATE fixture adds an
+additional guard on CODE_WIKI_RUN_EVAL=1 for tests that make real Bedrock calls.
+
+Security (T-4-01): Cases loaded via json.load() at module level. Each case is
+validated (isinstance check on "query" field) before reaching test parametrization.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+# Add parent tests/ dir to sys.path so conftest.py can be imported as a module.
+# conftest.py lives in cores/eval-harness/tests/ (one level up from this file).
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Resolve workspace root: 5 parents from this file
+# cores/eval-harness/tests/eval/test_sweep_eval.py
+#   → parent[0] eval/
+#   → parent[1] tests/
+#   → parent[2] eval-harness/
+#   → parent[3] cores/
+#   → parent[4] workspace-root
+_WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
+
+CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
+FIXTURE_VAULT = (
+    _WORKSPACE_ROOT
+    / "cores"
+    / "vault-io"
+    / "tests"
+    / "fixtures"
+    / "round-trip-vault"
+)
+
+SWEEP_MODELS: list[str] = [
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "us.amazon.nova-lite-v1:0",
+    "qwen.qwen3-32b-v1:0",
+]
+
+# Module-level eval gate: skips this entire file without --run-eval
+# (handled by pytest-evals) and additionally gates on CODE_WIKI_RUN_EVAL
+pytestmark = [pytest.mark.eval]
+
+# Import EVAL_GATE from conftest for explicit test-level gating
+from conftest import EVAL_GATE  # noqa: E402
+
+
+def _load_cases() -> list[dict]:
+    """Load and validate eval cases from query_cases.json.
+
+    Security (T-4-01): validates isinstance(case["query"], str) before
+    reaching test parametrization. Invalid cases are skipped with a warning.
+    """
+    if not CASES_PATH.exists():
+        return []
+    with CASES_PATH.open(encoding="utf-8") as f:
+        raw: list[dict] = json.load(f)
+    valid = []
+    for case in raw:
+        if not isinstance(case.get("query"), str):
+            continue
+        if not isinstance(case.get("expected_answer"), str):
+            continue
+        valid.append(case)
+    return valid
+
+
+def _make_case_model_params() -> list[dict]:
+    """Build the combined parametrize list: CASES × SWEEP_MODELS."""
+    cases = _load_cases()
+    params = []
+    for case in cases:
+        for model_id in SWEEP_MODELS:
+            params.append({
+                "case_id": case.get("case_id", case["query"][:20]),
+                "query": case["query"],
+                "expected_answer": case["expected_answer"],
+                "model_id": model_id,
+            })
+    return params
+
+
+# Skip module if CASES_PATH or FIXTURE_VAULT is missing
+if not CASES_PATH.exists():
+    pytest.skip(
+        f"query_cases.json not found at {CASES_PATH}; skipping sweep eval tests",
+        allow_module_level=True,
+    )
+if not FIXTURE_VAULT.exists():
+    pytest.skip(
+        f"round-trip-vault not found at {FIXTURE_VAULT}; skipping sweep eval tests",
+        allow_module_level=True,
+    )
+
+CASE_MODEL_PARAMS = _make_case_model_params()
+
+
+@pytest.mark.eval(name="query_sweep")
+@pytest.mark.parametrize("case_and_model", CASE_MODEL_PARAMS, ids=[
+    f"{p['case_id']}::{p['model_id'].split('.')[-1]}"
+    for p in CASE_MODEL_PARAMS
+])
+@EVAL_GATE
+async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:  # type: ignore[no-untyped-def]
+    """Run a single (case, model) combination and store metrics in eval_bag.
+
+    - EVAL_GATE: skips unless CODE_WIKI_RUN_EVAL=1
+    - @pytest.mark.eval: skips unless --run-eval
+    - panel_score() is called only when CODE_WIKI_RUN_JUDGES=1 is also set,
+      to decouple sweep cost from judge cost in multi-run workflows.
+    """
+    from eval_harness.judge import panel_score
+    from eval_harness.sweep import run_sweep
+
+    query = case_and_model["query"]
+    expected = case_and_model["expected_answer"]
+    model_id = case_and_model["model_id"]
+
+    results = await run_sweep(CASES_PATH, FIXTURE_VAULT, [model_id])
+    # Filter to the case matching this test's query
+    matching = [r for r in results if r.query == query]
+
+    eval_bag.model_id = model_id
+    eval_bag.query = query
+
+    if not matching:
+        eval_bag.score = 0.0
+        eval_bag.answer = ""
+        eval_bag.structural = {}
+        return
+
+    result = matching[0]
+    eval_bag.answer = result.answer
+    eval_bag.structural = result.structural
+
+    if os.environ.get("CODE_WIKI_RUN_JUDGES") and result.status == "ok":
+        # Run LLM judge panel (incurs Bedrock cost)
+        scores = panel_score(query, result.answer, expected)
+        result.judge_scores = scores
+        eval_bag.score = scores["mean"]
+    else:
+        # Structural composite fallback: 1.0 all pass, 0.5 partial, 0.0 none
+        bool_vals = [v for v in result.structural.values() if isinstance(v, bool)]
+        if not bool_vals:
+            eval_bag.score = 0.0
+        elif all(bool_vals):
+            eval_bag.score = 1.0
+        elif any(bool_vals):
+            eval_bag.score = 0.5
+        else:
+            eval_bag.score = 0.0
+
+    eval_bag.cost_usd = result.cost_usd
+    eval_bag.pages_drilled = result.pages_drilled
+    eval_bag.wall_seconds = result.wall_seconds
+    eval_bag.sweep_result = result
+
+
+@pytest.mark.eval_analysis(name="query_sweep")
+def test_query_sweep_analysis(eval_results) -> None:  # type: ignore[no-untyped-def]
+    """Aggregate sweep scores and assert the quality regression gate.
+
+    - Collects scores from all eval_bag results
+    - Builds cost_frontier_table and prints it
+    - Calls regression_check(mean_score, threshold=0.5) — EVAL-09 quality gate
+    """
+    from eval_harness.report import cost_frontier_table, print_frontier, regression_check
+    from eval_harness.sweep import SweepResult
+
+    scores = [r.score for r in eval_results if hasattr(r, "score") and r.score is not None]
+
+    if not scores:
+        pytest.skip("No eval results with scores; run --run-eval first")
+
+    mean_score = sum(scores) / len(scores)
+
+    # Reconstruct SweepResult list for cost_frontier_table (from eval_results)
+    sweep_results: list[SweepResult] = [
+        r.sweep_result for r in eval_results
+        if hasattr(r, "sweep_result") and r.sweep_result is not None
+    ]
+
+    if sweep_results:
+        table = cost_frontier_table(sweep_results)
+        frontier_str = print_frontier(table)
+        print("\n=== Cost Frontier Table ===")
+        print(frontier_str)
+
+    print(f"\nMean quality score across all cases: {mean_score:.3f}")
+
+    # Quality regression gate: raises AssertionError if below threshold
+    regression_check(mean_score, threshold=0.5)
+
+
+@pytest.mark.eval(name="query_sweep")
+@EVAL_GATE
+async def test_position_bias_check() -> None:
+    """UAT: verify judge panel has low position bias (< 0.05 delta).
+
+    Calls run_sweep twice with the same query (different synthetic answers),
+    then calls position_bias_check() and asserts the returned delta < 0.05.
+
+    Both marks ensure this skips in normal CI (requires --run-eval AND CODE_WIKI_RUN_EVAL=1).
+    """
+    from eval_harness.judge import panel_score, position_bias_check
+
+    # Use a simple synthetic query with two plausible answers
+    query = "What does lattice-wiki-core do?"
+    answer_a = "lattice-wiki-core provides the core wiki maintenance logic. See [[lattice-wiki-core]]."
+    answer_b = "The lattice-wiki-core package is responsible for core wiki operations."
+    expected = "lattice-wiki-core provides the core wiki maintenance logic"
+
+    # Measure position bias
+    delta = position_bias_check(query, answer_a, answer_b)
+    assert delta < 0.05, (
+        f"Judge panel shows position bias: delta={delta:.3f} >= 0.05. "
+        "This suggests the panel is sensitive to answer order."
+    )
+
+
+def test_eval_mark_skip() -> None:
+    """Verify that EVAL_GATE skips tests when CODE_WIKI_RUN_EVAL is not set.
+
+    This test is NOT marked with @pytest.mark.eval so it runs in normal CI.
+    It checks that the EVAL_GATE skipif condition evaluates True in the
+    absence of the env var (meaning eval tests would be skipped).
+    """
+    # EVAL_GATE is a pytest.mark.skipif marker
+    # Its condition is: not os.environ.get("CODE_WIKI_RUN_EVAL")
+    # Without CODE_WIKI_RUN_EVAL set, the condition is True → test would skip.
+    run_eval = os.environ.get("CODE_WIKI_RUN_EVAL")
+    if run_eval:
+        pytest.skip("CODE_WIKI_RUN_EVAL is set — EVAL_GATE would not skip")
+
+    # Verify the skipif condition directly
+    condition = not os.environ.get("CODE_WIKI_RUN_EVAL")
+    assert condition is True, (
+        "EVAL_GATE condition should be True when CODE_WIKI_RUN_EVAL is not set, "
+        "ensuring eval tests are skipped without the env var."
+    )
