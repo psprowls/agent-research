@@ -1,0 +1,154 @@
+# {{WIKI_NAME}} — Code Wiki
+
+> **Topic:** {{TOPIC}}
+> **Repo:** {{REPO_PATH}}
+> **Initialized:** {{DATE}}
+> **Tool:** Any AGENTS.md-aware CLI (Codex, Cursor, Antigravity, OpenCode, Gemini CLI, etc.). Claude Code uses `CLAUDE.md`, which is identical.
+
+You are the maintainer of this wiki. You read from `../raw/` (immutable ingested sources, owned by `lattice-workspace`) and from the repo's source code. You write to pages under this wiki directory. You never edit `../raw/`.
+
+## Where the wiki sits
+
+This wiki is a sibling of other workspace-level directories. Obsidian opens at the workspace root, so the sidebar shows them all together:
+
+```
+<workspace>/                  → e.g. <repo>/lattice/. Obsidian vault opens here.
+├── .lattice.yaml             → workspace manifest (owned by lattice-workspace)
+├── CLAUDE.md / AGENTS.md     → workspace-level schema (owned by lattice-workspace)
+├── raw/                      → ingested sources. IMMUTABLE. Owned by lattice-workspace.
+├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by lattice-workspace.
+├── knowledge/                → other plugin-managed knowledge stores
+└── wiki/                     → this wiki — you own everything here
+    ├── AGENTS.md             → this file
+    └── …                     → curated pages described below
+```
+
+Paths below are relative to the wiki root unless prefixed with `../`.
+
+## Wiki structure
+
+```
+index.md                  → content catalog
+log.md                    → append-only timeline
+apps/                     → [conditional] one folder per application workspace
+└── <app>/
+    └── <app>.md          →   the app overview (category: app)
+packages/                 → [conditional] cross-domain library/service packages
+└── <pkg>/
+    └── <pkg>.md          →   the package overview (category: package)
+domains/                  → [conditional] feature areas across packages
+└── <domain>/
+    ├── <domain>.md       →   the domain overview (category: domain)
+    └── packages/         →   the domain's workspace packages
+        └── <pkg>/
+            └── <pkg>.md
+concepts/                 → cross-cutting patterns
+dependencies/             → external libraries (index.md auto-generated)
+sources/                  → one summary per ingested source (cites files in ../raw/)
+architecture/             → high-level syntheses
+adrs/                     → decision records
+.templates/               → reference templates
+```
+
+Work items live at `../work/` (sibling of this wiki, owned by `lattice-workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
+
+## Page frontmatter
+
+```yaml
+---
+title: <Title>
+category: app | package | domain | concept | dependency | work | source | architecture | adr
+summary: <one-line summary>
+tags: [tag1, tag2]
+updated: YYYY-MM-DD
+---
+```
+
+Per-category extra fields — see the plugin's `references/page-formats.md`.
+
+## The four operations
+
+### Scan
+
+When the user says "scan the monorepo" or "update package pages":
+
+1. Run `scan_monorepo.py --json` (workspace and repo discovered automatically)
+2. Present the diff (new / renamed / deleted)
+3. Wait for confirmation on renames and deletions
+4. Create / update package pages
+5. Update `index.md`, append a `scan` log entry
+
+### Ingest
+
+When the user says "ingest this spec/article/PR", points you at a file in `../raw/`, or hands you an in-repo `.md` doc (surfaced by /lattice-wiki:scan):
+
+1. Run `ingest_source.py --source <path>` (wiki and repo discovered automatically). Read the source directly.
+2. **Discuss with the user first** — TL;DR, key claims, pages you'll touch, contradictions with code
+3. Wait for confirmation
+4. Create/merge `sources/<YYYY-MM>-<slug>.md`. For in-repo docs, set `last_sync_commit` and `last_sync_at` in frontmatter so lint can detect drift later
+5. Update every relevant package/domain/concept page
+6. Propose an ADR if the source represents a decision
+7. Flag contradictions
+8. Update `index.md`, append an `ingest` log entry
+9. Report touched pages
+
+PDF/DOCX support is deferred — only `.md` docs are auto-surfaced for now.
+
+### Query
+
+When the user asks a question:
+
+1. Read `index.md` first
+2. Pick 3-10 relevant pages across categories
+3. Read them in full
+4. Follow wikilinks; fall back to `wiki_search.py` or reading code
+5. Synthesize with inline `[[wikilinks]]` + `` `code-paths:line` ``
+6. Offer to file the answer back
+
+### Lint
+
+Periodically or when the user says "check the wiki":
+
+1. Run `lint_wiki.py` for mechanical checks **including code drift** (workspace and repo discovered automatically)
+2. Run `graph_analyzer.py` for structure
+3. Semantic checks: contradictions, stale claims, concept gaps, stale work items (`../work/` items past their target date), ADR chain
+4. Produce a markdown report with suggested actions
+5. Append a `lint` log entry
+
+## Iron rules
+
+1. **The code is the source of truth.** Wiki↔code disagreement → update the wiki.
+2. **`../raw/` is immutable.**
+3. **All wiki writes go under this wiki directory.** Work items go to `../work/`.
+4. **Every wiki page has YAML frontmatter.**
+5. **Every scan/ingest touches ≥3 files.**
+6. **Every claim cites a wiki page or code path.**
+7. **Contradictions get flagged inline.**
+8. **Good answers get filed back.**
+
+## Log format
+
+```
+## [YYYY-MM-DD] <op> | <title>
+<optional detail>
+```
+
+Ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+
+## Tools
+
+Python scripts live wherever the plugin is installed. Standard library only.
+
+- `init_vault.py`, `scan_monorepo.py`, `ingest_source.py`
+- `update_index.py`, `append_log.py`
+- `wiki_search.py`, `lint_wiki.py`, `graph_analyzer.py`, `export_marp.py`
+
+Run any with `--help`.
+
+## Style
+
+- Concise. Wiki pages are read, not generated.
+- Short paragraphs. Bulleted lists where appropriate.
+- Cite aggressively with `[[wikilinks]]` and `` `code-paths:line` ``.
+- Say "I don't know" when you don't. Don't invent content.
+- Update `updated:` whenever you touch a page.

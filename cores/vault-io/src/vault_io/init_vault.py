@@ -36,9 +36,7 @@ from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.detect_containers import detect as _detect_containers
 from vault_io.layout_io import write_layout as _write_layout
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-PLUGIN_DIR = SCRIPT_DIR.parent
-ASSETS_DIR = PLUGIN_DIR / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 FIXED_VAULT_DIRS = [
     "concepts",
