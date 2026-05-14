@@ -54,8 +54,12 @@ sys.stdout = _StdoutGuard()  # type: ignore[assignment]
 # stdout chatter (boto3, botocore, anyio, etc.) trips the guard loudly.
 import logging  # noqa: E402
 
-from mcp.server.fastmcp import FastMCP  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
+from code_wiki_agent.commands.query import QueryResult, run_query  # noqa: E402
 
 # --- Redirect all logging to stderr ---
 logging.basicConfig(
@@ -92,6 +96,50 @@ class PingOutput(BaseModel):
 )
 def wiki_ping(input: PingInput) -> PingOutput:
     return PingOutput(status="pong", echo=input.message)
+
+
+# --- wiki_query tool ---
+
+class WikiQueryInput(BaseModel):
+    query: str
+    vault_path: str = ""  # empty -> resolve from CODE_WIKI_REAL_VAULT_PATH env var
+    top_k: int = Field(default=5, ge=3, le=10)  # 3-10 range enforced (MCP-04)
+
+
+class WikiQueryOutput(BaseModel):
+    answer: str
+    citations: list[str]
+    pages_drilled: int
+    search_scores: dict  # {page_path: {"bm25": float, "embed": float, "rrf": float}}
+
+
+@mcp.tool(
+    name="wiki_query",
+    description=(
+        "Query the code wiki using hybrid BM25+embedding search with parallel librarian "
+        "analysis. Returns an answer with [[wikilink]] citations. "
+        "vault_path defaults to CODE_WIKI_REAL_VAULT_PATH env var."
+    ),
+)
+async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    await ctx.report_progress(progress=0, total=input.top_k, message="Starting hybrid search")
+    result: QueryResult = await run_query(
+        query=input.query,
+        vault_path=vault,
+        top_k=input.top_k,
+    )
+    await ctx.report_progress(
+        progress=result.pages_drilled,
+        total=input.top_k,
+        message=f"Synthesized from {result.pages_drilled} pages",
+    )
+    return WikiQueryOutput(
+        answer=result.answer,
+        citations=result.citations,
+        pages_drilled=result.pages_drilled,
+        search_scores=result.search_scores,
+    )
 
 
 def main() -> None:
