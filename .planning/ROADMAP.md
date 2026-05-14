@@ -128,7 +128,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 05-01-PLAN.md — Config module + log + init vertical slice + Wave 0 test stubs (CMD-01, CMD-06, MCP-01)
+- [x] 05-01-PLAN.md — Config module + log + init vertical slice + Wave 0 test stubs (CMD-01, CMD-06, MCP-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 05-02-PLAN.md — Port 7 lint mechanical rule modules from lattice-wiki-core into vault_io (CMD-05)
