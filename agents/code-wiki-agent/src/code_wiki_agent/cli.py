@@ -14,6 +14,7 @@ import typer
 from code_wiki_agent.commands.init import run_init
 from code_wiki_agent.commands.log import run_log
 from code_wiki_agent.commands.query import run_query
+from code_wiki_agent.commands.scan import run_scan
 
 app = typer.Typer(
     name="code-wiki-agent",
@@ -220,6 +221,35 @@ def init(
         typer.echo(f"[ok] Initialized wiki at: {result.wiki_path}")
         typer.echo(f"     raw/: {result.raw_path}")
         typer.echo(f"     work/: {result.work_path}")
+
+
+@app.command()
+def scan(
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    no_file_map: bool = typer.Option(False, "--no-file-map", help="Skip per-package file-map generation"),
+    max_depth: int = typer.Option(3, "--max-depth", help="Max directory depth for file map headers"),
+    json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
+) -> None:
+    """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_scan(vault_path=vault_path, no_file_map=no_file_map, max_depth=max_depth))
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        added = len(result.added)
+        updated = len(result.updated)
+        deleted = len(result.deleted)
+        typer.echo(f"Scan complete: +{added} ~{updated} -{deleted}")
+        for err in result.errors:
+            typer.echo(f"  error: {err}", err=True)
+
+    if result.errors:
+        raise typer.Exit(code=3)
 
 
 if __name__ == "__main__":
