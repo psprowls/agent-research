@@ -286,7 +286,8 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
         result = await run_query("test query", vault_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
-    assert result.answer == "Answer about [[FakePage]]."
+    # The synthesizer answer is present (guardrails may append warnings)
+    assert "Answer about [[FakePage]]." in result.answer
     assert isinstance(result.citations, list)
     assert result.pages_drilled == 2  # two successes
     # search_scores must have bm25/embed/rrf for each top page
