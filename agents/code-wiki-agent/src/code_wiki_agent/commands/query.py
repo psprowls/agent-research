@@ -236,7 +236,9 @@ def build_index(vault_path: Path) -> None:
     tokenizer = _build_tokenizer()
     corpus_paths = [path for path, _ in pages]
     corpus_texts = [text for _, text in pages]
-    corpus_tokens = tokenizer.tokenize(corpus_texts)
+    # return_as="tuple" yields a Tokenized object whose vocab_dict has string keys
+    # required for orjson serialization in retriever.save() (Pitfall: integer keys fail)
+    corpus_tokens = tokenizer.tokenize(corpus_texts, return_as="tuple")
 
     retriever = bm25s.BM25(method="lucene", k1=1.5, b=0.75)
     retriever.index(corpus_tokens)
@@ -311,6 +313,12 @@ def bm25_query(
     query_tokens = tokenizer.tokenize([query_text], update_vocab=False)
     results, scores = retriever.retrieve(query_tokens, k=top_k)
 
-    page_paths = [str(results[0, i]) for i in range(results.shape[1])]
+    # results[0, i] is a dict {'id': int, 'text': str} when load_corpus=True
+    def _corpus_text(item: object) -> str:
+        if isinstance(item, dict):
+            return str(item["text"])
+        return str(item)
+
+    page_paths = [_corpus_text(results[0, i]) for i in range(results.shape[1])]
     bm25_scores = [float(scores[0, i]) for i in range(scores.shape[1])]
     return page_paths, bm25_scores
