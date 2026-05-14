@@ -14,6 +14,20 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Validated
 
+#### Phase 03 Complete — 2026-05-14 (query-vertical-slice-hybrid-search)
+- [x] Hybrid search: BM25 via `bm25s` + Titan v2 embeddings in SQLite (WAL), sha256 incremental rebuild, RRF fusion (SEARCH-01..06)
+- [x] `commands/query.py` — shared `run_query()` pipeline: hybrid search → librarian fan-out (SubagentPool) → synthesizer → QueryResult (CMD-04, CLI-03)
+- [x] `code-wiki-agent query` CLI subcommand with `--top-k`, `--vault`, `--json`, `--no-state-gate` (CLI-01..07, CMD-07, CMD-08)
+- [x] `wiki_query` MCP tool with Pydantic schemas, `ctx.report_progress()` notifications (MCP-02, MCP-04, MCP-06, MCP-07)
+- [x] G1 citation resolver normalises `.md`-suffixed wikilinks correctly (regression caught in UAT)
+- [x] 54 unit tests; 3 integration tests gated behind `CODE_WIKI_RUN_INTEGRATION=1`
+
+#### Phase 02 Complete — 2026-05-14 (subagent-fan-out-runtime)
+- [x] `SubagentPool.run_all()` with partial-failure isolation, semaphore throttle, per-role concurrency (SUB-01..07)
+- [x] Structured JSONL trace output to `.code-wiki/traces/` for every fan-out call (OBS-01)
+- [x] `code-wiki-agent trace` CLI subcommand renders traces as human-readable timeline (OBS-02, OBS-03)
+- [x] Real-Bedrock integration tests: 4-parallel with 1 intentional failure → 3 successes, no sibling cancellation (BED-02..05)
+
 #### Phase 01 Complete — 2026-05-13 (infrastructure-vault-io-and-mcp-skeleton)
 - [x] `uv` workspace at repo root with tiered layout: `cores/vault-io`, `cores/model-adapter`, `agents/code-wiki-agent`
 - [x] Project license + README seeded (MIT, open-source-ready)
@@ -34,13 +48,13 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 - [ ] `init` — bootstrap wiki vault, discover containers, write CLAUDE/AGENTS/.cursorrules schema files
 - [ ] `scan` — walk repo, diff packages vs vault, create/update stubs, flag renames/deletions, update index + log
 - [ ] `ingest` — extract source text/metadata, route to package/concept/adr page, update cross-references
-- [ ] `query` — read index, drill 3–10 relevant pages, synthesize answer with `[[wikilinks]]` + code-path citations
+- [x] `query` — hybrid BM25+embedding search, librarian fan-out, synthesizer; `--json` output with search_scores; MCP + CLI surfaces (Phase 03)
 - [ ] `lint` — mechanical pass (orphans, broken links, stale pages, missing frontmatter, code-drift) + semantic pass + actionable report
 - [ ] `log` — append timestamped events to `log.md`
 - [ ] **Read-compatible with existing vaults** — preserve frontmatter, layout block, wikilinks, file-map format so Obsidian and the old plugin still work side-by-side
 
 #### Subagent fan-out (within-command parallelism)
-- [ ] Librarian drills multiple pages in parallel
+- [x] Librarian drills multiple pages in parallel (Phase 03 — via SubagentPool)
 - [ ] Linter runs rule-groups concurrently
 - [ ] Scanner reviews packages in parallel
 - [ ] All subagents are deepagents-native and routable to different Bedrock models per role
@@ -102,22 +116,26 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Python + `uv` monorepo | Pat's preferred Python tooling; `uv` workspaces fit the tiered (cores + agents) layout cleanly | — Pending |
-| LangChain + `deepagents` framework | Native subagent primitives; LangChain has mature `langchain-aws` Bedrock binding; deepagents matches the planned conversation host | — Pending |
-| AWS Bedrock only in v1 | Cost focus; Pat already has auth/setup; single-provider eval is simpler | — Pending |
-| MCP server as primary surface | DeepAgents CLI hosts the conversation; we expose tools; reusable from other MCP hosts | — Pending |
-| Headless CLI in addition to MCP | Same core, two surfaces; CLI runs full agent loop in-process for CI/scripts | — Pending |
-| Full parity with lattice-wiki v1 (5 commands) | Pat knows the territory; halfway parity creates a confusing transition with the existing tool | — Pending |
-| Within-command subagent fan-out (not nested) | Real parallelism wins (librarian across pages, linter rule-groups, scanner across packages) without the debugging cost of nested subagents | — Pending |
-| Read-compatible with existing vaults | Allows side-by-side use during transition; preserves Obsidian compatibility; no migration script needed | — Pending |
-| Eval = cost-frontier per subagent role, baselined from current tool | Direct measurement of the project's reason for existing; recorded-from-Sonnet baseline avoids hand-curation overhead | — Pending |
-| Tiered monorepo (shared cores + agent packages) | Anticipates future agents reusing model adapters, subagent runtime, eval harness | — Pending |
-| Package named `code-wiki-agent` (not `lattice-wiki`) | Clearer description of what it does; avoids confusion with the existing TS plugin during the transition period | — Pending |
-| No custom TUI in v1 | DeepAgents CLI is sufficient; building a TUI is parallel work that doesn't help the cost-savings goal | — Pending |
+| Python + `uv` monorepo | Pat's preferred Python tooling; `uv` workspaces fit the tiered (cores + agents) layout cleanly | Validated Phase 01 |
+| LangChain + `deepagents` framework | Native subagent primitives; LangChain has mature `langchain-aws` Bedrock binding; deepagents matches the planned conversation host | Validated Phase 02 |
+| AWS Bedrock only in v1 | Cost focus; Pat already has auth/setup; single-provider eval is simpler | Validated Phase 01 |
+| MCP server as primary surface | DeepAgents CLI hosts the conversation; we expose tools; reusable from other MCP hosts | Validated Phase 01+03 |
+| Headless CLI in addition to MCP | Same core, two surfaces; CLI runs full agent loop in-process for CI/scripts | Validated Phase 03 |
+| Full parity with lattice-wiki v1 (5 commands) | Pat knows the territory; halfway parity creates a confusing transition with the existing tool | In progress — Phase 05 |
+| Within-command subagent fan-out (not nested) | Real parallelism wins (librarian across pages, linter rule-groups, scanner across packages) without the debugging cost of nested subagents | Validated Phase 02+03 |
+| Read-compatible with existing vaults | Allows side-by-side use during transition; preserves Obsidian compatibility; no migration script needed | Validated Phase 01 |
+| Eval = cost-frontier per subagent role, baselined from current tool | Direct measurement of the project's reason for existing; recorded-from-Sonnet baseline avoids hand-curation overhead | Planned Phase 04 |
+| Tiered monorepo (shared cores + agent packages) | Anticipates future agents reusing model adapters, subagent runtime, eval harness | Validated Phase 01 |
+| Package named `code-wiki-agent` (not `lattice-wiki`) | Clearer description of what it does; avoids confusion with the existing TS plugin during the transition period | Validated Phase 01 |
+| No custom TUI in v1 | DeepAgents CLI is sufficient; building a TUI is parallel work that doesn't help the cost-savings goal | Validated Phase 01 |
+| Titan Embeddings v2 (`amazon.titan-embed-text-v2:0`, 1024 dims) for embedding search | No extra IAM grants beyond Phase 1 Bedrock access; native to langchain-aws BedrockEmbeddings | Validated Phase 03 |
+| CLI-05 (`--config`) deferred; `--vault` used instead in Phase 03 | ROADMAP Phase 03 success criteria do not require `--config`; tracked for Phase 05 | Deferred to Phase 05 |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
+
+**Last updated:** 2026-05-14 — Phase 03 complete
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
