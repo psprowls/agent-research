@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 """Unit tests for eval_harness.isolation.EvalWorktree.
 
 All tests are async (asyncio_mode=auto in pyproject.toml).
 """
 
-from pathlib import Path
+from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 from eval_harness.isolation import EvalWorktree
 

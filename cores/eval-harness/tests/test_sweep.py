@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for eval_harness.sweep: SweepResult dataclass and run_sweep().
 
 Integration test (test_run_query_accepts_tmpdir_vault) requires CODE_WIKI_RUN_EVAL=1
@@ -8,16 +6,15 @@ and is marked "integration" — skipped in the normal unit suite.
 All other tests use AsyncMock to avoid Bedrock calls and are fully deterministic.
 """
 
-import asyncio
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from code_wiki_agent.commands.query import QueryResult
 from eval_harness.sweep import SweepResult, run_sweep
-
 
 # ---------------------------------------------------------------------------
 # Helper: minimal QueryResult for mocking
@@ -57,7 +54,6 @@ def _make_cases_file(tmp_path: Path, cases: list[dict] | None = None) -> Path:
 @pytest.mark.integration
 async def test_run_query_accepts_tmpdir_vault(
     fixture_vault_path: Path,
-    tmp_path: Path,
 ) -> None:
     """Assumption A1 validation: run_query() accepts a tmpdir vault_path.
 
@@ -151,7 +147,7 @@ async def test_sweep_sanitizes_model_id(tmp_path: Path, fixture_vault_path: Path
 
 async def test_sweep_loads_cases(tmp_path: Path, fixture_vault_path: Path) -> None:
     """run_sweep reads cases from cases_path JSON and validates schema (T-4-01)."""
-    # Valid case plus an invalid case missing "expected_answer" — invalid should be skipped
+    # Valid case plus invalid cases missing required fields — invalid should be skipped
     cases = [
         {"case_id": "valid-01", "query": "What?", "expected_answer": "something"},
         {"case_id": "invalid-01", "query": "Missing answer field"},  # no expected_answer

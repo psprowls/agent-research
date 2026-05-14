@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Vault isolation layer for eval sweeps.
 
 EvalWorktree copies the source vault to a fresh tmpdir on enter and removes
@@ -10,6 +8,8 @@ vault source.
 The copy includes .code-wiki/ (BM25 index + SQLite embedding DB) so indexes
 travel with the vault. No index rebuild is needed at sweep time.
 """
+
+from __future__ import annotations
 
 import shutil
 import tempfile
