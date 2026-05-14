@@ -15,7 +15,7 @@ max_tokens      = 4096
 max_concurrency = 3
 
 [roles.librarian]
-model_id        = "qwen.qwen3-coder-480b-a35b-instruct-v1:0"
+model_id        = "qwen.qwen3-next-80b-a3b"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 2
@@ -39,7 +39,7 @@ max_tokens      = 2048
 max_concurrency = 5
 
 [roles.synthesizer]
-model_id        = "qwen.qwen3-coder-480b-a35b-instruct-v1:0"
+model_id        = "qwen.qwen3-next-80b-a3b"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 1
