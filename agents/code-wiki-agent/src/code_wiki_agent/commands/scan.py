@@ -28,45 +28,9 @@ from vault_io.scan_monorepo import (
     discover_workspaces,
     regenerate_dependencies_index,
 )
-from vault_io.update_index import (
-    CATEGORY_INDEX_FILES,
-    CATEGORY_LABELS,
-    render_category_index,
-    render_index,
-    scan_vault,
-    scan_work,
-)
+from vault_io.update_index import update_index
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Local helper: update_index (wrapper for vault_io.update_index functions)
-# ---------------------------------------------------------------------------
-
-
-def update_index(wiki: Path) -> None:
-    """Regenerate wiki/index.md and category sub-indexes from vault frontmatter.
-
-    Wraps vault_io.update_index scan_vault + render_index pipeline.
-    """
-    pages = scan_vault(wiki)
-    work_entries = scan_work(wiki.parent)
-    if work_entries:
-        pages["work"] = work_entries
-    vault = wiki
-    content = render_index(pages, wiki.name, vault.name)
-    index_path = wiki / "index.md"
-    index_path.write_text(content, encoding="utf-8")
-    for cat, fname in CATEGORY_INDEX_FILES.items():
-        entries = pages.get(cat, [])
-        if not entries:
-            continue
-        label = CATEGORY_LABELS.get(cat, cat.capitalize())
-        cat_content = render_category_index(entries, cat, label, vault.name)
-        cat_path = vault / fname
-        cat_path.parent.mkdir(parents=True, exist_ok=True)
-        cat_path.write_text(cat_content, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
