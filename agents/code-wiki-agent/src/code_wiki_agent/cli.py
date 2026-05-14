@@ -7,6 +7,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -17,6 +18,17 @@ app = typer.Typer(
     help="code-wiki-agent: AWS Bedrock-powered wiki maintenance CLI.",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def main_callback(
+    config: Optional[Path] = typer.Option(None, "--config", help="Path to TOML config file"),
+) -> None:
+    """code-wiki-agent: AWS Bedrock-powered wiki maintenance."""
+    if config is not None:
+        import code_wiki_agent.config as _cfg_module
+
+        _cfg_module._active_config = _cfg_module.load_config(config)
 
 
 @app.command()

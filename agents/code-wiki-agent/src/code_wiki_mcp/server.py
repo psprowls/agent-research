@@ -143,6 +143,15 @@ async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
 
 
 def main() -> None:
+    import os
+
+    # Load config from env var before serving (D-13).
+    config_path_str = os.environ.get("CODE_WIKI_CONFIG")
+    if config_path_str:
+        import code_wiki_agent.config as _cfg_module
+
+        _cfg_module._active_config = _cfg_module.load_config(Path(config_path_str))
+
     # Be explicit about transport — do not rely on the default (RESEARCH A2).
     mcp.run(transport="stdio")
 
