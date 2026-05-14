@@ -81,10 +81,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Wave 0 scaffold: bm25s install, asyncio_mode=auto, commands subpackage, test stubs (SEARCH-01 prep + Wave 0 infra)
-- [ ] 03-02-PLAN.md — Hybrid search layer: build_index + bm25_query + sqlite embed store + RRF (SEARCH-01..06)
-- [ ] 03-03-PLAN.md — MVP slice: run_query pipeline + librarian fan-out + synthesizer + CLI query subcommand (CMD-04, CMD-07, CMD-08, CLI-01..07)
-- [ ] 03-04-PLAN.md — MCP wiki_query tool + end-to-end integration tests against fixture vault (MCP-02, MCP-04, MCP-06, MCP-07)
+- [x] 03-01-PLAN.md — Wave 0 scaffold: bm25s install, asyncio_mode=auto, commands subpackage, test stubs (SEARCH-01 prep + Wave 0 infra)
+- [x] 03-02-PLAN.md — Hybrid search layer: build_index + bm25_query + sqlite embed store + RRF (SEARCH-01..06)
+- [x] 03-03-PLAN.md — MVP slice: run_query pipeline + librarian fan-out + synthesizer + CLI query subcommand (CMD-04, CMD-07, CMD-08, CLI-01..07)
+- [x] 03-04-PLAN.md — MCP wiki_query tool + end-to-end integration tests against fixture vault (MCP-02, MCP-04, MCP-06, MCP-07)
 
 ---
 
