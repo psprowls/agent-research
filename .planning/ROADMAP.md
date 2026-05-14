@@ -131,9 +131,9 @@ Plans:
 - [x] 05-01-PLAN.md — Config module + log + init vertical slice + Wave 0 test stubs (CMD-01, CMD-06, MCP-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 05-02-PLAN.md — Port 7 lint mechanical rule modules from lattice-wiki-core into vault_io (CMD-05)
-- [ ] 05-03-PLAN.md — Port ingest_source.py and ingest_work_item.py into vault_io with _run_helper() replaced by direct imports (CMD-03)
-- [ ] 05-04-PLAN.md — scan command vertical slice + scanner fan-out + wiki_scan MCP tool (CMD-02, MCP-01, MCP-03)
+- [x] 05-02-PLAN.md — Port 7 lint mechanical rule modules from lattice-wiki-core into vault_io (CMD-05)
+- [x] 05-03-PLAN.md — Port ingest_source.py and ingest_work_item.py into vault_io with _run_helper() replaced by direct imports (CMD-03)
+- [x] 05-04-PLAN.md — scan command vertical slice + scanner fan-out + wiki_scan MCP tool (CMD-02, MCP-01, MCP-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 05-05-PLAN.md — ingest source + work-item vertical slice + wiki_ingest MCP tool (CMD-03, MCP-01, MCP-03)
