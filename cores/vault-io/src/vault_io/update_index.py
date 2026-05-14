@@ -286,6 +286,38 @@ def render_category_index(entries, category, label, vault_name, location=None):
     return "\n".join(lines)
 
 
+def update_index(wiki: Path) -> None:
+    """Regenerate wiki/index.md and category sub-indexes from vault frontmatter.
+
+    Library entry point for use by ingest_work_item and other callers.
+    Equivalent to running main() without --dry-run or --json.
+    """
+    pages = scan_vault(wiki)
+    work_entries = scan_work(wiki.parent)
+    if work_entries:
+        pages["work"] = work_entries
+    vault = wiki
+    content = render_index(pages, wiki.name, vault.name)
+    index_path = wiki / "index.md"
+    index_path.write_text(content, encoding="utf-8")
+    for cat, fname in CATEGORY_INDEX_FILES.items():
+        entries = pages.get(cat, [])
+        if not entries:
+            continue
+        label = CATEGORY_LABELS.get(cat, cat.capitalize())
+        cat_content = render_category_index(entries, cat, label, vault.name)
+        cat_path = vault / fname
+        cat_path.parent.mkdir(parents=True, exist_ok=True)
+        cat_path.write_text(cat_content, encoding="utf-8")
+    if work_entries:
+        work_index_path = wiki.parent / "work" / "index.md"
+        work_index_content = render_category_index(
+            work_entries, "work", CATEGORY_LABELS["work"], vault.name, location="work"
+        )
+        work_index_path.parent.mkdir(parents=True, exist_ok=True)
+        work_index_path.write_text(work_index_content, encoding="utf-8")
+
+
 def main():
     p = argparse.ArgumentParser(description="Regenerate wiki/index.md")
     p.add_argument("--dry-run", action="store_true")
