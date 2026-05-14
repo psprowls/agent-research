@@ -18,6 +18,7 @@ Cross-ref update scope (CONTEXT.md deferred decision):
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,6 +31,9 @@ from vault_io.ingest_work_item import _parse_frontmatter, _validate, file_work_i
 from vault_io.update_index import update_index
 
 logger = logging.getLogger(__name__)
+
+# Matches YAML list items with any indentation (2-space, 4-space, tab)
+_LIST_ITEM_RE = re.compile(r"^[ \t]+- ")
 
 # ---------------------------------------------------------------------------
 # System prompt for the ingestor LLM role
@@ -156,8 +160,8 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
         line = raw.rstrip()
         if not line or line.startswith("#"):
             continue
-        if line.startswith("  - ") and cur_list is not None:
-            cur_list.append(line[4:].strip())
+        if _LIST_ITEM_RE.match(line) and cur_list is not None:
+            cur_list.append(line.lstrip().lstrip("- ").strip())
             continue
         if cur_list is not None:
             fm[cur_key] = cur_list
