@@ -124,7 +124,15 @@ Plans:
 4. All 6 MCP tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) are registered with typed Pydantic schemas and return structured MCP error responses on failure — no crash that kills the stdio session; progress notifications are emitted for long-running commands
 5. Each command has a parity test: given the same fixture vault, the new tool's output matches the recorded lattice-wiki baseline on all structural metrics (wikilinks, frontmatter, package coverage)
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Config module + log + init vertical slice + Wave 0 test stubs (CMD-01, CMD-06, MCP-01)
+- [ ] 05-02-PLAN.md — Port 7 lint mechanical rule modules from lattice-wiki-core into vault_io (CMD-05)
+- [ ] 05-03-PLAN.md — Port ingest_source.py and ingest_work_item.py into vault_io with _run_helper() replaced by direct imports (CMD-03)
+- [ ] 05-04-PLAN.md — scan command vertical slice + scanner fan-out + wiki_scan MCP tool (CMD-02, MCP-01, MCP-03)
+- [ ] 05-05-PLAN.md — ingest source + work-item vertical slice + wiki_ingest MCP tool (CMD-03, MCP-01, MCP-03)
+- [ ] 05-06-PLAN.md — lint command vertical slice: mechanical pass + 3-group semantic fan-out + wiki_lint MCP tool + parity tests (CMD-05, MCP-01, MCP-03)
 
 ---
 
@@ -136,7 +144,7 @@ Plans:
 | 2. Subagent Fan-Out Runtime | 0/3 | Not started | - |
 | 3. Query Vertical Slice + Hybrid Search | 0/4 | Not started | - |
 | 4. Eval Harness | 0/4 | Ready to execute | - |
-| 5. Remaining Commands | 0/0 | Not started | - |
+| 5. Remaining Commands | 0/6 | Ready to execute | - |
 
 ---
 
