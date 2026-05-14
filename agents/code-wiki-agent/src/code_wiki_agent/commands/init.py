@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+"""init command — bootstrap a wiki vault structure.
+
+Public API:
+    InitResult    -- Dataclass mirroring the dict keys returned by init_wiki()
+    run_init()    -- Async wrapper: resolves workspace, calls init_wiki, returns InitResult
+
+Creates <workspace>/wiki/ vault structure plus <workspace>/raw/ and <workspace>/work/
+sibling directories (Phase 5 workspace init, formerly pending).
+"""
+
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from vault_io._workspace import resolve_wiki_and_repo
+from vault_io.init_vault import init_wiki
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class InitResult:
+    """Result returned by run_init(), mirroring the dict keys from init_wiki()."""
+
+    status: str
+    wiki_path: str
+    repo_path: str
+    topic: str
+    tool: str
+    date: str
+    installed_files: list
+    page_templates_copied: int
+    layers: dict
+    raw_path: str
+    work_path: str
+
+
+async def run_init(
+    topic: str,
+    tool: str,
+    force: bool,
+    vault_path: Path | None = None,
+) -> InitResult:
+    """Bootstrap a wiki vault structure.
+
+    Args:
+        topic: Short description of the repository (e.g. "my-project").
+        tool: Which schema file(s) to install (claude-code, codex, cursor, all, ...).
+        force: If True, overwrite non-empty wiki directory.
+        vault_path: Explicit vault path; if None, reads CODE_WIKI_REAL_VAULT_PATH env var.
+
+    Returns:
+        InitResult with fields populated from init_wiki's return dict.
+
+    Raises:
+        RuntimeError: If wiki creation fails.
+        SystemExit: If init_wiki calls sys.exit() on error (converted upstream).
+    """
+    wiki, repo = resolve_wiki_and_repo(vault_path)
+    logger.debug("run_init: wiki=%s repo=%s topic=%r tool=%r force=%r", wiki, repo, topic, tool, force)
+    result = init_wiki(
+        wiki_path=wiki,
+        repo_path=repo,
+        topic=topic,
+        tool=tool,
+        force=force,
+        non_interactive=True,
+    )
+    return InitResult(
+        status=result["status"],
+        wiki_path=result["wiki_path"],
+        repo_path=result["repo_path"],
+        topic=result["topic"],
+        tool=result["tool"],
+        date=result["date"],
+        installed_files=result["installed_files"],
+        page_templates_copied=result["page_templates_copied"],
+        layers=result["layers"],
+        raw_path=result["raw_path"],
+        work_path=result["work_path"],
+    )

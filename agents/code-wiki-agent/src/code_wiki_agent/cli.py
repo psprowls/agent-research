@@ -11,6 +11,7 @@ from typing import Optional
 
 import typer
 
+from code_wiki_agent.commands.init import run_init
 from code_wiki_agent.commands.log import run_log
 from code_wiki_agent.commands.query import run_query
 
@@ -195,6 +196,30 @@ def log(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"[{result.date}] {result.op}: {result.title}")
+
+
+@app.command()
+def init(
+    topic: str = typer.Option(..., "--topic", help="Short description of the repository"),
+    tool: str = typer.Option(..., "--tool", help="Schema file(s) to install (claude-code, codex, cursor, all, ...)"),
+    force: bool = typer.Option(False, "--force", help="Overwrite non-empty target directory"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
+) -> None:
+    """Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."""
+    vault_path = Path(vault) if vault else None
+    try:
+        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, vault_path=vault_path))
+    except (RuntimeError, FileNotFoundError, SystemExit) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[ok] Initialized wiki at: {result.wiki_path}")
+        typer.echo(f"     raw/: {result.raw_path}")
+        typer.echo(f"     work/: {result.work_path}")
 
 
 if __name__ == "__main__":

@@ -182,6 +182,56 @@ async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
     )
 
 
+# --- wiki_init tool ---
+
+from code_wiki_agent.commands.init import InitResult, run_init  # noqa: E402
+
+
+class WikiInitInput(BaseModel):
+    topic: str = Field(..., description="Short description of the repository")
+    tool: str = Field(..., description="Schema file(s) to install (claude-code, codex, cursor, all, ...)")
+    force: bool = Field(False, description="Overwrite non-empty target directory")
+    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+
+
+class WikiInitOutput(BaseModel):
+    status: str
+    wiki_path: str
+    repo_path: str
+    topic: str
+    tool: str
+    date: str
+    installed_files: list
+    page_templates_copied: int
+    layers: dict
+    raw_path: str
+    work_path: str
+
+
+@mcp.tool(name="wiki_init", description="Bootstrap a wiki vault structure.")
+async def wiki_init(input: WikiInitInput, ctx: Context) -> WikiInitOutput:
+    vault = Path(input.vault_path) if input.vault_path else None
+    result: InitResult = await run_init(
+        topic=input.topic,
+        tool=input.tool,
+        force=input.force,
+        vault_path=vault,
+    )
+    return WikiInitOutput(
+        status=result.status,
+        wiki_path=result.wiki_path,
+        repo_path=result.repo_path,
+        topic=result.topic,
+        tool=result.tool,
+        date=result.date,
+        installed_files=result.installed_files,
+        page_templates_copied=result.page_templates_copied,
+        layers=result.layers,
+        raw_path=result.raw_path,
+        work_path=result.work_path,
+    )
+
+
 def main() -> None:
     import os
 

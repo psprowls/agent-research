@@ -152,8 +152,10 @@ def init_wiki(
     if wiki_path.exists() and any(wiki_path.iterdir()) and not force:
         _error(f"{wiki_path} is not empty. Use --force to overwrite.", as_json)
 
-    # TODO Phase 5: workspace init (lattice-workspace equivalent)
     workspace_path = wiki_path.parent
+    # Create raw/ and work/ workspace sibling directories (Phase 5 workspace init).
+    (workspace_path / "raw").mkdir(parents=True, exist_ok=True)
+    (workspace_path / "work").mkdir(parents=True, exist_ok=True)
 
     pinned = _resolve_pinned_containers(repo_path, non_interactive)
     structural_dirs = [c["vault_dir"] for c in pinned if c["vault_dir"]]
@@ -236,10 +238,12 @@ def init_wiki(
         "date": today,
         "installed_files": installed_files,
         "page_templates_copied": template_count,
+        "raw_path": str(workspace_path / "raw"),
+        "work_path": str(workspace_path / "work"),
         "layers": {
             "wiki": f"{wiki_path}/ — LLM-maintained knowledge base",
-            "raw": f"{workspace_path}/raw/ — pending Phase 5 workspace init",
-            "work": f"{workspace_path}/work/ — pending Phase 5 workspace init",
+            "raw": f"{workspace_path}/raw/ — staging area for source ingestion",
+            "work": f"{workspace_path}/work/ — work item pages",
             "index": f"{wiki_path}/index.md",
             "log": f"{wiki_path}/log.md",
         },
