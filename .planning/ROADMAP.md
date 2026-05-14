@@ -136,7 +136,7 @@ Plans:
 - [x] 05-04-PLAN.md — scan command vertical slice + scanner fan-out + wiki_scan MCP tool (CMD-02, MCP-01, MCP-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 05-05-PLAN.md — ingest source + work-item vertical slice + wiki_ingest MCP tool (CMD-03, MCP-01, MCP-03)
+- [x] 05-05-PLAN.md — ingest source + work-item vertical slice + wiki_ingest MCP tool (CMD-03, MCP-01, MCP-03)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 05-06-PLAN.md — lint command vertical slice: mechanical pass + 3-group semantic fan-out + wiki_lint MCP tool + parity tests (CMD-05, MCP-01, MCP-03)
