@@ -60,6 +60,18 @@ wheels = [
 ]
 
 [[package]]
+name = "bm25s"
+version = "0.3.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/3f/88010a24298e2ca4b0807ca5a59ee69e867551fc289c3b062d41cefda59b/bm25s-0.3.8.tar.gz", hash = "sha256:d165f096d64961de0b25a0ad4989d42dfe529c94ca12a9a070eef173c62b8612", size = 80495, upload-time = "2026-04-29T02:18:45.493Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/c2/e5dbdbf8e99ec504432f9bd82cdf990faff1ffcdd5316272cb7fccce31ed/bm25s-0.3.8-py3-none-any.whl", hash = "sha256:b5ff52a0633ee5add26ca89619f5c5fff66127dcce0984976a2a09e1871a33f9", size = 74452, upload-time = "2026-04-29T02:18:43.892Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.43.6"
 source = { registry = "https://pypi.org/simple" }
@@ -281,20 +293,24 @@ name = "code-wiki-agent"
 version = "0.1.0"
 source = { editable = "agents/code-wiki-agent" }
 dependencies = [
+    { name = "bm25s" },
     { name = "langchain-aws" },
     { name = "mcp" },
     { name = "model-adapter" },
     { name = "pydantic" },
+    { name = "subagent-runtime" },
     { name = "typer" },
     { name = "vault-io" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "bm25s", specifier = "==0.3.8" },
     { name = "langchain-aws", specifier = ">=1.4.6" },
     { name = "mcp", specifier = ">=1.27.1" },
     { name = "model-adapter", editable = "cores/model-adapter" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "subagent-runtime", editable = "cores/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "vault-io", editable = "cores/vault-io" },
 ]

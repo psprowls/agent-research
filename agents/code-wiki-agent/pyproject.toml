@@ -6,6 +6,8 @@ requires-python = ">=3.11"
 dependencies = [
     "vault-io",
     "model-adapter",
+    "subagent-runtime",
+    "bm25s==0.3.8",
     "mcp>=1.27.1",
     "langchain-aws>=1.4.6",
     "typer>=0.25.1",
@@ -21,10 +23,12 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-vault-io      = { workspace = true }
-model-adapter = { workspace = true }
+vault-io         = { workspace = true }
+model-adapter    = { workspace = true }
+subagent-runtime = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
 markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]
