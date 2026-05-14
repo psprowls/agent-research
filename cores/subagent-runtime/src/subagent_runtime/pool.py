@@ -197,7 +197,7 @@ class SubagentPool:
             "latency_ms": latency_ms,
             "tokens_in": tokens_in,
             "tokens_out": tokens_out,
-            "cost_usd": None,  # Phase 4 adds cost accounting
+            "cost_usd": _compute_cost_usd(model_id, tokens_in, tokens_out),
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         if error:
@@ -208,3 +208,24 @@ class SubagentPool:
                 f.write(json.dumps(record) + "\n")
         except OSError as exc:
             logger.warning("Trace write failed (data loss): %s", exc)
+
+
+def _compute_cost_usd(
+    model_id: str,
+    tokens_in: int | None,
+    tokens_out: int | None,
+) -> float | None:
+    """Compute USD cost from token counts using eval_harness.pricing.
+
+    Lazy import — subagent-runtime does not declare a hard dependency on eval-harness.
+    Returns None if tokens are unavailable, eval-harness is not installed, or the
+    model is not in the pricing table (UnknownModelError / ImportError).
+    """
+    if tokens_in is None or tokens_out is None:
+        return None
+    try:
+        from eval_harness.pricing import UnknownModelError, cost_for_usage  # noqa: PLC0415
+
+        return cost_for_usage(model_id, {"input": tokens_in, "output": tokens_out})
+    except (ImportError, KeyError, UnknownModelError):
+        return None

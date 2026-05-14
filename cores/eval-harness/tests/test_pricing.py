@@ -6,7 +6,6 @@ All tests are deterministic and require no Bedrock access.
 """
 
 import pytest
-
 from eval_harness.pricing import PRICES, UnknownModelError, cost_for_usage
 
 

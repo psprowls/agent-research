@@ -47,7 +47,7 @@ max_tokens      = 2048
 max_concurrency = 2
 
 [roles.judge_b]
-model_id        = "us.anthropic.claude-sonnet-4-6"
+model_id        = "us.amazon.nova-pro-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 2

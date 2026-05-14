@@ -33,9 +33,8 @@ from pathlib import Path
 
 import bm25s
 from bm25s.tokenization import Tokenizer
-from langchain_aws import BedrockEmbeddings
+from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
-
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool
 from vault_io._workspace import resolve_wiki_and_repo
@@ -461,6 +460,7 @@ async def run_query(
     query: str,
     vault_path: Path | None = None,
     top_k: int = 5,
+    librarian_model_override: str | None = None,
 ) -> QueryResult:
     """End-to-end query: hybrid search -> librarian fan-out -> synthesis -> guardrails.
 
@@ -477,9 +477,12 @@ async def run_query(
         10. Return guarded QueryResult.
 
     Args:
-        query:      Natural language query string.
-        vault_path: Path to vault root. None uses CODE_WIKI_REAL_VAULT_PATH env var.
-        top_k:      Pages to drill. Must be in [3, 10].
+        query:                    Natural language query string.
+        vault_path:               Path to vault root. None uses CODE_WIKI_REAL_VAULT_PATH env var.
+        top_k:                    Pages to drill. Must be in [3, 10].
+        librarian_model_override: Bedrock model ID to use for librarian role instead of
+                                  the default from models.toml. Used by the eval sweep
+                                  runner to test different models holding prompts fixed.
 
     Raises:
         RuntimeError: If top_k out of range or vault not resolvable.
@@ -526,7 +529,14 @@ async def run_query(
 
     # Step 6: Librarian fan-out
     lib_cfg = load_role_config("librarian")
-    librarian_llm = make_llm("librarian")
+    if librarian_model_override is not None:
+        librarian_llm = ChatBedrockConverse(
+            model_id=librarian_model_override,
+            region_name=lib_cfg["region"],
+            max_tokens=lib_cfg["max_tokens"],
+        )
+    else:
+        librarian_llm = make_llm("librarian")
     pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
 
     async def drill_page(page_path: str) -> str:
