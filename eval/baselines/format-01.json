@@ -1,0 +1,10 @@
+{
+  "case_id": "format-01",
+  "query": "What is the log.md format?",
+  "answer": "Based on the CLAUDE.md file in this project, the `log.md` format is:\n\n```\n## [YYYY-MM-DD] <op> | <title>\n<optional detail \u2014 which pages touched, what changed>\n```\n\nValid ops are: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.\n\nYou can grep recent entries with: `grep \"^## \\[\" log.md | tail -10`\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "037a29a4afcf6b8a08bc550181b7097876cd61f48dff97916dd17a9fa4af28e6",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:42:53.838180+00:00",
+  "seed": null
+}

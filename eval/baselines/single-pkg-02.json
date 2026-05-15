@@ -1,0 +1,10 @@
+{
+  "case_id": "single-pkg-02",
+  "query": "Why does my-utils have no third-party dependencies?",
+  "answer": "Let me check the wiki and source code for `my-utils`.`my-utils` doesn't appear in the wiki index. Let me search the raw sources and the repo.There is no package called `my-utils` anywhere in this wiki, the raw sources, or the lattice repo. The wiki tracks these packages: `lattice-curator-core`, `lattice-evals`, `lattice-graph-core`, `lattice-source-parser`, `lattice-wiki-core`, `lattice-wiki-agent`, and `lattice-workspace` \u2014 none of which is named `my-utils`.\n\nCould you clarify what you're referring to? It's possible you mean one of the existing packages (e.g. `lattice-wiki-core`, which is stdlib-only), or a package from a different project.\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "4076558261dd8bfd93ac00afb29385b67b3d251a786e30f867a824c38c7bf33e",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:43:33.129242+00:00",
+  "seed": null
+}

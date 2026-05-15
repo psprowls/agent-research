@@ -1,0 +1,10 @@
+{
+  "case_id": "single-pkg-01",
+  "query": "What does my-utils provide?",
+  "answer": "Let me check the wiki and the source repo for `my-utils`.There is no package named `my-utils` in this repository or wiki. The lattice monorepo contains 12 tracked packages (lattice-curator-core, lattice-evals, lattice-graph-core, lattice-source-parser, lattice-wiki-agent, lattice-wiki-core, lattice-workspace, and their plugin counterparts), but `my-utils` is not among them.\n\nCould you double-check the package name? You may be thinking of one of the existing packages listed above.\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "24792d8e02fc08f1600270f1fdf99c8d55be40b58ad64110356a2f8a2da32af2",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:43:14.160180+00:00",
+  "seed": null
+}

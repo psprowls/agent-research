@@ -1,0 +1,10 @@
+{
+  "case_id": "pkg-lookup-01",
+  "query": "What does lattice-wiki-core do?",
+  "answer": "Let me check the wiki index and any existing pages about `lattice-wiki-core`, then look at the source code.`lattice-wiki-core` is the **pure-Python (stdlib-only) backend library** that powers the `lattice-wiki` Claude Code plugin. Here's what it does:\n\n**Core responsibility:** Implements the four wiki operations \u2014 scan, ingest, lint, and index \u2014 plus helpers for search, log appending, git state, and Marp export.\n\n**Key modules:**\n- `scan_monorepo.py` \u2014 detects packages in the repo, diffs against the wiki, updates the dependency index\n- `lint_wiki.py` \u2014 health checks: broken wikilinks, code drift, orphan pages, stale syncs, missing `tokens:` frontmatter\n- `ingest_source.py` \u2014 prepares a source (raw article, design doc) for ingestion into a wiki page\n- `update_index.py` \u2014 regenerates `index.md` and per-category sub-indexes\n- `wiki_search.py` \u2014 stdlib BM25 full-text search fallback\n- `layout_io.py` \u2014 reads/writes YAML layout blocks, creates stub pages from templates\n- `update_tokens.py` (v0.4.0) \u2014 walks all wiki pages and writes `tokens: <N>` frontmatter via `tiktoken`\n- `init_vault.py` \u2014 bootstraps a fresh wiki from templates\n\n**Design constraints:**\n- **Zero third-party dependencies** (`dependencies = []` in `pyproject.toml`) \u2014 works in any Python 3.11+ environment without a virtualenv. The only exception is `lattice-workspace` (the workspace resolver) and optionally `tiktoken` for token counting.\n- Current version is **0.4.0**\n\n**Relationship to other packages:** The `lattice-wiki` plugin's `scripts/` are thin shims that delegate to this library (default) or to `lattice-wiki-agent` (optional Bedrock/LangGraph backend for headless CI use).\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "2934b7f8815ab7ab94b079ed31b0f2dfe6d040d765c752c1c83537f7ce69860d",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:41:08.380046+00:00",
+  "seed": null
+}

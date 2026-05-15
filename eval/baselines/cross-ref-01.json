@@ -1,0 +1,10 @@
+{
+  "case_id": "cross-ref-01",
+  "query": "Which packages use lattice-source-parser?",
+  "answer": "Let me check the wiki index and search the codebase for dependents of `lattice-source-parser`.Let me also check if any other packages reference it outside of `.toml` files.Let me check if `lattice-curator-core` has it as a dependency too, since it appeared in the context search.Only one package has `lattice-source-parser` as a declared dependency: **`lattice-graph-core`**.\n\nIt's listed in `packages/lattice-graph-core/pyproject.toml` both as a runtime dependency and as a workspace reference:\n```\n\"lattice-source-parser\",          # runtime dep\nlattice-source-parser = { workspace = true }  # workspace resolver\n```\n\n`lattice-curator-core` references it in wiki/context docs but does not declare it as a package dependency \u2014 it uses `lattice-graph-core` as its interface instead.\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "2372bfdf12b56ffe47aa3c14d493a1c40a72268bd576212ad3bd20a3bf0d96c6",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:42:46.113343+00:00",
+  "seed": null
+}

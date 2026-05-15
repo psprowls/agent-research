@@ -1,0 +1,10 @@
+{
+  "case_id": "edge-case-01",
+  "query": "What packages are available in this wiki?",
+  "answer": "Let me check the wiki's index and packages directory.The wiki contains **12 packages** across two categories \u2014 core libraries and plugins:\n\n**Core packages** (under `packages/`):\n| Package | Summary |\n|---|---|\n| `lattice-curator-core` | Stage-aware context-curation library; two-pass Bedrock retriever over wiki + experts catalogs |\n| `lattice-evals` | Reproducible evaluation harness for Lattice plugins; exposes the `lattice-eval` CLI |\n| `lattice-graph-core` | SQLite-backed code-graph library; schema, upsert, manifest scanning, cross-file edge resolution, `cg` CLI |\n| `lattice-source-parser` | Tree-sitter-backed parser; converts source files into `SourceTree` / `GraphRecord` aligned with the graph schema |\n| `lattice-wiki-agent` | LangGraph + Bedrock CLI for headless wiki operations (init, scan, ingest, lint, query) |\n| `lattice-wiki-core` | Stdlib-only Python library powering the wiki plugin \u2014 scan, lint, ingest, index, search |\n| `lattice-workspace` | Resolves the workspace directory, reads/writes `.lattice.yaml`, typed path accessors |\n\n**Plugins** (under `plugins/`):\n| Plugin | Summary |\n|---|---|\n| `lattice-curator` | Claude Code plugin wrapping `lattice-curator-core`; UserPromptSubmit hook, skill stage tracker, MCP server |\n| `lattice-graph` | Claude Code plugin shell over `lattice-graph-core`; 13 slash commands + SessionStart staleness hook |\n| `lattice-wiki` | Claude Code plugin that builds and maintains the persistent markdown wiki |\n| `lattice-work` | Bug/tech-debt/feature lifecycle plugin; lint and sidecar generation for the `work/` namespace |\n| `lattice-workflows` | Engineering-discipline framework; skills, hooks, task gates; forked from `obra/superpowers` |\n\n<DONE>",
+  "model_arn": "us.anthropic.claude-sonnet-4-6",
+  "prompt_hash": "81d99515589b51d477b6b78e4972ce6a6841abdbbab3653c4431c18378bb8fdf",
+  "vault_content_hash": "52ae768db7f7b929552f26243b49a07d8e580a4529cff582d10f1bdafa370ea9",
+  "timestamp_utc": "2026-05-14T16:43:48.165342+00:00",
+  "seed": null
+}
