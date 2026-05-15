@@ -559,9 +559,17 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
-async def test_run_query_no_retry_when_g4_fires(tmp_path: Path) -> None:
-    """G4 (empty fan_result.successes) pre-empts the retry — synth retry is NOT attempted."""
-    from langchain_core.messages import AIMessage
+async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
+    """Empty librarian fan_result.successes -> Plan 09 code-fallback path takes over;
+    the synthesizer's unresolved-wikilink retry is NOT attempted on the librarian
+    excerpts (because there are none) and the original synth call does not happen
+    on the empty-then-empty fallback path.
+
+    Pre-Plan-09 behavior (now superseded): G4 fired immediately, synth was called
+    once, and citations were cleared. Plan 09 redirects empty-librarian-results
+    through the code-reader fan-out; when the code-reader ALSO returns nothing,
+    the disclaimer is returned without invoking the synthesizer.
+    """
     from subagent_runtime.pool import FanOutResult
 
     from code_wiki_agent.commands.query import QueryResult, run_query
@@ -571,15 +579,13 @@ async def test_run_query_no_retry_when_g4_fires(tmp_path: Path) -> None:
     (vault / ".code-wiki" / "bm25").mkdir(parents=True)
     (vault / ".code-wiki" / "search.db").touch()
 
-    # Empty successes — G4 path
-    fan_result = FanOutResult(successes=[], errors=[])
+    # Empty librarian successes — Plan 09 code-fallback path
+    librarian_fan = FanOutResult(successes=[], errors=[])
+    code_fan = FanOutResult(successes=[], errors=[])
 
-    first_resp = AIMessage(content="Answer with [[ghost]] citation.")
-    # Only one synth response is staged; if retry is attempted, side_effect will
-    # raise StopAsyncIteration, which would fail the test loudly.
-
+    # No synth responses staged — the disclaimer path should not call synth.
     patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
-        vault, fan_result, [first_resp]
+        vault, librarian_fan, []
     )
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
@@ -592,21 +598,31 @@ async def test_run_query_no_retry_when_g4_fires(tmp_path: Path) -> None:
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        mock_make_llm.side_effect = lambda role: (
-            mock_librarian_llm if role == "librarian" else mock_synth_llm
-        )
+        mock_code_llm = MagicMock()
+        mock_code_llm.bind_tools = MagicMock(return_value=mock_code_llm)
+
+        def _llm_for(role: str):
+            if role == "librarian":
+                return mock_librarian_llm
+            if role == "code_reader":
+                return mock_code_llm
+            return mock_synth_llm
+
+        mock_make_llm.side_effect = _llm_for
 
         mock_pool_inst = MagicMock()
-        mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
+        # First run_all → librarian (empty); second → code-fallback (also empty)
+        mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
         result = await run_query("test query", vault_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
-    # Synthesizer was called exactly once — retry suppressed because G4 fired
-    assert mock_synth_llm.ainvoke.call_count == 1, (
-        "When G4 fires (empty successes), the unresolved-citation retry must NOT run"
+    # Synthesizer was NOT called on the disclaimer path (no synth response staged
+    # — StopAsyncIteration would have been raised if it had been called)
+    assert mock_synth_llm.ainvoke.call_count == 0, (
+        "Code-fallback disclaimer path must not invoke the synthesizer"
     )
-    # G4 path: citations cleared, warning prepended/appended
-    assert "no librarian excerpts" in result.answer
+    # Disclaimer line, no fabrication
+    assert "vault does not document this" in result.answer
     assert result.citations == []

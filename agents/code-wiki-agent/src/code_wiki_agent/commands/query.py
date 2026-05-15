@@ -39,7 +39,8 @@ from pathlib import Path
 import bm25s
 from bm25s.tokenization import Tokenizer
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool
 from vault_io._workspace import resolve_wiki_and_repo
@@ -176,6 +177,17 @@ Rules:
 
 Output format:
 - A short list of verbatim code excerpts, each labeled with its `path:line` annotation, followed by a one-line note on how each excerpt relates to the query. Or the bare sentinel `NO_RELEVANT_CONTENT`. Nothing else."""
+
+# Plan 09: marker prefix used to flag any answer produced by the code-fallback
+# path. The eval harness (Phase 04) can count occurrences of this marker in
+# query trace summaries to measure vault-thinness frequency.
+CODE_FALLBACK_MARKER = "[vault-thin: answer derived from source code]"
+
+# Plan 09: disclaimer line used when both the librarian fan-out and the
+# code-reader fan-out return nothing useful. Never fabricate content.
+CODE_FALLBACK_DISCLAIMER = (
+    "The vault does not document this and source code did not yield a relevant match."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +393,147 @@ def _read_file_bounded(
     if len(raw) > max_bytes:
         return raw[:max_bytes].decode("utf-8", errors="replace") + "[TRUNCATED]"
     return raw.decode("utf-8", errors="replace")
+
+
+# Maximum tool-call iterations per page in the code-reader loop. Prevents a
+# runaway model from chewing through tokens reading unrelated files.
+_CODE_READER_MAX_ITERS = 5
+
+
+async def _run_code_fallback(
+    query: str,
+    wiki: Path,
+    top_pages: list[str],
+    pool: SubagentPool,
+    query_id: str,
+) -> str:
+    """Vault-thin fallback: fan out to a code-reader that uses a bounded
+    `read_file` tool to read source code, then synthesize an answer prefixed
+    with the `CODE_FALLBACK_MARKER`.
+
+    Returns the final answer string (including marker prefix) or the
+    `CODE_FALLBACK_DISCLAIMER` line when no source-derived content is found.
+    """
+    repo_root = _resolve_repo_root(wiki)
+    code_cfg = load_role_config("code_reader")
+    code_llm_raw = make_llm("code_reader")
+
+    # Bound the read_file tool to the resolved repo_root and bind it to the LLM.
+    @tool
+    def read_file(path: str) -> str:
+        """Read a source file by repo-relative path.
+
+        Refuses paths outside the repo root, inside `.code-wiki/`, or
+        non-regular-files. Truncates at 200_000 bytes.
+        """
+        try:
+            return _read_file_bounded(repo_root, path)
+        except PermissionError as exc:
+            return f"ERROR: {exc}"
+        except OSError as exc:
+            return f"ERROR: {exc}"
+
+    code_llm = code_llm_raw.bind_tools([read_file])
+
+    # Build candidate-path hints per top_page. Simple heuristic: pass the
+    # vault page path minus `.md` and its parent dirname as hints. A future
+    # plan can refine this to map vault paths -> probable source dirs.
+    def _candidates_for(page_path: str) -> list[str]:
+        page_no_md = page_path.removesuffix(".md")
+        parts = page_no_md.split("/")
+        hints: list[str] = [page_no_md]
+        if len(parts) > 1:
+            hints.append("/".join(parts[:-1]))
+        return hints
+
+    async def code_drill(page_path: str) -> str:
+        candidates = _candidates_for(page_path)
+        hint_lines = "\n".join(f"- {c}" for c in candidates)
+        msgs: list = [
+            SystemMessage(content=CODE_READER_SYSTEM),
+            HumanMessage(
+                content=(
+                    f"Query: {query}\n\n"
+                    f"The vault page `{page_path}` did not cover this query. "
+                    "Use the `read_file` tool to read source files under these "
+                    "candidate path hints and any other plausible files you can "
+                    "infer from what you find:\n"
+                    f"{hint_lines}\n\n"
+                    "Quote relevant code verbatim with `path:line` annotations. "
+                    "If nothing you can read is relevant, respond with exactly "
+                    "`NO_RELEVANT_CONTENT`."
+                )
+            ),
+        ]
+        for iteration in range(_CODE_READER_MAX_ITERS):
+            resp = await code_llm.ainvoke(msgs)
+            tool_calls = getattr(resp, "tool_calls", None) or []
+            if not tool_calls:
+                return getattr(resp, "content", "") or ""
+            msgs.append(resp)
+            for call in tool_calls:
+                call_args = call.get("args", {}) if isinstance(call, dict) else {}
+                call_id = call.get("id", "") if isinstance(call, dict) else ""
+                requested = call_args.get("path", "")
+                try:
+                    tool_output = _read_file_bounded(repo_root, requested)
+                except PermissionError as exc:
+                    tool_output = f"ERROR: {exc}"
+                except OSError as exc:
+                    tool_output = f"ERROR: {exc}"
+                msgs.append(
+                    ToolMessage(content=tool_output, tool_call_id=call_id)
+                )
+        logger.warning(
+            "code-reader hit max iteration cap (%d) on page %s (query_id=%s)",
+            _CODE_READER_MAX_ITERS,
+            page_path,
+            query_id,
+        )
+        # Stop without invention; treat as no content.
+        return "NO_RELEVANT_CONTENT"
+
+    code_fan: FanOutResult = await pool.run_all(
+        items=top_pages,
+        task=code_drill,
+        role="code_reader",
+        model_id=code_cfg["model_id"],
+        max_concurrency=code_cfg["max_concurrency"],
+    )
+
+    code_useful = [
+        (item, result)
+        for item, result in code_fan.successes
+        if (result or "").strip() and (result or "").strip() != "NO_RELEVANT_CONTENT"
+    ]
+
+    if not code_useful:
+        # Both pathways empty — no fabrication.
+        return CODE_FALLBACK_DISCLAIMER
+
+    code_excerpts_text = "\n\n---\n\n".join(
+        f"[{item}]\n{result}" for item, result in code_useful
+    )
+    if len(code_excerpts_text) > 60000:
+        code_excerpts_text = code_excerpts_text[:60000]
+
+    synth_llm = make_llm("synthesizer")
+    synth_msgs = [
+        SystemMessage(content=SYNTHESIZER_SYSTEM),
+        HumanMessage(
+            content=(
+                f"Query: {query}\n\n"
+                "Source: code (vault did not cover this query). The excerpts "
+                "below are quoted directly from source files by a code-reader "
+                "subagent, not from vault pages.\n\n"
+                f"Librarian excerpts:\n{code_excerpts_text}"
+            )
+        ),
+    ]
+    synth_resp = await synth_llm.ainvoke(synth_msgs)
+    synth_answer = getattr(synth_resp, "content", "") or ""
+
+    return f"{CODE_FALLBACK_MARKER}\n\n{synth_answer}"
 
 
 def _compute_unresolved_wikilinks(answer: str, vault_path: Path) -> list[str]:
@@ -737,32 +890,42 @@ async def run_query(
         max_concurrency=lib_cfg["max_concurrency"],
     )
 
-    # Step 7: Synthesizer (single call)
-    excerpts_text = "\n\n---\n\n".join(
-        f"[{item}]\n{result}"
+    # Step 7: Determine whether the librarian fan-out yielded any useful
+    # excerpts. Plan 09 vault-thin code-fallback fires only when this is empty.
+    useful_excerpts = [
+        (item, result)
         for item, result in fan_result.successes
-        if (result or "").strip() != "NO_RELEVANT_CONTENT"
-    )
-    # Optional safety truncation per AI-SPEC §4b.4
-    if len(excerpts_text) > 60000:
-        logger.warning(
-            "Truncating librarian excerpts before synthesis (query_id=%s)", query_id
-        )
-        excerpts_text = excerpts_text[:60000]
-
-    synth_llm = make_llm("synthesizer")
-    synth_msgs = [
-        SystemMessage(content=SYNTHESIZER_SYSTEM),
-        HumanMessage(content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"),
+        if (result or "").strip() and (result or "").strip() != "NO_RELEVANT_CONTENT"
     ]
-    synth_resp = await synth_llm.ainvoke(synth_msgs)
-    answer = synth_resp.content
 
-    # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
-    # wikilinks AND there were real librarian successes to ground against.
-    # G4 (empty successes) takes precedence — when G4 will fire, we skip
-    # the retry because the answer is already going to be marked unsupported.
-    if fan_result.successes:
+    code_fallback_used = False
+
+    if useful_excerpts:
+        # ---- Regular path (vault-rich): synth on librarian excerpts ----
+        excerpts_text = "\n\n---\n\n".join(
+            f"[{item}]\n{result}" for item, result in useful_excerpts
+        )
+        # Optional safety truncation per AI-SPEC §4b.4
+        if len(excerpts_text) > 60000:
+            logger.warning(
+                "Truncating librarian excerpts before synthesis (query_id=%s)",
+                query_id,
+            )
+            excerpts_text = excerpts_text[:60000]
+
+        synth_llm = make_llm("synthesizer")
+        synth_msgs = [
+            SystemMessage(content=SYNTHESIZER_SYSTEM),
+            HumanMessage(
+                content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"
+            ),
+        ]
+        synth_resp = await synth_llm.ainvoke(synth_msgs)
+        answer = synth_resp.content
+
+        # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
+        # wikilinks. fan_result.successes is non-empty here by construction
+        # (useful_excerpts is a subset).
         unresolved = _compute_unresolved_wikilinks(answer, wiki)
         if unresolved:
             logger.info(
@@ -773,6 +936,20 @@ async def run_query(
             answer = await _retry_synthesis_drop_unresolved(
                 synth_llm, query, excerpts_text, unresolved
             )
+    else:
+        # ---- Plan 09 vault-thin code-fallback branch ----
+        logger.info(
+            "librarian fan-out returned no useful excerpts; entering code-fallback (query_id=%s)",
+            query_id,
+        )
+        code_fallback_used = True
+        answer = await _run_code_fallback(
+            query=query,
+            wiki=wiki,
+            top_pages=top_pages,
+            pool=pool,
+            query_id=query_id,
+        )
 
     # Step 8: Build QueryResult with search_scores
     query_result = QueryResult(
@@ -791,6 +968,10 @@ async def run_query(
 
     # Step 9: Apply guardrails (G1 + G4). If the retry above failed to clean
     # all unresolved wikilinks, G1 will append the warning footer as fallback.
+    # On the code-fallback path, fan_result.successes may be non-empty
+    # (NO_RELEVANT_CONTENT counts as a success at the pool level) so G4 does
+    # not fire spuriously; G1 still validates whatever wikilinks the code-
+    # derived synth emitted against the real vault.
     query_result = apply_guardrails(query_result, wiki, fan_result)
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
@@ -806,6 +987,7 @@ async def run_query(
             "top_k": top_k,
             "pages_retrieved": len(top_pages),
             "pages_drilled": query_result.pages_drilled,
+            "code_fallback": code_fallback_used,
             "started_at": started_at,
             "ended_at": ended_at,
         }
