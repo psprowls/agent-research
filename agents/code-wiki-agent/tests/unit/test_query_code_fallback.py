@@ -165,3 +165,300 @@ def test_resolve_repo_root_falls_back_to_vault(tmp_path: Path) -> None:
     wiki.mkdir()
 
     assert _resolve_repo_root(wiki) == wiki
+
+
+# ---------------------------------------------------------------------------
+# Task 2: run_query code-fallback fan-out wiring
+# ---------------------------------------------------------------------------
+
+
+def _setup_run_query_mocks(
+    vault: Path,
+    fan_result,
+    synth_responses: list,
+    code_fan_result=None,
+):
+    """Patch stack + mock wiring for run_query code-fallback tests.
+
+    Returns (patches, mock_synth_llm, mock_librarian_llm, mock_code_llm).
+    code_fan_result, if provided, is what the SECOND `pool.run_all` call
+    (the code-reader fan-out) will return. Otherwise both calls return
+    `fan_result`. This lets tests distinguish "fallback fired" from
+    "fallback did not fire".
+    """
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    mock_synth_llm = MagicMock()
+    mock_synth_llm.ainvoke = AsyncMock(side_effect=synth_responses)
+    mock_librarian_llm = MagicMock()
+    mock_code_llm = MagicMock()
+    # bind_tools returns a new runnable in real langchain; we just return self
+    mock_code_llm.bind_tools = MagicMock(return_value=mock_code_llm)
+
+    patches = [
+        patch(
+            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            return_value=(vault, None),
+        ),
+        patch(
+            "code_wiki_agent.commands.query.bm25_query",
+            return_value=(["page1.md", "page2.md", "page3.md"], [2.0, 1.5, 1.0]),
+        ),
+        patch(
+            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            return_value=[("page1.md", 0.9), ("page2.md", 0.8), ("page3.md", 0.7)],
+        ),
+        patch("code_wiki_agent.commands.query.BedrockEmbeddings"),
+        patch("code_wiki_agent.commands.query.make_llm"),
+        patch("code_wiki_agent.commands.query.SubagentPool"),
+    ]
+    return patches, mock_synth_llm, mock_librarian_llm, mock_code_llm
+
+
+@pytest.mark.asyncio
+async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -> None:
+    """When every librarian result is NO_RELEVANT_CONTENT, the code-reader fan-out fires."""
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    librarian_fan = FanOutResult(
+        successes=[
+            ("page1.md", "NO_RELEVANT_CONTENT"),
+            ("page2.md", "   "),  # whitespace-only
+            ("page3.md", "NO_RELEVANT_CONTENT"),
+        ],
+        errors=[],
+    )
+    code_fan = FanOutResult(
+        successes=[
+            ("page1.md", "`pool.py:115` — async semaphore creation"),
+        ],
+        errors=[],
+    )
+    synth_resp = AIMessage(content="The pool creates the semaphore at `pool.py:115`.")
+
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
+        vault, librarian_fan, [synth_resp]
+    )
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _r, _b, _c, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        def _llm_for(role: str):
+            if role == "librarian":
+                return mock_lib
+            if role == "code_reader":
+                return mock_code
+            return mock_synth
+
+        mock_make_llm.side_effect = _llm_for
+
+        mock_pool_inst = MagicMock()
+        # First run_all → librarian; second → code_reader
+        mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("how does pool work?", vault_path=vault, top_k=3)
+
+    # Two fan-out calls = code-fallback fired
+    assert mock_pool_inst.run_all.await_count == 2, (
+        "code-reader fan-out must be invoked when all librarian excerpts are empty"
+    )
+    # Verify the second call was role=code_reader
+    second_call_kwargs = mock_pool_inst.run_all.await_args_list[1].kwargs
+    assert second_call_kwargs.get("role") == "code_reader"
+    # Marker prefix is present on the final answer
+    assert result.answer.startswith("[vault-thin: answer derived from source code]")
+
+
+@pytest.mark.asyncio
+async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path) -> None:
+    """At least one non-empty, non-sentinel excerpt -> no code-fallback."""
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    librarian_fan = FanOutResult(
+        successes=[
+            ("page1.md", "NO_RELEVANT_CONTENT"),
+            ("page2.md", "real useful excerpt with content"),
+        ],
+        errors=[],
+    )
+    synth_resp = AIMessage(content="Synth output without any unresolved links.")
+
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
+        vault, librarian_fan, [synth_resp]
+    )
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _r, _b, _c, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        def _llm_for(role: str):
+            if role == "librarian":
+                return mock_lib
+            if role == "code_reader":
+                return mock_code
+            return mock_synth
+
+        mock_make_llm.side_effect = _llm_for
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    # Only one fan-out call: librarian. No code-fallback.
+    assert mock_pool_inst.run_all.await_count == 1
+    # No marker prefix on the answer (regular path)
+    assert not result.answer.startswith("[vault-thin:")
+
+
+@pytest.mark.asyncio
+async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
+    """When code-fallback succeeds, final QueryResult.answer starts with the exact marker."""
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    librarian_fan = FanOutResult(
+        successes=[("page1.md", "NO_RELEVANT_CONTENT")],
+        errors=[],
+    )
+    code_fan = FanOutResult(
+        successes=[("page1.md", "Quoted code at `foo.py:10`")],
+        errors=[],
+    )
+    synth_resp = AIMessage(content="Source-derived answer about `foo.py:10`.")
+
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
+        vault, librarian_fan, [synth_resp]
+    )
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _r, _b, _c, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        def _llm_for(role: str):
+            if role == "librarian":
+                return mock_lib
+            if role == "code_reader":
+                return mock_code
+            return mock_synth
+
+        mock_make_llm.side_effect = _llm_for
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    assert result.answer.startswith(
+        "[vault-thin: answer derived from source code]"
+    )
+    # The synthesizer output should still appear after the marker
+    assert "Source-derived answer about `foo.py:10`." in result.answer
+
+
+@pytest.mark.asyncio
+async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> None:
+    """Both librarian and code-reader return nothing useful -> no-fabrication disclaimer."""
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    librarian_fan = FanOutResult(
+        successes=[("page1.md", "NO_RELEVANT_CONTENT")],
+        errors=[],
+    )
+    code_fan = FanOutResult(
+        successes=[("page1.md", "NO_RELEVANT_CONTENT")],
+        errors=[],
+    )
+    # No synth response expected on the double-empty path — the disclaimer is
+    # returned directly without calling the synthesizer. If a synth call is
+    # made, side_effect=[] will raise StopAsyncIteration loudly.
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
+        vault, librarian_fan, []
+    )
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _r, _b, _c, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        def _llm_for(role: str):
+            if role == "librarian":
+                return mock_lib
+            if role == "code_reader":
+                return mock_code
+            return mock_synth
+
+        mock_make_llm.side_effect = _llm_for
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    # Disclaimer line, no fabrication
+    assert "vault does not document this" in result.answer
+    assert "source code did not yield" in result.answer
+    # Synth was NOT called on the double-empty path
+    assert mock_synth.ainvoke.await_count == 0
