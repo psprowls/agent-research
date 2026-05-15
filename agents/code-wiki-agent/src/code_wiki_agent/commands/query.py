@@ -128,19 +128,33 @@ _PRAGMA_WAL = "PRAGMA journal_mode=WAL"
 # Plan 03: System prompt constants (AI-SPEC §3 lines 216-228)
 # ---------------------------------------------------------------------------
 
-LIBRARIAN_SYSTEM = (
-    "You are a wiki librarian. Given a user query and a single wiki page, "
-    "extract every passage from the page that is directly relevant to the query. "
-    "Quote the relevant text verbatim, annotating each excerpt with its wikilink. "
-    "If the page contains nothing relevant, respond with exactly: NO_RELEVANT_CONTENT"
-)
+LIBRARIAN_SYSTEM = """You are a wiki librarian. Given a user query and a single wiki page, extract every passage from the page that is directly relevant to the query.
 
-SYNTHESIZER_SYSTEM = (
-    "You are a wiki synthesizer. Given a user query and a set of excerpts from "
-    "relevant wiki pages, produce a concise, accurate answer. "
-    "Cite every wiki page you draw from using [[wikilink]] notation. "
-    "Include direct file paths and code references when present in the excerpts."
-)
+Rules:
+- Quote relevant passages **verbatim** from the supplied page only. Do not paraphrase code symbols, file paths, function names, class names, or wikilink targets that are not literally present in the page text.
+- Never invent file paths, line numbers, symbol names, or wikilinks. If a fact is not in the page text, it does not belong in your excerpt. The no-invention rule is absolute.
+- For every quoted passage that mentions a code path, preserve the exact `path:line` or `path:line-line` annotation if it is present in the page (e.g. `pool.py:115`, `loader.py:82-107`). Never invent a line number, never round a range, never collapse a range to a single line.
+- Preserve the page's wikilink syntax verbatim. If the page writes `[[wiki/cores/subagent-runtime/subagent-runtime]]`, quote it that way — do not rewrite it to `[[subagent-runtime]]` or any other slug-only form, and do not invent new wikilinks.
+- When the page contains no passage relevant to the query, respond with exactly the sentinel string `NO_RELEVANT_CONTENT` and nothing else. Do not add explanation, apology, or partial-match attempts.
+- When the page is a TODO stub, a near-empty placeholder, or otherwise too sparse to address the query, respond with `NO_RELEVANT_CONTENT` rather than guess at what the stub would say once filled in. Acknowledging vault thinness via the sentinel is preferred to fabricating content.
+
+Output format:
+- Either a list of verbatim excerpts (each labeled with its wikilink as it appears in the page), or the bare sentinel `NO_RELEVANT_CONTENT`. Nothing else."""
+
+SYNTHESIZER_SYSTEM = """You are a wiki synthesizer. Given a user query and a set of excerpts from relevant wiki pages, produce a concise, accurate answer drawn strictly from those excerpts.
+
+Rules:
+- Compose the answer **only** from the supplied librarian excerpts. Never invent a file path, function name, class name, symbol, or wikilink target that does not appear verbatim in at least one excerpt. The no-invention rule is absolute — plausible-sounding prose that is not grounded in the excerpts is worse than a shorter, narrower answer.
+- Cite vault pages using the **full page-path form** that appears in the excerpts, for example `[[wiki/cores/subagent-runtime/subagent-runtime]]` or `[[wiki/agents/code-wiki-agent/commands/query]]`. Never collapse a wikilink to a slug-only form such as `[[SubagentPool]]` or `[[Bedrock]]`. Slug-only wikilinks are forbidden — they do not resolve against the vault.
+- When an excerpt cites a code path with a line number (e.g. `pool.py:115`, `loader.py:82-107`, `src/foo/bar.py:42`), preserve that exact `path:line` reference inline in the answer wrapped in backticks, like `` `pool.py:115` ``. Do not strip the line number, do not change it, do not invent one when the excerpt did not supply one.
+- When the supplied excerpts do not cover some aspect of the query, **say so explicitly** in the answer using a phrase like "The vault does not document X." or "The vault doesn't cover Y." rather than filling the gap with plausible-sounding prose. Acknowledging vault thinness is required, not optional.
+
+Output structure:
+1. **Direct answer** — 1-3 sentences answering the question.
+2. **Supporting detail** — organized thematically, weaving in inline citations: `[[wiki/...]]` wikilinks for vault pages and `` `path:line` `` backtick-wrapped references for code locations.
+3. **Related pages** — a short section listing 3-5 wikilinks drawn from the excerpts only. Never invent a wikilink target that is not present in at least one excerpt.
+
+If the excerpts collectively contain no answer to the query, return a short answer that says exactly that and lists which pages were checked. Do not fabricate."""
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +284,71 @@ def _cosine_search_sqlite(
 def _extract_wikilinks(text: str) -> list[str]:
     """Extract [[wikilink]] target strings from text."""
     return re.findall(r"\[\[([^\]]+)\]\]", text)
+
+
+def _compute_unresolved_wikilinks(answer: str, vault_path: Path) -> list[str]:
+    """Return the list of [[wikilink]] targets in `answer` that do not resolve
+    against `vault_path`.
+
+    Resolution rules mirror apply_guardrails' G1 logic:
+      - Link may already include .md (e.g. [[concepts/foo.md]]) or omit it.
+      - Direct path lookup first; then glob fallback `**/<base>.md`.
+    Exposed as a top-level helper so run_query can decide whether to trigger
+    a one-shot synthesizer retry before falling through to apply_guardrails.
+    """
+    unresolved: list[str] = []
+    for link in _extract_wikilinks(answer):
+        link_path = link if link.endswith(".md") else f"{link}.md"
+        candidate = vault_path / link_path
+        if not candidate.exists():
+            base = link.removesuffix(".md")
+            matches = list(vault_path.glob(f"**/{base}.md"))
+            if not matches:
+                unresolved.append(link)
+    return unresolved
+
+
+async def _retry_synthesis_drop_unresolved(
+    synth_llm,
+    query: str,
+    excerpts_text: str,
+    unresolved: list[str],
+) -> str:
+    """One-shot synthesizer retry that names the unresolved wikilink tokens
+    literally and tells the model to either repair them with a valid
+    `[[wiki/...]]` path from the excerpts or drop them entirely.
+
+    The retry HumanMessage embeds each unresolved token as written (e.g.
+    `[[ghost]]`) so the model is told exactly which targets to fix — this is
+    the behavior pinned by `test_run_query_retries_on_unresolved_wikilink`'s
+    `call_args` assertion. Do not collapse to a generic "remove unresolved
+    citations" instruction.
+    """
+    # Literal join of unresolved tokens, formatted as wikilinks
+    unresolved_tokens = ", ".join(f"[[{u}]]" for u in unresolved)
+    retry_instruction = (
+        "Your previous answer included unresolved wikilink citations: "
+        f"{unresolved_tokens}. "
+        "These targets do not exist in the vault. "
+        "Rewrite the answer below. For each unresolved citation listed above, "
+        "either replace it with a valid full-path [[wiki/...]] wikilink that "
+        "appears verbatim in at least one excerpt, or remove the citation "
+        "entirely. Do not invent a new wikilink target. Preserve all other "
+        "content, code-path:line references, and structure from your previous "
+        "answer."
+    )
+    msgs = [
+        SystemMessage(content=SYNTHESIZER_SYSTEM),
+        HumanMessage(
+            content=(
+                f"Query: {query}\n\n"
+                f"Librarian excerpts:\n{excerpts_text}\n\n"
+                f"{retry_instruction}"
+            )
+        ),
+    ]
+    resp = await synth_llm.ainvoke(msgs)
+    return resp.content
 
 
 # ---------------------------------------------------------------------------
@@ -580,9 +659,25 @@ async def run_query(
         HumanMessage(content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"),
     ]
     synth_resp = await synth_llm.ainvoke(synth_msgs)
+    answer = synth_resp.content
+
+    # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
+    # wikilinks AND there were real librarian successes to ground against.
+    # G4 (empty successes) takes precedence — when G4 will fire, we skip
+    # the retry because the answer is already going to be marked unsupported.
+    if fan_result.successes:
+        unresolved = _compute_unresolved_wikilinks(answer, wiki)
+        if unresolved:
+            logger.info(
+                "synthesizer emitted %d unresolved wikilink(s); retrying once: %s",
+                len(unresolved),
+                unresolved,
+            )
+            answer = await _retry_synthesis_drop_unresolved(
+                synth_llm, query, excerpts_text, unresolved
+            )
 
     # Step 8: Build QueryResult with search_scores
-    answer = synth_resp.content
     query_result = QueryResult(
         answer=answer,
         citations=_extract_wikilinks(answer),
@@ -597,7 +692,8 @@ async def run_query(
         },
     )
 
-    # Step 9: Apply guardrails (G1 + G4)
+    # Step 9: Apply guardrails (G1 + G4). If the retry above failed to clean
+    # all unresolved wikilinks, G1 will append the warning footer as fallback.
     query_result = apply_guardrails(query_result, wiki, fan_result)
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
