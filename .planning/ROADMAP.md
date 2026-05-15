@@ -10,11 +10,11 @@
 
 ## Phases
 
-- [ ] **Phase 1: Infrastructure, Vault IO, and MCP Skeleton** — Monorepo scaffold, Bedrock IAM proven, vault round-trip fidelity locked, MCP server wired for stderr-only output
-- [ ] **Phase 2: Subagent Fan-Out Runtime** — SubagentPool with partial-failure handling, per-role throttle controls, and structured trace output established as shared infrastructure
-- [ ] **Phase 3: Query Vertical Slice + Hybrid Search** — `query` command running end-to-end through both MCP and headless CLI on Bedrock, with hybrid BM25+embedding search
-- [ ] **Phase 4: Eval Harness** — Cost-frontier measurement infrastructure against the working query command; heterogeneous judge panel; fixture corpus committed
-- [ ] **Phase 5: Remaining Commands** — Full lattice-wiki parity: `log`, `init`, `scan`, `ingest`, `lint` via MCP and headless CLI
+- [x] **Phase 1: Infrastructure, Vault IO, and MCP Skeleton** — Monorepo scaffold, Bedrock IAM proven, vault round-trip fidelity locked, MCP server wired for stderr-only output
+- [x] **Phase 2: Subagent Fan-Out Runtime** — SubagentPool with partial-failure handling, per-role throttle controls, and structured trace output established as shared infrastructure
+- [x] **Phase 3: Query Vertical Slice + Hybrid Search** — `query` command running end-to-end through both MCP and headless CLI on Bedrock, with hybrid BM25+embedding search
+- [x] **Phase 4: Eval Harness** — Cost-frontier measurement infrastructure against the working query command; heterogeneous judge panel; fixture corpus committed
+- [x] **Phase 5: Remaining Commands** — Full lattice-wiki parity: `log`, `init`, `scan`, `ingest`, `lint` via MCP and headless CLI (completed 2026-05-15)
 
 ---
 
@@ -126,7 +126,7 @@ Plans:
 4. All 6 MCP tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) are registered with typed Pydantic schemas and return structured MCP error responses on failure — no crash that kills the stdio session; progress notifications are emitted for long-running commands
 5. Each command has a parity test: given the same fixture vault, the new tool's output matches the recorded lattice-wiki baseline on all structural metrics (wikilinks, frontmatter, package coverage)
 
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -153,7 +153,7 @@ Plans:
 | 2. Subagent Fan-Out Runtime | 0/3 | Not started | - |
 | 3. Query Vertical Slice + Hybrid Search | 0/4 | Not started | - |
 | 4. Eval Harness | 0/4 | Ready to execute | - |
-| 5. Remaining Commands | 0/6 | Ready to execute | - |
+| 5. Remaining Commands | 6/6 | Complete    | 2026-05-15 |
 
 ---
 

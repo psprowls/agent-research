@@ -55,20 +55,20 @@
 
 ### Commands — Full Parity (CMD)
 
-- [ ] **CMD-01** `init`: Bootstrap wiki vault at `<workspace>/wiki/`; discover containers (apps/packages/domains/docs); create category directories + `index.md`, `log.md`, `.templates/`; render tool-specific schema files (CLAUDE.md / AGENTS.md / .cursorrules / opencode / gemini-cli / antigravity); pin layout block; matches `lattice-wiki:init` output structurally
-- [ ] **CMD-02** `scan`: Walk repo for `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pnpm-workspace.yaml`; diff packages vs vault; create/update package stubs in parallel via scanner fan-out; flag renames + deletions; update `index.md` + append `log.md` entry; matches current `lattice-wiki:scan` semantics
-- [ ] **CMD-03** `ingest`: Extract text + metadata from `.md/.txt/.html/.json/.csv` source; compute slug; route to package/concept/adr page; synthesize summary via ingestor subagent; update cross-references and index; append log entry
+- [x] **CMD-01** `init`: Bootstrap wiki vault at `<workspace>/wiki/`; discover containers (apps/packages/domains/docs); create category directories + `index.md`, `log.md`, `.templates/`; render tool-specific schema files (CLAUDE.md / AGENTS.md / .cursorrules / opencode / gemini-cli / antigravity); pin layout block; matches `lattice-wiki:init` output structurally
+- [x] **CMD-02** `scan`: Walk repo for `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pnpm-workspace.yaml`; diff packages vs vault; create/update package stubs in parallel via scanner fan-out; flag renames + deletions; update `index.md` + append `log.md` entry; matches current `lattice-wiki:scan` semantics
+- [x] **CMD-03** `ingest`: Extract text + metadata from `.md/.txt/.html/.json/.csv` source; compute slug; route to package/concept/adr page; synthesize summary via ingestor subagent; update cross-references and index; append log entry
 - [ ] **CMD-04** `query`: Read `index.md` first; hybrid-search top relevant pages; drill 3–10 in parallel via librarian fan-out; synthesize answer with `[[wikilinks]]` + code-path citations; offer optional file-back; output matches current `lattice-wiki:query` shape (structured JSON via `--json` flag)
-- [ ] **CMD-05** `lint`: Mechanical pass (orphans, broken wikilinks honoring placeholder filter, stale pages, missing frontmatter, code-drift); semantic pass (contradictions, stale claims, ADR chain) via linter fan-out across rule-groups in parallel; produce actionable report; honor `--stale-days` / `--log-gap-days` thresholds
-- [ ] **CMD-06** `log`: Append timestamped event (op, title, detail) to `log.md`; structured + atomic
+- [x] **CMD-05** `lint`: Mechanical pass (orphans, broken wikilinks honoring placeholder filter, stale pages, missing frontmatter, code-drift); semantic pass (contradictions, stale claims, ADR chain) via linter fan-out across rule-groups in parallel; produce actionable report; honor `--stale-days` / `--log-gap-days` thresholds
+- [x] **CMD-06** `log`: Append timestamped event (op, title, detail) to `log.md`; structured + atomic
 - [ ] **CMD-07**: All 6 commands accept `--json` for structured output (CI/script consumption)
 - [ ] **CMD-08**: All commands honor a `state-gate` mechanism equivalent to today's (don't write when git state isn't appropriate); behavior is configurable
 
 ### MCP Server Surface (MCP)
 
-- [ ] **MCP-01**: FastMCP-based stdio server exposes each command as an MCP tool: `wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`
+- [x] **MCP-01**: FastMCP-based stdio server exposes each command as an MCP tool: `wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`
 - [ ] **MCP-02**: Tool descriptions + input schemas are sufficient for DeepAgents CLI to call them without extra documentation
-- [ ] **MCP-03**: Progress reporting via MCP `notifications/progress` for long-running commands (scan, lint, ingest, query — anything with fan-out)
+- [x] **MCP-03**: Progress reporting via MCP `notifications/progress` for long-running commands (scan, lint, ingest, query — anything with fan-out)
 - [ ] **MCP-04**: Errors return structured MCP error responses (no crashes that kill the stdio session)
 - [ ] **MCP-05**: ALL logging routes to stderr; nothing — not even `print()` — goes to stdout (would corrupt JSON-RPC framing)
 - [ ] **MCP-06**: Cancellation: long-running tools respond to MCP cancel requests within a reasonable window (best-effort, may not interrupt mid-Bedrock-call)
@@ -220,13 +220,13 @@ Acknowledged, deferred from v1.
 | EVAL-08 | Phase 4 | Pending |
 | EVAL-09 | Phase 4 | Pending |
 | EVAL-10 | Phase 4 | Pending |
-| CMD-01 | Phase 5 | Pending |
-| CMD-02 | Phase 5 | Pending |
-| CMD-03 | Phase 5 | Pending |
-| CMD-05 | Phase 5 | Pending |
-| CMD-06 | Phase 5 | Pending |
-| MCP-01 | Phase 5 | Pending |
-| MCP-03 | Phase 5 | Pending |
+| CMD-01 | Phase 5 | Complete |
+| CMD-02 | Phase 5 | Complete |
+| CMD-03 | Phase 5 | Complete |
+| CMD-05 | Phase 5 | Complete |
+| CMD-06 | Phase 5 | Complete |
+| MCP-01 | Phase 5 | Complete |
+| MCP-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 67
