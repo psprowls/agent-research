@@ -610,6 +610,8 @@ def apply_guardrails(
     result: QueryResult,
     vault_path: Path,
     fan_result: FanOutResult,
+    *,
+    skip_g4: bool = False,
 ) -> QueryResult:
     """Apply online guardrails G1 and G4. Returns a (possibly mutated) QueryResult.
 
@@ -621,11 +623,17 @@ def apply_guardrails(
     G1 (citation resolution): For each [[wikilink]] in result.answer, check if
     vault_path/<link>.md exists (direct or via glob). Unresolved citations trigger
     an appended warning listing them.
+
+    skip_g4: When True, suppress G4 entirely. Used on the code-fallback path
+    where fan_result reflects the (possibly empty/errored) librarian fan-out
+    but the answer is supported by the code-reader fan-out's excerpts. G1
+    still runs — unresolved wikilinks in the synthesizer's output are valid
+    to flag on either path.
     """
     flags: list[str] = []
 
     # G4: empty excerpts + confident citations
-    if not fan_result.successes and result.citations:
+    if not skip_g4 and not fan_result.successes and result.citations:
         flags.append(
             "[warning: no librarian excerpts; answer is unsupported by retrieved pages]"
         )
@@ -966,13 +974,14 @@ async def run_query(
         },
     )
 
-    # Step 9: Apply guardrails (G1 + G4). If the retry above failed to clean
-    # all unresolved wikilinks, G1 will append the warning footer as fallback.
-    # On the code-fallback path, fan_result.successes may be non-empty
-    # (NO_RELEVANT_CONTENT counts as a success at the pool level) so G4 does
-    # not fire spuriously; G1 still validates whatever wikilinks the code-
-    # derived synth emitted against the real vault.
-    query_result = apply_guardrails(query_result, wiki, fan_result)
+    # Step 9: Apply guardrails (G1 + G4). On the code-fallback path the
+    # librarian fan_result may have zero successes (all errored, or none at
+    # all) — G4 would then falsely flag the code-derived answer as
+    # unsupported. Skip G4 on the code-fallback path; G1 still runs so
+    # unresolved wikilinks emitted by the synthesizer are caught either way.
+    query_result = apply_guardrails(
+        query_result, wiki, fan_result, skip_g4=code_fallback_used
+    )
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
     ended_at = datetime.datetime.utcnow().isoformat() + "Z"
