@@ -52,7 +52,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 Plans:
 - [x] 06-01-PLAN.md — Vendor lattice-wiki canonical sources into cores/prompt-sources/ (Wave 1)
 - [x] 06-02-PLAN.md — Wave 0 test scaffolding (snapshot + provenance + divergence test stubs) (Wave 1)
-- [ ] 06-03-PLAN.md — prompts/ module + shared fragments (iron_rules, page_categories, citation_rules, frontmatter_rules) (Wave 2)
+- [x] 06-03-PLAN.md — prompts/ module + shared fragments (iron_rules, page_categories, citation_rules, frontmatter_rules) (Wave 2)
 - [ ] 06-04-PLAN.md — Librarian prompt port + synthesizer/code_reader relocation + query.py refactor (Wave 3)
 - [ ] 06-05-PLAN.md — Ingestor prompt port + ingest.py refactor (Wave 3)
 - [ ] 06-06-PLAN.md — Linter 3-group prompt port + lint.py refactor (Wave 3)
@@ -105,7 +105,7 @@ Plans:
 | 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete    | 2026-05-14  |
 | 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
 | 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
-| 6. Prompt Content Port + Divergence Eval   | v1.1      | 2/11 | In Progress|  |
+| 6. Prompt Content Port + Divergence Eval   | v1.1      | 3/11 | In Progress|  |
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
