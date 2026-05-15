@@ -75,13 +75,28 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 
 ## Traceability
 
-Filled by the roadmap once phases are mapped.
-
-| Requirement | Phase |
-|-------------|-------|
-| PORT-01..06 | TBD |
-| EVAL-11..13 | TBD |
-| SWEEP-01..05 | TBD |
-| MCP-09..11 | TBD |
-| DACLI-01..03 | TBD |
-| OBS-04..06 | TBD |
+| Requirement | Phase                                    | Status      |
+|-------------|------------------------------------------|-------------|
+| PORT-01     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| PORT-02     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| PORT-03     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| PORT-04     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| PORT-05     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| PORT-06     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| EVAL-11     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| EVAL-12     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| EVAL-13     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
+| SWEEP-01    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| SWEEP-02    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| SWEEP-03    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| SWEEP-04    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| SWEEP-05    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| MCP-09      | Phase 8: Host Reliability               | Pending     |
+| MCP-10      | Phase 8: Host Reliability               | Pending     |
+| MCP-11      | Phase 8: Host Reliability               | Pending     |
+| DACLI-01    | Phase 8: Host Reliability               | Pending     |
+| DACLI-02    | Phase 8: Host Reliability               | Pending     |
+| DACLI-03    | Phase 8: Host Reliability               | Pending     |
+| OBS-04      | Phase 9: Trace/Observability Polish     | Pending     |
+| OBS-05      | Phase 9: Trace/Observability Polish     | Pending     |
+| OBS-06      | Phase 9: Trace/Observability Polish     | Pending     |

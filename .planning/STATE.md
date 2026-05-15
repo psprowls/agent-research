@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Quality Improvements
 status: planning
-last_updated: "2026-05-15T18:20:13.669Z"
+last_updated: "2026-05-15"
 last_activity: 2026-05-15
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,7 +16,7 @@ progress:
 # Project State: deep-agents
 
 **Last updated:** 2026-05-15
-**Updated by:** gsd-verify-work (phase 05 complete — milestone v1.0 complete)
+**Updated by:** gsd-roadmapper (milestone v1.1 roadmap created — Phases 6-9)
 
 ---
 
@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-15 after milestone v1.0 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Awaiting next milestone — run `/gsd-new-milestone` to define v1.1 scope. v1.0 shipped end-to-end parity (all 5 commands, MCP+CLI surfaces, fan-out, eval harness); v1.1 should *run* the cost-frontier sweep the harness enables.
+**Current Focus:** v1.1 Quality Improvements — Phase 6: Prompt Content Port + Divergence Eval. Port lattice-wiki SKILL.md content into agent prompts, wire the divergence-detection eval metric, then sweep the cost-frontier against the improved agent.
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -34,22 +34,24 @@ See: `.planning/PROJECT.md` (updated 2026-05-15 after milestone v1.0 SHIPPED)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 — Prompt Content Port + Divergence Eval
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-15 — Milestone v1.1 started
+Status: planning
+Last activity: 2026-05-15 — Milestone v1.1 roadmap created
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phases total | 5 |
-| Phases complete | 5 |
-| Requirements total | 67 |
-| Requirements mapped | 67 |
-| Requirements complete | 67 |
-| Plans written | 25 |
-| Plans complete | 25 |
+| Phases total (v1.0) | 5 |
+| Phases complete (v1.0) | 5 |
+| Phases total (v1.1) | 4 |
+| Phases complete (v1.1) | 0 |
+| Requirements total (v1.1) | 23 |
+| Requirements mapped (v1.1) | 23 |
+| Requirements complete (v1.1) | 0 |
+| Plans written (v1.1) | 0 |
+| Plans complete (v1.1) | 0 |
 
 ---
 
@@ -66,9 +68,15 @@ Last activity: 2026-05-15 — Milestone v1.1 started
 - ✓ python-frontmatter read-only; writes via ported layout_io.py — validated Phase 1
 - ✓ Single `wiki_ingest` MCP tool with discriminator (not two) — validated Phase 5
 
+v1.1 roadmap decisions:
+- PORT + EVAL-Q (Phase 6) grouped together: divergence eval is the completion gate for the port; splitting would leave Phase 6 with no observable signal
+- SWEEP (Phase 7) blocked on Phase 6: sweep must measure the post-port agent, not the v1.0 baseline — hard constraint
+- MCP-CAN + DACLI (Phase 8) grouped together: both are host-reliability work, both independent of PORT/SWEEP — can start in parallel with Phase 6
+- OBS (Phase 9) stands alone: trace/observability is a distinct domain from reliability; small but coherent deliverable
+
 ### Active TODOs
 
-(None blocking — v1.0 closed. Run `/gsd-new-milestone` to surface v1.1 candidates.)
+- Start Phase 6 with `/gsd:plan-phase 6`
 
 ### Blockers
 
@@ -76,28 +84,26 @@ Last activity: 2026-05-15 — Milestone v1.1 started
 
 ### Research Flags
 
-(Cleared at v1.0 close. New flags will be raised during `/gsd-new-milestone` research.)
+- Phase 6: Review `/Users/pat/Personal/lattice/plugins/lattice-wiki` SKILL.md content per role before writing plans — identify source files and section anchors (PORT-01 is the discovery step)
 
 ---
 
 ## Session Continuity
 
 **Last session:** 2026-05-15
-**Stopped at:** Milestone v1.0 complete — all 5 phases verified, ready for `/gsd-complete-milestone` or `/gsd-new-milestone`.
+**Stopped at:** Milestone v1.1 roadmap created — 4 phases (6-9), 23 requirements mapped, ready for Phase 6 planning.
 **Resume file:** None
 
 **Critical context for next session:**
 
 - v1.0 shipped: 5 phases, 25 plans, 67/67 requirements complete; full retrospective in `.planning/RETROSPECTIVE.md`
-- v1.1 starting point: PROJECT.md `### Active` lists 5 candidate items (cost-frontier sweep, BED-01 live gate, MCP cancellation polish, DeepAgents CLI integration test, OSS release prep)
-- The eval-harness infrastructure is shipped but the sweep has not been run; that's the highest-leverage v1.1 work (it's the project's core thesis: measure cost-quality frontier on Bedrock)
+- v1.1 Phase 6 is the entry point: port lattice-wiki SKILL.md content into librarian/ingestor/linter/scanner prompts, then wire divergence-detection eval metric
+- HARD CONSTRAINT: Phase 7 (sweep) must run AFTER Phase 6 (port) — sweep measures improved agent, not v1.0 baseline
+- Phase 8 (host reliability) has no dependency on Phase 6/7 — eligible to run in parallel if context allows
 - All vault writes still go through `cores/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
 - MCP stdout discipline (`_StdoutGuard`) is non-negotiable; any new MCP tools must register *after* `mcp = FastMCP(...)` to preserve the guard invariant
 
 ---
 
 *State initialized: 2026-05-13*
-
-## Operator Next Steps
-
-- Start the next milestone with /gsd-new-milestone
+*v1.1 roadmap: 2026-05-15*

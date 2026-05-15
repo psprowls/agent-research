@@ -8,6 +8,7 @@
 ## Milestones
 
 - ✅ **v1.0 — code-wiki-agent parity** — Phases 1-5 (shipped 2026-05-15) — [archive](milestones/v1.0-ROADMAP.md)
+- 🔄 **v1.1 — Quality Improvements** — Phases 6-9 (in progress)
 
 ---
 
@@ -26,22 +27,77 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 
 </details>
 
-### 📋 v1.1 (Planned)
+### 📋 v1.1 Quality Improvements (Phases 6-9)
 
-_To be defined via `/gsd-new-milestone`. Candidates documented in `PROJECT.md → Active`._
+- [ ] **Phase 6: Prompt Content Port + Divergence Eval** — Port lattice-wiki SKILL.md content into agent prompts and wire the divergence-detection eval metric
+- [ ] **Phase 7: Cost-Frontier Sweep** — Execute the sweep against the post-port agent, publish cost-optimal model picks, update models.toml defaults
+- [ ] **Phase 8: Host Reliability** — MCP cancellation polish and DeepAgents CLI stdio integration test
+- [ ] **Phase 9: Trace/Observability Polish** — Document and version the trace schema; enhance the trace renderer with per-subagent cost and collapsing
+
+---
+
+## Phase Details
+
+### Phase 6: Prompt Content Port + Divergence Eval
+**Goal**: Agent prompts faithfully encode lattice-wiki's canonical rules and the eval harness can detect remaining divergences
+**Depends on**: Phase 5 (code-wiki-agent v1.0 complete)
+**Requirements**: PORT-01, PORT-02, PORT-03, PORT-04, PORT-05, PORT-06, EVAL-11, EVAL-12, EVAL-13
+**Success Criteria** (what must be TRUE):
+  1. Running `code-wiki-agent query` against the fixture corpus produces citations that follow lattice-wiki iron rules (no hallucinated wikilinks, correct refusal patterns)
+  2. Running `code-wiki-agent ingest` routes source vs work-item pages correctly and generates frontmatter that passes the mechanical lint pass
+  3. Running `code-wiki-agent lint` applies the canonical rule set (not a paraphrased version) — provenance comments in `prompts/` trace every rule to a source path + anchor
+  4. The divergence eval metric runs against the fixture corpus and emits per-role divergence counts with concrete examples
+  5. A recorded divergence baseline exists; re-running without `--accept-divergence-baseline` fails the gate if divergence increases
+**Plans**: TBD
+
+### Phase 7: Cost-Frontier Sweep
+**Goal**: The cost-frontier across all 7 Bedrock roles is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
+**Depends on**: Phase 6
+**Requirements**: SWEEP-01, SWEEP-02, SWEEP-03, SWEEP-04, SWEEP-05
+**Success Criteria** (what must be TRUE):
+  1. `CODE_WIKI_RUN_EVAL=1 pytest` completes against all 7 roles on live Bedrock without credential or access errors (BED-01 gate passes in passing)
+  2. A committed cost-frontier table exists under `.planning/` or `docs/` showing model × quality × cost per role
+  3. `models.toml` defaults point to the cost-optimal pick per role; previous defaults are preserved as commented provenance
+  4. A results summary doc exists that tells the cost story v1.0 promised to validate
+**Plans**: TBD
+
+### Phase 8: Host Reliability
+**Goal**: MCP cancellation is proven clean under a real DeepAgents CLI host and every MCP tool is exercised by an end-to-end integration test
+**Depends on**: Phase 5 (no dependency on Phase 6 or 7 — parallel-eligible)
+**Requirements**: MCP-09, MCP-10, MCP-11, DACLI-01, DACLI-02, DACLI-03
+**Success Criteria** (what must be TRUE):
+  1. A cancel-mid-fan-out scenario under the real DeepAgents CLI host terminates in-flight Bedrock calls cleanly — no orphaned calls, traces close with a `cancelled` terminal event
+  2. An automated cancel test covers the cancel-mid-fan-out scenario at the MCP transport boundary and runs under the standard opt-in gate
+  3. A single integration test launches `code-wiki-mcp` as a stdio subprocess, exercises all six tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) with realistic inputs, and asserts non-error outcomes
+  4. The integration test runs under `CODE_WIKI_RUN_INTEGRATION=1` (consistent with existing opt-in gate pattern)
+**Plans**: TBD
+
+### Phase 9: Trace/Observability Polish
+**Goal**: The trace format is documented and versioned, and the trace renderer surfaces per-subagent cost and collapses noisy output by default
+**Depends on**: Phase 2 (trace infrastructure exists)
+**Requirements**: OBS-04, OBS-05, OBS-06
+**Success Criteria** (what must be TRUE):
+  1. Every JSONL trace file contains a `schema_version` field; the schema is documented with a breaking-change policy
+  2. `code-wiki-agent trace <file>` displays per-subagent cost (input/output tokens × model price) for each fan-out call
+  3. `code-wiki-agent trace <file>` collapses repeated subagent-role groups into a summary line by default; `--expand` drills into the full event stream
+**Plans**: TBD
 
 ---
 
 ## Progress
 
-| Phase                                       | Milestone | Plans Complete | Status   | Completed   |
-| ------------------------------------------- | --------- | -------------- | -------- | ----------- |
-| 1. Infrastructure, Vault IO, MCP Skeleton   | v1.0      | 5/5            | Complete | 2026-05-13  |
-| 2. Subagent Fan-Out Runtime                 | v1.0      | 4/4            | Complete | 2026-05-13  |
-| 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete | 2026-05-14  |
-| 4. Eval Harness                             | v1.0      | 4/4            | Complete | 2026-05-14  |
-| 5. Remaining Commands                       | v1.0      | 6/6            | Complete | 2026-05-14  |
+| Phase                                       | Milestone | Plans Complete | Status      | Completed   |
+| ------------------------------------------- | --------- | -------------- | ----------- | ----------- |
+| 1. Infrastructure, Vault IO, MCP Skeleton   | v1.0      | 5/5            | Complete    | 2026-05-13  |
+| 2. Subagent Fan-Out Runtime                 | v1.0      | 4/4            | Complete    | 2026-05-13  |
+| 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete    | 2026-05-14  |
+| 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
+| 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
+| 6. Prompt Content Port + Divergence Eval   | v1.1      | 0/TBD          | Not started | -           |
+| 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
+| 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
+| 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
 
 ---
 
-*Last updated: 2026-05-15 — milestone v1.0 SHIPPED*
+*Last updated: 2026-05-15 — milestone v1.1 roadmap created (Phases 6-9)*
