@@ -1,27 +1,24 @@
 ---
 phase: 05-remaining-commands
-verified: 2026-05-14T20:00:00Z
-status: human_needed
-score: 4/5 must-haves verified
+verified: 2026-05-14T21:05:00Z
+status: passed
+score: 5/5 must-haves verified
 overrides_applied: 0
-human_verification:
-  - test: "Run `code-wiki-agent scan --json` against a real monorepo fixture and confirm the output contains `{added, updated, deleted}` keys with a non-empty list in at least one key. Scanner fan-out requires live Bedrock credentials."
-    expected: "ScanResult JSON with at least one non-empty list among added/updated/deleted, plus a valid state_gate dict."
-    why_human: "Scanner fan-out calls AWS Bedrock (scanner role). Unit tests mock the LLM boundary. Cannot verify actual Bedrock invocation or real vault writes without live credentials."
-  - test: "Run `code-wiki-agent lint --json` against a real vault with `--stale-days 90` and confirm semantic findings are populated (page_quality, adr_chain, stale_claims keys non-empty)."
-    expected: "LintResult JSON with semantic_findings containing at least one non-empty list, no errors key populated."
-    why_human: "Semantic linter fan-out calls AWS Bedrock (linter role). Unit tests mock SubagentPool. Cannot verify actual 3-group fan-out behavior without live credentials."
-  - test: "SC-5 parity baseline comparison: for any command (scan, lint, ingest, log, init), compare the new tool's output against a recorded lattice-wiki baseline on structural metrics (wikilinks present, frontmatter valid, package coverage)."
-    expected: "Output structural metrics match recorded lattice-wiki baseline within acceptable tolerance."
-    why_human: "No recorded scan/lint/ingest/log/init baselines exist in eval/baselines/ (all 8 baselines are query-only from Phase 4). SC-5 literally requires 'matches the recorded lattice-wiki baseline on all structural metrics'. The parity tests verify fixture-based invariants but do not compare against recorded lattice-wiki output. A human must decide: (a) record baselines for remaining commands and write baseline-comparison tests, OR (b) accept the fixture-invariant tests as sufficient parity evidence for these commands."
+human_verification_resolved:
+  - test: "Run `code-wiki-agent scan` against a real vault with live AWS credentials."
+    resolution: "PASS — `05-HUMAN-UAT.md` Test 1. Re-running scan after removing cores/vault-io/vault-io.md produced `added: ['vault-io']`; scanner role wrote a 2690-byte page with valid frontmatter (title/category/summary/package_path), Overview, and Notable files sourced from Bedrock."
+  - test: "Run `code-wiki-agent lint` against a real vault with live AWS credentials."
+    resolution: "PASS — `05-HUMAN-UAT.md` Test 1. Lint returned full LintResult JSON with mechanical findings (6 orphans, 9 broken_links, 4 package_sync_drift, code_drift) plus semantic_findings populated by Bedrock 3-group fan-out (page_quality: 10 entries, stale_claims: 4 entries, adr_chain: [] — vault has no ADR pages). errors: []. state_gate.allowed=true on clean worktree."
+  - test: "SC-5 parity baseline scope decision."
+    resolution: "ACCEPTED AS-IS — `05-HUMAN-UAT.md` Test 2. Developer decision: fixture-invariant parity tests are sufficient for Phase 5 non-LLM commands; recording lattice-wiki baselines for scan/lint/ingest/log/init is deferred to a later eval pass."
 ---
 
 # Phase 05: Remaining Commands — Verification Report
 
 **Phase Goal:** Deliver all remaining wiki commands (log, init, scan, ingest, lint) end-to-end through CLI and MCP so a user can run any code-wiki-agent command against a real vault.
-**Verified:** 2026-05-14T20:00:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-14T21:05:00Z (human items resolved)
+**Status:** passed
+**Re-verification:** Yes — refreshed after HUMAN-UAT Tests 1 & 2 passed
 
 ## Goal Achievement
 
@@ -38,9 +35,9 @@ human_verification:
 | 7 | All 6 MCP tools registered with typed Pydantic schemas and progress notifications | VERIFIED | `server.py` registers `wiki_log`, `wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_lint` (plus existing `wiki_query`); `wiki_scan`, `wiki_ingest`, `wiki_lint` each emit 2 progress notifications via `ctx.report_progress()`; 15 MCP unit tests pass |
 | 8 | 7 lint mechanical modules ported from lattice-wiki-core with import swaps | VERIFIED | All 7 modules exist in `cores/vault-io/src/vault_io/lint/`; no `lattice_wiki_core` imports survive; each has `GROUP` constant and `check()` function; 11 module tests pass |
 | 9 | `ingest_source.py` and `ingest_work_item.py` ported with subprocess replaced by direct imports | VERIFIED | Both files exist; `ingest_work_item.py` imports `from vault_io.update_index import update_index` and `from vault_io.append_log import append_log`; no `subprocess` or `_run_helper`; 45 tests pass |
-| 10 | SC-5 parity tests compare output to recorded lattice-wiki baseline | PARTIAL | Parity tests exist (`test_scan_parity.py`, `test_lint_parity.py`) and verify structural invariants (broken_links non-empty, missing_frontmatter non-empty, placeholder filter, JSON round-trip). However, `eval/baselines/` contains only 8 query baselines (Phase 4). No recorded lattice-wiki scan/lint/ingest/log/init baselines exist. SC-5 literally requires "matches the recorded lattice-wiki baseline on all structural metrics." |
+| 10 | SC-5 parity tests compare output to recorded lattice-wiki baseline | VERIFIED (scope-adjusted) | Parity tests exist (`test_scan_parity.py`, `test_lint_parity.py`) and verify structural invariants (broken_links non-empty, missing_frontmatter non-empty, placeholder filter, JSON round-trip). Developer decision in `05-HUMAN-UAT.md` Test 2: accept fixture-invariant parity tests as sufficient evidence for Phase 5 non-LLM commands; recording lattice-wiki baselines for scan/lint/ingest/log/init is deferred to a later eval pass. |
 
-**Score:** 4/5 roadmap success criteria verified (SC-1 through SC-4 fully verified; SC-5 partially met — parity tests exist but without recorded lattice-wiki baselines for non-query commands)
+**Score:** 5/5 roadmap success criteria verified (SC-1 through SC-4 verified at code level; SC-5 verified via scope-adjusted fixture-invariant parity tests per developer decision)
 
 ### Required Artifacts
 
@@ -154,17 +151,15 @@ No TBD, FIXME, or XXX markers found in any phase-modified file.
 
 ### Gaps Summary
 
-No automated-verifiable blockers were found. All must-have truths are VERIFIED at the code level. All requirement IDs (CMD-01, CMD-02, CMD-03, CMD-05, CMD-06, MCP-01, MCP-03) are satisfied.
+No outstanding gaps. All must-have truths are VERIFIED. All requirement IDs (CMD-01, CMD-02, CMD-03, CMD-05, CMD-06, MCP-01, MCP-03) are satisfied. SC-5 verified via scope-adjusted decision recorded in `05-HUMAN-UAT.md` Test 2.
 
-The `human_needed` status stems from three items that cannot be verified programmatically:
+Prior `human_needed` items resolved via `05-HUMAN-UAT.md`:
+1. Live Bedrock scan + lint fan-out — verified end-to-end (Test 1 PASS, evidence in HUMAN-UAT).
+2. SC-5 parity baseline — fixture-invariant parity tests accepted; lattice-wiki baselines deferred (Test 2 PASS).
 
-1. **Live Bedrock verification** (scan fan-out, lint semantic pass): unit tests mock Bedrock; actual Bedrock invocation with real credentials has not been verified in this verification pass.
-
-2. **SC-5 parity baseline gap**: ROADMAP success criterion 5 requires comparing output to "recorded lattice-wiki baseline." No baselines exist for scan/lint/ingest/log/init commands. The parity tests verify structural correctness against fixture vaults but fall short of the SC-5 literal contract. Developer must decide scope.
-
-The SC-5 gap is the most significant finding — it's a deviation from the roadmap contract. The code correctly implements all commands; the gap is in the evaluation infrastructure for the non-query commands.
+Carry-forward note for future phases: recording lattice-wiki baselines for scan/lint/ingest/log/init remains a future eval-harness enhancement, not a Phase 5 blocker.
 
 ---
 
-_Verified: 2026-05-14T20:00:00Z_
-_Verifier: Claude (gsd-verifier)_
+_Verified: 2026-05-14T21:05:00Z (human items resolved)_
+_Verifier: Claude (gsd-verifier + gsd-verify-work HUMAN-UAT)_
