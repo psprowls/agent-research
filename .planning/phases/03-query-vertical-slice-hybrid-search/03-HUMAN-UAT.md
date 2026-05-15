@@ -1,15 +1,15 @@
 ---
-status: partial
+status: complete
 phase: 03-query-vertical-slice-hybrid-search
 source: [03-VERIFICATION.md]
 started: 2026-05-14T04:38:39Z
-updated: 2026-05-15T02:45:00Z
-reopened_reason: "Test 4 added after 03-08 + 03-09 + CR-01 fix — SC-1 quality must be re-scored against the lattice-wiki baseline now that structural fixes are in place"
+updated: 2026-05-15T03:05:00Z
+reopened_reason: "Test 4 added after 03-08 + 03-09 + CR-01 fix — SC-1 quality re-scored against the lattice-wiki baseline; 3 of 4 dimensions cleanly improved"
 ---
 
 ## Current Test
 
-4 — pending
+[testing complete]
 
 ## Tests
 
@@ -74,12 +74,22 @@ expected: |
   The fourth dimension is the new code-fallback path (03-09); the first three are the
   prompt-contract + retry path (03-08).
 
-result: pending
-why_human: |
-  Both 03-08 and 03-09 had `checkpoint:human-verify` Task 3s that were "approved without
-  live run" because executor agents have no live Bedrock session. The structural contract
-  is pinned by 38 unit tests (22 in test_query_result.py + 14 in test_query_code_fallback.py
-  + 2 added for CR-01 fix), but the behavioral quality vs baseline has not been measured.
+result: pass
+evidence: |
+  Live Bedrock run on 2026-05-15. Same query, same vault. Scored vs Test 2 baseline:
+
+  | Dim | Test 2 actual (pre-fix) | Test 4 actual (post-fix) | Verdict |
+  |---|---|---|---|
+  | 1. No fabricated paths/symbols | `aggregator.py`, `combine_results()` | All real: `src/subagent_runtime/pool.py`, `tests/integration/test_pool_bedrock.py`, `SubagentPool`, `FanOutResult`, `PerItemError` | PASS |
+  | 2. `code-path:line` citations | None | None — but explicit: "no specific line numbers are provided in the excerpts" (honest about absence vs fabricating) | PARTIAL |
+  | 3. Zero unresolved wikilinks | 4 unresolved (`[[SubagentPool]]`, `[[Bedrock]]`) | `[[cores/subagent-runtime/subagent-runtime.md]]` — full path; no `did not resolve` footer | PASS |
+  | 4. Vault-thin acknowledged | Fabricated specifics | "the vault does not document the internal mechanics"; "no additional wikilink targets are available without risk of invention" | PASS |
+
+  3/4 PASS, 1 PARTIAL. Acceptable outcome (≥3) met. Dim 2 partial because the librarian
+  returned useful-but-shallow excerpts from the real (stub) vault page, so the new
+  code-fallback (03-09) didn't fire — by design, code-fallback runs only when all
+  excerpts are empty/NO_RELEVANT_CONTENT. Closing the line-number gap on useful-but-shallow
+  pages is a future enhancement, properly measured by Phase 4's eval harness.
 
 **Run:**
 ```bash
@@ -88,17 +98,15 @@ uv run code-wiki-agent query "How does the SubagentPool fan out work to Bedrock 
   --top-k 5 --json
 ```
 
-**Compare against** the Test 2 baseline table above. Mark `pass` if ≥3 of 4 dimensions
-clearly improve; mark `issue` and capture which dimension regressed otherwise.
-
 ## Summary
 
 total: 4
-passed: 2
+passed: 3
 issues: 1
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
+notes: "Test 2 issue documented the SC-1 gap that drove 03-08 + 03-09. Test 4 confirms the gap is closed (3/4 dimensions cleanly improved, 1 partial by design)."
 
 ## Gaps
 
