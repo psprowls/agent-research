@@ -17,6 +17,11 @@ Public API (Plan 03):
     run_query(query, vault_path, top_k) -- End-to-end query pipeline
     apply_guardrails(result, vault_path, fan_result) -- G1 + G4 online guardrails
     _extract_wikilinks(text)         -- Extract [[wikilink]] targets from text
+
+Public API (Plan 09 — vault-thin code-fallback):
+    CODE_READER_SYSTEM               -- System prompt for code_reader role
+    _resolve_repo_root(vault_path)   -- Repo-root heuristic (.git / pyproject.toml sibling)
+    _read_file_bounded(repo_root, requested_path, max_bytes) -- Allow-list bounded file reader
 """
 
 import datetime
@@ -156,6 +161,22 @@ Output structure:
 
 If the excerpts collectively contain no answer to the query, return a short answer that says exactly that and lists which pages were checked. Do not fabricate."""
 
+CODE_READER_SYSTEM = """You are a source-code reader operating as a vault-thin fallback. The vault did not have a useful page for this query, so your job is to read the actual source code and extract whatever directly answers the user's question.
+
+You have one tool available:
+- `read_file(path: str) -> str` — read a source file by repo-relative path (e.g. `cores/subagent-runtime/src/subagent_runtime/pool.py`). The tool is allow-listed: it refuses paths outside the repo root or inside `.code-wiki/`. If the file is missing or the path is rejected, the tool returns an error string starting with `ERROR:` — do not try to invent the content; pick a different path or stop.
+
+Rules:
+- Use the candidate paths in the prompt as hints. Call `read_file` only on paths that plausibly contain the answer. Do not invent paths that the prompt did not suggest.
+- When you quote code, quote it **verbatim** from the file the tool returned. Never paraphrase, never reformat, never invent symbols or line numbers.
+- For every quoted passage, annotate it with `path:line` or `path:line-line` — the line numbers MUST come from the actual file contents the tool returned. Count from the top of the returned content (1-indexed). Never invent a line number.
+- Never read or quote anything inside `.code-wiki/` — those are vault metadata, not source. The tool will refuse such requests; honor that.
+- The no-invention rule is absolute. Plausible-sounding code that is not in a file you actually read is worse than admitting the source did not cover the question.
+- When none of the files you can read are relevant to the query, respond with exactly the sentinel string `NO_RELEVANT_CONTENT` and nothing else. The orchestrator filters that sentinel out before synthesis.
+
+Output format:
+- A short list of verbatim code excerpts, each labeled with its `path:line` annotation, followed by a one-line note on how each excerpt relates to the query. Or the bare sentinel `NO_RELEVANT_CONTENT`. Nothing else."""
+
 
 # ---------------------------------------------------------------------------
 # Plan 03: QueryResult dataclass
@@ -284,6 +305,82 @@ def _cosine_search_sqlite(
 def _extract_wikilinks(text: str) -> list[str]:
     """Extract [[wikilink]] target strings from text."""
     return re.findall(r"\[\[([^\]]+)\]\]", text)
+
+
+# ---------------------------------------------------------------------------
+# Plan 09: vault-thin code-fallback helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_repo_root(vault_path: Path) -> Path:
+    """Heuristic resolver for the repo root that backs a vault.
+
+    Looks at `vault_path.parent`. If that directory contains either a `.git`
+    entry (file or dir — a worktree's `.git` is a file) or a `pyproject.toml`,
+    it is treated as the repo root. Otherwise falls back to `vault_path`
+    itself with a logged warning.
+
+    This is intentionally a starter heuristic; the UAT vault layout (vault at
+    `~/Personal/wiki/deep-agents/` with repo at `~/Personal/deep-agents/`) is
+    NOT a parent-child relationship, so the fallback path is hit in that
+    setup — that's acceptable for v1 because the code-fallback only ever
+    reads files via `_read_file_bounded`, which keeps the read inside the
+    resolved root.
+    """
+    parent = vault_path.parent
+    if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
+        return parent
+    logger.warning(
+        "_resolve_repo_root: no .git or pyproject.toml at %s; "
+        "falling back to vault_path itself (%s) for code-fallback reads",
+        parent,
+        vault_path,
+    )
+    return vault_path
+
+
+def _read_file_bounded(
+    repo_root: Path,
+    requested_path: str,
+    max_bytes: int = 200_000,
+) -> str:
+    """Allow-listed bounded read of a single file under `repo_root`.
+
+    Security contract (pinned by unit tests in test_query_code_fallback.py):
+    - Resolves `requested_path` against `repo_root`. Both sides go through
+      `Path.resolve(strict=False)` BEFORE the containment check, so a symlink
+      whose target lives outside `repo_root` is rejected. Dropping `resolve()`
+      will silently leak files; the symlink-escape test exists to catch that.
+    - Rejects any path whose parts include `.code-wiki` (vault metadata, not
+      source).
+    - Reads at most `max_bytes` bytes. If the file is larger, the returned
+      content is truncated to `max_bytes` and suffixed with the literal
+      `[TRUNCATED]` marker.
+    - Raises `PermissionError` on any allow-list violation. Callers in the
+      LangChain tool wrapper convert that into a tool-error string so the
+      model can recover without crashing.
+    """
+    root = repo_root.resolve(strict=False)
+    candidate = (repo_root / requested_path).resolve(strict=False)
+
+    if not candidate.is_relative_to(root):
+        raise PermissionError(
+            f"refusing to read {requested_path!r}: resolves outside repo root {root}"
+        )
+    if ".code-wiki" in candidate.parts:
+        raise PermissionError(
+            f"refusing to read {requested_path!r}: path is inside .code-wiki/"
+        )
+    if not candidate.is_file():
+        raise PermissionError(
+            f"refusing to read {requested_path!r}: not a regular file"
+        )
+
+    with candidate.open("rb") as f:
+        raw = f.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        return raw[:max_bytes].decode("utf-8", errors="replace") + "[TRUNCATED]"
+    return raw.decode("utf-8", errors="replace")
 
 
 def _compute_unresolved_wikilinks(answer: str, vault_path: Path) -> list[str]:

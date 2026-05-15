@@ -16,6 +16,15 @@ region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
 
+[roles.code_reader]
+# Plan 03-09: vault-thin code-fallback role. Reads source files directly when
+# the librarian fan-out returns no useful excerpts. Conservative defaults —
+# the fallback is opt-in and bounded (max 5 tool-call iterations per page).
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 3
+
 [roles.scanner]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
