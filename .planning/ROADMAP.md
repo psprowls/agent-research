@@ -29,7 +29,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 
 ### 📋 v1.1 Quality Improvements (Phases 6-9)
 
-- [ ] **Phase 6: Prompt Content Port + Divergence Eval** — Port lattice-wiki SKILL.md content into agent prompts and wire the divergence-detection eval metric
+- [x] **Phase 6: Prompt Content Port + Divergence Eval** — Port lattice-wiki SKILL.md content into agent prompts and wire the divergence-detection eval metric (completed 2026-05-15)
 - [ ] **Phase 7: Cost-Frontier Sweep** — Execute the sweep against the post-port agent, publish cost-optimal model picks, update models.toml defaults
 - [ ] **Phase 8: Host Reliability** — MCP cancellation polish and DeepAgents CLI stdio integration test
 - [ ] **Phase 9: Trace/Observability Polish** — Document and version the trace schema; enhance the trace renderer with per-subagent cost and collapsing
@@ -60,7 +60,7 @@ Plans:
 - [x] 06-08-PLAN.md — Divergence rule modules + judge rubrics + per-rule unit tests (Wave 4)
 - [x] 06-09-PLAN.md — DivergenceMetric class (programmatic + GEval judge composition) (Wave 5)
 - [x] 06-10-PLAN.md — Baseline JSON loader + write + regression gate + initial baselines (Wave 6)
-- [ ] 06-11-PLAN.md — End-to-end eval-gated divergence test + baseline acceptance flow (Wave 7)
+- [x] 06-11-PLAN.md — End-to-end eval-gated divergence test + baseline acceptance flow (Wave 7)
 
 ### Phase 7: Cost-Frontier Sweep
 **Goal**: The cost-frontier across all 7 Bedrock roles is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
@@ -105,7 +105,7 @@ Plans:
 | 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete    | 2026-05-14  |
 | 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
 | 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
-| 6. Prompt Content Port + Divergence Eval   | v1.1      | 10/11 | In Progress|  |
+| 6. Prompt Content Port + Divergence Eval   | v1.1      | 11/11 | Complete   | 2026-05-15 |
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
