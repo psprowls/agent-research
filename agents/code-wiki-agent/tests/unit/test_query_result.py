@@ -395,3 +395,218 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
         assert "bm25" in page_scores
         assert "embed" in page_scores
         assert "rrf" in page_scores
+
+
+# ---------------------------------------------------------------------------
+# Plan 03-08: run_query unresolved-wikilink retry tests (SC-1 gap closure)
+# ---------------------------------------------------------------------------
+
+
+def _patches_for_run_query(vault: Path, fan_result, synth_responses: list):
+    """Build the patch stack and mock wiring for run_query unit tests.
+
+    synth_responses is a list of AIMessage objects, returned by successive
+    `synth_llm.ainvoke()` calls. Length must be >= number of expected synth calls.
+    Returns (patch_context_manager_list, mock_synth_llm) so the test can inspect
+    `mock_synth_llm.ainvoke.call_args_list` to verify retry-prompt content.
+    """
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    # Setup synthesizer LLM mock that returns successive responses
+    mock_synth_llm = MagicMock()
+    mock_synth_llm.ainvoke = AsyncMock(side_effect=synth_responses)
+    mock_librarian_llm = MagicMock()
+
+    patches = [
+        patch(
+            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            return_value=(vault, None),
+        ),
+        patch(
+            "code_wiki_agent.commands.query.bm25_query",
+            return_value=(["page1.md", "page2.md", "page3.md"], [2.0, 1.5, 1.0]),
+        ),
+        patch(
+            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            return_value=[("page1.md", 0.9), ("page2.md", 0.8), ("page3.md", 0.7)],
+        ),
+        patch("code_wiki_agent.commands.query.BedrockEmbeddings"),
+        patch("code_wiki_agent.commands.query.make_llm"),
+        patch("code_wiki_agent.commands.query.SubagentPool"),
+    ]
+    return patches, mock_synth_llm, mock_librarian_llm
+
+
+@pytest.mark.asyncio
+async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
+    """Unresolved wikilink in first synth answer triggers exactly one synth retry.
+
+    Retry HumanMessage must literally contain the unresolved token (e.g. "[[ghost]]")
+    so the model is told which tokens to repair/drop, not just "any unresolved ones".
+    """
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    fan_result = FanOutResult(
+        successes=[("page1.md", "excerpt with [[wiki/real]] reference")],
+        errors=[],
+    )
+
+    first_resp = AIMessage(content="Answer with [[ghost]] unresolved.")
+    retry_resp = AIMessage(content="Answer without unresolved links.")
+
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
+        vault, fan_result, [first_resp, retry_resp]
+    )
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _resolve, _bm25, _cos, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        mock_make_llm.side_effect = lambda role: (
+            mock_librarian_llm if role == "librarian" else mock_synth_llm
+        )
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    assert isinstance(result, QueryResult)
+    # Retry answer was used (no warning footer because retry succeeded)
+    assert "Answer without unresolved links." in result.answer
+    assert "did not resolve" not in result.answer
+    # Two synth calls: original + retry
+    assert mock_synth_llm.ainvoke.call_count == 2
+    # Retry HumanMessage content must literally name the unresolved token
+    retry_call_args = mock_synth_llm.ainvoke.call_args_list[1]
+    retry_msgs = retry_call_args.args[0]
+    # The last message (HumanMessage) must contain the unresolved token literally
+    assert "[[ghost]]" in retry_msgs[-1].content, (
+        "Retry prompt must literally list the unresolved token [[ghost]], "
+        "not just a generic 'remove unresolved links' instruction. "
+        f"Got: {retry_msgs[-1].content!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> None:
+    """If retry also returns unresolved wikilinks, warning footer is preserved."""
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    fan_result = FanOutResult(
+        successes=[("page1.md", "excerpt")],
+        errors=[],
+    )
+
+    first_resp = AIMessage(content="Answer with [[ghost]] unresolved.")
+    retry_resp = AIMessage(content="Still mentions [[ghost]] somehow.")
+
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
+        vault, fan_result, [first_resp, retry_resp]
+    )
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _resolve, _bm25, _cos, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        mock_make_llm.side_effect = lambda role: (
+            mock_librarian_llm if role == "librarian" else mock_synth_llm
+        )
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    assert isinstance(result, QueryResult)
+    # Retry was tried (call count == 2) but failed; warning footer present
+    assert mock_synth_llm.ainvoke.call_count == 2, "Retry must be attempted once"
+    assert "did not resolve" in result.answer, (
+        "After failed retry, warning footer must be appended as fallback"
+    )
+    # Final answer is the retry's answer (the latest synth output), not the first
+    assert "Still mentions" in result.answer
+
+
+@pytest.mark.asyncio
+async def test_run_query_no_retry_when_g4_fires(tmp_path: Path) -> None:
+    """G4 (empty fan_result.successes) pre-empts the retry — synth retry is NOT attempted."""
+    from langchain_core.messages import AIMessage
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, run_query
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".code-wiki" / "search.db").touch()
+
+    # Empty successes — G4 path
+    fan_result = FanOutResult(successes=[], errors=[])
+
+    first_resp = AIMessage(content="Answer with [[ghost]] citation.")
+    # Only one synth response is staged; if retry is attempted, side_effect will
+    # raise StopAsyncIteration, which would fail the test loudly.
+
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
+        vault, fan_result, [first_resp]
+    )
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, MagicMock
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(p) for p in patches]
+        _resolve, _bm25, _cos, mock_embed_cls, mock_make_llm, mock_pool_cls = mocks
+
+        mock_embed_inst = MagicMock()
+        mock_embed_inst.embed_query.return_value = [0.1] * 1024
+        mock_embed_cls.return_value = mock_embed_inst
+
+        mock_make_llm.side_effect = lambda role: (
+            mock_librarian_llm if role == "librarian" else mock_synth_llm
+        )
+
+        mock_pool_inst = MagicMock()
+        mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
+        mock_pool_cls.return_value = mock_pool_inst
+
+        result = await run_query("test query", vault_path=vault, top_k=3)
+
+    assert isinstance(result, QueryResult)
+    # Synthesizer was called exactly once — retry suppressed because G4 fired
+    assert mock_synth_llm.ainvoke.call_count == 1, (
+        "When G4 fires (empty successes), the unresolved-citation retry must NOT run"
+    )
+    # G4 path: citations cleared, warning prepended/appended
+    assert "no librarian excerpts" in result.answer
+    assert result.citations == []
