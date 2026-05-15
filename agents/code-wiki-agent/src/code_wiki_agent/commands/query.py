@@ -286,6 +286,71 @@ def _extract_wikilinks(text: str) -> list[str]:
     return re.findall(r"\[\[([^\]]+)\]\]", text)
 
 
+def _compute_unresolved_wikilinks(answer: str, vault_path: Path) -> list[str]:
+    """Return the list of [[wikilink]] targets in `answer` that do not resolve
+    against `vault_path`.
+
+    Resolution rules mirror apply_guardrails' G1 logic:
+      - Link may already include .md (e.g. [[concepts/foo.md]]) or omit it.
+      - Direct path lookup first; then glob fallback `**/<base>.md`.
+    Exposed as a top-level helper so run_query can decide whether to trigger
+    a one-shot synthesizer retry before falling through to apply_guardrails.
+    """
+    unresolved: list[str] = []
+    for link in _extract_wikilinks(answer):
+        link_path = link if link.endswith(".md") else f"{link}.md"
+        candidate = vault_path / link_path
+        if not candidate.exists():
+            base = link.removesuffix(".md")
+            matches = list(vault_path.glob(f"**/{base}.md"))
+            if not matches:
+                unresolved.append(link)
+    return unresolved
+
+
+async def _retry_synthesis_drop_unresolved(
+    synth_llm,
+    query: str,
+    excerpts_text: str,
+    unresolved: list[str],
+) -> str:
+    """One-shot synthesizer retry that names the unresolved wikilink tokens
+    literally and tells the model to either repair them with a valid
+    `[[wiki/...]]` path from the excerpts or drop them entirely.
+
+    The retry HumanMessage embeds each unresolved token as written (e.g.
+    `[[ghost]]`) so the model is told exactly which targets to fix — this is
+    the behavior pinned by `test_run_query_retries_on_unresolved_wikilink`'s
+    `call_args` assertion. Do not collapse to a generic "remove unresolved
+    citations" instruction.
+    """
+    # Literal join of unresolved tokens, formatted as wikilinks
+    unresolved_tokens = ", ".join(f"[[{u}]]" for u in unresolved)
+    retry_instruction = (
+        "Your previous answer included unresolved wikilink citations: "
+        f"{unresolved_tokens}. "
+        "These targets do not exist in the vault. "
+        "Rewrite the answer below. For each unresolved citation listed above, "
+        "either replace it with a valid full-path [[wiki/...]] wikilink that "
+        "appears verbatim in at least one excerpt, or remove the citation "
+        "entirely. Do not invent a new wikilink target. Preserve all other "
+        "content, code-path:line references, and structure from your previous "
+        "answer."
+    )
+    msgs = [
+        SystemMessage(content=SYNTHESIZER_SYSTEM),
+        HumanMessage(
+            content=(
+                f"Query: {query}\n\n"
+                f"Librarian excerpts:\n{excerpts_text}\n\n"
+                f"{retry_instruction}"
+            )
+        ),
+    ]
+    resp = await synth_llm.ainvoke(msgs)
+    return resp.content
+
+
 # ---------------------------------------------------------------------------
 # Plan 03: Online guardrails (G1 + G4)
 # ---------------------------------------------------------------------------
@@ -594,9 +659,25 @@ async def run_query(
         HumanMessage(content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"),
     ]
     synth_resp = await synth_llm.ainvoke(synth_msgs)
+    answer = synth_resp.content
+
+    # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
+    # wikilinks AND there were real librarian successes to ground against.
+    # G4 (empty successes) takes precedence — when G4 will fire, we skip
+    # the retry because the answer is already going to be marked unsupported.
+    if fan_result.successes:
+        unresolved = _compute_unresolved_wikilinks(answer, wiki)
+        if unresolved:
+            logger.info(
+                "synthesizer emitted %d unresolved wikilink(s); retrying once: %s",
+                len(unresolved),
+                unresolved,
+            )
+            answer = await _retry_synthesis_drop_unresolved(
+                synth_llm, query, excerpts_text, unresolved
+            )
 
     # Step 8: Build QueryResult with search_scores
-    answer = synth_resp.content
     query_result = QueryResult(
         answer=answer,
         citations=_extract_wikilinks(answer),
@@ -611,7 +692,8 @@ async def run_query(
         },
     )
 
-    # Step 9: Apply guardrails (G1 + G4)
+    # Step 9: Apply guardrails (G1 + G4). If the retry above failed to clean
+    # all unresolved wikilinks, G1 will append the warning footer as fallback.
     query_result = apply_guardrails(query_result, wiki, fan_result)
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
