@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-last_updated: "2026-05-15T02:29:46.216Z"
-last_activity: 2026-05-15
+status: Awaiting next milestone
+stopped_at: Milestone v1.0 complete — all 5 phases verified, ready for `/gsd-complete-milestone` or `/gsd-new-milestone`.
+last_updated: "2026-05-15T03:48:15.570Z"
+last_activity: 2026-05-15 — Milestone v1.0 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -22,9 +23,11 @@ progress:
 
 ## Project Reference
 
+See: `.planning/PROJECT.md` (updated 2026-05-15 after milestone v1.0 SHIPPED)
+
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Milestone v1.0 complete — all 5 phases verified
+**Current Focus:** Awaiting next milestone — run `/gsd-new-milestone` to define v1.1 scope. v1.0 shipped end-to-end parity (all 5 commands, MCP+CLI surfaces, fan-out, eval harness); v1.1 should *run* the cost-frontier sweep the harness enables.
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -32,25 +35,10 @@ progress:
 
 ## Current Position
 
-**Phase:** — (milestone complete)
-**Plan:** —
-**Status:** Milestone v1.0 complete
-**Plans written:** 25 / 25 complete
-**Last activity:** 2026-05-15
-
-**Progress:**
-
-```
-[████████████████████] 25/25 plans (100%)
-
-[Phase 1] [x] Infrastructure, Vault IO, and MCP Skeleton
-[Phase 2] [x] Subagent Fan-Out Runtime
-[Phase 3] [x] Query Vertical Slice + Hybrid Search
-[Phase 4] [x] Eval Harness
-[Phase 5] [x] Remaining Commands
-```
-
----
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-15 — Milestone v1.0 completed and archived
 
 ## Performance Metrics
 
@@ -70,35 +58,26 @@ progress:
 
 ### Key Decisions
 
-| Decision | Rationale | Status |
-|----------|-----------|--------|
-| SubagentPool over deepagents SubAgentMiddleware | Bugs #694 (cancellation cascade) and #1698 (recursion limit) confirmed on primary fan-out path; raw asyncio is safer | Pending validation in Phase 2 |
-| Try SubAgentMiddleware first (SUB-02), fall back to raw asyncio (SUB-03) | Per requirements: record which path was taken as a Key Decision in PROJECT.md | Pending Phase 2 |
-| Vault round-trip golden test gates all write-path code | PyYAML round-trip silently corrupts existing vault pages; test must pass before any command touches vault writes | Phase 1 gate |
-| Structured trace in Phase 2, not later | Retrofitting cross-cutting trace output after multiple commands exist is expensive; design at SubagentPool layer | Phase 2 deliverable |
-| Hybrid search in v1 (SEARCH-01..06) | In Phase 3 with query command; BM25 + Bedrock embeddings | Phase 3 deliverable |
-| Eval harness after query, before remaining commands | Need a working command to record baselines against; harness architecture must be correct before all baselines committed | Phase 4 |
-| Wikilink placeholder filter (VAULT-06) in Phase 1 | Ported from lattice-wiki-core commits 9502c45+9388cdd; needed before lint in Phase 5, safest to establish in vault IO layer early | Phase 1 deliverable |
-| Bedrock IAM cross-region inference profile verified in Phase 1 | BED-01 is an explicit gate; don't write application code before IAM is confirmed | Phase 1 gate |
-| python-frontmatter read-only; all writes via ported layout_io.py emitter | Prevents YAML round-trip format drift; vault/ internal convention | Phase 1 deliverable |
+(Full log lives in `PROJECT.md → Key Decisions`. v1.0 outcomes:)
+
+- ✓ SubagentPool over deepagents SubAgentMiddleware — validated Phase 2 (deepagents #694/#1698 confirmed; raw asyncio path shipped)
+- ✓ Vault round-trip golden test gates write code — validated Phase 1 (148-page real-vault fixture passes byte-identical)
+- ✓ Hybrid search via BM25 + Titan v2 embeddings + RRF — validated Phase 3
+- ✓ Eval harness ships before swap (Phase 4 before sweep) — validated; sweep deferred to v1.1
+- ✓ python-frontmatter read-only; writes via ported layout_io.py — validated Phase 1
+- ✓ Single `wiki_ingest` MCP tool with discriminator (not two) — validated Phase 5
 
 ### Active TODOs
 
-- [ ] Verify Bedrock IAM: run `aws bedrock invoke-model` with cross-region inference profile ARN before writing any application code (BED-01 gate)
-- [ ] Decide: use deepagents SubAgentMiddleware or skip directly to raw asyncio SubagentPool? (SUB-02/SUB-03 — answer in Phase 2 integration test)
-- [ ] Confirm: which Bedrock embedding model for SEARCH-02? (Titan Embeddings v2 or Cohere Embed — pick during Phase 3 research)
-- [ ] Confirm: real on-demand max_tokens ceilings for Haiku and Nova Micro on Pat's account (affects BED-03 / SUB-05 values)
+(None blocking — v1.0 closed. Run `/gsd-new-milestone` to surface v1.1 candidates.)
 
 ### Blockers
 
-(None — project not yet started)
+(None.)
 
 ### Research Flags
 
-| Phase | Risk | Note |
-|-------|------|------|
-| Phase 2 | MEDIUM | deepagents SubAgentMiddleware internal API is medium-confidence; read 0.6.1 source before implementing |
-| Phase 4 | MEDIUM | deepeval 4.0 AmazonBedrockModel cost tracking fields need verification against actual release; heterogeneous judge panel with two GEval instances has no prior art in deepeval docs — plan a spike |
+(Cleared at v1.0 close. New flags will be raised during `/gsd-new-milestone` research.)
 
 ---
 
@@ -110,12 +89,16 @@ progress:
 
 **Critical context for next session:**
 
-- 67 v1 requirements across 10 categories; all mapped; see ROADMAP.md for phase assignments
-- Phase 1 has two hard gates before any agent code: (1) Bedrock IAM cross-region inference verified, (2) vault round-trip golden test passing on real vault
-- MCP server must enforce stderr-only logging from the first commit — any stdout write corrupts JSON-RPC framing
-- lattice-wiki-core source is at `/Users/pat/Personal/lattice/packages/lattice-wiki-core` — the vault IO port pulls from there
-- deepagents bugs #694 and #1698 affect SubAgentMiddleware; SubagentPool in cores/subagent-runtime patches both
+- v1.0 shipped: 5 phases, 25 plans, 67/67 requirements complete; full retrospective in `.planning/RETROSPECTIVE.md`
+- v1.1 starting point: PROJECT.md `### Active` lists 5 candidate items (cost-frontier sweep, BED-01 live gate, MCP cancellation polish, DeepAgents CLI integration test, OSS release prep)
+- The eval-harness infrastructure is shipped but the sweep has not been run; that's the highest-leverage v1.1 work (it's the project's core thesis: measure cost-quality frontier on Bedrock)
+- All vault writes still go through `cores/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
+- MCP stdout discipline (`_StdoutGuard`) is non-negotiable; any new MCP tools must register *after* `mcp = FastMCP(...)` to preserve the guard invariant
 
 ---
 
 *State initialized: 2026-05-13*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
