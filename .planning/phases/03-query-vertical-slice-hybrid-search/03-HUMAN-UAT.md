@@ -1,14 +1,15 @@
 ---
-status: complete
+status: partial
 phase: 03-query-vertical-slice-hybrid-search
 source: [03-VERIFICATION.md]
 started: 2026-05-14T04:38:39Z
-updated: 2026-05-14T21:30:00Z
+updated: 2026-05-15T02:45:00Z
+reopened_reason: "Test 4 added after 03-08 + 03-09 + CR-01 fix — SC-1 quality must be re-scored against the lattice-wiki baseline now that structural fixes are in place"
 ---
 
 ## Current Test
 
-[testing complete]
+4 — pending
 
 ## Tests
 
@@ -60,12 +61,42 @@ evidence: |
 CODE_WIKI_RUN_INTEGRATION=1 uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/integration/test_mcp_stdio.py::test_wiki_query_in_tools_list -m integration -v
 ```
 
+### 4. SC-1 Answer-Quality Re-Scoring after 03-08 + 03-09 + CR-01 fix (ROADMAP SC-1)
+expected: |
+  Run the same baseline query against the same vault on live Bedrock. Score ≥3 of 4 dimensions
+  improving vs the Test 2 baseline:
+    (1) No fabricated file paths or symbols
+    (2) ≥1 `code-path:line` style citation when excerpts contain them
+    (3) Zero unresolved wikilinks (the new G1 retry should strip them)
+    (4) When vault pages are TODO stubs, the answer is prefixed with
+        `[vault-thin: answer derived from source code]` and cites real source files
+
+  The fourth dimension is the new code-fallback path (03-09); the first three are the
+  prompt-contract + retry path (03-08).
+
+result: pending
+why_human: |
+  Both 03-08 and 03-09 had `checkpoint:human-verify` Task 3s that were "approved without
+  live run" because executor agents have no live Bedrock session. The structural contract
+  is pinned by 38 unit tests (22 in test_query_result.py + 14 in test_query_code_fallback.py
+  + 2 added for CR-01 fix), but the behavioral quality vs baseline has not been measured.
+
+**Run:**
+```bash
+uv run code-wiki-agent query "How does the SubagentPool fan out work to Bedrock and where are the results aggregated?" \
+  --vault ~/Personal/wiki/deep-agents \
+  --top-k 5 --json
+```
+
+**Compare against** the Test 2 baseline table above. Mark `pass` if ≥3 of 4 dimensions
+clearly improve; mark `issue` and capture which dimension regressed otherwise.
+
 ## Summary
 
-total: 3
+total: 4
 passed: 2
 issues: 1
-pending: 0
+pending: 1
 skipped: 0
 blocked: 0
 
