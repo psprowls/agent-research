@@ -231,23 +231,17 @@ def test_summarize_recorded_at_is_iso_timestamp(fixture_vault_path: Path) -> Non
 
 def test_geval_model_explicit_in_source() -> None:
     """metric.py passes model=judge explicitly to every GEval instantiation (T-06-18)."""
-    import subprocess
-
-    result = subprocess.run(
-        [
-            "grep",
-            "-c",
-            "model=judge",
-            "cores/eval-harness/src/eval_harness/divergence/metric.py",
-        ],
-        capture_output=True,
-        text=True,
-        cwd="/Users/pat/Personal/deep-agents/.claude/worktrees/agent-a0c8827d167c4f94d",
-    )
-    count = int(result.stdout.strip()) if result.returncode == 0 else 0
+    metric_src = (
+        Path(__file__).parent.parent
+        / "src"
+        / "eval_harness"
+        / "divergence"
+        / "metric.py"
+    ).read_text()
+    count = metric_src.count("model=judge")
     assert count >= 1, (
         "GEval in metric.py must pass model=judge explicitly (T-06-18 invariant). "
-        f"grep found {count} matches."
+        f"Found {count} occurrences."
     )
 
 
