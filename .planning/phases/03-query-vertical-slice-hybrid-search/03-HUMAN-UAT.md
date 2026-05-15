@@ -79,6 +79,19 @@ blocked: 0
   artifacts: []
   missing: []
   hypothesis: "Librarian benefits from rich skill/prompt scaffolding (`agents/librarian.md`, `references/query-workflow.md`). Code-wiki-agent's librarian role prompt may be too thin — missing instructions to (a) emit code-path:line citations, (b) format wikilinks as full page paths not slugs, (c) drill into source code via filesystem tools when vault pages are TODO stubs, (d) acknowledge vault-thinness limitations rather than fabricate."
+  root_cause: |
+    The code-wiki-agent librarian is a bare single-shot LLM call over a single pre-loaded vault page with a ~60-word system prompt — no filesystem/code-reading tools, no code-path:line citation contract, no wikilink-format spec, no fallback-to-source-code rule. The reference lattice-wiki librarian is a Claude-Code sub-agent with `tools: [Read, Write, Edit, Bash, Grep, Glob]` and a multi-step contract (read index.md → drill 3-10 pages → follow wikilinks → fall back to code → cite `[[wiki/cat/page]]` + `path:line` → "if vault doesn't know, say so"). The port collapsed all of this into one SystemMessage. This single architectural gap produces all four observed failure modes.
+  affected_files:
+    - "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:131-143 (LIBRARIAN_SYSTEM + SYNTHESIZER_SYSTEM prompts)"
+    - "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:543-554 (drill_page sees one page text, no tools)"
+    - "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:280-336 (apply_guardrails G1 warns on unresolved wikilinks but doesn't retry)"
+  baseline_reference_files:
+    - "~/.claude/plugins/cache/lattice/lattice-wiki/1.3.3/agents/librarian.md"
+    - "~/.claude/plugins/cache/lattice/lattice-wiki/1.3.3/skills/lattice-wiki/references/query-workflow.md"
+  scope_estimate: |
+    Small (~30 lines): rewrite both prompt constants with wikilink format spec, code-citation contract, "no invention" rule, "NO_RELEVANT_CONTENT" stub-detect rule. Likely fixes fabrication + bad-wikilink symptoms alone.
+    Medium (~150-300 lines): add a code-reader role + read_file tool + fallback fan-out when all drilled pages are stubs. Closes the "no code-fallback when vault is thin" gap from user's report.
+  recommendation: "Start small (prompts only), re-query, measure delta vs baseline. Lattice-wiki baseline's strength is mostly the workflow contract in the prompt; tools are the safety net for stub vaults."
   side_by_side_query: "How does the SubagentPool fan out work to Bedrock and where are the results aggregated?"
   vault: "~/Personal/wiki/deep-agents/"
   baseline_output: "Cited pool.py:115/:121-146/:149/:156-158/:162-210, loader.py:82-107; named real symbols (run_all, _run_one, _GuardedChatBedrockConverse, FanOutResult, PerItemError, BedrockAccessDenied); reproduced models.toml role table; used real wikilink targets [[wiki/cores/subagent-runtime/subagent-runtime]]; explicitly noted vault stubs and code-derived answer."
