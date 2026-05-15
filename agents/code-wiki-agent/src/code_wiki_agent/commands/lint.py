@@ -4,9 +4,9 @@ from __future__ import annotations
 
 Public API:
     LintResult              — dataclass: all 18 lint finding fields
-    LINTER_PAGE_QUALITY_SYSTEM  — system prompt for page-quality linter role
-    LINTER_ADR_CHAIN_SYSTEM     — system prompt for ADR-chain linter role
-    LINTER_STALE_CLAIMS_SYSTEM  — system prompt for stale-claims linter role
+    LINTER_PAGE_QUALITY_SYSTEM  — system prompt for page-quality linter role (re-exported from code_wiki_agent.prompts.linter)
+    LINTER_ADR_CHAIN_SYSTEM     — system prompt for ADR-chain linter role (re-exported from code_wiki_agent.prompts.linter)
+    LINTER_STALE_CLAIMS_SYSTEM  — system prompt for stale-claims linter role (re-exported from code_wiki_agent.prompts.linter)
     run_lint(vault_path, stale_days, log_gap_days)  — end-to-end lint pipeline
 
 Mechanical checks (ported verbatim from lint_wiki.py:scan()):
@@ -63,47 +63,14 @@ LINTED_TOPS = {"wiki", "work", "concepts", "packages", "apps", "domains", "adrs"
 _SKIPPED: dict = {"skipped": True}
 
 # ---------------------------------------------------------------------------
-# Semantic linter system prompts
+# Semantic linter system prompts (re-exported from prompts.linter)
 # ---------------------------------------------------------------------------
 
-LINTER_PAGE_QUALITY_SYSTEM = """\
-You are a code wiki quality linter. Review the provided wiki pages and identify
-quality issues. Report one finding per line in plain text. Focus on:
-- Pages with vague or unhelpful summaries (under 10 words, or obviously placeholder)
-- Pages that contradict each other about the same fact
-- Pages whose body content is empty or near-empty (under 3 sentences)
-- Pages with broken [[wikilink]] syntax (malformed bracket patterns)
-- Pages missing a clear "## Overview" or "## Summary" section
-If no quality issues are found, output exactly: No page quality issues found.
-Do not output JSON, lists with bullets, or markdown formatting — one plain text finding per line only.
-"""
-
-LINTER_ADR_CHAIN_SYSTEM = """\
-You are a code wiki ADR (Architecture Decision Record) chain linter. Review the
-provided ADR pages and identify chain integrity issues. Report one finding per line
-in plain text. Focus on:
-- ADRs with status "superseded" that don't link to the superseding ADR
-- ADRs with status "deprecated" that lack a replacement reference
-- ADR numbers that appear to be out of sequence (gaps in numbering)
-- ADRs referencing another ADR that does not appear in the provided set
-- ADRs whose decision is contradicted by another ADR without a superseded relationship
-If no ADR chain issues are found, output exactly: No ADR chain issues found.
-Do not output JSON, lists with bullets, or markdown formatting — one plain text finding per line only.
-"""
-
-LINTER_STALE_CLAIMS_SYSTEM = """\
-You are a code wiki stale-claims linter. Review the provided wiki pages and identify
-claims that may be outdated based on their source_path or package_path frontmatter.
-Report one finding per line in plain text. Focus on:
-- Pages whose frontmatter declares a source_path but the body describes behavior
-  that sounds like it may have changed (version numbers, removed APIs, renamed modules)
-- Pages with "TODO", "FIXME", "WIP", or "placeholder" in the body (unresolved debt)
-- Pages whose summary claims the package does something the body text contradicts
-- Pages where the "updated" date is more than 180 days ago AND the body contains
-  claims about "current" or "latest" state
-If no stale claim issues are found, output exactly: No stale claim issues found.
-Do not output JSON, lists with bullets, or markdown formatting — one plain text finding per line only.
-"""
+from code_wiki_agent.prompts.linter import (  # noqa: F401
+    LINTER_ADR_CHAIN_SYSTEM,
+    LINTER_PAGE_QUALITY_SYSTEM,
+    LINTER_STALE_CLAIMS_SYSTEM,
+)
 
 
 # ---------------------------------------------------------------------------
