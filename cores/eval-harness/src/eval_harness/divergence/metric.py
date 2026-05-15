@@ -206,6 +206,88 @@ class DivergenceMetric:
         return {**prog_results, **judge_results}
 
 
+_BASELINE_FILENAME_TPL = "divergence-{role}.json"
+
+
+def load_baseline(role: str, baselines_dir: Path) -> dict:
+    """Return the per-role baseline JSON dict, or {} when file is missing (RESEARCH §Pitfall 5).
+
+    Args:
+        role:          Role name (e.g. "librarian").
+        baselines_dir: Directory containing divergence baseline JSON files.
+
+    Returns:
+        Parsed JSON dict, or {} if the file does not exist.
+    """
+    path = baselines_dir / _BASELINE_FILENAME_TPL.format(role=role)
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_baseline(role: str, baselines_dir: Path, results: dict, agent_commit: str) -> Path:
+    """Write a D-11 schema baseline JSON file for the given role.
+
+    Creates baselines_dir if it does not exist. Uses the summarize() function to
+    build the envelope, then writes with json.dumps(..., indent=2) + "\\n" per the
+    JSON write pattern in PATTERNS.md.
+
+    Args:
+        role:          Role name (e.g. "librarian").
+        baselines_dir: Directory to write baseline JSON files to.
+        results:       Output from run_programmatic() or run() — keyed by rule_id.
+        agent_commit:  Git SHA of the agent being evaluated.
+
+    Returns:
+        The Path of the written baseline JSON file.
+    """
+    envelope = summarize(role, results, agent_commit)
+    baselines_dir.mkdir(parents=True, exist_ok=True)
+    path = baselines_dir / _BASELINE_FILENAME_TPL.format(role=role)
+    path.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def check_regression(role: str, current: dict, baseline: dict) -> None:
+    """Gate regression: raise AssertionError if any hard-severity rule's failures exceed baseline.
+
+    Soft-severity differences (including all *-JUDGE entries) are not raised —
+    judge non-determinism per RESEARCH §Pitfall 2 makes hard-gating judges inappropriate.
+
+    Args:
+        role:     Role name (e.g. "librarian") — used to look up severity from ROLE_CHECKS.
+        current:  Current results dict keyed by rule_id (same shape as run_programmatic output).
+        baseline: Loaded baseline dict from load_baseline() — the D-11 envelope.
+
+    Raises:
+        AssertionError: When a hard-severity rule's current failures exceed the baseline count.
+    """
+    from eval_harness.divergence import ROLE_CHECKS  # lazy import to avoid circularity
+
+    severity_lookup: dict[str, str] = {
+        c.id: c.severity for c in ROLE_CHECKS.get(role, [])
+    }
+
+    baseline_checks = baseline.get("checks", {})
+
+    for rule_id, rule_data in current.items():
+        # Judge-only aggregate IDs (e.g. LIB-JUDGE) are always soft — judge non-determinism
+        if rule_id.endswith("-JUDGE"):
+            severity = "soft"
+        else:
+            # Defensive default: unknown rule_id treated as soft
+            severity = severity_lookup.get(rule_id, "soft")
+
+        baseline_failures: int = baseline_checks.get(rule_id, {}).get("failures", 0)
+        current_failures: int = rule_data["failures"]
+
+        if severity == "hard" and current_failures > baseline_failures:
+            raise AssertionError(
+                f"[{role}] {rule_id}: {current_failures} failures > baseline "
+                f"{baseline_failures}. Run with --accept-divergence-baseline to accept."
+            )
+
+
 def summarize(role: str, results: dict, agent_commit: str) -> dict:
     """Build the D-11 schema envelope for 06-10 to write as baseline JSON.
 
