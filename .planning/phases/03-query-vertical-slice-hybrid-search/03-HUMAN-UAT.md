@@ -14,7 +14,7 @@ updated: 2026-05-14T04:38:39Z
 
 ### 1. End-to-End Bedrock Query (ROADMAP SC-1 + SC-5, SEARCH-06)
 expected: Exit 0 or 3; JSON output contains `pages_drilled >= 1`, at least one `[[wikilink]]` citation in `answer`, and `search_scores` dict with `bm25`/`embed`/`rrf` keys per page.
-result: [pending]
+result: pass
 
 **Run:**
 ```bash
