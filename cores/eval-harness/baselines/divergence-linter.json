@@ -1,0 +1,27 @@
+{
+  "role": "linter",
+  "recorded_at": "2026-05-15T20:26:00.233926+00:00",
+  "agent_commit": "initial-empty-baseline",
+  "checks": {
+    "LNT-001-code-drift-first": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "LNT-002-findings-nonempty-when-issues": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "LNT-003-no-silent-fix": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "LNT-JUDGE": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    }
+  }
+}

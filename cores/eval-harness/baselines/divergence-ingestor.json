@@ -1,0 +1,32 @@
+{
+  "role": "ingestor",
+  "recorded_at": "2026-05-15T20:26:00.233810+00:00",
+  "agent_commit": "initial-empty-baseline",
+  "checks": {
+    "ING-001-frontmatter-present": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "ING-002-required-fields": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "ING-003-page-type-routing": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "ING-004-page-type-valid-category": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "ING-JUDGE": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    }
+  }
+}

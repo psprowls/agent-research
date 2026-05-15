@@ -1,0 +1,32 @@
+{
+  "role": "scanner",
+  "recorded_at": "2026-05-15T20:26:00.234141+00:00",
+  "agent_commit": "initial-empty-baseline",
+  "checks": {
+    "SCN-001-frontmatter-present": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "SCN-002-required-fields": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "SCN-003-no-file-map-section": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "SCN-004-overview-present": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    },
+    "SCN-JUDGE": {
+      "runs": 0,
+      "failures": 0,
+      "accepted_failures": []
+    }
+  }
+}
