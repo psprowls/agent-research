@@ -131,6 +131,60 @@ def test_apply_guardrails_g4_clears_citations_on_empty_successes(
     assert "no librarian excerpts" in guarded.answer
 
 
+def test_apply_guardrails_skip_g4_preserves_citations_on_empty_successes(
+    tmp_path: Path,
+) -> None:
+    """CR-01 regression: skip_g4=True preserves citations even when fan_result.successes is empty.
+
+    This is the code-fallback path: the librarian fan-out may have errored out
+    or returned zero successes, but the code-reader fan-out produced a real
+    answer with real citations. G4 must NOT strip those.
+    """
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+
+    (tmp_path / "concepts").mkdir()
+    (tmp_path / "concepts" / "pool.md").write_text("# Pool\n")
+
+    fan_result = FanOutResult(successes=[], errors=[("p1.md", "boom")])
+    result = QueryResult(
+        answer="The pool uses a semaphore [[concepts/pool]].",
+        citations=["concepts/pool"],
+        pages_drilled=0,
+        search_scores={},
+    )
+    guarded = apply_guardrails(result, tmp_path, fan_result, skip_g4=True)
+
+    assert guarded.citations == ["concepts/pool"], (
+        "skip_g4 must preserve citations on code-fallback path"
+    )
+    assert "no librarian excerpts" not in guarded.answer, (
+        "skip_g4 must suppress the unsupported-answer warning"
+    )
+
+
+def test_apply_guardrails_skip_g4_still_runs_g1(tmp_path: Path) -> None:
+    """skip_g4=True does NOT disable G1 — unresolved wikilinks still get flagged."""
+    from subagent_runtime.pool import FanOutResult
+
+    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+
+    fan_result = FanOutResult(successes=[], errors=[])
+    result = QueryResult(
+        answer="Answer with [[nonexistent/page]] citation.",
+        citations=["nonexistent/page"],
+        pages_drilled=0,
+        search_scores={},
+    )
+    guarded = apply_guardrails(result, tmp_path, fan_result, skip_g4=True)
+
+    # G1 still fires: unresolved wikilink gets the warning footer
+    assert "did not resolve" in guarded.answer
+    # But citations are preserved (G4 didn't strip them)
+    assert guarded.citations == ["nonexistent/page"]
+
+
 def test_apply_guardrails_g4_no_change_when_no_citations(tmp_path: Path) -> None:
     """G4: empty successes with no citations -> no warning added."""
     from subagent_runtime.pool import FanOutResult
