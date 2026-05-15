@@ -10,6 +10,23 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's lattice-wiki librarian, on cheaper models, faster.
 
+## Current Milestone: v1.1 Quality Improvements
+
+**Goal:** Close the output-quality gap with lattice-wiki by porting its prompt content into code-wiki-agent, then validate the cost-frontier on Bedrock and prove host-level reliability under the DeepAgents CLI.
+
+**Target features:**
+- Lattice-wiki SKILL.md content ported into agent prompts (librarian, ingestor, linter, scanner) — eval flags remaining divergences
+- Cost-frontier sweep executed against all 7 roles; `models.toml` defaults swapped to cost-optimal picks
+- MCP cancellation polish — verify MCP-06 mid-fan-out cancel under the real DeepAgents CLI host
+- DeepAgents CLI integration test — end-to-end stdio subprocess exercising each tool
+- Trace/observability polish — `.code-wiki/traces/` format + `code-wiki-agent trace` renderer
+
+**Key context:**
+- Quality first: prompt port lands before the cost-frontier sweep so the sweep measures the *improved* agent, not the pre-port baseline.
+- BED-01 live-Bedrock gate is approved (AWS onboarding done); verify in passing during the sweep.
+- OSS release prep deferred past v1.1.
+- Phase numbering continues from v1.0 (next phase = 6).
+
 ## Requirements
 
 ### Validated
@@ -43,13 +60,17 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Active
 
-_v1.0 shipped end-to-end parity. The next milestone will be planned via `/gsd-new-milestone`. Candidates for v1.1+ (not yet committed):_
+_v1.1 Quality Improvements — scoped 2026-05-15. Requirements will be expanded in `REQUIREMENTS.md`; phases tracked in `ROADMAP.md`._
 
-- [ ] **Cost-frontier sweep executed** — actually run the Phase 04 harness (`CODE_WIKI_RUN_EVAL=1`) against all 7 roles, publish the cost-optimal model picks per role, swap defaults in `models.toml`. v1.0 shipped the *infrastructure* to measure this; v1.1 should *do* it.
-- [ ] **BED-01 live-Bedrock gate unblocked** — Pat completes the AWS "Anthropic use case details" onboarding form so the real-Bedrock invoke gate (`make_llm("haiku").invoke("ping")`) succeeds; currently the code-side path is verified and `BedrockAccessDenied` is raised correctly, but the end-to-end live call is still gated.
+- [ ] **Lattice-wiki SKILL.md content ported into agent prompts** — librarian, ingestor, linter, scanner roles inherit canonical iron rules / patterns from the existing plugin; eval harness flags remaining divergences from skill-content expectations.
+- [ ] **Cost-frontier sweep executed** — run the Phase 04 harness (`CODE_WIKI_RUN_EVAL=1`) against all 7 roles, publish cost-optimal model picks per role, swap defaults in `models.toml`. (Sweep runs against the *post-port* agent, not the v1.0 baseline.)
 - [ ] **MCP cancellation polish (MCP-06)** — shipped as best-effort in v1.0; verify behavior under a real DeepAgents CLI cancel mid-fan-out and tighten if needed.
 - [ ] **DeepAgents CLI integration test** — end-to-end test that launches `code-wiki-mcp` as a stdio subprocess from the DeepAgents CLI host and exercises each tool (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`).
-- [ ] **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run.
+- [ ] **Trace/observability polish** — improve `.code-wiki/traces/` format and the `code-wiki-agent trace` renderer.
+
+_Deferred past v1.1:_
+- **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run. (Holding until the cost-frontier sweep validates the cost story.)
+- **BED-01 live-Bedrock gate** — AWS onboarding now approved; verification folds into the cost-frontier sweep rather than standing as its own item.
 
 _See "Out of Scope" below for items explicitly deferred past v1.x._
 
@@ -121,7 +142,7 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-15 — milestone v1.0 SHIPPED (all 5 phases, 25 plans, 67 requirements complete)
+**Last updated:** 2026-05-15 — milestone v1.1 Quality Improvements scoped (lattice-wiki SKILL.md port → cost-frontier sweep → MCP cancel + DeepAgents CLI integ test → trace polish)
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -137,4 +158,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-15 — milestone v1.0 SHIPPED. `code-wiki-agent` reaches full parity with `lattice-wiki` on AWS Bedrock: all 5 commands (init/scan/ingest/query/lint, plus log) live on both MCP and headless CLI surfaces; SubagentPool fan-out for scanner/librarian/linter; eval-harness with two-judge Bedrock panel and cost-frontier sweep runner. Code+infrastructure complete; the actual cost-optimal model selection (running the sweep, picking winners, swapping defaults) is the v1.1 lift.*
+*Last updated: 2026-05-15 — milestone v1.1 Quality Improvements scoped. Lattice-wiki SKILL.md content port leads (close the output-quality gap before measuring), then cost-frontier sweep runs against the improved agent, then MCP cancel polish + DeepAgents CLI stdio integration test + trace renderer cleanup. BED-01 live-gate now unblocked (AWS approved); folds into the sweep.*
