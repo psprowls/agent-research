@@ -78,13 +78,15 @@ Plans:
 4. The `--json` flag and state-gate mechanism are present on the `query` subcommand and honored by both MCP and CLI surfaces; `code-wiki-agent-mcp` launches as a stdio subprocess from the registered entry point
 5. An end-to-end integration test runs `query` in headless CLI mode against a committed fixture vault and asserts the answer contains at least one valid `[[wikilink]]` citation
 
-**Plans:** 4 plans
+**Plans:** 6 plans
 
 Plans:
 - [x] 03-01-PLAN.md — Wave 0 scaffold: bm25s install, asyncio_mode=auto, commands subpackage, test stubs (SEARCH-01 prep + Wave 0 infra)
 - [x] 03-02-PLAN.md — Hybrid search layer: build_index + bm25_query + sqlite embed store + RRF (SEARCH-01..06)
 - [x] 03-03-PLAN.md — MVP slice: run_query pipeline + librarian fan-out + synthesizer + CLI query subcommand (CMD-04, CMD-07, CMD-08, CLI-01..07)
 - [x] 03-04-PLAN.md — MCP wiki_query tool + end-to-end integration tests against fixture vault (MCP-02, MCP-04, MCP-06, MCP-07)
+- [ ] 03-08-PLAN.md — Gap closure (SC-1): rewrite LIBRARIAN_SYSTEM + SYNTHESIZER_SYSTEM with full lattice-wiki contract; one-shot synthesizer retry on unresolved wikilinks
+- [ ] 03-09-PLAN.md — Gap closure (SC-1): code-reader role + bounded read_file tool + run_query code-fallback fan-out for vault-thin queries
 
 ---
 
