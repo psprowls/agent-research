@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Public API:
     ScanResult              — dataclass: added, updated, deleted, renamed, errors, state_gate
-    SCANNER_SYSTEM          — system prompt for scanner role (body-only, no File map)
+    SCANNER_SYSTEM          — system prompt for scanner role (re-exported from `code_wiki_agent.prompts.scanner`)
     build_stub_prompt(pkg)  — human message: package metadata + representative file snippets
     run_scan(vault_path, no_file_map, max_depth)  — end-to-end scan pipeline
 """
@@ -29,6 +29,8 @@ from vault_io.scan_monorepo import (
     regenerate_dependencies_index,
 )
 from vault_io.update_index import update_index
+
+from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -84,35 +86,6 @@ def pick_representative(pkg_path: Path, entries: list[Path] | None = None) -> li
     # Combine and deduplicate up to 3
     candidates = entry_points + src_files + [p for p in source_files if p not in entry_points and p not in src_files]
     return candidates[:3]
-
-# ---------------------------------------------------------------------------
-# System prompt constant
-# ---------------------------------------------------------------------------
-
-SCANNER_SYSTEM = """\
-You are a code wiki scanner. Your job is to write a concise stub page for a software package.
-
-Produce ONLY the page body with YAML frontmatter. Do NOT include a "## File map" section — that
-is added separately by the build pipeline and must not appear in your output.
-
-Your output must include:
-1. YAML frontmatter (between --- delimiters) with these fields:
-   - title: <package name>
-   - category: package  (use "app" if it is an application, otherwise "package")
-   - summary: <one-line description of what the package does>
-   - package_path: <relative path of the package in the repo>
-   - language: <primary language: python, typescript, javascript, rust, go, unknown>
-   - version: <version string or omit if unknown>
-   - depends_on: []  (list of internal workspace dependencies, or empty list)
-   - exports: []  (list of public exports/scripts, or empty list)
-
-2. ONE short "## Overview" section (3-5 sentences) describing what the package does and why.
-
-3. ONE short "## Notable files" section listing 2-4 key files with a one-line description each.
-
-Keep total output under 380 tokens. Do NOT speculate beyond what the provided file listing shows.
-Do NOT include a "## File map" section — it will be appended automatically.
-"""
 
 # ---------------------------------------------------------------------------
 # ScanResult dataclass
