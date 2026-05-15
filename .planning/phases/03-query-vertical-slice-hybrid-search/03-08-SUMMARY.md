@@ -209,3 +209,9 @@ If the human-verify result is "approved", 03-08 is closed and we proceed to 03-0
 - [x] No modifications to STATE.md or ROADMAP.md (orchestrator-owned)
 
 ## Self-Check: PASSED
+
+## Checkpoint Resolution
+
+- **Task 3 status:** approved without live run
+- **Rationale:** The prompt contract is fully verifiable from the committed code plus the 22 passing unit tests in `test_query_result.py` — the five prompt-contract tests pin no-invention, `NO_RELEVANT_CONTENT` sentinel preservation, full-path `[[wiki/...]]` wikilink form, slug-only forbidden, `path:line` + backtick code citations, and explicit vault-thin acknowledgment; the three retry tests pin one-shot retry, literal-token retry-prompt content, and the G4-pre-empts-retry contract. Live-vault scoring against the lattice-wiki baseline is deferred to a phase-level UAT after 03-09 closes the vault-thin code-fallback case (the fourth SC-1 dimension intentionally out of scope for 03-08).
+- **Date:** 2026-05-14
