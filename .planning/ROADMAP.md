@@ -85,7 +85,7 @@ Plans:
 - [x] 03-02-PLAN.md — Hybrid search layer: build_index + bm25_query + sqlite embed store + RRF (SEARCH-01..06)
 - [x] 03-03-PLAN.md — MVP slice: run_query pipeline + librarian fan-out + synthesizer + CLI query subcommand (CMD-04, CMD-07, CMD-08, CLI-01..07)
 - [x] 03-04-PLAN.md — MCP wiki_query tool + end-to-end integration tests against fixture vault (MCP-02, MCP-04, MCP-06, MCP-07)
-- [ ] 03-08-PLAN.md — Gap closure (SC-1): rewrite LIBRARIAN_SYSTEM + SYNTHESIZER_SYSTEM with full lattice-wiki contract; one-shot synthesizer retry on unresolved wikilinks
+- [x] 03-08-PLAN.md — Gap closure (SC-1): rewrite LIBRARIAN_SYSTEM + SYNTHESIZER_SYSTEM with full lattice-wiki contract; one-shot synthesizer retry on unresolved wikilinks
 - [ ] 03-09-PLAN.md — Gap closure (SC-1): code-reader role + bounded read_file tool + run_query code-fallback fan-out for vault-thin queries
 
 ---
