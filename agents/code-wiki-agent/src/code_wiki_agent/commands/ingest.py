@@ -5,7 +5,8 @@ from __future__ import annotations
 Public API:
     IngestResult            — dataclass: status, page_path, slug, title, page_type,
                                source_path, cross_refs_updated
-    INGESTOR_SYSTEM         — system prompt for ingestor role (LLM produces YAML+body)
+    INGESTOR_SYSTEM         — system prompt for ingestor role (re-exported from
+                               `code_wiki_agent.prompts.ingestor`)
     build_ingest_source_prompt(text, source_path, source_type, vault_structure) -> str
     run_ingest_source(source_path, vault_path) -> IngestResult
     run_ingest_work_item(frontmatter_text, body, ...) -> IngestResult
@@ -30,40 +31,12 @@ from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, sl
 from vault_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from vault_io.update_index import update_index
 
+from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # Matches YAML list items with any indentation (2-space, 4-space, tab)
 _LIST_ITEM_RE = re.compile(r"^[ \t]+- ")
-
-# ---------------------------------------------------------------------------
-# System prompt for the ingestor LLM role
-# ---------------------------------------------------------------------------
-
-INGESTOR_SYSTEM = """\
-You are a code wiki ingestor. Your job is to analyze a source document and produce
-a well-structured wiki page that integrates it into an existing knowledge base.
-
-Output ONLY YAML frontmatter followed by a markdown body. Do not add commentary
-outside of these sections.
-
-Required frontmatter fields:
-  - title: <descriptive title for the page>
-  - category: <one of: package, concept, adr>
-  - page_type: <one of: package, concept, adr>
-  - target_slug: <URL-safe slug for the output filename, e.g. "auth-design">
-  - summary: <one-line description of the source's main contribution>
-  - tags: []  (list of relevant tags, or empty list)
-
-Your output must include:
-1. YAML frontmatter (between --- delimiters) with all required fields above.
-2. A "## Summary" section (3-5 sentences) describing the source content.
-3. Optional "## Key Concepts" or "## Decisions" section where appropriate.
-4. Use [[wikilink]] style cross-references to related vault pages where relevant.
-
-Keep total output under 1500 tokens.
-Do NOT reproduce the full source text — synthesize and summarize.
-Do NOT speculate beyond what the provided source content shows.
-"""
 
 # ---------------------------------------------------------------------------
 # IngestResult dataclass
