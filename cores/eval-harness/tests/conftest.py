@@ -6,6 +6,8 @@ Provides:
 - fixture_vault_path: resolves the cross-package round-trip-vault fixture so
   unit and integration tests can read real vault pages without committing
   duplicate data.
+- accept_baseline: returns the value of --accept-divergence-baseline CLI option
+  so divergence tests can overwrite baseline files when requested (EVAL-13).
 """
 
 import os
@@ -18,6 +20,22 @@ EVAL_GATE = pytest.mark.skipif(
     not os.environ.get("CODE_WIKI_RUN_EVAL"),
     reason="Set CODE_WIKI_RUN_EVAL=1 to run eval sweep tests",
 )
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register custom CLI options for the eval-harness test suite."""
+    parser.addoption(
+        "--accept-divergence-baseline",
+        action="store_true",
+        default=False,
+        help="Overwrite divergence baselines with current run results",
+    )
+
+
+@pytest.fixture
+def accept_baseline(request: pytest.FixtureRequest) -> bool:
+    """Return True if --accept-divergence-baseline was passed on the CLI."""
+    return request.config.getoption("--accept-divergence-baseline")
 
 
 @pytest.fixture
