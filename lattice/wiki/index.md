@@ -1,6 +1,6 @@
 # Index — wiki
 
-_Initialized 2026-05-14 • 0 pages_
+_Last scan 2026-05-14 • 5 pages_
 
 > Content-oriented catalog of every page in this wiki. Updated by
 > `scripts/update_index.py` or during `/lattice-wiki:scan` / `/lattice-wiki:ingest`. Answer
@@ -13,31 +13,32 @@ _Initialized 2026-05-14 • 0 pages_
 _No pages yet. Will appear here as you synthesize the repo's structure._
 
 ## App (0)
-_No pages yet. Run `/lattice-wiki:scan` to populate application workspaces (web, mobile, CLI)._
+_No pages yet._
 
-## Package (0)
-_No pages yet. Run `/lattice-wiki:scan` to populate library/service workspaces._
+## Package (5)
+
+### agents/
+
+- [[agents/code-wiki-agent/code-wiki-agent]] — AWS Bedrock-powered wiki maintenance agent — MCP server and headless CLI
+
+### cores/
+
+- [[cores/eval-harness/eval-harness]] — Deterministic eval checks, cost tracking, and model-sweep runner
+- [[cores/model-adapter/model-adapter]] — AWS Bedrock model loader — resolves ChatBedrockConverse instances from a TOML model registry
+- [[cores/subagent-runtime/subagent-runtime]] — Async fan-out primitive — dispatches concurrent LLM calls via a worker pool
+- [[cores/vault-io/vault-io]] — Vault read/write library — frontmatter, page templates, lint, log, monorepo scan
 
 ## Domain (0)
-_No pages yet. Create manually or via ingest — feature areas that span packages._
+_No pages yet._
 
 ## Concept (0)
 _No pages yet. Cross-cutting technical patterns will appear here as they're extracted from sources and code._
 
 ## Dependency (0)
-_No pages yet. The auto-generated `dependencies/index.md` covers every external dep; detail pages live here for the load-bearing ones (React, MongoDB, etc.)._
+_No pages yet. The auto-generated `dependencies/index.md` covers every external dep._
 
 ## ADR (0)
-_No pages yet. Architecture Decision Records — dated, citable decisions._
+_No pages yet._
 
 ## Source (0)
-_No pages yet. Each ingested source (spec, PR, article, ticket, transcript) gets one summary page here._
-
----
-
-### First steps
-
-1. Run `/lattice-wiki:scan` to create stub pages for every workspace package
-2. Drop a source into `raw/` (article, spec, PR summary, ticket export, transcript)
-3. Run `/lattice-wiki:ingest raw/<your-file>`
-4. Watch this index populate
+_No pages yet._
