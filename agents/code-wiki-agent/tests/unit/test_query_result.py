@@ -237,6 +237,81 @@ def test_synthesizer_system_constant_present() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Plan 03-08: Prompt contract tests (SC-1 gap closure)
+# ---------------------------------------------------------------------------
+
+
+def test_librarian_prompt_contains_no_invention_rule() -> None:
+    """LIBRARIAN_SYSTEM must encode verbatim quoting + no-invention + NO_RELEVANT_CONTENT."""
+    from code_wiki_agent.commands.query import LIBRARIAN_SYSTEM
+
+    lowered = LIBRARIAN_SYSTEM.lower()
+    assert "verbatim" in lowered, "Librarian prompt must require verbatim quoting"
+    assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM, (
+        "Librarian prompt must keep the sentinel literal"
+    )
+    # No-invention phrase — accept any of several common phrasings
+    no_invention_tokens = ["never invent", "do not invent", "don't invent", "no-invention"]
+    assert any(tok in lowered for tok in no_invention_tokens), (
+        "Librarian prompt must contain an explicit no-invention rule"
+    )
+
+
+def test_librarian_prompt_keeps_sentinel() -> None:
+    """LIBRARIAN_SYSTEM must contain the exact NO_RELEVANT_CONTENT literal.
+
+    The filter at query.py:568 depends on this sentinel being emitted verbatim.
+    """
+    from code_wiki_agent.commands.query import LIBRARIAN_SYSTEM
+
+    assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM
+
+
+def test_synthesizer_prompt_requires_full_wikilink_paths() -> None:
+    """SYNTHESIZER_SYSTEM must require full vault page paths (not slug-only)."""
+    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+
+    # Full-path example must appear
+    assert "[[wiki/" in SYNTHESIZER_SYSTEM, (
+        "Synthesizer prompt must show full-path wikilink form like [[wiki/...]]"
+    )
+    # Slug-only-forbidden directive — accept several phrasings
+    lowered = SYNTHESIZER_SYSTEM.lower()
+    slug_forbid_tokens = ["slug-only", "slug only", "never collapse", "do not collapse"]
+    assert any(tok in lowered for tok in slug_forbid_tokens), (
+        "Synthesizer prompt must explicitly forbid slug-only wikilinks"
+    )
+
+
+def test_synthesizer_prompt_requires_code_path_line_citations() -> None:
+    """SYNTHESIZER_SYSTEM must instruct the model to preserve `path:line` code refs."""
+    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+
+    assert "path:line" in SYNTHESIZER_SYSTEM, (
+        "Synthesizer prompt must reference the path:line citation format"
+    )
+    assert "`" in SYNTHESIZER_SYSTEM, (
+        "Synthesizer prompt must show backticks for code-path citations"
+    )
+
+
+def test_synthesizer_prompt_forbids_invention() -> None:
+    """SYNTHESIZER_SYSTEM must contain a no-invention / vault-thin acknowledgment directive."""
+    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+
+    lowered = SYNTHESIZER_SYSTEM.lower()
+    no_invention_tokens = ["never invent", "do not invent", "don't invent", "no-invention"]
+    assert any(tok in lowered for tok in no_invention_tokens), (
+        "Synthesizer prompt must explicitly forbid inventing paths/symbols"
+    )
+    # Vault-thin acknowledgment
+    ack_tokens = ["does not document", "vault does not", "vault doesn't", "not documented"]
+    assert any(tok in lowered for tok in ack_tokens), (
+        "Synthesizer prompt must require explicit acknowledgment when the vault lacks coverage"
+    )
+
+
+# ---------------------------------------------------------------------------
 # run_query unit test (mocked)
 # ---------------------------------------------------------------------------
 
