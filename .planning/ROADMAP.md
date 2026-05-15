@@ -58,7 +58,7 @@ Plans:
 - [x] 06-06-PLAN.md — Linter 3-group prompt port + lint.py refactor (Wave 3)
 - [x] 06-07-PLAN.md — Scanner prompt port + scan.py refactor (Wave 3)
 - [x] 06-08-PLAN.md — Divergence rule modules + judge rubrics + per-rule unit tests (Wave 4)
-- [ ] 06-09-PLAN.md — DivergenceMetric class (programmatic + GEval judge composition) (Wave 5)
+- [x] 06-09-PLAN.md — DivergenceMetric class (programmatic + GEval judge composition) (Wave 5)
 - [ ] 06-10-PLAN.md — Baseline JSON loader + write + regression gate + initial baselines (Wave 6)
 - [ ] 06-11-PLAN.md — End-to-end eval-gated divergence test + baseline acceptance flow (Wave 7)
 
@@ -105,7 +105,7 @@ Plans:
 | 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete    | 2026-05-14  |
 | 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
 | 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
-| 6. Prompt Content Port + Divergence Eval   | v1.1      | 8/11 | In Progress|  |
+| 6. Prompt Content Port + Divergence Eval   | v1.1      | 9/11 | In Progress|  |
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
