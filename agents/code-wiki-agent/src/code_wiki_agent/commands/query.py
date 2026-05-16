@@ -786,7 +786,7 @@ async def run_query(
         )
 
     query_id = uuid.uuid4().hex[:12]
-    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+    started_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
 
     # Step 1: resolve vault
     wiki, _ = resolve_wiki_and_repo(vault_path)
@@ -939,7 +939,7 @@ async def run_query(
     )
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
-    ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+    ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
     trace_dir = wiki / ".code-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     summary_file = trace_dir / f"query_{query_id}.jsonl"
