@@ -1,32 +1,50 @@
 {
   "role": "librarian",
-  "recorded_at": "2026-05-15T20:26:00.233560+00:00",
-  "agent_commit": "initial-empty-baseline",
+  "recorded_at": "2026-05-16T22:27:21.084552+00:00",
+  "agent_commit": "cc6c67c",
   "checks": {
     "LIB-001-wikilink-resolves": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 4,
+      "failures": 3,
+      "accepted_failures": [
+        {
+          "fixture": "concept-01",
+          "excerpt": "Unresolved: wiki/packages/foo"
+        },
+        {
+          "fixture": "cross-ref-01",
+          "excerpt": "Unresolved: packages/lattice-graph-core/lattice-graph-core.md"
+        },
+        {
+          "fixture": "format-01",
+          "excerpt": "Unresolved: concepts/code-wiki-pattern.md"
+        }
+      ]
     },
     "LIB-002-citation-present": {
-      "runs": 0,
+      "runs": 4,
       "failures": 0,
       "accepted_failures": []
     },
     "LIB-003-no-slug-only-wikilinks": {
-      "runs": 0,
+      "runs": 4,
       "failures": 0,
       "accepted_failures": []
     },
     "LIB-004-code-path-format": {
-      "runs": 0,
+      "runs": 4,
       "failures": 0,
       "accepted_failures": []
     },
     "LIB-JUDGE": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 4,
+      "failures": 1,
+      "accepted_failures": [
+        {
+          "fixture": "concept-01",
+          "excerpt": "The actual output provides a highly detailed answer about how the wiki index works, referencing specific file names (update_index.py, append_log.py, lint_wiki.py, graph_analyzer.py), constants (MAIN_I"
+        }
+      ]
     }
   }
 }

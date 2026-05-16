@@ -1,32 +1,55 @@
 {
   "role": "ingestor",
-  "recorded_at": "2026-05-15T20:26:00.233810+00:00",
-  "agent_commit": "initial-empty-baseline",
+  "recorded_at": "2026-05-16T22:27:57.338953+00:00",
+  "agent_commit": "cc6c67c",
   "checks": {
     "ING-001-frontmatter-present": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 2,
+      "failures": 2,
+      "accepted_failures": [
+        {
+          "fixture": "ingest:api.md",
+          "excerpt": "Missing YAML frontmatter delimiters"
+        },
+        {
+          "fixture": "ingest:context.md",
+          "excerpt": "Missing YAML frontmatter delimiters"
+        }
+      ]
     },
     "ING-002-required-fields": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 2,
+      "failures": 2,
+      "accepted_failures": [
+        {
+          "fixture": "ingest:api.md",
+          "excerpt": "Missing fields: title, category, page_type, target_slug, summary"
+        },
+        {
+          "fixture": "ingest:context.md",
+          "excerpt": "Missing fields: title, category, page_type, target_slug, summary"
+        }
+      ]
     },
     "ING-003-page-type-routing": {
-      "runs": 0,
+      "runs": 2,
       "failures": 0,
       "accepted_failures": []
     },
     "ING-004-page-type-valid-category": {
-      "runs": 0,
+      "runs": 2,
       "failures": 0,
       "accepted_failures": []
     },
     "ING-JUDGE": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 2,
+      "failures": 1,
+      "accepted_failures": [
+        {
+          "fixture": "ingest:api.md",
+          "excerpt": "ING-005: The output makes several substantive claims linking concepts to specific packages and code locations. Some claims include code path citations (e.g., `packages/lattice-curator-core/src/lattice"
+        }
+      ]
     }
   }
 }
