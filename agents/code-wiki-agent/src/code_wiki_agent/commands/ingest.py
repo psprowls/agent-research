@@ -101,14 +101,49 @@ def _route_target_path(wiki: Path, page_type: str, slug: str) -> Path:
 def _parse_ingestor_response(text: str) -> tuple[dict, str]:
     """Split LLM response into (frontmatter_dict, body_str).
 
-    The LLM is instructed to produce YAML frontmatter between --- delimiters
-    followed by a markdown body. We split on the closing --- and parse the YAML
-    block using the same hand-rolled scalar parser as ingest_work_item (no yaml.load).
+    The LLM is instructed (prompts/ingestor.py:_NO_CODE_FENCE) to begin its
+    response with `---`. As defense-in-depth, this parser also strips a
+    leading ```yaml or ``` open-fence and the matching trailing ``` before
+    looking for the `---` delimiter, so ING-001 passes even if the LLM
+    wraps the YAML block in a markdown code fence.
 
-    Returns (frontmatter_dict, body_str) where frontmatter_dict may be empty
-    if parsing fails (callers must handle the fallback case).
+    After fence-strip, behavior is unchanged: returns ({}, body_str) when
+    the text does not start with `---` or has no closing `---`, otherwise
+    parses the YAML block with the same hand-rolled scalar/list parser
+    used by ingest_work_item (no yaml.load).
     """
+    original_text = text
     text = text.strip()
+
+    # Defense-in-depth: ingestor LLM may wrap the frontmatter in a markdown
+    # code fence (```yaml ... ``` or ``` ... ```). The system prompt forbids
+    # this (prompts/ingestor.py:_NO_CODE_FENCE), but we strip defensively so
+    # ING-001 (startswith '---') passes even on prompt-rule violations.
+    if text.startswith("```"):
+        # Strip opening fence line (```yaml or just ```)
+        nl = text.find("\n")
+        if nl == -1:
+            return {}, original_text
+        text = text[nl + 1 :].lstrip("\n")
+        # Strip the matching closing fence. The LLM may place ``` either at
+        # the very end of the response (fence wraps only the YAML+body) or
+        # immediately after the closing --- (fence wraps only the YAML
+        # block, body trails below). Find the LAST line that is exactly
+        # ``` and remove just that line, preserving any body that follows.
+        lines = text.split("\n")
+        last_fence_idx = -1
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == "```":
+                last_fence_idx = i
+                break
+        if last_fence_idx != -1:
+            text = "\n".join(lines[:last_fence_idx] + lines[last_fence_idx + 1 :])
+        # Re-strip leading/trailing whitespace exposed by removing the fence
+        text = text.strip()
+        # If post-fence-strip content has no `---`, treat as no-frontmatter
+        # and return the ORIGINAL text (do not silently swallow the fence).
+        if not text.startswith("---"):
+            return {}, original_text
 
     # Strip opening ---
     if not text.startswith("---"):
