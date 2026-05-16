@@ -23,8 +23,12 @@ _ROLE_INTRO = (
 
 _PAGE_TYPE_ROUTING = (
     "## Page-type routing\n\n"
-    "- Source docs (specs, PRs, articles, in-repo docs): `page_type: source`, `category: source`.\n"
-    "- Work-item subjects (package/concept/decision): `page_type: package | concept | adr`.\n\n"
+    "Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:\n\n"
+    "- `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)\n"
+    "- `page_type: package` -> `packages/` (a workspace member with a manifest)\n"
+    "- `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)\n"
+    "- `page_type: adr` -> `adrs/` (dated decision record)\n\n"
+    "`category` should agree with `page_type` (`source` -> `source`, `package` -> `package`, etc.).\n"
     "`update_index()` and `append_log()` run automatically — omit those steps."
 )
 

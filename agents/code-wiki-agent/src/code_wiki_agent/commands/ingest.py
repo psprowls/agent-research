@@ -74,6 +74,7 @@ _PAGE_TYPE_DIRS: dict[str, str] = {
     "package": "packages",
     "concept": "concepts",
     "adr": "adrs",
+    "source": "sources",
 }
 
 
@@ -91,6 +92,48 @@ def _route_target_path(wiki: Path, page_type: str, slug: str) -> Path:
     if not str(resolved).startswith(str(wiki_resolved) + "/"):
         raise ValueError(f"target path escapes wiki root: {resolved}")
     return target
+
+
+# ---------------------------------------------------------------------------
+# Reconcile body `target_slug:` with on-disk filename (Plan 06-13 / UAT G3)
+# ---------------------------------------------------------------------------
+
+
+def _rewrite_target_slug_in_body(text: str, canonical_slug: str) -> str:
+    """Rewrite the `target_slug:` line in the YAML frontmatter of `text`
+    so it equals `canonical_slug`. If no `target_slug:` line exists in
+    the frontmatter, inject one immediately after the opening `---`.
+
+    Operates on the raw text — does not re-emit YAML — so it preserves
+    comments, ordering, and indentation of all other frontmatter fields.
+
+    Only touches the frontmatter block (between the first two `---`
+    delimiters). If text has no frontmatter, returns text unchanged.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    # Find the second `---` to bound the frontmatter block
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+    new_lines: list[str] = []
+    found = False
+    for line in fm_block.splitlines():
+        if line.lstrip().startswith("target_slug:"):
+            indent = line[: len(line) - len(line.lstrip())]
+            new_lines.append(f"{indent}target_slug: {canonical_slug}")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.insert(0, f"target_slug: {canonical_slug}")
+    new_fm = "\n".join(new_lines)
+    return f"{leading_ws}---\n{new_fm}{body_and_close}"
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +349,13 @@ async def run_ingest_source(
     # Step 7: write page
     target_path = _route_target_path(wiki, page_type, target_slug)
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    # Reconcile target_slug in the body with the on-disk filename slug.
+    # _route_target_path uses slugify(target_slug); if that differs from
+    # what the LLM wrote, rewrite the body's `target_slug:` line to match.
+    # Also handles the case where the LLM omitted target_slug entirely
+    # (we fell back to slugify(title)) — write that fallback into the body.
+    canonical_slug = target_path.stem
+    llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
     target_path.write_text(llm_output, encoding="utf-8")
 
     # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)

@@ -320,3 +320,108 @@ def test_parse_ingestor_response_fence_without_dashes_returns_empty() -> None:
     raw = "```yaml\nkey: value\nno_dashes: here\n```"
     fm, body = _parse_ingestor_response(raw)
     assert fm == {}, f"expected empty dict, got {fm}"
+
+
+# ---------------------------------------------------------------------------
+# page_type=source routing + target_slug-filename equality (Plan 06-13)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) -> None:
+    """Fake ingestor returns page_type=source; page lands under sources/foo.md."""
+    from code_wiki_agent.commands.ingest import run_ingest_source
+
+    source_file = tmp_path / "an-article.md"
+    source_file.write_text("# An Article\n\nBody.", encoding="utf-8")
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    fake_llm_response = (
+        "---\n"
+        "title: An Article\n"
+        "category: source\n"
+        "page_type: source\n"
+        "target_slug: an-article\n"
+        "summary: A test source\n"
+        "---\n"
+        "\n"
+        "Body text here."
+    )
+
+    with (
+        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("code_wiki_agent.commands.ingest.update_index"),
+        patch("code_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, wiki)
+
+    expected_page = wiki / "sources" / "an-article.md"
+    assert expected_page.exists(), f"expected page at {expected_page}, got result={result}"
+    assert (wiki / "concepts").exists() is False or not any(
+        (wiki / "concepts").iterdir()
+    ), "concepts/ should be empty for page_type=source"
+    assert result.page_type == "source"
+    assert "sources/an-article.md" in result.page_path
+    assert result.slug == "an-article"
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) -> None:
+    """LLM emits a slug that slugify() transforms; frontmatter target_slug
+    in the written file must equal the on-disk filename slug."""
+    from code_wiki_agent.commands.ingest import run_ingest_source
+
+    source_file = tmp_path / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    # LLM emits a slug with characters that slugify() would normalize.
+    # We use a slug that survives slugify() unchanged for determinism,
+    # then assert the rewrite step copies it into the body verbatim.
+    # (The real-world G3 case was a slug that DIVERGED from the title-
+    # derived slug; the test below covers the rewrite path explicitly.)
+    fake_llm_response = (
+        "---\n"
+        "title: Some Page\n"
+        "category: concept\n"
+        "page_type: concept\n"
+        "target_slug: weird_slug_with_underscores\n"  # slugify -> weird-slug-with-underscores
+        "summary: x\n"
+        "---\n"
+        "Body."
+    )
+
+    with (
+        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("code_wiki_agent.commands.ingest.update_index"),
+        patch("code_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, wiki)
+
+    # Determine the actual on-disk path; assert filename slug == body target_slug
+    written_path = wiki / "concepts" / f"{result.slug}.md"
+    assert written_path.exists(), f"expected page at {written_path}"
+    written_body = written_path.read_text(encoding="utf-8")
+    assert f"target_slug: {result.slug}" in written_body, (
+        f"target_slug in body must equal filename stem '{result.slug}'; "
+        f"body excerpt:\n{written_body[:300]}"
+    )
+    # And the original LLM slug (pre-slugify) should NOT survive verbatim
+    assert "target_slug: weird_slug_with_underscores" not in written_body
