@@ -102,6 +102,14 @@
   - Flag contradictions: vault↔vault with `> ⚠️ Contradiction:` callouts; vault↔code with path.
   - Propose ADRs for decisions.
   
+  ## Wikilink discipline (named anti-patterns)
+  
+  DO NOT emit `[[wikilink]]` targets that do not already exist in the vault. Examples of forbidden output observed in past runs:
+  - `[[Person Name]]` for an author/speaker/contributor who has no vault page — use prose ("Person Name") instead.
+  - `[[subdir/some-slug]]` for a path that does not exist on disk — either omit the link entirely or use the `NO_RELEVANT_CONTENT` sentinel from the citation rules.
+  
+  The command layer post-processes the body and STRIPS any `[[…]]` that does not resolve to an existing vault page (the wikilink is replaced by its bare label text and the strip is recorded in `log.md`). If you cite something the vault doesn't have, the link will be silently removed — don't rely on it.
+  
   ## Red flags
   
   Stop if: source not under `raw/` or a recognized in-repo doc; duplicates an existing

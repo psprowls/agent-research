@@ -39,7 +39,18 @@ _INGESTOR_RULES = (
     "- Touch ≥3 files: new page + `index.md` + `log.md` (handled by command layer).\n"
     "- Cite aggressively — every claim links to a source page or code path.\n"
     "- Flag contradictions: vault↔vault with `> ⚠️ Contradiction:` callouts; vault↔code with path.\n"
-    "- Propose ADRs for decisions."
+    "- Propose ADRs for decisions.\n\n"
+    "## Wikilink discipline (named anti-patterns)\n\n"
+    "DO NOT emit `[[wikilink]]` targets that do not already exist in the vault. "
+    "Examples of forbidden output observed in past runs:\n"
+    "- `[[Person Name]]` for an author/speaker/contributor who has no vault page — "
+    "use prose (\"Person Name\") instead.\n"
+    "- `[[subdir/some-slug]]` for a path that does not exist on disk — "
+    "either omit the link entirely or use the `NO_RELEVANT_CONTENT` sentinel from the citation rules.\n\n"
+    "The command layer post-processes the body and STRIPS any `[[…]]` that "
+    "does not resolve to an existing vault page (the wikilink is replaced by its bare "
+    "label text and the strip is recorded in `log.md`). If you cite something the "
+    "vault doesn't have, the link will be silently removed — don't rely on it."
 )
 
 _RED_FLAGS = (
