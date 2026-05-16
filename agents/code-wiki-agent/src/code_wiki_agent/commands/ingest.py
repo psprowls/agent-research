@@ -137,6 +137,79 @@ def _rewrite_target_slug_in_body(text: str, canonical_slug: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Strip unresolved wikilinks (Plan 06-14 / UAT G4)
+# ---------------------------------------------------------------------------
+
+# Matches [[…]] wikilinks. The captured group is the target; rejects newlines
+# and bracket characters inside the target so nested or malformed brackets
+# don't match accidentally.
+_WIKILINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
+
+
+def _resolve_wikilinks(text: str, wiki: Path) -> tuple[str, list[str]]:
+    """Strip wikilinks that do not resolve to an existing vault page.
+
+    For each `[[target]]` in `text`:
+      - If `<wiki>/<target>.md` exists OR any `<wiki>/**/<basename>.md`
+        exists where `basename` is the last path segment of `target`,
+        keep the wikilink verbatim.
+      - Otherwise, replace `[[target]]` with the bare label (the
+        target string itself, no brackets, no `.md`).
+
+    Wikilinks inside fenced code blocks (``` … ```) are NOT modified —
+    this protects example snippets in summaries from being eaten.
+
+    Returns (rewritten_text, list_of_stripped_targets).
+
+    Args:
+      text:  the LLM body (after frontmatter has been written/rewritten).
+      wiki:  vault root.
+    """
+    # Build the set of known page basenames (and known relative paths).
+    # rglob is O(vault_size) — acceptable: vaults are <10k files.
+    known_relpaths: set[str] = set()
+    known_basenames: set[str] = set()
+    if wiki.exists():
+        for p in wiki.rglob("*.md"):
+            rel = p.relative_to(wiki).as_posix()
+            # Strip the .md suffix
+            known_relpaths.add(rel[:-3])
+            known_basenames.add(p.stem)
+
+    stripped: list[str] = []
+
+    # Walk the text line-by-line so we can track fence state.
+    in_fence = False
+    out_lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        # Toggle fence state on any line that starts with ```
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        if in_fence:
+            out_lines.append(line)
+            continue
+
+        def _sub(m: re.Match[str]) -> str:
+            target = m.group(1).strip()
+            # Try exact relpath match first
+            if target in known_relpaths:
+                return m.group(0)
+            # Then basename match (Obsidian-style fallback: [[concepts/foo]]
+            # resolves if foo.md exists anywhere)
+            basename = target.rsplit("/", 1)[-1]
+            if basename in known_basenames:
+                return m.group(0)
+            stripped.append(target)
+            return target
+
+        out_lines.append(_WIKILINK_RE.sub(_sub, line))
+
+    return "".join(out_lines), stripped
+
+
+# ---------------------------------------------------------------------------
 # Parse ingestor LLM response
 # ---------------------------------------------------------------------------
 
@@ -356,13 +429,28 @@ async def run_ingest_source(
     # (we fell back to slugify(title)) — write that fallback into the body.
     canonical_slug = target_path.stem
     llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
+    # Write the file first so it is part of the "known pages" set when
+    # resolving self-references in the body (e.g. an ADR linking to
+    # itself or a sibling created earlier in the same ingest).
     target_path.write_text(llm_output, encoding="utf-8")
+    # Plan 06-14 / UAT G4: strip wikilinks the LLM fabricated for pages
+    # that do not exist in the vault. Two writes is acceptable — vaults
+    # are local-disk and writes are <1ms.
+    resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
+    if stripped_wikilinks:
+        target_path.write_text(resolved_output, encoding="utf-8")
 
     # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
     update_index(wiki)
 
-    # Step 9: append log
-    append_log(wiki, "ingest", title_guess, detail=f"source: {source_path}")
+    # Step 9: append log (record stripped-wikilink count for hallucination audit)
+    detail = f"source: {source_path}"
+    if stripped_wikilinks:
+        detail += (
+            f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
+            f"{stripped_wikilinks[:5]}"
+        )
+    append_log(wiki, "ingest", title_guess, detail=detail)
 
     # Step 10: return result
     page_path_rel = str(target_path.relative_to(wiki))
