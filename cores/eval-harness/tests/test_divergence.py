@@ -20,16 +20,10 @@ Security:
   T-06-26: _current_agent_commit() writes git SHA into every accepted baseline.
 """
 
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
-
-# Add tests/ directory to sys.path so conftest can be imported as a module.
-# conftest.py lives in cores/eval-harness/tests/ (same dir as this file).
-sys.path.insert(0, str(Path(__file__).parent))
 
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
 from eval_harness.divergence.metric import (
@@ -40,13 +34,10 @@ from eval_harness.divergence.metric import (
 )
 
 # ---------------------------------------------------------------------------
-# Eval gate — matches the EVAL_GATE constant in conftest.py
+# Eval gate — imported from conftest to avoid duplication (WR-06)
 # ---------------------------------------------------------------------------
 
-EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
-)
+from conftest import EVAL_GATE  # noqa: E402
 
 # Baselines directory: cores/eval-harness/baselines/
 # cores/eval-harness/tests/test_divergence.py
@@ -73,12 +64,10 @@ def _current_agent_commit() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Import the per-role output-producer helper from conftest.py
+# Import the per-role output-producer helper from eval_helpers
 # ---------------------------------------------------------------------------
 
-# _produce_outputs is defined in conftest.py (same directory) and is available
-# as a plain callable — not a pytest fixture — so we can import it directly.
-from conftest import _produce_outputs  # noqa: E402
+from eval_helpers import produce_outputs as _produce_outputs  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
