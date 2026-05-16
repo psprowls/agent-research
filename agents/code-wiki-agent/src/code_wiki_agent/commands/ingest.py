@@ -134,7 +134,7 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
         if not line or line.startswith("#"):
             continue
         if _LIST_ITEM_RE.match(line) and cur_list is not None:
-            cur_list.append(line.lstrip().lstrip("- ").strip())
+            cur_list.append(line.lstrip().removeprefix("- ").strip())
             continue
         if cur_list is not None:
             fm[cur_key] = cur_list
