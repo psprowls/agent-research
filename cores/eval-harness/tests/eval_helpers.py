@@ -8,6 +8,7 @@ without relying on sys.path manipulation or importing conftest as a plain
 module (which is fragile and does not work reliably across pytest versions).
 
 Public API:
+    EVAL_GATE     — pytest.mark.skipif decorator gating eval tests.
     produce_outputs(role, vault) — produce agent outputs for the given role.
 """
 
@@ -21,6 +22,15 @@ import pytest
 
 if TYPE_CHECKING:
     from eval_harness.divergence.check import AgentOutputProxy
+
+# Eval gate: skip eval tests unless CODE_WIKI_RUN_EVAL=1 is set.
+# Defined here (not in conftest) so test_divergence.py can import it directly
+# without relying on conftest being importable as a plain module (which breaks
+# under pytest's --import-mode=importlib).
+EVAL_GATE = pytest.mark.skipif(
+    not os.environ.get("CODE_WIKI_RUN_EVAL"),
+    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+)
 
 # Path to eval/cases/query_cases.json — used by librarian role outputs.
 # cores/eval-harness/tests/eval_helpers.py

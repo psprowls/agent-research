@@ -23,6 +23,7 @@ model-adapter = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 markers = [

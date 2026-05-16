@@ -8,8 +8,10 @@ Provides:
   duplicate data.
 - accept_baseline: returns the value of --accept-divergence-baseline CLI option
   so divergence tests can overwrite baseline files when requested (EVAL-13).
-- _produce_outputs(role, vault): re-exported from eval_helpers for backward
-  compatibility. New code should import from eval_helpers directly.
+- EVAL_GATE: pytest.mark.skipif decorator gating eval tests on CODE_WIKI_RUN_EVAL=1.
+
+Output-producer helpers have been moved to eval_helpers.py (WR-05).
+Import produce_outputs from there directly in test files.
 """
 
 import os
@@ -18,14 +20,13 @@ from pathlib import Path
 import pytest
 
 # Eval gate: decorate eval tests so they are skipped unless CODE_WIKI_RUN_EVAL=1 is set.
+# Also defined in eval_helpers.EVAL_GATE (same condition) so test files can import it
+# directly without importing conftest as a plain module (which fails under
+# --import-mode=importlib). Both definitions are intentionally in sync.
 EVAL_GATE = pytest.mark.skipif(
     not os.environ.get("CODE_WIKI_RUN_EVAL"),
     reason="Set CODE_WIKI_RUN_EVAL=1 to run eval sweep tests",
 )
-
-# Re-export produce_outputs under the legacy private name for any callers that
-# may already reference it. New code should import produce_outputs from eval_helpers.
-from eval_helpers import produce_outputs as _produce_outputs  # noqa: E402
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
