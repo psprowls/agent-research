@@ -1,30 +1,35 @@
 {
   "role": "scanner",
-  "recorded_at": "2026-05-15T20:26:00.234141+00:00",
-  "agent_commit": "initial-empty-baseline",
+  "recorded_at": "2026-05-16T23:13:05.607607+00:00",
+  "agent_commit": "13da865",
   "checks": {
     "SCN-001-frontmatter-present": {
-      "runs": 0,
+      "runs": 1,
       "failures": 0,
       "accepted_failures": []
     },
     "SCN-002-required-fields": {
-      "runs": 0,
+      "runs": 1,
       "failures": 0,
       "accepted_failures": []
     },
     "SCN-003-no-file-map-section": {
-      "runs": 0,
-      "failures": 0,
-      "accepted_failures": []
+      "runs": 1,
+      "failures": 1,
+      "accepted_failures": [
+        {
+          "fixture": "scanner:eval-harness",
+          "excerpt": "Output contains '## File map' section (pipeline adds this)"
+        }
+      ]
     },
     "SCN-004-overview-present": {
-      "runs": 0,
+      "runs": 1,
       "failures": 0,
       "accepted_failures": []
     },
     "SCN-JUDGE": {
-      "runs": 0,
+      "runs": 1,
       "failures": 0,
       "accepted_failures": []
     }

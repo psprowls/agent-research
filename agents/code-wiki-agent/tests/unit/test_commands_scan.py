@@ -391,3 +391,74 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
 
     assert len(result.errors) == 1, f"Expected 1 error in result.errors, got {result.errors}"
     assert "bad-pkg" in result.errors[0]
+
+
+# ---------------------------------------------------------------------------
+# run_scan repo_path override (Plan 06-15 / UAT G5)
+# ---------------------------------------------------------------------------
+
+
+async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
+    """When repo_path is passed, discover_workspaces is called with it,
+    NOT Path.cwd() and NOT whatever resolve_wiki_and_repo returns."""
+    from code_wiki_agent.commands.scan import run_scan
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    fake_repo = tmp_path / "fake-monorepo"
+    fake_repo.mkdir()
+
+    with (
+        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo") as mock_resolve,
+        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("code_wiki_agent.commands.scan.discover_workspaces") as mock_discover,
+        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("code_wiki_agent.commands.scan.attach_changed_files") as mock_attach,
+        patch("code_wiki_agent.commands.scan.compute_diff") as mock_diff,
+        patch("code_wiki_agent.commands.scan.compute_state_gate") as mock_gate,
+        patch("code_wiki_agent.commands.scan.build_file_map", return_value=None),
+        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("code_wiki_agent.commands.scan.make_llm"),
+        patch(
+            "code_wiki_agent.commands.scan.load_role_config",
+            return_value={"model_id": "fake-model", "max_concurrency": 2},
+        ),
+        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("code_wiki_agent.commands.scan.update_index"),
+        patch("code_wiki_agent.commands.scan.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, None)  # repo=None forces fallback
+        mock_discover.return_value = []
+        mock_gate.return_value = {"allowed": False, "reason": "test", "head_commit": "abc"}
+        mock_diff.return_value = {"new": [], "renamed": [], "deleted": [], "unchanged": []}
+        mock_pool_instance = AsyncMock()
+        mock_pool_instance.run_all = AsyncMock(return_value=_make_fan_out_result())
+        MockPool.return_value = mock_pool_instance
+
+        await run_scan(vault_path=wiki, repo_path=fake_repo)
+
+    # discover_workspaces called with fake_repo.resolve(), NOT Path.cwd()
+    call_args = mock_discover.call_args
+    passed_repo = (
+        call_args.args[0]
+        if call_args.args
+        else call_args.kwargs.get("repo") or call_args.kwargs.get("root")
+    )
+    assert passed_repo == fake_repo.resolve(), (
+        f"discover_workspaces expected to receive fake_repo={fake_repo.resolve()}, "
+        f"got {passed_repo}"
+    )
+    # compute_state_gate also got fake_repo, not cwd
+    assert mock_gate.call_args.args[0] == fake_repo.resolve()
+    # attach_changed_files also got fake_repo as the repo arg (3rd positional)
+    assert mock_attach.call_args.args[2] == fake_repo.resolve()
+    # discover_workspaces called with pinned_containers=None — the vault's
+    # layout block describes the ORIGINAL monorepo, not the override repo,
+    # so the override must skip the layout read and use unpinned discovery
+    discover_kwargs = mock_discover.call_args.kwargs
+    assert discover_kwargs.get("pinned_containers") is None, (
+        f"discover_workspaces expected pinned_containers=None when repo_path "
+        f"override is supplied, got {discover_kwargs.get('pinned_containers')!r}"
+    )
