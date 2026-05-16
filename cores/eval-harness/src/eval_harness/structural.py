@@ -39,6 +39,10 @@ def _resolve_citation(slug: str, vault_path: Path) -> Path | None:
     return None
 
 
+# Public alias — other modules should import this name, not the private `_resolve_citation`.
+resolve_citation = _resolve_citation
+
+
 def check_structural(result: Any, vault_path: Path) -> dict[str, Any]:
     """Run deterministic EVAL-06 structural checks on a QueryResult.
 

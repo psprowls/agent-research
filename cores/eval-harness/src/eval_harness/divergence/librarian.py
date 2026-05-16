@@ -2,7 +2,7 @@
 
 Security (T-06-15): All check callables use regex and string operations only.
 No eval/exec of LLM-generated text.
-Security (T-06-16): Wikilink resolution delegates to _resolve_citation, which
+Security (T-06-16): Wikilink resolution delegates to resolve_citation, which
 uses vault_path.glob() anchored to the vault root — no path traversal.
 """
 
@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Verdict
-from eval_harness.structural import _resolve_citation
+from eval_harness.structural import resolve_citation as _resolve_citation
 
 # Matches [[any content]] wikilinks.
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
