@@ -83,9 +83,14 @@
   
   ## Page-type routing
   
-  - Source docs (specs, PRs, articles, in-repo docs): `page_type: source`, `category: source`.
-  - Work-item subjects (package/concept/decision): `page_type: package | concept | adr`.
+  Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:
   
+  - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
+  - `page_type: package` -> `packages/` (a workspace member with a manifest)
+  - `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)
+  - `page_type: adr` -> `adrs/` (dated decision record)
+  
+  `category` should agree with `page_type` (`source` -> `source`, `package` -> `package`, etc.).
   `update_index()` and `append_log()` run automatically — omit those steps.
   
   ## Ingestor rules
