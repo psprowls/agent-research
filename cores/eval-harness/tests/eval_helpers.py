@@ -221,7 +221,10 @@ def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, 
     vault is treated as the scanner's wiki destination.
     The "query" slot is the package name.
 
-    Corpus path: cores/eval-harness relative to workspace root.
+    Passes repo_path=cores/eval-harness explicitly so workspace discovery
+    does not depend on pytest cwd. (Plan 06-15 / UAT G5 — without this, the
+    scanner falls back to Path.cwd() and may find nothing resolvable from
+    the round-trip-vault fixture.)
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
     from code_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
@@ -233,14 +236,19 @@ def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, 
             "cores/eval-harness must exist in the workspace."
         )
 
-    result = asyncio.run(run_scan(vault_path=vault))
+    # repo_path override (Plan 06-15 / UAT G5): point the scanner at the
+    # eval-harness package as a known-good uv workspace member so it has
+    # something to discover, regardless of pytest cwd or vault layout.
+    result = asyncio.run(run_scan(vault_path=vault, repo_path=eval_harness_dir))
 
     # Collect the stub pages written for any added or updated packages
     added_or_updated = result.added + result.updated
     if not added_or_updated:
         pytest.skip(
-            "scanner produced no added/updated package stubs against "
-            f"vault {vault}; check that a monorepo is resolvable from the vault."
+            f"scanner produced no added/updated stubs against vault {vault} "
+            f"using repo_path={eval_harness_dir}; "
+            "this is unexpected post-Plan-06-15 — discover_workspaces should find "
+            "the eval-harness workspace and report it as 'new' (no existing page)."
         )
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
