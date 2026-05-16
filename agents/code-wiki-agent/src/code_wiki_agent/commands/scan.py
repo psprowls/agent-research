@@ -222,6 +222,7 @@ async def run_scan(
     vault_path: Path | None = None,
     no_file_map: bool = False,
     max_depth: int = 3,
+    repo_path: Path | None = None,
 ) -> ScanResult:
     """End-to-end scan: discovery → diff → scanner fan-out → post-processing.
 
@@ -245,13 +246,23 @@ async def run_scan(
         vault_path:   Path to the wiki vault root (None → env var / git heuristic).
         no_file_map:  Skip per-workspace file-map generation (faster on huge repos).
         max_depth:    Max directory depth for file map section headers.
+        repo_path:    Override the monorepo root used for workspace discovery.
+                      When supplied, replaces both the cwd fallback and any
+                      repo returned by resolve_wiki_and_repo. Useful for tests
+                      that point the scanner at a known-good package fixture
+                      (the eval-harness divergence test uses this — see
+                      cores/eval-harness/tests/eval_helpers.py).
 
     Returns:
         ScanResult with added, updated, deleted, renamed, errors, state_gate.
     """
     # Step 1: resolve wiki and repo
-    wiki, repo = resolve_wiki_and_repo(vault_path)
-    if repo is None:
+    wiki, resolved_repo = resolve_wiki_and_repo(vault_path)
+    if repo_path is not None:
+        repo = repo_path.resolve()
+    elif resolved_repo is not None:
+        repo = resolved_repo
+    else:
         repo = Path.cwd()
 
     # Step 2: read layout block
