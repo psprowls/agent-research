@@ -110,6 +110,10 @@
   4. `[[wikilink]]` cross-references to vault pages.
   
   Under 1500 tokens. Synthesize — do not reproduce the full source.
+  
+  ## Frontmatter format (strict)
+  
+  Begin the response with `---` on its own line. Do NOT wrap the frontmatter in a markdown code fence (no ```yaml, no ``` of any kind around the `---` block). The first three characters of the response MUST be `---`.
   '''
 # ---
 # name: test_librarian_system_snapshot
