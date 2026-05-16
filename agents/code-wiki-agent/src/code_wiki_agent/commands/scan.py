@@ -118,12 +118,19 @@ class ScanResult:
 # ---------------------------------------------------------------------------
 
 
-def build_stub_prompt(pkg: dict, no_file_map: bool = False) -> str:
+def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | None = None) -> str:
     """Return the human message text for the scanner LLM.
 
     Includes package metadata dict, repo-relative path, and up to 3 sampled
     file snippets via pick_representative(). File snippets are capped at 800
     chars each to stay within the 500-token scanner budget.
+
+    Args:
+        pkg:        Workspace metadata dict (from discover_workspaces).
+        no_file_map: Skip file_map section if True.
+        repo_root:  Absolute path to the repo root. When provided, resolves
+                    pkg['path'] against repo_root instead of cwd so file
+                    snippets work correctly regardless of the process's cwd.
     """
     lines: list[str] = [
         f"Package name: {pkg.get('name', 'unknown')}",
@@ -146,7 +153,10 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False) -> str:
     pkg_path_str = pkg.get("path")
     if pkg_path_str:
         try:
-            pkg_abs = Path(pkg_path_str).resolve()
+            if repo_root is not None:
+                pkg_abs = (repo_root / pkg_path_str).resolve()
+            else:
+                pkg_abs = Path(pkg_path_str).resolve()
             representatives = pick_representative(pkg_abs)
             for file_path in representatives[:3]:
                 try:
@@ -297,7 +307,7 @@ async def run_scan(
     scanner_llm = make_llm("scanner")
 
     async def generate_stub(pkg: dict) -> str:
-        prompt = build_stub_prompt(pkg, no_file_map=no_file_map)
+        prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
         msgs = [
             SystemMessage(content=SCANNER_SYSTEM),
             HumanMessage(content=prompt),
