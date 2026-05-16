@@ -169,6 +169,9 @@ class DivergenceMetric:
                 scores.append(metric.score)
                 reasons.append(metric.reason or "")
 
+            if not scores:
+                # No judges in panel — skip this fixture (JUDGE_PANEL_CONFIG is empty)
+                continue
             mean_score = sum(scores) / len(scores)
             results[judge_id]["runs"] += 1
             if mean_score < _JUDGE_THRESHOLD:

@@ -115,6 +115,10 @@ def panel_score(query: str, actual: str, expected: str) -> dict:
         scores.append(metric.score)
         reasons.append(metric.reason or "")
 
+    if len(scores) < 2:
+        raise RuntimeError(
+            f"panel_score requires at least 2 judges, got {len(scores)}"
+        )
     mean_score = sum(scores) / len(scores)
     return {
         "judge_a": scores[0],
