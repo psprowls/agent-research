@@ -27,7 +27,7 @@ _BARE_CODE_PATH_RE = re.compile(
 )
 
 # Matches any citation: wikilink OR backtick-quoted code path.
-_BACKTICK_CODE_RE = re.compile(r"`[^`]+:[0-9]+`")
+_BACKTICK_CODE_RE = re.compile(r"`[^`]+:[0-9]+(?:-[0-9]+)?`")
 
 
 def _check_wikilink_resolves(output: AgentOutputProxy, vault: Path) -> Verdict:
