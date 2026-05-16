@@ -21,22 +21,9 @@ Security:
 """
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
-
-# Ensure the tests/ directory is on sys.path so eval_helpers is importable.
-# eval_helpers lives alongside this file in cores/eval-harness/tests/.
-# This is necessary because pytest does not add conftest directories to sys.path
-# under --import-mode=importlib, and pythonpath in pyproject.toml is only
-# applied when pytest is invoked from within the package directory (not from
-# the workspace root). A targeted path-insert for a stable, well-named module
-# is an acceptable approach — unlike importing conftest, which pytest does not
-# guarantee is importable as a plain module.
-_TESTS_DIR = str(Path(__file__).parent)
-if _TESTS_DIR not in sys.path:
-    sys.path.insert(0, _TESTS_DIR)
 
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
 from eval_harness.divergence.metric import (
@@ -46,11 +33,8 @@ from eval_harness.divergence.metric import (
     write_baseline,
 )
 
-# ---------------------------------------------------------------------------
 # Eval gate and helpers — imported from eval_helpers (WR-05, WR-06)
-# ---------------------------------------------------------------------------
-
-from eval_helpers import EVAL_GATE, produce_outputs as _produce_outputs  # noqa: E402
+from eval_helpers import EVAL_GATE, produce_outputs as _produce_outputs
 
 # Baselines directory: cores/eval-harness/baselines/
 # cores/eval-harness/tests/test_divergence.py
