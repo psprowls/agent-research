@@ -263,3 +263,60 @@ def test_ingest_result_round_trips_to_json() -> None:
     assert parsed["slug"] == "foo"
     assert parsed["page_type"] == "concept"
     assert parsed["cross_refs_updated"] == 1
+
+
+# ---------------------------------------------------------------------------
+# _parse_ingestor_response — fence-stripping defense (Plan 06-12 / UAT G1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected_fm,expected_body",
+    [
+        # Bare --- (must still work — regression guard)
+        (
+            "---\npage_type: source\ntarget_slug: foo\n---\nBody text.",
+            {"page_type": "source", "target_slug": "foo"},
+            "Body text.",
+        ),
+        # ```yaml fenced (UAT G1)
+        (
+            "```yaml\n---\npage_type: source\ntarget_slug: foo\n---\n```\n\nBody text.",
+            {"page_type": "source", "target_slug": "foo"},
+            "Body text.",
+        ),
+        # ``` (no language tag) fenced
+        (
+            "```\n---\npage_type: source\ntarget_slug: foo\n---\n```\nBody text.",
+            {"page_type": "source", "target_slug": "foo"},
+            "Body text.",
+        ),
+    ],
+)
+def test_parse_ingestor_response_handles_fenced_and_unfenced(
+    raw: str, expected_fm: dict, expected_body: str
+) -> None:
+    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+
+    fm, body = _parse_ingestor_response(raw)
+    for k, v in expected_fm.items():
+        assert fm.get(k) == v, f"key {k}: expected {v}, got {fm.get(k)}"
+    assert body.strip() == expected_body.strip()
+
+
+def test_parse_ingestor_response_no_frontmatter_returns_empty() -> None:
+    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+
+    fm, body = _parse_ingestor_response("just some text, no frontmatter")
+    assert fm == {}
+    assert body == "just some text, no frontmatter"
+
+
+def test_parse_ingestor_response_fence_without_dashes_returns_empty() -> None:
+    """Fence present but no --- inside: treat as no-frontmatter, do not
+    silently strip the fence and succeed on a non-YAML body."""
+    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+
+    raw = "```yaml\nkey: value\nno_dashes: here\n```"
+    fm, body = _parse_ingestor_response(raw)
+    assert fm == {}, f"expected empty dict, got {fm}"

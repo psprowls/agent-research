@@ -53,6 +53,20 @@ _OUTPUT_FORMAT = (
     "Under 1500 tokens. Synthesize — do not reproduce the full source."
 )
 
+# Plan 06-12 / UAT G1: live ingestor runs occasionally wrap the YAML
+# frontmatter in a markdown code fence (```yaml ... ```), which violates
+# ING-001 (`text.startswith('---')`). Place this rule LAST in the
+# composition so it is the most recent instruction the LLM reads before
+# generating. Defense-in-depth: commands/ingest.py:_parse_ingestor_response
+# also strips a leading fence as a parser-side fallback.
+_NO_CODE_FENCE = (
+    "## Frontmatter format (strict)\n\n"
+    "Begin the response with `---` on its own line. "
+    "Do NOT wrap the frontmatter in a markdown code fence "
+    "(no ```yaml, no ``` of any kind around the `---` block). "
+    "The first three characters of the response MUST be `---`."
+)
+
 INGESTOR_SYSTEM = "\n\n".join([
     _ROLE_INTRO,
     IRON_RULES,
@@ -63,4 +77,5 @@ INGESTOR_SYSTEM = "\n\n".join([
     _INGESTOR_RULES,
     _RED_FLAGS,
     _OUTPUT_FORMAT,
+    _NO_CODE_FENCE,
 ])
