@@ -7,6 +7,7 @@ dependencies = [
     "deepeval>=4.0.0",
     "pytest-evals>=0.3.4",
     "python-frontmatter>=1.1.0",
+    "aiobotocore>=2.13",
     "code-wiki-agent",
     "subagent-runtime",
     "model-adapter",
