@@ -29,7 +29,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 
 ### 📋 v1.1 Quality Improvements (Phases 6-9)
 
-- [x] **Phase 6: Prompt Content Port + Divergence Eval** — Port lattice-wiki SKILL.md content into agent prompts and wire the divergence-detection eval metric (completed 2026-05-15)
+- [ ] **Phase 6: Prompt Content Port + Divergence Eval** — Port lattice-wiki SKILL.md content into agent prompts and wire the divergence-detection eval metric (11/16 plans complete; 5 gap-closure plans for UAT issues pending)
 - [ ] **Phase 7: Cost-Frontier Sweep** — Execute the sweep against the post-port agent, publish cost-optimal model picks, update models.toml defaults
 - [ ] **Phase 8: Host Reliability** — MCP cancellation polish and DeepAgents CLI stdio integration test
 - [ ] **Phase 9: Trace/Observability Polish** — Document and version the trace schema; enhance the trace renderer with per-subagent cost and collapsing
@@ -48,7 +48,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
   3. Running `code-wiki-agent lint` applies the canonical rule set (not a paraphrased version) — provenance comments in `prompts/` trace every rule to a source path + anchor
   4. The divergence eval metric runs against the fixture corpus and emits per-role divergence counts with concrete examples
   5. A recorded divergence baseline exists; re-running without `--accept-divergence-baseline` fails the gate if divergence increases
-**Plans**: 11 plans
+**Plans**: 16 plans (11 original + 5 gap-closure from 06-UAT.md)
 Plans:
 - [x] 06-01-PLAN.md — Vendor lattice-wiki canonical sources into cores/prompt-sources/ (Wave 1)
 - [x] 06-02-PLAN.md — Wave 0 test scaffolding (snapshot + provenance + divergence test stubs) (Wave 1)
@@ -61,6 +61,11 @@ Plans:
 - [x] 06-09-PLAN.md — DivergenceMetric class (programmatic + GEval judge composition) (Wave 5)
 - [x] 06-10-PLAN.md — Baseline JSON loader + write + regression gate + initial baselines (Wave 6)
 - [x] 06-11-PLAN.md — End-to-end eval-gated divergence test + baseline acceptance flow (Wave 7)
+- [ ] 06-12-PLAN.md — Ingestor frontmatter no-code-fence rule + _parse_ingestor_response fence-strip (UAT G1) (Wave 8)
+- [ ] 06-13-PLAN.md — page_type=source routing + target_slug ↔ filename equality (UAT G2, G3) (Wave 9)
+- [ ] 06-14-PLAN.md — Wikilink hallucination guardrails: _resolve_wikilinks + named anti-patterns in prompt (UAT G4) (Wave 10)
+- [ ] 06-15-PLAN.md — Scanner fixture coverage via run_scan repo_path override + baseline re-record (UAT G5) (Wave 8)
+- [ ] 06-16-PLAN.md — Test hygiene: hoist pythonpath to root, remove sys.path.insert (WR-05 residual) (Wave 9)
 
 ### Phase 7: Cost-Frontier Sweep
 **Goal**: The cost-frontier across all 7 Bedrock roles is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
@@ -105,11 +110,11 @@ Plans:
 | 3. Query Vertical Slice + Hybrid Search     | v1.0      | 6/6            | Complete    | 2026-05-14  |
 | 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
 | 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
-| 6. Prompt Content Port + Divergence Eval   | v1.1      | 11/11 | Complete   | 2026-05-15 |
+| 6. Prompt Content Port + Divergence Eval   | v1.1      | 11/16 | Gap-closure | -           |
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
 
 ---
 
-*Last updated: 2026-05-15 — Phase 6 planned (11 plans, 7 waves)*
+*Last updated: 2026-05-16 — Phase 6 gap-closure planned (16 plans total, 10 waves; plans 06-12..06-16 close UAT gaps G1-G5 and WR-05 residual)*
