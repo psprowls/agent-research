@@ -61,11 +61,11 @@ Plans:
 - [x] 06-09-PLAN.md — DivergenceMetric class (programmatic + GEval judge composition) (Wave 5)
 - [x] 06-10-PLAN.md — Baseline JSON loader + write + regression gate + initial baselines (Wave 6)
 - [x] 06-11-PLAN.md — End-to-end eval-gated divergence test + baseline acceptance flow (Wave 7)
-- [ ] 06-12-PLAN.md — Ingestor frontmatter no-code-fence rule + _parse_ingestor_response fence-strip (UAT G1) (Wave 8)
-- [ ] 06-13-PLAN.md — page_type=source routing + target_slug ↔ filename equality (UAT G2, G3) (Wave 9)
-- [ ] 06-14-PLAN.md — Wikilink hallucination guardrails: _resolve_wikilinks + named anti-patterns in prompt (UAT G4) (Wave 10)
-- [ ] 06-15-PLAN.md — Scanner fixture coverage via run_scan repo_path override + baseline re-record (UAT G5) (Wave 8)
-- [ ] 06-16-PLAN.md — Test hygiene: hoist pythonpath to root, remove sys.path.insert (WR-05 residual) (Wave 9)
+- [x] 06-12-PLAN.md — Ingestor frontmatter no-code-fence rule + _parse_ingestor_response fence-strip (UAT G1) (Wave 8)
+- [x] 06-13-PLAN.md — page_type=source routing + target_slug ↔ filename equality (UAT G2, G3) (Wave 9)
+- [x] 06-14-PLAN.md — Wikilink hallucination guardrails: _resolve_wikilinks + named anti-patterns in prompt (UAT G4) (Wave 10)
+- [x] 06-15-PLAN.md — Scanner fixture coverage via run_scan repo_path override + baseline re-record (UAT G5) (Wave 8)
+- [x] 06-16-PLAN.md — Test hygiene: hoist pythonpath to root, remove sys.path.insert (WR-05 residual) (Wave 9)
 
 ### Phase 7: Cost-Frontier Sweep
 **Goal**: The cost-frontier across all 7 Bedrock roles is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
