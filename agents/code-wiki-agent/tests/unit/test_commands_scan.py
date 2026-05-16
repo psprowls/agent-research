@@ -454,3 +454,11 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     assert mock_gate.call_args.args[0] == fake_repo.resolve()
     # attach_changed_files also got fake_repo as the repo arg (3rd positional)
     assert mock_attach.call_args.args[2] == fake_repo.resolve()
+    # discover_workspaces called with pinned_containers=None — the vault's
+    # layout block describes the ORIGINAL monorepo, not the override repo,
+    # so the override must skip the layout read and use unpinned discovery
+    discover_kwargs = mock_discover.call_args.kwargs
+    assert discover_kwargs.get("pinned_containers") is None, (
+        f"discover_workspaces expected pinned_containers=None when repo_path "
+        f"override is supplied, got {discover_kwargs.get('pinned_containers')!r}"
+    )
