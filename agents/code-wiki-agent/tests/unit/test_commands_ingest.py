@@ -425,3 +425,108 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
     )
     # And the original LLM slug (pre-slugify) should NOT survive verbatim
     assert "target_slug: weird_slug_with_underscores" not in written_body
+
+
+# ---------------------------------------------------------------------------
+# _resolve_wikilinks unit tests (Plan 06-14)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_wikilinks_strips_unresolved(tmp_path: Path) -> None:
+    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "concepts" / "real-page.md").write_text("# Real", encoding="utf-8")
+
+    text = "See [[real-page]] and [[fake-person]] for context."
+    out, stripped = _resolve_wikilinks(text, wiki)
+    assert "[[real-page]]" in out
+    assert "[[fake-person]]" not in out
+    assert "fake-person" in out  # label preserved
+    assert stripped == ["fake-person"]
+
+
+def test_resolve_wikilinks_resolves_subdir_qualified(tmp_path: Path) -> None:
+    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    (wiki / "sources" / "otel-story.md").write_text("# OTel", encoding="utf-8")
+
+    # The UAT G4 case form: [[sources/otel-story]]
+    text = "Per [[sources/otel-story]] the trace is propagated…"
+    out, stripped = _resolve_wikilinks(text, wiki)
+    assert "[[sources/otel-story]]" in out
+    assert stripped == []
+
+
+def test_resolve_wikilinks_preserves_fenced_code(tmp_path: Path) -> None:
+    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    text = (
+        "Outside [[fake-page]] is stripped.\n"
+        "\n"
+        "```\n"
+        "Inside [[fake-page]] is preserved.\n"
+        "```\n"
+        "After [[also-fake]] is stripped.\n"
+    )
+    out, stripped = _resolve_wikilinks(text, wiki)
+    # The fenced occurrence is verbatim
+    assert "Inside [[fake-page]] is preserved." in out
+    # The unfenced occurrences are stripped
+    assert "[[fake-page]]" not in out.replace("Inside [[fake-page]] is preserved.", "")
+    assert "[[also-fake]]" not in out
+    # Only the two unfenced unresolved targets are reported
+    assert sorted(stripped) == ["also-fake", "fake-page"]
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> None:
+    """End-to-end: ingestor emits a hallucinated wikilink; written file
+    on disk has it stripped; append_log detail records the count."""
+    from code_wiki_agent.commands.ingest import run_ingest_source
+
+    source_file = tmp_path / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "concepts" / "real-thing.md").write_text("# Real", encoding="utf-8")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    fake_llm_response = (
+        "---\n"
+        "title: My Page\n"
+        "category: concept\n"
+        "page_type: concept\n"
+        "target_slug: my-page\n"
+        "summary: x\n"
+        "---\n"
+        "Refers to [[real-thing]] and to [[Hallucinated Person]]."
+    )
+
+    with (
+        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("code_wiki_agent.commands.ingest.update_index"),
+        patch("code_wiki_agent.commands.ingest.append_log") as mock_append_log,
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, wiki)
+
+    written = (wiki / "concepts" / "my-page.md").read_text(encoding="utf-8")
+    assert "[[real-thing]]" in written
+    assert "[[Hallucinated Person]]" not in written
+    assert "Hallucinated Person" in written  # label preserved
+    # append_log was called with a detail recording the strip count
+    call_args = mock_append_log.call_args
+    detail = call_args.kwargs.get("detail") or (call_args.args[3] if len(call_args.args) >= 4 else "")
+    assert "stripped 1" in detail or "stripped 1 unresolved" in detail
+    assert result.page_type == "concept"
