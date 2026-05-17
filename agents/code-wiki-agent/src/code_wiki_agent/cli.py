@@ -122,18 +122,24 @@ def _aggregate_trace(records: list[dict]) -> dict:
     total_tokens_out = 0
 
     for record in records:
-        role = record.get("role", "unknown")
         tin = record.get("tokens_in") or 0
         tout = record.get("tokens_out") or 0
-        by_role[role]["count"] += 1
-        by_role[role]["tokens_in"] += tin
-        by_role[role]["tokens_out"] += tout
         total_tokens_in += tin
         total_tokens_out += tout
 
-        # Per-item-only rollup: exclude event/kind records (D-11).
-        if "event" in record or "kind" in record:
+        # Per-item-only rollup: exclude event/kind discriminator records from
+        # BOTH by_role and by_role_model passes (D-11; WR-02 fix). Without this
+        # guard on the by_role pass, kind:query_summary records (which lack a
+        # `role` field) synthesized a phantom 'unknown:' bucket in the Per-role
+        # breakdown — visible in pre-fix snapshots as
+        # `unknown: count=1 tokens_in=0 tokens_out=0`.
+        if not _is_groupable(record):
             continue
+
+        role = record.get("role", "unknown")
+        by_role[role]["count"] += 1
+        by_role[role]["tokens_in"] += tin
+        by_role[role]["tokens_out"] += tout
 
         model_id = record.get("model_id", "unknown")
         key = f"{role}|{model_id}"
@@ -183,14 +189,25 @@ def _render_collapsed_group(records: list[dict]) -> str:
     model_id = records[0].get("model_id", "-")
     model_short = model_id[-30:] if model_id and model_id != "-" else "-"
 
-    # Status breakdown — only nonzero categories, canonical order.
-    counts = {"success": 0, "error": 0, "cancelled": 0}
+    # Status breakdown — only nonzero categories, canonical order. WR-03 fix:
+    # statuses outside {success, error, cancelled} land in an `other` bucket
+    # (rather than silently dropping) so future producer-added statuses surface
+    # loudly. The `{n} unknown` fallback replaces the previously misleading
+    # zero-success fallback; with the `other` bucket in place it is unreachable
+    # for any N>=1 run and acts only as a defensive guard.
+    counts = {"success": 0, "error": 0, "cancelled": 0, "other": 0}
     for r in records:
         status = r.get("status")
-        if status in counts:
+        if status in ("success", "error", "cancelled"):
             counts[status] += 1
-    breakdown_parts = [f"{counts[k]} {k}" for k in ("success", "error", "cancelled") if counts[k]]
-    breakdown = " / ".join(breakdown_parts) if breakdown_parts else "0 success"
+        else:
+            counts["other"] += 1
+    breakdown_parts = [
+        f"{counts[k]} {k}"
+        for k in ("success", "error", "cancelled", "other")
+        if counts[k]
+    ]
+    breakdown = " / ".join(breakdown_parts) if breakdown_parts else f"{n} unknown"
 
     # Token sums (defensive defaults).
     sum_tin = sum((r.get("tokens_in") or 0) for r in records)

@@ -876,6 +876,107 @@ def test_query_summary_interleaved_breaks_group_snapshot(
     assert result.stdout == snapshot
 
 
+def test_aggregate_excludes_event_kind_from_by_role(tmp_path: Path) -> None:
+    """WR-02 regression: by_role aggregator excludes event/kind discriminator records.
+
+    A fixture mixing one per-item scanner record with one kind:query_summary
+    record must render a Per-role breakdown that contains 'scanner:' but NOT a
+    phantom 'unknown:' bucket. The kind:query_summary record still appears as a
+    full-line timeline entry via _render_trace_record (non-groupable per
+    _is_groupable) and contributes to Total records, but it does not synthesize
+    a role bucket.
+    """
+    trace_file = tmp_path / "event_kind_excluded_trace.jsonl"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-0",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "schema_version": 1,
+            "kind": "query_summary",
+            "query_id": "q1",
+            "query": "test",
+            "top_k": 5,
+            "pages_retrieved": 3,
+            "pages_drilled": 1,
+            "code_fallback": False,
+            "started_at": "2026-05-17T10:00:01Z",
+            "ended_at": "2026-05-17T10:00:02Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+
+    result = _run_trace_cmd([str(trace_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    # Per-role section sits between 'Per-role breakdown:' and the next blank-line section.
+    per_role_section = result.stdout.split("Per-role breakdown:")[1].split("Cost rollup")[0]
+    assert "scanner:" in per_role_section, (
+        f"Expected legitimate 'scanner:' bucket in per-role section:\n{per_role_section}"
+    )
+    assert "unknown:" not in per_role_section, (
+        f"Expected NO synthetic 'unknown:' bucket (WR-02 fix); per-role section:\n{per_role_section}"
+    )
+
+
+def test_collapsed_group_surfaces_unknown_status_in_other_bucket(tmp_path: Path) -> None:
+    """WR-03 regression: non-canonical statuses surface under an `other` bucket.
+
+    A run of 3 same-(role, model_id) records all carrying status='timeout' (a
+    status not in the canonical {success, error, cancelled} set) collapses into
+    one summary line whose breakdown reports `3 other`, NOT the previously
+    misleading `0 success`.
+    """
+    trace_file = tmp_path / "unknown_status_trace.jsonl"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": f"page-{i}",
+            "status": "timeout",
+            "latency_ms": 100 + i,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": f"2026-05-17T10:00:{i:02d}Z",
+        }
+        for i in range(3)
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+
+    result = _run_trace_cmd([str(trace_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    timeline = result.stdout.split("=== Summary ===")[0]
+    assert "x3" in timeline, f"Expected collapsed-group marker 'x3' in timeline:\n{timeline}"
+    assert "3 other" in timeline, (
+        f"Expected '3 other' in collapsed-group breakdown:\n{timeline}"
+    )
+    assert "0 success" not in timeline, (
+        f"Did NOT expect misleading '0 success' fallback:\n{timeline}"
+    )
+
+
 def test_mixed_model_same_role_breaks_collapse(tmp_path: Path) -> None:
     """CR-01 regression: two same-role records on different model_ids must NOT collapse.
 
