@@ -24,6 +24,7 @@ from pathlib import Path
 from code_wiki_agent.commands.query import QueryResult, run_query
 
 from eval_harness.isolation import EvalWorktree
+from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
 from eval_harness.pricing import UnknownModelError, cost_for_usage
 from eval_harness.structural import check_structural
 
