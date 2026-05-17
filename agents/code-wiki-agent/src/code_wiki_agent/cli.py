@@ -154,8 +154,74 @@ def _aggregate_trace(records: list[dict]) -> dict:
     }
 
 
+def _render_collapsed_group(records: list[dict]) -> str:
+    """Render a collapsed-group summary line (D-13) for a run of ≥2 same-role records.
+
+    Shape:
+        [<ts_first> .. <ts_last>] <role> x<N>: <status-breakdown>, <tin>-><tout> tokens, <cost>
+
+    - <status-breakdown> includes only nonzero categories in canonical order:
+      success → error → cancelled, joined by ' / '.
+    - <cost> is `$<sum:.6f>` with optional ` (+<K> unknown)` when some records
+      have null cost_usd; `$n/a (<N> unknown)` when ALL records are null.
+    - Timestamps are the literal `timestamp` field of the first and last
+      records in the run (ISO-8601 as written).
+    """
+    n = len(records)
+    ts_first = records[0].get("timestamp", "-")
+    ts_last = records[-1].get("timestamp", "-")
+    role = records[0].get("role", "-")
+
+    # Status breakdown — only nonzero categories, canonical order.
+    counts = {"success": 0, "error": 0, "cancelled": 0}
+    for r in records:
+        status = r.get("status")
+        if status in counts:
+            counts[status] += 1
+    breakdown_parts = [f"{counts[k]} {k}" for k in ("success", "error", "cancelled") if counts[k]]
+    breakdown = " / ".join(breakdown_parts) if breakdown_parts else "0 success"
+
+    # Token sums (defensive defaults).
+    sum_tin = sum((r.get("tokens_in") or 0) for r in records)
+    sum_tout = sum((r.get("tokens_out") or 0) for r in records)
+
+    # Cost sum + null tracking.
+    cost_sum = 0.0
+    unknown = 0
+    for r in records:
+        c = r.get("cost_usd")
+        if c is None:
+            unknown += 1
+        else:
+            cost_sum += float(c)
+
+    if unknown == n:
+        cost_str = f"$n/a ({n} unknown)"
+    elif unknown > 0:
+        cost_str = f"${cost_sum:.6f} (+{unknown} unknown)"
+    else:
+        cost_str = f"${cost_sum:.6f}"
+
+    return (
+        f"[{ts_first} .. {ts_last}] {role} x{n}: {breakdown}, "
+        f"{sum_tin}->{sum_tout} tokens, {cost_str}"
+    )
+
+
+def _is_groupable(record: dict) -> bool:
+    """A record is groupable iff it has NO 'event' key and NO 'kind' key (D-11)."""
+    return "event" not in record and "kind" not in record
+
+
 @app.command()
-def trace(file: Path) -> None:
+def trace(
+    file: Path,
+    expand: bool = typer.Option(
+        False,
+        "--expand",
+        help="Disable consecutive-same-role collapsing; render every record full-line.",
+    ),
+) -> None:
     """Render a JSONL trace file as a human-readable timeline."""
     if not file.exists():
         typer.echo(f"trace file not found: {file}", err=True)
@@ -172,7 +238,40 @@ def trace(file: Path) -> None:
             typer.echo(f"warning: skipping malformed JSONL line {line_number}: {exc.msg}", err=True)
             continue
         records.append(record)
-        typer.echo(_render_trace_record(record))
+
+    # Emit timeline AFTER all records are parsed.
+    # Mode A: --expand — one line per record (D-14 / D-08 invariant).
+    # Mode B: default — collapse maximal runs (N>=2) of consecutive groupable
+    #         records sharing the same `role` (D-11/D-12); emit one summary
+    #         line per group; isolated records and non-groupable records
+    #         (event/kind) render full-line via _render_trace_record.
+    if expand:
+        for record in records:
+            typer.echo(_render_trace_record(record))
+    else:
+        current_run: list[dict] = []
+
+        def _flush() -> None:
+            if not current_run:
+                return
+            if len(current_run) >= 2:
+                typer.echo(_render_collapsed_group(current_run))
+            else:
+                typer.echo(_render_trace_record(current_run[0]))
+            current_run.clear()
+
+        for record in records:
+            if not _is_groupable(record):
+                _flush()
+                typer.echo(_render_trace_record(record))
+                continue
+            # Groupable: extend or start a run.
+            if current_run and current_run[-1].get("role") == record.get("role"):
+                current_run.append(record)
+            else:
+                _flush()
+                current_run.append(record)
+        _flush()
 
     agg = _aggregate_trace(records)
     typer.echo("")

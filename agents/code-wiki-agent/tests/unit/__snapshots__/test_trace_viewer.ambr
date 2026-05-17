@@ -1,0 +1,25 @@
+# serializer version: 1
+# name: test_cost_rollup_snapshot
+  '''
+  [2026-05-17T10:00:00Z] scanner claude-haiku-4-5-20251001-v1:0 page-a success 100ms 10->5
+  [2026-05-17T10:00:01Z] scanner claude-haiku-4-5-20251001-v1:0 page-b success 110ms 20->7
+  [2026-05-17T10:00:02Z] scanner laude-sonnet-4-5-20251001-v1:0 page-c success 200ms 30->11
+  [2026-05-17T10:00:03Z] scanner claude-haiku-4-5-20251001-v1:0 page-d success 90ms 5->3
+  [2026-05-17T10:00:04Z] librarian qwen.qwen3-next-80b-a3b page-e success 400ms 50->25
+  
+  === Summary ===
+  Total records : 5
+  Total tokens_in  : 115
+  Total tokens_out : 51
+  
+  Per-role breakdown:
+    scanner: count=4 tokens_in=65 tokens_out=26
+    librarian: count=1 tokens_in=50 tokens_out=25
+  
+  Cost rollup (per role/model):
+    scanner / laude-sonnet-4-5-20251001-v1:0: 1 items, 30->11 tokens, $0.002000
+    scanner / claude-haiku-4-5-20251001-v1:0: 3 items, 35->15 tokens, $0.001500 (+1 unknown)
+    librarian / qwen.qwen3-next-80b-a3b: 1 items, 50->25 tokens, $n/a (1 unknown)
+  
+  '''
+# ---

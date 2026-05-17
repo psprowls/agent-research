@@ -67,9 +67,13 @@ def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
 
 
 def test_trace_command_renders_per_record_lines(tmp_path: Path) -> None:
-    """trace command outputs one line per record containing key fields."""
+    """trace --expand outputs one line per record containing key fields.
+
+    Uses --expand because plan 09-04 collapses consecutive same-role runs by
+    default; per-record lines are the expand-mode invariant.
+    """
     trace_file = _write_trace_fixture(tmp_path)
-    result = _run_trace_cmd([str(trace_file)])
+    result = _run_trace_cmd([str(trace_file), "--expand"])
 
     assert result.returncode == 0, f"trace exited {result.returncode}\n{result.stderr}"
     # Both records should produce lines with the role name
@@ -303,7 +307,8 @@ def test_trace_command_skips_malformed_lines(tmp_path: Path) -> None:
         + json.dumps(valid_b) + "\n"
     )
 
-    result = _run_trace_cmd([str(trace_file)])
+    # --expand keeps per-item lines visible across plan 09-04's default collapse.
+    result = _run_trace_cmd([str(trace_file), "--expand"])
 
     assert result.returncode == 0, (
         f"Expected exit code 0; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
