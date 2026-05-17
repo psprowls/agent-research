@@ -15,6 +15,12 @@ model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
+sweep_candidates = [
+  "us.anthropic.claude-sonnet-4-6",
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-pro-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.code_reader]
 # Plan 03-09: vault-thin code-fallback role. Reads source files directly when
@@ -24,30 +30,60 @@ model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 3
+sweep_candidates = [
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-micro-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.scanner]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 500
 max_concurrency = 10
+sweep_candidates = [
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-micro-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.linter]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 3000
 max_concurrency = 10
+sweep_candidates = [
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-pro-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.ingestor]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
+sweep_candidates = [
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-pro-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.synthesizer]
 model_id        = "us.anthropic.claude-sonnet-4-6"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
+sweep_candidates = [
+  "us.anthropic.claude-sonnet-4-6",
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-pro-v1:0",
+  "qwen.qwen3-32b-v1:0",
+]
 
 [roles.judge_a]
 model_id        = "us.anthropic.claude-sonnet-4-6"
