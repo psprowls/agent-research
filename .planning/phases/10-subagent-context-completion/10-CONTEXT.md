@@ -10,6 +10,7 @@
 This phase closes the spike-001 gap between Phase 6's curated prompt fragments and the load-bearing context still missing from subagent `SystemMessage` composition.
 
 **In scope:**
+- Vendoring upstream `CLAUDE.md.template` (from `/Users/pat/Personal/lattice/dist/lattice-wiki/skills/lattice-wiki/scripts/vendor/assets/CLAUDE.md.template`) into `cores/prompt-sources/wiki-claude-md-template.md` so style/log fragment provenance resolves under the existing `test_provenance.py` invariant.
 - Extracting four additional shared prompt fragments under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/`: `architecture_overview`, `style_rules`, `log_format`, `claude_md_disambiguation`.
 - Adding `prompts/project_context.py::render_project_context(wiki_path)` that reads `wiki/CLAUDE.md` (or `AGENTS.md`) once at command entry and emits a compact rendered block covering the parsed `<!-- lattice-wiki:layout:start -->` block, style rules, and log format.
 - Wiring the new fragments + the project-context block into `commands/scan.py`, `commands/lint.py`, and `commands/ingest.py` for the scanner / linter-3-group / ingestor subagents.
@@ -35,11 +36,12 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 
 ### Fragment curation (LOCKED)
 
-- Every new fragment carries the standard 3-line provenance header: `# Source:`, `# Anchor:`, `# Source-commit:`. Anchor format matches existing fragments (e.g. `## Architecture (L34-L69)`). Source-commit = current value of `cores/prompt-sources/SOURCE-COMMIT`.
+- Every new fragment carries the standard 3-line provenance header: `# Source:`, `# Anchor:`, `# Source-commit:`. The `# Source:` path must start with `cores/prompt-sources/` and resolve on disk (enforced by `agents/code-wiki-agent/tests/prompts/test_provenance.py`). Anchor format matches existing fragments (e.g. `## Architecture (L34-L69)`). Source-commit = current value of `cores/prompt-sources/SOURCE-COMMIT` (= `ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030` as of 2026-05-17).
+- **Vendoring decision (LOCKED):** The upstream lattice-wiki ships a `CLAUDE.md.template` (159 lines, source: `/Users/pat/Personal/lattice/dist/lattice-wiki/skills/lattice-wiki/scripts/vendor/assets/CLAUDE.md.template`) that is the canonical source for the project-pinned `lattice/wiki/CLAUDE.md`. Vendor it into `cores/prompt-sources/wiki-claude-md-template.md` (matching the existing SKILL.md vendoring pattern). Anchor `style_rules.py` and `log_format.py` to the vendored file. This preserves the `test_provenance.py` invariant without test changes.
 - Four fragments are extracted:
   - `architecture_overview.py` ← `cores/prompt-sources/SKILL.md §Architecture L34-69` (~600 tokens, compact rewrite — keep the vault tree + conditional-containers note + "code is source of truth"; drop user-facing prose).
-  - `style_rules.py` ← `lattice/wiki/CLAUDE.md §Style L153-159` (~150 tokens).
-  - `log_format.py` ← `lattice/wiki/CLAUDE.md §Log format L124-133` (~120 tokens).
+  - `style_rules.py` ← `cores/prompt-sources/wiki-claude-md-template.md §Style L153-159` (after vendoring) (~150 tokens).
+  - `log_format.py` ← `cores/prompt-sources/wiki-claude-md-template.md §Log format L124-133` (after vendoring) (~120 tokens).
   - `claude_md_disambiguation.py` ← `cores/prompt-sources/SKILL.md §Cross-tool compatibility L141` (~80 tokens).
 
 ### Project-context renderer (LOCKED)
@@ -92,8 +94,9 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 ### Original prompt sources (anchors)
 
 - `cores/prompt-sources/SKILL.md` — canonical lattice-wiki SKILL.md. Anchors for `architecture_overview` (L34-69), `claude_md_disambiguation` (L141), `iron_rules` (already extracted, L193-201), `page_categories` (already extracted, L143-155).
-- `lattice/wiki/CLAUDE.md` — project-specific wiki schema. Anchors for `style_rules` (L153-159), `log_format` (L124-133); also source of the `<!-- lattice-wiki:layout:start -->` block parsed by `render_project_context()`.
-- `cores/prompt-sources/SOURCE-COMMIT` — upstream commit hash; new fragments record this in their provenance header.
+- `cores/prompt-sources/wiki-claude-md-template.md` — **vendored in this phase** from `/Users/pat/Personal/lattice/dist/lattice-wiki/skills/lattice-wiki/scripts/vendor/assets/CLAUDE.md.template`. Canonical upstream template for project-pinned `wiki/CLAUDE.md` files. Anchors for `style_rules` (L153-159) and `log_format` (L124-133).
+- `lattice/wiki/CLAUDE.md` — this repo's *project-pinned* wiki schema (rendered from the upstream template plus the layout block). Read at runtime by `render_project_context()` for project-specific layout + style + log delivery to subagents. **Not** a fragment provenance anchor (the canonical source lives in the vendored template above).
+- `cores/prompt-sources/SOURCE-COMMIT` — upstream commit hash (currently `ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030`); new fragments record this in their provenance header.
 
 ### Existing port code (extends these patterns)
 
@@ -115,7 +118,8 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 ## Specific Ideas
 
 - Order of fragment extraction during execution: `architecture_overview` first (largest, drives the token-budget math), then `style_rules` + `log_format` + `claude_md_disambiguation` together (all small, share similar provenance shape), then `project_context.py` (depends on `style_rules` + `log_format` being defined for cross-references in its rendered output), then command wiring, then tests.
-- Suggested commit shape (4-6 atomic commits, matching the existing Phase 6 cadence):
+- Suggested commit shape (5-7 atomic commits, matching the existing Phase 6 cadence):
+  0. **Vendor `CLAUDE.md.template` into `cores/prompt-sources/wiki-claude-md-template.md`** (one commit). Must land before style_rules / log_format fragments so their provenance resolves.
   1. Add `architecture_overview.py` + matching test snapshot update for any subagent that imports it.
   2. Add `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` (one commit; small fragments).
   3. Add `prompts/project_context.py` + unit tests (renderer with and without `wiki/CLAUDE.md`).
