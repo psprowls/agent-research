@@ -33,7 +33,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 7: Cost-Frontier Sweep** — Execute the sweep against the post-port agent, publish cost-optimal model picks, update models.toml defaults (7/7 plans complete — shipped 2026-05-17)
 - [ ] **Phase 8: Host Reliability** — MCP cancellation polish and DeepAgents CLI stdio integration test
 - [ ] **Phase 9: Trace/Observability Polish** — Document and version the trace schema; enhance the trace renderer with per-subagent cost and collapsing
-- [ ] **Phase 10: Subagent Context Completion** — Close the spike-001 gap: inject load-bearing SKILL.md + wiki/CLAUDE.md content into subagent system prompts via curated fragments + a project-context renderer (no deepagents migration)
+- [x] **Phase 10: Subagent Context Completion** — Close the spike-001 gap: inject load-bearing SKILL.md + wiki/CLAUDE.md content into subagent system prompts via curated fragments + a project-context renderer (no deepagents migration) (completed 2026-05-17)
 
 ---
 
@@ -162,7 +162,7 @@ Plans:
 - [x] 10-06-PLAN.md — Wire render_project_context into commands/scan.py + lint.py + ingest.py (CTX-03)
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 10-07-PLAN.md — Snapshot tests (with/without context + degradation) + token-budget test + Phase 6 divergence re-run checkpoint (CTX-04, CTX-05)
+- [x] 10-07-PLAN.md — Snapshot tests (with/without context + degradation) + token-budget test + Phase 6 divergence re-run checkpoint (CTX-04, CTX-05)
 
 ---
 
@@ -179,7 +179,7 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/5            | Planned     | -           |
-| 10. Subagent Context Completion             | v1.1      | 6/7 | In Progress|  |
+| 10. Subagent Context Completion             | v1.1      | 7/7 | Complete   | 2026-05-17 |
 
 ---
 
