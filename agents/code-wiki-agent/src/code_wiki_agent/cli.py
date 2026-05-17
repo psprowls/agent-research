@@ -187,8 +187,44 @@ def trace(file: Path) -> None:
             f"  {role}: count={stats['count']} "
             f"tokens_in={stats['tokens_in']} tokens_out={stats['tokens_out']}"
         )
+
+    # Per-(role, model_id) cost rollup (OBS-05; D-07/D-08/D-09/D-15).
+    # Sort:
+    #   1. Groups with at least one known cost first, by descending cost_usd_sum
+    #   2. Fully-null (n/a) groups last
+    #   3. Tie-break: ascending (role, model_id)
+    by_role_model = agg.get("by_role_model", {})
+    known: list[dict] = []
+    unknown: list[dict] = []
+    for stats in by_role_model.values():
+        if stats["count"] > stats["unknown_cost_count"]:
+            known.append(stats)
+        else:
+            unknown.append(stats)
+    known.sort(key=lambda s: (-s["cost_usd_sum"], s["role"], s["model_id"]))
+    unknown.sort(key=lambda s: (s["role"], s["model_id"]))
+
     typer.echo("")
-    typer.echo("Cost USD: (Phase 4)")
+    typer.echo("Cost rollup (per role/model):")
+    for stats in known + unknown:
+        role = stats["role"]
+        model_id = stats["model_id"]
+        model_short = model_id[-30:] if model_id and model_id != "-" else "-"
+        count = stats["count"]
+        tin = stats["tokens_in"]
+        tout = stats["tokens_out"]
+        unk = stats["unknown_cost_count"]
+        if count == unk:
+            # Fully-null group: $n/a with explicit count
+            cost_str = f"$n/a ({unk} unknown)"
+        else:
+            cost_str = f"${stats['cost_usd_sum']:.6f}"
+            if unk:
+                cost_str += f" (+{unk} unknown)"
+        typer.echo(
+            f"  {role} / {model_short}: {count} items, "
+            f"{tin}->{tout} tokens, {cost_str}"
+        )
 
 
 @app.command()

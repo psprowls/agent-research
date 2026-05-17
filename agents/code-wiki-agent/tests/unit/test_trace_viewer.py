@@ -437,13 +437,16 @@ def test_cost_rollup_format_six_decimals(tmp_path: Path) -> None:
         f"Expected fully-null librarian group to render 'n/a'; stdout:\n{stdout}"
     )
 
-    # D-15 ordering: fully-null librarian group sorts LAST.
-    librarian_idx = stdout.index("librarian")
+    # D-15 ordering: fully-null librarian group sorts LAST in the rollup.
+    # Anchor on the n/a marker (unique to the librarian rollup line in this
+    # fixture) so the assertion is not confused by the librarian's earlier
+    # appearance in the Per-role breakdown section.
+    librarian_rollup_idx = stdout.index("$n/a")
     haiku_idx = stdout.index("$0.001500")
     sonnet_idx = stdout.index("$0.002000")
-    assert librarian_idx > haiku_idx and librarian_idx > sonnet_idx, (
-        f"Expected librarian (n/a) line AFTER haiku and sonnet lines; "
-        f"librarian@{librarian_idx} haiku@{haiku_idx} sonnet@{sonnet_idx}\n{stdout}"
+    assert librarian_rollup_idx > haiku_idx and librarian_rollup_idx > sonnet_idx, (
+        f"Expected librarian (n/a) rollup line AFTER haiku and sonnet rollup lines; "
+        f"librarian_rollup@{librarian_rollup_idx} haiku@{haiku_idx} sonnet@{sonnet_idx}\n{stdout}"
     )
 
 
