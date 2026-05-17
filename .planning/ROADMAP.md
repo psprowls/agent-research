@@ -120,8 +120,8 @@ Plans:
 **Plans**: 5 plans
 Plans:
 **Wave 1**
-- [ ] 09-01-PLAN.md — Writer-side schema_version: 1 stamping (pool.py + query.py) (OBS-04 producer half)
-- [ ] 09-02-PLAN.md — docs/trace-schema.md authoritative reference + one-line cancellation.md cross-link (OBS-04 doc)
+- [x] 09-01-PLAN.md — Writer-side schema_version: 1 stamping (pool.py + query.py) (OBS-04 producer half)
+- [x] 09-02-PLAN.md — docs/trace-schema.md authoritative reference + one-line cancellation.md cross-link (OBS-04 doc)
 
 **Wave 2** *(blocked on 09-01)*
 - [ ] 09-03-PLAN.md — Renderer per-(role, model_id) cost rollup in Summary block + snapshot tests (OBS-05)
