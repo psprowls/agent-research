@@ -1,18 +1,28 @@
 from __future__ import annotations
 
-"""INGESTOR_SYSTEM prompt constant composed from shared fragments + ingestor-local prose.
+"""INGESTOR_SYSTEM prompt composed from shared fragments + ingestor-local prose.
 
 Ports cores/prompt-sources/agents/ingestor.md per PORT-03 (Phase 6).
 Adapts host-specific references (slash commands, script calls, interactive
 loops) to code-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
 Preserves semantic rules: page-type routing, frontmatter fields, minimum-3-touches,
 cite-aggressively, red flags.
+
+Exports:
+    build_ingestor_system(project_context: str = "") -> str — assembles the ingestor
+        system prompt. When `project_context` is non-empty, it is inserted at
+        position 1 (after the role intro, before IRON_RULES).
+    INGESTOR_SYSTEM — backward-compat constant, equals build_ingestor_system().
 """
 
+from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
 from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
 from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
 from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 _ROLE_INTRO = (
     "You are a code wiki ingestor. Analyze a source document and produce a wiki page\n"
@@ -82,15 +92,37 @@ _NO_CODE_FENCE = (
     "The first three characters of the response MUST be `---`."
 )
 
-INGESTOR_SYSTEM = "\n\n".join([
-    _ROLE_INTRO,
-    IRON_RULES,
-    PAGE_CATEGORIES,
-    FRONTMATTER_RULES,
-    CITATION_RULES,
-    _PAGE_TYPE_ROUTING,
-    _INGESTOR_RULES,
-    _RED_FLAGS,
-    _OUTPUT_FORMAT,
-    _NO_CODE_FENCE,
-])
+
+def build_ingestor_system(project_context: str = "") -> str:
+    """Assemble the ingestor system prompt.
+
+    Args:
+        project_context: Optional project-context block. When non-empty, inserted
+            at position 1 (between _ROLE_INTRO and IRON_RULES).
+
+    Returns:
+        The assembled system prompt string. `_NO_CODE_FENCE` is always the
+        last fragment per the UAT G1 contract documented above.
+    """
+    parts = [
+        _ROLE_INTRO,
+        IRON_RULES,
+        ARCHITECTURE_OVERVIEW,
+        PAGE_CATEGORIES,
+        FRONTMATTER_RULES,
+        CITATION_RULES,
+        STYLE_RULES,
+        CLAUDE_MD_DISAMBIGUATION,
+        LOG_FORMAT,
+        _PAGE_TYPE_ROUTING,
+        _INGESTOR_RULES,
+        _RED_FLAGS,
+        _OUTPUT_FORMAT,
+        _NO_CODE_FENCE,
+    ]
+    if project_context:
+        parts.insert(1, project_context)
+    return "\n\n".join(parts)
+
+
+INGESTOR_SYSTEM = build_ingestor_system()
