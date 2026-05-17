@@ -36,6 +36,34 @@
   6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
+  ## Vault layout
+  
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  
+  ```
+  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
+  ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
+  └── wiki/                       # this agent's curated knowledge base
+      ├── index.md                # Content catalog (updated every ingest/scan)
+      ├── log.md                  # Append-only timeline
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
+      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
+      ├── architecture/           # High-level architecture syntheses
+      ├── adrs/                   # Architecture Decision Records
+      ├── .templates/             # Page templates (reference only, not indexed)
+      ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
+      └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
+  ```
+  
+  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
+  
+  **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
+  
   ## Page categories
   
   | Category | What it documents | Directory |
@@ -80,6 +108,27 @@
   - **Use `[[wikilink]]` syntax** for all cross-references between vault pages. Plain Markdown links are wrong — wikilinks keep renames tracked.
   - **Wikilinks must point at existing vault pages.** Never fabricate a wikilink target that doesn't exist in the vault.
   - **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
+  
+  ## Style
+  
+  - Be concise. Wiki pages are read, not generated.
+  - Prefer short paragraphs. Bulleted lists where appropriate.
+  - Cite aggressively with `[[wikilinks]]` and `` `code-paths:line` ``.
+  - When you're not sure, say so in the page. Don't invent content.
+  - Update `updated:` frontmatter whenever you touch a page.
+  
+  **Note:** your repo's root `CLAUDE.md` is separate from the wiki's `CLAUDE.md`. The root file defines the repo's build/style conventions; the wiki file defines how the vault is structured. Both are active simultaneously when working from the repo root.
+  
+  ## Log format
+  
+  ```
+  ## [YYYY-MM-DD] <op> | <title>
+  <optional detail — which pages touched, what changed>
+  ```
+  
+  Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+  
+  Grep the log: `grep "^## \[" log.md | tail -10`
   
   ## Page-type routing
   
@@ -167,6 +216,14 @@
   - **Wikilinks must point at existing vault pages.** Never fabricate a wikilink target that doesn't exist in the vault.
   - **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
   
+  ## Style
+  
+  - Be concise. Wiki pages are read, not generated.
+  - Prefer short paragraphs. Bulleted lists where appropriate.
+  - Cite aggressively with `[[wikilinks]]` and `` `code-paths:line` ``.
+  - When you're not sure, say so in the page. Don't invent content.
+  - Update `updated:` frontmatter whenever you touch a page.
+  
   ## Workflow
   
   1. **Read the index first.** Pick 3-10 pages across categories most likely to contain the answer.
@@ -209,6 +266,19 @@
   
   Prioritize findings: code drift > contradictions > broken links > orphans > stale > style.
   
+  ## Log format
+  
+  ```
+  ## [YYYY-MM-DD] <op> | <title>
+  <optional detail — which pages touched, what changed>
+  ```
+  
+  Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+  
+  Grep the log: `grep "^## \[" log.md | tail -10`
+  
+  **Note:** your repo's root `CLAUDE.md` is separate from the wiki's `CLAUDE.md`. The root file defines the repo's build/style conventions; the wiki file defines how the vault is structured. Both are active simultaneously when working from the repo root.
+  
   ## ADR chain checks
   
   1. **Broken supersedes references** — `supersedes:` frontmatter pointing to an ADR ID that is not present in the provided set.
@@ -243,6 +313,19 @@
   ## Prioritization
   
   Prioritize findings: code drift > contradictions > broken links > orphans > stale > style.
+  
+  ## Log format
+  
+  ```
+  ## [YYYY-MM-DD] <op> | <title>
+  <optional detail — which pages touched, what changed>
+  ```
+  
+  Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+  
+  Grep the log: `grep "^## \[" log.md | tail -10`
+  
+  **Note:** your repo's root `CLAUDE.md` is separate from the wiki's `CLAUDE.md`. The root file defines the repo's build/style conventions; the wiki file defines how the vault is structured. Both are active simultaneously when working from the repo root.
   
   ## Semantic check categories
   
@@ -285,6 +368,19 @@
   
   Prioritize findings: code drift > contradictions > broken links > orphans > stale > style.
   
+  ## Log format
+  
+  ```
+  ## [YYYY-MM-DD] <op> | <title>
+  <optional detail — which pages touched, what changed>
+  ```
+  
+  Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+  
+  Grep the log: `grep "^## \[" log.md | tail -10`
+  
+  **Note:** your repo's root `CLAUDE.md` is separate from the wiki's `CLAUDE.md`. The root file defines the repo's build/style conventions; the wiki file defines how the vault is structured. Both are active simultaneously when working from the repo root.
+  
   ## Stale claim checks
   
   1. **Packages or APIs no longer in code** — claims about a package, module, or API that the source_path or package_path frontmatter implies has been removed or renamed.
@@ -316,6 +412,34 @@
   6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
+  ## Vault layout
+  
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  
+  ```
+  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
+  ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
+  └── wiki/                       # this agent's curated knowledge base
+      ├── index.md                # Content catalog (updated every ingest/scan)
+      ├── log.md                  # Append-only timeline
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
+      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
+      ├── architecture/           # High-level architecture syntheses
+      ├── adrs/                   # Architecture Decision Records
+      ├── .templates/             # Page templates (reference only, not indexed)
+      ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
+      └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
+  ```
+  
+  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
+  
+  **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
+  
   ## Frontmatter rules
   
   Every vault page must have YAML frontmatter (between `---` delimiters) with the
@@ -338,6 +462,17 @@
   - `language`: primary language (`python`, `typescript`, `javascript`, `rust`, `go`, `unknown`)
   
   Both roles must include `updated` (today's date) so drift detection can compare timestamps.
+  
+  ## Log format
+  
+  ```
+  ## [YYYY-MM-DD] <op> | <title>
+  <optional detail — which pages touched, what changed>
+  ```
+  
+  Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+  
+  Grep the log: `grep "^## \[" log.md | tail -10`
   
   ## Scanner stub fields
   
