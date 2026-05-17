@@ -11,6 +11,13 @@ max_tokens      = 4096
 max_concurrency = 3
 
 [roles.librarian]
+# Sweep candidates (run 2026-05-17): raw results
+#   - us.anthropic.claude-sonnet-4-6                     (cost=$0.1197/run, quality=1.000)  -- 5x cost, no quality gain
+#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0237/run, quality=1.000)  -- current default
+#   - us.amazon.nova-pro-v1:0                            (cost=$0.0176/run, quality=0.833)
+#   - qwen.qwen3-32b-v1:0                                (cost=$0.0074/run, quality=0.917)
+# Decision: KEEP haiku-4-5 (quality plateau at top; sonnet not justified)
+# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
@@ -26,6 +33,14 @@ sweep_candidates = [
 # Plan 03-09: vault-thin code-fallback role. Reads source files directly when
 # the librarian fan-out returns no useful excerpts. Conservative defaults —
 # the fallback is opt-in and bounded (max 5 tool-call iterations per page).
+# Sweep candidates (run 2026-05-17): raw results
+#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0167/run, quality=0.889)  -- current default; only candidate that actually triggered the fallback
+#   - us.amazon.nova-micro-v1:0                          (cost=N/A, quality=0.778)          -- fallback never fired
+#   - us.amazon.nova-lite-v1:0                           (cost=N/A, quality=0.778)          -- fallback never fired
+#   - qwen.qwen3-32b-v1:0                                (cost=N/A, quality=0.778)          -- fallback never fired
+# Decision: KEEP haiku-4-5 (only candidate with non-zero fallback coverage; re-sweep
+# once code-reader cases reliably trigger the fallback across all candidates)
+# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
@@ -38,6 +53,13 @@ sweep_candidates = [
 ]
 
 [roles.scanner]
+# Sweep candidates (run 2026-05-17): all N/A — fixture vault had no fresh
+# packages to scan (every package was already pinned stale). No LLM stub-gen
+# calls were made for any candidate, so the matrix yielded no actionable cost
+# or quality data for the scanner role. Re-sweep against a vault with new/
+# changed packages to get meaningful frontier numbers.
+# Decision: KEEP haiku-4-5 (no swap evidence)
+# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
 max_tokens      = 500
@@ -50,7 +72,15 @@ sweep_candidates = [
 ]
 
 [roles.linter]
-model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Sweep candidates (run 2026-05-17): raw results — quality is structural-only
+# (no judge panel for linter findings)
+#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0220/run)  -- previous default
+#   - us.amazon.nova-pro-v1:0                            (cost=$0.0118/run)
+#   - us.amazon.nova-lite-v1:0                           (cost=$0.0048/run)  -- 4.6x cheaper than haiku, cheapest on frontier
+#   - qwen.qwen3-32b-v1:0                                (cost=$0.0060/run)
+# Decision: SWAP haiku-4-5 -> nova-lite (structural quality undifferentiated; lowest cost)
+# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+model_id        = "us.amazon.nova-lite-v1:0"
 region          = "us-east-1"
 max_tokens      = 3000
 max_concurrency = 10
@@ -62,7 +92,14 @@ sweep_candidates = [
 ]
 
 [roles.ingestor]
-model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Sweep candidates (run 2026-05-17): raw results — quality is structural-only
+#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0050/run)  -- previous default
+#   - us.amazon.nova-pro-v1:0                            (cost=$0.0031/run)
+#   - us.amazon.nova-lite-v1:0                           (cost=$0.0013/run)
+#   - qwen.qwen3-32b-v1:0                                (cost=$0.0013/run)  -- cheapest on frontier
+# Decision: SWAP haiku-4-5 -> qwen3-32b (4x cheaper than haiku at undifferentiated structural quality)
+# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+model_id        = "qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
@@ -74,7 +111,14 @@ sweep_candidates = [
 ]
 
 [roles.synthesizer]
-model_id        = "us.anthropic.claude-sonnet-4-6"
+# Sweep candidates (run 2026-05-17): raw results — quality from judge panel
+#   - us.anthropic.claude-sonnet-4-6                     (cost=$0.0285/run, quality=1.000, Qualified=YES)  -- previous default
+#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0320/run, quality=0.917, Qualified=YES)
+#   - us.amazon.nova-pro-v1:0                            (cost=$0.0048/run, quality=0.833, Qualified=NO)
+#   - qwen.qwen3-32b-v1:0                                (cost=$0.0026/run, quality=1.000, Qualified=YES)  -- 11x cheaper than sonnet at same quality
+# Decision: SWAP sonnet-4-6 -> qwen3-32b (clear frontier pick — same quality at 11x lower cost)
+# Previous default: us.anthropic.claude-sonnet-4-6
+model_id        = "qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
