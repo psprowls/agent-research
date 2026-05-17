@@ -117,7 +117,7 @@ Plans:
   1. Every JSONL trace file contains a `schema_version` field; the schema is documented with a breaking-change policy
   2. `code-wiki-agent trace <file>` displays per-subagent cost (input/output tokens × model price) for each fan-out call
   3. `code-wiki-agent trace <file>` collapses repeated subagent-role groups into a summary line by default; `--expand` drills into the full event stream
-**Plans**: 5 plans
+**Plans**: 6 plans
 Plans:
 **Wave 1**
 - [x] 09-01-PLAN.md — Writer-side schema_version: 1 stamping (pool.py + query.py) (OBS-04 producer half)
@@ -131,6 +131,9 @@ Plans:
 
 **Wave 4** *(blocked on 09-03 + 09-04)*
 - [x] 09-05-PLAN.md — Lenient-consumer version warnings (v0 inference + newer-than-known) + real-fixture backward-compat test (OBS-04 consumer half)
+
+**Wave 5** *(gap-closure; blocked on 09-05)*
+- [ ] 09-06-PLAN.md — Gap closure: CR-01 (collapse by (role, model_id)) + WR-02 (event/kind out of by_role) + WR-03 (other-bucket for unknown statuses) (OBS-05, OBS-06)
 
 
 ### Phase 10: Subagent Context Completion
