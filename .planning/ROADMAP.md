@@ -117,7 +117,21 @@ Plans:
   1. Every JSONL trace file contains a `schema_version` field; the schema is documented with a breaking-change policy
   2. `code-wiki-agent trace <file>` displays per-subagent cost (input/output tokens × model price) for each fan-out call
   3. `code-wiki-agent trace <file>` collapses repeated subagent-role groups into a summary line by default; `--expand` drills into the full event stream
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+**Wave 1**
+- [ ] 09-01-PLAN.md — Writer-side schema_version: 1 stamping (pool.py + query.py) (OBS-04 producer half)
+- [ ] 09-02-PLAN.md — docs/trace-schema.md authoritative reference + one-line cancellation.md cross-link (OBS-04 doc)
+
+**Wave 2** *(blocked on 09-01)*
+- [ ] 09-03-PLAN.md — Renderer per-(role, model_id) cost rollup in Summary block + snapshot tests (OBS-05)
+
+**Wave 3** *(blocked on 09-03)*
+- [ ] 09-04-PLAN.md — Renderer consecutive-same-role collapse + --expand flag + 4 syrupy snapshots (OBS-06)
+
+**Wave 4** *(blocked on 09-03 + 09-04)*
+- [ ] 09-05-PLAN.md — Lenient-consumer version warnings (v0 inference + newer-than-known) + real-fixture backward-compat test (OBS-04 consumer half)
+
 
 ### Phase 10: Subagent Context Completion
 **Goal**: Subagent system prompts include the load-bearing SKILL.md and `wiki/CLAUDE.md` content identified in spike 001, delivered via the existing fragment curation pattern + a project-context renderer at command entry, without a deepagents architectural migration
@@ -164,7 +178,7 @@ Plans:
 | 6. Prompt Content Port + Divergence Eval   | v1.1      | 11/16 | Gap-closure | -           |
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
-| 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
+| 9. Trace/Observability Polish               | v1.1      | 0/5            | Planned     | -           |
 | 10. Subagent Context Completion             | v1.1      | 5/7 | In Progress|  |
 
 ---
