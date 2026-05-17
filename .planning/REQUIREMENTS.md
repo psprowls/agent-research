@@ -33,7 +33,7 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 
 ### SWEEP — Cost-frontier sweep execution
 
-- [ ] **SWEEP-01**: Cost-frontier sweep runs against the *post-port* agent (after PORT requirements land) across all 7 roles in `models.toml`
+- [ ] **SWEEP-01**: Cost-frontier sweep runs against the *post-port* agent (after PORT requirements land) across all 6 agent roles in `models.toml` (`librarian`, `code_reader`, `scanner`, `linter`, `ingestor`, `synthesizer`) (corrected 2026-05-17 per Phase 7 D-02: the v1.1 roadmap said 7 but models.toml has 6 in-scope agent roles plus 2 judges that are out of scope for this sweep)
 - [ ] **SWEEP-02**: BED-01 live-Bedrock gate verification passes during the sweep (`make_llm("haiku").invoke("ping")` succeeds against real Bedrock)
 - [ ] **SWEEP-03**: Sweep produces a cost-frontier table per role (model × quality × cost) committed under `.planning/` or `docs/`
 - [ ] **SWEEP-04**: `models.toml` defaults updated to the cost-optimal pick per role; previous defaults preserved as commented provenance

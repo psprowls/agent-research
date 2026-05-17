@@ -68,11 +68,11 @@ Plans:
 - [x] 06-16-PLAN.md — Test hygiene: hoist pythonpath to root, remove sys.path.insert (WR-05 residual) (Wave 9)
 
 ### Phase 7: Cost-Frontier Sweep
-**Goal**: The cost-frontier across all 7 Bedrock roles is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
+**Goal**: The cost-frontier across all 6 in-scope agent roles in models.toml is measured against the post-port agent and models.toml defaults reflect the cost-optimal picks
 **Depends on**: Phase 6
 **Requirements**: SWEEP-01, SWEEP-02, SWEEP-03, SWEEP-04, SWEEP-05
 **Success Criteria** (what must be TRUE):
-  1. `CODE_WIKI_RUN_EVAL=1 pytest` completes against all 7 roles on live Bedrock without credential or access errors (BED-01 gate passes in passing)
+  1. `CODE_WIKI_RUN_EVAL=1 pytest` completes against all 6 agent roles in models.toml on live Bedrock without credential or access errors (BED-01 gate passes in passing)
   2. A committed cost-frontier table exists under `.planning/` or `docs/` showing model × quality × cost per role
   3. `models.toml` defaults point to the cost-optimal pick per role; previous defaults are preserved as commented provenance
   4. A results summary doc exists that tells the cost story v1.0 promised to validate
