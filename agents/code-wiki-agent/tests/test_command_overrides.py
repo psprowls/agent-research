@@ -444,13 +444,13 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
 async def test_run_lint_model_override(tmp_path: Path) -> None:
     """run_lint(model_override=...) constructs ChatBedrockConverse with that model_id
-    inside run_linter_group and does NOT call make_llm("linter")."""
+    inside run_linter_group and does NOT call make_llm("linter").
+
+    The pool.run_all mock invokes the provided task function so that
+    run_linter_group actually executes and the ChatBedrockConverse call can be captured.
+    """
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
-
-    mock_fan = MagicMock()
-    mock_fan.successes = []
-    mock_fan.errors = []
 
     linter_resp = MagicMock()
     linter_resp.content = ""
@@ -464,6 +464,29 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         captured_converse_calls.append(kwargs)
         return converse_instance
 
+    # One non-empty page so run_linter_group actually runs (pages_sample > 0)
+    non_empty_pages = {
+        "concepts/hello.md": {
+            "fm": {"title": "Hello"},
+            "text": "Hello world.",
+            "linted": True,
+            "is_work": False,
+        }
+    }
+
+    async def _mock_run_all(items, task, **kwargs):
+        """Execute the task function on each item so run_linter_group fires."""
+        from subagent_runtime.pool import FanOutResult
+        successes = []
+        errors = []
+        for item in items:
+            try:
+                result = await task(item)
+                successes.append((item, result))
+            except Exception as exc:
+                errors.append(exc)
+        return FanOutResult(successes=successes, errors=errors)
+
     with (
         patch(
             "code_wiki_agent.commands.lint.resolve_wiki_and_repo",
@@ -472,8 +495,8 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         patch(
             "code_wiki_agent.commands.lint._mechanical_pass",
             return_value={
-                "pages": {},
-                "total_pages": 0,
+                "pages": non_empty_pages,
+                "total_pages": 1,
                 "orphans": [],
                 "broken_links": [],
                 "stale": [],
@@ -493,6 +516,8 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
                 "package_sync_drift": {},
                 "source_sync_drift": {},
                 "workflow_hints": [],
+                "domain_placement": {},
+                "dependency_layer": {},
             },
         ),
         patch(
@@ -505,7 +530,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         ),
     ):
         mock_pool_instance = MagicMock()
-        mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
+        mock_pool_instance.run_all = _mock_run_all
         mock_pool_cls.return_value = mock_pool_instance
 
         from code_wiki_agent.commands.lint import run_lint
