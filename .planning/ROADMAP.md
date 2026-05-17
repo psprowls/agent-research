@@ -127,7 +127,7 @@ Plans:
 - [x] 09-03-PLAN.md — Renderer per-(role, model_id) cost rollup in Summary block + snapshot tests (OBS-05)
 
 **Wave 3** *(blocked on 09-03)*
-- [ ] 09-04-PLAN.md — Renderer consecutive-same-role collapse + --expand flag + 4 syrupy snapshots (OBS-06)
+- [x] 09-04-PLAN.md — Renderer consecutive-same-role collapse + --expand flag + 4 syrupy snapshots (OBS-06)
 
 **Wave 4** *(blocked on 09-03 + 09-04)*
 - [ ] 09-05-PLAN.md — Lenient-consumer version warnings (v0 inference + newer-than-known) + real-fixture backward-compat test (OBS-04 consumer half)
