@@ -1,0 +1,20 @@
+[
+  {
+    "case_id": "code-reader-01",
+    "query": "How is _StdoutGuard implemented in the MCP server?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading mcp_server.py source",
+    "tags": ["code-reader", "vault-thin"]
+  },
+  {
+    "case_id": "code-reader-02",
+    "query": "What does SubagentPool._write_trace write to the trace JSONL file?",
+    "expected_answer": "tokens_in, tokens_out, role, and other trace fields written to JSONL; requires reading pool.py source",
+    "tags": ["code-reader", "vault-thin"]
+  },
+  {
+    "case_id": "code-reader-03",
+    "query": "What are the exact parameters to _read_file_bounded?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading query.py source for parameter signature",
+    "tags": ["code-reader", "vault-thin"]
+  }
+]
