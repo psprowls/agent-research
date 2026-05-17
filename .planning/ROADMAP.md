@@ -95,7 +95,7 @@ Plans:
 - [x] 07-06-PLAN.md — Pareto frontier renderer + per-role doc + recommendation block + dry-run integration test (SWEEP-03, SWEEP-04)
 
 **Wave 6** *(blocked on Wave 5 completion)*
-- [ ] 07-07-PLAN.md — Live matrix execution + REQUIREMENTS/ROADMAP correction + manual models.toml swap + STORY.md (SWEEP-01..05, D-02)
+- [x] 07-07-PLAN.md — Live matrix execution + REQUIREMENTS/ROADMAP correction + manual models.toml swap + STORY.md (SWEEP-01..05, D-02)
 
 ### Phase 8: Host Reliability
 **Goal**: MCP cancellation is proven clean under a real DeepAgents CLI host and every MCP tool is exercised by an end-to-end integration test
