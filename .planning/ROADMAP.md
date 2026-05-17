@@ -179,7 +179,7 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/5            | Planned     | -           |
-| 10. Subagent Context Completion             | v1.1      | 7/7 | Complete   | 2026-05-17 |
+| 10. Subagent Context Completion             | v1.1      | 7/7 | Complete    | 2026-05-17 |
 
 ---
 
