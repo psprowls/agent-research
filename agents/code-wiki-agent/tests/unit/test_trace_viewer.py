@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import subprocess
+from functools import lru_cache
 
 import pytest
 from pathlib import Path
+from syrupy.assertion import SnapshotAssertion
 
 
 # ---------------------------------------------------------------------------
@@ -97,8 +99,8 @@ def test_trace_command_prints_summary_block(tmp_path: Path) -> None:
     assert "5" in stdout, f"Expected tokens_out total (5) in summary:\n{stdout}"
     # Record count should appear
     assert "2" in stdout, f"Expected 2 total records in summary:\n{stdout}"
-    # Cost placeholder per CONTEXT D-08
-    assert "Phase 4" in stdout or "cost" in stdout.lower(), f"Expected cost placeholder in summary:\n{stdout}"
+    # Cost rollup section (09-03): placeholder removed, real rollup label present
+    assert "cost" in stdout.lower(), f"Expected cost rollup in summary:\n{stdout}"
 
 
 def test_trace_command_missing_file_exits_nonzero() -> None:
@@ -312,3 +314,169 @@ def test_trace_command_skips_malformed_lines(tmp_path: Path) -> None:
     assert "malformed" in stderr_lower or "line 2" in stderr_lower, (
         f"Expected 'malformed' or 'line 2' in stderr; stderr was: {result.stderr}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan 09-03: cost rollup fixture + tests
+# ---------------------------------------------------------------------------
+
+_HAIKU_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+_SONNET_MODEL = "us.anthropic.claude-sonnet-4-5-20251001-v1:0"
+_QWEN_MODEL = "qwen.qwen3-next-80b-a3b"
+
+
+def _write_cost_rollup_fixture(tmp_path: Path) -> Path:
+    """Mixed-(role, model_id) fixture exercising cost rollup formatting & ordering.
+
+    - 2 scanner records on haiku with cost 0.0005 + 0.0010 (sum 0.0015)
+    - 1 scanner record on sonnet with cost 0.0020
+    - 1 scanner record on haiku with cost null (+1 unknown)
+    - 1 librarian record on qwen with cost null (fully-null group => n/a, last)
+    """
+    trace_file = tmp_path / "cost_rollup_trace.jsonl"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-a",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0005,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-b",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 20,
+            "tokens_out": 7,
+            "cost_usd": 0.0010,
+            "timestamp": "2026-05-17T10:00:01Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _SONNET_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-c",
+            "status": "success",
+            "latency_ms": 200,
+            "tokens_in": 30,
+            "tokens_out": 11,
+            "cost_usd": 0.0020,
+            "timestamp": "2026-05-17T10:00:02Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-d",
+            "status": "success",
+            "latency_ms": 90,
+            "tokens_in": 5,
+            "tokens_out": 3,
+            "cost_usd": None,
+            "timestamp": "2026-05-17T10:00:03Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "librarian",
+            "model_id": _QWEN_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-e",
+            "status": "success",
+            "latency_ms": 400,
+            "tokens_in": 50,
+            "tokens_out": 25,
+            "cost_usd": None,
+            "timestamp": "2026-05-17T10:00:04Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def test_cost_rollup_format_six_decimals(tmp_path: Path) -> None:
+    """Cost rollup in DEFAULT mode prints six-decimal sums, (+K unknown), n/a, and ordering.
+
+    Locked by D-09 (format) and D-15 (descending cost, alphabetical tie-break,
+    fully-null groups last). Invariant to plan 09-04's collapse change because
+    the Summary block (per 09-CONTEXT.md "Claude's Discretion") is emitted in
+    both default and --expand mode.
+    """
+    fixture_file = _write_cost_rollup_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+
+    # D-09 numerics
+    assert "$0.001500" in stdout, (
+        f"Expected haiku group sum $0.001500 (0.0005 + 0.0010); stdout:\n{stdout}"
+    )
+    assert "$0.002000" in stdout, (
+        f"Expected sonnet group sum $0.002000; stdout:\n{stdout}"
+    )
+    assert "(+1 unknown)" in stdout, (
+        f"Expected '(+1 unknown)' suffix on haiku group; stdout:\n{stdout}"
+    )
+    assert "n/a" in stdout, (
+        f"Expected fully-null librarian group to render 'n/a'; stdout:\n{stdout}"
+    )
+
+    # D-15 ordering: fully-null librarian group sorts LAST.
+    librarian_idx = stdout.index("librarian")
+    haiku_idx = stdout.index("$0.001500")
+    sonnet_idx = stdout.index("$0.002000")
+    assert librarian_idx > haiku_idx and librarian_idx > sonnet_idx, (
+        f"Expected librarian (n/a) line AFTER haiku and sonnet lines; "
+        f"librarian@{librarian_idx} haiku@{haiku_idx} sonnet@{sonnet_idx}\n{stdout}"
+    )
+
+
+@lru_cache(maxsize=1)
+def _trace_supports_expand_flag() -> bool:
+    """Return True if `code-wiki-agent trace` understands ``--expand``.
+
+    Plan 09-04 lands the flag. Until then, this snapshot test self-skips so the
+    suite still passes in waves where 09-04 has not yet shipped.
+    """
+    try:
+        help_result = subprocess.run(
+            ["uv", "run", "--package", "code-wiki-agent",
+             "code-wiki-agent", "trace", "--help"],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+            timeout=120,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return "--expand" in help_result.stdout
+
+
+@pytest.mark.skipif(
+    not _trace_supports_expand_flag(),
+    reason="--expand flag is added in plan 09-04; snapshot test self-skips until then",
+)
+def test_cost_rollup_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
+    """Snapshot the --expand-mode rendering so the timeline is invariant to 09-04's collapse."""
+    fixture_file = _write_cost_rollup_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file), "--expand"])
+    assert result.returncode == 0, (
+        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    assert result.stdout == snapshot
