@@ -53,7 +53,12 @@ class IngestResult:
         page_path:          Path to the written page relative to wiki root.
         slug:               URL-safe slug used for the output filename.
         title:              Human-readable page title.
-        page_type:          Page category: package, concept, adr, or work.
+        page_type:          Page category. From run_ingest_source: source,
+                            package, concept, or adr (set by the ingestor LLM
+                            and validated against _PAGE_TYPE_DIRS). From
+                            run_ingest_work_item: always "work" (work items
+                            bypass _route_target_path and file under
+                            <workspace>/work/ via file_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
     """
@@ -166,6 +171,13 @@ def _resolve_wikilinks(text: str, wiki: Path) -> tuple[str, list[str]]:
       text:  the LLM body (after frontmatter has been written/rewritten).
       wiki:  vault root.
     """
+    # Fast path (WR-05): if there are no wikilinks at all, skip the O(vault_size)
+    # rglob. This is the common case — the ingestor LLM does not always emit
+    # cross-references, and a vault walk per source page adds non-trivial
+    # wallclock cost to the cost-frontier eval harness on large vaults.
+    if "[[" not in text:
+        return text, []
+
     # Build the set of known page basenames (and known relative paths).
     # rglob is O(vault_size) — acceptable: vaults are <10k files.
     known_relpaths: set[str] = set()
@@ -336,7 +348,7 @@ def build_ingest_source_prompt(
         f"\nVault top-level categories:\n{vault_summary}\n"
         f"\n--- Source content ---\n{preview}\n--- End source ---\n"
         f"\nWrite a vault wiki page for this source. "
-        f"Choose the most appropriate page_type (package, concept, or adr) "
+        f"Choose the most appropriate page_type (source, package, concept, or adr) "
         f"and a target_slug based on the content."
     )
 
@@ -463,7 +475,7 @@ async def run_ingest_source(
             f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
             f"{stripped_wikilinks[:5]}"
         )
-    append_log(wiki, "ingest", title_guess, detail=detail, silent=True)
+    append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
 
     # Step 10: return result
     page_path_rel = str(target_path.relative_to(wiki))

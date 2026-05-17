@@ -45,32 +45,41 @@ def _send_initialized_notification() -> dict:
     return {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
 
 
-def _run_server_long(payload_objs: list[dict], expected_ids: set[int], timeout: int = 180) -> tuple[str, str]:
-    """Spawn code-wiki-mcp and collect responses for all expected request IDs.
+def _run_server_serial(
+    handshake_objs: list[dict],
+    tool_call_objs: list[dict],
+    timeout: int = 180,
+) -> tuple[str, str]:
+    r"""Spawn code-wiki-mcp and exercise tool calls one at a time.
 
-    Unlike communicate(), this helper keeps stdin open while reading stdout so that
-    in-flight Bedrock calls are not cancelled when stdin EOF is detected.
-    The MCP server cancels all in-flight handlers on stdin-close (mcp 1.27.1
-    lowlevel/server.py:690), so stdin must stay open until all expected responses arrive.
+    Unlike a write-all-then-read approach (which lets FastMCP's TaskGroup
+    schedule every tool call concurrently and race the vault into
+    existence), this helper:
+      1. Sends the initialize request + initialized notification together
+         (the handshake — order-independent for our assertions).
+      2. Sends each subsequent tool call SERIALLY: write one request,
+         await the matching id in stdout, then send the next.
+
+    This guarantees `wiki_init` (id=2) completes before `wiki_scan`
+    (id=3) starts, so scan does not race against vault creation (WR-04).
+    Stdin stays open until all responses arrive — the MCP server cancels
+    all in-flight handlers on stdin-close (mcp 1.27.1
+    lowlevel/server.py:690).
 
     Args:
-        payload_objs: JSON-RPC messages to send.
-        expected_ids: Set of request IDs we expect responses for. Stdin closes only
-                      after all IDs have a response (or timeout is hit).
+        handshake_objs: JSON-RPC handshake messages (initialize + initialized).
+        tool_call_objs: Tool-call requests, sent and awaited one at a time
+                        in list order.
         timeout: Total wall-clock seconds to wait for all responses.
     """
-    payload = "\n".join(json.dumps(obj) for obj in payload_objs) + "\n"
     proc = subprocess.Popen(
         ["uv", "run", "--package", "code-wiki-agent", "code-wiki-mcp"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-
-    # Send all requests to stdin then KEEP stdin open (don't close yet).
     assert proc.stdin is not None
-    proc.stdin.write(payload.encode())
-    proc.stdin.flush()
+    assert proc.stdout is not None
 
     # Drain stderr in a background thread so it doesn't block.
     stderr_buf = io.BytesIO()
@@ -83,55 +92,63 @@ def _run_server_long(payload_objs: list[dict], expected_ids: set[int], timeout: 
     stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
     stderr_thread.start()
 
-    # Read stdout lines until all expected IDs are answered or timeout.
-    assert proc.stdout is not None
     stdout_lines: list[str] = []
     received_ids: set[int] = set()
     deadline = time.monotonic() + timeout
 
-    while received_ids < expected_ids:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            proc.kill()
-            proc.wait()
-            pytest.fail(
-                f"Timed out after {timeout}s waiting for responses to ids "
-                f"{expected_ids - received_ids}.\n"
-                f"stdout so far: {''.join(stdout_lines)[-500:]}\n"
-                f"stderr: {stderr_buf.getvalue().decode()[-500:]}"
-            )
+    def _write(obj: dict) -> None:
+        proc.stdin.write((json.dumps(obj) + "\n").encode())
+        proc.stdin.flush()
 
-        # Non-blocking line read with a short poll interval.
-        readable, _, _ = select.select([proc.stdout], [], [], min(1.0, remaining))
-        if not readable:
-            # Check if process died
-            if proc.poll() is not None:
-                break
-            continue
+    def _await_id(target_id: int) -> None:
+        """Read stdout until a response with id=target_id arrives or we time out."""
+        while target_id not in received_ids:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                proc.kill()
+                proc.wait()
+                pytest.fail(
+                    f"Timed out after {timeout}s waiting for id={target_id}.\n"
+                    f"stdout so far: {''.join(stdout_lines)[-500:]}\n"
+                    f"stderr: {stderr_buf.getvalue().decode()[-500:]}"
+                )
+            readable, _, _ = select.select([proc.stdout], [], [], min(1.0, remaining))
+            if not readable:
+                if proc.poll() is not None:
+                    return
+                continue
+            line = proc.stdout.readline()
+            if not line:
+                return
+            decoded = line.decode()
+            stdout_lines.append(decoded)
+            try:
+                obj = json.loads(decoded)
+                rid = obj.get("id")
+                if rid is not None:
+                    received_ids.add(rid)
+            except json.JSONDecodeError:
+                pass
 
-        line = proc.stdout.readline()
-        if not line:
-            break  # stdout closed — process likely dead
-        decoded = line.decode()
-        stdout_lines.append(decoded)
-        try:
-            obj = json.loads(decoded)
-            rid = obj.get("id")
-            if rid is not None:
-                received_ids.add(rid)
-        except json.JSONDecodeError:
-            pass
+    # Send handshake: initialize (has id) + initialized notification (no id).
+    for obj in handshake_objs:
+        _write(obj)
+    # Await response to the initialize request specifically (id=1).
+    _await_id(1)
 
-    # All expected responses received (or process died). Close stdin to signal shutdown.
+    # Send each tool call serially, awaiting its response before the next.
+    for obj in tool_call_objs:
+        _write(obj)
+        _await_id(obj["id"])
+
+    # All expected responses received. Close stdin to signal shutdown.
     proc.stdin.close()
 
-    # Wait for process to finish and collect any remaining stdout lines.
     try:
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
-    # Drain any remaining stdout after process exits.
     if proc.stdout:
         for line in proc.stdout:
             stdout_lines.append(line.decode())
@@ -274,9 +291,15 @@ def test_all_six_tools_end_to_end(tmp_path: Path) -> None:
     sample = _seed_minimal_workspace(tmp_path)
     vault = tmp_path / "wiki"
 
-    payloads = [
+    handshake = [
         _send_initialize(),
         _send_initialized_notification(),
+    ]
+    # WR-04: send each tool call serially. FastMCP runs tool handlers in a
+    # TaskGroup; queueing them all at once lets wiki_scan/wiki_ingest race
+    # wiki_init's vault creation. Sending one-at-a-time and awaiting each
+    # response guarantees ordering.
+    tool_calls = [
         _send_wiki_init(2, str(vault)),
         _send_wiki_scan(3, str(vault), str(tmp_path)),         # repo_path = tmp_path (NEW FIELD)
         _send_wiki_ingest(4, str(sample), str(vault)),
@@ -285,7 +308,7 @@ def test_all_six_tools_end_to_end(tmp_path: Path) -> None:
         _send_wiki_log(7, str(vault)),
     ]
 
-    stdout, stderr = _run_server_long(payloads, expected_ids={1, 2, 3, 4, 5, 6, 7})
+    stdout, stderr = _run_server_serial(handshake, tool_calls)
 
     # Parse response lines only (filter out notifications which have no "id")
     responses = []

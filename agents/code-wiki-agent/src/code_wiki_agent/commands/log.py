@@ -52,11 +52,13 @@ async def run_log(
 
     Raises:
         RuntimeError: If the vault or log.md cannot be found/written.
-        SystemExit: If append_log calls sys.exit() on validation error (converted upstream).
+        ValueError: If append_log rejects the op or cannot locate/write the log
+            (raise_exception=True). The MCP boundary catches this; the stdio
+            server is not terminated.
     """
     wiki, _ = resolve_wiki_and_repo(vault_path)
     logger.debug("run_log: wiki=%s op=%s title=%r", wiki, op, title)
-    result = append_log(wiki, op, title, detail, silent=True)
+    result = append_log(wiki, op, title, detail, silent=True, raise_exception=True)
     return LogResult(
         status=result["status"],
         log_path=result["log_path"],

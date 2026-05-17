@@ -77,9 +77,15 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     fake_llm = MagicMock()
     fake_llm.ainvoke = AsyncMock(side_effect=_slow_ainvoke)
 
-    # Patch make_llm — the single injection point for all role-bound model creation.
-    # Confirmed import path: model_adapter.loader.make_llm (not make_chat_model).
-    monkeypatch.setattr("model_adapter.loader.make_llm", lambda *a, **kw: fake_llm)
+    # Patch make_llm at the importer's binding (code_wiki_agent.commands.query).
+    # `from model_adapter.loader import make_llm` creates a local name in query.py,
+    # so patching model_adapter.loader.make_llm here would not redirect run_query's
+    # call. Targeting the importer's namespace ensures the slow stub is actually
+    # installed and no Bedrock call is attempted.
+    monkeypatch.setattr(
+        "code_wiki_agent.commands.query.make_llm",
+        lambda *a, **kw: fake_llm,
+    )
 
     # Patch resolve_wiki_and_repo so run_query uses our tmp_path vault directly.
     monkeypatch.setattr(
