@@ -124,7 +124,7 @@ Plans:
 - [x] 09-02-PLAN.md — docs/trace-schema.md authoritative reference + one-line cancellation.md cross-link (OBS-04 doc)
 
 **Wave 2** *(blocked on 09-01)*
-- [ ] 09-03-PLAN.md — Renderer per-(role, model_id) cost rollup in Summary block + snapshot tests (OBS-05)
+- [x] 09-03-PLAN.md — Renderer per-(role, model_id) cost rollup in Summary block + snapshot tests (OBS-05)
 
 **Wave 3** *(blocked on 09-03)*
 - [ ] 09-04-PLAN.md — Renderer consecutive-same-role collapse + --expand flag + 4 syrupy snapshots (OBS-06)
