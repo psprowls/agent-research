@@ -1,4 +1,21 @@
 # serializer version: 1
+# name: test_collapsed_default_snapshot
+  '''
+  [2026-05-17T10:00:00Z .. 2026-05-17T10:00:03Z] scanner x4: 4 success, 40->20 tokens, $0.000400
+  
+  === Summary ===
+  Total records : 4
+  Total tokens_in  : 40
+  Total tokens_out : 20
+  
+  Per-role breakdown:
+    scanner: count=4 tokens_in=40 tokens_out=20
+  
+  Cost rollup (per role/model):
+    scanner / claude-haiku-4-5-20251001-v1:0: 4 items, 40->20 tokens, $0.000400
+  
+  '''
+# ---
 # name: test_cost_rollup_snapshot
   '''
   [2026-05-17T10:00:00Z] scanner claude-haiku-4-5-20251001-v1:0 page-a success 100ms 10->5
@@ -20,6 +37,64 @@
     scanner / laude-sonnet-4-5-20251001-v1:0: 1 items, 30->11 tokens, $0.002000
     scanner / claude-haiku-4-5-20251001-v1:0: 3 items, 35->15 tokens, $0.001500 (+1 unknown)
     librarian / qwen.qwen3-next-80b-a3b: 1 items, 50->25 tokens, $n/a (1 unknown)
+  
+  '''
+# ---
+# name: test_expand_snapshot
+  '''
+  [2026-05-17T10:00:00Z] scanner claude-haiku-4-5-20251001-v1:0 page-0 success 100ms 10->5
+  [2026-05-17T10:00:01Z] scanner claude-haiku-4-5-20251001-v1:0 page-1 success 101ms 10->5
+  [2026-05-17T10:00:02Z] scanner claude-haiku-4-5-20251001-v1:0 page-2 success 102ms 10->5
+  [2026-05-17T10:00:03Z] scanner claude-haiku-4-5-20251001-v1:0 page-3 success 103ms 10->5
+  
+  === Summary ===
+  Total records : 4
+  Total tokens_in  : 40
+  Total tokens_out : 20
+  
+  Per-role breakdown:
+    scanner: count=4 tokens_in=40 tokens_out=20
+  
+  Cost rollup (per role/model):
+    scanner / claude-haiku-4-5-20251001-v1:0: 4 items, 40->20 tokens, $0.000400
+  
+  '''
+# ---
+# name: test_mixed_status_in_run_snapshot
+  '''
+  [2026-05-17T10:00:00Z .. 2026-05-17T10:00:03Z] scanner x4: 2 success / 1 error / 1 cancelled, 27->11 tokens, $0.000400 (+1 unknown)
+  
+  === Summary ===
+  Total records : 4
+  Total tokens_in  : 27
+  Total tokens_out : 11
+  
+  Per-role breakdown:
+    scanner: count=4 tokens_in=27 tokens_out=11
+  
+  Cost rollup (per role/model):
+    scanner / claude-haiku-4-5-20251001-v1:0: 4 items, 27->11 tokens, $0.000400 (+1 unknown)
+  
+  '''
+# ---
+# name: test_query_summary_interleaved_breaks_group_snapshot
+  '''
+  [2026-05-17T10:00:00Z .. 2026-05-17T10:00:02Z] scanner x3: 3 success, 33->18 tokens, $0.000300
+  [-] - - - - -ms -->-
+  [2026-05-17T10:00:05Z .. 2026-05-17T10:00:06Z] scanner x2: 2 success, 27->17 tokens, $0.000200
+  [2026-05-17T10:00:07Z] scanner claude-haiku-4-5-20251001-v1:0 - - -ms -->-
+  
+  === Summary ===
+  Total records : 7
+  Total tokens_in  : 60
+  Total tokens_out : 35
+  
+  Per-role breakdown:
+    scanner: count=6 tokens_in=60 tokens_out=35
+    unknown: count=1 tokens_in=0 tokens_out=0
+  
+  Cost rollup (per role/model):
+    scanner / claude-haiku-4-5-20251001-v1:0: 5 items, 60->35 tokens, $0.000500
   
   '''
 # ---
