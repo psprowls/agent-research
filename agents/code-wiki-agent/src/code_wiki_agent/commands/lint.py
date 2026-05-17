@@ -29,6 +29,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool
@@ -396,6 +397,7 @@ async def _semantic_pass(
     pages: dict,
     pool: SubagentPool,
     cfg: dict,
+    model_override: str | None = None,
 ) -> tuple[dict[str, list[str]], list[str]]:
     """Run 3 semantic linter groups in parallel; return (findings_dict, errors)."""
     # Build page lists for each group
@@ -427,7 +429,14 @@ async def _semantic_pass(
         name, system_prompt, pages_input = group_tuple
         if not pages_input:
             return []
-        linter_llm = make_llm("linter")
+        if model_override is not None:
+            linter_llm = ChatBedrockConverse(
+                model_id=model_override,
+                region_name=cfg["region"],
+                max_tokens=cfg["max_tokens"],
+            )
+        else:
+            linter_llm = make_llm("linter")
         msgs = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=_build_linter_input(pages_input)),
@@ -470,6 +479,7 @@ async def run_lint(
     vault_path: Path | None = None,
     stale_days: int = 90,
     log_gap_days: int = 14,
+    model_override: str | None = None,
 ) -> LintResult:
     """End-to-end lint: mechanical pass (inline scan port) + 7 module checks + semantic fan-out.
 
@@ -481,9 +491,12 @@ async def run_lint(
         5. Return LintResult (NO write-back to vault — D-10).
 
     Args:
-        vault_path:    Path to the wiki vault root (None → env var / git heuristic).
-        stale_days:    Pages not updated within this many days are flagged as stale (default 90).
-        log_gap_days:  Flag if log.md has no entry within this many days (default 14).
+        vault_path:     Path to the wiki vault root (None → env var / git heuristic).
+        stale_days:     Pages not updated within this many days are flagged as stale (default 90).
+        log_gap_days:   Flag if log.md has no entry within this many days (default 14).
+        model_override: Bedrock model ID to use for the linter role instead of
+                        the default from models.toml. Used by the sweep runner
+                        for single-role-swap evaluation (D-06).
 
     Returns:
         LintResult with all mechanical and semantic findings.
@@ -504,7 +517,7 @@ async def run_lint(
     # Step 4: semantic pass
     pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
     cfg = load_role_config("linter")
-    semantic_findings, errors = await _semantic_pass(wiki, pages, pool, cfg)
+    semantic_findings, errors = await _semantic_pass(wiki, pages, pool, cfg, model_override=model_override)
 
     return LintResult(
         wiki=str(wiki),

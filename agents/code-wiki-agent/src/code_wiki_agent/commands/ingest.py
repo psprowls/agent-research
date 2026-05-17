@@ -23,8 +23,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter.loader import make_llm
+from model_adapter.loader import load_role_config, make_llm
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.append_log import append_log
 from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
@@ -348,6 +349,7 @@ def build_ingest_source_prompt(
 async def run_ingest_source(
     source_path: Path,
     vault_path: Path | None = None,
+    model_override: str | None = None,
 ) -> IngestResult:
     """Ingest a source file into the wiki via the ingestor LLM.
 
@@ -364,8 +366,11 @@ async def run_ingest_source(
         10. Return IngestResult.
 
     Args:
-        source_path: Path to the source file to ingest.
-        vault_path:  Wiki root path (None -> resolved from env var or git heuristic).
+        source_path:    Path to the source file to ingest.
+        vault_path:     Wiki root path (None -> resolved from env var or git heuristic).
+        model_override: Bedrock model ID to use for the ingestor role instead of
+                        the default from models.toml. Used by the sweep runner
+                        for single-role-swap evaluation (D-06).
 
     Returns:
         IngestResult with status="ok" on success.
@@ -405,7 +410,15 @@ async def run_ingest_source(
     prompt = build_ingest_source_prompt(text, source_path, source_type, vault_structure)
 
     # Step 5: single ingestor LLM call
-    llm = make_llm("ingestor")
+    ingestor_cfg = load_role_config("ingestor")
+    if model_override is not None:
+        llm = ChatBedrockConverse(
+            model_id=model_override,
+            region_name=ingestor_cfg["region"],
+            max_tokens=ingestor_cfg["max_tokens"],
+        )
+    else:
+        llm = make_llm("ingestor")
     resp = await llm.ainvoke([SystemMessage(INGESTOR_SYSTEM), HumanMessage(prompt)])
     llm_output: str = resp.content
 

@@ -13,6 +13,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool
@@ -223,6 +224,7 @@ async def run_scan(
     no_file_map: bool = False,
     max_depth: int = 3,
     repo_path: Path | None = None,
+    model_override: str | None = None,
 ) -> ScanResult:
     """End-to-end scan: discovery → diff → scanner fan-out → post-processing.
 
@@ -243,15 +245,18 @@ async def run_scan(
         14. Return ScanResult.
 
     Args:
-        vault_path:   Path to the wiki vault root (None → env var / git heuristic).
-        no_file_map:  Skip per-workspace file-map generation (faster on huge repos).
-        max_depth:    Max directory depth for file map section headers.
-        repo_path:    Override the monorepo root used for workspace discovery.
-                      When supplied, replaces both the cwd fallback and any
-                      repo returned by resolve_wiki_and_repo. Useful for tests
-                      that point the scanner at a known-good package fixture
-                      (the eval-harness divergence test uses this — see
-                      cores/eval-harness/tests/eval_helpers.py).
+        vault_path:     Path to the wiki vault root (None → env var / git heuristic).
+        no_file_map:    Skip per-workspace file-map generation (faster on huge repos).
+        max_depth:      Max directory depth for file map section headers.
+        repo_path:      Override the monorepo root used for workspace discovery.
+                        When supplied, replaces both the cwd fallback and any
+                        repo returned by resolve_wiki_and_repo. Useful for tests
+                        that point the scanner at a known-good package fixture
+                        (the eval-harness divergence test uses this — see
+                        cores/eval-harness/tests/eval_helpers.py).
+        model_override: Bedrock model ID to use for the scanner role instead of
+                        the default from models.toml. Used by the sweep runner
+                        for single-role-swap evaluation (D-06).
 
     Returns:
         ScanResult with added, updated, deleted, renamed, errors, state_gate.
@@ -322,7 +327,14 @@ async def run_scan(
 
     cfg = load_role_config("scanner")
     pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
-    scanner_llm = make_llm("scanner")
+    if model_override is not None:
+        scanner_llm = ChatBedrockConverse(
+            model_id=model_override,
+            region_name=cfg["region"],
+            max_tokens=cfg["max_tokens"],
+        )
+    else:
+        scanner_llm = make_llm("scanner")
 
     async def generate_stub(pkg: dict) -> str:
         prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
