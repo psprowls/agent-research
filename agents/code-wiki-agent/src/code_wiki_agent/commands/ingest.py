@@ -5,11 +5,13 @@ from __future__ import annotations
 Public API:
     IngestResult            — dataclass: status, page_path, slug, title, page_type,
                                source_path, cross_refs_updated
-    INGESTOR_SYSTEM         — system prompt for ingestor role (re-exported from
-                               `code_wiki_agent.prompts.ingestor`)
     build_ingest_source_prompt(text, source_path, source_type, vault_structure) -> str
     run_ingest_source(source_path, vault_path) -> IngestResult
     run_ingest_work_item(frontmatter_text, body, ...) -> IngestResult
+
+The ingestor system prompt is constructed inline via
+`build_ingestor_system(project_context=...)` where `project_context` is the
+rendered output of `render_project_context(wiki)` — see CTX-03.
 
 Cross-ref update scope (CONTEXT.md deferred decision):
     Only update_index(wiki) is called after every ingest write. Deep back-ref link
@@ -32,7 +34,8 @@ from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, sl
 from vault_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from vault_io.update_index import update_index
 
-from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM  # noqa: F401
+from code_wiki_agent.prompts.ingestor import build_ingestor_system
+from code_wiki_agent.prompts.project_context import render_project_context
 
 logger = logging.getLogger(__name__)
 
@@ -389,6 +392,7 @@ async def run_ingest_source(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()
 
@@ -431,7 +435,7 @@ async def run_ingest_source(
         )
     else:
         llm = make_llm("ingestor")
-    resp = await llm.ainvoke([SystemMessage(INGESTOR_SYSTEM), HumanMessage(prompt)])
+    resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
     llm_output: str = resp.content
 
     # Step 6: parse response to get page_type and target_slug
