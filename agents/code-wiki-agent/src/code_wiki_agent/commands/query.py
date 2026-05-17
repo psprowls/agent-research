@@ -979,6 +979,7 @@ async def run_query(
     summary_file = trace_dir / f"query_{query_id}.jsonl"
     try:
         summary_record = {
+            "schema_version": 1,  # Phase 9 OBS-04 D-01/D-02 — every record self-describing
             "kind": "query_summary",
             "query_id": query_id,
             "query": query,

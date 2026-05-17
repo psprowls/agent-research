@@ -209,6 +209,7 @@ class SubagentPool:
                 tokens_out = meta.get("output_tokens")
 
         record: dict[str, Any] = {
+            "schema_version": 1,  # Phase 9 OBS-04 D-01/D-02 — every record self-describing
             "role": role,
             "model_id": model_id,
             "prompt_hash": None,  # caller may set; None until computed upstream
@@ -247,6 +248,7 @@ class SubagentPool:
         OSError on write is logged at WARNING and swallowed (AI-SPEC Failure Mode #2).
         """
         record: dict[str, Any] = {
+            "schema_version": 1,  # Phase 9 OBS-04 D-01/D-02 — every record self-describing
             "role": role,
             "model_id": model_id,
             "event": "batch_cancelled",
@@ -277,8 +279,12 @@ def _compute_cost_usd(
     if tokens_in is None or tokens_out is None:
         return None
     try:
-        from eval_harness.pricing import UnknownModelError, cost_for_usage  # noqa: PLC0415
+        # UnknownModelError is a subclass of KeyError; catching KeyError covers it
+        # without referencing the lazy-imported name in the except clause (which
+        # would raise UnboundLocalError when the import itself fails — Rule 1
+        # pre-existing bug surfaced by Phase 9 OBS-04 schema_version tests).
+        from eval_harness.pricing import cost_for_usage  # noqa: PLC0415
 
         return cost_for_usage(model_id, {"input": tokens_in, "output": tokens_out})
-    except (ImportError, KeyError, UnknownModelError):
+    except (ImportError, KeyError):
         return None

@@ -202,11 +202,13 @@ async def test_trace_record_completeness_success_path(tmp_path, fake_llm_respons
 
     record = json.loads(lines[0])
     required_keys = {
+        "schema_version",
         "role", "model_id", "prompt_hash", "item_id",
         "status", "latency_ms", "tokens_in", "tokens_out",
         "cost_usd", "timestamp",
     }
     assert required_keys.issubset(record.keys())
+    assert record["schema_version"] == 1
     assert record["status"] == "success"
     assert record["tokens_in"] == 10
     assert record["tokens_out"] == 5
@@ -242,6 +244,7 @@ async def test_trace_record_error_path(tmp_path, make_task):
     assert len(lines) == 1
 
     record = json.loads(lines[0])
+    assert record["schema_version"] == 1
     assert record["status"] == "error"
     assert "error" in record
     assert record["error"]  # non-empty string
@@ -430,3 +433,64 @@ async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatc
     # Config must have been DELIVERED to the task callable (CR-01 fix)
     assert len(received_configs_b) == 1, f"Expected 1 config delivered; got {len(received_configs_b)}"
     assert received_configs_b[0].get("recursion_limit") == 99, f"Expected recursion_limit=99; got {received_configs_b[0]}"
+
+
+# ---------------------------------------------------------------------------
+# Test 13 (Phase 9 OBS-04): batch_cancelled terminal record stamps schema_version: 1
+# ---------------------------------------------------------------------------
+
+
+async def test_batch_terminal_includes_schema_version(tmp_path):
+    """When a fan-out is cancelled mid-flight, the batch_cancelled terminal
+    record written by _write_batch_terminal carries schema_version: 1
+    (Phase 9 D-01 / D-02 — schema_version on every record, integer 1).
+    """
+    from subagent_runtime.pool import SubagentPool
+
+    traces_dir = tmp_path / "traces"
+    pool = SubagentPool(trace_dir=traces_dir)
+
+    async def slow_task(item):
+        await asyncio.sleep(3)  # long enough that cancel always arrives in-flight
+        return MagicMock(
+            usage_metadata={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+        )
+
+    task = asyncio.ensure_future(
+        pool.run_all(
+            items=["a", "b"],
+            task=slow_task,
+            role="scanner",
+            model_id="test-model-id",
+            max_concurrency=4,
+        )
+    )
+
+    # Yield long enough for both _run_one coroutines to be in flight inside slow_task.
+    # Same pattern as agents/code-wiki-agent/tests/integration/test_mcp_cancel.py.
+    await asyncio.sleep(0.05)
+
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    trace_files = list(traces_dir.glob("*.jsonl"))
+    assert len(trace_files) == 1, f"Expected one trace file, got {len(trace_files)}"
+
+    lines = [
+        json.loads(line)
+        for line in trace_files[0].read_text().splitlines()
+        if line.strip()
+    ]
+    batch_records = [line for line in lines if line.get("event") == "batch_cancelled"]
+    assert len(batch_records) == 1, (
+        f"Expected exactly one batch_cancelled record, got {len(batch_records)}; "
+        f"lines: {lines}"
+    )
+    assert batch_records[0]["schema_version"] == 1
+
+    # Per-item cancelled records (if any) also carry schema_version: 1
+    cancelled_records = [line for line in lines if line.get("status") == "cancelled"]
+    for record in cancelled_records:
+        assert record["schema_version"] == 1
