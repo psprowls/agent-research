@@ -142,7 +142,7 @@ Plans:
 - [x] 10-04-PLAN.md — prompts/project_context.py::render_project_context + unit tests (CTX-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 10-05-PLAN.md — Wire fragments into prompts/scanner.py + linter.py + ingestor.py + librarian.py (build_*_system functions) (CTX-01, CTX-03)
+- [x] 10-05-PLAN.md — Wire fragments into prompts/scanner.py + linter.py + ingestor.py + librarian.py (build_*_system functions) (CTX-01, CTX-03)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 10-06-PLAN.md — Wire render_project_context into commands/scan.py + lint.py + ingest.py (CTX-03)
@@ -165,7 +165,7 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
-| 10. Subagent Context Completion             | v1.1      | 4/7 | In Progress|  |
+| 10. Subagent Context Completion             | v1.1      | 5/7 | In Progress|  |
 
 ---
 
