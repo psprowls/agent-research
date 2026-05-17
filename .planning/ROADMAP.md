@@ -89,7 +89,7 @@ Plans:
 - [x] 07-04-PLAN.md — Pre-flight cost estimator + BED-01 ping + dry-run plumbing (D-13, SWEEP-02)
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 07-05-PLAN.md — run_role_sweep + two-gate scoring (D-06, D-07, D-08, SWEEP-01)
+- [x] 07-05-PLAN.md — run_role_sweep + two-gate scoring (D-06, D-07, D-08, SWEEP-01)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 07-06-PLAN.md — Pareto frontier renderer + per-role doc + recommendation block + dry-run integration test (SWEEP-03, SWEEP-04)
