@@ -134,12 +134,12 @@ Plans:
 **Plans**: 7 plans
 Plans:
 **Wave 1**
-- [ ] 10-01-PLAN.md — Vendor CLAUDE.md.template into cores/prompt-sources/wiki-claude-md-template.md (CTX-01 prerequisite)
+- [x] 10-01-PLAN.md — Vendor CLAUDE.md.template into cores/prompt-sources/wiki-claude-md-template.md (CTX-01 prerequisite)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 10-02-PLAN.md — Add _fragments/architecture_overview.py (compact SKILL.md §Architecture rewrite, ~600 tokens) (CTX-01)
+- [x] 10-02-PLAN.md — Add _fragments/architecture_overview.py (compact SKILL.md §Architecture rewrite, ~600 tokens) (CTX-01)
 - [ ] 10-03-PLAN.md — Add _fragments/style_rules.py + log_format.py + claude_md_disambiguation.py (CTX-01)
-- [ ] 10-04-PLAN.md — prompts/project_context.py::render_project_context + unit tests (CTX-02)
+- [x] 10-04-PLAN.md — prompts/project_context.py::render_project_context + unit tests (CTX-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 10-05-PLAN.md — Wire fragments into prompts/scanner.py + linter.py + ingestor.py + librarian.py (build_*_system functions) (CTX-01, CTX-03)
@@ -165,7 +165,7 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
-| 10. Subagent Context Completion             | v1.1      | 0/7            | Planned     | -           |
+| 10. Subagent Context Completion             | v1.1      | 3/7 | In Progress|  |
 
 ---
 
