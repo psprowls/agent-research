@@ -149,6 +149,19 @@ None for the test changes. The Task 3 deferral requires AWS Bedrock credentials 
 - CTX-05 second half (divergence-eval re-run) is the human-verify checkpoint at Task 3 — developer must run the live-Bedrock eval before Phase 10 can be considered closed.
 - All scope fences honored: no edits to `deepagents`, `pyproject.toml`, `pool.py`, or any prompt/command source file. `git diff --name-only` for `agents/code-wiki-agent/src/code_wiki_agent/prompts/` and `commands/` reports 0 changes from this plan.
 
+## Task 3: Divergence Eval Result (2026-05-17)
+
+Ran live with `CODE_WIKI_RUN_EVAL=1` + AWS Bedrock (us-east-1) — **PASSED for all 4 roles (193s total)**.
+
+| Role | Status | Notes |
+|------|--------|-------|
+| librarian | PASSED | 4 cases; LIB-001/004/JUDGE failures within baseline |
+| ingestor | PASSED | 2 cases; ING-001/002 single-case failures within baseline |
+| linter | PASSED | 3 cases; LNT-JUDGE 2 failures within baseline |
+| scanner | PASSED | 1 case; SCN-003 single failure within baseline (pipeline-added File map section) |
+
+No hard-severity regression vs. recorded baselines under `cores/eval-harness/baselines/` (left unchanged). CTX-05 fully satisfied.
+
 ---
 *Phase: 10-subagent-context-completion*
-*Completed: 2026-05-17 (Tasks 1-2); Task 3 deferred to developer*
+*Completed: 2026-05-17 (all 3 tasks)*
