@@ -243,6 +243,10 @@ class WikiScanInput(BaseModel):
     vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
+    repo_path: str = Field(
+        "",
+        description="Override repo root for scanner (default: resolved from vault_path). Use for testing.",
+    )
 
 
 class WikiScanOutput(BaseModel):
@@ -265,6 +269,7 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
         vault_path=vault,
         no_file_map=input.no_file_map,
         max_depth=input.max_depth,
+        repo_path=Path(input.repo_path).resolve() if input.repo_path else None,
     )
     added = len(result.added)
     updated = len(result.updated)
