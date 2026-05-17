@@ -74,18 +74,43 @@ def _render_trace_record(record: dict) -> str:
 
 
 def _aggregate_trace(records: list[dict]) -> dict:
-    """Aggregate trace records into per-role token counts.
+    """Aggregate trace records into per-role and per-(role, model_id) breakdowns.
 
     Returns:
         {
             "by_role": {role: {"count": N, "tokens_in": X, "tokens_out": Y}},
+            "by_role_model": {
+                "<role>|<model_id>": {
+                    "role": str, "model_id": str,
+                    "count": N, "tokens_in": X, "tokens_out": Y,
+                    "cost_usd_sum": float,  # sum of non-null cost_usd
+                    "unknown_cost_count": N,  # records whose cost_usd is None
+                }
+            },
             "total_records": N,
             "total_tokens_in": X,
             "total_tokens_out": Y,
         }
+
     Treats None token values as 0. Does not mutate input records.
+
+    Per-item discriminator (D-11): a record contributes to ``by_role_model``
+    only when it has NO ``event`` key AND no ``kind`` key. Per-role / total
+    counters preserve their original behavior (every record counted) to keep
+    the Summary block's "Total records" line backward-compatible.
     """
     by_role: dict = defaultdict(lambda: {"count": 0, "tokens_in": 0, "tokens_out": 0})
+    by_role_model: dict = defaultdict(
+        lambda: {
+            "role": "",
+            "model_id": "",
+            "count": 0,
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "cost_usd_sum": 0.0,
+            "unknown_cost_count": 0,
+        }
+    )
     total_tokens_in = 0
     total_tokens_out = 0
 
@@ -99,8 +124,30 @@ def _aggregate_trace(records: list[dict]) -> dict:
         total_tokens_in += tin
         total_tokens_out += tout
 
+        # Per-item-only rollup: exclude event/kind records (D-11).
+        if "event" in record or "kind" in record:
+            continue
+
+        model_id = record.get("model_id", "unknown")
+        key = f"{role}|{model_id}"
+        bucket = by_role_model[key]
+        bucket["role"] = role
+        bucket["model_id"] = model_id
+        bucket["count"] += 1
+        bucket["tokens_in"] += tin
+        bucket["tokens_out"] += tout
+        cost = record.get("cost_usd")
+        if cost is None:
+            bucket["unknown_cost_count"] += 1
+        else:
+            # Guard against non-numeric cost_usd values (T-09-06): raise loudly
+            # rather than silently mis-sum. Production writers always emit
+            # float or None; a string here indicates a malformed producer.
+            bucket["cost_usd_sum"] += float(cost)
+
     return {
         "by_role": dict(by_role),
+        "by_role_model": dict(by_role_model),
         "total_records": len(records),
         "total_tokens_in": total_tokens_in,
         "total_tokens_out": total_tokens_out,
