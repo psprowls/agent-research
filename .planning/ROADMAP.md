@@ -78,12 +78,23 @@ Plans:
   4. A results summary doc exists that tells the cost story v1.0 promised to validate
 **Plans**: 7 plans
 Plans:
+**Wave 1**
 - [ ] 07-01-PLAN.md — Wave 0 test scaffolds (skipped tests for runner/two-gate/report/estimator/recommendation/dry-run)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 07-02-PLAN.md — Per-role model_override surfaces on query/scan/lint/ingest commands (D-06)
 - [ ] 07-03-PLAN.md — sweep_candidates arrays in models.toml + code_reader vault-thin fixtures (D-03, D-05, D-09)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 07-04-PLAN.md — Pre-flight cost estimator + BED-01 ping + dry-run plumbing (D-13, SWEEP-02)
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 07-05-PLAN.md — run_role_sweep + two-gate scoring (D-06, D-07, D-08, SWEEP-01)
+
+**Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 07-06-PLAN.md — Pareto frontier renderer + per-role doc + recommendation block + dry-run integration test (SWEEP-03, SWEEP-04)
+
+**Wave 6** *(blocked on Wave 5 completion)*
 - [ ] 07-07-PLAN.md — Live matrix execution + REQUIREMENTS/ROADMAP correction + manual models.toml swap + STORY.md (SWEEP-01..05, D-02)
 
 ### Phase 8: Host Reliability

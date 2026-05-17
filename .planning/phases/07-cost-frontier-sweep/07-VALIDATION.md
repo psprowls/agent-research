@@ -48,10 +48,12 @@ created: 2026-05-16
 
 ## Wave 0 Requirements
 
-- [ ] `cores/eval-harness/tests/test_pricing.py` — extend with cost estimator unit tests (SWEEP-02)
-- [ ] `cores/eval-harness/tests/test_sweep_role_rotation.py` — new test file for per-role rotation logic
-- [ ] `cores/eval-harness/tests/test_two_gate_scoring.py` — new test file for two-gate scoring (SWEEP-03)
-- [ ] `cores/eval-harness/tests/test_dry_run.py` — new test file for `--dry-run` mode plumbing
+- [ ] `cores/eval-harness/tests/test_preflight_estimator.py` — new test file for pre-flight cost estimator + BED-01 ping (SWEEP-02, D-13)
+- [ ] `cores/eval-harness/tests/test_role_sweep.py` — new test file for `run_role_sweep` dispatch + single-role-swap (SWEEP-01)
+- [ ] `cores/eval-harness/tests/test_two_gate_scorer.py` — new test file for two-gate scoring (D-07, D-08)
+- [ ] `cores/eval-harness/tests/test_report_role_doc.py` — new test file for `render_role_doc` + `pareto_frontier` (SWEEP-03)
+- [ ] `cores/eval-harness/tests/test_recommendation_block.py` — new test file for `render_recommendation_block` (SWEEP-04, D-11)
+- [ ] `cores/eval-harness/tests/eval/test_sweep_dry_run.py` — new integration test for `--dry-run` end-to-end with mocked Bedrock (SWEEP-03)
 - [ ] `eval/cases/code_reader_cases.json` — new vault-thin fixture file for code_reader (D-09)
 
 *If existing test infrastructure (pytest-evals + EVAL_GATE) covers other requirements, planner skips those Wave 0 entries.*
