@@ -42,12 +42,12 @@ created: 2026-05-17
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 8-01-01 | 01 | 1 | MCP-10 | — | `_run_one` writes per-item `status: cancelled` trace before re-raising CancelledError | unit | `pytest tests/integration/test_mcp_cancel.py::test_per_item_cancelled_record -x` | ❌ W0 | ⬜ pending |
-| 8-01-02 | 01 | 1 | MCP-10 | — | `run_all` writes terminal `event: batch_cancelled` summary line on outer cancel | unit | `pytest tests/integration/test_mcp_cancel.py::test_batch_cancelled_terminal -x` | ❌ W0 | ⬜ pending |
-| 8-01-03 | 01 | 1 | MCP-10 / MCP-11 | — | `_write_trace` + `_write_batch_terminal` never raise; OSError logged WARNING | unit | `pytest tests/integration/test_mcp_cancel.py::test_trace_never_raises -x` | ❌ W0 | ⬜ pending |
+| 8-01-01 | 01 | 1 | MCP-10 | — | `_run_one` writes per-item `status: cancelled` trace before re-raising CancelledError | unit | `pytest tests/integration/test_mcp_cancel.py::test_cancel_mid_fan_out -x` | ❌ W0 | ⬜ pending |
+| 8-01-02 | 01 | 1 | MCP-10 | — | `run_all` writes terminal `event: batch_cancelled` summary line on outer cancel | unit | `pytest tests/integration/test_mcp_cancel.py::test_cancel_mid_fan_out -x` | ❌ W0 | ⬜ pending |
+| 8-01-03 | 01 | 1 | MCP-10 / MCP-11 | — | `_write_trace` + `_write_batch_terminal` never raise; OSError logged WARNING | unit | `pytest tests/integration/test_mcp_cancel.py -x` | ❌ W0 | ⬜ pending |
 | 8-01-04 | 01 | 1 | MCP-11 | — | Cancel test runs without `CODE_WIKI_RUN_INTEGRATION=1` (stub model) | unit | `pytest tests/integration/test_mcp_cancel.py -x` | ❌ W0 | ⬜ pending |
 | 8-02-01 | 02 | 2 | DACLI-02 | — | `WikiScanInput` accepts `repo_path`; `wiki_scan` passes it to `run_scan` | unit | `pytest tests/unit/test_wiki_scan_input.py -x` | ❌ W0 | ⬜ pending |
-| 8-02-02 | 02 | 2 | DACLI-01 / DACLI-03 | — | Subprocess `code-wiki-mcp` launches; initialize+initialized handshake succeeds | integration | `CODE_WIKI_RUN_INTEGRATION=1 pytest tests/integration/test_mcp_e2e.py::test_e2e_six_tools -x` | ❌ W0 | ⬜ pending |
+| 8-02-02 | 02 | 2 | DACLI-01 / DACLI-03 | — | Subprocess `code-wiki-mcp` launches; initialize+initialized handshake succeeds | integration | `CODE_WIKI_RUN_INTEGRATION=1 pytest tests/integration/test_mcp_e2e.py::test_all_six_tools_end_to_end -x` | ❌ W0 | ⬜ pending |
 | 8-02-03 | 02 | 2 | DACLI-02 | — | All 6 tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) return non-error JSON-RPC responses against seeded `tmp_path` vault | integration | same as 8-02-02 | ❌ W0 | ⬜ pending |
 | 8-03-01 | 03 | 2 | MCP-09 | — | `docs/cancellation.md` covers 5 sections (protocol, chain, trace shapes, limitations, future work) | manual | — | ❌ W0 | ⬜ pending |
 

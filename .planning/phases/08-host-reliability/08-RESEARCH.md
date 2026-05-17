@@ -845,7 +845,7 @@ This phase adds no new user-facing input surfaces, no new credentials handling, 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Counting cancelled items in `run_all`**
    - What we know: When `gather` raises `CancelledError`, the `raw` list is not returned. The exact count of items that completed vs. were cancelled before the outer cancel is not trivially available.
