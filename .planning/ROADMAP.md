@@ -79,7 +79,7 @@ Plans:
 **Plans**: 7 plans
 Plans:
 **Wave 1**
-- [ ] 07-01-PLAN.md — Wave 0 test scaffolds (skipped tests for runner/two-gate/report/estimator/recommendation/dry-run)
+- [x] 07-01-PLAN.md — Wave 0 test scaffolds (skipped tests for runner/two-gate/report/estimator/recommendation/dry-run)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 07-02-PLAN.md — Per-role model_override surfaces on query/scan/lint/ingest commands (D-06)
