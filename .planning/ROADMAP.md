@@ -82,8 +82,8 @@ Plans:
 - [x] 07-01-PLAN.md — Wave 0 test scaffolds (skipped tests for runner/two-gate/report/estimator/recommendation/dry-run)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 07-02-PLAN.md — Per-role model_override surfaces on query/scan/lint/ingest commands (D-06)
-- [ ] 07-03-PLAN.md — sweep_candidates arrays in models.toml + code_reader vault-thin fixtures (D-03, D-05, D-09)
+- [x] 07-02-PLAN.md — Per-role model_override surfaces on query/scan/lint/ingest commands (D-06)
+- [x] 07-03-PLAN.md — sweep_candidates arrays in models.toml + code_reader vault-thin fixtures (D-03, D-05, D-09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 07-04-PLAN.md — Pre-flight cost estimator + BED-01 ping + dry-run plumbing (D-13, SWEEP-02)
