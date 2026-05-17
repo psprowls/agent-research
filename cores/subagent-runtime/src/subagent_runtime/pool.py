@@ -138,6 +138,12 @@ class SubagentPool:
                         trace_file, role, model_id, item, "success", latency_ms, result
                     )
                     return (item, result)
+                except asyncio.CancelledError:
+                    latency_ms = int((time.monotonic() - t0) * 1000)
+                    self._write_trace(
+                        trace_file, role, model_id, item, "cancelled", latency_ms, None
+                    )
+                    raise  # MUST re-raise — outer cancel must propagate
                 except Exception as exc:
                     latency_ms = int((time.monotonic() - t0) * 1000)
                     self._write_trace(
@@ -146,7 +152,21 @@ class SubagentPool:
                     return PerItemError(item=item, exception=exc)
 
         # return_exceptions=True: one failure does NOT cancel siblings (deepagents #694).
-        raw = await asyncio.gather(*(_run_one(i) for i in items), return_exceptions=True)
+        batch_t0 = time.monotonic()
+        try:
+            raw = await asyncio.gather(*(_run_one(i) for i in items), return_exceptions=True)
+        except asyncio.CancelledError:
+            wall_ms = int((time.monotonic() - batch_t0) * 1000)
+            self._write_batch_terminal(
+                trace_file,
+                role,
+                model_id,
+                items_total=len(items),
+                items_completed=0,
+                items_cancelled=len(items),
+                wall_clock_ms=wall_ms,
+            )
+            raise  # MUST re-raise — FastMCP anyio CancelScope expects this
 
         fan_result = FanOutResult()
         for r in raw:
@@ -208,6 +228,39 @@ class SubagentPool:
                 f.write(json.dumps(record) + "\n")
         except OSError as exc:
             logger.warning("Trace write failed (data loss): %s", exc)
+
+    def _write_batch_terminal(
+        self,
+        path: Path,
+        role: str,
+        model_id: str,
+        *,
+        items_total: int,
+        items_completed: int,
+        items_cancelled: int,
+        wall_clock_ms: int,
+    ) -> None:
+        """Write the batch_cancelled summary record. Never raises.
+
+        The ``event`` field discriminates this record from per-item trace records
+        (which have no ``event`` key). Readers in Phase 9 branch on ``event`` presence.
+        OSError on write is logged at WARNING and swallowed (AI-SPEC Failure Mode #2).
+        """
+        record: dict[str, Any] = {
+            "role": role,
+            "model_id": model_id,
+            "event": "batch_cancelled",
+            "items_total": items_total,
+            "items_completed": items_completed,
+            "items_cancelled": items_cancelled,
+            "wall_clock_ms": wall_clock_ms,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        try:
+            with path.open("a") as f:
+                f.write(json.dumps(record) + "\n")
+        except OSError as exc:
+            logger.warning("Batch terminal trace write failed: %s", exc)
 
 
 def _compute_cost_usd(
