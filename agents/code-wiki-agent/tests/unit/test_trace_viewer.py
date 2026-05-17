@@ -876,6 +876,66 @@ def test_query_summary_interleaved_breaks_group_snapshot(
     assert result.stdout == snapshot
 
 
+def test_mixed_model_same_role_breaks_collapse(tmp_path: Path) -> None:
+    """CR-01 regression: two same-role records on different model_ids must NOT collapse.
+
+    Default-mode collapse keys by (role, model_id), mirroring the cost rollup at
+    cli.py:329-345. Two scanner records with different model_ids form two runs of
+    length 1 each; each renders full-line via _render_trace_record and the haiku
+    and sonnet model substrings appear on DISTINCT timeline lines.
+    """
+    trace_file = tmp_path / "mixed_model_trace.jsonl"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-0",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _SONNET_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-1",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 20,
+            "tokens_out": 10,
+            "cost_usd": 0.0002,
+            "timestamp": "2026-05-17T10:00:01Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+
+    result = _run_trace_cmd([str(trace_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    timeline = result.stdout.split("=== Summary ===")[0]
+    assert "haiku-4-5" in timeline, f"expected haiku substring in timeline; got:\n{timeline}"
+    assert "sonnet-4-5" in timeline, f"expected sonnet substring in timeline; got:\n{timeline}"
+
+    haiku_lines = [ln for ln in timeline.splitlines() if "haiku-4-5" in ln]
+    sonnet_lines = [ln for ln in timeline.splitlines() if "sonnet-4-5" in ln]
+    assert haiku_lines, f"expected haiku line in timeline; got:\n{timeline}"
+    assert sonnet_lines, f"expected sonnet line in timeline; got:\n{timeline}"
+    assert haiku_lines != sonnet_lines, (
+        f"expected haiku and sonnet on distinct lines; both matched same line(s):\n"
+        f"haiku_lines={haiku_lines}\nsonnet_lines={sonnet_lines}"
+    )
+
+
 def test_isolated_record_renders_full_line(tmp_path: Path) -> None:
     """Two records of different roles each form a run of length 1 — both render full-line.
 

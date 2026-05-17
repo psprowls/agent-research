@@ -162,11 +162,13 @@ def _aggregate_trace(records: list[dict]) -> dict:
 
 
 def _render_collapsed_group(records: list[dict]) -> str:
-    """Render a collapsed-group summary line (D-13) for a run of ≥2 same-role records.
+    """Render a collapsed-group summary line (D-13) for a run of ≥2 same-(role, model_id) records.
 
     Shape:
-        [<ts_first> .. <ts_last>] <role> x<N>: <status-breakdown>, <tin>-><tout> tokens, <cost>
+        [<ts_first> .. <ts_last>] <role> / <model_short> x<N>: <status-breakdown>, <tin>-><tout> tokens, <cost>
 
+    - <model_short> is the last 30 chars of `model_id` (mirroring the
+      cost-rollup convention at cli.py:345); `-` when model_id is missing.
     - <status-breakdown> includes only nonzero categories in canonical order:
       success → error → cancelled, joined by ' / '.
     - <cost> is `$<sum:.6f>` with optional ` (+<K> unknown)` when some records
@@ -178,6 +180,8 @@ def _render_collapsed_group(records: list[dict]) -> str:
     ts_first = records[0].get("timestamp", "-")
     ts_last = records[-1].get("timestamp", "-")
     role = records[0].get("role", "-")
+    model_id = records[0].get("model_id", "-")
+    model_short = model_id[-30:] if model_id and model_id != "-" else "-"
 
     # Status breakdown — only nonzero categories, canonical order.
     counts = {"success": 0, "error": 0, "cancelled": 0}
@@ -210,7 +214,7 @@ def _render_collapsed_group(records: list[dict]) -> str:
         cost_str = f"${cost_sum:.6f}"
 
     return (
-        f"[{ts_first} .. {ts_last}] {role} x{n}: {breakdown}, "
+        f"[{ts_first} .. {ts_last}] {role} / {model_short} x{n}: {breakdown}, "
         f"{sum_tin}->{sum_tout} tokens, {cost_str}"
     )
 
@@ -299,8 +303,15 @@ def trace(
                 _flush()
                 typer.echo(_render_trace_record(record))
                 continue
-            # Groupable: extend or start a run.
-            if current_run and current_run[-1].get("role") == record.get("role"):
+            # Groupable: extend or start a run. CR-01 fix — key by
+            # (role, model_id) so mixed-model fan-outs render as distinct
+            # lines and parity with the cost rollup at cli.py:329-345 is
+            # preserved.
+            if (
+                current_run
+                and current_run[-1].get("role") == record.get("role")
+                and current_run[-1].get("model_id") == record.get("model_id")
+            ):
                 current_run.append(record)
             else:
                 _flush()
