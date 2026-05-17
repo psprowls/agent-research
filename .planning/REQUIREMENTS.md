@@ -59,6 +59,24 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 
 ---
 
+## v1.2 Backlog (filed during Phase 7, 2026-05-17)
+
+Followup requirements surfaced by the Phase 7 cost-frontier sweep. Not in scope for v1.1; carry into the v1.2 roadmap. See `.planning/sweep/STORY.md` Next Steps for context.
+
+### TRACE-FU — Trace pipeline correctness (v1.2)
+
+- [ ] **TRACE-FU-01**: Fix the production trace pipeline so `SubagentPool._write_trace` records `usage_metadata` for every LLM invocation, not just the sweep harness. Phase 7 found that every closure fed to `pool.run_all` (`drill_page`, `generate_stub`, `run_linter_group`, etc.) returns `resp.content` (a string with no `usage_metadata`), so every `.code-wiki/traces/*.jsonl` record carries `tokens_in=null`/`tokens_out=null`/`cost_usd=null`. Phase 7 worked around this with a contextvar wrap on `ChatBedrockConverse.ainvoke` inside `eval_harness.sweep`; the underlying production trace pipeline is still broken. Approach options: (a) extend `SubagentPool` to accept an optional usage-extractor callback; (b) refactor closures to return a `(content, ai_message)` shape; (c) port the contextvar wrap into `SubagentPool` itself.
+
+### SWEEP-FU — Cost-frontier sweep followups (v1.2)
+
+- [ ] **SWEEP-FU-02**: Thread `DivergenceMetric` instances through `run_full_matrix` so Gate 1 produces a real PASS/FAIL signal for roles in `ROLES_WITH_DIVERGENCE` (`librarian`, `scanner`, `linter`, `ingestor`, `code_reader`). Today Phase 7 passes `divergence_metric_or_none=None` and the scorer uniformly marks Gate 1 = FAIL — qualification status for divergence roles is therefore meaningless. Phase 6's divergence rule modules need to be loaded per-role and forwarded from the matrix driver.
+- [ ] **SWEEP-FU-03**: Tune `eval/cases/code_reader_cases.json` (and/or relax the librarian short-circuit threshold during sweeps) so all 4 code_reader candidates receive non-zero call volume. In Phase 7, only `haiku-4-5` (the default) had the fallback actually fire; the other 3 candidates show cost=N/A and quality=N/A, leaving the swap decision unsupported.
+- [ ] **SWEEP-FU-04**: Re-sweep the `scanner` role against a vault with new and/or changed packages. The round-trip-vault fixture used in Phase 7 had every package pinned stale, so no scanner stub-gen LLM calls fired across any candidate and the role yielded no actionable cost or quality data.
+
+(SWEEP-FU-01 was promoted to its own series and renumbered as TRACE-FU-01.)
+
+---
+
 ## Future Requirements (deferred past v1.1)
 
 - **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run. Holding until the cost-frontier sweep validates the cost story.
@@ -100,3 +118,7 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 | OBS-04      | Phase 9: Trace/Observability Polish     | Pending     |
 | OBS-05      | Phase 9: Trace/Observability Polish     | Pending     |
 | OBS-06      | Phase 9: Trace/Observability Polish     | Pending     |
+| TRACE-FU-01 | v1.2 backlog (filed by Phase 7)         | Backlog     |
+| SWEEP-FU-02 | v1.2 backlog (filed by Phase 7)         | Backlog     |
+| SWEEP-FU-03 | v1.2 backlog (filed by Phase 7)         | Backlog     |
+| SWEEP-FU-04 | v1.2 backlog (filed by Phase 7)         | Backlog     |
