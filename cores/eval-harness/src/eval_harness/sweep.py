@@ -20,12 +20,15 @@ parsed; tokens_in/tokens_out are summed across all records for the run.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from langchain_aws import ChatBedrockConverse
 
 from code_wiki_agent.commands.ingest import run_ingest_source
 from code_wiki_agent.commands.lint import run_lint
@@ -39,6 +42,65 @@ from eval_harness.structural import check_structural
 from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Usage capture: bypass the trace pipeline (which loses usage_metadata when
+# closures return resp.content strings) by wrapping ChatBedrockConverse.ainvoke
+# once at import time.  Each cell sets a per-task contextvar bucket; concurrent
+# cells stay isolated via asyncio task-local context propagation.
+# ---------------------------------------------------------------------------
+_USAGE_CAPTURE: contextvars.ContextVar[list | None] = contextvars.ContextVar(
+    "_eval_harness_usage_capture", default=None
+)
+
+_ORIG_AINVOKE = ChatBedrockConverse.ainvoke
+
+
+async def _capturing_ainvoke(self, *args, **kwargs):
+    result = await _ORIG_AINVOKE(self, *args, **kwargs)
+    bucket = _USAGE_CAPTURE.get()
+    if bucket is not None:
+        meta = getattr(result, "usage_metadata", None)
+        if meta:
+            bucket.append({
+                "model_id": getattr(self, "model_id", None),
+                "tokens_in": meta.get("input_tokens"),
+                "tokens_out": meta.get("output_tokens"),
+            })
+    return result
+
+
+ChatBedrockConverse.ainvoke = _capturing_ainvoke  # type: ignore[assignment]
+
+
+def _aggregate_usage(bucket: list) -> tuple[int | None, int | None, float | None]:
+    """Sum tokens_in / tokens_out across all captured calls and compute total cost.
+
+    cost_usd is computed PER call (not aggregated by candidate) because the
+    sweep mixes candidate + default model calls in a single cell; the candidate
+    line items dominate cost only for the role under test.  We return the
+    total cost across ALL calls in the cell for raw accounting; the per-role
+    Pareto frontier uses model_id-grouped accounting downstream.
+    """
+    if not bucket:
+        return None, None, None
+    total_in = sum(b["tokens_in"] for b in bucket if b["tokens_in"] is not None) or None
+    total_out = sum(b["tokens_out"] for b in bucket if b["tokens_out"] is not None) or None
+    cost = 0.0
+    have_any_cost = False
+    for b in bucket:
+        m = b.get("model_id")
+        ti = b.get("tokens_in")
+        to = b.get("tokens_out")
+        if not (m and ti is not None and to is not None):
+            continue
+        try:
+            cost += cost_for_usage(m, {"input": ti, "output": to})
+            have_any_cost = True
+        except (UnknownModelError, KeyError):
+            continue
+    return total_in, total_out, (cost if have_any_cost else None)
 
 
 @dataclass
@@ -470,24 +532,45 @@ async def run_role_sweep(
         async with sem:
             async with EvalWorktree(vault_path) as wt:
                 t0 = time.monotonic()
+                bucket: list = []
+                token = _USAGE_CAPTURE.set(bucket)
                 try:
                     _result, _answer = await cmd_fn(
                         role, candidate_model_id, case, wt.path
                     )
                     wall_seconds = time.monotonic() - t0
 
-                    trace_dir = wt.path / ".code-wiki" / "traces"
-                    tokens_in, tokens_out = _extract_tokens_from_traces(trace_dir)
+                    # Aggregate usage from THIS task's contextvar bucket
+                    # (per-asyncio-task isolation; concurrent cells stay separate).
+                    tokens_in, tokens_out, cell_total_cost = _aggregate_usage(bucket)
 
+                    # cost_usd at the SweepResult level represents the candidate
+                    # model's cost only — used for the per-role Pareto frontier.
+                    # When tokens are mixed-model in the cell, attribute usage
+                    # for the candidate model_id specifically.
+                    cand_in = sum(
+                        b["tokens_in"] for b in bucket
+                        if b.get("model_id") == candidate_model_id
+                        and b.get("tokens_in") is not None
+                    ) or None
+                    cand_out = sum(
+                        b["tokens_out"] for b in bucket
+                        if b.get("model_id") == candidate_model_id
+                        and b.get("tokens_out") is not None
+                    ) or None
                     cost_usd: float | None = None
-                    if tokens_in is not None and tokens_out is not None:
+                    if cand_in is not None and cand_out is not None:
                         try:
                             cost_usd = cost_for_usage(
                                 candidate_model_id,
-                                {"input": tokens_in, "output": tokens_out},
+                                {"input": cand_in, "output": cand_out},
                             )
                         except (UnknownModelError, KeyError):
                             cost_usd = None
+                    if cand_in is not None:
+                        tokens_in = cand_in
+                    if cand_out is not None:
+                        tokens_out = cand_out
 
                     # Structural check: only meaningful for QueryResult
                     if hasattr(_result, "answer"):
@@ -542,6 +625,8 @@ async def run_role_sweep(
                         status="error",
                         seed=None,
                     )
+                finally:
+                    _USAGE_CAPTURE.reset(token)
 
     coros = [
         _run_role_one(case, repeat_idx)
