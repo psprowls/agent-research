@@ -483,3 +483,111 @@ def test_cost_rollup_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> No
         f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
     )
     assert result.stdout == snapshot
+
+
+# ---------------------------------------------------------------------------
+# Plan 09-04: --expand flag + consecutive-same-role group collapsing (OBS-06)
+# ---------------------------------------------------------------------------
+
+
+def _write_fan_out_fixture(
+    tmp_path: Path,
+    n: int = 4,
+    role: str = "scanner",
+    model_id: str = _HAIKU_MODEL,
+) -> Path:
+    """Write `n` consecutive per-item records with the same role/model_id.
+
+    Each record carries schema_version=1, status='success', cost_usd=0.0001,
+    monotonically increasing timestamps (HH:MM:00Z, :01Z, :02Z, :03Z, ...),
+    tokens_in=10, tokens_out=5, and a distinct item_id ('page-0', 'page-1', ...).
+    """
+    trace_file = tmp_path / "fan_out_trace.jsonl"
+    records = []
+    for i in range(n):
+        records.append({
+            "schema_version": 1,
+            "role": role,
+            "model_id": model_id,
+            "prompt_hash": None,
+            "item_id": f"page-{i}",
+            "status": "success",
+            "latency_ms": 100 + i,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": f"2026-05-17T10:00:{i:02d}Z",
+        })
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def test_trace_command_has_expand_flag() -> None:
+    """`code-wiki-agent trace --help` advertises the --expand flag (Task 1, D-14)."""
+    result = subprocess.run(
+        ["uv", "run", "--package", "code-wiki-agent",
+         "code-wiki-agent", "trace", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=_PROJECT_ROOT,
+        timeout=120,
+    )
+    assert result.returncode == 0, f"trace --help exited {result.returncode}: {result.stderr}"
+    assert "--expand" in result.stdout, (
+        f"Expected '--expand' in trace --help output:\n{result.stdout}"
+    )
+
+
+def test_default_mode_collapses_consecutive_same_role(tmp_path: Path) -> None:
+    """Default mode collapses a 4-record same-role fan-out into ONE summary line (D-11, D-12, D-13).
+
+    The summary line shape is `[<ts_first> .. <ts_last>] <role> x<N>: ...` per D-13.
+    The per-item lines (with item_id substrings) must NOT appear in default mode.
+    """
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+
+    # Exactly ONE collapsed group line for the 4 records
+    assert "scanner x4:" in stdout, (
+        f"Expected collapsed-group marker 'scanner x4:' in default mode output:\n{stdout}"
+    )
+    # Per-item item_id substrings must not appear in the timeline portion
+    # (Summary block contains aggregate counts only.)
+    timeline = stdout.split("=== Summary ===")[0]
+    assert "page-0" not in timeline, (
+        f"Expected NO per-item 'page-0' line in collapsed timeline:\n{timeline}"
+    )
+    # ISO-8601 first/last timestamps in the summary line
+    assert "2026-05-17T10:00:00Z" in stdout and "2026-05-17T10:00:03Z" in stdout, (
+        f"Expected first/last timestamps in collapsed line:\n{stdout}"
+    )
+    # 4 success breakdown + summed tokens 40->20 + summed cost $0.000400 (4 * 0.0001)
+    assert "4 success" in stdout, f"Expected '4 success' breakdown:\n{stdout}"
+    assert "40->20 tokens" in stdout, f"Expected summed tokens '40->20 tokens':\n{stdout}"
+    assert "$0.000400" in stdout, f"Expected summed cost '$0.000400':\n{stdout}"
+
+
+def test_expand_mode_renders_every_record_full_line(tmp_path: Path) -> None:
+    """--expand disables collapsing; every record renders full-line (D-14)."""
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file), "--expand"])
+    assert result.returncode == 0, (
+        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+    timeline = stdout.split("=== Summary ===")[0]
+    # All 4 item_ids appear as separate lines
+    for i in range(4):
+        assert f"page-{i}" in timeline, (
+            f"Expected per-item 'page-{i}' line in --expand timeline:\n{timeline}"
+        )
+    # No collapsed-group marker
+    assert "scanner x4:" not in stdout, (
+        f"Did NOT expect 'scanner x4:' collapse marker in --expand mode:\n{stdout}"
+    )
