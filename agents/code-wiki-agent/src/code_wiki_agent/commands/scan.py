@@ -257,7 +257,7 @@ async def run_scan(
                         repo returned by resolve_wiki_and_repo. Useful for tests
                         that point the scanner at a known-good package fixture
                         (the eval-harness divergence test uses this — see
-                        cores/eval-harness/tests/eval_helpers.py).
+                        packages/eval-harness/tests/eval_helpers.py).
         model_override: Bedrock model ID to use for the scanner role instead of
                         the default from models.toml. Used by the sweep runner
                         for single-role-swap evaluation (D-06).

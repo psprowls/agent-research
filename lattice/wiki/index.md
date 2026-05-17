@@ -21,12 +21,12 @@ _No pages yet._
 
 - [[agents/code-wiki-agent/code-wiki-agent]] — AWS Bedrock-powered wiki maintenance agent — MCP server and headless CLI
 
-### cores/
+### packages/
 
-- [[cores/eval-harness/eval-harness]] — Deterministic eval checks, cost tracking, and model-sweep runner
-- [[cores/model-adapter/model-adapter]] — AWS Bedrock model loader — resolves ChatBedrockConverse instances from a TOML model registry
-- [[cores/subagent-runtime/subagent-runtime]] — Async fan-out primitive — dispatches concurrent LLM calls via a worker pool
-- [[cores/vault-io/vault-io]] — Vault read/write library — frontmatter, page templates, lint, log, monorepo scan
+- [[packages/eval-harness/eval-harness]] — Deterministic eval checks, cost tracking, and model-sweep runner
+- [[packages/model-adapter/model-adapter]] — AWS Bedrock model loader — resolves ChatBedrockConverse instances from a TOML model registry
+- [[packages/subagent-runtime/subagent-runtime]] — Async fan-out primitive — dispatches concurrent LLM calls via a worker pool
+- [[packages/vault-io/vault-io]] — Vault read/write library — frontmatter, page templates, lint, log, monorepo scan
 
 ## Domain (0)
 _No pages yet._

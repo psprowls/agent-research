@@ -32,10 +32,10 @@ jobs:
       # `[tool.pytest.ini_options]` testpaths (uv `--package` alone does not
       # change cwd, so the root pyproject would otherwise drive discovery).
       - name: vault-io tests
-        run: uv run --directory cores/vault-io pytest
+        run: uv run --directory packages/vault-io pytest
 
       - name: model-adapter tests
-        run: uv run --directory cores/model-adapter pytest
+        run: uv run --directory packages/model-adapter pytest
 
       - name: code-wiki-agent tests (non-integration)
         run: uv run --directory agents/code-wiki-agent pytest -m "not integration"

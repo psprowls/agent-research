@@ -5,11 +5,11 @@ from __future__ import annotations
 Verifies that every file under `prompts/_fragments/` (excluding __init__.py)
 carries the mandatory 3-line provenance header:
 
-    # Source: cores/prompt-sources/<path>
+    # Source: packages/prompt-sources/<path>
     # Anchor: <section heading or line range>
     # Source-commit: <hex SHA>
 
-Also verifies that Source: paths start with `cores/prompt-sources/` (they
+Also verifies that Source: paths start with `packages/prompt-sources/` (they
 point to the vendored copies in the deep-agents repo, not the sibling lattice
 checkout).
 
@@ -36,14 +36,14 @@ FRAGMENT_DIR = (
     / "_fragments"
 )
 
-# cores/prompt-sources/ relative to the workspace root.
+# packages/prompt-sources/ relative to the workspace root.
 # agents/code-wiki-agent/tests/prompts/test_provenance.py
 #   parent[0] → tests/prompts/
 #   parent[1] → tests/
 #   parent[2] → agents/code-wiki-agent/
 #   parent[3] → agents/
 #   parent[4] → workspace root
-PROMPT_SOURCES_DIR = Path(__file__).resolve().parents[4] / "cores" / "prompt-sources"
+PROMPT_SOURCES_DIR = Path(__file__).resolve().parents[4] / "packages" / "prompt-sources"
 
 # Matches the 3-line provenance header exactly.
 # Pattern:
@@ -77,14 +77,14 @@ def test_all_fragments_have_provenance_header() -> None:
         assert match, (
             f"{fpath.name}: missing or malformed provenance header. "
             "Expected:\n"
-            "  # Source: cores/prompt-sources/<path>\n"
+            "  # Source: packages/prompt-sources/<path>\n"
             "  # Anchor: <section>\n"
             "  # Source-commit: <hex sha>"
         )
 
 
 def test_provenance_source_paths_resolve() -> None:
-    """Source: paths in provenance headers start with cores/prompt-sources/ and exist."""
+    """Source: paths in provenance headers start with packages/prompt-sources/ and exist."""
     fragment_files = _fragment_files()
     if not fragment_files:
         pytest.skip("no fragment files yet (06-03 hasn't landed)")
@@ -96,14 +96,14 @@ def test_provenance_source_paths_resolve() -> None:
             # test_all_fragments_have_provenance_header will catch the missing header
             continue
 
-        source_rel = match.group("source").strip()  # e.g. "cores/prompt-sources/SKILL.md"
-        assert source_rel.startswith("cores/prompt-sources/"), (
-            f"{fpath.name}: Source: path must start with 'cores/prompt-sources/', "
+        source_rel = match.group("source").strip()  # e.g. "packages/prompt-sources/SKILL.md"
+        assert source_rel.startswith("packages/prompt-sources/"), (
+            f"{fpath.name}: Source: path must start with 'packages/prompt-sources/', "
             f"got: {source_rel!r}"
         )
 
         # Strip prefix and verify the file exists in the vendored location.
-        suffix = source_rel[len("cores/prompt-sources/"):]
+        suffix = source_rel[len("packages/prompt-sources/"):]
         resolved = PROMPT_SOURCES_DIR / suffix
         assert resolved.exists(), (
             f"{fpath.name}: Source path {source_rel!r} does not resolve to an "

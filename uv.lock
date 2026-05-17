@@ -478,11 +478,11 @@ requires-dist = [
     { name = "bm25s", specifier = "==0.3.8" },
     { name = "langchain-aws", specifier = ">=1.4.6" },
     { name = "mcp", specifier = ">=1.27.1" },
-    { name = "model-adapter", editable = "cores/model-adapter" },
+    { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "subagent-runtime", editable = "cores/subagent-runtime" },
+    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
-    { name = "vault-io", editable = "cores/vault-io" },
+    { name = "vault-io", editable = "packages/vault-io" },
 ]
 
 [[package]]
@@ -625,7 +625,7 @@ wheels = [
 [[package]]
 name = "eval-harness"
 version = "0.1.0"
-source = { editable = "cores/eval-harness" }
+source = { editable = "packages/eval-harness" }
 dependencies = [
     { name = "aiobotocore" },
     { name = "code-wiki-agent" },
@@ -641,10 +641,10 @@ requires-dist = [
     { name = "aiobotocore", specifier = ">=2.13" },
     { name = "code-wiki-agent", editable = "agents/code-wiki-agent" },
     { name = "deepeval", specifier = ">=4.0.0" },
-    { name = "model-adapter", editable = "cores/model-adapter" },
+    { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
-    { name = "subagent-runtime", editable = "cores/subagent-runtime" },
+    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
 ]
 
 [[package]]
@@ -1264,7 +1264,7 @@ wheels = [
 [[package]]
 name = "model-adapter"
 version = "0.1.0"
-source = { editable = "cores/model-adapter" }
+source = { editable = "packages/model-adapter" }
 dependencies = [
     { name = "boto3" },
     { name = "langchain-aws" },
@@ -2472,7 +2472,7 @@ wheels = [
 [[package]]
 name = "subagent-runtime"
 version = "0.1.0"
-source = { editable = "cores/subagent-runtime" }
+source = { editable = "packages/subagent-runtime" }
 dependencies = [
     { name = "langchain-aws" },
     { name = "langchain-core" },
@@ -2483,7 +2483,7 @@ dependencies = [
 requires-dist = [
     { name = "langchain-aws", specifier = ">=1.4.6" },
     { name = "langchain-core", specifier = ">=1.4.0" },
-    { name = "model-adapter", editable = "cores/model-adapter" },
+    { name = "model-adapter", editable = "packages/model-adapter" },
 ]
 
 [[package]]
@@ -2689,7 +2689,7 @@ wheels = [
 [[package]]
 name = "vault-io"
 version = "0.1.0"
-source = { editable = "cores/vault-io" }
+source = { editable = "packages/vault-io" }
 dependencies = [
     { name = "boto3" },
     { name = "python-frontmatter" },

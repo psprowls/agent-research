@@ -21,7 +21,7 @@ uv run code-wiki-agent --help
 ## Workspace Layout
 
 ```
-cores/
+packages/
   vault-io/         # vault read/write primitives (frontmatter, layout, tokens)
   model-adapter/    # AWS Bedrock model loader + role registry
 agents/

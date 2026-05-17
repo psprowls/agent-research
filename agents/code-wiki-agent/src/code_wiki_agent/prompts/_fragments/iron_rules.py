@@ -1,4 +1,4 @@
-# Source: cores/prompt-sources/SKILL.md
+# Source: packages/prompt-sources/SKILL.md
 # Anchor: ## Iron rules (L193-L201)
 # Source-commit: ef05d99
 

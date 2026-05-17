@@ -2,7 +2,7 @@
 spike: 001
 name: subagent-context-audit
 type: standard
-validates: "Given current prompts/*.py and cores/prompt-sources/SKILL.md + lattice/wiki/CLAUDE.md, when compared side-by-side and weighed against Bedrock fan-out cost, then we can identify dropped load-bearing chunks, confirm wiki CLAUDE.md handling, and recommend an injection strategy"
+validates: "Given current prompts/*.py and packages/prompt-sources/SKILL.md + lattice/wiki/CLAUDE.md, when compared side-by-side and weighed against Bedrock fan-out cost, then we can identify dropped load-bearing chunks, confirm wiki CLAUDE.md handling, and recommend an injection strategy"
 verdict: VALIDATED
 related: []
 tags: [context, prompts, audit, subagents, bedrock]
@@ -12,7 +12,7 @@ tags: [context, prompts, audit, subagents, bedrock]
 
 ## What This Validates
 
-**Given** the current Python port's subagent system prompts (`agents/code-wiki-agent/src/code_wiki_agent/prompts/*.py`) and the original sources (`cores/prompt-sources/SKILL.md`, `lattice/wiki/CLAUDE.md`),
+**Given** the current Python port's subagent system prompts (`agents/code-wiki-agent/src/code_wiki_agent/prompts/*.py`) and the original sources (`packages/prompt-sources/SKILL.md`, `lattice/wiki/CLAUDE.md`),
 **When** they are inventoried side-by-side and the cost of injecting missing context is estimated against Bedrock fan-out,
 **Then** we can name the load-bearing chunks that were dropped, confirm whether `wiki/CLAUDE.md` reaches subagent context, and recommend an injection strategy with a clear next step.
 
@@ -25,15 +25,15 @@ This is an analytical spike — no code changes, deliverable is this report.
 Before scoring strategies, one architectural fact reshapes the option space:
 
 ```
-$ grep -rln "from deepagents\|import deepagents\|create_deep_agent" agents/ cores/
-cores/subagent-runtime/src/subagent_runtime/pool.py  (comments only — bug references)
+$ grep -rln "from deepagents\|import deepagents\|create_deep_agent" agents/ packages/
+packages/subagent-runtime/src/subagent_runtime/pool.py  (comments only — bug references)
 ```
 
-**`deepagents` is not imported anywhere in agent or core code.** Subagent dispatch is done by a custom `SubagentPool` (`cores/subagent-runtime/src/subagent_runtime/pool.py`) — an async semaphore-bound fan-out that calls `llm.ainvoke([SystemMessage(...), HumanMessage(...)])` directly. There is no `SubAgentMiddleware`, no virtual filesystem, no tool-loop ReAct wrapper around each subagent.
+**`deepagents` is not imported anywhere in agent or core code.** Subagent dispatch is done by a custom `SubagentPool` (`packages/subagent-runtime/src/subagent_runtime/pool.py`) — an async semaphore-bound fan-out that calls `llm.ainvoke([SystemMessage(...), HumanMessage(...)])` directly. There is no `SubAgentMiddleware`, no virtual filesystem, no tool-loop ReAct wrapper around each subagent.
 
 Consequence: the strategy initially floated as "deepagents virtual FS read-on-demand" is **not available** in the current architecture. A read-on-demand option would require a separate architectural decision to migrate from the custom pool to `create_async_deep_agent`. That is a much larger discussion than fixing context loading.
 
-### Inventory: cores/prompt-sources/SKILL.md (201 lines)
+### Inventory: packages/prompt-sources/SKILL.md (201 lines)
 
 Section map and what is extracted into `prompts/_fragments/`:
 
@@ -46,7 +46,7 @@ Section map and what is extracted into `prompts/_fragments/`:
 | Quick start (CLI usage) | 78-99 | No | No (user-facing) |
 | Slash commands | 101-110 | No | No (host-facing) |
 | Sub-agents (the list) | 112-119 | No | No (meta) |
-| Python tools (scripts/) | 121-135 | No | Partial — scanner/linter call out to scripts; references already inline in `cores/prompt-sources/agents/*.md` |
+| Python tools (scripts/) | 121-135 | No | Partial — scanner/linter call out to scripts; references already inline in `packages/prompt-sources/agents/*.md` |
 | Cross-tool compatibility (incl. "root CLAUDE.md ≠ wiki CLAUDE.md" note) | 137-141 | **No** | **Yes** — disambiguates the two CLAUDE.md files; subagents that read either need to know which is which |
 | Page categories table | 143-155 | **Yes** → `page_categories.py` ✓ | Yes |
 | Why this works | 157-166 | No | No |
@@ -77,7 +77,7 @@ The layout block is the single most important piece of project-specific context 
 
 ### Confirmation: wiki/CLAUDE.md is data-only
 
-Grep across `agents/` and `cores/`:
+Grep across `agents/` and `packages/`:
 
 ```
 agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py:324: layout = read_layout(wiki / "CLAUDE.md")
@@ -92,7 +92,7 @@ How each subagent's `SystemMessage` is composed today:
 
 | Subagent | Fragments used | Local rules source | Approx size |
 |---|---|---|---|
-| `ingestor` | IRON_RULES, PAGE_CATEGORIES, FRONTMATTER_RULES, CITATION_RULES | `cores/prompt-sources/agents/ingestor.md` (112 lines) | ~1,800 tokens |
+| `ingestor` | IRON_RULES, PAGE_CATEGORIES, FRONTMATTER_RULES, CITATION_RULES | `packages/prompt-sources/agents/ingestor.md` (112 lines) | ~1,800 tokens |
 | `librarian` | IRON_RULES, PAGE_CATEGORIES, CITATION_RULES | `librarian.md` (86 lines) | ~1,500 tokens |
 | `linter` (×3 groups: page-quality, ADR-chain, stale-claims) | IRON_RULES only | `linter.md` (109 lines) plus per-group enumerations inline in `prompts/linter.py` | ~1,200 tokens each |
 | `scanner` | IRON_RULES, FRONTMATTER_RULES | `scanner.md` (113 lines) | ~1,500 tokens |
@@ -168,7 +168,7 @@ Cost on Bedrock. Per project memory ([[user_cost_optimization]] and [[project_wi
 
 ## Investigation Trail
 
-1. Started by grepping for `SKILL.md` / `CLAUDE.md` references across `agents/` and `cores/` — confirmed only `iron_rules.py` and `page_categories.py` cite `SKILL.md` as their source, and only `lint.py` / `scan.py` read `wiki/CLAUDE.md` (as data).
+1. Started by grepping for `SKILL.md` / `CLAUDE.md` references across `agents/` and `packages/` — confirmed only `iron_rules.py` and `page_categories.py` cite `SKILL.md` as their source, and only `lint.py` / `scan.py` read `wiki/CLAUDE.md` (as data).
 2. Mapped each subagent's fragment imports and confirmed all dispatch through plain `llm.ainvoke([SystemMessage, HumanMessage])` patterns in `commands/*.py`.
 3. **Surprise:** searched for `deepagents` imports — found none. The "virtual filesystem" strategy I'd originally floated (in the chat that triggered this spike) is not actionable without a separate migration. This reshaped the strategy table — option B was demoted from "complex but real" to "out of scope".
 4. Sectioned both `SKILL.md` and `lattice/wiki/CLAUDE.md` by heading and scored each section's load-bearing status for subagents.
@@ -204,7 +204,7 @@ Avoid:
 
 Watch out for:
 - When `wiki/CLAUDE.md` is *missing* (or `AGENTS.md` is used instead in another tool host), the project-context renderer must degrade gracefully — emit a minimal block from defaults rather than crashing the command.
-- Fragment provenance must stay current. If `cores/prompt-sources/SOURCE-COMMIT` advances, the new fragments need a re-anchor sweep.
+- Fragment provenance must stay current. If `packages/prompt-sources/SOURCE-COMMIT` advances, the new fragments need a re-anchor sweep.
 
 ## Recommended Next Step
 
@@ -216,6 +216,6 @@ Scope (estimated 4-6 atomic commits):
 3. Wire updates in `prompts/scanner.py`, `prompts/linter.py`, `prompts/ingestor.py`: include the new fragments where appropriate; accept an optional injected project-context string at prompt-build time.
 4. Update `commands/scan.py`, `commands/lint.py`, `commands/ingest.py` to call `render_project_context()` once at entry and pass the result into the relevant prompt builders.
 5. Tests: snapshot tests on assembled `SystemMessage` strings (using `syrupy`) plus a missing-`CLAUDE.md` degradation test.
-6. Optional: a tiny eval check that compares a recorded librarian/linter output before and after — the project's `cores/eval-harness` already supports this pattern.
+6. Optional: a tiny eval check that compares a recorded librarian/linter output before and after — the project's `packages/eval-harness` already supports this pattern.
 
 Suggested route: `/gsd-plan-phase` with the spike as input. Findings here are enough to skip ahead from `/gsd-discuss-phase`.

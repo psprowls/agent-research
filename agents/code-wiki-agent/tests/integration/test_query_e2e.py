@@ -26,7 +26,7 @@ import pytest
 # as a module-level constant without re-deriving the path.
 FIXTURE_VAULT: Path = (
     Path(__file__).parent.parent.parent.parent.parent
-    / "cores"
+    / "packages"
     / "vault-io"
     / "tests"
     / "fixtures"

@@ -14,7 +14,7 @@ Exports:
     LINTER_PAGE_QUALITY_SYSTEM, LINTER_ADR_CHAIN_SYSTEM, LINTER_STALE_CLAIMS_SYSTEM
         — backward-compat constants for existing imports.
 
-Source: cores/prompt-sources/agents/linter.md (Pass 2/3 and Rules section)
+Source: packages/prompt-sources/agents/linter.md (Pass 2/3 and Rules section)
 """
 
 from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
@@ -23,7 +23,7 @@ from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 # Prioritization rule shared by all three linter group prompts (linter-only, not in
 # shared _fragments/ since it is specific to the linter role).
-# Source: cores/prompt-sources/agents/linter.md §Rules bullet 3
+# Source: packages/prompt-sources/agents/linter.md §Rules bullet 3
 LINT_PRIORITY_ORDER = """\
 ## Prioritization
 
@@ -52,7 +52,7 @@ If no stale claim issues are found, output exactly: No stale claim issues found.
 
 # ---------------------------------------------------------------------------
 # Per-group check sets
-# Source: cores/prompt-sources/agents/linter.md §Pass 2 (L48-L56), §Rules (L93-L101)
+# Source: packages/prompt-sources/agents/linter.md §Pass 2 (L48-L56), §Rules (L93-L101)
 # ---------------------------------------------------------------------------
 
 _PAGE_QUALITY_CHECKS = """\

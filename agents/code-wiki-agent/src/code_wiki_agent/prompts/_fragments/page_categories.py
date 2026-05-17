@@ -1,4 +1,4 @@
-# Source: cores/prompt-sources/SKILL.md
+# Source: packages/prompt-sources/SKILL.md
 # Anchor: ## Page categories (table — L143-L155)
 # Source-commit: ef05d99
 

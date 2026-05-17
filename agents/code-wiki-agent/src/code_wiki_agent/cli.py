@@ -27,7 +27,7 @@ app = typer.Typer(
 # Highest trace `schema_version` this renderer was authored against (OBS-04 D-03).
 # Records with a higher version still render (lenient consumer) but trigger a
 # one-shot per-file stderr warning. Bump when the renderer is taught about a
-# newer schema; producers in cores/subagent-runtime and commands/query.py stamp
+# newer schema; producers in packages/subagent-runtime and commands/query.py stamp
 # the integer at write time.
 KNOWN_SCHEMA_VERSION = 1
 

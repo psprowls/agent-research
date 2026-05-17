@@ -1,4 +1,4 @@
-# Source: cores/prompt-sources/SKILL.md
+# Source: packages/prompt-sources/SKILL.md
 # Anchor: ## Architecture (L34-L69)
 # Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030
 

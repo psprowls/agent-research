@@ -1,0 +1,9 @@
+# STUB: this file is not loaded in production. Edit packages/model-adapter/src/model_adapter/models.toml.
+
+[roles.haiku]
+model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region   = "us-east-1"
+
+[roles.sonnet]
+model_id = "us.anthropic.claude-sonnet-4-6"
+region   = "us-east-1"

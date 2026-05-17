@@ -118,7 +118,7 @@ Fast unit tests with mocked Bedrock.
 - MCP server is thin: it imports the same command functions as the CLI
 
 ## Used by
-- [[cores/eval-harness/eval-harness]]
+- [[packages/eval-harness/eval-harness]]
 
 ## Related concepts
 - [[concepts/bedrock-model-routing]]

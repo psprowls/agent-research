@@ -168,8 +168,8 @@ containers:
     vault_dir: agents
     classification: package
     children_count: 1
-  - source: cores
-    vault_dir: cores
+  - source: packages
+    vault_dir: packages
     classification: package
     children_count: 4
   - source: eval

@@ -18,7 +18,7 @@ Non-negotiable design decisions that emerged during spiking. Every feature area 
 
 - Preserve the existing fragment curation discipline — every shared prompt fragment under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` carries the standard `# Source:` / `# Anchor:` / `# Source-commit:` provenance header.
 - Stay within the cost-optimization mindset (see [[user_cost_optimization]]). Total added context per fan-out call should justify itself; target < ~1,500 added tokens per role above the current baseline.
-- Do not require a deepagents migration to close subagent-context gaps. The dispatch primitive is the custom `cores/subagent-runtime/pool.py::SubagentPool`; migrating to `deepagents.SubAgentMiddleware` is a separate architectural decision.
+- Do not require a deepagents migration to close subagent-context gaps. The dispatch primitive is the custom `packages/subagent-runtime/pool.py::SubagentPool`; migrating to `deepagents.SubAgentMiddleware` is a separate architectural decision.
 - Project-specific context (wiki `CLAUDE.md` layout block, container pins, style, log format) must reach the subagents that scan/lint/ingest. Static skill content alone is not enough — the layout differs per project and changes over a project's lifetime.
 </requirements>
 

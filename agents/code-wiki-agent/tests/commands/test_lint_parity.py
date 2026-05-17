@@ -18,7 +18,7 @@ import pytest
 
 EDGE_CASE_VAULT = (
     Path(__file__).parent.parent.parent.parent.parent
-    / "cores"
+    / "packages"
     / "vault-io"
     / "tests"
     / "fixtures"

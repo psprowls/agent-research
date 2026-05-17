@@ -1,4 +1,4 @@
-# Source: cores/prompt-sources/agents/ingestor.md
+# Source: packages/prompt-sources/agents/ingestor.md
 # Anchor: ## Workflow step 4 (required fields — L50-L58)
 # Source-commit: ef05d99
 

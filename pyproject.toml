@@ -1,6 +1,6 @@
 [tool.uv.workspace]
-members = ["cores/*", "agents/*"]
-exclude = ["cores/prompt-sources"]
+members = ["packages/*", "agents/*"]
+exclude = ["packages/prompt-sources"]
 
 [dependency-groups]
 dev = [
@@ -21,4 +21,9 @@ select = ["E", "F", "I"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
-pythonpath = ["cores/eval-harness/tests"]
+pythonpath = ["packages/eval-harness/tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: requires real Bedrock or subprocess (skipped by default)",
+    "eval: opt-in eval suite (skipped unless CODE_WIKI_RUN_EVAL=1)",
+]

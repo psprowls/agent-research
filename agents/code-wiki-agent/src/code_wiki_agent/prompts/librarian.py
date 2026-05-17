@@ -3,7 +3,7 @@ from __future__ import annotations
 """LIBRARIAN_SYSTEM prompt — composed from shared fragments + librarian-local prose.
 
 Composed at import time (no runtime templating per D-02). Sections:
-  1. Role intro (librarian-local, adapted from cores/prompt-sources/agents/librarian.md)
+  1. Role intro (librarian-local, adapted from packages/prompt-sources/agents/librarian.md)
   2. IRON_RULES fragment (shared)
   3. PAGE_CATEGORIES fragment (shared)
   4. CITATION_RULES fragment (shared)

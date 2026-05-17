@@ -3,7 +3,7 @@ from __future__ import annotations
 """Scanner system prompt for code-wiki-agent.
 
 Composes shared fragments (IRON_RULES, FRONTMATTER_RULES, ARCHITECTURE_OVERVIEW,
-LOG_FORMAT) with scanner-local rules adapted from cores/prompt-sources/agents/scanner.md.
+LOG_FORMAT) with scanner-local rules adapted from packages/prompt-sources/agents/scanner.md.
 
 Exports:
     build_scanner_system(project_context: str = "") -> str — assembles the scanner
@@ -12,7 +12,7 @@ Exports:
     SCANNER_SYSTEM — backward-compat constant, equals build_scanner_system().
 """
 
-# Source: cores/prompt-sources/agents/scanner.md
+# Source: packages/prompt-sources/agents/scanner.md
 # Anchor: ## Role, ## Rules, ## Red flags
 # Source-commit: ef05d99
 

@@ -38,7 +38,7 @@ reproducible oracle.
 
 4. **Vault path available** — point `--vault` at a local checkout of the vault you want
    to eval against. The round-trip test fixture at
-   `cores/vault-io/tests/fixtures/round-trip-vault/` can be used for CI.
+   `packages/vault-io/tests/fixtures/round-trip-vault/` can be used for CI.
 
 ### Command
 
@@ -109,11 +109,11 @@ population).
 ## Running the Eval Sweep
 
 The eval sweep (Plan 02) tests multiple Bedrock model alternatives against the
-recorded baselines. See `cores/eval-harness/src/eval_harness/sweep.py` for details.
+recorded baselines. See `packages/eval-harness/src/eval_harness/sweep.py` for details.
 
 ```bash
 CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
-  cores/eval-harness/tests/ -m eval -v
+  packages/eval-harness/tests/ -m eval -v
 ```
 
 ---
@@ -123,5 +123,5 @@ CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
 All deterministic unit tests (pricing, structural checks, command construction):
 
 ```bash
-uv run --package eval-harness pytest cores/eval-harness/tests/ -m "not eval" -x -q
+uv run --package eval-harness pytest packages/eval-harness/tests/ -m "not eval" -x -q
 ```

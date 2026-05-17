@@ -6,7 +6,7 @@ These are non-negotiable for the build that closes this gap:
 
 - Preserve the existing curation discipline. Every fragment under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` must carry the standard 3-line provenance header (`# Source:`, `# Anchor:`, `# Source-commit:`).
 - Stay within the cost-optimization mindset (see [[user_cost_optimization]]). Total added context per fan-out call should justify itself; target < ~1,500 added tokens per role on top of the current baseline (~1,060 tokens of shared fragments).
-- Do **not** require a deepagents migration to fix this. The subagent dispatch primitive is `cores/subagent-runtime/pool.py::SubagentPool`, not `deepagents.SubAgentMiddleware`. A virtual-filesystem solution is out of scope until that architecture decision is taken separately.
+- Do **not** require a deepagents migration to fix this. The subagent dispatch primitive is `packages/subagent-runtime/pool.py::SubagentPool`, not `deepagents.SubAgentMiddleware`. A virtual-filesystem solution is out of scope until that architecture decision is taken separately.
 - Project-specific context (wiki `CLAUDE.md` layout block, container pins, style, log format) must reach the subagents that scan/lint/ingest. Static skill content alone is not enough — the layout differs per project and changes over a project's lifetime.
 
 ## How to Build It
@@ -19,9 +19,9 @@ Add four files under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragme
 
 ```python
 # agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py
-# Source: cores/prompt-sources/SKILL.md
+# Source: packages/prompt-sources/SKILL.md
 # Anchor: ## Architecture (L34-L69)
-# Source-commit: <current commit of cores/prompt-sources/SOURCE-COMMIT>
+# Source-commit: <current commit of packages/prompt-sources/SOURCE-COMMIT>
 
 ARCHITECTURE_OVERVIEW = """\
 ## Vault layout
@@ -38,7 +38,7 @@ The other three fragments:
 |---|---|---|---|
 | `style_rules.py` | `lattice/wiki/CLAUDE.md §Style L153-159` | ~150 | ingestor, librarian |
 | `log_format.py` | `lattice/wiki/CLAUDE.md §Log format L124-133` | ~120 | scanner, ingestor, linter |
-| `claude_md_disambiguation.py` | `cores/prompt-sources/SKILL.md §Cross-tool compatibility L141` | ~80 | linter, ingestor |
+| `claude_md_disambiguation.py` | `packages/prompt-sources/SKILL.md §Cross-tool compatibility L141` | ~80 | linter, ingestor |
 
 ### Step 2 — Project-context renderer
 
@@ -156,7 +156,7 @@ def test_scanner_system_degrades_without_claude_md(tmp_path):
     assert prompt  # non-empty
 ```
 
-Optionally add an eval check using `cores/eval-harness` that compares a recorded linter/librarian output before and after the change, to confirm the added context didn't regress baseline behavior.
+Optionally add an eval check using `packages/eval-harness` that compares a recorded linter/librarian output before and after the change, to confirm the added context didn't regress baseline behavior.
 
 ## What to Avoid
 
@@ -164,15 +164,15 @@ Optionally add an eval check using `cores/eval-harness` that compares a recorded
 - **Do not** migrate to `deepagents.SubAgentMiddleware` as part of this fix. The current `SubagentPool` works; switching to deepagents-managed subagents is a separate architectural decision worth its own discussion. Conflating the two will blow the scope of a small, well-bounded fix.
 - **Do not** add a `read_skill_doc(section)` tool. The current dispatch is single-turn `llm.ainvoke([SystemMessage, HumanMessage])` — no tool loop, no ReAct. Adding a tool means adding a tool loop around every subagent, which is a substantial architecture change for marginal benefit over (C+D).
 - **Do not** crash when `wiki/CLAUDE.md` is missing or when `AGENTS.md` is used instead. `render_project_context()` must degrade gracefully to an empty string; prompt builders must accept an empty `project_context` argument and continue.
-- **Do not** drop the provenance headers on new fragments. They are the only mechanism keeping the curated fragments aligned with `cores/prompt-sources/SOURCE-COMMIT`. Re-anchor when that file advances.
+- **Do not** drop the provenance headers on new fragments. They are the only mechanism keeping the curated fragments aligned with `packages/prompt-sources/SOURCE-COMMIT`. Re-anchor when that file advances.
 
 ## Constraints
 
-- **Architecture is fixed (for this fix).** `cores/subagent-runtime/pool.py::SubagentPool` is the dispatch primitive. No deepagents virtual FS available.
+- **Architecture is fixed (for this fix).** `packages/subagent-runtime/pool.py::SubagentPool` is the dispatch primitive. No deepagents virtual FS available.
 - **Token budget per role:** soft ceiling of ~1,500 added tokens above the current ~1,060-token baseline. Combined C+D lands in the 800–1,200 range.
 - **Bedrock pricing:** added input cost is marginal at fan-out tier (Qwen3-32B). One lint pass adds ~$0.003; one ingest with 10 page updates adds ~$0.013. Cost is not the constraint — signal-to-noise is.
-- **Frontmatter source split:** `frontmatter_rules.py` currently anchors to `cores/prompt-sources/agents/ingestor.md`; the project-side required-fields list lives in `lattice/wiki/CLAUDE.md` (lines 56-67). When extracting style/log fragments, decide whether `frontmatter_rules.py` should also re-anchor to the wiki-side list or stay as the ingestor-specific variant. Leaning toward keeping the ingestor anchor and treating wiki/CLAUDE.md's frontmatter list as the project-pinned override delivered via `render_project_context()`.
-- **Source-of-truth file:** `cores/prompt-sources/SOURCE-COMMIT` tracks the upstream lattice-wiki commit our fragments are anchored to. Any new fragment must record the same commit and be re-checked when that file is bumped.
+- **Frontmatter source split:** `frontmatter_rules.py` currently anchors to `packages/prompt-sources/agents/ingestor.md`; the project-side required-fields list lives in `lattice/wiki/CLAUDE.md` (lines 56-67). When extracting style/log fragments, decide whether `frontmatter_rules.py` should also re-anchor to the wiki-side list or stay as the ingestor-specific variant. Leaning toward keeping the ingestor anchor and treating wiki/CLAUDE.md's frontmatter list as the project-pinned override delivered via `render_project_context()`.
+- **Source-of-truth file:** `packages/prompt-sources/SOURCE-COMMIT` tracks the upstream lattice-wiki commit our fragments are anchored to. Any new fragment must record the same commit and be re-checked when that file is bumped.
 
 ## Origin
 
