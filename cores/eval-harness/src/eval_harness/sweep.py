@@ -6,6 +6,12 @@ run_sweep() is the primary entry point. It:
 3. Collects SweepResult per run, with partial-failure isolation via asyncio.gather.
 4. Appends structural checks, token counts, and cost estimates to each SweepResult.
 
+run_role_sweep() is the Phase 7 addition for the cost-frontier sweep (SWEEP-01).
+It runs a single (role, candidate) cell using the single-role-swap protocol (D-06):
+the role-under-test uses candidate_model_id while all other roles stay at their
+models.toml defaults.  ROLE_COMMAND_MAP routes each role to the appropriate command
+function (_sweep_query_role, _sweep_scan_role, _sweep_lint_role, _sweep_ingest_role).
+
 Token counts are extracted from the trace JSONL written by SubagentPool._write_trace
 into wt.path / ".code-wiki" / "traces". The most-recently-modified JSONL file is
 parsed; tokens_in/tokens_out are summed across all records for the run.
@@ -21,12 +27,16 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from code_wiki_agent.commands.ingest import run_ingest_source
+from code_wiki_agent.commands.lint import run_lint
 from code_wiki_agent.commands.query import QueryResult, run_query
+from code_wiki_agent.commands.scan import run_scan
 
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
 from eval_harness.pricing import UnknownModelError, cost_for_usage
 from eval_harness.structural import check_structural
+from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -264,5 +274,288 @@ async def run_sweep(
         elif isinstance(item, BaseException):
             # asyncio.gather itself raised — should not happen with return_exceptions=True
             logger.error("Unexpected gather exception: %s", item)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 additions: role-rotation sweep (SWEEP-01, D-06)
+# ---------------------------------------------------------------------------
+
+# Maps role name → which command function to call for a sweep cell.
+# librarian/synthesizer/code_reader go through run_query with role_model_overrides.
+# scanner/linter/ingestor each have their own run_* entry point with model_override.
+ROLE_COMMAND_MAP: dict[str, str] = {
+    "librarian":   "_sweep_query_role",
+    "synthesizer": "_sweep_query_role",
+    "code_reader": "_sweep_query_role",
+    "scanner":     "_sweep_scan_role",
+    "linter":      "_sweep_lint_role",
+    "ingestor":    "_sweep_ingest_role",
+}
+
+
+async def _sweep_query_role(
+    role: str,
+    candidate_model_id: str,
+    case: dict,
+    vault_path: Path,
+) -> tuple[QueryResult, str]:
+    """Run a query sweep cell for librarian/synthesizer/code_reader.
+
+    Passes role_model_overrides={role: candidate_model_id} to run_query so only
+    the role under test uses the candidate; all others keep their defaults (D-06).
+
+    Returns:
+        (QueryResult, answer_text) tuple.
+    """
+    result: QueryResult = await run_query(
+        case["query"],
+        vault_path=vault_path,
+        role_model_overrides={role: candidate_model_id},
+    )
+    return result, result.answer
+
+
+async def _sweep_scan_role(
+    role: str,
+    candidate_model_id: str,
+    case: dict,
+    vault_path: Path,
+) -> tuple[object, str]:
+    """Run a scan sweep cell for the scanner role.
+
+    Args:
+        role:               Must be "scanner".
+        candidate_model_id: Bedrock model ID to pass as model_override.
+        case:               Eval case dict (query key used for the answer stub).
+        vault_path:         Vault root for the isolated worktree.
+
+    Returns:
+        (ScanResult, summary_string) tuple.
+    """
+    from code_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
+
+    result = await run_scan(
+        vault_path=vault_path,
+        model_override=candidate_model_id,
+    )
+    # Produce a short summary string for structural checks
+    summary = (
+        f"scan: added={result.added} updated={result.updated} errors={result.errors}"
+    )
+    return result, summary
+
+
+async def _sweep_lint_role(
+    role: str,
+    candidate_model_id: str,
+    case: dict,
+    vault_path: Path,
+) -> tuple[object, str]:
+    """Run a lint sweep cell for the linter role.
+
+    Args:
+        role:               Must be "linter".
+        candidate_model_id: Bedrock model ID to pass as model_override.
+        case:               Eval case dict (unused for lint).
+        vault_path:         Vault root for the isolated worktree.
+
+    Returns:
+        (LintResult, summary_string) tuple.
+    """
+    result = await run_lint(
+        vault_path=vault_path,
+        model_override=candidate_model_id,
+    )
+    summary = f"lint: orphans={result.orphans} errors={result.errors}"
+    return result, summary
+
+
+async def _sweep_ingest_role(
+    role: str,
+    candidate_model_id: str,
+    case: dict,
+    vault_path: Path,
+) -> tuple[object, str]:
+    """Run an ingest sweep cell for the ingestor role.
+
+    The case dict may provide a ``source_path`` key pointing to a source file to
+    ingest.  When absent, a representative Python source file within the vault
+    sibling directory is used as a synthetic target so token counts are still
+    captured.  See module docstring for the fixture convention.
+
+    Args:
+        role:               Must be "ingestor".
+        candidate_model_id: Bedrock model ID to pass as model_override.
+        case:               Eval case dict — ``source_path`` key is optional.
+        vault_path:         Vault root for the isolated worktree.
+
+    Returns:
+        (IngestResult, summary_string) tuple.
+    """
+    if "source_path" in case:
+        source_path = Path(case["source_path"])
+    else:
+        # Fallback: use vault_path itself as source (the ingestor accepts any Path).
+        source_path = vault_path
+
+    result = await run_ingest_source(
+        source_path=source_path,
+        vault_path=vault_path,
+        model_override=candidate_model_id,
+    )
+    summary = f"ingest: page_path={result.page_path} status={result.status}"
+    return result, summary
+
+
+async def run_role_sweep(
+    role: str,
+    candidate_model_id: str,
+    cases_path: Path,
+    vault_path: Path,
+    repeats: int = 3,
+    semaphore: asyncio.Semaphore | None = None,
+) -> list[SweepResult]:
+    """Single-role-swap sweep: run one (role, candidate) cell across all eval cases.
+
+    For each (case, repeat_idx) pair:
+    - Acquires the shared semaphore (default: Semaphore(8)) to throttle Bedrock
+      rate limits (Pitfall 4).
+    - Opens an EvalWorktree for vault isolation.
+    - Dispatches to the appropriate command function via ROLE_COMMAND_MAP.
+    - Extracts tokens from the trace JSONL and computes cost.
+    - Produces a SweepResult per run.
+
+    Partial-failure isolation: asyncio.gather(return_exceptions=True) ensures one
+    failing cell does not abort the entire sweep matrix (mirrors run_sweep pattern).
+
+    Note: Two-gate scoring (score_two_gate) is NOT called here — it is the
+    responsibility of the outer multi-cell driver in Plan 07-07.  This function
+    produces raw SweepResult records only.
+
+    Args:
+        role:               Role name (must be a key in ROLE_COMMAND_MAP).
+        candidate_model_id: Bedrock model ID for the role under test.
+        cases_path:         Path to query_cases.json (schema validated per T-4-01).
+        vault_path:         Path to the source vault (copied per cell via EvalWorktree).
+        repeats:            Number of repeat runs per case (default 3).
+        semaphore:          Optional caller-provided semaphore.  When None, a fresh
+                            Semaphore(8) is created per call (Pitfall 4).
+
+    Returns:
+        List of SweepResult — one per (case, repeat_idx) that was attempted.
+    """
+    if role not in ROLE_COMMAND_MAP:
+        raise ValueError(
+            f"Unknown role {role!r} — must be one of {sorted(ROLE_COMMAND_MAP)}"
+        )
+
+    sem = semaphore or asyncio.Semaphore(8)
+    cases = _load_and_validate_cases(cases_path)
+    safe_model_id = _sanitize_model_id(candidate_model_id)
+    dispatch_name = ROLE_COMMAND_MAP[role]
+
+    # Map dispatch name string to actual function (module-level callables)
+    _dispatch: dict[str, object] = {
+        "_sweep_query_role":  _sweep_query_role,
+        "_sweep_scan_role":   _sweep_scan_role,
+        "_sweep_lint_role":   _sweep_lint_role,
+        "_sweep_ingest_role": _sweep_ingest_role,
+    }
+    cmd_fn = _dispatch[dispatch_name]
+
+    async def _run_role_one(case: dict, repeat_idx: int) -> SweepResult:
+        query = case["query"]
+        async with sem:
+            async with EvalWorktree(vault_path) as wt:
+                t0 = time.monotonic()
+                try:
+                    _result, _answer = await cmd_fn(
+                        role, candidate_model_id, case, wt.path
+                    )
+                    wall_seconds = time.monotonic() - t0
+
+                    trace_dir = wt.path / ".code-wiki" / "traces"
+                    tokens_in, tokens_out = _extract_tokens_from_traces(trace_dir)
+
+                    cost_usd: float | None = None
+                    if tokens_in is not None and tokens_out is not None:
+                        try:
+                            cost_usd = cost_for_usage(
+                                candidate_model_id,
+                                {"input": tokens_in, "output": tokens_out},
+                            )
+                        except (UnknownModelError, KeyError):
+                            cost_usd = None
+
+                    # Structural check: only meaningful for QueryResult
+                    if hasattr(_result, "answer"):
+                        structural = check_structural(_result, wt.path)
+                        citations = getattr(_result, "citations", [])
+                        pages_drilled = getattr(_result, "pages_drilled", 0)
+                        answer = _answer
+                    else:
+                        structural = {}
+                        citations = []
+                        pages_drilled = 0
+                        answer = _answer
+
+                    return SweepResult(
+                        model_id=candidate_model_id,
+                        safe_model_id=safe_model_id,
+                        query=query,
+                        answer=answer,
+                        citations=citations,
+                        pages_drilled=pages_drilled,
+                        tokens_in=tokens_in,
+                        tokens_out=tokens_out,
+                        cost_usd=cost_usd,
+                        wall_seconds=wall_seconds,
+                        structural=structural,
+                        status="ok",
+                        seed=None,
+                    )
+
+                except Exception as exc:
+                    wall_seconds = time.monotonic() - t0
+                    logger.warning(
+                        "Role sweep cell failed: role=%s model=%s repeat=%d query=%r error=%s",
+                        role,
+                        candidate_model_id,
+                        repeat_idx,
+                        query,
+                        exc,
+                    )
+                    return SweepResult(
+                        model_id=candidate_model_id,
+                        safe_model_id=safe_model_id,
+                        query=query,
+                        answer="",
+                        citations=[],
+                        pages_drilled=0,
+                        tokens_in=None,
+                        tokens_out=None,
+                        cost_usd=None,
+                        wall_seconds=wall_seconds,
+                        structural={},
+                        status="error",
+                        seed=None,
+                    )
+
+    coros = [
+        _run_role_one(case, repeat_idx)
+        for case in cases
+        for repeat_idx in range(repeats)
+    ]
+
+    raw = await asyncio.gather(*coros, return_exceptions=True)
+
+    results: list[SweepResult] = []
+    for item in raw:
+        if isinstance(item, SweepResult):
+            results.append(item)
+        elif isinstance(item, BaseException):
+            logger.error("Unexpected gather exception in run_role_sweep: %s", item)
 
     return results
