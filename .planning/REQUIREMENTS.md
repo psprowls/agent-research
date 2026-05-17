@@ -57,6 +57,16 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 - [ ] **OBS-05**: `code-wiki-agent trace` renderer surfaces per-subagent cost (input/output tokens × model price) per trace
 - [ ] **OBS-06**: Trace renderer collapses repeated subagent-role groups into a summary line by default, with `--expand` to drill in
 
+### CTX — Subagent context completion (spike-001 follow-up)
+
+Source: `.planning/spikes/001-subagent-context-audit/README.md`. Closes the gap between Phase 6's curated prompt fragments and the load-bearing content still missing from subagent system prompts (vault layout, root-vs-wiki `CLAUDE.md` disambiguation, project-specific style/log/layout from `wiki/CLAUDE.md`). Architectural constraint: must not require a `deepagents.SubAgentMiddleware` migration; uses the existing `SubagentPool` dispatch.
+
+- [ ] **CTX-01**: Four shared prompt fragments extracted under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` — `architecture_overview` (anchor `SKILL.md §Architecture L34-69`), `style_rules` (anchor `wiki/CLAUDE.md §Style L153-159`), `log_format` (anchor `wiki/CLAUDE.md §Log format L124-133`), `claude_md_disambiguation` (anchor `SKILL.md §Cross-tool compatibility L141`); each carries the standard `# Source: / # Anchor: / # Source-commit:` provenance header
+- [ ] **CTX-02**: `prompts/project_context.py::render_project_context(wiki_path: Path) -> str` reads `wiki/CLAUDE.md` (or falls back to `AGENTS.md`) and returns a compact rendered block covering parsed layout containers + style + log format; returns empty string when neither schema file is present rather than crashing
+- [ ] **CTX-03**: `commands/scan.py`, `commands/lint.py`, `commands/ingest.py` call `render_project_context()` once at command entry and pass the result into the relevant prompt builders for scanner / linter (3 groups) / ingestor `SystemMessage` composition
+- [ ] **CTX-04**: Snapshot tests (using `syrupy`, already in stack) cover assembled system-prompt strings for each subagent with and without project context, plus an explicit missing-`wiki/CLAUDE.md` degradation test verifying no crash
+- [ ] **CTX-05**: Added context per subagent role stays within +1,500 tokens of the pre-Phase-10 baseline (snapshot-measured) and re-running the Phase 6 divergence eval against the recorded baseline does not regress (existing `--accept-divergence-baseline` flow applies for any intentional shift)
+
 ---
 
 ## v1.2 Backlog (filed during Phase 7, 2026-05-17)
@@ -118,6 +128,11 @@ Followup requirements surfaced by the Phase 7 cost-frontier sweep. Not in scope 
 | OBS-04      | Phase 9: Trace/Observability Polish     | Pending     |
 | OBS-05      | Phase 9: Trace/Observability Polish     | Pending     |
 | OBS-06      | Phase 9: Trace/Observability Polish     | Pending     |
+| CTX-01      | Phase 10: Subagent Context Completion   | Pending     |
+| CTX-02      | Phase 10: Subagent Context Completion   | Pending     |
+| CTX-03      | Phase 10: Subagent Context Completion   | Pending     |
+| CTX-04      | Phase 10: Subagent Context Completion   | Pending     |
+| CTX-05      | Phase 10: Subagent Context Completion   | Pending     |
 | TRACE-FU-01 | v1.2 backlog (filed by Phase 7)         | Backlog     |
 | SWEEP-FU-02 | v1.2 backlog (filed by Phase 7)         | Backlog     |
 | SWEEP-FU-03 | v1.2 backlog (filed by Phase 7)         | Backlog     |

@@ -33,6 +33,7 @@ Full detail: [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 7: Cost-Frontier Sweep** — Execute the sweep against the post-port agent, publish cost-optimal model picks, update models.toml defaults (7/7 plans complete — shipped 2026-05-17)
 - [ ] **Phase 8: Host Reliability** — MCP cancellation polish and DeepAgents CLI stdio integration test
 - [ ] **Phase 9: Trace/Observability Polish** — Document and version the trace schema; enhance the trace renderer with per-subagent cost and collapsing
+- [ ] **Phase 10: Subagent Context Completion** — Close the spike-001 gap: inject load-bearing SKILL.md + wiki/CLAUDE.md content into subagent system prompts via curated fragments + a project-context renderer (no deepagents migration)
 
 ---
 
@@ -118,6 +119,20 @@ Plans:
   3. `code-wiki-agent trace <file>` collapses repeated subagent-role groups into a summary line by default; `--expand` drills into the full event stream
 **Plans**: TBD
 
+### Phase 10: Subagent Context Completion
+**Goal**: Subagent system prompts include the load-bearing SKILL.md and `wiki/CLAUDE.md` content identified in spike 001, delivered via the existing fragment curation pattern + a project-context renderer at command entry, without a deepagents architectural migration
+**Depends on**: Phase 6 (prompt content port baseline). Independent of Phase 7/8/9 — can run parallel.
+**Requirements**: CTX-01, CTX-02, CTX-03, CTX-04, CTX-05
+**Source**: `.planning/spikes/001-subagent-context-audit/README.md` (VALIDATED)
+**Success Criteria** (what must be TRUE):
+  1. Four new shared fragments exist under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` (`architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py`), each carrying the standard `# Source: / # Anchor: / # Source-commit:` provenance header
+  2. `prompts/project_context.py::render_project_context(wiki_path: Path) -> str` reads `wiki/CLAUDE.md` (or falls back to `AGENTS.md`) and returns a compact rendered block; returns empty string when neither schema file is present rather than crashing
+  3. `commands/scan.py`, `commands/lint.py`, `commands/ingest.py` call `render_project_context()` once at command entry and pass the result into the relevant prompt builders for scanner / linter (3 groups) / ingestor `SystemMessage` composition
+  4. Snapshot tests (using `syrupy`, already in stack) cover assembled system-prompt strings for each subagent with and without project context, plus an explicit missing-`wiki/CLAUDE.md` degradation test verifying no crash
+  5. Added context per subagent role stays within +1,500 tokens of the pre-Phase-10 baseline (snapshot-measured)
+  6. The Phase 6 divergence eval does not regress against the recorded baseline (the existing `--accept-divergence-baseline` flow applies for any intentional shift)
+**Plans**: TBD
+
 ---
 
 ## Progress
@@ -133,7 +148,8 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
+| 10. Subagent Context Completion             | v1.1      | 0/TBD          | Not started | -           |
 
 ---
 
-*Last updated: 2026-05-16 — Phase 7 planned (7 plans, 6 waves; Wave 6 has the live-Bedrock matrix run + two human checkpoints for the manual models.toml swap and STORY.md review)*
+*Last updated: 2026-05-17 — Phase 10 added from spike 001 (subagent context audit). Independent of Phase 7/8/9.*
