@@ -133,7 +133,7 @@ Plans:
 - [x] 09-05-PLAN.md — Lenient-consumer version warnings (v0 inference + newer-than-known) + real-fixture backward-compat test (OBS-04 consumer half)
 
 **Wave 5** *(gap-closure; blocked on 09-05)*
-- [ ] 09-06-PLAN.md — Gap closure: CR-01 (collapse by (role, model_id)) + WR-02 (event/kind out of by_role) + WR-03 (other-bucket for unknown statuses) (OBS-05, OBS-06)
+- [x] 09-06-PLAN.md — Gap closure: CR-01 (collapse by (role, model_id)) + WR-02 (event/kind out of by_role) + WR-03 (other-bucket for unknown statuses) (OBS-05, OBS-06)
 
 
 ### Phase 10: Subagent Context Completion
