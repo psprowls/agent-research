@@ -463,7 +463,7 @@ async def run_ingest_source(
             f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
             f"{stripped_wikilinks[:5]}"
         )
-    append_log(wiki, "ingest", title_guess, detail=detail, silent=True)
+    append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
 
     # Step 10: return result
     page_path_rel = str(target_path.relative_to(wiki))

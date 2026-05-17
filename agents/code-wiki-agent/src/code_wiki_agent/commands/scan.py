@@ -391,7 +391,14 @@ async def run_scan(
         if existing_rec:
             page_path = wiki / existing_rec["vault_path"]
             _add_stale_tag(page_path)
-            append_log(wiki, "scan", f"marked stale: {pkg_name}", detail=None, silent=True)
+            append_log(
+                wiki,
+                "scan",
+                f"marked stale: {pkg_name}",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
             logger.info("Marked stale: %s", pkg_name)
 
     # stale-tag renamed packages (old side)
@@ -402,7 +409,14 @@ async def run_scan(
             page_path = wiki / existing_rec["vault_path"]
             _add_stale_tag(page_path)
             new_name = rename_pair[1] if len(rename_pair) > 1 else "unknown"
-            append_log(wiki, "scan", f"marked stale: {old_name} (renamed to {new_name})", detail=None, silent=True)
+            append_log(
+                wiki,
+                "scan",
+                f"marked stale: {old_name} (renamed to {new_name})",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
             logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
 
     # Step 12: regenerate indexes
@@ -422,6 +436,7 @@ async def run_scan(
         f"scan complete: +{n_added} ~{n_updated} -{n_deleted}",
         detail=None,
         silent=True,
+        raise_exception=True,
     )
 
     return ScanResult(

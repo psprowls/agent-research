@@ -36,9 +36,22 @@ from vault_io._workspace import resolve_wiki_and_repo
 VALID_OPS = {"scan", "ingest", "query", "lint", "create", "update", "delete", "note"}
 
 
-def _error(message, as_json=False):
+def _error(message, as_json=False, raise_exception=False):
+    """Report an error.
+
+    When called from a library context (e.g. an MCP tool handler) pass
+    ``raise_exception=True`` so the failure surfaces as a normal
+    ``ValueError`` that the MCP boundary can catch — never ``sys.exit``,
+    which would kill the stdio server process (WR-01).
+
+    JSON-formatted error output is written to stderr, not stdout, so that
+    a future caller accidentally enabling ``as_json=True`` from inside the
+    MCP server cannot trip ``_StdoutGuard`` (WR-02).
+    """
+    if raise_exception:
+        raise ValueError(message)
     if as_json:
-        print(json.dumps({"status": "error", "message": message}))
+        print(json.dumps({"status": "error", "message": message}), file=sys.stderr)
     else:
         print(f"[error] {message}", file=sys.stderr)
     sys.exit(1)
@@ -60,20 +73,28 @@ def format_entry(op, title, detail):
     return today, header, f"\n{header}\n{body}"
 
 
-def append_log(wiki, op, title, detail, as_json=False, silent=False):
+def append_log(wiki, op, title, detail, as_json=False, silent=False, raise_exception=False):
     """Append a log entry to wiki/log.md.
 
     Args:
         silent: When True, suppress all stdout output. Use from MCP tool handlers
                 to avoid tripping _StdoutGuard. Overrides as_json for output only.
+        raise_exception: When True, error paths raise ``ValueError`` instead of
+                calling ``sys.exit(1)``. Library callers (MCP tool handlers,
+                file_work_item) MUST set this — a ``SystemExit`` from inside the
+                MCP server's tool boundary would terminate the stdio server.
     """
     if op not in VALID_OPS:
-        _error(f"unknown op '{op}'. Valid: {sorted(VALID_OPS)}", as_json)
+        _error(
+            f"unknown op '{op}'. Valid: {sorted(VALID_OPS)}",
+            as_json,
+            raise_exception=raise_exception,
+        )
 
     try:
         log_path = validate_wiki(wiki)
     except FileNotFoundError as e:
-        _error(str(e), as_json)
+        _error(str(e), as_json, raise_exception=raise_exception)
 
     today, header, entry_text = format_entry(op, title, detail)
 
@@ -81,7 +102,11 @@ def append_log(wiki, op, title, detail, as_json=False, silent=False):
         with log_path.open("a", encoding="utf-8") as f:
             f.write(entry_text)
     except OSError as e:
-        _error(f"failed to write {log_path}: {e}", as_json)
+        _error(
+            f"failed to write {log_path}: {e}",
+            as_json,
+            raise_exception=raise_exception,
+        )
 
     result = {
         "status": "ok",
