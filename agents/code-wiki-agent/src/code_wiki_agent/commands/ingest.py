@@ -53,7 +53,12 @@ class IngestResult:
         page_path:          Path to the written page relative to wiki root.
         slug:               URL-safe slug used for the output filename.
         title:              Human-readable page title.
-        page_type:          Page category: package, concept, adr, or work.
+        page_type:          Page category. From run_ingest_source: source,
+                            package, concept, or adr (set by the ingestor LLM
+                            and validated against _PAGE_TYPE_DIRS). From
+                            run_ingest_work_item: always "work" (work items
+                            bypass _route_target_path and file under
+                            <workspace>/work/ via file_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
     """
@@ -336,7 +341,7 @@ def build_ingest_source_prompt(
         f"\nVault top-level categories:\n{vault_summary}\n"
         f"\n--- Source content ---\n{preview}\n--- End source ---\n"
         f"\nWrite a vault wiki page for this source. "
-        f"Choose the most appropriate page_type (package, concept, or adr) "
+        f"Choose the most appropriate page_type (source, package, concept, or adr) "
         f"and a target_slug based on the content."
     )
 
