@@ -4,9 +4,12 @@ from __future__ import annotations
 
 Public API:
     ScanResult              — dataclass: added, updated, deleted, renamed, errors, state_gate
-    SCANNER_SYSTEM          — system prompt for scanner role (re-exported from `code_wiki_agent.prompts.scanner`)
     build_stub_prompt(pkg)  — human message: package metadata + representative file snippets
     run_scan(vault_path, no_file_map, max_depth)  — end-to-end scan pipeline
+
+The scanner system prompt is constructed inline via
+`build_scanner_system(project_context=...)` where `project_context` is the
+rendered output of `render_project_context(wiki)` — see CTX-03.
 """
 
 import logging
@@ -31,7 +34,8 @@ from vault_io.scan_monorepo import (
 )
 from vault_io.update_index import update_index
 
-from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
+from code_wiki_agent.prompts.project_context import render_project_context
+from code_wiki_agent.prompts.scanner import build_scanner_system
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +267,7 @@ async def run_scan(
     """
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(vault_path)
+    project_ctx = render_project_context(wiki)
     if repo_path is not None:
         repo = repo_path.resolve()
     elif resolved_repo is not None:
@@ -339,7 +344,7 @@ async def run_scan(
     async def generate_stub(pkg: dict) -> str:
         prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
         msgs = [
-            SystemMessage(content=SCANNER_SYSTEM),
+            SystemMessage(content=build_scanner_system(project_context=project_ctx)),
             HumanMessage(content=prompt),
         ]
         resp = await scanner_llm.ainvoke(msgs)
