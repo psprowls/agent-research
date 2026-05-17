@@ -361,6 +361,7 @@ async def _run_code_fallback(
     top_pages: list[str],
     pool: SubagentPool,
     query_id: str,
+    code_reader_override: str | None = None,
 ) -> str:
     """Vault-thin fallback: fan out to a code-reader that uses a bounded
     `read_file` tool to read source code, then synthesize an answer prefixed
@@ -368,10 +369,22 @@ async def _run_code_fallback(
 
     Returns the final answer string (including marker prefix) or the
     `CODE_FALLBACK_DISCLAIMER` line when no source-derived content is found.
+
+    Args:
+        code_reader_override: Bedrock model ID to use for the code_reader role
+            instead of the default from models.toml. Used by the sweep runner
+            for single-role-swap evaluation (D-06).
     """
     repo_root = _resolve_repo_root(wiki)
     code_cfg = load_role_config("code_reader")
-    code_llm_raw = make_llm("code_reader")
+    if code_reader_override is not None:
+        code_llm_raw = ChatBedrockConverse(
+            model_id=code_reader_override,
+            region_name=code_cfg["region"],
+            max_tokens=code_cfg["max_tokens"],
+        )
+    else:
+        code_llm_raw = make_llm("code_reader")
 
     # Bound the read_file tool to the resolved repo_root and bind it to the LLM.
     @tool
@@ -753,7 +766,8 @@ async def run_query(
     query: str,
     vault_path: Path | None = None,
     top_k: int = 5,
-    librarian_model_override: str | None = None,
+    librarian_model_override: str | None = None,  # deprecated; prefer role_model_overrides
+    role_model_overrides: dict[str, str] | None = None,
 ) -> QueryResult:
     """End-to-end query: hybrid search -> librarian fan-out -> synthesis -> guardrails.
 
@@ -774,8 +788,15 @@ async def run_query(
         vault_path:               Path to vault root. None uses CODE_WIKI_REAL_VAULT_PATH env var.
         top_k:                    Pages to drill. Must be in [3, 10].
         librarian_model_override: Bedrock model ID to use for librarian role instead of
-                                  the default from models.toml. Used by the eval sweep
-                                  runner to test different models holding prompts fixed.
+                                  the default from models.toml. Deprecated — prefer
+                                  role_model_overrides={"librarian": model_id}. Kept for
+                                  backward compatibility; role_model_overrides takes
+                                  precedence when both are supplied.
+        role_model_overrides:     Dict mapping role name to Bedrock model ID. Supports
+                                  single-role-swap protocol (D-06): only the named role
+                                  uses the candidate model; all other roles use their
+                                  models.toml defaults. Supported keys: "librarian",
+                                  "synthesizer", "code_reader".
 
     Raises:
         RuntimeError: If top_k out of range or vault not resolvable.
@@ -821,10 +842,13 @@ async def run_query(
     top_pages = sorted(fused, key=fused.get, reverse=True)[:top_k]  # type: ignore[arg-type]
 
     # Step 6: Librarian fan-out
+    # Override resolution: role_model_overrides["librarian"] takes precedence over the
+    # deprecated librarian_model_override parameter (D-06 single-role-swap protocol).
+    _lib_override = (role_model_overrides or {}).get("librarian") or librarian_model_override
     lib_cfg = load_role_config("librarian")
-    if librarian_model_override is not None:
+    if _lib_override is not None:
         librarian_llm = ChatBedrockConverse(
-            model_id=librarian_model_override,
+            model_id=_lib_override,
             region_name=lib_cfg["region"],
             max_tokens=lib_cfg["max_tokens"],
         )
@@ -876,7 +900,16 @@ async def run_query(
             )
             excerpts_text = excerpts_text[:60000]
 
-        synth_llm = make_llm("synthesizer")
+        synth_override = (role_model_overrides or {}).get("synthesizer")
+        if synth_override is not None:
+            synth_cfg = load_role_config("synthesizer")
+            synth_llm = ChatBedrockConverse(
+                model_id=synth_override,
+                region_name=synth_cfg["region"],
+                max_tokens=synth_cfg["max_tokens"],
+            )
+        else:
+            synth_llm = make_llm("synthesizer")
         synth_msgs = [
             SystemMessage(content=SYNTHESIZER_SYSTEM),
             HumanMessage(
@@ -912,6 +945,7 @@ async def run_query(
             top_pages=top_pages,
             pool=pool,
             query_id=query_id,
+            code_reader_override=(role_model_overrides or {}).get("code_reader"),
         )
 
     # Step 8: Build QueryResult with search_scores
