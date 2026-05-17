@@ -900,3 +900,208 @@ def test_isolated_record_renders_full_line(tmp_path: Path) -> None:
     assert "x1:" not in stdout, (
         f"Did NOT expect 'x1:' collapse marker (isolated records render full-line):\n{stdout}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan 09-05: schema_version-aware warnings (OBS-04 consumer half)
+# ---------------------------------------------------------------------------
+
+_REAL_V0_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[4]
+    / "cores"
+    / "vault-io"
+    / "tests"
+    / "fixtures"
+    / "round-trip-vault"
+    / ".code-wiki"
+    / "traces"
+)
+
+
+def _write_newer_version_fixture(tmp_path: Path) -> Path:
+    """Write a 2-record JSONL fixture with `schema_version: 99` on every record.
+
+    Exercises the D-03 lenient-consumer path: a renderer that only knows
+    `KNOWN_SCHEMA_VERSION = 1` must still render and exit 0, emitting one
+    stderr warning naming the actual version.
+    """
+    trace_file = tmp_path / "newer_version_trace.jsonl"
+    records = [
+        {
+            "schema_version": 99,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-future",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "schema_version": 99,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-future-2",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 12,
+            "tokens_out": 6,
+            "cost_usd": 0.0002,
+            "timestamp": "2026-05-17T10:00:01Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def _write_unversioned_inline_fixture(tmp_path: Path) -> Path:
+    """Write a 2-record JSONL fixture where NO record carries `schema_version`.
+
+    Exercises the D-04 v0-inference one-shot warning path.
+    """
+    trace_file = tmp_path / "unversioned_inline_trace.jsonl"
+    records = [
+        {
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "a",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": None,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "b",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 12,
+            "tokens_out": 6,
+            "cost_usd": None,
+            "timestamp": "2026-05-17T10:00:01Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def test_v0_real_fixture_renders_and_warns_once(tmp_path: Path) -> None:
+    """A real unversioned fixture renders successfully and emits exactly ONE v0 warning line.
+
+    The warning line must mention the file path (D-04). Renders ALL real v0 fixtures
+    successfully — fixtures are NOT rewritten by this phase.
+    """
+    fixtures = sorted(_REAL_V0_FIXTURE_DIR.glob("*.jsonl"))
+    assert fixtures, f"No real v0 fixtures found at {_REAL_V0_FIXTURE_DIR}"
+    fixture = fixtures[0]
+
+    result = _run_trace_cmd([str(fixture)])
+
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    # Exactly one stderr line carries a v0 marker, and that line mentions the file path.
+    v0_markers = ("unversioned", "schema_version=0", "pre-Phase-9")
+    v0_lines = [
+        line
+        for line in result.stderr.splitlines()
+        if any(marker in line for marker in v0_markers)
+    ]
+    assert len(v0_lines) == 1, (
+        f"Expected exactly one v0 warning line; found {len(v0_lines)}:\n{result.stderr}"
+    )
+    assert str(fixture) in v0_lines[0], (
+        f"Expected v0 warning to mention file path {fixture}; got:\n{v0_lines[0]}"
+    )
+
+    # Stdout still rendered: contains the per-item Summary block at minimum.
+    assert result.stdout, "Expected non-empty stdout from successful v0 render"
+    assert "=== Summary ===" in result.stdout, (
+        f"Expected Summary block in stdout:\n{result.stdout}"
+    )
+
+
+def test_newer_version_warns_lenient(tmp_path: Path) -> None:
+    """A fixture with schema_version=99 emits the D-03 lenient-consumer warning verbatim.
+
+    Exit code stays 0; warning string includes the literal `schema_version 99 is newer
+    than supported (1)` and `rendering best-effort`; warning appears exactly once per
+    file regardless of record count.
+    """
+    fixture_file = _write_newer_version_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "schema_version 99 is newer than supported (1)" in result.stderr, (
+        f"Expected D-03 lenient-consumer wording in stderr:\n{result.stderr}"
+    )
+    assert "rendering best-effort" in result.stderr, (
+        f"Expected 'rendering best-effort' in stderr:\n{result.stderr}"
+    )
+    assert result.stderr.count("is newer than supported") == 1, (
+        f"Expected exactly ONE 'is newer than supported' occurrence (one-shot per file):\n{result.stderr}"
+    )
+    # Records still flow through to the timeline.
+    assert "scanner" in result.stdout, (
+        f"Expected records to render in timeline despite newer version:\n{result.stdout}"
+    )
+
+
+def test_versioned_clean_emits_no_version_warning(tmp_path: Path) -> None:
+    """A fixture where every record carries schema_version=1 emits NO version-related warning."""
+    fixture_file = _write_fan_out_fixture(tmp_path, n=2)
+    result = _run_trace_cmd([str(fixture_file)])
+
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "newer than supported" not in result.stderr, (
+        f"Did NOT expect 'newer than supported' in stderr for clean v1 file:\n{result.stderr}"
+    )
+    for marker in ("unversioned", "pre-Phase-9", "schema_version=0"):
+        assert marker not in result.stderr, (
+            f"Did NOT expect v0 marker '{marker}' in stderr for clean v1 file:\n{result.stderr}"
+        )
+
+
+def test_v0_warning_emitted_once_per_file(tmp_path: Path) -> None:
+    """Two unversioned records in one file produce EXACTLY ONE stderr line carrying any v0 marker.
+
+    Per-line semantics: the chosen v0 warning string may legitimately bundle multiple
+    markers (`unversioned`, `schema_version=0`, `pre-Phase-9`) on a single emitted line.
+    A substring `.count()` would over-count; correct measure is the count of DISTINCT
+    stderr line indices carrying any marker.
+    """
+    fixture_file = _write_unversioned_inline_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    v0_markers = ("unversioned", "schema_version=0", "pre-Phase-9")
+    v0_line_indices = {
+        idx
+        for idx, line in enumerate(result.stderr.splitlines())
+        if any(marker in line for marker in v0_markers)
+    }
+    assert len(v0_line_indices) == 1, (
+        f"Expected exactly one stderr line carrying a v0 marker; "
+        f"found {len(v0_line_indices)} line(s): {v0_line_indices}\nstderr:\n{result.stderr}"
+    )
