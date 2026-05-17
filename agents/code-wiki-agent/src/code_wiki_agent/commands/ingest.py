@@ -171,6 +171,13 @@ def _resolve_wikilinks(text: str, wiki: Path) -> tuple[str, list[str]]:
       text:  the LLM body (after frontmatter has been written/rewritten).
       wiki:  vault root.
     """
+    # Fast path (WR-05): if there are no wikilinks at all, skip the O(vault_size)
+    # rglob. This is the common case — the ingestor LLM does not always emit
+    # cross-references, and a vault walk per source page adds non-trivial
+    # wallclock cost to the cost-frontier eval harness on large vaults.
+    if "[[" not in text:
+        return text, []
+
     # Build the set of known page basenames (and known relative paths).
     # rglob is O(vault_size) — acceptable: vaults are <10k files.
     known_relpaths: set[str] = set()
