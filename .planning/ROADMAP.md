@@ -131,7 +131,24 @@ Plans:
   4. Snapshot tests (using `syrupy`, already in stack) cover assembled system-prompt strings for each subagent with and without project context, plus an explicit missing-`wiki/CLAUDE.md` degradation test verifying no crash
   5. Added context per subagent role stays within +1,500 tokens of the pre-Phase-10 baseline (snapshot-measured)
   6. The Phase 6 divergence eval does not regress against the recorded baseline (the existing `--accept-divergence-baseline` flow applies for any intentional shift)
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+**Wave 1**
+- [ ] 10-01-PLAN.md — Vendor CLAUDE.md.template into cores/prompt-sources/wiki-claude-md-template.md (CTX-01 prerequisite)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 10-02-PLAN.md — Add _fragments/architecture_overview.py (compact SKILL.md §Architecture rewrite, ~600 tokens) (CTX-01)
+- [ ] 10-03-PLAN.md — Add _fragments/style_rules.py + log_format.py + claude_md_disambiguation.py (CTX-01)
+- [ ] 10-04-PLAN.md — prompts/project_context.py::render_project_context + unit tests (CTX-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 10-05-PLAN.md — Wire fragments into prompts/scanner.py + linter.py + ingestor.py + librarian.py (build_*_system functions) (CTX-01, CTX-03)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 10-06-PLAN.md — Wire render_project_context into commands/scan.py + lint.py + ingest.py (CTX-03)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 10-07-PLAN.md — Snapshot tests (with/without context + degradation) + token-budget test + Phase 6 divergence re-run checkpoint (CTX-04, CTX-05)
 
 ---
 
@@ -148,8 +165,8 @@ Plans:
 | 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
-| 10. Subagent Context Completion             | v1.1      | 0/TBD          | Not started | -           |
+| 10. Subagent Context Completion             | v1.1      | 0/7            | Planned     | -           |
 
 ---
 
-*Last updated: 2026-05-17 — Phase 10 added from spike 001 (subagent context audit). Independent of Phase 7/8/9.*
+*Last updated: 2026-05-17 — Phase 10 planned (7 plans across 5 waves). Independent of Phase 7/8/9.*
