@@ -31,6 +31,13 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Validated
 
+#### Phase 08 Complete — 2026-05-17 (host-reliability)
+- [x] MCP cancellation wired through `SubagentPool.run_all` — per-item `status: cancelled` trace records and single `event: batch_cancelled` terminal record on cancel; `_write_trace` / `_write_batch_terminal` never raise (MCP-09, MCP-10)
+- [x] Deterministic in-process asyncio cancel test with stubbed LLM — zero Bedrock cost (MCP-11)
+- [x] `WikiScanInput.repo_path` field added so the E2E test can scope `wiki_scan` to a `tmp_path` vault (DACLI-01)
+- [x] Single sequential E2E integration test exercises all six MCP tools as a stdio subprocess against a fresh `tmp_path` vault; gated behind `CODE_WIKI_RUN_INTEGRATION=1` (DACLI-02, DACLI-03)
+- [x] `docs/cancellation.md` — v1.1 reference for `notifications/cancelled` protocol, internal unwinding chain, trace shapes, orphan-thread limitation, v1.2+ paths
+
 #### Milestone v1.0 SHIPPED — 2026-05-15 (code-wiki-agent parity)
 - [x] **Phase 04 (Eval Harness)** — `cores/eval-harness` package with fixture corpus (3 repos), headless `claude -p` baseline recorder (EVAL-08 schema), `deepeval` 4.0 integration with `AmazonBedrockModel`, heterogeneous two-judge panel (claude-sonnet-4-6 + nova-pro-v1:0), cost-frontier sweep runner (`pytest-evals`), regression-check AssertionError gate, structural metrics (cites code path / wikilinks resolve / valid frontmatter) (EVAL-01..10)
 - [x] **Phase 05 (Remaining Commands)** — `init`, `scan`, `ingest`, `lint`, `log` shipped on both MCP and headless CLI surfaces with a single shared command implementation; `scan` and `lint` use SubagentPool fan-out (scanner across packages; linter across 3 rule-groups); `ingest` routes to package/concept/adr pages via a single ingestor LLM call; `--config` global Typer callback + `WikiConfig` dataclass (CMD-01..08, MCP-01..08, CLI-01..07)
@@ -64,8 +71,8 @@ _v1.1 Quality Improvements — scoped 2026-05-15. Requirements will be expanded 
 
 - [ ] **Lattice-wiki SKILL.md content ported into agent prompts** — librarian, ingestor, linter, scanner roles inherit canonical iron rules / patterns from the existing plugin; eval harness flags remaining divergences from skill-content expectations.
 - [ ] **Cost-frontier sweep executed** — run the Phase 04 harness (`CODE_WIKI_RUN_EVAL=1`) against all 7 roles, publish cost-optimal model picks per role, swap defaults in `models.toml`. (Sweep runs against the *post-port* agent, not the v1.0 baseline.)
-- [ ] **MCP cancellation polish (MCP-06)** — shipped as best-effort in v1.0; verify behavior under a real DeepAgents CLI cancel mid-fan-out and tighten if needed.
-- [ ] **DeepAgents CLI integration test** — end-to-end test that launches `code-wiki-mcp` as a stdio subprocess from the DeepAgents CLI host and exercises each tool (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`).
+- [x] **MCP cancellation polish (MCP-06)** — ✓ Validated Phase 08: per-item + terminal trace records on cancel; direct-asyncio + stub-LLM test confirms unwind. Real-DA-CLI host verification + opt-in gate consistency deferred to v1.2+ (owner-approved deviation, see `08-HUMAN-UAT.md`).
+- [x] **DeepAgents CLI integration test** — ✓ Validated Phase 08: single sequential subprocess test exercises all six MCP tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) against a fresh `tmp_path` vault; gated behind `CODE_WIKI_RUN_INTEGRATION=1`.
 - [ ] **Trace/observability polish** — improve `.code-wiki/traces/` format and the `code-wiki-agent trace` renderer.
 
 _Deferred past v1.1:_
@@ -142,7 +149,7 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-15 — milestone v1.1 Quality Improvements scoped (lattice-wiki SKILL.md port → cost-frontier sweep → MCP cancel + DeepAgents CLI integ test → trace polish)
+**Last updated:** 2026-05-17 — Phase 08 (host-reliability) complete: MCP cancellation + DeepAgents CLI integ test + docs/cancellation.md shipped. Two SC deviations approved (real-DA-CLI host + opt-in gate deferred to v1.2+, see 08-HUMAN-UAT.md).
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
