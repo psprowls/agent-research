@@ -558,9 +558,16 @@ def test_default_mode_collapses_consecutive_same_role(tmp_path: Path) -> None:
     )
     stdout = result.stdout
 
-    # Exactly ONE collapsed group line for the 4 records
-    assert "scanner x4:" in stdout, (
-        f"Expected collapsed-group marker 'scanner x4:' in default mode output:\n{stdout}"
+    # Exactly ONE collapsed group line for the 4 records. The collapsed-group
+    # header surfaces both role and model_id (per CR-01 fix in plan 09-06), so
+    # we assert each substring separately and pin them to the same line.
+    timeline_for_marker = stdout.split("=== Summary ===")[0]
+    marker_lines = [
+        ln for ln in timeline_for_marker.splitlines()
+        if "scanner" in ln and "x4:" in ln
+    ]
+    assert marker_lines, (
+        f"Expected one collapsed-group line with 'scanner' and 'x4:' in default mode output:\n{stdout}"
     )
     # Per-item item_id substrings must not appear in the timeline portion
     # (Summary block contains aggregate counts only.)
@@ -592,9 +599,10 @@ def test_expand_mode_renders_every_record_full_line(tmp_path: Path) -> None:
         assert f"page-{i}" in timeline, (
             f"Expected per-item 'page-{i}' line in --expand timeline:\n{timeline}"
         )
-    # No collapsed-group marker
-    assert "scanner x4:" not in stdout, (
-        f"Did NOT expect 'scanner x4:' collapse marker in --expand mode:\n{stdout}"
+    # No collapsed-group marker (e.g. ` x4:` token); per-record lines never
+    # carry the ` x<N>:` marker, only collapsed-group headers do.
+    assert "x4:" not in stdout, (
+        f"Did NOT expect ' x4:' collapse marker in --expand mode:\n{stdout}"
     )
 
 
