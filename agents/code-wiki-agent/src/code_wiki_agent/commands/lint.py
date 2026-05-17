@@ -4,10 +4,12 @@ from __future__ import annotations
 
 Public API:
     LintResult              — dataclass: all 18 lint finding fields
-    LINTER_PAGE_QUALITY_SYSTEM  — system prompt for page-quality linter role (re-exported from code_wiki_agent.prompts.linter)
-    LINTER_ADR_CHAIN_SYSTEM     — system prompt for ADR-chain linter role (re-exported from code_wiki_agent.prompts.linter)
-    LINTER_STALE_CLAIMS_SYSTEM  — system prompt for stale-claims linter role (re-exported from code_wiki_agent.prompts.linter)
     run_lint(vault_path, stale_days, log_gap_days)  — end-to-end lint pipeline
+
+Linter system prompts are constructed inline via
+`build_linter_{page_quality,adr_chain,stale_claims}_system(project_context=...)`
+where `project_context` is the rendered output of
+`render_project_context(wiki)` — see CTX-03.
 
 Mechanical checks (ported verbatim from lint_wiki.py:scan()):
   - orphans, broken wikilinks (placeholder-filtered), stale pages, missing frontmatter
@@ -64,14 +66,15 @@ LINTED_TOPS = {"wiki", "work", "concepts", "packages", "apps", "domains", "adrs"
 _SKIPPED: dict = {"skipped": True}
 
 # ---------------------------------------------------------------------------
-# Semantic linter system prompts (re-exported from prompts.linter)
+# Semantic linter prompt builders (wired with project_context per CTX-03)
 # ---------------------------------------------------------------------------
 
-from code_wiki_agent.prompts.linter import (  # noqa: F401
-    LINTER_ADR_CHAIN_SYSTEM,
-    LINTER_PAGE_QUALITY_SYSTEM,
-    LINTER_STALE_CLAIMS_SYSTEM,
+from code_wiki_agent.prompts.linter import (
+    build_linter_adr_chain_system,
+    build_linter_page_quality_system,
+    build_linter_stale_claims_system,
 )
+from code_wiki_agent.prompts.project_context import render_project_context
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +401,7 @@ async def _semantic_pass(
     pool: SubagentPool,
     cfg: dict,
     model_override: str | None = None,
+    project_context: str = "",
 ) -> tuple[dict[str, list[str]], list[str]]:
     """Run 3 semantic linter groups in parallel; return (findings_dict, errors)."""
     # Build page lists for each group
@@ -420,9 +424,21 @@ async def _semantic_pass(
     ]
 
     semantic_groups = [
-        ("page_quality", LINTER_PAGE_QUALITY_SYSTEM, pages_sample),
-        ("adr_chain", LINTER_ADR_CHAIN_SYSTEM, adr_pages),
-        ("stale_claims", LINTER_STALE_CLAIMS_SYSTEM, pages_with_source),
+        (
+            "page_quality",
+            build_linter_page_quality_system(project_context=project_context),
+            pages_sample,
+        ),
+        (
+            "adr_chain",
+            build_linter_adr_chain_system(project_context=project_context),
+            adr_pages,
+        ),
+        (
+            "stale_claims",
+            build_linter_stale_claims_system(project_context=project_context),
+            pages_with_source,
+        ),
     ]
 
     async def run_linter_group(group_tuple: tuple) -> list[str]:
@@ -503,6 +519,7 @@ async def run_lint(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(vault_path)
+    project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()
     workspace = wiki.parent
@@ -517,7 +534,9 @@ async def run_lint(
     # Step 4: semantic pass
     pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
     cfg = load_role_config("linter")
-    semantic_findings, errors = await _semantic_pass(wiki, pages, pool, cfg, model_override=model_override)
+    semantic_findings, errors = await _semantic_pass(
+        wiki, pages, pool, cfg, model_override=model_override, project_context=project_ctx
+    )
 
     return LintResult(
         wiki=str(wiki),
