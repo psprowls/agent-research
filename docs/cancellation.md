@@ -93,6 +93,8 @@ propagates the outer cancel correctly.
 
 ## 3. Trace Shapes
 
+See [`docs/trace-schema.md`](./trace-schema.md) for the authoritative field tables and per-record schema; the JSON blocks in this section remain inline for illustration only.
+
 `SubagentPool` writes two kinds of records when a fan-out is cancelled.
 
 **Per-item cancelled record** — one per `_run_one` that received `CancelledError`.
