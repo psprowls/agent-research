@@ -76,7 +76,15 @@ Plans:
   2. A committed cost-frontier table exists under `.planning/` or `docs/` showing model × quality × cost per role
   3. `models.toml` defaults point to the cost-optimal pick per role; previous defaults are preserved as commented provenance
   4. A results summary doc exists that tells the cost story v1.0 promised to validate
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 07-01-PLAN.md — Wave 0 test scaffolds (skipped tests for runner/two-gate/report/estimator/recommendation/dry-run)
+- [ ] 07-02-PLAN.md — Per-role model_override surfaces on query/scan/lint/ingest commands (D-06)
+- [ ] 07-03-PLAN.md — sweep_candidates arrays in models.toml + code_reader vault-thin fixtures (D-03, D-05, D-09)
+- [ ] 07-04-PLAN.md — Pre-flight cost estimator + BED-01 ping + dry-run plumbing (D-13, SWEEP-02)
+- [ ] 07-05-PLAN.md — run_role_sweep + two-gate scoring (D-06, D-07, D-08, SWEEP-01)
+- [ ] 07-06-PLAN.md — Pareto frontier renderer + per-role doc + recommendation block + dry-run integration test (SWEEP-03, SWEEP-04)
+- [ ] 07-07-PLAN.md — Live matrix execution + REQUIREMENTS/ROADMAP correction + manual models.toml swap + STORY.md (SWEEP-01..05, D-02)
 
 ### Phase 8: Host Reliability
 **Goal**: MCP cancellation is proven clean under a real DeepAgents CLI host and every MCP tool is exercised by an end-to-end integration test
@@ -111,10 +119,10 @@ Plans:
 | 4. Eval Harness                             | v1.0      | 4/4            | Complete    | 2026-05-14  |
 | 5. Remaining Commands                       | v1.0      | 6/6            | Complete    | 2026-05-14  |
 | 6. Prompt Content Port + Divergence Eval   | v1.1      | 11/16 | Gap-closure | -           |
-| 7. Cost-Frontier Sweep                      | v1.1      | 0/TBD          | Not started | -           |
+| 7. Cost-Frontier Sweep                      | v1.1      | 0/7            | Planned     | -           |
 | 8. Host Reliability                         | v1.1      | 0/TBD          | Not started | -           |
 | 9. Trace/Observability Polish               | v1.1      | 0/TBD          | Not started | -           |
 
 ---
 
-*Last updated: 2026-05-16 — Phase 6 gap-closure planned (16 plans total, 10 waves; plans 06-12..06-16 close UAT gaps G1-G5 and WR-05 residual)*
+*Last updated: 2026-05-16 — Phase 7 planned (7 plans, 6 waves; Wave 6 has the live-Bedrock matrix run + two human checkpoints for the manual models.toml swap and STORY.md review)*
