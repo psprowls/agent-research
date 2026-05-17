@@ -68,7 +68,7 @@ async def run_init(
         tool=tool,
         force=force,
         non_interactive=True,
-        as_json=True,  # suppress stdout prints — required for MCP safety
+        as_json=False,  # MCP safety: as_json=True emits print(json.dumps(...)) which trips _StdoutGuard
     )
     return InitResult(
         status=result["status"],

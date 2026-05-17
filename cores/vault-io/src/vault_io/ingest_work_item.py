@@ -162,7 +162,7 @@ def file_work_item(
 
     # Side-effects: refresh index and append log (direct calls, no subprocess).
     update_index(wiki)
-    append_log(wiki, "create", title, detail=f"work/{page_path.name}")
+    append_log(wiki, "create", title, detail=f"work/{page_path.name}", silent=True)
 
     if pkg_dir is not None:
         vault = wiki

@@ -60,7 +60,13 @@ def format_entry(op, title, detail):
     return today, header, f"\n{header}\n{body}"
 
 
-def append_log(wiki, op, title, detail, as_json=False):
+def append_log(wiki, op, title, detail, as_json=False, silent=False):
+    """Append a log entry to wiki/log.md.
+
+    Args:
+        silent: When True, suppress all stdout output. Use from MCP tool handlers
+                to avoid tripping _StdoutGuard. Overrides as_json for output only.
+    """
     if op not in VALID_OPS:
         _error(f"unknown op '{op}'. Valid: {sorted(VALID_OPS)}", as_json)
 
@@ -87,13 +93,14 @@ def append_log(wiki, op, title, detail, as_json=False):
         "detail": detail,
     }
 
-    if as_json:
-        print(json.dumps(result, indent=2))
-    else:
-        print(f"[ok] appended to {log_path}")
-        print(f"     {header}")
-        if detail:
-            print(f"     detail: {detail}")
+    if not silent:
+        if as_json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"[ok] appended to {log_path}")
+            print(f"     {header}")
+            if detail:
+                print(f"     detail: {detail}")
     return result
 
 
