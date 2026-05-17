@@ -24,6 +24,13 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+# Highest trace `schema_version` this renderer was authored against (OBS-04 D-03).
+# Records with a higher version still render (lenient consumer) but trigger a
+# one-shot per-file stderr warning. Bump when the renderer is taught about a
+# newer schema; producers in cores/subagent-runtime and commands/query.py stamp
+# the integer at write time.
+KNOWN_SCHEMA_VERSION = 1
+
 
 @app.callback()
 def main_callback(
@@ -228,6 +235,11 @@ def trace(
         raise typer.Exit(code=1)
 
     records: list[dict] = []
+    # Per-file one-shot flags for schema_version-aware warnings (OBS-04 D-03/D-04).
+    # Both warnings are stderr-only, never alter the exit code, and emit at most
+    # once per file regardless of how many qualifying records appear.
+    warned_v0 = False
+    warned_newer = False
     for line_number, raw_line in enumerate(file.read_text().splitlines(), start=1):
         line = raw_line.strip()
         if not line:
@@ -237,6 +249,28 @@ def trace(
         except json.JSONDecodeError as exc:
             typer.echo(f"warning: skipping malformed JSONL line {line_number}: {exc.msg}", err=True)
             continue
+        # D-04: v0 inference for records missing `schema_version` (pre-Phase-9 shape).
+        # D-03: lenient consumer for records with `schema_version` > KNOWN_SCHEMA_VERSION.
+        # Non-integer `schema_version` values are silently rendered best-effort
+        # (T-09-15: lenient policy).
+        if "schema_version" not in record:
+            if not warned_v0:
+                typer.echo(
+                    f"warning: trace file {file} contains unversioned records; "
+                    f"treating as schema_version=0 (pre-Phase-9 shape); "
+                    f"rendering best-effort",
+                    err=True,
+                )
+                warned_v0 = True
+        else:
+            sv = record["schema_version"]
+            if isinstance(sv, int) and sv > KNOWN_SCHEMA_VERSION and not warned_newer:
+                typer.echo(
+                    f"warning: trace schema_version {sv} is newer than supported "
+                    f"({KNOWN_SCHEMA_VERSION}); rendering best-effort",
+                    err=True,
+                )
+                warned_newer = True
         records.append(record)
 
     # Emit timeline AFTER all records are parsed.
