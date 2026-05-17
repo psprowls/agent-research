@@ -85,6 +85,10 @@ Followup requirements surfaced by the Phase 7 cost-frontier sweep. Not in scope 
 
 (SWEEP-FU-01 was promoted to its own series and renumbered as TRACE-FU-01.)
 
+### MODEL-FU — Model config / test drift (v1.2)
+
+- [ ] **MODEL-FU-01**: Update `cores/model-adapter/tests/test_loader.py::test_load_role_config_synthesizer_uses_sonnet` to match the current production config. The test was written against a Sonnet-default synthesizer (Phase 02-01), but `models.toml` was later switched to `qwen.qwen3-32b-v1:0` for the synthesizer role (per project memory: Qwen3-32B fan-out, Qwen3-80B synthesis). The test now fails on every commit. Decide whether to (a) assert the qwen ARN directly, (b) parametrize the assertion against `models.toml` content, or (c) split into two tests — one that locks the *default-overridden* shape and one that locks per-role provider expectations. Surfaced post-Phase 08 regression run (2026-05-17); pre-dates Phase 08, not caused by it.
+
 ---
 
 ## Future Requirements (deferred past v1.1)
@@ -137,3 +141,4 @@ Followup requirements surfaced by the Phase 7 cost-frontier sweep. Not in scope 
 | SWEEP-FU-02 | v1.2 backlog (filed by Phase 7)         | Backlog     |
 | SWEEP-FU-03 | v1.2 backlog (filed by Phase 7)         | Backlog     |
 | SWEEP-FU-04 | v1.2 backlog (filed by Phase 7)         | Backlog     |
+| MODEL-FU-01 | v1.2 backlog (filed by Phase 8)         | Backlog     |
