@@ -67,9 +67,13 @@ def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
 
 
 def test_trace_command_renders_per_record_lines(tmp_path: Path) -> None:
-    """trace command outputs one line per record containing key fields."""
+    """trace --expand outputs one line per record containing key fields.
+
+    Uses --expand because plan 09-04 collapses consecutive same-role runs by
+    default; per-record lines are the expand-mode invariant.
+    """
     trace_file = _write_trace_fixture(tmp_path)
-    result = _run_trace_cmd([str(trace_file)])
+    result = _run_trace_cmd([str(trace_file), "--expand"])
 
     assert result.returncode == 0, f"trace exited {result.returncode}\n{result.stderr}"
     # Both records should produce lines with the role name
@@ -303,7 +307,8 @@ def test_trace_command_skips_malformed_lines(tmp_path: Path) -> None:
         + json.dumps(valid_b) + "\n"
     )
 
-    result = _run_trace_cmd([str(trace_file)])
+    # --expand keeps per-item lines visible across plan 09-04's default collapse.
+    result = _run_trace_cmd([str(trace_file), "--expand"])
 
     assert result.returncode == 0, (
         f"Expected exit code 0; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
@@ -483,3 +488,415 @@ def test_cost_rollup_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> No
         f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
     )
     assert result.stdout == snapshot
+
+
+# ---------------------------------------------------------------------------
+# Plan 09-04: --expand flag + consecutive-same-role group collapsing (OBS-06)
+# ---------------------------------------------------------------------------
+
+
+def _write_fan_out_fixture(
+    tmp_path: Path,
+    n: int = 4,
+    role: str = "scanner",
+    model_id: str = _HAIKU_MODEL,
+) -> Path:
+    """Write `n` consecutive per-item records with the same role/model_id.
+
+    Each record carries schema_version=1, status='success', cost_usd=0.0001,
+    monotonically increasing timestamps (HH:MM:00Z, :01Z, :02Z, :03Z, ...),
+    tokens_in=10, tokens_out=5, and a distinct item_id ('page-0', 'page-1', ...).
+    """
+    trace_file = tmp_path / "fan_out_trace.jsonl"
+    records = []
+    for i in range(n):
+        records.append({
+            "schema_version": 1,
+            "role": role,
+            "model_id": model_id,
+            "prompt_hash": None,
+            "item_id": f"page-{i}",
+            "status": "success",
+            "latency_ms": 100 + i,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": f"2026-05-17T10:00:{i:02d}Z",
+        })
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def test_trace_command_has_expand_flag() -> None:
+    """`code-wiki-agent trace --help` advertises the --expand flag (Task 1, D-14)."""
+    result = subprocess.run(
+        ["uv", "run", "--package", "code-wiki-agent",
+         "code-wiki-agent", "trace", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=_PROJECT_ROOT,
+        timeout=120,
+    )
+    assert result.returncode == 0, f"trace --help exited {result.returncode}: {result.stderr}"
+    assert "--expand" in result.stdout, (
+        f"Expected '--expand' in trace --help output:\n{result.stdout}"
+    )
+
+
+def test_default_mode_collapses_consecutive_same_role(tmp_path: Path) -> None:
+    """Default mode collapses a 4-record same-role fan-out into ONE summary line (D-11, D-12, D-13).
+
+    The summary line shape is `[<ts_first> .. <ts_last>] <role> x<N>: ...` per D-13.
+    The per-item lines (with item_id substrings) must NOT appear in default mode.
+    """
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+
+    # Exactly ONE collapsed group line for the 4 records
+    assert "scanner x4:" in stdout, (
+        f"Expected collapsed-group marker 'scanner x4:' in default mode output:\n{stdout}"
+    )
+    # Per-item item_id substrings must not appear in the timeline portion
+    # (Summary block contains aggregate counts only.)
+    timeline = stdout.split("=== Summary ===")[0]
+    assert "page-0" not in timeline, (
+        f"Expected NO per-item 'page-0' line in collapsed timeline:\n{timeline}"
+    )
+    # ISO-8601 first/last timestamps in the summary line
+    assert "2026-05-17T10:00:00Z" in stdout and "2026-05-17T10:00:03Z" in stdout, (
+        f"Expected first/last timestamps in collapsed line:\n{stdout}"
+    )
+    # 4 success breakdown + summed tokens 40->20 + summed cost $0.000400 (4 * 0.0001)
+    assert "4 success" in stdout, f"Expected '4 success' breakdown:\n{stdout}"
+    assert "40->20 tokens" in stdout, f"Expected summed tokens '40->20 tokens':\n{stdout}"
+    assert "$0.000400" in stdout, f"Expected summed cost '$0.000400':\n{stdout}"
+
+
+def test_expand_mode_renders_every_record_full_line(tmp_path: Path) -> None:
+    """--expand disables collapsing; every record renders full-line (D-14)."""
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file), "--expand"])
+    assert result.returncode == 0, (
+        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+    timeline = stdout.split("=== Summary ===")[0]
+    # All 4 item_ids appear as separate lines
+    for i in range(4):
+        assert f"page-{i}" in timeline, (
+            f"Expected per-item 'page-{i}' line in --expand timeline:\n{timeline}"
+        )
+    # No collapsed-group marker
+    assert "scanner x4:" not in stdout, (
+        f"Did NOT expect 'scanner x4:' collapse marker in --expand mode:\n{stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 09-04 Task 2: snapshot tests covering collapse/expand/interleave/mixed
+# ---------------------------------------------------------------------------
+
+
+def _write_mixed_status_fixture(tmp_path: Path) -> Path:
+    """Write 4 scanner records with statuses [success, success, error, cancelled].
+
+    The cancelled record has cost_usd=null (drives the `(+1 unknown)` suffix in
+    the collapsed line); the error record carries an `error` field with a short
+    string; all share role/model_id so they form one group.
+    """
+    trace_file = tmp_path / "mixed_status_trace.jsonl"
+    base_ts = "2026-05-17T10:00:"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-ok-1",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}00Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-ok-2",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 12,
+            "tokens_out": 6,
+            "cost_usd": 0.0002,
+            "timestamp": f"{base_ts}01Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-err",
+            "status": "error",
+            "latency_ms": 80,
+            "tokens_in": 5,
+            "tokens_out": 0,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}02Z",
+            "error": "ThrottlingException",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-cancel",
+            "status": "cancelled",
+            "latency_ms": 50,
+            "tokens_in": None,
+            "tokens_out": None,
+            "cost_usd": None,
+            "timestamp": f"{base_ts}03Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def _write_interleaved_fixture(tmp_path: Path) -> Path:
+    """Write 3 scanner records, then a `kind: query_summary` record, then 2 scanner records,
+    then a final `event: batch_cancelled` record.
+
+    Per D-11 the kind/event records break runs: expected default-mode timeline is
+    `scanner x3:` (collapsed), then the query_summary full-line, then `scanner x2:`
+    (collapsed), then the batch_cancelled full-line.
+    """
+    trace_file = tmp_path / "interleaved_trace.jsonl"
+    base_ts = "2026-05-17T10:00:"
+    records = [
+        # Run 1 (groupable, 3 scanner records)
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-a",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}00Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-b",
+            "status": "success",
+            "latency_ms": 110,
+            "tokens_in": 11,
+            "tokens_out": 6,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}01Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-c",
+            "status": "success",
+            "latency_ms": 120,
+            "tokens_in": 12,
+            "tokens_out": 7,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}02Z",
+        },
+        # Non-groupable: kind=query_summary breaks the run
+        {
+            "schema_version": 1,
+            "kind": "query_summary",
+            "query_id": "q1",
+            "query": "test",
+            "top_k": 5,
+            "pages_retrieved": 3,
+            "pages_drilled": 1,
+            "code_fallback": False,
+            "started_at": f"{base_ts}03Z",
+            "ended_at": f"{base_ts}04Z",
+        },
+        # Run 2 (groupable, 2 scanner records)
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-d",
+            "status": "success",
+            "latency_ms": 130,
+            "tokens_in": 13,
+            "tokens_out": 8,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}05Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "page-e",
+            "status": "success",
+            "latency_ms": 140,
+            "tokens_in": 14,
+            "tokens_out": 9,
+            "cost_usd": 0.0001,
+            "timestamp": f"{base_ts}06Z",
+        },
+        # Non-groupable: event=batch_cancelled terminator also breaks runs
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "event": "batch_cancelled",
+            "items_total": 5,
+            "items_completed": 5,
+            "items_cancelled": 0,
+            "wall_clock_ms": 5000,
+            "timestamp": f"{base_ts}07Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def _write_two_roles_fixture(tmp_path: Path) -> Path:
+    """Write two records of DIFFERENT roles — each is a run of length 1.
+
+    Isolated records (run length 1) must render full-line in default mode (no
+    collapse marker `x1:` should appear).
+    """
+    trace_file = tmp_path / "two_roles_trace.jsonl"
+    records = [
+        {
+            "schema_version": 1,
+            "role": "scanner",
+            "model_id": _HAIKU_MODEL,
+            "prompt_hash": None,
+            "item_id": "scanner-page",
+            "status": "success",
+            "latency_ms": 100,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0001,
+            "timestamp": "2026-05-17T10:00:00Z",
+        },
+        {
+            "schema_version": 1,
+            "role": "librarian",
+            "model_id": _QWEN_MODEL,
+            "prompt_hash": None,
+            "item_id": "librarian-page",
+            "status": "success",
+            "latency_ms": 400,
+            "tokens_in": 50,
+            "tokens_out": 25,
+            "cost_usd": None,
+            "timestamp": "2026-05-17T10:00:01Z",
+        },
+    ]
+    with trace_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+    return trace_file
+
+
+def test_collapsed_default_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
+    """4 consecutive same-role records, default mode, snapshot ONE collapsed line + Summary."""
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    assert result.stdout == snapshot
+
+
+def test_expand_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
+    """Same 4-record fixture as collapsed_default but with --expand: FOUR full-line records."""
+    fixture_file = _write_fan_out_fixture(tmp_path, n=4)
+    result = _run_trace_cmd([str(fixture_file), "--expand"])
+    assert result.returncode == 0, (
+        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    assert result.stdout == snapshot
+
+
+def test_mixed_status_in_run_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
+    """4 same-role records with statuses (success, success, error, cancelled).
+
+    Snapshot must show breakdown `2 success / 1 error / 1 cancelled` (zero categories
+    omitted from breakdown if any were zero) and `(+1 unknown)` cost suffix
+    (cancelled record has null cost_usd).
+    """
+    fixture_file = _write_mixed_status_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    assert result.stdout == snapshot
+
+
+def test_query_summary_interleaved_breaks_group_snapshot(
+    snapshot: SnapshotAssertion, tmp_path: Path
+) -> None:
+    """3 scanner -> kind:query_summary -> 2 scanner -> event:batch_cancelled.
+
+    Snapshot must show: first collapsed group (`scanner x3:`), then full-line
+    query_summary record, then second collapsed group (`scanner x2:`), then
+    full-line batch_cancelled terminator. Both kind and event break runs (D-11).
+    """
+    fixture_file = _write_interleaved_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    assert result.stdout == snapshot
+
+
+def test_isolated_record_renders_full_line(tmp_path: Path) -> None:
+    """Two records of different roles each form a run of length 1 — both render full-line.
+
+    Verifies D-12's "isolated single records (run length 1) still render full-line by
+    default." No `x1:` collapsed-group marker should appear.
+    """
+    fixture_file = _write_two_roles_fixture(tmp_path)
+    result = _run_trace_cmd([str(fixture_file)])
+    assert result.returncode == 0, (
+        f"trace exited {result.returncode}\nstderr: {result.stderr}"
+    )
+    stdout = result.stdout
+    timeline = stdout.split("=== Summary ===")[0]
+    # Each role's item_id appears as a per-item full line
+    assert "scanner-page" in timeline, (
+        f"Expected 'scanner-page' full-line in timeline:\n{timeline}"
+    )
+    assert "librarian-page" in timeline, (
+        f"Expected 'librarian-page' full-line in timeline:\n{timeline}"
+    )
+    # No collapsed-group marker — runs of length 1 are NOT collapsed
+    assert "x1:" not in stdout, (
+        f"Did NOT expect 'x1:' collapse marker (isolated records render full-line):\n{stdout}"
+    )
