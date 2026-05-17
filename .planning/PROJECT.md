@@ -31,6 +31,14 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Validated
 
+#### Phase 10 Complete — 2026-05-17 (subagent-context-completion)
+- [x] Four shared fragments shipped under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` — `architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` — each with the standard `# Source: / # Anchor: / # Source-commit:` provenance header (CTX-01, CTX-02)
+- [x] `prompts/project_context.py::render_project_context(wiki_path)` reads `wiki/CLAUDE.md` (or `AGENTS.md` fallback), parses the embedded layout block via existing `vault_io.layout_io`, returns deterministic ~30-line block or `""` on missing schema files (CTX-03)
+- [x] Four prompt builders converted to `build_X_system(project_context="")` functions (scanner, linter, ingestor, librarian) with backward-compat module-level `*_SYSTEM` constant aliases preserved; three commands (scan, lint, ingest) wire `render_project_context()` at SystemMessage construction (CTX-03)
+- [x] Snapshot tests in `test_prompt_snapshots.py` cover with-context, without-context, and missing-CLAUDE.md degradation paths — 14 snapshots, 26 prompt tests total pass (CTX-04)
+- [x] Token-budget regression in `test_token_budget.py` enforces +1500 tokens per role ceiling; ingestor tightest at +751/1500 headroom (CTX-05)
+- [x] Phase 6 divergence eval re-run live against AWS Bedrock (`CODE_WIKI_RUN_EVAL=1`) — librarian/ingestor/linter/scanner all PASSED, no hard-severity regression (CTX-05)
+
 #### Phase 08 Complete — 2026-05-17 (host-reliability)
 - [x] MCP cancellation wired through `SubagentPool.run_all` — per-item `status: cancelled` trace records and single `event: batch_cancelled` terminal record on cancel; `_write_trace` / `_write_batch_terminal` never raise (MCP-09, MCP-10)
 - [x] Deterministic in-process asyncio cancel test with stubbed LLM — zero Bedrock cost (MCP-11)
@@ -149,7 +157,7 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-17 — Phase 08 (host-reliability) complete: MCP cancellation + DeepAgents CLI integ test + docs/cancellation.md shipped. Two SC deviations approved (real-DA-CLI host + opt-in gate deferred to v1.2+, see 08-HUMAN-UAT.md).
+**Last updated:** 2026-05-17 — Phase 10 (subagent-context-completion) complete: 4 shared fragments (architecture_overview, style_rules, log_format, claude_md_disambiguation) + project_context renderer wired through 4 builders and 3 commands. CTX-01..CTX-05 all validated. Phase 6 divergence eval re-ran without regression.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
