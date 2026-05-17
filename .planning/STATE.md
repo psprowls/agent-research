@@ -47,12 +47,12 @@ Last activity: 2026-05-17 -- Phase 07 marked complete
 | Phases total (v1.0) | 5 |
 | Phases complete (v1.0) | 5 |
 | Phases total (v1.1) | 4 |
-| Phases complete (v1.1) | 0 |
+| Phases complete (v1.1) | 2 |
 | Requirements total (v1.1) | 23 |
 | Requirements mapped (v1.1) | 23 |
-| Requirements complete (v1.1) | 0 |
-| Plans written (v1.1) | 0 |
-| Plans complete (v1.1) | 0 |
+| Requirements complete (v1.1) | 14 |
+| Plans written (v1.1) | 23 |
+| Plans complete (v1.1) | 23 |
 
 ---
 

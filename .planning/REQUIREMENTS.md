@@ -18,26 +18,26 @@ Sequencing rule: **prompt port lands before the cost-frontier sweep** so the swe
 
 ### PORT — Lattice-wiki SKILL.md content port (output-quality lift)
 
-- [ ] **PORT-01**: Canonical prompt sources from `/Users/pat/Personal/lattice/plugins/lattice-wiki` are identified per agent role (librarian, ingestor, linter, scanner) — source files and section anchors pinned in a traceability table
-- [ ] **PORT-02**: Librarian agent prompt incorporates canonical iron rules, citation rules, and refusal patterns from the `lattice-wiki:librarian` SKILL content
-- [ ] **PORT-03**: Ingestor agent prompt incorporates canonical ingestion patterns (page-type routing, frontmatter rules, layout-block rules) from the `lattice-wiki:ingestor` SKILL content
-- [ ] **PORT-04**: Linter agent prompt incorporates canonical lint rule definitions (mechanical + semantic) from the `lattice-wiki:linter` SKILL content
-- [ ] **PORT-05**: Scanner agent prompt incorporates canonical package-detection and overview-generation rules from the `lattice-wiki:scanner` SKILL content
-- [ ] **PORT-06**: Prompt content lives in a single `prompts/` module per agent role with provenance comments referencing the canonical source path + anchor (so future drift is detectable)
+- [x] **PORT-01**: Canonical prompt sources from `/Users/pat/Personal/lattice/plugins/lattice-wiki` are identified per agent role (librarian, ingestor, linter, scanner) — source files and section anchors pinned in a traceability table
+- [x] **PORT-02**: Librarian agent prompt incorporates canonical iron rules, citation rules, and refusal patterns from the `lattice-wiki:librarian` SKILL content
+- [x] **PORT-03**: Ingestor agent prompt incorporates canonical ingestion patterns (page-type routing, frontmatter rules, layout-block rules) from the `lattice-wiki:ingestor` SKILL content
+- [x] **PORT-04**: Linter agent prompt incorporates canonical lint rule definitions (mechanical + semantic) from the `lattice-wiki:linter` SKILL content
+- [x] **PORT-05**: Scanner agent prompt incorporates canonical package-detection and overview-generation rules from the `lattice-wiki:scanner` SKILL content
+- [x] **PORT-06**: Prompt content lives in a single `prompts/` module per agent role with provenance comments referencing the canonical source path + anchor (so future drift is detectable)
 
 ### EVAL-Q — Output-quality eval (divergence detection)
 
-- [ ] **EVAL-11**: A new eval metric flags divergences between agent output and skill-content expectations (e.g. missing required citation, wrong page-type routing, broken iron rule)
-- [ ] **EVAL-12**: The divergence eval runs against the fixture corpus and emits per-role divergence counts + concrete examples in the report
-- [ ] **EVAL-13**: Regression gate — divergence rate cannot increase from a recorded baseline without explicit `--accept-divergence-baseline` acknowledgment
+- [x] **EVAL-11**: A new eval metric flags divergences between agent output and skill-content expectations (e.g. missing required citation, wrong page-type routing, broken iron rule)
+- [x] **EVAL-12**: The divergence eval runs against the fixture corpus and emits per-role divergence counts + concrete examples in the report
+- [x] **EVAL-13**: Regression gate — divergence rate cannot increase from a recorded baseline without explicit `--accept-divergence-baseline` acknowledgment
 
 ### SWEEP — Cost-frontier sweep execution
 
-- [ ] **SWEEP-01**: Cost-frontier sweep runs against the *post-port* agent (after PORT requirements land) across all 6 agent roles in `models.toml` (`librarian`, `code_reader`, `scanner`, `linter`, `ingestor`, `synthesizer`) (corrected 2026-05-17 per Phase 7 D-02: the v1.1 roadmap said 7 but models.toml has 6 in-scope agent roles plus 2 judges that are out of scope for this sweep)
-- [ ] **SWEEP-02**: BED-01 live-Bedrock gate verification passes during the sweep (`make_llm("haiku").invoke("ping")` succeeds against real Bedrock)
-- [ ] **SWEEP-03**: Sweep produces a cost-frontier table per role (model × quality × cost) committed under `.planning/` or `docs/`
-- [ ] **SWEEP-04**: `models.toml` defaults updated to the cost-optimal pick per role; previous defaults preserved as commented provenance
-- [ ] **SWEEP-05**: Sweep outcome summarized in a short results doc — the cost story v1.0 promised to validate
+- [x] **SWEEP-01**: Cost-frontier sweep runs against the *post-port* agent (after PORT requirements land) across all 6 agent roles in `models.toml` (`librarian`, `code_reader`, `scanner`, `linter`, `ingestor`, `synthesizer`) (corrected 2026-05-17 per Phase 7 D-02: the v1.1 roadmap said 7 but models.toml has 6 in-scope agent roles plus 2 judges that are out of scope for this sweep)
+- [x] **SWEEP-02**: BED-01 live-Bedrock gate verification passes during the sweep (`make_llm("haiku").invoke("ping")` succeeds against real Bedrock)
+- [x] **SWEEP-03**: Sweep produces a cost-frontier table per role (model × quality × cost) committed under `.planning/` or `docs/`
+- [x] **SWEEP-04**: `models.toml` defaults updated to the cost-optimal pick per role; previous defaults preserved as commented provenance
+- [x] **SWEEP-05**: Sweep outcome summarized in a short results doc — the cost story v1.0 promised to validate
 
 ### MCP-CAN — MCP cancellation polish (MCP-06 follow-up)
 
@@ -95,20 +95,20 @@ Followup requirements surfaced by the Phase 7 cost-frontier sweep. Not in scope 
 
 | Requirement | Phase                                    | Status      |
 |-------------|------------------------------------------|-------------|
-| PORT-01     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| PORT-02     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| PORT-03     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| PORT-04     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| PORT-05     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| PORT-06     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| EVAL-11     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| EVAL-12     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| EVAL-13     | Phase 6: Prompt Content Port + Divergence Eval | Pending |
-| SWEEP-01    | Phase 7: Cost-Frontier Sweep            | Pending     |
-| SWEEP-02    | Phase 7: Cost-Frontier Sweep            | Pending     |
-| SWEEP-03    | Phase 7: Cost-Frontier Sweep            | Pending     |
-| SWEEP-04    | Phase 7: Cost-Frontier Sweep            | Pending     |
-| SWEEP-05    | Phase 7: Cost-Frontier Sweep            | Pending     |
+| PORT-01     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| PORT-02     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| PORT-03     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| PORT-04     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| PORT-05     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| PORT-06     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| EVAL-11     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| EVAL-12     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| EVAL-13     | Phase 6: Prompt Content Port + Divergence Eval | Complete    |
+| SWEEP-01    | Phase 7: Cost-Frontier Sweep            | Complete    |
+| SWEEP-02    | Phase 7: Cost-Frontier Sweep            | Complete    |
+| SWEEP-03    | Phase 7: Cost-Frontier Sweep            | Complete    |
+| SWEEP-04    | Phase 7: Cost-Frontier Sweep            | Complete    |
+| SWEEP-05    | Phase 7: Cost-Frontier Sweep            | Complete    |
 | MCP-09      | Phase 8: Host Reliability               | Pending     |
 | MCP-10      | Phase 8: Host Reliability               | Pending     |
 | MCP-11      | Phase 8: Host Reliability               | Pending     |
