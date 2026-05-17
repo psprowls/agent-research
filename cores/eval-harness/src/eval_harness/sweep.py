@@ -559,3 +559,273 @@ async def run_role_sweep(
             logger.error("Unexpected gather exception in run_role_sweep: %s", item)
 
     return results
+
+
+_QUALITY_ROLES: frozenset[str] = frozenset({"librarian", "synthesizer"})
+
+_TIER_LABEL: dict[str, str] = {
+    "librarian":   "quality",
+    "synthesizer": "quality",
+    "linter":      "mid",
+    "ingestor":    "mid",
+    "scanner":     "cheap-fast",
+    "code_reader": "cheap-fast",
+}
+
+
+def _panel_mean_for_candidate(
+    role: str,
+    candidate_results: list[SweepResult],
+    cases_path: Path,
+) -> float | None:
+    """Compute the mean panel score for a candidate's runs.
+
+    Returns None when CODE_WIKI_RUN_JUDGES is unset, when no case has
+    expected_answer, or when every run produced a failing/empty answer.
+    """
+    import os
+
+    if not os.environ.get("CODE_WIKI_RUN_JUDGES"):
+        return None
+
+    cases_by_query: dict[str, dict] = {}
+    try:
+        for case in _load_and_validate_cases(cases_path):
+            cases_by_query[case["query"]] = case
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    from eval_harness.judge import panel_score  # noqa: PLC0415
+
+    scores: list[float] = []
+    for r in candidate_results:
+        if r.status != "ok" or not r.answer:
+            continue
+        case = cases_by_query.get(r.query)
+        if not case:
+            continue
+        expected = case.get("expected_answer", "")
+        if not expected:
+            continue
+        try:
+            panel = panel_score(r.query, r.answer, expected)
+            scores.append(float(panel["mean"]))
+        except Exception as exc:
+            logger.warning("panel_score failed for %s/%s: %s", role, r.model_id, exc)
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
+
+
+async def run_full_matrix(
+    role_candidates: dict[str, list[str]],
+    vault_path: Path,
+    query_cases_path: Path,
+    code_reader_cases_path: Path,
+    ingestor_source_path: Path,
+    repeats: int = 3,
+    output_dir: Path = Path(".planning/sweep"),
+    *,
+    dry_run: bool = False,
+    threshold_quality: float = 0.95,
+    threshold_other: float = 0.90,
+    skip_bed01: bool = False,
+    auto_confirm: bool = False,
+) -> dict[str, list[SweepResult]]:
+    """Drive the full sweep matrix end-to-end (SWEEP-01, SWEEP-03).
+
+    Composes the existing primitives: preflight_check, run_role_sweep,
+    score_two_gate, render_role_doc, render_index_md.  Writes per-role markdown
+    docs and INDEX.md into ``output_dir`` and prints recommendation blocks to
+    stdout for human paste into models.toml.
+
+    Routing:
+      - librarian / synthesizer / scanner / linter -> query_cases_path
+      - code_reader                                -> code_reader_cases_path
+      - ingestor                                   -> synthesized cases file
+        containing one entry with ``source_path=ingestor_source_path``
+
+    Args:
+        role_candidates:          mapping role -> [candidate model_ids]
+        vault_path:               source vault (copied per cell by EvalWorktree)
+        query_cases_path:         JSON cases for query-style roles
+        code_reader_cases_path:   JSON cases for the code_reader role (D-09)
+        ingestor_source_path:     single source file the ingestor should ingest
+        repeats:                  repeats per (role, candidate, case) cell
+        output_dir:               directory to receive per-role docs + INDEX.md
+        dry_run:                  when True, skip BED-01 ping and live cells
+        threshold_quality:        Gate-2 threshold for quality-tier roles
+        threshold_other:          Gate-2 threshold for non-quality roles
+        skip_bed01:               propagate to preflight_check
+        auto_confirm:             propagate to preflight_check (skips input prompt)
+
+    Returns:
+        dict[role, list[SweepResult]] — raw cell records per role.
+    """
+    import datetime
+    import subprocess
+    import tempfile
+
+    from eval_harness.report import render_index_md, render_recommendation_block, render_role_doc
+    from model_adapter.loader import load_role_config
+
+    n_query = len(_load_and_validate_cases(query_cases_path))
+    n_code_reader = len(_load_and_validate_cases(code_reader_cases_path))
+    n_cases_for_estimate = max(n_query, n_code_reader, 1)
+
+    preflight_check(
+        role_candidates,
+        n_cases_for_estimate,
+        repeats,
+        skip_bed01=skip_bed01 or dry_run,
+        auto_confirm=auto_confirm,
+    )
+
+    cases_path_for_role: dict[str, Path] = {
+        "librarian":   query_cases_path,
+        "synthesizer": query_cases_path,
+        "code_reader": code_reader_cases_path,
+        "scanner":     query_cases_path,
+        "linter":      query_cases_path,
+    }
+
+    ingestor_cases_tmp: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tf:
+            json.dump(
+                [
+                    {
+                        "query": f"ingest {ingestor_source_path.name}",
+                        "expected_answer": "ingestor produces a vault page",
+                        "source_path": str(ingestor_source_path),
+                        "case_id": "ingestor-01",
+                    }
+                ],
+                tf,
+            )
+            ingestor_cases_tmp = Path(tf.name)
+        cases_path_for_role["ingestor"] = ingestor_cases_tmp
+
+        all_results: dict[str, list[SweepResult]] = {}
+
+        for role, candidates in role_candidates.items():
+            cases_path = cases_path_for_role.get(role, query_cases_path)
+            role_results: list[SweepResult] = []
+            for candidate in candidates:
+                if dry_run:
+                    continue
+                cell_results = await run_role_sweep(
+                    role, candidate, cases_path, vault_path, repeats=repeats
+                )
+                role_results.extend(cell_results)
+            all_results[role] = role_results
+
+        run_date = datetime.date.today().isoformat()
+        try:
+            commit_sha = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], text=True
+            ).strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            commit_sha = "unknown"
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        role_doc_paths: list[Path] = []
+        total_cost_run = 0.0
+
+        for role, candidates in role_candidates.items():
+            role_results = all_results.get(role, [])
+            cases_path = cases_path_for_role.get(role, query_cases_path)
+
+            default_model_id: str | None = None
+            try:
+                default_model_id = load_role_config(role).get("model_id")
+            except KeyError:
+                default_model_id = None
+
+            results_by_candidate: dict[str, list[SweepResult]] = {}
+            for r in role_results:
+                results_by_candidate.setdefault(r.model_id, []).append(r)
+
+            panel_means: dict[str, float | None] = {}
+            for candidate in candidates:
+                panel_means[candidate] = _panel_mean_for_candidate(
+                    role, results_by_candidate.get(candidate, []), cases_path
+                )
+
+            default_panel_mean = (
+                panel_means.get(default_model_id) if default_model_id else None
+            )
+
+            threshold = (
+                threshold_quality if role in _QUALITY_ROLES else threshold_other
+            )
+
+            two_gate_outcomes: dict[str, TwoGateOutcome] = {}
+            for candidate in candidates:
+                outputs_by_case: list[tuple[str, object]] = [
+                    (r.query, type("AgentOutputProxy", (), {"answer": r.answer})())
+                    for r in results_by_candidate.get(candidate, [])
+                    if r.status == "ok"
+                ]
+                outcome = score_two_gate(
+                    role=role,
+                    divergence_metric_or_none=None,
+                    agent_outputs_by_case=outputs_by_case,
+                    baselines_dir=None,
+                    panel_mean=panel_means.get(candidate),
+                    default_panel_mean=default_panel_mean,
+                    threshold=threshold,
+                )
+                two_gate_outcomes[candidate] = outcome
+
+            role_total_cost = sum(
+                r.cost_usd for r in role_results
+                if r.cost_usd is not None
+            )
+            total_cost_run += role_total_cost
+
+            doc_text = render_role_doc(
+                role=role,
+                tier=_TIER_LABEL.get(role, "mid"),
+                candidates=candidates,
+                sweep_results=role_results,
+                divergence_results=None,
+                run_date=run_date,
+                commit_sha=commit_sha,
+                total_cost_usd=role_total_cost,
+                two_gate_outcomes=two_gate_outcomes,
+            )
+
+            doc_path = output_dir / f"{role}.md"
+            doc_path.write_text(doc_text, encoding="utf-8")
+            role_doc_paths.append(doc_path)
+
+            from eval_harness.report import cost_frontier_table, pareto_frontier  # noqa: PLC0415
+            table = cost_frontier_table(role_results)
+            frontier = pareto_frontier(table)
+            rec_block = render_recommendation_block(
+                role=role,
+                run_date=run_date,
+                frontier=frontier,
+                current_default=default_model_id or (candidates[0] if candidates else "unknown"),
+            )
+            print(f"### Recommendation block for [roles.{role}] ###")
+            print(rec_block)
+            print()
+
+        story_path = output_dir / "STORY.md"
+        index_text = render_index_md(
+            role_doc_paths=[p.name for p in role_doc_paths],
+            run_date=run_date,
+            total_cost_usd=total_cost_run,
+            story_path="STORY.md" if story_path.exists() else None,
+        )
+        (output_dir / "INDEX.md").write_text(index_text, encoding="utf-8")
+
+        return all_results
+    finally:
+        if ingestor_cases_tmp is not None:
+            ingestor_cases_tmp.unlink(missing_ok=True)

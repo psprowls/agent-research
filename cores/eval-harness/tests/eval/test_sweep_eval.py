@@ -234,6 +234,96 @@ async def test_position_bias_check() -> None:
     )
 
 
+@pytest.mark.eval(name="full_matrix")
+@EVAL_GATE
+async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Live 24-cell matrix run via run_full_matrix() — SWEEP-01..03.
+
+    Drives all 6 in-scope agent roles × 4 sweep candidates against real Bedrock,
+    writes 6 per-role docs + INDEX.md into tmp_path, asserts BED-01 confirmation
+    appeared, and verifies total cost is under HARD_CAP_USD.  Patches
+    score_two_gate with a kwargs-capturing wrapper to verify call signature
+    contract.
+
+    Gates: requires --run-eval and CODE_WIKI_RUN_EVAL=1 (and CODE_WIKI_RUN_JUDGES=1
+    if you want quality gate2 values populated; without it panel_means are None).
+    """
+    from eval_harness import sweep as sweep_mod
+    from eval_harness.preflight import HARD_CAP_USD
+    from eval_harness.sweep import SweepResult, run_full_matrix
+    from eval_harness.two_gate import TwoGateOutcome, score_two_gate as original_score_two_gate
+    from model_adapter.loader import load_role_config
+
+    roles = ["librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor"]
+    role_candidates: dict[str, list[str]] = {}
+    for role in roles:
+        cfg = load_role_config(role)
+        role_candidates[role] = list(cfg["sweep_candidates"])
+
+    captured_calls: list[dict] = []
+
+    def score_two_gate_wrapper(**kwargs) -> TwoGateOutcome:
+        captured_calls.append(dict(kwargs))
+        return original_score_two_gate(**kwargs)
+
+    monkeypatch.setattr(sweep_mod, "score_two_gate", score_two_gate_wrapper)
+
+    code_reader_cases_path = _WORKSPACE_ROOT / "eval" / "cases" / "code_reader_cases.json"
+    ingestor_source = FIXTURE_VAULT / "README.md"
+    if not ingestor_source.exists():
+        ingestor_source = next(FIXTURE_VAULT.glob("*.md"))
+
+    result = await run_full_matrix(
+        role_candidates=role_candidates,
+        vault_path=FIXTURE_VAULT,
+        query_cases_path=CASES_PATH,
+        code_reader_cases_path=code_reader_cases_path,
+        ingestor_source_path=ingestor_source,
+        repeats=3,
+        output_dir=tmp_path,
+        dry_run=False,
+        skip_bed01=False,
+        auto_confirm=True,
+    )
+
+    captured = capsys.readouterr()
+    assert "[BED-01] Bedrock connectivity confirmed." in captured.out, (
+        "BED-01 confirmation line missing from preflight stdout"
+    )
+
+    for role in roles:
+        doc_path = tmp_path / f"{role}.md"
+        assert doc_path.exists(), f"Missing role doc: {doc_path}"
+        text = doc_path.read_text(encoding="utf-8")
+        assert "Pareto frontier" in text, f"{role}.md missing 'Pareto frontier' section"
+    assert (tmp_path / "INDEX.md").exists(), "INDEX.md missing"
+
+    total_cost = 0.0
+    for role_results in result.values():
+        for r in role_results:
+            if isinstance(r, SweepResult) and r.cost_usd is not None:
+                total_cost += r.cost_usd
+    assert total_cost < HARD_CAP_USD, (
+        f"Total cost ${total_cost:.4f} exceeds HARD_CAP_USD ${HARD_CAP_USD}"
+    )
+
+    cr_results = result.get("code_reader", [])
+    code_reader_queries = {
+        c["query"]
+        for c in json.loads(code_reader_cases_path.read_text(encoding="utf-8"))
+    }
+    for r in cr_results:
+        if r.status == "ok":
+            assert r.query in code_reader_queries, (
+                f"code_reader SweepResult query {r.query!r} not in code_reader_cases.json"
+            )
+
+    assert captured_calls, "score_two_gate was never called"
+    for call in captured_calls:
+        for key in ("role", "panel_mean", "default_panel_mean", "threshold"):
+            assert key in call, f"score_two_gate call missing kwarg {key}: {call}"
+
+
 def test_eval_mark_skip() -> None:
     """Verify that EVAL_GATE skips tests when CODE_WIKI_RUN_EVAL is not set.
 
