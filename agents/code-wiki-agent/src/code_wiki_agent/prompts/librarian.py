@@ -7,17 +7,23 @@ Composed at import time (no runtime templating per D-02). Sections:
   2. IRON_RULES fragment (shared)
   3. PAGE_CATEGORIES fragment (shared)
   4. CITATION_RULES fragment (shared)
-  5. Workflow (librarian-local, adapted — host-specific tool references removed)
-  6. Red flags (librarian-local, verbatim from librarian.md §Red flags)
-  7. Output format (librarian-local — preserves NO_RELEVANT_CONTENT sentinel contract)
+  5. STYLE_RULES fragment (shared)
+  6. Workflow (librarian-local, adapted — host-specific tool references removed)
+  7. Red flags (librarian-local, verbatim from librarian.md §Red flags)
+  8. Output format (librarian-local — preserves NO_RELEVANT_CONTENT sentinel contract)
+
+Per CONTEXT.md §Wiring, the librarian does NOT receive project_context — it is
+called per-page and only needs STYLE_RULES from the shared fragment set.
 
 Exports:
-    LIBRARIAN_SYSTEM — immutable string, used as SystemMessage content in run_query()
+    build_librarian_system() -> str — assembles the librarian system prompt.
+    LIBRARIAN_SYSTEM — backward-compat constant, equals build_librarian_system().
 """
 
 from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
 from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
 from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 _ROLE_INTRO = """\
 ## Role
@@ -51,12 +57,25 @@ Either a list of verbatim excerpts (each labeled with its wikilink as it appears
 Use `NO_RELEVANT_CONTENT` when: the page contains no relevant passage; or the page is a TODO stub/placeholder too sparse to address the query. Do not add explanation, apology, or partial-match attempts.\
 """
 
-LIBRARIAN_SYSTEM = "\n\n".join([
-    _ROLE_INTRO,
-    IRON_RULES,
-    PAGE_CATEGORIES,
-    CITATION_RULES,
-    _WORKFLOW,
-    _RED_FLAGS,
-    _OUTPUT_FORMAT,
-])
+
+def build_librarian_system() -> str:
+    """Assemble the librarian system prompt.
+
+    The librarian does not accept a project_context kwarg by design — see
+    CONTEXT.md §Wiring ("Librarian gets STYLE_RULES only; it does not receive
+    the project-context block").
+    """
+    parts = [
+        _ROLE_INTRO,
+        IRON_RULES,
+        PAGE_CATEGORIES,
+        CITATION_RULES,
+        STYLE_RULES,
+        _WORKFLOW,
+        _RED_FLAGS,
+        _OUTPUT_FORMAT,
+    ]
+    return "\n\n".join(parts)
+
+
+LIBRARIAN_SYSTEM = build_librarian_system()
