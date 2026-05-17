@@ -2,19 +2,24 @@ from __future__ import annotations
 
 """Scanner system prompt for code-wiki-agent.
 
-Composes shared fragments (IRON_RULES, FRONTMATTER_RULES) with scanner-local
-rules adapted from cores/prompt-sources/agents/scanner.md.
+Composes shared fragments (IRON_RULES, FRONTMATTER_RULES, ARCHITECTURE_OVERVIEW,
+LOG_FORMAT) with scanner-local rules adapted from cores/prompt-sources/agents/scanner.md.
 
 Exports:
-    SCANNER_SYSTEM — composed system prompt string for the scanner subagent role.
+    build_scanner_system(project_context: str = "") -> str — assembles the scanner
+        system prompt. When `project_context` is non-empty, it is inserted at
+        position 1 (after the role intro, before IRON_RULES).
+    SCANNER_SYSTEM — backward-compat constant, equals build_scanner_system().
 """
 
 # Source: cores/prompt-sources/agents/scanner.md
 # Anchor: ## Role, ## Rules, ## Red flags
 # Source-commit: ef05d99
 
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
 from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 # Scanner does NOT use PAGE_CATEGORIES (stubs are always category: package or app)
 # Scanner does NOT use CITATION_RULES (stubs do not contain freeform claims needing citation)
@@ -58,12 +63,31 @@ Stop and ask before proceeding if:
 _TOKEN_BUDGET = """\
 Keep total output under 380 tokens. Do NOT speculate beyond what the provided file listing shows."""
 
-SCANNER_SYSTEM = "\n\n".join([
-    _ROLE_INTRO,
-    IRON_RULES,
-    FRONTMATTER_RULES,
-    _STUB_SCHEMA,
-    _SCANNER_RULES,
-    _RED_FLAGS,
-    _TOKEN_BUDGET,
-])
+
+def build_scanner_system(project_context: str = "") -> str:
+    """Assemble the scanner system prompt.
+
+    Args:
+        project_context: Optional project-context block. When non-empty, inserted
+            at position 1 (between _ROLE_INTRO and IRON_RULES).
+
+    Returns:
+        The assembled system prompt string.
+    """
+    parts = [
+        _ROLE_INTRO,
+        IRON_RULES,
+        ARCHITECTURE_OVERVIEW,
+        FRONTMATTER_RULES,
+        LOG_FORMAT,
+        _STUB_SCHEMA,
+        _SCANNER_RULES,
+        _RED_FLAGS,
+        _TOKEN_BUDGET,
+    ]
+    if project_context:
+        parts.insert(1, project_context)
+    return "\n\n".join(parts)
+
+
+SCANNER_SYSTEM = build_scanner_system()
