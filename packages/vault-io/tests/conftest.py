@@ -32,7 +32,7 @@ def vault_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def round_trip_vault() -> Path:
     """Return the committed vault fixture, or the env-override path if set."""
-    override = os.environ.get("CODE_WIKI_REAL_VAULT_PATH")
+    override = os.environ.get("GRAPH_WIKI_WORKSPACE")
     if override:
         return Path(override)
     return FIXTURE_VAULT

@@ -64,28 +64,53 @@ def test_detect_containers_smoke(tmp_path: Path):
     assert classes["packages"] == "package", f"expected 'package', got {classes['packages']!r}"
 
 
-def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch):
-    """When neither arg nor env var is set, the helper must raise an actionable RuntimeError."""
+def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch, tmp_path: Path):
+    """When neither arg nor env var is set and no manifest is found, raise an actionable RuntimeError."""
     from vault_io._workspace import resolve_wiki_and_repo
 
-    monkeypatch.delenv("CODE_WIKI_REAL_VAULT_PATH", raising=False)
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    monkeypatch.chdir(tmp_path)
+    # Force workspace_io.config.resolve() to treat this cwd as outside any
+    # git repo so it cannot accidentally pick up the real deep-agents repo.
+    monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)
 
     try:
         resolve_wiki_and_repo()
     except RuntimeError as exc:
-        assert "CODE_WIKI_REAL_VAULT_PATH" in str(exc)
+        assert "code-wiki-agent init" in str(exc)
         return
     raise AssertionError("resolve_wiki_and_repo did not raise RuntimeError on missing config")
 
 
 def test_resolve_wiki_and_repo_honors_env_var(monkeypatch, tmp_path: Path):
-    """Env var alone is sufficient to resolve the vault path."""
+    """GRAPH_WIKI_WORKSPACE env var alone is sufficient to resolve the wiki path."""
     from vault_io._workspace import resolve_wiki_and_repo
 
-    fake_vault = tmp_path / "vault"
-    fake_vault.mkdir()
-    monkeypatch.setenv("CODE_WIKI_REAL_VAULT_PATH", str(fake_vault))
+    fake_workspace = tmp_path / "workspace"
+    fake_workspace.mkdir()
+    # workspace_io.config.resolve() with env set returns the workspace dir,
+    # then paths.wiki_dir() returns workspace/"wiki". No manifest needed
+    # because the env-override branch skips the strict manifest check.
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(fake_workspace))
 
     wiki, repo = resolve_wiki_and_repo()
-    assert wiki == fake_vault.resolve()
-    assert repo is None
+    assert wiki == (fake_workspace / "wiki").resolve()
+    # repo_root is discovered via _find_repo_root; may be None or a real path,
+    # we only assert the wiki path here (matches the env-override contract).
+
+
+def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_path: Path):
+    """Without env var and without .graph-wiki.yaml, raises RuntimeError naming init command."""
+    from vault_io._workspace import resolve_wiki_and_repo
+
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    monkeypatch.chdir(tmp_path)
+    # Ensure no .git ancestor so we don't hit a real workspace.
+    monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)
+
+    try:
+        resolve_wiki_and_repo()
+    except RuntimeError as exc:
+        assert "code-wiki-agent init" in str(exc)
+        return
+    raise AssertionError("did not raise RuntimeError")
