@@ -74,7 +74,37 @@
 
 ## Traceability
 
-_Filled by roadmapper after phase mapping._
+_Filled by roadmapper 2026-05-17. Coverage: 30/30 v1.2 requirements mapped to Phases 11-16._
 
 | REQ-ID | Phase |
 |--------|-------|
+| WS-01 | Phase 11 |
+| WS-02 | Phase 11 |
+| WS-03 | Phase 11 |
+| WS-04 | Phase 11 |
+| WS-05 | Phase 11 |
+| WS-06 | Phase 11 |
+| WS-07 | Phase 11 |
+| WS-08 | Phase 11 |
+| WS-09 | Phase 11 |
+| WS-10 | Phase 11 |
+| BACKPORT-01 | Phase 12 |
+| BACKPORT-02 | Phase 12 |
+| BACKPORT-03 | Phase 12 |
+| BACKPORT-04 | Phase 12 |
+| BRAND-01 | Phase 12 |
+| BRAND-02 | Phase 12 |
+| BRAND-03 | Phase 15 |
+| BRAND-04 | Phase 12 |
+| PLUGIN-01 | Phase 13 |
+| PLUGIN-02 | Phase 14 |
+| PLUGIN-03 | Phase 14 |
+| PLUGIN-04 | Phase 14 |
+| PLUGIN-05 | Phase 14 |
+| TRACE-FU-01 | Phase 16 |
+| SWEEP-FU-02 | Phase 16 |
+| SWEEP-FU-03 | Phase 16 |
+| SWEEP-FU-04 | Phase 16 |
+| MCP-CAN-01 | Phase 16 |
+| MCP-CAN-02 | Phase 16 |
+| MODEL-FU-01 | Phase 16 |
