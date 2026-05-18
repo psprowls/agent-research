@@ -5,7 +5,7 @@ update_index.py — Regenerate wiki/index.md from the frontmatter of every vault
 The index is content-oriented: a catalog organized by category, with one-line
 summaries read from each page's YAML frontmatter.
 
-Discovers wiki location from the resolved lattice workspace.
+Discovers wiki location from the resolved graph-wiki workspace.
 
 Usage:
     python update_index.py
@@ -141,7 +141,7 @@ def scan_work(workspace):
     Returns a list of entries shaped like scan_vault() values. Paths are
     workspace-relative (e.g. "work/2026-05-03-foo.md") so they render as
     workspace-rooted wikilinks. Skips the generated work index, dotfiles,
-    and the archived/ sub-namespace (owned by lattice-work lifecycle).
+    and the archived/ sub-namespace (owned by graph-wiki work lifecycle).
     """
     work_dir = workspace / "work"
     if not work_dir.exists():
@@ -197,7 +197,7 @@ def render_index(pages, wiki_name, vault_name):
         f"_Auto-generated {today} • {nav_total} navigation pages_",
         "",
         f"> Navigation index for `{vault_name}/`. Updated by `scripts/update_index.py`",
-        "> or during `/lattice-wiki:scan` / `/lattice-wiki:ingest`.",
+        "> or during `/graph-wiki:scan` / `/graph-wiki:ingest`.",
         "> Answer queries by reading this file first, then open relevant package/domain pages.",
         "",
     ]

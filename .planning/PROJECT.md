@@ -2,22 +2,22 @@
 
 ## What This Is
 
-A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, **`code-wiki-agent`**, is a reimplementation of the existing `lattice-wiki` Claude Code plugin — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
+A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, **`code-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
 ## Core Value
 
-**Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
+**Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
 
-If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's lattice-wiki librarian, on cheaper models, faster.
+If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
 ## Current State: v1.1 Shipped — 2026-05-17
 
 **Shipped:** v1.0 (code-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17). 10 phases, 64 plans, 96/96 requirements satisfied across both milestones.
 
 **What works today (post-v1.1):**
-- `code-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full lattice-wiki workflow on Bedrock with within-command subagent fan-out
+- `code-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full upstream lattice-wiki workflow on Bedrock with within-command subagent fan-out
 - All MCP tools exposed via `code-wiki-mcp` stdio server; verified end-to-end via DA-CLI integration test
-- Agent prompts incorporate canonical lattice-wiki SKILL.md content; divergence eval flags remaining drift
+- Agent prompts incorporate canonical upstream lattice-wiki SKILL.md content; divergence eval flags remaining drift
 - Cost-frontier validated: `models.toml` defaults reflect cost-optimal picks per role (Qwen3-32B fan-out, Qwen3-80B synthesis)
 - Trace renderer with per-(role,model) cost rollup and collapsed-by-default subagent groups
 - Subagent context completion: `wiki/CLAUDE.md` layout + style + log format injected into scanner/linter/ingestor system prompts
@@ -26,14 +26,14 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ## Current Milestone: v1.2 Graph-Wiki Port & Debt Cleanup
 
-**Goal:** Port `lattice-workspace` into a new `workspace-io` package, backport meaningful drift from `lattice-wiki-core` into `vault-io`, rebrand the ecosystem to `graph-wiki` (kebab) / `graph_wiki` (snake), port the `lattice-wiki` plugin into `plugins/graph-wiki/`, and close v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
+**Goal:** Port upstream `lattice-workspace` into a new `workspace-io` package, backport meaningful drift from upstream `lattice-wiki-core` into `vault-io`, rebrand the ecosystem to `graph-wiki` (kebab) / `graph_wiki` (snake), port the upstream `lattice-wiki` plugin into `plugins/graph-wiki/`, and close v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
 
 **Target features:**
 
 *Port + Rebrand (thread plan, post-spike-002)*
-- **M1 — workspace-io port:** new `packages/workspace-io/` from `lattice-workspace`; rename `LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`, `.lattice.yaml` → `.graph-wiki.yaml`, `LatticeConfig` → `GraphWikiConfig`; `vault-io._workspace.resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`.
-- **M2 — selective drift backport + ecosystem rebrand:** body-diff `lint/*`, `init_vault.py`, and any others where upstream has substantive changes; backport only what's substantive (leave architectural divergence intact); rebrand `lattice` → `graph-wiki` across `packages/`, `agents/`, `.planning/`, `CLAUDE.md`.
-- **M3 — plugin port:** copy `lattice-wiki` plugin → `plugins/graph-wiki/`; rename plugin id, slash command namespace (`/lattice-wiki:*` → `/graph-wiki:*`), agent/skill names; rewrite plugin scripts to consume `vault-io` (which itself uses `workspace-io`). Needs a spec phase first to answer the open question: *what do plugin slash commands actually shell out to?*
+- **M1 — workspace-io port:** new `packages/workspace-io/` from upstream `lattice-workspace`; rename upstream `LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`, upstream `.lattice.yaml` → `.graph-wiki.yaml`, upstream `LatticeConfig` → `GraphWikiConfig`; `vault-io._workspace.resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`.
+- **M2 — selective drift backport + ecosystem rebrand:** body-diff `lint/*`, `init_vault.py`, and any others where upstream has substantive changes; backport only what's substantive (leave architectural divergence intact); rebrand upstream `lattice` → `graph-wiki` across `packages/`, `agents/`, `.planning/`, `CLAUDE.md`.
+- **M3 — plugin port:** copy upstream `lattice-wiki` plugin → `plugins/graph-wiki/`; rename plugin id, slash command namespace (upstream `/lattice-wiki:*` → `/graph-wiki:*`), agent/skill names; rewrite plugin scripts to consume `vault-io` (which itself uses `workspace-io`). Needs a spec phase first to answer the open question: *what do plugin slash commands actually shell out to?*
 
 *v1.1 carry-forward debt*
 - **Trace pipeline correctness (TRACE-FU-01)** — production trace pipeline emits `usage_metadata`; today only the sweep harness records token counts.
@@ -46,7 +46,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 - Nyquist compliance retroactive validation → **v1.3** (0/5 v1.1 phases reached `nyquist_compliant: true`; decision deferred).
 - `work/` subsystem port — GSD covers work-item lifecycle (thread decision 2026-05-17).
 - Package-family monorepo support restoration — different approach planned (thread decision 2026-05-17).
-- Modules where vault-io is ahead of lattice (`git_state`, `append_log`, `update_index`, `update_tokens`, `layout_io`, `detect_containers`, `scan_monorepo`, `ingest_source`) — leave as-is per spike 002.
+- Modules where vault-io is ahead of upstream lattice (`git_state`, `append_log`, `update_index`, `update_tokens`, `layout_io`, `detect_containers`, `scan_monorepo`, `ingest_source`) — leave as-is per spike 002.
 
 Full v1.1 retrospective in `.planning/RETROSPECTIVE.md`; v1.1 audit in `.planning/milestones/v1.1-MILESTONE-AUDIT.md`. Source planning thread: `.planning/threads/next-milestone-planning.md`.
 

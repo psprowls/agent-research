@@ -3,7 +3,7 @@ per-kind required fields, family/member back-pointers, stub detection.
 
 Filesystem-only at this point; graph-aware variants (e.g. checking that a
 member is actually imported anywhere in the codebase) are deferred to the
-follow-on plan once ``lattice-graph`` ships.
+follow-on plan once the graph-aware extension ships.
 """
 
 from __future__ import annotations

@@ -14,7 +14,7 @@ Usage:
     python append_log.py --op lint --title "weekly health check" --json
 
 Valid ops:
-    scan     — a /lattice-wiki:scan pass ran
+    scan     — a /graph-wiki:scan pass ran
     ingest   — a source was read and integrated
     query    — a question was answered (filed back as a page)
     lint     — a health-check pass ran

@@ -5,18 +5,18 @@
 > **Initialized:** {{DATE}}
 > **Tool:** Claude Code (this file).
 
-You are the maintainer of this wiki. You read from `../raw/` (immutable ingested sources, owned by `lattice-workspace`) and from the repo's source code. You write to pages under this wiki directory. You never edit `../raw/` and you never edit code through this skill.
+You are the maintainer of this wiki. You read from `../raw/` (immutable ingested sources, owned by `graph-wiki workspace`) and from the repo's source code. You write to pages under this wiki directory. You never edit `../raw/` and you never edit code through this skill.
 
 ## Where the wiki sits
 
 This wiki is a sibling of other workspace-level directories. Obsidian opens at the workspace root, so the sidebar shows them all together:
 
 ```
-<workspace>/                  → e.g. <repo>/lattice/. Obsidian vault opens here.
-├── .lattice.yaml             → workspace manifest (owned by lattice-workspace)
-├── CLAUDE.md                 → workspace-level schema (owned by lattice-workspace)
-├── raw/                      → ingested sources. IMMUTABLE. Owned by lattice-workspace.
-├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by lattice-workspace.
+<workspace>/                  → e.g. <repo>/graph-wiki/. Obsidian vault opens here.
+├── .graph-wiki.yaml          → workspace manifest (owned by graph-wiki workspace)
+├── CLAUDE.md                 → workspace-level schema (owned by graph-wiki workspace)
+├── raw/                      → ingested sources. IMMUTABLE. Owned by graph-wiki workspace.
+├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by graph-wiki workspace.
 ├── knowledge/                → other plugin-managed knowledge stores
 └── wiki/                     → this wiki — you own everything here
     ├── CLAUDE.md             → this file
@@ -50,7 +50,7 @@ adrs/                     → architecture decision records
 .templates/               → page templates (reference only)
 ```
 
-Work items live at `../work/` (sibling of this wiki, owned by `lattice-workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
+Work items live at `../work/` (sibling of this wiki, owned by `graph-wiki workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
 
 ## Page frontmatter (required on every wiki page)
 
@@ -68,7 +68,7 @@ Each category has additional required fields — see `<skill>/references/page-fo
 
 ## The four operations
 
-### Scan (`/lattice-wiki:scan`)
+### Scan (`/graph-wiki:scan`)
 
 1. Run `python <skill>/scripts/scan_monorepo.py --json` (workspace and repo discovered automatically)
 2. Present the diff to the user — new / renamed / deleted packages
@@ -77,9 +77,9 @@ Each category has additional required fields — see `<skill>/references/page-fo
 5. Update frontmatter (`exports`, `depends_on`, `depended_on_by`) on existing pages
 6. Update `index.md` and append a `scan` log entry
 
-### Ingest (`/lattice-wiki:ingest <path>`)
+### Ingest (`/graph-wiki:ingest <path>`)
 
-Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts you've staged) **or** in the repo itself as `.md` design docs (e.g. `docs/architecture.md`). Surfaced by `/lattice-wiki:scan` for any pinned `docs` container; pass the repo-relative path straight to `/lattice-wiki:ingest`. PDF/DOCX support is deferred — md only for now.
+Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts you've staged) **or** in the repo itself as `.md` design docs (e.g. `docs/architecture.md`). Surfaced by `/graph-wiki:scan` for any pinned `docs` container; pass the repo-relative path straight to `/graph-wiki:ingest`. PDF/DOCX support is deferred — md only for now.
 
 1. Run `ingest_source.py --source <path>` (wiki and repo discovered automatically)
 2. Read the source directly
@@ -92,7 +92,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 9. Update `index.md` and append an `ingest` log entry
 10. Report touched pages as wikilinks
 
-### Query (`/lattice-wiki:query <question>`)
+### Query (`/graph-wiki:query <question>`)
 
 1. Read `index.md` first
 2. Pick 3-10 relevant pages across categories (architecture + packages + concepts + sources + adrs)
@@ -102,7 +102,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 6. Synthesize: direct answer → supporting detail → inline `[[wikilinks]]` + `` `code-paths:line` `` → "Related pages" section
 7. **Offer to file the answer back** as a new page (concept/architecture/adr — comparisons live as `concepts/<a>-vs-<b>.md`)
 
-### Lint (`/lattice-wiki:lint`)
+### Lint (`/graph-wiki:lint`)
 
 1. Run `python <skill>/scripts/lint_wiki.py` for mechanical checks **including code drift** (workspace and repo discovered automatically)
 2. Run `graph_analyzer.py` for structural stats
@@ -114,7 +114,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 
 1. **The code is the source of truth.** If the wiki and the code disagree, update the wiki — never the other way around.
 2. **`../raw/` is immutable.** You read from it; you never write to it.
-3. **All wiki writes go under this wiki directory.** Work items go to `../work/` (owned by `lattice-workspace`). No exceptions.
+3. **All wiki writes go under this wiki directory.** Work items go to `../work/` (owned by `graph-wiki workspace`). No exceptions.
 4. **Every wiki page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
 5. **Every scan/ingest touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim cites** — either a wiki page (`[[sources/xxx]]`) or a code path (`` `packages/foo/src/bar.ts:42` ``).
@@ -134,7 +134,7 @@ Grep the log: `grep "^## \[" log.md | tail -10`
 
 ## Tools
 
-All scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/` (or wherever the plugin is installed). Standard library only.
+All scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/` (or wherever the plugin is installed). Standard library only.
 
 - `init_vault.py` — bootstrap a wiki
 - `scan_monorepo.py` — detect packages, emit diff

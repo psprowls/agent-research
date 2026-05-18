@@ -5,7 +5,7 @@ layout_io.py — Read and write the vault-io layout block in CLAUDE.md / AGENTS.
 The layout block is delimited by sentinel HTML comments and contains a YAML
 document inside a fenced code block. Format:
 
-    <!-- lattice-wiki:layout:start -->
+    <!-- graph-wiki:layout:start -->
     ```yaml
     version: 1
     detected_at: 2026-04-29
@@ -16,7 +16,7 @@ document inside a fenced code block. Format:
         classification: app
         children_count: 3
     ```
-    <!-- lattice-wiki:layout:end -->
+    <!-- graph-wiki:layout:end -->
 
 Hand-rolled minimal YAML emitter and parser tailored to this fixed shape
 (stdlib-only — no PyYAML dependency).
@@ -29,8 +29,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
-LAYOUT_START = "<!-- lattice-wiki:layout:start -->"
-LAYOUT_END = "<!-- lattice-wiki:layout:end -->"
+LAYOUT_START = "<!-- graph-wiki:layout:start -->"
+LAYOUT_END = "<!-- graph-wiki:layout:end -->"
 
 _BLOCK_RE = re.compile(
     re.escape(LAYOUT_START) + r"\s*\n```yaml\s*\n(.*?)\n```\s*\n" + re.escape(LAYOUT_END),

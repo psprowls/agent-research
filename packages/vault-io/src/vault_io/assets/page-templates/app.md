@@ -15,7 +15,7 @@ tags: []
 sources: 0
 updated: <YYYY-MM-DD>
 tokens: 0
-last_sync_commit:                 # full SHA of the repo commit this page reflects, set by /lattice-wiki:scan
+last_sync_commit:                 # full SHA of the repo commit this page reflects, set by /graph-wiki:scan
 last_sync_at:                     # YYYY-MM-DD when sync state was recorded
 ---
 

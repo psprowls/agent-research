@@ -9,6 +9,6 @@
 
 ## [{{DATE}}] note | Wiki initialized
 Topic: **{{TOPIC}}**. Repo: **{{REPO_PATH}}**.
-Wiki created at `<workspace>/wiki/` with subdirs `concepts/`, `dependencies/`, `sources/`, `architecture/`, `adrs/`, `.templates/` (plus conditional `apps/`, `packages/`, `domains/` based on detected containers). `raw/` and `work/` live at the workspace level (owned by `lattice-workspace`).
+Wiki created at `<workspace>/wiki/` with subdirs `concepts/`, `dependencies/`, `sources/`, `architecture/`, `adrs/`, `.templates/` (plus conditional `apps/`, `packages/`, `domains/` based on detected containers). `raw/` and `work/` live at the workspace level (owned by `graph-wiki workspace`).
 Schema loader: `CLAUDE.md` + `AGENTS.md` + `.cursorrules`.
-Next: run `/lattice-wiki:scan` to populate `packages/`.
+Next: run `/graph-wiki:scan` to populate `packages/`.

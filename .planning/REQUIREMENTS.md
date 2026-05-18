@@ -1,6 +1,6 @@
 # Requirements — Milestone v1.2 Graph-Wiki Port & Debt Cleanup
 
-**Milestone goal:** Port `lattice-workspace` into a new `workspace-io` package, backport meaningful drift from `lattice-wiki-core` into `vault-io`, rebrand the ecosystem to `graph-wiki`, port the `lattice-wiki` plugin into `plugins/graph-wiki/`, and close v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
+**Milestone goal:** Port upstream `lattice-workspace` into a new `workspace-io` package, backport meaningful drift from upstream `lattice-wiki-core` into `vault-io`, rebrand the ecosystem to `graph-wiki`, port the upstream `lattice-wiki` plugin into `plugins/graph-wiki/`, and close v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
 
 **Scoped:** 2026-05-17 via `/gsd-new-milestone`. Source planning thread: `.planning/threads/next-milestone-planning.md`.
 
@@ -11,32 +11,32 @@
 ### Workspace-IO Port (M1)
 - [ ] **WS-01**: New `packages/workspace-io/` workspace member exists with `pyproject.toml`, `src/workspace_io/`, `tests/`; declared in root `pyproject.toml` workspace members.
 - [ ] **WS-02**: `config.py` ported as `workspace_io.config` with `GraphWikiConfig` dataclass and `resolve(cwd)` discovery walking upward for `.graph-wiki.yaml`.
-- [ ] **WS-03**: `manifest.py` ported as `workspace_io.manifest` reading/writing `.graph-wiki.yaml` (filename changed from `.lattice.yaml`).
+- [ ] **WS-03**: `manifest.py` ported as `workspace_io.manifest` reading/writing `.graph-wiki.yaml` (filename changed from the legacy upstream `.lattice.yaml`).
 - [ ] **WS-04**: `init.py` ported as `workspace_io.init` performing workspace bootstrap (git init + manifest write + `.gitignore`).
-- [ ] **WS-05**: `paths.py`, `render.py`, `versions.py`, `_local_config.py`, `assets/CLAUDE.md.template` ported with `lattice_workspace.*` → `workspace_io.*` import rewrites.
+- [ ] **WS-05**: `paths.py`, `render.py`, `versions.py`, `_local_config.py`, `assets/CLAUDE.md.template` ported with upstream `lattice_workspace.*` → `workspace_io.*` import rewrites.
 - [ ] **WS-06**: `schema.py` decision recorded — verified before porting; if it only writes work-item schemas, dropped (work layer out of scope); otherwise ported.
-- [ ] **WS-07**: Environment variable `LATTICE_WORKSPACE` renamed to `GRAPH_WIKI_WORKSPACE` across the ported package; all `LatticeConfig`/`lattice_*` symbols renamed to `GraphWikiConfig`/`graph_wiki_*`.
+- [ ] **WS-07**: Environment variable renamed from the legacy upstream `LATTICE_WORKSPACE` to `GRAPH_WIKI_WORKSPACE` across the ported package; all legacy upstream `LatticeConfig`/`lattice_*` symbols renamed to `GraphWikiConfig`/`graph_wiki_*`.
 - [ ] **WS-08**: `vault-io/_workspace.py::resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`; the explicit-path argument override path is preserved (MCP boundary contract intact).
-- [ ] **WS-09**: Ported tests from `lattice-workspace/tests/` pass under the new module path and `.graph-wiki.yaml` filename expectations.
+- [ ] **WS-09**: Ported tests from the upstream `lattice-workspace/tests/` suite pass under the new module path and `.graph-wiki.yaml` filename expectations.
 - [ ] **WS-10**: User-level config migration question answered — is `~/Personal/wiki/deep-agents/wiki-config.toml` the same surface as `.graph-wiki.yaml`? If yes, one-shot migration script ships; if no, decision documented in PROJECT.md Key Decisions.
 
 ### Selective Drift Backport (M2)
-- [ ] **BACKPORT-01**: Body-diff inventory of `lint/*` (8 files) between `vault-io` and `lattice-wiki-core`; substantive upstream changes backported into `vault-io`, identical contracts left alone, decision logged per file.
+- [ ] **BACKPORT-01**: Body-diff inventory of `lint/*` (8 files) between `vault-io` and upstream `lattice-wiki-core`; substantive upstream changes backported into `vault-io`, identical contracts left alone, decision logged per file.
 - [ ] **BACKPORT-02**: Body-diff `init_vault.py` against upstream; substantive changes backported, otherwise documented as "leave-alone" with reason.
 - [ ] **BACKPORT-03**: `ingest_work_item.py` API divergence decision recorded — `file_work_item` lib shape retained (fits MCP boundary) unless backport rationale emerges.
 - [ ] **BACKPORT-04**: All "leave" decisions from spike 002 §Investigation A documented in `packages/vault-io/DRIFT-DECISIONS.md` so the rationale survives the rebrand.
 
 ### Ecosystem Rebrand (M2)
-- [ ] **BRAND-01**: All `lattice`/`LATTICE`/`lattice_workspace`/`lattice_wiki_core` references across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` renamed to `graph-wiki` (kebab) or `graph_wiki` (snake) per context.
+- [ ] **BRAND-01**: All legacy upstream `lattice` / `LATTICE` / `lattice_workspace` / `lattice_wiki_core` references across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` renamed to `graph-wiki` (kebab) or `graph_wiki` (snake) per context.
 - [ ] **BRAND-02**: `.planning/spikes/CONVENTIONS.md` `cores/` → `packages/` reference corrected (already flagged stale).
 - [ ] **BRAND-03**: Wiki self-update — `~/Personal/wiki/deep-agents` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest.
-- [ ] **BRAND-04**: Naming consistency sweep — `grep -rE 'lattice|LATTICE|lattice_workspace|lattice_wiki_core'` across in-scope paths returns zero hits after rebrand (commit-history-only references in `~/Personal/lattice/` excluded).
+- [ ] **BRAND-04**: Naming consistency sweep — `scripts/check-brand.sh` (running a `grep -rE` over the upstream-name patterns and filtering through `.brand-grep-allow`) reports zero unallowlisted hits across in-scope paths after rebrand.
 
 ### Plugin Port (M3)
-- [ ] **PLUGIN-01**: Spec phase completed answering: *what do `lattice-wiki` plugin slash commands actually shell out to?* — deep-agents CLI/MCP server, lattice CLIs, or both — and contract surface locked before code is moved.
-- [ ] **PLUGIN-02**: `/Users/pat/Personal/lattice/plugins/lattice-wiki/` ported to `plugins/graph-wiki/`; `.claude-plugin/plugin.json` metadata renamed; plugin id renamed to `graph-wiki`.
-- [ ] **PLUGIN-03**: Slash command namespace renamed `/lattice-wiki:*` → `/graph-wiki:*`; agent names, skill names renamed accordingly.
-- [ ] **PLUGIN-04**: Plugin scripts rewritten so vault I/O goes through `vault-io` (which uses `workspace-io`); no direct `lattice_*` imports remain.
+- [ ] **PLUGIN-01**: Spec phase completed answering: *what do the upstream `lattice-wiki` plugin slash commands actually shell out to?* — deep-agents CLI/MCP server, upstream CLIs, or both — and contract surface locked before code is moved.
+- [ ] **PLUGIN-02**: Upstream `/Users/pat/Personal/lattice/plugins/lattice-wiki/` ported to `plugins/graph-wiki/`; `.claude-plugin/plugin.json` metadata renamed; plugin id renamed to `graph-wiki`.
+- [ ] **PLUGIN-03**: Slash command namespace renamed from the upstream `/lattice-wiki:*` to `/graph-wiki:*`; agent names, skill names renamed accordingly.
+- [ ] **PLUGIN-04**: Plugin scripts rewritten so vault I/O goes through `vault-io` (which uses `workspace-io`); no direct legacy upstream imports remain.
 - [ ] **PLUGIN-05**: Plugin loads and at least one slash command (`/graph-wiki:query`) runs end-to-end against the deep-agents vault.
 
 ### Trace Pipeline Correctness (carry-forward)
