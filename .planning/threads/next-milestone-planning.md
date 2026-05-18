@@ -132,14 +132,6 @@ Per spike 002 §Investigation A, these are the candidates. For each, decide port
 
 **Open question carried forward:** what do the plugin's slash commands actually shell out to? Need to answer before committing this to the milestone.
 
-### M4 — (Spike candidate) Plugin as first-class Python package
-
-**Status:** still a `/gsd-spike` candidate, not a committed phase. The (a)/(b) framing from the original T5 stands:
-- (a) Package the markdown/JSON tree as a distributable wheel
-- (b) Reimplement the plugin as Python loadable by the deep-agents MCP server
-
-Run a small spike to compare against the "run on Bedrock at lower cost" core value before committing.
-
 ### Cross-cutting
 
 - **Naming consistency sweep:** at the end of M1 + M2, grep for `lattice`, `LATTICE`, `lattice_workspace`, `lattice_wiki_core` across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` — anything remaining is a bug.
@@ -212,18 +204,6 @@ Target layout in this repo:
 **Open questions:**
 - Where do the plugin's slash commands shell out to? If they call the deep-agents CLI / MCP server, the contract surface needs to be locked before the plugin port. If they shell out to lattice CLIs, those calls must be rewritten.
 - The plugin still ships as a Claude Code plugin at this stage — that's the v1 endpoint of T4. T5 is the optional follow-on.
-
-### T5 — (Consider) Make the plugin a first-class Python package in the uv workspace
-
-**Status:** exploratory. Not a commitment. Worth a `/gsd-spike` before committing to a phase.
-
-**Architectural question:** the plugin today is markdown + JSON config (agents/commands/skills) — there is no Python to compile. Two interpretations:
-
-**(a) Package the plugin assets** — bundle the markdown/JSON tree as a distributable wheel that installs into Claude Code's plugin path (or analogous deep-agents loader). Mechanical packaging exercise; minimal architectural change. The "package" is essentially `data_files` + a tiny installer entry point.
-
-**(b) Reimplement the plugin as Python code** that the deep-agents MCP server / CLI loads as runnable agent logic. This is a re-architecture: the plugin stops being Claude-Code-shaped and becomes a Python module that can be invoked from any MCP host. Aligns with the project's Bedrock-only, MCP-first thesis.
-
-**Recommended next move:** a small spike to compare (a) vs (b) against the project's "run on Bedrock at lower cost" core value. If the plugin is only ever consumed via Claude Code, (a) is enough. If it should be invokable from the DeepAgents CLI on Bedrock too, (b) is required.
 
 **Open questions:**
 - Does Pat want the plugin to remain Claude-Code-only, or run on Bedrock through the deep-agents CLI / MCP server?
