@@ -98,7 +98,12 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   1. A spec doc under `.planning/spec/` enumerates every `lattice-wiki` plugin slash command and names what each one will shell out to (deep-agents CLI subcommand, MCP tool, or lattice CLI to be replaced).
   2. The spec calls out which plugin commands change shape during the port vs. which are byte-for-byte renames, with one-line rationale per change.
   3. The contract surface is locked in PROJECT.md Key Decisions (or equivalent), so Phase 14 has no open questions left about plugin → deep-agents wiring.
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 13-01-PLAN.md — Per-command port specs for /graph-wiki:init + /graph-wiki:scan (rename verdicts)
+- [ ] 13-02-PLAN.md — Per-command port specs for /graph-wiki:ingest (source-only) + /graph-wiki:lint (reshape, drops work-layer pass 1b)
+- [ ] 13-03-PLAN.md — Per-command port specs for /graph-wiki:query (LLM + BM25 fallback) + /graph-wiki:log (prose-only, no script)
+- [ ] 13-04-PLAN.md — Cross-cutting: CONTRACT-INDEX.md (9-row verdict table) + SHELL-OUT-PATTERN.md (SO-01..SO-04 + rename map)
+- [ ] 13-05-PLAN.md — Lock the contract surface in PROJECT.md Key Decisions (SP-05) + REQUIREMENTS.md VP-01 prereq note
 
 ### Phase 14: Plugin Port (M3b)
 **Goal**: The `lattice-wiki` Claude Code plugin runs as `plugins/graph-wiki/` against the deep-agents vault, with no `lattice_*` imports and at least one slash command exercising the end-to-end path.
@@ -149,11 +154,11 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
-| 13. Plugin Spec (M3a) | 0/0 | Not started | — |
+| 13. Plugin Spec (M3a) | 0/5 | Plans created | — |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
 
 ---
 
-*Last updated: 2026-05-18 — Phase 12 plans created (4 plans: P-A diff dump → P-B verdicts+backports → P-C rebrand sweep → P-D grep-gate verification). Next: `/gsd:execute-phase 12`.*
+*Last updated: 2026-05-18 — Phase 13 plans created (5 plans: 3 per-command-spec plans wave 1 parallel + cross-cutting docs wave 1 + PROJECT.md/REQUIREMENTS.md lock wave 2). Next: `/gsd:execute-phase 13`.*
