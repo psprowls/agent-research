@@ -81,6 +81,14 @@ packages/vault-io/DRIFT-DECISIONS.md
 .planning/phases/11-workspace-io-port-m1/
 
 # ---------------------------------------------------------------------------
+# Phase 13 own plans + context + per-command port specs — Phase 13 authors
+# the plugin contract surface that ports upstream `/lattice-wiki:*` commands
+# to `/graph-wiki:*`; every spec file names both sides of the rename.
+# ---------------------------------------------------------------------------
+.planning/phases/13-plugin-spec-m3a/
+.planning/spec/13-plugin-contract/
+
+# ---------------------------------------------------------------------------
 # Spike scaffolding — MANIFEST + CONVENTIONS describe the spike index, with
 # the lattice-drift-inventory spike named explicitly (R-03 spirit).
 # ---------------------------------------------------------------------------
