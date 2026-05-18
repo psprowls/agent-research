@@ -1,0 +1,24 @@
+# Phase 12 Drift Verdict Scratch (pre-fill — fill `Verdict` + `Rationale` columns inline)
+
+Source-of-truth row list: spike 002 §A "Overlapping modules" (11 rows; `lint/*` collapsed).
+Verdict vocabulary (SR-03 — fixed set): PORT | LEAVE-AHEAD | LEAVE-ARCH | LEAVE-COSMETIC | IDENTICAL.
+
+| # | Module (relpath) | Spike Verdict | LOC Δ | Hint (operator priors — not pre-assignment) | Verdict | Rationale (one line) | Backport SHA |
+|---|------------------|---------------|-------|---------------------------------------------|---------|----------------------|--------------|
+| 1 | `git_state.py` | IDENTICAL (byte-equal) | 0 | IDENTICAL | IDENTICAL | byte-equal to upstream per DRIFT-DECISIONS-RAW.md (no diff hunks) | — |
+| 2 | `append_log.py` | DRIFTED-COMPATIBLE | +30 | LEAVE-AHEAD (WR-01/WR-02) | LEAVE-AHEAD | vault-io adds `raise_exception=True` (WR-01) and stderr-JSON output (WR-02) for MCP boundary error handling | — |
+| 3 | `update_index.py` | DRIFTED-COMPATIBLE | +29 | LEAVE-AHEAD (lib-ification, public `update_index(wiki)`) | LEAVE-AHEAD | D-02 lib-ification: vault-io adds public `update_index(wiki)` entry point so ingest_work_item can call it without subprocess | — |
+| 4 | `update_tokens.py` | DRIFTED-COMPATIBLE | +6 | LEAVE-AHEAD (no-tiktoken project rule per CLAUDE.md §3) | LEAVE-AHEAD | D-02 lib-ification with no-tiktoken (CLAUDE.md §3): replaces tiktoken/cl100k with Bedrock CountTokens + model_id/region lib params | — |
+| 5 | `ingest_work_item.py` | DRIFTED-INCOMPATIBLE-API | -1 | LEAVE-AHEAD (`file_work_item` lib shape — PROJECT.md recommendation) | LEAVE-AHEAD | D-02 lib-ification: vault-io exposes `file_work_item(wiki, fm, body, ...)` library shape (no argparse main, no subprocess helpers) per PROJECT.md / BACKPORT-03 | — |
+| 6 | `init_vault.py` | DRIFTED-COMPATIBLE | -15 | TBD — body-diff determines PORT vs LEAVE-COSMETIC | LEAVE-AHEAD | D-02 lib-ification + WR-01: vault-io drops `lattice_workspace.init` dep, swaps `sys.exit` for `RuntimeError`, swaps `print` for `logger`, and strips package-family from valid container choices | — |
+| 7 | `lint/*` | DRIFTED-COMPATIBLE | various | TBD per-file inside row — likely PORT for each (BACKPORT-01); if sub-files diverge add footnote | LEAVE-AHEAD | D-02 lib-ification: vault-io relocates `_is_placeholder_target` from `lint_wiki.py` into `lint/common.py` and adds `if kind == "package":` guard around dep-detail-without-load-bearing in `lint/dependency.py`; remaining lint files differ only by import path rename (`lattice_wiki_core` → `vault_io`); no substantive upstream changes to backport | — |
+| 8 | `layout_io.py` | DRIFTED-FEATURE-LOSS | -98 | LEAVE-ARCH (package-family strip — out of v1.2) | LEAVE-ARCH | package-family strip per PROJECT.md "Explicitly out of v1.2" — vault-io removes `_PACKAGE_FAMILY_FIELDS`, `ensure_package_pages`, `ensure_domain_pages` | — |
+| 9 | `detect_containers.py` | DRIFTED-FEATURE-LOSS | -129 | LEAVE-ARCH (package-family strip) | LEAVE-ARCH | package-family strip per PROJECT.md "Explicitly out of v1.2" — vault-io removes `_is_package_family_shape`, `_find_package_families`, package-family classification path | — |
+| 10 | `scan_monorepo.py` | DRIFTED-FEATURE-LOSS | -151 | LEAVE-ARCH (package-family strip) | LEAVE-ARCH | package-family strip per PROJECT.md "Explicitly out of v1.2" — vault-io removes `_collect_package_family_member`, `_iter_package_family_dirs`, package-family discovery branch | — |
+| 11 | `ingest_source.py` | DRIFTED-CLI-STRIPPED | -181 | LEAVE-ARCH (CLI `main()` strip) | LEAVE-ARCH | CLI main() strip — vault-io drops argparse `main()` + version-check + subprocess calls in favor of library exports only (lib-ification posture) | — |
+
+## Notes
+
+- **All 11 rows resolved as non-PORT** (1 IDENTICAL / 6 LEAVE-AHEAD / 4 LEAVE-ARCH). No backport commits to land in this plan — `uv run pytest` must still pass as a regression gate.
+- **lint/\* row footnote (per operator decision B1):** Each lint sub-file diff was inspected individually. All 8 sub-files share the same LEAVE-AHEAD verdict — there are no substantive upstream changes to port and the only vault-io divergences are (a) the `_is_placeholder_target` relocation into `common.py`, (b) the `kind == "package"` guard in `dependency.py`, (c) the `pinned_vault_dirs` simplification in `container.py` (package-family-adjacent, harmless), and (d) import-path renames in the remaining 5 files. No sub-file warrants a different verdict; no row-level footnote needed in the final DRIFT-DECISIONS.md.
+- **init_vault.py rationale combines multiple Phase 11 / project decisions** — the dominant one cited (D-02 lib-ification) covers the lattice_workspace removal; WR-01 covers the sys.exit → RuntimeError swap; the package-family strip from the `valid` choice set is a LEAVE-ARCH-flavored sub-edit but the file is dominantly a lib-ification fork, hence LEAVE-AHEAD at the file level.
