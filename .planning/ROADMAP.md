@@ -154,7 +154,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
-| 13. Plugin Spec (M3a) | 5/5 | Complete   | 2026-05-18 |
+| 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
