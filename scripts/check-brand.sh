@@ -30,7 +30,12 @@ fi
 # WR-03 — comment lines are no longer effective patterns, so a future edit
 # that puts a path-fragment-like substring inside a `#`-comment cannot
 # silently broaden the allowlist.
-HITS=$(grep -rEl 'lattice|LATTICE|lattice_workspace|lattice_wiki_core' \
+# Exclude __pycache__/*.pyc — gitignored build artifacts that embed source
+# string literals as bytecode constants. They surface as hits after any local
+# `uv run pytest` run; a clean CI checkout doesn't have them, so excluding
+# them keeps the gate stable across both environments.
+HITS=$(grep -rEl --exclude-dir=__pycache__ --exclude='*.pyc' \
+    'lattice|LATTICE|lattice_workspace|lattice_wiki_core' \
     packages/ agents/ plugins/ .planning/ CLAUDE.md 2>/dev/null \
     | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
 
