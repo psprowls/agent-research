@@ -67,6 +67,9 @@ if [ "$UPSTREAM_HEAD" != "$UPSTREAM_SHA" ]; then
 fi
 
 # ---- Header ---------------------------------------------------------------
+# `-u` (UTC) and the explicit strftime format are portable across BSD (macOS
+# default) and GNU coreutils. Do not switch to `date --rfc-3339=seconds`
+# (GNU-only) or BSD-specific flags — keep the strftime literal for parity.
 DIFF_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 INVOCATION="bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md"
 
