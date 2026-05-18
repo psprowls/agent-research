@@ -430,7 +430,7 @@ def log(
     op: str = typer.Option(..., "--op", help="Log operation type (scan/ingest/lint/create/update/delete/note/query)"),
     title: str = typer.Option(..., "--title", help="Short title for the log entry"),
     detail: Optional[str] = typer.Option(None, "--detail", help="Optional extended detail text"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit LogResult as JSON"),
 ) -> None:
     """Append a timestamped event to the wiki log.md."""
@@ -452,7 +452,7 @@ def init(
     topic: str = typer.Option(..., "--topic", help="Short description of the repository"),
     tool: str = typer.Option(..., "--tool", help="Schema file(s) to install (claude-code, codex, cursor, all, ...)"),
     force: bool = typer.Option(False, "--force", help="Overwrite non-empty target directory"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
     """Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."""
@@ -473,7 +473,7 @@ def init(
 
 @app.command()
 def scan(
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     no_file_map: bool = typer.Option(False, "--no-file-map", help="Skip per-package file-map generation"),
     max_depth: int = typer.Option(3, "--max-depth", help="Max directory depth for file map headers"),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
@@ -511,7 +511,7 @@ app.add_typer(ingest_app, name="ingest")
 @ingest_app.command(name="source")
 def ingest_source(
     path: Path = typer.Argument(..., help="Path to the source file to ingest"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """Ingest a source file into the wiki via the ingestor LLM."""
@@ -536,7 +536,7 @@ def ingest_work_item(
     slug: Optional[str] = typer.Option(None, "--slug", help="Page slug (derived from title if omitted)"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing page"),
     pkg_dir: Optional[Path] = typer.Option(None, "--pkg-dir", help="Optional vault package directory for work sub-page linking"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """File a structured work item into the wiki workspace."""
@@ -570,7 +570,7 @@ def ingest_work_item(
 
 @app.command()
 def lint(
-    vault: str = typer.Option("", "--vault", help="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)"),
+    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
     stale_days: int = typer.Option(90, "--stale-days", help="Days before a page is flagged as stale"),
     log_gap_days: int = typer.Option(14, "--log-gap-days", help="Days before a log gap is flagged"),
     json_output: bool = typer.Option(False, "--json", help="Emit LintResult as JSON"),

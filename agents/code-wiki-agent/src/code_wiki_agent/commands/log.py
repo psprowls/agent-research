@@ -45,7 +45,7 @@ async def run_log(
         op: Log operation type (must be in VALID_OPS from append_log).
         title: Short title for the log entry.
         detail: Optional extended detail text.
-        vault_path: Explicit vault path; if None, reads CODE_WIKI_REAL_VAULT_PATH env var.
+        vault_path: Explicit vault path; if None, reads GRAPH_WIKI_WORKSPACE env var.
 
     Returns:
         LogResult with fields populated from append_log's return dict.

@@ -35,7 +35,7 @@ class WikiConfig:
 
     Fields:
         models_path: Path to model role config TOML (overrides packaged defaults).
-        vault_path: Default vault path (overrides CODE_WIKI_REAL_VAULT_PATH env var).
+        vault_path: Default vault path (overrides GRAPH_WIKI_WORKSPACE env var).
         state_gate_enabled: Whether git state-gate checks are enforced (default: True).
     """
 

@@ -102,7 +102,7 @@ def wiki_ping(input: PingInput) -> PingOutput:
 
 class WikiQueryInput(BaseModel):
     query: str
-    vault_path: str = ""  # empty -> resolve from CODE_WIKI_REAL_VAULT_PATH env var
+    vault_path: str = ""  # empty -> resolve from GRAPH_WIKI_WORKSPACE env var
     top_k: int = Field(default=5, ge=3, le=10)  # 3-10 range enforced (MCP-04)
 
 
@@ -118,7 +118,7 @@ class WikiQueryOutput(BaseModel):
     description=(
         "Query the code wiki using hybrid BM25+embedding search with parallel librarian "
         "analysis. Returns an answer with [[wikilink]] citations. "
-        "vault_path defaults to CODE_WIKI_REAL_VAULT_PATH env var."
+        "vault_path defaults to GRAPH_WIKI_WORKSPACE env var."
     ),
 )
 async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
@@ -151,7 +151,7 @@ class WikiLogInput(BaseModel):
     op: str = Field(..., description="Log operation type (scan/ingest/lint/create/update/delete/note/query)")
     title: str = Field(..., description="Short title for the log entry")
     detail: str | None = Field(None, description="Optional extended detail")
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiLogOutput(BaseModel):
@@ -193,7 +193,7 @@ class WikiInitInput(BaseModel):
     topic: str = Field(..., description="Short description of the repository")
     tool: str = Field(..., description="Schema file(s) to install (claude-code, codex, cursor, all, ...)")
     force: bool = Field(False, description="Overwrite non-empty target directory")
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiInitOutput(BaseModel):
@@ -240,7 +240,7 @@ from code_wiki_agent.commands.scan import ScanResult, run_scan  # noqa: E402
 
 
 class WikiScanInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
     repo_path: str = Field(
@@ -306,7 +306,7 @@ class WikiIngestInput(BaseModel):
     slug: str | None = Field(None, description="Page slug (derived from title if omitted)")
     force: bool = Field(False, description="Overwrite existing page")
     pkg_dir: str = Field("", description="Optional vault package directory path for work sub-page linking")
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiIngestOutput(BaseModel):
@@ -325,7 +325,7 @@ class WikiIngestOutput(BaseModel):
         "Ingest a source file or work item into the wiki. "
         "Use type='source' to route a file through the ingestor LLM into the vault. "
         "Use type='work-item' to file a structured work ticket into <workspace>/work/. "
-        "vault_path defaults to CODE_WIKI_REAL_VAULT_PATH env var."
+        "vault_path defaults to GRAPH_WIKI_WORKSPACE env var."
     ),
 )
 async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
@@ -372,7 +372,7 @@ from code_wiki_agent.commands.lint import LintResult, run_lint  # noqa: E402
 
 
 class WikiLintInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
     stale_days: int = Field(90, description="Days before a page is flagged as stale")
     log_gap_days: int = Field(14, description="Days before a log gap is flagged")
 
