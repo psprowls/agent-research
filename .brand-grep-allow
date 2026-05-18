@@ -1,0 +1,165 @@
+# .brand-grep-allow — allowlist consumed by scripts/check-brand.sh (BRAND-04 grep gate)
+#
+# Format (per R-04): one path or path-fragment per line. Lines starting with `#` are
+# comments and are ignored by `grep -vF -f` (no line in `grep -rEl` output starts with
+# `#`, so comment lines never accidentally allowlist a real hit).
+#
+# Matching semantics: `grep -vF -f .brand-grep-allow` excludes any line whose text
+# contains one of these fragments as a literal substring. Use a path fragment
+# specific enough to avoid over-allowing (e.g., `packages/eval-harness/baselines/`
+# rather than just `baselines/`).
+#
+# Every entry below carries a rationale comment naming its R-decision
+# (R-01 / R-02 / R-03 / R-04) or its carry-forward class (Provenance, Parity-behavior,
+# Upstream-reference, Test-data, Upstream-guard, Plan-meta, Historic-decision-log,
+# Test-fixture).
+
+# ---------------------------------------------------------------------------
+# R-01: round-trip-vault test fixtures — real upstream lattice vault preserved
+# verbatim so vault-io can prove byte-identical round-trip parsing.
+# ---------------------------------------------------------------------------
+packages/vault-io/tests/fixtures/round-trip-vault/
+
+# ---------------------------------------------------------------------------
+# R-02: eval-harness baselines + divergence rubrics — recorded measurements
+# against the upstream lattice-wiki system; renaming would lie about what
+# was measured.
+# ---------------------------------------------------------------------------
+packages/eval-harness/baselines/
+packages/eval-harness/src/eval_harness/divergence/rubrics/
+
+# R-02 (extension per plan 04 §Step 2): baseline.py and pricing.py contain
+# `lattice-evals` / `lattice-wiki` literals that name the recorded provenance
+# of ported eval-runner code; confirmed present 2026-05-18.
+packages/eval-harness/src/eval_harness/baseline.py
+packages/eval-harness/src/eval_harness/pricing.py
+
+# ---------------------------------------------------------------------------
+# R-03: archived / historical planning documents — provenance value preserved
+# (RETROSPECTIVE, MILESTONES, milestones/v1.0-*, milestones/v1.1-*, spike
+# READMEs, sweep STORY, research, thread plans).
+# ---------------------------------------------------------------------------
+.planning/RETROSPECTIVE.md
+.planning/MILESTONES.md
+.planning/milestones/v1.0-
+.planning/milestones/v1.1-
+.planning/spikes/001-subagent-context-audit/README.md
+.planning/spikes/002-lattice-drift-inventory/README.md
+.planning/spikes/WRAP-UP-SUMMARY.md
+.planning/sweep/STORY.md
+.planning/research/
+.planning/threads/next-milestone-planning.md
+
+# ---------------------------------------------------------------------------
+# R-04 (self-allowlist per Claude's Discretion): this file itself contains
+# 'lattice' literals as pattern documentation, and the gate script contains
+# 'lattice' as its grep pattern.
+# ---------------------------------------------------------------------------
+.brand-grep-allow
+scripts/check-brand.sh
+# scripts/drift-diff.sh references upstream lattice-wiki-core paths used by the
+# Phase 12 plan-01 raw diff dump; the script will outlive the phase for re-syncs.
+scripts/drift-diff.sh
+
+# ---------------------------------------------------------------------------
+# Phase 12 drift artifacts — DRIFT-DECISIONS{,-RAW}.md embed upstream content
+# (filenames, function names, diff hunks) with lattice symbols intact.
+# ---------------------------------------------------------------------------
+packages/vault-io/DRIFT-DECISIONS-RAW.md
+packages/vault-io/DRIFT-DECISIONS.md
+
+# ---------------------------------------------------------------------------
+# Phase 12 own plans + context — the phase exists to discuss the rebrand from
+# upstream `lattice` → `graph-wiki`, so the phase docs reference both names.
+# ---------------------------------------------------------------------------
+.planning/phases/12-drift-backport-ecosystem-rebrand-m2/
+
+# ---------------------------------------------------------------------------
+# Phase 11 own plans + context — Phase 11 documents the workspace-io port from
+# upstream lattice-workspace; references the upstream name throughout.
+# ---------------------------------------------------------------------------
+.planning/phases/11-workspace-io-port-m1/
+
+# ---------------------------------------------------------------------------
+# Spike scaffolding — MANIFEST + CONVENTIONS describe the spike index, with
+# the lattice-drift-inventory spike named explicitly (R-03 spirit).
+# ---------------------------------------------------------------------------
+.planning/spikes/MANIFEST.md
+
+# ---------------------------------------------------------------------------
+# Phase 12 plan-03 carry-forward refs (from
+# .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-03-carry-forward-refs.md)
+# Plan 03 enumerated 52 surviving lattice references across 10 classes; the
+# entries below encode each as a path-fragment allowlist with the one-line
+# rationale class.
+# ---------------------------------------------------------------------------
+
+# Plan-meta + Upstream-reference (live planning surface)
+# rationale: Upstream-reference — CLAUDE.md intro/core-value/format-compat names upstream lattice-wiki as the system being ported (lines 6, 8, 10, 17).
+CLAUDE.md
+# rationale: Upstream-reference + Historic-decision-log — PROJECT.md current/historic sections reference upstream packages, milestones, and out-of-scope items.
+.planning/PROJECT.md
+# rationale: Plan-meta — REQUIREMENTS.md describes the rename from upstream → graph-wiki explicitly.
+.planning/REQUIREMENTS.md
+# rationale: Plan-meta + Upstream-reference — ROADMAP.md Phase 11–15 summaries describe the port/rebrand work.
+.planning/ROADMAP.md
+# rationale: Upstream-reference + Plan-meta — STATE.md mirrors PROJECT.md core-value/north-star + research flags note.
+.planning/STATE.md
+
+# Provenance / Parity-behavior (packages/ + agents/)
+# rationale: Provenance — package docstring "(ported from lattice-wiki-core)".
+packages/vault-io/src/vault_io/__init__.py
+# rationale: Provenance — module + function docstrings "Extracted from lattice-wiki-core's …".
+packages/vault-io/src/vault_io/ingest_work_item.py
+# rationale: Provenance — module docstring "Extracted from lattice-wiki-core's ingest_source.py".
+packages/vault-io/src/vault_io/ingest_source.py
+# rationale: Parity-behavior — BM25 tokenizer + stopword-set parity with upstream lattice-wiki-core wiki_search.
+agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
+
+# Test prose / Upstream-guard / Test-data (test files)
+# rationale: Provenance + Upstream-guard — `test_no_lattice_wiki_core_imports` guard literal; renaming would break the guard.
+packages/vault-io/tests/test_ingest_source.py
+# rationale: Provenance + Upstream-guard — same guard shape for ingest_work_item.
+packages/vault-io/tests/test_ingest_work_item.py
+# rationale: Provenance — "Ported from lattice_wiki_core/tests/test_lint_wikilink_placeholders.py".
+packages/vault-io/tests/test_wikilink_predicate.py
+# rationale: Provenance — "Finding-count parity with lattice-wiki-core" describes the test's parity goal.
+packages/vault-io/tests/test_lint_modules.py
+# rationale: Test-fixture (non-round-trip) — fixture log generated against upstream tooling (R-01 spirit).
+packages/vault-io/tests/fixtures/single-package-vault/
+# rationale: Test-data — recorded answer cites `[[packages/lattice-wiki-core]]` as measurement subject (R-02).
+packages/eval-harness/tests/test_two_gate_scorer.py
+# rationale: Test-data — query subject "What does lattice-wiki-core do?" (R-02).
+packages/eval-harness/tests/test_sweep.py
+# rationale: Test-data — recorded answer payloads citing the upstream package (R-02).
+packages/eval-harness/tests/test_divergence_metric.py
+# rationale: Test-data — recorded structural-test inputs citing the upstream package (R-02).
+packages/eval-harness/tests/test_structural.py
+# rationale: Test-data — divergence-check inputs + a synthetic source-page citing the upstream package (R-02).
+packages/eval-harness/tests/test_divergence_checks.py
+# rationale: Test-data — sweep-eval query + answers + expected substring referencing the upstream package (R-02).
+packages/eval-harness/tests/eval/test_sweep_eval.py
+
+# ---------------------------------------------------------------------------
+# carry-forward (post-hoc): R-02/R-03/Provenance hits not enumerated by plan
+# 03's carry-forward inventory but discovered when running the gate. Each is
+# classified against the existing R-decisions; none is a missed rebrand.
+# ---------------------------------------------------------------------------
+# rationale: R-02 — recorded eval baseline JSON; renaming would lie about what was measured.
+packages/eval-harness/baselines/divergence-ingestor.json
+# rationale: R-02 — recorded eval baseline JSON; renaming would lie about what was measured.
+packages/eval-harness/baselines/divergence-librarian.json
+# rationale: Provenance — workspace-io README header "Ported from `lattice-workspace`".
+packages/workspace-io/README.md
+# rationale: Provenance — config.py doctests/internals reference upstream lattice config-key behavior.
+packages/workspace-io/src/workspace_io/config.py
+# rationale: Provenance — test asserts behavior parity with upstream `lattice` directory key.
+packages/workspace-io/tests/test_local_config.py
+# rationale: Provenance — test comment names the upstream `lattice v1-coerced-entry` test being rewritten.
+packages/workspace-io/tests/test_warn_if_stale.py
+# rationale: Provenance — packages/prompt-sources/ holds canonical upstream lattice-wiki SKILL.md + reference prose; the entire package mirrors upstream content for prompt fragment provenance.
+packages/prompt-sources/
+# rationale: Provenance — test name + comment reference upstream lattice-wiki lint behavior parity (CMD-05).
+agents/code-wiki-agent/tests/commands/test_lint_parity.py
+# rationale: Provenance — test comment names the sibling upstream lattice repo to assert vendored copies are not pulled in.
+agents/code-wiki-agent/tests/prompts/test_provenance.py
