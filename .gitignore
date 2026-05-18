@@ -198,3 +198,4 @@ dist/**/__pycache__/
 .deepeval/
 
 test-out/
+.graph-wiki.local.yaml
