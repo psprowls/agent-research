@@ -1,6 +1,0 @@
-version: 2
-initialized_at: '2026-05-14'
-plugins:
-- name: lattice-wiki
-  installed_version: 0.4.0
-  applied_version: 0.0.0
