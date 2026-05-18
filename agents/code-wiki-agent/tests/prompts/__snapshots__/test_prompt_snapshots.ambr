@@ -38,10 +38,10 @@
   
   ## Vault layout
   
-  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `graph-wiki workspace` — not by this agent.
   
   ```
-  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  <repo>/graph-wiki/              # workspace; Obsidian vault opens here
   ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
   ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
   └── wiki/                       # this agent's curated knowledge base
@@ -217,10 +217,10 @@
   
   ## Vault layout
   
-  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `graph-wiki workspace` — not by this agent.
   
   ```
-  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  <repo>/graph-wiki/              # workspace; Obsidian vault opens here
   ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
   ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
   └── wiki/                       # this agent's curated knowledge base
@@ -800,10 +800,10 @@
   
   ## Vault layout
   
-  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `graph-wiki workspace` — not by this agent.
   
   ```
-  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  <repo>/graph-wiki/              # workspace; Obsidian vault opens here
   ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
   ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
   └── wiki/                       # this agent's curated knowledge base
@@ -928,10 +928,10 @@
   
   ## Vault layout
   
-  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `lattice-workspace` — not by this agent.
+  The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/`, owned by `graph-wiki workspace` — not by this agent.
   
   ```
-  <repo>/lattice/                 # workspace; Obsidian vault opens here
+  <repo>/graph-wiki/              # workspace; Obsidian vault opens here
   ├── raw/                        # IMMUTABLE ingested sources (articles, specs, prs, tickets, transcripts, assets)
   ├── work/                       # unified bugs / tech debt / features / initiatives / spikes
   └── wiki/                       # this agent's curated knowledge base

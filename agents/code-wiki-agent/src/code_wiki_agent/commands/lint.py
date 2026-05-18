@@ -149,7 +149,7 @@ def _mechanical_pass(
         if rel.name in {"log.md"}:
             continue
         top = rel.parts[0] if rel.parts else ""
-        # Skip work/archived/ — lifecycle is owned by lattice-work
+        # Skip work/archived/ — lifecycle is owned by graph-wiki work
         if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "archived":
             continue
         key = str(rel).replace("\\", "/")[:-3]

@@ -278,7 +278,7 @@ async def run_scan(
     # Step 2: read layout block
     # When repo_path is supplied as an override, also bypass the vault's
     # pinned_containers — the vault layout describes the ORIGINAL monorepo
-    # the vault was generated from (e.g. `lattice/packages/` + `plugins/`)
+    # the vault was generated from (e.g. `graph-wiki/packages/` + `plugins/`)
     # and almost certainly does not match the override repo's directory
     # structure. Using unpinned discovery against the override lets
     # discover_workspaces find the workspace by its own pyproject.toml.
