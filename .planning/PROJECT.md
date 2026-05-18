@@ -24,18 +24,31 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 **Workspace rename (post-v1.1):** `cores/` → `packages/` (commit `c5a47ba`). Historical entries below reference `cores/` because that was the path at the time; current code lives under `packages/`.
 
-## Next Milestone Goals: v1.2 (TBD)
+## Current Milestone: v1.2 Graph-Wiki Port & Debt Cleanup
 
-Will be scoped via `/gsd:new-milestone`. Candidate themes already filed:
+**Goal:** Port `lattice-workspace` into a new `workspace-io` package, backport meaningful drift from `lattice-wiki-core` into `vault-io`, rebrand the ecosystem to `graph-wiki` (kebab) / `graph_wiki` (snake), port the `lattice-wiki` plugin into `plugins/graph-wiki/`, and close v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
 
-- **Trace pipeline correctness** (TRACE-FU-01) — production trace pipeline missing `usage_metadata`; today only the sweep harness records token counts.
-- **Sweep coverage gaps** (SWEEP-FU-02/03/04) — wire DivergenceMetric through full matrix; re-tune code_reader cases; re-sweep scanner against fresh-package vault.
-- **MCP cancellation completion** — real DA-CLI cancel verification (deferred from v1.1 SC#1 pending aioboto3 wire-level cancel) + opt-in gate consistency.
-- **Model config drift** (MODEL-FU-01) — fix `test_load_role_config_synthesizer_uses_sonnet` to match Qwen synthesizer reality.
-- **Nyquist compliance** — 0/5 v1.1 phases reached `nyquist_compliant: true`; decide whether to retroactively validate or disable the toggle.
-- **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run.
+**Target features:**
 
-Full v1.1 retrospective in `.planning/RETROSPECTIVE.md`; v1.1 audit in `.planning/milestones/v1.1-MILESTONE-AUDIT.md`.
+*Port + Rebrand (thread plan, post-spike-002)*
+- **M1 — workspace-io port:** new `packages/workspace-io/` from `lattice-workspace`; rename `LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`, `.lattice.yaml` → `.graph-wiki.yaml`, `LatticeConfig` → `GraphWikiConfig`; `vault-io._workspace.resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`.
+- **M2 — selective drift backport + ecosystem rebrand:** body-diff `lint/*`, `init_vault.py`, and any others where upstream has substantive changes; backport only what's substantive (leave architectural divergence intact); rebrand `lattice` → `graph-wiki` across `packages/`, `agents/`, `.planning/`, `CLAUDE.md`.
+- **M3 — plugin port:** copy `lattice-wiki` plugin → `plugins/graph-wiki/`; rename plugin id, slash command namespace (`/lattice-wiki:*` → `/graph-wiki:*`), agent/skill names; rewrite plugin scripts to consume `vault-io` (which itself uses `workspace-io`). Needs a spec phase first to answer the open question: *what do plugin slash commands actually shell out to?*
+
+*v1.1 carry-forward debt*
+- **Trace pipeline correctness (TRACE-FU-01)** — production trace pipeline emits `usage_metadata`; today only the sweep harness records token counts.
+- **Sweep coverage (SWEEP-FU-02/03/04)** — wire DivergenceMetric through full matrix; re-tune code_reader cases; re-sweep scanner against fresh-package vault.
+- **MCP cancellation completion** — real DA-CLI wire-level cancel verification (deferred from v1.1 SC#1 pending aioboto3) + opt-in gate consistency.
+- **Model config drift (MODEL-FU-01)** — fix `test_load_role_config_synthesizer_uses_sonnet` to match Qwen synthesizer reality.
+
+**Explicitly out of v1.2:**
+- Open-source release prep (README badges, contribution guide, PyPI dry-run) → **v2.0 GA**.
+- Nyquist compliance retroactive validation → **v1.3** (0/5 v1.1 phases reached `nyquist_compliant: true`; decision deferred).
+- `work/` subsystem port — GSD covers work-item lifecycle (thread decision 2026-05-17).
+- Package-family monorepo support restoration — different approach planned (thread decision 2026-05-17).
+- Modules where vault-io is ahead of lattice (`git_state`, `append_log`, `update_index`, `update_tokens`, `layout_io`, `detect_containers`, `scan_monorepo`, `ingest_source`) — leave as-is per spike 002.
+
+Full v1.1 retrospective in `.planning/RETROSPECTIVE.md`; v1.1 audit in `.planning/milestones/v1.1-MILESTONE-AUDIT.md`. Source planning thread: `.planning/threads/next-milestone-planning.md`.
 
 ## Requirements
 
@@ -195,4 +208,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-17 — milestone v1.1 Quality Improvements SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied. v1.2 scoping pending via `/gsd:new-milestone`.*
+*Last updated: 2026-05-17 — milestone v1.2 Graph-Wiki Port & Debt Cleanup scoped via `/gsd:new-milestone`. Awaiting requirements + roadmap.*
