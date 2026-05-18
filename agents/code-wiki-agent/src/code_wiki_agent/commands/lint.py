@@ -56,10 +56,10 @@ from vault_io.lint.workflow_hints import check as check_workflow_hints
 logger = logging.getLogger(__name__)
 
 # Tops that get full lint treatment (orphans, stale, missing-fm checks).
-# Ported verbatim from lint_wiki.py (line 59 — note: upstream uses {"wiki", "work"},
-# but the vault top-level is "wiki" which contains all category dirs; in the new
-# architecture the wiki root IS the vault path, so LINTED_TOPS covers the
-# category dirs directly: concepts, packages, apps, domains, adrs, work).
+# Adapted from lint_wiki.py (line 59) — diverges from upstream {"wiki", "work"}:
+# upstream's vault top-level is "wiki" which contains all category dirs, but in
+# the new architecture the wiki root IS the vault path, so LINTED_TOPS covers
+# the category dirs directly: concepts, packages, apps, domains, adrs, work.
 LINTED_TOPS = {"wiki", "work", "concepts", "packages", "apps", "domains", "adrs"}
 
 # Sentinel used by upstream for skipped dict checks; preserved for serialization compat
