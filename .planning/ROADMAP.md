@@ -66,7 +66,13 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   3. `vault-io._workspace.resolve_wiki_and_repo` returns the same explicit-path override behavior as before (MCP boundary contract unchanged), now backed by `workspace_io.config.resolve()`.
   4. The `~/Personal/wiki/deep-agents/wiki-config.toml` ↔ `.graph-wiki.yaml` question has a written answer in PROJECT.md Key Decisions (migration script shipped, or decision recorded as "not the same surface").
   5. Every ported test from `lattice-workspace/tests/` runs green under the new module path with `.graph-wiki.yaml` filename expectations.
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 11-01-PLAN.md — Scaffold packages/workspace-io/ uv workspace member (pyproject hatchling, empty __init__, uv sync verify)
+- [ ] 11-02-PLAN.md — Port 8 workspace_io source modules + asset template; drop schema.py (D-06); strict resolve (D-03); v1-raises manifest (D-14)
+- [ ] 11-03-PLAN.md — Port 11 workspace_io test files (~67 tests); rewrite v1-coercion test; new strict-raises test; suite green
+- [ ] 11-04-PLAN.md — Rewrite vault-io._workspace as delegation shim; rename env var in vault-io src docstrings + 2 tests; add new strict-raises test
+- [ ] 11-05-PLAN.md — Wire workspace_io.init into code-wiki-agent init (D-07); rebrand env var across CLI help (6), MCP Field descriptions (8), and 3 docstrings
+- [ ] 11-06-PLAN.md — Record WS-10 decision in PROJECT.md (wiki-config.toml vs .graph-wiki.yaml); end-to-end verification gate
 
 ### Phase 12: Drift Backport + Ecosystem Rebrand (M2)
 **Goal**: Substantive upstream improvements from `lattice-wiki-core` land in `vault-io`, deliberate forks stay forked with written rationale, and no `lattice*` symbol survives in the in-scope code/planning surface.
@@ -137,7 +143,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. workspace-io Port (M1) | 0/0 | Not started | — |
+| 11. workspace-io Port (M1) | 0/6 | Not started | — |
 | 12. Drift Backport + Rebrand (M2) | 0/0 | Not started | — |
 | 13. Plugin Spec (M3a) | 0/0 | Not started | — |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
