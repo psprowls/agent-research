@@ -47,7 +47,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 
 - [x] **Phase 11: workspace-io Port (M1)** — New `packages/workspace-io/` ported from `lattice-workspace`; vault-io delegates manifest/path resolution to it (completed 2026-05-18)
 - [x] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; `lattice` → `graph-wiki` rename across packages, agents, planning (completed 2026-05-18)
-- [ ] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved
+- [x] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved (completed 2026-05-18)
 - [ ] **Phase 14: Plugin Port (M3b)** — `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
 - [ ] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port
 - [ ] **Phase 16: Carry-Forward Debt Cleanup** — Trace `usage_metadata`, full sweep coverage, MCP cancellation closure, model config test drift
@@ -103,7 +103,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [x] 13-02-PLAN.md — Per-command port specs for /graph-wiki:ingest (source-only) + /graph-wiki:lint (reshape, drops work-layer pass 1b)
 - [x] 13-03-PLAN.md — Per-command port specs for /graph-wiki:query (LLM + BM25 fallback) + /graph-wiki:log (prose-only, no script)
 - [x] 13-04-PLAN.md — Cross-cutting: CONTRACT-INDEX.md (9-row verdict table) + SHELL-OUT-PATTERN.md (SO-01..SO-04 + rename map)
-- [ ] 13-05-PLAN.md — Lock the contract surface in PROJECT.md Key Decisions (SP-05) + REQUIREMENTS.md VP-01 prereq note
+- [x] 13-05-PLAN.md — Lock the contract surface in PROJECT.md Key Decisions (SP-05) + REQUIREMENTS.md VP-01 prereq note
 
 ### Phase 14: Plugin Port (M3b)
 **Goal**: The `lattice-wiki` Claude Code plugin runs as `plugins/graph-wiki/` against the deep-agents vault, with no `lattice_*` imports and at least one slash command exercising the end-to-end path.
@@ -154,7 +154,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
-| 13. Plugin Spec (M3a) | 4/5 | In Progress|  |
+| 13. Plugin Spec (M3a) | 5/5 | Complete   | 2026-05-18 |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
