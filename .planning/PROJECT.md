@@ -10,26 +10,45 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's lattice-wiki librarian, on cheaper models, faster.
 
-## Current Milestone: v1.1 Quality Improvements
+## Current State: v1.1 Shipped — 2026-05-17
 
-**Goal:** Close the output-quality gap with lattice-wiki by porting its prompt content into code-wiki-agent, then validate the cost-frontier on Bedrock and prove host-level reliability under the DeepAgents CLI.
+**Shipped:** v1.0 (code-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17). 10 phases, 64 plans, 96/96 requirements satisfied across both milestones.
 
-**Target features:**
-- Lattice-wiki SKILL.md content ported into agent prompts (librarian, ingestor, linter, scanner) — eval flags remaining divergences
-- Cost-frontier sweep executed against all 7 roles; `models.toml` defaults swapped to cost-optimal picks
-- MCP cancellation polish — verify MCP-06 mid-fan-out cancel under the real DeepAgents CLI host
-- DeepAgents CLI integration test — end-to-end stdio subprocess exercising each tool
-- Trace/observability polish — `.code-wiki/traces/` format + `code-wiki-agent trace` renderer
+**What works today (post-v1.1):**
+- `code-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full lattice-wiki workflow on Bedrock with within-command subagent fan-out
+- All MCP tools exposed via `code-wiki-mcp` stdio server; verified end-to-end via DA-CLI integration test
+- Agent prompts incorporate canonical lattice-wiki SKILL.md content; divergence eval flags remaining drift
+- Cost-frontier validated: `models.toml` defaults reflect cost-optimal picks per role (Qwen3-32B fan-out, Qwen3-80B synthesis)
+- Trace renderer with per-(role,model) cost rollup and collapsed-by-default subagent groups
+- Subagent context completion: `wiki/CLAUDE.md` layout + style + log format injected into scanner/linter/ingestor system prompts
 
-**Key context:**
-- Quality first: prompt port lands before the cost-frontier sweep so the sweep measures the *improved* agent, not the pre-port baseline.
-- BED-01 live-Bedrock gate is approved (AWS onboarding done); verify in passing during the sweep.
-- OSS release prep deferred past v1.1.
-- Phase numbering continues from v1.0 (next phase = 6).
+**Workspace rename (post-v1.1):** `cores/` → `packages/` (commit `c5a47ba`). Historical entries below reference `cores/` because that was the path at the time; current code lives under `packages/`.
+
+## Next Milestone Goals: v1.2 (TBD)
+
+Will be scoped via `/gsd:new-milestone`. Candidate themes already filed:
+
+- **Trace pipeline correctness** (TRACE-FU-01) — production trace pipeline missing `usage_metadata`; today only the sweep harness records token counts.
+- **Sweep coverage gaps** (SWEEP-FU-02/03/04) — wire DivergenceMetric through full matrix; re-tune code_reader cases; re-sweep scanner against fresh-package vault.
+- **MCP cancellation completion** — real DA-CLI cancel verification (deferred from v1.1 SC#1 pending aioboto3 wire-level cancel) + opt-in gate consistency.
+- **Model config drift** (MODEL-FU-01) — fix `test_load_role_config_synthesizer_uses_sonnet` to match Qwen synthesizer reality.
+- **Nyquist compliance** — 0/5 v1.1 phases reached `nyquist_compliant: true`; decide whether to retroactively validate or disable the toggle.
+- **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run.
+
+Full v1.1 retrospective in `.planning/RETROSPECTIVE.md`; v1.1 audit in `.planning/milestones/v1.1-MILESTONE-AUDIT.md`.
 
 ## Requirements
 
 ### Validated
+
+#### Milestone v1.1 SHIPPED — 2026-05-17 (Quality Improvements)
+
+29/29 requirements satisfied across Phases 6-10. Full audit: `.planning/milestones/v1.1-MILESTONE-AUDIT.md`.
+
+- ✓ **Lattice-wiki SKILL.md content ported** — v1.1 (PORT-01..06): librarian/ingestor/linter/scanner prompts incorporate canonical iron rules, citation rules, ingestion patterns, lint rule definitions, and scanner package-detection rules via 8 shared fragments under `prompts/_fragments/` with `# Source: / # Anchor:` provenance comments
+- ✓ **Divergence detection eval shipped** — v1.1 (EVAL-11..13): 15 programmatic check rules + 4 LLM-judge rubrics + 37 unit tests + regression gate (`--accept-divergence-baseline`); flagged 0 hard-severity divergences against lattice-wiki baseline
+- ✓ **Cost-frontier sweep validated the cost story** — v1.1 (SWEEP-01..05): two-gate scoring across 6 in-scope roles (corrected from "7" in original roadmap — 2 judges out of scope); BED-01 live-gate confirmed; `models.toml` defaults updated with provenance comments; full results doc under `.planning/sweep/`
+- ✓ **Trace schema versioned + cost-aware renderer** — v1.1 (OBS-04..06): `schema_version: 1` stamped on every JSONL record; renderer surfaces per-(role,model) cost rollup with `(+K unknown)` accounting; collapses repeated subagent groups by default with `--expand` flag
 
 #### Phase 10 Complete — 2026-05-17 (subagent-context-completion)
 - [x] Four shared fragments shipped under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` — `architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` — each with the standard `# Source: / # Anchor: / # Source-commit:` provenance header (CTX-01, CTX-02)
@@ -75,17 +94,12 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Active
 
-_v1.1 Quality Improvements — scoped 2026-05-15. Requirements will be expanded in `REQUIREMENTS.md`; phases tracked in `ROADMAP.md`._
+_v1.2 not yet scoped. Run `/gsd:new-milestone` to define v1.2 requirements; candidate themes captured under "Next Milestone Goals" above. Backlog REQ-IDs filed during v1.1 (TRACE-FU-01, SWEEP-FU-02/03/04, MODEL-FU-01) live in `.planning/milestones/v1.1-REQUIREMENTS.md` for carry-forward._
 
-- [ ] **Lattice-wiki SKILL.md content ported into agent prompts** — librarian, ingestor, linter, scanner roles inherit canonical iron rules / patterns from the existing plugin; eval harness flags remaining divergences from skill-content expectations.
-- [ ] **Cost-frontier sweep executed** — run the Phase 04 harness (`CODE_WIKI_RUN_EVAL=1`) against all 7 roles, publish cost-optimal model picks per role, swap defaults in `models.toml`. (Sweep runs against the *post-port* agent, not the v1.0 baseline.)
-- [x] **MCP cancellation polish (MCP-06)** — ✓ Validated Phase 08: per-item + terminal trace records on cancel; direct-asyncio + stub-LLM test confirms unwind. Real-DA-CLI host verification + opt-in gate consistency deferred to v1.2+ (owner-approved deviation, see `08-HUMAN-UAT.md`).
-- [x] **DeepAgents CLI integration test** — ✓ Validated Phase 08: single sequential subprocess test exercises all six MCP tools (`wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log`) against a fresh `tmp_path` vault; gated behind `CODE_WIKI_RUN_INTEGRATION=1`.
-- [ ] **Trace/observability polish** — improve `.code-wiki/traces/` format and the `code-wiki-agent trace` renderer.
-
-_Deferred past v1.1:_
-- **Open-source release prep** — README badges, contribution guide, public install instructions, PyPI publish dry-run. (Holding until the cost-frontier sweep validates the cost story.)
-- **BED-01 live-Bedrock gate** — AWS onboarding now approved; verification folds into the cost-frontier sweep rather than standing as its own item.
+_Carry-forward acknowledgments from v1.1 close (documented tech debt, not blockers):_
+- Phase 8 SC#1 deviation: cancel test uses direct asyncio + stub LLM, not real DA-CLI host (real wire-level cancel deferred until aioboto3 lands)
+- Phase 8 SC#2 / MCP-11 deviation: cancel test runs without `CODE_WIKI_RUN_INTEGRATION=1` gate (justified — stub LLM, zero Bedrock cost)
+- Nyquist: 0/5 v1.1 phases reached compliance despite the toggle being enabled — needs a v1.2 decision (retro-validate vs. disable)
 
 _See "Out of Scope" below for items explicitly deferred past v1.x._
 
@@ -152,12 +166,20 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 | CLI-05 (`--config`) deferred; `--vault` used instead in Phase 03 | ROADMAP Phase 03 success criteria do not require `--config`; tracked for Phase 05 | ✓ Closed Phase 05-01 (`--config` global Typer callback + `WikiConfig`) |
 | ONE `wiki_ingest` MCP tool with `type: Literal['source','work-item']` discriminator (not two tools) | Single discoverable tool simplifies the MCP surface; type-narrowing happens server-side; matches `lattice-wiki:ingest` semantics | Validated Phase 05 |
 | Inline port of `lint_wiki.py:scan()` (mechanical pass) + 3-way SubagentPool fan-out for semantic pass | Mechanical rules are deterministic — porting verbatim avoids re-implementation bugs; LLM-driven semantic checks parallelize cleanly across rule groups | Validated Phase 05 |
+| Prompt content lives in `prompts/` Python module per role with provenance comments (not separate markdown files) | Drift detection: provenance comments + snapshot tests + import-based sourcing make divergence visible in code review | ✓ Validated Phase 06 |
+| Two-gate qualification (Gate 1 = divergence vs. baseline, Gate 2 = LLM-judge quality) for cost-frontier sweep | Cheap models that pass divergence checks but produce subjectively worse output need to be filtered — neither gate alone is sufficient | ✓ Validated Phase 07 |
+| `models.toml` updated to Qwen3-32B fan-out + Qwen3-80B synthesis as the cost-optimal default | Sweep data showed Qwen variants meet quality bar at meaningful cost reduction vs Claude defaults | ✓ Validated Phase 07 |
+| Cancel test uses direct asyncio + stub LLM (deviation from "under real DA-CLI host" wording) | FastMCP SDK validates MCP protocol framing; aioboto3 not yet available for wire-level Bedrock cancel | ✓ Validated Phase 08 (scope narrowing documented in `docs/cancellation.md §4`; owner-acknowledged) |
+| Single sequential E2E integration test (not 6 separate tests) exercising all MCP tools against tmp_path vault | One stdio subprocess spawn amortized across all tools; matches DA-CLI runtime shape; gated to opt-in for cost discipline | ✓ Validated Phase 08 |
+| `schema_version: 1` stamped as first key on every trace JSONL record + lenient consumer that warns once per file on v0 or higher-than-known | Allows future schema evolution without breaking existing renderers; warn-but-render avoids silent skips | ✓ Validated Phase 09 |
+| `render_project_context()` at command entry (not per-subagent invocation) | Render once, pass through; respects token budget (+1500 cap per role); avoids redundant `wiki/CLAUDE.md` reads on fan-out | ✓ Validated Phase 10 |
+| No deepagents `SubAgentMiddleware` migration — keep existing `SubagentPool` dispatch | Architectural cost of migration outweighs the context-injection benefit; fragment curation pattern + project_context renderer achieve the same outcome | ✓ Validated Phase 10 |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-17 — Phase 10 (subagent-context-completion) complete: 4 shared fragments (architecture_overview, style_rules, log_format, claude_md_disambiguation) + project_context renderer wired through 4 builders and 3 commands. CTX-01..CTX-05 all validated. Phase 6 divergence eval re-ran without regression.
+**Last updated:** 2026-05-17 — milestone v1.1 (Quality Improvements) SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied. Prompt content port + divergence eval + cost-frontier sweep + host reliability + trace polish + subagent context completion all landed. Workspace renamed `cores/` → `packages/`. Next: `/gsd:new-milestone` for v1.2 scoping.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -173,4 +195,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-15 — milestone v1.1 Quality Improvements scoped. Lattice-wiki SKILL.md content port leads (close the output-quality gap before measuring), then cost-frontier sweep runs against the improved agent, then MCP cancel polish + DeepAgents CLI stdio integration test + trace renderer cleanup. BED-01 live-gate now unblocked (AWS approved); folds into the sweep.*
+*Last updated: 2026-05-17 — milestone v1.1 Quality Improvements SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied. v1.2 scoping pending via `/gsd:new-milestone`.*

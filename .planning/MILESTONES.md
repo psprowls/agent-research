@@ -1,5 +1,38 @@
 # Milestones
 
+## v1.1 Quality Improvements (Shipped: 2026-05-17)
+
+**Phases completed:** 5 phases, 39 plans, ~150 tasks
+**Timeline:** 2026-05-15 → 2026-05-17 (~3 calendar days, dense execution)
+**Git range:** `8aa21d5` → `92e26fd` (230 commits; 49 feat-prefixed)
+**Diff:** 323 files changed, +37,702 / −27,672 lines
+**Requirements:** 29/29 v1.1 requirements satisfied
+**Audit:** `milestones/v1.1-MILESTONE-AUDIT.md` (status: tech_debt — 0 critical blockers, 6 known debt items)
+
+**Delivered:** Closed the output-quality gap with lattice-wiki by porting its prompt content, validated the cost-frontier on Bedrock, proved host-level reliability under the DeepAgents CLI, polished trace/observability, and closed the subagent context gap.
+
+### Key accomplishments
+
+- **Lattice-wiki SKILL.md content ported** — librarian, ingestor, linter, scanner prompts now incorporate canonical iron rules / citation rules / ingestion patterns / lint rules / package-detection rules via 8 shared fragments under `prompts/_fragments/` with `# Source: / # Anchor: / # Source-commit:` provenance headers (PORT-01..06).
+- **Divergence detection eval shipped** — 15 programmatic check rules (LIB/ING/LNT/SCN) + 4 LLM-judge rubrics + 37 unit tests + regression gate (`--accept-divergence-baseline`); 0 hard-severity divergences against the lattice-wiki baseline (EVAL-11..13).
+- **Cost-frontier validated on Bedrock** — two-gate scoring (divergence vs. baseline + LLM-judge quality) across 6 in-scope roles against the post-port agent; `models.toml` defaults updated to cost-optimal picks (Qwen3-32B fan-out + Qwen3-80B synthesis) with provenance comments; full results doc under `.planning/sweep/` (SWEEP-01..05).
+- **Host reliability proven** — `SubagentPool` terminates cleanly on MCP host cancel with per-item `status: cancelled` records and single `event: batch_cancelled` terminal trace; all 6 MCP tools (`wiki_init/scan/ingest/query/lint/log`) exercised via stdio subprocess E2E test against fresh tmp_path vault, gated by `CODE_WIKI_RUN_INTEGRATION=1`; 210-line `docs/cancellation.md` documents protocol + v1.2+ paths (MCP-09..11, DACLI-01..03).
+- **Trace schema versioned + cost-aware renderer** — `schema_version: 1` stamped as first key on every JSONL record by all 3 producers; renderer surfaces per-(role,model) cost rollup with `(+K unknown)` accounting (sorted desc cost, alphabetical tie-break); collapses ≥2 consecutive same-role groups by default into single summary line, `--expand` for full per-record view; lenient consumer warns once per file on v0 or unknown future versions (OBS-04..06).
+- **Subagent context completion** — `prompts/project_context.py::render_project_context(wiki_path)` reads `wiki/CLAUDE.md` (or `AGENTS.md`), parses the layout block via `vault_io.layout_io`, returns deterministic ~30-line block of project layout + style + log format; wired through 4 prompt builders (scanner, linter, ingestor, librarian) and 3 commands at SystemMessage construction; +1500 token cap per role enforced via syrupy snapshot tests; divergence eval re-ran live (us-east-1, 193s, 4/4 PASSED), no regression (CTX-01..05).
+
+### Known deferred items at close
+
+4 open items (see STATE.md `## Deferred Items` and `milestones/v1.1-MILESTONE-AUDIT.md`):
+- Phase 8 SC#1 + SC#2 documented scope narrowings awaiting owner sign-off (acknowledged; not blocking)
+- 06-UAT.md metadata-only status mismatch (0 open scenarios)
+- `next-milestone-planning` thread (intentional carry-forward to v1.2)
+
+### v1.2 backlog filed during v1.1
+
+TRACE-FU-01 (trace pipeline missing `usage_metadata`), SWEEP-FU-02/03/04 (sweep coverage gaps), MODEL-FU-01 (synthesizer test drift). Full text in `milestones/v1.1-REQUIREMENTS.md`.
+
+---
+
 ## v1.0 code-wiki-agent parity (Shipped: 2026-05-15)
 
 **Phases completed:** 5 phases, 25 plans

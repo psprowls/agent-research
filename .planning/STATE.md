@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Quality Improvements
-status: milestone_complete
-stopped_at: Phase 9 gap-closure shipped (09-06)
-last_updated: "2026-05-17T22:00:00.000Z"
-last_activity: 2026-05-17 -- Phase 09 re-verified (gaps closed; status: verified)
+status: Awaiting next milestone
+stopped_at: Phase 9 context gathered
+last_updated: "2026-05-18T03:03:30.333Z"
+last_activity: 2026-05-18 — Milestone v1.1 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
-  total_plans: 38
-  completed_plans: 33
+  total_plans: 39
+  completed_plans: 39
   percent: 100
 ---
 
@@ -23,11 +23,11 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-15 after milestone v1.0 SHIPPED)
+See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 09 — trace-observability-polish
+**Current Focus:** Awaiting v1.2 scoping via `/gsd:new-milestone`
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-15 after milestone v1.0 SHIPPED)
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-17
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-18 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -46,13 +46,12 @@ Last activity: 2026-05-17
 |--------|-------|
 | Phases total (v1.0) | 5 |
 | Phases complete (v1.0) | 5 |
-| Phases total (v1.1) | 4 |
-| Phases complete (v1.1) | 2 |
-| Requirements total (v1.1) | 23 |
-| Requirements mapped (v1.1) | 23 |
-| Requirements complete (v1.1) | 14 |
-| Plans written (v1.1) | 23 |
-| Plans complete (v1.1) | 23 |
+| Phases total (v1.1) | 5 |
+| Phases complete (v1.1) | 5 |
+| Requirements total (v1.1) | 29 |
+| Requirements complete (v1.1) | 29 |
+| Plans written (v1.1) | 39 |
+| Plans complete (v1.1) | 39 |
 
 ---
 
@@ -78,7 +77,7 @@ v1.1 roadmap decisions:
 
 ### Active TODOs
 
-- Start Phase 6 with `/gsd:plan-phase 6`
+- Scope v1.2 via `/gsd:new-milestone` — carry-forward themes captured in PROJECT.md "Next Milestone Goals" and `milestones/v1.1-REQUIREMENTS.md` v1.2 backlog
 
 ### Blockers
 
@@ -86,26 +85,50 @@ v1.1 roadmap decisions:
 
 ### Research Flags
 
-- Phase 6: Review `/Users/pat/Personal/lattice/plugins/lattice-wiki` SKILL.md content per role before writing plans — identify source files and section anchors (PORT-01 is the discovery step)
+(None outstanding. v1.2 research flags will be added during `/gsd:new-milestone`.)
+
+---
+
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-05-17:
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | Phase 06 06-UAT.md | diagnosed (0 open scenarios — metadata only) |
+| uat_gap | Phase 08 08-HUMAN-UAT.md | partial (2 pending scenarios — SC#1 + SC#2 sign-offs) |
+| verification_gap | Phase 08 08-VERIFICATION.md | human_needed (2 documented scope narrowings) |
+| thread | next-milestone-planning | open (intentional carry-forward to v1.2) |
+
+Full context: `.planning/milestones/v1.1-MILESTONE-AUDIT.md`
 
 ---
 
 ## Session Continuity
 
-**Last session:** 2026-05-17T19:58:04.535Z
-**Stopped at:** Phase 9 context gathered
-**Resume file:** .planning/phases/09-trace-observability-polish/09-CONTEXT.md
+**Last session:** 2026-05-17 — milestone v1.1 close
+**Stopped at:** v1.1 archived; awaiting v1.2 scoping
+**Resume file:** — (no in-progress phase)
 
 **Critical context for next session:**
 
-- v1.0 shipped: 5 phases, 25 plans, 67/67 requirements complete; full retrospective in `.planning/RETROSPECTIVE.md`
-- v1.1 Phase 6 is the entry point: port lattice-wiki SKILL.md content into librarian/ingestor/linter/scanner prompts, then wire divergence-detection eval metric
-- HARD CONSTRAINT: Phase 7 (sweep) must run AFTER Phase 6 (port) — sweep measures improved agent, not v1.0 baseline
-- Phase 8 (host reliability) has no dependency on Phase 6/7 — eligible to run in parallel if context allows
-- All vault writes still go through `cores/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
+- v1.0 shipped: 5 phases, 25 plans, 67/67 requirements; v1.1 shipped: 5 phases, 39 plans, 29/29 requirements. Full retrospective in `.planning/RETROSPECTIVE.md`
+- v1.2 not yet scoped. Run `/gsd:new-milestone` to define. Carry-forward themes:
+  - TRACE-FU-01 (production trace pipeline missing `usage_metadata`)
+  - SWEEP-FU-02/03/04 (sweep coverage gaps)
+  - MODEL-FU-01 (synthesizer test drift to Qwen)
+  - Phase 8 SC#1 closure (real DA-CLI cancel verification — blocked on aioboto3)
+  - Nyquist compliance decision (0/5 v1.1 phases reached `nyquist_compliant: true`)
+  - OSS release prep
+- Workspace renamed: `cores/` → `packages/` (commit `c5a47ba`). Vault writes still go through `packages/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
 - MCP stdout discipline (`_StdoutGuard`) is non-negotiable; any new MCP tools must register *after* `mcp = FastMCP(...)` to preserve the guard invariant
+- `models.toml` defaults are now Qwen3-32B fan-out + Qwen3-80B synthesis (changed in v1.1 Phase 7); divergence baselines pinned
 
 ---
 
 *State initialized: 2026-05-13*
 *v1.1 roadmap: 2026-05-15*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
