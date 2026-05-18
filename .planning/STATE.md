@@ -25,11 +25,11 @@ progress:
 
 See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
-**Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
+**Core Value:** Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
 **Current Focus:** Phase 12 — drift-backport-ecosystem-rebrand-m2
 
-**North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
+**North Star:** `code-wiki-agent query "..."` returns answers as good as today's upstream lattice-wiki librarian (now ported as `graph-wiki`), on cheaper Bedrock models, faster.
 
 ---
 
@@ -100,7 +100,7 @@ v1.2 roadmap decisions:
 
 ### Research Flags
 
-(None — work is internal port/rebrand of known lattice code per thread `next-milestone-planning`; spike 002 already inventoried source modules.)
+(None — work is internal port/rebrand of known upstream lattice code per thread `next-milestone-planning`; spike 002 already inventoried source modules.)
 
 ---
 
@@ -129,7 +129,7 @@ Full context: `.planning/milestones/v1.1-MILESTONE-AUDIT.md`
 
 - v1.0 shipped: 5 phases, 25 plans, 67/67 requirements; v1.1 shipped: 5 phases, 39 plans, 29/29 requirements. Full retrospective in `.planning/RETROSPECTIVE.md`
 - v1.2 scope: workspace-io port (M1) + drift backport + rebrand (M2) + plugin port (M3) + carry-forward debt; 30 requirements across 6 phases (11-16)
-- Source code for port work lives in `/Users/pat/Personal/lattice/packages/{lattice-workspace,lattice-wiki-core}/` and `/Users/pat/Personal/lattice/plugins/lattice-wiki/`
+- Upstream source code for port work lives in `/Users/pat/Personal/lattice/packages/{lattice-workspace,lattice-wiki-core}/` and `/Users/pat/Personal/lattice/plugins/lattice-wiki/`
 - Spike 002 (validated) is the drift map: `.planning/spikes/002-*` — leave-alone decisions for `git_state`, `append_log`, `update_index`, `update_tokens`, `ingest_work_item`, `layout_io`, `detect_containers`, `scan_monorepo`, `ingest_source`
 - Out of scope for v1.2: `work/` subsystem (GSD covers it), package-family monorepo support (different approach planned), OSS release prep (→ v2.0), Nyquist retro (→ v1.3)
 - Workspace renamed: `cores/` → `packages/` (commit `c5a47ba`). Vault writes still go through `packages/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path

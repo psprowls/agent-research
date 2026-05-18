@@ -45,10 +45,10 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 
 ### 🚧 v1.2 Graph-Wiki Port & Debt Cleanup (Phases 11-16)
 
-- [x] **Phase 11: workspace-io Port (M1)** — New `packages/workspace-io/` ported from `lattice-workspace`; vault-io delegates manifest/path resolution to it (completed 2026-05-18)
-- [ ] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; `lattice` → `graph-wiki` rename across packages, agents, planning
+- [x] **Phase 11: workspace-io Port (M1)** — New `packages/workspace-io/` ported from upstream `lattice-workspace`; vault-io delegates manifest/path resolution to it (completed 2026-05-18)
+- [ ] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; upstream → graph-wiki rename across packages, agents, planning
 - [ ] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved
-- [ ] **Phase 14: Plugin Port (M3b)** — `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
+- [ ] **Phase 14: Plugin Port (M3b)** — Upstream `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
 - [ ] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port
 - [ ] **Phase 16: Carry-Forward Debt Cleanup** — Trace `usage_metadata`, full sweep coverage, MCP cancellation closure, model config test drift
 
@@ -62,10 +62,10 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 **Requirements**: WS-01, WS-02, WS-03, WS-04, WS-05, WS-06, WS-07, WS-08, WS-09, WS-10
 **Success Criteria** (what must be TRUE):
   1. `uv sync` resolves a `workspace-io` member at `packages/workspace-io/` whose tests pass via `uv run --package workspace-io pytest`.
-  2. Running any vault-io command in a directory with a `.graph-wiki.yaml` ancestor resolves the wiki + repo paths without `LATTICE_WORKSPACE` being set; `GRAPH_WIKI_WORKSPACE` is the env override that works.
+  2. Running any vault-io command in a directory with a `.graph-wiki.yaml` ancestor resolves the wiki + repo paths without the legacy `LATTICE_WORKSPACE` env var being set; `GRAPH_WIKI_WORKSPACE` is the env override that works.
   3. `vault-io._workspace.resolve_wiki_and_repo` returns the same explicit-path override behavior as before (MCP boundary contract unchanged), now backed by `workspace_io.config.resolve()`.
   4. The `~/Personal/wiki/deep-agents/wiki-config.toml` ↔ `.graph-wiki.yaml` question has a written answer in PROJECT.md Key Decisions (migration script shipped, or decision recorded as "not the same surface").
-  5. Every ported test from `lattice-workspace/tests/` runs green under the new module path with `.graph-wiki.yaml` filename expectations.
+  5. Every ported test from the upstream `lattice-workspace/tests/` suite runs green under the new module path with `.graph-wiki.yaml` filename expectations.
 **Plans**: 6 plans
 - [x] 11-01-PLAN.md — Scaffold packages/workspace-io/ uv workspace member (pyproject hatchling, empty __init__, uv sync verify)
 - [x] 11-02-PLAN.md — Port 8 workspace_io source modules + asset template; drop schema.py (D-06); strict resolve (D-03); v1-raises manifest (D-14)
@@ -75,13 +75,13 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [x] 11-06-PLAN.md — Record WS-10 decision in PROJECT.md (wiki-config.toml vs .graph-wiki.yaml); end-to-end verification gate
 
 ### Phase 12: Drift Backport + Ecosystem Rebrand (M2)
-**Goal**: Substantive upstream improvements from `lattice-wiki-core` land in `vault-io`, deliberate forks stay forked with written rationale, and no `lattice*` symbol survives in the in-scope code/planning surface.
+**Goal**: Substantive upstream improvements from the upstream `lattice-wiki-core` package land in `vault-io`, deliberate forks stay forked with written rationale, and no legacy upstream `lattice*` symbol survives in the in-scope code/planning surface.
 **Depends on**: Phase 11 (vault-io rebrand assumes `workspace-io` exists and `.graph-wiki.yaml` is the manifest filename)
 **Requirements**: BACKPORT-01, BACKPORT-02, BACKPORT-03, BACKPORT-04, BRAND-01, BRAND-02, BRAND-04
 **Success Criteria** (what must be TRUE):
   1. `packages/vault-io/lint/` matches upstream behavior on substantive changes; `packages/vault-io/DRIFT-DECISIONS.md` records a per-file verdict (port vs. leave) with one-line rationale for each candidate module from spike 002.
   2. `init_vault.py` and `ingest_work_item.py` divergence decisions are documented in `DRIFT-DECISIONS.md` with backport applied or explicit leave-alone justification.
-  3. `grep -rE 'lattice|LATTICE|lattice_workspace|lattice_wiki_core' packages/ agents/ .planning/ CLAUDE.md` returns zero hits (excluding commit-history references to `~/Personal/lattice/`).
+  3. `scripts/check-brand.sh` (consuming `.brand-grep-allow`) reports zero unallowlisted hits for upstream-name patterns across `packages/`, `agents/`, `.planning/`, and `CLAUDE.md`.
   4. `.planning/spikes/CONVENTIONS.md` correctly reflects `packages/` (not `cores/`) and no other planning docs reference the old path.
   5. The full existing test suite passes after the rebrand (`uv run pytest`) — no regressions from rename surgery.
 **Plans**: 4 plans
@@ -91,22 +91,22 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [ ] 12-04-PLAN.md — P-D: scripts/check-brand.sh + .brand-grep-allow grep-gate; final BRAND-04 verification (grep clean + pytest green)
 
 ### Phase 13: Plugin Spec (M3a)
-**Goal**: The open question "what do `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and deep-agents is documented before any plugin code is moved.
+**Goal**: The open question "what do the upstream `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and deep-agents is documented before any plugin code is moved.
 **Depends on**: Phase 12 (spec references the rebranded package names and the locked vault-io/workspace-io API surface)
 **Requirements**: PLUGIN-01
 **Success Criteria** (what must be TRUE):
-  1. A spec doc under `.planning/spec/` enumerates every `lattice-wiki` plugin slash command and names what each one will shell out to (deep-agents CLI subcommand, MCP tool, or lattice CLI to be replaced).
+  1. A spec doc under `.planning/spec/` enumerates every upstream `lattice-wiki` plugin slash command and names what each one will shell out to (deep-agents CLI subcommand, MCP tool, or upstream CLI to be replaced).
   2. The spec calls out which plugin commands change shape during the port vs. which are byte-for-byte renames, with one-line rationale per change.
   3. The contract surface is locked in PROJECT.md Key Decisions (or equivalent), so Phase 14 has no open questions left about plugin → deep-agents wiring.
 **Plans**: TBD
 
 ### Phase 14: Plugin Port (M3b)
-**Goal**: The `lattice-wiki` Claude Code plugin runs as `plugins/graph-wiki/` against the deep-agents vault, with no `lattice_*` imports and at least one slash command exercising the end-to-end path.
+**Goal**: The upstream `lattice-wiki` Claude Code plugin runs as `plugins/graph-wiki/` against the deep-agents vault, with no legacy upstream imports and at least one slash command exercising the end-to-end path.
 **Depends on**: Phase 13 (contract locked); transitively Phase 11 + Phase 12 (vault-io and workspace-io are the new IO surface)
 **Requirements**: PLUGIN-02, PLUGIN-03, PLUGIN-04, PLUGIN-05
 **Success Criteria** (what must be TRUE):
   1. `plugins/graph-wiki/.claude-plugin/plugin.json` exists with the renamed plugin id and metadata; the plugin loads cleanly in a Claude Code host without errors.
-  2. All slash commands appear in the `/graph-wiki:*` namespace (no `/lattice-wiki:*` remnants); agent and skill names follow the rebrand.
+  2. All slash commands appear in the `/graph-wiki:*` namespace (no legacy upstream slash-command remnants); agent and skill names follow the rebrand.
   3. `grep -r 'lattice_' plugins/graph-wiki/` returns zero hits — plugin scripts call through `vault-io` (which itself uses `workspace-io`).
   4. `/graph-wiki:query` runs end-to-end from a Claude Code session against `~/Personal/wiki/deep-agents` and returns a real librarian answer (manual smoke check).
 **Plans**: TBD
@@ -116,9 +116,9 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 **Depends on**: Phase 14 (plugin port complete so the wiki captures the full rebrand surface)
 **Requirements**: BRAND-03
 **Success Criteria** (what must be TRUE):
-  1. `code-wiki-agent scan ~/Personal/wiki/deep-agents` completes against the post-rebrand repo and the resulting `scan-log.md` shows the new package names (`workspace-io`, `graph-wiki` references) without `lattice` artifacts.
+  1. `code-wiki-agent scan ~/Personal/wiki/deep-agents` completes against the post-rebrand repo and the resulting `scan-log.md` shows the new package names (`workspace-io`, `graph-wiki` references) without legacy upstream artifacts.
   2. `code-wiki-agent ingest` re-ingests changed package pages so the wiki body reflects the rebrand; spot-check at least one page (e.g., a `workspace-io` package page) exists and is well-formed.
-  3. A follow-up `code-wiki-agent query "what is workspace-io?"` returns a librarian answer that cites the new code paths (not `lattice-workspace`).
+  3. A follow-up `code-wiki-agent query "what is workspace-io?"` returns a librarian answer that cites the new code paths (not the legacy upstream `lattice-workspace` package).
 **Plans**: TBD
 
 ### Phase 16: Carry-Forward Debt Cleanup
