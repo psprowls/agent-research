@@ -32,8 +32,18 @@ from typing import Optional
 LAYOUT_START = "<!-- graph-wiki:layout:start -->"
 LAYOUT_END = "<!-- graph-wiki:layout:end -->"
 
+# Legacy sentinel pair from upstream lattice-wiki vaults. We accept both
+# formats on read to preserve the CLAUDE.md §Constraints "must read existing
+# upstream lattice-wiki vaults without modification" guarantee (WR-02). On
+# write we emit only the new graph-wiki sentinels, so any subsequent
+# write_layout() call migrates the vault to the new format.
+_LEGACY_LAYOUT_START = "<!-- lattice-wiki:layout:start -->"
+_LEGACY_LAYOUT_END = "<!-- lattice-wiki:layout:end -->"
+
 _BLOCK_RE = re.compile(
-    re.escape(LAYOUT_START) + r"\s*\n```yaml\s*\n(.*?)\n```\s*\n" + re.escape(LAYOUT_END),
+    r"(?:" + re.escape(LAYOUT_START) + r"|" + re.escape(_LEGACY_LAYOUT_START) + r")"
+    r"\s*\n```yaml\s*\n(.*?)\n```\s*\n"
+    r"(?:" + re.escape(LAYOUT_END) + r"|" + re.escape(_LEGACY_LAYOUT_END) + r")",
     re.DOTALL,
 )
 
