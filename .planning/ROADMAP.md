@@ -84,7 +84,11 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   3. `grep -rE 'lattice|LATTICE|lattice_workspace|lattice_wiki_core' packages/ agents/ .planning/ CLAUDE.md` returns zero hits (excluding commit-history references to `~/Personal/lattice/`).
   4. `.planning/spikes/CONVENTIONS.md` correctly reflects `packages/` (not `cores/`) and no other planning docs reference the old path.
   5. The full existing test suite passes after the rebrand (`uv run pytest`) — no regressions from rename surgery.
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 12-01-PLAN.md — P-A: Scripted raw diff dump for the 11 overlapping modules; pin upstream SHA in DRIFT-DECISIONS-RAW.md header
+- [ ] 12-02-PLAN.md — P-B: Verdict assignment + atomic backport commits per PORT row; finalize DRIFT-DECISIONS.md verdict table (BACKPORT-01..04)
+- [ ] 12-03-PLAN.md — P-C: Five-commit rebrand sweep (packages/, agents/, plugins/ placeholder, live planning surface + CONVENTIONS.md) with per-commit uv run pytest gate
+- [ ] 12-04-PLAN.md — P-D: scripts/check-brand.sh + .brand-grep-allow grep-gate; final BRAND-04 verification (grep clean + pytest green)
 
 ### Phase 13: Plugin Spec (M3a)
 **Goal**: The open question "what do `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and deep-agents is documented before any plugin code is moved.
@@ -144,7 +148,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
-| 12. Drift Backport + Rebrand (M2) | 0/0 | Not started | — |
+| 12. Drift Backport + Rebrand (M2) | 0/4 | Planned | — |
 | 13. Plugin Spec (M3a) | 0/0 | Not started | — |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
@@ -152,4 +156,4 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 
 ---
 
-*Last updated: 2026-05-17 — v1.2 roadmap created. 30 requirements across 6 phases (Phases 11-16). All requirements mapped, no orphans. Next: `/gsd:plan-phase 11`.*
+*Last updated: 2026-05-18 — Phase 12 plans created (4 plans: P-A diff dump → P-B verdicts+backports → P-C rebrand sweep → P-D grep-gate verification). Next: `/gsd:execute-phase 12`.*
