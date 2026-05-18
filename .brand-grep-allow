@@ -115,6 +115,8 @@ packages/vault-io/src/vault_io/ingest_work_item.py
 packages/vault-io/src/vault_io/ingest_source.py
 # rationale: Parity-behavior — BM25 tokenizer + stopword-set parity with upstream lattice-wiki-core wiki_search.
 agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
+# rationale: Format-compatibility (CLAUDE.md §Constraints) — read_layout() accepts the legacy `<!-- lattice-wiki:layout:start/end -->` sentinel pair so existing upstream lattice-wiki vaults remain parseable (WR-02 fix). write_layout() emits only graph-wiki sentinels.
+packages/vault-io/src/vault_io/layout_io.py
 
 # Test prose / Upstream-guard / Test-data (test files)
 # rationale: Provenance + Upstream-guard — `test_no_lattice_wiki_core_imports` guard literal; renaming would break the guard.
