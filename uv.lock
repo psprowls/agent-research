@@ -2694,12 +2694,14 @@ source = { editable = "packages/vault-io" }
 dependencies = [
     { name = "boto3" },
     { name = "python-frontmatter" },
+    { name = "workspace-io" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.38" },
     { name = "python-frontmatter", specifier = ">=1.1" },
+    { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
 [[package]]
