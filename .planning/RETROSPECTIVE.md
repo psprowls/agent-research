@@ -58,6 +58,70 @@
 
 ---
 
+## Milestone: v1.1 — Quality Improvements
+
+**Shipped:** 2026-05-17
+**Phases:** 5 (Phases 6-10) | **Plans:** 39 | **Tasks:** ~150 | **Sessions:** dense execution over ~3 calendar days (2026-05-15 → 2026-05-17)
+**Git range:** `8aa21d5` → `92e26fd` (230 commits; 49 feat-prefixed; +37,702 / −27,672 lines across 323 files)
+
+### What Was Built
+
+- **Prompt content port** (Phase 6) — librarian, ingestor, linter, scanner system prompts re-grounded in canonical lattice-wiki SKILL.md content via 8 shared fragments under `prompts/_fragments/` with `# Source: / # Anchor: / # Source-commit:` provenance comments. 4 prompt builder functions (`build_X_system`) replace module-level constants. Drift becomes detectable in code review because every rule traces to a source path + anchor.
+- **Divergence detection eval** (Phase 6) — 15 programmatic check rules (LIB/ING/LNT/SCN), 4 LLM-judge rubrics, 37 unit tests, plus a `--accept-divergence-baseline` regression gate. All pure-Python, no Bedrock dependency for the check rules themselves. 0 hard-severity divergences against the lattice-wiki baseline.
+- **Cost-frontier sweep** (Phase 7) — two-gate scoring (divergence vs. baseline + LLM-judge quality) across 6 in-scope roles, run against the post-port agent. `models.toml` defaults updated to Qwen3-32B fan-out + Qwen3-80B synthesis with provenance comments preserving the previous Claude defaults. Full results doc under `.planning/sweep/`.
+- **Host reliability** (Phase 8) — `SubagentPool` cancellation chain (`_run_one` `CancelledError` branch + `_write_batch_terminal` outer terminal record), direct-asyncio cancel test with stubbed LLM (zero Bedrock cost), single sequential E2E integration test exercising all 6 MCP tools (`wiki_init/scan/ingest/query/lint/log`) as stdio subprocess against tmp_path vault. 210-line `docs/cancellation.md` documents the protocol + the v1.2+ aioboto3 path.
+- **Trace schema versioning + cost-aware renderer** (Phase 9) — `schema_version: 1` stamped as first key of every JSONL record by all 3 producers; renderer surfaces per-(role, model_id) cost rollup with `(+K unknown)` accounting (sorted desc cost, alphabetical tie-break, fully-null groups last); collapses ≥2 consecutive same-role groups by default into single summary line, `--expand` for full per-record view; lenient consumer warns once per file on v0 (inferred) or unknown future versions.
+- **Subagent context completion** (Phase 10) — `render_project_context(wiki_path)` reads `wiki/CLAUDE.md` (or `AGENTS.md`), parses the layout block via `vault_io.layout_io.read_layout`, returns deterministic ~30-line block. Wired through 4 prompt builders and 3 commands (scan, lint, ingest) at SystemMessage construction. +1500 token cap per role enforced via syrupy snapshot tests; ingestor tightest at +751 headroom. Divergence eval re-ran live (us-east-1, 193s, 4/4 PASSED), no regression.
+
+### What Worked
+
+- **Quality before measurement, sequencing held.** Hard constraint: Phase 7 (sweep) must run after Phase 6 (port). Tempting to invert (have sweep data first), but porting first meant the sweep measured the *improved* agent. Cost-optimal picks reflect production behavior, not pre-port behavior.
+- **Provenance comments on every prompt rule.** Each rule traces to a lattice-wiki SKILL.md source path + anchor + source-commit. Drift detection now lives in `git diff` rather than memory. Pattern reused across all 8 shared fragments.
+- **Snapshot tests + token budget tests as the contract for prompt changes.** syrupy `.ambr` baselines lock 14 prompt shapes; `test_token_budget.py` enforces +1500 tokens per role ceiling. Any future prompt change announces itself loudly in CI rather than silently inflating cost.
+- **Two-gate sweep scoring (divergence + LLM-judge).** Cheap models that pass divergence checks but produce subjectively worse output get filtered. Single-gate would have under-rejected; sharper signal at the cost of a small amount of judge runtime.
+- **Scope narrowing documented in RESEARCH.md before implementation.** Phase 8 SC#1 (direct-asyncio cancel test vs. real DA-CLI host) and SC#2 (no opt-in gate) were intentional narrowings backed by RESEARCH/PLAN reasoning. VERIFICATION flagged them as `human_needed` for explicit owner sign-off rather than silently passing — exactly the right shape.
+- **Single sequential E2E test over six separate per-tool tests.** One stdio subprocess spawn amortized across all 6 tools, matches the DA-CLI runtime shape, gated to opt-in for cost discipline.
+- **`render_project_context()` at command entry (not per-subagent invocation).** Render once, pass through; respects the token budget, avoids redundant `wiki/CLAUDE.md` reads on fan-out. Also: no deepagents `SubAgentMiddleware` migration — fragment curation + project_context renderer achieved the same outcome at a fraction of the architectural cost.
+- **Gap-closure plans as the response to verification failures.** Phase 6 found 5 UAT gaps (ING-001 fenced frontmatter, page_type routing, etc.) — closed via plans 06-12 through 06-16 rather than re-planning the phase. Phase 9 found 3 CR/WR advisory gaps — closed via plan 09-06. Tight feedback loop kept phases atomic.
+
+### What Was Inefficient
+
+- **REQUIREMENTS.md traceability table drifted again.** Same pattern as v1.0 — at audit time, 9 REQ-IDs (MCP-09/10/11, DACLI-01/02/03, OBS-04/05/06) were still `[ ]` Pending despite shipping. v1.0 lesson explicitly called this out, but the fix never landed in the per-phase completion gate. Recommend: enforce in `/gsd:execute-phase` completion that all phase REQ-IDs flip in REQUIREMENTS.md before SUMMARY.md commit.
+- **SUMMARY.md `requirements_completed` frontmatter is sparse.** Many SUMMARY files have `requirements_completed: []` despite the plan covering specific REQ-IDs. Made the 3-source cross-reference (VERIFICATION + SUMMARY + traceability) rely heavily on VERIFICATION. Fix: tighten the SUMMARY template + add a planner check that derives `requirements_completed` from the plan's `requirements` frontmatter.
+- **Nyquist coverage is uneven across v1.1.** 0 phases reached `nyquist_compliant: true`; 3 phases have draft VALIDATION.md, 2 phases have no VALIDATION.md at all. The toggle is configured `true` but the workflow doesn't fail closed. Either: retro-validate v1.1, or disable the toggle to align config with practice. v1.2 should pick one.
+- **The CLI `summary-extract --pick one_liner` returned literal strings like `"One-liner:"` or random plan-text first-lines** for ~13 of the 39 v1.1 SUMMARY files. Made the auto-generated MILESTONES.md entry unusable until manually curated. Same root cause as the v1.0 `null` one_liner issue — different failure mode (matches the wrong line) but same fix: tighten the SUMMARY template.
+- **Workspace rename `cores/` → `packages/` landed after v1.1 plans were written.** Historical entries throughout PROJECT.md and SUMMARY files reference `cores/`. Not invalidating, but noisy. Future rule: do path renames at milestone boundaries, not mid-flight, or do them atomically with a doc sweep.
+- **CTX-05 divergence eval re-run had to defer half of itself.** "Live Bedrock unreachable from the parallel-executor worktree" forced a manual developer-side run rather than CI-side. The eventual re-run (post-Phase 10) passed cleanly, but the deferral pattern is a smell — long-running live evals shouldn't live on the critical path of a parallel worktree.
+
+### Patterns Established
+
+- **Provenance comments on every prompt rule** — `# Source: <path> / # Anchor: <section> / # Source-commit: <sha>`. Reusable for any external-source content drift detection.
+- **Two-gate eval scoring** — pair a cheap programmatic check (divergence vs. fixed baseline) with a quality judge (LLM rubric). Either gate alone under-filters.
+- **`schema_version` as first key of every record** — JSONL/object schemas with explicit versioning + lenient consumer that warns-but-renders on unknown versions. Generalizable beyond traces.
+- **`build_X_system(project_context="") -> str` over module-level constants** — prompt strings as composable functions; backward-compat aliases preserved for incremental migration.
+- **Render-once context injection at command entry** — pre-compute shared context (`render_project_context`) at command entry and pass through to all subagent prompt builders. Avoids redundant reads on fan-out.
+- **Documented scope narrowing** — when implementation deviates from ROADMAP SC, document in RESEARCH/PLAN and let VERIFICATION emit `human_needed` for explicit sign-off rather than `passed` for silent acceptance.
+- **Gap-closure plans rather than re-planning the phase** — when VERIFICATION/UAT surface gaps, add 1-3 targeted plans to the same phase. Preserves atomic phase shape, keeps plan history intact, avoids rewriting working plans.
+
+### Key Lessons
+
+1. **The REQUIREMENTS.md drift problem from v1.0 was not fixed.** Same gap recurred in v1.1 — 9 REQ-IDs unchecked at audit time despite shipping. The lesson "keep REQUIREMENTS.md in the per-phase gate" is correct; it needs to actually land in the workflow before v1.2.
+2. **Architectural restraint pays.** Phase 10 explicitly declined to migrate to `deepagents.SubAgentMiddleware` and instead used the existing `SubagentPool` + a render function. The simpler solution shipped in days; the migration would have cost weeks. Default to the smallest delta that closes the gap.
+3. **Document scope narrowing in writing, before the implementation lands.** The 2 Phase 8 SC deviations were captured in RESEARCH.md and PLAN.md *first*; VERIFICATION flagged them automatically. Trying to retroactively justify scope narrowings at verification time is much harder.
+4. **Token budgets need automated enforcement, not just measurement.** `test_token_budget.py` flips a fail when any role exceeds +1500 tokens. Without that gate, prompt growth would be invisible until a Bedrock bill spike.
+5. **Provenance comments turn drift detection into a `git diff` problem.** Code-side rules referencing external sources should always carry source + anchor + source-commit. Drift becomes diffable rather than memory-dependent.
+6. **One-liner schema enforcement matters at scale.** The MILESTONES.md auto-population at archive time depends on the `one_liner:` field being parseable and meaningful. Sparseness compounds — at 39 plans, manually fixing 13 wrong entries costs real time.
+7. **Live evals don't belong on parallel-worktree critical paths.** When the executor can't reach Bedrock from a worktree, the eval gets deferred. Move live eval calls behind explicit `--run-live-evals` gates that the operator runs from a privileged shell.
+
+### Cost Observations
+
+- **Model mix during development:** primarily Opus 4.7 for planning + Sonnet 4.6 for execution per GSD profile. Heavy parallelization via worktrees (Phases 6/7/8/9/10 partially overlapped — Phase 8 explicitly parallel to 6/7; Phase 10 depends only on 6's baseline).
+- **Sessions:** dense execution over ~3 calendar days. 230 commits in range. Pattern: short focused execution sessions per plan, gap-closure rounds via dedicated plans.
+- **Notable production cost outcome:** `models.toml` swap to Qwen3-32B fan-out + Qwen3-80B synthesis is the headline cost win. Concrete per-run delta vs. Claude defaults captured in `.planning/sweep/STORY.md`.
+- **Eval bill discipline:** Phase 7 explicitly skipped a duplicate `test_full_matrix_live` pytest run to avoid $6 of duplicate Bedrock spend — the test exists and is gated, just wasn't re-executed inside the plan session. Cost-aware verification is the right call.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -65,13 +129,20 @@
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
 | v1.0 | ~12 | 5 | Established `cores/` + `agents/` workspace pattern; SubagentPool as shared infra; eval harness with two-judge Bedrock panel |
+| v1.1 | dense ~3 days | 5 | Prompt-as-Python-module with provenance comments; two-gate sweep scoring; schema-versioned trace JSONL with lenient consumer; render-once context injection; gap-closure plan pattern |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Coverage | Zero-Dep Additions |
 |-----------|-------|----------|-------------------|
 | v1.0 | 359 pytest files across workspace | per-member (each member's own testpaths) | `bm25s`, `python-frontmatter`, `deepeval`, `typer`, `langchain-aws`, `mcp` |
+| v1.1 | +divergence eval (37 tests), prompt snapshots (14 baselines, 26 tests), token budget (6 tests), trace renderer (~20 tests across 09-01..09-06), MCP cancel (1 stub-LLM test), DA-CLI E2E (1 subprocess test covering 6 tools) | per-member | (none — v1.1 was content-and-quality work, no new top-level deps) |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. *(Awaiting v1.1 to cross-validate v1.0 lessons.)*
+1. **Schema files (REQUIREMENTS.md, traceability tables) need per-phase gate enforcement, not milestone-close cleanup.** v1.0 flagged it as a one-off; v1.1 hit the same drift again. Now classified as systemic — fix lives in `/gsd:execute-phase` completion, not in human discipline.
+2. **`one_liner:` belongs in every SUMMARY.md as a required, parseable field.** v1.0: nulls. v1.1: wrong-line matches. Both shapes break MILESTONES.md auto-population. Tighten the template before v1.2.
+3. **Phase ordering with hard constraints holds under pressure.** v1.0: `SubagentPool` before fan-out commands. v1.1: prompt port before cost-frontier sweep. In both cases the sequencing felt slow at the time but produced the correct measurement substrate.
+4. **Structured trace output from day 1 keeps compounding.** v1.0 shipped the JSONL format; v1.1's cost-frontier sweep + trace renderer + schema versioning all sit on top of that single decision. Worth front-loading observability schema decisions.
+5. **Cap phase plan count at ~6 (and split when it grows).** v1.0 Phase 3 hit 9 plans and snarled the dependency graph. v1.1 Phase 6 hit 16 plans (including 5 gap-closure) — the gap-closure pattern made it workable, but a cleaner phase split would have been simpler.
+6. **Bedrock-only single-provider focus was correct.** Both milestones validated it — eval-harness combinatorics stayed manageable; v1.1 cost-frontier sweep was tractable because all candidates lived on one provider.
