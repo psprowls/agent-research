@@ -1,0 +1,138 @@
+---
+phase: 11-workspace-io-port-m1
+plan: 04
+subsystem: workspace-io
+
+tags: [workspace-io, vault-io, delegation, env-var-rename, graph-wiki-workspace]
+
+# Dependency graph
+requires:
+  - phase: 11-workspace-io-port-m1
+    provides: workspace_io.config.resolve(), workspace_io.paths.wiki_dir(), workspace_io.config._find_repo_root (Plan 02)
+provides:
+  - vault_io._workspace as a thin delegation shim over workspace_io
+  - vault-io declares workspace-io as a workspace dependency
+  - CODE_WIKI_REAL_VAULT_PATH fully removed from packages/vault-io/
+  - GRAPH_WIKI_WORKSPACE env var honored end-to-end inside vault-io
+  - Strict-manifest-required behavior surfaced at the vault-io boundary
+affects: [11-05, code-wiki-agent, MCP boundary callers]
+
+# Tech tracking
+tech-stack:
+  added: [workspace-io workspace dependency on vault-io]
+  patterns:
+    - "Two-tier delegation shim: explicit-arg short-circuit + delegated resolve()"
+    - "monkeypatch.setattr on workspace_io.config._find_repo_root to neutralize real-repo cwd in tests"
+
+key-files:
+  created: []
+  modified:
+    - packages/vault-io/pyproject.toml
+    - packages/vault-io/src/vault_io/_workspace.py
+    - packages/vault-io/src/vault_io/append_log.py
+    - packages/vault-io/src/vault_io/detect_containers.py
+    - packages/vault-io/src/vault_io/graph_analyzer.py
+    - packages/vault-io/tests/conftest.py
+    - packages/vault-io/tests/test_ports_importable.py
+
+key-decisions:
+  - "Delegation shim preserves bit-identical signature; zero changes at 9 vault-io call sites"
+  - "Explicit vault_path branch uses workspace_io.config._find_repo_root for repo discovery (D-15 semantics propagate to MCP callers)"
+  - "Tests neutralize cwd's git ancestor via monkeypatch.setattr on _find_repo_root to prevent accidental real-repo discovery"
+
+patterns-established:
+  - "Delegation shim pattern: leaf packages depend on workspace-io and delegate resolution while preserving their own public signature"
+  - "Test isolation pattern: monkeypatch _find_repo_root to None when asserting strict-raises behavior, so cwd cannot leak into the resolver"
+
+requirements-completed: [WS-07, WS-08]
+
+# Metrics
+duration: ~12min
+completed: 2026-05-18
+---
+
+# Phase 11 Plan 04: vault-io Delegation Shim Summary
+
+**vault_io._workspace.resolve_wiki_and_repo rewritten as a 2-line delegation shim over workspace_io.config.resolve(), with the explicit-vault_path MCP boundary preserved and the CODE_WIKI_REAL_VAULT_PATH env var fully removed from vault-io.**
+
+## Performance
+
+- **Duration:** ~12 minutes
+- **Completed:** 2026-05-18T14:01:29Z
+- **Tasks:** 2
+- **Files modified:** 7 (+ uv.lock as a side effect of `uv sync`)
+
+## Accomplishments
+
+- `vault_io._workspace.resolve_wiki_and_repo` is now a thin delegation shim:
+  - Bit-identical signature `(vault_path: Path | None = None) -> tuple[Path, Path | None]`
+  - Explicit-`vault_path` branch short-circuits to `(vault_path.resolve(), _find_repo_root(vault_path))` — MCP boundary contract intact (Phase 11 SC#3)
+  - Default branch delegates to `workspace_io.config.resolve()` and returns `(paths.wiki_dir(cfg.workspace), cfg.repo_root)`
+- `packages/vault-io/pyproject.toml` declares `workspace-io` as a runtime dep + `[tool.uv.sources]` workspace marker
+- `CODE_WIKI_REAL_VAULT_PATH` is fully removed from `packages/vault-io/` (src + tests); `GRAPH_WIKI_WORKSPACE` is the only env var honored
+- Existing `vault-io` tests updated for the new shim semantics; new strict-raises test added at the vault-io boundary (covers D-03 end-to-end)
+- Full vault-io test suite green: 71 passed
+
+## Task Commits
+
+1. **Task 1: Add workspace-io dep + rewrite _workspace.py shim** — `9ed2872` (feat)
+2. **Task 2: Update vault-io tests + rebrand src docstrings** — `d4af13c` (test)
+
+## Files Created/Modified
+
+- `packages/vault-io/pyproject.toml` — adds `workspace-io` dep and `[tool.uv.sources]` workspace pointer
+- `packages/vault-io/src/vault_io/_workspace.py` — rewritten as a delegation shim over `workspace_io.config.resolve()`; imports `_find_repo_root` for explicit-path repo discovery
+- `packages/vault-io/src/vault_io/append_log.py` — docstring env-var rename
+- `packages/vault-io/src/vault_io/detect_containers.py` — docstring env-var rename
+- `packages/vault-io/src/vault_io/graph_analyzer.py` — docstring env-var rename
+- `packages/vault-io/tests/conftest.py` — fixture reads `GRAPH_WIKI_WORKSPACE` (one-line update at line 35)
+- `packages/vault-io/tests/test_ports_importable.py`:
+  - `test_resolve_wiki_and_repo_raises_on_no_config` — delenv `GRAPH_WIKI_WORKSPACE`, monkeypatch.chdir to tmp_path, monkeypatch `workspace_io.config._find_repo_root` to None, assert "code-wiki-agent init" in error
+  - `test_resolve_wiki_and_repo_honors_env_var` — asserts `wiki == (workspace / "wiki").resolve()` (env-override branch skips strict manifest check)
+  - **NEW** `test_resolve_wiki_and_repo_strict_raises_without_manifest` — verifies D-03 RuntimeError at the vault-io boundary
+- `uv.lock` — regenerated by `uv sync` to register the new vault-io -> workspace-io edge
+
+## Decisions Made
+
+- **Repo discovery in explicit-vault_path branch:** Use `workspace_io.config._find_repo_root(vault_path)` (walks up looking for `.git`) instead of returning `None`. This is a behavior **improvement** over the pre-port shim (which always returned `None`) and matches the workspace-io semantics from D-15. The 9 vault-io call sites destructure with `wiki, _ = resolve_wiki_and_repo()` and ignore `repo_root`, so no caller breaks — but `repo_root` is now meaningful for any future caller that needs it.
+- **Test isolation strategy:** Both raises-tests `monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)` so the tests don't pick up the real deep-agents `.git` directory and accidentally resolve a real workspace. This is the recommended pattern from RESEARCH.md Pitfall #1 and PATTERNS.md test_config.py reasoning.
+
+## Deviations from Plan
+
+None - plan executed exactly as written.
+
+## Issues Encountered
+
+None - all tests passed on first run after the edits.
+
+## Threat Flags
+
+None — no new security-relevant surface introduced. The explicit-`vault_path` branch preserves `Path.resolve()` normalization (bit-identical to pre-port behavior, T-11-07 mitigation).
+
+## Self-Check: PASSED
+
+- `packages/vault-io/pyproject.toml` includes `"workspace-io"` in `[project] dependencies`: FOUND
+- `packages/vault-io/pyproject.toml` includes `workspace-io = { workspace = true }` under `[tool.uv.sources]`: FOUND
+- `packages/vault-io/src/vault_io/_workspace.py` imports from `workspace_io` (>= 2 lines): FOUND (3 import lines)
+- `packages/vault-io/src/vault_io/_workspace.py` contains no `CODE_WIKI_REAL_VAULT_PATH`: CONFIRMED (grep count = 0)
+- Signature bit-identical: `(vault_path: 'Path | None' = None) -> 'tuple[Path, Path | None]'`: CONFIRMED
+- `uv sync` succeeds: CONFIRMED
+- Re-export from `vault_io/__init__.py` intact: `assert resolve_wiki_and_repo is re_export` passes
+- `grep -rE 'CODE_WIKI_REAL_VAULT_PATH' packages/vault-io/ --include="*.py"`: CLEAN
+- New test `test_resolve_wiki_and_repo_strict_raises_without_manifest` present: FOUND
+- `uv run --package vault-io pytest packages/vault-io/tests/`: 71 passed, 0 failed
+- Commits exist:
+  - `9ed2872` (Task 1): FOUND in git log
+  - `d4af13c` (Task 2): FOUND in git log
+- Files-touched diff stat matches plan's 7 files (+ uv.lock): CONFIRMED
+
+## Next Phase Readiness
+
+- WS-08 closed: vault-io delegates to workspace-io with the explicit-path short-circuit preserved.
+- WS-07 (vault-io half) closed: zero `CODE_WIKI_REAL_VAULT_PATH` references in `packages/vault-io/`.
+- Plan 05 (agent half of WS-07: code-wiki-agent CLI / MCP server env-var rename + `init` two-phase chain) is now unblocked.
+- vault-io modules transparently gain `.graph-wiki.yaml` manifest discovery when no explicit `vault_path` is passed — no caller-side changes required.
+
+---
+*Phase: 11-workspace-io-port-m1*
+*Completed: 2026-05-18*
