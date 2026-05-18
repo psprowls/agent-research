@@ -46,7 +46,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 ### 🚧 v1.2 Graph-Wiki Port & Debt Cleanup (Phases 11-16)
 
 - [x] **Phase 11: workspace-io Port (M1)** — New `packages/workspace-io/` ported from `lattice-workspace`; vault-io delegates manifest/path resolution to it (completed 2026-05-18)
-- [ ] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; `lattice` → `graph-wiki` rename across packages, agents, planning
+- [x] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; `lattice` → `graph-wiki` rename across packages, agents, planning (completed 2026-05-18)
 - [ ] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved
 - [ ] **Phase 14: Plugin Port (M3b)** — `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
 - [ ] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port
@@ -88,7 +88,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [x] 12-01-PLAN.md — P-A: Scripted raw diff dump for the 11 overlapping modules; pin upstream SHA in DRIFT-DECISIONS-RAW.md header
 - [x] 12-02-PLAN.md — P-B: Verdict assignment + atomic backport commits per PORT row; finalize DRIFT-DECISIONS.md verdict table (BACKPORT-01..04)
 - [x] 12-03-PLAN.md — P-C: Five-commit rebrand sweep (packages/, agents/, plugins/ placeholder, live planning surface + CONVENTIONS.md) with per-commit uv run pytest gate
-- [ ] 12-04-PLAN.md — P-D: scripts/check-brand.sh + .brand-grep-allow grep-gate; final BRAND-04 verification (grep clean + pytest green)
+- [x] 12-04-PLAN.md — P-D: scripts/check-brand.sh + .brand-grep-allow grep-gate; final BRAND-04 verification (grep clean + pytest green)
 
 ### Phase 13: Plugin Spec (M3a)
 **Goal**: The open question "what do `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and deep-agents is documented before any plugin code is moved.
@@ -148,7 +148,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
-| 12. Drift Backport + Rebrand (M2) | 3/4 | In Progress|  |
+| 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
 | 13. Plugin Spec (M3a) | 0/0 | Not started | — |
 | 14. Plugin Port (M3b) | 0/0 | Not started | — |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
