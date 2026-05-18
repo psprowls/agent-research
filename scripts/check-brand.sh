@@ -22,9 +22,17 @@ fi
 # Compute hits across in-scope paths. `plugins/` is included for forward
 # compatibility with Phase 14 (per W5); `grep -r` on an empty/absent directory
 # returns nothing, so the 2>/dev/null swallows "no such file" noise.
+#
+# CR-01 fix: BSD grep (macOS default) treats an empty pattern as matching
+# every line, so blank lines in $ALLOWLIST would (combined with -v) exclude
+# every hit and silently turn the gate into a no-op. Strip blanks and
+# comments before passing patterns to `grep -vF -f`. This also resolves
+# WR-03 — comment lines are no longer effective patterns, so a future edit
+# that puts a path-fragment-like substring inside a `#`-comment cannot
+# silently broaden the allowlist.
 HITS=$(grep -rEl 'lattice|LATTICE|lattice_workspace|lattice_wiki_core' \
     packages/ agents/ plugins/ .planning/ CLAUDE.md 2>/dev/null \
-    | grep -vF -f "$ALLOWLIST" || true)
+    | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
 
 if [ -n "$HITS" ]; then
   echo "$HITS"
