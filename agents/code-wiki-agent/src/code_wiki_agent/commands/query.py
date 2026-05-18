@@ -785,7 +785,7 @@ async def run_query(
 
     Args:
         query:                    Natural language query string.
-        vault_path:               Path to vault root. None uses CODE_WIKI_REAL_VAULT_PATH env var.
+        vault_path:               Path to vault root. None uses GRAPH_WIKI_WORKSPACE env var.
         top_k:                    Pages to drill. Must be in [3, 10].
         librarian_model_override: Bedrock model ID to use for librarian role instead of
                                   the default from models.toml. Deprecated — prefer

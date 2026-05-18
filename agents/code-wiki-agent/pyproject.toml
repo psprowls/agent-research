@@ -7,6 +7,7 @@ dependencies = [
     "vault-io",
     "model-adapter",
     "subagent-runtime",
+    "workspace-io",
     "bm25s==0.3.8",
     "mcp>=1.27.1",
     "langchain-aws>=1.4.6",
@@ -26,6 +27,7 @@ build-backend = "uv_build"
 vault-io         = { workspace = true }
 model-adapter    = { workspace = true }
 subagent-runtime = { workspace = true }
+workspace-io     = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
