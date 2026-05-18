@@ -33,7 +33,7 @@
 - [ ] **BRAND-04**: Naming consistency sweep — `scripts/check-brand.sh` (running a `grep -rE` over the upstream-name patterns and filtering through `.brand-grep-allow`) reports zero unallowlisted hits across in-scope paths after rebrand.
 
 ### Plugin Port (M3)
-- [ ] **PLUGIN-01**: Spec phase completed answering: *what do the upstream `lattice-wiki` plugin slash commands actually shell out to?* — deep-agents CLI/MCP server, upstream CLIs, or both — and contract surface locked before code is moved.
+- [ ] **PLUGIN-01**: Spec phase completed answering: *what do the upstream `lattice-wiki` plugin slash commands actually shell out to?* — deep-agents CLI/MCP server, upstream CLIs, or both — and contract surface locked before code is moved. Phase 14 prerequisite: `vault_io.lint_wiki` (port from `lattice_wiki_core/lint_wiki.py`, ~508 LOC) and `vault_io.wiki_search` (port from `lattice_wiki_core/wiki_search.py`, ~194 LOC) must be ported into `packages/vault-io/` as Phase 14 Plan 1 and Plan 2 respectively, before the `/graph-wiki:lint` and `/graph-wiki:query` shims can shell out. See `.planning/spec/13-plugin-contract/CONTRACT-INDEX.md` (§Phase 14 prerequisite ports).
 - [ ] **PLUGIN-02**: Upstream `/Users/pat/Personal/lattice/plugins/lattice-wiki/` ported to `plugins/graph-wiki/`; `.claude-plugin/plugin.json` metadata renamed; plugin id renamed to `graph-wiki`.
 - [ ] **PLUGIN-03**: Slash command namespace renamed from the upstream `/lattice-wiki:*` to `/graph-wiki:*`; agent names, skill names renamed accordingly.
 - [ ] **PLUGIN-04**: Plugin scripts rewritten so vault I/O goes through `vault-io` (which uses `workspace-io`); no direct legacy upstream imports remain.
