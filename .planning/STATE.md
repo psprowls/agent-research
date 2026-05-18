@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Graph-Wiki Port & Debt Cleanup
-status: completed
+status: executing
 stopped_at: Phase 12 context gathered
-last_updated: "2026-05-18T17:04:36.176Z"
-last_activity: 2026-05-18 -- Phase 11 marked complete
+last_updated: "2026-05-18T17:51:03.510Z"
+last_activity: 2026-05-18 -- Phase 12 execution started
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 6
+  total_plans: 10
   completed_plans: 6
   percent: 17
 ---
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 11 — workspace-io Port (M1)
+**Current Focus:** Phase 12 — drift-backport-ecosystem-rebrand-m2
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 ## Current Position
 
-Phase: 11 — COMPLETE
-Plan: 6 of 6
-Status: Phase 11 complete
-Last activity: 2026-05-18 -- Phase 11 marked complete
+Phase: 12 (drift-backport-ecosystem-rebrand-m2) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 12
+Last activity: 2026-05-18 -- Phase 12 execution started
 
 ## Performance Metrics
 
