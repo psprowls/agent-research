@@ -5,18 +5,18 @@
 > **Initialized:** {{DATE}}
 > **Tool:** Any AGENTS.md-aware CLI (Codex, Cursor, Antigravity, OpenCode, Gemini CLI, etc.). Claude Code uses `CLAUDE.md`, which is identical.
 
-You are the maintainer of this wiki. You read from `../raw/` (immutable ingested sources, owned by `lattice-workspace`) and from the repo's source code. You write to pages under this wiki directory. You never edit `../raw/`.
+You are the maintainer of this wiki. You read from `../raw/` (immutable ingested sources, owned by `graph-wiki workspace`) and from the repo's source code. You write to pages under this wiki directory. You never edit `../raw/`.
 
 ## Where the wiki sits
 
 This wiki is a sibling of other workspace-level directories. Obsidian opens at the workspace root, so the sidebar shows them all together:
 
 ```
-<workspace>/                  → e.g. <repo>/lattice/. Obsidian vault opens here.
-├── .lattice.yaml             → workspace manifest (owned by lattice-workspace)
-├── CLAUDE.md / AGENTS.md     → workspace-level schema (owned by lattice-workspace)
-├── raw/                      → ingested sources. IMMUTABLE. Owned by lattice-workspace.
-├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by lattice-workspace.
+<workspace>/                  → e.g. <repo>/graph-wiki/. Obsidian vault opens here.
+├── .graph-wiki.yaml          → workspace manifest (owned by graph-wiki workspace)
+├── CLAUDE.md / AGENTS.md     → workspace-level schema (owned by graph-wiki workspace)
+├── raw/                      → ingested sources. IMMUTABLE. Owned by graph-wiki workspace.
+├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by graph-wiki workspace.
 ├── knowledge/                → other plugin-managed knowledge stores
 └── wiki/                     → this wiki — you own everything here
     ├── AGENTS.md             → this file
@@ -50,7 +50,7 @@ adrs/                     → decision records
 .templates/               → reference templates
 ```
 
-Work items live at `../work/` (sibling of this wiki, owned by `lattice-workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
+Work items live at `../work/` (sibling of this wiki, owned by `graph-wiki workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
 
 ## Page frontmatter
 
@@ -80,7 +80,7 @@ When the user says "scan the monorepo" or "update package pages":
 
 ### Ingest
 
-When the user says "ingest this spec/article/PR", points you at a file in `../raw/`, or hands you an in-repo `.md` doc (surfaced by /lattice-wiki:scan):
+When the user says "ingest this spec/article/PR", points you at a file in `../raw/`, or hands you an in-repo `.md` doc (surfaced by /graph-wiki:scan):
 
 1. Run `ingest_source.py --source <path>` (wiki and repo discovered automatically). Read the source directly.
 2. **Discuss with the user first** — TL;DR, key claims, pages you'll touch, contradictions with code

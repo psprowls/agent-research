@@ -19,7 +19,7 @@ from syrupy.assertion import SnapshotAssertion
 
 # Module-level fixture: a minimal but realistic CLAUDE.md / AGENTS.md body.
 # Contains:
-#   - A valid <!-- lattice-wiki:layout:start --> block with two containers
+#   - A valid <!-- graph-wiki:layout:start --> block with two containers
 #     (apps + cores) so the snapshot exercises multi-container ordering.
 #   - A ## Style section.
 #   - A ## Log format section with the canonical fenced code block.
@@ -28,7 +28,7 @@ FIXTURE_CLAUDE_MD = """\
 
 Some preamble text the renderer should ignore.
 
-<!-- lattice-wiki:layout:start -->
+<!-- graph-wiki:layout:start -->
 ```yaml
 version: 1
 detected_at: 2026-04-29
@@ -43,7 +43,7 @@ containers:
     classification: package
     children_count: 4
 ```
-<!-- lattice-wiki:layout:end -->
+<!-- graph-wiki:layout:end -->
 
 ## Style
 

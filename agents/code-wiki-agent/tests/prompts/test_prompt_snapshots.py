@@ -32,7 +32,7 @@ FIXTURE_CLAUDE_MD_FOR_SNAPSHOTS = """\
 
 Some preamble text the renderer should ignore.
 
-<!-- lattice-wiki:layout:start -->
+<!-- graph-wiki:layout:start -->
 ```yaml
 version: 1
 detected_at: 2026-04-29
@@ -47,7 +47,7 @@ containers:
     classification: package
     children_count: 4
 ```
-<!-- lattice-wiki:layout:end -->
+<!-- graph-wiki:layout:end -->
 
 ## Style
 

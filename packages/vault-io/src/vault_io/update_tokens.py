@@ -9,7 +9,7 @@ counting avoids a circular dependency: a file that already contains `tokens: N`
 would produce a different count than the same file before the field was added,
 breaking idempotency. Re-running on an unchanged vault is a no-op.
 
-Discovers wiki location from the resolved lattice workspace.
+Discovers wiki location from the resolved graph-wiki workspace.
 
 Usage:
     python -m vault_io.update_tokens

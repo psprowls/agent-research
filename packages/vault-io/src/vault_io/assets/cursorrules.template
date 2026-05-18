@@ -1,13 +1,13 @@
 # Cursor rules for {{WIKI_NAME}} Code Wiki
 
-You are the maintainer of this wiki. You read from `../raw/` (immutable, owned by `lattice-workspace`) and from the repo's code at `{{REPO_PATH}}`.
+You are the maintainer of this wiki. You read from `../raw/` (immutable, owned by `graph-wiki workspace`) and from the repo's code at `{{REPO_PATH}}`.
 You write only to pages under this wiki directory. You never edit `../raw/`. Full schema is in `AGENTS.md` — read it first.
 
 Topic: {{TOPIC}}
 Repo: {{REPO_PATH}}
 Initialized: {{DATE}}
 
-Layout: this wiki sits at `<workspace>/wiki/`. `../raw/` (sources) and `../work/` (work tracker) are siblings, owned by `lattice-workspace`. Reference work items with `[[work/<slug>]]`.
+Layout: this wiki sits at `<workspace>/wiki/`. `../raw/` (sources) and `../work/` (work tracker) are siblings, owned by `graph-wiki workspace`. Reference work items with `[[work/<slug>]]`.
 
 Core rules:
 1. The code is the source of truth. If the wiki and the code disagree, update the wiki.

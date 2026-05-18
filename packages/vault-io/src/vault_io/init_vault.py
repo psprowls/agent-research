@@ -152,7 +152,7 @@ def init_wiki(
 
     NOTE: The upstream implementation called a workspace.init() helper to
     register the plugin with the workspace (creating `<workspace>/raw/`,
-    `<workspace>/work/`, `.lattice.yaml`). That dependency is not available
+    `<workspace>/work/`, `.graph-wiki.yaml`). That dependency is not available
     in deep-agents; Phase 5 will provide a workspace-bootstrap equivalent.
     For now, this function only writes inside `wiki_path`.
     """
@@ -256,8 +256,8 @@ def init_wiki(
         },
         "next_steps": [
             f"Open {workspace_path} in Obsidian (sidebar shows wiki/, raw/, work/ as siblings)",
-            "Run /lattice-wiki:scan to populate wiki/packages/ from workspace manifests",
-            f"Stage a source under {workspace_path}/raw/ and run /lattice-wiki:ingest",
+            "Run /graph-wiki:scan to populate wiki/packages/ from workspace manifests",
+            f"Stage a source under {workspace_path}/raw/ and run /graph-wiki:ingest",
         ],
     }
 
@@ -274,14 +274,14 @@ def init_wiki(
     logger.info("     Page templates copied: %d", template_count)
     logger.info("Next steps:")
     logger.info("  1. Open %s in Obsidian (workspace root)", workspace_path)
-    logger.info("  2. Run /lattice-wiki:scan to populate wiki/packages/")
-    logger.info("  3. Stage a source under %s/raw/ and run /lattice-wiki:ingest <path>", workspace_path)
+    logger.info("  2. Run /graph-wiki:scan to populate wiki/packages/")
+    logger.info("  3. Stage a source under %s/raw/ and run /graph-wiki:ingest <path>", workspace_path)
     return result
 
 
 def main():
     p = argparse.ArgumentParser(
-        description="Initialize a Code Wiki in the resolved lattice workspace.",
+        description="Initialize a Code Wiki in the resolved graph-wiki workspace.",
     )
     p.add_argument(
         "--topic",

@@ -3,7 +3,7 @@
 _Initialized {{DATE}} • 0 pages_
 
 > Content-oriented catalog of every page in this wiki. Updated by
-> `scripts/update_index.py` or during `/lattice-wiki:scan` / `/lattice-wiki:ingest`. Answer
+> `scripts/update_index.py` or during `/graph-wiki:scan` / `/graph-wiki:ingest`. Answer
 > queries by reading this file first, then drilling into relevant pages.
 >
 > Topic: **{{TOPIC}}**
@@ -13,10 +13,10 @@ _Initialized {{DATE}} • 0 pages_
 _No pages yet. Will appear here as you synthesize the repo's structure._
 
 ## App (0)
-_No pages yet. Run `/lattice-wiki:scan` to populate application workspaces (web, mobile, CLI)._
+_No pages yet. Run `/graph-wiki:scan` to populate application workspaces (web, mobile, CLI)._
 
 ## Package (0)
-_No pages yet. Run `/lattice-wiki:scan` to populate library/service workspaces._
+_No pages yet. Run `/graph-wiki:scan` to populate library/service workspaces._
 
 ## Domain (0)
 _No pages yet. Create manually or via ingest — feature areas that span packages._
@@ -37,7 +37,7 @@ _No pages yet. Each ingested source (spec, PR, article, ticket, transcript) gets
 
 ### First steps
 
-1. Run `/lattice-wiki:scan` to create stub pages for every workspace package
+1. Run `/graph-wiki:scan` to create stub pages for every workspace package
 2. Drop a source into `raw/` (article, spec, PR summary, ticket export, transcript)
-3. Run `/lattice-wiki:ingest raw/<your-file>`
+3. Run `/graph-wiki:ingest raw/<your-file>`
 4. Watch this index populate

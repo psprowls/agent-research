@@ -39,7 +39,7 @@ def head_commit(repo: Path) -> str | None:
 def is_clean_main(repo: Path) -> tuple[bool, str]:
     """Return (True, "") iff working tree is clean AND HEAD is on `main`.
 
-    Otherwise (False, "<reason>"). Used by /lattice-wiki:scan and /lattice-wiki:ingest to
+    Otherwise (False, "<reason>"). Used by /graph-wiki:scan and /graph-wiki:ingest to
     decide whether to write new sync-state to vault frontmatter.
     """
     branch_out = _run(repo, "rev-parse", "--abbrev-ref", "HEAD")
