@@ -9,6 +9,7 @@ members = [
     "model-adapter",
     "subagent-runtime",
     "vault-io",
+    "workspace-io",
 ]
 
 [manifest.dependency-groups]
@@ -2727,6 +2728,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/39/62/75f18a0f03b4219c4
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/1b/9e33c09813d65e248f7f773119148a612516a4bea93e9c6f545f78455b7c/wheel-0.47.0-py3-none-any.whl", hash = "sha256:212281cab4dff978f6cedd499cd893e1f620791ca6ff7107cf270781e587eced", size = 32218, upload-time = "2026-04-22T15:51:26.296Z" },
 ]
+
+[[package]]
+name = "workspace-io"
+version = "0.1.0"
+source = { editable = "packages/workspace-io" }
+dependencies = [
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
 
 [[package]]
 name = "wrapt"
