@@ -15,7 +15,11 @@ set -euo pipefail
 
 # ---- Pinned coordinates (DD-04) -------------------------------------------
 UPSTREAM_SHA=1b45172a9900842b0f8eea525c8270e7fff50605
-UPSTREAM_REPO=/Users/pat/Personal/lattice
+# UPSTREAM_REPO is environment-overridable so contributors on other hosts (and
+# CI) can point at their local clone without editing the script. The default
+# matches the author's layout; the "FATAL: upstream repo not found" guard
+# below still catches operators who pointed at a missing path.
+UPSTREAM_REPO="${UPSTREAM_REPO:-/Users/pat/Personal/lattice}"
 UPSTREAM_PKG_REL=packages/lattice-wiki-core/src/lattice_wiki_core
 LOCAL_PKG_REL=packages/vault-io/src/vault_io
 

@@ -42,4 +42,12 @@ The 11 rows below cover the overlapping module set from spike 002 §A. The `lint
 
 ## Re-sync protocol
 
-Future re-sync: bump `UPSTREAM_SHA` in `scripts/drift-diff.sh`, checkout that SHA in `/Users/pat/Personal/lattice`, re-run `bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md`, then re-do the verdict pass. Update the SHA pin in this file's header.
+Future re-sync: bump `UPSTREAM_SHA` in `scripts/drift-diff.sh`, checkout that SHA in your local upstream clone, re-run the dump, then re-do the verdict pass. Update the SHA pin in this file's header.
+
+The script honors a `UPSTREAM_REPO` env override so contributors on other hosts (and CI) do not need to edit the script:
+
+```
+UPSTREAM_REPO=/path/to/lattice bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md
+```
+
+If `UPSTREAM_REPO` is unset, the script falls back to `/Users/pat/Personal/lattice` (the author's local layout); the existing "FATAL: upstream repo not found" guard catches missing-path operator errors.
