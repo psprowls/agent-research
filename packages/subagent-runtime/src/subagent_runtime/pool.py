@@ -61,6 +61,31 @@ class FanOutResult:
     errors: list[PerItemError] = field(default_factory=list)
 
 
+@dataclass
+class TaskResult:
+    """Opt-in fan-out callback return type that surfaces the raw LLM response.
+
+    Phase 16-02 G-01 closure: callbacks that want their JSONL trace record
+    to carry ``tokens_in`` / ``tokens_out`` / ``cost_usd`` can return
+    ``TaskResult(value=<scalar>, response=<raw_AIMessage>)``. The pool feeds
+    ``response`` (carrying ``usage_metadata``) to ``write_trace_record`` and
+    unwraps ``value`` into ``FanOutResult.successes`` so downstream consumers
+    see the same scalar they do today.
+
+    Detection in ``_run_one`` is strict ``isinstance(result, TaskResult)`` —
+    NOT duck-typing on ``.value`` / ``.response``, which would collide with
+    arbitrary user-returned objects.
+
+    Backward-compatible: callbacks returning bare scalars (strings, lists,
+    dicts) continue to work — the bare value flows into ``successes`` and the
+    trace record's tokens stay ``None`` (matching prior behavior, since a
+    string has no ``usage_metadata`` attribute).
+    """
+
+    value: Any
+    response: Any = None
+
+
 class SubagentPool:
     """Concurrent fan-out primitive: dispatches N items to a role-bound model.
 
@@ -136,10 +161,20 @@ class SubagentPool:
                     else:
                         result = await task(item)
                     latency_ms = int((time.monotonic() - t0) * 1000)
+                    # Phase 16-02 G-01: if the callback opts into the TaskResult
+                    # contract, feed `response` (carrying usage_metadata) to the
+                    # trace writer and unwrap `value` into successes so downstream
+                    # consumers continue to see the same scalar.
+                    if isinstance(result, TaskResult):
+                        trace_response = result.response
+                        success_value = result.value
+                    else:
+                        trace_response = result
+                        success_value = result
                     self._write_trace(
-                        trace_file, role, model_id, item, "success", latency_ms, result
+                        trace_file, role, model_id, item, "success", latency_ms, trace_response
                     )
-                    return (item, result)
+                    return (item, success_value)
                 except asyncio.CancelledError:
                     latency_ms = int((time.monotonic() - t0) * 1000)
                     self._write_trace(

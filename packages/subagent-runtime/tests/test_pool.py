@@ -494,3 +494,121 @@ async def test_batch_terminal_includes_schema_version(tmp_path):
     cancelled_records = [line for line in lines if line.get("status") == "cancelled"]
     for record in cancelled_records:
         assert record["schema_version"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-02 G-01 closure: TaskResult contract — opt-in usage_metadata pass-through
+# ---------------------------------------------------------------------------
+
+
+class _StubResponseWithUsage:
+    """Plain stub with a real dict usage_metadata (NOT a MagicMock).
+
+    MagicMock auto-resolves attributes and returns MagicMock objects for
+    usage_metadata, which poisons the isinstance(meta, dict) guard in
+    trace_io.write_trace_record. A bare class with a real dict matches the
+    shape of a ChatBedrockConverse response without that hazard. See 16-01
+    SUMMARY auto-fix #1.
+    """
+
+    def __init__(self, usage_metadata: dict | None) -> None:
+        self.usage_metadata = usage_metadata
+        self.content = "stub-content"
+
+
+async def test_pool_writes_tokens_when_callback_returns_taskresult(tmp_path):
+    """TaskResult(value=..., response=stub_with_usage_metadata) -> trace
+    record carries tokens_in / tokens_out; successes carries only the value.
+    """
+    from subagent_runtime.pool import SubagentPool, TaskResult
+
+    traces_dir = tmp_path / "traces"
+    pool = SubagentPool(trace_dir=traces_dir)
+    stub = _StubResponseWithUsage(
+        usage_metadata={"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}
+    )
+
+    async def task(item):
+        return TaskResult(value="hello", response=stub)
+
+    result = await pool.run_all(
+        items=["item-a"],
+        task=task,
+        role="librarian",
+        model_id="test-model-id",
+        max_concurrency=4,
+    )
+
+    # successes must carry the SCALAR value, NOT the TaskResult wrapper —
+    # downstream consumers unchanged.
+    assert result.successes == [("item-a", "hello")]
+    assert result.errors == []
+
+    trace_files = list(traces_dir.glob("*.jsonl"))
+    assert len(trace_files) == 1
+    lines = trace_files[0].read_text().strip().splitlines()
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert record["status"] == "success"
+    assert record["tokens_in"] == 5
+    assert record["tokens_out"] == 7
+
+
+async def test_pool_preserves_scalar_callback_contract_backward_compat(tmp_path):
+    """A callback that returns a bare scalar (today's contract) keeps
+    working: successes carries the scalar verbatim; trace tokens are None
+    because a string has no usage_metadata attribute.
+    """
+    from subagent_runtime.pool import SubagentPool
+
+    traces_dir = tmp_path / "traces"
+    pool = SubagentPool(trace_dir=traces_dir)
+
+    async def task(item):
+        return "bare-scalar-string"
+
+    result = await pool.run_all(
+        items=["item-b"],
+        task=task,
+        role="librarian",
+        model_id="test-model-id",
+        max_concurrency=4,
+    )
+
+    assert result.successes == [("item-b", "bare-scalar-string")]
+
+    trace_files = list(traces_dir.glob("*.jsonl"))
+    lines = trace_files[0].read_text().strip().splitlines()
+    record = json.loads(lines[0])
+    assert record["tokens_in"] is None
+    assert record["tokens_out"] is None
+
+
+async def test_pool_taskresult_with_none_response_writes_null_tokens(tmp_path):
+    """TaskResult(value=None, response=None) writes a success record with
+    tokens_in/tokens_out as None; successes carries (item, None).
+    """
+    from subagent_runtime.pool import SubagentPool, TaskResult
+
+    traces_dir = tmp_path / "traces"
+    pool = SubagentPool(trace_dir=traces_dir)
+
+    async def task(item):
+        return TaskResult(value=None, response=None)
+
+    result = await pool.run_all(
+        items=["item-c"],
+        task=task,
+        role="linter",
+        model_id="test-model-id",
+        max_concurrency=4,
+    )
+
+    assert result.successes == [("item-c", None)]
+
+    trace_files = list(traces_dir.glob("*.jsonl"))
+    lines = trace_files[0].read_text().strip().splitlines()
+    record = json.loads(lines[0])
+    assert record["status"] == "success"
+    assert record["tokens_in"] is None
+    assert record["tokens_out"] is None
