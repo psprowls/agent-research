@@ -2,6 +2,7 @@
 created: 2026-05-19T02:54:20.946Z
 title: Rename graph-wiki init command to init-wiki
 area: tooling
+resolves_phase: 18
 files:
   - plugins/graph-wiki/commands/init.md
 ---

@@ -2,6 +2,7 @@
 created: 2026-05-19T01:55:24.550Z
 title: Fix workspace repo resolution in init_vault and detect_containers
 area: tooling
+resolves_phase: 17
 files:
   - packages/vault-io/src/vault_io/init_vault.py:305-306
   - packages/vault-io/src/vault_io/detect_containers.py:174-175

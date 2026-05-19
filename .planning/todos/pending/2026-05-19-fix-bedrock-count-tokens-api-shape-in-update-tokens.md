@@ -2,6 +2,7 @@
 created: 2026-05-19T02:06:35.957Z
 title: Fix Bedrock count_tokens API shape in update_tokens
 area: tooling
+resolves_phase: 17
 files:
   - packages/vault-io/src/vault_io/update_tokens.py:38-44
 ---
