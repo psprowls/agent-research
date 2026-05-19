@@ -89,6 +89,13 @@ packages/vault-io/DRIFT-DECISIONS.md
 .planning/spec/13-plugin-contract/
 
 # ---------------------------------------------------------------------------
+# Phase 14 own plans + context — Phase 14 executes the plugin port from
+# upstream `lattice-wiki`; the context/patterns/plan docs reference both
+# the upstream (`lattice_wiki_core`) and target (`vault_io`) names throughout.
+# ---------------------------------------------------------------------------
+.planning/phases/14-plugin-port-m3b/
+
+# ---------------------------------------------------------------------------
 # Spike scaffolding — MANIFEST + CONVENTIONS describe the spike index, with
 # the lattice-drift-inventory spike named explicitly (R-03 spirit).
 # ---------------------------------------------------------------------------
