@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: Awaiting next milestone
-stopped_at: Phase 16 context gathered
-last_updated: "2026-05-19T19:23:55.888Z"
-last_activity: 2026-05-19 — Milestone v1.2 completed and archived
+milestone: v1.3
+milestone_name: Tooling Cleanup
+status: planning
+last_updated: "2026-05-19T19:54:08.365Z"
+last_activity: 2026-05-19
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: deep-agents
@@ -35,10 +34,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-19 — Milestone v1.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-19 — Milestone v1.3 started
 
 ## Performance Metrics
 

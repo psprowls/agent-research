@@ -26,15 +26,21 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Historical entries below may reference `cores/` because that was the path at the time; current code lives under `packages/`. Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12.
 
-## Next Milestone: v1.3 (Not Yet Scoped)
+## Current Milestone: v1.3 Tooling Cleanup
 
-Run `/gsd:new-milestone` to scope v1.3. Carry-forward themes from v1.2 close:
+**Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` (`scan_monorepo`, `update_tokens`, `init_vault`/`detect_containers`) + the `/init` plugin command shadow, and address the Phase 16 code review findings so the trace pipeline + eval harness refactor lands clean.
 
-- **Pending tooling todos** — Bedrock CountTokens API shape fix in `update_tokens`; workspace/repo resolution in `init_vault` + `detect_containers`; rename `/graph-wiki:init` command for clarity.
-- **Nyquist compliance retroactive decision** — 0/5 v1.1 phases + 0/6 v1.2 phases reached `nyquist_compliant: true` despite the toggle being enabled. Decide: retro-validate the 11 phases, or disable the toggle.
-- **Phase 16 code review findings** — 6 warnings + 9 info items (0 critical) flagged on the trace pipeline + eval harness refactor; not blocking but worth a pass.
-- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close (structural evidence accepted); should be recorded as a regression artifact.
-- **`next-milestone-planning` thread** — carried forward from v1.1 → v1.2 → v1.3; close or convert to requirements when v1.3 is scoped.
+**Target features:**
+- Fix `scan_monorepo._load_existing_pages` so package companion pages (`api`/`context`/`patterns`/`work`) fold into the parent slug instead of being reported as `deleted` (28 false orphans on a healthy 7-package vault → 0)
+- Fix `vault_io.update_tokens.count_tokens()` Bedrock CountTokens API shape (use `input=...` not `content=...`) and re-stamp the 35 existing wiki pages currently at `tokens: 0`
+- Fix repo resolution in `init_vault.py:305` and `detect_containers.py:174` to use `_, repo = resolve_wiki_and_repo()` (second return value); exclude the workspace dir from self-classification
+- Rename plugin `/init` → `/init-wiki` and sweep references in `marketplace.json`, `SKILL.md`, READMEs so Claude Code's native `/init` is reachable again
+- Address Phase 16 code review burndown: 6 warnings + 9 info findings (0 critical) on the trace pipeline + eval harness refactor
+
+**Deferred (carry-forward themes NOT in v1.3 scope):**
+- Nyquist compliance retroactive decision — 0/11 phases compliant despite toggle; decide retro-validate vs. disable in a later milestone
+- Phase 14 SC#4 plugin smoke transcript — capture as regression artifact in a later milestone
+- `next-milestone-planning` thread — keep deferred; revisit at v1.3 close
 
 **Explicitly out of v1.x (deferred to later milestones):**
 - Open-source release prep (README badges, contribution guide, PyPI publish dry-run) → **v2.0 GA**.
@@ -112,13 +118,12 @@ Full v1.2 retrospective in `.planning/RETROSPECTIVE.md`; v1.2 archive in `.plann
 
 ### Active
 
-_v1.3 not yet scoped. Run `/gsd:new-milestone` to define v1.3 requirements; candidate themes captured under "Next Milestone" above._
+_Milestone v1.3 (Tooling Cleanup) — requirements live in `.planning/REQUIREMENTS.md` after `/gsd:new-milestone` scoping. See "Current Milestone" section above for the goal + target features._
 
-_Carry-forward acknowledgments from v1.2 close (documented tech debt, not blockers):_
-- **Pending tooling todos** — Bedrock CountTokens API shape, workspace/repo resolution in `init_vault` + `detect_containers`, `/graph-wiki:init` command rename. Filed under `.planning/todos/`.
-- **Nyquist compliance** — 0/5 v1.1 + 0/6 v1.2 phases reached `nyquist_compliant: true` despite toggle enabled. v1.3 decision: retro-validate the 11 phases or disable the toggle.
-- **Phase 16 code review** — 6 warnings + 9 info findings (0 critical) on trace pipeline + eval harness refactor.
-- **Phase 14 SC#4 plugin smoke transcript** — accepted on structural evidence at close; should be captured in v1.3.
+_Carry-forward acknowledgments NOT in v1.3 scope (documented tech debt, not blockers):_
+- **Nyquist compliance** — 0/5 v1.1 + 0/6 v1.2 phases reached `nyquist_compliant: true` despite toggle enabled. Decide: retro-validate the 11 phases or disable the toggle. Deferred past v1.3.
+- **Phase 14 SC#4 plugin smoke transcript** — accepted on structural evidence at close; capture as regression artifact in a later milestone.
+- **`next-milestone-planning` thread** — carried forward through v1.0 → v1.1 → v1.2 → v1.3; close at v1.3 close or convert to requirements at v1.4 scoping.
 - **MCP wire-level cancel deferral** — re-anchored to event-driven trigger (langchain-aws#663 merged OR aioboto3 GA/1.0), not calendar date. See `docs/cancellation.md §5`.
 
 _See "Out of Scope" below for items explicitly deferred past v1.x._
@@ -205,9 +210,11 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-19 — milestone v1.2 (Graph-Wiki Port & Debt Cleanup) SHIPPED. 6 phases, 21 plans, 30/30 requirements satisfied. workspace-io package shipped + ecosystem rebrand to graph-wiki + plugin contract locked and ported (`plugins/graph-wiki/`, Claude Code inference) + wiki self-update + v1.1 carry-forward debt closed (trace `usage_metadata`, sweep matrix, MCP cancel re-anchored, model config). Next: `/gsd:new-milestone` for v1.3 scoping.
+**Last updated:** 2026-05-19 — milestone v1.3 (Tooling Cleanup) STARTED. Scope: 4 vault-io / plugin bug fixes (scan companion-pages diff, Bedrock CountTokens API shape, repo resolution in init_vault + detect_containers, /init → /init-wiki rename) + Phase 16 code review burndown (6 warn + 9 info, 0 critical). Phase numbering continues from Phase 17.
 
-**Prior update:** 2026-05-17 — milestone v1.1 (Quality Improvements) SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied.
+**Prior update:** 2026-05-19 — milestone v1.2 (Graph-Wiki Port & Debt Cleanup) SHIPPED. 6 phases, 21 plans, 30/30 requirements satisfied.
+
+**Earlier:** 2026-05-17 — milestone v1.1 (Quality Improvements) SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -223,4 +230,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — milestone v1.2 Graph-Wiki Port & Debt Cleanup SHIPPED. 16 phases / 85 plans / 126/126 requirements across v1.0+v1.1+v1.2. Awaiting v1.3 scoping via `/gsd:new-milestone`.*
+*Last updated: 2026-05-19 — milestone v1.3 Tooling Cleanup STARTED (phase numbering continues from Phase 17). 16 phases / 85 plans / 126/126 requirements shipped across v1.0+v1.1+v1.2. v1.3 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
