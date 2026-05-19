@@ -37,8 +37,15 @@ date: 2026-05-19
 - `models-claude.toml`
 - `models-qwen.toml`
 
-## Notes
+## Follow-up: haiku role also removed (same session)
 
-`haiku` role left intact per user instruction — still used by IAM integration
-tests (`agents/code-wiki-agent/tests/integration/test_bedrock_iam.py`) and as
-the generic cheap-model handle in `test_loader.py`.
+After confirming `preflight` is the only handle the smoke-test code path needs,
+the `[roles.haiku]` block was removed from all four TOML files. The remaining
+`make_llm("haiku")` test references (3 in `test_loader.py`, 2 in
+`test_bedrock_iam.py`) were retargeted to `make_llm("preflight")`, the
+duplicate `test_make_llm_haiku_*` tests were deleted (preflight tests cover
+them now), and `"haiku"` was dropped from `ALL_ROLES`. `HAIKU_ARN` constant
+kept — it still describes the model ID `preflight` currently points at.
+
+Verified: model-adapter (17 passed), eval-harness non-eval (158 passed),
+integration test_bedrock_iam (1 passed + 1 skipped real-Bedrock path).
