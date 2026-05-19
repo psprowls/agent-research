@@ -115,8 +115,8 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   3. `grep -r 'lattice_' plugins/graph-wiki/` returns zero hits — plugin scripts call through `vault-io` (which itself uses `workspace-io`).
   4. `/graph-wiki:query` runs end-to-end from a Claude Code session against `~/Personal/wiki/deep-agents` and returns a real librarian answer (manual smoke check).
 **Plans**: 3 plans
-- [ ] 14-01-PLAN.md — Port `vault_io.lint_wiki` from upstream lattice_wiki_core (VP-01 prereq for plugin lint shim)
-- [ ] 14-02-PLAN.md — Port `vault_io.wiki_search` from upstream lattice_wiki_core (VP-01 prereq for plugin query shim)
+- [x] 14-01-PLAN.md — Port `vault_io.lint_wiki` from upstream lattice_wiki_core (VP-01 prereq for plugin lint shim)
+- [x] 14-02-PLAN.md — Port `vault_io.wiki_search` from upstream lattice_wiki_core (VP-01 prereq for plugin query shim)
 - [ ] 14-03-PLAN.md — Bundled plugin port: manifest `[plugin]` block + plugins/graph-wiki/ scaffold + 6 shims + SC#4 smoke transcript
 
 ### Phase 15: Wiki Self-Update
@@ -158,7 +158,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 11. workspace-io Port (M1) | 6/6 | Complete   | 2026-05-18 |
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
-| 14. Plugin Port (M3b) | 0/0 | Not started | — |
+| 14. Plugin Port (M3b) | 2/3 | In Progress|  |
 | 15. Wiki Self-Update | 0/0 | Not started | — |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
 

@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: Graph-Wiki Port & Debt Cleanup
 status: executing
 stopped_at: Phase 14 context gathered
-last_updated: "2026-05-19T00:43:40.800Z"
-last_activity: 2026-05-19 -- Phase 14 planning complete
+last_updated: "2026-05-19T00:45:54.201Z"
+last_activity: 2026-05-19 -- Phase 14 execution started
 progress:
   total_phases: 6
   completed_phases: 3
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 14 — plugin port (m3b)
+**Current Focus:** Phase 14 — plugin-port-m3b
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-19 -- Phase 14 planning complete
+Phase: 14 (plugin-port-m3b) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 14
+Last activity: 2026-05-19 -- Phase 14 execution started
 
 ## Performance Metrics
 
