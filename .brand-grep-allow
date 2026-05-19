@@ -173,3 +173,19 @@ packages/prompt-sources/
 agents/code-wiki-agent/tests/commands/test_lint_parity.py
 # rationale: Provenance — test comment names the sibling upstream lattice repo to assert vendored copies are not pulled in.
 agents/code-wiki-agent/tests/prompts/test_provenance.py
+
+# ---------------------------------------------------------------------------
+# Phase 14 own plans + context — Phase 14 documents the plugin port from
+# upstream lattice-wiki to graph-wiki; planning docs reference both names
+# (same allowlist class as Phase 12 and Phase 13 entries above).
+# ---------------------------------------------------------------------------
+.planning/phases/14-plugin-port-m3b/
+
+# ---------------------------------------------------------------------------
+# .pytest_cache/v/cache/nodeids — runtime pytest artifacts that embed test
+# node IDs from allowlisted test files (e.g. test_ingest_source.py contains
+# the string "lattice" in a test-guard name). These files are gitignored but
+# present locally after `uv run pytest`; excluding them keeps the gate stable
+# across clean-checkout CI and local dev environments.
+# ---------------------------------------------------------------------------
+.pytest_cache/v/cache/nodeids
