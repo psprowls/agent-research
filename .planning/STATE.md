@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Graph-Wiki Port & Debt Cleanup
-status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-05-19T03:13:40.888Z"
-last_activity: 2026-05-19 -- Phase 15 planning complete
+status: verifying
+stopped_at: Phase 15 plan 15-01 complete — BRAND-03 satisfied
+last_updated: "2026-05-19T03:40:01.515Z"
+last_activity: 2026-05-19 -- Phase 15 plan 15-01 executed; BRAND-03 closed
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 18
-  percent: 95
+  completed_plans: 19
+  percent: 100
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 14 — plugin-port-m3b
+**Current Focus:** Phase 15 — wiki-self-update
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 ## Current Position
 
-Phase: 14 (plugin-port-m3b) — EXECUTING
-Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-05-19 -- Phase 15 planning complete
+Phase: 15 (wiki-self-update) — PLAN 15-01 EXECUTED
+Plan: 1 of 1 (complete)
+Status: Phase complete — ready for verification
+Last activity: 2026-05-19 -- Phase 15 plan 15-01 executed; BRAND-03 satisfied; SC#1/#2/#3 evidence captured in 15-VERIFICATION.md
 
 ## Performance Metrics
 
@@ -89,10 +89,15 @@ v1.2 roadmap decisions:
 - Phase 13 is a spec-only phase for plugin scoping (PLUGIN-01) — the "what do slash commands shell out to?" question must be answered before any plugin code is moved (Phase 14)
 - Carry-forward debt (TRACE-FU/SWEEP-FU/MCP-CAN/MODEL-FU) bundled into Phase 16 — most items are independent of port work and could parallel, but SWEEP-FU-04 needs the fresh-package vault from Phase 12, so the bundle slots after port/rebrand cleanly
 
+Phase 15 execution outcomes (2026-05-19):
+
+- BRAND-03 closed: vault `~/Personal/wiki/deep-agents` re-scanned + OTel re-ingested + librarian query run via Bedrock CLI with Claude profile (Haiku 4.5 fan-out + Sonnet 4.6 reasoning). SC#1/#2/#3 evidence in `15-VERIFICATION.md`.
+- 3 operational deviations encountered and auto-fixed inline (Rule 1): `--config` does not propagate `vault_path` to subcommands (always pass `--vault` explicitly); wiki CLAUDE.md layout block had stale `cores/` container name (fixed to `packages/`); BM25 index requires manual rebuild after scan. Documented in `15-VERIFICATION.md` Deviation section.
+
 ### Active TODOs
 
-- Run `/gsd:plan-phase 11` to decompose workspace-io port into executable plans
-- Resolve WS-10 open question (`~/Personal/wiki/deep-agents/wiki-config.toml` ↔ `.graph-wiki.yaml`) during Phase 11 planning
+- Run `/gsd:verify-phase 15` to confirm Phase 15 closure and produce phase audit
+- Run `/gsd:plan-phase 16` for carry-forward debt cleanup (Phase 16 is the only remaining v1.2 phase)
 
 ### Blockers
 
@@ -121,9 +126,9 @@ Full context: `.planning/milestones/v1.1-MILESTONE-AUDIT.md`
 
 ## Session Continuity
 
-**Last session:** 2026-05-19T02:58:23.893Z
+**Last session:** 2026-05-19T03:40:01.507Z
 **Stopped at:** Phase 15 context gathered
-**Resume file:** .planning/phases/15-wiki-self-update/15-CONTEXT.md
+**Resume file:** None
 
 **Critical context for next session:**
 

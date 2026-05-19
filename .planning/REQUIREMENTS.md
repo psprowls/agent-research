@@ -29,7 +29,7 @@
 ### Ecosystem Rebrand (M2)
 - [ ] **BRAND-01**: All legacy upstream `lattice` / `LATTICE` / `lattice_workspace` / `lattice_wiki_core` references across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` renamed to `graph-wiki` (kebab) or `graph_wiki` (snake) per context.
 - [ ] **BRAND-02**: `.planning/spikes/CONVENTIONS.md` `cores/` → `packages/` reference corrected (already flagged stale).
-- [ ] **BRAND-03**: Wiki self-update — `~/Personal/wiki/deep-agents` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest.
+- [x] **BRAND-03**: Wiki self-update — `~/Personal/wiki/deep-agents` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest.
 - [ ] **BRAND-04**: Naming consistency sweep — `scripts/check-brand.sh` (running a `grep -rE` over the upstream-name patterns and filtering through `.brand-grep-allow`) reports zero unallowlisted hits across in-scope paths after rebrand.
 
 ### Plugin Port (M3)

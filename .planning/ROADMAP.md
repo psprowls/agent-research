@@ -128,7 +128,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   2. `code-wiki-agent ingest` re-ingests changed package pages so the wiki body reflects the rebrand; spot-check at least one page (e.g., a `workspace-io` package page) exists and is well-formed.
   3. A follow-up `code-wiki-agent query "what is workspace-io?"` returns a librarian answer that cites the new code paths (not `lattice-workspace`).
 **Plans**: 1 plan
-- [ ] 15-01-PLAN.md — Bundled atomic plan: models-claude.toml + wiki-config-claude.toml + scan + ingest (OTel) + query + workspace-io spot-check + 15-VERIFICATION.md
+- [x] 15-01-PLAN.md — Bundled atomic plan: models-claude.toml + wiki-config-claude.toml + scan + ingest (OTel) + query + workspace-io spot-check + 15-VERIFICATION.md (completed 2026-05-19)
 
 ### Phase 16: Carry-Forward Debt Cleanup
 **Goal**: The v1.1 close-out debt items (trace pipeline gap, sweep matrix gaps, MCP cancel closure, model-config test drift) are resolved or explicitly re-deferred with documented justification.
@@ -160,9 +160,9 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 2/3 | In Progress|  |
-| 15. Wiki Self-Update | 0/1 | Planned | — |
+| 15. Wiki Self-Update | 1/1 | In Progress | — |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
 
 ---
 
-*Last updated: 2026-05-18 — Phase 15 plan created (1 bundled atomic plan: 15-01-PLAN.md). Next: `/gsd:execute-phase 15`.*
+*Last updated: 2026-05-19 — Phase 15 plan 15-01 executed; BRAND-03 satisfied; SC#1/#2/#3 evidence captured. Next: `/gsd:verify-phase 15`.*
