@@ -1,9 +1,17 @@
 ---
 phase: 16-carry-forward-debt-cleanup
 verified: 2026-05-19T00:00:00Z
-status: human_needed
-score: 5/5 must-haves verified (3 with deviations/caveats requiring human ack)
+status: gaps_found
+score: 4/5 must-haves verified — SC#1 demoted to FAILED after gated Bedrock run revealed librarian path drops usage_metadata (G-01); 2 remaining SCs have documented substitutions requiring human ack
 overrides_applied: 0
+gaps:
+  - id: G-01
+    sc: 1
+    summary: "Librarian fan-out trace records emit tokens_in=None, tokens_out=None despite status=success. SubagentPool.run_all writes the trace via write_trace_record but the drill_page callback in query.py:903-914 returns only resp.content, dropping usage_metadata before the pool can read it. Phase 16 D-03/D-05 wired the synthesizer + ingest call sites; the librarian path (the dominant token consumer) was never re-plumbed."
+    evidence: "CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v → FAILED 2026-05-19. Record: role=librarian model=us.anthropic.claude-haiku-4-5-20251001-v1:0 item=packages/lattice-curator-core/context.md status=success latency_ms=4131 tokens_in=None tokens_out=None cost_usd=None."
+    remediation: "Extend the SubagentPool task contract so per-item callbacks can surface usage_metadata back to the pool's trace writer. Two viable shapes: (a) drill_page returns (content, tokens_in, tokens_out) and pool.run_all consumes the tuple; (b) pool exposes a response-aware hook that extracts usage_metadata itself. See 16-HUMAN-UAT.md G-01 for fuller analysis."
+    files_touched_by_fix: ["packages/subagent-runtime/src/subagent_runtime/pool.py", "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py"]
+    recommended_route: "/gsd:plan-phase 16 --gaps"
 human_verification:
   - test: "Run the gated TRACE-FU-01 regression test against real Bedrock"
     expected: "`CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` exits 0 and the assertion `tokens_in/tokens_out is not None` holds for every non-error / non-event JSONL record produced by a real fan-out against the round-trip fixture vault."
@@ -24,8 +32,8 @@ human_verification:
 **Date:** 2026-05-19
 **Plan:** 16-01 (carry-forward debt cleanup)
 **Phase goal (from ROADMAP):** The v1.1 close-out debt items (trace pipeline gap, sweep matrix gaps, MCP cancel closure, model-config test drift) are resolved or explicitly re-deferred with documented justification.
-**Status:** human_needed
-**Verifier:** gsd-verifier (audited the executor's pre-populated VERIFICATION.md against the actual codebase)
+**Status:** gaps_found (was human_needed; demoted after gated Bedrock run)
+**Verifier:** gsd-verifier (audited the executor's pre-populated VERIFICATION.md against the actual codebase) + orchestrator post-hoc gate (ran the SC#1 gated test and recorded G-01)
 
 ---
 
@@ -33,7 +41,7 @@ human_verification:
 
 | # | Truth (Success Criterion) | Status | Evidence |
 |---|---------------------------|--------|----------|
-| 1 | SC#1 — Every production trace JSONL from `commands/{scan,lint,ingest,query}` includes `usage_metadata` with input/output token counts (verified by a regression test that runs a real fan-out). | ⚠ VERIFIED (with caveat) | Code paths in `pool.py`, `ingest.py:452,464`, `query.py:536,972` all delegate to `subagent_runtime.trace_io.write_trace_record`. 5 fast unit tests + 3 trace_io unit tests PASS confirming token threading. The gated regression test `test_trace_coverage.py` exists, is wired correctly, and asserts the contract — but was NOT executed against real Bedrock (skipped without `CODE_WIKI_RUN_INTEGRATION=1`). Item 1 in human verification covers the missing real-fan-out run. |
+| 1 | SC#1 — Every production trace JSONL from `commands/{scan,lint,ingest,query}` includes `usage_metadata` with input/output token counts (verified by a regression test that runs a real fan-out). | ✗ FAILED (G-01) | Code paths in `ingest.py:452,464` (success+error) and `query.py:536,972` (synthesizer call sites) correctly delegate to `subagent_runtime.trace_io.write_trace_record`. 5 fast unit tests + 3 trace_io unit tests PASS for those paths. BUT the gated regression test was executed against real Bedrock on 2026-05-19 and **FAILED**: librarian fan-out emits `tokens_in=None, tokens_out=None, cost_usd=None` on `status=success` records. Root cause: `drill_page` task callback in `query.py:903-914` returns only `resp.content`; `SubagentPool.run_all` writes the trace but never sees `usage_metadata`. See gap G-01 in frontmatter for remediation paths. |
 | 2 | SC#2 — sweep matrix runs DivergenceMetric across all in-scope roles + writes per-role scores; code_reader cases produce non-trivial scores; scanner re-sweep without regression vs. v1.1. | ⚠ VERIFIED (with caveats) | `two_gate.py:35-37` `ROLES_WITH_DIVERGENCE = frozenset({librarian, ingestor, linter, scanner, code_reader, synthesizer})` — 6 roles. `divergence/__init__.py` ROLE_CHECKS / ROLE_RUBRICS keyed on all 6. New rubrics + rule modules exist on disk for code_reader + synthesizer (4 hard + 1 soft each, anchored to `prompt-sources/agents/{code_reader,synthesizer}.md`). `code_reader_cases.json` expanded 3 → 6 (verified via `test_code_reader_cases_json_loads` PASS). Scanner fixture vault present (6 packages, no `lattice*` symbols); `test_scanner_regression.py` 8/8 PASS. BUT: actual model-sweep producing scores NOT executed; live-vault re-sweep substituted with deterministic SCANNER_CHECKS pass-rate (65%). Items 2 + 4 in human verification cover these substitutions. |
 | 3 | SC#3 — Either real wire-level cancel verified end-to-end OR deferral re-documented in docs/cancellation.md with current blocker + fresh re-evaluation date. | ⚠ VERIFIED (with caveat) | `docs/cancellation.md` §4 cites both upstream blockers verbatim with PyPI / GitHub URLs (langchain-aws#663 unmerged; aioboto3 not at GA). §5 documents event-driven re-eval trigger (D-09). Deferral IS re-documented; blocker IS named. BUT the SC literally says "re-evaluation **date**" — the chosen event-driven trigger is a deliberate deviation. Item 3 in human verification covers explicit acceptance. |
 | 4 | SC#4 — `CODE_WIKI_RUN_INTEGRATION` opt-in gate semantics consistent across all gated tests (single rule documented centrally; no test diverges silently). | ✓ VERIFIED | `docs/testing.md` is the canonical 5-section spec (basis / pattern / canonical block / inventory / future). `tests/test_integration_gate.py` grep-gate meta-test walks every `**/tests/integration/test_*.py` and asserts canonical regex OR `# integration-gate-allow` marker. `test_bedrock_iam.py:32,39` uses canonical INTEGRATION_GATE decorator. `test_mcp_cancel.py:3` has the allowlist marker. Meta-test PASS. Post-merge fix a530ddb correctly excludes `.claude/worktrees/` from discovery (verified in current code at `tests/test_integration_gate.py:43-44`). |
