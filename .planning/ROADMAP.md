@@ -62,7 +62,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 **Milestone Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` and the `/init` plugin command shadow, and address the Phase 16 code review findings.
 
-- [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (completed 2026-05-19)
+- [ ] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (4/4 plans shipped; verification flagged SC#4 partial coverage — see `17-VERIFICATION.md`; gap closure pending)
 - [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review
 
@@ -120,7 +120,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. vault-io Bug Fixes | 4/4 | Complete   | 2026-05-19 |
+| 17. vault-io Bug Fixes | 4/4 | Gaps (SC#4) | - |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 19. Phase 16 Code Review Burndown | 0/TBD | Not started | - |
 
