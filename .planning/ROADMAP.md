@@ -49,7 +49,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [x] **Phase 12: Drift Backport + Ecosystem Rebrand (M2)** — Body-diff backport of `lint/*`, `init_vault.py`; `lattice` → `graph-wiki` rename across packages, agents, planning (completed 2026-05-18)
 - [x] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved (completed 2026-05-18)
 - [ ] **Phase 14: Plugin Port (M3b)** — `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
-- [ ] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port
+- [x] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port (completed 2026-05-19)
 - [ ] **Phase 16: Carry-Forward Debt Cleanup** — Trace `usage_metadata`, full sweep coverage, MCP cancellation closure, model config test drift
 
 ---
@@ -160,7 +160,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 12. Drift Backport + Rebrand (M2) | 4/4 | Complete   | 2026-05-18 |
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 2/3 | In Progress|  |
-| 15. Wiki Self-Update | 1/1 | In Progress | — |
+| 15. Wiki Self-Update | 1/1 | Complete   | 2026-05-19 |
 | 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
 
 ---
