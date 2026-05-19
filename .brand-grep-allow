@@ -180,3 +180,11 @@ packages/prompt-sources/
 agents/code-wiki-agent/tests/commands/test_lint_parity.py
 # rationale: Provenance — test comment names the sibling upstream lattice repo to assert vendored copies are not pulled in.
 agents/code-wiki-agent/tests/prompts/test_provenance.py
+
+# ---------------------------------------------------------------------------
+# Generated test-cache artifacts — .pytest_cache/ is gitignored but the brand
+# gate scans the working tree; node-id caches embed test names that reference
+# upstream lattice strings (e.g., test_no_lattice_wiki_core_imports). These
+# are not source files; the real sources are already allowlisted above.
+# ---------------------------------------------------------------------------
+.pytest_cache/
