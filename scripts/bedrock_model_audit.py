@@ -287,6 +287,61 @@ _SKU_SKIP_MARKERS: tuple[str, ...] = (
 )
 
 
+# Catalog model-id → AWS Pricing API "model" attribute name. Hand-curated for
+# cases where the marketing name AWS uses in pricing differs from the catalog
+# ID in a way the fuzzy matcher can't bridge (e.g. dates dropped, version
+# numbers rewritten, vendor prefix added/removed). Discovered via:
+#   aws pricing get-products --service-code AmazonBedrock ... | jq '.model'
+_PRICING_NAME_ALIASES: dict[str, str] = {
+    "mistral.magistral-small-2509":        "Magistral Small 1.2",
+    "mistral.ministral-3-3b-instruct":     "Ministral 3B 3.0",
+    "mistral.ministral-3-8b-instruct":     "Ministral 8B 3.0",
+    "mistral.ministral-3-14b-instruct":    "Ministral 14B 3.0",
+    "mistral.voxtral-mini-3b-2507":        "Voxtral Mini 1.0",
+    "mistral.voxtral-small-24b-2507":      "Voxtral Small 1.0",
+    "nvidia.nemotron-nano-12b-v2":         "NVIDIA Nemotron Nano 2",
+    "nvidia.nemotron-nano-9b-v2":          "NVIDIA Nemotron Nano 2",
+    "nvidia.nemotron-nano-3-30b":          "Nemotron Nano 3 30B",
+    "qwen.qwen3-coder-30b-a3b-v1:0":       "Qwen3 Coder 30B A3B",
+    "amazon.nova-2-sonic-v1:0":            "Nova Sonic 2.0",
+    "amazon.nova-2-lite-v1:0":             "Nova 2.0 Lite",
+    "amazon.nova-2-pro-v1:0":              "Nova 2.0 Pro",
+    "amazon.nova-2-omni-v1:0":             "Nova 2.0 Omni",
+}
+
+
+# Non-token-priced model classification. Tagged on the record as
+# ``pricingKind`` so callers can tell why a record has null token prices
+# (it's billed per-image / per-document / per-second, not per-token).
+_PRICING_KIND_PATTERNS: dict[str, str] = {
+    "stable-":  "image",      # Stability image gen / manipulation
+    "rerank":   "rerank",     # Cohere rerank — per-document
+    "embed":    "embedding",  # Cohere embed, TwelveLabs Marengo Embed
+    "marengo":  "video",      # TwelveLabs Marengo — video understanding
+    "pegasus":  "video",      # TwelveLabs Pegasus — video understanding
+    "sonic":    "speech",     # Nova Sonic / Nova Sonic 2.0 — speech
+}
+
+
+def _classify_pricing_kind(entry: dict[str, Any]) -> str:
+    """Classify the underlying pricing unit of an entry.
+
+    Returns one of: ``tokens``, ``image``, ``embedding``, ``rerank``,
+    ``video``, ``speech``. Used to tag records whose null token-pricing
+    is expected (because the model is priced in different units).
+    """
+    eid = _entry_id(entry).lower()
+    for pattern, kind in _PRICING_KIND_PATTERNS.items():
+        if pattern in eid:
+            return kind
+    out_mods = {(m or "").upper() for m in entry.get("outputModalities") or []}
+    if "EMBEDDING" in out_mods:
+        return "embedding"
+    if "IMAGE" in out_mods and "TEXT" not in out_mods:
+        return "image"
+    return "tokens"
+
+
 def _classify_sku(usage_type: str, unit: str) -> str | None:
     """Return 'input_per_1m', 'output_per_1m', or None to skip.
 
@@ -394,17 +449,66 @@ def _build_pricing_candidates(entry: dict[str, Any]) -> list[str]:
     return ordered
 
 
+def _lookup_via_alias(
+    entry: dict[str, Any],
+    pricing_map: dict[str, dict[str, float]],
+) -> dict[str, float] | None:
+    """Try the hardcoded alias map by entry id, optionally stripping the
+    cross-region prefix so inference profiles inherit their underlying
+    foundation model's alias."""
+    mid = _entry_id(entry).lower()
+    candidates = [mid]
+    for prefix in ("us.", "eu.", "apac.", "global."):
+        if mid.startswith(prefix):
+            candidates.append(mid[len(prefix):])
+    for cand in candidates:
+        target = _PRICING_NAME_ALIASES.get(cand)
+        if target and target.lower() in pricing_map:
+            return pricing_map[target.lower()]
+    return None
+
+
+def _lookup_via_profile_fallback(
+    entry: dict[str, Any],
+    pricing_map: dict[str, dict[str, float]],
+    foundation_pricing_by_id: dict[str, dict[str, float]],
+) -> dict[str, float] | None:
+    """For an inference profile, walk entry.models[].modelArn and look up the
+    underlying foundation model's pricing.
+
+    Cross-region inference profiles bill at the underlying model's rate but
+    don't get their own Pricing API SKU. ``foundation_pricing_by_id`` is the
+    {foundation_model_id_lower: pricing_dict} map built once at the start of
+    the run so this lookup is O(1)."""
+    if _entry_kind(entry) != "inference-profile":
+        return None
+    for m in entry.get("models") or []:
+        arn = (m.get("modelArn") or "").lower()
+        if not arn:
+            continue
+        fm_id = arn.split("/")[-1]
+        if fm_id in foundation_pricing_by_id:
+            return foundation_pricing_by_id[fm_id]
+    return None
+
+
 def _attach_pricing(
     entry: dict[str, Any],
     pricing_map: dict[str, dict[str, float]],
+    foundation_pricing_by_id: dict[str, dict[str, float]],
     global_pricing_error: str | None,
 ) -> tuple[dict[str, Any], str | None]:
     """Return (pricing_dict, pricingProbeError).
 
-    pricing_dict always has the same keys (input_per_1m, output_per_1m,
-    currency, source) with prices possibly null. pricingProbeError is:
+    Resolution order:
+      1. Direct candidate match (modelName, derived keys).
+      2. Hardcoded alias map (``_PRICING_NAME_ALIASES``).
+      3. Substring fuzzy match against the pricing map keys.
+      4. Inference-profile foundation-model fallback.
+
+    ``pricing_dict.source`` records which path won. ``pricingProbeError`` is:
       - the global Pricing API error if the upstream fetch failed
-      - "NotFoundInPricingAPI" if no SKU matched
+      - "NotFoundInPricingAPI" if every lookup path failed
       - None on a successful lookup
     """
     if global_pricing_error is not None:
@@ -418,26 +522,75 @@ def _attach_pricing(
             global_pricing_error,
         )
 
-    candidates = _build_pricing_candidates(entry)
     chosen: dict[str, float] | None = None
+    source = "aws-pricing-api"
+
+    # 1. Direct candidate match
+    candidates = _build_pricing_candidates(entry)
     for cand in candidates:
         if cand in pricing_map:
             chosen = pricing_map[cand]
             break
+
+    # 2. Alias map
+    if chosen is None:
+        aliased = _lookup_via_alias(entry, pricing_map)
+        if aliased is not None:
+            chosen = aliased
+            source = "aws-pricing-api+alias"
+
+    # 3. Substring fuzzy match (legacy behaviour, kept as last-resort)
     if chosen is None:
         for key, value in pricing_map.items():
             if any(cand and (cand in key or key in cand) for cand in candidates):
                 chosen = value
                 break
 
+    # 4. Inference-profile foundation-model fallback
+    if chosen is None:
+        fallback = _lookup_via_profile_fallback(
+            entry, pricing_map, foundation_pricing_by_id
+        )
+        if fallback is not None:
+            chosen = fallback
+            source = "aws-pricing-api+profile-fallback"
+
     pricing = {
         "input_per_1m": (chosen or {}).get("input_per_1m"),
         "output_per_1m": (chosen or {}).get("output_per_1m"),
         "currency": "USD",
-        "source": "aws-pricing-api",
+        "source": source,
     }
     error = None if chosen is not None else "NotFoundInPricingAPI"
     return pricing, error
+
+
+def _build_foundation_pricing_by_id(
+    foundation_models: list[dict[str, Any]],
+    pricing_map: dict[str, dict[str, float]],
+) -> dict[str, dict[str, float]]:
+    """Build {foundation_model_id_lower: pricing_dict} for the profile fallback.
+
+    Pre-resolves each foundation model's pricing once so the per-profile
+    fallback in _lookup_via_profile_fallback runs in O(1).
+    """
+    out: dict[str, dict[str, float]] = {}
+    for fm in foundation_models:
+        mid = (fm.get("modelId") or "").lower()
+        if not mid:
+            continue
+        # Reuse the same resolution path: direct candidate match + alias.
+        candidates = _build_pricing_candidates(fm)
+        for cand in candidates:
+            if cand in pricing_map:
+                out[mid] = pricing_map[cand]
+                break
+        if mid in out:
+            continue
+        aliased = _lookup_via_alias(fm, pricing_map)
+        if aliased is not None:
+            out[mid] = aliased
+    return out
 
 
 async def _probe_all(
@@ -525,6 +678,9 @@ def main(argv: list[str] | None = None) -> int:
     probe_results = asyncio.run(_probe_all(entries, args.region, args.concurrency))
 
     canonical_providers = _build_canonical_provider_map(foundation)
+    foundation_pricing_by_id = _build_foundation_pricing_by_id(
+        foundation, pricing_map
+    )
 
     available: list[dict[str, Any]] = []
     unavailable: list[dict[str, Any]] = []
@@ -535,17 +691,18 @@ def main(argv: list[str] | None = None) -> int:
         record = dict(entry)
         record["entryKind"] = _entry_kind(entry)
         record["providerName"] = _provider_of(entry, canonical_providers)
+        record["pricingKind"] = _classify_pricing_kind(entry)
         record["toolCallingSupported"] = tool_supported
         record["toolProbeError"] = tool_probe_error
         pricing, pricing_probe_error = _attach_pricing(
-            entry, pricing_map, pricing_global_error
+            entry, pricing_map, foundation_pricing_by_id, pricing_global_error
         )
         record["pricing"] = pricing
         record["pricingProbeError"] = pricing_probe_error
 
         if tool_supported is True:
             n_tool += 1
-        if pricing["input_per_1m"] is not None:
+        if pricing["input_per_1m"] is not None or pricing["output_per_1m"] is not None:
             n_priced += 1
         if tool_probe_error == "AccessDenied":
             n_access_denied += 1
@@ -553,8 +710,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             available.append(record)
 
-    def _sort_key(r: dict[str, Any]) -> tuple[str, str]:
-        return (r.get("providerName") or "", _entry_id(r))
+    # Sort: priced records first (by provider, id), then unpriced (by provider,
+    # id). "Priced" = at least one of input/output_per_1m is non-null.
+    def _sort_key(r: dict[str, Any]) -> tuple[int, str, str]:
+        p = r.get("pricing") or {}
+        unpriced = 1 if (p.get("input_per_1m") is None and p.get("output_per_1m") is None) else 0
+        return (unpriced, r.get("providerName") or "", _entry_id(r))
 
     available.sort(key=_sort_key)
     unavailable.sort(key=_sort_key)
