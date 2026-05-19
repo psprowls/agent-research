@@ -1080,16 +1080,19 @@ def main():
     args = p.parse_args()
 
     wiki, _ = resolve_wiki_and_repo()
-    repo = wiki.parent  # v1: repo is always wiki's parent directory
+    workspace = wiki.parent
+
+    layout = read_layout(wiki / "CLAUDE.md") if wiki.exists() else None
+    pinned = layout.get("containers", []) if layout else None
+
+    # Scan target = workspace + layout["repo_root"]. Defaults to the workspace
+    # itself (workspace-is-repo layout); set `repo_root: ..` in the layout block
+    # when the workspace lives inside the repo (e.g. <repo>/graph-wiki/).
+    repo_root_rel = layout.get("repo_root", ".") if layout else "."
+    repo = (workspace / repo_root_rel).resolve()
     if not repo.exists():
         print(f"[error] repo not found: {repo}", file=sys.stderr)
         sys.exit(1)
-
-    pinned = None
-    if wiki.exists():
-        layout = read_layout(wiki / "CLAUDE.md")
-        if layout:
-            pinned = layout.get("containers", [])
 
     if wiki.exists() and pinned:
         diff = reconcile_layout(repo, pinned)
