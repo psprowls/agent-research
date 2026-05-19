@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Tooling Cleanup
-status: planning
+status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-19T20:19:29.289Z"
-last_activity: 2026-05-19 — v1.3 roadmap created (3 phases, 13 requirements)
+last_updated: "2026-05-19T20:54:54.073Z"
+last_activity: 2026-05-19 -- Phase 17 execution started
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 17 — vault-io Bug Fixes (ready to plan)
+**Current Focus:** Phase 17 — vault-io-bug-fixes
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 17 of 19 (vault-io Bug Fixes)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-05-19 — v1.3 roadmap created (3 phases, 13 requirements)
+Phase: 17 (vault-io-bug-fixes) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 17
+Last activity: 2026-05-19 -- Phase 17 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
