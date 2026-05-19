@@ -1,0 +1,811 @@
+{
+  "_meta": {
+    "updated_at": "2026-05-19T21:31:46.623Z",
+    "version": 2
+  },
+  "entries": {
+    "pyproject.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "uv.lock": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "models-claude.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "models-qwen.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "wiki-config.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "wiki-config-claude.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "packages/model-adapter/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "langchain-aws",
+        "boto3"
+      ],
+      "type": "config"
+    },
+    "packages/model-adapter/src/model_adapter/__init__.py": {
+      "exports": [
+        "BedrockAccessDenied",
+        "load_role_config",
+        "make_llm",
+        "set_models_path"
+      ],
+      "imports": [
+        "model_adapter.exceptions",
+        "model_adapter.loader"
+      ],
+      "type": "module"
+    },
+    "packages/model-adapter/src/model_adapter/loader.py": {
+      "exports": [
+        "set_models_path",
+        "make_llm",
+        "load_role_config",
+        "_GuardedChatBedrockConverse"
+      ],
+      "imports": [
+        "tomllib",
+        "importlib.resources",
+        "botocore.exceptions",
+        "langchain_aws.ChatBedrockConverse",
+        "model_adapter.exceptions"
+      ],
+      "type": "module"
+    },
+    "packages/model-adapter/src/model_adapter/exceptions.py": {
+      "exports": [
+        "BedrockAccessDenied"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/model-adapter/src/model_adapter/models.toml": {
+      "exports": [],
+      "imports": [],
+      "type": "data"
+    },
+    "packages/subagent-runtime/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "langchain-aws",
+        "langchain-core",
+        "model-adapter"
+      ],
+      "type": "config"
+    },
+    "packages/subagent-runtime/src/subagent_runtime/__init__.py": {
+      "exports": [
+        "SubagentPool",
+        "FanOutResult",
+        "PerItemError",
+        "TaskResult"
+      ],
+      "imports": [
+        "subagent_runtime.pool"
+      ],
+      "type": "module"
+    },
+    "packages/subagent-runtime/src/subagent_runtime/pool.py": {
+      "exports": [
+        "SubagentPool",
+        "FanOutResult",
+        "PerItemError",
+        "TaskResult"
+      ],
+      "imports": [
+        "asyncio",
+        "langchain_core.runnables.RunnableConfig",
+        "subagent_runtime.trace_io"
+      ],
+      "type": "module"
+    },
+    "packages/subagent-runtime/src/subagent_runtime/trace_io.py": {
+      "exports": [
+        "write_trace_record"
+      ],
+      "imports": [
+        "json",
+        "logging",
+        "pathlib",
+        "eval_harness.pricing (lazy)"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "pyyaml"
+      ],
+      "type": "config"
+    },
+    "packages/workspace-io/src/workspace_io/__init__.py": {
+      "exports": [
+        "GraphWikiConfig",
+        "PendingUpdate",
+        "init",
+        "pending_updates",
+        "resolve",
+        "warn_if_stale"
+      ],
+      "imports": [
+        "workspace_io.config",
+        "workspace_io.init",
+        "workspace_io.versions"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/config.py": {
+      "exports": [
+        "GraphWikiConfig",
+        "resolve"
+      ],
+      "imports": [
+        "pathlib",
+        "yaml"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/init.py": {
+      "exports": [
+        "init"
+      ],
+      "imports": [
+        "workspace_io.manifest",
+        "workspace_io.paths",
+        "workspace_io.render"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/manifest.py": {
+      "exports": [],
+      "imports": [
+        "yaml",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/paths.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/render.py": {
+      "exports": [
+        "render_workspace_claude_md"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/versions.py": {
+      "exports": [
+        "PendingUpdate",
+        "pending_updates",
+        "warn_if_stale"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/workspace-io/src/workspace_io/_local_config.py": {
+      "exports": [],
+      "imports": [
+        "pathlib",
+        "yaml"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "python-frontmatter",
+        "boto3",
+        "workspace-io"
+      ],
+      "type": "config"
+    },
+    "packages/vault-io/src/vault_io/__init__.py": {
+      "exports": [
+        "read_layout",
+        "write_layout",
+        "resolve_wiki_and_repo"
+      ],
+      "imports": [
+        "vault_io._workspace",
+        "vault_io.layout_io"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/layout_io.py": {
+      "exports": [
+        "read_layout",
+        "write_layout"
+      ],
+      "imports": [
+        "datetime",
+        "re",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/_workspace.py": {
+      "exports": [
+        "resolve_wiki_and_repo"
+      ],
+      "imports": [
+        "pathlib",
+        "workspace_io"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/scan_monorepo.py": {
+      "exports": [
+        "discover_workspaces",
+        "compute_diff",
+        "compute_state_gate",
+        "build_file_map",
+        "attach_changed_files",
+        "regenerate_dependencies_index",
+        "_load_existing_pages"
+      ],
+      "imports": [
+        "pathlib",
+        "frontmatter"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/ingest_source.py": {
+      "exports": [],
+      "imports": [
+        "frontmatter",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/ingest_work_item.py": {
+      "exports": [],
+      "imports": [
+        "frontmatter",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint_wiki.py": {
+      "exports": [],
+      "imports": [
+        "frontmatter",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/wiki_search.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/update_index.py": {
+      "exports": [
+        "update_index"
+      ],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/update_tokens.py": {
+      "exports": [],
+      "imports": [
+        "boto3"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/init_vault.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/git_state.py": {
+      "exports": [],
+      "imports": [
+        "subprocess",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/append_log.py": {
+      "exports": [
+        "append_log"
+      ],
+      "imports": [
+        "pathlib",
+        "datetime"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/detect_containers.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/graph_analyzer.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/common.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/container.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/dependency.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/domain.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/file_map.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/package_sync.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/source_sync.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/vault-io/src/vault_io/lint/workflow_hints.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "deepeval",
+        "pytest-evals",
+        "python-frontmatter",
+        "aiobotocore",
+        "code-wiki-agent",
+        "subagent-runtime",
+        "model-adapter"
+      ],
+      "type": "config"
+    },
+    "packages/eval-harness/src/eval_harness/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/pricing.py": {
+      "exports": [
+        "UnknownModelError",
+        "PRICES",
+        "cost_for_usage"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/sweep.py": {
+      "exports": [
+        "run_sweep",
+        "run_role_sweep",
+        "SweepResult",
+        "ROLE_COMMAND_MAP"
+      ],
+      "imports": [
+        "asyncio",
+        "json",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/baseline.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/isolation.py": {
+      "exports": [],
+      "imports": [
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/judge.py": {
+      "exports": [],
+      "imports": [
+        "deepeval"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/preflight.py": {
+      "exports": [],
+      "imports": [
+        "aiobotocore"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/report.py": {
+      "exports": [],
+      "imports": [
+        "json",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/structural.py": {
+      "exports": [],
+      "imports": [
+        "frontmatter"
+      ],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/two_gate.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/check.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/code_reader.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/ingestor.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/librarian.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/linter.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/metric.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/scanner.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "packages/eval-harness/src/eval_harness/divergence/synthesizer.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/pyproject.toml": {
+      "exports": [],
+      "imports": [
+        "vault-io",
+        "model-adapter",
+        "subagent-runtime",
+        "workspace-io",
+        "bm25s",
+        "mcp",
+        "langchain-aws",
+        "typer",
+        "pydantic"
+      ],
+      "type": "config"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/cli.py": {
+      "exports": [
+        "app",
+        "main_callback",
+        "version",
+        "trace",
+        "query",
+        "log",
+        "init",
+        "scan",
+        "ingest_source",
+        "ingest_work_item",
+        "lint",
+        "KNOWN_SCHEMA_VERSION"
+      ],
+      "imports": [
+        "typer",
+        "asyncio",
+        "code_wiki_agent.commands.init",
+        "code_wiki_agent.commands.ingest",
+        "code_wiki_agent.commands.lint",
+        "code_wiki_agent.commands.log",
+        "code_wiki_agent.commands.query",
+        "code_wiki_agent.commands.scan"
+      ],
+      "type": "entry-point"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/config.py": {
+      "exports": [
+        "WikiConfig",
+        "load_config",
+        "get_config"
+      ],
+      "imports": [
+        "tomllib",
+        "dataclasses",
+        "pathlib"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_mcp/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_mcp/server.py": {
+      "exports": [
+        "mcp",
+        "main",
+        "wiki_ping",
+        "wiki_query",
+        "wiki_log",
+        "wiki_init",
+        "wiki_scan",
+        "wiki_ingest",
+        "wiki_lint"
+      ],
+      "imports": [
+        "mcp.server.fastmcp.FastMCP",
+        "pydantic",
+        "code_wiki_agent.commands.query",
+        "code_wiki_agent.commands.log",
+        "code_wiki_agent.commands.init",
+        "code_wiki_agent.commands.scan",
+        "code_wiki_agent.commands.ingest",
+        "code_wiki_agent.commands.lint"
+      ],
+      "type": "entry-point"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/init.py": {
+      "exports": [
+        "InitResult",
+        "run_init"
+      ],
+      "imports": [
+        "workspace_io",
+        "vault_io"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py": {
+      "exports": [
+        "IngestResult",
+        "run_ingest_source",
+        "run_ingest_work_item"
+      ],
+      "imports": [
+        "vault_io",
+        "model_adapter",
+        "subagent_runtime"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py": {
+      "exports": [
+        "LintResult",
+        "run_lint"
+      ],
+      "imports": [
+        "vault_io",
+        "model_adapter",
+        "subagent_runtime"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/log.py": {
+      "exports": [
+        "LogResult",
+        "run_log"
+      ],
+      "imports": [
+        "vault_io"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py": {
+      "exports": [
+        "QueryResult",
+        "run_query",
+        "build_index",
+        "bm25_query",
+        "apply_guardrails",
+        "LIBRARIAN_SYSTEM",
+        "SYNTHESIZER_SYSTEM",
+        "CODE_READER_SYSTEM"
+      ],
+      "imports": [
+        "bm25s",
+        "langchain_aws",
+        "model_adapter",
+        "subagent_runtime",
+        "vault_io"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py": {
+      "exports": [
+        "ScanResult",
+        "build_stub_prompt",
+        "run_scan"
+      ],
+      "imports": [
+        "langchain_aws.ChatBedrockConverse",
+        "model_adapter.loader",
+        "subagent_runtime.pool",
+        "vault_io"
+      ],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py": {
+      "exports": [
+        "build_scanner_system"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py": {
+      "exports": [
+        "LIBRARIAN_SYSTEM"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/synthesizer.py": {
+      "exports": [
+        "SYNTHESIZER_SYSTEM"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/code_reader.py": {
+      "exports": [
+        "CODE_READER_SYSTEM"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py": {
+      "exports": [
+        "render_project_context"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/__init__.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/citation_rules.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/claude_md_disambiguation.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/frontmatter_rules.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/log_format.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/style_rules.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    }
+  }
+}

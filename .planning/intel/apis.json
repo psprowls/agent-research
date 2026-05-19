@@ -1,0 +1,198 @@
+{
+  "_meta": {
+    "updated_at": "2026-05-19T21:31:46.765Z",
+    "version": 2
+  },
+  "entries": {
+    "cli: code-wiki-agent version": {
+      "method": "CLI",
+      "path": "code-wiki-agent version",
+      "params": [],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Print package version and exit."
+    },
+    "cli: code-wiki-agent trace": {
+      "method": "CLI",
+      "path": "code-wiki-agent trace <file> [--expand]",
+      "params": [
+        "file",
+        "--expand"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Render a JSONL trace file as a human-readable timeline with cost rollup."
+    },
+    "cli: code-wiki-agent query": {
+      "method": "CLI",
+      "path": "code-wiki-agent query <query_text>",
+      "params": [
+        "query_text",
+        "--top-k",
+        "--vault",
+        "--json",
+        "--no-state-gate",
+        "--quiet"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Query the wiki using hybrid BM25+embedding search with librarian fan-out."
+    },
+    "cli: code-wiki-agent log": {
+      "method": "CLI",
+      "path": "code-wiki-agent log",
+      "params": [
+        "--op",
+        "--title",
+        "--detail",
+        "--vault",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Append a timestamped event to the wiki log.md."
+    },
+    "cli: code-wiki-agent init": {
+      "method": "CLI",
+      "path": "code-wiki-agent init",
+      "params": [
+        "--topic",
+        "--tool",
+        "--force",
+        "--vault",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."
+    },
+    "cli: code-wiki-agent scan": {
+      "method": "CLI",
+      "path": "code-wiki-agent scan",
+      "params": [
+        "--vault",
+        "--no-file-map",
+        "--max-depth",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."
+    },
+    "cli: code-wiki-agent ingest source": {
+      "method": "CLI",
+      "path": "code-wiki-agent ingest source <path>",
+      "params": [
+        "path",
+        "--vault",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Ingest a source file into the wiki via the ingestor LLM."
+    },
+    "cli: code-wiki-agent ingest work-item": {
+      "method": "CLI",
+      "path": "code-wiki-agent ingest work-item",
+      "params": [
+        "--frontmatter",
+        "--body",
+        "--slug",
+        "--force",
+        "--pkg-dir",
+        "--vault",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "File a structured work item into the wiki workspace."
+    },
+    "cli: code-wiki-agent lint": {
+      "method": "CLI",
+      "path": "code-wiki-agent lint",
+      "params": [
+        "--vault",
+        "--stale-days",
+        "--log-gap-days",
+        "--json"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_agent/cli.py",
+      "description": "Run mechanical + semantic lint pass over the wiki and report findings."
+    },
+    "mcp: wiki_ping": {
+      "method": "MCP-TOOL",
+      "path": "wiki_ping",
+      "params": [
+        "message"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Returns pong; used to verify MCP wiring is intact."
+    },
+    "mcp: wiki_query": {
+      "method": "MCP-TOOL",
+      "path": "wiki_query",
+      "params": [
+        "query",
+        "vault_path",
+        "top_k"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Hybrid BM25+embedding search with parallel librarian analysis; returns answer + wikilink citations."
+    },
+    "mcp: wiki_log": {
+      "method": "MCP-TOOL",
+      "path": "wiki_log",
+      "params": [
+        "op",
+        "title",
+        "detail",
+        "vault_path"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Append a timestamped event to log.md."
+    },
+    "mcp: wiki_init": {
+      "method": "MCP-TOOL",
+      "path": "wiki_init",
+      "params": [
+        "topic",
+        "tool",
+        "force",
+        "vault_path"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Bootstrap a wiki vault structure."
+    },
+    "mcp: wiki_scan": {
+      "method": "MCP-TOOL",
+      "path": "wiki_scan",
+      "params": [
+        "vault_path",
+        "no_file_map",
+        "max_depth",
+        "repo_path"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."
+    },
+    "mcp: wiki_ingest": {
+      "method": "MCP-TOOL",
+      "path": "wiki_ingest",
+      "params": [
+        "type",
+        "source_path",
+        "frontmatter",
+        "body",
+        "slug",
+        "force",
+        "pkg_dir",
+        "vault_path"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Ingest a source file (type='source') or work item (type='work-item') into the wiki."
+    },
+    "mcp: wiki_lint": {
+      "method": "MCP-TOOL",
+      "path": "wiki_lint",
+      "params": [
+        "vault_path",
+        "stale_days",
+        "log_gap_days"
+      ],
+      "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
+      "description": "Run mechanical + semantic lint pass over the wiki."
+    }
+  }
+}

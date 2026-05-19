@@ -1,0 +1,215 @@
+{
+  "_meta": {
+    "updated_at": "2026-05-19T21:31:46.900Z",
+    "version": 2
+  },
+  "entries": {
+    "langchain-aws": {
+      "version": ">=1.4.6",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "model-adapter",
+        "subagent-runtime",
+        "code-wiki-agent"
+      ]
+    },
+    "langchain-core": {
+      "version": ">=1.4.0",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "subagent-runtime",
+        "code-wiki-agent (transitive via langchain-aws)"
+      ]
+    },
+    "boto3": {
+      "version": ">=1.38",
+      "type": "production",
+      "invocation": "import (botocore.exceptions)",
+      "used_by": [
+        "model-adapter",
+        "vault-io"
+      ]
+    },
+    "aiobotocore": {
+      "version": ">=2.13",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "eval-harness"
+      ]
+    },
+    "mcp": {
+      "version": ">=1.27.1",
+      "type": "production",
+      "invocation": "code-wiki-mcp (script entry point)",
+      "used_by": [
+        "code-wiki-agent (code_wiki_mcp.server)"
+      ]
+    },
+    "typer": {
+      "version": ">=0.25.1",
+      "type": "production",
+      "invocation": "code-wiki-agent (script entry point)",
+      "used_by": [
+        "code-wiki-agent"
+      ]
+    },
+    "pydantic": {
+      "version": ">=2.0",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "code-wiki-agent (MCP tool schemas)"
+      ]
+    },
+    "bm25s": {
+      "version": "==0.3.8",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "code-wiki-agent (commands/query.py)"
+      ]
+    },
+    "python-frontmatter": {
+      "version": ">=1.1",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "vault-io",
+        "eval-harness"
+      ]
+    },
+    "pyyaml": {
+      "version": ">=6.0",
+      "type": "production",
+      "invocation": "import",
+      "used_by": [
+        "workspace-io"
+      ]
+    },
+    "deepeval": {
+      "version": ">=4.0.0",
+      "type": "production",
+      "invocation": "import (eval suite)",
+      "used_by": [
+        "eval-harness"
+      ]
+    },
+    "pytest-evals": {
+      "version": ">=0.3.4",
+      "type": "production",
+      "invocation": "pytest",
+      "used_by": [
+        "eval-harness"
+      ]
+    },
+    "pytest": {
+      "version": ">=8.3",
+      "type": "development",
+      "invocation": "uv run pytest / uv run --package <pkg> pytest",
+      "used_by": [
+        "all packages"
+      ]
+    },
+    "pytest-asyncio": {
+      "version": "==1.3.0",
+      "type": "development",
+      "invocation": "pytest",
+      "used_by": [
+        "subagent-runtime",
+        "eval-harness",
+        "code-wiki-agent"
+      ]
+    },
+    "syrupy": {
+      "version": "==5.1.0",
+      "type": "development",
+      "invocation": "pytest --snapshot-update",
+      "used_by": [
+        "snapshot tests across packages"
+      ]
+    },
+    "ruff": {
+      "version": ">=0.15",
+      "type": "development",
+      "invocation": "ruff check / ruff format",
+      "used_by": [
+        "workspace-wide (config in root pyproject.toml)"
+      ]
+    },
+    "pre-commit": {
+      "version": "*",
+      "type": "development",
+      "invocation": "pre-commit run --all-files",
+      "used_by": [
+        "workspace-wide"
+      ]
+    },
+    "uv_build": {
+      "version": ">=0.11.14,<0.12",
+      "type": "production",
+      "invocation": "build-backend (PEP 517)",
+      "used_by": [
+        "model-adapter",
+        "subagent-runtime",
+        "vault-io",
+        "eval-harness",
+        "code-wiki-agent"
+      ]
+    },
+    "hatchling": {
+      "version": "*",
+      "type": "production",
+      "invocation": "build-backend (PEP 517)",
+      "used_by": [
+        "workspace-io"
+      ]
+    },
+    "model-adapter": {
+      "version": "0.1.0 (workspace)",
+      "type": "production",
+      "invocation": "workspace member",
+      "used_by": [
+        "subagent-runtime",
+        "code-wiki-agent",
+        "eval-harness"
+      ]
+    },
+    "subagent-runtime": {
+      "version": "0.1.0 (workspace)",
+      "type": "production",
+      "invocation": "workspace member",
+      "used_by": [
+        "code-wiki-agent",
+        "eval-harness"
+      ]
+    },
+    "vault-io": {
+      "version": "0.1.0 (workspace)",
+      "type": "production",
+      "invocation": "workspace member",
+      "used_by": [
+        "code-wiki-agent"
+      ]
+    },
+    "workspace-io": {
+      "version": "0.1.0 (workspace)",
+      "type": "production",
+      "invocation": "workspace member",
+      "used_by": [
+        "vault-io",
+        "code-wiki-agent"
+      ]
+    },
+    "code-wiki-agent": {
+      "version": "0.1.0 (workspace)",
+      "type": "production",
+      "invocation": "code-wiki-agent / code-wiki-mcp (script entry points)",
+      "used_by": [
+        "eval-harness"
+      ]
+    }
+  }
+}

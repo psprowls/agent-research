@@ -10,14 +10,15 @@
     "branching_strategy": "none",
     "phase_branch_template": "gsd/phase-{phase}-{slug}",
     "milestone_branch_template": "gsd/{milestone}-{slug}",
-    "quick_branch_template": null
+    "quick_branch_template": null,
+    "create_tag": true
   },
   "workflow": {
     "research": true,
     "plan_check": true,
     "verifier": true,
     "nyquist_validation": true,
-    "auto_advance": false,
+    "auto_advance": true,
     "node_repair": true,
     "node_repair_budget": 2,
     "ui_phase": true,
@@ -28,7 +29,12 @@
     "skip_discuss": false,
     "code_review": true,
     "code_review_depth": "standard",
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "tdd_mode": false,
+    "pattern_mapper": true,
+    "ai_integration_phase": true,
+    "ui_review": true,
+    "use_worktrees": true
   },
   "hooks": {
     "context_warnings": true
@@ -38,5 +44,11 @@
   "agent_skills": {},
   "features": {},
   "mode": "yolo",
-  "granularity": "standard"
+  "granularity": "standard",
+  "intel": {
+    "enabled": true
+  },
+  "graphify": {
+    "enabled": true
+  }
 }

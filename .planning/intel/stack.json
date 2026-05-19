@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "updated_at": "2026-05-19T21:31:46.480Z",
+    "version": 2
+  },
+  "languages": [
+    "Python 3.11+"
+  ],
+  "frameworks": [
+    "langchain-core 1.4.0",
+    "langchain-aws 1.4.6 (ChatBedrockConverse)",
+    "in-house subagent-runtime (SubagentPool, asyncio.Semaphore fan-out)",
+    "in-house model-adapter (make_llm, _GuardedChatBedrockConverse)",
+    "FastMCP / mcp 1.27.1 (stdio transport)",
+    "Typer 0.25.1 (CLI)",
+    "deepeval 4.0.0 (eval harness)"
+  ],
+  "tools": [
+    "uv 0.11.14 (workspace manager + uv_build backend)",
+    "hatchling (workspace-io build backend only)",
+    "ruff 0.15+ (lint, line-length 120, target py311)",
+    "pre-commit",
+    "pytest 8.3+",
+    "pytest-asyncio 1.3.0 (asyncio_mode = auto)",
+    "syrupy 5.1.0 (snapshot testing)",
+    "bm25s 0.3.8 (BM25 search)",
+    "python-frontmatter 1.1.0",
+    "boto3 >=1.38",
+    "aiobotocore >=2.13",
+    "pyyaml >=6.0",
+    "pytest-evals 0.3.4"
+  ],
+  "build_system": "uv workspace; uv_build>=0.11.14,<0.12 (default); hatchling for workspace-io",
+  "test_framework": "pytest + pytest-asyncio (asyncio_mode=auto) + syrupy",
+  "package_manager": "uv (single lockfile across workspace)",
+  "content_formats": [
+    "TOML (pyproject.toml, models.toml, wiki-config.toml)",
+    "Markdown + YAML frontmatter (vault pages, CLAUDE.md layout block)",
+    "JSONL (subagent traces, eval sweep records)",
+    "Python (src + tests)"
+  ],
+  "stack_departures": {
+    "deepagents": "rejected-by-design — replaced by in-house SubagentPool to avoid framework lock-in and to keep fan-out semantics under direct control (CLAUDE.md §2 note)",
+    "langgraph": "rejected-by-design — not adopted; SubagentPool uses raw asyncio + langchain-core Runnables instead",
+    "langchain (top-level)": "rejected-by-design — only langchain-core + langchain-aws are installed",
+    "langchain-mcp-adapters": "deferred — not needed until agents need to consume external MCP tools (CLAUDE.md §4 note)",
+    "langchain-anthropic": "rejected-by-design — Bedrock-only constraint; direct Anthropic API would silently bypass Bedrock"
+  }
+}
