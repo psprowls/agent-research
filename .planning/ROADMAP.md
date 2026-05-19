@@ -80,7 +80,12 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
   3. `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/`
   4. The workspace directory itself does not appear in its own layout block as a `docs` container
   5. Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest`
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 17-01-PLAN.md — SCAN companion-page fold in `_load_existing_pages` + unit tests (SCAN-01, SCAN-02)
+- [ ] 17-02-PLAN.md — Bedrock CountTokens API shape fix in `update_tokens.py` + mocked unit tests + gated integration test (TOK-01, TOK-02)
+- [ ] 17-03-PLAN.md — Workspace/repo resolution fixes in `init_vault.py` and `detect_containers.py` + synthetic-fixture tests (WSRES-01, WSRES-02, WSRES-03)
+- [ ] 17-04-PLAN.md — TOK-03 live re-stamp against `~/Personal/wiki/deep-agents` + populate `17-VERIFICATION.md` (TOK-03)
 
 ### Phase 18: Plugin Command Rename
 **Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/init-wiki` with all references updated
@@ -115,7 +120,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. vault-io Bug Fixes | 0/TBD | Not started | - |
+| 17. vault-io Bug Fixes | 0/4 | Not started | - |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 19. Phase 16 Code Review Burndown | 0/TBD | Not started | - |
 
