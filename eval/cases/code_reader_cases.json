@@ -16,5 +16,23 @@
     "query": "What are the exact parameters to _read_file_bounded?",
     "expected_answer": "cannot be answered from vault pages alone; requires reading query.py source for parameter signature",
     "tags": ["code-reader", "vault-thin"]
+  },
+  {
+    "case_id": "code-reader-04",
+    "query": "How does workspace_io.config.resolve() walk upward to find .graph-wiki.yaml?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/workspace-io/src/workspace_io/config.py source for the resolve() walk implementation",
+    "tags": ["code-reader", "vault-thin"]
+  },
+  {
+    "case_id": "code-reader-05",
+    "query": "What algorithm and constants does vault_io.wiki_search.bm25_scores use?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/vault-io/src/vault_io/wiki_search.py source for the BM25 k1/b parameters and scoring loop",
+    "tags": ["code-reader", "vault-thin"]
+  },
+  {
+    "case_id": "code-reader-06",
+    "query": "Which optional checks does vault_io.lint_wiki.scan accept and how are they applied?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/vault-io/src/vault_io/lint_wiki.py source for the scan() optional_checks parameter handling",
+    "tags": ["code-reader", "vault-thin"]
   }
 ]

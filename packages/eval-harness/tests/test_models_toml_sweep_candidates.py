@@ -150,7 +150,13 @@ def test_make_llm_still_works_for_all_roles():
 
 
 def test_code_reader_cases_json_loads():
-    """eval/cases/code_reader_cases.json exists, has 3 cases, all tagged vault-thin (D-09)."""
+    """eval/cases/code_reader_cases.json exists with 5–6 vault-thin cases (D-07 Phase 16).
+
+    Phase 16 D-07 expands from 3 → 5–6 cases targeting post-rebrand surface
+    (workspace-io, vault-io.wiki_search, vault-io.lint_wiki). The original 3
+    cases are preserved verbatim for baseline comparability — the assertions
+    here permit the expansion via range + superset checks.
+    """
     if not CODE_READER_CASES_PATH.exists():
         pytest.fail(
             f"code_reader_cases.json not found at {CODE_READER_CASES_PATH}; "
@@ -158,7 +164,9 @@ def test_code_reader_cases_json_loads():
         )
 
     cases = json.loads(CODE_READER_CASES_PATH.read_text())
-    assert len(cases) == 3, f"expected 3 code_reader cases, got {len(cases)}"
+    assert 5 <= len(cases) <= 6, (
+        f"expected 5–6 code_reader cases after Phase 16 expansion, got {len(cases)}"
+    )
 
     for case in cases:
         assert "vault-thin" in case["tags"], (
@@ -169,6 +177,6 @@ def test_code_reader_cases_json_loads():
         )
 
     case_ids = {c["case_id"] for c in cases}
-    assert case_ids == {"code-reader-01", "code-reader-02", "code-reader-03"}, (
-        f"unexpected case_ids: {sorted(case_ids)}"
+    assert case_ids >= {"code-reader-01", "code-reader-02", "code-reader-03"}, (
+        f"first 3 case_ids must be preserved (baseline); got {sorted(case_ids)}"
     )
