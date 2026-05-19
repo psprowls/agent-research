@@ -138,16 +138,51 @@ def _probe_tool_calling(model_id: str, region: str) -> tuple[bool | None, str | 
     return True, None
 
 
-def _extract_on_demand_price(product: dict[str, Any]) -> float | None:
+def _extract_on_demand_price(product: dict[str, Any]) -> tuple[float, str] | None:
+    """Return (price, unit) of the first OnDemand price dimension, or None."""
     terms = product.get("terms", {}).get("OnDemand", {})
     for term in terms.values():
         for dim in term.get("priceDimensions", {}).values():
             usd = dim.get("pricePerUnit", {}).get("USD")
+            unit = dim.get("unit") or ""
             if usd is not None:
                 try:
-                    return float(usd)
+                    return float(usd), unit
                 except (TypeError, ValueError):
                     pass
+    return None
+
+
+# Anything in this set in a usagetype means "not the standard on-demand
+# inference SKU we want for sweep cost estimation."
+_SKU_SKIP_MARKERS: tuple[str, ...] = (
+    "image", "cache", "customization", "custom-model",
+    "batch", "flex", "priority", "archival", "provisioned",
+    "storage", "automatedreasoning", "guardrail",
+    "evaluation", "agent", "training", "embedding",
+)
+
+
+def _classify_sku(usage_type: str, unit: str) -> str | None:
+    """Return 'input_per_1k', 'output_per_1k', or None to skip.
+
+    Recognises both modern (``*-input-tokens`` / ``*-output-tokens``, with the
+    standard on-demand tier as the bare suffix) and legacy (``Inp-`` / ``Otp-``)
+    Bedrock SKU naming. Filters out non-inference, non-standard, and
+    non-token-priced SKUs.
+    """
+    u = usage_type.lower()
+    if "tokens" not in unit.lower():
+        return None
+    if any(marker in u for marker in _SKU_SKIP_MARKERS):
+        return None
+    # Strict: standard on-demand SKUs end with `input-tokens` / `output-tokens`
+    # with no trailing tier modifier. The skip-markers above already drop the
+    # batch/flex/priority/etc. variants, so a plain suffix match is now safe.
+    if "output-tokens" in u or "-otp-" in u or u.endswith("otp"):
+        return "output_per_1k"
+    if "input-tokens" in u or "-inp-" in u or u.endswith("inp"):
+        return "input_per_1k"
     return None
 
 
@@ -155,7 +190,8 @@ def _fetch_all_bedrock_pricing(target_region: str) -> dict[str, dict[str, float]
     """Return {lowercase_model_name: {input_per_1k, output_per_1k}}.
 
     Filters by ``regionCode`` so prices match the target Bedrock region.
-    Best-effort — returns empty dict on failure.
+    Best-effort — returns empty dict on failure. Always converts to a per-1K
+    basis: if a SKU is priced per-token, multiply by 1000.
     """
     pricing = boto3.client("pricing", region_name=_PRICING_ENDPOINT_REGION)
     out: dict[str, dict[str, float]] = {}
@@ -178,17 +214,21 @@ def _fetch_all_bedrock_pricing(target_region: str) -> dict[str, dict[str, float]
                 ).strip()
                 if not model_name:
                     continue
-                usage_type = attributes.get("usagetype", "").lower()
-                feature = (attributes.get("feature") or "").lower()
-                if "inp" in usage_type or "input" in feature:
-                    kind = "input_per_1k"
-                elif "otp" in usage_type or "output" in feature:
-                    kind = "output_per_1k"
-                else:
+                usage_type = attributes.get("usagetype", "")
+                extracted = _extract_on_demand_price(product)
+                if extracted is None:
                     continue
-                price = _extract_on_demand_price(product)
-                if price is None:
+                price, unit = extracted
+                kind = _classify_sku(usage_type, unit)
+                if kind is None:
                     continue
+                # Normalise to per-1K. AWS unit strings include "1K tokens",
+                # "1,000 tokens", and bare "tokens" — multiply if the unit is
+                # per-token, otherwise take as-is.
+                u = unit.lower()
+                if "1k" not in u and "1,000" not in u and "1000" not in u:
+                    # Likely per-token (e.g. "tokens"); convert.
+                    price = price * 1000.0
                 out.setdefault(model_name.lower(), {})[kind] = price
     except (ClientError, BotoCoreError) as exc:
         logger.warning("AWS Pricing API call failed: %s", exc)
