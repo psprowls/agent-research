@@ -162,7 +162,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 2/3 | In Progress|  |
 | 15. Wiki Self-Update | 1/1 | Complete   | 2026-05-19 |
-| 16. Carry-Forward Debt Cleanup | 1/1 | Complete   | 2026-05-19 |
+| 16. Carry-Forward Debt Cleanup | 2/2 | Complete   | 2026-05-19 |
 
 ---
 
