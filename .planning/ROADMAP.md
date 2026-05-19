@@ -50,7 +50,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 - [x] **Phase 13: Plugin Spec (M3a)** — Lock the plugin contract surface (what slash commands shell out to) before any code is moved (completed 2026-05-18)
 - [ ] **Phase 14: Plugin Port (M3b)** — `lattice-wiki` plugin ported to `plugins/graph-wiki/`; namespace renamed; scripts route through vault-io
 - [x] **Phase 15: Wiki Self-Update** — `~/Personal/wiki/deep-agents` scanned + ingested against the rebranded ecosystem; naming sweep verified post-port (completed 2026-05-19)
-- [ ] **Phase 16: Carry-Forward Debt Cleanup** — Trace `usage_metadata`, full sweep coverage, MCP cancellation closure, model config test drift
+- [x] **Phase 16: Carry-Forward Debt Cleanup** — Trace `usage_metadata`, full sweep coverage, MCP cancellation closure, model config test drift (completed 2026-05-19)
 
 ---
 
@@ -141,7 +141,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   4. `CODE_WIKI_RUN_INTEGRATION` opt-in gate semantics are consistent across all gated tests (a single rule documented somewhere central; no test diverges silently).
   5. `test_load_role_config_synthesizer_uses_sonnet` is renamed/rewritten to assert the current Qwen synthesizer default; `uv run pytest` is green.
 **Plans**: 1 plan
-- [ ] 16-01-PLAN.md — Bundled atomic plan: 9 step-commits (trace_io extraction + ingest/query refactor + regression test, code_reader/synthesizer divergence rubrics, code_reader_cases expansion, fixture-vault scanner regression, MCP cancel spike + cancellation.md refresh, docs/testing.md + grep gate, synthesizer model_id assertion, live-vault re-sweep + 16-VERIFICATION.md)
+- [x] 16-01-PLAN.md — Bundled atomic plan: 9 step-commits (trace_io extraction + ingest/query refactor + regression test, code_reader/synthesizer divergence rubrics, code_reader_cases expansion, fixture-vault scanner regression, MCP cancel spike + cancellation.md refresh, docs/testing.md + grep gate, synthesizer model_id assertion, live-vault re-sweep + 16-VERIFICATION.md)
 
 ---
 
@@ -162,7 +162,7 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 2/3 | In Progress|  |
 | 15. Wiki Self-Update | 1/1 | Complete   | 2026-05-19 |
-| 16. Carry-Forward Debt Cleanup | 0/1 | Planned    | — |
+| 16. Carry-Forward Debt Cleanup | 1/1 | Complete   | 2026-05-19 |
 
 ---
 

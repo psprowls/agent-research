@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Graph-Wiki Port & Debt Cleanup
 status: executing
 stopped_at: Phase 16 context gathered
-last_updated: "2026-05-19T15:37:58.061Z"
-last_activity: 2026-05-19 -- Phase 16 planning complete
+last_updated: "2026-05-19T15:54:10.434Z"
+last_activity: 2026-05-19 -- Phase 16 execution started
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 20
   completed_plans: 19
-  percent: 95
+  percent: 83
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 **Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 15 — wiki-self-update
+**Current Focus:** Phase 16 — carry-forward-debt-cleanup
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
 
 ## Current Position
 
-Phase: 15 — COMPLETE
-Plan: 1 of 1 (complete)
-Status: Ready to execute
-Last activity: 2026-05-19 -- Phase 16 planning complete
+Phase: 16 (carry-forward-debt-cleanup) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 16
+Last activity: 2026-05-19 -- Phase 16 execution started
 
 ## Performance Metrics
 
