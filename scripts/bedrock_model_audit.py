@@ -2,18 +2,35 @@
 """Audit Bedrock TEXT/ON_DEMAND foundation models + inference profiles.
 
 For each entry, augments the AWS catalog record with:
-  - toolCalling: bool | null   — live converse() probe with a minimal toolConfig
-  - probeError: str (optional) — error class/code when toolCalling is null
-  - pricing: {input_per_1k, output_per_1k, currency, source}
-                                 — looked up from AWS Pricing API
+  - toolCallingSupported: bool | null   — live converse() probe with a minimal
+                                          toolConfig (null when the probe could
+                                          not run)
+  - toolProbeError: str | null          — error class/code when the probe
+                                          failed; null on success
+  - pricing: {input_per_1m, output_per_1m, currency, source}
+                                          — looked up from AWS Pricing API,
+                                          normalised to USD per 1,000,000 tokens
+  - pricingProbeError: str | null       — "NotFoundInPricingAPI" when no SKU
+                                          matched, or the upstream Pricing API
+                                          error class on global fetch failure
   - entryKind: "foundation-model" | "inference-profile"
 
-Pricing is fetched regardless of probe outcome (so callers can see the cost of
-a model even if their account can't currently invoke it).
+Output: two JSON array files in the same directory:
+  - bedrock-models-available.json   (always written; models you can invoke)
+  - bedrock-models-unavailable.json (only with --all; AccessDenied probes)
+
+"Available" means the converse() probe did not return AccessDeniedException.
+Other probe failures (ValidationException, etc.) still count as available
+because the model accepted credentialed traffic — it just rejected this
+particular request shape.
+
+Pricing is fetched regardless of probe outcome (Bedrock invocation access and
+the AWS Pricing API are independent services).
 
 Usage:
     uv run python scripts/bedrock_model_audit.py
-    uv run python scripts/bedrock_model_audit.py --region us-west-2 --out audit.json
+    uv run python scripts/bedrock_model_audit.py --all
+    uv run python scripts/bedrock_model_audit.py --region us-west-2 --out-dir ./audit
     uv run python scripts/bedrock_model_audit.py --dry-run
 """
 
@@ -29,8 +46,57 @@ from typing import Any
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
+from decimal import Decimal
 
 logger = logging.getLogger("bedrock_audit")
+
+
+class _DecimalFloatEncoder(json.JSONEncoder):
+    """JSON encoder that emits floats in decimal notation, never scientific.
+
+    Default ``json.dumps`` emits small floats like ``8e-07``; this overrides the
+    float-serialization hook in ``json.encoder._make_iterencode`` so the output
+    stays human-readable for small per-token prices. Routes through
+    ``Decimal(repr(x))`` so the result is the shortest round-tripping decimal
+    representation — no IEEE 754 long-tail artifacts like ``0.80000000000…04``.
+    """
+
+    def iterencode(self, o, _one_shot=False):  # type: ignore[override]
+        from json.encoder import (  # noqa: PLC0415
+            _make_iterencode,
+            encode_basestring,
+            encode_basestring_ascii,
+        )
+
+        def floatstr(x: float) -> str:
+            if x != x:
+                return "NaN"
+            if x == float("inf"):
+                return "Infinity"
+            if x == float("-inf"):
+                return "-Infinity"
+            # repr() gives the shortest representation that round-trips through
+            # float(); Decimal(...) parses it; format(d, "f") forces decimal
+            # (never scientific) output.
+            s = format(Decimal(repr(x)), "f")
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
+            return s if s else "0"
+
+        encoder = encode_basestring_ascii if self.ensure_ascii else encode_basestring
+        _iterencode = _make_iterencode(
+            {},
+            self.default,
+            encoder,
+            self.indent,
+            floatstr,
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )
+        return _iterencode(o, 0)
 
 # AWS Pricing API runs in us-east-1 / ap-south-1 only. us-east-1 covers all
 # Bedrock regions — pass the target region as a filter, not the endpoint region.
@@ -93,8 +159,62 @@ def _entry_kind(entry: dict[str, Any]) -> str:
     return "foundation-model" if "modelId" in entry else "inference-profile"
 
 
+def _provider_of(
+    entry: dict[str, Any],
+    canonical_by_prefix: dict[str, str] | None = None,
+) -> str:
+    """Return a provider name suitable for sorting.
+
+    Foundation models carry ``providerName`` directly (AWS-canonical casing
+    like ``DeepSeek``, ``AI21 Labs``). Inference profiles don't — derive the
+    provider from the inferenceProfileId by stripping the cross-region prefix
+    (``us.``, ``eu.``, ``apac.``, ``global.``) and taking the segment before
+    the first dot. If a ``canonical_by_prefix`` map of foundation-model
+    prefixes → provider names is supplied (built from the foundation-model
+    list), reuse AWS's casing so profiles match their underlying models;
+    otherwise title-case the prefix as a last-resort.
+    """
+    name = entry.get("providerName")
+    if name:
+        return name
+    mid = (entry.get("inferenceProfileId") or "").lower()
+    for prefix in ("us.", "eu.", "apac.", "global."):
+        if mid.startswith(prefix):
+            mid = mid[len(prefix):]
+            break
+    if not mid:
+        return "Unknown"
+    head = mid.split(".", 1)[0]
+    if not head:
+        return "Unknown"
+    if canonical_by_prefix and head in canonical_by_prefix:
+        return canonical_by_prefix[head]
+    return head.title()
+
+
+def _build_canonical_provider_map(
+    foundation_models: list[dict[str, Any]],
+) -> dict[str, str]:
+    """Return {modelid_prefix: AWS-canonical providerName} from foundation models.
+
+    Lets inference-profile records inherit AWS's casing (``Anthropic``,
+    ``DeepSeek``, ``AI21 Labs``) instead of falling back to ``str.title``,
+    which produces inconsistent variants like ``Deepseek``.
+    """
+    out: dict[str, str] = {}
+    for fm in foundation_models:
+        mid = (fm.get("modelId") or "").lower()
+        provider = fm.get("providerName")
+        if not mid or not provider:
+            continue
+        prefix = mid.split(".", 1)[0]
+        if prefix and prefix not in out:
+            out[prefix] = provider
+    return out
+
+
 def _probe_tool_calling(model_id: str, region: str) -> tuple[bool | None, str | None]:
-    """Live probe via bedrock-runtime converse. Returns (toolCalling, probeError).
+    """Live probe via bedrock-runtime converse. Returns (toolCallingSupported, toolProbeError).
 
     Semantics:
       - HTTP 200 with toolUse content block → True, None
@@ -138,8 +258,12 @@ def _probe_tool_calling(model_id: str, region: str) -> tuple[bool | None, str | 
     return True, None
 
 
-def _extract_on_demand_price(product: dict[str, Any]) -> tuple[float, str] | None:
-    """Return (price, unit) of the first OnDemand price dimension, or None."""
+def _extract_on_demand_price(product: dict[str, Any]) -> tuple[Decimal, str] | None:
+    """Return (price, unit) of the first OnDemand price dimension, or None.
+
+    Price returned as ``Decimal`` (parsed directly from the AWS string) to avoid
+    float-multiplication artifacts during the per-1K → per-1M conversion.
+    """
     terms = product.get("terms", {}).get("OnDemand", {})
     for term in terms.values():
         for dim in term.get("priceDimensions", {}).values():
@@ -147,8 +271,8 @@ def _extract_on_demand_price(product: dict[str, Any]) -> tuple[float, str] | Non
             unit = dim.get("unit") or ""
             if usd is not None:
                 try:
-                    return float(usd), unit
-                except (TypeError, ValueError):
+                    return Decimal(str(usd)), unit
+                except Exception:  # noqa: BLE001
                     pass
     return None
 
@@ -164,7 +288,7 @@ _SKU_SKIP_MARKERS: tuple[str, ...] = (
 
 
 def _classify_sku(usage_type: str, unit: str) -> str | None:
-    """Return 'input_per_1k', 'output_per_1k', or None to skip.
+    """Return 'input_per_1m', 'output_per_1m', or None to skip.
 
     Recognises both modern (``*-input-tokens`` / ``*-output-tokens``, with the
     standard on-demand tier as the bare suffix) and legacy (``Inp-`` / ``Otp-``)
@@ -176,22 +300,21 @@ def _classify_sku(usage_type: str, unit: str) -> str | None:
         return None
     if any(marker in u for marker in _SKU_SKIP_MARKERS):
         return None
-    # Strict: standard on-demand SKUs end with `input-tokens` / `output-tokens`
-    # with no trailing tier modifier. The skip-markers above already drop the
-    # batch/flex/priority/etc. variants, so a plain suffix match is now safe.
     if "output-tokens" in u or "-otp-" in u or u.endswith("otp"):
-        return "output_per_1k"
+        return "output_per_1m"
     if "input-tokens" in u or "-inp-" in u or u.endswith("inp"):
-        return "input_per_1k"
+        return "input_per_1m"
     return None
 
 
-def _fetch_all_bedrock_pricing(target_region: str) -> dict[str, dict[str, float]]:
-    """Return {lowercase_model_name: {input_per_1k, output_per_1k}}.
+def _fetch_all_bedrock_pricing(
+    target_region: str,
+) -> tuple[dict[str, dict[str, float]], str | None]:
+    """Return ({lowercase_model_name: {input_per_1m, output_per_1m}}, error).
 
-    Filters by ``regionCode`` so prices match the target Bedrock region.
-    Best-effort — returns empty dict on failure. Always converts to a per-1K
-    basis: if a SKU is priced per-token, multiply by 1000.
+    Filters by ``regionCode`` so prices match the target Bedrock region. Always
+    converts to USD per 1,000,000 tokens. On failure returns ({}, "<ErrorName>")
+    so the caller can propagate the error into per-record pricingProbeError.
     """
     pricing = boto3.client("pricing", region_name=_PRICING_ENDPOINT_REGION)
     out: dict[str, dict[str, float]] = {}
@@ -222,18 +345,22 @@ def _fetch_all_bedrock_pricing(target_region: str) -> dict[str, dict[str, float]
                 kind = _classify_sku(usage_type, unit)
                 if kind is None:
                     continue
-                # Normalise to per-1K. AWS unit strings include "1K tokens",
-                # "1,000 tokens", and bare "tokens" — multiply if the unit is
-                # per-token, otherwise take as-is.
+                # AWS Bedrock token SKUs report unit as "1K tokens" almost
+                # universally. Normalise to per-1M with Decimal arithmetic so
+                # the conversion is exact — multiplying a parsed Decimal by
+                # Decimal('1000') gives clean values like 0.06 instead of the
+                # 0.060000000000000005 float artefact.
                 u = unit.lower()
-                if "1k" not in u and "1,000" not in u and "1000" not in u:
-                    # Likely per-token (e.g. "tokens"); convert.
-                    price = price * 1000.0
-                out.setdefault(model_name.lower(), {})[kind] = price
+                if "1k" in u or "1,000 tokens" in u or "1000 tokens" in u:
+                    price_per_1m_d = price * Decimal("1000")
+                else:
+                    price_per_1m_d = price * Decimal("1000000")
+                out.setdefault(model_name.lower(), {})[kind] = float(price_per_1m_d)
     except (ClientError, BotoCoreError) as exc:
-        logger.warning("AWS Pricing API call failed: %s", exc)
-        return {}
-    return out
+        err = type(exc).__name__
+        logger.warning("AWS Pricing API call failed: %s (%s)", exc, err)
+        return {}, err
+    return out, None
 
 
 def _build_pricing_candidates(entry: dict[str, Any]) -> list[str]:
@@ -248,16 +375,16 @@ def _build_pricing_candidates(entry: dict[str, Any]) -> list[str]:
         candidates.append(mid)
         candidates.append(mid.split(":")[0])
         candidates.append(mid.split("/")[-1])
-        # Strip a leading "us." or "eu." cross-region inference prefix
-        for prefix in ("us.", "eu.", "apac."):
+        for prefix in ("us.", "eu.", "apac.", "global."):
             if mid.startswith(prefix):
-                candidates.append(mid[len(prefix):])
-                candidates.append(mid[len(prefix):].split(":")[0])
+                stripped = mid[len(prefix):]
+                candidates.append(stripped)
+                candidates.append(stripped.split(":")[0])
     for m in entry.get("models", []) or []:
         arn = (m.get("modelArn") or "").lower()
         if arn:
             candidates.append(arn.split("/")[-1])
-    # De-duplicate while preserving order
+    # De-duplicate while preserving order.
     seen: set[str] = set()
     ordered: list[str] = []
     for c in candidates:
@@ -270,27 +397,47 @@ def _build_pricing_candidates(entry: dict[str, Any]) -> list[str]:
 def _attach_pricing(
     entry: dict[str, Any],
     pricing_map: dict[str, dict[str, float]],
-) -> dict[str, Any]:
-    """Return a pricing dict for ``entry``, best-effort matched against pricing_map."""
+    global_pricing_error: str | None,
+) -> tuple[dict[str, Any], str | None]:
+    """Return (pricing_dict, pricingProbeError).
+
+    pricing_dict always has the same keys (input_per_1m, output_per_1m,
+    currency, source) with prices possibly null. pricingProbeError is:
+      - the global Pricing API error if the upstream fetch failed
+      - "NotFoundInPricingAPI" if no SKU matched
+      - None on a successful lookup
+    """
+    if global_pricing_error is not None:
+        return (
+            {
+                "input_per_1m": None,
+                "output_per_1m": None,
+                "currency": "USD",
+                "source": "aws-pricing-api",
+            },
+            global_pricing_error,
+        )
+
     candidates = _build_pricing_candidates(entry)
     chosen: dict[str, float] | None = None
-    # Exact match first
     for cand in candidates:
         if cand in pricing_map:
             chosen = pricing_map[cand]
             break
-    # Substring fallback
     if chosen is None:
         for key, value in pricing_map.items():
             if any(cand and (cand in key or key in cand) for cand in candidates):
                 chosen = value
                 break
-    return {
-        "input_per_1k": (chosen or {}).get("input_per_1k"),
-        "output_per_1k": (chosen or {}).get("output_per_1k"),
+
+    pricing = {
+        "input_per_1m": (chosen or {}).get("input_per_1m"),
+        "output_per_1m": (chosen or {}).get("output_per_1m"),
         "currency": "USD",
         "source": "aws-pricing-api",
     }
+    error = None if chosen is not None else "NotFoundInPricingAPI"
+    return pricing, error
 
 
 async def _probe_all(
@@ -316,8 +463,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         )
     )
     p.add_argument("--region", default="us-east-1")
-    p.add_argument("--out", default=Path("bedrock-models.json"), type=Path)
+    p.add_argument(
+        "--out-dir",
+        default=Path("."),
+        type=Path,
+        help="Directory for output files (default: current dir).",
+    )
     p.add_argument("--concurrency", type=int, default=8)
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="Also write bedrock-models-unavailable.json for AccessDenied models.",
+    )
     p.add_argument(
         "--dry-run",
         action="store_true",
@@ -351,8 +508,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Fetching AWS Pricing API records...", file=sys.stderr)
-    pricing_map = _fetch_all_bedrock_pricing(args.region)
-    print(f"Loaded pricing for {len(pricing_map)} model names.", file=sys.stderr)
+    pricing_map, pricing_global_error = _fetch_all_bedrock_pricing(args.region)
+    if pricing_global_error:
+        print(
+            f"WARN: AWS Pricing API fetch failed ({pricing_global_error}); "
+            "all records will carry pricingProbeError.",
+            file=sys.stderr,
+        )
+    else:
+        print(f"Loaded pricing for {len(pricing_map)} model names.", file=sys.stderr)
 
     print(
         f"Probing {len(entries)} entries (concurrency={args.concurrency})...",
@@ -360,31 +524,65 @@ def main(argv: list[str] | None = None) -> int:
     )
     probe_results = asyncio.run(_probe_all(entries, args.region, args.concurrency))
 
-    augmented: list[dict[str, Any]] = []
+    canonical_providers = _build_canonical_provider_map(foundation)
+
+    available: list[dict[str, Any]] = []
+    unavailable: list[dict[str, Any]] = []
     n_tool = n_priced = n_access_denied = 0
-    for entry, (tool_calling, probe_error) in zip(entries, probe_results, strict=True):
+    for entry, (tool_supported, tool_probe_error) in zip(
+        entries, probe_results, strict=True
+    ):
         record = dict(entry)
         record["entryKind"] = _entry_kind(entry)
-        record["toolCalling"] = tool_calling
-        if probe_error is not None:
-            record["probeError"] = probe_error
-        record["pricing"] = _attach_pricing(entry, pricing_map)
-        augmented.append(record)
-        if tool_calling is True:
-            n_tool += 1
-        if record["pricing"]["input_per_1k"] is not None:
-            n_priced += 1
-        if probe_error == "AccessDenied":
-            n_access_denied += 1
+        record["providerName"] = _provider_of(entry, canonical_providers)
+        record["toolCallingSupported"] = tool_supported
+        record["toolProbeError"] = tool_probe_error
+        pricing, pricing_probe_error = _attach_pricing(
+            entry, pricing_map, pricing_global_error
+        )
+        record["pricing"] = pricing
+        record["pricingProbeError"] = pricing_probe_error
 
-    args.out.write_text(
-        json.dumps(augmented, indent=2, default=str) + "\n",
+        if tool_supported is True:
+            n_tool += 1
+        if pricing["input_per_1m"] is not None:
+            n_priced += 1
+        if tool_probe_error == "AccessDenied":
+            n_access_denied += 1
+            unavailable.append(record)
+        else:
+            available.append(record)
+
+    def _sort_key(r: dict[str, Any]) -> tuple[str, str]:
+        return (r.get("providerName") or "", _entry_id(r))
+
+    available.sort(key=_sort_key)
+    unavailable.sort(key=_sort_key)
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    available_path = args.out_dir / "bedrock-models-available.json"
+    available_path.write_text(
+        json.dumps(available, indent=2, default=str, cls=_DecimalFloatEncoder) + "\n",
         encoding="utf-8",
     )
-    print(
-        f"Wrote {len(augmented)} models to {args.out}; "
+
+    summary = (
+        f"Wrote {len(available)} available models to {available_path}; "
         f"{n_tool} tool-calling, {n_priced} priced, {n_access_denied} access-denied"
     )
+
+    if args.all:
+        unavailable_path = args.out_dir / "bedrock-models-unavailable.json"
+        unavailable_path.write_text(
+            json.dumps(unavailable, indent=2, default=str, cls=_DecimalFloatEncoder)
+            + "\n",
+            encoding="utf-8",
+        )
+        summary += f"; {len(unavailable)} unavailable written to {unavailable_path}"
+    else:
+        summary += f" ({len(unavailable)} unavailable suppressed; pass --all to write)"
+
+    print(summary)
     return 0
 
 
