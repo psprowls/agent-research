@@ -77,30 +77,28 @@ Explicitly excluded from v1.3.
 
 ## Traceability
 
-Filled by `gsd-roadmapper` during ROADMAP.md creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01     | TBD   | Pending |
-| SCAN-02     | TBD   | Pending |
-| TOK-01      | TBD   | Pending |
-| TOK-02      | TBD   | Pending |
-| TOK-03      | TBD   | Pending |
-| WSRES-01    | TBD   | Pending |
-| WSRES-02    | TBD   | Pending |
-| WSRES-03    | TBD   | Pending |
-| CMD-01      | TBD   | Pending |
-| CMD-02      | TBD   | Pending |
-| CMD-03      | TBD   | Pending |
-| REVIEW-01   | TBD   | Pending |
-| REVIEW-02   | TBD   | Pending |
+| SCAN-01     | Phase 17 | Pending |
+| SCAN-02     | Phase 17 | Pending |
+| TOK-01      | Phase 17 | Pending |
+| TOK-02      | Phase 17 | Pending |
+| TOK-03      | Phase 17 | Pending |
+| WSRES-01    | Phase 17 | Pending |
+| WSRES-02    | Phase 17 | Pending |
+| WSRES-03    | Phase 17 | Pending |
+| CMD-01      | Phase 18 | Pending |
+| CMD-02      | Phase 18 | Pending |
+| CMD-03      | Phase 18 | Pending |
+| REVIEW-01   | Phase 19 | Pending |
+| REVIEW-02   | Phase 19 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 13 total
-- Mapped to phases: 0 (roadmapper pending)
-- Unmapped: 13 ⚠️ (expected — populated by roadmapper)
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 
 *Requirements defined: 2026-05-19*
-*Last updated: 2026-05-19 after initial v1.3 scoping*
+*Last updated: 2026-05-19 — traceability populated by gsd-roadmapper (Phase 17-19)*
