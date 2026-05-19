@@ -1,12 +1,6 @@
-[roles.haiku]
-model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-region          = "us-east-1"
-max_tokens      = 1024
-max_concurrency = 10
-
 # Dedicated handle for the BED-01 connectivity ping in eval_harness.preflight.
-# Insulated from `haiku` so re-pointing the cheap alias never silently re-routes
-# the preflight smoke test.
+# Pin a cheap, fast model here — this role is invoked once per sweep purely to
+# confirm AWS credentials and bedrock:InvokeModel permission before spending.
 [roles.preflight]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"

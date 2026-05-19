@@ -2,7 +2,7 @@
 
 Two functions:
 
-  - test_make_llm_haiku_invoke
+  - test_make_llm_preflight_invoke
       Live Bedrock test. Marked @pytest.mark.integration so it is skipped in CI
       by default. Gated additionally by CODE_WIKI_RUN_INTEGRATION=1 so even when
       `pytest -m integration` is requested, the test is a no-op unless the
@@ -37,11 +37,11 @@ INTEGRATION_GATE = pytest.mark.skipif(
 
 @pytest.mark.integration
 @INTEGRATION_GATE
-def test_make_llm_haiku_invoke():
+def test_make_llm_preflight_invoke():
     """Calls real Bedrock when CODE_WIKI_RUN_INTEGRATION=1; otherwise skips."""
     from model_adapter.loader import make_llm
 
-    llm = make_llm("haiku")
+    llm = make_llm("preflight")
     result = llm.invoke("Reply with exactly: pong")
     assert result.content  # non-empty
 
@@ -57,7 +57,7 @@ def test_make_llm_raises_bedrock_access_denied_on_bad_creds(monkeypatch):
             "InvokeModel",
         )
 
-    llm = make_llm("haiku")
+    llm = make_llm("preflight")
     monkeypatch.setattr(llm, "_original_invoke", raise_access_denied)
 
     with pytest.raises(BedrockAccessDenied) as exc_info:

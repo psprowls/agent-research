@@ -16,27 +16,16 @@ HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 QWEN_SYNTHESIZER_ARN = "qwen.qwen3-32b-v1:0"
 
 
-def test_make_llm_haiku_returns_chatbedrockconverse_with_haiku_arn():
-    from langchain_aws import ChatBedrockConverse
-    from model_adapter.loader import make_llm
-
-    llm = make_llm("haiku")
-    assert isinstance(llm, ChatBedrockConverse)
-    # ChatBedrockConverse (langchain-aws 1.4.6) stores the constructor `model`
-    # argument as `model_id`. Tests must accept either to remain robust.
-    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == HAIKU_ARN
-
-
 def test_make_llm_preflight_returns_chatbedrockconverse_with_haiku_arn():
-    """The preflight role is a dedicated BED-01 ping handle; it shares the haiku
-    ARN today but is insulated so re-pointing haiku does not silently re-route
-    the connectivity smoke test."""
+    """The preflight role is the dedicated BED-01 ping handle; it currently
+    points at the haiku-4.5 ARN as a cheap, fast smoke-test model."""
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm
 
     llm = make_llm("preflight")
     assert isinstance(llm, ChatBedrockConverse)
+    # ChatBedrockConverse (langchain-aws 1.4.6) stores the constructor `model`
+    # argument as `model_id`. Tests must accept either to remain robust.
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
     assert actual == HAIKU_ARN
 
@@ -66,7 +55,7 @@ def test_invoke_wraps_access_denied_with_arn_and_iam_action(monkeypatch):
     def raise_access_denied(*a, **kw):
         raise _build_client_error("AccessDeniedException")
 
-    llm = make_llm("haiku")
+    llm = make_llm("preflight")
     monkeypatch.setattr(llm, "_original_invoke", raise_access_denied)
 
     with pytest.raises(BedrockAccessDenied) as exc_info:
@@ -85,7 +74,7 @@ def test_invoke_passes_through_non_access_denied_client_error(monkeypatch):
     def raise_validation(*a, **kw):
         raise _build_client_error("ValidationException")
 
-    llm = make_llm("haiku")
+    llm = make_llm("preflight")
     monkeypatch.setattr(llm, "_original_invoke", raise_validation)
 
     with pytest.raises(botocore.exceptions.ClientError) as exc_info:
@@ -98,13 +87,13 @@ def test_invoke_returns_underlying_result_on_success(monkeypatch):
     from model_adapter.loader import make_llm
 
     sentinel = object()
-    llm = make_llm("haiku")
+    llm = make_llm("preflight")
     monkeypatch.setattr(llm, "_original_invoke", lambda *a, **kw: sentinel)
 
     assert llm.invoke("ping") is sentinel
 
 
-ALL_ROLES = ["haiku", "preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
+ALL_ROLES = ["preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
 
 
 @pytest.mark.parametrize("role", ALL_ROLES)
@@ -156,11 +145,3 @@ def test_make_llm_librarian_sets_max_tokens():
     assert getattr(llm, "max_tokens", None) == 2048
 
 
-def test_make_llm_haiku_still_works_after_extension():
-    from langchain_aws import ChatBedrockConverse
-    from model_adapter.loader import make_llm
-
-    llm = make_llm("haiku")
-    assert isinstance(llm, ChatBedrockConverse)
-    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == HAIKU_ARN

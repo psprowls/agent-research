@@ -3,12 +3,6 @@
 # Reasoning roles (librarian, synthesizer): Claude Sonnet 4.6
 # Judge slots (judge_a, judge_b): preserved verbatim from models-qwen.toml
 
-[roles.haiku]
-model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-region          = "us-east-1"
-max_tokens      = 1024
-max_concurrency = 10
-
 # Dedicated BED-01 connectivity ping handle.
 [roles.preflight]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"

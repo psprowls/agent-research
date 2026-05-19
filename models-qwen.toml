@@ -2,12 +2,6 @@
 # Fan-out roles (scanner, linter, ingestor): Qwen3 32B (on-demand, no us. prefix)
 # Reasoning roles (librarian, synthesizer): Qwen3 Coder 480B A35B
 
-[roles.haiku]
-model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-region          = "us-east-1"
-max_tokens      = 1024
-max_concurrency = 10
-
 # Dedicated BED-01 connectivity ping handle.
 [roles.preflight]
 model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
