@@ -19,3 +19,4 @@ workspace-io = { workspace = true }
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]
