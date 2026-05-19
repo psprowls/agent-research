@@ -59,3 +59,71 @@ def test_read_raises_on_v1(tmp_path):
     )
     with pytest.raises(RuntimeError):
         read(mpath)
+
+
+def test_plugin_block_default_when_missing(tmp_path):
+    """D-02: plugin block absent → returns {backend_default: 'claude', backend_overrides: {}}."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n",
+        encoding="utf-8",
+    )
+    result = read(mpath)
+    assert result["plugin"] == {"backend_default": "claude", "backend_overrides": {}}
+
+
+def test_plugin_block_passthrough(tmp_path):
+    """D-02: known plugin keys are returned verbatim."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "plugin:\n  backend_default: bedrock\n  backend_overrides:\n    ingest: bedrock\n",
+        encoding="utf-8",
+    )
+    result = read(mpath)
+    assert result["plugin"] == {"backend_default": "bedrock", "backend_overrides": {"ingest": "bedrock"}}
+
+
+def test_plugin_block_raises_on_unknown_key(tmp_path):
+    """D-02: unknown keys in plugin block raise RuntimeError."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "plugin:\n  foo: bar\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="unknown keys"):
+        read(mpath)
+
+
+def test_plugin_block_raises_on_invalid_backend(tmp_path):
+    """D-02: invalid backend values raise RuntimeError."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    # backend_default with invalid value
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "plugin:\n  backend_default: aws\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="must be one of"):
+        read(mpath)
+    # backend_overrides with invalid value
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "plugin:\n  backend_overrides:\n    lint: gpt\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="must be one of"):
+        read(mpath)
+
+
+def test_plugin_block_raises_when_not_mapping(tmp_path):
+    """D-02: plugin value that is not a mapping raises RuntimeError."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "plugin: claude\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="must be a mapping"):
+        read(mpath)
