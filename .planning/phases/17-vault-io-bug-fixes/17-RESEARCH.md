@@ -451,7 +451,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | A5 | The "35 pages at tokens: 0" claim from the todo / SC#2 is still accurate at TOK-03 execution time | Runtime State Inventory | LOW — if pages have been touched in the interim, count may differ; TOK-03 re-stamp is idempotent so this only affects the transcript number |
 | A6 | The lint module's `_parse_workflow_hints` function (private, underscore-prefixed) is safe to import from `scan_monorepo.py` | Code Examples | LOW — both modules are in the same package (`vault_io`); if the executor prefers, the parser can be promoted to `lint.workflow_hints.parse_workflow_hints` (public) in the same commit, or duplicated inline |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the companion-source mechanism be implemented as "read parent overview frontmatter inside `_collect`" or "extend `layout_io.read_layout` to expose per-page workflow_hints across the vault"?**
    - What we know: workflow_hints is per-page frontmatter, not layout-block. The lint module already parses it per-page.
