@@ -27,12 +27,18 @@ import pytest
 
 HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
+# Canonical CODE_WIKI_RUN_INTEGRATION gate — matches conftest.py:19-22 verbatim
+# so the docs/testing.md grep gate sees this file as canonical (D-10).
+INTEGRATION_GATE = pytest.mark.skipif(
+    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
+    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+)
+
 
 @pytest.mark.integration
+@INTEGRATION_GATE
 def test_make_llm_haiku_invoke():
     """Calls real Bedrock when CODE_WIKI_RUN_INTEGRATION=1; otherwise skips."""
-    if not os.environ.get("CODE_WIKI_RUN_INTEGRATION"):
-        pytest.skip("Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations")
     from model_adapter.loader import make_llm
 
     llm = make_llm("haiku")
