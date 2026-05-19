@@ -57,7 +57,11 @@ def write_trace_record(
     tokens_out: int | None = None
     if response is not None and hasattr(response, "usage_metadata"):
         meta = response.usage_metadata  # None on ThrottlingException / content filter
-        if meta is not None:
+        # Defensive isinstance(dict) check — guards against bare-MagicMock test
+        # responses where usage_metadata auto-resolves to a MagicMock object that
+        # is neither None nor dict-like. Real ChatBedrockConverse responses are
+        # always dict or None.
+        if isinstance(meta, dict):
             tokens_in = meta.get("input_tokens")
             tokens_out = meta.get("output_tokens")
 

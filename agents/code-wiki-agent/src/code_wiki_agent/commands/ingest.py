@@ -22,12 +22,15 @@ Cross-ref update scope (CONTEXT.md deferred decision):
 
 import logging
 import re
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
+from subagent_runtime.trace_io import write_trace_record
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.append_log import append_log
 from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
@@ -435,7 +438,38 @@ async def run_ingest_source(
         )
     else:
         llm = make_llm("ingestor")
-    resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
+    resolved_model_id = model_override or ingestor_cfg["model_id"]
+    # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
+    # to disk for every production ingest invocation, not just pool-driven calls.
+    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+    t0 = time.monotonic()
+    try:
+        resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        write_trace_record(
+            trace_file,
+            role="ingestor",
+            model_id=resolved_model_id,
+            item=str(source_path),
+            status="error",
+            latency_ms=latency_ms,
+            response=None,
+            error=str(exc),
+        )
+        raise
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="ingestor",
+        model_id=resolved_model_id,
+        item=str(source_path),
+        status="success",
+        latency_ms=latency_ms,
+        response=resp,
+    )
     llm_output: str = resp.content
 
     # Step 6: parse response to get page_type and target_slug
