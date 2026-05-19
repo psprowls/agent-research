@@ -1,8 +1,8 @@
 ---
 phase: 16-carry-forward-debt-cleanup
 verified: 2026-05-19T00:00:00Z
-status: human_needed
-score: 5/5 must-haves verified — 3 fully verified, 2 verified with documented substitutions that require human acknowledgment (HUMAN-UAT items 2/3/4 remain pending; G-01 from prior verification CLOSED via 16-02 plan)
+status: passed
+score: 5/5 must-haves verified — G-01 CLOSED via Plan 16-02 (Bedrock-verified); all 4 HUMAN-UAT items acknowledged by Pat on 2026-05-19 (SC#1 fan-out test passing, SC#2 scanner substitution accepted, SC#3 event-driven trigger accepted, SC#2 code_reader case structure accepted)
 overrides_applied: 0
 gaps:
   - id: G-01
