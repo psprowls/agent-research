@@ -32,12 +32,15 @@ def _find_integration_test_files() -> list[Path]:
     """Walk the repo for every integration test file we should enforce against.
 
     Returns sorted list for deterministic test parametrization / failure output.
-    Excludes the worktree's own tracked .venv if any.
+    Excludes virtualenvs and ephemeral agent worktrees under .claude/worktrees/,
+    which contain stale snapshots that don't reflect current code.
     """
     matches: list[Path] = []
     for path in _REPO_ROOT.rglob("tests/integration/test_*.py"):
-        # Skip anything that ends up inside a virtual environment by accident.
-        if ".venv" in path.parts or "site-packages" in path.parts:
+        parts = path.parts
+        if ".venv" in parts or "site-packages" in parts:
+            continue
+        if ".claude" in parts and "worktrees" in parts:
             continue
         matches.append(path)
     return sorted(matches)
