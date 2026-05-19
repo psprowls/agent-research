@@ -189,3 +189,13 @@ agents/code-wiki-agent/tests/prompts/test_provenance.py
 # across clean-checkout CI and local dev environments.
 # ---------------------------------------------------------------------------
 .pytest_cache/v/cache/nodeids
+
+# ---------------------------------------------------------------------------
+# Phase 14 plugin port — graph-wiki README files explicitly name the upstream
+# `lattice-wiki` plugin as the ported origin (Provenance + Upstream-reference
+# class, same as other Phase 14 plan entries above).
+# ---------------------------------------------------------------------------
+# rationale: Provenance — plugins/graph-wiki/README.md intro names the upstream plugin ported from.
+plugins/graph-wiki/README.md
+# rationale: Provenance — skills/graph-wiki/README.md header names the upstream lattice-wiki port.
+plugins/graph-wiki/skills/graph-wiki/README.md
