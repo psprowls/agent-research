@@ -1,17 +1,19 @@
 ---
 phase: 16-carry-forward-debt-cleanup
 verified: 2026-05-19T00:00:00Z
-status: gaps_found
-score: 4/5 must-haves verified — SC#1 demoted to FAILED after gated Bedrock run revealed librarian path drops usage_metadata (G-01); 2 remaining SCs have documented substitutions requiring human ack
+status: human_needed
+score: 5/5 must-haves verified — 3 fully verified, 2 verified with documented substitutions that require human acknowledgment (HUMAN-UAT items 2/3/4 remain pending; G-01 from prior verification CLOSED via 16-02 plan)
 overrides_applied: 0
 gaps:
   - id: G-01
     sc: 1
-    summary: "Librarian fan-out trace records emit tokens_in=None, tokens_out=None despite status=success. SubagentPool.run_all writes the trace via write_trace_record but the drill_page callback in query.py:903-914 returns only resp.content, dropping usage_metadata before the pool can read it. Phase 16 D-03/D-05 wired the synthesizer + ingest call sites; the librarian path (the dominant token consumer) was never re-plumbed."
-    evidence: "CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v → FAILED 2026-05-19. Record: role=librarian model=us.anthropic.claude-haiku-4-5-20251001-v1:0 item=packages/lattice-curator-core/context.md status=success latency_ms=4131 tokens_in=None tokens_out=None cost_usd=None."
-    remediation: "Extend the SubagentPool task contract so per-item callbacks can surface usage_metadata back to the pool's trace writer. Two viable shapes: (a) drill_page returns (content, tokens_in, tokens_out) and pool.run_all consumes the tuple; (b) pool exposes a response-aware hook that extracts usage_metadata itself. See 16-HUMAN-UAT.md G-01 for fuller analysis."
-    files_touched_by_fix: ["packages/subagent-runtime/src/subagent_runtime/pool.py", "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py"]
-    recommended_route: "/gsd:plan-phase 16 --gaps"
+    status: CLOSED
+    closed: 2026-05-19
+    closed_by: "Plan 16-02"
+    summary: "Librarian fan-out trace records emitted tokens_in=None, tokens_out=None despite status=success. SubagentPool.run_all wrote the trace via write_trace_record but the drill_page callback in query.py:903-914 returned only resp.content, dropping usage_metadata before the pool could read it. Phase 16 D-03/D-05 wired the synthesizer + ingest call sites; the librarian path (the dominant token consumer) was never re-plumbed until Plan 16-02."
+    closure_evidence: "Plan 16-02 extended SubagentPool with an opt-in TaskResult(value=..., response=...) contract (commit e97ae7f) and migrated all 4 production fan-out callsites — scanner, linter, librarian, code_reader (commit 629f077). Plan 16-02 also self-isolated the gated test from stale fixture-vault traces (commit 4df6ace). Re-run on 2026-05-19: `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` → `1 passed in 14.02s`. Sample librarian success records now carry: tokens_in=2804/2536/3597, tokens_out=119/118/307, cost_usd=$0.0034/$0.0031/$0.0051 (3 different vault items, all on us.anthropic.claude-haiku-4-5-20251001-v1:0)."
+    files_touched_by_fix: ["packages/subagent-runtime/src/subagent_runtime/pool.py", "packages/subagent-runtime/src/subagent_runtime/__init__.py", "packages/subagent-runtime/tests/test_pool.py", "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py", "agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py", "agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py", "agents/code-wiki-agent/tests/integration/test_trace_coverage.py"]
+    notes: "Original 2026-05-19 failure was partially a test fixture bug (stale committed traces being read by the integration test's glob walk); Phase 16-02 added test self-isolation via shutil.rmtree of the copied traces dir after copytree. NOTE: fixture-side deletion + .gitignore was attempted but reverted — those committed JSONLs are load-bearing for agents/code-wiki-agent/tests/unit/test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once (D-04 v0-unversioned-record fixture). Pool-side fix in 16-02 still necessary regardless — the librarian callback was dropping usage_metadata before reaching the pool's trace writer."
 human_verification:
   - test: "Run the gated TRACE-FU-01 regression test against real Bedrock"
     expected: "`CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` exits 0 and the assertion `tokens_in/tokens_out is not None` holds for every non-error / non-event JSONL record produced by a real fan-out against the round-trip fixture vault."
@@ -32,7 +34,7 @@ human_verification:
 **Date:** 2026-05-19
 **Plan:** 16-01 (carry-forward debt cleanup)
 **Phase goal (from ROADMAP):** The v1.1 close-out debt items (trace pipeline gap, sweep matrix gaps, MCP cancel closure, model-config test drift) are resolved or explicitly re-deferred with documented justification.
-**Status:** gaps_found (was human_needed; demoted after gated Bedrock run)
+**Status:** human_needed (G-01 CLOSED 2026-05-19; 3 judgment-call HUMAN-UAT items remain pending)
 **Verifier:** gsd-verifier (audited the executor's pre-populated VERIFICATION.md against the actual codebase) + orchestrator post-hoc gate (ran the SC#1 gated test and recorded G-01)
 
 ---
@@ -41,13 +43,13 @@ human_verification:
 
 | # | Truth (Success Criterion) | Status | Evidence |
 |---|---------------------------|--------|----------|
-| 1 | SC#1 — Every production trace JSONL from `commands/{scan,lint,ingest,query}` includes `usage_metadata` with input/output token counts (verified by a regression test that runs a real fan-out). | ✗ FAILED (G-01) | Code paths in `ingest.py:452,464` (success+error) and `query.py:536,972` (synthesizer call sites) correctly delegate to `subagent_runtime.trace_io.write_trace_record`. 5 fast unit tests + 3 trace_io unit tests PASS for those paths. BUT the gated regression test was executed against real Bedrock on 2026-05-19 and **FAILED**: librarian fan-out emits `tokens_in=None, tokens_out=None, cost_usd=None` on `status=success` records. Root cause: `drill_page` task callback in `query.py:903-914` returns only `resp.content`; `SubagentPool.run_all` writes the trace but never sees `usage_metadata`. See gap G-01 in frontmatter for remediation paths. |
+| 1 | SC#1 — Every production trace JSONL from `commands/{scan,lint,ingest,query}` includes `usage_metadata` with input/output token counts (verified by a regression test that runs a real fan-out). | ✓ VERIFIED (G-01 CLOSED) | Plan 16-02 extended SubagentPool with an opt-in `TaskResult(value=..., response=...)` contract and migrated all 4 production fan-out callsites (scanner, linter, librarian, code_reader) to surface `usage_metadata` back to `write_trace_record`. Gated regression re-run on 2026-05-19: `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` → `1 passed in 14.02s`. Sample librarian success records carry non-None tokens — `concepts/code-wiki-pattern.md` tokens_in=2804/tokens_out=119, `packages/lattice-curator-core/context.md` tokens_in=2536/tokens_out=118, `concepts/lattice-vault-terminology.md` tokens_in=3597/tokens_out=307. See gap G-01 in frontmatter (`status: CLOSED`) and the `## G-01 Closure (Phase 16-02)` section at the end of this file. |
 | 2 | SC#2 — sweep matrix runs DivergenceMetric across all in-scope roles + writes per-role scores; code_reader cases produce non-trivial scores; scanner re-sweep without regression vs. v1.1. | ⚠ VERIFIED (with caveats) | `two_gate.py:35-37` `ROLES_WITH_DIVERGENCE = frozenset({librarian, ingestor, linter, scanner, code_reader, synthesizer})` — 6 roles. `divergence/__init__.py` ROLE_CHECKS / ROLE_RUBRICS keyed on all 6. New rubrics + rule modules exist on disk for code_reader + synthesizer (4 hard + 1 soft each, anchored to `prompt-sources/agents/{code_reader,synthesizer}.md`). `code_reader_cases.json` expanded 3 → 6 (verified via `test_code_reader_cases_json_loads` PASS). Scanner fixture vault present (6 packages, no `lattice*` symbols); `test_scanner_regression.py` 8/8 PASS. BUT: actual model-sweep producing scores NOT executed; live-vault re-sweep substituted with deterministic SCANNER_CHECKS pass-rate (65%). Items 2 + 4 in human verification cover these substitutions. |
 | 3 | SC#3 — Either real wire-level cancel verified end-to-end OR deferral re-documented in docs/cancellation.md with current blocker + fresh re-evaluation date. | ⚠ VERIFIED (with caveat) | `docs/cancellation.md` §4 cites both upstream blockers verbatim with PyPI / GitHub URLs (langchain-aws#663 unmerged; aioboto3 not at GA). §5 documents event-driven re-eval trigger (D-09). Deferral IS re-documented; blocker IS named. BUT the SC literally says "re-evaluation **date**" — the chosen event-driven trigger is a deliberate deviation. Item 3 in human verification covers explicit acceptance. |
 | 4 | SC#4 — `CODE_WIKI_RUN_INTEGRATION` opt-in gate semantics consistent across all gated tests (single rule documented centrally; no test diverges silently). | ✓ VERIFIED | `docs/testing.md` is the canonical 5-section spec (basis / pattern / canonical block / inventory / future). `tests/test_integration_gate.py` grep-gate meta-test walks every `**/tests/integration/test_*.py` and asserts canonical regex OR `# integration-gate-allow` marker. `test_bedrock_iam.py:32,39` uses canonical INTEGRATION_GATE decorator. `test_mcp_cancel.py:3` has the allowlist marker. Meta-test PASS. Post-merge fix a530ddb correctly excludes `.claude/worktrees/` from discovery (verified in current code at `tests/test_integration_gate.py:43-44`). |
 | 5 | SC#5 — `test_load_role_config_synthesizer_uses_sonnet` renamed/rewritten to assert current Qwen synthesizer default; `uv run pytest` is green. | ✓ VERIFIED | `packages/model-adapter/tests/test_loader.py:129-138` `test_load_role_config_synthesizer_limits` asserts `cfg["model_id"] == "qwen.qwen3-32b-v1:0"` AND `cfg["model_id"] == QWEN_SYNTHESIZER_ARN` (literal + constant pinned together). Test PASSES. Full non-integration suite: **549 passed, 22 skipped in 34.55s** (re-verified by gsd-verifier). |
 
-**Score:** 5/5 must-haves verified — 2 fully verified, 3 verified with documented substitutions/deviations that require human acknowledgment.
+**Score:** 5/5 must-haves verified — 3 fully verified, 2 verified with documented substitutions that require human acknowledgment (HUMAN-UAT items 2/3/4 remain pending; G-01 from prior verification CLOSED via 16-02 plan).
 
 ---
 
@@ -107,7 +109,7 @@ All 17 created files exist; all 13 modified files match the planned changes.
 | Critical phase-16 tests pass | `uv run pytest tests/test_integration_gate.py packages/model-adapter/tests/test_loader.py::test_load_role_config_synthesizer_limits packages/eval-harness/tests/test_scanner_regression.py packages/eval-harness/tests/test_models_toml_sweep_candidates.py::test_code_reader_cases_json_loads packages/subagent-runtime/tests/test_trace_io.py agents/code-wiki-agent/tests/test_ingest_trace_unit.py agents/code-wiki-agent/tests/test_query_trace_unit.py -v` | 19 passed in 0.66s | ✓ PASS |
 | Full non-integration suite green | `uv run pytest -x -q --ignore=agents/code-wiki-agent/tests/integration --ignore=packages/subagent-runtime/tests/integration` | 549 passed, 22 skipped in 34.55s | ✓ PASS |
 | `ROLES_WITH_DIVERGENCE` covers all 6 | `python -c "from eval_harness.two_gate import ROLES_WITH_DIVERGENCE; assert len(ROLES_WITH_DIVERGENCE) == 6"` (verified by reading source) | frozenset of 6 in two_gate.py:35-37 | ✓ PASS |
-| Gated TRACE-FU-01 regression runs against real Bedrock | `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` | SKIPPED in this verification (gate not set) | ? SKIP — routed to human verification item 1 |
+| Gated TRACE-FU-01 regression runs against real Bedrock | `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` | `1 passed in 14.02s` (2026-05-19, after 16-02 pool contract fix + test self-isolation) | ✓ PASS (re-run 2026-05-19 after 16-02 pool contract fix) |
 | Live model-sweep produces actual code_reader scores | `uv run --package eval-harness python -m eval_harness.sweep --role code_reader ...` | NOT executed (judgment call per D-12) | ? SKIP — routed to human verification items 2 + 4 |
 
 ---
@@ -197,3 +199,15 @@ The phase status is `human_needed` (not `passed`) because three SCs contain lite
 
 _Verified: 2026-05-19_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## G-01 Closure (Phase 16-02)
+
+Plan 16-02 closed gap G-01 (librarian fan-out trace records emitting None tokens) via a two-layer fix:
+
+- **Pool contract extension:** `SubagentPool.run_all` now recognizes an opt-in `TaskResult(value=..., response=...)` return shape from task callbacks. When detected via `isinstance`, the pool unwraps `result.value` into `FanOutResult.successes` (preserving the existing scalar contract for downstream consumers) AND passes `result.response` to `write_trace_record` (so `response.usage_metadata` flows into the JSONL trace). Scalar returns continue to work unchanged. Commit `e97ae7f` (`feat(16-02): extend SubagentPool task contract with TaskResult ...`).
+- **Callsite migration:** All 4 production fan-out callbacks now return `TaskResult` — `query.drill_page`, `query.code_drill` (both terminal paths), `scan.generate_stub`, `lint.run_linter_group` (both terminal paths). Commit `629f077` (`fix(16-02): wrap fan-out callbacks in TaskResult ...`).
+- **Test self-isolation:** `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` now `shutil.rmtree`s the copied `.code-wiki/traces` directory immediately after `copytree`, so the assertion only walks records produced by the current run. (Fixture-side deletion of the v0 trace JSONLs was attempted but reverted — they are load-bearing for `test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once` D-04 fixture.) Commit `4df6ace` (`fix(16-02): self-isolate TRACE-FU-01 test from stale fixture traces ...`).
+- **Bedrock re-run:** `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` → `1 passed in 14.02s` on 2026-05-19. Librarian success records emit non-None `tokens_in` / `tokens_out` / `cost_usd`; G-01 fully closed.
+- **Plan reference:** See `.planning/phases/16-carry-forward-debt-cleanup/16-02-PLAN.md` and `16-02-SUMMARY.md` for the full rationale + commit chain.
