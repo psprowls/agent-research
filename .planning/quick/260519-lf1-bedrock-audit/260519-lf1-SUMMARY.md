@@ -55,6 +55,44 @@ uv run --package eval-harness python scripts/bedrock_model_audit.py [flags]
 
 - `scripts/bedrock_model_audit.py` (new)
 
+## Pricing-page scrape (--scrape flag)
+
+Opt-in fifth-tier pricing lookup that scrapes `https://aws.amazon.com/bedrock/pricing/`
+to recover prices for models the AWS Pricing API doesn't carry — primarily all the
+Claude 4.x variants AWS only publishes via inference profile but never as their own
+SKU.
+
+How it works:
+- Fetches the pricing page HTML and the two metered-unit-map JSON files from
+  `b0.p.awsstatic.com` (with the required `Accept-Encoding: gzip, deflate, br`
+  header — the CDN returns 404 without it).
+- The pricing tables are embedded as **HTML-escaped** `&lt;table&gt;...&lt;/table&gt;`
+  chunks inside the larger page; prices are `{priceOf!namespace/namespace!ID}`
+  placeholders resolved client-side. The scraper unescapes the table HTML and
+  resolves placeholders against the JSON id→price map for the target region.
+- Recognises both pricing namespaces: `bedrock` and `bedrockfoundationmodels`.
+- Picks standard on-demand input/output columns by header text — skips batch,
+  cache, flex, priority tiers.
+- First-wins semantics per (model_name, column): the page repeats each model
+  across standard / extended-access / batch / batch+extended tables and the
+  standard table appears first in document order.
+- Marks recovered pricing as `pricing.source = "aws-bedrock-pricing-page"`.
+
+Coverage delta on the us-east-1 run:
+  Before scrape:       66 priced (60% of 110)
+  After scrape:        87 priced (79% of 110) — +21 entries
+  Remaining as-tokens:  2 (Writer Palmyra X4 / X5 — page mentions in body
+                          text but no pricing table row exists for them)
+
+Pricing source distribution after scrape:
+  - aws-pricing-api:         78
+  - aws-pricing-api+alias:   11
+  - aws-bedrock-pricing-page: 19
+
+Costs ~1 extra HTTP request to the pricing page (~6,000 lines, ~250KB) plus
+two pricing-CDN JSON fetches (~250KB and ~1.1MB compressed). Total scrape
+overhead: ~2 seconds added to the audit.
+
 ## Coverage improvements (later in session)
 
 - **Hardcoded alias map** (`_PRICING_NAME_ALIASES`) for known catalog↔Pricing
