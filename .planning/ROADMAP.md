@@ -140,7 +140,8 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   3. Either real DA-CLI wire-level cancel is verified end-to-end (Phase 8 SC#1 closed), or the deferral is re-documented in `docs/cancellation.md` with the current blocker (e.g., aioboto3 status) and a fresh re-evaluation date.
   4. `CODE_WIKI_RUN_INTEGRATION` opt-in gate semantics are consistent across all gated tests (a single rule documented somewhere central; no test diverges silently).
   5. `test_load_role_config_synthesizer_uses_sonnet` is renamed/rewritten to assert the current Qwen synthesizer default; `uv run pytest` is green.
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 16-01-PLAN.md — Bundled atomic plan: 9 step-commits (trace_io extraction + ingest/query refactor + regression test, code_reader/synthesizer divergence rubrics, code_reader_cases expansion, fixture-vault scanner regression, MCP cancel spike + cancellation.md refresh, docs/testing.md + grep gate, synthesizer model_id assertion, live-vault re-sweep + 16-VERIFICATION.md)
 
 ---
 
@@ -161,8 +162,8 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
 | 13. Plugin Spec (M3a) | 5/5 | Complete    | 2026-05-18 |
 | 14. Plugin Port (M3b) | 2/3 | In Progress|  |
 | 15. Wiki Self-Update | 1/1 | Complete   | 2026-05-19 |
-| 16. Carry-Forward Debt Cleanup | 0/0 | Not started | — |
+| 16. Carry-Forward Debt Cleanup | 0/1 | Planned    | — |
 
 ---
 
-*Last updated: 2026-05-19 — Phase 15 plan 15-01 executed; BRAND-03 satisfied; SC#1/#2/#3 evidence captured. Next: `/gsd:verify-phase 15`.*
+*Last updated: 2026-05-19 — Phase 16 plan 16-01 written; ready for execution. Next: `/gsd:execute-phase 16`.*
