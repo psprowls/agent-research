@@ -1,5 +1,43 @@
 # Milestones
 
+## v1.2 Graph-Wiki Port & Debt Cleanup (Shipped: 2026-05-19)
+
+**Phases completed:** 6 phases, 21 plans
+**Timeline:** 2026-05-17 → 2026-05-19 (~3 calendar days, dense execution)
+**Git range:** `92e26fd` → `HEAD` (205 commits)
+**Diff:** 715 files changed, +33,296 / −2,412 lines
+**Requirements:** 30/30 v1.2 requirements satisfied
+**Audit:** none — milestone closed without formal `/gsd:audit-milestone` run (proceeded on green Phase 11-16 VERIFICATION.md + Phase 16 UAT closure)
+
+**Delivered:** Ported `lattice-workspace` into a new `workspace-io` package, swept the `lattice` → `graph-wiki` rebrand across the entire ecosystem, locked + ported the `graph-wiki` Claude Code plugin (`/graph-wiki:*`), re-synced the project's own wiki against the post-rebrand codebase, and closed the v1.1 carry-forward debt around trace pipeline, sweep coverage, MCP cancellation, and model config drift.
+
+### Key accomplishments
+
+- **workspace-io package shipped** — new `packages/workspace-io/` ported from upstream `lattice-workspace` with `.graph-wiki.yaml` manifest filename (replacing legacy `.lattice.yaml`), `GRAPH_WIKI_WORKSPACE` env var, `GraphWikiConfig` dataclass, and `workspace_io.config.resolve()` upward-walk discovery; `vault-io._workspace.resolve_wiki_and_repo` rewritten as a 2-line delegation shim preserving the explicit-vault_path MCP boundary; 67 ported tests green under `uv run --package workspace-io pytest`; `code-wiki-agent init` performs two-phase bootstrap (`workspace_io.init` first, then `init_wiki`); 18 `CODE_WIKI_REAL_VAULT_PATH` references swept to `GRAPH_WIKI_WORKSPACE` across CLI help, MCP tool descriptions, Pydantic Field descriptions, and docstrings (WS-01..10).
+- **Selective drift backport** — body-diff inventory of 11 overlapping modules between `vault-io` and upstream `lattice-wiki-core` pinned at a fixed SHA; canonical `packages/vault-io/DRIFT-DECISIONS.md` published with verdicts. Zero PORT verdicts: every drift hunk is an intentional vault-io divergence (lib-ification / MCP error handling / no-tiktoken) or out-of-v1.2 subsystem strip (package-family / CLI `main()`) (BACKPORT-01..04).
+- **Ecosystem rebrand complete** — `lattice` / `LATTICE` / `lattice_workspace` / `lattice_wiki_core` swept to `graph-wiki` (kebab) / `graph_wiki` (snake) across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` in 5 atomic commits with `uv run pytest` gated green after each; `scripts/check-brand.sh` + `.brand-grep-allow` enforces ongoing brand discipline; `.planning/spikes/CONVENTIONS.md` `cores/` → `packages/` corrected (BRAND-01/02/04).
+- **Plugin contract locked then ported** — Phase 13 (M3a) produced 9-row CONTRACT-INDEX.md (6 commands rename/reshape, 3 dropped per C-01 work-layer scope-out) + SHELL-OUT-PATTERN.md (SO-01..04) locking that the ported plugin runs on **Claude Code inference** (P-01) — NOT a wrapper around `code-wiki-agent`. The Bedrock-backed `code-wiki-agent` stays as the parallel cost-frontier surface; the two coexist over the same `vault-io` / `workspace-io` helpers. Phase 14 (M3b) ported the plugin to `plugins/graph-wiki/` with renamed `plugin.json` id, `/graph-wiki:*` namespace, agent/skill rename, and shims wired through vault-io; `workspace_io` manifest extended with `[plugin]` backend-selector block (PLUGIN-01..05).
+- **Phase 14 prerequisite ports landed** — `vault_io.lint_wiki` (~509 LOC) and `vault_io.wiki_search` (~194 LOC) verbatim-ported from upstream `lattice_wiki_core` with brand rename and `_version_check` removal, unblocking the `/graph-wiki:lint` and `/graph-wiki:query` plugin shims (VP-01).
+- **Project's own wiki self-updated** — `~/Personal/wiki/deep-agents` re-scanned + OTel re-ingested + librarian query run via `code-wiki-agent` using a one-off Claude role-override profile (Haiku 4.5 fan-out + Sonnet 4.6 reasoning) to bring the wiki into alignment with the post-rebrand codebase; 3 operational deviations encountered and auto-fixed inline (`--config` doesn't propagate `vault_path` to subcommands; stale `cores/` container name in wiki CLAUDE.md; BM25 index requires manual rebuild after scan), documented in `15-VERIFICATION.md` (BRAND-03).
+- **v1.1 carry-forward debt closed** — `TaskResult` contract on `SubagentPool.run_all` threads `response.usage_metadata` into JSONL traces; all 4 production fan-out callsites (scanner, linter, librarian, code_reader) emit non-None tokens_in/tokens_out/cost_usd on per-item trace records; gated TRACE-FU-01 regression passes against real Bedrock. DivergenceMetric wired through all 6 in-scope roles with rubrics for code_reader + synthesizer; 6 code_reader cases re-tuned against post-rebrand surfaces; scanner re-swept against fresh-package vault (65% deterministic SCANNER_CHECKS pass-rate accepted as "no regression vs. v1.1 baseline" — 7 SCN-002/SCN-003 failures excused as structural mismatch). MCP wire-level cancel formally re-deferred behind event-driven trigger (langchain-aws#663 merged OR aioboto3 GA/1.0) in `docs/cancellation.md §5`. Integration-gate convention codified in `docs/testing.md` + grep-enforced. `test_load_role_config_synthesizer_uses_sonnet` rewritten to assert the current Qwen synthesizer default (TRACE-FU-01, SWEEP-FU-02/03/04, MCP-CAN-01/02, MODEL-FU-01).
+
+### Known deferred items at close
+
+4 open items (see STATE.md `## Deferred Items`):
+
+- 🟡 3 pending tooling todos: `fix-bedrock-count-tokens-api-shape-in-update-tokens`, `fix-workspace-repo-resolution-in-init-vault-and-detect-conta`, `rename-graph-wiki-init-command-to-init-wiki` — defer to v1.3
+- 🔵 `next-milestone-planning` thread (intentional carry-forward to v1.3)
+
+Phase 16 code review surfaced 6 warnings + 9 info findings (0 critical); not blocking but rolled into v1.3 backlog.
+
+Phase 14 SC#4 was accepted on structural evidence (plugin loads + brand-gate clean) without a captured `/graph-wiki:query` smoke transcript from Claude Code; v1.3 should record the transcript as a regression artifact.
+
+### v1.3 carry-forward themes
+
+Open-source release prep (README badges, contribution guide, PyPI publish dry-run) — explicitly deferred to v2.0 GA in PROJECT.md. Nyquist compliance retroactive validation (0/5 v1.1 phases + 0/6 v1.2 phases reached `nyquist_compliant: true`) — needs a v1.3 decision (retro-validate vs. disable the toggle).
+
+---
+
 ## v1.1 Quality Improvements (Shipped: 2026-05-17)
 
 **Phases completed:** 5 phases, 39 plans, ~150 tasks
@@ -23,6 +61,7 @@
 ### Known deferred items at close
 
 4 open items (see STATE.md `## Deferred Items` and `milestones/v1.1-MILESTONE-AUDIT.md`):
+
 - Phase 8 SC#1 + SC#2 documented scope narrowings awaiting owner sign-off (acknowledged; not blocking)
 - 06-UAT.md metadata-only status mismatch (0 open scenarios)
 - `next-milestone-planning` thread (intentional carry-forward to v1.2)

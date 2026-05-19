@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Graph-Wiki Port & Debt Cleanup
-status: completed
+milestone: null
+milestone_name: null
+status: Awaiting next milestone
 stopped_at: Phase 16 context gathered
-last_updated: "2026-05-19T18:49:47.431Z"
-last_activity: 2026-05-19 -- Phase 16 marked complete
+last_updated: "2026-05-19T19:23:55.888Z"
+last_activity: 2026-05-19 — Milestone v1.2 completed and archived
 progress:
   total_phases: 6
   completed_phases: 6
@@ -16,29 +16,29 @@ progress:
 
 # Project State: deep-agents
 
-**Last updated:** 2026-05-17
-**Updated by:** gsd-roadmapper (milestone v1.2 roadmap created — Phases 11-16)
+**Last updated:** 2026-05-19
+**Updated by:** gsd-complete-milestone (v1.2 SHIPPED)
 
 ---
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-17 after milestone v1.1 SHIPPED)
+See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
-**Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
+**Core Value:** Faithfully reproduce the upstream graph-wiki (formerly lattice-wiki) wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 16 — carry-forward-debt-cleanup
+**Current Focus:** Between milestones — v1.2 SHIPPED 2026-05-19. Run `/gsd:new-milestone` to scope v1.3.
 
-**North Star:** `code-wiki-agent query "..."` returns answers as good as today's lattice-wiki librarian, on cheaper Bedrock models, faster.
+**North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
 ---
 
 ## Current Position
 
-Phase: 16 — COMPLETE
-Plan: 2 of 2
-Status: Phase 16 complete
-Last activity: 2026-05-19 -- Phase 16 marked complete
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-19 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
@@ -53,11 +53,11 @@ Last activity: 2026-05-19 -- Phase 16 marked complete
 | Plans written (v1.1) | 39 |
 | Plans complete (v1.1) | 39 |
 | Phases total (v1.2) | 6 |
-| Phases complete (v1.2) | 0 |
+| Phases complete (v1.2) | 6 |
 | Requirements total (v1.2) | 30 |
-| Requirements complete (v1.2) | 0 |
-| Plans written (v1.2) | 0 |
-| Plans complete (v1.2) | 0 |
+| Requirements complete (v1.2) | 30 |
+| Plans written (v1.2) | 21 |
+| Plans complete (v1.2) | 21 |
 
 ---
 
@@ -96,8 +96,7 @@ Phase 15 execution outcomes (2026-05-19):
 
 ### Active TODOs
 
-- Run `/gsd:verify-phase 15` to confirm Phase 15 closure and produce phase audit
-- Run `/gsd:plan-phase 16` for carry-forward debt cleanup (Phase 16 is the only remaining v1.2 phase)
+- Run `/gsd:new-milestone` to scope v1.3 (carry-forward themes captured in `PROJECT.md → Next Milestone`)
 
 ### Blockers
 
@@ -111,43 +110,53 @@ Phase 15 execution outcomes (2026-05-19):
 
 ## Deferred Items
 
-Items acknowledged and deferred at v1.1 milestone close on 2026-05-17 (some re-addressed by v1.2 Phase 16):
+Items acknowledged and deferred at v1.2 milestone close on 2026-05-19:
 
 | Category | Item | Status |
 |----------|------|--------|
-| uat_gap | Phase 06 06-UAT.md | diagnosed (0 open scenarios — metadata only) |
-| uat_gap | Phase 08 08-HUMAN-UAT.md | partial (2 pending scenarios — SC#1 + SC#2 sign-offs) |
-| verification_gap | Phase 08 08-VERIFICATION.md | human_needed (2 documented scope narrowings — addressed by MCP-CAN-01 in Phase 16) |
-| thread | next-milestone-planning | closed (promoted into v1.2 roadmap) |
+| todo | fix-bedrock-count-tokens-api-shape-in-update-tokens | deferred (v1.3 candidate; tooling) |
+| todo | fix-workspace-repo-resolution-in-init-vault-and-detect-conta | deferred (v1.3 candidate; tooling) |
+| todo | rename-graph-wiki-init-command-to-init-wiki | deferred (v1.3 candidate; tooling) |
+| thread | next-milestone-planning | deferred (carry-forward through v1.0 → v1.1 → v1.2 → v1.3; close or convert to requirements when v1.3 is scoped) |
+| review | Phase 16 code review | deferred (6 warnings + 9 info, 0 critical; v1.3 candidate) |
+| uat_gap | Phase 14 SC#4 plugin smoke transcript | deferred (accepted on structural evidence; capture in v1.3) |
+| nyquist | 0/5 v1.1 + 0/6 v1.2 phases compliant | deferred (v1.3 decision: retro-validate vs. disable toggle) |
 
-Full context: `.planning/milestones/v1.1-MILESTONE-AUDIT.md`
+Prior v1.1 deferred items (all addressed in v1.2 Phase 16):
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | Phase 06 06-UAT.md | resolved (metadata fixed) |
+| uat_gap | Phase 08 08-HUMAN-UAT.md | resolved (MCP-CAN-01 closure in Phase 16) |
+| verification_gap | Phase 08 08-VERIFICATION.md | resolved (cancel deferral re-anchored to event trigger, `docs/cancellation.md §5`) |
 
 ---
 
 ## Session Continuity
 
-**Last session:** 2026-05-19T14:47:14.323Z
-**Stopped at:** Phase 16 context gathered
-**Resume file:** .planning/phases/16-carry-forward-debt-cleanup/16-CONTEXT.md
+**Last session:** 2026-05-19T19:25:00.000Z
+**Stopped at:** v1.2 SHIPPED — archives written, ROADMAP/PROJECT/STATE evolved, MILESTONES entry curated
+**Resume file:** none — between milestones
 
 **Critical context for next session:**
 
-- v1.0 shipped: 5 phases, 25 plans, 67/67 requirements; v1.1 shipped: 5 phases, 39 plans, 29/29 requirements. Full retrospective in `.planning/RETROSPECTIVE.md`
-- v1.2 scope: workspace-io port (M1) + drift backport + rebrand (M2) + plugin port (M3) + carry-forward debt; 30 requirements across 6 phases (11-16)
-- Source code for port work lives in `/Users/pat/Personal/lattice/packages/{lattice-workspace,lattice-wiki-core}/` and `/Users/pat/Personal/lattice/plugins/lattice-wiki/`
-- Spike 002 (validated) is the drift map: `.planning/spikes/002-*` — leave-alone decisions for `git_state`, `append_log`, `update_index`, `update_tokens`, `ingest_work_item`, `layout_io`, `detect_containers`, `scan_monorepo`, `ingest_source`
-- Out of scope for v1.2: `work/` subsystem (GSD covers it), package-family monorepo support (different approach planned), OSS release prep (→ v2.0), Nyquist retro (→ v1.3)
-- Workspace renamed: `cores/` → `packages/` (commit `c5a47ba`). Vault writes still go through `packages/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
+- v1.0 shipped: 5 phases, 25 plans, 67/67 requirements; v1.1 shipped: 5 phases, 39 plans, 29/29 requirements; v1.2 shipped: 6 phases, 21 plans, 30/30 requirements. Full retrospective in `.planning/RETROSPECTIVE.md`
+- v1.2 deliverables: `packages/workspace-io/` + `.graph-wiki.yaml` manifest + `GRAPH_WIKI_WORKSPACE` env, full `lattice` → `graph-wiki` rebrand with `scripts/check-brand.sh` grep-gate, `plugins/graph-wiki/` Claude Code plugin (NOT a `code-wiki-agent` wrapper — runs on Claude Code inference; the two coexist), wiki self-update of `~/Personal/wiki/deep-agents`, all v1.1 carry-forward debt closed
+- v1.3 candidate themes (see PROJECT.md → Next Milestone): pending tooling todos (CountTokens shape, workspace/repo resolution, command rename), Nyquist retro decision, Phase 16 review findings (6 warn + 9 info), Phase 14 SC#4 smoke transcript, `next-milestone-planning` thread closure
+- Out of scope for v1.x: `work/` subsystem (GSD covers it), package-family monorepo support (different approach planned), OSS release prep (→ v2.0)
+- Workspace renamed: `cores/` → `packages/` (v1.1 commit `c5a47ba`); brand renamed: `lattice` → `graph-wiki` (v1.2 Phase 12). Vault writes still go through `packages/vault-io/layout_io.py` — do not introduce `yaml.dump` anywhere in the write path
 - MCP stdout discipline (`_StdoutGuard`) is non-negotiable; any new MCP tools must register *after* `mcp = FastMCP(...)` to preserve the guard invariant
-- `models.toml` defaults are Qwen3-32B fan-out + Qwen3-80B synthesis (changed in v1.1 Phase 7); divergence baselines pinned. MODEL-FU-01 fixes the synthesizer test that still asserts the old Sonnet default.
-- Phase dependency floor: 11 → 12 → 13 → 14 → 15; Phase 16 depends on Phase 12 (SWEEP-FU-04 needs fresh-package vault); other Phase 16 items are independent
+- `models.toml` defaults are Qwen3-32B fan-out + Qwen3-80B synthesis (v1.1 Phase 7); divergence baselines pinned
+- `vault-io` ↔ `workspace-io` boundary (v1.2): `vault_io._workspace.resolve_wiki_and_repo` is a 2-line delegation shim over `workspace_io.config.resolve()`; explicit-vault_path MCP boundary preserved
+- Plugin contract (v1.2 Phase 13): plugins/graph-wiki/scripts/*.py shell out via `uv run --project "$DEEP_AGENTS_ROOT" python3 -m ...` (SO-01); backend selection per command via `[plugin]` block in `.graph-wiki.yaml` (SO-03); defaults to `claude`, `bedrock` is documented per-command opt-in
+- MCP cancel deferral re-anchored to event trigger (v1.2 Phase 16 D-09): langchain-aws#663 OR aioboto3 GA/1.0; no calendar re-evaluation
 
 ---
 
 *State initialized: 2026-05-13*
-*v1.1 roadmap: 2026-05-15*
-*v1.2 roadmap: 2026-05-17*
+*v1.1 roadmap: 2026-05-15 — shipped 2026-05-17*
+*v1.2 roadmap: 2026-05-17 — shipped 2026-05-19*
 
 ## Operator Next Steps
 
-- Run `/gsd:plan-phase 11` to decompose the workspace-io port into executable plans
+- Start the next milestone with /gsd-new-milestone
