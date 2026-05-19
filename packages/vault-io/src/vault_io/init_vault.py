@@ -81,9 +81,11 @@ def render_template(src, dest, variables):
     return True
 
 
-def _resolve_pinned_containers(repo: Path, non_interactive: bool) -> list[dict]:
+def _resolve_pinned_containers(
+    repo: Path, non_interactive: bool, workspace_path: Path | None = None
+) -> list[dict]:
     """Run the detector, prompt for ambiguous rows, return the pinned list."""
-    records = _detect_containers(repo)
+    records = _detect_containers(repo, workspace_path=workspace_path)
     if records and records[0]["classification"] == "single-package":
         if not non_interactive:
             print("Detected: single-package repo (no structural containers).")
@@ -164,7 +166,7 @@ def init_wiki(
     (workspace_path / "raw").mkdir(parents=True, exist_ok=True)
     (workspace_path / "work").mkdir(parents=True, exist_ok=True)
 
-    pinned = _resolve_pinned_containers(repo_path, non_interactive)
+    pinned = _resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)
     structural_dirs = [c["vault_dir"] for c in pinned if c["vault_dir"]]
 
     try:
