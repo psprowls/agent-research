@@ -1,0 +1,13 @@
+{
+    "name": "deep-agents",
+    "owner": {
+        "name": "Patrick Sprowls"
+    },
+    "plugins": [
+        {
+            "name": "graph-wiki",
+            "source": "./plugins/graph-wiki",
+            "description": "Build and maintain a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Adapts to the repo's folder structure: classifies top-level dirs as apps, packages, domains, or docs containers, and pins the layout in CLAUDE.md/AGENTS.md."
+        }
+    ]
+}
