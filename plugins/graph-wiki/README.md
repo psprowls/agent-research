@@ -1,0 +1,89 @@
+# graph-wiki
+
+A Claude Code plugin that builds and maintains a persistent, cross-referenced knowledge base alongside any source-code project — single packages, monorepos, or hybrid shapes. Ported from the upstream `lattice-wiki` plugin.
+
+## What this plugin is
+
+`graph-wiki` gives your repo a compounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
+
+The wiki lives at `<repo>/graph-wiki/wiki/` by default. Obsidian opens the workspace root (`<repo>/graph-wiki/`) to see wiki, raw sources, and the work tracker as sibling directories.
+
+The plugin has two delivery surfaces that share the same wiki format:
+
+- **Claude (default)** — Claude Code runs the wiki workflows directly via the bundled `vault_io` Python package (this plugin).
+- **Bedrock (opt-in)** — `code-wiki-agent` runs the same workflows on AWS Bedrock with parallel subagents, for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
+
+## Setup
+
+**Prerequisites:** Python 3.11+, `uv` installed, `DEEP_AGENTS_ROOT` pointing to the deep-agents repo root.
+
+1. Install the plugin in Claude Code:
+
+   ```bash
+   # From the deep-agents repo root
+   claude plugin install plugins/graph-wiki
+   ```
+
+2. Initialize a workspace in your target repo:
+
+   ```
+   /graph-wiki:init
+   ```
+
+   This creates `<repo>/graph-wiki/` with `.graph-wiki.yaml`, `wiki/`, `raw/`, and `work/` subdirectories. The vault layout (apps, packages, domains) is detected interactively.
+
+3. Open Obsidian at `<repo>/graph-wiki/` as a vault (not the inner `wiki/` directory). See `skills/graph-wiki/references/obsidian-setup.md` for recommended settings.
+
+4. Run your first scan:
+
+   ```
+   /graph-wiki:scan
+   ```
+
+## [plugin] block syntax
+
+The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `code-wiki-agent` on Bedrock.
+
+```yaml
+plugin:
+  backend_default: claude          # claude | bedrock — applies to any command not listed below
+  backend_overrides:
+    query: bedrock                 # route /graph-wiki:query to code-wiki-agent
+    lint: claude                   # explicit — same as the default
+```
+
+**All fields are optional.** When the block is absent, every command runs on Claude. When a command is not listed in `backend_overrides`, `backend_default` applies. When `backend_default` is absent, `claude` is the fallback.
+
+The `[plugin]` block is validated on every read: unknown keys raise `RuntimeError`, and backend values must be `claude` or `bedrock`.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/graph-wiki:init` | Initialize a wiki workspace; detect repo layout; create vault skeleton |
+| `/graph-wiki:scan` | Walk the repo; create/update package and app stub pages; surface doc candidates |
+| `/graph-wiki:ingest <path>` | Read a source (spec, article, PR, transcript, in-repo doc); update wiki |
+| `/graph-wiki:query <question>` | Answer a question from the vault; offer to file the answer back |
+| `/graph-wiki:lint` | Health check: orphans, broken links, stale pages, code drift |
+| `/graph-wiki:log` | Show or summarize recent wiki activity from `log.md` |
+
+Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `graph-wiki:librarian`) are dispatched automatically by commands and can also be invoked directly.
+
+## Not ported
+
+The following upstream `lattice-wiki` subsystems are **not** included in graph-wiki v1.2:
+
+- `/graph-wiki:archive` — move terminal-status work items to `work/archived/`
+- `/graph-wiki:regen-index` — regenerate `work/.work-index.json` sidecar
+- `/graph-wiki:status` — display work-queue summary from the sidecar
+
+These commands depend on the work-layer subsystem (work item lifecycle lint, sidecar schema, archive/restore). The schema is documented in `skills/graph-wiki/references/sidecar-schema.md` and `references/lifecycle-rules.md` for future porting. The remaining six commands are fully functional.
+
+## See also
+
+- `skills/graph-wiki/references/` — detailed workflow references for each command
+- `skills/graph-wiki/references/wiki-schema.md` — frontmatter schema and naming conventions
+- `skills/graph-wiki/references/obsidian-setup.md` — recommended Obsidian configuration
+- `skills/graph-wiki/references/monorepo-principles.md` — why this pattern works for monorepos
+- `packages/vault_io/` — the Python implementation behind the claude-branch shims
+- `agents/code-wiki-agent/` — the Bedrock CLI that powers the bedrock branch

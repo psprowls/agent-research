@@ -14,7 +14,9 @@ def test_v2_write_then_read(tmp_path):
     }
     write(mpath, data)
     result = read(mpath)
-    assert result == data
+    # D-02: read() fills in the plugin default when the key is absent from disk.
+    expected = dict(data, plugin={"backend_default": "claude", "backend_overrides": {}})
+    assert result == expected
 
 
 def test_v2_write_preserves_top_level_key_order(tmp_path):
