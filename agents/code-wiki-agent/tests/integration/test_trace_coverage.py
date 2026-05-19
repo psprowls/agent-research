@@ -50,6 +50,13 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
 
     wiki = tmp_path / "wiki"
     shutil.copytree(FIXTURE_VAULT, wiki)
+    # Fixture vault may contain stale traces from prior runs; clear them so the
+    # assertion only walks records produced by THIS run (G-01 follow-up: the
+    # original 2026-05-19 failure was partially caused by reading a stale
+    # 2026-05-14 record). The traces dir is .gitignored in the fixture too.
+    stale_traces = wiki / ".code-wiki" / "traces"
+    if stale_traces.exists():
+        shutil.rmtree(stale_traces)
 
     # Build the index + run a small query to populate traces. ``scan`` is
     # optional — query suffices to exercise the librarian + synthesizer paths.
