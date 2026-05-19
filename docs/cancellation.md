@@ -152,9 +152,24 @@ catch block after all `_run_one` tasks have raised.
 
 ---
 
-## 4. Known Limitations (v1.1)
+## 4. Known Limitations (v1.1 — re-confirmed 2026-05-19 in Phase 16 spike)
 
-Cancellation in v1.1 is best-effort at the asyncio layer, not at the wire layer.
+Cancellation is best-effort at the asyncio layer, not at the wire layer.
+The Phase 16 spike re-checked both upstream channels on 2026-05-19:
+
+- **`langchain-aws` 1.4.6** (current as of Phase 16, per CLAUDE.md §3) does NOT
+  include the merged form of PR #663 (the upstream issue that would expose a
+  cancel-aware code path on `ChatBedrockConverse`). Source:
+  <https://github.com/langchain-ai/langchain-aws/pull/663>.
+- **`aioboto3`** has not reached a named GA / 1.0 milestone. The dependency is
+  still excluded from the workspace; CLAUDE.md §3 documents:
+  "`ChatBedrockConverse` async is pseudo-async — `astream()`/`ainvoke()` wrap
+  sync boto3; no aioboto3 dependency available yet." Source:
+  <https://pypi.org/project/aioboto3/>.
+
+Neither path qualifies as a "working integration path" today, so Phase 16
+re-defers the wire-level cancel work. The asyncio-layer behavior described
+below is unchanged from v1.1.
 
 `ChatBedrockConverse` does not override `_agenerate`. It inherits
 `BaseChatModel._agenerate` from `langchain-core`, which calls:
@@ -192,18 +207,22 @@ at the handler entry point — there is no boto3 worker thread to orphan.
 
 ---
 
-## 5. Future Work (v1.2+)
+## 5. Future Work
+
+**Re-evaluation trigger (event-driven, not date-driven — Phase 16 D-09):**
+Re-evaluate the wire-level cancel work when langchain-aws cuts a release with #663 merged, OR when aioboto3 reaches a named milestone (GA / 1.0). Pat tracks upstream; whichever lands first re-opens the cancel work. Do NOT re-attempt on a calendar cadence — calendar-driven re-checks generated noise in v1.1 → v1.2 carry-forward without changing the gate outcome.
 
 - **`aioboto3` / `aiobotocore`** — replace the sync `boto3` client with an async-native
   AWS client, making wire-level cancel possible by dropping the HTTPS request at the
   socket layer. This eliminates the orphan-thread cost.
 - **SIGINT and stdin-close fallback cancel paths** — protocol-correct
   `notifications/cancelled` is the v1.1 gate. Rough-cancel paths (Ctrl-C from a
-  terminal host, stdin EOF) land in v1.2 if the orphan-thread cost proves significant.
+  terminal host, stdin EOF) remain deferred until the orphan-thread cost proves
+  significant in operation.
 - **Orphan-thread monitoring / cleanup hooks** — optionally surface the count of
   in-flight orphan threads via a debug trace field or a dedicated endpoint, so
   operators can observe wasted-call frequency.
-- **Per-tool granular E2E cancel tests** — if behavioral nuances emerge in v1.2+
+- **Per-tool granular E2E cancel tests** — if behavioral nuances emerge
   (e.g., partial-batch cancel, cancel during `wiki_scan` fan-out), expand beyond the
   single `wiki_query` cancel test.
 

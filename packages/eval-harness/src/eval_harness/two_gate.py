@@ -3,13 +3,11 @@
 Implements the qualification logic that determines whether a candidate model
 passes enough quality bars to be considered for a role-default swap.
 
-D-07 (librarian, ingestor, linter, scanner):
+All 6 in-scope roles (librarian, ingestor, linter, scanner, code_reader, synthesizer)
+run both gates (D-06 Phase 16 — D-08 superseded):
   Gate 1 — divergence programmatic regression: current divergence failures must
             not exceed baseline failures on any hard-severity rule.
   Gate 2 — end-to-end quality: panel_score mean must be >= default_panel_mean * threshold.
-
-D-08 (synthesizer, code_reader):
-  Gate 2 only — no divergence rubrics exist for these roles.
 
 Security:
   T-07-10: AssertionError from check_regression is caught and surfaced as
@@ -32,9 +30,10 @@ from eval_harness.divergence.metric import check_regression, load_baseline
 
 logger = logging.getLogger(__name__)
 
-# D-07: roles that have Phase-6 divergence rubrics and run Gate 1.
+# All 6 in-scope roles run Gate 1 (D-06 Phase 16: code_reader + synthesizer
+# divergence rubrics authored in 16-01 supersede the prior D-08 skip).
 ROLES_WITH_DIVERGENCE: frozenset[str] = frozenset(
-    {"librarian", "ingestor", "linter", "scanner"}
+    {"librarian", "ingestor", "linter", "scanner", "code_reader", "synthesizer"}
 )
 
 

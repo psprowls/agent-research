@@ -32,6 +32,7 @@ import math
 import re
 import sqlite3
 import struct
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,6 +44,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool
+from subagent_runtime.trace_io import write_trace_record
 from vault_io._workspace import resolve_wiki_and_repo
 from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 from code_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
@@ -274,6 +276,27 @@ def _extract_wikilinks(text: str) -> list[str]:
     return re.findall(r"\[\[([^\]]+)\]\]", text)
 
 
+def _extract_usage_tokens(response) -> tuple[int | None, int | None]:
+    """Extract (input_tokens, output_tokens) from a ChatBedrockConverse response.
+
+    None-guarded — Bedrock returns ``usage_metadata = None`` on throttling /
+    content-filter responses (deepagents #1698). Block lifted verbatim from
+    subagent_runtime.pool._write_trace:203-209 so trace records on the synthesizer
+    call sites carry the same usage data as pool-driven trace records.
+    """
+    tokens_in: int | None = None
+    tokens_out: int | None = None
+    if response is not None and hasattr(response, "usage_metadata"):
+        meta = response.usage_metadata  # None on ThrottlingException / content filter
+        # isinstance(dict) guards against bare-MagicMock test responses where
+        # usage_metadata auto-resolves to a MagicMock object (matches the
+        # corresponding defensive guard in subagent_runtime.trace_io).
+        if isinstance(meta, dict):
+            tokens_in = meta.get("input_tokens")
+            tokens_out = meta.get("output_tokens")
+    return tokens_in, tokens_out
+
+
 # ---------------------------------------------------------------------------
 # Plan 09: vault-thin code-fallback helpers
 # ---------------------------------------------------------------------------
@@ -362,13 +385,15 @@ async def _run_code_fallback(
     pool: SubagentPool,
     query_id: str,
     code_reader_override: str | None = None,
-) -> str:
+) -> tuple[str, int | None, int | None]:
     """Vault-thin fallback: fan out to a code-reader that uses a bounded
     `read_file` tool to read source code, then synthesize an answer prefixed
     with the `CODE_FALLBACK_MARKER`.
 
-    Returns the final answer string (including marker prefix) or the
-    `CODE_FALLBACK_DISCLAIMER` line when no source-derived content is found.
+    Returns ``(answer, tokens_in, tokens_out)``. ``tokens_in`` / ``tokens_out``
+    capture the synthesizer call's usage_metadata so the caller can thread
+    them into the per-query summary_record (TRACE-FU-01 D-03). They are None
+    when the fallback exits before synthesis (no useful code excerpts).
 
     Args:
         code_reader_override: Bedrock model ID to use for the code_reader role
@@ -477,7 +502,7 @@ async def _run_code_fallback(
 
     if not code_useful:
         # Both pathways empty — no fabrication.
-        return CODE_FALLBACK_DISCLAIMER
+        return CODE_FALLBACK_DISCLAIMER, None, None
 
     code_excerpts_text = "\n\n---\n\n".join(
         f"[{item}]\n{result}" for item, result in code_useful
@@ -486,6 +511,7 @@ async def _run_code_fallback(
         code_excerpts_text = code_excerpts_text[:60000]
 
     synth_llm = make_llm("synthesizer")
+    synth_cfg = load_role_config("synthesizer")
     synth_msgs = [
         SystemMessage(content=SYNTHESIZER_SYSTEM),
         HumanMessage(
@@ -498,10 +524,28 @@ async def _run_code_fallback(
             )
         ),
     ]
+    # TRACE-FU-01 (D-03): trace per-call synthesizer invocation alongside the
+    # summary_record. The synth_resp also feeds the summary_record's
+    # tokens_in / tokens_out so the per-query summary reports usage.
+    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"synth_{query_id}.jsonl"
+    t0 = time.monotonic()
     synth_resp = await synth_llm.ainvoke(synth_msgs)
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="synthesizer",
+        model_id=synth_cfg["model_id"],
+        item=query_id,
+        status="success",
+        latency_ms=latency_ms,
+        response=synth_resp,
+    )
+    tokens_in, tokens_out = _extract_usage_tokens(synth_resp)
     synth_answer = getattr(synth_resp, "content", "") or ""
 
-    return f"{CODE_FALLBACK_MARKER}\n\n{synth_answer}"
+    return f"{CODE_FALLBACK_MARKER}\n\n{synth_answer}", tokens_in, tokens_out
 
 
 def _compute_unresolved_wikilinks(answer: str, vault_path: Path) -> list[str]:
@@ -901,8 +945,8 @@ async def run_query(
             excerpts_text = excerpts_text[:60000]
 
         synth_override = (role_model_overrides or {}).get("synthesizer")
+        synth_cfg = load_role_config("synthesizer")
         if synth_override is not None:
-            synth_cfg = load_role_config("synthesizer")
             synth_llm = ChatBedrockConverse(
                 model_id=synth_override,
                 region_name=synth_cfg["region"],
@@ -910,13 +954,31 @@ async def run_query(
             )
         else:
             synth_llm = make_llm("synthesizer")
+        resolved_synth_model_id = synth_override or synth_cfg["model_id"]
         synth_msgs = [
             SystemMessage(content=SYNTHESIZER_SYSTEM),
             HumanMessage(
                 content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"
             ),
         ]
+        # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
+        # feed the summary_record so the query summary reports usage.
+        synth_trace_dir = wiki / ".code-wiki" / "traces"
+        synth_trace_dir.mkdir(parents=True, exist_ok=True)
+        synth_trace_file = synth_trace_dir / f"synth_{query_id}.jsonl"
+        synth_t0 = time.monotonic()
         synth_resp = await synth_llm.ainvoke(synth_msgs)
+        synth_latency_ms = int((time.monotonic() - synth_t0) * 1000)
+        write_trace_record(
+            synth_trace_file,
+            role="synthesizer",
+            model_id=resolved_synth_model_id,
+            item=query_id,
+            status="success",
+            latency_ms=synth_latency_ms,
+            response=synth_resp,
+        )
+        tokens_in, tokens_out = _extract_usage_tokens(synth_resp)
         answer = synth_resp.content
 
         # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
@@ -939,7 +1001,7 @@ async def run_query(
             query_id,
         )
         code_fallback_used = True
-        answer = await _run_code_fallback(
+        answer, tokens_in, tokens_out = await _run_code_fallback(
             query=query,
             wiki=wiki,
             top_pages=top_pages,
@@ -989,6 +1051,8 @@ async def run_query(
             "code_fallback": code_fallback_used,
             "started_at": started_at,
             "ended_at": ended_at,
+            "tokens_in": tokens_in,  # TRACE-FU-01 D-03: synth usage_metadata
+            "tokens_out": tokens_out,
         }
         with summary_file.open("w") as f:
             f.write(json.dumps(summary_record) + "\n")

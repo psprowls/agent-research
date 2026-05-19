@@ -11,6 +11,10 @@ import pytest
 
 HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 SONNET_ARN = "us.anthropic.claude-sonnet-4-6"
+# Phase 16 D-13 / MODEL-FU-01: synthesizer default after the Sweep-01 swap
+# (sonnet-4-6 -> qwen3-32b for 11x cheaper at parity). Sourced from
+# packages/model-adapter/src/model_adapter/models.toml [roles.synthesizer].
+QWEN_SYNTHESIZER_ARN = "qwen.qwen3-32b-v1:0"
 
 
 def test_make_llm_haiku_returns_chatbedrockconverse_with_haiku_arn():
@@ -126,6 +130,10 @@ def test_load_role_config_synthesizer_limits():
     from model_adapter.loader import load_role_config
 
     cfg = load_role_config("synthesizer")
+    # Phase 16 D-13 / MODEL-FU-01: lock the bundled synthesizer default to
+    # the post-Sweep-01 Qwen choice. Drift trips this test loudly.
+    assert cfg["model_id"] == "qwen.qwen3-32b-v1:0"
+    assert cfg["model_id"] == QWEN_SYNTHESIZER_ARN  # constant + literal pinned together
     assert cfg["max_tokens"] == 4096
     assert cfg["max_concurrency"] == 3
 

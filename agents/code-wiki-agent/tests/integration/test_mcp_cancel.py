@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+# integration-gate-allow: mock-only test (stub LLM, zero Bedrock cost). Lives
+# under tests/integration/ for organizational grouping with related cancel
+# tests; runs unconditionally by design (see test docstring "No INTEGRATION_GATE").
+# Phase 16 D-10 allowlists this file from the canonical-gate grep gate.
+
 """Cancel-mid-fan-out test (direct asyncio; no subprocess). Requirements covered: MCP-10, MCP-11."""
 
 import asyncio
