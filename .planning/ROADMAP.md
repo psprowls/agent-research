@@ -114,7 +114,10 @@ Audit: [`milestones/v1.1-MILESTONE-AUDIT.md`](milestones/v1.1-MILESTONE-AUDIT.md
   2. All slash commands appear in the `/graph-wiki:*` namespace (no `/lattice-wiki:*` remnants); agent and skill names follow the rebrand.
   3. `grep -r 'lattice_' plugins/graph-wiki/` returns zero hits — plugin scripts call through `vault-io` (which itself uses `workspace-io`).
   4. `/graph-wiki:query` runs end-to-end from a Claude Code session against `~/Personal/wiki/deep-agents` and returns a real librarian answer (manual smoke check).
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 14-01-PLAN.md — Port `vault_io.lint_wiki` from upstream lattice_wiki_core (VP-01 prereq for plugin lint shim)
+- [ ] 14-02-PLAN.md — Port `vault_io.wiki_search` from upstream lattice_wiki_core (VP-01 prereq for plugin query shim)
+- [ ] 14-03-PLAN.md — Bundled plugin port: manifest `[plugin]` block + plugins/graph-wiki/ scaffold + 6 shims + SC#4 smoke transcript
 
 ### Phase 15: Wiki Self-Update
 **Goal**: The project's own wiki at `~/Personal/wiki/deep-agents` reflects the post-rebrand codebase — new package names, `.graph-wiki.yaml` manifest awareness, plugin port outcomes — so future librarian queries return answers consistent with the shipped code.
