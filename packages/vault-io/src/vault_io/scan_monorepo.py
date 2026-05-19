@@ -44,6 +44,7 @@ from pathlib import Path
 
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.layout_io import read_layout
+from vault_io.lint.workflow_hints import _parse_workflow_hints
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -620,12 +621,31 @@ def _load_existing_pages(wiki):
     vault = wiki
     walked: set[Path] = set()
 
-    def _collect(root, default_category):
+    def _collect(root, default_category, fold_companions=False):
         resolved = root.resolve() if root.exists() else root
         if resolved in walked or not root.exists():
             return
         walked.add(resolved)
+
+        # First pass: discover companion stems per directory from parent overviews.
+        # A parent overview is the .md whose stem matches its parent directory name
+        # (e.g. packages/vault-io/vault-io.md). Its workflow_hints frontmatter
+        # declares which sibling stems are companions and should be folded.
+        companions_by_dir: dict[Path, set[str]] = {}
+        if fold_companions:
+            for md in root.rglob("*.md"):
+                if md.stem != md.parent.name:
+                    continue  # not a parent overview
+                text = _safe_read_text(md)
+                hints = _parse_workflow_hints(text)
+                companion_stems = {Path(p).stem for sub in hints.values() for p in sub}
+                if companion_stems:
+                    companions_by_dir[md.parent] = companion_stems
+
+        # Second pass: walk and emit pages, skipping declared companion files.
         for md in root.rglob("*.md"):
+            if fold_companions and md.stem in companions_by_dir.get(md.parent, set()):
+                continue  # fold this companion into its parent overview
             fm = _parse_frontmatter(_safe_read_text(md))
             name = fm.get("title") or md.stem
             category = fm.get("category", default_category)
@@ -638,7 +658,7 @@ def _load_existing_pages(wiki):
             }
 
     _collect(vault / "apps", "app")
-    _collect(vault / "packages", "package")
+    _collect(vault / "packages", "package", fold_companions=True)
 
     for schema_name in ("CLAUDE.md", "AGENTS.md"):
         layout = read_layout(wiki / schema_name)
@@ -651,12 +671,30 @@ def _load_existing_pages(wiki):
             vault_dir = c.get("vault_dir")
             if not vault_dir:
                 continue
-            _collect(vault / vault_dir, classification)
+            _collect(vault / vault_dir, classification, fold_companions=(classification == "package"))
         break
 
     domains_dir = vault / "domains"
     if domains_dir.exists():
+        # First pass: build companion-stem sets from parent overviews in domains.
+        # Only applies to directories whose overview declares category == 'package'.
+        domain_companions_by_dir: dict[Path, set[str]] = {}
         for md in domains_dir.rglob("*.md"):
+            if md.stem != md.parent.name:
+                continue  # not a parent overview
+            text = _safe_read_text(md)
+            fm_overview = _parse_frontmatter(text)
+            if fm_overview.get("category") != "package":
+                continue
+            hints = _parse_workflow_hints(text)
+            companion_stems = {Path(p).stem for sub in hints.values() for p in sub}
+            if companion_stems:
+                domain_companions_by_dir[md.parent] = companion_stems
+
+        # Second pass: emit pages, folding companion stems for package directories.
+        for md in domains_dir.rglob("*.md"):
+            if md.stem in domain_companions_by_dir.get(md.parent, set()):
+                continue  # fold companion into parent overview
             fm = _parse_frontmatter(_safe_read_text(md))
             category = fm.get("category")
             if category not in ("package", "app"):

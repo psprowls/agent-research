@@ -21,13 +21,14 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures"
 ROUND_TRIP_VAULT = FIXTURES / "round-trip-vault"
 
-# Sentinel CLAUDE.md layout block that layout_io.read_layout() accepts.
-# Minimal form — just enough to declare a layout-pinned package container.
+# Minimal CLAUDE.md with graph-wiki layout block declaring a 'package' container.
+# The sentinel comments are required by layout_io.read_layout() (see layout_io.py:32-48).
 _LAYOUT_CLAUDE_MD = """\
 # wiki — Code Wiki
 
 Some description.
 
+<!-- graph-wiki:layout:start -->
 ```yaml
 version: 1
 detected_at: 2026-01-01
@@ -38,6 +39,7 @@ containers:
     classification: package
     children_count: 1
 ```
+<!-- graph-wiki:layout:end -->
 """
 
 _OVERVIEW_FRONTMATTER = """\
