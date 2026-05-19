@@ -34,7 +34,7 @@ from pathlib import Path
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
-from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool
+from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.layout_io import read_layout
 from vault_io.lint.common import (
@@ -441,10 +441,13 @@ async def _semantic_pass(
         ),
     ]
 
-    async def run_linter_group(group_tuple: tuple) -> list[str]:
+    async def run_linter_group(group_tuple: tuple) -> TaskResult:
         name, system_prompt, pages_input = group_tuple
         if not pages_input:
-            return []
+            # Phase 16-02 G-01: empty group never invokes the LLM — no
+            # usage_metadata exists; wrap empty findings list for contract
+            # consistency.
+            return TaskResult(value=[], response=None)
         if model_override is not None:
             linter_llm = ChatBedrockConverse(
                 model_id=model_override,
@@ -461,7 +464,8 @@ async def _semantic_pass(
         content = response.content if hasattr(response, "content") else str(response)
         # Parse response: one finding per non-empty line
         findings = [line.strip() for line in content.splitlines() if line.strip()]
-        return findings
+        # Phase 16-02 G-01: surface response.usage_metadata to pool trace.
+        return TaskResult(value=findings, response=response)
 
     fan_result: FanOutResult = await pool.run_all(
         items=semantic_groups,

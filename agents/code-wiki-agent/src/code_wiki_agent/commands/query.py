@@ -43,7 +43,7 @@ from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from model_adapter.loader import load_role_config, make_llm
-from subagent_runtime.pool import FanOutResult, SubagentPool
+from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from vault_io._workspace import resolve_wiki_and_repo
 from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
@@ -439,7 +439,7 @@ async def _run_code_fallback(
             hints.append("/".join(parts[:-1]))
         return hints
 
-    async def code_drill(page_path: str) -> str:
+    async def code_drill(page_path: str) -> TaskResult:
         candidates = _candidates_for(page_path)
         hint_lines = "\n".join(f"- {c}" for c in candidates)
         msgs: list = [
@@ -462,7 +462,8 @@ async def _run_code_fallback(
             resp = await code_llm.ainvoke(msgs)
             tool_calls = getattr(resp, "tool_calls", None) or []
             if not tool_calls:
-                return getattr(resp, "content", "") or ""
+                # Phase 16-02 G-01: terminal AIMessage carries usage_metadata.
+                return TaskResult(value=getattr(resp, "content", "") or "", response=resp)
             msgs.append(resp)
             for call in tool_calls:
                 call_args = call.get("args", {}) if isinstance(call, dict) else {}
@@ -484,7 +485,8 @@ async def _run_code_fallback(
             query_id,
         )
         # Stop without invention; treat as no content.
-        return "NO_RELEVANT_CONTENT"
+        # iteration-cap exit: no terminal AIMessage; tokens were already accounted by per-iteration calls if logged elsewhere
+        return TaskResult(value="NO_RELEVANT_CONTENT", response=None)
 
     code_fan: FanOutResult = await pool.run_all(
         items=top_pages,
@@ -900,7 +902,7 @@ async def run_query(
         librarian_llm = make_llm("librarian")
     pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
 
-    async def drill_page(page_path: str) -> str:
+    async def drill_page(page_path: str) -> TaskResult:
         page_text = (wiki / page_path).read_text(encoding="utf-8", errors="replace")
         # Truncation guard per AI-SPEC §4b.4: cap at 24000 chars
         if len(page_text) > 24000:
@@ -911,7 +913,10 @@ async def run_query(
             HumanMessage(content=f"Query: {query}\n\nPage ({page_path}):\n{page_text}"),
         ]
         resp = await librarian_llm.ainvoke(msgs)
-        return resp.content
+        # Phase 16-02 G-01: wrap in TaskResult so the pool's trace record
+        # carries resp.usage_metadata; downstream consumers still receive
+        # the scalar resp.content via fan_result.successes.
+        return TaskResult(value=resp.content, response=resp)
 
     fan_result: FanOutResult = await pool.run_all(
         items=top_pages,

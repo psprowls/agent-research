@@ -19,7 +19,7 @@ from pathlib import Path
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
-from subagent_runtime.pool import FanOutResult, SubagentPool
+from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.append_log import append_log
 from vault_io.layout_io import read_layout
@@ -341,14 +341,16 @@ async def run_scan(
     else:
         scanner_llm = make_llm("scanner")
 
-    async def generate_stub(pkg: dict) -> str:
+    async def generate_stub(pkg: dict) -> TaskResult:
         prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
         msgs = [
             SystemMessage(content=build_scanner_system(project_context=project_ctx)),
             HumanMessage(content=prompt),
         ]
         resp = await scanner_llm.ainvoke(msgs)
-        return resp.content
+        # Phase 16-02 G-01: wrap in TaskResult so pool's trace record carries
+        # resp.usage_metadata; downstream still sees the string body.
+        return TaskResult(value=resp.content, response=resp)
 
     fan_result: FanOutResult = await pool.run_all(
         items=fan_items,
