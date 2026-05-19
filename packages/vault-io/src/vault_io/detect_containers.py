@@ -145,11 +145,19 @@ def _classify_dir(d: Path) -> dict:
     }
 
 
-def detect(repo_root: Path) -> list[dict]:
+def detect(repo_root: Path, workspace_path: Path | None = None) -> list[dict]:
     repo_root = Path(repo_root).resolve()
     if not repo_root.exists():
         return []
-    top = _immediate_subdirs(repo_root)
+
+    # D-11 guard: only exclude when workspace is a proper subdir of repo_root
+    exclude: Path | None = None
+    if workspace_path is not None:
+        wp = Path(workspace_path).resolve()
+        if wp != repo_root and wp.parent == repo_root:
+            exclude = wp
+
+    top = [d for d in _immediate_subdirs(repo_root) if exclude is None or d.resolve() != exclude]
 
     records = [_classify_dir(d) for d in top]
     structural = [r for r in records if r["classification"] in {"docs", "domain", "package"}]
@@ -171,13 +179,12 @@ def main():
     p.add_argument("--json", action="store_true", help="Emit JSON")
     args = p.parse_args()
 
-    wiki, _ = resolve_wiki_and_repo()
-    repo = wiki.parent  # v1: repo is always wiki's parent directory
+    wiki, repo = resolve_wiki_and_repo()
     if not repo.exists():
         print(f"[error] repo not found: {repo}", file=sys.stderr)
         sys.exit(1)
 
-    records = detect(repo)
+    records = detect(repo, workspace_path=wiki.parent)
 
     if args.json:
         print(json.dumps(records, indent=2))

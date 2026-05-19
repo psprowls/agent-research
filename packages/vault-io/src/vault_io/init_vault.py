@@ -302,8 +302,7 @@ def main():
         help="Don't prompt for ambiguous containers; mark them skip.",
     )
     args = p.parse_args()
-    wiki, _ = resolve_wiki_and_repo()
-    repo = wiki.parent  # v1: repo is always wiki's parent directory
+    wiki, repo = resolve_wiki_and_repo()
     init_wiki(
         wiki,
         repo,
