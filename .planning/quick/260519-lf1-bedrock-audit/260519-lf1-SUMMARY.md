@@ -55,6 +55,35 @@ uv run --package eval-harness python scripts/bedrock_model_audit.py [flags]
 
 - `scripts/bedrock_model_audit.py` (new)
 
+## Coverage improvements (later in session)
+
+- **Hardcoded alias map** (`_PRICING_NAME_ALIASES`) for known catalog↔Pricing
+  API name mismatches. Currently: 5 Mistral, 2 NVIDIA, 1 Qwen, 4 Amazon Nova
+  2.x. Recovered 11 newly-priced records in one go.
+- **Inference-profile fallback**: when a profile has no direct pricing match,
+  walk its `models[].modelArn` and inherit the underlying foundation model's
+  rate. Marked `pricing.source = "aws-pricing-api+profile-fallback"`.
+  Infrastructure in place but didn't fire in the us-east-1 run — the only
+  unpriced profiles were Claude 4.x, which AWS hasn't published *any* SKU
+  for yet (foundation or profile).
+- **`pricingKind` tag** on every record: one of `tokens`, `image`,
+  `embedding`, `rerank`, `video`, `speech`. Classifies via ID substring
+  patterns (`stable-`, `rerank`, `embed`, `marengo`, `pegasus`, `sonic`) and
+  `outputModalities`. Makes null token-pricing self-explanatory for the 21
+  models that are billed per-image / per-document / per-second.
+- **Sort order**: priced records first, by `(providerName, modelId)`; then
+  unpriced records at the end, same sort. The unpriced tail is what needs
+  manual triage (override file or scraping).
+
+Coverage after this pass (us-east-1, 110 entries):
+  - 97 priced via direct Pricing API match
+  - 11 priced via alias map
+  - 21 still unpriced with `pricingKind=tokens` (AI21 Jamba 1.5, Cohere
+    Command R/R+, Writer Palmyra X4/X5, all Claude 4.x inference profiles —
+    AWS Pricing API does not carry these as of this run)
+  - 21 unpriced with non-token `pricingKind` (expected; tagged so consumers
+    know not to expect per-1M-token rates)
+
 ## Follow-up changes (same session)
 
 - Renamed `toolCalling` → `toolCallingSupported`, `probeError` → `toolProbeError`
