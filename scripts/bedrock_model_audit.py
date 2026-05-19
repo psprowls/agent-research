@@ -38,9 +38,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import gzip
+import html
 import json
 import logging
+import re
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -418,6 +423,218 @@ def _fetch_all_bedrock_pricing(
     return out, None
 
 
+# ---------------------------------------------------------------------------
+# AWS Bedrock pricing-page scrape (opt-in via --scrape)
+# ---------------------------------------------------------------------------
+# The AWS Pricing API (boto3 `pricing` client) does NOT carry SKUs for the
+# newer Anthropic Claude models (3.5/4.x) or for some recent inference-only
+# profiles. The public pricing page at https://aws.amazon.com/bedrock/pricing/
+# does — the prices are embedded as `{priceOf!namespace/namespace!ID}`
+# placeholders inside escaped <table> chunks, resolved client-side against
+# JSON files served from b0.p.awsstatic.com.
+#
+# This scraper performs the same resolution server-side so the audit can
+# recover those missing prices.
+
+_PRICING_PAGE_URL = "https://aws.amazon.com/bedrock/pricing/"
+_PRICING_CDN_BASE = "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps"
+_PRICING_NAMESPACES: tuple[str, ...] = ("bedrock", "bedrockfoundationmodels")
+
+# AWS region code → pricing-page display name. Add entries here as needed.
+_REGION_DISPLAY_NAMES: dict[str, str] = {
+    "us-east-1":      "US East (N. Virginia)",
+    "us-east-2":      "US East (Ohio)",
+    "us-west-2":      "US West (Oregon)",
+    "us-west-1":      "US West (N. California)",
+    "eu-central-1":   "EU (Frankfurt)",
+    "eu-west-1":      "EU (Ireland)",
+    "eu-west-2":      "EU (London)",
+    "ap-southeast-1": "Asia Pacific (Singapore)",
+    "ap-southeast-2": "Asia Pacific (Sydney)",
+    "ap-northeast-1": "Asia Pacific (Tokyo)",
+    "ap-south-1":     "Asia Pacific (Mumbai)",
+}
+
+
+def _http_get(url: str, timeout: float = 30.0) -> bytes:
+    """GET ``url`` honouring AWS's quirky Accept-Encoding requirement.
+
+    The b0.p.awsstatic.com pricing CDN returns 404 unless the request carries
+    ``Accept-Encoding: gzip, deflate, br``. Handles gzip decoding manually
+    since urllib does not auto-decompress.
+    """
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent":
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) bedrock-audit/1.0",
+            "Accept-Encoding": "gzip, deflate, br",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read()
+        if resp.headers.get("Content-Encoding") == "gzip":
+            raw = gzip.decompress(raw)
+    return raw
+
+
+def _fetch_pricing_id_map(region: str) -> dict[str, float]:
+    """Return ``{placeholder_id: price}`` for the target region.
+
+    Merges both pricing namespaces (``bedrock`` and ``bedrockfoundationmodels``)
+    into a single id→price map. The pricing-page tables use prices as-published
+    (per 1M tokens for text-token rows; the scraper treats them as raw numbers
+    and lets the table header tell input vs output).
+    """
+    display = _REGION_DISPLAY_NAMES.get(region, region)
+    out: dict[str, float] = {}
+    for namespace in _PRICING_NAMESPACES:
+        url = f"{_PRICING_CDN_BASE}/{namespace}/USD/current/{namespace}.json"
+        try:
+            raw = _http_get(url)
+            data = json.loads(raw)
+        except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
+            logger.warning("scrape: failed to fetch %s: %s", url, exc)
+            continue
+        for placeholder_id, entry in data.get("regions", {}).get(display, {}).items():
+            try:
+                out[placeholder_id] = float(entry["price"])
+            except (KeyError, TypeError, ValueError):
+                pass
+    return out
+
+
+_PLACEHOLDER_RE = re.compile(
+    r"\{priceOf![^!]+!([A-Za-z0-9_-]+)(?:!opt)?\}"
+)
+_TABLE_RE = re.compile(r"&lt;table&gt;.*?&lt;/table&gt;", re.S)
+_TH_RE = re.compile(r"<th[^>]*>(.*?)</th>", re.S)
+_TR_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
+_TD_RE = re.compile(r"<td[^>]*>(.*?)</td>", re.S)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _scrape_aws_pricing_page(
+    region: str,
+) -> dict[str, dict[str, float]]:
+    """Return ``{model_name_lower: {input_per_1m, output_per_1m}}`` scraped
+    from the AWS Bedrock pricing page.
+
+    Skips batch / cache / flex / priority columns — only the standard
+    on-demand input/output token columns are captured.
+    """
+    try:
+        page_bytes = _http_get(_PRICING_PAGE_URL, timeout=30.0)
+    except (urllib.error.URLError, OSError) as exc:
+        logger.warning("scrape: failed to fetch pricing page: %s", exc)
+        return {}
+    page = page_bytes.decode("utf-8", errors="replace")
+
+    id_map = _fetch_pricing_id_map(region)
+    if not id_map:
+        logger.warning("scrape: pricing id map is empty; scrape will yield nothing")
+        return {}
+
+    out: dict[str, dict[str, float]] = {}
+    for table_match in _TABLE_RE.finditer(page):
+        try:
+            table_html = html.unescape(table_match.group(0))
+        except Exception:  # noqa: BLE001
+            continue
+        _scrape_table(table_html, id_map, out)
+    return out
+
+
+def _scrape_table(
+    table_html: str,
+    id_map: dict[str, float],
+    out: dict[str, dict[str, float]],
+) -> None:
+    """Parse a single un-escaped <table> and merge prices into ``out``."""
+    headers = [
+        _TAG_RE.sub("", h).strip().lower()
+        for h in _TH_RE.findall(table_html)
+    ]
+    if not headers:
+        return
+
+    # Locate the standard on-demand input/output token columns.
+    input_col = output_col = None
+    for i, h in enumerate(headers):
+        is_standard = not any(
+            tag in h for tag in ("batch", "cache", "flex", "priority")
+        )
+        if input_col is None and "input tokens" in h and is_standard:
+            input_col = i
+        elif output_col is None and "output tokens" in h and is_standard:
+            output_col = i
+    if input_col is None and output_col is None:
+        return
+
+    for tr in _TR_RE.findall(table_html):
+        cells = _TD_RE.findall(tr)
+        if not cells:
+            continue
+        name = _TAG_RE.sub("", cells[0]).strip()
+        if not name or name.lower() == headers[0]:  # header repeated as tr
+            continue
+        record: dict[str, float] = {}
+        for kind, col in (("input_per_1m", input_col), ("output_per_1m", output_col)):
+            if col is None or col >= len(cells):
+                continue
+            ph = _PLACEHOLDER_RE.search(cells[col])
+            if not ph:
+                continue
+            price = id_map.get(ph.group(1))
+            if price is not None:
+                record[kind] = price
+        if record:
+            # First-wins per (model_name, column). The AWS pricing page repeats
+            # each model across several tables (standard / extended access /
+            # batch / batch+extended). The standard on-demand table comes
+            # first in document order, so taking the first non-null price per
+            # column gives the canonical rate.
+            existing = out.setdefault(name.lower(), {})
+            for k, v in record.items():
+                existing.setdefault(k, v)
+
+
+def _lookup_via_scrape(
+    entry: dict[str, Any],
+    scrape_map: dict[str, dict[str, float]],
+) -> dict[str, float] | None:
+    """Look an entry up in the scraped pricing-page map.
+
+    Tries the modelName / inferenceProfileName first, then a substring fallback.
+    """
+    if not scrape_map:
+        return None
+    candidates: list[str] = []
+    for f in ("modelName", "inferenceProfileName"):
+        n = (entry.get(f) or "").strip().lower()
+        if n:
+            candidates.append(n)
+    # Also try a normalised form of the model ID (strip cross-region prefix)
+    mid = _entry_id(entry).lower()
+    for prefix in ("us.", "eu.", "apac.", "global."):
+        if mid.startswith(prefix):
+            mid = mid[len(prefix):]
+            break
+    if mid:
+        # The page uses friendly names ("Claude Sonnet 4.6") so id matches are
+        # rare — keep this as a last-ditch substring check.
+        candidates.append(mid)
+
+    for cand in candidates:
+        if cand in scrape_map:
+            return scrape_map[cand]
+    for cand in candidates:
+        for key, value in scrape_map.items():
+            if cand and (cand in key or key in cand):
+                return value
+    return None
+
+
 def _build_pricing_candidates(entry: dict[str, Any]) -> list[str]:
     """Build a list of candidate lookup keys for matching against the pricing map."""
     candidates: list[str] = []
@@ -496,6 +713,7 @@ def _attach_pricing(
     entry: dict[str, Any],
     pricing_map: dict[str, dict[str, float]],
     foundation_pricing_by_id: dict[str, dict[str, float]],
+    scrape_map: dict[str, dict[str, float]],
     global_pricing_error: str | None,
 ) -> tuple[dict[str, Any], str | None]:
     """Return (pricing_dict, pricingProbeError).
@@ -505,6 +723,7 @@ def _attach_pricing(
       2. Hardcoded alias map (``_PRICING_NAME_ALIASES``).
       3. Substring fuzzy match against the pricing map keys.
       4. Inference-profile foundation-model fallback.
+      5. AWS Bedrock pricing-page scrape (when ``--scrape`` was passed).
 
     ``pricing_dict.source`` records which path won. ``pricingProbeError`` is:
       - the global Pricing API error if the upstream fetch failed
@@ -554,6 +773,13 @@ def _attach_pricing(
         if fallback is not None:
             chosen = fallback
             source = "aws-pricing-api+profile-fallback"
+
+    # 5. Pricing-page scrape (only populated when --scrape was passed)
+    if chosen is None:
+        scraped = _lookup_via_scrape(entry, scrape_map)
+        if scraped is not None:
+            chosen = scraped
+            source = "aws-bedrock-pricing-page"
 
     pricing = {
         "input_per_1m": (chosen or {}).get("input_per_1m"),
@@ -629,6 +855,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Also write bedrock-models-unavailable.json for AccessDenied models.",
     )
     p.add_argument(
+        "--scrape",
+        action="store_true",
+        help=(
+            "Scrape https://aws.amazon.com/bedrock/pricing/ as a fifth-tier "
+            "pricing lookup. Recovers prices for models AWS Pricing API does "
+            "not carry (most Claude 4.x, Palmyra X4/X5, etc)."
+        ),
+    )
+    p.add_argument(
         "--dry-run",
         action="store_true",
         help="Print model IDs that would be probed and exit without invoking Bedrock or Pricing.",
@@ -671,6 +906,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"Loaded pricing for {len(pricing_map)} model names.", file=sys.stderr)
 
+    scrape_map: dict[str, dict[str, float]] = {}
+    if args.scrape:
+        print("Scraping AWS Bedrock pricing page...", file=sys.stderr)
+        scrape_map = _scrape_aws_pricing_page(args.region)
+        print(
+            f"  Recovered {len(scrape_map)} model name → price entries from page.",
+            file=sys.stderr,
+        )
+
     print(
         f"Probing {len(entries)} entries (concurrency={args.concurrency})...",
         file=sys.stderr,
@@ -695,7 +939,11 @@ def main(argv: list[str] | None = None) -> int:
         record["toolCallingSupported"] = tool_supported
         record["toolProbeError"] = tool_probe_error
         pricing, pricing_probe_error = _attach_pricing(
-            entry, pricing_map, foundation_pricing_by_id, pricing_global_error
+            entry,
+            pricing_map,
+            foundation_pricing_by_id,
+            scrape_map,
+            pricing_global_error,
         )
         record["pricing"] = pricing
         record["pricingProbeError"] = pricing_probe_error

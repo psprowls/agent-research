@@ -1,5 +1,69 @@
 [
   {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/ai21.jamba-1-5-large-v1:0",
+    "modelId": "ai21.jamba-1-5-large-v1:0",
+    "modelName": "Jamba 1.5 Large",
+    "providerName": "AI21 Labs",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-09-23 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 2,
+      "output_per_1m": 8,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/ai21.jamba-1-5-mini-v1:0",
+    "modelId": "ai21.jamba-1-5-mini-v1:0",
+    "modelName": "Jamba 1.5 Mini",
+    "providerName": "AI21 Labs",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-09-23 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.2,
+      "output_per_1m": 0.4,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
     "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-sonic-v1:0",
     "modelId": "amazon.nova-2-sonic-v1:0",
     "modelName": "Nova 2 Sonic",
@@ -437,6 +501,219 @@
     "pricingProbeError": null
   },
   {
+    "inferenceProfileName": "Global Anthropic Claude Haiku 4.5",
+    "description": "Routes requests to Anthropic Claude Haiku 4.5 globally across all supported AWS Regions.",
+    "createdAt": "2025-10-13 20:55:08+00:00",
+    "updatedAt": "2026-04-22 19:34:33.299983+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 5,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "GLOBAL Anthropic Claude Opus 4.5",
+    "description": "Routes requests to Anthropic Claude Opus 4.5 globally across all supported AWS Regions.",
+    "createdAt": "2025-11-21 23:11:47.624332+00:00",
+    "updatedAt": "2026-04-29 19:37:36.764178+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-opus-4-5-20251101-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-opus-4-5-20251101-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "Global Anthropic Claude Opus 4.6",
+    "description": "Routes requests to Anthropic Claude Opus 4.6 globally across all supported AWS Regions.",
+    "createdAt": "2026-02-03 19:06:46.193626+00:00",
+    "updatedAt": "2026-04-23 16:32:26.924145+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-opus-4-6-v1",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-opus-4-6-v1"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-6-v1"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-opus-4-6-v1",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "Global Claude Sonnet 4",
+    "description": "Routes requests to Claude Sonnet 4 globally across all supported AWS Regions.",
+    "createdAt": "2025-08-25 00:00:00+00:00",
+    "updatedAt": "2026-04-23 22:38:04.142964+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-20250514-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-sonnet-4-20250514-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "Global Claude Sonnet 4.5",
+    "description": "Routes requests to Claude Sonnet 4.5 globally across all supported AWS Regions.",
+    "createdAt": "2025-09-26 21:55:11+00:00",
+    "updatedAt": "2026-04-29 19:24:32.060636+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "Global Anthropic Claude Sonnet 4.6",
+    "description": "Routes requests to Anthropic Claude Sonnet 4.6 globally across all supported AWS Regions.",
+    "createdAt": "2026-02-13 21:58:21.641186+00:00",
+    "updatedAt": "2026-04-23 22:00:08.065534+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-6",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-6"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6"
+      }
+    ],
+    "inferenceProfileId": "global.anthropic.claude-sonnet-4-6",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude 3.5 Haiku",
+    "description": "Routes requests to US Anthropic Claude 3.5 Haiku in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2024-11-04 00:00:00+00:00",
+    "updatedAt": "2024-11-04 00:00:00+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 0.8,
+      "output_per_1m": 4,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
     "inferenceProfileName": "US Anthropic Claude 3 Haiku",
     "description": "Routes requests to Anthropic Claude 3 Haiku in us-east-1 and us-west-2.",
     "createdAt": "2024-08-26 00:00:00+00:00",
@@ -493,6 +770,340 @@
       "output_per_1m": null,
       "currency": "USD",
       "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Haiku 4.5",
+    "description": "Routes requests to Anthropic Claude Haiku 4.5 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-10-13 19:47:28.632080+00:00",
+    "updatedAt": "2026-04-22 20:53:18.694466+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 5,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Claude Opus 4.1",
+    "description": "Routes requests to Claude Opus 4.1 in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2025-08-05 00:25:48+00:00",
+    "updatedAt": "2026-01-13 19:10:48.056926+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-1-20250805-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-opus-4-1-20250805-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 15,
+      "output_per_1m": 75,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Claude Opus 4",
+    "description": "Routes requests to Claude Opus 4 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-05-12 00:00:00+00:00",
+    "updatedAt": "2025-05-22 21:48:45.464845+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-20250514-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-opus-4-20250514-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 15,
+      "output_per_1m": 75,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Opus 4.5",
+    "description": "Routes requests to Anthropic Claude Opus 4.5 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-12-10 01:01:49.572363+00:00",
+    "updatedAt": "2026-03-09 04:26:21.627525+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Opus 4.6",
+    "description": "Routes requests to Anthropic Claude Opus 4.6 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2026-02-03 19:06:45.925231+00:00",
+    "updatedAt": "2026-04-22 15:45:47.489833+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-6-v1",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-6-v1"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-6-v1"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-6-v1"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-opus-4-6-v1",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Claude Sonnet 4",
+    "description": "Routes requests to Claude Sonnet 4 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-05-20 00:00:00+00:00",
+    "updatedAt": "2026-04-23 22:35:33.667832+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-20250514-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Sonnet 4.5",
+    "description": "Routes requests to Anthropic Claude Sonnet 4.5 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-09-25 23:29:14.945039+00:00",
+    "updatedAt": "2026-04-22 15:16:24.006930+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Sonnet 4.6",
+    "description": "Routes requests to Claude Sonnet 4.6 in us-east-1, us-east-2, us-west-2.",
+    "createdAt": "2026-02-13 21:58:21.393292+00:00",
+    "updatedAt": "2026-02-13 21:58:21.393292+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-6",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-sonnet-4-6",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.command-r-plus-v1:0",
+    "modelId": "cohere.command-r-plus-v1:0",
+    "modelName": "Command R+",
+    "providerName": "Cohere",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "LEGACY",
+      "startOfLifeTime": "2024-04-30 08:00:00+00:00",
+      "endOfLifeTime": "2026-08-19 08:00:00+00:00",
+      "legacyTime": "2026-02-19 08:00:00+00:00",
+      "publicExtendedAccessTime": "2026-05-19 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.command-r-v1:0",
+    "modelId": "cohere.command-r-v1:0",
+    "modelName": "Command R",
+    "providerName": "Cohere",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "LEGACY",
+      "startOfLifeTime": "2024-04-30 08:00:00+00:00",
+      "endOfLifeTime": "2026-08-19 08:00:00+00:00",
+      "legacyTime": "2026-02-19 08:00:00+00:00",
+      "publicExtendedAccessTime": "2026-05-19 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.5,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
     },
     "pricingProbeError": null
   },
@@ -2140,617 +2751,6 @@
       "source": "aws-pricing-api"
     },
     "pricingProbeError": null
-  },
-  {
-    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/ai21.jamba-1-5-large-v1:0",
-    "modelId": "ai21.jamba-1-5-large-v1:0",
-    "modelName": "Jamba 1.5 Large",
-    "providerName": "AI21 Labs",
-    "inputModalities": [
-      "TEXT"
-    ],
-    "outputModalities": [
-      "TEXT"
-    ],
-    "responseStreamingSupported": true,
-    "customizationsSupported": [],
-    "inferenceTypesSupported": [
-      "ON_DEMAND"
-    ],
-    "modelLifecycle": {
-      "status": "ACTIVE",
-      "startOfLifeTime": "2024-09-23 08:00:00+00:00"
-    },
-    "entryKind": "foundation-model",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/ai21.jamba-1-5-mini-v1:0",
-    "modelId": "ai21.jamba-1-5-mini-v1:0",
-    "modelName": "Jamba 1.5 Mini",
-    "providerName": "AI21 Labs",
-    "inputModalities": [
-      "TEXT"
-    ],
-    "outputModalities": [
-      "TEXT"
-    ],
-    "responseStreamingSupported": true,
-    "customizationsSupported": [],
-    "inferenceTypesSupported": [
-      "ON_DEMAND"
-    ],
-    "modelLifecycle": {
-      "status": "ACTIVE",
-      "startOfLifeTime": "2024-09-23 08:00:00+00:00"
-    },
-    "entryKind": "foundation-model",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "Global Anthropic Claude Haiku 4.5",
-    "description": "Routes requests to Anthropic Claude Haiku 4.5 globally across all supported AWS Regions.",
-    "createdAt": "2025-10-13 20:55:08+00:00",
-    "updatedAt": "2026-04-22 19:34:33.299983+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "GLOBAL Anthropic Claude Opus 4.5",
-    "description": "Routes requests to Anthropic Claude Opus 4.5 globally across all supported AWS Regions.",
-    "createdAt": "2025-11-21 23:11:47.624332+00:00",
-    "updatedAt": "2026-04-29 19:37:36.764178+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-opus-4-5-20251101-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-opus-4-5-20251101-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "Global Anthropic Claude Opus 4.6",
-    "description": "Routes requests to Anthropic Claude Opus 4.6 globally across all supported AWS Regions.",
-    "createdAt": "2026-02-03 19:06:46.193626+00:00",
-    "updatedAt": "2026-04-23 16:32:26.924145+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-opus-4-6-v1",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-opus-4-6-v1"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-6-v1"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-opus-4-6-v1",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "Global Claude Sonnet 4",
-    "description": "Routes requests to Claude Sonnet 4 globally across all supported AWS Regions.",
-    "createdAt": "2025-08-25 00:00:00+00:00",
-    "updatedAt": "2026-04-23 22:38:04.142964+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-20250514-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-sonnet-4-20250514-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "Global Claude Sonnet 4.5",
-    "description": "Routes requests to Claude Sonnet 4.5 globally across all supported AWS Regions.",
-    "createdAt": "2025-09-26 21:55:11+00:00",
-    "updatedAt": "2026-04-29 19:24:32.060636+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "Global Anthropic Claude Sonnet 4.6",
-    "description": "Routes requests to Anthropic Claude Sonnet 4.6 globally across all supported AWS Regions.",
-    "createdAt": "2026-02-13 21:58:21.641186+00:00",
-    "updatedAt": "2026-04-23 22:00:08.065534+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.anthropic.claude-sonnet-4-6",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:::foundation-model/anthropic.claude-sonnet-4-6"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6"
-      }
-    ],
-    "inferenceProfileId": "global.anthropic.claude-sonnet-4-6",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude 3.5 Haiku",
-    "description": "Routes requests to US Anthropic Claude 3.5 Haiku in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2024-11-04 00:00:00+00:00",
-    "updatedAt": "2024-11-04 00:00:00+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude Haiku 4.5",
-    "description": "Routes requests to Anthropic Claude Haiku 4.5 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2025-10-13 19:47:28.632080+00:00",
-    "updatedAt": "2026-04-22 20:53:18.694466+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Claude Opus 4.1",
-    "description": "Routes requests to Claude Opus 4.1 in us-east-1, us-west-2 and us-east-2.",
-    "createdAt": "2025-08-05 00:25:48+00:00",
-    "updatedAt": "2026-01-13 19:10:48.056926+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-1-20250805-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-1-20250805-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-opus-4-1-20250805-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Claude Opus 4",
-    "description": "Routes requests to Claude Opus 4 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2025-05-12 00:00:00+00:00",
-    "updatedAt": "2025-05-22 21:48:45.464845+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-20250514-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-20250514-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-opus-4-20250514-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude Opus 4.5",
-    "description": "Routes requests to Anthropic Claude Opus 4.5 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2025-12-10 01:01:49.572363+00:00",
-    "updatedAt": "2026-03-09 04:26:21.627525+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude Opus 4.6",
-    "description": "Routes requests to Anthropic Claude Opus 4.6 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2026-02-03 19:06:45.925231+00:00",
-    "updatedAt": "2026-04-22 15:45:47.489833+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-opus-4-6-v1",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-6-v1"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-opus-4-6-v1"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-opus-4-6-v1"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-opus-4-6-v1",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Claude Sonnet 4",
-    "description": "Routes requests to Claude Sonnet 4 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2025-05-20 00:00:00+00:00",
-    "updatedAt": "2026-04-23 22:35:33.667832+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-20250514-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude Sonnet 4.5",
-    "description": "Routes requests to Anthropic Claude Sonnet 4.5 in us-east-1, us-east-2 and us-west-2.",
-    "createdAt": "2025-09-25 23:29:14.945039+00:00",
-    "updatedAt": "2026-04-22 15:16:24.006930+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "inferenceProfileName": "US Anthropic Claude Sonnet 4.6",
-    "description": "Routes requests to Claude Sonnet 4.6 in us-east-1, us-east-2, us-west-2.",
-    "createdAt": "2026-02-13 21:58:21.393292+00:00",
-    "updatedAt": "2026-02-13 21:58:21.393292+00:00",
-    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-sonnet-4-6",
-    "models": [
-      {
-        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6"
-      },
-      {
-        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6"
-      }
-    ],
-    "inferenceProfileId": "us.anthropic.claude-sonnet-4-6",
-    "status": "ACTIVE",
-    "type": "SYSTEM_DEFINED",
-    "entryKind": "inference-profile",
-    "providerName": "Anthropic",
-    "pricingKind": "tokens",
-    "toolCallingSupported": true,
-    "toolProbeError": null,
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.command-r-plus-v1:0",
-    "modelId": "cohere.command-r-plus-v1:0",
-    "modelName": "Command R+",
-    "providerName": "Cohere",
-    "inputModalities": [
-      "TEXT"
-    ],
-    "outputModalities": [
-      "TEXT"
-    ],
-    "responseStreamingSupported": true,
-    "customizationsSupported": [],
-    "inferenceTypesSupported": [
-      "ON_DEMAND"
-    ],
-    "modelLifecycle": {
-      "status": "LEGACY",
-      "startOfLifeTime": "2024-04-30 08:00:00+00:00",
-      "endOfLifeTime": "2026-08-19 08:00:00+00:00",
-      "legacyTime": "2026-02-19 08:00:00+00:00",
-      "publicExtendedAccessTime": "2026-05-19 08:00:00+00:00"
-    },
-    "entryKind": "foundation-model",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
-  },
-  {
-    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.command-r-v1:0",
-    "modelId": "cohere.command-r-v1:0",
-    "modelName": "Command R",
-    "providerName": "Cohere",
-    "inputModalities": [
-      "TEXT"
-    ],
-    "outputModalities": [
-      "TEXT"
-    ],
-    "responseStreamingSupported": true,
-    "customizationsSupported": [],
-    "inferenceTypesSupported": [
-      "ON_DEMAND"
-    ],
-    "modelLifecycle": {
-      "status": "LEGACY",
-      "startOfLifeTime": "2024-04-30 08:00:00+00:00",
-      "endOfLifeTime": "2026-08-19 08:00:00+00:00",
-      "legacyTime": "2026-02-19 08:00:00+00:00",
-      "publicExtendedAccessTime": "2026-05-19 08:00:00+00:00"
-    },
-    "entryKind": "foundation-model",
-    "pricingKind": "tokens",
-    "toolCallingSupported": null,
-    "toolProbeError": "ResourceNotFoundException",
-    "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
-      "currency": "USD",
-      "source": "aws-pricing-api"
-    },
-    "pricingProbeError": "NotFoundInPricingAPI"
   },
   {
     "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0",

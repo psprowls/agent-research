@@ -22,12 +22,12 @@
     "toolCallingSupported": null,
     "toolProbeError": "AccessDenied",
     "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
       "currency": "USD",
-      "source": "aws-pricing-api"
+      "source": "aws-bedrock-pricing-page"
     },
-    "pricingProbeError": "NotFoundInPricingAPI"
+    "pricingProbeError": null
   },
   {
     "inferenceProfileName": "US Anthropic Claude Opus 4.7",
@@ -55,11 +55,11 @@
     "toolCallingSupported": null,
     "toolProbeError": "AccessDenied",
     "pricing": {
-      "input_per_1m": null,
-      "output_per_1m": null,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
       "currency": "USD",
-      "source": "aws-pricing-api"
+      "source": "aws-bedrock-pricing-page"
     },
-    "pricingProbeError": "NotFoundInPricingAPI"
+    "pricingProbeError": null
   }
 ]
