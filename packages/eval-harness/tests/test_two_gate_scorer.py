@@ -170,42 +170,34 @@ def test_two_gate_librarian_quality_fail(fixture_vault_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_synthesizer_uses_end_to_end_only(fixture_vault_path: Path) -> None:
-    """Synthesizer role skips Gate 1 (no divergence check) and uses Gate 2 only."""
-    baselines_dir = (
-        Path(__file__).parent.parent / "baselines"
-    )
+def test_synthesizer_now_runs_gate1_after_phase16(fixture_vault_path: Path) -> None:
+    """Phase 16 D-06: synthesizer is now in ROLES_WITH_DIVERGENCE and runs Gate 1.
 
-    # synthesizer is NOT in ROLES_WITH_DIVERGENCE
-    assert "synthesizer" not in ROLES_WITH_DIVERGENCE
-
-    outcome = score_two_gate(
-        role="synthesizer",
-        divergence_metric_or_none=None,  # should be ignored for D-08 role
-        agent_outputs_by_case=[("case-01", AgentOutputProxy(answer="synthesized answer"))],
-        baselines_dir=baselines_dir,
-        panel_mean=0.82,
-        default_panel_mean=0.80,
-        threshold=0.95,
-    )
-
-    # Gate 1 is N/A (None) for D-08 roles
-    assert outcome.gate1_passed is None
-    assert outcome.divergence_failures is None
-    # Gate 2 should run: 0.82 >= 0.80 * 0.95 = 0.76 → PASS
-    assert outcome.gate2_passed is True
-    assert outcome.qualified is True
-    assert "N/A" in outcome.notes
+    Replaces the prior D-08 "skip Gate 1" assertion. The synthesizer rubric
+    + programmatic checks (SYN-001..SYN-004) were authored in 16-01.
+    """
+    # Phase 16: synthesizer IS in ROLES_WITH_DIVERGENCE
+    assert "synthesizer" in ROLES_WITH_DIVERGENCE
+    assert "code_reader" in ROLES_WITH_DIVERGENCE
 
 
 def test_no_quality_signal_is_unqualified(fixture_vault_path: Path) -> None:
-    """When both panel_mean and default_panel_mean are None, outcome is not qualified."""
+    """When neither gate has any signal (no metric + no panel), outcome is not qualified.
+
+    Post-Phase-16: all roles are in ROLES_WITH_DIVERGENCE, so a missing metric
+    triggers gate1=False rather than gate1=None. To preserve the "no quality
+    signal" intent we hit it by giving the gate-1 path a metric that returns
+    nothing — but more directly, we simulate an unknown role (not in
+    ROLES_WITH_DIVERGENCE) which still produces both gates as None.
+    """
     baselines_dir = (
         Path(__file__).parent.parent / "baselines"
     )
 
+    # "unknown-role" is not in ROLES_WITH_DIVERGENCE -> Gate 1 stays None.
+    # No panel inputs -> Gate 2 stays None. Together: "no quality signal".
     outcome = score_two_gate(
-        role="synthesizer",
+        role="unknown-role",
         divergence_metric_or_none=None,
         agent_outputs_by_case=[],
         baselines_dir=baselines_dir,
@@ -221,8 +213,13 @@ def test_no_quality_signal_is_unqualified(fixture_vault_path: Path) -> None:
 
 
 def test_roles_with_divergence_constant() -> None:
-    """ROLES_WITH_DIVERGENCE is a frozenset containing exactly the D-07 roles."""
+    """ROLES_WITH_DIVERGENCE covers all 6 in-scope roles (Phase 16 D-06)."""
     assert isinstance(ROLES_WITH_DIVERGENCE, frozenset)
-    assert ROLES_WITH_DIVERGENCE == {"librarian", "ingestor", "linter", "scanner"}
-    assert "synthesizer" not in ROLES_WITH_DIVERGENCE
-    assert "code_reader" not in ROLES_WITH_DIVERGENCE
+    assert ROLES_WITH_DIVERGENCE == {
+        "librarian",
+        "ingestor",
+        "linter",
+        "scanner",
+        "code_reader",
+        "synthesizer",
+    }

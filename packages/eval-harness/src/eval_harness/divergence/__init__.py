@@ -23,10 +23,12 @@ from eval_harness.divergence.check import (  # re-export
     DivergenceCheck,
     Verdict,
 )
+from eval_harness.divergence.code_reader import CODE_READER_CHECKS
 from eval_harness.divergence.ingestor import INGESTOR_CHECKS
 from eval_harness.divergence.librarian import LIBRARIAN_CHECKS
 from eval_harness.divergence.linter import LINTER_CHECKS
 from eval_harness.divergence.scanner import SCANNER_CHECKS
+from eval_harness.divergence.synthesizer import SYNTHESIZER_CHECKS
 
 _RUBRICS_DIR = Path(__file__).parent / "rubrics"
 
@@ -35,6 +37,8 @@ ROLE_CHECKS: dict[str, list[DivergenceCheck]] = {
     "ingestor": INGESTOR_CHECKS,
     "linter": LINTER_CHECKS,
     "scanner": SCANNER_CHECKS,
+    "code_reader": CODE_READER_CHECKS,
+    "synthesizer": SYNTHESIZER_CHECKS,
 }
 
 ROLE_RUBRICS: dict[str, Path] = {
@@ -42,6 +46,8 @@ ROLE_RUBRICS: dict[str, Path] = {
     "ingestor": _RUBRICS_DIR / "ingestor.md",
     "linter": _RUBRICS_DIR / "linter.md",
     "scanner": _RUBRICS_DIR / "scanner.md",
+    "code_reader": _RUBRICS_DIR / "code_reader.md",
+    "synthesizer": _RUBRICS_DIR / "synthesizer.md",
 }
 
 __all__ = [

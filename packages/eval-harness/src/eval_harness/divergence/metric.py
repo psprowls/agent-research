@@ -42,6 +42,8 @@ _ROLE_JUDGE_ID: dict[str, str] = {
     "ingestor": "ING-JUDGE",
     "linter": "LNT-JUDGE",
     "scanner": "SCN-JUDGE",
+    "code_reader": "CR-JUDGE",
+    "synthesizer": "SYN-JUDGE",
 }
 
 
