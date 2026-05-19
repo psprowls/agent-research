@@ -1,0 +1,21 @@
+{
+    "name": "graph-wiki",
+    "version": "0.1.0",
+    "description": "Build and maintain a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Adapts to the repo's folder structure: classifies top-level dirs as apps, packages, domains, or docs containers, and pins the layout in CLAUDE.md/AGENTS.md. This is the Claude Code host path; code-wiki-agent is the parallel Bedrock CLI companion over the same vault-io surface.",
+    "author": {
+        "name": "Patrick Sprowls"
+    },
+    "license": "MIT",
+    "keywords": [
+        "documentation",
+        "knowledge-management",
+        "wiki",
+        "obsidian",
+        "monorepo",
+        "single-package",
+        "adaptive"
+    ],
+    "env": {
+        "GRAPH_WIKI_ROOT": "${CLAUDE_PLUGIN_ROOT}"
+    }
+}
