@@ -381,7 +381,7 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
     return "\n".join(out).rstrip() + "\n"
 
 
-def discover_workspaces(repo, pinned_containers=None):
+def discover_workspaces(repo, pinned_containers=None, workspace_dir=None):
     """If pinned_containers is given, scan only those container subtrees.
     Otherwise fall back to the original heuristic walk.
     """
@@ -389,7 +389,7 @@ def discover_workspaces(repo, pinned_containers=None):
     if pinned_containers is not None:
         workspaces = _discover_from_pinned(repo, pinned_containers)
     else:
-        workspaces = _discover_heuristic(repo)
+        workspaces = _discover_heuristic(repo, workspace_dir=workspace_dir)
     for w in workspaces:
         vault_dir = w.pop("_container_vault_dir", None)
         w["vault_path"] = _vault_path_for(w, vault_dir=vault_dir)
@@ -509,9 +509,17 @@ def _discover_from_pinned(repo: Path, containers: list) -> list:
     return workspaces
 
 
-def _discover_heuristic(repo):
+def _discover_heuristic(repo, workspace_dir=None):
     workspaces = []
     seen_paths = set()
+
+    # D-11 guard parity: only filter when workspace is a proper subdir of repo
+    workspace_segments: set[str] = set()
+    if workspace_dir is not None:
+        wd = Path(workspace_dir).resolve()
+        repo_r = Path(repo).resolve()
+        if wd != repo_r and wd.parent == repo_r:
+            workspace_segments = {wd.name}
 
     # Node / pnpm
     root_pj = _load_json(repo / "package.json")
@@ -552,6 +560,8 @@ def _discover_heuristic(repo):
             continue
         if any(part in fixture_segments for part in pp.parts):
             continue
+        if workspace_segments and any(part in workspace_segments for part in pp.parts):
+            continue
         d = pp.parent.resolve()
         if d in seen_paths:
             continue
@@ -566,6 +576,8 @@ def _discover_heuristic(repo):
         if "node_modules" in manifest.parts or ".venv" in manifest.parts:
             continue
         if any(part in fixture_segments for part in manifest.parts):
+            continue
+        if workspace_segments and any(part in workspace_segments for part in manifest.parts):
             continue
         d = manifest.parent.parent.resolve()
         if d in seen_paths:
@@ -1145,7 +1157,7 @@ def main():
             print("(Re-run /graph-wiki:init or hand-edit the layout block to update.)")
             print()
 
-    workspaces = discover_workspaces(repo, pinned_containers=pinned)
+    workspaces = discover_workspaces(repo, pinned_containers=pinned, workspace_dir=workspace)
     if not args.no_file_map:
         for w in workspaces:
             pkg_dir = repo / w["path"]
