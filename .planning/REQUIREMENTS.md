@@ -24,7 +24,7 @@ Source: `.planning/todos/pending/2026-05-19-fix-bedrock-count-tokens-api-shape-i
 
 - [ ] **TOK-01**: `vault_io.update_tokens.count_tokens()` uses the correct current boto3 `bedrock-runtime.count_tokens` parameter shape (`input=...`); shape verified against installed boto3 introspection and AWS docs (https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html).
 - [ ] **TOK-02**: Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks the boto3 client and asserts the request payload matches the expected shape; gated integration test (`CODE_WIKI_RUN_INTEGRATION=1`) exercises a real `count_tokens` call against Bedrock.
-- [ ] **TOK-03**: Existing wiki pages with `tokens: 0` are re-stamped after the fix (operational closure — re-run `/graph-wiki:scan` or `update_tokens.py` against `~/Personal/wiki/deep-agents`).
+- [x] **TOK-03**: Existing wiki pages with `tokens: 0` are re-stamped after the fix (operational closure — re-run `/graph-wiki:scan` or `update_tokens.py` against `~/Personal/wiki/deep-agents`).
 
 ### Workspace / Repo Resolution (WSRES)
 
@@ -83,7 +83,7 @@ Explicitly excluded from v1.3.
 | SCAN-02     | Phase 17 | Pending |
 | TOK-01      | Phase 17 | Pending |
 | TOK-02      | Phase 17 | Pending |
-| TOK-03      | Phase 17 | Pending |
+| TOK-03      | Phase 17 | Complete |
 | WSRES-01    | Phase 17 | Pending |
 | WSRES-02    | Phase 17 | Pending |
 | WSRES-03    | Phase 17 | Pending |

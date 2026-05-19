@@ -62,7 +62,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 **Milestone Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` and the `/init` plugin command shadow, and address the Phase 16 code review findings.
 
-- [ ] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution
+- [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (completed 2026-05-19)
 - [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review
 
@@ -85,7 +85,7 @@ Plans:
 - [x] 17-01-PLAN.md — SCAN companion-page fold in `_load_existing_pages` + unit tests (SCAN-01, SCAN-02)
 - [x] 17-02-PLAN.md — Bedrock CountTokens API shape fix in `update_tokens.py` + mocked unit tests + gated integration test (TOK-01, TOK-02)
 - [x] 17-03-PLAN.md — Workspace/repo resolution fixes in `init_vault.py` and `detect_containers.py` + synthetic-fixture tests (WSRES-01, WSRES-02, WSRES-03)
-- [ ] 17-04-PLAN.md — TOK-03 live re-stamp against `~/Personal/wiki/deep-agents` + populate `17-VERIFICATION.md` (TOK-03)
+- [x] 17-04-PLAN.md — TOK-03 live re-stamp against `~/Personal/wiki/deep-agents` + populate `17-VERIFICATION.md` (TOK-03)
 
 ### Phase 18: Plugin Command Rename
 **Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/init-wiki` with all references updated
@@ -120,7 +120,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. vault-io Bug Fixes | 3/4 | In Progress|  |
+| 17. vault-io Bug Fixes | 4/4 | Complete   | 2026-05-19 |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 19. Phase 16 Code Review Burndown | 0/TBD | Not started | - |
 
