@@ -3,7 +3,7 @@
 
 **deep-agents**
 
-A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, **`code-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
+A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`code-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
 **Core Value:** **Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
 
@@ -11,7 +11,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Constraints
 
-- **Tech stack**: Python 3.11+, `uv` workspace, `langchain` + `langchain-aws` + `deepagents` — chosen to match Pat's stack and to leverage deepagents' subagent primitives without rebuilding them
+- **Tech stack**: Python 3.11+, `uv` workspace, `langchain-aws` + `langchain-core` + in-house `subagent-runtime` (asyncio.Semaphore-based fan-out). `deepagents`/`langgraph` were evaluated and intentionally not adopted — see §2 stack-departure note
 - **Model provider**: AWS Bedrock only in v1 — single-provider focus simplifies adapter layer and eval harness
 - **Protocol**: MCP for the primary delivery surface — interoperates with DeepAgents CLI and other MCP hosts
 - **Format compatibility**: must read existing upstream lattice-wiki vaults without modification — preserve frontmatter schema, layout block format, wikilink/citation conventions
@@ -27,7 +27,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
 | `uv` | 0.11.14 | Monorepo manager, package installer, lockfile | Replaces pip/poetry/pyenv in one tool; workspace support is first-class and fast; the `uv_build` backend replaces setuptools cleanly |
-| Python | 3.11+ | Runtime (3.11 is the floor; deepagents requires `>=3.11`) | deepagents hard-requires 3.11; uv manages the interpreter automatically via `.python-version` |
+| Python | 3.11+ | Runtime — floor set by `langchain-core`'s typing usage and the asyncio features `SubagentPool` relies on | uv manages the interpreter automatically via `.python-version` |
 ### Workspace layout
 ### Root `pyproject.toml` pattern
 ### Per-package `pyproject.toml` pattern (e.g., `core-bedrock`)
@@ -41,30 +41,32 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 - `setuptools` or `hatchling` as build backend — `uv_build` is the native backend; it handles the workspace source link correctly
 - `poetry` — workspace semantics differ and you lose the lockfile speed advantage
 - A flat (single-package) layout — tiered `packages/` + `agents/` is the correct pattern here and matches official uv workspace examples
-## 2. Agent Framework — deepagents + LangChain + LangGraph
+## 2. Agent Framework — Custom Subagent Runtime over LangChain primitives
 ### Versions
 | Package | Version | Notes |
 |---------|---------|-------|
-| `deepagents` | 0.6.1 | Released 2026-05-12; Python ≥3.11; MIT |
-| `langchain` | 1.3.0 | Released 2026-05-12 |
-| `langgraph` | 1.2.0 | Released 2026-05-12; deepagents compiles to a LangGraph graph |
-| `langchain-core` | 1.4.0 | Required transitively; explicit pin recommended |
-### How deepagents composes with LangChain
-- Full LangGraph streaming (`astream_events` with `version="v3"`)
-- Checkpointers, human-in-the-loop, LangGraph Studio all work unchanged
-- Any `langchain_core` `@tool`-decorated function is a valid tool
-- The agent works with any LangChain chat model that supports tool calling
-### Model specification format
-# Direct ChatBedrockConverse (recommended — gives you full regional control)
-# OR via init_chat_model (shorter, supports provider string)
-### Subagent fan-out / parallelism
+| `langchain-core` | ≥1.4.0 | `@tool` decorator, `HumanMessage`/`SystemMessage`/`ToolMessage`, `RunnableConfig` — the only langchain primitives in use |
+| `subagent-runtime` (in-house) | workspace member | `packages/subagent-runtime/` — `SubagentPool` provides asyncio.Semaphore-bounded fan-out; replaces `deepagents.SubAgentMiddleware` |
+| `model-adapter` (in-house) | workspace member | `packages/model-adapter/` — `make_llm(role)` returns `_GuardedChatBedrockConverse` (translates `AccessDeniedException` → `BedrockAccessDenied`); models declared in `models.toml` |
+
+**Stack-departure note.** Earlier drafts of this doc proposed `deepagents` + `langgraph` + bare `langchain` as the agent framework. The implementation deliberately diverges: a hand-rolled `SubagentPool` (asyncio + Semaphore) plus a guarded `ChatBedrockConverse` adapter cover this project's needs at a fraction of the surface area. Re-evaluate when (a) checkpoint/resume becomes a real requirement, (b) LangGraph Studio observability becomes worth the dependency, or (c) we need streaming primitives we'd otherwise rebuild.
+
+### How subagent_runtime composes with LangChain
+- `subagent_runtime.SubagentPool` accepts a bounded concurrency limit and a factory of `_GuardedChatBedrockConverse` instances built by `model_adapter.make_llm(role)`
+- Each subagent receives a tool list of `langchain_core.tools.@tool`-decorated callables
+- Orchestrator fans out top-k items to the pool; results are gathered concurrently
+- No LangGraph state machine — flow control is plain Python `async`/`await`
+
+### Model specification
+- Direct construction via `model_adapter.make_llm(role)` — returns `_GuardedChatBedrockConverse`; bypasses `init_chat_model` to keep the Bedrock guard wrapper in scope
+- Per-role tiers (orchestrator/librarian/etc.) defined in `models.toml`, overridable via `set_models_path` for testing
+
 ### What NOT to use
 | Avoid | Why |
 |-------|-----|
-| LangGraph directly (without deepagents) | You'd rebuild deepagents' built-in tools (filesystem, planning, subagent middleware) from scratch |
-| `langchain-anthropic` | This routes to the direct Anthropic API. Bedrock-only means `langchain-aws` only. Adding `langchain-anthropic` is a footgun that will silently route outside Bedrock if credentials are wrong |
-| Async subagents (LangGraph Platform) in v1 | Adds infrastructure complexity (remote deployment, thread management) for no gain in a single-developer local setup |
+| `langchain-anthropic` | Routes to the direct Anthropic API. Bedrock-only means `langchain-aws` only. Footgun that will silently route outside Bedrock if credentials are wrong |
 | `ChatBedrock` (legacy class) | Deprecated in favor of `ChatBedrockConverse`; the Converse API supports all current Bedrock models uniformly |
+| Constructing `ChatBedrockConverse` directly outside `model-adapter` | Loses the `AccessDeniedException` → `BedrockAccessDenied` translation; always go through `make_llm(role)` |
 ## 3. Bedrock Integration — `langchain-aws`
 | Package | Version | Notes |
 |---------|---------|-------|
@@ -92,10 +94,8 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 | ~~SSE~~ | Do not use | **Deprecated** as of MCP spec 2025-03-26; replaced by Streamable HTTP |
 ### Tool registration pattern (FastMCP)
 ### Embedding long-running agent loops behind MCP tools
-### langchain-mcp-adapters (for consuming MCP tools inside agents)
-| Package | Version | Notes |
-|---------|---------|-------|
-| `langchain-mcp-adapters` | 0.2.2 | Released 2026-03-16; converts MCP tools to LangChain tools |
+### langchain-mcp-adapters (deferred)
+Not currently installed. Would be needed only if the agent itself consumes external MCP servers as tools. The current direction is the inverse — `code-wiki-agent` *exposes* MCP tools to a host (DeepAgents CLI, Claude Code) via FastMCP, and the host handles inbound tool routing. Revisit if/when the agent grows a need to call out to other MCP servers mid-loop.
 - SSE transport — deprecated; don't build new server infrastructure on it
 - `FastAPI` + `SSEServerTransport` — the old pattern; use FastMCP's built-in transport instead
 - Streamable HTTP in v1 — unnecessary for a local CLI-hosted server
@@ -164,11 +164,10 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 ## Supporting Libraries Summary
 | Library | Version | Purpose | Confidence |
 |---------|---------|---------|------------|
-| `deepagents` | 0.6.1 | Agent framework, subagent fan-out | HIGH |
-| `langchain` | 1.3.0 | LLM composition, tool calling | HIGH |
-| `langchain-aws` | 1.4.6 | Bedrock Converse API binding | HIGH |
-| `langgraph` | 1.2.0 | Durable execution runtime (deepagents dependency) | HIGH |
-| `langchain-mcp-adapters` | 0.2.2 | Consume MCP tools inside agents | HIGH |
+| `subagent-runtime` (in-house) | workspace | Asyncio Semaphore-bounded subagent fan-out (`SubagentPool`) | HIGH |
+| `model-adapter` (in-house) | workspace | `make_llm(role)` + `_GuardedChatBedrockConverse` adapter | HIGH |
+| `langchain-aws` | ≥1.4.6 | Bedrock Converse API binding (`ChatBedrockConverse`, `BedrockEmbeddings`) | HIGH |
+| `langchain-core` | ≥1.4.0 | `@tool` decorator + message primitives — only langchain piece in use | HIGH |
 | `mcp` | 1.27.1 | MCP server SDK (expose tools to DeepAgents CLI) | HIGH |
 | `typer` | 0.25.1 | Headless CLI entry points | HIGH |
 | `python-frontmatter` | 1.1.0 | Vault frontmatter read/write | HIGH |
@@ -189,7 +188,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 ## Alternatives Considered
 | Recommended | Alternative | Why Not |
 |-------------|-------------|---------|
-| `deepagents` | LangGraph ReAct directly | Would require reimplementing built-in tools (filesystem, planning, SubAgentMiddleware); deepagents IS LangGraph with batteries |
+| In-house `SubagentPool` | `deepagents` / `langgraph` | Considered and rejected for v1 — bounded asyncio fan-out is ~150 LOC and avoids dragging in LangGraph state-machine surface area we don't need. Revisit when checkpointing or LangGraph Studio becomes a real requirement (§2 stack-departure note) |
 | `langchain-aws` (`ChatBedrockConverse`) | `langchain-anthropic` | Routes to direct Anthropic API — excluded by Bedrock-only constraint; would silently incur non-Bedrock costs |
 | `bm25s` | `rank-bm25` | rank-bm25 unmaintained since 2022; bm25s is 5-50x faster with active development |
 | `deepeval` | `inspect-ai` | inspect-ai is best for capability benchmarks against standardized datasets; wrong primitive set for "recorded output baseline + cost tracking per model swap" |
@@ -200,17 +199,15 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 ## Version Compatibility Notes
 | Constraint | Detail |
 |------------|--------|
-| deepagents ≥0.6.1 requires Python ≥3.11 | Sets the floor for the whole monorepo |
-| langchain-aws 1.4.6 requires Python ≥3.10 | Compatible with the ≥3.11 floor |
+| Python ≥3.11 floor | Set by `langchain-core` typing usage and `SubagentPool`'s asyncio features |
+| langchain-aws ≥1.4.6 requires Python ≥3.10 | Compatible with the ≥3.11 floor |
 | ChatBedrockConverse async is pseudo-async | `astream()`/`ainvoke()` wrap sync boto3; no aioboto3 dependency available yet |
 | `uv_build` 0.11.x is the workspace-compatible build backend | Lock to `>=0.11.14,<0.12` to avoid breaking changes |
 | deepeval 4.0.0 Bedrock metrics use `AmazonBedrockModel` | Requires `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` or IAM role in env |
 | mcp 1.27.1 dropped SSE as primary transport | Use `transport="stdio"` for CLI hosting; `transport="streamable-http"` for future remote scenarios |
 ## Sources
-- PyPI: `deepagents` 0.6.1 — https://pypi.org/project/deepagents/ — current version, Python req
 - PyPI: `langchain-aws` 1.4.6 — https://pypi.org/project/langchain-aws/ — current version
-- PyPI: `langchain` 1.3.0 — https://pypi.org/project/langchain/ — current version
-- PyPI: `langgraph` 1.2.0 — https://pypi.org/project/langgraph/ — current version
+- PyPI: `langchain-core` 1.4.0 — https://pypi.org/project/langchain-core/ — current version
 - PyPI: `mcp` 1.27.1 — https://pypi.org/project/mcp/ — current version, transport status
 - PyPI: `deepeval` 4.0.0 — https://pypi.org/project/deepeval/ — current version
 - PyPI: `typer` 0.25.1 — https://pypi.org/project/typer/ — current version
@@ -221,11 +218,11 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 - GitHub: uv 0.11.14 — https://github.com/astral-sh/uv/releases — current version
 - Context7 `/langchain-ai/langchain-aws` — ChatBedrockConverse usage, init_chat_model provider string, token usage metadata
 - Context7 `/astral-sh/uv` — workspace pyproject.toml patterns, member declaration, dependency-groups
-- GitHub deepwiki: SubAgentMiddleware — https://deepwiki.com/langchain-ai/deepagents/8.4-sub-agent-workflows — sync vs async subagents, per-role model config
 - DeepEval docs: https://deepeval.com/integrations/models/amazon-bedrock — AmazonBedrockModel API, cost tracking fields
 - MCP spec: https://modelcontextprotocol.io/docs/develop/build-server — transport deprecation, stdio pattern
 - AWS docs: https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html — CountTokens API
-- deepagents docs: https://docs.langchain.com/oss/python/deepagents/overview — model format, primitives
+- In-house source: `packages/subagent-runtime/src/subagent_runtime/pool.py` — `SubagentPool` implementation
+- In-house source: `packages/model-adapter/src/model_adapter/loader.py` — `make_llm` + `_GuardedChatBedrockConverse`
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
