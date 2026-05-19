@@ -70,9 +70,9 @@ def estimate_sweep_cost(
 
 
 def preflight_bed01() -> None:
-    """Perform a live BED-01 Bedrock connectivity ping using the haiku role.
+    """Perform a live BED-01 Bedrock connectivity ping using the preflight role.
 
-    Invokes make_llm('haiku').invoke('ping') to confirm AWS credentials and
+    Invokes make_llm('preflight').invoke('ping') to confirm AWS credentials and
     Bedrock access before a potentially expensive sweep begins.
 
     Raises:
@@ -83,7 +83,7 @@ def preflight_bed01() -> None:
         Prints "[BED-01] Bedrock connectivity confirmed." to stdout on success.
     """
     try:
-        make_llm("haiku").invoke("ping")
+        make_llm("preflight").invoke("ping")
         print("[BED-01] Bedrock connectivity confirmed.")
     except BedrockAccessDenied as e:
         raise SystemExit(f"BED-01 FAILED: {e}") from e

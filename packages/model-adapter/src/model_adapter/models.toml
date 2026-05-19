@@ -4,11 +4,14 @@ region          = "us-east-1"
 max_tokens      = 1024
 max_concurrency = 10
 
-[roles.sonnet]
-model_id        = "us.anthropic.claude-sonnet-4-6"
+# Dedicated handle for the BED-01 connectivity ping in eval_harness.preflight.
+# Insulated from `haiku` so re-pointing the cheap alias never silently re-routes
+# the preflight smoke test.
+[roles.preflight]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
-max_tokens      = 4096
-max_concurrency = 3
+max_tokens      = 64
+max_concurrency = 1
 
 [roles.librarian]
 # Sweep candidates (run 2026-05-17): raw results

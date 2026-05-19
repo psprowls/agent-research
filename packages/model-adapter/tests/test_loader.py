@@ -10,7 +10,6 @@ import botocore.exceptions
 import pytest
 
 HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-SONNET_ARN = "us.anthropic.claude-sonnet-4-6"
 # Phase 16 D-13 / MODEL-FU-01: synthesizer default after the Sweep-01 swap
 # (sonnet-4-6 -> qwen3-32b for 11x cheaper at parity). Sourced from
 # packages/model-adapter/src/model_adapter/models.toml [roles.synthesizer].
@@ -29,14 +28,17 @@ def test_make_llm_haiku_returns_chatbedrockconverse_with_haiku_arn():
     assert actual == HAIKU_ARN
 
 
-def test_make_llm_sonnet_returns_chatbedrockconverse_with_sonnet_arn():
+def test_make_llm_preflight_returns_chatbedrockconverse_with_haiku_arn():
+    """The preflight role is a dedicated BED-01 ping handle; it shares the haiku
+    ARN today but is insulated so re-pointing haiku does not silently re-route
+    the connectivity smoke test."""
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm
 
-    llm = make_llm("sonnet")
+    llm = make_llm("preflight")
     assert isinstance(llm, ChatBedrockConverse)
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == SONNET_ARN
+    assert actual == HAIKU_ARN
 
 
 def test_make_llm_unknown_role_raises_keyerror():
@@ -102,7 +104,7 @@ def test_invoke_returns_underlying_result_on_success(monkeypatch):
     assert llm.invoke("ping") is sentinel
 
 
-ALL_ROLES = ["haiku", "sonnet", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
+ALL_ROLES = ["haiku", "preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
 
 
 @pytest.mark.parametrize("role", ALL_ROLES)

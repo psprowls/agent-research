@@ -8,11 +8,12 @@ region          = "us-east-1"
 max_tokens      = 1024
 max_concurrency = 10
 
-[roles.sonnet]
-model_id        = "us.anthropic.claude-sonnet-4-6"
+# Dedicated BED-01 connectivity ping handle.
+[roles.preflight]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 region          = "us-east-1"
-max_tokens      = 4096
-max_concurrency = 3
+max_tokens      = 64
+max_concurrency = 1
 
 [roles.librarian]
 model_id        = "qwen.qwen3-next-80b-a3b"
