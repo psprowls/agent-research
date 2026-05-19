@@ -55,6 +55,31 @@ uv run --package eval-harness python scripts/bedrock_model_audit.py [flags]
 
 - `scripts/bedrock_model_audit.py` (new)
 
+## Follow-up changes (same session)
+
+- Renamed `toolCalling` → `toolCallingSupported`, `probeError` → `toolProbeError`
+  (always emitted, null when no error).
+- Pricing normalised to per-1,000,000 tokens: `input_per_1k` → `input_per_1m`,
+  `output_per_1k` → `output_per_1m`. Per-1K → per-1M conversion done in
+  `Decimal` space so the output is exact (e.g. `0.06` instead of
+  `0.060000000000000005`).
+- Added `pricingProbeError`: `"NotFoundInPricingAPI"` when no SKU matched,
+  the upstream Pricing API error class name when the global fetch failed,
+  null otherwise. (Pricing absence ≠ inaccessibility — Bedrock invocation
+  and the AWS Pricing API are independent services.)
+- Output split into two files in `--out-dir` (default `.`):
+  - `bedrock-models-available.json` — always written; models that returned
+    anything other than `AccessDeniedException` from the probe.
+  - `bedrock-models-unavailable.json` — only with `--all`; access-denied models.
+- Replaced `--out PATH` flag with `--out-dir PATH` (filenames are fixed).
+- Records sorted by `(providerName, modelId)`. Inference profiles (which
+  lack `providerName`) inherit canonical casing from the foundation-model
+  list by matching on the model ID prefix — so `DeepSeek` stays `DeepSeek`
+  instead of becoming `Deepseek`.
+- Float output forced to decimal notation via custom `_DecimalFloatEncoder`
+  that routes floats through `Decimal(repr(x))` before formatting — no
+  scientific notation in the JSON.
+
 ## Notes
 
 - Uses boto3 (already transitively pulled in by `langchain-aws`). No extra dep.
