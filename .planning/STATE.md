@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Tooling Cleanup
-status: completed
+status: executing
 stopped_at: Phase 21 context gathered
-last_updated: "2026-05-20T02:34:34.953Z"
-last_activity: 2026-05-20 -- Phase 18 marked complete
+last_updated: "2026-05-20T02:38:23.287Z"
+last_activity: 2026-05-20 -- Phase 21 execution started
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 20
   completed_plans: 15
-  percent: 60
+  percent: 75
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 18 — plugin-command-rename
+**Current Focus:** Phase 21 — rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 18 — COMPLETE
-Plan: 1 of 6
-Status: Phase 18 complete
-Last activity: 2026-05-20 -- Phase 18 marked complete
+Phase: 21 (rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 21
+Last activity: 2026-05-20 -- Phase 21 execution started
 
 v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plans shipped this milestone)
 
