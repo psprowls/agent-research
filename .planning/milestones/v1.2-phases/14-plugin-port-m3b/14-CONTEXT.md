@@ -92,7 +92,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 ### Phase 13 spec (the contract — read first)
 - `.planning/spec/13-plugin-contract/CONTRACT-INDEX.md` — Verdict table for all 9 upstream commands; entry point for the whole spec.
 - `.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md` — SO-01..SO-04 (uv-run shape, `[plugin]` block, `_config.py`, shim template) + agent/skill rename map.
-- `.planning/spec/13-plugin-contract/init.md` — Per-command spec for `/graph-wiki:init`.
+- `.planning/spec/13-plugin-contract/init.md` — Per-command spec for `/graph-wiki:bootstrap`.
 - `.planning/spec/13-plugin-contract/scan.md` — Per-command spec for `/graph-wiki:scan`.
 - `.planning/spec/13-plugin-contract/ingest.md` — Per-command spec for `/graph-wiki:ingest`.
 - `.planning/spec/13-plugin-contract/lint.md` — Per-command spec for `/graph-wiki:lint` (reshape: drops work-layer pass 1b).

@@ -19,7 +19,7 @@ repo = wiki.parent  # v1: repo is always wiki's parent directory
 
 With the v2 workspace layout, `wiki.parent` is the empty `graph-wiki/` workspace dir, not the actual repo root. `detect_containers.py --json` returns `[]` and `init_vault.py` fails to detect any containers when run from the repo.
 
-Discovered while running `/graph-wiki:init` on the deep-agents repo — had to work around it by calling `init_wiki()` directly from Python with `repo_path=/Users/pat/Personal/deep-agents`.
+Discovered while running `/graph-wiki:bootstrap` on the deep-agents repo — had to work around it by calling `init_wiki()` directly from Python with `repo_path=/Users/pat/Personal/deep-agents`.
 
 Secondary bug in the detector: it self-classifies the workspace dir itself (`graph-wiki/`) as a `docs` container, polluting the pinned layout block with a harmless-but-noisy entry.
 

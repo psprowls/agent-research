@@ -94,7 +94,7 @@ No ORPHANED requirements: REQUIREMENTS.md maps exactly 7 IDs to Phase 12 (BACKPO
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
 | `packages/vault-io/src/vault_io/init_vault.py` | 154-158 | Stale docstring claim "Phase 5 will provide a workspace-bootstrap equivalent" | Info | Pre-existing, surfaced in IN-01 of REVIEW.md; not introduced by Phase 12. |
-| `packages/vault-io/src/vault_io/lint/container.py` | 35 | User-facing message references non-existent `/graph-wiki:init` slash command | Info | Pre-existing forward-reference flagged in IN-02; slash command lands in Phase 14. |
+| `packages/vault-io/src/vault_io/lint/container.py` | 35 | User-facing message references non-existent `/graph-wiki:bootstrap` slash command | Info | Pre-existing forward-reference flagged in IN-02; slash command lands in Phase 14. |
 | `packages/vault-io/src/vault_io/scan_monorepo.py` | 834 | `_dt.date.fromtimestamp` ignores timezone | Info | Pre-existing per IN-03; predates Phase 12. |
 
 No BLOCKER or WARNING anti-patterns. No debt markers (`TBD`/`FIXME`/`XXX`) introduced by Phase 12 that lack issue references.

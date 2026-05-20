@@ -133,7 +133,7 @@ The round-trip fixture vault at `packages/vault-io/tests/fixtures/round-trip-vau
 
 The new sentinel format breaks that constraint for any vault that was originally bootstrapped by upstream lattice-wiki. Downstream symptoms in scan/lint paths:
 - `scan_monorepo._load_existing_pages` (line 643-655): `read_layout()` returns None → the `for c in layout.get(...)` branch is skipped → custom-pinned containers are invisible → diffing degrades to apps/+packages/ only.
-- `lint/container.py:33-35`: emits the user-facing string "no layout block found in CLAUDE.md (run /graph-wiki:init)" for what is in fact a perfectly valid upstream vault.
+- `lint/container.py:33-35`: emits the user-facing string "no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)" for what is in fact a perfectly valid upstream vault.
 - `scan_monorepo.discover_workspaces(..., pinned_containers=None)` (when called from the rebranded CLI) falls back to heuristic walk; for a vault whose pinned-container shape diverges from the default, this silently misclassifies workspaces.
 
 This may be the intended hard-break — Phase 12 is the rebrand phase and the project explicitly chose to drop the lattice identifier — but the change is not called out in `DRIFT-DECISIONS.md` and contradicts the standing project-constraint in `CLAUDE.md`. If the break is intentional, at minimum update `CLAUDE.md` §Constraints to reflect the new posture; if not, accept both sentinel forms on read while writing only the new one.
@@ -213,11 +213,11 @@ belong to a separate workspace.init() helper upstream; here they're inlined.
 """
 ```
 
-### IN-02: `lint/container.py` "run /graph-wiki:init" suggestion will mislead users on missing layout
+### IN-02: `lint/container.py` "run /graph-wiki:bootstrap" suggestion will mislead users on missing layout
 
 **File:** `packages/vault-io/src/vault_io/lint/container.py:35`
 
-**Issue:** When `read_layout()` returns None (covered by WR-02), the returned string is `"no layout block found in CLAUDE.md (run /graph-wiki:init)"`. There is no `/graph-wiki:init` slash-command in this repo today — `init_vault.py` is a Python module invoked via `code-wiki-agent init` (per its argparse `main()` at line 282-315). The slash-command vocabulary is forward-looking (Phase 14 plugin port per `plugins/.gitkeep`), but until the plugin lands, the suggested remediation does not work.
+**Issue:** When `read_layout()` returns None (covered by WR-02), the returned string is `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`. There is no `/graph-wiki:bootstrap` slash-command in this repo today — `init_vault.py` is a Python module invoked via `code-wiki-agent init` (per its argparse `main()` at line 282-315). The slash-command vocabulary is forward-looking (Phase 14 plugin port per `plugins/.gitkeep`), but until the plugin lands, the suggested remediation does not work.
 
 **Fix:** Pick a more accurate suggestion until the plugin ships. Either:
 

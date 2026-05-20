@@ -30,9 +30,9 @@ Walk of every H2/H3 section in upstream `plugins/lattice-wiki/commands/scan.md` 
 | `## What happens` | verbatim except: step 1 script path rename (`scripts/scan_monorepo.py` stays, but under `graph-wiki/`); all 7 numbered steps preserved verbatim including the clean-tree-on-main gate in step 5 |
 | `## Sub-agent` | verbatim except namespace rename in prose: "See `agents/scanner.md`" unchanged (agent file name stays `scanner.md`); surrounding sentence rebrand `/lattice-wiki:scan` → `/graph-wiki:scan` |
 | `## Rules` | verbatim; the three bullet rules (no silent deletes, no prose overwrite, stub new pages only) are preserved byte-for-byte |
-| `## Layout reconcile` | verbatim except namespace rename: `/lattice-wiki:scan` → `/graph-wiki:scan`, `/lattice-wiki:init` → `/graph-wiki:init`; "Layout drift detected" string is preserved verbatim (it matches `scan_monorepo.main`'s printed output) |
+| `## Layout reconcile` | verbatim except namespace rename: `/lattice-wiki:scan` → `/graph-wiki:scan`, `/lattice-wiki:init` → `/graph-wiki:bootstrap`; "Layout drift detected" string is preserved verbatim (it matches `scan_monorepo.main`'s printed output) |
 | `## In-repo docs` | verbatim except namespace rename: `/lattice-wiki:ingest` → `/graph-wiki:ingest`; the ingest-candidates example block is preserved verbatim |
-| `## When to run` | verbatim except namespace rename: `/lattice-wiki:init` → `/graph-wiki:init`, `/lattice-wiki:lint` → `/graph-wiki:lint` |
+| `## When to run` | verbatim except namespace rename: `/lattice-wiki:init` → `/graph-wiki:bootstrap`, `/lattice-wiki:lint` → `/graph-wiki:lint` |
 | `## Skill Reference` | rename: `lattice-wiki/SKILL.md` → `graph-wiki/SKILL.md`; `lattice-wiki/references/scan-workflow.md` → `graph-wiki/references/scan-workflow.md` |
 
 ## Agent / skill rename map
@@ -50,7 +50,7 @@ No behavior changes vs upstream. Pure rename of namespace and import target. The
 
 Phase 14 confirms `/graph-wiki:scan` works by running the following smoke:
 
-1. Use a workspace that has a freshly initialized wiki (from `/graph-wiki:init`) — e.g. `~/Personal/wiki/deep-agents`.
+1. Use a workspace that has a freshly initialized wiki (from `/graph-wiki:bootstrap`) — e.g. `~/Personal/wiki/deep-agents`.
 2. Ensure the working tree is clean and HEAD is on `main` (enables the full update path including `last_sync_commit` bump).
 3. Run `/graph-wiki:scan` from that directory.
 4. Verify output lists the expected packages (e.g. `vault-io`, `workspace-io`, `code-wiki-agent`, `eval-harness`) with their `new`, `unchanged`, or `renamed` diff status.

@@ -6,7 +6,7 @@ This is the single auditable summary of the Phase 13 contract. Phase 14's execut
 
 Per C-02, verdict terms are defined as follows:
 
-- `rename` = byte-for-byte text swap of upstream slash and module references (e.g., `/lattice-wiki:init` → `/graph-wiki:init`, `lattice_wiki_core` → `vault_io`)
+- `rename` = byte-for-byte text swap of upstream slash and module references (e.g., `/lattice-wiki:init` → `/graph-wiki:bootstrap`, `lattice_wiki_core` → `vault_io`)
 - `reshape` = command behavior changes beyond a pure rename (e.g., `/lint` loses the work-layer pass 1b that ran against `work/` items)
 - `drop` = no port; no file ships in `plugins/graph-wiki/commands/` for this command
 - `defer` = port the markdown but disable execution until a later phase (unused in v1.2; documented for future phases where work-layer commands may be reconsidered)

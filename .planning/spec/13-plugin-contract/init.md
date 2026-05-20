@@ -4,7 +4,7 @@ upstream_source: plugins/lattice-wiki/commands/init.md
 port_verdict: rename
 ---
 
-# /graph-wiki:init — Port Spec
+# /graph-wiki:bootstrap — Port Spec
 
 ## Shell-out contract
 
@@ -26,7 +26,7 @@ Walk of every H2/H3 section in upstream `plugins/lattice-wiki/commands/init.md` 
 
 | Section | Verdict |
 |---------|---------|
-| `## Usage` | verbatim except namespace rename: `/lattice-wiki:init` → `/graph-wiki:init` |
+| `## Usage` | verbatim except namespace rename: `/lattice-wiki:init` → `/graph-wiki:bootstrap` |
 | `## Examples` | verbatim except namespace rename in the example commands |
 | `## Container detection` | verbatim except script path rename: `${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/detect_containers.py` → `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py`; prose about `package-family` classification rule preserved verbatim |
 | `## What it creates` | verbatim; the directory tree and commentary (including `raw/` and `work/` sibling note) are unchanged |
@@ -37,7 +37,7 @@ Walk of every H2/H3 section in upstream `plugins/lattice-wiki/commands/init.md` 
 
 ## Agent / skill rename map
 
-- **Agent files used by `/init`:** None — `/graph-wiki:init` is not dispatched through a named sub-agent. The plugin command runs inline (container detection + init_vault invocation) without a separate agent document.
+- **Agent files used by `/init`:** None — `/graph-wiki:bootstrap` is not dispatched through a named sub-agent. The plugin command runs inline (container detection + init_vault invocation) without a separate agent document.
 - **Skill:** `skills/lattice-wiki/SKILL.md` → `skills/graph-wiki/SKILL.md` — full file rename + namespace rebrand of all `/lattice-wiki:*` prose inside the file.
 - **Script:** `skills/lattice-wiki/scripts/init_vault.py` → `skills/graph-wiki/scripts/init_vault.py` — shim retargeted per SO-02; the shim body imports `vault_io.init_vault` instead of `lattice_wiki_core.init_vault`.
 - **Detect-containers script:** `skills/lattice-wiki/scripts/detect_containers.py` → `skills/graph-wiki/scripts/detect_containers.py` — same SO-02 shim pattern; imports `vault_io.detect_containers`. (The upstream plugin invokes this as a subprocess from inside the slash command prose; graph-wiki preserves this pattern.)
@@ -48,10 +48,10 @@ No behavior changes vs upstream. Pure rename of namespace and import target. The
 
 ## Verification gate
 
-Phase 14 confirms `/graph-wiki:init` works by running the following smoke:
+Phase 14 confirms `/graph-wiki:bootstrap` works by running the following smoke:
 
 1. Create an empty temp directory: `mkdir /tmp/test-wiki-root && cd /tmp/test-wiki-root && git init`.
-2. Run `/graph-wiki:init --topic "test" --tool claude-code` from that directory.
+2. Run `/graph-wiki:bootstrap --topic "test" --tool claude-code` from that directory.
 3. Verify the resulting `<workspace>/wiki/` tree contains: `index.md`, `log.md`, `CLAUDE.md`, `.gitignore`, `concepts/`, `architecture/`, `adrs/`, `sources/`, `dependencies/`, `.templates/`.
 4. Diff the layout block written into `<workspace>/wiki/CLAUDE.md` against a baseline captured from a fresh `/lattice-wiki:init --topic "test" --tool claude-code` run with identical args in an identical directory (modulo brand string differences: `graph-wiki` vs `lattice-wiki`). Expect byte-identical structure with only brand strings differing.
-5. Failure mode to test: run `/graph-wiki:init --topic "test"` a second time without `--force`; must exit with "not empty" error (verbatim upstream behavior).
+5. Failure mode to test: run `/graph-wiki:bootstrap --topic "test"` a second time without `--force`; must exit with "not empty" error (verbatim upstream behavior).

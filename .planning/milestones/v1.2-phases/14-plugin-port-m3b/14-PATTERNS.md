@@ -564,7 +564,7 @@ override (e.g., `ingest: bedrock`).
 
 ## Commands
 
-- `/graph-wiki:init` — bootstrap wiki
+- `/graph-wiki:bootstrap` — bootstrap wiki
 - `/graph-wiki:scan` — sync packages
 - `/graph-wiki:ingest` — ingest a source
 - `/graph-wiki:lint` — health-check
