@@ -20,7 +20,7 @@ import pytest
 
 
 def _make_query_result(answer: str = "test answer [[wiki-page]]"):
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     return QueryResult(
         answer=answer,
@@ -34,7 +34,7 @@ def _make_vault(tmp_path: Path) -> Path:
     """Create a minimal vault directory that resolve_wiki_and_repo can find."""
     vault = tmp_path / "vault"
     vault.mkdir()
-    code_wiki = vault / ".code-wiki"
+    code_wiki = vault / ".graph-wiki"
     code_wiki.mkdir()
     return vault
 
@@ -76,32 +76,32 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.query.build_index"),
+        patch("graph_wiki_agent.commands.query.build_index"),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page.md"], [1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query.BedrockEmbeddings",
+            "graph_wiki_agent.commands.query.BedrockEmbeddings",
         ) as mock_embed_cls,
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page.md", 0.9)],
         ),
         patch(
-            "code_wiki_agent.commands.query.SubagentPool",
+            "graph_wiki_agent.commands.query.SubagentPool",
         ) as mock_pool_cls,
         patch(
-            "code_wiki_agent.commands.query.make_llm",
+            "graph_wiki_agent.commands.query.make_llm",
         ) as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.query.ChatBedrockConverse",
+            "graph_wiki_agent.commands.query.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+        patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
         mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
         mock_pool_instance = MagicMock()
@@ -109,7 +109,7 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
         mock_pool_cls.return_value = mock_pool_instance
         mock_make_llm.return_value = lib_converse_instance
 
-        from code_wiki_agent.commands.query import run_query
+        from graph_wiki_agent.commands.query import run_query
 
         await run_query(
             "test query",
@@ -151,33 +151,33 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.query.build_index"),
+        patch("graph_wiki_agent.commands.query.build_index"),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page.md"], [1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query.BedrockEmbeddings",
+            "graph_wiki_agent.commands.query.BedrockEmbeddings",
         ) as mock_embed_cls,
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page.md", 0.9)],
         ),
         patch(
-            "code_wiki_agent.commands.query.SubagentPool",
+            "graph_wiki_agent.commands.query.SubagentPool",
         ) as mock_pool_cls,
         patch(
-            "code_wiki_agent.commands.query.make_llm",
+            "graph_wiki_agent.commands.query.make_llm",
         ),
         patch(
-            "code_wiki_agent.commands.query.ChatBedrockConverse",
+            "graph_wiki_agent.commands.query.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
-        patch("code_wiki_agent.commands.query._resolve_repo_root", return_value=tmp_path),
+        patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+        patch("graph_wiki_agent.commands.query._resolve_repo_root", return_value=tmp_path),
     ):
         mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
         mock_pool_instance = MagicMock()
@@ -185,7 +185,7 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(side_effect=[mock_fan_empty, mock_code_fan])
         mock_pool_cls.return_value = mock_pool_instance
 
-        from code_wiki_agent.commands.query import run_query
+        from graph_wiki_agent.commands.query import run_query
 
         await run_query(
             "How is _StdoutGuard implemented?",
@@ -223,32 +223,32 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.query.build_index"),
+        patch("graph_wiki_agent.commands.query.build_index"),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page.md"], [1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query.BedrockEmbeddings",
+            "graph_wiki_agent.commands.query.BedrockEmbeddings",
         ) as mock_embed_cls,
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page.md", 0.9)],
         ),
         patch(
-            "code_wiki_agent.commands.query.SubagentPool",
+            "graph_wiki_agent.commands.query.SubagentPool",
         ) as mock_pool_cls,
         patch(
-            "code_wiki_agent.commands.query.make_llm",
+            "graph_wiki_agent.commands.query.make_llm",
         ) as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.query.ChatBedrockConverse",
+            "graph_wiki_agent.commands.query.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+        patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
         mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
         mock_pool_instance = MagicMock()
@@ -258,7 +258,7 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
         synth_inst.ainvoke = AsyncMock(return_value=mock_synth_resp)
         mock_make_llm.return_value = synth_inst
 
-        from code_wiki_agent.commands.query import run_query
+        from graph_wiki_agent.commands.query import run_query
 
         await run_query(
             "test query",
@@ -307,40 +307,40 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.query.build_index"),
+        patch("graph_wiki_agent.commands.query.build_index"),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page.md"], [1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query.BedrockEmbeddings",
+            "graph_wiki_agent.commands.query.BedrockEmbeddings",
         ) as mock_embed_cls,
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page.md", 0.9)],
         ),
         patch(
-            "code_wiki_agent.commands.query.SubagentPool",
+            "graph_wiki_agent.commands.query.SubagentPool",
         ) as mock_pool_cls,
         patch(
-            "code_wiki_agent.commands.query.make_llm",
+            "graph_wiki_agent.commands.query.make_llm",
             side_effect=_fake_make_llm,
         ),
         patch(
-            "code_wiki_agent.commands.query.ChatBedrockConverse",
+            "graph_wiki_agent.commands.query.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+        patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
         mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
         mock_pool_instance = MagicMock()
         mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
         mock_pool_cls.return_value = mock_pool_instance
 
-        from code_wiki_agent.commands.query import run_query
+        from graph_wiki_agent.commands.query import run_query
 
         await run_query(
             "test query",
@@ -394,38 +394,38 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.scan.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.scan.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value=None),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=[]),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value=None),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[]),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
         patch(
-            "code_wiki_agent.commands.scan.compute_diff",
+            "graph_wiki_agent.commands.scan.compute_diff",
             return_value={"new": [], "renamed": [], "deleted": [], "unchanged": []},
         ),
         patch(
-            "code_wiki_agent.commands.scan.compute_state_gate",
+            "graph_wiki_agent.commands.scan.compute_state_gate",
             return_value={"allowed": True, "reason": "ok", "head_commit": "abc123"},
         ),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
         patch(
-            "code_wiki_agent.commands.scan.SubagentPool",
+            "graph_wiki_agent.commands.scan.SubagentPool",
         ) as mock_pool_cls,
-        patch("code_wiki_agent.commands.scan.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.scan.make_llm") as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.scan.ChatBedrockConverse",
+            "graph_wiki_agent.commands.scan.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
-        patch("code_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
     ):
         mock_pool_instance = MagicMock()
         mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
         mock_pool_cls.return_value = mock_pool_instance
 
-        from code_wiki_agent.commands.scan import run_scan
+        from graph_wiki_agent.commands.scan import run_scan
 
         await run_scan(vault_path=vault, model_override=candidate)
 
@@ -489,11 +489,11 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.lint.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.lint.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
         patch(
-            "code_wiki_agent.commands.lint._mechanical_pass",
+            "graph_wiki_agent.commands.lint._mechanical_pass",
             return_value={
                 "pages": non_empty_pages,
                 "total_pages": 1,
@@ -506,7 +506,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
             },
         ),
         patch(
-            "code_wiki_agent.commands.lint._module_pass",
+            "graph_wiki_agent.commands.lint._module_pass",
             return_value={
                 "code_drift": {},
                 "container_drift": {},
@@ -521,11 +521,11 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
             },
         ),
         patch(
-            "code_wiki_agent.commands.lint.SubagentPool",
+            "graph_wiki_agent.commands.lint.SubagentPool",
         ) as mock_pool_cls,
-        patch("code_wiki_agent.commands.lint.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.lint.make_llm") as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.lint.ChatBedrockConverse",
+            "graph_wiki_agent.commands.lint.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
     ):
@@ -533,7 +533,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         mock_pool_instance.run_all = _mock_run_all
         mock_pool_cls.return_value = mock_pool_instance
 
-        from code_wiki_agent.commands.lint import run_lint
+        from graph_wiki_agent.commands.lint import run_lint
 
         await run_lint(vault_path=vault, model_override=candidate)
 
@@ -573,18 +573,18 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.ingest.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.ingest.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.ingest.ChatBedrockConverse",
+            "graph_wiki_agent.commands.ingest.ChatBedrockConverse",
             side_effect=_fake_converse,
         ),
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
     ):
-        from code_wiki_agent.commands.ingest import run_ingest_source
+        from graph_wiki_agent.commands.ingest import run_ingest_source
 
         await run_ingest_source(source_path=source, vault_path=vault, model_override=candidate)
 

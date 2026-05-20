@@ -23,10 +23,10 @@ test_project_context.py.
 # to builder fns with project_context").
 #
 # Measurement command (rerun to verify):
-#   git show e9cfd56:agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py > /tmp/old_scanner.py
-#   git show e9cfd56:agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py > /tmp/old_ingestor.py
-#   git show e9cfd56:agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py > /tmp/old_linter.py
-#   git show e9cfd56:agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py > /tmp/old_librarian.py
+#   git show e9cfd56:agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py > /tmp/old_scanner.py
+#   git show e9cfd56:agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py > /tmp/old_ingestor.py
+#   git show e9cfd56:agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py > /tmp/old_linter.py
+#   git show e9cfd56:agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py > /tmp/old_librarian.py
 #   uv run python -c "
 #       ns = {}; exec(open('/tmp/old_scanner.py').read(), ns)
 #       print('scanner:', len(ns['SCANNER_SYSTEM']) // 4)"
@@ -34,7 +34,7 @@ test_project_context.py.
 #      LINTER_PAGE_QUALITY_SYSTEM, LINTER_ADR_CHAIN_SYSTEM, LINTER_STALE_CLAIMS_SYSTEM.
 #
 # All shared fragments (_fragments/*.py) are byte-identical between e9cfd56
-# and HEAD — `git diff e9cfd56 HEAD -- agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/`
+# and HEAD — `git diff e9cfd56 HEAD -- agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/`
 # returns no output — so re-execing the historical prompt source against the
 # current fragments yields the exact pre-Phase-10 baseline.
 """
@@ -73,7 +73,7 @@ def _assert_within_budget(role: str, prompt: str) -> None:
 
 def test_scanner_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.scanner import build_scanner_system
+        from graph_wiki_agent.prompts.scanner import build_scanner_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     _assert_within_budget("scanner", build_scanner_system(project_context=""))
@@ -81,7 +81,7 @@ def test_scanner_token_budget() -> None:
 
 def test_ingestor_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.ingestor import build_ingestor_system
+        from graph_wiki_agent.prompts.ingestor import build_ingestor_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     _assert_within_budget("ingestor", build_ingestor_system(project_context=""))
@@ -89,7 +89,7 @@ def test_ingestor_token_budget() -> None:
 
 def test_linter_page_quality_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.linter import build_linter_page_quality_system
+        from graph_wiki_agent.prompts.linter import build_linter_page_quality_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     _assert_within_budget(
@@ -99,7 +99,7 @@ def test_linter_page_quality_token_budget() -> None:
 
 def test_linter_adr_chain_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.linter import build_linter_adr_chain_system
+        from graph_wiki_agent.prompts.linter import build_linter_adr_chain_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     _assert_within_budget(
@@ -109,7 +109,7 @@ def test_linter_adr_chain_token_budget() -> None:
 
 def test_linter_stale_claims_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.linter import build_linter_stale_claims_system
+        from graph_wiki_agent.prompts.linter import build_linter_stale_claims_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     _assert_within_budget(
@@ -119,7 +119,7 @@ def test_linter_stale_claims_token_budget() -> None:
 
 def test_librarian_token_budget() -> None:
     try:
-        from code_wiki_agent.prompts.librarian import build_librarian_system
+        from graph_wiki_agent.prompts.librarian import build_librarian_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     # Librarian has no project_context kwarg (CONTEXT.md §Wiring).

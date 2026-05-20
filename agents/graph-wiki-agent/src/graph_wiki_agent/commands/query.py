@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Hybrid BM25 + embedding search layer and query pipeline for code-wiki-agent.
+"""Hybrid BM25 + embedding search layer and query pipeline for graph-wiki-agent.
 
 Public API (Plan 02):
     build_index(vault_path)          -- Build/refresh BM25 + SQLite embedding index
@@ -12,14 +12,14 @@ Public API (Plan 02):
 
 Public API (Plan 03):
     QueryResult                      -- Dataclass: answer, citations, pages_drilled, search_scores
-    LIBRARIAN_SYSTEM                 -- System prompt for librarian role (re-exported from code_wiki_agent.prompts.librarian)
-    SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role (re-exported from code_wiki_agent.prompts.synthesizer)
+    LIBRARIAN_SYSTEM                 -- System prompt for librarian role (re-exported from graph_wiki_agent.prompts.librarian)
+    SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role (re-exported from graph_wiki_agent.prompts.synthesizer)
     run_query(query, vault_path, top_k) -- End-to-end query pipeline
     apply_guardrails(result, vault_path, fan_result) -- G1 + G4 online guardrails
     _extract_wikilinks(text)         -- Extract [[wikilink]] targets from text
 
 Public API (Plan 09 — vault-thin code-fallback):
-    CODE_READER_SYSTEM               -- System prompt for code_reader role (re-exported from code_wiki_agent.prompts.code_reader)
+    CODE_READER_SYSTEM               -- System prompt for code_reader role (re-exported from graph_wiki_agent.prompts.code_reader)
     _resolve_repo_root(vault_path)   -- Repo-root heuristic (.git / pyproject.toml sibling)
     _read_file_bounded(repo_root, requested_path, max_bytes) -- Allow-list bounded file reader
 """
@@ -46,9 +46,9 @@ from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from vault_io._workspace import resolve_wiki_and_repo
-from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
-from code_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
-from code_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +122,8 @@ _STOPWORDS: frozenset[str] = frozenset({
     "also",
 })
 
-_BM25_SUBDIR = "bm25"          # relative to .code-wiki/
-_SEARCH_DB_NAME = "search.db"  # filename under .code-wiki/
+_BM25_SUBDIR = "bm25"          # relative to .graph-wiki/
+_SEARCH_DB_NAME = "search.db"  # filename under .graph-wiki/
 
 # SQLite DDL — used by build_index; defined here for reuse
 _DDL_PAGES = """
@@ -247,7 +247,7 @@ def _cosine_search_sqlite(
     Opens and closes the connection per call (no module-level state).
     Returns list of (page_path, cosine_score) sorted descending.
     """
-    db_path = vault_path / ".code-wiki" / _SEARCH_DB_NAME
+    db_path = vault_path / ".graph-wiki" / _SEARCH_DB_NAME
     conn = sqlite3.connect(str(db_path))
     try:
         rows = conn.execute("SELECT path, embedding FROM pages").fetchall()
@@ -341,7 +341,7 @@ def _read_file_bounded(
       `Path.resolve(strict=False)` BEFORE the containment check, so a symlink
       whose target lives outside `repo_root` is rejected. Dropping `resolve()`
       will silently leak files; the symlink-escape test exists to catch that.
-    - Rejects any path whose parts include `.code-wiki` (vault metadata, not
+    - Rejects any path whose parts include `.graph-wiki` (vault metadata, not
       source).
     - Reads at most `max_bytes` bytes. If the file is larger, the returned
       content is truncated to `max_bytes` and suffixed with the literal
@@ -357,9 +357,9 @@ def _read_file_bounded(
         raise PermissionError(
             f"refusing to read {requested_path!r}: resolves outside repo root {root}"
         )
-    if ".code-wiki" in candidate.parts:
+    if ".graph-wiki" in candidate.parts:
         raise PermissionError(
-            f"refusing to read {requested_path!r}: path is inside .code-wiki/"
+            f"refusing to read {requested_path!r}: path is inside .graph-wiki/"
         )
     if not candidate.is_file():
         raise PermissionError(
@@ -416,7 +416,7 @@ async def _run_code_fallback(
     def read_file(path: str) -> str:
         """Read a source file by repo-relative path.
 
-        Refuses paths outside the repo root, inside `.code-wiki/`, or
+        Refuses paths outside the repo root, inside `.graph-wiki/`, or
         non-regular-files. Truncates at 200_000 bytes.
         """
         try:
@@ -529,7 +529,7 @@ async def _run_code_fallback(
     # TRACE-FU-01 (D-03): trace per-call synthesizer invocation alongside the
     # summary_record. The synth_resp also feeds the summary_record's
     # tokens_in / tokens_out so the per-query summary reports usage.
-    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir = wiki / ".graph-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     trace_file = trace_dir / f"synth_{query_id}.jsonl"
     t0 = time.monotonic()
@@ -707,7 +707,7 @@ def build_index(vault_path: Path) -> None:
         return
 
     # ---- BM25 ----
-    bm25_dir = vault_path / ".code-wiki" / _BM25_SUBDIR
+    bm25_dir = vault_path / ".graph-wiki" / _BM25_SUBDIR
     bm25_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("Rebuilding BM25 index for %d pages", len(pages))
@@ -725,7 +725,7 @@ def build_index(vault_path: Path) -> None:
     tokenizer.save_stopwords(str(bm25_dir))
 
     # ---- Embedding index (incremental) ----
-    db_path = vault_path / ".code-wiki" / _SEARCH_DB_NAME
+    db_path = vault_path / ".graph-wiki" / _SEARCH_DB_NAME
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(str(db_path))
@@ -779,7 +779,7 @@ def bm25_query(
 
     Vocab is frozen at query time (update_vocab=False) — Pitfall 1 fix.
     """
-    bm25_dir = vault_path / ".code-wiki" / _BM25_SUBDIR
+    bm25_dir = vault_path / ".graph-wiki" / _BM25_SUBDIR
 
     retriever = bm25s.BM25.load(str(bm25_dir), load_corpus=True)
 
@@ -819,7 +819,7 @@ async def run_query(
 
     Steps:
         1. Resolve vault path via resolve_wiki_and_repo().
-        2. Auto-build index if missing (.code-wiki/bm25/ or .code-wiki/search.db absent).
+        2. Auto-build index if missing (.graph-wiki/bm25/ or .graph-wiki/search.db absent).
         3. BM25 search (top_k * 3 candidates).
         4. Embedding search via Titan v2 (top_k * 3 candidates).
         5. RRF fusion -> top_k pages.
@@ -859,8 +859,8 @@ async def run_query(
     wiki, _ = resolve_wiki_and_repo(vault_path)
 
     # Step 2: auto-build index if missing
-    bm25_dir = wiki / ".code-wiki" / _BM25_SUBDIR
-    db_path = wiki / ".code-wiki" / _SEARCH_DB_NAME
+    bm25_dir = wiki / ".graph-wiki" / _BM25_SUBDIR
+    db_path = wiki / ".graph-wiki" / _SEARCH_DB_NAME
     if not bm25_dir.exists() or not db_path.exists():
         logger.warning(
             "First-time index build — may take a moment. query_id=%s", query_id
@@ -900,7 +900,7 @@ async def run_query(
         )
     else:
         librarian_llm = make_llm("librarian")
-    pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
+    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
 
     async def drill_page(page_path: str) -> TaskResult:
         page_text = (wiki / page_path).read_text(encoding="utf-8", errors="replace")
@@ -968,7 +968,7 @@ async def run_query(
         ]
         # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
         # feed the summary_record so the query summary reports usage.
-        synth_trace_dir = wiki / ".code-wiki" / "traces"
+        synth_trace_dir = wiki / ".graph-wiki" / "traces"
         synth_trace_dir.mkdir(parents=True, exist_ok=True)
         synth_trace_file = synth_trace_dir / f"synth_{query_id}.jsonl"
         synth_t0 = time.monotonic()
@@ -1041,7 +1041,7 @@ async def run_query(
 
     # Write query summary trace record (RESEARCH Open Question 1 — write directly)
     ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
-    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir = wiki / ".graph-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     summary_file = trace_dir / f"query_{query_id}.jsonl"
     try:

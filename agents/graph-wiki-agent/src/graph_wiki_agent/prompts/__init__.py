@@ -1,4 +1,4 @@
-"""Prompt constants for code-wiki-agent roles.
+"""Prompt constants for graph-wiki-agent roles.
 
 Shared fragment constants live under `_fragments/`; each is imported by its
 consumer (per-role files or directly by command modules).  Do not eagerly

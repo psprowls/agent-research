@@ -20,10 +20,10 @@ Exports:
     LIBRARIAN_SYSTEM — backward-compat constant, equals build_librarian_system().
 """
 
-from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
-from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 _ROLE_INTRO = """\
 ## Role

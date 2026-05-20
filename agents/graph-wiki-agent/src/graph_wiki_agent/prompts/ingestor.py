@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Ports packages/prompt-sources/agents/ingestor.md per PORT-03 (Phase 6).
 Adapts host-specific references (slash commands, script calls, interactive
-loops) to code-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
+loops) to graph-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
 Preserves semantic rules: page-type routing, frontmatter fields, minimum-3-touches,
 cite-aggressively, red flags.
 
@@ -15,14 +15,14 @@ Exports:
     INGESTOR_SYSTEM — backward-compat constant, equals build_ingestor_system().
 """
 
-from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
-from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
-from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
-from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
-from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
-from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 _ROLE_INTRO = (
     "You are a code wiki ingestor. Analyze a source document and produce a wiki page\n"

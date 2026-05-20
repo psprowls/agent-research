@@ -23,24 +23,24 @@ from pathlib import Path
 import pytest
 
 # Anchored to this file's location so it works regardless of cwd.
-# agents/code-wiki-agent/tests/prompts/test_provenance.py
+# agents/graph-wiki-agent/tests/prompts/test_provenance.py
 #   parent[0] → tests/prompts/
 #   parent[1] → tests/
-#   parent[2] → agents/code-wiki-agent/
+#   parent[2] → agents/graph-wiki-agent/
 #   parent[3] → agents/          (NOT used here, resolve through src)
 FRAGMENT_DIR = (
     Path(__file__).resolve().parents[2]
     / "src"
-    / "code_wiki_agent"
+    / "graph_wiki_agent"
     / "prompts"
     / "_fragments"
 )
 
 # packages/prompt-sources/ relative to the workspace root.
-# agents/code-wiki-agent/tests/prompts/test_provenance.py
+# agents/graph-wiki-agent/tests/prompts/test_provenance.py
 #   parent[0] → tests/prompts/
 #   parent[1] → tests/
-#   parent[2] → agents/code-wiki-agent/
+#   parent[2] → agents/graph-wiki-agent/
 #   parent[3] → agents/
 #   parent[4] → workspace root
 PROMPT_SOURCES_DIR = Path(__file__).resolve().parents[4] / "packages" / "prompt-sources"

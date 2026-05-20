@@ -17,9 +17,9 @@ Exports:
 Source: packages/prompt-sources/agents/linter.md (Pass 2/3 and Rules section)
 """
 
-from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 # Prioritization rule shared by all three linter group prompts (linter-only, not in
 # shared _fragments/ since it is specific to the linter role).

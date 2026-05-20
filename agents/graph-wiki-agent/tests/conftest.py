@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Shared pytest fixtures for code-wiki-agent tests.
+"""Shared pytest fixtures for graph-wiki-agent tests.
 
 Provides:
 - fixture_vault_path: resolves the cross-package round-trip-vault fixture so

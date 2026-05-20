@@ -61,14 +61,14 @@ async def run_init(
     """
     # Phase 1 (D-07): bootstrap the workspace shell — creates the workspace
     # directory, writes `.graph-wiki.yaml`, ensures `.graph-wiki.local.yaml`
-    # is gitignored, and registers `code-wiki-agent` as a plugin entry
+    # is gitignored, and registers `graph-wiki-agent` as a plugin entry
     # (D-12: installed_version == applied_version, sourced from
     # importlib.metadata per D-13).
     repo_root = vault_path.parent if vault_path is not None else Path.cwd()
     _ws_init(
         repo_root,
-        plugin="code-wiki-agent",
-        version=importlib.metadata.version("code-wiki-agent"),
+        plugin="graph-wiki-agent",
+        version=importlib.metadata.version("graph-wiki-agent"),
     )
 
     # Phase 2: existing vault-io resolution + wiki tree population.

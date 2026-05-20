@@ -23,7 +23,7 @@ import pytest
 
 def _make_query_result():
     """Build a fixed QueryResult for mocking."""
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     return QueryResult(
         answer="Test answer [[Foo]]",
@@ -39,9 +39,9 @@ def _make_query_result():
 
 
 def test_query_help_exits_zero() -> None:
-    """code-wiki-agent query --help exits 0 and lists all flags (CLI-01)."""
+    """graph-wiki-agent query --help exits 0 and lists all flags (CLI-01)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
     )
@@ -56,7 +56,7 @@ def test_query_help_exits_zero() -> None:
 def test_vault_flag_in_help() -> None:
     """--vault flag appears in help output (CLI-05)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
     )
@@ -71,12 +71,12 @@ def test_vault_flag_in_help() -> None:
 
 def test_shared_impl_is_imported_from_commands() -> None:
     """CLI query delegates to commands.query.run_query, not inline logic (CLI-03)."""
-    from code_wiki_agent.cli import query
+    from graph_wiki_agent.cli import query
 
     src = inspect.getsource(query)
     assert "run_query" in src
-    # The import should be from code_wiki_agent.commands.query
-    import code_wiki_agent.cli as cli_module
+    # The import should be from graph_wiki_agent.commands.query
+    import graph_wiki_agent.cli as cli_module
 
     assert hasattr(cli_module, "run_query"), (
         "run_query must be imported at module level in cli.py"
@@ -86,7 +86,7 @@ def test_shared_impl_is_imported_from_commands() -> None:
 def test_state_gate_flag_present() -> None:
     """--no-state-gate flag is present in help output and is a no-op for query (CMD-08)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
     )
@@ -106,8 +106,8 @@ def test_exit_code_1_on_unresolved_vault() -> None:
             "uv",
             "run",
             "--package",
-            "code-wiki-agent",
-            "code-wiki-agent",
+            "graph-wiki-agent",
+            "graph-wiki-agent",
             "query",
             "test query",
             "--vault",
@@ -139,11 +139,11 @@ def test_headless_mode_progress_to_stderr(
     """
     from typer.testing import CliRunner
 
-    from code_wiki_agent.cli import app
+    from graph_wiki_agent.cli import app
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "code_wiki_agent.cli.run_query",
+        "graph_wiki_agent.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 
@@ -165,11 +165,11 @@ def test_json_flag_emits_valid_json(
     """--json flag outputs valid JSON with required keys (CLI-04, CMD-07)."""
     from typer.testing import CliRunner
 
-    from code_wiki_agent.cli import app
+    from graph_wiki_agent.cli import app
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "code_wiki_agent.cli.run_query",
+        "graph_wiki_agent.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 
@@ -194,11 +194,11 @@ def test_no_state_gate_flag_accepted(
     """--no-state-gate flag accepted with no behavior change (D-08 no-op)."""
     from typer.testing import CliRunner
 
-    from code_wiki_agent.cli import app
+    from graph_wiki_agent.cli import app
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "code_wiki_agent.cli.run_query",
+        "graph_wiki_agent.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 

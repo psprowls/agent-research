@@ -6,7 +6,7 @@ import subprocess
 
 def _run_help() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "--help"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "--help"],
         capture_output=True,
         text=True,
     )
@@ -15,7 +15,7 @@ def _run_help() -> subprocess.CompletedProcess[str]:
 def test_cli_help_exits_zero() -> None:
     result = _run_help()
     assert result.returncode == 0, f"--help exited {result.returncode}\n{result.stderr}"
-    assert "code-wiki-agent" in result.stdout.lower()
+    assert "graph-wiki-agent" in result.stdout.lower()
 
 
 def test_cli_help_lists_bootstrap_subcommand() -> None:

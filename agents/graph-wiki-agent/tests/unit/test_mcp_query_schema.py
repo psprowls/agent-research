@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 def test_wiki_query_tool_registered() -> None:
     """wiki_query tool is importable and callable (MCP-02)."""
-    from code_wiki_mcp.server import wiki_query
+    from graph_wiki_mcp.server import wiki_query
 
     assert callable(wiki_query)
     assert wiki_query.__name__ == "wiki_query"
@@ -21,7 +21,7 @@ def test_wiki_query_tool_registered() -> None:
 
 def test_wiki_query_input_default_top_k_is_5() -> None:
     """WikiQueryInput defaults to top_k=5."""
-    from code_wiki_mcp.server import WikiQueryInput
+    from graph_wiki_mcp.server import WikiQueryInput
 
     inp = WikiQueryInput(query="test query")
     assert inp.top_k == 5
@@ -29,7 +29,7 @@ def test_wiki_query_input_default_top_k_is_5() -> None:
 
 def test_wiki_query_input_default_vault_path_is_empty() -> None:
     """WikiQueryInput defaults to vault_path='' (empty -> resolve from env)."""
-    from code_wiki_mcp.server import WikiQueryInput
+    from graph_wiki_mcp.server import WikiQueryInput
 
     inp = WikiQueryInput(query="test query")
     assert inp.vault_path == ""
@@ -37,7 +37,7 @@ def test_wiki_query_input_default_vault_path_is_empty() -> None:
 
 def test_wiki_query_input_rejects_out_of_range_top_k() -> None:
     """WikiQueryInput rejects top_k > 10 with ValidationError (MCP-04)."""
-    from code_wiki_mcp.server import WikiQueryInput
+    from graph_wiki_mcp.server import WikiQueryInput
 
     with pytest.raises(ValidationError):
         WikiQueryInput(query="test query", top_k=11)
@@ -45,7 +45,7 @@ def test_wiki_query_input_rejects_out_of_range_top_k() -> None:
 
 def test_wiki_query_input_rejects_top_k_too_low() -> None:
     """WikiQueryInput rejects top_k < 3 with ValidationError (MCP-04)."""
-    from code_wiki_mcp.server import WikiQueryInput
+    from graph_wiki_mcp.server import WikiQueryInput
 
     with pytest.raises(ValidationError):
         WikiQueryInput(query="test query", top_k=2)
@@ -53,7 +53,7 @@ def test_wiki_query_input_rejects_top_k_too_low() -> None:
 
 def test_wiki_query_input_rejects_missing_query() -> None:
     """WikiQueryInput requires query field (MCP-04)."""
-    from code_wiki_mcp.server import WikiQueryInput
+    from graph_wiki_mcp.server import WikiQueryInput
 
     with pytest.raises(ValidationError):
         WikiQueryInput()  # type: ignore[call-arg]
@@ -61,8 +61,8 @@ def test_wiki_query_input_rejects_missing_query() -> None:
 
 async def test_wiki_query_calls_run_query_and_returns_output() -> None:
     """wiki_query calls run_query and returns WikiQueryOutput (CLI-03 single source of truth)."""
-    from code_wiki_mcp.server import WikiQueryInput, WikiQueryOutput, wiki_query
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_mcp.server import WikiQueryInput, WikiQueryOutput, wiki_query
+    from graph_wiki_agent.commands.query import QueryResult
 
     mock_result = QueryResult(
         answer="The SubagentPool manages concurrent fan-out.",
@@ -76,7 +76,7 @@ async def test_wiki_query_calls_run_query_and_returns_output() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("code_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
+    with patch("graph_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
         mock_run_query.return_value = mock_result
 
         result = await wiki_query(WikiQueryInput(query="What does SubagentPool do?"), mock_ctx)
@@ -91,8 +91,8 @@ async def test_wiki_query_calls_run_query_and_returns_output() -> None:
 
 async def test_progress_called_at_start_and_end() -> None:
     """ctx.report_progress called at least twice (start + end) during wiki_query (MCP-06)."""
-    from code_wiki_mcp.server import WikiQueryInput, wiki_query
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_mcp.server import WikiQueryInput, wiki_query
+    from graph_wiki_agent.commands.query import QueryResult
 
     mock_result = QueryResult(
         answer="Answer text.",
@@ -104,7 +104,7 @@ async def test_progress_called_at_start_and_end() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("code_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
+    with patch("graph_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
         mock_run_query.return_value = mock_result
         await wiki_query(WikiQueryInput(query="test"), mock_ctx)
 
@@ -113,12 +113,12 @@ async def test_progress_called_at_start_and_end() -> None:
 
 async def test_wiki_query_propagates_run_query_runtime_error() -> None:
     """wiki_query propagates RuntimeError from run_query (FastMCP wraps at JSON-RPC layer)."""
-    from code_wiki_mcp.server import WikiQueryInput, wiki_query
+    from graph_wiki_mcp.server import WikiQueryInput, wiki_query
 
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("code_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
+    with patch("graph_wiki_mcp.server.run_query", new_callable=AsyncMock) as mock_run_query:
         mock_run_query.side_effect = RuntimeError("Vault not found")
         with pytest.raises(RuntimeError, match="Vault not found"):
             await wiki_query(WikiQueryInput(query="test"), mock_ctx)

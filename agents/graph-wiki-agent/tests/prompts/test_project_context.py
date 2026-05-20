@@ -69,7 +69,7 @@ def test_render_project_context_missing_file(tmp_path: Path) -> None:
     never raise.
     """
     try:
-        from code_wiki_agent.prompts.project_context import render_project_context
+        from graph_wiki_agent.prompts.project_context import render_project_context
     except ImportError:
         pytest.skip("project_context module not yet implemented")
 
@@ -85,7 +85,7 @@ def test_render_project_context_with_claude_md(
 ) -> None:
     """CLAUDE.md present → rendered block contains layout/style/log."""
     try:
-        from code_wiki_agent.prompts.project_context import render_project_context
+        from graph_wiki_agent.prompts.project_context import render_project_context
     except ImportError:
         pytest.skip("project_context module not yet implemented")
 
@@ -107,7 +107,7 @@ def test_render_project_context_with_claude_md(
 def test_render_project_context_agents_md_fallback(tmp_path: Path) -> None:
     """No CLAUDE.md but AGENTS.md present → AGENTS.md is read instead."""
     try:
-        from code_wiki_agent.prompts.project_context import render_project_context
+        from graph_wiki_agent.prompts.project_context import render_project_context
     except ImportError:
         pytest.skip("project_context module not yet implemented")
 
@@ -126,7 +126,7 @@ def test_render_project_context_agents_md_fallback(tmp_path: Path) -> None:
 def test_render_project_context_deterministic(tmp_path: Path) -> None:
     """Two calls on the same fixture return byte-identical strings."""
     try:
-        from code_wiki_agent.prompts.project_context import render_project_context
+        from graph_wiki_agent.prompts.project_context import render_project_context
     except ImportError:
         pytest.skip("project_context module not yet implemented")
 

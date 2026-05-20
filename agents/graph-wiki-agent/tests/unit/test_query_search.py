@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from code_wiki_agent.commands.query import (
+from graph_wiki_agent.commands.query import (
     _build_tokenizer,
     _discover_pages,
     _rrf_fuse,
@@ -144,7 +144,7 @@ def test_cosine_search_sqlite_orders_by_similarity(tmp_path: Path) -> None:
     # vec2: hot on dimension 1
     vec2 = _make_vec(dim, 1)
 
-    db_path = tmp_path / ".code-wiki" / "search.db"
+    db_path = tmp_path / ".graph-wiki" / "search.db"
     _write_page_to_db(db_path, "page1.md", vec1, "hash1")
     _write_page_to_db(db_path, "page2.md", vec2, "hash2")
 
@@ -205,14 +205,14 @@ def _setup_vault(tmp_path: Path, pages: dict[str, str]) -> Path:
 
 
 def test_build_index_creates_bm25_and_sqlite(tmp_path: Path) -> None:
-    """build_index creates .code-wiki/bm25/ (non-empty) and .code-wiki/search.db (WAL mode)."""
+    """build_index creates .graph-wiki/bm25/ (non-empty) and .graph-wiki/search.db (WAL mode)."""
     vault = _setup_vault(tmp_path, {
         "concepts/alpha.md": "Alpha is the first letter",
         "concepts/beta.md": "Beta is the second letter",
         "concepts/gamma.md": "Gamma is the third letter",
     })
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         instance = MockEmbed.return_value
         instance.embed_query.side_effect = _fake_embed_deterministic.__func__ if hasattr(
             _fake_embed_deterministic, "__func__"
@@ -223,12 +223,12 @@ def test_build_index_creates_bm25_and_sqlite(tmp_path: Path) -> None:
 
         build_index(vault)
 
-    bm25_dir = vault / ".code-wiki" / "bm25"
-    assert bm25_dir.exists(), ".code-wiki/bm25/ should exist after build_index"
-    assert any(bm25_dir.iterdir()), ".code-wiki/bm25/ should be non-empty"
+    bm25_dir = vault / ".graph-wiki" / "bm25"
+    assert bm25_dir.exists(), ".graph-wiki/bm25/ should exist after build_index"
+    assert any(bm25_dir.iterdir()), ".graph-wiki/bm25/ should be non-empty"
 
-    db_path = vault / ".code-wiki" / "search.db"
-    assert db_path.exists(), ".code-wiki/search.db should exist after build_index"
+    db_path = vault / ".graph-wiki" / "search.db"
+    assert db_path.exists(), ".graph-wiki/search.db should exist after build_index"
 
     # Verify WAL mode
     conn = sqlite3.connect(str(db_path))
@@ -251,14 +251,14 @@ def test_incremental_skip_unchanged_hash(tmp_path: Path) -> None:
         call_count += 1
         return [0.1] * 1024
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.side_effect = counting_embed
         build_index(vault)
 
     first_call_count = call_count  # should be 2 (one per page)
 
     # Second call — same content, no changes
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.side_effect = counting_embed
         build_index(vault)
 
@@ -283,7 +283,7 @@ def test_one_page_changed_reembeds_only_that_page(tmp_path: Path) -> None:
         call_count += 1
         return [0.1] * 1024
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.side_effect = counting_embed
         build_index(vault)
 
@@ -292,7 +292,7 @@ def test_one_page_changed_reembeds_only_that_page(tmp_path: Path) -> None:
     # Change only page A
     (vault / "concepts" / "a.md").write_text("Content of page A — MODIFIED")
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.side_effect = counting_embed
         build_index(vault)
 
@@ -310,7 +310,7 @@ def test_bm25_query_ranks_target_page_first(tmp_path: Path) -> None:
         "concepts/monad.md": "Monads are a design pattern from category theory",
     })
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.return_value = [0.1] * 1024
         build_index(vault)
 
@@ -329,7 +329,7 @@ def test_bm25_query_vocab_frozen_handles_unseen_term(tmp_path: Path) -> None:
         "concepts/beta.md": "Beta is the second letter of the Greek alphabet",
     })
 
-    with patch("code_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
+    with patch("graph_wiki_agent.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.return_value = [0.1] * 1024
         build_index(vault)
 

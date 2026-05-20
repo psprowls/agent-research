@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""WikiConfig — shared configuration module for code-wiki-agent.
+"""WikiConfig — shared configuration module for graph-wiki-agent.
 
 Provides:
 - WikiConfig dataclass with fields for vault_path and state_gate_enabled
@@ -21,7 +21,7 @@ from pathlib import Path
 
 @dataclass
 class WikiConfig:
-    """Runtime configuration for code-wiki-agent.
+    """Runtime configuration for graph-wiki-agent.
 
     Fields:
         vault_path: Default vault path (overrides GRAPH_WIKI_WORKSPACE env var).

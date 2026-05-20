@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""End-to-end test launching code-wiki-mcp as a stdio subprocess and exercising all six MCP tools.
+"""End-to-end test launching graph-wiki-mcp as a stdio subprocess and exercising all six MCP tools.
 
 Requirements covered: DACLI-01, DACLI-02, DACLI-03.
 """
@@ -50,7 +50,7 @@ def _run_server_serial(
     tool_call_objs: list[dict],
     timeout: int = 180,
 ) -> tuple[str, str]:
-    r"""Spawn code-wiki-mcp and exercise tool calls one at a time.
+    r"""Spawn graph-wiki-mcp and exercise tool calls one at a time.
 
     Unlike a write-all-then-read approach (which lets FastMCP's TaskGroup
     schedule every tool call concurrently and race the vault into
@@ -73,7 +73,7 @@ def _run_server_serial(
         timeout: Total wall-clock seconds to wait for all responses.
     """
     proc = subprocess.Popen(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-mcp"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-mcp"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

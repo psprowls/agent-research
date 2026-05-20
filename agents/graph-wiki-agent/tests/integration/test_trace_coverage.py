@@ -54,7 +54,7 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
     # assertion only walks records produced by THIS run (G-01 follow-up: the
     # original 2026-05-19 failure was partially caused by reading a stale
     # 2026-05-14 record). The traces dir is .gitignored in the fixture too.
-    stale_traces = wiki / ".code-wiki" / "traces"
+    stale_traces = wiki / ".graph-wiki" / "traces"
     if stale_traces.exists():
         shutil.rmtree(stale_traces)
 
@@ -62,8 +62,8 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
     # optional — query suffices to exercise the librarian + synthesizer paths.
     result = _run(
         [
-            "uv", "run", "--package", "code-wiki-agent",
-            "code-wiki-agent", "query",
+            "uv", "run", "--package", "graph-wiki-agent",
+            "graph-wiki-agent", "query",
             "What concepts are documented in the wiki?",
             "--vault", str(wiki),
             "--top-k", "3",
@@ -76,7 +76,7 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
         f"stderr: {result.stderr[:500]}"
     )
 
-    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir = wiki / ".graph-wiki" / "traces"
     assert trace_dir.is_dir(), f"trace dir missing: {trace_dir}"
 
     records_seen = 0
