@@ -184,19 +184,19 @@ async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
     )
 
 
-# --- wiki_init tool ---
+# --- wiki_bootstrap tool ---
 
 from code_wiki_agent.commands.init import InitResult, run_init  # noqa: E402
 
 
-class WikiInitInput(BaseModel):
+class WikiBootstrapInput(BaseModel):
     topic: str = Field(..., description="Short description of the repository")
     tool: str = Field(..., description="Schema file(s) to install (claude-code, codex, cursor, all, ...)")
     force: bool = Field(False, description="Overwrite non-empty target directory")
     vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
-class WikiInitOutput(BaseModel):
+class WikiBootstrapOutput(BaseModel):
     status: str
     wiki_path: str
     repo_path: str
@@ -210,8 +210,8 @@ class WikiInitOutput(BaseModel):
     work_path: str
 
 
-@mcp.tool(name="wiki_init", description="Bootstrap a wiki vault structure.")
-async def wiki_init(input: WikiInitInput, ctx: Context) -> WikiInitOutput:
+@mcp.tool(name="wiki_bootstrap", description="Bootstrap a wiki vault structure.")
+async def wiki_bootstrap(input: WikiBootstrapInput, ctx: Context) -> WikiBootstrapOutput:
     vault = Path(input.vault_path) if input.vault_path else None
     result: InitResult = await run_init(
         topic=input.topic,
@@ -219,7 +219,7 @@ async def wiki_init(input: WikiInitInput, ctx: Context) -> WikiInitOutput:
         force=input.force,
         vault_path=vault,
     )
-    return WikiInitOutput(
+    return WikiBootstrapOutput(
         status=result.status,
         wiki_path=result.wiki_path,
         repo_path=result.repo_path,
