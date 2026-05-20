@@ -77,7 +77,7 @@ def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch, tmp_path: Path):
     try:
         resolve_wiki_and_repo()
     except RuntimeError as exc:
-        assert "graph-wiki-agent init" in str(exc)
+        assert "graph-wiki-agent bootstrap" in str(exc)
         return
     raise AssertionError("resolve_wiki_and_repo did not raise RuntimeError on missing config")
 
@@ -100,7 +100,7 @@ def test_resolve_wiki_and_repo_honors_env_var(monkeypatch, tmp_path: Path):
 
 
 def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_path: Path):
-    """Without env var and without .graph-wiki.yaml, raises RuntimeError naming init command."""
+    """Without env var and without .graph-wiki.yaml, raises RuntimeError naming bootstrap command."""
     from vault_io._workspace import resolve_wiki_and_repo
 
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
@@ -111,6 +111,6 @@ def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_p
     try:
         resolve_wiki_and_repo()
     except RuntimeError as exc:
-        assert "graph-wiki-agent init" in str(exc)
+        assert "graph-wiki-agent bootstrap" in str(exc)
         return
     raise AssertionError("did not raise RuntimeError")
