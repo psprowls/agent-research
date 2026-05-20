@@ -23,9 +23,9 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py
-    - agents/code-wiki-agent/tests/prompts/test_project_context.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py
+    - agents/graph-wiki-agent/tests/prompts/test_project_context.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr
   modified: []
 
 key-decisions:
@@ -60,7 +60,7 @@ completed: 2026-05-17
 
 ## Accomplishments
 
-- `render_project_context(wiki_path: Path) -> str` shipped in `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py`.
+- `render_project_context(wiki_path: Path) -> str` shipped in `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`.
 - Four unit tests cover the LOCKED behavioral contract: missing-file → `""`, CLAUDE.md present with syrupy snapshot, AGENTS.md fallback, byte-identical determinism on repeated calls.
 - Snapshot baseline recorded at `tests/prompts/__snapshots__/test_project_context.ambr`; second run confirms it is stable.
 - Fence-aware heading walk so log-format code samples (`## [YYYY-MM-DD] <op> | <title>` inside a triple-backtick fence) no longer falsely terminate the `## Log format` section. This was a real bug — the first snapshot recording cut the Log format body short at line 17 (`\`\`\``) before being fixed.
@@ -73,9 +73,9 @@ completed: 2026-05-17
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py` — exports `render_project_context(wiki_path) -> str`; uses `vault_io.layout_io.read_layout` for the layout block; private `_render`, `_render_layout`, `_extract_section` helpers.
-- `agents/code-wiki-agent/tests/prompts/test_project_context.py` — four tests covering missing-file, CLAUDE.md-with-snapshot, AGENTS.md-fallback, deterministic-output. `FIXTURE_CLAUDE_MD` constant carries a valid layout block (apps + cores containers), `## Style` section, and `## Log format` section.
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr` — single syrupy snapshot for `test_render_project_context_with_claude_md`.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py` — exports `render_project_context(wiki_path) -> str`; uses `vault_io.layout_io.read_layout` for the layout block; private `_render`, `_render_layout`, `_extract_section` helpers.
+- `agents/graph-wiki-agent/tests/prompts/test_project_context.py` — four tests covering missing-file, CLAUDE.md-with-snapshot, AGENTS.md-fallback, deterministic-output. `FIXTURE_CLAUDE_MD` constant carries a valid layout block (apps + cores containers), `## Style` section, and `## Log format` section.
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr` — single syrupy snapshot for `test_render_project_context_with_claude_md`.
 
 ## Decisions Made
 
@@ -92,7 +92,7 @@ completed: 2026-05-17
 - **Found during:** Task 2 (snapshot review after first `--snapshot-update`)
 - **Issue:** The initial `_extract_section` broke on any line matching `line.startswith("## ")`. The `## Log format` body in `FIXTURE_CLAUDE_MD` contains a fenced code sample `## [YYYY-MM-DD] <op> | <title>` inside a triple-backtick block. The walker treated that as the next heading and terminated the section at the opening fence, so the recorded snapshot for `## Log format` was just `\`\`\`` (one line) instead of the full code block + trailing prose.
 - **Fix:** Added fence tracking (``` or ~~~) inside `_extract_section`. While inside a fence, `## ` lines are appended to the body instead of terminating the section.
-- **Files modified:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py`
+- **Files modified:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`
 - **Verification:** Re-recorded snapshot now contains the full Log format body (code block + `Valid ops:` line); re-run without `--snapshot-update` confirms determinism; all 14 tests in `tests/prompts/` pass with no regression.
 - **Committed in:** `713c382` (rolled into the same GREEN commit as the initial implementation)
 
@@ -118,9 +118,9 @@ None — pure module addition with no external service configuration.
 ## Self-Check
 
 **Files claimed:**
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py` — FOUND
-- `agents/code-wiki-agent/tests/prompts/test_project_context.py` — FOUND
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py` — FOUND
+- `agents/graph-wiki-agent/tests/prompts/test_project_context.py` — FOUND
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr` — FOUND
 
 **Commits claimed:**
 - `4f50b5a` (test) — FOUND

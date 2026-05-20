@@ -12,12 +12,12 @@ tech_stack:
   patterns: [composable-prompt-fragments, provenance-header, import-time-string-constants]
 key_files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/__init__.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/__init__.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/citation_rules.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/frontmatter_rules.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/__init__.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/__init__.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/frontmatter_rules.py
   modified: []
 decisions:
   - "Fragment files use `\"\"\"\\ ` (backslash after triple-quote) to avoid leading newline, matching SCANNER_SYSTEM style from scan.py"
@@ -39,7 +39,7 @@ metrics:
 
 ## What Was Built
 
-Created the `prompts/` and `prompts/_fragments/` Python packages under `code_wiki_agent`, then wrote four shared fragment files:
+Created the `prompts/` and `prompts/_fragments/` Python packages under `graph_wiki_agent`, then wrote four shared fragment files:
 
 - **`iron_rules.py`** — 7 canonical iron rules verbatim from `cores/prompt-sources/SKILL.md` §Iron rules (L193-L201). The `<workspace>/wiki/` path reference in rule 3 was adapted to "the vault path" to remove lattice-workspace coupling while preserving the semantic constraint.
 
@@ -53,8 +53,8 @@ Two `__init__.py` package markers were also created (one for `prompts/`, one for
 
 ## Verification Results
 
-- `uv run python -c "from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES; ..."` — all 4 imports OK
-- `uv run pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x -q` — 2 passed (header format + Source path resolution)
+- `uv run python -c "from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES; ..."` — all 4 imports OK
+- `uv run pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x -q` — 2 passed (header format + Source path resolution)
 - No host-specific references (`CLAUDE_PLUGIN_ROOT`, `/lattice-wiki:`) in any fragment file
 - No Python imports from `cores/prompt-sources/` (documentation, not importable Python)
 
@@ -84,12 +84,12 @@ None. Fragment files are static Python string constants; no new network endpoint
 ## Self-Check
 
 ### Created files exist:
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/__init__.py
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/__init__.py
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/citation_rules.py
-- FOUND: agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/frontmatter_rules.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/__init__.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/__init__.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py
+- FOUND: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/frontmatter_rules.py
 
 ### Commits exist:
 - FOUND: 5d99782

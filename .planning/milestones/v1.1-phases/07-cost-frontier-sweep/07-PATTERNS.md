@@ -12,10 +12,10 @@
 |-------------------|------|-----------|----------------|---------------|
 | `cores/eval-harness/src/eval_harness/sweep.py` (extend) | service | batch | self (run_sweep) | exact — extend in place |
 | `cores/eval-harness/src/eval_harness/report.py` (extend) | utility | transform | self (cost_frontier_table) | exact — extend in place |
-| `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` (extend) | service | request-response | self (run_query) | exact — extend in place |
-| `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` (extend) | service | request-response | `commands/query.py` | role-match |
-| `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` (extend) | service | request-response | `commands/query.py` | role-match |
-| `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` (extend) | service | request-response | `commands/query.py` | role-match |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` (extend) | service | request-response | self (run_query) | exact — extend in place |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` (extend) | service | request-response | `commands/query.py` | role-match |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` (extend) | service | request-response | `commands/query.py` | role-match |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` (extend) | service | request-response | `commands/query.py` | role-match |
 | `cores/model-adapter/src/model_adapter/models.toml` (extend) | config | — | self | exact |
 | `eval/cases/query_cases.json` (extend) | config/fixture | — | self | exact |
 | `cores/eval-harness/tests/test_role_sweep.py` (new) | test | — | `tests/test_sweep.py` | exact |
@@ -45,7 +45,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from code_wiki_agent.commands.query import QueryResult, run_query
+from graph_wiki_agent.commands.query import QueryResult, run_query
 
 from eval_harness.isolation import EvalWorktree
 from eval_harness.pricing import UnknownModelError, cost_for_usage
@@ -54,9 +54,9 @@ from eval_harness.structural import check_structural
 
 **New imports to add for `run_role_sweep`:**
 ```python
-from code_wiki_agent.commands.scan import run_scan
-from code_wiki_agent.commands.lint import run_lint
-from code_wiki_agent.commands.ingest import run_ingest_source
+from graph_wiki_agent.commands.scan import run_scan
+from graph_wiki_agent.commands.lint import run_lint
+from graph_wiki_agent.commands.ingest import run_ingest_source
 from model_adapter.loader import load_role_config
 ```
 
@@ -254,7 +254,7 @@ def render_recommendation_block(
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` (extend)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` (extend)
 
 **Analog:** self — add `role_model_overrides` parameter to existing `run_query()`.
 
@@ -322,7 +322,7 @@ else:
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` (extend)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` (extend)
 
 **Analog:** `commands/query.py` (librarian override pattern).
 
@@ -366,7 +366,7 @@ else:
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` (extend)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` (extend)
 
 **Analog:** `commands/query.py` (librarian override pattern).
 
@@ -408,7 +408,7 @@ else:
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` (extend)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` (extend)
 
 **Analog:** `commands/query.py` (librarian override pattern).
 
@@ -705,7 +705,7 @@ def test_dry_run_writes_all_role_docs(tmp_path):
 
 ### LLM Construction with Override (applies to all 4 command files)
 
-**Source:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` (lines 824–832)
+**Source:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` (lines 824–832)
 
 **Pattern — copy for each role override (scanner, linter, ingestor, synthesizer, code_reader):**
 ```python
@@ -742,11 +742,11 @@ safe_model_id = re.sub(r"[^a-zA-Z0-9._-]", "_", model_id)
 # Module-level mark — skips without --run-eval
 pytestmark = [pytest.mark.eval]
 
-# Test-level gate — skips without CODE_WIKI_RUN_EVAL=1
+# Test-level gate — skips without GRAPH_WIKI_RUN_EVAL=1
 from conftest import EVAL_GATE  # or from eval_helpers import EVAL_GATE
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run eval sweep tests",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run eval sweep tests",
 )
 ```
 
@@ -809,6 +809,6 @@ results = [item for item in raw if isinstance(item, SweepResult)]
 
 ## Metadata
 
-**Analog search scope:** `cores/eval-harness/`, `agents/code-wiki-agent/src/`, `eval/cases/`, `cores/model-adapter/`
+**Analog search scope:** `cores/eval-harness/`, `agents/graph-wiki-agent/src/`, `eval/cases/`, `cores/model-adapter/`
 **Files read:** 15 (sweep.py, pricing.py, metric.py, report.py, test_sweep_eval.py, conftest.py, test_sweep.py, test_divergence_metric.py, query.py, scan.py, lint.py, ingest.py, models.toml, query_cases.json, divergence-librarian.json)
 **Pattern extraction date:** 2026-05-16

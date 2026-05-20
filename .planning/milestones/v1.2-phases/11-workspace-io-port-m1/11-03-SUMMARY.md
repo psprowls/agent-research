@@ -36,7 +36,7 @@ key-files:
   modified: []
   deleted: []
 decisions:
-  - "D-03 covered: test_resolve_raises_when_no_manifest_found asserts strict resolve() raises RuntimeError matching 'code-wiki-agent init' when no manifest is present"
+  - "D-03 covered: test_resolve_raises_when_no_manifest_found asserts strict resolve() raises RuntimeError matching 'graph-wiki-agent init' when no manifest is present"
   - "D-06 covered: test_schema.py NOT ported; test_creates_work_schema dropped from test_init.py"
   - "D-14 covered (read side): test_read_raises_on_v1 in test_manifest.py asserts v1 format raises"
   - "D-14 covered (warn side): test_v1_coerced_entry_no_signal replaced with test_null_applied_version_no_signal — writes v2 manifest with applied_version: null directly, asserts warn_if_stale returns False"
@@ -60,21 +60,21 @@ Ported the lattice-workspace test suite (11 active files, 67 tests) to `packages
 
 - `test_paths.py` (7 tests): each helper (`wiki_dir`, `work_dir`, `graph_dir`, `raw_dir`, `knowledge_dir`, `manifest_path`) + string-coercion test. Manifest path assertion uses `.graph-wiki.yaml`.
 - `test_local_config.py` (9 tests): bespoke parser tests for `.graph-wiki.local.yaml` and the `graph-wiki-directory` key. All YAML fixture bodies rebranded.
-- `test_manifest_v2_roundtrip.py` (3 tests): v2 write/read, key-order preservation, block-style assertion. Plugin names updated to `code-wiki-agent` and `code-wiki-second`.
+- `test_manifest_v2_roundtrip.py` (3 tests): v2 write/read, key-order preservation, block-style assertion. Plugin names updated to `graph-wiki-agent` and `code-wiki-second`.
 - `test_init_records_version.py` (3 tests): both version fields written, idempotent same-version no-rewrite, missing version kwarg raises TypeError.
 - `test_init_bumps_version.py` (1 test): re-init with newer version bumps both fields.
 - `test_pending_updates.py` (4 tests): mismatched-only returned, no mutation, frozen dataclass, no-manifest returns empty.
 
 ### Task 2 — Behavior-rewrite test files (24 tests across 3 files)
 
-- `test_init.py` (14 tests, was 15): dropped `test_creates_work_schema` per D-06. All `tmp_path / "lattice"` → `tmp_path / "graph-wiki"`; multi-plugin tests use `code-wiki-agent` + `code-wiki-second`. Auto-marker assertion now matches `<!-- workspace-io:auto:plugins:start -->`. Gitignore assertions use `.graph-wiki.local.yaml`.
+- `test_init.py` (14 tests, was 15): dropped `test_creates_work_schema` per D-06. All `tmp_path / "lattice"` → `tmp_path / "graph-wiki"`; multi-plugin tests use `graph-wiki-agent` + `code-wiki-second`. Auto-marker assertion now matches `<!-- workspace-io:auto:plugins:start -->`. Gitignore assertions use `.graph-wiki.local.yaml`.
 - `test_render.py` (6 tests): imports `AUTO_START`/`AUTO_END` from `workspace_io.render` rather than hardcoding strings. `_write_manifest()` helper writes `.graph-wiki.yaml` with v2 schema. Plugin names rebranded; unknown-plugin test uses `some-third-party-plugin` to exercise the generic-pointer path.
 - `test_warn_if_stale.py` (4 tests): 3 ports + 1 rewrite. `test_v1_coerced_entry_no_signal` replaced with `test_null_applied_version_no_signal` per D-14 — writes a v2 manifest with `applied_version: null` directly (since v1 reads now raise per `manifest.read()`).
 
 ### Task 3 — test_config + test_manifest with new D-03/D-14 tests (16 tests across 2 files)
 
-- `test_config.py` (10 tests, was 9): every successful-resolve test now also writes a minimal v2 `.graph-wiki.yaml` into the expected workspace dir to satisfy D-03's strict check. Every test calls `monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)` to isolate from the host shell env. CLI subprocess test invokes `python -m workspace_io.config`. Added new `test_resolve_raises_when_no_manifest_found` asserting the strict raise with `code-wiki-agent init` in the message.
-- `test_manifest.py` (6 tests, was 5): 5 ported (with `.graph-wiki.yaml` and `code-wiki-agent` rebrand) + new `test_read_raises_on_v1` asserting `manifest.read()` raises on v1 format.
+- `test_config.py` (10 tests, was 9): every successful-resolve test now also writes a minimal v2 `.graph-wiki.yaml` into the expected workspace dir to satisfy D-03's strict check. Every test calls `monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)` to isolate from the host shell env. CLI subprocess test invokes `python -m workspace_io.config`. Added new `test_resolve_raises_when_no_manifest_found` asserting the strict raise with `graph-wiki-agent init` in the message.
+- `test_manifest.py` (6 tests, was 5): 5 ported (with `.graph-wiki.yaml` and `graph-wiki-agent` rebrand) + new `test_read_raises_on_v1` asserting `manifest.read()` raises on v1 format.
 
 ## Verification Results
 
@@ -108,7 +108,7 @@ Acceptance grep results:
 - `test_null_applied_version_no_signal` present in `test_warn_if_stale.py` (1 match); `v1_coerced` absent (0 matches).
 - `test_creates_work_schema` absent in `test_init.py` (0 matches).
 
-Note: `uv run --package workspace-io pytest` from the repo root collects tests from sibling packages (vault-io, eval-harness, code-wiki-agent) whose dependencies aren't synced in this worktree, producing collection errors. Running pytest from inside `packages/workspace-io/` uses the local `pyproject.toml`'s `testpaths = ["tests"]` and isolates collection to the workspace-io suite — this is the canonical way to run the package's tests and matches the plan's acceptance test (`uv run --package workspace-io pytest -x` exit 0).
+Note: `uv run --package workspace-io pytest` from the repo root collects tests from sibling packages (vault-io, eval-harness, graph-wiki-agent) whose dependencies aren't synced in this worktree, producing collection errors. Running pytest from inside `packages/workspace-io/` uses the local `pyproject.toml`'s `testpaths = ["tests"]` and isolates collection to the workspace-io suite — this is the canonical way to run the package's tests and matches the plan's acceptance test (`uv run --package workspace-io pytest -x` exit 0).
 
 ## Commits
 
@@ -144,7 +144,7 @@ None introduced. All tests run in pytest-managed `tmp_path` directories; no new 
 
 ## Next Plan
 
-Plan 04 rewrites `vault-io._workspace.resolve_wiki_and_repo` as a thin delegation to `workspace_io.config.resolve()` (D-02), updates the vault-io tests that referenced `CODE_WIKI_REAL_VAULT_PATH` to `GRAPH_WIKI_WORKSPACE` (D-01), and verifies the delegation does not break any vault-io consumers.
+Plan 04 rewrites `vault-io._workspace.resolve_wiki_and_repo` as a thin delegation to `workspace_io.config.resolve()` (D-02), updates the vault-io tests that referenced `GRAPH_WIKI_REAL_VAULT_PATH` to `GRAPH_WIKI_WORKSPACE` (D-01), and verifies the delegation does not break any vault-io consumers.
 
 ## Self-Check: PASSED
 

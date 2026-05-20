@@ -90,12 +90,12 @@ Confirmed via `git status --short` after the commits — only the two files list
 - `grep -cE "^import sys" cores/eval-harness/tests/test_divergence.py` → **0**
 - `grep -cE '\bsys\b' cores/eval-harness/tests/test_divergence.py` → **0** (after deletion)
 - `uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py --collect-only -q` → **4 tests collected** (librarian, ingestor, linter, scanner)
-- `uv run --package eval-harness pytest cores/eval-harness/tests/ -q --ignore=cores/eval-harness/tests/test_divergence.py` → **108 passed, 14 skipped** (all 14 skips are CODE_WIKI_RUN_EVAL-gated or `--run-eval-analysis`-gated tests; pre-existing behavior)
+- `uv run --package eval-harness pytest cores/eval-harness/tests/ -q --ignore=cores/eval-harness/tests/test_divergence.py` → **108 passed, 14 skipped** (all 14 skips are GRAPH_WIKI_RUN_EVAL-gated or `--run-eval-analysis`-gated tests; pre-existing behavior)
 
 Optional live verification (Pat can run if convenient):
 
 ```
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -k librarian -s -x
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -k librarian -s -x
 ```
 
 ## Deviations from Plan

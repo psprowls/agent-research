@@ -11,7 +11,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 
 **In scope:**
 - Vendoring upstream `CLAUDE.md.template` (from `/Users/pat/Personal/lattice/dist/lattice-wiki/skills/lattice-wiki/scripts/vendor/assets/CLAUDE.md.template`) into `cores/prompt-sources/wiki-claude-md-template.md` so style/log fragment provenance resolves under the existing `test_provenance.py` invariant.
-- Extracting four additional shared prompt fragments under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/`: `architecture_overview`, `style_rules`, `log_format`, `claude_md_disambiguation`.
+- Extracting four additional shared prompt fragments under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/`: `architecture_overview`, `style_rules`, `log_format`, `claude_md_disambiguation`.
 - Adding `prompts/project_context.py::render_project_context(wiki_path)` that reads `wiki/CLAUDE.md` (or `AGENTS.md`) once at command entry and emits a compact rendered block covering the parsed `<!-- lattice-wiki:layout:start -->` block, style rules, and log format.
 - Wiring the new fragments + the project-context block into `commands/scan.py`, `commands/lint.py`, and `commands/ingest.py` for the scanner / linter-3-group / ingestor subagents.
 - Snapshot tests (syrupy) on assembled system-prompt strings, including a missing-`CLAUDE.md` degradation case.
@@ -36,7 +36,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 
 ### Fragment curation (LOCKED)
 
-- Every new fragment carries the standard 3-line provenance header: `# Source:`, `# Anchor:`, `# Source-commit:`. The `# Source:` path must start with `cores/prompt-sources/` and resolve on disk (enforced by `agents/code-wiki-agent/tests/prompts/test_provenance.py`). Anchor format matches existing fragments (e.g. `## Architecture (L34-L69)`). Source-commit = current value of `cores/prompt-sources/SOURCE-COMMIT` (= `ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030` as of 2026-05-17).
+- Every new fragment carries the standard 3-line provenance header: `# Source:`, `# Anchor:`, `# Source-commit:`. The `# Source:` path must start with `cores/prompt-sources/` and resolve on disk (enforced by `agents/graph-wiki-agent/tests/prompts/test_provenance.py`). Anchor format matches existing fragments (e.g. `## Architecture (L34-L69)`). Source-commit = current value of `cores/prompt-sources/SOURCE-COMMIT` (= `ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030` as of 2026-05-17).
 - **Vendoring decision (LOCKED):** The upstream lattice-wiki ships a `CLAUDE.md.template` (159 lines, source: `/Users/pat/Personal/lattice/dist/lattice-wiki/skills/lattice-wiki/scripts/vendor/assets/CLAUDE.md.template`) that is the canonical source for the project-pinned `lattice/wiki/CLAUDE.md`. Vendor it into `cores/prompt-sources/wiki-claude-md-template.md` (matching the existing SKILL.md vendoring pattern). Anchor `style_rules.py` and `log_format.py` to the vendored file. This preserves the `test_provenance.py` invariant without test changes.
 - Four fragments are extracted:
   - `architecture_overview.py` ← `cores/prompt-sources/SKILL.md §Architecture L34-69` (~600 tokens, compact rewrite — keep the vault tree + conditional-containers note + "code is source of truth"; drop user-facing prose).
@@ -46,7 +46,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 
 ### Project-context renderer (LOCKED)
 
-- New module: `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py`.
+- New module: `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`.
 - Function signature: `render_project_context(wiki_path: Path) -> str`. Pure — no LLM calls, no network, no mutation.
 - Reads `wiki/CLAUDE.md` if present; falls back to `AGENTS.md`; returns `""` if neither exists. Caller passes the empty string through to prompt builders unchanged.
 - Uses existing `vault_io.layout_io.read_layout()` for the layout block (do not write a bespoke YAML parser). Style and log-format sections are grabbed by markdown section walk (simple heading-based extraction).
@@ -100,10 +100,10 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 
 ### Existing port code (extends these patterns)
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py` — provenance-header pattern to copy.
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py` — second example of the same pattern.
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py`, `linter.py`, `ingestor.py`, `librarian.py` — current prompt-builder structure; new fragments slot into these.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py`, `commands/lint.py`, `commands/ingest.py` — command entry points where `render_project_context()` will be called and threaded into prompt construction.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py` — provenance-header pattern to copy.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py` — second example of the same pattern.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py`, `linter.py`, `ingestor.py`, `librarian.py` — current prompt-builder structure; new fragments slot into these.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`, `commands/lint.py`, `commands/ingest.py` — command entry points where `render_project_context()` will be called and threaded into prompt construction.
 - `cores/vault-io/src/vault_io/layout_io.py::read_layout` — existing parser for the layout block; `render_project_context()` consumes its output.
 - `cores/subagent-runtime/src/subagent_runtime/pool.py::SubagentPool` — the dispatch primitive (read-only for this phase; not modified).
 - `cores/eval-harness/src/eval_harness/divergence/` — divergence eval modules invoked for the regression gate.

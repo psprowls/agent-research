@@ -12,7 +12,7 @@
 ### Locked Decisions
 
 **Host harness:**
-- D-01: Hand-built spec-conformant MCP host extending `test_mcp_stdio.py`. Both tests spawn `code-wiki-mcp` via `subprocess.Popen(["uv", "run", "--package", "code-wiki-agent", "code-wiki-mcp"])` and drive JSON-RPC over stdin/stdout. No new test-time deps.
+- D-01: Hand-built spec-conformant MCP host extending `test_mcp_stdio.py`. Both tests spawn `graph-wiki-mcp` via `subprocess.Popen(["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-mcp"])` and drive JSON-RPC over stdin/stdout. No new test-time deps.
 - D-02: Framing throughout: "spec-conformant MCP host — same protocol surface DeepAgents CLI uses." Not "the DeepAgents CLI."
 
 **Cancel induction mechanism:**
@@ -27,7 +27,7 @@
 
 **Slow-model strategy:**
 - D-09: Monkeypatch `model_adapter.loader.make_llm` to return a fake `AsyncMock`-style class (or stub subclass of `ChatBedrockConverse`) that `await asyncio.sleep(N)` then returns a canned `AIMessage` with `usage_metadata`. N ~2-3s.
-- D-10: Cancel test runs WITHOUT `CODE_WIKI_RUN_INTEGRATION=1` gate (stub model, no Bedrock). 6-tool E2E test IS gated by `CODE_WIKI_RUN_INTEGRATION=1`.
+- D-10: Cancel test runs WITHOUT `GRAPH_WIKI_RUN_INTEGRATION=1` gate (stub model, no Bedrock). 6-tool E2E test IS gated by `GRAPH_WIKI_RUN_INTEGRATION=1`.
 - D-11: Orphan-call coverage is documentation only (snippet in `docs/cancellation.md`), not asserted in the automated cancel test.
 
 **Test fixture / vault strategy:**
@@ -60,9 +60,9 @@
 | MCP-09 | Mid-fan-out cancel from a real DeepAgents CLI host is reproduced and current behavior documented | FastMCP cancel chain verified (Q1); MCP spec wire format fetched (Q7); `docs/cancellation.md` structure defined (Q13) |
 | MCP-10 | In-flight SubagentPool invocations terminate cleanly on host cancel; traces close with `cancelled` terminal event | `asyncio.gather` + CancelledError propagation verified (Q3); exact `_write_trace` diff shape proposed (Q6) |
 | MCP-11 | Automated cancel test covers cancel-mid-fan-out at MCP transport boundary under opt-in gate | Monkeypatch path confirmed (`model_adapter.loader.make_llm`, Q4); `report_progress` timing for race control verified (Q8) |
-| DACLI-01 | E2E test launches `code-wiki-mcp` as a stdio subprocess from a spec-conformant MCP host | Existing `_run_server` / `_send_initialize` pattern reusable; D-01 |
+| DACLI-01 | E2E test launches `graph-wiki-mcp` as a stdio subprocess from a spec-conformant MCP host | Existing `_run_server` / `_send_initialize` pattern reusable; D-01 |
 | DACLI-02 | Test exercises all six tools with realistic inputs, asserts non-error outcomes | All 6 tool signatures read; input shapes proposed (Q10, Q12) |
-| DACLI-03 | Test runs under `CODE_WIKI_RUN_INTEGRATION=1` opt-in gate | `INTEGRATION_GATE` pattern in `conftest.py` confirmed reusable |
+| DACLI-03 | Test runs under `GRAPH_WIKI_RUN_INTEGRATION=1` opt-in gate | `INTEGRATION_GATE` pattern in `conftest.py` confirmed reusable |
 </phase_requirements>
 
 ---
@@ -103,7 +103,7 @@ The E2E test requires one planner-added API surface: `WikiScanInput` in `server.
 | `mcp` | 1.27.1 | MCP server SDK; `notifications/cancelled` handling via `BaseSession` | [VERIFIED: CLAUDE.md] |
 | `pytest` | ≥8.3 | Test runner | [VERIFIED: CLAUDE.md] |
 | `pytest-asyncio` | 1.3.0 | `asyncio_mode = "auto"` for async test functions | [VERIFIED: CLAUDE.md] |
-| `subprocess` | stdlib | Spawn `code-wiki-mcp` subprocess in test harness | [VERIFIED: codebase] |
+| `subprocess` | stdlib | Spawn `graph-wiki-mcp` subprocess in test harness | [VERIFIED: codebase] |
 | `asyncio` | stdlib | CancelledError propagation; `run_in_executor` thread dispatch | [VERIFIED: codebase] |
 | `langchain-aws` | 1.4.6 | `ChatBedrockConverse._generate` (sync); `_agenerate` inherited from `BaseChatModel` | [VERIFIED: CLAUDE.md] |
 | `langchain-core` | 1.4.0 | `BaseChatModel._agenerate` → `run_in_executor(None, self._generate, ...)` | [VERIFIED: codebase inspection] |
@@ -188,10 +188,10 @@ FastMCP: per MCP spec, does NOT send a response to the cancelled request ID.
 cores/subagent-runtime/src/subagent_runtime/
 ├── pool.py                    # MODIFY: add _run_one CancelledError branch + _write_batch_terminal
 
-agents/code-wiki-agent/src/code_wiki_mcp/
+agents/graph-wiki-agent/src/graph_wiki_mcp/
 ├── server.py                  # MODIFY: add repo_path field to WikiScanInput, wire to run_scan
 
-agents/code-wiki-agent/tests/integration/
+agents/graph-wiki-agent/tests/integration/
 ├── test_mcp_stdio.py          # UNCHANGED (keep existing tests)
 ├── test_mcp_cancel.py         # NEW: cancel-mid-fan-out test (no INTEGRATION_GATE)
 ├── test_mcp_e2e.py            # NEW: 6-tool E2E test (INTEGRATION_GATE gated)
@@ -278,11 +278,11 @@ This puts `ChatBedrockConverse._generate` (which calls `self.client.converse(...
 model_adapter.loader.make_llm
 ```
 
-**Monkeypatch target** (in `test_mcp_cancel.py`): The cancel test launches `code-wiki-mcp` as a subprocess, so in-process `monkeypatch` does NOT work. The slow model must be injected via **environment variable** or a **custom `models.toml`** file that sets `max_tokens = 1` on all roles, plus the subprocess must be launched with a patched `CODE_WIKI_CONFIG` pointing to a minimal models.toml where all role `model_id`s point to a fast stub model.
+**Monkeypatch target** (in `test_mcp_cancel.py`): The cancel test launches `graph-wiki-mcp` as a subprocess, so in-process `monkeypatch` does NOT work. The slow model must be injected via **environment variable** or a **custom `models.toml`** file that sets `max_tokens = 1` on all roles, plus the subprocess must be launched with a patched `GRAPH_WIKI_CONFIG` pointing to a minimal models.toml where all role `model_id`s point to a fast stub model.
 
 **CRITICAL INSIGHT:** Since the cancel test uses a subprocess, standard pytest `monkeypatch` does NOT reach into the subprocess. The mechanism must be:
 - Write a custom `models.toml`-like config to a `tmp_path` file
-- Pass `CODE_WIKI_CONFIG=<path>` as an environment variable to `subprocess.Popen`
+- Pass `GRAPH_WIKI_CONFIG=<path>` as an environment variable to `subprocess.Popen`
 - OR patch at a different layer (e.g., replace `make_llm` with a module loaded from an env-pointed conftest)
 
 However, D-09 says "monkeypatch `ChatBedrockConverse` via `model_adapter.factory.make_chat_model`". The factory in code is `model_adapter.loader.make_llm` (there is no `factory.py` or `make_chat_model`; D-09 has a slightly wrong path). The actual function is `make_llm` in `model_adapter.loader`.
@@ -291,9 +291,9 @@ However, D-09 says "monkeypatch `ChatBedrockConverse` via `model_adapter.factory
 
 1. **Option A (recommended):** Rather than a subprocess-launched server, drive the cancel test via **in-process FastMCP** (not subprocess) — start the FastMCP ASGI app in-process and send cancel notifications over an in-memory transport. This allows `monkeypatch` to work.
 
-2. **Option B:** Inject a fake via `CODE_WIKI_CONFIG` pointing to a custom `.toml` that references a real (but tiny) bedrock call, gated under `CODE_WIKI_RUN_INTEGRATION` — but D-10 says cancel test does NOT require this gate.
+2. **Option B:** Inject a fake via `GRAPH_WIKI_CONFIG` pointing to a custom `.toml` that references a real (but tiny) bedrock call, gated under `GRAPH_WIKI_RUN_INTEGRATION` — but D-10 says cancel test does NOT require this gate.
 
-3. **Option C:** Write a small Python helper script that patches `make_llm` and then runs as a FastMCP server, invoked by the subprocess instead of the real `code-wiki-mcp` entry point.
+3. **Option C:** Write a small Python helper script that patches `make_llm` and then runs as a FastMCP server, invoked by the subprocess instead of the real `graph-wiki-mcp` entry point.
 
 **Research recommendation:** Option A (in-process FastMCP) using `anyio.from_thread` or a `MemoryTransport`-style approach is the cleanest. The mcp SDK supports in-process testing without subprocess; the existing `test_mcp_stdio.py` chose subprocess for its subprocess-correctness benefit (real `_StdoutGuard` etc.) which is less critical for the cancel test. Alternatively, the planner may decide that the cancel test bypasses the subprocess and directly calls `run_query` with the stub model, skipping the MCP protocol layer for the cancel assertion — the FastMCP cancel chain is confirmed by unit testing the mcp SDK separately.
 
@@ -371,7 +371,7 @@ This phase is not a rename/refactor/migration phase. Section omitted.
 
 **Why it happens:** `subprocess.Popen` creates a new Python interpreter. `pytest.monkeypatch` only patches the current interpreter's module cache.
 
-**How to avoid:** Use the direct-asyncio test approach (call `run_query` directly in the test process, patch `make_llm` via `monkeypatch`, cancel the asyncio task). Or use `CODE_WIKI_CONFIG` env var injection with a custom `models.toml` pointing to a real-but-cheap model (and gate under `CODE_WIKI_RUN_INTEGRATION`).
+**How to avoid:** Use the direct-asyncio test approach (call `run_query` directly in the test process, patch `make_llm` via `monkeypatch`, cancel the asyncio task). Or use `GRAPH_WIKI_CONFIG` env var injection with a custom `models.toml` pointing to a real-but-cheap model (and gate under `GRAPH_WIKI_RUN_INTEGRATION`).
 
 **Warning signs:** Cancel test actually calls Bedrock during what should be a no-Bedrock-cost run.
 
@@ -627,7 +627,7 @@ Seed for `tmp_path`:
 
 ```
 tmp_path/wiki/                     # vault root (after wiki_init)
-  .code-wiki/
+  .graph-wiki/
   index.md
   packages/
     alpha/
@@ -654,7 +654,7 @@ Sample query the E2E test can assert: `"What is alpha?"` should return an answer
 [VERIFIED: D-15 in CONTEXT.md]
 
 ```markdown
-# MCP Cancellation in code-wiki-agent
+# MCP Cancellation in graph-wiki-agent
 
 ## 1. Protocol Behavior
 - What `notifications/cancelled` is (MCP spec cite + wire format)
@@ -732,7 +732,7 @@ Sample query the E2E test can assert: `"What is alpha?"` should return an answer
 **Two new files** (Claude's Discretion):
 
 ```
-agents/code-wiki-agent/tests/integration/
+agents/graph-wiki-agent/tests/integration/
 ├── test_mcp_stdio.py       # UNCHANGED — existing 3 tests
 ├── test_mcp_cancel.py      # NEW: cancel-mid-fan-out (direct asyncio; no INTEGRATION_GATE)
 ├── test_mcp_e2e.py         # NEW: 6-tool sequential E2E (INTEGRATION_GATE)
@@ -760,13 +760,13 @@ async def test_cancel_mid_fan_out(tmp_path, monkeypatch):
 `test_mcp_e2e.py`:
 ```python
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run integration tests",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run integration tests",
 )
 
 @INTEGRATION_GATE
 def test_all_six_tools_end_to_end(tmp_path):
-    # subprocess.Popen code-wiki-mcp
+    # subprocess.Popen graph-wiki-mcp
     # wiki_init -> wiki_scan -> wiki_ingest -> wiki_query -> wiki_lint -> wiki_log
     # Assert non-error response for each
 ```
@@ -780,10 +780,10 @@ def test_all_six_tools_end_to_end(tmp_path):
 | Property | Value |
 |----------|-------|
 | Framework | pytest ≥8.3 + pytest-asyncio 1.3.0 |
-| Config | `asyncio_mode = "auto"` (in `agents/code-wiki-agent/pyproject.toml`) |
-| Quick run | `uv run --package code-wiki-agent pytest tests/integration/test_mcp_cancel.py -x` |
-| Integration run | `CODE_WIKI_RUN_INTEGRATION=1 uv run --package code-wiki-agent pytest tests/integration/test_mcp_e2e.py -x` |
-| Full suite | `uv run --package code-wiki-agent pytest -x` |
+| Config | `asyncio_mode = "auto"` (in `agents/graph-wiki-agent/pyproject.toml`) |
+| Quick run | `uv run --package graph-wiki-agent pytest tests/integration/test_mcp_cancel.py -x` |
+| Integration run | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package graph-wiki-agent pytest tests/integration/test_mcp_e2e.py -x` |
+| Full suite | `uv run --package graph-wiki-agent pytest -x` |
 
 ### Phase Requirements to Test Map
 
@@ -792,9 +792,9 @@ def test_all_six_tools_end_to_end(tmp_path):
 | MCP-09 | Cancel behavior documented | manual/doc | — | No — `docs/cancellation.md` is written by executor |
 | MCP-10 | In-flight SubagentPool tasks write `cancelled` trace records; `batch_cancelled` summary written | unit (direct asyncio) | `pytest tests/integration/test_mcp_cancel.py -x` | No — Wave 0 |
 | MCP-11 | Cancel test gate consistent with v1.0 pattern (no gate for stub test) | unit | `pytest tests/integration/test_mcp_cancel.py -x` | No — Wave 0 |
-| DACLI-01 | E2E test launches `code-wiki-mcp` subprocess | integration | `CODE_WIKI_RUN_INTEGRATION=1 pytest tests/integration/test_mcp_e2e.py -x` | No — Wave 0 |
+| DACLI-01 | E2E test launches `graph-wiki-mcp` subprocess | integration | `GRAPH_WIKI_RUN_INTEGRATION=1 pytest tests/integration/test_mcp_e2e.py -x` | No — Wave 0 |
 | DACLI-02 | All 6 tools exercised, non-error outcomes | integration | same | No — Wave 0 |
-| DACLI-03 | `CODE_WIKI_RUN_INTEGRATION=1` gate | integration | same | No — Wave 0 |
+| DACLI-03 | `GRAPH_WIKI_RUN_INTEGRATION=1` gate | integration | same | No — Wave 0 |
 
 ### Signal Sources (for cancel test)
 
@@ -816,8 +816,8 @@ def test_all_six_tools_end_to_end(tmp_path):
 ### Sampling Rate
 
 - **Per task commit:** `pytest tests/integration/test_mcp_cancel.py -x` (fast, no Bedrock)
-- **Per wave merge:** Full suite excluding integration gate: `pytest agents/code-wiki-agent/tests/ -x`
-- **Phase gate:** `CODE_WIKI_RUN_INTEGRATION=1 pytest agents/code-wiki-agent/tests/ -x` before `/gsd:verify-work`
+- **Per wave merge:** Full suite excluding integration gate: `pytest agents/graph-wiki-agent/tests/ -x`
+- **Phase gate:** `GRAPH_WIKI_RUN_INTEGRATION=1 pytest agents/graph-wiki-agent/tests/ -x` before `/gsd:verify-work`
 
 ### Wave 0 Gaps
 
@@ -838,10 +838,10 @@ This phase adds no new user-facing input surfaces, no new credentials handling, 
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| `uv` | Subprocess spawn of `code-wiki-mcp` in E2E test | ✓ | 0.11.14+ | None — tests skip if not found |
+| `uv` | Subprocess spawn of `graph-wiki-mcp` in E2E test | ✓ | 0.11.14+ | None — tests skip if not found |
 | Python 3.11 | All tests | ✓ | 3.11.x | None |
-| AWS credentials | `CODE_WIKI_RUN_INTEGRATION=1` tests only | [ASSUMED: present from Phase 7 sweep] | — | Tests skip without gate |
-| `code-wiki-mcp` entry point | E2E subprocess | ✓ | From `pyproject.toml` console_scripts | None |
+| AWS credentials | `GRAPH_WIKI_RUN_INTEGRATION=1` tests only | [ASSUMED: present from Phase 7 sweep] | — | Tests skip without gate |
+| `graph-wiki-mcp` entry point | E2E subprocess | ✓ | From `pyproject.toml` console_scripts | None |
 
 ---
 

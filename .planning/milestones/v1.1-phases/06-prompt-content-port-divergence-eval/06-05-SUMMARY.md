@@ -25,10 +25,10 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr (updated)
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr (updated)
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
 
 key-decisions:
   - "Trimmed role-local prose aggressively to stay under 5000 chars with 3636-char fragment base"
@@ -72,9 +72,9 @@ completed: 2026-05-15
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` - New file; INGESTOR_SYSTEM composed from 4 fragments + 5 role-local sections
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` - Inline constant removed; import from prompts.ingestor added; docstring updated
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` - Snapshot recorded for test_ingestor_system_snapshot
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` - New file; INGESTOR_SYSTEM composed from 4 fragments + 5 role-local sections
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` - Inline constant removed; import from prompts.ingestor added; docstring updated
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` - Snapshot recorded for test_ingestor_system_snapshot
 
 ## Decisions Made
 
@@ -90,7 +90,7 @@ completed: 2026-05-15
 - **Found during:** Task 2 (Swap inline for import)
 - **Issue:** When deleting the INGESTOR_SYSTEM block and its surrounding section comment, the `_LIST_ITEM_RE = re.compile(r"^[ \t]+- ")` regex constant that followed the logger line was also deleted. This constant is used in `_parse_ingestor_response()` on line 133 — deletion would cause NameError at runtime.
 - **Fix:** Re-added `_LIST_ITEM_RE = re.compile(r"^[ \t]+- ")` immediately after logger initialization, in its original position.
-- **Files modified:** agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
+- **Files modified:** agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
 - **Verification:** All 12 ingest-related tests pass
 - **Committed in:** fae1168 (Task 2 commit)
 

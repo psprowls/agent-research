@@ -15,7 +15,7 @@ updated: 2026-05-16T00:00:00Z
 
 ### 1. Live Query Citation Quality
 expected: |
-  `code-wiki-agent query "..."` against the fixture corpus returns an answer with
+  `graph-wiki-agent query "..."` against the fixture corpus returns an answer with
   wikilinks that resolve in the vault, cites sources per citation rules, and uses
   the `NO_RELEVANT_CONTENT` sentinel rather than hallucinating when nothing matches.
 result: pass
@@ -29,7 +29,7 @@ notes: |
 
 ### 2. Live Ingest Page-Type Routing
 expected: |
-  `code-wiki-agent ingest <sample source>` generates frontmatter with title,
+  `graph-wiki-agent ingest <sample source>` generates frontmatter with title,
   category, page_type, target_slug, and summary; page_type is routed correctly
   (source docs → `source`, work-item subjects → `package|concept|adr`); the output
   passes ING-001..004 checks.
@@ -49,7 +49,7 @@ severity: major
 
 ### 3. End-to-End Divergence Eval Run
 expected: |
-  `CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -s --accept-divergence-baseline`
+  `GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -s --accept-divergence-baseline`
   runs for all 4 roles (librarian, ingestor, linter, scanner); per-role divergence
   counts and accepted_failures excerpts print to stdout; baseline JSON files update
   with real run data; no AssertionError for hard-severity rules.
@@ -106,7 +106,7 @@ skipped: 0
   artifacts: []
   missing: []
 
-- truth: "CODE_WIKI_RUN_EVAL=1 pytest test_divergence.py runs end-to-end for all 4 roles with judge panel against live Bedrock; baseline JSON files update; no AssertionError on hard-severity rules"
+- truth: "GRAPH_WIKI_RUN_EVAL=1 pytest test_divergence.py runs end-to-end for all 4 roles with judge panel against live Bedrock; baseline JSON files update; no AssertionError on hard-severity rules"
   status: resolved
   reason: "Initial blocker: ModuleNotFoundError 'aiobotocore' — DeepEval AmazonBedrockModel hard-requires it but it was missing from eval-harness deps. Fixed inline by adding aiobotocore>=2.13 to cores/eval-harness/pyproject.toml. Re-run: 3 passed, 1 skipped, exit 0, 217s. Librarian/ingestor/linter baselines refreshed; scanner skipped due to fixture limitation (separate gap)."
   severity: blocker

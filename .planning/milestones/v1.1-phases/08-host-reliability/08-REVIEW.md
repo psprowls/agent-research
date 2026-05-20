@@ -4,14 +4,14 @@ reviewed: 2026-05-17T00:00:00Z
 depth: standard
 files_reviewed: 12
 files_reviewed_list:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/init.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/log.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-  - agents/code-wiki-agent/src/code_wiki_mcp/server.py
-  - agents/code-wiki-agent/tests/integration/test_mcp_cancel.py
-  - agents/code-wiki-agent/tests/integration/test_mcp_e2e.py
-  - agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_mcp/server.py
+  - agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py
+  - agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
+  - agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py
   - cores/subagent-runtime/src/subagent_runtime/pool.py
   - cores/vault-io/src/vault_io/append_log.py
   - cores/vault-io/src/vault_io/ingest_work_item.py
@@ -37,7 +37,7 @@ Phase 08 wired MCP cancellation through `SubagentPool`, added an E2E subprocess 
 
 The cancel machinery in `SubagentPool` (per-item `status: cancelled` records, single batch terminal record, re-raise discipline) is correct and matches the contract documented in `docs/cancellation.md`. The `repo_path` plumbing through `wiki_scan` → `run_scan` is clean, including the deliberate `pinned=None` bypass when the override is supplied.
 
-The one BLOCKER is in `test_mcp_cancel.py`: the test monkeypatches `model_adapter.loader.make_llm`, but `code_wiki_agent.commands.query` does `from model_adapter.loader import make_llm` at import time. That binding is what `run_query` calls. Patching the source module does not redirect the importer's local reference, so the slow stub is never installed and the test does not exercise the path it claims. The fact that the assertions still pass means either the test is racing differently than documented (real Bedrock calls under the hood?) or the trace records are coming from somewhere else — either way, the test does not give the promised guarantee.
+The one BLOCKER is in `test_mcp_cancel.py`: the test monkeypatches `model_adapter.loader.make_llm`, but `graph_wiki_agent.commands.query` does `from model_adapter.loader import make_llm` at import time. That binding is what `run_query` calls. Patching the source module does not redirect the importer's local reference, so the slow stub is never installed and the test does not exercise the path it claims. The fact that the assertions still pass means either the test is racing differently than documented (real Bedrock calls under the hood?) or the trace records are coming from somewhere else — either way, the test does not give the promised guarantee.
 
 Several warnings address residual `sys.exit(...)` / unguarded `print()` paths in `append_log._error` and an inconsistency between the `_PAGE_TYPE_DIRS` route table and the documented `page_type="work"` value in `IngestResult`.
 
@@ -45,19 +45,19 @@ Several warnings address residual `sys.exit(...)` / unguarded `print()` paths in
 
 ### CR-01: `test_mcp_cancel.py` patches `make_llm` at the wrong import site
 
-**File:** `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py:82`
+**File:** `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py:82`
 **Issue:** The test does:
 ```python
 monkeypatch.setattr("model_adapter.loader.make_llm", lambda *a, **kw: fake_llm)
 ```
-but `code_wiki_agent.commands.query` imports the symbol at module load:
+but `graph_wiki_agent.commands.query` imports the symbol at module load:
 ```python
 # query.py:44
 from model_adapter.loader import load_role_config, make_llm
 ```
-Python `from X import Y` creates a local binding in the importer's namespace. When `run_query` later calls `make_llm("librarian")` (query.py:856) it resolves against `code_wiki_agent.commands.query.make_llm`, not `model_adapter.loader.make_llm`. The monkeypatch rebinds the source module only, so the `fake_llm` stub is never used by the code under test. All other tests in the repo correctly target the importer (`test_query_code_fallback.py:212`, `test_query_result.py:416`, etc.):
+Python `from X import Y` creates a local binding in the importer's namespace. When `run_query` later calls `make_llm("librarian")` (query.py:856) it resolves against `graph_wiki_agent.commands.query.make_llm`, not `model_adapter.loader.make_llm`. The monkeypatch rebinds the source module only, so the `fake_llm` stub is never used by the code under test. All other tests in the repo correctly target the importer (`test_query_code_fallback.py:212`, `test_query_result.py:416`, etc.):
 ```python
-patch("code_wiki_agent.commands.query.make_llm")
+patch("graph_wiki_agent.commands.query.make_llm")
 ```
 Consequences:
 1. The slow `await asyncio.sleep(3)` stub is never installed. The 0.05 s `asyncio.sleep` before `task.cancel()` is not actually racing a 3 s stub — it's racing whatever `make_llm("librarian")` returns by default, which under `model_adapter.loader` would attempt a real Bedrock invocation if AWS creds are present.
@@ -66,9 +66,9 @@ Consequences:
 
 **Fix:**
 ```python
-# Patch the binding inside code_wiki_agent.commands.query where it is actually used.
+# Patch the binding inside graph_wiki_agent.commands.query where it is actually used.
 monkeypatch.setattr(
-    "code_wiki_agent.commands.query.make_llm",
+    "graph_wiki_agent.commands.query.make_llm",
     lambda *a, **kw: fake_llm,
 )
 ```
@@ -106,7 +106,7 @@ Then pass `raise_exception=True` from `commands/log.py`/`commands/scan.py`/`comm
 
 ### WR-03: `_PAGE_TYPE_DIRS` does not include `"work"` despite docstring claim
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:55-79`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:55-79`
 **Issue:** `IngestResult.page_type`'s docstring says: `"Page category: package, concept, adr, or work."` But `_PAGE_TYPE_DIRS` (lines 74-79) only maps `package`, `concept`, `adr`, `source`. In `run_ingest_source`, line 428-429:
 ```python
 if page_type not in _PAGE_TYPE_DIRS:
@@ -120,7 +120,7 @@ A second oddity: `_PAGE_TYPE_DIRS` includes `"source"` (line 78) but the ingesto
 
 ### WR-04: E2E test sends `wiki_scan` before `wiki_init` completes — potential ordering race
 
-**File:** `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py:277-288`
+**File:** `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py:277-288`
 **Issue:** All six tool calls are queued to stdin in one write (`payloads = [...]`, then `_run_server_long(payloads, ...)`). `_run_server_long` writes the full payload to stdin and only later reads stdout. MCP/FastMCP handlers run concurrently by default (anyio TaskGroup), so:
 - `wiki_init` (id=2), `wiki_scan` (id=3), `wiki_ingest` (id=4), `wiki_query` (id=5), `wiki_lint` (id=6), `wiki_log` (id=7) can all start before the vault exists.
 - If `wiki_scan` runs first, it will hit `wiki/` not existing and either fail (`isError=True` would fail the assertion) or get a different `state_gate` result than expected.
@@ -132,7 +132,7 @@ The comment on line 281 — `# repo_path = tmp_path (NEW FIELD)` — acknowledge
 
 ### WR-05: `_resolve_wikilinks` walks the full vault on every ingest — O(vault_size) per source page
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:171-179`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:171-179`
 **Issue:** `_resolve_wikilinks` calls `wiki.rglob("*.md")` to build `known_relpaths` and `known_basenames` on every `run_ingest_source` call. The author's own comment acknowledges "rglob is O(vault_size) — acceptable: vaults are <10k files." This is true for current vaults, but the function is invoked unconditionally even when the LLM produced zero `[[wikilinks]]`. A trivial early-exit check before the rglob would avoid the disk walk in the common case.
 **Fix:** Scan `text` for any occurrence of `[[` before doing the rglob:
 ```python
@@ -146,19 +146,19 @@ Note: this is a correctness optimization (avoiding wasted IO), not a performance
 
 ### IN-01: Unused `field` import in `commands/init.py`
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/init.py:14`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py:14`
 **Issue:** `from dataclasses import dataclass, field` — `field` is imported but never used (none of the `InitResult` fields use `field(default_factory=...)`).
 **Fix:** `from dataclasses import dataclass`
 
 ### IN-02: `commands/log.py` docstring mentions `SystemExit` conversion that does not exist
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/log.py:53-54`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py:53-54`
 **Issue:** Docstring says: `"SystemExit: If append_log calls sys.exit() on validation error (converted upstream)."` There is no upstream conversion — `run_log` will propagate `SystemExit` directly into the MCP handler, killing the server. Either fix `append_log` (see WR-01) or update the docstring to be accurate about the failure mode.
 **Fix:** Update docstring once WR-01 is addressed.
 
 ### IN-03: `_StdoutGuard.write` returns `len(data)` for whitespace-only data
 
-**File:** `agents/code-wiki-agent/src/code_wiki_mcp/server.py:42-45`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py:42-45`
 **Issue:** The guard returns `len(data)` (not 0) after the strip-check passes. For a write of `"   "` (3 spaces), it claims 3 bytes were written but discarded them. Any caller that reads `n_written` to track buffer position would observe progress despite no IO. Low risk since no realistic caller does this, but it's a subtle invariant lie.
 **Fix:** Return 0 when data is stripped to empty:
 ```python
@@ -171,7 +171,7 @@ Or, more strictly, raise on any non-empty write (`if data: raise ...`) since the
 
 ### IN-04: `cancel test` 0.05 s race is documented as "deterministic" but depends on the (broken) patch
 
-**File:** `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py:117-122`
+**File:** `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py:117-122`
 **Issue:** The comment claims the 0.05 s yield is deterministic with the 3 s stub sleep (60:1 ratio). Once CR-01 is fixed and the patch actually takes, the 60:1 ratio is sound. But documenting this as deterministic while the stub is not actually wired is misleading to future readers debugging flakiness. After fixing CR-01, re-validate the comment's claim by running the test 100x with `--count=100`.
 **Fix:** Resolve CR-01, then verify the ratio holds. No code change needed beyond CR-01.
 

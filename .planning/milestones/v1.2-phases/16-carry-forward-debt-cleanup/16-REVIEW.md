@@ -7,11 +7,11 @@ files_reviewed_list:
   - packages/subagent-runtime/src/subagent_runtime/trace_io.py
   - packages/subagent-runtime/src/subagent_runtime/pool.py
   - packages/subagent-runtime/tests/test_trace_io.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
-  - agents/code-wiki-agent/tests/test_ingest_trace_unit.py
-  - agents/code-wiki-agent/tests/test_query_trace_unit.py
-  - agents/code-wiki-agent/tests/integration/test_trace_coverage.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
+  - agents/graph-wiki-agent/tests/test_ingest_trace_unit.py
+  - agents/graph-wiki-agent/tests/test_query_trace_unit.py
+  - agents/graph-wiki-agent/tests/integration/test_trace_coverage.py
   - packages/prompt-sources/agents/code_reader.md
   - packages/prompt-sources/agents/synthesizer.md
   - packages/eval-harness/src/eval_harness/divergence/__init__.py
@@ -101,30 +101,30 @@ def _check_no_slug_only_wikilinks(output, vault):
     return Verdict(passed=True, excerpt="")
 ```
 
-### WR-02: CR-003 `.code-wiki/` regex misses inline path references
+### WR-02: CR-003 `.graph-wiki/` regex misses inline path references
 
 **File:** `packages/eval-harness/src/eval_harness/divergence/code_reader.py:31,71-82`
 
 **Issue:** The negative lookbehind `(?<![A-Za-z0-9_/-])` excludes `/` from the
 preceding-character set. That intentionally blocks matches like
-`vault/.code-wiki/bm25`. But that is precisely the form an agent would emit
-when it INVENTS a `.code-wiki/` quote — e.g. "I read `wiki/.code-wiki/foo.json`
-and it contained …". The check is meant to catch invented `.code-wiki/`
+`vault/.graph-wiki/bm25`. But that is precisely the form an agent would emit
+when it INVENTS a `.graph-wiki/` quote — e.g. "I read `wiki/.graph-wiki/foo.json`
+and it contained …". The check is meant to catch invented `.graph-wiki/`
 citations (per rule 4: the tool refuses those reads, so any quote is
-fabricated); it instead permits any `.code-wiki/` reference that follows a
+fabricated); it instead permits any `.graph-wiki/` reference that follows a
 slash.
 
-Confirmed: `re.compile(r"(?<![A-Za-z0-9_/-])\.code-wiki/").search("vault/.code-wiki/bm25")`
+Confirmed: `re.compile(r"(?<![A-Za-z0-9_/-])\.graph-wiki/").search("vault/.graph-wiki/bm25")`
 returns `None`.
 
 **Fix:** Allow the lookbehind to exclude only word characters (path
 *continuations*), not the path *separator*:
 
 ```python
-_CODE_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_-])\.code-wiki/")
+_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_-])\.graph-wiki/")
 ```
 
-This still avoids false positives on suffixes (`foo.code-wiki/`) but catches
+This still avoids false positives on suffixes (`foo.graph-wiki/`) but catches
 both the bare reference and the slash-prefixed reference.
 
 ### WR-03: CR-001 path:line regex requires a `/` in the path — bare-filename citations escape
@@ -159,7 +159,7 @@ _PATH_LINE_RE = re.compile(
 
 ### WR-04: Integration trace-coverage test asserts a property the code-fallback empty-result path violates
 
-**File:** `agents/code-wiki-agent/tests/integration/test_trace_coverage.py:88-95`
+**File:** `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py:88-95`
 
 **Issue:** The assertion is:
 
@@ -233,7 +233,7 @@ else:
 
 ### WR-06: `_route_target_path` containment check uses hardcoded `/` separator
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:101-106`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:101-106`
 
 **Issue:**
 
@@ -265,7 +265,7 @@ This also matches the pattern already adopted by `_read_file_bounded` in
 
 ### IN-01: Stale line-range reference in `_extract_usage_tokens` docstring
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:283-286`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:283-286`
 
 **Issue:** The docstring says "Block lifted verbatim from
 subagent_runtime.pool._write_trace:203-209". After the D-04 extraction,
@@ -327,7 +327,7 @@ def test_write_trace_record_swallows_oserror(tmp_path, caplog):
 
 ### IN-05: `import pytest` unused in `test_ingest_trace_unit.py`
 
-**File:** `agents/code-wiki-agent/tests/test_ingest_trace_unit.py:15`
+**File:** `agents/graph-wiki-agent/tests/test_ingest_trace_unit.py:15`
 
 **Issue:** Only `@pytest.mark.asyncio` references `pytest`. That's fine —
 the decorator does use it. Re-check: `pytest.raises(BotoCoreError)` is also
@@ -337,7 +337,7 @@ inside the second test. Both uses are legitimate. No action needed.
 
 ### IN-06: Two synthesizer trace files share the same filename pattern across both branches
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:532,968`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:532,968`
 
 **Issue:** Both the code-fallback synth call (line 532) and the regular-
 path synth call (line 968) write to `synth_{query_id}.jsonl`. Within a
@@ -392,7 +392,7 @@ each object.
 
 ### IN-09: `_compute_unresolved_wikilinks` duplicates the G1 resolution logic in `apply_guardrails`
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:551-570,663-670`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:551-570,663-670`
 
 **Issue:** `_compute_unresolved_wikilinks` (lines 551-570) and the inline
 G1 block in `apply_guardrails` (lines 663-670) compute the same thing with

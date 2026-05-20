@@ -6,7 +6,7 @@ Note: only one spike has been run so far (001-subagent-context-audit, an analyti
 
 ## Stack
 
-- Python 3.11+ via `uv` workspaces (matches the project stack — see project CLAUDE.md §Technology Stack). Any spike that needs runnable code uses the existing workspace member for its closest analog (`agents/code-wiki-agent/` for runtime concerns, `packages/*/` for shared primitives).
+- Python 3.11+ via `uv` workspaces (matches the project stack — see project CLAUDE.md §Technology Stack). Any spike that needs runnable code uses the existing workspace member for its closest analog (`agents/graph-wiki-agent/` for runtime concerns, `packages/*/` for shared primitives).
 - No new dependencies introduced inside `.planning/spikes/`. If a spike needs a library, add it to the relevant workspace member's `pyproject.toml` and note the choice in the spike's Research section.
 
 ## Structure

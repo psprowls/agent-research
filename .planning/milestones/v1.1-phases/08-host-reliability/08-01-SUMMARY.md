@@ -31,7 +31,7 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/tests/integration/test_mcp_cancel.py
+    - agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py
   modified:
     - cores/subagent-runtime/src/subagent_runtime/pool.py
 
@@ -70,7 +70,7 @@ completed: 2026-05-17
 - `_run_one` now catches `asyncio.CancelledError` before `except Exception`, writes per-item `status: cancelled` trace record via existing `_write_trace` (no change to `_write_trace` needed — its `None` guard already handles `response=None`), then re-raises.
 - `run_all` wraps `asyncio.gather` in `try/except asyncio.CancelledError`, calls new `_write_batch_terminal`, re-raises so FastMCP anyio CancelScope sees the propagated error.
 - `_write_batch_terminal` emits a single JSONL line with `event: batch_cancelled` fields per CONTEXT.md D-06 spec; uses the same never-raises OSError contract as `_write_trace`.
-- `test_mcp_cancel.py` passes in <3s, runs without `CODE_WIKI_RUN_INTEGRATION=1`, and asserts all four trace invariants (per-item cancelled, single batch_cancelled, ordering, discriminator).
+- `test_mcp_cancel.py` passes in <3s, runs without `GRAPH_WIKI_RUN_INTEGRATION=1`, and asserts all four trace invariants (per-item cancelled, single batch_cancelled, ordering, discriminator).
 
 ## pool.py diff summary
 
@@ -93,7 +93,7 @@ completed: 2026-05-17
 ## Files Created/Modified
 
 - `cores/subagent-runtime/src/subagent_runtime/pool.py` - Added CancelledError branch in `_run_one`, wrapped `asyncio.gather` in `run_all`, added `_write_batch_terminal` helper
-- `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` - New: direct-asyncio cancel-mid-fan-out test (MCP-10, MCP-11)
+- `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` - New: direct-asyncio cancel-mid-fan-out test (MCP-10, MCP-11)
 
 ## Decisions Made
 
@@ -111,7 +111,7 @@ completed: 2026-05-17
 - **Found during:** Task 2 (cancel test)
 - **Issue:** First test run showed only `batch_cancelled` record, no per-item `cancelled` records. The cancel arrived before `_run_one` coroutines had started.
 - **Fix:** Changed `await asyncio.sleep(0)` to `await asyncio.sleep(0.05)` with documented rationale.
-- **Files modified:** `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py`
+- **Files modified:** `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py`
 - **Verification:** Test passes with ≥1 per-item cancelled records confirmed in trace.
 - **Committed in:** `08e3d44` (Task 2 commit)
 

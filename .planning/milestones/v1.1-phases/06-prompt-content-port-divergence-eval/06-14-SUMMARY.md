@@ -1,7 +1,7 @@
 ---
 phase: 06-prompt-content-port-divergence-eval
 plan: 14
-subsystem: code-wiki-agent / commands+prompts
+subsystem: graph-wiki-agent / commands+prompts
 tags: [gap-closure, ingestor, wikilinks, hallucination-guard, UAT-G4]
 requires: [06-13]
 provides:
@@ -22,10 +22,10 @@ key-files:
   created:
     - .planning/phases/06-prompt-content-port-divergence-eval/06-14-SUMMARY.md
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-    - agents/code-wiki-agent/tests/unit/test_commands_ingest.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+    - agents/graph-wiki-agent/tests/unit/test_commands_ingest.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 decisions:
   - "Strengthen ingestor prompt locally rather than editing _fragments/citation_rules.py — librarian has its own programmatic validate_wikilinks check and shouldn't inherit prose intended for the ingestor's specific failure modes"
   - "Two writes (initial + post-resolve) instead of pre-registering the new file in the resolver's known-pages set — simpler, faster than the alternative, and writes are sub-millisecond on local disk"
@@ -49,7 +49,7 @@ One-liner: Closes UAT gap G4 by adding `_resolve_wikilinks()` to `commands/inges
 - Extended the `append_log` `detail` argument: when any wikilinks are stripped, the log entry now includes `; stripped N unresolved wikilink(s): [first 5 targets]`.
 
 **Task 2 — Ingestor prompt strengthening (commit `f34c45b`)**
-- Extended `_INGESTOR_RULES` in `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` with a new `## Wikilink discipline (named anti-patterns)` subsection.
+- Extended `_INGESTOR_RULES` in `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` with a new `## Wikilink discipline (named anti-patterns)` subsection.
 - Names the two UAT-observed shapes by example: `[[Person Name]]` and `[[subdir/some-slug]]`.
 - Honestly tells the LLM the command layer STRIPS unresolved wikilinks, so the model can adjust without surprise.
 - Shared `_fragments/citation_rules.py` was NOT modified — `git diff --stat` confirms zero changes to that file. Librarian keeps its own programmatic `validate_wikilinks` check unchanged.
@@ -67,7 +67,7 @@ One-liner: Closes UAT gap G4 by adding `_resolve_wikilinks()` to `commands/inges
 | Pre-existing 17 tests in `test_commands_ingest.py`                 | PASS   | No regression — full file 25/25 green                                                  |
 | Pre-existing 7 snapshot tests                                      | PASS   | All other agent prompt snapshots unchanged                                             |
 
-Run summary: `uv run --package code-wiki-agent pytest tests/unit/test_commands_ingest.py tests/prompts/test_prompt_snapshots.py -x -q` → **25 passed**.
+Run summary: `uv run --package graph-wiki-agent pytest tests/unit/test_commands_ingest.py tests/prompts/test_prompt_snapshots.py -x -q` → **25 passed**.
 
 ## Required Output Items (per plan `<output>`)
 
@@ -76,7 +76,7 @@ Run summary: `uv run --package code-wiki-agent pytest tests/unit/test_commands_i
   - `test_resolve_wikilinks_preserves_fenced_code` asserts `sorted(stripped) == ["also-fake", "fake-page"]` → 2 strips.
   - `test_run_ingest_source_strips_unresolved_wikilinks` asserts `stripped 1` in the `append_log` detail → 1 strip, end-to-end.
   - **Total: resolver fires 4 strip operations across the unit test fixtures — confirming non-trivial coverage.**
-- **`_fragments/citation_rules.py` modification check:** `git diff --stat` against this plan's branch shows ZERO changes to `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/citation_rules.py`. The shared fragment is intentionally untouched (programmatic-check separation for librarian).
+- **`_fragments/citation_rules.py` modification check:** `git diff --stat` against this plan's branch shows ZERO changes to `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py`. The shared fragment is intentionally untouched (programmatic-check separation for librarian).
 - **Line count of new prompt section:** the `## Wikilink discipline (named anti-patterns)` block in `_INGESTOR_RULES` adds **11 source lines** to `prompts/ingestor.py` (a 2-line heading + blank + 2 bullets + blank + a 4-line warning paragraph). The rendered snapshot diff adds 8 lines of prose (paragraphs collapsed).
 
 ## Deviations from Plan

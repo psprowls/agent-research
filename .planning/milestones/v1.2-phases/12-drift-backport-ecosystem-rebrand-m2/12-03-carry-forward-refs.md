@@ -39,7 +39,7 @@ The rationale falls into one of these classes:
 | packages/vault-io/src/vault_io/ingest_source.py                | 4                  | Provenance       | Module docstring: "Extracted from lattice-wiki-core's ingest_source.py".          |
 | packages/eval-harness/src/eval_harness/baseline.py             | 5, 6, 43           | Provenance       | "Ported from lattice-evals/runner_headless.py" + dropped-sections note + verbatim eval-prompt provenance. R-02. |
 | packages/eval-harness/src/eval_harness/pricing.py              | 4, 17              | Provenance       | "Ported from lattice-evals/pricing.py" + cache-key inline note. R-02.             |
-| agents/code-wiki-agent/src/code_wiki_agent/commands/query.py   | 8, 59, 176, 192    | Parity-behavior  | BM25 tokenizer + stopword-set parity with upstream lattice-wiki-core wiki_search. |
+| agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py   | 8, 59, 176, 192    | Parity-behavior  | BM25 tokenizer + stopword-set parity with upstream lattice-wiki-core wiki_search. |
 
 ## Test prose / Upstream-guard / Test-data (test files)
 

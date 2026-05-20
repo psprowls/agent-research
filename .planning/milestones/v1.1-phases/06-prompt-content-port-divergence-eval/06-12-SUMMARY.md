@@ -6,9 +6,9 @@ tags: [gap-closure, ingestor, frontmatter, parser-hardening, UAT-G1, PORT-03, EV
 requirements: [PORT-03, EVAL-11]
 dependency-graph:
   requires:
-    - "agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py (INGESTOR_SYSTEM composition)"
-    - "agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py (_parse_ingestor_response)"
-    - "agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py (snapshot gate)"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py (INGESTOR_SYSTEM composition)"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py (_parse_ingestor_response)"
+    - "agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py (snapshot gate)"
   provides:
     - "INGESTOR_SYSTEM explicit no-code-fence rule (prompt-side defense)"
     - "_parse_ingestor_response fence-stripping preamble (parser-side defense)"
@@ -24,10 +24,10 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - "agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py (+_NO_CODE_FENCE constant, appended to composition)"
-    - "agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py (_parse_ingestor_response: fence-strip preamble + docstring)"
-    - "agents/code-wiki-agent/tests/unit/test_commands_ingest.py (+5 parser tests)"
-    - "agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr (+4 lines, snapshot refreshed)"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py (+_NO_CODE_FENCE constant, appended to composition)"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py (_parse_ingestor_response: fence-strip preamble + docstring)"
+    - "agents/graph-wiki-agent/tests/unit/test_commands_ingest.py (+5 parser tests)"
+    - "agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr (+4 lines, snapshot refreshed)"
 decisions:
   - "Place _NO_CODE_FENCE LAST in the composition list so it is the most recent instruction the LLM reads before generating (recency-bias defense)"
   - "Parser preserves body content that trails the closing ``` fence (the LLM may emit fence around only the YAML block with body below, or wrap YAML+body together) — strip the LAST `\\`\\`\\`` line and rejoin around it"
@@ -88,9 +88,9 @@ Task 2 followed the RED→GREEN cycle within a single commit (test + implementat
 
 Final command:
 ```
-uv run --package code-wiki-agent pytest \
-  agents/code-wiki-agent/tests/unit/test_commands_ingest.py \
-  agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py \
+uv run --package graph-wiki-agent pytest \
+  agents/graph-wiki-agent/tests/unit/test_commands_ingest.py \
+  agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py \
   -x -q
 ```
 Result: **19 passed, 8 snapshots passed** (exit 0).
@@ -109,9 +109,9 @@ None — no new network endpoints, auth paths, file access patterns, or schema c
 
 ## Self-Check: PASSED
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` — FOUND
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — FOUND
-- `agents/code-wiki-agent/tests/unit/test_commands_ingest.py` — FOUND
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — FOUND
+- `agents/graph-wiki-agent/tests/unit/test_commands_ingest.py` — FOUND
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — FOUND
 - Commit `23f043d` — FOUND
 - Commit `e22b860` — FOUND

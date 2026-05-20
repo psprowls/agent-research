@@ -11,13 +11,13 @@
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |-------------------|------|-----------|----------------|---------------|
 | `cores/subagent-runtime/src/subagent_runtime/pool.py` | writer (producer) | event-driven JSONL append | itself (extend in place) | exact |
-| `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` | writer (producer) | one-shot JSONL write | itself (extend in place) | exact |
-| `agents/code-wiki-agent/src/code_wiki_agent/cli.py` | renderer (consumer) | batch read-then-format | itself (extend in place) | exact |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` | writer (producer) | one-shot JSONL write | itself (extend in place) | exact |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` | renderer (consumer) | batch read-then-format | itself (extend in place) | exact |
 | `docs/trace-schema.md` | documentation | static reference | `docs/cancellation.md` | role-match (sibling doc) |
 | `docs/cancellation.md` | documentation | one-line cross-link edit | itself | exact |
-| `agents/code-wiki-agent/tests/unit/test_trace_viewer.py` | test (subprocess + syrupy) | snapshot + subprocess | `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` (syrupy pattern), self (subprocess pattern) | hybrid |
+| `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` | test (subprocess + syrupy) | snapshot + subprocess | `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` (syrupy pattern), self (subprocess pattern) | hybrid |
 | `cores/subagent-runtime/tests/test_pool.py` | test (unit) | assertion on written record | itself (extend in place) | exact |
-| `agents/code-wiki-agent/tests/unit/test_query_*.py` | test (unit, optional) | assertion on written record | `test_pool.py` test 7 (`test_trace_record_completeness_success_path`) | role-match |
+| `agents/graph-wiki-agent/tests/unit/test_query_*.py` | test (unit, optional) | assertion on written record | `test_pool.py` test 7 (`test_trace_record_completeness_success_path`) | role-match |
 
 ---
 
@@ -79,7 +79,7 @@ except OSError as exc:
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` (writer, one-shot JSONL write)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` (writer, one-shot JSONL write)
 
 **Analog:** itself — the `query_summary` writer lives at `query.py:976-995`.
 
@@ -115,7 +115,7 @@ except OSError as exc:
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_agent/cli.py` (renderer, batch read-then-format)
+### `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (renderer, batch read-then-format)
 
 **Analog:** itself — `_render_trace_record` (lines 48-73), `_aggregate_trace` (lines 76-107), `trace` command (lines 110-144) are all extension targets.
 
@@ -234,10 +234,10 @@ def trace(file: Path) -> None:
 
 **Excerpt: opening pattern** (`docs/cancellation.md:1-12`):
 ```markdown
-# MCP Cancellation in code-wiki-agent
+# MCP Cancellation in graph-wiki-agent
 
 This document describes what happens when a spec-conformant MCP host sends
-`notifications/cancelled` to `code-wiki-mcp` while a fan-out tool call is in flight.
+`notifications/cancelled` to `graph-wiki-mcp` while a fan-out tool call is in flight.
 It covers the protocol, the internal unwinding chain, the exact trace record shapes
 emitted by `SubagentPool`, the known orphan-thread limitation in v1.1, and the
 v1.2+ paths that will close that gap.
@@ -275,8 +275,8 @@ These records have no `event` key:
 ```
 
 **Change spec (Phase 9):** create `docs/trace-schema.md` at repo root. Required sections per D-05:
-1. Overview of `.code-wiki/traces/` directory layout and filename convention (per-batch `{int_timestamp}_{uuid8}.jsonl`, per-query `query_{query_id}.jsonl`).
-2. Per-record-shape spec — three shapes: per-item subagent record, `event: batch_cancelled` terminator, `kind: query_summary`. Each with field table (name | type | required? | semantics). Pull JSON examples from real fixture files under `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` (add `"schema_version": 1` to the examples — fixtures themselves are v0 and stay v0 per D-04).
+1. Overview of `.graph-wiki/traces/` directory layout and filename convention (per-batch `{int_timestamp}_{uuid8}.jsonl`, per-query `query_{query_id}.jsonl`).
+2. Per-record-shape spec — three shapes: per-item subagent record, `event: batch_cancelled` terminator, `kind: query_summary`. Each with field table (name | type | required? | semantics). Pull JSON examples from real fixture files under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (add `"schema_version": 1` to the examples — fixtures themselves are v0 and stay v0 per D-04).
 3. `schema_version` field — what it is, lenient-consumer / strict-producer policy (D-03), bump rules (D-02).
 4. "Additive-shape" rule cross-referencing Phase 8 D-06/D-07.
 5. v0 (unversioned) compatibility note (D-04).
@@ -302,7 +302,7 @@ Length target ~150-250 lines. Markdown style: match cancellation.md (H2 sections
 
 ---
 
-### `agents/code-wiki-agent/tests/unit/test_trace_viewer.py` (test, snapshot + subprocess)
+### `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` (test, snapshot + subprocess)
 
 **Existing pattern in this file — subprocess-driven assertion** (`test_trace_viewer.py:53-59`):
 ```python
@@ -311,7 +311,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "trace"] + args,
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "trace"] + args,
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
@@ -353,13 +353,13 @@ from syrupy.assertion import SnapshotAssertion
 def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LIBRARIAN_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
+        from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LIBRARIAN_SYSTEM == snapshot
 ```
 
-**Snapshots directory analog:** `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` (syrupy default `.ambr` format) — Phase 9 snapshots land at `agents/code-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr`.
+**Snapshots directory analog:** `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` (syrupy default `.ambr` format) — Phase 9 snapshots land at `agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr`.
 
 **Change spec (Phase 9):**
 1. KEEP the existing subprocess-driven tests (5 tests, lines 67-182) — they still pass with the renderer extensions because they assert on `'Phase 4' in stdout or 'cost' in stdout.lower()` (line 101), and the new rollup will contain "cost". Adjust only that assertion to drop the `'Phase 4'` half once the placeholder is removed.
@@ -368,10 +368,10 @@ def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
    - `test_expand_snapshot` — same fixture, `--expand`, snapshot every per-record line.
    - `test_cost_rollup_snapshot` — mixed-model fan-out (e.g., 3 scanner@haiku + 2 scanner@sonnet) to lock the `(role, model_id)` rollup ordering (descending cost, alphabetical tie-break — D-15).
    - `test_query_summary_interleaved_snapshot` — fan-out + `kind: query_summary` record + `event: batch_cancelled` terminator in the same file, snapshot the output (verify groupable / non-groupable interleaving — D-11).
-3. ADD a v0 backward-compat unit test that loads a real fixture (e.g., `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/1778766775_3d8c7377.jsonl`), runs the renderer via subprocess, asserts (a) exit code 0, (b) stderr contains a one-time warning line mentioning the file path, (c) stdout still contains the per-item role / item_id / status.
+3. ADD a v0 backward-compat unit test that loads a real fixture (e.g., `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1778766775_3d8c7377.jsonl`), runs the renderer via subprocess, asserts (a) exit code 0, (b) stderr contains a one-time warning line mentioning the file path, (c) stdout still contains the per-item role / item_id / status.
 
 **Stylistic conventions to preserve:**
-- `_PROJECT_ROOT` resolution via `Path(__file__).parent.parent.parent.parent.parent` and `uv run --package code-wiki-agent code-wiki-agent ...` subprocess invocation — this is the established CLI test pattern.
+- `_PROJECT_ROOT` resolution via `Path(__file__).parent.parent.parent.parent.parent` and `uv run --package graph-wiki-agent graph-wiki-agent ...` subprocess invocation — this is the established CLI test pattern.
 - Fixture records are constructed as Python dicts and `json.dumps`'d line by line — match this for collapse/expand fixtures.
 - syrupy is already in the project's `pyproject.toml` (root) — no dep changes needed.
 
@@ -412,7 +412,7 @@ assert record["cost_usd"] is None
 
 ---
 
-### `agents/code-wiki-agent/tests/unit/test_query_*.py` (test, unit — optional)
+### `agents/graph-wiki-agent/tests/unit/test_query_*.py` (test, unit — optional)
 
 **Analog:** `test_pool.py` Test 7 — same "load JSONL file, parse, assert field present" pattern transplanted to the `query_summary` writer.
 
@@ -458,13 +458,13 @@ def _compute_cost_usd(model_id, tokens_in, tokens_out) -> float | None:
         return None
 ```
 
-**Apply to:** None directly in Phase 9 — but the **inverse rule** governs the renderer per D-10: `agents/code-wiki-agent/src/code_wiki_agent/cli.py` MUST NOT import `eval_harness` at all (not at module level, not lazily). Read `cost_usd` as-written.
+**Apply to:** None directly in Phase 9 — but the **inverse rule** governs the renderer per D-10: `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` MUST NOT import `eval_harness` at all (not at module level, not lazily). Read `cost_usd` as-written.
 
 ---
 
 ### `typer.echo` is the only output primitive
 
-**Source:** Every command in `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — no `print()`, no `rich.print`, no `logging` for user-facing output.
+**Source:** Every command in `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — no `print()`, no `rich.print`, no `logging` for user-facing output.
 
 **Pattern:**
 ```python
@@ -478,7 +478,7 @@ typer.echo(f"trace file not found: {file}", err=True)         # stderr
 
 ### syrupy snapshot test (`SnapshotAssertion`)
 
-**Source:** `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py:16-25`.
+**Source:** `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py:16-25`.
 
 **Pattern:**
 ```python
@@ -492,7 +492,7 @@ def test_collapsed_default_snapshot(snapshot: SnapshotAssertion, tmp_path: Path)
     assert result.stdout == snapshot
 ```
 
-**Snapshots auto-land at:** `agents/code-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr` (syrupy default `.ambr` format). Initial generation via `pytest --snapshot-update`.
+**Snapshots auto-land at:** `agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr` (syrupy default `.ambr` format). Initial generation via `pytest --snapshot-update`.
 
 **Apply to:** New collapsed/expand/cost-rollup/query-summary-interleave snapshot tests.
 
@@ -522,11 +522,11 @@ None. Every file in scope has a close existing pattern (`docs/cancellation.md` i
 **Analog search scope:**
 - `cores/subagent-runtime/src/subagent_runtime/`
 - `cores/subagent-runtime/tests/`
-- `agents/code-wiki-agent/src/code_wiki_agent/`
-- `agents/code-wiki-agent/tests/unit/`
-- `agents/code-wiki-agent/tests/prompts/` (syrupy pattern)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/`
+- `agents/graph-wiki-agent/tests/unit/`
+- `agents/graph-wiki-agent/tests/prompts/` (syrupy pattern)
 - `docs/`
-- `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` (real v0 fixtures)
+- `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (real v0 fixtures)
 
 **Files scanned:**
 - Source: `pool.py`, `cli.py`, `query.py` (full read of each).

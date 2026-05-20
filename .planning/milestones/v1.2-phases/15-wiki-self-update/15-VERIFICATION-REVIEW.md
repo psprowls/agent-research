@@ -182,7 +182,7 @@ The scan DID capture the plugin directory as a bonus product, but the plugin pag
 |-----------|-------------|---------|
 | `--config` flag does not propagate `vault_path` to subcommands | YES | Accurate — CLI bug confirmed by reading the deviation description; executor correctly identified `cli.py:35-45` as the source. The 28-page dogfood vault incident is documented with cleanup steps. |
 | Stale `cores/` layout block in wiki CLAUDE.md | YES | Accurate — Phase 12 renamed `cores/` to `packages/` but did not update the wiki's CLAUDE.md layout block. The executor auto-fixed the vault-side file. Noted as vault-side fix only; no repo code changed. |
-| BM25 index not auto-rebuilt after scan | YES | Accurate — scan adds pages to vault filesystem but does not refresh `.code-wiki/bm25/`. This caused the first query to return empty results. Manual rebuild required. |
+| BM25 index not auto-rebuilt after scan | YES | Accurate — scan adds pages to vault filesystem but does not refresh `.graph-wiki/bm25/`. This caused the first query to return empty results. Manual rebuild required. |
 
 All three deviations are documented honestly with their root causes, manifestations, and fixes.
 
@@ -210,11 +210,11 @@ The phase goal states: "The project's own wiki at `~/Personal/wiki/deep-agents` 
 
 ## Recommendations for Phase 16 (CLI Bugs Surfaced)
 
-Three live bugs in the shipped `code-wiki-agent` CLI were exposed by Phase 15 and should be tracked in Phase 16's carry-forward debt:
+Three live bugs in the shipped `graph-wiki-agent` CLI were exposed by Phase 15 and should be tracked in Phase 16's carry-forward debt:
 
 ### Bug 1: `--config` flag does not propagate `vault_path` to subcommands
 
-**Behavior:** `code-wiki-agent --config wiki-config-claude.toml scan` ignores the `vault_path` in the config; each subcommand resolves vault independently via `--vault` or `workspace_io.config.resolve()`. This is a footgun: any `--config`-based invocation without `--vault` silently operates on the wrong vault.
+**Behavior:** `graph-wiki-agent --config wiki-config-claude.toml scan` ignores the `vault_path` in the config; each subcommand resolves vault independently via `--vault` or `workspace_io.config.resolve()`. This is a footgun: any `--config`-based invocation without `--vault` silently operates on the wrong vault.
 
 **Risk:** High. Any future operator who reads the help or examples and passes `--config` without `--vault` will corrupt the wrong vault.
 
@@ -230,11 +230,11 @@ Three live bugs in the shipped `code-wiki-agent` CLI were exposed by Phase 15 an
 
 ### Bug 3: BM25 index not auto-rebuilt after scan
 
-**Behavior:** `code-wiki-agent scan` adds new `.md` pages to the vault but does not refresh `.code-wiki/bm25/`. A subsequent `query` returns empty results for newly-added pages until the index is manually rebuilt.
+**Behavior:** `graph-wiki-agent scan` adds new `.md` pages to the vault but does not refresh `.graph-wiki/bm25/`. A subsequent `query` returns empty results for newly-added pages until the index is manually rebuilt.
 
 **Risk:** High. This is the exact use case Phase 15 exercises: scan adds a page, then query the page. Any user following the documented scan-then-query workflow will hit this silently.
 
-**Recommendation for Phase 16:** Either (a) auto-trigger `build_index(vault)` at the end of every `scan` invocation, or (b) emit a post-scan warning: "BM25 index is stale — run `code-wiki-agent index --rebuild` before querying." Option (a) is simpler and eliminates user error entirely. Option (b) is safer if index rebuild is expensive.
+**Recommendation for Phase 16:** Either (a) auto-trigger `build_index(vault)` at the end of every `scan` invocation, or (b) emit a post-scan warning: "BM25 index is stale — run `graph-wiki-agent index --rebuild` before querying." Option (a) is simpler and eliminates user error entirely. Option (b) is safer if index rebuild is expensive.
 
 ---
 

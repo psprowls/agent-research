@@ -9,10 +9,10 @@ provides:
   - body target_slug == on-disk filename stem for every written ingest page (UAT G3 closed)
   - INGESTOR_SYSTEM enumerates all four page_types with their target directories
 affects:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-  - agents/code-wiki-agent/tests/unit/test_commands_ingest.py
-  - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+  - agents/graph-wiki-agent/tests/unit/test_commands_ingest.py
+  - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 tech-stack:
   added: []
   patterns:
@@ -20,10 +20,10 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-    - agents/code-wiki-agent/tests/unit/test_commands_ingest.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+    - agents/graph-wiki-agent/tests/unit/test_commands_ingest.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 decisions:
   - "Slug reconciliation rewrites the file body BEFORE writing to disk so the persisted frontmatter always matches the filename — a downstream reader of just the file (no IngestResult in hand) still sees a consistent slug"
   - "_rewrite_target_slug_in_body is text-based (no yaml.load) to match the file-wide parser philosophy stated in _parse_ingestor_response's docstring (lines 102-109)"
@@ -44,7 +44,7 @@ UAT gaps G2 (source documents routed to `concepts/` instead of `sources/`) and G
 
 ### Task 1 — Source routing + slug-filename reconciliation
 
-**`_PAGE_TYPE_DIRS` diff** (`agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:73-78`):
+**`_PAGE_TYPE_DIRS` diff** (`agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:73-78`):
 
 ```diff
  _PAGE_TYPE_DIRS: dict[str, str] = {
@@ -76,7 +76,7 @@ This closes G3 for every code path that reaches the write — including the LLM-
 
 ### Task 2 — INGESTOR_SYSTEM enumerates the four page_types
 
-`_PAGE_TYPE_ROUTING` in `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py:24-33` now lists each page_type with its destination directory:
+`_PAGE_TYPE_ROUTING` in `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py:24-33` now lists each page_type with its destination directory:
 
 ```
 - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
@@ -93,8 +93,8 @@ Plus an explicit `category` ↔ `page_type` consistency reminder. The previous w
 
 | Suite | Result |
 |-------|--------|
-| `pytest agents/code-wiki-agent/tests/unit/test_commands_ingest.py -x -q` | 13 passed |
-| `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py -x -q` | 8 snapshots passed |
+| `pytest agents/graph-wiki-agent/tests/unit/test_commands_ingest.py -x -q` | 13 passed |
+| `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py -x -q` | 8 snapshots passed |
 | Combined plan-13 verify command | 21 passed |
 | `grep -n '"source": "sources"' commands/ingest.py` | one match (line 77) |
 | INGESTOR_SYSTEM substring assertions (all four page_types + directories) | OK |
@@ -133,10 +133,10 @@ Plan-level gate sequence verified:
 
 ## Self-Check: PASSED
 
-- File `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — FOUND (verified via Edit; `"source": "sources"` present at line 77; `_rewrite_target_slug_in_body` present)
-- File `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` — FOUND (verified via Edit; all four page_types enumerated)
-- File `agents/code-wiki-agent/tests/unit/test_commands_ingest.py` — FOUND (13 passing tests including the two new ones)
-- File `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — FOUND (snapshot refreshed)
+- File `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — FOUND (verified via Edit; `"source": "sources"` present at line 77; `_rewrite_target_slug_in_body` present)
+- File `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` — FOUND (verified via Edit; all four page_types enumerated)
+- File `agents/graph-wiki-agent/tests/unit/test_commands_ingest.py` — FOUND (13 passing tests including the two new ones)
+- File `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — FOUND (snapshot refreshed)
 - Commit `d596284` — FOUND in git log
 - Commit `ab0bf61` — FOUND in git log
 - Commit `7c85281` — FOUND in git log

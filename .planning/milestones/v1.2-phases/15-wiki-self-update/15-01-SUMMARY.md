@@ -19,9 +19,9 @@ key_files_created:
   - .planning/phases/15-wiki-self-update/15-01-SUMMARY.md
 key_files_modified: []
 decisions:
-  - "Always pass --vault alongside --config when invoking code-wiki-agent — the --config flag's vault_path is not propagated to scan/ingest/query subcommands (auto-fix Rule 1 finding during this plan)"
+  - "Always pass --vault alongside --config when invoking graph-wiki-agent — the --config flag's vault_path is not propagated to scan/ingest/query subcommands (auto-fix Rule 1 finding during this plan)"
   - "Wiki CLAUDE.md layout block must reflect current repo directory names; the cores→packages rename from Phase 12 was not propagated until this run (auto-fix Rule 1 finding)"
-  - "BM25 index requires manual rebuild after scan; the scan does not refresh .code-wiki/bm25/ automatically (auto-fix Rule 1 finding)"
+  - "BM25 index requires manual rebuild after scan; the scan does not refresh .graph-wiki/bm25/ automatically (auto-fix Rule 1 finding)"
 metrics:
   duration_seconds: 1229
   tasks_completed: 8
@@ -32,7 +32,7 @@ metrics:
 
 # Phase 15 Plan 01: Wiki Self-Update — Summary
 
-Drove a `code-wiki-agent scan + ingest + query` pass against `~/Personal/wiki/deep-agents` using a one-off Claude role-override profile (Haiku 4.5 fan-out + Sonnet 4.6 reasoning) to bring the wiki into alignment with the post-rebrand codebase. Captured SC#1/#2/#3 evidence in 15-VERIFICATION.md, satisfying BRAND-03 and closing Phase 15.
+Drove a `graph-wiki-agent scan + ingest + query` pass against `~/Personal/wiki/deep-agents` using a one-off Claude role-override profile (Haiku 4.5 fan-out + Sonnet 4.6 reasoning) to bring the wiki into alignment with the post-rebrand codebase. Captured SC#1/#2/#3 evidence in 15-VERIFICATION.md, satisfying BRAND-03 and closing Phase 15.
 
 ## Commits
 

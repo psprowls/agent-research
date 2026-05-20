@@ -1,7 +1,7 @@
 ---
 phase: 06-prompt-content-port-divergence-eval
 plan: "04"
-subsystem: code-wiki-agent/prompts
+subsystem: graph-wiki-agent/prompts
 tags: [prompt-port, librarian, synthesizer, code-reader, query-command, PORT-02, D-14]
 requirements: [PORT-02]
 
@@ -20,12 +20,12 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/synthesizer.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/code_reader.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/synthesizer.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/code_reader.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
 
 decisions:
   - "LIBRARIAN_SYSTEM composed as join of 7 sections: _ROLE_INTRO + IRON_RULES + PAGE_CATEGORIES + CITATION_RULES + _WORKFLOW + _RED_FLAGS + _OUTPUT_FORMAT"
@@ -79,7 +79,7 @@ Verbatim relocations of `SYNTHESIZER_SYSTEM` and `CODE_READER_SYSTEM` from `comm
 ## Verification
 
 - `test_librarian_system_snapshot` passes (snapshot recorded and verified)
-- 103 tests pass across `agents/code-wiki-agent/tests/` (3 integration tests skipped — require Bedrock)
+- 103 tests pass across `agents/graph-wiki-agent/tests/` (3 integration tests skipped — require Bedrock)
 - No inline `*_SYSTEM` definitions remain in `commands/query.py`
 - Adaptation map honored: no `${CLAUDE_PLUGIN_ROOT}`, `/lattice-wiki:`, `obsidian-markdown`, `Offer to file`, `vote to file` in composed prompt
 
@@ -109,10 +109,10 @@ None — all prompt constants are complete and wired.
 
 ## Self-Check
 
-- [x] `agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py` — exists
-- [x] `agents/code-wiki-agent/src/code_wiki_agent/prompts/synthesizer.py` — exists
-- [x] `agents/code-wiki-agent/src/code_wiki_agent/prompts/code_reader.py` — exists
-- [x] `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — exists
+- [x] `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py` — exists
+- [x] `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/synthesizer.py` — exists
+- [x] `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/code_reader.py` — exists
+- [x] `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — exists
 - [x] Commits 5e80ac8, fa199eb, 8138bd5 — all in git log
 
 ## Self-Check: PASSED

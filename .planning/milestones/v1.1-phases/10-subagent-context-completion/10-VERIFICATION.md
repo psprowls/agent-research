@@ -72,7 +72,7 @@ overrides_applied: 0
 
 | Behavior | Command | Result | Status |
 | -------- | ------- | ------ | ------ |
-| All prompt tests pass (snapshot, token budget, project context, provenance) | `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/prompts/ -v` | `26 passed` (24 from CTX-04/05 scope + 2 provenance) | PASS |
+| All prompt tests pass (snapshot, token budget, project context, provenance) | `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/prompts/ -v` | `26 passed` (24 from CTX-04/05 scope + 2 provenance) | PASS |
 | With-context snapshot suite covers 5 builders | `pytest ... test_prompt_snapshots.py::test_*_with_project_context` | 5/5 pass; snapshots recorded | PASS |
 | Degradation test asserts empty-string + non-empty builder output | `pytest ... test_all_builders_degrade_without_project_context` | PASS | PASS |
 | Token budgets within +1500 per role | `pytest ... test_token_budget.py` | 6/6 pass; largest delta = ingestor +751/1500 | PASS |

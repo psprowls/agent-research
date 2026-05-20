@@ -95,13 +95,13 @@ Execute the Phase 4 eval-harness cost-frontier sweep against the **post-Phase-6 
 - `cores/eval-harness/src/eval_harness/divergence/` — Per-role check modules + `metric.py` + `rubrics/`. Two-gate scoring (D-07) reuses these directly.
 - `cores/eval-harness/baselines/divergence-{librarian,ingestor,linter,scanner}.json` — Phase 6 baselines. Two-gate scoring loads these per role.
 - `cores/eval-harness/tests/eval/test_sweep_eval.py` — Current pytest-evals two-phase integration (`@pytest.mark.eval` + `@pytest.mark.eval_analysis`). Phase 7 extends this file (or adds per-role siblings).
-- `cores/eval-harness/tests/conftest.py` — `EVAL_GATE` skipif marker (`CODE_WIKI_RUN_EVAL=1` env-var gate); `CODE_WIKI_RUN_JUDGES=1` decouples sweep cost from judge cost. Both must remain honored.
+- `cores/eval-harness/tests/conftest.py` — `EVAL_GATE` skipif marker (`GRAPH_WIKI_RUN_EVAL=1` env-var gate); `GRAPH_WIKI_RUN_JUDGES=1` decouples sweep cost from judge cost. Both must remain honored.
 - `eval/cases/query_cases.json` — Existing query corpus (parsed by `_load_cases()`). D-09 adds vault-thin cases here or in a sibling file.
 
 ### Production config + agent code (single-role-swap reads these)
 - `cores/model-adapter/src/model_adapter/models.toml` — 10 entries: 2 aliases (`haiku`, `sonnet`) + 8 roles. Phase 7 adds `sweep_candidates` to the 6 in-scope roles.
 - `cores/model-adapter/models.toml` — Top-level copy with only `haiku`/`sonnet`. Planner: verify which copy is the source of truth and whether the duplication is intentional.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` — `run_query()` is what the sweep invokes per cell; `librarian_model_override` parameter already exists. Other roles need a similar override surface (planner: extend or wrap).
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — `run_query()` is what the sweep invokes per cell; `librarian_model_override` parameter already exists. Other roles need a similar override surface (planner: extend or wrap).
 
 ### BED-01 gate
 - See PROJECT.md ("BED-01 live-Bedrock gate is approved; verify in passing during the sweep") — confirmation that `make_llm("haiku").invoke("ping")` succeeds against real Bedrock is part of SWEEP-02; folds into the pre-flight pass before the matrix runs.
@@ -119,7 +119,7 @@ Execute the Phase 4 eval-harness cost-frontier sweep against the **post-Phase-6 
 - **Trace JSONL captures `tokens_in` / `tokens_out`** per `SubagentPool._write_trace` — the pre-flight estimator (D-13) can sample-run a single case to calibrate expected-tokens-per-call per role, or use a conservative constant per pricing tier.
 
 ### Established Patterns
-- **`CODE_WIKI_RUN_EVAL=1` + `--run-eval`** double gate is the established pattern for Bedrock-spend tests. Phase 7's runner inherits both. `CODE_WIKI_RUN_JUDGES=1` keeps judge-spend separately gated.
+- **`GRAPH_WIKI_RUN_EVAL=1` + `--run-eval`** double gate is the established pattern for Bedrock-spend tests. Phase 7's runner inherits both. `GRAPH_WIKI_RUN_JUDGES=1` keeps judge-spend separately gated.
 - **Per-role JSON files keep diffs reviewable.** Phase 6 chose one divergence baseline per role; Phase 7 mirrors this with one sweep result doc per role (D-12).
 - **Provenance via inline comments.** Phase 6 uses `# Source:` / `# Anchor:` / `# Source-commit:` in prompt fragments. Phase 7's `models.toml` recommendation block (D-11) uses the same comment-as-provenance style.
 - **`pytest-evals` two-phase pattern** (`@pytest.mark.eval` collects → `@pytest.mark.eval_analysis` aggregates) is the harness contract. Phase 7's per-role sweeps follow this — collection phase runs cells, analysis phase emits per-role frontier docs.

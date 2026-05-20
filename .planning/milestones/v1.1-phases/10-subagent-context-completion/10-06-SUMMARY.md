@@ -1,7 +1,7 @@
 ---
 phase: 10-subagent-context-completion
 plan: 06
-subsystem: code-wiki-agent/commands
+subsystem: graph-wiki-agent/commands
 tags: [ctx-03, project-context, prompt-wiring]
 requires:
   - 10-04  # render_project_context() implemented
@@ -9,9 +9,9 @@ requires:
 provides:
   - "commands/scan.py, lint.py, ingest.py call render_project_context(wiki) once after wiki resolution and thread the result into per-role prompt builders"
 affects:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
 tech-stack:
   added: []
   patterns:
@@ -19,9 +19,9 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
 decisions:
   - "Drop SCANNER_SYSTEM/INGESTOR_SYSTEM/LINTER_*_SYSTEM re-exports from commands modules — grep confirmed zero external callers import them via the commands surface; the prompts package still keeps the legacy constants for direct importers"
   - "_semantic_pass in lint.py grows a `project_context: str = ''` kwarg (default empty for back-compat) rather than reading the wiki path again; run_lint passes the rendered string in"
@@ -41,9 +41,9 @@ Wired `render_project_context(wiki)` into `commands/scan.py`, `commands/lint.py`
 
 | # | Task | Commit | Files |
 |---|------|--------|-------|
-| 1 | Wire render_project_context into commands/scan.py | `c39e10c` | `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` |
-| 2 | Wire render_project_context into commands/lint.py (3-group semantic pass) | `045ea10` | `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` |
-| 3 | Wire render_project_context into commands/ingest.py (run_ingest_source only) | `c35f23f` | `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` |
+| 1 | Wire render_project_context into commands/scan.py | `c39e10c` | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` |
+| 2 | Wire render_project_context into commands/lint.py (3-group semantic pass) | `045ea10` | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` |
+| 3 | Wire render_project_context into commands/ingest.py (run_ingest_source only) | `c35f23f` | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` |
 
 ## Wiring Pattern
 
@@ -64,15 +64,15 @@ For `scan.py`, `project_ctx` is captured by the existing `generate_stub` closure
 
 ## Deviations from Plan
 
-None — plan executed exactly as written. The re-export-preservation branch documented in Task 1 / Task 3 was not needed: `grep -rn 'from code_wiki_agent.commands.{scan,ingest,lint} import.*_SYSTEM'` returned zero hits across `agents/` and `cores/`, so the legacy constants were dropped from the commands' public surface cleanly.
+None — plan executed exactly as written. The re-export-preservation branch documented in Task 1 / Task 3 was not needed: `grep -rn 'from graph_wiki_agent.commands.{scan,ingest,lint} import.*_SYSTEM'` returned zero hits across `agents/` and `cores/`, so the legacy constants were dropped from the commands' public surface cleanly.
 
 ## Verification
 
 All command-level test suites green on vault fixtures with no `CLAUDE.md`/`AGENTS.md` — confirming that `render_project_context` returns the empty string and `build_*_system(project_context="")` equals the prior `*_SYSTEM` constants, leaving observable behavior unchanged:
 
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests -k scan -x` → 22 passed
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests -k lint -x` → 20 passed (3 syrupy snapshots stable)
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests -k ingest -x` → 24 passed (1 syrupy snapshot stable)
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests -k scan -x` → 22 passed
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests -k lint -x` → 20 passed (3 syrupy snapshots stable)
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests -k ingest -x` → 24 passed (1 syrupy snapshot stable)
 
 ## Acceptance-Criteria Check
 
@@ -94,9 +94,9 @@ All command-level test suites green on vault fixtures with no `CLAUDE.md`/`AGENT
 
 ## Self-Check: PASSED
 
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — FOUND
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` — FOUND
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — FOUND
 - commit `c39e10c` — FOUND
 - commit `045ea10` — FOUND
 - commit `c35f23f` — FOUND

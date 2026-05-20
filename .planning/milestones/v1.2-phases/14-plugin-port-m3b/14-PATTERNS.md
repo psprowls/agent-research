@@ -122,7 +122,7 @@ from lattice_wiki_core._version_check import check_for_updates  →  (deleted)
 
 **No provenance comments needed.** Phase 11/12 did **not** establish `# Source: / # Anchor: / # Source-commit:` headers in tree (confirmed: zero such headers exist in `packages/vault-io/`). Match the existing in-tree pattern — clean module docstring, plain imports — not a documented header convention.
 
-**Existing in-tree env-var convention (mirror this in any new error strings):** `packages/vault-io/src/vault_io/_workspace.py` lines 7–11 use `GRAPH_WIKI_WORKSPACE` and reference `code-wiki-agent init <path>` as the fix command. Any new error messages in `lint_wiki.py` follow that exact phrasing.
+**Existing in-tree env-var convention (mirror this in any new error strings):** `packages/vault-io/src/vault_io/_workspace.py` lines 7–11 use `GRAPH_WIKI_WORKSPACE` and reference `graph-wiki-agent init <path>` as the fix command. Any new error messages in `lint_wiki.py` follow that exact phrasing.
 
 **Behavior preservation rubric (Phase 12 SR-01, restated for VP-01):** Bug fixes, helper extractions, behavior-preserving refactors come over verbatim. `main()` entry point shape, CLI argparse surface, and `scan(...)` return shape match upstream byte-for-byte modulo brand strings.
 
@@ -268,7 +268,7 @@ def test_read_raises_on_v1(tmp_path):
     """D-14: manifest.read() raises on v1 format (no coercion path)."""
     mpath = tmp_path / ".graph-wiki.yaml"
     mpath.write_text(
-        "version: 1\ninitialized_at: 2026-05-17\nplugins:\n  - code-wiki-agent\n",
+        "version: 1\ninitialized_at: 2026-05-17\nplugins:\n  - graph-wiki-agent\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError):
@@ -305,7 +305,7 @@ def test_read_raises_on_v1(tmp_path):
 
 - `name`: `"lattice-wiki"` → `"graph-wiki"`
 - `version`: `"0.5.2"` → `"0.1.0"` (new package identity — D-03)
-- `description`: `lattice-wiki` → `graph-wiki` in prose; append one sentence noting this is the Claude Code host path with `code-wiki-agent` as the Bedrock companion (executor discretion on exact wording per Claude's Discretion)
+- `description`: `lattice-wiki` → `graph-wiki` in prose; append one sentence noting this is the Claude Code host path with `graph-wiki-agent` as the Bedrock companion (executor discretion on exact wording per Claude's Discretion)
 - `author`, `license`: preserved verbatim
 - `keywords`: preserved verbatim (no additions per D-03)
 - `env.LATTICE_WIKI_ROOT` → `env.GRAPH_WIKI_ROOT` (key rename; value `${CLAUDE_PLUGIN_ROOT}` preserved)
@@ -425,7 +425,7 @@ if __name__ == "__main__":
 
 ```python
 #!/usr/bin/env python3
-"""Plugin shim for <cmd> — dispatches to vault_io (claude) or code-wiki-agent (bedrock)."""
+"""Plugin shim for <cmd> — dispatches to vault_io (claude) or graph-wiki-agent (bedrock)."""
 import subprocess
 import sys
 
@@ -441,7 +441,7 @@ def main() -> None:
     backend = backend_for("<cmd>")
 
     if backend == "bedrock":
-        subprocess.run(["code-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)
+        subprocess.run(["graph-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)
     else:
         _core_main()
 
@@ -454,18 +454,18 @@ if __name__ == "__main__":
 
 1. **Drop the `vendor/` sys.path injection** — not needed; `uv run --project "$DEEP_AGENTS_ROOT"` already resolves the venv per SO-01.
 2. **Import source rename:** `from lattice_wiki_core.<module> import main` → `from vault_io.<module> import main`.
-3. **Bedrock branch:** the upstream ~20-line `InitAgent` / `asyncio.run` block becomes a single `subprocess.run(["code-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)` — entire Bedrock path stays inside the headless CLI surface.
+3. **Bedrock branch:** the upstream ~20-line `InitAgent` / `asyncio.run` block becomes a single `subprocess.run(["graph-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)` — entire Bedrock path stays inside the headless CLI surface.
 
 **Per-shim retarget table:**
 
 | Shim file | `<module>` import | `"<cmd>"` selector | Bedrock subcommand |
 |---|---|---|---|
-| `init_vault.py` | `vault_io.init_vault` | `"init"` | `code-wiki-agent init` |
-| `scan_monorepo.py` | `vault_io.scan_monorepo` | `"scan"` | `code-wiki-agent scan` |
-| `ingest_source.py` | `vault_io.ingest_source` | `"ingest"` | `code-wiki-agent ingest source` *(explicitly `ingest source`, NOT `ingest work-item` — per `ingest.md` spec)* |
-| `lint_wiki.py` | `vault_io.lint_wiki` | `"lint"` | `code-wiki-agent lint` |
-| `wiki_search.py` | `vault_io.wiki_search` | `"query"` | `code-wiki-agent query` |
-| `detect_containers.py` | `vault_io.detect_containers` | `"init"` | `code-wiki-agent init` *(pre-step of init; spec keeps it under the init backend selector per `init.md`)* |
+| `init_vault.py` | `vault_io.init_vault` | `"init"` | `graph-wiki-agent init` |
+| `scan_monorepo.py` | `vault_io.scan_monorepo` | `"scan"` | `graph-wiki-agent scan` |
+| `ingest_source.py` | `vault_io.ingest_source` | `"ingest"` | `graph-wiki-agent ingest source` *(explicitly `ingest source`, NOT `ingest work-item` — per `ingest.md` spec)* |
+| `lint_wiki.py` | `vault_io.lint_wiki` | `"lint"` | `graph-wiki-agent lint` |
+| `wiki_search.py` | `vault_io.wiki_search` | `"query"` | `graph-wiki-agent query` |
+| `detect_containers.py` | `vault_io.detect_containers` | `"init"` | `graph-wiki-agent init` *(pre-step of init; spec keeps it under the init backend selector per `init.md`)* |
 
 **In-tree thin-delegation pattern (sanity check that the idiom works in this monorepo):** `packages/vault-io/src/vault_io/_workspace.py` — the 39-line module proves "thin shim that imports from a sibling package" is the established shape. Plugin shims are the same idea, just out-of-tree (`plugins/` instead of `packages/`).
 
@@ -549,7 +549,7 @@ Apply the same token-rewrite table as the command files.
 ```markdown
 # graph-wiki
 
-One paragraph: Claude Code host path; companion to `code-wiki-agent` Bedrock CLI; same wiki surface.
+One paragraph: Claude Code host path; companion to `graph-wiki-agent` Bedrock CLI; same wiki surface.
 
 ## Setup
 
@@ -638,7 +638,7 @@ grep -r 'lattice_' plugins/graph-wiki/   # must return zero hits
 ### Thin delegation shim (Phase 11)
 
 **Source:** `packages/vault-io/src/vault_io/_workspace.py` (full 39-line file).
-**Apply to:** the 6 plugin shim scripts in `plugins/graph-wiki/skills/graph-wiki/scripts/` — same "thin shim that imports from a sibling package" idiom, just out-of-tree. Mental model: the shim is the boundary, backend (vault-io vs. code-wiki-agent subprocess) is the back-end (this mirrors Phase 11 §D-02's two-tier MCP-boundary passthrough).
+**Apply to:** the 6 plugin shim scripts in `plugins/graph-wiki/skills/graph-wiki/scripts/` — same "thin shim that imports from a sibling package" idiom, just out-of-tree. Mental model: the shim is the boundary, backend (vault-io vs. graph-wiki-agent subprocess) is the back-end (this mirrors Phase 11 §D-02's two-tier MCP-boundary passthrough).
 
 ### Atomic per-file commits during a sweep (SQ-02)
 

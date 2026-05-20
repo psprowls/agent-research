@@ -60,7 +60,7 @@ metrics:
 
 Added one new row to the Key Decisions table in `.planning/PROJECT.md` covering:
 
-- **P-01 reframe:** the ported graph-wiki plugin runs on Claude Code inference, NOT as a wrapper around `code-wiki-agent`. The two surfaces coexist as parallel paths over the same `vault-io` / `workspace-io` helpers.
+- **P-01 reframe:** the ported graph-wiki plugin runs on Claude Code inference, NOT as a wrapper around `graph-wiki-agent`. The two surfaces coexist as parallel paths over the same `vault-io` / `workspace-io` helpers.
 - **Verdict summary:** 6 commands rename or reshape (`init`, `scan`, `ingest`, `lint`, `query`, `log`) + 3 dropped (`archive`, `regen-index`, `status`) per C-01.
 - **Shell-out shape:** `uv run --project "$DEEP_AGENTS_ROOT" python3 ...` (SO-01); `[plugin]` backend-selector block in `.graph-wiki.yaml` (SO-03); `claude` default everywhere, `bedrock` as documented per-command opt-in (P-02).
 - **VP-01 prerequisite:** `lint_wiki.py` and `wiki_search.py` must land in `vault-io` as Phase 14 Plans 1 and 2.

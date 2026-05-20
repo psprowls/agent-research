@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Port `lattice-wiki`'s canonical SKILL.md + per-role agent prompts into `code-wiki-agent`'s agent system prompts (librarian, ingestor, linter, scanner) under a new `prompts/` module with provenance comments, and add a divergence-detection eval metric (hybrid programmatic + LLM-judge) that runs against the Phase 4 fixture corpus and gates regressions against a recorded baseline.
+Port `lattice-wiki`'s canonical SKILL.md + per-role agent prompts into `graph-wiki-agent`'s agent system prompts (librarian, ingestor, linter, scanner) under a new `prompts/` module with provenance comments, and add a divergence-detection eval metric (hybrid programmatic + LLM-judge) that runs against the Phase 4 fixture corpus and gates regressions against a recorded baseline.
 
 In scope:
 - Vendoring the canonical source files into the deep-agents repo
@@ -28,8 +28,8 @@ Out of scope (explicit):
 ## Implementation Decisions
 
 ### Prompt module layout
-- **D-01:** Use **composable fragments** under `agents/code-wiki-agent/src/code_wiki_agent/prompts/`. Shared blocks (iron rules, citation rules, page categories, refusal patterns) live in `prompts/_fragments/*.py`; per-role files (`librarian.py`, `ingestor.py`, `linter.py`, `scanner.py`) compose them. This trades a small indirection for de-duplication across roles, which matters because the iron rules and page-category content are shared verbatim across all four lattice-wiki agent files.
-- **D-02:** Each role file exports a single `*_SYSTEM` string built at import time from the imported fragments — downstream call sites (`commands/{query,ingest,lint,scan}.py`) just `from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM` and pass it to `SystemMessage(...)`. No runtime templating or lazy assembly.
+- **D-01:** Use **composable fragments** under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/`. Shared blocks (iron rules, citation rules, page categories, refusal patterns) live in `prompts/_fragments/*.py`; per-role files (`librarian.py`, `ingestor.py`, `linter.py`, `scanner.py`) compose them. This trades a small indirection for de-duplication across roles, which matters because the iron rules and page-category content are shared verbatim across all four lattice-wiki agent files.
+- **D-02:** Each role file exports a single `*_SYSTEM` string built at import time from the imported fragments — downstream call sites (`commands/{query,ingest,lint,scan}.py`) just `from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM` and pass it to `SystemMessage(...)`. No runtime templating or lazy assembly.
 
 ### Provenance comments (PORT-06)
 - **D-03:** Each fragment file carries an **inline header comment** at the top with three fields:
@@ -42,7 +42,7 @@ Out of scope (explicit):
 - **D-04:** Vendor canonical sources into the deep-agents repo under **`cores/prompt-sources/`** (verbatim copy of `SKILL.md` + `agents/{librarian,ingestor,linter,scanner}.md` from `/Users/pat/Personal/lattice/plugins/lattice-wiki/`). Provenance comments in fragments point to the **vendored** path (not the sibling-repo path) plus the upstream `Source-commit`. Re-vendoring is a manual step. Drift detection becomes a trivial in-repo diff plus an SHA comparison if/when re-vendored. This decouples the agent package from the sibling lattice repo and is OSS-release-friendly.
 
 ### Port fidelity
-- **D-05:** **Adapt the port** — rewrite host-specific references (slash commands like `/lattice-wiki:ingest`, Claude Code SDK tool surface, human-driven discussion patterns) to match `code-wiki-agent`'s actual tool surface (vault IO via the `vault_io` core, BM25 search, deepagents loop). **Preserve semantic content verbatim**: iron rules, citation rules, page-type routing, refusal patterns, lint rule definitions, package-detection rules. Provenance still points to the source anchor so a reviewer can compare.
+- **D-05:** **Adapt the port** — rewrite host-specific references (slash commands like `/lattice-wiki:ingest`, Claude Code SDK tool surface, human-driven discussion patterns) to match `graph-wiki-agent`'s actual tool surface (vault IO via the `vault_io` core, BM25 search, deepagents loop). **Preserve semantic content verbatim**: iron rules, citation rules, page-type routing, refusal patterns, lint rule definitions, package-detection rules. Provenance still points to the source anchor so a reviewer can compare.
 - **D-06:** Adaptations are local to the per-role files (the composition layer), not the shared fragments. Shared fragments stay closer to canonical wording; per-role files apply tool/host translation in role-specific prose.
 
 ### Divergence metric mechanism (EVAL-11)
@@ -111,10 +111,10 @@ Out of scope (explicit):
 - `/Users/pat/Personal/lattice/plugins/lattice-wiki/skills/lattice-wiki/references/` — Supporting references for SKILL.md (reviewer should read end-to-end during port to catch anchors)
 
 ### Existing code (refactor targets)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` §137 (`LIBRARIAN_SYSTEM`), §150 (`SYNTHESIZER_SYSTEM`), §165 (`CODE_READER_SYSTEM`) — current inline librarian/synth/code-reader prompts
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` (`INGESTOR_SYSTEM` referenced at line 285) — current inline ingestor prompt
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` (`SCANNER_SYSTEM` at line 329) — current inline scanner prompt
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` (per-group prompts at line 460) — current inline linter prompts (3-group fan-out from Phase 5)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` §137 (`LIBRARIAN_SYSTEM`), §150 (`SYNTHESIZER_SYSTEM`), §165 (`CODE_READER_SYSTEM`) — current inline librarian/synth/code-reader prompts
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` (`INGESTOR_SYSTEM` referenced at line 285) — current inline ingestor prompt
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` (`SCANNER_SYSTEM` at line 329) — current inline scanner prompt
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` (per-group prompts at line 460) — current inline linter prompts (3-group fan-out from Phase 5)
 
 ### Eval harness integration points
 - `cores/eval-harness/` — Phase 4 harness, fixture corpus (3 repos), heterogeneous two-judge panel, `pytest-evals` sweep runner, regression-check AssertionError gate. Divergence metric plugs in here.
@@ -136,7 +136,7 @@ Out of scope (explicit):
 - Existing baselines/snapshots format precedent: Phase 4 baseline recorder (EVAL-08 schema). Per-role divergence baseline mirrors this style so eval reports compose uniformly.
 
 ### Integration Points
-- `commands/query.py`, `commands/ingest.py`, `commands/lint.py`, `commands/scan.py` — replace inline `*_SYSTEM` strings with imports from `code_wiki_agent.prompts.{role}`.
+- `commands/query.py`, `commands/ingest.py`, `commands/lint.py`, `commands/scan.py` — replace inline `*_SYSTEM` strings with imports from `graph_wiki_agent.prompts.{role}`.
 - `cores/eval-harness/src/eval_harness/` — add `divergence/` subpackage (per-role rule modules + rubrics) and `baselines/` directory.
 - `cores/prompt-sources/` — new vendoring location; planner decides on `pyproject.toml` packaging (likely a non-installable directory, just versioned content; verify it doesn't get picked up as a workspace member).
 

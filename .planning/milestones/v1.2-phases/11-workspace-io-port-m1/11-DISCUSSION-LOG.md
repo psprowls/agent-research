@@ -11,7 +11,7 @@
 
 ## Resolution priority + env-var lifecycle
 
-### Q1 — What happens to the existing `CODE_WIKI_REAL_VAULT_PATH` env var once `workspace_io.config.resolve()` is the backend?
+### Q1 — What happens to the existing `GRAPH_WIKI_REAL_VAULT_PATH` env var once `workspace_io.config.resolve()` is the backend?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
@@ -39,7 +39,7 @@
 |--------|-------------|----------|
 | Port verbatim, expect manifest at the wiki location | Run rebranded `init` once to drop manifest; cwd-walk finds it. | |
 | Manifest-optional mode with `wiki/` or `wiki-config.toml` fallback | Falls back to looking for a `wiki/` subdir or `wiki-config.toml` if no manifest found. | |
-| Strict — manifest required, no fallback, friendly error | If no `.graph-wiki.yaml` found and no env var, raise with `code-wiki-agent init` guidance. | ✓ |
+| Strict — manifest required, no fallback, friendly error | If no `.graph-wiki.yaml` found and no env var, raise with `graph-wiki-agent init` guidance. | ✓ |
 
 **User's choice:** Strict — manifest required, no fallback.
 **Notes:** Cleanest semantics. Pairs naturally with the clean-slate re-init decision (Q5 follow-up).
@@ -65,21 +65,21 @@
 | (Other — user-provided) | — | ✓ |
 
 **User's choice (free-text):** "We will be deleting the old wiki in `~/Personal/wiki` and re-initializing it in a new supported location."
-**Notes:** Clean slate. Old wiki gets nuked; new wiki gets bootstrapped via `code-wiki-agent init` at a fresh path. Resolves the layout conflict and validates Q3's strict-manifest-required policy + Q4's lattice convention.
+**Notes:** Clean slate. Old wiki gets nuked; new wiki gets bootstrapped via `graph-wiki-agent init` at a fresh path. Resolves the layout conflict and validates Q3's strict-manifest-required policy + Q4's lattice convention.
 
 ---
 
 ## Module trim — port-as-is vs drop
 
-### Q1 — How does `workspace_io.init` integrate with the existing `code-wiki-agent init`?
+### Q1 — How does `workspace_io.init` integrate with the existing `graph-wiki-agent init`?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| `code-wiki-agent init` calls `workspace_io.init` first, then `init_wiki` | Two-phase init in one CLI command. Plugin entry tracks `code-wiki-agent`. | ✓ |
+| `graph-wiki-agent init` calls `workspace_io.init` first, then `init_wiki` | Two-phase init in one CLI command. Plugin entry tracks `graph-wiki-agent`. | ✓ |
 | Port `workspace_io.init` but DON'T wire it into the CLI yet | Ship the function with tests; integration deferred. | |
 | Skip `init.py` entirely — only port what delegation needs | Smallest port; Pat creates `.graph-wiki.yaml` manually. | |
 
-**User's choice:** `code-wiki-agent init` calls `workspace_io.init` first, then `init_wiki`.
+**User's choice:** `graph-wiki-agent init` calls `workspace_io.init` first, then `init_wiki`.
 **Notes:** Unified CLI; one user-facing surface; aligns naturally with the strict-manifest-required policy and the clean-slate re-init plan.
 
 ### Q2 — `render.py` + `versions.py` (workspace CLAUDE.md generator + asset-template drift warnings) — port or skip?
@@ -123,34 +123,34 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Keep `plugins[]` verbatim; `workspace_io.init` registers `code-wiki-agent` | Preserve shape; track `code-wiki-agent` as the lone plugin entry. | ✓ |
+| Keep `plugins[]` verbatim; `workspace_io.init` registers `graph-wiki-agent` | Preserve shape; track `graph-wiki-agent` as the lone plugin entry. | ✓ |
 | Drop `plugins[]` — manifest is `{version, initialized_at}` only | YAGNI for solo project. | |
 | Replace `plugins[]` with a generic `metadata: {}` dict | Free-form key/value bag. | |
 
-**User's choice:** Keep `plugins[]` verbatim; `workspace_io.init` registers `code-wiki-agent`.
+**User's choice:** Keep `plugins[]` verbatim; `workspace_io.init` registers `graph-wiki-agent`.
 **Notes:** Future-compatible; preserves the door for a real plugin-tracking lifecycle without adding speculative new fields.
 
-### Q2 — What gets written to `installed_version` and `applied_version` for the `code-wiki-agent` plugin entry?
+### Q2 — What gets written to `installed_version` and `applied_version` for the `graph-wiki-agent` plugin entry?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Both fields, same value = current `code-wiki-agent` version | Symmetric; `versions.warn_if_stale` no-op locally. | ✓ |
+| Both fields, same value = current `graph-wiki-agent` version | Symmetric; `versions.warn_if_stale` no-op locally. | ✓ |
 | Only `installed_version`; drop `applied_version` | Single version field; diverges from lattice schema. | |
 | Both fields, `installed_version` = version, `applied_version` null until reinit | Most accurate port of lattice's install/apply distinction. | |
 
-**User's choice:** Both fields, same value = current `code-wiki-agent` version.
+**User's choice:** Both fields, same value = current `graph-wiki-agent` version.
 **Notes:** Symmetric. Field shape preserved.
 
-### Q3 — Where does `code-wiki-agent`'s version string come from for the manifest entry?
+### Q3 — Where does `graph-wiki-agent`'s version string come from for the manifest entry?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| `importlib.metadata.version('code-wiki-agent')` at runtime | Standard stdlib; reads installed wheel metadata; works under uv. | ✓ |
-| Hard-coded `__version__` constant in `code_wiki_agent/__init__.py` | Explicit string; manual sync with pyproject. | |
+| `importlib.metadata.version('graph-wiki-agent')` at runtime | Standard stdlib; reads installed wheel metadata; works under uv. | ✓ |
+| Hard-coded `__version__` constant in `graph_wiki_agent/__init__.py` | Explicit string; manual sync with pyproject. | |
 | Lattice-style: read from asset hash | Port verbatim; "version" = asset hash, not semver. | |
 
-**User's choice:** `importlib.metadata.version('code-wiki-agent')` at runtime.
-**Notes:** Verify under `uv run --package code-wiki-agent` editable mode during planning research.
+**User's choice:** `importlib.metadata.version('graph-wiki-agent')` at runtime.
+**Notes:** Verify under `uv run --package graph-wiki-agent` editable mode during planning research.
 
 ---
 
@@ -195,14 +195,14 @@
 
 - Internal module structure of `packages/workspace-io/src/workspace_io/` (mirror lattice's flat layout by default).
 - Test file naming, fixture organization under `packages/workspace-io/tests/` (port lattice's structure as default).
-- Error-message wording for the strict-manifest-required `RuntimeError` (name `code-wiki-agent init` in the message).
+- Error-message wording for the strict-manifest-required `RuntimeError` (name `graph-wiki-agent init` in the message).
 - Idempotency of `workspace_io.init` across re-runs (preserve lattice's existing idempotency property).
 - Layout of `assets/` packaging inside the wheel (hatchling `package-data` vs uv_build include — pick whichever ships the template file correctly).
 - The `DEFAULT_WORKSPACE_NAME` literal — `"graph-wiki"` (kebab match) recommended.
 
 ## Deferred Ideas
 
-- `code-wiki-agent migrate-manifest <path>` CLI subcommand (covers v1 → v2 manifest upgrade if needed; not required now).
+- `graph-wiki-agent migrate-manifest <path>` CLI subcommand (covers v1 → v2 manifest upgrade if needed; not required now).
 - `versions.pending_updates` one-time CLI startup warning (skipped here; revisit if template drift becomes real).
 - Template body content polish for the rebranded `assets/CLAUDE.md.template` (minimum-viable rebrand now; polish later, possibly Phase 15).
 - Tightening `repo_root: Path | None` → `repo_root: Path` after D-15's always-Path fallback (future cleanup if no caller relies on None).

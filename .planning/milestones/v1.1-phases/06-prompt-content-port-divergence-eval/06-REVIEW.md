@@ -4,24 +4,24 @@ reviewed: 2026-05-15T20:41:00Z
 depth: standard
 files_reviewed: 34
 files_reviewed_list:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/__init__.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/__init__.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/citation_rules.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/frontmatter_rules.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/code_reader.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/synthesizer.py
-  - agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
-  - agents/code-wiki-agent/tests/prompts/test_provenance.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/__init__.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/__init__.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/frontmatter_rules.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/code_reader.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/synthesizer.py
+  - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
+  - agents/graph-wiki-agent/tests/prompts/test_provenance.py
   - cores/eval-harness/src/eval_harness/divergence/__init__.py
   - cores/eval-harness/src/eval_harness/divergence/check.py
   - cores/eval-harness/src/eval_harness/divergence/ingestor.py
@@ -65,7 +65,7 @@ Two critical defects were found: a YAML list-item parser in `_parse_ingestor_res
 
 ### CR-01: YAML list parser uses `lstrip("- ")` — silently corrupts dash-prefixed tag values
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:137`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:137`
 
 **Issue:** `lstrip("- ")` strips all leading characters in the character-set `{'-', ' '}`, not the two-character sequence `"- "`. A list item value starting with a hyphen (e.g. `- -v2`, `- --flag`, `- -dashed-name`) has its leading dash(es) silently eaten. For example the tag `- -dashed-value` is parsed as `dashed-value` instead of `-dashed-value`. This is a silent data corruption in the frontmatter parser that the callers (line 262: `fm, _body = _parse_ingestor_response(llm_output)`) cannot detect because no error is raised. Fields like `tags` returned by the ingestor LLM may contain versioned identifiers (`-v2`), CLI flags, or hyphen-prefixed names that get silently truncated.
 
@@ -112,7 +112,7 @@ return {
 
 ### WR-01: `build_stub_prompt` resolves relative package path against `cwd`, not repo root
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py:149`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py:149`
 
 **Issue:** `pkg['path']` is a repo-relative string (e.g. `"cores/eval-harness"`) returned by `discover_workspaces`. `build_stub_prompt` does `Path(pkg_path_str).resolve()` at line 149, which resolves relative to the current working directory at runtime, not the repo root. If the process's cwd differs from the repo root (e.g. when invoked from a subshell, CI, or an MCP host), `pkg_abs` points to a nonexistent path and `pick_representative` silently returns zero files. The failure is caught by the bare `except Exception: pass` on line 162, so stubs are generated without representative snippets and neither the caller nor the user is informed.
 
@@ -133,7 +133,7 @@ Then in `run_scan`, pass `repo_root=repo` when calling `build_stub_prompt`.
 
 ### WR-02: `datetime.utcnow()` deprecated in Python 3.12+
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:789,942`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:789,942`
 
 **Issue:** `datetime.datetime.utcnow()` is deprecated as of Python 3.12 and scheduled for removal in a future version. The project requires Python ≥3.11 and is intended for long-term use, so this will become a runtime `DeprecationWarning` on Python 3.12 and will eventually break. The result also lacks timezone info, making it ambiguous in logs.
 
@@ -191,7 +191,7 @@ This inserts the `tests/` directory onto `sys.path` so that `conftest` can be im
 
 **File:** `cores/eval-harness/tests/test_divergence.py:43-49`
 
-**Issue:** `conftest.py` defines `EVAL_GATE` at line 29. `test_divergence.py` defines an identical copy at lines 46-49 with the comment "matches the EVAL_GATE constant in conftest.py." This duplication means that changing the controlling environment variable name (e.g. `CODE_WIKI_RUN_EVAL` → `EVAL_RUN_MODE`) or the skip reason requires editing two files. If one is updated and the other is not, the two gates diverge silently.
+**Issue:** `conftest.py` defines `EVAL_GATE` at line 29. `test_divergence.py` defines an identical copy at lines 46-49 with the comment "matches the EVAL_GATE constant in conftest.py." This duplication means that changing the controlling environment variable name (e.g. `GRAPH_WIKI_RUN_EVAL` → `EVAL_RUN_MODE`) or the skip reason requires editing two files. If one is updated and the other is not, the two gates diverge silently.
 
 **Fix:**
 ```python
@@ -251,7 +251,7 @@ results[judge_id]["accepted_failures"].append(
 
 ### IN-04: `_parse_ingestor_response` — YAML block handles `cur_list` flushing only on key boundary; final list may be lost if trailing blank lines follow last item
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:130-157`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:130-157`
 
 **Issue:** The YAML list parser flushes `cur_list` into `fm[cur_key]` only when it encounters a non-list-item line (line 139-141: `if cur_list is not None: fm[cur_key] = cur_list`). The final `if cur_list is not None: fm[cur_key] = cur_list` at line 154 correctly handles the end-of-block case. However, the `continue` on line 136 (when a list item is found) skips the flush path entirely — this is correct design. The real edge case is: if the YAML block ends with a blank line after the last list item, the blank line triggers `continue` via the `if not line or line.startswith("#"): continue` check at line 134, preventing the flush. But the final guard at line 154 catches it regardless.
 

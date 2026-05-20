@@ -8,7 +8,7 @@ provides:
   - run_scan(..., repo_path=...) override (regression-safe extension)
   - cores/eval-harness scanner divergence baseline (live-Bedrock recorded)
 affects:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
   - cores/eval-harness/tests/eval_helpers.py
   - cores/eval-harness/baselines/divergence-scanner.json
 tech-stack:
@@ -17,8 +17,8 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-    - agents/code-wiki-agent/tests/unit/test_commands_scan.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+    - agents/graph-wiki-agent/tests/unit/test_commands_scan.py
     - cores/eval-harness/tests/eval_helpers.py
     - cores/eval-harness/baselines/divergence-scanner.json
     - .gitignore
@@ -67,7 +67,7 @@ Skip guard message tightened to name the post-fix expectation; helper docstring 
 
 ### Unit test
 
-`agents/code-wiki-agent/tests/unit/test_commands_scan.py::test_run_scan_repo_path_overrides_cwd` (mock-based, no Bedrock) asserts:
+`agents/graph-wiki-agent/tests/unit/test_commands_scan.py::test_run_scan_repo_path_overrides_cwd` (mock-based, no Bedrock) asserts:
 - `discover_workspaces` receives `fake_repo.resolve()` (not cwd, not the value from `resolve_wiki_and_repo`)
 - `compute_state_gate` and `attach_changed_files` receive the same overridden repo
 - `discover_workspaces` receives `pinned_containers=None` when override is supplied
@@ -76,7 +76,7 @@ Skip guard message tightened to name the post-fix expectation; helper docstring 
 
 Command (run autonomously per orchestrator approval):
 ```
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
   cores/eval-harness/tests/test_divergence.py -s \
   --accept-divergence-baseline -k scanner -x
 ```
@@ -110,7 +110,7 @@ CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
 - **Symptom:** First run completed in 0.45s with `scan complete: +0 ~0 -60` and `result.added=[], result.updated=[], result.errors=[]`. The SubagentPool was called with `items=0` — no Bedrock call happened despite the test sequence succeeding.
 - **Root cause:** The round-trip-vault's `CLAUDE.md` carries a `lattice-wiki:layout` block declaring `containers: [{source: packages, vault_dir: packages, classification: package}, {source: plugins, ..., classification: package}, ...]`. When `run_scan` read this layout and passed it as `pinned_containers` to `discover_workspaces(cores/eval-harness, pinned_containers=[...])`, the discovery looked for `cores/eval-harness/packages/` and `cores/eval-harness/plugins/` — neither exists — and returned zero workspaces. So `diff["new"]` was empty, `fan_items` was empty, and the pool ran 0 items with no Bedrock call.
 - **Fix:** In Step 2 of `run_scan`, only read the layout block when `repo_path is None`. When the caller is explicitly overriding the repo, they are saying "treat this as a known-good monorepo regardless of vault layout assumptions" — fall back to unpinned discovery (pyproject.toml-driven).
-- **Files modified:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py`, `agents/code-wiki-agent/tests/unit/test_commands_scan.py` (added a `pinned_containers is None` assertion to the new test)
+- **Files modified:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`, `agents/graph-wiki-agent/tests/unit/test_commands_scan.py` (added a `pinned_containers is None` assertion to the new test)
 - **Commit:** `13da865`
 
 ### Test side-effects reverted
@@ -127,16 +127,16 @@ This vault-mutation behavior is a real concern but is out of scope for plan 06-1
 
 | Check | Command | Result |
 |-------|---------|--------|
-| Unit test for `repo_path` override | `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/test_commands_scan.py -k repo_path_overrides_cwd -x -q` | PASS |
-| Full scan test suite | `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/test_commands_scan.py -x -q` | 7/7 PASS |
+| Unit test for `repo_path` override | `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/test_commands_scan.py -k repo_path_overrides_cwd -x -q` | PASS |
+| Full scan test suite | `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/test_commands_scan.py -x -q` | 7/7 PASS |
 | Helper kwarg present | `grep -c 'repo_path=eval_harness_dir' cores/eval-harness/tests/eval_helpers.py` | 1 |
-| Live Bedrock baseline write | `CODE_WIKI_RUN_EVAL=1 ... -k scanner --accept-divergence-baseline` | 1 passed in 14.51s — baseline written with runs=1 across all 5 rules |
-| Live Bedrock regression sanity | `CODE_WIKI_RUN_EVAL=1 ... -k scanner` (no accept flag) | 1 passed in 14.90s — gate matches new baseline |
+| Live Bedrock baseline write | `GRAPH_WIKI_RUN_EVAL=1 ... -k scanner --accept-divergence-baseline` | 1 passed in 14.51s — baseline written with runs=1 across all 5 rules |
+| Live Bedrock regression sanity | `GRAPH_WIKI_RUN_EVAL=1 ... -k scanner` (no accept flag) | 1 passed in 14.90s — gate matches new baseline |
 
 ## Self-Check
 
-- agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py: FOUND (modified — repo_path param added at line 224, override logic at lines 260-266, pinned bypass at lines 268-278)
-- agents/code-wiki-agent/tests/unit/test_commands_scan.py: FOUND (modified — new test_run_scan_repo_path_overrides_cwd appended)
+- agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py: FOUND (modified — repo_path param added at line 224, override logic at lines 260-266, pinned bypass at lines 268-278)
+- agents/graph-wiki-agent/tests/unit/test_commands_scan.py: FOUND (modified — new test_run_scan_repo_path_overrides_cwd appended)
 - cores/eval-harness/tests/eval_helpers.py: FOUND (modified — repo_path=eval_harness_dir at line 242)
 - cores/eval-harness/baselines/divergence-scanner.json: FOUND (modified — runs=1, agent_commit=13da865)
 - Commit 5eef098 (RED test): FOUND

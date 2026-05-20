@@ -6,11 +6,11 @@ tags: [prompts, fragments, provenance, style, log-format, disambiguation]
 requires:
   - 10-01  # vendored cores/prompt-sources/wiki-claude-md-template.md
 provides:
-  - STYLE_RULES fragment (importable from code_wiki_agent.prompts._fragments.style_rules)
-  - LOG_FORMAT fragment (importable from code_wiki_agent.prompts._fragments.log_format)
-  - CLAUDE_MD_DISAMBIGUATION fragment (importable from code_wiki_agent.prompts._fragments.claude_md_disambiguation)
+  - STYLE_RULES fragment (importable from graph_wiki_agent.prompts._fragments.style_rules)
+  - LOG_FORMAT fragment (importable from graph_wiki_agent.prompts._fragments.log_format)
+  - CLAUDE_MD_DISAMBIGUATION fragment (importable from graph_wiki_agent.prompts._fragments.claude_md_disambiguation)
 affects:
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/  # +3 files
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/  # +3 files
 tech-stack:
   added: []
   patterns:
@@ -18,9 +18,9 @@ tech-stack:
     - "SCREAMING_SNAKE constant matching file basename, opened with triple-quote-backslash idiom"
 key-files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/style_rules.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/log_format.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/claude_md_disambiguation.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/style_rules.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/log_format.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/claude_md_disambiguation.py
   modified: []
 decisions:
   - Verbatim-copied STYLE_RULES and LOG_FORMAT from the vendored template (no rewrite needed; under budget already)
@@ -38,7 +38,7 @@ metrics:
 
 # Phase 10 Plan 03: Style/Log/Disambiguation Fragments Summary
 
-Added three small prompt-fragment modules (`style_rules.py`, `log_format.py`, `claude_md_disambiguation.py`) under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/`, each carrying the mandatory 3-line provenance header anchored to files vendored by plan 10-01. Combined cost: ~201 tokens (vs. 350 budget).
+Added three small prompt-fragment modules (`style_rules.py`, `log_format.py`, `claude_md_disambiguation.py`) under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/`, each carrying the mandatory 3-line provenance header anchored to files vendored by plan 10-01. Combined cost: ~201 tokens (vs. 350 budget).
 
 ## What landed
 
@@ -52,7 +52,7 @@ Each fragment is pure data (no imports beyond optional `from __future__ import a
 
 ## Verification
 
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x -v` → **2 passed, 0 skipped, 0 failed.**
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x -v` → **2 passed, 0 skipped, 0 failed.**
   - `test_all_fragments_have_provenance_header` PASSED across all 8 fragment files.
   - `test_provenance_source_paths_resolve` PASSED — all three new Source: paths (`cores/prompt-sources/wiki-claude-md-template.md` and `cores/prompt-sources/SKILL.md`) resolve to existing files vendored by plan 10-01.
 - Per-task import + substring checks all passed (see commit messages).
@@ -88,9 +88,9 @@ Plan 10-05 can now wire all three fragments into the four subagent system prompt
 
 ## Self-Check: PASSED
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/style_rules.py` — FOUND
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/log_format.py` — FOUND
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/claude_md_disambiguation.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/style_rules.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/log_format.py` — FOUND
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/claude_md_disambiguation.py` — FOUND
 - Commit `2bc0f4b` — FOUND in git log
 - Commit `ef453f7` — FOUND in git log
 - Commit `4da4dd6` — FOUND in git log

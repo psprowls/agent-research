@@ -11,11 +11,11 @@
 
 ### Locked Decisions
 
-- **D-01:** Composable fragments under `agents/code-wiki-agent/src/code_wiki_agent/prompts/`. Shared blocks in `prompts/_fragments/*.py`; per-role files (`librarian.py`, `ingestor.py`, `linter.py`, `scanner.py`) compose them. Shared because iron rules, citation rules, and page categories are repeated verbatim across all four lattice-wiki agent files.
-- **D-02:** Each role file exports a single `*_SYSTEM` string built at import time from imported fragments. No runtime templating. Downstream call sites do `from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM`.
+- **D-01:** Composable fragments under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/`. Shared blocks in `prompts/_fragments/*.py`; per-role files (`librarian.py`, `ingestor.py`, `linter.py`, `scanner.py`) compose them. Shared because iron rules, citation rules, and page categories are repeated verbatim across all four lattice-wiki agent files.
+- **D-02:** Each role file exports a single `*_SYSTEM` string built at import time from imported fragments. No runtime templating. Downstream call sites do `from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM`.
 - **D-03:** Each fragment file carries a 3-field inline header: `# Source:`, `# Anchor:`, `# Source-commit:`.
 - **D-04:** Vendor canonical sources into `cores/prompt-sources/` verbatim. Provenance in fragments points to the vendored path. Re-vendoring is manual.
-- **D-05:** Adapt the port — rewrite host-specific references (slash commands, Claude Code SDK tools) to code-wiki-agent's tool surface. Preserve semantic content verbatim.
+- **D-05:** Adapt the port — rewrite host-specific references (slash commands, Claude Code SDK tools) to graph-wiki-agent's tool surface. Preserve semantic content verbatim.
 - **D-06:** Adaptations are local to per-role files. Shared fragments stay closer to canonical wording.
 - **D-07:** Hybrid detection — programmatic checkers + GEval LLM judge (same Phase 4 two-judge panel: claude-sonnet-4-6 + nova-pro-v1:0).
 - **D-08:** Per-role rule modules under `cores/eval-harness/src/eval_harness/divergence/{librarian,ingestor,linter,scanner}.py`, each exporting a list of `DivergenceCheck` dataclass instances. Schema locked (see D-08 in CONTEXT.md).
@@ -75,13 +75,13 @@ The Phase 4 eval harness is the natural integration point. The existing `judge.p
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| Prompt constants (`*_SYSTEM` strings) | code-wiki-agent (agent package) | — | Prompts are inputs to LLM calls; they live in the agent that makes those calls |
+| Prompt constants (`*_SYSTEM` strings) | graph-wiki-agent (agent package) | — | Prompts are inputs to LLM calls; they live in the agent that makes those calls |
 | Canonical source vendoring | cores/prompt-sources/ | — | Decoupled from agent package; OSS-friendly; not a workspace member |
 | Divergence rule definitions | cores/eval-harness | — | Eval infrastructure; keeps eval code out of agent package |
 | LLM-judge rubrics | cores/eval-harness | — | Same tier as the GEval metric that reads them |
 | Baseline JSON storage | cores/eval-harness/baselines/ | — | Lives adjacent to the eval code that reads/writes it |
 | Programmatic wikilink resolution | cores/eval-harness (calls vault-io) | vault-io | `_resolve_citation()` already in `structural.py`; divergence can reuse it |
-| Pytest divergence gate | cores/eval-harness/tests/ | — | New test file in existing test suite; matches CODE_WIKI_RUN_EVAL pattern |
+| Pytest divergence gate | cores/eval-harness/tests/ | — | New test file in existing test suite; matches GRAPH_WIKI_RUN_EVAL pattern |
 
 ---
 
@@ -96,7 +96,7 @@ The Phase 4 eval harness is the natural integration point. The existing `judge.p
 | `syrupy` | 5.1.0 | Snapshot testing for composed prompt strings | Workspace dev dep |
 | `pytest-asyncio` | 1.3.0 | Async test support | Workspace dev dep |
 | `python-frontmatter` | 1.1.0 | Parse vault pages in programmatic checks | Already in eval-harness deps |
-| `code-wiki-agent` | workspace | Import `*_SYSTEM` constants, `QueryResult`, `IngestResult` | Workspace member |
+| `graph-wiki-agent` | workspace | Import `*_SYSTEM` constants, `QueryResult`, `IngestResult` | Workspace member |
 | `vault-io` | workspace | `_resolve_citation`-equivalent wikilink resolution | Workspace member |
 
 No new packages needed. All required libraries are already in the workspace.
@@ -105,7 +105,7 @@ No new packages needed. All required libraries are already in the workspace.
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `prompts/_fragments/` | `code-wiki-agent/src/code_wiki_agent/prompts/` | Shared fragment constants |
+| `prompts/_fragments/` | `graph-wiki-agent/src/graph_wiki_agent/prompts/` | Shared fragment constants |
 | `prompts/librarian.py` | same | Compose + export `LIBRARIAN_SYSTEM` |
 | `prompts/ingestor.py` | same | Compose + export `INGESTOR_SYSTEM` |
 | `prompts/linter.py` | same | Compose + export `LINTER_*_SYSTEM` (3 group prompts) |
@@ -144,7 +144,7 @@ cores/prompt-sources/                     (verbatim copies, no pyproject.toml)
         |
         | porting + adaptation
         v
-code_wiki_agent/prompts/
+graph_wiki_agent/prompts/
   _fragments/
     iron_rules.py       ← shared across all 4 roles
     page_categories.py  ← shared across all 4 roles
@@ -187,13 +187,13 @@ cores/eval-harness/baselines/
         |
         | pytest gate
         v
-tests/test_divergence.py                  (new test file, CODE_WIKI_RUN_EVAL gate)
+tests/test_divergence.py                  (new test file, GRAPH_WIKI_RUN_EVAL gate)
 ```
 
 ### Recommended Project Structure
 
 ```
-agents/code-wiki-agent/src/code_wiki_agent/
+agents/graph-wiki-agent/src/graph_wiki_agent/
 ├── prompts/
 │   ├── __init__.py
 │   ├── _fragments/
@@ -248,12 +248,12 @@ cores/
 
 **Example:**
 ```python
-# Source: code_wiki_agent/prompts/librarian.py
+# Source: graph_wiki_agent/prompts/librarian.py
 # This is the pattern for all per-role files.
 
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
-from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
 
 LIBRARIAN_SYSTEM = "\n\n".join([
     "You are a wiki librarian. ...",    # role-local intro (adapted from librarian.md ## Role)
@@ -451,12 +451,12 @@ Verified by reading SKILL.md, librarian.md, ingestor.md, linter.md, and scanner.
 **Fragment: `_fragments/iron_rules.py`** — shared by all 4 roles
 - Source: `SKILL.md` §Iron rules (L193-L201): 7 numbered rules, verbatim across all roles
 - All four agent files invoke the `lattice-wiki` skill which carries these rules
-- Adaptation needed: none for rules themselves; references to `<workspace>/wiki/` and `<workspace>/raw/` remain accurate for code-wiki-agent
+- Adaptation needed: none for rules themselves; references to `<workspace>/wiki/` and `<workspace>/raw/` remain accurate for graph-wiki-agent
 
 **Fragment: `_fragments/page_categories.py`** — shared by librarian + ingestor + scanner
 - Source: `SKILL.md` §Page categories table (L143-L156): 9 category rows (app, package, domain, concept, dependency, work, source, architecture, adr)
 - Used by librarian (drill direction), ingestor (routing), scanner (stub creation)
-- Adaptation needed: `<workspace>/wiki/` paths → code-wiki-agent's vault path convention; `<workspace>/work/` references note that work items are a separate ingest path
+- Adaptation needed: `<workspace>/wiki/` paths → graph-wiki-agent's vault path convention; `<workspace>/work/` references note that work items are a separate ingest path
 
 **Fragment: `_fragments/citation_rules.py`** — shared by librarian + ingestor
 - Source: `agents/librarian.md` §Rules bullets 3-4 (L73-L77): "Every claim cites" and wikilink syntax rules
@@ -466,23 +466,23 @@ Verified by reading SKILL.md, librarian.md, ingestor.md, linter.md, and scanner.
 **Fragment: `_fragments/frontmatter_rules.py`** — shared by ingestor + scanner
 - Source: `agents/ingestor.md` §Workflow step 4 (L50-L58): required frontmatter fields for source summary pages
 - Source: `agents/scanner.md` §Workflow step 3 (L47-L48): frontmatter fields for stub pages
-- Adaptation needed: field names match code-wiki-agent's INGESTOR_SYSTEM field list (title, category, page_type, target_slug, summary, tags)
+- Adaptation needed: field names match graph-wiki-agent's INGESTOR_SYSTEM field list (title, category, page_type, target_slug, summary, tags)
 
 ### Role-Local Content (not shared)
 
 **Librarian-local:**
 - Workflow: read index first → drill 3-10 pages → follow wikilinks → fall back to code → synthesize → offer to file back
 - Source: `agents/librarian.md` §Workflow (L29-L72)
-- Adaptation: `python ${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/wiki_search.py` → `bm25_query()` (already called by the harness); offer-to-file-back workflow → omit (not implemented in v1; code-wiki-agent returns results, not interactive)
+- Adaptation: `python ${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/wiki_search.py` → `bm25_query()` (already called by the harness); offer-to-file-back workflow → omit (not implemented in v1; graph-wiki-agent returns results, not interactive)
 - Keep: "Read the index first", "Every claim cites", "If the vault doesn't know, say so", sentinel `NO_RELEVANT_CONTENT` behavior (already in existing LIBRARIAN_SYSTEM — preserve)
 - Red flags: 4 items (librarian.md §Red flags) — all portable verbatim
 
 **Ingestor-local:**
 - Workflow: prep script → discuss → write source summary → update pages → ADR capture → flag contradictions → update index/log
 - Source: `agents/ingestor.md` §Workflow steps 1-12 (L27-L92)
-- Adaptation: `python ${CLAUDE_PLUGIN_ROOT}/.../ingest_source.py` → the harness calls `extract()` before the LLM; interactive discussion loop → omit (code-wiki-agent is non-interactive); `update_index.py` shell call → `update_index(wiki)` already called post-write
+- Adaptation: `python ${CLAUDE_PLUGIN_ROOT}/.../ingest_source.py` → the harness calls `extract()` before the LLM; interactive discussion loop → omit (graph-wiki-agent is non-interactive); `update_index.py` shell call → `update_index(wiki)` already called post-write
 - Keep: page-type routing table (package/concept/adr), source_type discrimination (spec vs article vs PR vs doc), minimum-3-touches rule, cite-aggressively rule
-- Red flags: 4 items (ingestor.md §Red flags) — adapt: replace path references with code-wiki-agent vault structure
+- Red flags: 4 items (ingestor.md §Red flags) — adapt: replace path references with graph-wiki-agent vault structure
 
 **Linter-local (3 groups preserved):**
 - Pass 1: mechanical (scripts in lattice-wiki → inline scan port already done in `run_lint`); the semantic content to port is the check *names* and *prioritization*
@@ -503,9 +503,9 @@ Verified by reading SKILL.md, librarian.md, ingestor.md, linter.md, and scanner.
 
 ## Adaptation Map (HOST-SPECIFIC REFERENCES TO REWRITE)
 
-### References present in lattice-wiki source files that DO NOT apply to code-wiki-agent:
+### References present in lattice-wiki source files that DO NOT apply to graph-wiki-agent:
 
-| Source Reference | File | Replacement for code-wiki-agent |
+| Source Reference | File | Replacement for graph-wiki-agent |
 |-----------------|------|-------------------------------|
 | `python ${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/wiki_search.py` | librarian.md L51 | Omit — `bm25_query()` is called by the harness before the librarian subagent receives results |
 | `python ${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/ingest_source.py` | ingestor.md L29 | Omit — `extract()` called before LLM |
@@ -516,9 +516,9 @@ Verified by reading SKILL.md, librarian.md, ingestor.md, linter.md, and scanner.
 | `python ${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/graph_analyzer.py` | linter.md L30 | Omit — graph analysis deferred |
 | `/lattice-wiki:ingest <path>` slash command | linter.md L43 | Replace: "re-ingest via `wiki_ingest`" |
 | `/lattice-wiki:scan` | linter.md L36, linter.md L79 | Replace: "re-run `wiki_scan`" |
-| `skills: [lattice-wiki, obsidian-markdown]` frontmatter | all agents | Omit — not a skill invocation mechanism in code-wiki-agent |
+| `skills: [lattice-wiki, obsidian-markdown]` frontmatter | all agents | Omit — not a skill invocation mechanism in graph-wiki-agent |
 | `tools: [Read, Write, Edit, Bash, Grep, Glob]` frontmatter | all agents | Omit — not applicable to deepagents LangGraph tool surface |
-| Interactive discussion loops (§Discuss, "Wait for confirmation") | ingestor.md L39-45 | Omit — code-wiki-agent is non-interactive; omit confirmation gates |
+| Interactive discussion loops (§Discuss, "Wait for confirmation") | ingestor.md L39-45 | Omit — graph-wiki-agent is non-interactive; omit confirmation gates |
 | "Offer to file back" / "Suggest where to file" | librarian.md L62-L70 | Omit — librarian returns read-only synthesis; no write-back in v1 |
 | Obsidian-specific syntax invocations (`obsidian-markdown` skill) | all agents | Omit — output goes to vault files; relevant wikilink conventions preserved as rules, but skill invocation is not applicable |
 | `context: fork` agent pattern | all agents | Omit — not applicable |
@@ -607,7 +607,7 @@ The judge evaluates the overall response quality against the rubric for:
 
 **What goes wrong:** Naively copying all workflow steps from lattice-wiki's verbose agent files creates system prompts that are 2000-4000 tokens. This is fine for correctness but hits Bedrock's cross-region inference profile context limits at high fan-out.
 
-**Why it happens:** lattice-wiki's agent files are richly detailed because they guide a human-assisted interactive flow. code-wiki-agent's LLM calls are single-turn subagent calls with tight output targets.
+**Why it happens:** lattice-wiki's agent files are richly detailed because they guide a human-assisted interactive flow. graph-wiki-agent's LLM calls are single-turn subagent calls with tight output targets.
 
 **How to avoid:** Preserve rules and semantic content verbatim. Trim workflow steps that describe orchestration already handled by the command layer (script calls, index updates, log appends). The existing SCANNER_SYSTEM at ~115 tokens is a calibration target — the ported version should stay under ~400 tokens for non-linter roles, and under ~300 tokens per group for linter (3 groups).
 
@@ -670,12 +670,12 @@ IRON_RULES = """..."""
 ### Import Pattern at Call Site
 
 ```python
-# agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
+# agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
 # Before (current):
 LIBRARIAN_SYSTEM = """..."""  # inline
 
 # After (phase 6):
-from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 ```
 
 No other changes to the call sites — `SystemMessage(content=LIBRARIAN_SYSTEM)` usage is unchanged.
@@ -706,7 +706,7 @@ def _judge_score(rubric_text: str, query: str, answer: str) -> float:
     return sum(scores) / len(scores)
 ```
 
-### pytest Divergence Gate Test (CODE_WIKI_RUN_EVAL pattern)
+### pytest Divergence Gate Test (GRAPH_WIKI_RUN_EVAL pattern)
 
 ```python
 # cores/eval-harness/tests/test_divergence.py
@@ -717,8 +717,8 @@ import pytest
 from eval_harness.divergence.metric import DivergenceMetric, load_baseline, check_regression
 
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run divergence eval",
 )
 BASELINES_DIR = Path(__file__).parent.parent / "baselines"
 
@@ -743,7 +743,7 @@ def test_divergence_regression(role, fixture_vault, accept_baseline):
 
 ### --accept-divergence-baseline CLI hook
 
-The `--accept-divergence-baseline` flag hooks into pytest via a custom `conftest.py` option, consistent with the existing `CODE_WIKI_RUN_EVAL` pattern:
+The `--accept-divergence-baseline` flag hooks into pytest via a custom `conftest.py` option, consistent with the existing `GRAPH_WIKI_RUN_EVAL` pattern:
 
 ```python
 # cores/eval-harness/tests/conftest.py (addition)
@@ -764,13 +764,13 @@ def accept_baseline(request):
 ### Syrupy Snapshot Test for Composed Prompt
 
 ```python
-# agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
+# agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
 
 from syrupy.assertion import SnapshotAssertion
-from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
-from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
-from code_wiki_agent.prompts.linter import LINTER_PAGE_QUALITY_SYSTEM
-from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM
+from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
+from graph_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
+from graph_wiki_agent.prompts.linter import LINTER_PAGE_QUALITY_SYSTEM
+from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM
 
 def test_librarian_system_snapshot(snapshot: SnapshotAssertion):
     assert LIBRARIAN_SYSTEM == snapshot
@@ -807,8 +807,8 @@ No data migration required. This is a source-code refactor + new module addition
 |---|-------|---------|---------------|
 | A1 | `cores/prompt-sources/` must have no `pyproject.toml` to avoid workspace collision | Architecture Patterns | uv sync would fail; easy to fix by removing the file |
 | A2 | The existing `_resolve_citation()` in `structural.py` is sufficient for wikilink resolution in divergence checks | Don't Hand-Roll | If the resolution logic needs updating, the fix is local to structural.py and benefits both eval paths |
-| A3 | `update_tokens.py` referenced in scanner.md is not yet implemented in code-wiki-agent; prompt should omit that step | Adaptation Map | If it exists, the scanner prompt should mention it; verify with `ls vault-io/src/vault_io/` |
-| A4 | The `obsidian-markdown` skill invocation in lattice-wiki is not applicable to code-wiki-agent (no skill registry) | Adaptation Map | Not applicable; confirmed by code-wiki-agent architecture |
+| A3 | `update_tokens.py` referenced in scanner.md is not yet implemented in graph-wiki-agent; prompt should omit that step | Adaptation Map | If it exists, the scanner prompt should mention it; verify with `ls vault-io/src/vault_io/` |
+| A4 | The `obsidian-markdown` skill invocation in lattice-wiki is not applicable to graph-wiki-agent (no skill registry) | Adaptation Map | Not applicable; confirmed by graph-wiki-agent architecture |
 | A5 | All divergence check rule IDs using prefix `LNT` for linter and `SCN` for scanner (not `LINT`/`SCAN`) | Divergence Check Inventory | Cosmetic only; rename if convention differs |
 
 **Verified:** `update_tokens.py` does exist in vault-io (`ls /Users/pat/Personal/deep-agents/cores/vault-io/src/vault_io/` shows `update_tokens.py`). A3 should be REVISED: `update_tokens` is available. The scanner prompt can reference it, but check whether `run_scan()` already calls it.
@@ -843,12 +843,12 @@ No data migration required. This is a source-code refactor + new module addition
 | `syrupy` | Prompt snapshot tests | ✓ | 5.1.0 (workspace dev dep) | — |
 | `pytest-asyncio` | Async test support | ✓ | 1.3.0 (workspace dev dep) | — |
 | `python-frontmatter` | Vault page parsing in checks | ✓ | 1.1.0 (in eval-harness deps) | — |
-| AWS Bedrock credentials | GEval judge calls (CODE_WIKI_RUN_EVAL=1) | assumed ✓ | — | Programmatic checks run without Bedrock |
+| AWS Bedrock credentials | GEval judge calls (GRAPH_WIKI_RUN_EVAL=1) | assumed ✓ | — | Programmatic checks run without Bedrock |
 | `lattice` sibling repo | Vendoring step only (Wave 0) | ✓ | at `/Users/pat/Personal/lattice` | — |
 
 **Missing dependencies with no fallback:** None.
 
-**Missing dependencies with fallback:** AWS Bedrock (judge path) — programmatic checks and snapshot tests run without Bedrock; judge path is gated behind `CODE_WIKI_RUN_EVAL=1`.
+**Missing dependencies with fallback:** AWS Bedrock (judge path) — programmatic checks and snapshot tests run without Bedrock; judge path is gated behind `GRAPH_WIKI_RUN_EVAL=1`.
 
 ---
 
@@ -860,37 +860,37 @@ No data migration required. This is a source-code refactor + new module addition
 |----------|-------|
 | Framework | pytest ≥8.3 + pytest-asyncio 1.3.0 + syrupy 5.1.0 |
 | Config file | workspace root `pyproject.toml` (`asyncio_mode = "auto"`) |
-| Quick run command | `uv run pytest agents/code-wiki-agent/tests/prompts/ cores/eval-harness/tests/test_divergence.py -x -q` |
-| Full suite command | `CODE_WIKI_RUN_EVAL=1 uv run pytest cores/eval-harness/tests/ -x -q` |
+| Quick run command | `uv run pytest agents/graph-wiki-agent/tests/prompts/ cores/eval-harness/tests/test_divergence.py -x -q` |
+| Full suite command | `GRAPH_WIKI_RUN_EVAL=1 uv run pytest cores/eval-harness/tests/ -x -q` |
 
 ### Phase Requirements → Test Map
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| PORT-01 | Traceability table exists (provenance headers in every fragment) | unit (provenance header check) | `pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x` | ❌ Wave 0 |
-| PORT-02 | LIBRARIAN_SYSTEM contains iron rules and citation rules | snapshot | `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_librarian_system_snapshot -x` | ❌ Wave 0 |
-| PORT-03 | INGESTOR_SYSTEM contains page-type routing | snapshot | `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_ingestor_system_snapshot -x` | ❌ Wave 0 |
-| PORT-04 | LINTER_*_SYSTEM prompts contain canonical lint categories | snapshot | `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_linter_*_snapshot -x` | ❌ Wave 0 |
-| PORT-05 | SCANNER_SYSTEM contains package-detection rules | snapshot | `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_scanner_system_snapshot -x` | ❌ Wave 0 |
-| PORT-06 | Every fragment file has 3-line provenance header; Source: path resolves to `cores/prompt-sources/` | unit | `pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x` | ❌ Wave 0 |
+| PORT-01 | Traceability table exists (provenance headers in every fragment) | unit (provenance header check) | `pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x` | ❌ Wave 0 |
+| PORT-02 | LIBRARIAN_SYSTEM contains iron rules and citation rules | snapshot | `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_librarian_system_snapshot -x` | ❌ Wave 0 |
+| PORT-03 | INGESTOR_SYSTEM contains page-type routing | snapshot | `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_ingestor_system_snapshot -x` | ❌ Wave 0 |
+| PORT-04 | LINTER_*_SYSTEM prompts contain canonical lint categories | snapshot | `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_linter_*_snapshot -x` | ❌ Wave 0 |
+| PORT-05 | SCANNER_SYSTEM contains package-detection rules | snapshot | `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py::test_scanner_system_snapshot -x` | ❌ Wave 0 |
+| PORT-06 | Every fragment file has 3-line provenance header; Source: path resolves to `cores/prompt-sources/` | unit | `pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x` | ❌ Wave 0 |
 | EVAL-11 | DivergenceCheck.check callables pass on valid output, fail on violations | unit per check | `pytest cores/eval-harness/tests/test_divergence_checks.py -x` | ❌ Wave 0 |
-| EVAL-12 | Divergence eval emits per-role counts + accepted_failures | integration (CODE_WIKI_RUN_EVAL) | `CODE_WIKI_RUN_EVAL=1 pytest cores/eval-harness/tests/test_divergence.py -x` | ❌ Wave 0 |
+| EVAL-12 | Divergence eval emits per-role counts + accepted_failures | integration (GRAPH_WIKI_RUN_EVAL) | `GRAPH_WIKI_RUN_EVAL=1 pytest cores/eval-harness/tests/test_divergence.py -x` | ❌ Wave 0 |
 | EVAL-13 | `--accept-divergence-baseline` rewrites baseline; default run gates hard-severity failures | unit (baseline delta) | `pytest cores/eval-harness/tests/test_divergence_baseline.py -x` | ❌ Wave 0 |
 
 ### Sampling Rate
 
-- **Per task commit:** `uv run pytest agents/code-wiki-agent/tests/prompts/ -x -q`
-- **Per wave merge:** `uv run pytest agents/code-wiki-agent/tests/ cores/eval-harness/tests/test_divergence_checks.py cores/eval-harness/tests/test_divergence_baseline.py -x -q`
-- **Phase gate:** Full suite including `CODE_WIKI_RUN_EVAL=1` eval path before `/gsd:verify-work`
+- **Per task commit:** `uv run pytest agents/graph-wiki-agent/tests/prompts/ -x -q`
+- **Per wave merge:** `uv run pytest agents/graph-wiki-agent/tests/ cores/eval-harness/tests/test_divergence_checks.py cores/eval-harness/tests/test_divergence_baseline.py -x -q`
+- **Phase gate:** Full suite including `GRAPH_WIKI_RUN_EVAL=1` eval path before `/gsd:verify-work`
 
 ### Wave 0 Gaps
 
-- [ ] `agents/code-wiki-agent/tests/prompts/__init__.py` — test package
-- [ ] `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` — syrupy snapshot tests for all 6 role files (librarian, ingestor, linter ×3, scanner, synthesizer, code_reader)
-- [ ] `agents/code-wiki-agent/tests/prompts/test_provenance.py` — checks every `_fragments/*.py` file has the 3-line provenance header and Source: path resolves within `cores/prompt-sources/`
+- [ ] `agents/graph-wiki-agent/tests/prompts/__init__.py` — test package
+- [ ] `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` — syrupy snapshot tests for all 6 role files (librarian, ingestor, linter ×3, scanner, synthesizer, code_reader)
+- [ ] `agents/graph-wiki-agent/tests/prompts/test_provenance.py` — checks every `_fragments/*.py` file has the 3-line provenance header and Source: path resolves within `cores/prompt-sources/`
 - [ ] `cores/eval-harness/tests/test_divergence_checks.py` — unit tests for each `DivergenceCheck.check` callable against synthetic fixtures (no Bedrock)
 - [ ] `cores/eval-harness/tests/test_divergence_baseline.py` — unit tests for `load_baseline`, `write_baseline`, `check_regression` without Bedrock
-- [ ] `cores/eval-harness/tests/test_divergence.py` — integration test gated behind `CODE_WIKI_RUN_EVAL=1`; exercises full DivergenceMetric (programmatic + judge) against fixture vault
+- [ ] `cores/eval-harness/tests/test_divergence.py` — integration test gated behind `GRAPH_WIKI_RUN_EVAL=1`; exercises full DivergenceMetric (programmatic + judge) against fixture vault
 
 ---
 
@@ -928,10 +928,10 @@ No data migration required. This is a source-code refactor + new module addition
 - `/Users/pat/Personal/lattice/plugins/lattice-wiki/agents/ingestor.md` — ingestor workflow, rules, red flags (read in full)
 - `/Users/pat/Personal/lattice/plugins/lattice-wiki/agents/linter.md` — linter 3-pass structure, rules, red flags (read in full)
 - `/Users/pat/Personal/lattice/plugins/lattice-wiki/agents/scanner.md` — scanner workflow, rules, red flags (read in full)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` — existing LIBRARIAN_SYSTEM, SYNTHESIZER_SYSTEM, CODE_READER_SYSTEM (read in full)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — existing INGESTOR_SYSTEM (read in full)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — existing SCANNER_SYSTEM (read in full)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` — existing 3-group lint prompts (read in full)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — existing LIBRARIAN_SYSTEM, SYNTHESIZER_SYSTEM, CODE_READER_SYSTEM (read in full)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — existing INGESTOR_SYSTEM (read in full)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — existing SCANNER_SYSTEM (read in full)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` — existing 3-group lint prompts (read in full)
 - `cores/eval-harness/src/eval_harness/judge.py` — GEval + AmazonBedrockModel pattern (read in full)
 - `cores/eval-harness/src/eval_harness/structural.py` — `_resolve_citation()` (read in full)
 - `cores/eval-harness/src/eval_harness/baseline.py` — baseline schema pattern (read in full)

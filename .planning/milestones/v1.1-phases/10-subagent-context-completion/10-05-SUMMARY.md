@@ -26,11 +26,11 @@ tech_stack:
 key_files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 decisions:
   - "Librarian builder has no project_context kwarg (per CONTEXT.md §Wiring) — it only gains STYLE_RULES"
   - "_NO_CODE_FENCE remains the LAST fragment in INGESTOR_SYSTEM (UAT G1 markdown-fence contract preserved)"
@@ -77,7 +77,7 @@ When `project_context` is non-empty, it is inserted at index 1 (immediately afte
 
 ## Verification
 
-- `pytest agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py agents/code-wiki-agent/tests/prompts/test_provenance.py agents/code-wiki-agent/tests/prompts/test_project_context.py -x` → 14 passed (8 snapshot + 2 provenance + 4 project_context).
+- `pytest agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py agents/graph-wiki-agent/tests/prompts/test_provenance.py agents/graph-wiki-agent/tests/prompts/test_project_context.py -x` → 14 passed (8 snapshot + 2 provenance + 4 project_context).
 - All six backward-compat constants equal their empty-context builder outputs: `SCANNER_SYSTEM == build_scanner_system()`, `INGESTOR_SYSTEM == build_ingestor_system()`, three `LINTER_*_SYSTEM == build_linter_*_system()`, `LIBRARIAN_SYSTEM == build_librarian_system()`.
 - Position-1 insertion verified by asserting `'\n\n' + ctx + '\n\n' + IRON_RULES` appears in the rendered prompt for every builder that accepts `project_context`.
 - `_NO_CODE_FENCE` is the final fragment of `INGESTOR_SYSTEM` (UAT G1 contract): `INGESTOR_SYSTEM.rstrip().endswith(_NO_CODE_FENCE.rstrip())`.
@@ -115,9 +115,9 @@ No other deviations. No auth gates. No checkpoints required.
 
 ## Self-Check: PASSED
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py` exists with `build_scanner_system` and `SCANNER_SYSTEM = build_scanner_system()`.
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` exists with `build_ingestor_system` and `INGESTOR_SYSTEM = build_ingestor_system()`.
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py` exists with three `build_linter_*_system` functions and three backward-compat constants.
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py` exists with `build_librarian_system()` (no `project_context`) and `LIBRARIAN_SYSTEM = build_librarian_system()`.
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` regenerated and tests pass against it.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py` exists with `build_scanner_system` and `SCANNER_SYSTEM = build_scanner_system()`.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` exists with `build_ingestor_system` and `INGESTOR_SYSTEM = build_ingestor_system()`.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py` exists with three `build_linter_*_system` functions and three backward-compat constants.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py` exists with `build_librarian_system()` (no `project_context`) and `LIBRARIAN_SYSTEM = build_librarian_system()`.
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` regenerated and tests pass against it.
 - Commits `1cc94f5`, `01940e0`, `2d48e0e` present in git log.

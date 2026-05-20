@@ -8,14 +8,14 @@
 
 ## Scope reminder (from 15-CONTEXT.md)
 
-Phase 15 is content-only. It mutates external state (the wiki vault at `~/Personal/wiki/deep-agents/`) by driving the existing `code-wiki-agent` CLI; it does **not** edit `packages/` or `agents/` source code. The only repo files touched are:
+Phase 15 is content-only. It mutates external state (the wiki vault at `~/Personal/wiki/deep-agents/`) by driving the existing `graph-wiki-agent` CLI; it does **not** edit `packages/` or `agents/` source code. The only repo files touched are:
 
 1. `models-claude.toml` — new config at repo root (sibling of `models-qwen.toml`).
 2. `.planning/phases/15-wiki-self-update/15-VERIFICATION.md` — new phase verification doc.
 
 A third repo file (`wiki-config-claude.toml` or equivalent one-off pointing `models_path` at `models-claude.toml`) **may** be needed depending on how the executor wires the `--config` CLI flag (see Shared Pattern §CLI override wiring below). It is in the "no analog needed" bucket because it is mechanically identical to the existing `wiki-config.toml` — two lines, a `models_path` and a `vault_path`.
 
-The remaining work (`code-wiki-agent scan`, `code-wiki-agent ingest source`, `code-wiki-agent query`, vault spot-check) is **CLI invocation against the existing CLI surface**, not file authoring. No pattern is needed for invocation; the executor reads `cli.py` argument signatures during scout.
+The remaining work (`graph-wiki-agent scan`, `graph-wiki-agent ingest source`, `graph-wiki-agent query`, vault spot-check) is **CLI invocation against the existing CLI surface**, not file authoring. No pattern is needed for invocation; the executor reads `cli.py` argument signatures during scout.
 
 ---
 
@@ -121,7 +121,7 @@ overrides_applied: 0
 <prose intro — 1-2 sentences naming what was invoked and what was captured>
 
 ````
-User: code-wiki-agent query "what is workspace-io?"
+User: graph-wiki-agent query "what is workspace-io?"
 ... full transcript verbatim ...
 ````
 ````
@@ -130,7 +130,7 @@ User: code-wiki-agent query "what is workspace-io?"
 
 - **SC#1** — scan-log entries showing new package names, no `lattice` artifacts. Capture as a fenced block inside the transcript section showing the relevant `scan-log.md` (or equivalent log) entries appended by the Phase 15 scan run. Per D-07: only the newly-appended entries need to be free of `lattice`; pre-existing historical lines may contain `lattice` and are out of scope.
 - **SC#2** — `workspace-io` package page spot-check. Capture as a sub-section recording (a) the absolute path of the page in `~/Personal/wiki/deep-agents/packages/workspace-io/`, (b) confirmation that frontmatter parses, (c) 2-3 key claims excerpted from the body, (d) at least one `[[wikilink]]` and the existence of its target. Per D-08 minimum bar.
-- **SC#3** — `code-wiki-agent query "what is workspace-io?"` full transcript. Capture in a four-backtick fence following the same shape as `14-VERIFICATION.md:31-104` — user question, fan-out evidence (Read/Grep traces from the librarian subagent), synthesized answer with `[[wikilinks]]` and `code-path:line` citations.
+- **SC#3** — `graph-wiki-agent query "what is workspace-io?"` full transcript. Capture in a four-backtick fence following the same shape as `14-VERIFICATION.md:31-104` — user question, fan-out evidence (Read/Grep traces from the librarian subagent), synthesized answer with `[[wikilinks]]` and `code-path:line` citations.
 
 **Result section pattern** (`14-VERIFICATION.md:106-110`):
 
@@ -154,16 +154,16 @@ Phase 15 closer should read: `BRAND-03 satisfied. Phase 15 closes.`
 
 ### CLI override wiring (applies to all three scan/ingest/query invocations)
 
-**Source:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:35-45`
+**Source:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:35-45`
 
 ```python
 @app.callback()
 def main_callback(
     config: Optional[Path] = typer.Option(None, "--config", help="Path to TOML config file"),
 ) -> None:
-    """code-wiki-agent: AWS Bedrock-powered wiki maintenance."""
+    """graph-wiki-agent: AWS Bedrock-powered wiki maintenance."""
     if config is not None:
-        import code_wiki_agent.config as _cfg_module
+        import graph_wiki_agent.config as _cfg_module
         from model_adapter.loader import set_models_path
 
         _cfg_module._active_config = _cfg_module.load_config(config)
@@ -182,12 +182,12 @@ def main_callback(
      models_path = "/Users/pat/Personal/deep-agents/models-claude.toml"
      vault_path  = "/Users/pat/Personal/wiki/deep-agents"
      ```
-   - Invoke `code-wiki-agent --config /Users/pat/Personal/deep-agents/wiki-config-claude.toml scan ...` (and `... ingest source ...` and `... query "..."`).
+   - Invoke `graph-wiki-agent --config /Users/pat/Personal/deep-agents/wiki-config-claude.toml scan ...` (and `... ingest source ...` and `... query "..."`).
    - Mirrors the existing `wiki-config.toml` pattern exactly; reusable for any future Claude-profile runs.
 
 2. **In-place flag-only** (no second config file): not directly supported — `--config` requires a full WikiConfig TOML, not a bare `models_path`. Skip this option unless CLI is extended in a future phase.
 
-CONTEXT §Claude's Discretion confirms executor reads `code-wiki-agent --help` or the relevant CLI source during scout to lock the exact flag — the scout step will reach line 37 of `cli.py` and confirm `--config`.
+CONTEXT §Claude's Discretion confirms executor reads `graph-wiki-agent --help` or the relevant CLI source during scout to lock the exact flag — the scout step will reach line 37 of `cli.py` and confirm `--config`.
 
 ### Provenance comment header (applies to `models-claude.toml`)
 
@@ -219,7 +219,7 @@ None. Both new files have exact analogs in the repo.
 
 ## External vault mutations (not repo files — for planner orientation only)
 
-The bulk of Phase 15's "output" is changes in `~/Personal/wiki/deep-agents/` driven by the `code-wiki-agent` CLI. These are **not** in scope for pattern extraction (no repo source code is generating them in this phase — the existing CLI does), but the planner should know to orchestrate them in this order per CONTEXT D-05:
+The bulk of Phase 15's "output" is changes in `~/Personal/wiki/deep-agents/` driven by the `graph-wiki-agent` CLI. These are **not** in scope for pattern extraction (no repo source code is generating them in this phase — the existing CLI does), but the planner should know to orchestrate them in this order per CONTEXT D-05:
 
 1. **Scan** appends to `~/Personal/wiki/deep-agents/scan-log.md` (or equivalent), creates `~/Personal/wiki/deep-agents/packages/workspace-io/` page set, creates `~/Personal/wiki/deep-agents/packages/prompt-sources/` page set, refreshes the four existing package pages.
 2. **Ingest** updates `~/Personal/wiki/deep-agents/sources/<OTel summary>.md` from `~/Personal/wiki/raw/OTel — Story of observability.md`.
@@ -235,9 +235,9 @@ The wiki vault has its own git repo (per CONTEXT §code_context Integration Poin
 **Analog search scope:**
 - Repo root TOML configs (`models-qwen.toml`, `wiki-config.toml`).
 - `.planning/phases/14-plugin-port-m3b/14-VERIFICATION.md` (most recent phase verification doc; structure matches what Phase 15 needs).
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` (read-only, to confirm `--config` flag wiring — no source change in Phase 15).
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (read-only, to confirm `--config` flag wiring — no source change in Phase 15).
 - `packages/model-adapter/src/model_adapter/loader.py:27-39` (read-only, to confirm `set_models_path` mechanics).
-- `agents/code-wiki-agent/src/code_wiki_agent/config.py:42` (read-only, to confirm `WikiConfig.models_path` shape).
+- `agents/graph-wiki-agent/src/graph_wiki_agent/config.py:42` (read-only, to confirm `WikiConfig.models_path` shape).
 
 **Files scanned:** 5
 **Pattern extraction date:** 2026-05-18

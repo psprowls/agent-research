@@ -1,6 +1,6 @@
 # Project Research Summary
 
-**Project:** deep-agents / code-wiki-agent
+**Project:** deep-agents / graph-wiki-agent
 **Domain:** Python MCP server + deepagents subagent fan-out on AWS Bedrock, uv monorepo
 **Researched:** 2026-05-13
 **Confidence:** HIGH (stack/features/pitfalls verified against PyPI and official docs; architecture MEDIUM on deepagents internal API)
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-`code-wiki-agent` is a reimplementation of a working Claude Code wiki plugin, repackaged as a FastMCP server and headless CLI that runs entirely on AWS Bedrock via deepagents. The primary goal is cost reduction through two mechanisms: routing cheaper Bedrock models (Haiku, Nova) to high-frequency subagent roles, and running those subagents in parallel within a single command invocation rather than sequentially. The project is a port of approximately 800 lines of proven lattice-wiki-core vault IO, wrapped in a new agent framework, with a cost-frontier eval harness as the proof of value.
+`graph-wiki-agent` is a reimplementation of a working Claude Code wiki plugin, repackaged as a FastMCP server and headless CLI that runs entirely on AWS Bedrock via deepagents. The primary goal is cost reduction through two mechanisms: routing cheaper Bedrock models (Haiku, Nova) to high-frequency subagent roles, and running those subagents in parallel within a single command invocation rather than sequentially. The project is a port of approximately 800 lines of proven lattice-wiki-core vault IO, wrapped in a new agent framework, with a cost-frontier eval harness as the proof of value.
 
 The research-recommended architecture is a five-phase build: scaffold the monorepo and prove the Bedrock connection, build the shared fan-out runtime with all concurrency safeguards in place, implement a minimum vertical slice (the `query` command) that touches every architectural layer end-to-end, wire the eval harness against that slice, then systematically add the remaining four commands. This ordering follows strict architectural dependencies (no command works without the vault IO layer; no eval is meaningful without a running command) and front-loads the two confirmed upstream bugs in deepagents that must be patched before any fan-out code is correct.
 
@@ -71,14 +71,14 @@ The feature set is constrained by lattice-wiki full parity as the v1 goal. Six c
 
 ### Architecture Approach
 
-The architecture is a strict tiered monorepo: `cores/` packages (model-adapters, subagent-runtime, eval-harness) provide shared infrastructure with no upward dependencies; `agents/code-wiki-agent` depends on all three cores. Two thin dispatch surfaces (MCP server and CLI) call identical `commands/` functions, which orchestrate vault IO (pure Python, no LLM) and fan-out via `SubagentPool`. The vault IO layer is a direct port of approximately 800 lines from lattice-wiki-core with no cross-repo runtime dependency, preserving read-compatibility on day one.
+The architecture is a strict tiered monorepo: `cores/` packages (model-adapters, subagent-runtime, eval-harness) provide shared infrastructure with no upward dependencies; `agents/graph-wiki-agent` depends on all three cores. Two thin dispatch surfaces (MCP server and CLI) call identical `commands/` functions, which orchestrate vault IO (pure Python, no LLM) and fan-out via `SubagentPool`. The vault IO layer is a direct port of approximately 800 lines from lattice-wiki-core with no cross-repo runtime dependency, preserving read-compatibility on day one.
 
 **Major components:**
 1. `cores/model-adapters` (leaf): `ChatBedrockConverse` factory + `ModelRegistry` (role to model_id) -- single source of truth for model assignments
 2. `cores/subagent-runtime`: `SubagentPool.fanout()` with `asyncio.gather(return_exceptions=True)` and explicit recursion limit propagation -- patches the two deepagents bugs at the shared layer
 3. `cores/eval-harness`: `recorder.py` (captures lattice-wiki baseline as subprocess), `runner.py` (replays with model sweep), `scorer.py` (similarity + rubric), `report.py` (cost-frontier chart)
-4. `agents/code-wiki-agent/vault/`: pure Python vault IO ports from lattice-wiki-core -- must pass round-trip fidelity test before any command touches it
-5. `agents/code-wiki-agent/commands/`: one module per wiki command; owns aggregation logic; surface-agnostic (same function handles MCP and CLI)
+4. `agents/graph-wiki-agent/vault/`: pure Python vault IO ports from lattice-wiki-core -- must pass round-trip fidelity test before any command touches it
+5. `agents/graph-wiki-agent/commands/`: one module per wiki command; owns aggregation logic; surface-agnostic (same function handles MCP and CLI)
 6. `mcp_server.py` + `cli.py`: thin dispatch only -- no agent logic; both call the same command functions
 
 ### Critical Pitfalls
@@ -120,7 +120,7 @@ Based on research, suggested phase structure:
 **Delivers:** `vault/search.py` with bm25s; `agents/librarian.py` (RoleSpec + prompt); `commands/query.py` (BM25 to fan-out to synthesis); `mcp_server.py` exposing `wiki_query`; `cli.py` with `query` subcommand; end-to-end test against real lattice-wiki vault
 **Uses:** `bm25s` 0.3.8, `mcp` 1.27.1 / FastMCP, `typer` 0.25.1
 **Implements:** commands/ layer, vault/ search layer, SubagentPool integration, both delivery surfaces
-**Gate:** `code-wiki-agent query "..."` returns a coherent answer with `[[wikilink]]` citations from the real vault; DeepAgents CLI can invoke `wiki_query` and receive a result
+**Gate:** `graph-wiki-agent query "..."` returns a coherent answer with `[[wikilink]]` citations from the real vault; DeepAgents CLI can invoke `wiki_query` and receive a result
 
 ### Phase 4: Eval Harness
 **Rationale:** Build eval against the working query command before adding remaining commands. Forces judge architecture (heterogeneous panel, pinned ARNs, output hashing) to be correct before any baselines are committed to git.
@@ -164,7 +164,7 @@ Build exactly this, in order:
 4. `agents/librarian.py` -- a `RoleSpec` with system prompt and model_id.
 5. `commands/query.py` -- BM25 retrieval to librarian fan-out to single synthesis call to structured result.
 6. `mcp_server.py` -- one `@mcp.tool("wiki_query")` that calls `commands/query.py`.
-7. `cli.py` -- `code-wiki-agent query "..."` subcommand that calls the same function.
+7. `cli.py` -- `graph-wiki-agent query "..."` subcommand that calls the same function.
 
 When step 7 returns a real answer with wikilink citations from the real vault via the DeepAgents CLI, the architecture is proven. Everything else is additive.
 

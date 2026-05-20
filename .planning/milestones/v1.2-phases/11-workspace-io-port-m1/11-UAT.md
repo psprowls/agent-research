@@ -30,8 +30,8 @@ result: pass
 expected: `uv run --package vault-io pytest` passes. The shim in `vault_io/_workspace.py` delegates to `workspace_io.config.resolve()` without breaking the MCP boundary contract.
 result: pass
 
-### 4. code-wiki-agent test suite green (init wiring)
-expected: `uv run --package code-wiki-agent pytest` passes. The `code-wiki-agent init` flow now calls `workspace_io.init` (two-phase init).
+### 4. graph-wiki-agent test suite green (init wiring)
+expected: `uv run --package graph-wiki-agent pytest` passes. The `graph-wiki-agent init` flow now calls `workspace_io.init` (two-phase init).
 result: pass
 
 ### 5. .graph-wiki.yaml ancestor discovery (no env var)

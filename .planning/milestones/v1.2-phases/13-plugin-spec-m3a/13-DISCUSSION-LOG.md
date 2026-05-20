@@ -11,11 +11,11 @@
 
 ## Foundational reframe (turn 1 of substantive discussion)
 
-Initial framing in the first AskUserQuestion (per-command shell-out target / interactive UX / spec shape) implicitly assumed the ported plugin would be a thin wrapper over `code-wiki-agent` (Bedrock-backed). User interrupted and corrected:
+Initial framing in the first AskUserQuestion (per-command shell-out target / interactive UX / spec shape) implicitly assumed the ported plugin would be a thin wrapper over `graph-wiki-agent` (Bedrock-backed). User interrupted and corrected:
 
-> "At this time I do not want the plugin to use any of the bedrock inference. I want it to use Claude code (or whatever harness) for all inference. I am expecting the graph-wiki to be functionally identical to lattice-wiki. I don't have the code in front of me, so I can't look at how much of the lattice-wiki-core functionality was brought over and where it lives now, but maybe we need a new graph-wiki-core that both code-wiki-agent and the scripts used by the graph-wiki plugin's scripts."
+> "At this time I do not want the plugin to use any of the bedrock inference. I want it to use Claude code (or whatever harness) for all inference. I am expecting the graph-wiki to be functionally identical to lattice-wiki. I don't have the code in front of me, so I can't look at how much of the lattice-wiki-core functionality was brought over and where it lives now, but maybe we need a new graph-wiki-core that both graph-wiki-agent and the scripts used by the graph-wiki plugin's scripts."
 
-**Consequence:** Initial AskUserQuestion was rejected. Every subsequent question reframed around: plugin = Claude Code inference path, code-wiki-agent = Bedrock path, two parallel surfaces over the same vault-io / workspace-io helpers. Saved to memory as `[[project_plugin_port_model]]` for future sessions.
+**Consequence:** Initial AskUserQuestion was rejected. Every subsequent question reframed around: plugin = Claude Code inference path, graph-wiki-agent = Bedrock path, two parallel surfaces over the same vault-io / workspace-io helpers. Saved to memory as `[[project_plugin_port_model]]` for future sessions.
 
 ---
 
@@ -37,9 +37,9 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Port both into vault-io as part of Phase 13 or Phase 14 | Treat like Phase 12 backports. Benefit code-wiki-agent too. | ✓ |
+| Port both into vault-io as part of Phase 13 or Phase 14 | Treat like Phase 12 backports. Benefit graph-wiki-agent too. | ✓ |
 | Port into the new shared package (only applicable if option B/C above) | N/A given previous answer. | |
-| Plugin includes its own copies (no shared port) | Duplication; code-wiki-agent's lint/query don't get the new modules. | |
+| Plugin includes its own copies (no shared port) | Duplication; graph-wiki-agent's lint/query don't get the new modules. | |
 
 **User's choice:** Port both into vault-io.
 **Notes:** Specific phase placement (13 vs 14 vs 12-retroactive) clarified in the next question.

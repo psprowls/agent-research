@@ -27,8 +27,8 @@ created: 2026-05-18
 | filesystem → `workspace_io.manifest` | `.graph-wiki.yaml` content parsed at read time | YAML structured data |
 | filesystem → `workspace_io._local_config` | `.graph-wiki.local.yaml` user-supplied paths | YAML structured data |
 | MCP client → `vault_io._workspace.resolve_wiki_and_repo` | `vault_path` arg from MCP tool call | Filesystem path (string) |
-| CLI user → `code_wiki_agent init` → `workspace_io.init` | `--vault` arg, current cwd | Filesystem path (string) |
-| `code_wiki_agent` ↔ MCP Field descriptions | User-visible tool schema | Static documentation strings |
+| CLI user → `graph_wiki_agent init` → `workspace_io.init` | `--vault` arg, current cwd | Filesystem path (string) |
+| `graph_wiki_agent` ↔ MCP Field descriptions | User-visible tool schema | Static documentation strings |
 | filesystem → asset template (`CLAUDE.md.template`) | Template shipped inside wheel | Static text |
 | pytest tmp_path → tests | Test fixtures in pytest-managed temp dirs | Synthetic test data |
 

@@ -28,7 +28,7 @@ deep-agents/                        ← uv workspace root (no runtime code)
     core-subagent/                  ← shared: deepagents wrapper, fan-out helpers
     core-eval/                      ← shared: eval harness, baseline recorder
   agents/
-    code-wiki-agent/                ← first agent: MCP server + headless CLI
+    graph-wiki-agent/                ← first agent: MCP server + headless CLI
 ```
 
 ### Root `pyproject.toml` pattern
@@ -80,7 +80,7 @@ build-backend = "uv_build"
 
 ```toml
 [project]
-name = "code-wiki-agent"
+name = "graph-wiki-agent"
 dependencies = [
     "core-bedrock",
     "core-subagent",
@@ -100,9 +100,9 @@ core-subagent = { workspace = true }
 ### Key uv rules
 
 - `[dependency-groups]` (PEP 735) replaces the old `[tool.uv.dev-dependencies]`; use `uv add --group dev <pkg>` for dev-only deps scoped to the workspace root
-- All workspace members share a single `uv.lock`; `uv sync` installs everything; `uv sync --package code-wiki-agent` installs only one member's closure
+- All workspace members share a single `uv.lock`; `uv sync` installs everything; `uv sync --package graph-wiki-agent` installs only one member's closure
 - Workspace members are always installed as editable; no need to set `editable = true` manually
-- Use `uv run --package code-wiki-agent pytest` to run tests scoped to one member
+- Use `uv run --package graph-wiki-agent pytest` to run tests scoped to one member
 
 **What NOT to use:**
 - `setuptools` or `hatchling` as build backend — `uv_build` is the native backend; it handles the workspace source link correctly
@@ -295,7 +295,7 @@ token_count = response["tokenCount"]
 | **Streamable HTTP** | Remote/multi-client scenarios | The new standard as of protocol version 2025-03-26 |
 | ~~SSE~~ | Do not use | **Deprecated** as of MCP spec 2025-03-26; replaced by Streamable HTTP |
 
-For `code-wiki-agent`, **stdio is correct for v1**. The DeepAgents CLI spawns the MCP server as a subprocess over stdin/stdout. No network server needed.
+For `graph-wiki-agent`, **stdio is correct for v1**. The DeepAgents CLI spawns the MCP server as a subprocess over stdin/stdout. No network server needed.
 
 ### Tool registration pattern (FastMCP)
 
@@ -303,7 +303,7 @@ For `code-wiki-agent`, **stdio is correct for v1**. The DeepAgents CLI spawns th
 from mcp.server.fastmcp import FastMCP
 import asyncio
 
-mcp = FastMCP("code-wiki-agent")
+mcp = FastMCP("graph-wiki-agent")
 
 @mcp.tool()
 async def query(question: str, vault_path: str) -> str:
@@ -334,7 +334,7 @@ For future streaming progress updates to the MCP host, use `mcp.server.fastmcp.C
 |---------|---------|-------|
 | `langchain-mcp-adapters` | 0.2.2 | Released 2026-03-16; converts MCP tools to LangChain tools |
 
-Use this when `code-wiki-agent` itself needs to call *other* MCP servers as tools (e.g., a future filesystem MCP server). Not needed for the server-side MCP exposure.
+Use this when `graph-wiki-agent` itself needs to call *other* MCP servers as tools (e.g., a future filesystem MCP server). Not needed for the server-side MCP exposure.
 
 **What NOT to use:**
 - SSE transport — deprecated; don't build new server infrastructure on it
@@ -425,7 +425,7 @@ def test_query_sonnet_vs_baseline(baseline_corpus):
 ### Pattern
 
 ```python
-# agents/code-wiki-agent/src/code_wiki_agent/cli.py
+# agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
 import typer
 import asyncio
 
@@ -448,10 +448,10 @@ if __name__ == "__main__":
 The MCP server entrypoint is a separate script:
 
 ```toml
-# in code-wiki-agent pyproject.toml
+# in graph-wiki-agent pyproject.toml
 [project.scripts]
-code-wiki-agent = "code_wiki_agent.cli:app"
-code-wiki-agent-mcp = "code_wiki_agent.mcp_server:main"
+graph-wiki-agent = "graph_wiki_agent.cli:app"
+graph-wiki-agent-mcp = "graph_wiki_agent.mcp_server:main"
 ```
 
 **What NOT to use:**
@@ -605,13 +605,13 @@ uv init --package packages/core-subagent
 uv init --package packages/core-eval
 
 # Create first agent
-uv init --package agents/code-wiki-agent
+uv init --package agents/graph-wiki-agent
 
 # Add deps to each package
 uv add --package core-bedrock "langchain-aws>=1.4.6" "boto3>=1.38"
 uv add --package core-subagent "deepagents>=0.6.1" "langgraph>=1.2.0" "langchain>=1.3.0"
 uv add --package core-eval "deepeval>=4.0.0"
-uv add --package code-wiki-agent \
+uv add --package graph-wiki-agent \
     "mcp>=1.27.1" "typer>=0.25.1" \
     "python-frontmatter>=1.1.0" "bm25s>=0.3.8" \
     "langchain-mcp-adapters>=0.2.2"

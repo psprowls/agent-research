@@ -13,7 +13,7 @@ updated: 2026-05-19T00:00:00Z
 ## Tests
 
 ### 1. Run the gated TRACE-FU-01 regression test against real Bedrock
-expected: `CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v` exits 0 and the assertion `tokens_in/tokens_out is not None` holds for every non-error / non-event JSONL record produced by a real fan-out against the round-trip fixture vault.
+expected: `GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest agents/graph-wiki-agent/tests/integration/test_trace_coverage.py -x -v` exits 0 and the assertion `tokens_in/tokens_out is not None` holds for every non-error / non-event JSONL record produced by a real fan-out against the round-trip fixture vault.
 result: pass
 verified: 2026-05-19 (Phase 16-02 closure) — gated Bedrock re-run `1 passed in 14.02s` after TaskResult contract migration of all 4 fan-out callsites (scanner, linter, librarian, code_reader). Sample librarian success records: `concepts/code-wiki-pattern.md` tokens_in=2804 tokens_out=119 cost_usd=$0.003399. Closure documented in 16-02-SUMMARY.md and 16-VERIFICATION.md G-01 entry (status: CLOSED, SC#1 ✓ VERIFIED). Commits: e97ae7f, 629f077, 4df6ace, 68de2ca.
 
@@ -47,8 +47,8 @@ blocked: 0
 status: closed
 source_test: 1
 evidence: |
-  CODE_WIKI_RUN_INTEGRATION=1 uv run pytest \
-    agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v
+  GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest \
+    agents/graph-wiki-agent/tests/integration/test_trace_coverage.py -x -v
   -> FAILED on librarian record:
      model=us.anthropic.claude-haiku-4-5-20251001-v1:0
      item=packages/lattice-curator-core/context.md

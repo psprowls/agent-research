@@ -33,15 +33,15 @@ All 7 SUMMARY.md files exist and are substantive.
 
 ## Success Criteria Verification
 
-### SC-1: `CODE_WIKI_RUN_EVAL=1 pytest` completes against all 6 agent roles on live Bedrock without credential/access errors (BED-01 gate passes)
+### SC-1: `GRAPH_WIKI_RUN_EVAL=1 pytest` completes against all 6 agent roles on live Bedrock without credential/access errors (BED-01 gate passes)
 
 **Status: MET**
 
 Evidence:
-- `test_full_matrix_live` committed at `cores/eval-harness/tests/eval/test_sweep_eval.py:239`. Gates behind `CODE_WIKI_RUN_EVAL=1` and `--run-eval`. Asserts `"[BED-01] Bedrock connectivity confirmed."` in captured stdout (line 290-291).
+- `test_full_matrix_live` committed at `cores/eval-harness/tests/eval/test_sweep_eval.py:239`. Gates behind `GRAPH_WIKI_RUN_EVAL=1` and `--run-eval`. Asserts `"[BED-01] Bedrock connectivity confirmed."` in captured stdout (line 290-291).
 - `run_full_matrix` (sweep.py:705) is the production driver. It calls `preflight_check` which performs the BED-01 ping as a pre-condition.
 - The live matrix executed on 2026-05-17 (commit `2c7bb0a`): 240 cells ok / 0 errors. qwen3-32b access confirmed without credential issues (documented in STORY.md Caveats). Total spend $3.5516 vs $25.00 hard cap.
-- Caveat (noted, not penalized): `test_full_matrix_live` was not re-executed via pytest in the plan session — the live matrix ran via direct Python invocation to avoid paying $6 in duplicate Bedrock spend. The test exists, is gated, and asserts BED-01 confirmation. The gate and assertion code are substantive (not stubs). Future runs via `CODE_WIKI_RUN_EVAL=1 pytest` will exercise the full path.
+- Caveat (noted, not penalized): `test_full_matrix_live` was not re-executed via pytest in the plan session — the live matrix ran via direct Python invocation to avoid paying $6 in duplicate Bedrock spend. The test exists, is gated, and asserts BED-01 confirmation. The gate and assertion code are substantive (not stubs). Future runs via `GRAPH_WIKI_RUN_EVAL=1 pytest` will exercise the full path.
 
 ### SC-2: A committed cost-frontier table exists under `.planning/` or `docs/` showing model x quality x cost per role
 
@@ -102,7 +102,7 @@ Evidence:
 | Artifact | Lines/Size | Status | Notes |
 |----------|------------|--------|-------|
 | `cores/eval-harness/src/eval_harness/sweep.py` | 916 lines | VERIFIED | Substantive: `run_full_matrix`, `run_role_sweep`, per-role dispatch, contextvar usage capture, Pareto renderer |
-| `cores/eval-harness/tests/eval/test_sweep_eval.py` | - | VERIFIED | `test_full_matrix_live` at line 239; gated on `CODE_WIKI_RUN_EVAL=1`; asserts BED-01 confirmation |
+| `cores/eval-harness/tests/eval/test_sweep_eval.py` | - | VERIFIED | `test_full_matrix_live` at line 239; gated on `GRAPH_WIKI_RUN_EVAL=1`; asserts BED-01 confirmation |
 | `cores/model-adapter/src/model_adapter/models.toml` | 143 lines | VERIFIED | All 6 in-scope roles have sweep-candidate blocks, provenance lines, correct defaults |
 | `.planning/sweep/STORY.md` | 89 lines | VERIFIED | Complete cost narrative with caveats and followup requirements |
 | `.planning/sweep/INDEX.md` | - | VERIFIED | Links all 6 per-role docs |

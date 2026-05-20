@@ -15,7 +15,7 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 **In scope:**
 - `packages/vault-io/DRIFT-DECISIONS.md` + `DRIFT-DECISIONS-RAW.md` (per-file diff dump + verdict table).
 - Backport of substantive changes for the 9 candidate modules from spike 002 §A (lint/*, init_vault.py, ingest_work_item.py, append_log, update_index, update_tokens, layout_io, detect_containers, scan_monorepo, ingest_source — total 11 rows including byte-identical git_state.py).
-- Rebrand sweep across `packages/vault-io/src/` (12 modules with hits), `packages/eval-harness/src/` (rubric/source files, NOT baselines), `agents/code-wiki-agent/src/`, `CLAUDE.md`, and the live `.planning/` surface (current ROADMAP.md section, REQUIREMENTS.md, STATE.md, PROJECT.md current sections).
+- Rebrand sweep across `packages/vault-io/src/` (12 modules with hits), `packages/eval-harness/src/` (rubric/source files, NOT baselines), `agents/graph-wiki-agent/src/`, `CLAUDE.md`, and the live `.planning/` surface (current ROADMAP.md section, REQUIREMENTS.md, STATE.md, PROJECT.md current sections).
 - `.planning/spikes/CONVENTIONS.md` `cores/` → `packages/` correction (BRAND-02).
 - `scripts/check-brand.sh` — reproducible BRAND-04 grep-gate consuming an allowlist file.
 - Brand-allowlist file at repo root encoding the legitimate exclusions enumerated in this context.
@@ -80,7 +80,7 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 
 - **SQ-02 (Rebrand commit granularity):** One commit per surface. Five commits:
   1. `refactor: rebrand lattice → graph-wiki in packages/` (vault-io src, eval-harness non-baseline src — does NOT touch round-trip-vault/, baselines, rubrics).
-  2. `refactor: rebrand lattice → graph-wiki in agents/code-wiki-agent`.
+  2. `refactor: rebrand lattice → graph-wiki in agents/graph-wiki-agent`.
   3. `chore: create empty plugins/ directory placeholder` (only if not already present; Phase 14 will populate it).
   4. `docs: rebrand live planning surface to graph-wiki` (live ROADMAP/REQUIREMENTS/STATE/PROJECT/CLAUDE.md per R-03 scope).
   5. `chore: fix cores/ → packages/ reference in spikes/CONVENTIONS.md` (BRAND-02; tiny fix; could fold into commit 4 if cleaner).
@@ -135,8 +135,8 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 - `packages/vault-io/tests/{test_lint_modules,test_ingest_source,test_ingest_work_item,test_wikilink_predicate}.py` — `lattice` refs in test prose / expected strings; sweep updates, but pre-check whether the reference is testing real vault data (then it's allowlisted per R-01) vs prose.
 - `packages/eval-harness/src/eval_harness/{baseline,pricing}.py` — preliminary grep shows hits; executor verifies whether they reference baseline data (allowlist per R-02) vs implementation prose (rebrand).
 - `packages/eval-harness/tests/*.py` — same disambiguation: test data references vs identifier references.
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — Phase 11 already updated `--vault` help text; sweep verifies no surviving `lattice` references in CLI surface.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/*.py` + `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/*.py` — sweep updates any remaining `lattice` references in command prose and prompt fragments.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — Phase 11 already updated `--vault` help text; sweep verifies no surviving `lattice` references in CLI surface.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/*.py` + `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/*.py` — sweep updates any remaining `lattice` references in command prose and prompt fragments.
 - `CLAUDE.md` (repo root) — sweep updates the prose (the file already references graph-wiki / lattice-wiki together; current-state language gets rebranded, historical references in commit-history-style prose may need allowlisting case by case).
 - `.planning/ROADMAP.md` (active sections), `.planning/REQUIREMENTS.md`, `.planning/STATE.md`, `.planning/PROJECT.md` (current sections only — see R-03).
 - `.planning/spikes/CONVENTIONS.md` — `cores/` → `packages/` (BRAND-02).
@@ -166,7 +166,7 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 - **`uv run pytest` as the green-or-revert gate** — used through v1.0 + v1.1; SQ-03 doesn't introduce a new gate, just enforces it per surface.
 
 ### Integration Points
-- **No new package boundary changes.** All work is intra-package within `vault-io`, `eval-harness` (rubric prose only), `agents/code-wiki-agent` (prose only), and `.planning/`.
+- **No new package boundary changes.** All work is intra-package within `vault-io`, `eval-harness` (rubric prose only), `agents/graph-wiki-agent` (prose only), and `.planning/`.
 - **No MCP boundary changes.** Phase 11 D-02 (two-tier passthrough) is unaffected; vault-io's `resolve_wiki_and_repo` signature is bit-identical.
 - **`scripts/check-brand.sh` consumed by:** Phase 12 verification, future Phase 13–16 verifications (cheap re-run), any future re-sync between vault-io and upstream lattice-wiki-core.
 - **No trace / observability pipeline touch.** Rebrand of trace JSONL schema is out of scope (Phase 16 owns TRACE-FU-01).

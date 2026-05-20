@@ -81,7 +81,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Real fan-out + assert field | Run real scan/ingest/query (gated by CODE_WIKI_RUN_INTEGRATION) against tmp_path vault; parse JSONL; assert non-None tokens on every record. | ✓ |
+| Real fan-out + assert field | Run real scan/ingest/query (gated by GRAPH_WIKI_RUN_INTEGRATION) against tmp_path vault; parse JSONL; assert non-None tokens on every record. | ✓ |
 | Stub LLM + assert writer called | Mock ChatBedrockConverse; drive command functions; parse trace files. Zero Bedrock cost. | |
 | Static grep gate + integration test | (a) grep ChatBedrockConverse outside helper fails build; (b) one real-fan-out integration test. Belt + braces. | |
 
@@ -169,7 +169,7 @@ Pre-question state captured: The named test `test_load_role_config_synthesizer_u
 ## Claude's Discretion
 
 - Exact home for the trace helper (`subagent_runtime/trace_io.py` vs. module-level in `pool.py` vs. new tiny package).
-- Exact form of `CODE_WIKI_RUN_INTEGRATION` grep gate (Bash script vs. pytest meta-test).
+- Exact form of `GRAPH_WIKI_RUN_INTEGRATION` grep gate (Bash script vs. pytest meta-test).
 - Exact content of new `code_reader` + `synthesizer` divergence rubrics (rule count, rule shape).
 - Exact case text and case_ids for the 2–3 new `code_reader` cases.
 - Synthetic fixture vault location (`packages/eval-harness/tests/fixtures/` vs. repo-level `tests/fixtures/`).

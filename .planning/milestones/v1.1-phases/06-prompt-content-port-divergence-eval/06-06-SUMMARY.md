@@ -1,7 +1,7 @@
 ---
 phase: 06-prompt-content-port-divergence-eval
 plan: "06"
-subsystem: code-wiki-agent/prompts
+subsystem: graph-wiki-agent/prompts
 tags: [prompt-port, linter, lint-command, three-group-fanout, PORT-04]
 dependency_graph:
   requires: [06-03]
@@ -14,10 +14,10 @@ tech_stack:
     - syrupy snapshot tests for composed prompt strings
 key_files:
   created:
-    - agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
 decisions:
   - "LINT_PRIORITY_ORDER defined as linter-only local constant (not a shared fragment) per PATTERNS.md — the prioritization rule is linter-specific"
   - "Each group prompt targets <3000 chars (all three within budget: 2469, 2058, 2116 chars)"
@@ -87,8 +87,8 @@ No new network endpoints, auth paths, or schema changes introduced. The 3 compos
 
 ## Self-Check
 
-- [x] `agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py` exists
-- [x] `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` exists (with 3 linter snapshots)
+- [x] `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py` exists
+- [x] `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` exists (with 3 linter snapshots)
 - [x] Commit d07f016 exists in git log
 - [x] Commit 6117919 exists in git log
 - [x] No inline LINTER_*_SYSTEM definitions in commands/lint.py

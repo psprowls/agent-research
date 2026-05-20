@@ -27,7 +27,7 @@ key-files:
 decisions:
   - "Allowlist entries use path fragments (e.g., `packages/eval-harness/baselines/`) not exact paths — the gate's `grep -vF -f` does substring matching so a fragment safely covers all files under a directory while remaining specific enough to avoid over-allowing."
   - "Self-allowlist `.brand-grep-allow` + `scripts/check-brand.sh` (per R-04 §Claude's Discretion) — both files literally contain `lattice` as pattern/documentation."
-  - "Post-hoc carry-forward additions for hits not enumerated by plan 03's `12-03-carry-forward-refs.md`: `packages/workspace-io/` (Provenance — ported from upstream lattice-workspace), `packages/prompt-sources/` (Provenance — canonical upstream SKILL.md prose), `packages/eval-harness/baselines/divergence-{ingestor,librarian}.json` (R-02 — recorded baseline JSONs), `agents/code-wiki-agent/tests/commands/test_lint_parity.py` + `tests/prompts/test_provenance.py` (Provenance — test-prose port-history refs). All classified against existing R-01/R-02/R-03 decisions; no genuine missed rebrand."
+  - "Post-hoc carry-forward additions for hits not enumerated by plan 03's `12-03-carry-forward-refs.md`: `packages/workspace-io/` (Provenance — ported from upstream lattice-workspace), `packages/prompt-sources/` (Provenance — canonical upstream SKILL.md prose), `packages/eval-harness/baselines/divergence-{ingestor,librarian}.json` (R-02 — recorded baseline JSONs), `agents/graph-wiki-agent/tests/commands/test_lint_parity.py` + `tests/prompts/test_provenance.py` (Provenance — test-prose port-history refs). All classified against existing R-01/R-02/R-03 decisions; no genuine missed rebrand."
   - "No allowlist iteration during gate run — gate passed first try (GATE_RC=0 on initial invocation), so Task 2 added no commit per plan §Task 2 last paragraph."
 metrics:
   duration: ~10 minutes wall-clock
@@ -136,7 +136,7 @@ CLAUDE.md
 packages/vault-io/src/vault_io/__init__.py
 packages/vault-io/src/vault_io/ingest_work_item.py
 packages/vault-io/src/vault_io/ingest_source.py
-agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
 
 # Test prose / Upstream-guard / Test-data
 packages/vault-io/tests/test_ingest_source.py
@@ -159,8 +159,8 @@ packages/workspace-io/src/workspace_io/config.py
 packages/workspace-io/tests/test_local_config.py
 packages/workspace-io/tests/test_warn_if_stale.py
 packages/prompt-sources/
-agents/code-wiki-agent/tests/commands/test_lint_parity.py
-agents/code-wiki-agent/tests/prompts/test_provenance.py
+agents/graph-wiki-agent/tests/commands/test_lint_parity.py
+agents/graph-wiki-agent/tests/prompts/test_provenance.py
 ```
 
 (See `.brand-grep-allow` at repo root for the verbatim file including full rationale comments.)
@@ -192,7 +192,7 @@ None — gate passed on first invocation; no iteration loop entered.
 
 ### Claude's Discretion exercised
 
-1. **Post-hoc carry-forward additions** — plan 03 enumerated 52 references but the gate's initial dry-run surfaced additional files with `lattice` hits that plan 03 did not list (`packages/prompt-sources/`, `packages/workspace-io/`, `packages/eval-harness/baselines/divergence-*.json`, `agents/code-wiki-agent/tests/commands/test_lint_parity.py`, `agents/code-wiki-agent/tests/prompts/test_provenance.py`). Each was inspected: every hit is either Provenance (workspace-io ported from upstream lattice-workspace; prompt-sources mirrors upstream lattice-wiki SKILL.md; test-prose names upstream packages as the parity/non-import target) or R-02 (recorded eval-baseline JSONs). Per plan §Task 2 ("carry-forward refs that plan 03 forgot to record"), added these under a `# carry-forward (post-hoc):` section. No operator approval needed — none is a genuine missed rebrand.
+1. **Post-hoc carry-forward additions** — plan 03 enumerated 52 references but the gate's initial dry-run surfaced additional files with `lattice` hits that plan 03 did not list (`packages/prompt-sources/`, `packages/workspace-io/`, `packages/eval-harness/baselines/divergence-*.json`, `agents/graph-wiki-agent/tests/commands/test_lint_parity.py`, `agents/graph-wiki-agent/tests/prompts/test_provenance.py`). Each was inspected: every hit is either Provenance (workspace-io ported from upstream lattice-workspace; prompt-sources mirrors upstream lattice-wiki SKILL.md; test-prose names upstream packages as the parity/non-import target) or R-02 (recorded eval-baseline JSONs). Per plan §Task 2 ("carry-forward refs that plan 03 forgot to record"), added these under a `# carry-forward (post-hoc):` section. No operator approval needed — none is a genuine missed rebrand.
 
 2. **Path-fragment vs. exact path** — chose fragments (e.g., `packages/eval-harness/baselines/`, `packages/prompt-sources/`) over per-file enumeration for whole-directory allowlist groups. Trade-off: fragment is broader (covers future additions to the directory) but specific enough that no R-out-of-scope file accidentally matches. Documented in decisions.
 

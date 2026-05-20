@@ -12,7 +12,7 @@ requires:
   - phase: 04-eval-harness
     provides: cost_usd field populated by SubagentPool._compute_cost_usd at write time
 provides:
-  - per-(role, model_id) cost rollup section in `code-wiki-agent trace <file>` Summary block
+  - per-(role, model_id) cost rollup section in `graph-wiki-agent trace <file>` Summary block
   - by_role_model breakdown structure on _aggregate_trace return value (dict keyed by "<role>|<model_id>")
   - test_aggregate_trace_by_role_model_groups_and_costs locks the aggregator shape
   - test_cost_rollup_format_six_decimals locks D-09 numerics and D-15 ordering in default-mode rendering
@@ -30,8 +30,8 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-    - agents/code-wiki-agent/tests/unit/test_trace_viewer.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+    - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
 
 key-decisions:
   - "by_role_model shape: dict keyed by 'role|model_id' string with inner {role, model_id, count, tokens_in, tokens_out, cost_usd_sum, unknown_cost_count}. Chose the pipe-delimited string key (over tuple key or list-of-dicts) for trivial JSON serializability + straightforward iteration in the renderer."
@@ -67,8 +67,8 @@ completed: 2026-05-17
 - `$0.000000` six-decimal format (D-09) via `f"${value:.6f}"`. Partial-null groups append ` (+K unknown)`; fully-null groups render `$n/a (K unknown)` and sort last (D-15).
 - Sort policy (D-15) split into two passes — `known` (count > unknown_cost_count) sorted by `(-cost_usd_sum, role, model_id)`, then `unknown` (fully-null) sorted by `(role, model_id)`, concatenated `known + unknown`.
 - `Cost USD: (Phase 4)` placeholder fully removed from `cli.py`.
-- Dropped the `'Phase 4'` half of the legacy OR-assertion in `test_trace_command_prints_summary_block`. Verified `grep -r "Phase 4" agents/code-wiki-agent/tests/` returns zero matches.
-- Renderer has zero `eval_harness` imports — verified via `grep -E "from eval_harness|import eval_harness" agents/code-wiki-agent/src/code_wiki_agent/cli.py` (D-10).
+- Dropped the `'Phase 4'` half of the legacy OR-assertion in `test_trace_command_prints_summary_block`. Verified `grep -r "Phase 4" agents/graph-wiki-agent/tests/` returns zero matches.
+- Renderer has zero `eval_harness` imports — verified via `grep -E "from eval_harness|import eval_harness" agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (D-10).
 - Per-item record lines emitted earlier in the timeline are byte-identical to the pre-Phase-9 output — `_render_trace_record` was not touched (D-08).
 
 ## Task Commits
@@ -82,10 +82,10 @@ Each task committed atomically with RED + GREEN split:
 
 ## Files Created/Modified
 
-- **`agents/code-wiki-agent/src/code_wiki_agent/cli.py`** (modified)
+- **`agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`** (modified)
   - `_aggregate_trace` extended: new `by_role_model: defaultdict` accumulator; D-11 discriminator skips records with `event` or `kind` keys; numeric guard via `float(cost)` on the non-null branch (T-09-06 — raises loudly on non-numeric inputs rather than silently mis-summing).
   - `trace` command: removed `typer.echo("Cost USD: (Phase 4)")` placeholder; appended `Cost rollup (per role/model):` section with sort-then-emit loop.
-- **`agents/code-wiki-agent/tests/unit/test_trace_viewer.py`** (modified)
+- **`agents/graph-wiki-agent/tests/unit/test_trace_viewer.py`** (modified)
   - Added `from syrupy.assertion import SnapshotAssertion` and `from functools import lru_cache` to imports.
   - Added `_HAIKU_MODEL` / `_SONNET_MODEL` / `_QWEN_MODEL` module constants for fixture readability.
   - Added `_write_cost_rollup_fixture(tmp_path)` mixed-(role, model_id) JSONL writer.
@@ -118,16 +118,16 @@ None — purely additive renderer extension. No env vars, no migrations, no sche
 
 ## Next Phase Readiness
 
-- **Plan 09-04 (consecutive-same-role collapsing + `--expand`):** the snapshot test in this plan is already in place and skipif-guarded. Once 09-04 lands `--expand`, running `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/test_trace_viewer.py::test_cost_rollup_snapshot --snapshot-update` will record the `.ambr` file. The chosen `--expand`-mode capture means the timeline is invariant to 09-04's default-collapse behavior.
+- **Plan 09-04 (consecutive-same-role collapsing + `--expand`):** the snapshot test in this plan is already in place and skipif-guarded. Once 09-04 lands `--expand`, running `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/test_trace_viewer.py::test_cost_rollup_snapshot --snapshot-update` will record the `.ambr` file. The chosen `--expand`-mode capture means the timeline is invariant to 09-04's default-collapse behavior.
 - **Plan 09-05 (v0 backward-compat + schema_version-too-new warnings):** OBS-05 is now closed by this plan; OBS-04's renderer half remains for 09-05. The renderer's `record.get(..., "-")` / `record.get(...) or 0` defensive idiom is preserved, so unversioned fixtures continue to render through the rollup pass without raising.
-- **ROADMAP success criterion 2 ("`code-wiki-agent trace <file>` displays per-subagent cost ... for each fan-out call")** is satisfied — per-`(role, model_id)` cost is now rolled up from per-record `cost_usd`.
+- **ROADMAP success criterion 2 ("`graph-wiki-agent trace <file>` displays per-subagent cost ... for each fan-out call")** is satisfied — per-`(role, model_id)` cost is now rolled up from per-record `cost_usd`.
 
 ## Self-Check
 
 **Files modified (verified):**
 
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — FOUND (modified, status M before commits; staged + committed in 559a77a and 13e106b)
-- `agents/code-wiki-agent/tests/unit/test_trace_viewer.py` — FOUND (modified, status M before commits; staged + committed in 8c0f7d4, d4ff585, 13e106b)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — FOUND (modified, status M before commits; staged + committed in 559a77a and 13e106b)
+- `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — FOUND (modified, status M before commits; staged + committed in 8c0f7d4, d4ff585, 13e106b)
 
 **Commits (verified by hash in `git log --oneline`):**
 
@@ -138,11 +138,11 @@ None — purely additive renderer extension. No env vars, no migrations, no sche
 
 **Plan-level verify-block invariants (all 5 checks):**
 
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/test_trace_viewer.py` — 7 passed, 1 skipped (test_cost_rollup_snapshot self-skipped per 09-04 dependency) — PASS
-- `grep "Cost USD: (Phase 4)" agents/code-wiki-agent/src/code_wiki_agent/cli.py` — 0 hits — PASS
-- `grep -r "Phase 4" agents/code-wiki-agent/tests/` — 0 hits — PASS
-- `grep -E "from eval_harness|import eval_harness" agents/code-wiki-agent/src/code_wiki_agent/cli.py` — 0 hits — PASS
-- Full `agents/code-wiki-agent/tests/unit/` suite: 144 passed, 1 skipped — PASS (no regressions)
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — 7 passed, 1 skipped (test_cost_rollup_snapshot self-skipped per 09-04 dependency) — PASS
+- `grep "Cost USD: (Phase 4)" agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — 0 hits — PASS
+- `grep -r "Phase 4" agents/graph-wiki-agent/tests/` — 0 hits — PASS
+- `grep -E "from eval_harness|import eval_harness" agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — 0 hits — PASS
+- Full `agents/graph-wiki-agent/tests/unit/` suite: 144 passed, 1 skipped — PASS (no regressions)
 
 ## Self-Check: PASSED
 

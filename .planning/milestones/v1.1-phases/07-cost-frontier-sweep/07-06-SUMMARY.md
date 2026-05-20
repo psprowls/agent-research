@@ -69,7 +69,7 @@ completed: 2026-05-16
 - Added four new pure-function renderers to `report.py`: `pareto_frontier`, `render_role_doc`, `render_recommendation_block`, `render_index_md` — all return strings, no filesystem writes
 - Lifted `pytest.mark.skip` from `test_report_role_doc.py` and `test_recommendation_block.py`; 7 unit tests pass
 - Created `.planning/sweep/.gitkeep` so the directory is committed and no downstream writer needs to create it
-- Implemented dry-run integration test composing `render_role_doc` + `render_index_md` for all 6 roles under mocked Bedrock ($0 spend); 3 tests pass under `CODE_WIKI_RUN_EVAL=1 --run-eval`
+- Implemented dry-run integration test composing `render_role_doc` + `render_index_md` for all 6 roles under mocked Bedrock ($0 spend); 3 tests pass under `GRAPH_WIKI_RUN_EVAL=1 --run-eval`
 - No regressions in the quick suite: 150 passed
 
 ## Rendered Example: render_recommendation_block for librarian

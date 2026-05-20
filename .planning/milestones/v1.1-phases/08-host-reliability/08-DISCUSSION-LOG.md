@@ -13,7 +13,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Extend in-process JSON-RPC client (Phase 3 pattern) | `subprocess.Popen([uv, run, code-wiki-mcp])` with hand-built JSON-RPC frames over stdin/stdout. Zero new deps, full protocol control, deterministic. Honest framing: "spec-conformant MCP host that DeepAgents CLI also implements." | ✓ |
+| Extend in-process JSON-RPC client (Phase 3 pattern) | `subprocess.Popen([uv, run, graph-wiki-mcp])` with hand-built JSON-RPC frames over stdin/stdout. Zero new deps, full protocol control, deterministic. Honest framing: "spec-conformant MCP host that DeepAgents CLI also implements." | ✓ |
 | Real `deepagents` CLI binary as host | Install actual deepagents + CLI; configure it to launch our server. Maximally realistic, but adds heavy test dep, version-drift risk, fragile if upstream config schema changes. | |
 | `langchain-mcp-adapters` in-process client | Load own MCP server as LangChain tools inside test process. Stdio becomes in-process pipes (not real subprocess); less control over cancel timing; adds a workspace dep that isn't present. | |
 
@@ -72,7 +72,7 @@
 | Inject a fake model via `SubagentPool` task closure | Surgical, no library patching; bypasses the model-adapter → ChatBedrockConverse → thread-wrap path that's the actual orphan-call risk surface. | |
 
 **User's choice:** Monkeypatch `ChatBedrockConverse` via `model_adapter.factory.make_chat_model`
-**Notes:** Enables the cancel test to run unconditionally (no `CODE_WIKI_RUN_INTEGRATION=1` gate) — same status as the existing JSON-RPC stdout test. The orphan-call story moves to a verification-only manual snippet referenced in `docs/cancellation.md` (D-11).
+**Notes:** Enables the cancel test to run unconditionally (no `GRAPH_WIKI_RUN_INTEGRATION=1` gate) — same status as the existing JSON-RPC stdout test. The orphan-call story moves to a verification-only manual snippet referenced in `docs/cancellation.md` (D-11).
 
 ---
 

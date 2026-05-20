@@ -5,9 +5,9 @@ subsystem: prompts/_fragments
 tags: [fragment, vault-layout, architecture, provenance]
 requires: []
 provides:
-  - "code_wiki_agent.prompts._fragments.architecture_overview.ARCHITECTURE_OVERVIEW"
+  - "graph_wiki_agent.prompts._fragments.architecture_overview.ARCHITECTURE_OVERVIEW"
 affects:
-  - "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/"
+  - "agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/"
 tech-stack:
   added: []
   patterns:
@@ -16,7 +16,7 @@ tech-stack:
     - "Triple-quoted string with opening-backslash idiom to avoid leading blank line"
 key-files:
   created:
-    - "agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py"
   modified: []
 decisions:
   - "Heading is `## Vault layout` (not `## Architecture`) — subagents need layout context, not arch theory"
@@ -40,7 +40,7 @@ Added the `ARCHITECTURE_OVERVIEW` shared fragment carrying a compact rewrite of 
 
 ## What was built
 
-A single new module `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py`:
+A single new module `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py`:
 
 - 3-line provenance header pointing to `cores/prompt-sources/SKILL.md`, anchor `## Architecture (L34-L69)`, source-commit `ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030`.
 - Module-level constant `ARCHITECTURE_OVERVIEW` (triple-quoted string, opening-backslash idiom matching `iron_rules.py`).
@@ -53,16 +53,16 @@ All acceptance criteria pass:
 
 | Check | Result |
 |---|---|
-| File exists at `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py` | PASS |
+| File exists at `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py` | PASS |
 | First three lines match exact provenance header | PASS |
 | `grep -c "^ARCHITECTURE_OVERVIEW = \"\"\""` reports 1 | PASS (1) |
-| Import `from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW` succeeds | PASS |
+| Import `from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW` succeeds | PASS |
 | `.startswith("## Vault layout")` | PASS |
 | Contains `packages/<pkg>/`, `apps/<app>/`, `domains/<domain>/`, `adrs/`, `[conditional]` | PASS |
 | Contains "code is the source of truth" | PASS |
 | `len(ARCHITECTURE_OVERVIEW) // 4 <= 700` | PASS (546) |
-| `pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x` exits 0 | PASS (2/2) |
-| No `from code_wiki_agent` imports in the new file | PASS (0) |
+| `pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x` exits 0 | PASS (2/2) |
+| No `from graph_wiki_agent` imports in the new file | PASS (0) |
 | No edits outside the new file | PASS (only file in commit) |
 
 ## Deviations from Plan
@@ -83,5 +83,5 @@ None — plan executed exactly as written. First draft was 695 tokens (within th
 
 ## Self-Check: PASSED
 
-- File `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py`: FOUND
+- File `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py`: FOUND
 - Commit `1570c7a`: FOUND in `git log --oneline --all`

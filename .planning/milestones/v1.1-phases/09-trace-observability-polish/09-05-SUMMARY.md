@@ -33,8 +33,8 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-    - agents/code-wiki-agent/tests/unit/test_trace_viewer.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+    - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
 
 key-decisions:
   - "v0 warning string (Claude's Discretion per 09-CONTEXT.md): 'warning: trace file <path> contains unversioned records; treating as schema_version=0 (pre-Phase-9 shape); rendering best-effort' — single line, mentions file path, contains all three markers (unversioned / schema_version=0 / pre-Phase-9) on one line so the one-shot test's per-line semantics is the only correct measure"
@@ -54,7 +54,7 @@ completed: 2026-05-17
 
 # Phase 9 Plan 5: schema_version-aware Renderer Warnings Summary
 
-**Closed OBS-04's consumer half: the trace renderer now detects unversioned records (one-shot per-file v0 warning per D-04) and records with `schema_version` greater than the renderer's known max (one-shot per-file lenient-consumer warning per D-03), continues rendering in both cases, and is locked by four focused tests including one that exercises the real unversioned fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/`.**
+**Closed OBS-04's consumer half: the trace renderer now detects unversioned records (one-shot per-file v0 warning per D-04) and records with `schema_version` greater than the renderer's known max (one-shot per-file lenient-consumer warning per D-03), continues rendering in both cases, and is locked by four focused tests including one that exercises the real unversioned fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/`.**
 
 ## Performance
 
@@ -76,7 +76,7 @@ completed: 2026-05-17
 - Exit code stays 0 in both warning paths (lenient consumer)
 - Non-integer `schema_version` values are silently rendered best-effort (T-09-15 mitigation)
 - Renderer has zero `eval_harness` imports (D-10 invariant preserved)
-- The real fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` render successfully with exactly one v0 warning each — fixtures themselves are NOT rewritten
+- The real fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` render successfully with exactly one v0 warning each — fixtures themselves are NOT rewritten
 
 ## Plan-Required Artifacts
 
@@ -86,7 +86,7 @@ completed: 2026-05-17
   ```
   (Single line; mentions the file path per D-04; intentionally contains all three markers — `unversioned`, `schema_version=0`, `pre-Phase-9` — on the same line, which is why the one-shot test must use per-line semantics rather than substring count.)
 
-- **Exact location of `KNOWN_SCHEMA_VERSION`:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py` **line 32** (module-level, immediately after the `Typer` app construction so the constant lives alongside other top-level renderer state).
+- **Exact location of `KNOWN_SCHEMA_VERSION`:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` **line 32** (module-level, immediately after the `Typer` app construction so the constant lives alongside other top-level renderer state).
 
 - **Test names added:**
   - `test_v0_real_fixture_renders_and_warns_once`
@@ -94,7 +94,7 @@ completed: 2026-05-17
   - `test_versioned_clean_emits_no_version_warning`
   - `test_v0_warning_emitted_once_per_file`
 
-- **Path of the real v0 fixture used in `test_v0_real_fixture_renders_and_warns_once`:** `cores/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/1779049934_249e599f.jsonl` (the first entry of `sorted(_REAL_V0_FIXTURE_DIR.glob("*.jsonl"))` — the test resolves it dynamically so a new fixture landing earlier in lexicographic order would be picked up automatically; selection is deterministic for a given fixture set).
+- **Path of the real v0 fixture used in `test_v0_real_fixture_renders_and_warns_once`:** `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1779049934_249e599f.jsonl` (the first entry of `sorted(_REAL_V0_FIXTURE_DIR.glob("*.jsonl"))` — the test resolves it dynamically so a new fixture landing earlier in lexicographic order would be picked up automatically; selection is deterministic for a given fixture set).
 
 ## Task Commits
 
@@ -105,8 +105,8 @@ Each task was committed atomically; the pair forms a single TDD cycle:
 
 ## Files Modified
 
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — added module-level `KNOWN_SCHEMA_VERSION = 1` at line 32; extended the `trace` command's parse-and-collect loop with `warned_v0` and `warned_newer` per-file booleans plus the two D-03/D-04 warning branches (lines 244-273). Total addition: 34 lines.
-- `agents/code-wiki-agent/tests/unit/test_trace_viewer.py` — added `_REAL_V0_FIXTURE_DIR` path helper resolving to the workspace's real v0 fixtures (via `Path(__file__).resolve().parents[4]`), two new inline fixture factories (`_write_newer_version_fixture`, `_write_unversioned_inline_fixture`), and four new tests. Total addition: 205 lines.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — added module-level `KNOWN_SCHEMA_VERSION = 1` at line 32; extended the `trace` command's parse-and-collect loop with `warned_v0` and `warned_newer` per-file booleans plus the two D-03/D-04 warning branches (lines 244-273). Total addition: 34 lines.
+- `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — added `_REAL_V0_FIXTURE_DIR` path helper resolving to the workspace's real v0 fixtures (via `Path(__file__).resolve().parents[4]`), two new inline fixture factories (`_write_newer_version_fixture`, `_write_unversioned_inline_fixture`), and four new tests. Total addition: 205 lines.
 
 ## Decisions Made
 
@@ -135,8 +135,8 @@ None — purely additive in-process change. No environment variables, dashboards
 ## Self-Check
 
 **Files modified (verified):**
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — FOUND (`grep -q "KNOWN_SCHEMA_VERSION = 1"` succeeds; `grep -q "is newer than supported"` succeeds; `grep -q "rendering best-effort"` succeeds; zero `eval_harness` imports)
-- `agents/code-wiki-agent/tests/unit/test_trace_viewer.py` — FOUND (`grep -c "schema_version"` >= 1; four new test functions defined)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — FOUND (`grep -q "KNOWN_SCHEMA_VERSION = 1"` succeeds; `grep -q "is newer than supported"` succeeds; `grep -q "rendering best-effort"` succeeds; zero `eval_harness` imports)
+- `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — FOUND (`grep -c "schema_version"` >= 1; four new test functions defined)
 
 **Commits (verified by hash in `git log --oneline`):**
 - `2c738ef` — test(09-05): add failing schema_version warning tests (RED) — FOUND

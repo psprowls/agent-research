@@ -8,7 +8,7 @@
 
 A locked, per-command contract surface for porting the upstream `lattice-wiki` Claude Code plugin into this repo as `plugins/graph-wiki/`. Phase 13 produces **specification artifacts only** — no plugin code is moved, no plugin scripts are written. The output is a directory of per-command spec files under `.planning/spec/13-plugin-contract/` that Phase 14 (M3b plugin port) can execute against without raising new design questions.
 
-**Foundational reframe (2026-05-18):** the ported graph-wiki plugin is a **Claude-Code-host path** — its slash commands run inside Claude Code (or any equivalent Claude-side harness) and use Claude Code's own inference for LLM work, exactly like upstream lattice-wiki today. The plugin is **not** a thin wrapper around `code-wiki-agent`. `code-wiki-agent` (Bedrock-backed CLI + MCP server) stays as the separate, headless, cost-frontier surface. The plugin and code-wiki-agent coexist as two parallel surfaces over the same underlying Python helper modules in `vault-io` / `workspace-io`. graph-wiki must be **functionally identical** to lattice-wiki under the new brand.
+**Foundational reframe (2026-05-18):** the ported graph-wiki plugin is a **Claude-Code-host path** — its slash commands run inside Claude Code (or any equivalent Claude-side harness) and use Claude Code's own inference for LLM work, exactly like upstream lattice-wiki today. The plugin is **not** a thin wrapper around `graph-wiki-agent`. `graph-wiki-agent` (Bedrock-backed CLI + MCP server) stays as the separate, headless, cost-frontier surface. The plugin and graph-wiki-agent coexist as two parallel surfaces over the same underlying Python helper modules in `vault-io` / `workspace-io`. graph-wiki must be **functionally identical** to lattice-wiki under the new brand.
 
 **In scope:**
 - `.planning/spec/13-plugin-contract/` — new directory containing one spec file per ported slash command (6 files; the 3 work-layer commands are explicitly marked DROP).
@@ -23,7 +23,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - Porting `lint_wiki.py` and `wiki_search.py` to `vault-io` (Phase 14, as the first step of the port).
 - Implementing the work-layer subsystem — `work/`, `archive_work`, `lint_work`, `regenerate_work_index`, `work_status`, `ingest_work_item` (PROJECT.md: explicitly out of v1.2; PROJECT.md note: GSD covers work-item lifecycle).
 - Porting `export_marp.py` (internal-only upstream module; no slash command references it; deferred indefinitely).
-- Touching `code-wiki-agent` or `code-wiki-mcp` to integrate them with the plugin in any way.
+- Touching `graph-wiki-agent` or `graph-wiki-mcp` to integrate them with the plugin in any way.
 - Wiki self-update against the rebranded codebase (Phase 15, BRAND-03).
 
 </domain>
@@ -33,8 +33,8 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 ### Inference path & functional parity
 
-- **P-01 (Plugin runs on Claude Code inference, NOT Bedrock.):** The ported graph-wiki plugin's LLM work — discussion checkpoints in `/ingest`, librarian synthesis in `/query`, scanner per-package review in `/scan`, semantic lint pass 2 in `/lint`, ingestor write-out — all happens via the host Claude Code session, same as upstream lattice-wiki today. There are no calls from plugin slash commands into `code-wiki-agent` or any Bedrock inference path during normal operation (see P-02 backend selector for the optional seam).
-- **P-02 (Backend selector seam preserved, claude default, bedrock optional.):** Upstream's `_config.py::backend_for(cmd)` selector survives the port. graph-wiki defaults to `backend = "claude"` for every command; users can opt into `backend = "bedrock"` per-command (which routes that one command's heavy LLM work into a `code-wiki-agent` subprocess instead of doing it inline in the Claude Code session). The seam exists so a future user who wants the cost-frontier path for one expensive operation (e.g., a big `/ingest`) can flip a flag without re-architecting. **Default for v1.2 is claude-everywhere; bedrock is the documented opt-in.**
+- **P-01 (Plugin runs on Claude Code inference, NOT Bedrock.):** The ported graph-wiki plugin's LLM work — discussion checkpoints in `/ingest`, librarian synthesis in `/query`, scanner per-package review in `/scan`, semantic lint pass 2 in `/lint`, ingestor write-out — all happens via the host Claude Code session, same as upstream lattice-wiki today. There are no calls from plugin slash commands into `graph-wiki-agent` or any Bedrock inference path during normal operation (see P-02 backend selector for the optional seam).
+- **P-02 (Backend selector seam preserved, claude default, bedrock optional.):** Upstream's `_config.py::backend_for(cmd)` selector survives the port. graph-wiki defaults to `backend = "claude"` for every command; users can opt into `backend = "bedrock"` per-command (which routes that one command's heavy LLM work into a `graph-wiki-agent` subprocess instead of doing it inline in the Claude Code session). The seam exists so a future user who wants the cost-frontier path for one expensive operation (e.g., a big `/ingest`) can flip a flag without re-architecting. **Default for v1.2 is claude-everywhere; bedrock is the documented opt-in.**
 - **P-03 (graph-wiki is functionally identical to lattice-wiki under the new brand.):** Same 9 slash commands' user-facing behavior, same iron rules, same checkpoints, same layout block, same frontmatter schema, same log entry format, same agent boundaries. The port is a rename + rewiring exercise, NOT a feature redesign. If a port choice would change behavior, the spec calls it out explicitly with rationale.
 
 ### Per-command verdict & shell-out target
@@ -66,7 +66,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - **SO-02 (Shim contents — the upstream pattern, retargeted.):** Each script file is a shim:
   ```python
   #!/usr/bin/env python3
-  """Plugin shim for <cmd> — dispatches to vault_io (claude backend) or code_wiki_agent (bedrock backend)."""
+  """Plugin shim for <cmd> — dispatches to vault_io (claude backend) or graph_wiki_agent (bedrock backend)."""
   import sys
   from pathlib import Path
 
@@ -82,9 +82,9 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
       backend = backend_for("<cmd>")
 
       if backend == "bedrock":
-          # Subprocess into code-wiki-agent for this command
+          # Subprocess into graph-wiki-agent for this command
           import subprocess
-          subprocess.run(["code-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)
+          subprocess.run(["graph-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)
       else:
           _core_main()
 
@@ -92,7 +92,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
   if __name__ == "__main__":
       main()
   ```
-  Mirrors upstream's shim structure (verified in `/Users/pat/Personal/lattice/plugins/lattice-wiki/skills/lattice-wiki/scripts/init_vault.py`), with two changes: (1) import from `vault_io` instead of `lattice_wiki_core`, (2) bedrock branch shells to `code-wiki-agent` CLI instead of importing `lattice_wiki_agent`.
+  Mirrors upstream's shim structure (verified in `/Users/pat/Personal/lattice/plugins/lattice-wiki/skills/lattice-wiki/scripts/init_vault.py`), with two changes: (1) import from `vault_io` instead of `lattice_wiki_core`, (2) bedrock branch shells to `graph-wiki-agent` CLI instead of importing `lattice_wiki_agent`.
 - **SO-03 (Backend selector config — `[plugin]` table inside `.graph-wiki.yaml`.):** Instead of upstream's separate `.lattice-wiki.json`, graph-wiki adds a `[plugin]` section to the existing workspace manifest:
   ```yaml
   plugin:
@@ -130,7 +130,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
   ## Shell-out contract
   - Invocation: `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" $ARGUMENTS`
-  - Target module: `vault_io.<module>.main` (claude backend) | `code-wiki-agent <cmd>` (bedrock backend)
+  - Target module: `vault_io.<module>.main` (claude backend) | `graph-wiki-agent <cmd>` (bedrock backend)
   - Args pass-through: <list of CLI flags, mapped 1:1 to upstream where possible; any reshape called out>
   - Pre-step (if any): <e.g., `vault_io.detect_containers.main --json` for /init>
 
@@ -164,7 +164,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
   - `wiki_search.py` (~194 LOC upstream) must be ported into `packages/vault-io/src/vault_io/wiki_search.py` as Plan 2 of Phase 14, with tests, before `/graph-wiki:query`'s BM25 fallback works.
 - **VP-02 (Same shape as Phase 12 backports.):** Apply the Phase 12 SR-01 rubric — bug fixes, helper extractions, behavior-preserving refactors all come over verbatim. Mirror upstream module shape (`main()` entry point, CLI argparse, returns structured result). Add to vault-io's `pyproject.toml` if it gains new console scripts (likely not — they're shims, called via `python3 <path>`).
 - **VP-03 (BRAND-04 grep gate already covers these:** Once ported, both files participate in the `scripts/check-brand.sh` gate established in Phase 12 — they must rename `lattice` → `graph-wiki` in identifiers and prose during the port. Standard Phase 12 sweep behavior.
-- **VP-04 (Both modules unblock the eval-harness too.):** Side benefit — `code-wiki-agent lint` and `code-wiki-agent query` can use these modules through their existing role-prompt paths once ported. Not a Phase 13 commitment; just worth noting that the port pays back in both surfaces.
+- **VP-04 (Both modules unblock the eval-harness too.):** Side benefit — `graph-wiki-agent lint` and `graph-wiki-agent query` can use these modules through their existing role-prompt paths once ported. Not a Phase 13 commitment; just worth noting that the port pays back in both surfaces.
 
 ### Plugin discovery & runtime requirements
 
@@ -216,7 +216,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - `packages/vault-io/src/vault_io/lint/*.py` — `/graph-wiki:lint`'s mechanical pass 1 dispatches lint rule modules from here.
 - `packages/workspace-io/src/workspace_io/manifest.py` — Phase 14 extends this to read the new `[plugin]` block (SO-03). Phase 13 spec calls out the extension; Phase 14 implements it.
 - `packages/workspace-io/src/workspace_io/config.py` — `GraphWikiConfig.resolve()` already discovers the workspace from cwd; `_config.py` in the plugin scripts uses it to find the manifest.
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — the bedrock-branch subprocess target (SO-02); spec asserts the CLI surface remains `code-wiki-agent <cmd> <args>` so plugin shims can shell to it without translation.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — the bedrock-branch subprocess target (SO-02); spec asserts the CLI surface remains `graph-wiki-agent <cmd> <args>` so plugin shims can shell to it without translation.
 - `CLAUDE.md` — Python 3.11+, uv workspace, MCP stdio convention. Phase 13 spec does not need to change CLAUDE.md (Phase 12 already landed rebrand changes); Phase 14 will add a graph-wiki plugin section.
 - `scripts/check-brand.sh` + `.brand-grep-allow` — Phase 12 gate; lint_wiki + wiki_search ports must clear this gate when added in Phase 14.
 
@@ -237,7 +237,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - **Phase 12 `scripts/check-brand.sh` + `.brand-grep-allow`** — Phase 14's rename pass for the plugin folder reuses this gate verbatim. No new infrastructure needed.
 - **`workspace_io.manifest.read()`** — already parses `.graph-wiki.yaml`; extending it to surface a `[plugin]` block is a small add (Phase 14, not 13).
 - **`workspace_io.config.resolve()`** — already walks up from cwd to discover the workspace. The plugin shims call this for path resolution before delegating to the chosen backend.
-- **Phase 11 D-02 (two-tier passthrough at the MCP boundary)** — same pattern applies to the plugin: shim is the boundary, backend implementation (vault-io vs code-wiki-agent) is the back-end. No semantic change.
+- **Phase 11 D-02 (two-tier passthrough at the MCP boundary)** — same pattern applies to the plugin: shim is the boundary, backend implementation (vault-io vs graph-wiki-agent) is the back-end. No semantic change.
 
 ### Established Patterns
 - **One spec doc per phase that locks a contract surface.** Phase 11 used PROJECT.md Key Decisions; Phase 12 used `packages/vault-io/DRIFT-DECISIONS.md`; Phase 13 uses `.planning/spec/13-plugin-contract/`. Same shape, new directory convention.
@@ -247,17 +247,17 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 ### Integration Points
 - **`.graph-wiki.yaml` manifest** — Phase 13 spec calls out the new `[plugin]` block; Phase 14 extends `workspace_io.manifest` to surface it. No schema change committed in Phase 13.
-- **`code-wiki-agent` CLI surface** — Phase 13 spec assumes today's CLI commands (`init`, `scan`, `ingest source`, `ingest work-item`, `lint`, `query`, `log`) are the bedrock-branch targets. If a future phase reshapes that CLI, the plugin's bedrock branch needs an update too. Captured as Phase 14's smoke-test responsibility.
+- **`graph-wiki-agent` CLI surface** — Phase 13 spec assumes today's CLI commands (`init`, `scan`, `ingest source`, `ingest work-item`, `lint`, `query`, `log`) are the bedrock-branch targets. If a future phase reshapes that CLI, the plugin's bedrock branch needs an update too. Captured as Phase 14's smoke-test responsibility.
 - **`$DEEP_AGENTS_ROOT` env var** — new convention; documented in plugin README (Phase 14). No code in this repo needs to know about it; only the plugin shims.
-- **No new MCP boundary changes.** Plugin doesn't use MCP at all. code-wiki-mcp stays where it is.
-- **No code-wiki-agent changes required.** Phase 13's spec doesn't ask code-wiki-agent to change shape. Phase 14's plugin port doesn't either — the bedrock branch shells to today's CLI.
+- **No new MCP boundary changes.** Plugin doesn't use MCP at all. graph-wiki-mcp stays where it is.
+- **No graph-wiki-agent changes required.** Phase 13's spec doesn't ask graph-wiki-agent to change shape. Phase 14's plugin port doesn't either — the bedrock branch shells to today's CLI.
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-- **The reframe is the most important fact:** plugin = Claude Code inference, full stop. Every prior framing that imagined the plugin as a wrapper over code-wiki-agent is wrong. Two surfaces, not one wrapping the other.
+- **The reframe is the most important fact:** plugin = Claude Code inference, full stop. Every prior framing that imagined the plugin as a wrapper over graph-wiki-agent is wrong. Two surfaces, not one wrapping the other.
 - **Preserve the backend selector seam (P-02)** even though we default `claude` everywhere in v1.2. Pat may later want to flip `ingest` to bedrock for a giant source dump; the wiring exists so that's a config change, not a re-architecture.
 - **Single env var (`DEEP_AGENTS_ROOT`)** is the only user setup ask. Documented in the plugin README; no auto-discovery walk-up logic in v1.2 (rejected because it adds moving parts for a single-developer project where one env var line in shell rc is fine).
 - **`$CLAUDE_PLUGIN_ROOT`** stays as the in-plugin-relative anchor — same as upstream. Means the plugin can be installed to any Claude Code plugin path without further config.
@@ -275,8 +275,8 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - **Work-layer subsystem port** — out of v1.2 entirely; would unblock /graph-wiki:archive, /regen-index, /status if revisited. Decision: GSD covers work-item lifecycle per thread decision 2026-05-17. Future phase if ever reconsidered.
 - **`export_marp.py` port** — never on a slash command; no immediate user need. Deferred indefinitely; could land if Pat wants Marp slide export inside graph-wiki later.
 - **Auto-discovery of `$DEEP_AGENTS_ROOT` from cwd** — rejected for v1.2 in favor of explicit env var. Could revisit if the plugin gets shared with other users who haven't set their shell rc up.
-- **MCP-server-based plugin variant** — currently the plugin shells to Python scripts. A future variant could expose graph-wiki commands as MCP tools (so plugin authors don't need `$DEEP_AGENTS_ROOT` at all — they'd configure `code-wiki-mcp` as an MCP server). Out of scope for v1.2; would require treating code-wiki-mcp as a tool dependency of the plugin. Worth revisiting in v2.0.
-- **Per-command pricing / cost telemetry in the plugin shims** — bedrock-branch invocations could log to the same trace pipeline as code-wiki-agent. Out of v1.2 scope (trace pipeline gaps owned by Phase 16, TRACE-FU-01).
+- **MCP-server-based plugin variant** — currently the plugin shells to Python scripts. A future variant could expose graph-wiki commands as MCP tools (so plugin authors don't need `$DEEP_AGENTS_ROOT` at all — they'd configure `graph-wiki-mcp` as an MCP server). Out of scope for v1.2; would require treating graph-wiki-mcp as a tool dependency of the plugin. Worth revisiting in v2.0.
+- **Per-command pricing / cost telemetry in the plugin shims** — bedrock-branch invocations could log to the same trace pipeline as graph-wiki-agent. Out of v1.2 scope (trace pipeline gaps owned by Phase 16, TRACE-FU-01).
 - **Plugin auto-install from this monorepo** — could publish to a Claude Code plugin marketplace eventually. Out of v1.2 (open-source release prep deferred to v2.0 GA per PROJECT.md).
 - **Bedrock-branch test coverage** — Phase 14 verification per command is claude-branch only by default (since that's the v1.2 default). Adding bedrock-branch smoke tests is a useful follow-up if Pat ever exercises the seam.
 
