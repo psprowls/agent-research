@@ -281,8 +281,8 @@ def _extract_usage_tokens(response) -> tuple[int | None, int | None]:
 
     None-guarded — Bedrock returns ``usage_metadata = None`` on throttling /
     content-filter responses (deepagents #1698). Block lifted verbatim from
-    subagent_runtime.pool._write_trace:203-209 so trace records on the synthesizer
-    call sites carry the same usage data as pool-driven trace records.
+    subagent_runtime.trace_io.write_trace_record:56-66 so trace records on the
+    synthesizer call sites carry the same usage data as pool-driven trace records.
     """
     tokens_in: int | None = None
     tokens_out: int | None = None
@@ -531,7 +531,7 @@ async def _run_code_fallback(
     # tokens_in / tokens_out so the per-query summary reports usage.
     trace_dir = wiki / ".graph-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
-    trace_file = trace_dir / f"synth_{query_id}.jsonl"
+    trace_file = trace_dir / f"synth_codefallback_{query_id}.jsonl"
     t0 = time.monotonic()
     synth_resp = await synth_llm.ainvoke(synth_msgs)
     latency_ms = int((time.monotonic() - t0) * 1000)
@@ -658,18 +658,9 @@ def apply_guardrails(
             search_scores=result.search_scores,
         )
 
-    # G1: citation resolution
-    # Links may already include .md (e.g. [[concepts/foo.md]]) or omit it
-    # (e.g. [[concepts/foo]]). Normalise before checking.
-    unresolved: list[str] = []
-    for link in _extract_wikilinks(result.answer):
-        link_path = link if link.endswith(".md") else f"{link}.md"
-        candidate = vault_path / link_path
-        if not candidate.exists():
-            base = link.removesuffix(".md")
-            matches = list(vault_path.glob(f"**/{base}.md"))
-            if not matches:
-                unresolved.append(link)
+    # G1: citation resolution — delegate to the shared helper so the resolution
+    # algorithm lives in exactly one place (D-15 dedup).
+    unresolved = _compute_unresolved_wikilinks(result.answer, vault_path)
 
     if unresolved:
         flags.append(
@@ -970,7 +961,7 @@ async def run_query(
         # feed the summary_record so the query summary reports usage.
         synth_trace_dir = wiki / ".graph-wiki" / "traces"
         synth_trace_dir.mkdir(parents=True, exist_ok=True)
-        synth_trace_file = synth_trace_dir / f"synth_{query_id}.jsonl"
+        synth_trace_file = synth_trace_dir / f"synth_librarian_{query_id}.jsonl"
         synth_t0 = time.monotonic()
         synth_resp = await synth_llm.ainvoke(synth_msgs)
         synth_latency_ms = int((time.monotonic() - synth_t0) * 1000)
