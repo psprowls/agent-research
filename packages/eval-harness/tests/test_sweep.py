@@ -1,6 +1,6 @@
 """Unit tests for eval_harness.sweep: SweepResult dataclass and run_sweep().
 
-Integration test (test_run_query_accepts_tmpdir_vault) requires CODE_WIKI_RUN_EVAL=1
+Integration test (test_run_query_accepts_tmpdir_vault) requires GRAPH_WIKI_RUN_EVAL=1
 and is marked "integration" — skipped in the normal unit suite.
 
 All other tests use AsyncMock to avoid Bedrock calls and are fully deterministic.
@@ -62,7 +62,7 @@ async def test_run_query_accepts_tmpdir_vault(
     any internal function rejects the tmpdir path, the failure is surfaced
     here before the sweep loop trusts it (RESEARCH.md Pitfall 6).
 
-    Requires: CODE_WIKI_RUN_EVAL=1 (integration marker), real Bedrock credentials.
+    Requires: GRAPH_WIKI_RUN_EVAL=1 (integration marker), real Bedrock credentials.
     """
     from code_wiki_agent.commands.query import run_query
     from eval_harness.isolation import EvalWorktree

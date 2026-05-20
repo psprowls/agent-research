@@ -25,5 +25,5 @@ pythonpath = ["packages/eval-harness/tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: requires real Bedrock or subprocess (skipped by default)",
-    "eval: opt-in eval suite (skipped unless CODE_WIKI_RUN_EVAL=1)",
+    "eval: opt-in eval suite (skipped unless GRAPH_WIKI_RUN_EVAL=1)",
 ]

@@ -8,7 +8,7 @@ Phase 2 (@pytest.mark.eval_analysis): Aggregate scores, print cost-frontier
 
 Gate: all tests in this file are under @pytest.mark.eval (module-level pytestmark)
 so pytest-evals skips them without --run-eval. The EVAL_GATE fixture adds an
-additional guard on CODE_WIKI_RUN_EVAL=1 for tests that make real Bedrock calls.
+additional guard on GRAPH_WIKI_RUN_EVAL=1 for tests that make real Bedrock calls.
 
 Security (T-4-01): Cases loaded via json.load() at module level. Each case is
 validated (isinstance check on "query" field) before reaching test parametrization.
@@ -54,7 +54,7 @@ SWEEP_MODELS: list[str] = [
 ]
 
 # Module-level eval gate: skips this entire file without --run-eval
-# (handled by pytest-evals) and additionally gates on CODE_WIKI_RUN_EVAL
+# (handled by pytest-evals) and additionally gates on GRAPH_WIKI_RUN_EVAL
 pytestmark = [pytest.mark.eval]
 
 # Import EVAL_GATE from conftest for explicit test-level gating
@@ -120,9 +120,9 @@ CASE_MODEL_PARAMS = _make_case_model_params()
 async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:  # type: ignore[no-untyped-def]
     """Run a single (case, model) combination and store metrics in eval_bag.
 
-    - EVAL_GATE: skips unless CODE_WIKI_RUN_EVAL=1
+    - EVAL_GATE: skips unless GRAPH_WIKI_RUN_EVAL=1
     - @pytest.mark.eval: skips unless --run-eval
-    - panel_score() is called only when CODE_WIKI_RUN_JUDGES=1 is also set,
+    - panel_score() is called only when GRAPH_WIKI_RUN_JUDGES=1 is also set,
       to decouple sweep cost from judge cost in multi-run workflows.
     """
     from eval_harness.judge import panel_score
@@ -149,7 +149,7 @@ async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:  # type
     eval_bag.answer = result.answer
     eval_bag.structural = result.structural
 
-    if os.environ.get("CODE_WIKI_RUN_JUDGES") and result.status == "ok":
+    if os.environ.get("GRAPH_WIKI_RUN_JUDGES") and result.status == "ok":
         # Run LLM judge panel (incurs Bedrock cost)
         scores = panel_score(query, result.answer, expected)
         result.judge_scores = scores
@@ -216,7 +216,7 @@ async def test_position_bias_check() -> None:
     Calls run_sweep twice with the same query (different synthetic answers),
     then calls position_bias_check() and asserts the returned delta < 0.05.
 
-    Both marks ensure this skips in normal CI (requires --run-eval AND CODE_WIKI_RUN_EVAL=1).
+    Both marks ensure this skips in normal CI (requires --run-eval AND GRAPH_WIKI_RUN_EVAL=1).
     """
     from eval_harness.judge import panel_score, position_bias_check
 
@@ -245,7 +245,7 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type:
     score_two_gate with a kwargs-capturing wrapper to verify call signature
     contract.
 
-    Gates: requires --run-eval and CODE_WIKI_RUN_EVAL=1 (and CODE_WIKI_RUN_JUDGES=1
+    Gates: requires --run-eval and GRAPH_WIKI_RUN_EVAL=1 (and GRAPH_WIKI_RUN_JUDGES=1
     if you want quality gate2 values populated; without it panel_means are None).
     """
     from eval_harness import sweep as sweep_mod
@@ -325,22 +325,22 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type:
 
 
 def test_eval_mark_skip() -> None:
-    """Verify that EVAL_GATE skips tests when CODE_WIKI_RUN_EVAL is not set.
+    """Verify that EVAL_GATE skips tests when GRAPH_WIKI_RUN_EVAL is not set.
 
     This test is NOT marked with @pytest.mark.eval so it runs in normal CI.
     It checks that the EVAL_GATE skipif condition evaluates True in the
     absence of the env var (meaning eval tests would be skipped).
     """
     # EVAL_GATE is a pytest.mark.skipif marker
-    # Its condition is: not os.environ.get("CODE_WIKI_RUN_EVAL")
-    # Without CODE_WIKI_RUN_EVAL set, the condition is True → test would skip.
-    run_eval = os.environ.get("CODE_WIKI_RUN_EVAL")
+    # Its condition is: not os.environ.get("GRAPH_WIKI_RUN_EVAL")
+    # Without GRAPH_WIKI_RUN_EVAL set, the condition is True → test would skip.
+    run_eval = os.environ.get("GRAPH_WIKI_RUN_EVAL")
     if run_eval:
-        pytest.skip("CODE_WIKI_RUN_EVAL is set — EVAL_GATE would not skip")
+        pytest.skip("GRAPH_WIKI_RUN_EVAL is set — EVAL_GATE would not skip")
 
     # Verify the skipif condition directly
-    condition = not os.environ.get("CODE_WIKI_RUN_EVAL")
+    condition = not os.environ.get("GRAPH_WIKI_RUN_EVAL")
     assert condition is True, (
-        "EVAL_GATE condition should be True when CODE_WIKI_RUN_EVAL is not set, "
+        "EVAL_GATE condition should be True when GRAPH_WIKI_RUN_EVAL is not set, "
         "ensuring eval tests are skipped without the env var."
     )

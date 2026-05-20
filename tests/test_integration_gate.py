@@ -1,8 +1,8 @@
-"""Repo-level grep gate for the CODE_WIKI_RUN_INTEGRATION integration test pattern.
+"""Repo-level grep gate for the GRAPH_WIKI_RUN_INTEGRATION integration test pattern.
 
 Phase 16 MCP-CAN-02 (D-10): every `**/tests/integration/test_*.py` across the
 monorepo MUST either match the canonical `pytest.mark.skipif(not os.environ.get(
-"CODE_WIKI_RUN_INTEGRATION"), ...)` pattern OR carry the
+"GRAPH_WIKI_RUN_INTEGRATION"), ...)` pattern OR carry the
 `# integration-gate-allow` marker comment.
 
 This meta-test runs on every PR. Drift fails CI loudly.
@@ -20,7 +20,7 @@ _REPO_ROOT = Path(__file__).parent.parent
 # auto-formatters (ruff, black) may reflow the argument list.
 _CANONICAL_PATTERN = re.compile(
     r'pytest\.mark\.skipif\s*\(\s*'
-    r'(?:not\s+)?os\.environ\.get\(\s*["\']CODE_WIKI_RUN_INTEGRATION["\']\s*\)',
+    r'(?:not\s+)?os\.environ\.get\(\s*["\']GRAPH_WIKI_RUN_INTEGRATION["\']\s*\)',
     re.MULTILINE,
 )
 
@@ -53,7 +53,7 @@ def test_integration_test_files_use_canonical_gate() -> None:
     files = _find_integration_test_files()
     assert files, (
         "no integration test files discovered — repo layout drift suspected; "
-        "expected at least the agents/code-wiki-agent/tests/integration/* files"
+        "expected at least the agents/graph-wiki-agent/tests/integration/* files"
     )
 
     divergent: list[str] = []
@@ -67,5 +67,5 @@ def test_integration_test_files_use_canonical_gate() -> None:
 
     assert not divergent, (
         "the following integration test files do not match the canonical "
-        f"CODE_WIKI_RUN_INTEGRATION gate (see docs/testing.md): {divergent}"
+        f"GRAPH_WIKI_RUN_INTEGRATION gate (see docs/testing.md): {divergent}"
     )

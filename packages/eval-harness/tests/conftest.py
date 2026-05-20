@@ -8,7 +8,7 @@ Provides:
   duplicate data.
 - accept_baseline: returns the value of --accept-divergence-baseline CLI option
   so divergence tests can overwrite baseline files when requested (EVAL-13).
-- EVAL_GATE: pytest.mark.skipif decorator gating eval tests on CODE_WIKI_RUN_EVAL=1.
+- EVAL_GATE: pytest.mark.skipif decorator gating eval tests on GRAPH_WIKI_RUN_EVAL=1.
 
 Output-producer helpers have been moved to eval_helpers.py (WR-05).
 Import produce_outputs from there directly in test files.
@@ -19,13 +19,13 @@ from pathlib import Path
 
 import pytest
 
-# Eval gate: decorate eval tests so they are skipped unless CODE_WIKI_RUN_EVAL=1 is set.
+# Eval gate: decorate eval tests so they are skipped unless GRAPH_WIKI_RUN_EVAL=1 is set.
 # Also defined in eval_helpers.EVAL_GATE (same condition) so test files can import it
 # directly without importing conftest as a plain module (which fails under
 # --import-mode=importlib). Both definitions are intentionally in sync.
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run eval sweep tests",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run eval sweep tests",
 )
 
 

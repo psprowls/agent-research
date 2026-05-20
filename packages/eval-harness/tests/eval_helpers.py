@@ -23,13 +23,13 @@ import pytest
 if TYPE_CHECKING:
     from eval_harness.divergence.check import AgentOutputProxy
 
-# Eval gate: skip eval tests unless CODE_WIKI_RUN_EVAL=1 is set.
+# Eval gate: skip eval tests unless GRAPH_WIKI_RUN_EVAL=1 is set.
 # Defined here (not in conftest) so test_divergence.py can import it directly
 # without relying on conftest being importable as a plain module (which breaks
 # under pytest's --import-mode=importlib).
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run divergence eval",
 )
 
 # Path to eval/cases/query_cases.json — used by librarian role outputs.
@@ -73,11 +73,11 @@ def produce_outputs(
         pytest.skip.Exception: if the corpus for the given role is not available.
         Any underlying exception from Bedrock/agent calls surfaces directly.
 
-    Security (T-06-24): guards on CODE_WIKI_RUN_EVAL=1 — callers enforce this
+    Security (T-06-24): guards on GRAPH_WIKI_RUN_EVAL=1 — callers enforce this
     gate via the EVAL_GATE mark; this function adds a belt-and-suspenders check.
     """
-    if not os.environ.get("CODE_WIKI_RUN_EVAL"):
-        pytest.skip("CODE_WIKI_RUN_EVAL=1 required to produce agent outputs")
+    if not os.environ.get("GRAPH_WIKI_RUN_EVAL"):
+        pytest.skip("GRAPH_WIKI_RUN_EVAL=1 required to produce agent outputs")
 
     if role == "librarian":
         return _produce_librarian_outputs(vault)

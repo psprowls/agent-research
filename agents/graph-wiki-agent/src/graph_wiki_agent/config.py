@@ -9,8 +9,8 @@ Provides:
 - get_config() — returns the module-level active config singleton
 - _active_config — module-level mutable singleton; available for
   programmatic configuration (no longer set by any CLI / MCP entry
-  point — the `--config` / CODE_WIKI_CONFIG pathway was removed in
-  Phase 20 / WMC-03; per-workspace config now lives in
+  point — the legacy `--config` / model-config-env pathway was
+  removed in Phase 20 / WMC-03; per-workspace config now lives in
   `<workspace>/.graph-wiki.yaml`).
 """
 

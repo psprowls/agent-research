@@ -18,8 +18,8 @@ import pytest
 
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 

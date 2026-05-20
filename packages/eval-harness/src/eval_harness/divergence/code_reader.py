@@ -28,7 +28,7 @@ _WIKILINK_RE = re.compile(r"\[\[[^\]]+\]\]")
 
 # Forbidden prefix: the tool refuses `.code-wiki/` reads; the agent must not
 # claim to quote anything from that prefix either.
-_CODE_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_/-])\.code-wiki/")
+_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_/-])\.code-wiki/")
 
 
 def _is_sentinel_only(text: str) -> bool:
@@ -74,7 +74,7 @@ def _check_no_code_wiki_prefix(output: AgentOutputProxy, vault: Path) -> Verdict
 
     Anchors packages/prompt-sources/agents/code_reader.md#rules (rule 4).
     """
-    if _CODE_WIKI_PREFIX_RE.search(output.answer or ""):
+    if _GRAPH_WIKI_PREFIX_RE.search(output.answer or ""):
         return Verdict(
             passed=False,
             excerpt="Citation references forbidden .code-wiki/ prefix",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """End-to-end TRACE-FU-01 regression: real fan-out asserts every JSONL record
 has non-None input_tokens/output_tokens (SC#1 D-05). Gated by
-CODE_WIKI_RUN_INTEGRATION=1.
+GRAPH_WIKI_RUN_INTEGRATION=1.
 """
 
 import json
@@ -24,8 +24,8 @@ FIXTURE_VAULT: Path = (
 )
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 

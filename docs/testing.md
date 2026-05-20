@@ -18,9 +18,9 @@ meta-test passes in CI.
   real cost). These MUST NOT run in CI by default and MUST NOT run on a
   developer machine that hasn't explicitly opted in.
 
-The opt-in mechanism is the `CODE_WIKI_RUN_INTEGRATION=1` environment variable.
+The opt-in mechanism is the `GRAPH_WIKI_RUN_INTEGRATION=1` environment variable.
 Without it set, every integration test must be **skipped** with the exact
-reason string `"Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations"`.
+reason string `"Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations"`.
 Phase 8 (Host Reliability) established this gate; Phase 16 (D-10) made the
 convention enforceable via a grep-gate meta-test.
 
@@ -51,13 +51,13 @@ rationale.
 
 ```python
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 ```
 
 The `reason` string is **verbatim** — `tests/test_integration_gate.py` matches
-on the surrounding `pytest.mark.skipif(... CODE_WIKI_RUN_INTEGRATION ...)`
+on the surrounding `pytest.mark.skipif(... GRAPH_WIKI_RUN_INTEGRATION ...)`
 shape, but downstream tooling (CI logs, pytest's skipped-test summary) renders
 the reason directly to the developer, so it must read clearly.
 

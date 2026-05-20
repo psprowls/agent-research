@@ -665,12 +665,12 @@ def _panel_mean_for_candidate(
 ) -> float | None:
     """Compute the mean panel score for a candidate's runs.
 
-    Returns None when CODE_WIKI_RUN_JUDGES is unset, when no case has
+    Returns None when GRAPH_WIKI_RUN_JUDGES is unset, when no case has
     expected_answer, or when every run produced a failing/empty answer.
     """
     import os
 
-    if not os.environ.get("CODE_WIKI_RUN_JUDGES"):
+    if not os.environ.get("GRAPH_WIKI_RUN_JUDGES"):
         return None
 
     cases_by_query: dict[str, dict] = {}

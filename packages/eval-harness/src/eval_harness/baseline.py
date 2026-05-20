@@ -390,11 +390,11 @@ def _main() -> None:
     import argparse
     import os
 
-    if not os.environ.get("CODE_WIKI_RUN_EVAL"):
+    if not os.environ.get("GRAPH_WIKI_RUN_EVAL"):
         import sys
 
         print(
-            "Set CODE_WIKI_RUN_EVAL=1 to run baseline recording.",
+            "Set GRAPH_WIKI_RUN_EVAL=1 to run baseline recording.",
             file=sys.stderr,
         )
         sys.exit(1)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """End-to-end integration tests for the query workflow (Plan 04 deliverable).
 
-Gated by CODE_WIKI_RUN_INTEGRATION=1 — never run in CI by default, since
+Gated by GRAPH_WIKI_RUN_INTEGRATION=1 — never run in CI by default, since
 they require real AWS Bedrock access and build the search index on first run
 (may take 2-3 minutes).
 
@@ -37,8 +37,8 @@ FIXTURE_VAULT: Path = (
 _PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.parent.parent
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 

@@ -14,11 +14,11 @@ from pathlib import Path
 import pytest
 
 # Integration gate: decorate real-Bedrock tests so they are skipped in CI
-# unless CODE_WIKI_RUN_INTEGRATION=1 is set. Tests may import this from conftest
+# unless GRAPH_WIKI_RUN_INTEGRATION=1 is set. Tests may import this from conftest
 # or redefine it locally — either is fine.
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 

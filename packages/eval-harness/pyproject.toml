@@ -29,5 +29,5 @@ addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 markers = [
     "integration: requires real Bedrock (skipped by default)",
-    "eval: requires CODE_WIKI_RUN_EVAL=1 to run sweep evaluations",
+    "eval: requires GRAPH_WIKI_RUN_EVAL=1 to run sweep evaluations",
 ]
