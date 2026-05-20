@@ -86,17 +86,25 @@ def test_write_trace_record_swallows_oserror(tmp_path, monkeypatch, caplog):
     # Path inside a non-existent directory triggers OSError on open
     bad_path = tmp_path / "does" / "not" / "exist" / "trace.jsonl"
 
-    # Must not raise
-    write_trace_record(
-        bad_path,
-        role="scanner",
-        model_id="test-model",
-        item="page-3",
-        status="error",
-        latency_ms=5,
-        response=None,
-        error="boom",
-    )
+    # Must not raise; WARNING log is emitted (D-10 IN-04)
+    with caplog.at_level("WARNING", logger="subagent_runtime.trace_io"):
+        write_trace_record(
+            bad_path,
+            role="scanner",
+            model_id="test-model",
+            item="page-3",
+            status="error",
+            latency_ms=5,
+            response=None,
+            error="boom",
+        )
 
     # File was not written (parent missing)
     assert not bad_path.exists()
+
+    # A WARNING-level record was emitted with the trace_io warning fragment.
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert any("Trace write failed" in r.getMessage() for r in warnings), (
+        f"expected WARNING log containing 'Trace write failed'; got: "
+        f"{[r.getMessage() for r in caplog.records]}"
+    )
