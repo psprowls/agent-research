@@ -53,9 +53,9 @@ ln -sf CLAUDE.md AGENTS.md
 ### Claude Code
 
 ```bash
-cd <repo>             # /graph-wiki:init resolves <workspace>/wiki/ via workspace_io
+cd <repo>             # /graph-wiki:bootstrap resolves <workspace>/wiki/ via workspace_io
 claude
-> /graph-wiki:init          # if wiki isn't initialized
+> /graph-wiki:bootstrap          # if wiki isn't initialized
 > /graph-wiki:scan          # detect packages
 > /graph-wiki:ingest graph-wiki/wiki/raw/specs/auth-migration.md
 > /graph-wiki:query "which packages depend on common-context-node-ts?"

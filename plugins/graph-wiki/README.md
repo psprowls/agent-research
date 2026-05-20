@@ -24,10 +24,12 @@ The plugin has two delivery surfaces that share the same wiki format:
    claude plugin install plugins/graph-wiki
    ```
 
+   > **Upgrading from an older install?** Remove and reinstall the plugin to pick up the renamed `/graph-wiki:bootstrap` command (previously named `init`).
+
 2. Initialize a workspace in your target repo:
 
    ```
-   /graph-wiki:init
+   /graph-wiki:bootstrap
    ```
 
    This creates `<repo>/graph-wiki/` with `.graph-wiki.yaml`, `wiki/`, `raw/`, and `work/` subdirectories. The vault layout (apps, packages, domains) is detected interactively.
@@ -60,7 +62,7 @@ The `[plugin]` block is validated on every read: unknown keys raise `RuntimeErro
 
 | Command | What it does |
 |---|---|
-| `/graph-wiki:init` | Initialize a wiki workspace; detect repo layout; create vault skeleton |
+| `/graph-wiki:bootstrap` | Initialize a wiki workspace; detect repo layout; create vault skeleton |
 | `/graph-wiki:scan` | Walk the repo; create/update package and app stub pages; surface doc candidates |
 | `/graph-wiki:ingest <path>` | Read a source (spec, article, PR, transcript, in-repo doc); update wiki |
 | `/graph-wiki:query <question>` | Answer a question from the vault; offer to file the answer back |

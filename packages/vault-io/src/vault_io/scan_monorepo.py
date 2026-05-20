@@ -1154,7 +1154,7 @@ def main():
                 print(f"  - pinned container missing on disk: {s}")
             for c in diff["changed"]:
                 print(f"  ~ classification change: {c['source']}: {c['from']} -> {c['to']}")
-            print("(Re-run /graph-wiki:init or hand-edit the layout block to update.)")
+            print("(Re-run /graph-wiki:bootstrap or hand-edit the layout block to update.)")
             print()
 
     workspaces = discover_workspaces(repo, pinned_containers=pinned, workspace_dir=workspace)

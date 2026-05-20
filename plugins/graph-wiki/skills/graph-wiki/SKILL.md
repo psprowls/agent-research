@@ -102,7 +102,7 @@ python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
 
 | Command | Purpose |
 |---|---|
-| `/graph-wiki:init` | Bootstrap a fresh wiki at `<workspace>/wiki/` (workspace resolved via `workspace_io`, defaults to `<repo>/graph-wiki/`) |
+| `/graph-wiki:bootstrap` | Bootstrap a fresh wiki at `<workspace>/wiki/` (workspace resolved via `workspace_io`, defaults to `<repo>/graph-wiki/`) |
 | `/graph-wiki:scan` | Walk the repo, detect packages/apps/workspaces, create/update stub package pages |
 | `/graph-wiki:ingest <path>` | Read a source from `raw/`, discuss, update vault, log it |
 | `/graph-wiki:query <question>` | Search vault, synthesize answer with citations, offer to file back |
