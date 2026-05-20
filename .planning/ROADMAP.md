@@ -100,11 +100,16 @@ Plans:
   3. With the plugin installed, typing `/init` in Claude Code invokes the native "initialize CLAUDE.md" workflow, not the graph-wiki command
 **Plans**: 6 plans
 Plans:
+**Wave 1**
 - [ ] 18-01-PLAN.md — Rename slash command file plugins/graph-wiki/commands/init.md → bootstrap.md (CMD-01)
 - [ ] 18-02-PLAN.md — Rename MCP tool surface wiki_init → wiki_bootstrap + Pydantic models + tests (CMD-02 MCP)
 - [ ] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 18-04-PLAN.md — Sweep 11 active-source /graph-wiki:init references; add README reinstall note (CMD-03 active)
 - [ ] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 18-06-PLAN.md — Extend scripts/check-brand.sh + .brand-grep-allow + red-then-green sanity; fold todo to resolved/ (CMD-03 gate)
 
 ### Phase 20: Workspace Manifest Model Config
