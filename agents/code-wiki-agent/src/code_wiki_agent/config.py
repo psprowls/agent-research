@@ -3,25 +3,15 @@ from __future__ import annotations
 """WikiConfig — shared configuration module for code-wiki-agent.
 
 Provides:
-- WikiConfig dataclass with fields for models_path, vault_path, state_gate_enabled
-- load_config(path) — reads a TOML file and returns a WikiConfig (unknown keys dropped)
+- WikiConfig dataclass with fields for vault_path and state_gate_enabled
+- load_config(path) — reads a TOML file and returns a WikiConfig
+  (unknown keys silently dropped for forward-compatibility)
 - get_config() — returns the module-level active config singleton
-- _active_config — module-level mutable singleton; mutated by @app.callback() and MCP main()
-
-Usage (CLI):
-    @app.callback()
-    def main_callback(config: Optional[Path] = typer.Option(None, "--config")):
-        if config is not None:
-            import code_wiki_agent.config as _cfg
-            _cfg._active_config = _cfg.load_config(config)
-
-Usage (MCP):
-    def main():
-        cfg_path = os.environ.get("CODE_WIKI_CONFIG")
-        if cfg_path:
-            import code_wiki_agent.config as _cfg
-            _cfg._active_config = _cfg.load_config(Path(cfg_path))
-        mcp.run(transport="stdio")
+- _active_config — module-level mutable singleton; available for
+  programmatic configuration (no longer set by any CLI / MCP entry
+  point — the `--config` / CODE_WIKI_CONFIG pathway was removed in
+  Phase 20 / WMC-03; per-workspace config now lives in
+  `<workspace>/.graph-wiki.yaml`).
 """
 
 import tomllib
@@ -34,12 +24,10 @@ class WikiConfig:
     """Runtime configuration for code-wiki-agent.
 
     Fields:
-        models_path: Path to model role config TOML (overrides packaged defaults).
         vault_path: Default vault path (overrides GRAPH_WIKI_WORKSPACE env var).
         state_gate_enabled: Whether git state-gate checks are enforced (default: True).
     """
 
-    models_path: str | None = None
     vault_path: str | None = None
     state_gate_enabled: bool = True
 

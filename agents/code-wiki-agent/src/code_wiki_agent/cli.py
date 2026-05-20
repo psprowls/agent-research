@@ -32,19 +32,6 @@ app = typer.Typer(
 KNOWN_SCHEMA_VERSION = 1
 
 
-@app.callback()
-def main_callback(
-    config: Optional[Path] = typer.Option(None, "--config", help="Path to TOML config file"),
-) -> None:
-    """code-wiki-agent: AWS Bedrock-powered wiki maintenance."""
-    if config is not None:
-        import code_wiki_agent.config as _cfg_module
-        from model_adapter.loader import set_models_path
-
-        _cfg_module._active_config = _cfg_module.load_config(config)
-        set_models_path(_cfg_module._active_config.models_path)
-
-
 @app.command()
 def version() -> None:
     """Print version and exit."""
