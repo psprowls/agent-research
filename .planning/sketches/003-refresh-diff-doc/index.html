@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sketch 003 — raw/diffs/&lt;pkg&gt;.md anatomy</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  .meta-row { display: flex; gap: var(--space-4); margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--color-page-muted); flex-wrap: wrap; }
+  .meta-row b { color: var(--color-page-text); font-weight: 600; }
+  .filebar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: #efe9dc;
+    border: 1px solid #d6cfc1;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-page-muted);
+    margin-bottom: var(--space-2);
+  }
+  .filebar .name { color: var(--color-page-text); font-weight: 600; }
+  .filebar .badge {
+    padding: 2px 8px;
+    background: var(--color-page-text);
+    color: var(--color-page-bg);
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <h1>Sketch 003 — Diff doc anatomy</h1>
+    <p class="subtitle">What does <code>raw/diffs/&lt;pkg&gt;-&lt;from&gt;..&lt;to&gt;.md</code> contain when refresh writes it for ingest?</p>
+    <div class="meta-row">
+      <span><b>Example:</b> packages/vault-io · 30058ee..4656429 · 82 commits, 47 files</span>
+      <span><b>Reader:</b> the ingestor sub-agent (LLM), then later a human auditing</span>
+      <span><b>Cost lever:</b> token budget of this doc directly drives ingest cost</span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="tab active" data-tab="a">A: Raw git diff</button>
+    <button class="tab" data-tab="b">B: Curated semantic delta</button>
+    <button class="tab winner" data-tab="c">C: Hybrid (machine + LLM)</button>
+    <span class="spacer"></span>
+    <select id="theme-switcher">
+      <option value="default">Default</option>
+    </select>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT A: Raw git diff ------------------------------------ -->
+  <!-- ============================================================ -->
+  <section class="variant active" data-variant="a">
+    <p class="variant-caption">
+      <b>A · Raw git diff.</b> Wraps <code>git log --stat</code> + a real <code>git diff</code> in a markdown shell.
+      Lossless. Mechanical to produce (no LLM in the loop). Big — ingest pays in tokens. Ingestor reasons over raw code changes.
+    </p>
+    <div class="filebar">
+      <span class="badge">raw/</span>
+      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span style="margin-left: auto;">~18k tokens</span>
+    </div>
+    <div class="md"><span class="md-fm">---
+source_type: diff
+package: packages/vault-io
+from_commit: 30058ee
+to_commit:   4656429
+generated_by: graph-wiki:refresh
+generated_at: 2026-05-19T09:14:00Z
+commits: 82
+files_changed: 47
+loc_added: 1184
+loc_removed: 612
+---</span>
+
+<span class="md-h1"># Diff: packages/vault-io (30058ee..4656429)</span>
+
+<span class="md-h2">## Commits</span>
+
+  4656429 docs(20-03): complete --config / CODE_WIKI_CONFIG deletion sweep
+  d72f22a test(20-03): drop models_path / --config assertions from test_config.py
+  382a9cd feat(20-03): delete models_path / --config / CODE_WIKI_CONFIG plumbing
+  d76bf2a docs(20-02): complete workspace-aware make_llm + per-role fallback plan
+  <span class="md-fm">… 78 more commits</span>
+
+<span class="md-h2">## Stat</span>
+
+  src/vault_io/scan.py            | 142 +++++++++++++++++++++--------
+  src/vault_io/ingest.py          |  88 ++++++++++++--------
+  src/vault_io/layout.py          |  53 ++++++++++--
+  src/vault_io/page_templates.py  |  41 +++++++--
+  tests/test_scan.py              |  67 ++++++++++++++
+  <span class="md-fm">… 42 more files</span>
+  <span class="md-add">1184 insertions(+)</span>, <span class="md-rem">612 deletions(-)</span>
+
+<span class="md-h2">## Diff</span>
+
+<span class="md-diff-hdr">diff --git a/src/vault_io/scan.py b/src/vault_io/scan.py</span>
+<span class="md-diff-hdr">@@ -42,7 +42,7 @@ def scan_workspace(root: Path) -&gt; ScanResult:</span>
+<span class="md-rem">-    config = load_config(root / ".graph-wiki.yaml")</span>
+<span class="md-add">+    config = WorkspaceConfig.load(root)</span>
+     containers = detect_containers(root, config)
+     return ScanResult(
+         containers=containers,
+<span class="md-diff-hdr">@@ -118,3 +118,28 @@ class Scanner:</span>
+<span class="md-add">+    def classify_package_family(self, path: Path) -&gt; Classification:</span>
+<span class="md-add">+        """Detect package-family containers (2026-05).</span>
+<span class="md-add">+        Used when packages live several levels below a `source` root.</span>
+<span class="md-add">+        See references/scan-workflow.md for the worked example.</span>
+<span class="md-add">+        """</span>
+<span class="md-add">+        ...</span>
+<span class="md-fm">… ~1500 more diff lines …</span>
+</div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT B: Curated semantic delta -------------------------- -->
+  <!-- ============================================================ -->
+  <section class="variant" data-variant="b">
+    <p class="variant-caption">
+      <b>B · Curated semantic delta.</b> Refresh runs an LLM pre-pass over the diff to extract <em>signal</em>:
+      what behaviors changed, what APIs moved, what concepts are new. Ingestor reads prose, not patches.
+      Compact (~10× smaller). Requires an extra model call. Loses code-level fidelity.
+    </p>
+    <div class="filebar">
+      <span class="badge">raw/</span>
+      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span style="margin-left: auto;">~1.8k tokens</span>
+    </div>
+    <div class="md"><span class="md-fm">---
+source_type: diff
+package: packages/vault-io
+from_commit: 30058ee
+to_commit:   4656429
+generated_by: graph-wiki:refresh
+generated_at: 2026-05-19T09:14:00Z
+synthesized_by: qwen3-32b
+commits: 82
+files_changed: 47
+confidence: high
+---</span>
+
+<span class="md-h1"># Semantic delta: packages/vault-io (30058ee..4656429)</span>
+
+<span class="md-h2">## TL;DR</span>
+
+Two cross-cutting changes in this window:
+
+1. <span class="md-code">--config</span> / <span class="md-code">CODE_WIKI_CONFIG</span> / <span class="md-code">models_path</span>
+   plumbing was deleted in favor of workspace-resolved config. Public surface of
+   <span class="md-code">WorkspaceConfig</span> is now the single entry point.
+2. New <span class="md-code">package-family</span> classification for containers where packages live
+   several directory levels below their <span class="md-code">source</span> root.
+
+<span class="md-h2">## API changes</span>
+
+<span class="md-h3">### Added</span>
+- <span class="md-code">WorkspaceConfig.load(root)</span> — <span class="md-link">src/vault_io/config.py:24</span>
+- <span class="md-code">Scanner.classify_package_family(path)</span> — <span class="md-link">src/vault_io/scan.py:120</span>
+
+<span class="md-h3">### Removed</span>
+- <span class="md-code">load_config(path)</span> — replaced by <span class="md-code">WorkspaceConfig.load(root)</span>
+- <span class="md-code">--config</span> CLI flag (vault-io scripts)
+- <span class="md-code">CODE_WIKI_CONFIG</span> env var
+
+<span class="md-h3">### Behavior changes</span>
+- <span class="md-code">scan_workspace</span> now resolves config from workspace; no path argument.
+
+<span class="md-h2">## New concepts</span>
+- <span class="md-link">[[concepts/package-family]]</span> — multi-level package containers.
+  Worked example added to <span class="md-link">references/scan-workflow.md</span>.
+
+<span class="md-h2">## Decisions captured</span>
+- ADR-worthy: <em>Delete user-facing config plumbing in favor of workspace-resolved config.</em>
+  Driver: simplifies cross-tool setup, removes a config-discovery foot-gun.
+  Propose <span class="md-link">adrs/0008-workspace-resolved-config.md</span>.
+
+<span class="md-h2">## Pages likely to need updates</span>
+- <span class="md-link">[[packages/vault-io/api]]</span> — export list changed
+- <span class="md-link">[[packages/vault-io/patterns]]</span> — "config resolution" pattern is new
+- <span class="md-link">[[packages/vault-io/context]]</span> — link new concept + ADR
+- <span class="md-link">[[concepts/layout-detection]]</span> — mention package-family
+
+<span class="md-h2">## Contradictions to verify</span>
+- Wiki claim: <em>"config is loaded from .graph-wiki.yaml via load_config"</em>
+  — stale; <span class="md-link">[[packages/vault-io/context]]</span> still describes the old path.
+</div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- VARIANT C: Hybrid ------------------------------------------ -->
+  <!-- ============================================================ -->
+  <section class="variant" data-variant="c">
+    <p class="variant-caption">
+      <b>C · Hybrid.</b> Machine-generated structural sections (commits, stat, exports added/removed, files touched)
+      plus an LLM "what changed semantically" prose section. Ingestor reads the prose first, can drill into the
+      mechanical sections by reference. Middle cost, middle size, no information loss at the structural level.
+    </p>
+    <div class="filebar">
+      <span class="badge">raw/</span>
+      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span style="margin-left: auto;">~6k tokens</span>
+    </div>
+    <div class="md"><span class="md-fm">---
+source_type: diff
+package: packages/vault-io
+from_commit: 30058ee
+to_commit:   4656429
+generated_by: graph-wiki:refresh
+generated_at: 2026-05-19T09:14:00Z
+synthesized_by: qwen3-32b
+commits: 82
+files_changed: 47
+sections:
+  - machine: [commits, stat, exports, files, surface_diffs]
+  - llm:     [summary, decisions, contradictions]
+---</span>
+
+<span class="md-h1"># Refresh diff: packages/vault-io (30058ee..4656429)</span>
+
+<span class="md-h2">## Summary</span>   <span class="md-fm">(LLM)</span>
+
+Window covers the workspace-config consolidation (delete <span class="md-code">--config</span>,
+<span class="md-code">CODE_WIKI_CONFIG</span>, <span class="md-code">models_path</span>) and the new
+<span class="md-code">package-family</span> container classification. Test surface mirrors both:
+<span class="md-code">tests/test_config.py</span> shrinks, <span class="md-code">tests/test_scan.py</span> grows.
+
+<span class="md-h2">## Exports</span>   <span class="md-fm">(machine — extracted from __init__.py and module-level defs)</span>
+
+<span class="md-h3">### Added</span>
+| Symbol | Where | First seen |
+|---|---|---|
+| <span class="md-code">WorkspaceConfig.load</span> | <span class="md-link">src/vault_io/config.py:24</span> | <span class="md-code">d76bf2a</span> |
+| <span class="md-code">Scanner.classify_package_family</span> | <span class="md-link">src/vault_io/scan.py:120</span> | <span class="md-code">a3f9c12</span> |
+
+<span class="md-h3">### Removed</span>
+| Symbol | Where (last seen) | Removed in |
+|---|---|---|
+| <span class="md-code">load_config</span> | <span class="md-link">src/vault_io/config.py:11</span> | <span class="md-code">382a9cd</span> |
+| <span class="md-code">CODE_WIKI_CONFIG</span> (env) | <span class="md-link">src/vault_io/__init__.py</span> | <span class="md-code">382a9cd</span> |
+
+<span class="md-h2">## Files touched</span>   <span class="md-fm">(machine — git --stat)</span>
+
+  src/vault_io/scan.py            <span class="md-add">+142</span> <span class="md-rem">-38</span>
+  src/vault_io/ingest.py          <span class="md-add"> +88</span> <span class="md-rem">-44</span>
+  src/vault_io/config.py          <span class="md-add"> +24</span> <span class="md-rem">-71</span>  <span class="md-fm">← surface change</span>
+  src/vault_io/layout.py          <span class="md-add"> +53</span> <span class="md-rem">-12</span>
+  src/vault_io/page_templates.py  <span class="md-add"> +41</span> <span class="md-rem"> -8</span>
+  tests/test_scan.py              <span class="md-add"> +67</span> <span class="md-rem">  0</span>
+  tests/test_config.py            <span class="md-add">  +4</span> <span class="md-rem">-89</span>  <span class="md-fm">← assertions dropped</span>
+  <span class="md-fm">… 40 more files (full list below)</span>
+
+<span class="md-h2">## Commits</span>   <span class="md-fm">(machine — git log --oneline)</span>
+
+  4656429 docs(20-03): complete --config / CODE_WIKI_CONFIG deletion sweep
+  d72f22a test(20-03): drop models_path / --config assertions from test_config.py
+  382a9cd feat(20-03): delete models_path / --config / CODE_WIKI_CONFIG plumbing
+  d76bf2a docs(20-02): complete workspace-aware make_llm + per-role fallback plan
+  <span class="md-fm">… 78 more</span>
+
+<span class="md-h2">## Decisions captured</span>   <span class="md-fm">(LLM)</span>
+
+- <strong>Delete user-facing config plumbing</strong> in favor of workspace-resolved config.
+  Cited in commit message of <span class="md-code">382a9cd</span>; rationale: simplify cross-tool setup.
+  → propose <span class="md-link">adrs/0008-workspace-resolved-config.md</span>
+
+<span class="md-h2">## Contradictions to verify</span>   <span class="md-fm">(LLM)</span>
+
+- <span class="md-link">[[packages/vault-io/context]]</span> mentions <span class="md-code">load_config</span> — now removed.
+- <span class="md-link">[[concepts/layout-detection]]</span> doesn't mention <span class="md-code">package-family</span> yet.
+
+<span class="md-h2">## Surface-change diffs</span>   <span class="md-fm">(machine — inlined for files with the largest +/- count)</span>
+
+<span class="md-h3">### src/vault_io/config.py</span>   <span class="md-fm">(+24 −71)</span>
+
+<span class="md-diff-hdr">@@ -1,71 +0,0 @@</span>
+<span class="md-rem">-CODE_WIKI_CONFIG = "CODE_WIKI_CONFIG"</span>
+<span class="md-rem">-</span>
+<span class="md-rem">-def load_config(path: Path) -&gt; dict:</span>
+<span class="md-rem">-    """Load config from path or $CODE_WIKI_CONFIG."""</span>
+<span class="md-rem">-    target = path or os.environ.get(CODE_WIKI_CONFIG)</span>
+<span class="md-rem">-    if not target:</span>
+<span class="md-rem">-        raise ConfigError("no config path supplied")</span>
+<span class="md-rem">-    return yaml.safe_load(Path(target).read_text())</span>
+<span class="md-fm">…</span>
+
+<span class="md-diff-hdr">@@ -0,0 +1,24 @@</span>
+<span class="md-add">+class WorkspaceConfig:</span>
+<span class="md-add">+    """Workspace-resolved config. Replaces the legacy --config / env-var path."""</span>
+<span class="md-add">+    @classmethod</span>
+<span class="md-add">+    def load(cls, root: Path) -&gt; "WorkspaceConfig":</span>
+<span class="md-add">+        cfg = root / ".graph-wiki.yaml"</span>
+<span class="md-add">+        return cls(**(yaml.safe_load(cfg.read_text()) if cfg.exists() else {}))</span>
+<span class="md-fm">…</span>
+
+<span class="md-h3">### tests/test_config.py</span>   <span class="md-fm">(+4 −89)</span>
+
+<span class="md-diff-hdr">@@ -1,89 +0,0 @@</span>
+<span class="md-rem">-def test_load_config_from_env(monkeypatch, tmp_path):</span>
+<span class="md-rem">-    monkeypatch.setenv("CODE_WIKI_CONFIG", str(cfg_path))</span>
+<span class="md-rem">-    assert load_config(None)["models_path"] == "models.toml"</span>
+<span class="md-rem">-</span>
+<span class="md-rem">-def test_models_path_override(tmp_path):</span>
+<span class="md-rem">-    ...</span>
+<span class="md-fm">…</span>
+
+<span class="md-h3">### src/vault_io/scan.py</span>   <span class="md-fm">(+142 −38)</span>
+
+<span class="md-diff-hdr">@@ -42,7 +42,7 @@ def scan_workspace(root: Path) -&gt; ScanResult:</span>
+<span class="md-rem">-    config = load_config(root / ".graph-wiki.yaml")</span>
+<span class="md-add">+    config = WorkspaceConfig.load(root)</span>
+<span class="md-diff-hdr">@@ -118,3 +118,28 @@ class Scanner:</span>
+<span class="md-add">+    def classify_package_family(self, path: Path) -&gt; Classification:</span>
+<span class="md-add">+        """Detect package-family containers (2026-05)."""</span>
+<span class="md-fm">…</span>
+</div>
+  </section>
+
+</div>
+
+<script>
+  document.querySelectorAll('.toolbar .tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      document.querySelectorAll('.toolbar .tab').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.variant').forEach(v => v.classList.toggle('active', v.dataset.variant === target));
+    });
+  });
+  document.getElementById('theme-switcher').addEventListener('change', e => {
+    document.querySelector('link[href*=themes]').href = '../themes/' + e.target.value + '.css';
+  });
+</script>
+</body>
+</html>
