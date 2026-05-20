@@ -158,7 +158,7 @@ Plans:
 Plans:
 - [x] 21-01-PLAN.md — Worktree setup + `git mv` directory moves (agents/ + src/ subdirs)
 - [x] 21-02-PLAN.md — pyproject.toml `name` + console scripts + `uv.lock` regeneration
-- [ ] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
+- [x] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
 - [ ] 21-04-PLAN.md — Plugin shellouts + CODE_WIKI_* env-var rename + integration-gate test + cross-package .code-wiki/ trace-dir sweep
 - [ ] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
 
@@ -189,7 +189,7 @@ Plans:
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
 | 18. Plugin Command Rename | 6/6 | Complete   | 2026-05-20 |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
-| 21. Rename code-wiki-agent → graph-wiki-agent | 2/5 | In Progress|  |
+| 21. Rename code-wiki-agent → graph-wiki-agent | 3/5 | In Progress|  |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
 
 ---
