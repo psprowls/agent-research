@@ -98,10 +98,12 @@ def _route_target_path(wiki: Path, page_type: str, slug: str) -> Path:
     """
     subdir = _PAGE_TYPE_DIRS.get(page_type, "concepts")
     target = wiki / subdir / f"{slug}.md"
-    # Confirm path stays inside wiki (defense in depth)
+    # Confirm path stays inside wiki (defense in depth). WR-06 (D-06): mirror
+    # the `Path.is_relative_to` idiom used in commands/query.py:356 — Python
+    # 3.11+ is the floor (CLAUDE.md), so no fallback needed.
     resolved = target.resolve()
     wiki_resolved = wiki.resolve()
-    if not str(resolved).startswith(str(wiki_resolved) + "/"):
+    if not resolved.is_relative_to(wiki_resolved):
         raise ValueError(f"target path escapes wiki root: {resolved}")
     return target
 
