@@ -126,7 +126,7 @@ async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
     await ctx.report_progress(progress=0, total=input.top_k, message="Starting hybrid search")
     result: QueryResult = await run_query(
         query=input.query,
-        vault_path=vault,
+        workspace_path=vault,
         top_k=input.top_k,
     )
     await ctx.report_progress(
@@ -171,7 +171,7 @@ async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
         op=input.op,
         title=input.title,
         detail=input.detail,
-        vault_path=vault,
+        workspace_path=vault,
     )
     return WikiLogOutput(
         status=result.status,
@@ -217,7 +217,7 @@ async def wiki_bootstrap(input: WikiBootstrapInput, ctx: Context) -> WikiBootstr
         topic=input.topic,
         tool=input.tool,
         force=input.force,
-        vault_path=vault,
+        workspace_path=vault,
     )
     return WikiBootstrapOutput(
         status=result.status,
@@ -266,7 +266,7 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
     vault = Path(input.vault_path) if input.vault_path else None
     await ctx.report_progress(progress=0, total=2, message="Starting scan")
     result: ScanResult = await run_scan(
-        vault_path=vault,
+        workspace_path=vault,
         no_file_map=input.no_file_map,
         max_depth=input.max_depth,
         repo_path=Path(input.repo_path).resolve() if input.repo_path else None,
@@ -344,7 +344,7 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
                 slug=input.slug,
                 force=input.force,
                 pkg_dir=Path(input.pkg_dir) if input.pkg_dir else None,
-                vault_path=vault,
+                workspace_path=vault,
             )
     except (ValueError, FileExistsError) as e:
         # Surface validation errors as a structured MCP error (no stdout crash)
@@ -406,7 +406,7 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
     vault = Path(input.vault_path) if input.vault_path else None
     await ctx.report_progress(progress=0, total=2, message="Starting lint")
     result: LintResult = await run_lint(
-        vault_path=vault,
+        workspace_path=vault,
         stale_days=input.stale_days,
         log_gap_days=input.log_gap_days,
     )

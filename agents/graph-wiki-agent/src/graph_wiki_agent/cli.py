@@ -386,9 +386,9 @@ def query(
 ) -> None:
     """Query the wiki using hybrid BM25+embedding search with librarian fan-out."""
     # state gate is a no-op for query (read-only) — D-08
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_query(query_text, vault_path, top_k=top_k))
+        result = asyncio.run(run_query(query_text, workspace_path, top_k=top_k))
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -421,9 +421,9 @@ def log(
     json_output: bool = typer.Option(False, "--json", help="Emit LogResult as JSON"),
 ) -> None:
     """Append a timestamped event to the wiki log.md."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_log(op=op, title=title, detail=detail, vault_path=vault_path))
+        result = asyncio.run(run_log(op=op, title=title, detail=detail, workspace_path=workspace_path))
     except (RuntimeError, FileNotFoundError, SystemExit) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -443,9 +443,9 @@ def bootstrap(
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
     """Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, vault_path=vault_path))
+        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, workspace_path=workspace_path))
     except (RuntimeError, FileNotFoundError, SystemExit) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -466,9 +466,9 @@ def scan(
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
     """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_scan(vault_path=vault_path, no_file_map=no_file_map, max_depth=max_depth))
+        result = asyncio.run(run_scan(workspace_path=workspace_path, no_file_map=no_file_map, max_depth=max_depth))
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -502,9 +502,9 @@ def ingest_source(
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """Ingest a source file into the wiki via the ingestor LLM."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_ingest_source(path, vault_path))
+        result = asyncio.run(run_ingest_source(path, workspace_path))
     except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -527,7 +527,7 @@ def ingest_work_item(
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """File a structured work item into the wiki workspace."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
         result = asyncio.run(
             run_ingest_work_item(
@@ -536,7 +536,7 @@ def ingest_work_item(
                 slug=slug,
                 force=force,
                 pkg_dir=pkg_dir,
-                vault_path=vault_path,
+                workspace_path=workspace_path,
             )
         )
     except (RuntimeError, ValueError, FileExistsError) as e:
@@ -563,9 +563,9 @@ def lint(
     json_output: bool = typer.Option(False, "--json", help="Emit LintResult as JSON"),
 ) -> None:
     """Run mechanical + semantic lint pass over the wiki and report findings."""
-    vault_path = Path(vault) if vault else None
+    workspace_path = Path(vault) if vault else None
     try:
-        result = asyncio.run(run_lint(vault_path=vault_path, stale_days=stale_days, log_gap_days=log_gap_days))
+        result = asyncio.run(run_lint(workspace_path=workspace_path, stale_days=stale_days, log_gap_days=log_gap_days))
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)

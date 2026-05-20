@@ -14,8 +14,8 @@ Public API (Plan 03):
     QueryResult                      -- Dataclass: answer, citations, pages_drilled, search_scores
     LIBRARIAN_SYSTEM                 -- System prompt for librarian role (re-exported from graph_wiki_agent.prompts.librarian)
     SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role (re-exported from graph_wiki_agent.prompts.synthesizer)
-    run_query(query, vault_path, top_k) -- End-to-end query pipeline
-    apply_guardrails(result, vault_path, fan_result) -- G1 + G4 online guardrails
+    run_query(query, workspace_path, top_k) -- End-to-end query pipeline
+    apply_guardrails(result, workspace_path, fan_result) -- G1 + G4 online guardrails
     _extract_wikilinks(text)         -- Extract [[wikilink]] targets from text
 
 Public API (Plan 09 — vault-thin code-fallback):
@@ -801,7 +801,7 @@ def bm25_query(
 
 async def run_query(
     query: str,
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
     top_k: int = 5,
     librarian_model_override: str | None = None,  # deprecated; prefer role_model_overrides
     role_model_overrides: dict[str, str] | None = None,
@@ -809,7 +809,7 @@ async def run_query(
     """End-to-end query: hybrid search -> librarian fan-out -> synthesis -> guardrails.
 
     Steps:
-        1. Resolve vault path via resolve_wiki_and_repo().
+        1. Resolve workspace path via resolve_wiki_and_repo().
         2. Auto-build index if missing (.graph-wiki/bm25/ or .graph-wiki/search.db absent).
         3. BM25 search (top_k * 3 candidates).
         4. Embedding search via Titan v2 (top_k * 3 candidates).
@@ -822,7 +822,7 @@ async def run_query(
 
     Args:
         query:                    Natural language query string.
-        vault_path:               Path to vault root. None uses GRAPH_WIKI_WORKSPACE env var.
+        workspace_path:           Path to workspace root. None uses GRAPH_WIKI_WORKSPACE env var.
         top_k:                    Pages to drill. Must be in [3, 10].
         librarian_model_override: Bedrock model ID to use for librarian role instead of
                                   the default from models.toml. Deprecated — prefer
@@ -847,7 +847,7 @@ async def run_query(
     started_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
 
     # Step 1: resolve vault
-    wiki, _ = resolve_wiki_and_repo(vault_path)
+    wiki, _ = resolve_wiki_and_repo(workspace_path)
 
     # Step 2: auto-build index if missing
     bm25_dir = wiki / ".graph-wiki" / _BM25_SUBDIR

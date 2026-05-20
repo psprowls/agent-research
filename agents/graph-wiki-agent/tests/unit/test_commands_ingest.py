@@ -134,7 +134,7 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
         mock_resolve.return_value = (wiki, tmp_path)
 
         with pytest.raises(ValueError) as exc_info:
-            await run_ingest_work_item(frontmatter_text, "Some body.", vault_path=wiki)
+            await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=wiki)
 
     assert "affects" in str(exc_info.value)
 
@@ -181,7 +181,7 @@ async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path)
             "title": "Fix Auth Bug",
         }
 
-        result = await run_ingest_work_item(frontmatter_text, "Some body.", vault_path=wiki)
+        result = await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=wiki)
 
     assert isinstance(result, IngestResult)
     assert result.page_type == "work"
@@ -227,7 +227,7 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
             "title": "Some Item",
         }
 
-        await run_ingest_work_item(frontmatter_text, "Body.", force=True, vault_path=wiki)
+        await run_ingest_work_item(frontmatter_text, "Body.", force=True, workspace_path=wiki)
 
     # Verify force=True was passed to file_work_item
     call_kwargs = mock_file_work_item.call_args

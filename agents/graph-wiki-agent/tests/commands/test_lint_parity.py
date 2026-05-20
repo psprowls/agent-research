@@ -48,7 +48,7 @@ async def test_lint_result_json_serializable(no_semantic_pool) -> None:
     """LintResult from edge-case-vault serializes via dataclasses.asdict + json.dumps."""
     from graph_wiki_agent.commands.lint import run_lint
 
-    result = await run_lint(vault_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
 
     d = dataclasses.asdict(result)
     # Should not raise
@@ -72,7 +72,7 @@ async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool) -> None:
     """edge-case-vault has known broken links — result.broken_links is non-empty."""
     from graph_wiki_agent.commands.lint import run_lint
 
-    result = await run_lint(vault_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
 
     assert isinstance(result.broken_links, list)
     # edge-case-vault/concepts/broken-wikilinks.md has 3 broken links
@@ -91,7 +91,7 @@ async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool) ->
     """edge-case-vault has pages with incomplete frontmatter — result.missing_frontmatter non-empty."""
     from graph_wiki_agent.commands.lint import run_lint
 
-    result = await run_lint(vault_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
 
     assert isinstance(result.missing_frontmatter, list)
     # edge-case-vault/concepts/missing-title.md lacks the required 'title' field
@@ -114,7 +114,7 @@ async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool) -> 
     """
     from graph_wiki_agent.commands.lint import run_lint
 
-    result = await run_lint(vault_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
 
     for src, target in result.broken_links:
         assert "..." not in target, (

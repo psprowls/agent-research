@@ -14,6 +14,7 @@ from pathlib import Path
 from workspace_io import manifest
 from workspace_io import paths as _paths
 from workspace_io.render import render_workspace_claude_md
+from workspace_io.config import resolve_workspace
 
 _GITIGNORE_ENTRY = ".graph-wiki.local.yaml"
 
@@ -28,7 +29,7 @@ def init(
     """Create the workspace and `.graph-wiki.yaml` if absent. Append/update plugin entry. Idempotent."""
     repo_root = Path(repo_root).resolve()
     if workspace is None:
-        workspace = repo_root / "graph-wiki"
+        workspace = resolve_workspace(repo_root=repo_root)
     workspace = Path(workspace).resolve()
 
     workspace.mkdir(parents=True, exist_ok=True)
