@@ -145,3 +145,147 @@ def test_make_llm_librarian_sets_max_tokens():
     assert getattr(llm, "max_tokens", None) == 2048
 
 
+# ---------------------------------------------------------------------------
+# Phase 20 / WMC-02: workspace-override resolution path tests.
+#
+# The four tests below pin the resolution order in `make_llm`:
+#   1. Workspace defines the role     → workspace wins.
+#   2. Workspace silent on the role   → packaged models.toml wins (per-role).
+#   3. workspace_io.resolve() raises  → caught; packaged models.toml wins.
+#   4. Helper returns None (any path) → packaged models.toml wins.
+#
+# Tests 1, 2, 3 opt into the real `_workspace_role_override` helper via the
+# `real_workspace_role_override` fixture (the autouse fixture stubs the helper
+# to return None by default). Test 4 relies on the autouse stub directly.
+# ---------------------------------------------------------------------------
+
+# Non-default ARN used in workspace-override tests so workspace-wins vs.
+# packaged-fallback paths produce distinguishable results.
+WORKSPACE_OVERRIDE_ARN = "qwen.qwen3-32b-v1:0"
+
+
+def _write_synthetic_workspace(tmp_path, roles):
+    """Build a minimal workspace dir with `.graph-wiki.yaml` carrying the given roles."""
+    from workspace_io.manifest import write as manifest_write
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir(parents=True, exist_ok=True)
+    manifest_write(
+        workspace / ".graph-wiki.yaml",
+        {
+            "version": 2,
+            "initialized_at": "2026-05-19",
+            "plugins": [
+                {
+                    "name": "code-wiki-agent",
+                    "installed_version": "0.7.0",
+                    "applied_version": "0.7.0",
+                    "roles": roles,
+                }
+            ],
+        },
+    )
+    return workspace
+
+
+def test_make_llm_uses_workspace_role_when_present(
+    tmp_path, monkeypatch, real_workspace_role_override
+):
+    """Workspace-defined role config wins over packaged defaults."""
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import make_llm
+
+    workspace = _write_synthetic_workspace(
+        tmp_path,
+        [
+            {
+                "name": "librarian",
+                "model_id": WORKSPACE_OVERRIDE_ARN,
+                "region": "us-east-1",
+                "max_tokens": 1024,
+                "max_concurrency": 2,
+            },
+        ],
+    )
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("librarian")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual == WORKSPACE_OVERRIDE_ARN
+
+
+def test_make_llm_falls_back_to_packaged_when_role_absent_in_workspace(
+    tmp_path, monkeypatch, real_workspace_role_override
+):
+    """Per-role fallback: workspace silent on a role → packaged models.toml wins."""
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import make_llm
+
+    workspace = _write_synthetic_workspace(
+        tmp_path,
+        [
+            {
+                "name": "librarian",
+                "model_id": WORKSPACE_OVERRIDE_ARN,
+                "region": "us-east-1",
+                "max_tokens": 1024,
+                "max_concurrency": 2,
+            },
+        ],
+    )
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("scanner")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    # Scanner default per models.toml [roles.scanner]
+    assert actual == HAIKU_ARN
+
+
+def test_make_llm_falls_back_to_packaged_when_resolve_raises(
+    monkeypatch, real_workspace_role_override
+):
+    """Production path: `workspace_io.resolve()` raises RuntimeError →
+    `_workspace_role_override` catches it → `make_llm` falls back to packaged
+    `models.toml`. Drives the real try/except, not a stub (BLOCKER fix from
+    plan-check).
+    """
+    from model_adapter.loader import make_llm
+
+    def _raise(*args, **kwargs):
+        raise RuntimeError("synthetic: no manifest reachable")
+
+    # Patch BOTH the source module attribute and the re-export so the
+    # function-scoped `from workspace_io import ... resolve` inside the
+    # helper picks up the patched callable. `workspace_io` re-exports
+    # `resolve` from `workspace_io.config` via `__init__.py`.
+    import workspace_io
+    import workspace_io.config as _wsio_config
+
+    monkeypatch.setattr(_wsio_config, "resolve", _raise)
+    monkeypatch.setattr(workspace_io, "resolve", _raise)
+
+    llm = make_llm("preflight")
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    # Preflight default per models.toml [roles.preflight]
+    assert actual == HAIKU_ARN
+
+
+def test_make_llm_falls_back_when_helper_returns_none(monkeypatch):
+    """Branch coverage: when `_workspace_role_override` returns None (for any
+    reason — no workspace, role absent, ImportError), `make_llm` reads packaged
+    defaults. NOTE: this test stubs the helper and does NOT exercise the
+    `workspace_io.resolve()` raise path — see
+    `test_make_llm_falls_back_to_packaged_when_resolve_raises` for that
+    coverage.
+    """
+    from model_adapter.loader import make_llm
+
+    # The autouse fixture has already stubbed `_workspace_role_override` to
+    # `lambda role: None` — so this test simply confirms the default branch
+    # behavior of `make_llm` under that stub.
+    llm = make_llm("preflight")
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual == HAIKU_ARN
+
