@@ -1,9 +1,9 @@
 ---
-name: init
-description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace — schema files and starter templates. Wiki is created at <workspace>/wiki/. Usage /graph-wiki:init --topic "<topic>" [--tool all|claude-code|codex|cursor|antigravity]
+name: bootstrap
+description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace — schema files and starter templates. Wiki is created at <workspace>/wiki/. Usage /graph-wiki:bootstrap --topic "<topic>" [--tool all|claude-code|codex|cursor|antigravity]
 ---
 
-# /graph-wiki:init
+# /graph-wiki:bootstrap
 
 Bootstrap a new Code Wiki. Discovers the workspace via `workspace_io` (walks up from cwd for `.git`, reads `.graph-wiki.yaml` for the workspace path, defaults to `<repo>/graph-wiki`). Creates the wiki at `<workspace>/wiki/`.
 
@@ -12,17 +12,17 @@ The wiki contains `index.md`, `log.md`, and curated subdirs (`adrs/`, `architect
 ## Usage
 
 ```
-/graph-wiki:init --topic "<topic>"
-/graph-wiki:init --topic "<topic>" --tool <claude-code|codex|cursor|antigravity|opencode|gemini-cli|all>
-/graph-wiki:init --topic "<topic>" --force
+/graph-wiki:bootstrap --topic "<topic>"
+/graph-wiki:bootstrap --topic "<topic>" --tool <claude-code|codex|cursor|antigravity|opencode|gemini-cli|all>
+/graph-wiki:bootstrap --topic "<topic>" --force
 ```
 
 ## Examples
 
 ```
-/graph-wiki:init --topic "my-repo"
-/graph-wiki:init --topic "platform monorepo" --tool all
-/graph-wiki:init --topic "api monorepo" --tool codex
+/graph-wiki:bootstrap --topic "my-repo"
+/graph-wiki:bootstrap --topic "platform monorepo" --tool all
+/graph-wiki:bootstrap --topic "api monorepo" --tool codex
 ```
 
 ## Container detection
@@ -57,7 +57,7 @@ Before initializing the wiki, run the container classifier so the user can confi
 └── .gitignore
 ```
 
-`<workspace>/raw/` and `<workspace>/work/` are siblings of `<workspace>/wiki/` and are created/managed by `workspace_io`, not by `/graph-wiki:init`.
+`<workspace>/raw/` and `<workspace>/work/` are siblings of `<workspace>/wiki/` and are created/managed by `workspace_io`, not by `/graph-wiki:bootstrap`.
 
 ## Next steps
 
