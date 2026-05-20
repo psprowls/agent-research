@@ -4,8 +4,8 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
-    "code-wiki-agent",
     "eval-harness",
+    "graph-wiki-agent",
     "model-adapter",
     "subagent-runtime",
     "vault-io",
@@ -460,35 +460,6 @@ wheels = [
 ]
 
 [[package]]
-name = "code-wiki-agent"
-version = "0.1.0"
-source = { editable = "agents/code-wiki-agent" }
-dependencies = [
-    { name = "bm25s" },
-    { name = "langchain-aws" },
-    { name = "mcp" },
-    { name = "model-adapter" },
-    { name = "pydantic" },
-    { name = "subagent-runtime" },
-    { name = "typer" },
-    { name = "vault-io" },
-    { name = "workspace-io" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bm25s", specifier = "==0.3.8" },
-    { name = "langchain-aws", specifier = ">=1.4.6" },
-    { name = "mcp", specifier = ">=1.27.1" },
-    { name = "model-adapter", editable = "packages/model-adapter" },
-    { name = "pydantic", specifier = ">=2.0" },
-    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
-    { name = "typer", specifier = ">=0.25.1" },
-    { name = "vault-io", editable = "packages/vault-io" },
-    { name = "workspace-io", editable = "packages/workspace-io" },
-]
-
-[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -631,8 +602,8 @@ version = "0.1.0"
 source = { editable = "packages/eval-harness" }
 dependencies = [
     { name = "aiobotocore" },
-    { name = "code-wiki-agent" },
     { name = "deepeval" },
+    { name = "graph-wiki-agent" },
     { name = "model-adapter" },
     { name = "pytest-evals" },
     { name = "python-frontmatter" },
@@ -642,8 +613,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", specifier = ">=2.13" },
-    { name = "code-wiki-agent", editable = "agents/code-wiki-agent" },
     { name = "deepeval", specifier = ">=4.0.0" },
+    { name = "graph-wiki-agent", editable = "agents/graph-wiki-agent" },
     { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
@@ -771,6 +742,35 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/89/76/c615883b7b521ead2944bb3480398cbb07e12b7b4e4d073d3752eb721558/frozenlist-1.8.0-cp314-cp314t-win_amd64.whl", hash = "sha256:06be8f67f39c8b1dc671f5d83aaefd3358ae5cdcf8314552c57e7ed3e6475bdd", size = 49451, upload-time = "2025-10-06T05:37:53.425Z" },
     { url = "https://files.pythonhosted.org/packages/e0/a3/5982da14e113d07b325230f95060e2169f5311b1017ea8af2a29b374c289/frozenlist-1.8.0-cp314-cp314t-win_arm64.whl", hash = "sha256:102e6314ca4da683dca92e3b1355490fed5f313b768500084fbe6371fddfdb79", size = 42507, upload-time = "2025-10-06T05:37:54.513Z" },
     { url = "https://files.pythonhosted.org/packages/9a/9a/e35b4a917281c0b8419d4207f4334c8e8c5dbf4f3f5f9ada73958d937dcc/frozenlist-1.8.0-py3-none-any.whl", hash = "sha256:0c18a16eab41e82c295618a77502e17b195883241c563b00f0aa5106fc4eaa0d", size = 13409, upload-time = "2025-10-06T05:38:16.721Z" },
+]
+
+[[package]]
+name = "graph-wiki-agent"
+version = "0.1.0"
+source = { editable = "agents/graph-wiki-agent" }
+dependencies = [
+    { name = "bm25s" },
+    { name = "langchain-aws" },
+    { name = "mcp" },
+    { name = "model-adapter" },
+    { name = "pydantic" },
+    { name = "subagent-runtime" },
+    { name = "typer" },
+    { name = "vault-io" },
+    { name = "workspace-io" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bm25s", specifier = "==0.3.8" },
+    { name = "langchain-aws", specifier = ">=1.4.6" },
+    { name = "mcp", specifier = ">=1.27.1" },
+    { name = "model-adapter", editable = "packages/model-adapter" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
+    { name = "typer", specifier = ">=0.25.1" },
+    { name = "vault-io", editable = "packages/vault-io" },
+    { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
 [[package]]

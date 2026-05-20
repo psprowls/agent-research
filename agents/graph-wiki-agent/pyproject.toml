@@ -1,5 +1,5 @@
 [project]
-name = "code-wiki-agent"
+name = "graph-wiki-agent"
 version = "0.1.0"
 description = "AWS Bedrock-powered wiki maintenance agent (MCP server + CLI)"
 requires-python = ">=3.11"
@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.scripts]
-code-wiki-agent = "code_wiki_agent.cli:app"
-code-wiki-mcp   = "code_wiki_mcp.server:main"
+graph-wiki-agent = "graph_wiki_agent.cli:app"
+graph-wiki-mcp   = "graph_wiki_mcp.server:main"
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]

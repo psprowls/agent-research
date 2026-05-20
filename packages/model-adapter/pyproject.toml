@@ -1,7 +1,7 @@
 [project]
 name = "model-adapter"
 version = "0.1.0"
-description = "AWS Bedrock model loader for code-wiki-agent"
+description = "AWS Bedrock model loader for graph-wiki-agent"
 requires-python = ">=3.11"
 dependencies = [
     "langchain-aws>=1.4.6",
