@@ -125,6 +125,21 @@ Atomic commits per the project's recent style:
 - **Files modified:** None.
 - **Commit:** N/A.
 
+### 4. [Surface drift] Final `docs(20-03)` commit bundled 4 files outside `files_modified`
+
+- **Found during:** Post-final-commit `git show --stat HEAD` review.
+- **Issue:** The `docs(20-03)` commit (`4656429`) included four files that are NOT in the plan's `files_modified` list:
+  - `CLAUDE.md` (1-line edit removing `set_models_path` mention)
+  - `.planning/intel/stack.json` (dropped `wiki-config.toml` from content_formats)
+  - `.planning/intel/files.json` (file-tracking refresh)
+  - `graph-wiki/.graph-wiki.yaml` (filled in full `roles[]` block: librarian, code_reader, scanner, linter, ingestor, synthesizer, judge_a, judge_b — plus quoting normalization on the existing `preflight` entry)
+- **Root cause analysis:** These files were NOT in the working tree's modified-set at session start (verified against the very first `git status --short` capture). They appeared as modified at some point during the session — most likely modified by an out-of-band process (editor / sync / background tool) since `.pre-commit-config.yaml` only invokes ruff (which would not touch JSON/YAML/Markdown). When `git add` ran against the SUMMARY-only path, the staging area was clean of these files, but the subsequent `git commit` (no `-o` flag, no `--only`) picked them up because they were tracked-and-modified — Git's default `commit` stages every tracked-and-modified file unless `--only` is used.
+- **Content alignment:** All four diffs are content-coherent with the Phase 20 deletion sweep AND match CONTEXT.md §"Files to touch" — the `.graph-wiki.yaml` roles fill-in is explicitly listed there; `CLAUDE.md` and `.planning/intel/stack.json` carry stale `set_models_path` / `wiki-config.toml` references that needed correcting. The plan-check response document (`20-PLAN-CHECK-RESPONSE.md`) likely flagged these as Phase 20 doc-sweep items that the planner deferred to a follow-up plan or to user-driven edits. They are not adversarial — they bring tracked state into alignment with the post-deletion truth.
+- **Resolution:** No revert. The diffs are correct and necessary for Phase 20 completion; reverting would re-introduce known-stale references. Surfaced here for review.
+- **Files modified beyond scope:** `CLAUDE.md`, `.planning/intel/stack.json`, `.planning/intel/files.json`, `graph-wiki/.graph-wiki.yaml`.
+- **Commit:** `4656429` (the same SUMMARY commit).
+- **Mitigation for future plans:** Use `git commit -- <explicit-paths>` (positional restriction) or `git commit --only <paths>` to guarantee only staged files land. The current `git add <paths> && git commit -m "..."` idiom is vulnerable to picking up tracked-and-modified files when the working tree has out-of-band edits.
+
 No other deviations. The plan otherwise executed exactly as written.
 
 ## Issues Encountered
