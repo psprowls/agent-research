@@ -366,7 +366,7 @@ async def run_scan(
 
     for pkg, llm_body in fan_result.successes:
         pkg_name = unscope(pkg["name"])
-        vault_page_rel = pkg.get("vault_path", f"packages/{pkg_name}/{pkg_name}.md")
+        vault_page_rel = pkg.get("wiki_relative_path", f"packages/{pkg_name}/{pkg_name}.md")
         page_path = wiki / vault_page_rel
         page_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -396,7 +396,7 @@ async def run_scan(
     for pkg_name in diff["deleted"]:
         existing_rec = existing.get(pkg_name)
         if existing_rec:
-            page_path = wiki / existing_rec["vault_path"]
+            page_path = wiki / existing_rec["wiki_relative_path"]
             _add_stale_tag(page_path)
             append_log(
                 wiki,
@@ -413,7 +413,7 @@ async def run_scan(
         old_name = rename_pair[0]
         existing_rec = existing.get(old_name)
         if existing_rec:
-            page_path = wiki / existing_rec["vault_path"]
+            page_path = wiki / existing_rec["wiki_relative_path"]
             _add_stale_tag(page_path)
             new_name = rename_pair[1] if len(rename_pair) > 1 else "unknown"
             append_log(
