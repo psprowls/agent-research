@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: completed
+status: Phase 22 shipped (local merge; no remote)
 stopped_at: Phase 22 context gathered
-last_updated: "2026-05-20T21:37:45.318Z"
-last_activity: 2026-05-20 -- Phase 22 marked complete
+last_updated: "2026-05-20T22:23:39.910Z"
+last_activity: 2026-05-20 -- Phase 22 shipped (merged to main)
 progress:
   total_phases: 4
   completed_phases: 1
@@ -37,8 +37,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 Phase: 22 — COMPLETE
 Plan: 1 of 1
-Status: Phase 22 complete
-Last activity: 2026-05-20 -- Phase 22 marked complete
+Status: Phase 22 shipped (local merge; no remote)
+Last activity: 2026-05-20 -- Phase 22 shipped (merged to main)
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
