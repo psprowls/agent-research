@@ -29,14 +29,28 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21.
 
-## Next Milestone: v1.4 (Not Yet Scoped)
+## Current Milestone: v1.4 Workspace Path Resolution Cleanup
 
-Run `/gsd-new-milestone` when ready to scope v1.4. Likely candidates (carried forward at v1.3 close):
+**Goal:** Eliminate `vault`/`vault_path` nomenclature globally. The canonical input becomes `workspace_path`; the wiki dir is always derived via `workspace_io.paths.wiki_dir()`. Hard-rename external surfaces (MCP, CLI) with no back-compat. Fix one known bootstrap bug along the way.
+
+**Target features:**
+
+1. **Internal API rename** — `resolve_wiki_and_repo(workspace_path, repo_path)`, all 6 command `run_*` signatures, all test mock setups, `.graph-wiki.local.yaml` key rename (`graph-wiki-directory` → `workspace-directory`).
+2. **External surface rename** — 6 MCP tool fields (`vault_path` → `workspace_path`), 7 Typer flags (`--vault` → `--workspace`), scan JSON field (`vault_path` → `wiki_relative_path`), plugin doc sync.
+3. **eval-harness sweep** — `vault_path` params across `sweep.py`/`baseline.py`/`structural.py`/`divergence/*.py`; bare `vault:` in divergence helpers → `wiki:`.
+4. **Packages-dir misclassification fix** — `_classify_dir` heuristic accepts majority-manifested dirs as `package`; `--interactive` opt-in on bootstrap (closes pending todo 2026-05-20).
+
+**Key context:**
+- Phase numbering continues from Phase 21 → v1.4 starts at Phase 22.
+- No research needed — mechanical rename + one localized bug fix.
+- Hard-rename strategy: breaks any external MCP consumer; DA-CLI integration test updates in the same phase as the schema rename.
+- Carry-forward items from v1.3 (Nyquist decision, plugin smoke transcript, manual UAT, slug-only regex fix) are **not** in v1.4 — they remain candidates for v1.5.
+
+## Deferred to v1.5+
 
 - **Nyquist compliance retroactive decision** — 0/16 v1.1+v1.2+v1.3 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate the 16 phases vs. disable the toggle.
 - **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.3 close.
 - **Phase 18 SC#3 manual UAT** — install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. By-design manual gate from v1.3 Phase 18 D-07.
-- **`next-milestone-planning` thread closure** — carried v1.0 → v1.1 → v1.2 → v1.3. Either close at v1.4 scoping or convert to requirements at v1.5.
 - **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19 (same issue as the synthesizer fix; not load-bearing today).
 
 **Explicitly out of v1.x (deferred to v2.0+):**
@@ -207,11 +221,11 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-19 — milestone v1.3 (Tooling Cleanup) STARTED. Scope: 4 vault-io / plugin bug fixes (scan companion-pages diff, Bedrock CountTokens API shape, repo resolution in init_vault + detect_containers, /init → /init-wiki rename) + Phase 16 code review burndown (6 warn + 9 info, 0 critical). Phase numbering continues from Phase 17.
+**Last updated:** 2026-05-20 — milestone v1.4 (Workspace Path Resolution Cleanup) STARTED. Scope: 3-phase `vault`/`vault_path` → `workspace`/`workspace_path` rename (internal API, external MCP+CLI surface, eval-harness) + packages-dir misclassification bug fix. Phase numbering continues from Phase 22.
 
-**Prior update:** 2026-05-19 — milestone v1.2 (Graph-Wiki Port & Debt Cleanup) SHIPPED. 6 phases, 21 plans, 30/30 requirements satisfied.
+**Prior update:** 2026-05-20 — milestone v1.3 (Tooling Cleanup) SHIPPED. 5 phases, 25 plans, 19/19 requirements satisfied.
 
-**Earlier:** 2026-05-17 — milestone v1.1 (Quality Improvements) SHIPPED. 5 phases, 39 plans, 29/29 requirements satisfied.
+**Earlier:** 2026-05-19 — milestone v1.2 (Graph-Wiki Port & Debt Cleanup) SHIPPED. 6 phases, 21 plans, 30/30 requirements satisfied.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -227,4 +241,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — milestone v1.3 Tooling Cleanup STARTED (phase numbering continues from Phase 17). 16 phases / 85 plans / 126/126 requirements shipped across v1.0+v1.1+v1.2. v1.3 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
+*Last updated: 2026-05-20 — milestone v1.4 Workspace Path Resolution Cleanup STARTED (phase numbering continues from Phase 22). 21 phases / 110 plans / 145/145 requirements shipped across v1.0+v1.1+v1.2+v1.3. v1.4 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
