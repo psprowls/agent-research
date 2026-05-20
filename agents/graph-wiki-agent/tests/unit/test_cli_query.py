@@ -47,21 +47,21 @@ def test_query_help_exits_zero() -> None:
     )
     assert result.returncode == 0, f"Expected exit 0, got {result.returncode}\n{result.stderr}"
     assert "--top-k" in result.stdout
-    assert "--vault" in result.stdout
+    assert "--workspace" in result.stdout
     assert "--json" in result.stdout
     assert "--no-state-gate" in result.stdout
     assert "--quiet" in result.stdout
 
 
 def test_vault_flag_in_help() -> None:
-    """--vault flag appears in help output (CLI-05)."""
+    """--workspace flag appears in help output (CLI-05; renamed in Phase 23 WSMCP-02)."""
     result = subprocess.run(
         ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0
-    assert "--vault" in result.stdout
+    assert "--workspace" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ def test_state_gate_flag_present() -> None:
 
 
 def test_exit_code_1_on_unresolved_vault() -> None:
-    """query --vault /nonexistent exits 1 with 'Error:' on stderr (CLI-06)."""
+    """query --workspace /nonexistent exits 1 with 'Error:' on stderr (CLI-06)."""
     result = subprocess.run(
         [
             "uv",
@@ -110,7 +110,7 @@ def test_exit_code_1_on_unresolved_vault() -> None:
             "graph-wiki-agent",
             "query",
             "test query",
-            "--vault",
+            "--workspace",
             "/definitely/does/not/exist/ever",
         ],
         capture_output=True,
@@ -151,7 +151,7 @@ def test_headless_mode_progress_to_stderr(
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["query", "test", "--vault", str(tmp_path)],
+        ["query", "test", "--workspace", str(tmp_path)],
     )
     assert result.exit_code in (0, 3), (
         f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
@@ -176,7 +176,7 @@ def test_json_flag_emits_valid_json(
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["query", "test", "--vault", str(tmp_path), "--json"],
+        ["query", "test", "--workspace", str(tmp_path), "--json"],
     )
     assert result.exit_code in (0, 3), (
         f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
@@ -205,7 +205,7 @@ def test_no_state_gate_flag_accepted(
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["query", "test", "--vault", str(tmp_path), "--no-state-gate"],
+        ["query", "test", "--workspace", str(tmp_path), "--no-state-gate"],
     )
     # Should not error just because --no-state-gate is set
     assert result.exit_code in (0, 3), (
