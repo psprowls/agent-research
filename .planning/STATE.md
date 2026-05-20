@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 Phase: 19 — COMPLETE
 Plan: 1 of 5
 Status: Phase 19 complete
-Last activity: 2026-05-20 -- Completed quick task 260520-bgd: close out v1.3 deferred items
+Last activity: 2026-05-20 -- Phase 18 SC#3 UAT passed (native /init unshadowed); v1.3 fully closed
 
 v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plans shipped this milestone)
 
@@ -121,7 +121,7 @@ Items acknowledged at v1.3 close (2026-05-20):
 
 | Category | Item | Status |
 |----------|------|--------|
-| verification | Phase 18 — `18-VERIFICATION.md` `human_needed` | by-design manual UAT: install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. Phase 18 D-07 explicitly classifies SC#3 as manual smoke. Owned by user on next plugin install. |
+| verification | Phase 18 — `18-VERIFICATION.md` `human_needed` | ✅ closed 2026-05-20 — user typed `/init` in active session; native Claude Code CLAUDE.md init workflow fired (canonical prompt text confirmed). Plugin's `/graph-wiki:bootstrap` is the only graph-wiki bootstrap path. See `18-VERIFICATION.md` §Human Verification Required #1 for full UAT capture. |
 | quick_task | 260519-k9t-preflight-role | closed (260520-bgd Task 2): SUMMARY.md stub added + Quick Tasks Completed index backfilled |
 | quick_task | 260519-lf1-bedrock-audit | closed (260520-bgd Task 2): SUMMARY.md stub added + Quick Tasks Completed index backfilled |
 | context_questions | Phase 18 `18-CONTEXT.md` — 3 open question lines | answered during execution (rename approach + reinstall instructions + historical sweep granularity), question markers not cleared from CONTEXT.md text |

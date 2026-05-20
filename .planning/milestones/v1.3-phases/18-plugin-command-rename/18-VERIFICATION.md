@@ -117,31 +117,39 @@ The Phase 18 commits are pure rename + body-text/sweep edits. No new code logic 
 
 ### Human Verification Required
 
-#### 1. Claude Code native `/init` reachable (SC#3)
+#### 1. Claude Code native `/init` reachable (SC#3) — ✅ PASSED 2026-05-20
 
 - **Test:** Install or reinstall the `graph-wiki` plugin in Claude Code (`claude plugin install graph-wiki` or follow the reinstall callout in `plugins/graph-wiki/README.md`). In a Claude Code session with the plugin loaded, type `/init` at the prompt.
 - **Expected:** Claude Code's native "initialize CLAUDE.md" workflow fires (the same one that would run if no graph-wiki plugin were installed). The `graph-wiki` plugin's bootstrap workflow must NOT trigger — to invoke the graph-wiki workflow, the user must type `/graph-wiki:bootstrap`.
 - **Why human:** Cannot install/load a Claude Code plugin from the verifier process. Requires an interactive Claude Code session. This is the canonical SC#3 manual smoke test per CONTEXT.md D-07 and was deferred to UAT by design.
 
+**UAT result (2026-05-20, during quick task 260520-bgd):**
+- Plugin installation state: `graph-wiki@deep-agents`, scope `local`, `projectPath: /Users/pat/Personal/deep-agents`.
+- Plugin source resolution: For local-scope plugins, Claude Code reads command files from `projectPath` (post-rename: `plugins/graph-wiki/commands/bootstrap.md`), not from the `~/.claude/plugins/cache/` snapshot (which is still pre-rename from the 2026-05-18 install — pre-dates the 2026-05-19 rename commit `a9ae5af`). Available skills in the live session correctly include `graph-wiki:bootstrap` and NOT `graph-wiki:init`.
+- **Test outcome:** User typed `/init` in an active Claude Code session loaded against `/Users/pat/Personal/deep-agents`. Claude Code dispatched the prompt to its **native `init` skill** — confirmed by the canonical native-init prompt text ("Please analyze this codebase and create a CLAUDE.md file…") arriving at the model layer. The graph-wiki bootstrap workflow did **not** fire.
+- **Verdict:** ✅ PASS. `/init` is unshadowed by the plugin; native CLAUDE.md init workflow is reachable. `/graph-wiki:bootstrap` remains the only way to invoke the plugin's bootstrap workflow.
+- **Note for fresh installs:** The cached plugin under `~/.claude/plugins/cache/deep-agents/graph-wiki/0.1.0/commands/` is stale (pre-rename `init.md` still present). This does not affect local-scope plugin resolution but means anyone using a non-local install scope MUST reinstall to pick up the rename. The reinstall callout already lives in `plugins/graph-wiki/README.md` (line ~27).
+
 ### Gaps Summary
 
-No gaps found. All 7 autonomously-verifiable must-haves passed. The phase deliberately defers SC#3 (Claude Code native `/init` reachability) to human UAT per D-07 — this is by design, not a gap.
+No gaps found. All 7 autonomously-verifiable must-haves passed plus SC#3 (the deferred human UAT) closed PASS on 2026-05-20.
 
-Status is `human_needed` because the human-verification list is non-empty; this is the documented expectation for Phase 18.
+Status was `human_needed` at original verification time pending SC#3 UAT; closed to `passed` on 2026-05-20.
 
 ---
 
-## PHASE COMPLETE (pending SC#3 UAT)
+## PHASE COMPLETE
 
-All autonomously-verifiable goals achieved:
+All success criteria achieved:
 
 - SC#1 (file rename via `git mv R087`) — VERIFIED
 - SC#2 (zero stale references; bootstrap surface end-to-end) — VERIFIED across slash command, Typer CLI, MCP tool, active-source sweep (16 references across 10 files), historical `.planning/` sweep (18 files), and brand-gate enforcement (CHECK 2 + CHECK 3 green in isolation)
-- SC#3 (Claude Code native `/init` reachable) — **FLAG_FOR_UAT** per D-07
+- SC#3 (Claude Code native `/init` reachable) — ✅ **VERIFIED via human UAT 2026-05-20** (see Human Verification Required §1 above)
 
 Hard-cut D-04 honored throughout: no stub `init.md`, no Typer alias, no dual MCP registration. Folded todo moved to `resolved/`. Test gate green (212 passed). Brand-gate CHECK 2 + CHECK 3 implemented and proven green in isolation; full-gate failure is pre-existing BRAND-04 lattice residue (Phase 21 scope, out of scope for Phase 18 per verification target).
 
 ---
 
-_Verified: 2026-05-19T22:00:00Z_
+_Verified: 2026-05-19T22:00:00Z (autonomous SC#1, SC#2)_
 _Verifier: Claude (gsd-verifier)_
+_SC#3 UAT closed: 2026-05-20 (human verification during quick task 260520-bgd)_
