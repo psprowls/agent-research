@@ -145,6 +145,15 @@ class SubagentPool:
         # fan-out workload (CR-02 fix: uniqueness within same wall-clock second).
         trace_file = self._trace_dir / f"{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
 
+        # WR-05 (D-05): hoist signature inspection out of the per-item hot path.
+        # Computed once per fan-out instead of once per item. Tasks whose signature
+        # cannot be introspected (ValueError/TypeError — e.g. C-implemented callables)
+        # fall back to single-arg form, preserving prior behavior.
+        try:
+            _task_arity_2 = len(inspect.signature(task).parameters) >= 2
+        except (ValueError, TypeError):
+            _task_arity_2 = False
+
         async def _run_one(item: Any) -> tuple[Any, Any] | PerItemError:
             async with semaphore:
                 t0 = time.monotonic()
@@ -155,8 +164,7 @@ class SubagentPool:
                     # SUB-04 / ROADMAP SC#2: deliver the RunnableConfig (carrying recursion_limit)
                     # to any task that declares (item, config). Single-arg tasks remain supported
                     # for backward compatibility with current unit tests and Plan 03 closures.
-                    sig = inspect.signature(task)
-                    if len(sig.parameters) >= 2:
+                    if _task_arity_2:
                         result = await task(item, _config)
                     else:
                         result = await task(item)
