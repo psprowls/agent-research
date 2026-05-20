@@ -23,13 +23,13 @@ import pytest
 if TYPE_CHECKING:
     from eval_harness.divergence.check import AgentOutputProxy
 
-# Eval gate: skip eval tests unless CODE_WIKI_RUN_EVAL=1 is set.
+# Eval gate: skip eval tests unless GRAPH_WIKI_RUN_EVAL=1 is set.
 # Defined here (not in conftest) so test_divergence.py can import it directly
 # without relying on conftest being importable as a plain module (which breaks
 # under pytest's --import-mode=importlib).
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run divergence eval",
 )
 
 # Path to eval/cases/query_cases.json — used by librarian role outputs.
@@ -73,11 +73,11 @@ def produce_outputs(
         pytest.skip.Exception: if the corpus for the given role is not available.
         Any underlying exception from Bedrock/agent calls surfaces directly.
 
-    Security (T-06-24): guards on CODE_WIKI_RUN_EVAL=1 — callers enforce this
+    Security (T-06-24): guards on GRAPH_WIKI_RUN_EVAL=1 — callers enforce this
     gate via the EVAL_GATE mark; this function adds a belt-and-suspenders check.
     """
-    if not os.environ.get("CODE_WIKI_RUN_EVAL"):
-        pytest.skip("CODE_WIKI_RUN_EVAL=1 required to produce agent outputs")
+    if not os.environ.get("GRAPH_WIKI_RUN_EVAL"):
+        pytest.skip("GRAPH_WIKI_RUN_EVAL=1 required to produce agent outputs")
 
     if role == "librarian":
         return _produce_librarian_outputs(vault)
@@ -117,7 +117,7 @@ def _produce_librarian_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy
     if not valid:
         pytest.skip(f"No valid query cases in {_QUERY_CASES_PATH}")
 
-    from code_wiki_agent.commands.query import run_query  # noqa: PLC0415
+    from graph_wiki_agent.commands.query import run_query  # noqa: PLC0415
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for case in valid:
@@ -157,7 +157,7 @@ def _produce_ingestor_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy,
             f"{vault}/concepts/; add source documents for ingest eval."
         )
 
-    from code_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
+    from graph_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for source_path in candidates[:2]:
@@ -189,7 +189,7 @@ def _produce_linter_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, s
     The "query" slot is the group name.
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
-    from code_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
+    from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
 
     result = asyncio.run(run_lint(vault_path=vault))
 
@@ -227,7 +227,7 @@ def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, 
     the round-trip-vault fixture.)
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
-    from code_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
+    from graph_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
 
     eval_harness_dir = _WORKSPACE_ROOT / "packages" / "eval-harness"
     if not eval_harness_dir.exists():

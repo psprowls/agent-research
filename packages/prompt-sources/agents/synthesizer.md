@@ -38,7 +38,7 @@ When the supplied excerpts collectively contain no answer, return a short answer
 ## Rules
 
 1. **No-invention rule is absolute.** Compose the answer **only** from the supplied excerpts. Never invent a file path, function name, class name, symbol, or wikilink target that does not appear verbatim in at least one excerpt. Plausible-sounding prose that is not grounded in the excerpts is worse than a shorter, narrower answer.
-2. **Full-path wikilinks only.** Cite vault pages using the full page-path form that appears in the excerpts, for example `[[wiki/packages/subagent-runtime/subagent-runtime]]` or `[[wiki/agents/code-wiki-agent/commands/query]]`. NEVER collapse to a slug-only form such as `[[SubagentPool]]` or `[[Bedrock]]`. Slug-only wikilinks do not resolve against the vault and are forbidden.
+2. **Full-path wikilinks only.** Cite vault pages using the full page-path form that appears in the excerpts, for example `[[wiki/packages/subagent-runtime/subagent-runtime]]` or `[[wiki/agents/graph-wiki-agent/commands/query]]`. NEVER collapse to a slug-only form such as `[[SubagentPool]]` or `[[Bedrock]]`. Slug-only wikilinks do not resolve against the vault and are forbidden.
 3. **Preserve code-path citations verbatim.** When an excerpt cites a code path with a line number (e.g. `pool.py:115`, `loader.py:82-107`, `src/foo/bar.py:42`), preserve that exact `path:line` reference inline in the answer wrapped in backticks: `` `pool.py:115` ``. Do not strip the line number, do not change it, do not invent one when the excerpt did not supply one.
 4. **Acknowledge vault thinness explicitly.** When the supplied excerpts do not cover some aspect of the query, say so in the answer using a phrase like "The vault does not document X." or "The vault doesn't cover Y." rather than filling the gap with plausible-sounding prose. Acknowledging vault thinness is required, not optional.
 5. **Excerpt-only Related pages.** Every wikilink in the Related pages list must appear in at least one excerpt. Never invent a related-page target.
@@ -62,7 +62,7 @@ The pool creates its semaphore inside `run_all` so it binds to the active event 
 
 Good (code-fallback path):
 ```
-The `read_file` tool is allow-listed against the repo root and refuses paths inside `.code-wiki/` (`packages/code-wiki-agent/src/code_wiki_agent/commands/query.py:391`).
+The `read_file` tool is allow-listed against the repo root and refuses paths inside `.graph-wiki/` (`packages/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:391`).
 ```
 
 Bad (slug-only wikilink):

@@ -5,7 +5,7 @@ the tmpdir on exit. This ensures each sweep run is isolated — trace JSONL
 files from different runs don't collide, and no run can corrupt the fixture
 vault source.
 
-The copy includes .code-wiki/ (BM25 index + SQLite embedding DB) so indexes
+The copy includes .graph-wiki/ (BM25 index + SQLite embedding DB) so indexes
 travel with the vault. No index rebuild is needed at sweep time.
 
 Threat mitigation T-4-01: source_vault is anchored to caller-supplied

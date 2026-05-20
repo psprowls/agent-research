@@ -7,11 +7,11 @@ SubagentPool's correctness guarantees (partial-failure isolation, throttle
 cap, recursion_limit plumbing) hold against the live Converse API.
 
 Gating: all tests are decorated with @INTEGRATION_GATE which skips them
-unless the environment variable CODE_WIKI_RUN_INTEGRATION=1 is set.
+unless the environment variable GRAPH_WIKI_RUN_INTEGRATION=1 is set.
 This ensures the suite is CI-safe and never incurs unexpected AWS costs.
 
 To run:
-    CODE_WIKI_RUN_INTEGRATION=1 uv run --package subagent-runtime pytest \\
+    GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package subagent-runtime pytest \\
         packages/subagent-runtime/tests/integration/test_pool_bedrock.py -v
 
 Estimated cost per full run: <<$0.05 against Haiku (short prompts only).
@@ -26,8 +26,8 @@ import pytest
 from langchain_core.messages import HumanMessage
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 

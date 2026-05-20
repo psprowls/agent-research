@@ -1,4 +1,4 @@
-"""model_adapter — Bedrock model loader for code-wiki-agent.
+"""model_adapter — Bedrock model loader for graph-wiki-agent.
 
 Public API:
     make_llm(role)           → ChatBedrockConverse with actionable IAM errors

@@ -467,7 +467,7 @@ async def test_batch_terminal_includes_schema_version(tmp_path):
     )
 
     # Yield long enough for both _run_one coroutines to be in flight inside slow_task.
-    # Same pattern as agents/code-wiki-agent/tests/integration/test_mcp_cancel.py.
+    # Same pattern as agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py.
     await asyncio.sleep(0.05)
 
     task.cancel()

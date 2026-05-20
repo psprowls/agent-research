@@ -1,7 +1,7 @@
-# Trace Schema for `code-wiki-agent`
+# Trace Schema for `graph-wiki-agent`
 
 This document is the authoritative reference for the JSONL records written by
-`code-wiki-agent` into `.code-wiki/traces/` under any wiki root. It is intended
+`graph-wiki-agent` into `.graph-wiki/traces/` under any wiki root. It is intended
 for operators reading raw trace files with `grep` / `jq`, for downstream tooling
 that parses those files, and for future maintainers extending the schema. It
 covers the directory layout, the three record shapes that appear in those
@@ -11,7 +11,7 @@ compatibility note, and a fully-worked example for each shape.
 
 **v1.1 scope:** `schema_version: 1` is the first formal version of the trace
 schema. Records written before Phase 9 carry no `schema_version` field and are
-treated as v0 — rendered best-effort by the `code-wiki-agent trace` CLI, never
+treated as v0 — rendered best-effort by the `graph-wiki-agent trace` CLI, never
 rewritten on disk. Producers (`SubagentPool`, the `query` command) always stamp
 `schema_version: 1` on every record going forward.
 
@@ -19,7 +19,7 @@ rewritten on disk. Producers (`SubagentPool`, the `query` command) always stamp
 
 ## 1. Directory Layout and Filename Convention
 
-Trace files live under `<wiki_root>/.code-wiki/traces/`. The directory is
+Trace files live under `<wiki_root>/.graph-wiki/traces/`. The directory is
 created on demand by the writer the first time a fan-out batch or a query
 summary needs to be persisted.
 
@@ -28,7 +28,7 @@ Two filename patterns appear in that directory:
 | Pattern                              | Writer                                           | Open mode | Contents                                                                                 |
 | ------------------------------------ | ------------------------------------------------ | --------- | ---------------------------------------------------------------------------------------- |
 | `{int_timestamp}_{uuid8}.jsonl`      | `SubagentPool` (per-batch fan-out trace)         | append    | Zero or more per-item subagent records, optionally terminated by one batch event record. |
-| `query_{query_id}.jsonl`             | `code-wiki-agent query` (per-query summary)      | write     | Exactly one `kind: query_summary` record, one line.                                      |
+| `query_{query_id}.jsonl`             | `graph-wiki-agent query` (per-query summary)      | write     | Exactly one `kind: query_summary` record, one line.                                      |
 
 `{int_timestamp}` is a Unix-epoch integer captured when the batch starts.
 `{uuid8}` is an 8-character random suffix that disambiguates concurrent batches
@@ -43,7 +43,7 @@ fully-terminated line is a complete record.
 
 ## 2. Per-Record Shapes
 
-`code-wiki-agent` writes three record shapes into `.code-wiki/traces/`. Readers
+`graph-wiki-agent` writes three record shapes into `.graph-wiki/traces/`. Readers
 distinguish them by the presence of two discriminator keys: a record with an
 `event` key is a batch event record; a record with a `kind` key is a query
 summary record; a record with neither is a per-item subagent record.
@@ -132,7 +132,7 @@ Example:
 
 ### 2.3 Query Summary Record (`kind: query_summary`)
 
-Written by `code-wiki-agent query` exactly once per query, into a dedicated
+Written by `graph-wiki-agent query` exactly once per query, into a dedicated
 `query_{query_id}.jsonl` file containing a single line. The discriminator key
 is `kind` — per-item and batch-event records never carry a `kind` key.
 
@@ -184,7 +184,7 @@ to `schema_version: 2`.
 carry `schema_version`. Forgetting it on a new writer is a bug; the Phase 9 unit
 tests pin the field on each known writer.
 
-**Consumer policy (lenient):** the `code-wiki-agent trace` renderer accepts any
+**Consumer policy (lenient):** the `graph-wiki-agent trace` renderer accepts any
 `schema_version` value and renders best-effort. When it encounters a value
 higher than the highest version it knows about, it emits a single stderr line
 of the form:
@@ -243,8 +243,8 @@ as `schema_version: 0` — the pre-versioned shape — by the renderer. Two rule
 apply:
 
 1. **No on-disk rewrite.** Existing trace fixtures under
-   `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` and any
-   real trace file produced by an earlier `code-wiki-agent` build are NOT
+   `packages/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` and any
+   real trace file produced by an earlier `graph-wiki-agent` build are NOT
    rewritten. They stay v0 on disk forever.
 2. **Best-effort render with a one-time warning.** When the renderer reads a
    file in which ANY record lacks `schema_version`, it emits a single stderr

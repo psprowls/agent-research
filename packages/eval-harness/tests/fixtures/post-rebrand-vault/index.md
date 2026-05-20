@@ -21,7 +21,7 @@ updated: 2026-05-19
 
 ## Agents
 
-- [[wiki/agents/code-wiki-agent/code-wiki-agent]] — Bedrock-driven CLI + MCP server (query, scan, ingest, lint)
+- [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] — Bedrock-driven CLI + MCP server (query, scan, ingest, lint)
 
 ## Plugins
 

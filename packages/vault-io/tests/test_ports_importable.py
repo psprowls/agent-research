@@ -77,7 +77,7 @@ def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch, tmp_path: Path):
     try:
         resolve_wiki_and_repo()
     except RuntimeError as exc:
-        assert "code-wiki-agent init" in str(exc)
+        assert "graph-wiki-agent init" in str(exc)
         return
     raise AssertionError("resolve_wiki_and_repo did not raise RuntimeError on missing config")
 
@@ -111,6 +111,6 @@ def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_p
     try:
         resolve_wiki_and_repo()
     except RuntimeError as exc:
-        assert "code-wiki-agent init" in str(exc)
+        assert "graph-wiki-agent init" in str(exc)
         return
     raise AssertionError("did not raise RuntimeError")

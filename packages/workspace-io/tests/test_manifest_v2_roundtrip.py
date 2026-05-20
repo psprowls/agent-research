@@ -8,7 +8,7 @@ def test_v2_write_then_read(tmp_path):
         "version": 2,
         "initialized_at": "2026-05-09",
         "plugins": [
-            {"name": "code-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
+            {"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
             {"name": "code-wiki-second", "installed_version": "0.3.1", "applied_version": "0.3.0"},
         ],
     }
@@ -60,7 +60,7 @@ def test_v2_roles_roundtrip(tmp_path):
         "initialized_at": "2026-05-19",
         "plugins": [
             {
-                "name": "code-wiki-agent",
+                "name": "graph-wiki-agent",
                 "installed_version": "0.7.0",
                 "applied_version": "0.7.0",
                 "roles": [
@@ -94,7 +94,7 @@ def test_v2_roles_absent_round_trips_cleanly(tmp_path):
         "version": 2,
         "initialized_at": "2026-05-19",
         "plugins": [
-            {"name": "code-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
+            {"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
         ],
     }
     write(mpath, data)

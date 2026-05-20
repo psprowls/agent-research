@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plugin shim for scan_monorepo — dispatches to vault_io (claude) or code-wiki-agent (bedrock)."""
+"""Plugin shim for scan_monorepo — dispatches to vault_io (claude) or graph-wiki-agent (bedrock)."""
 import subprocess
 import sys
 
@@ -17,7 +17,7 @@ def main() -> None:
 
     if backend == "bedrock":
         result = subprocess.run(
-            ["code-wiki-agent", "scan"] + sys.argv[1:],
+            ["graph-wiki-agent", "scan"] + sys.argv[1:],
             check=True,
         )
         sys.exit(result.returncode)

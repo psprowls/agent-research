@@ -16,10 +16,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from code_wiki_agent.commands.ingest import IngestResult
-from code_wiki_agent.commands.lint import LintResult
-from code_wiki_agent.commands.query import QueryResult
-from code_wiki_agent.commands.scan import ScanResult
+from graph_wiki_agent.commands.ingest import IngestResult
+from graph_wiki_agent.commands.lint import LintResult
+from graph_wiki_agent.commands.query import QueryResult
+from graph_wiki_agent.commands.scan import ScanResult
 from eval_harness.sweep import ROLE_COMMAND_MAP, SweepResult, run_role_sweep
 
 

@@ -1,7 +1,7 @@
-# MCP Cancellation in code-wiki-agent
+# MCP Cancellation in graph-wiki-agent
 
 This document describes what happens when a spec-conformant MCP host sends
-`notifications/cancelled` to `code-wiki-mcp` while a fan-out tool call is in flight.
+`notifications/cancelled` to `graph-wiki-mcp` while a fan-out tool call is in flight.
 It covers the protocol, the internal unwinding chain, the exact trace record shapes
 emitted by `SubagentPool`, the known orphan-thread limitation in v1.1, and the
 v1.2+ paths that will close that gap.

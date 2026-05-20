@@ -139,8 +139,8 @@ import os
 
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run integration tests",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run integration tests",
 )
 
 
@@ -159,7 +159,7 @@ def _send_tools_list() -> dict:
 def test_wiki_query_in_tools_list() -> None:
     """tools/list response from graph-wiki-mcp includes wiki_query with hybrid description (MCP-07).
 
-    Gated by CODE_WIKI_RUN_INTEGRATION=1 because the subprocess launch
+    Gated by GRAPH_WIKI_RUN_INTEGRATION=1 because the subprocess launch
     triggers import of graph_wiki_agent.commands.query, which imports bm25s,
     langchain-aws, and other heavy deps that might fail without AWS config.
     The test is intentionally lightweight (no Bedrock calls) but requires

@@ -5,7 +5,7 @@ and assert that per-role docs and INDEX.md are written with $0 spend.
 
 Gate: each test is decorated with @pytest.mark.eval(name="sweep_dry_run")
 so pytest-evals skips it without --run-eval, and with @EVAL_GATE so it
-additionally requires CODE_WIKI_RUN_EVAL=1. No Bedrock calls are made —
+additionally requires GRAPH_WIKI_RUN_EVAL=1. No Bedrock calls are made —
 all LLM and command functions are monkey-patched to return fixture objects.
 
 Security (T-4-01): all path construction is anchored to __file__; no

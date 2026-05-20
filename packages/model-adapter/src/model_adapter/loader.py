@@ -4,7 +4,7 @@ Reads role-keyed model configuration with workspace-aware override layer.
 
 Resolution order for `make_llm(role)`:
   1. Workspace manifest (`<workspace>/.graph-wiki.yaml` `plugins[].roles[]` for
-     plugin "code-wiki-agent") if a role entry with `name == role` is present.
+     plugin "graph-wiki-agent") if a role entry with `name == role` is present.
   2. Packaged `model_adapter/models.toml` `[roles.<role>]` (per-role fallback).
 
 Strategy choice (per Phase 1 RESEARCH A1):
@@ -43,7 +43,7 @@ def _workspace_role_override(role: str) -> dict | None:
       1. Locate the workspace via `workspace_io.resolve()` — raises
          RuntimeError when no `.graph-wiki.yaml` is reachable.
       2. Read the role list via `workspace_io.read_roles(
-         "code-wiki-agent", workspace/".graph-wiki.yaml")`.
+         "graph-wiki-agent", workspace/".graph-wiki.yaml")`.
       3. Return the first role dict whose `name` matches.
       4. Return None on any failure (no workspace, plugin absent, role
          absent, ImportError in restricted test contexts).
@@ -57,7 +57,7 @@ def _workspace_role_override(role: str) -> dict | None:
     except RuntimeError:
         return None
     manifest_path = cfg.workspace / ".graph-wiki.yaml"
-    for entry in read_roles("code-wiki-agent", manifest_path):
+    for entry in read_roles("graph-wiki-agent", manifest_path):
         if entry.get("name") == role:
             return entry
     return None
@@ -103,7 +103,7 @@ def make_llm(role: str) -> ChatBedrockConverse:
 
     Resolution order:
       1. Workspace manifest (`<workspace>/.graph-wiki.yaml`
-         `plugins[].roles[]` for plugin "code-wiki-agent") if a role
+         `plugins[].roles[]` for plugin "graph-wiki-agent") if a role
          entry with `name == role` is present.
       2. Packaged `model_adapter/models.toml` `[roles.<role>]`.
 

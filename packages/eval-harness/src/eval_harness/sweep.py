@@ -13,7 +13,7 @@ models.toml defaults.  ROLE_COMMAND_MAP routes each role to the appropriate comm
 function (_sweep_query_role, _sweep_scan_role, _sweep_lint_role, _sweep_ingest_role).
 
 Token counts are extracted from the trace JSONL written by SubagentPool._write_trace
-into wt.path / ".code-wiki" / "traces". The most-recently-modified JSONL file is
+into wt.path / ".graph-wiki" / "traces". The most-recently-modified JSONL file is
 parsed; tokens_in/tokens_out are summed across all records for the run.
 """
 
@@ -30,10 +30,10 @@ from pathlib import Path
 
 from langchain_aws import ChatBedrockConverse
 
-from code_wiki_agent.commands.ingest import run_ingest_source
-from code_wiki_agent.commands.lint import run_lint
-from code_wiki_agent.commands.query import QueryResult, run_query
-from code_wiki_agent.commands.scan import run_scan
+from graph_wiki_agent.commands.ingest import run_ingest_source
+from graph_wiki_agent.commands.lint import run_lint
+from graph_wiki_agent.commands.query import QueryResult, run_query
+from graph_wiki_agent.commands.scan import run_scan
 
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
@@ -268,7 +268,7 @@ async def run_sweep(
                 wall_seconds = time.monotonic() - t0
 
                 # Extract token counts from trace JSONL
-                trace_dir = wt.path / ".code-wiki" / "traces"
+                trace_dir = wt.path / ".graph-wiki" / "traces"
                 tokens_in, tokens_out = _extract_tokens_from_traces(trace_dir)
 
                 # Compute cost (None if model unknown or tokens unavailable)
@@ -396,7 +396,7 @@ async def _sweep_scan_role(
     Returns:
         (ScanResult, summary_string) tuple.
     """
-    from code_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
+    from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
         vault_path=vault_path,
@@ -665,12 +665,12 @@ def _panel_mean_for_candidate(
 ) -> float | None:
     """Compute the mean panel score for a candidate's runs.
 
-    Returns None when CODE_WIKI_RUN_JUDGES is unset, when no case has
+    Returns None when GRAPH_WIKI_RUN_JUDGES is unset, when no case has
     expected_answer, or when every run produced a failing/empty answer.
     """
     import os
 
-    if not os.environ.get("CODE_WIKI_RUN_JUDGES"):
+    if not os.environ.get("GRAPH_WIKI_RUN_JUDGES"):
         return None
 
     cases_by_query: dict[str, dict] = {}

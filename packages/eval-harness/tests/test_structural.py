@@ -9,7 +9,7 @@ Uses fixture_vault_path from conftest.py (round-trip-vault fixture).
 from pathlib import Path
 
 import pytest
-from code_wiki_agent.commands.query import QueryResult
+from graph_wiki_agent.commands.query import QueryResult
 from eval_harness.structural import check_structural
 
 # The 7 keys that check_structural must always return.

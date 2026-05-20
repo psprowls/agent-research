@@ -4,7 +4,7 @@ Two functions:
 
   - test_make_llm_preflight_invoke
       Live Bedrock test. Marked @pytest.mark.integration so it is skipped in CI
-      by default. Gated additionally by CODE_WIKI_RUN_INTEGRATION=1 so even when
+      by default. Gated additionally by GRAPH_WIKI_RUN_INTEGRATION=1 so even when
       `pytest -m integration` is requested, the test is a no-op unless the
       developer explicitly opts into real-network calls.
 
@@ -27,18 +27,18 @@ import pytest
 
 HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
-# Canonical CODE_WIKI_RUN_INTEGRATION gate — matches conftest.py:19-22 verbatim
+# Canonical GRAPH_WIKI_RUN_INTEGRATION gate — matches conftest.py:19-22 verbatim
 # so the docs/testing.md grep gate sees this file as canonical (D-10).
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 
 @pytest.mark.integration
 @INTEGRATION_GATE
 def test_make_llm_preflight_invoke():
-    """Calls real Bedrock when CODE_WIKI_RUN_INTEGRATION=1; otherwise skips."""
+    """Calls real Bedrock when GRAPH_WIKI_RUN_INTEGRATION=1; otherwise skips."""
     from model_adapter.loader import make_llm
 
     llm = make_llm("preflight")

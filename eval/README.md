@@ -1,6 +1,6 @@
 # Eval Harness
 
-Automated evaluation harness for `code-wiki-agent`. Compares query quality across
+Automated evaluation harness for `graph-wiki-agent`. Compares query quality across
 Bedrock model alternatives against a recorded lattice-wiki baseline.
 
 ---
@@ -45,7 +45,7 @@ reproducible oracle.
 Run a full baseline recording (records one JSON file per case in `eval/baselines/`):
 
 ```bash
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
   --vault <path-to-vault> \
   --out eval/baselines/
@@ -54,7 +54,7 @@ CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseli
 With an explicit plugin directory:
 
 ```bash
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
   --vault <path-to-vault> \
   --out eval/baselines/ \
@@ -64,7 +64,7 @@ CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseli
 With a non-default model ARN:
 
 ```bash
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
   --vault <path-to-vault> \
   --out eval/baselines/ \
@@ -112,7 +112,7 @@ The eval sweep (Plan 02) tests multiple Bedrock model alternatives against the
 recorded baselines. See `packages/eval-harness/src/eval_harness/sweep.py` for details.
 
 ```bash
-CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
+GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
   packages/eval-harness/tests/ -m eval -v
 ```
 

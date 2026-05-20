@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Integration test for the full DivergenceMetric pipeline (EVAL-12, EVAL-13).
 
-Gated behind CODE_WIKI_RUN_EVAL=1 so it does not run in quick CI. Parametrized
+Gated behind GRAPH_WIKI_RUN_EVAL=1 so it does not run in quick CI. Parametrized
 over all four roles: librarian, ingestor, linter, scanner.
 
 This test exercises the full programmatic + LLM-judge divergence check against
@@ -15,7 +15,7 @@ Per-rule failure counts and the first 3 accepted_failures excerpts are printed
 under `pytest -s` (EVAL-12 "concrete examples in the report" requirement).
 
 Security:
-  T-06-24: EVAL_GATE + CODE_WIKI_RUN_EVAL guard — no Bedrock calls without the env var.
+  T-06-24: EVAL_GATE + GRAPH_WIKI_RUN_EVAL guard — no Bedrock calls without the env var.
   T-06-25: Underlying Bedrock errors surface directly; no exception swallowing.
   T-06-26: _current_agent_commit() writes git SHA into every accepted baseline.
 """
@@ -77,7 +77,7 @@ def test_divergence_regression(
 ) -> None:
     """Full divergence eval pipeline passes without hard-severity regressions.
 
-    Requires CODE_WIKI_RUN_EVAL=1 and a live Bedrock connection. Uses
+    Requires GRAPH_WIKI_RUN_EVAL=1 and a live Bedrock connection. Uses
     fixture_vault_path from conftest.py and accept_baseline from the
     --accept-divergence-baseline CLI option.
 

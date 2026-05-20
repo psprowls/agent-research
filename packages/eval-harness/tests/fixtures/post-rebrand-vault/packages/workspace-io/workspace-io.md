@@ -27,5 +27,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Used by [[wiki/agents/code-wiki-agent/code-wiki-agent]] for vault resolution
+- Used by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] for vault resolution
 - Initialised by [[wiki/packages/vault-io/vault-io]] when bootstrapping the wiki

@@ -117,8 +117,8 @@ def test_cli_prints_workspace_to_stdout(tmp_path):
 
 
 def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
-    """D-03: strict — resolve() raises RuntimeError naming code-wiki-agent init."""
+    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent init."""
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="code-wiki-agent init"):
+    with pytest.raises(RuntimeError, match="graph-wiki-agent init"):
         resolve(repo)
