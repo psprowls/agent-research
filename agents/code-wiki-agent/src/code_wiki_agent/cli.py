@@ -435,7 +435,7 @@ def log(
 
 
 @app.command()
-def init(
+def bootstrap(
     topic: str = typer.Option(..., "--topic", help="Short description of the repository"),
     tool: str = typer.Option(..., "--tool", help="Schema file(s) to install (claude-code, codex, cursor, all, ...)"),
     force: bool = typer.Option(False, "--force", help="Overwrite non-empty target directory"),
