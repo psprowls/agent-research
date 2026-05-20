@@ -6,7 +6,7 @@ Verifies:
 - Judges (judge_a, judge_b) do NOT have sweep_candidates (D-01)
 - Every candidate model_id is priced in eval_harness.pricing (key_links constraint)
 - make_llm() still works for all six roles after the new key is added
-- code_reader_cases.json has 3 vault-thin fixture cases (D-09)
+- code_reader_cases.json has 5–6 vault-thin fixture cases (Phase 16 D-07 expansion from the original 3)
 """
 
 from __future__ import annotations

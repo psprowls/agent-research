@@ -28,7 +28,6 @@ Exports:
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Union
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Verdict
 from eval_harness.judge import JUDGE_PANEL_CONFIG, make_judge  # noqa: F401 (re-exported for tests)
