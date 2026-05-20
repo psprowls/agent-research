@@ -2,6 +2,7 @@
 created: 2026-05-20T18:52:13.775Z
 title: Fix packages dir misclassification in container detector
 area: graph-wiki
+resolves_phase: 25
 files:
   - packages/vault-io/src/vault_io/detect_containers.py
   - plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py
