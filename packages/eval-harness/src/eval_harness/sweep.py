@@ -13,8 +13,9 @@ models.toml defaults.  ROLE_COMMAND_MAP routes each role to the appropriate comm
 function (_sweep_query_role, _sweep_scan_role, _sweep_lint_role, _sweep_ingest_role).
 
 Token counts are extracted from the trace JSONL written by SubagentPool._write_trace
-into wt.path / ".graph-wiki" / "traces". The most-recently-modified JSONL file is
-parsed; tokens_in/tokens_out are summed across all records for the run.
+into wt.path / "wiki" / ".graph-wiki" / "traces" (wt.path is the workspace root after
+the Phase 22 rename; wiki content lives under wt.path/wiki). The most-recently-modified
+JSONL file is parsed; tokens_in/tokens_out are summed across all records for the run.
 """
 
 from __future__ import annotations
@@ -261,14 +262,14 @@ async def run_sweep(
             try:
                 result: QueryResult = await run_query(
                     query,
-                    vault_path=wt.path,
+                    workspace_path=wt.path,
                     top_k=5,
                     librarian_model_override=model_id,
                 )
                 wall_seconds = time.monotonic() - t0
 
                 # Extract token counts from trace JSONL
-                trace_dir = wt.path / ".graph-wiki" / "traces"
+                trace_dir = wt.path / "wiki" / ".graph-wiki" / "traces"
                 tokens_in, tokens_out = _extract_tokens_from_traces(trace_dir)
 
                 # Compute cost (None if model unknown or tokens unavailable)
@@ -281,7 +282,7 @@ async def run_sweep(
                     except (UnknownModelError, KeyError):
                         cost_usd = None
 
-                structural = check_structural(result, wt.path)
+                structural = check_structural(result, wt.path / "wiki")
 
                 return SweepResult(
                     model_id=model_id,
@@ -373,7 +374,7 @@ async def _sweep_query_role(
     """
     result: QueryResult = await run_query(
         case["query"],
-        vault_path=vault_path,
+        workspace_path=vault_path,
         role_model_overrides={role: candidate_model_id},
     )
     return result, result.answer
@@ -399,7 +400,7 @@ async def _sweep_scan_role(
     from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
-        vault_path=vault_path,
+        workspace_path=vault_path,
         model_override=candidate_model_id,
     )
     # Produce a short summary string for structural checks
@@ -427,7 +428,7 @@ async def _sweep_lint_role(
         (LintResult, summary_string) tuple.
     """
     result = await run_lint(
-        vault_path=vault_path,
+        workspace_path=vault_path,
         model_override=candidate_model_id,
     )
     summary = f"lint: orphans={result.orphans} errors={result.errors}"
@@ -464,7 +465,7 @@ async def _sweep_ingest_role(
 
     result = await run_ingest_source(
         source_path=source_path,
-        vault_path=vault_path,
+        workspace_path=vault_path,
         model_override=candidate_model_id,
     )
     summary = f"ingest: page_path={result.page_path} status={result.status}"
@@ -574,7 +575,7 @@ async def run_role_sweep(
 
                     # Structural check: only meaningful for QueryResult
                     if hasattr(_result, "answer"):
-                        structural = check_structural(_result, wt.path)
+                        structural = check_structural(_result, wt.path / "wiki")
                         citations = getattr(_result, "citations", [])
                         pages_drilled = getattr(_result, "pages_drilled", 0)
                         answer = _answer
