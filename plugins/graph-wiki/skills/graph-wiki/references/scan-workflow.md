@@ -65,7 +65,7 @@ Before writing anything, report to the user:
 
 ### 3. Create / update workspace pages
 
-The scanner emits an explicit `vault_path` for every workspace — write the page there. Routing rules (also useful when reading back drift):
+The scanner emits an explicit `wiki_relative_path` for every workspace — write the page there. Routing rules (also useful when reading back drift):
 
 - `type: app` → `<workspace>/wiki/apps/<name>/<name>.md` (uses the **app** template)
 - `type: library | service | tool` under a `domain` container → `<workspace>/wiki/domains/<domain>/packages/<name>/<name>.md` (uses the **package** template, with `domain: <domain>` set in frontmatter)
@@ -99,7 +99,7 @@ Scanner behavior:
 - Walks to `package_depth` below `source`; each directory at that depth is one workspace entry.
 - Recursively globs `manifest_glob` inside each package dir; every matched manifest becomes a row in the page's `manifests:` frontmatter.
 - Slug is the directory name (default) — so two siblings whose `package.json` both declare `name: "charts"` get distinct pages.
-- If `domain:` is set on the row, each pkg's `vault_path` lands at `domains/<d>/packages/<slug>/<slug>.md` (overrides the explicit `vault_dir`).
+- If `domain:` is set on the row, each pkg's `wiki_relative_path` lands at `domains/<d>/packages/<slug>/<slug>.md` (overrides the explicit `vault_dir`).
 
 `source` may be a slashed path; the row need not point at a top-level directory.
 
