@@ -279,3 +279,37 @@ The executor's report of 563 passed / 32 skipped reflects the full workspace sui
 *Phase 17 verification enhanced: 2026-05-19.*
 *Verifier: Claude (gsd-verifier)*
 *Note: Enhanced from executor-drafted 17-VERIFICATION.md; frontmatter and gap analysis added; SC sections preserved verbatim from draft with one verifier note added to SC#4.*
+
+---
+
+## Gap Closure (Plan 17-05)
+
+**Closed:** 2026-05-19
+
+### Behavioral Spot-Check — Previously FAIL, Now PASS
+
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| init_vault._resolve_pinned_containers passes workspace_path | `grep -n "_detect_containers(repo, workspace_path=" packages/vault-io/src/vault_io/init_vault.py` | line 88: `records = _detect_containers(repo, workspace_path=workspace_path)` | PASS |
+| scan_monorepo._discover_heuristic workspace_segments filter present | `grep -n "workspace_segments" packages/vault-io/src/vault_io/scan_monorepo.py` | lines 517, 522, 563, 580 (4 matches: assignment, set construction, pyproject filter, plugin.json filter) | PASS |
+| No unguarded _detect_containers(repo) call remains | `grep -n "_detect_containers(repo)" init_vault.py \| grep -v workspace_path` | (zero matches) | PASS |
+| No unguarded _discover_heuristic(repo) in production src | `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` | (zero matches) | PASS |
+
+### Full Vault-IO Unit Suite
+
+```
+uv run --package vault-io pytest packages/vault-io/ -q
+93 passed, 1 skipped in 44.46s
+```
+
+93 tests passed (86 baseline + 7 new: 3 from test_init_vault.py + 4 from test_scan_monorepo.py).
+
+### SC#4 (WSRES-02) — Now satisfied across all three call paths
+
+SC#4 ("The workspace directory itself does not appear in its own layout block as a `docs` container") is now satisfied across **all three call paths**:
+
+1. `detect_containers.main()` — wired in plan 17-03 (unchanged)
+2. `init_vault._resolve_pinned_containers` — wired in plan 17-05: signature extended with `workspace_path: Path | None = None`, forwarded to `_detect_containers(repo, workspace_path=workspace_path)`; `init_wiki` caller updated to pass `workspace_path=workspace_path` (already computed at line 162 as `wiki_path.parent`)
+3. `scan_monorepo._discover_heuristic` — wired in plan 17-05: `workspace_dir=None` kwarg added with D-11 guard-parity `workspace_segments` computation; filter applied to both rglob loops (`pyproject.toml` and `.claude-plugin/plugin.json`); `discover_workspaces` plumbs through; `main()` passes `workspace_dir=workspace`
+
+**Verdict:** SC#4 (WSRES-02) is now fully satisfied across all three call paths: `detect_containers.main()` (17-03), `init_vault._resolve_pinned_containers` (17-05), `scan_monorepo._discover_heuristic` (17-05).
