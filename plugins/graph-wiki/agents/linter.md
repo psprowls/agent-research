@@ -36,7 +36,7 @@ Parse the JSON. Capture:
 - Connected components, hubs, sinks
 - **Code drift**: `missing_in_vault`, `orphaned_in_vault`, `exports_drift`
 
-**New checks:** Beyond mono-wiki's mechanical and semantic checks, run `check_container_drift` and `check_source_sync_drift` (in `lint_wiki.py`). Container drift is informational (the user decides whether to re-run `/graph-wiki:init`, edit the layout block, or ignore). Source sync drift is actionable: a stale vault doc page (source file changed since `last_sync_commit`) should be re-summarized; a missing source flags either a deleted doc or a misclassified container.
+**New checks:** Beyond mono-wiki's mechanical and semantic checks, run `check_container_drift` and `check_source_sync_drift` (in `lint_wiki.py`). Container drift is informational (the user decides whether to re-run `/graph-wiki:bootstrap`, edit the layout block, or ignore). Source sync drift is actionable: a stale vault doc page (source file changed since `last_sync_commit`) should be re-summarized; a missing source flags either a deleted doc or a misclassified container.
 
 - **Package sync drift** — package/app pages whose source code has changed since their `last_sync_commit`. Surface the count of changed files and one example path; suggest running `/graph-wiki:scan` on a clean main checkout.
 - **Source sync drift** — in-repo doc source pages (`category: source`, `source_type: doc`) whose source file has changed since `last_sync_commit`. Suggest re-ingesting via `/graph-wiki:ingest <path>`.

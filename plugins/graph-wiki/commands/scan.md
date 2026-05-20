@@ -5,7 +5,7 @@ description: Walk the monorepo, detect workspace packages from manifests (packag
 
 # /graph-wiki:scan
 
-Walk the monorepo and make sure every workspace package has a page in the vault. This is the **entry point** for a fresh wiki — run it right after `/graph-wiki:init`.
+Walk the monorepo and make sure every workspace package has a page in the vault. This is the **entry point** for a fresh wiki — run it right after `/graph-wiki:bootstrap`.
 
 ## Usage
 
@@ -43,7 +43,7 @@ This command dispatches the `scanner` sub-agent. See `agents/scanner.md`.
 
 When `/graph-wiki:scan` runs against an initialized wiki, it re-detects containers and compares the result to the pinned layout. If `scan_monorepo.py` prints a "Layout drift detected" block, surface the drift to the user and offer:
 
-- **Re-run `/graph-wiki:init`** — full re-detection. Overwrites the existing layout block.
+- **Re-run `/graph-wiki:bootstrap`** — full re-detection. Overwrites the existing layout block.
 - **Edit the layout block manually** — the user can change a row's `classification` or `vault_dir` directly in `<workspace>/wiki/CLAUDE.md`.
 - **Ignore for now** — drift remains until next scan.
 
@@ -64,7 +64,7 @@ Scan does not auto-ingest. Pass each path to `/graph-wiki:ingest`; the regular i
 
 ## When to run
 
-- Right after `/graph-wiki:init`
+- Right after `/graph-wiki:bootstrap`
 - After pulling main (new packages may have landed)
 - After a big refactor that added/removed/renamed packages
 - Before `/graph-wiki:lint` (so drift reports are accurate)

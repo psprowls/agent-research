@@ -71,7 +71,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 
 Slash commands and agents are namespaced by plugin name automatically:
 
-- Commands: `/graph-wiki:init`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`
+- Commands: `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`
 - Agents: `graph-wiki:ingestor`, `graph-wiki:librarian`, `graph-wiki:linter`, `graph-wiki:scanner`
 
 Don't try to encode the namespace into command or agent filenames — Claude Code adds it automatically from the plugin name in `.claude-plugin/plugin.json`.

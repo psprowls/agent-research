@@ -22,7 +22,7 @@ READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an
 |---|---|
 | **SKILL.md** | Master skill — architecture, workflows, page categories, iron rules |
 | **4 sub-agents** | `graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:librarian`, `graph-wiki:linter` |
-| **6 slash commands** | `/graph-wiki:init`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log` |
+| **6 slash commands** | `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log` |
 | **7 Python tools** | Via vault_io: `init_vault`, `scan_monorepo`, `ingest_source`, `wiki_search`, `lint_wiki` (+ code-drift), `detect_containers`, plus `_config.py` backend selector |
 | **12 reference docs** | Schema, page formats, 4 workflows (scan/ingest/query/lint), Obsidian setup, cross-tool setup, monorepo principles, lifecycle rules, sidecar schema |
 | **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus page templates (app, package, domain, concept, dependency, package-family, work, source, architecture, adr) |

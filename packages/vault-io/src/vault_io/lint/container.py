@@ -32,7 +32,7 @@ def check(repo: Path, wiki: Path) -> list[str]:
     issues: list[str] = []
     layout = read_layout(wiki / "CLAUDE.md")
     if layout is None:
-        return ["no layout block found in CLAUDE.md (run /graph-wiki:init)"]
+        return ["no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"]
     pinned = layout.get("containers", [])
 
     # Pinned containers whose source dir is missing

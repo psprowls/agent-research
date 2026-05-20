@@ -4,7 +4,7 @@ How graph-wiki classifies a repo's top-level directories, prompts for ambiguity,
 
 ## When detection runs
 
-- `/graph-wiki:init` — full detection on a fresh wiki. Always interactive (or `--non-interactive` to accept all defaults / skip ambiguous).
+- `/graph-wiki:bootstrap` — full detection on a fresh wiki. Always interactive (or `--non-interactive` to accept all defaults / skip ambiguous).
 - `/graph-wiki:scan` — detection runs implicitly as a *reconcile*: comparing the current repo state against the pinned layout. Surfaces drift; never auto-applies.
 
 ## Classification rules (first match wins)
@@ -14,7 +14,7 @@ How graph-wiki classifies a repo's top-level directories, prompts for ambiguity,
 3. **`package` container** — immediate children are folders with package manifests (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`). App-vs-library subclassification happens at the *page* level via `scan_monorepo`'s existing heuristics (`bin`, `scripts.start`, folder-name tiebreaker for `app`/`web`/`expo`).
 4. **`package-family` container** — a directory whose immediate children carry **no top-level manifest** but whose manifests sit 2+ directory levels deeper. The package boundary is the immediate child directory; manifests deeper down are aggregated into the page's `manifests:` frontmatter. The detector recurses up to 3 levels from the repo root looking for this shape, so it can surface nested package-families (e.g. `references/hubspot/hubspot-ui-extensions`) as their own rows with a slashed `source:`. Per-row fields: `package_depth` (default 1), `manifest_glob` (default `"**/package.json"`), `slug_source` (default `dirname`), optional `domain`. See `scan-workflow.md` for a worked example.
 5. **`single-package`** — repo root has a manifest and no top-level dir matches rules 1–4. Wiki collapses to one root page; no structural dirs.
-6. **`ambiguous`** — manifests + docs mixed, split children, or unrecognized contents. Flagged for user decision in `/graph-wiki:init`. Choices: `package` / `app` / `domain` / `package-family` / `docs` / `skip`.
+6. **`ambiguous`** — manifests + docs mixed, split children, or unrecognized contents. Flagged for user decision in `/graph-wiki:bootstrap`. Choices: `package` / `app` / `domain` / `package-family` / `docs` / `skip`.
 
 ## Container types and their templates
 
@@ -33,12 +33,12 @@ A folder is flagged ambiguous when:
 - Some children have manifests and some don't (no clear majority pattern).
 - It's empty or unrecognized.
 
-The user picks one of `package` / `app` / `domain` / `package-family` / `docs` / `skip` during `/graph-wiki:init` (or accepts the default `skip` with `--non-interactive`).
+The user picks one of `package` / `app` / `domain` / `package-family` / `docs` / `skip` during `/graph-wiki:bootstrap` (or accepts the default `skip` with `--non-interactive`).
 
 ## Override paths
 
 - Edit the layout block directly in `<workspace>/wiki/CLAUDE.md` to change a `classification` or `vault_dir`.
-- Re-run `/graph-wiki:init` to re-detect from scratch (will overwrite the existing block).
+- Re-run `/graph-wiki:bootstrap` to re-detect from scratch (will overwrite the existing block).
 
 ## Hand-edit constraints
 
