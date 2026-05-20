@@ -1,8 +1,11 @@
 """Bedrock model loader.
 
-Reads role-keyed model configuration from `models.toml` and returns a
-`ChatBedrockConverse` whose `invoke` wraps boto3 AccessDeniedException
-into the actionable `BedrockAccessDenied` exception type.
+Reads role-keyed model configuration with workspace-aware override layer.
+
+Resolution order for `make_llm(role)`:
+  1. Workspace manifest (`<workspace>/.graph-wiki.yaml` `plugins[].roles[]` for
+     plugin "code-wiki-agent") if a role entry with `name == role` is present.
+  2. Packaged `model_adapter/models.toml` `[roles.<role>]` (per-role fallback).
 
 Strategy choice (per Phase 1 RESEARCH A1):
     `ChatBedrockConverse` is a Pydantic v2 BaseModel with `extra='forbid'` and
@@ -24,24 +27,40 @@ from langchain_aws import ChatBedrockConverse
 
 from model_adapter.exceptions import BedrockAccessDenied
 
-# Override set by the CLI/MCP startup when WikiConfig.models_path is configured.
-_models_path_override: str | None = None
-
-
-def set_models_path(path: str | None) -> None:
-    """Point the loader at a custom models.toml, or pass None to use the bundled default."""
-    global _models_path_override
-    _models_path_override = path
-
 
 def _load_models_config() -> dict:
-    if _models_path_override:
-        with open(_models_path_override, "rb") as f:
-            return tomllib.load(f)
-    # models.toml is bundled inside the model_adapter package (src/model_adapter/models.toml)
-    # so it is accessible under any install mode (editable, wheel, or zip).
+    # models.toml is bundled inside the model_adapter package
+    # (src/model_adapter/models.toml) so it is accessible under any
+    # install mode (editable, wheel, or zip).
     with resources.files("model_adapter").joinpath("models.toml").open("rb") as f:
         return tomllib.load(f)
+
+
+def _workspace_role_override(role: str) -> dict | None:
+    """Return the workspace-defined role dict for `role`, or None.
+
+    Resolution order:
+      1. Locate the workspace via `workspace_io.resolve()` — raises
+         RuntimeError when no `.graph-wiki.yaml` is reachable.
+      2. Read the role list via `workspace_io.read_roles(
+         "code-wiki-agent", workspace/".graph-wiki.yaml")`.
+      3. Return the first role dict whose `name` matches.
+      4. Return None on any failure (no workspace, plugin absent, role
+         absent, ImportError in restricted test contexts).
+    """
+    try:
+        from workspace_io import read_roles, resolve
+    except ImportError:
+        return None
+    try:
+        cfg = resolve()
+    except RuntimeError:
+        return None
+    manifest_path = cfg.workspace / ".graph-wiki.yaml"
+    for entry in read_roles("code-wiki-agent", manifest_path):
+        if entry.get("name") == role:
+            return entry
+    return None
 
 
 def _format_access_denied_message(model_id: str, original: Exception) -> str:
@@ -82,16 +101,22 @@ class _GuardedChatBedrockConverse(ChatBedrockConverse):
 def make_llm(role: str) -> ChatBedrockConverse:
     """Return a ChatBedrockConverse configured for the given role.
 
-    Reads `models.toml`, instantiates a guarded subclass that wraps
-    `AccessDeniedException` from boto3 into `BedrockAccessDenied` with a
-    message naming the attempted model ARN and the `bedrock:InvokeModel`
-    IAM action.
+    Resolution order:
+      1. Workspace manifest (`<workspace>/.graph-wiki.yaml`
+         `plugins[].roles[]` for plugin "code-wiki-agent") if a role
+         entry with `name == role` is present.
+      2. Packaged `model_adapter/models.toml` `[roles.<role>]`.
 
     Raises:
-        KeyError: when `role` is not present in `models.toml`.
+        KeyError: when `role` is not present in either source.
     """
-    config = _load_models_config()
-    role_cfg = config["roles"][role]
+    workspace_cfg = _workspace_role_override(role)
+    if workspace_cfg is not None:
+        role_cfg = workspace_cfg
+    else:
+        config = _load_models_config()
+        role_cfg = config["roles"][role]  # KeyError if absent
+
     model_id = role_cfg["model_id"]
     region = role_cfg.get("region", "us-east-1")
 
@@ -109,6 +134,11 @@ def make_llm(role: str) -> ChatBedrockConverse:
 
 def load_role_config(role: str) -> dict:
     """Return the raw config dict for a role from models.toml.
+
+    Note: this accessor reads packaged defaults only. Workspace overrides
+    via `<workspace>/.graph-wiki.yaml` apply to `make_llm()` only, not to
+    this raw role-config accessor (eval-harness consumers depend on the
+    packaged shape including `sweep_candidates`).
 
     Raises:
         KeyError: when `role` is not present in `models.toml`.
