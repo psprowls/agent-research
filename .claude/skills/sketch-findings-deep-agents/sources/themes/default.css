@@ -1,0 +1,234 @@
+:root {
+  /* Terminal palette — warm, low-contrast, "writerly" feel
+     (the agent does prose work; this isn't a CI dashboard) */
+  --color-bg: #1a1816;
+  --color-surface: #221f1c;
+  --color-surface-2: #2a2622;
+  --color-border: #3a342e;
+  --color-text: #e8e1d4;
+  --color-text-muted: #8a8278;
+  --color-text-faint: #5d564e;
+  --color-prompt: #e8b86b;       /* warm amber for prompt / $ */
+  --color-accent: #87b8e0;       /* cool blue accent for paths/wikilinks */
+  --color-success: #94c673;
+  --color-warn:    #e0c065;
+  --color-danger:  #d97670;
+  --color-info:    #b8a3d6;
+  --color-diff-add:    #94c673;
+  --color-diff-remove: #d97670;
+
+  /* Page chrome (outside the terminal frame) */
+  --color-page-bg: #f5f1ea;
+  --color-page-text: #2a2622;
+  --color-page-muted: #6b6358;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --text-xs:  0.75rem;
+  --text-sm:  0.825rem;
+  --text-base: 0.9rem;
+  --text-lg:  1.05rem;
+  --text-xl:  1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Shapes */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+/* ----- Page scaffolding shared by all sketches ----- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+.page-header {
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid #d6cfc1;
+}
+.page-header h1 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.page-header .subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-page-muted);
+}
+
+/* ----- Toolbar (variant switcher + theme switcher) ----- */
+.toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding: var(--space-2);
+  background: #efe9dc;
+  border-radius: var(--radius-md);
+  border: 1px solid #d6cfc1;
+}
+.toolbar button {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-page-muted);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.toolbar button:hover { background: #e3dccc; color: var(--color-page-text); }
+.toolbar button.active {
+  background: var(--color-page-text);
+  color: var(--color-page-bg);
+}
+.toolbar button.winner::after {
+  content: " ★";
+  color: var(--color-warn);
+}
+.toolbar .spacer { flex: 1; }
+.toolbar select {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #d6cfc1;
+  background: white;
+}
+
+/* ----- Variant panels ----- */
+.variant { display: none; }
+.variant.active { display: block; }
+.variant .variant-caption {
+  font-size: var(--text-sm);
+  color: var(--color-page-muted);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: #efe9dc;
+  border-left: 3px solid var(--color-prompt);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* ----- Terminal frame ----- */
+.term {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  border: 1px solid #0e0c0a;
+}
+.term-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #0f0d0b;
+  border-bottom: 1px solid #000;
+}
+.term-chrome .dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #4a3f37;
+}
+.term-chrome .title {
+  flex: 1;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+}
+.term-body {
+  padding: var(--space-4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  tab-size: 2;
+}
+.term-body.nowrap { white-space: pre; overflow-x: auto; }
+
+/* Terminal text colors — use as <span class="t-..."> */
+.t-prompt  { color: var(--color-prompt); }
+.t-cmd     { color: var(--color-text); }
+.t-dim     { color: var(--color-text-muted); }
+.t-faint   { color: var(--color-text-faint); }
+.t-ok      { color: var(--color-success); }
+.t-warn    { color: var(--color-warn); }
+.t-err     { color: var(--color-danger); }
+.t-info    { color: var(--color-info); }
+.t-accent  { color: var(--color-accent); }
+.t-path    { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+.t-add     { color: var(--color-diff-add); }
+.t-rem     { color: var(--color-diff-remove); }
+.t-hdr     { color: var(--color-prompt); font-weight: 600; }
+.t-bold    { font-weight: 600; color: var(--color-text); }
+.t-rule    { color: var(--color-border); }
+
+/* Spinner / progress bar / status block helpers */
+.spin::before {
+  content: '⠋';
+  display: inline-block;
+  animation: spin 0.8s steps(10, end) infinite;
+  color: var(--color-prompt);
+}
+@keyframes spin {
+  0%  { content: '⠋'; } 10% { content: '⠙'; } 20% { content: '⠹'; }
+  30% { content: '⠸'; } 40% { content: '⠼'; } 50% { content: '⠴'; }
+  60% { content: '⠦'; } 70% { content: '⠧'; } 80% { content: '⠇'; }
+  90% { content: '⠏'; } 100% { content: '⠋'; }
+}
+.bar {
+  display: inline-block;
+  font-family: var(--font-mono);
+}
+.bar .fill   { color: var(--color-success); }
+.bar .pend   { color: var(--color-text-faint); }
+
+/* ----- Markdown viewer (for sketch 003 diff doc) ----- */
+.md {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  border: 1px solid #0e0c0a;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md .md-fm { color: var(--color-text-faint); }
+.md .md-h1 { color: var(--color-prompt); font-weight: 600; font-size: var(--text-lg); display: block; margin-top: var(--space-3); }
+.md .md-h2 { color: var(--color-prompt); font-weight: 600; display: block; margin-top: var(--space-4); }
+.md .md-h3 { color: var(--color-accent); font-weight: 600; display: block; margin-top: var(--space-3); }
+.md .md-link { color: var(--color-accent); }
+.md .md-code { color: var(--color-info); }
+.md .md-rule { color: var(--color-border); }
+.md .md-add  { color: var(--color-diff-add); }
+.md .md-rem  { color: var(--color-diff-remove); }
+.md .md-diff-hdr { color: var(--color-warn); }

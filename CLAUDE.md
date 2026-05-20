@@ -268,3 +268,7 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 ## Spike Findings
 
 - **Spike findings for deep-agents** (implementation patterns, constraints, gotchas) → `Skill("spike-findings-deep-agents")`
+
+## Sketch Findings
+
+- **Sketch findings for deep-agents** (design decisions for `/graph-wiki:refresh` — sweep + targeted modes, autonomous run, hybrid diff doc) → `Skill("sketch-findings-deep-agents")`
