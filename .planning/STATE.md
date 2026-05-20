@@ -90,6 +90,7 @@ v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plan
 - `.planning/todos/pending/2026-05-19-fix-bedrock-count-tokens-api-shape-in-update-tokens.md` → Phase 17
 - `.planning/todos/pending/2026-05-19-fix-workspace-repo-resolution-in-init-vault-and-detect-conta.md` → Phase 17
 - `.planning/todos/pending/2026-05-19-rename-graph-wiki-init-command-to-init-wiki.md` → Phase 18
+- `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` → unassigned (graph-wiki / vault-io)
 
 ### Blockers
 
