@@ -15,11 +15,12 @@ from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Ver
 # (packages/prompt-sources/agents/code_reader.md#rules — rule 6).
 _SENTINEL = "NO_RELEVANT_CONTENT"
 
-# path:line or path:line-line annotation, e.g. `packages/foo/bar.py:42`
-# or `src/baz.py:10-15`. Path must contain a `/` and end in a recognized
-# source extension. Allow the citation to be inside or outside backticks.
+# path:line or path:line-line annotation, e.g. `pool.py:115`,
+# `packages/foo/bar.py:42`, or `src/baz.py:10-15`. Path may be a bare filename
+# or directory-qualified; trailing component must end in a recognized source
+# extension. Allow the citation to be inside or outside backticks.
 _PATH_LINE_RE = re.compile(
-    r"`?[A-Za-z0-9_./-]+/[A-Za-z0-9_./-]+\.(?:py|ts|js|tsx|jsx|go|rs|md|toml|yaml|yml|sh):\d+(?:-\d+)?`?"
+    r"`?[A-Za-z0-9_./-]*[A-Za-z0-9_-]+\.(?:py|ts|js|tsx|jsx|go|rs|md|toml|yaml|yml|sh):\d+(?:-\d+)?`?"
 )
 
 # Wikilink pattern — code_reader should NEVER emit wikilinks (it returns
@@ -28,7 +29,7 @@ _WIKILINK_RE = re.compile(r"\[\[[^\]]+\]\]")
 
 # Forbidden prefix: the tool refuses `.graph-wiki/` reads; the agent must not
 # claim to quote anything from that prefix either.
-_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_/-])\.graph-wiki/")
+_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_-])\.graph-wiki/")
 
 
 def _is_sentinel_only(text: str) -> bool:

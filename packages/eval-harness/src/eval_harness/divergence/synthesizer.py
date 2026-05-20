@@ -14,10 +14,6 @@ from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Ver
 # Any [[...]] wikilink
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 
-# Slug-only wikilink: a single CamelCase or PascalCase token with no slash.
-# Matches [[Foo]], [[FooBar]] but NOT [[wiki/foo/bar]], [[packages/foo|alias]].
-_SLUG_ONLY_RE = re.compile(r"^[A-Z][A-Za-z0-9]+$")
-
 # Backtick-wrapped code citation, e.g. `pool.py:115` or `src/foo/bar.py:10-15`.
 _BACKTICK_CODE_RE = re.compile(r"`[^`]*?:\d+(?:-\d+)?`")
 
@@ -55,7 +51,8 @@ def _check_no_slug_only_wikilinks(output: AgentOutputProxy, vault: Path) -> Verd
     for link in _WIKILINK_RE.findall(output.answer or ""):
         # Strip pipe aliases: [[page|display]] -> page
         slug = link.split("|")[0].strip()
-        if _SLUG_ONLY_RE.match(slug):
+        # Slug-only := no path separator. Full-path wikilinks always contain '/'.
+        if "/" not in slug:
             return Verdict(passed=False, excerpt=f"Slug-only wikilink: [[{slug}]]")
     return Verdict(passed=True, excerpt="")
 
