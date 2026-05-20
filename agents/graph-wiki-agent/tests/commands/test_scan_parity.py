@@ -69,17 +69,17 @@ def _scan_patches(wiki: Path, repo: Path):
     fake_state_gate = {"allowed": True, "reason": "test-mode", "head_commit": "abc123"}
 
     stack = ExitStack()
-    stack.enter_context(patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, repo)))
-    stack.enter_context(patch("code_wiki_agent.commands.scan.compute_state_gate", return_value=fake_state_gate))
-    stack.enter_context(patch("code_wiki_agent.commands.scan.make_llm"))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, repo)))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value=fake_state_gate))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.make_llm"))
     pool_mock = AsyncMock()
     pool_mock.run_all = AsyncMock(return_value=_empty_fan_result())
-    pool_patch = stack.enter_context(patch("code_wiki_agent.commands.scan.SubagentPool"))
+    pool_patch = stack.enter_context(patch("graph_wiki_agent.commands.scan.SubagentPool"))
     pool_patch.return_value = pool_mock
-    stack.enter_context(patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"))
-    stack.enter_context(patch("code_wiki_agent.commands.scan.update_index"))
-    stack.enter_context(patch("code_wiki_agent.commands.scan.append_log"))
-    stack.enter_context(patch("code_wiki_agent.commands.scan.attach_changed_files"))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.update_index"))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.append_log"))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan.attach_changed_files"))
     return stack
 
 
@@ -90,7 +90,7 @@ def _scan_patches(wiki: Path, repo: Path):
 
 async def test_scan_result_added_is_list(minimal_vault: Path) -> None:
     """run_scan returns ScanResult whose fields are all correct types."""
-    from code_wiki_agent.commands.scan import ScanResult, run_scan
+    from graph_wiki_agent.commands.scan import ScanResult, run_scan
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):
@@ -111,7 +111,7 @@ async def test_scan_result_added_is_list(minimal_vault: Path) -> None:
 
 async def test_scan_state_gate_has_required_keys(minimal_vault: Path) -> None:
     """ScanResult.state_gate dict has {allowed, reason, head_commit} keys."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):
@@ -129,7 +129,7 @@ async def test_scan_state_gate_has_required_keys(minimal_vault: Path) -> None:
 
 async def test_scan_result_json_roundtrip(minimal_vault: Path) -> None:
     """ScanResult serializes cleanly via dataclasses.asdict + json.dumps/loads."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):

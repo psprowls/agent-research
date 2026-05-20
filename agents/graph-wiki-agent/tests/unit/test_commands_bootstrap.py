@@ -4,7 +4,7 @@ from __future__ import annotations
 
 The Typer subcommand was renamed `init` → `bootstrap` in Phase 18 so Claude Code's
 native `/init` slash command is reachable again. The underlying Python module
-`code_wiki_agent.commands.init` and its `run_init` function intentionally remain
+`graph_wiki_agent.commands.init` and its `run_init` function intentionally remain
 unchanged per Phase 18 D-02 (internal, machine-facing, not user-typed).
 
 Requirements covered: CMD-01, CMD-02.
@@ -23,7 +23,7 @@ import pytest
 
 
 def _make_init_result(wiki: Path, workspace: Path):
-    from code_wiki_agent.commands.init import InitResult
+    from graph_wiki_agent.commands.init import InitResult
 
     return InitResult(
         status="ok",
@@ -79,10 +79,10 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
     wiki = workspace / "wiki"
 
     with patch(
-        "code_wiki_agent.commands.init.resolve_wiki_and_repo",
+        "graph_wiki_agent.commands.init.resolve_wiki_and_repo",
         return_value=(wiki, workspace),
     ):
-        from code_wiki_agent.commands.init import run_init
+        from graph_wiki_agent.commands.init import run_init
 
         result = await run_init(
             topic="my-topic", tool="claude-code", force=True, vault_path=None
@@ -104,14 +104,14 @@ def test_bootstrap_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     """CLI `bootstrap --json` emits valid JSON with required keys."""
     from typer.testing import CliRunner
 
-    from code_wiki_agent.cli import app
+    from graph_wiki_agent.cli import app
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     wiki = workspace / "wiki"
     mock_result = _make_init_result(wiki, workspace)
     monkeypatch.setattr(
-        "code_wiki_agent.cli.run_init",
+        "graph_wiki_agent.cli.run_init",
         AsyncMock(return_value=mock_result),
     )
 
@@ -136,13 +136,13 @@ def test_bootstrap_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 def test_bootstrap_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     """The old `init` Typer subcommand is unreachable (no backwards-compat alias).
 
-    Asserts that invoking `code-wiki-agent init ...` via Typer raises a "no such
+    Asserts that invoking `graph-wiki-agent init ...` via Typer raises a "no such
     command" error after Phase 18's hard cut (D-04). The new `bootstrap` subcommand
     is the only entry point.
     """
     from typer.testing import CliRunner
 
-    from code_wiki_agent.cli import app
+    from graph_wiki_agent.cli import app
 
     runner = CliRunner()
     result = runner.invoke(
@@ -151,6 +151,6 @@ def test_bootstrap_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     # Typer returns exit code 2 for "no such command".
     assert result.exit_code != 0, (
-        f"`code-wiki-agent init ...` must NOT be a valid subcommand "
+        f"`graph-wiki-agent init ...` must NOT be a valid subcommand "
         f"after Phase 18 rename; got exit_code={result.exit_code}"
     )

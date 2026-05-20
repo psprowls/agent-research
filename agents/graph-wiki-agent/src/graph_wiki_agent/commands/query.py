@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Hybrid BM25 + embedding search layer and query pipeline for code-wiki-agent.
+"""Hybrid BM25 + embedding search layer and query pipeline for graph-wiki-agent.
 
 Public API (Plan 02):
     build_index(vault_path)          -- Build/refresh BM25 + SQLite embedding index

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 """Phase 9 OBS-04 (Plan 09-01 Task 2): query.py query_summary writer test.
 
-Decision rule per plan: no existing test in agents/code-wiki-agent/tests/unit/
+Decision rule per plan: no existing test in agents/graph-wiki-agent/tests/unit/
 reads back a query_{...}.jsonl summary file (grep on "query_summary" /
 "summary_record" / "query_*.jsonl" returns no hits in tests/). Therefore this
 test is a NEW file rather than an extension to an existing one.
 
 Test drives run_query end-to-end with fast in-process stubs (mirrors the
 monkeypatch boundaries already used by
-agents/code-wiki-agent/tests/integration/test_mcp_cancel.py) so the writer block
+agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py) so the writer block
 at query.py:980-995 actually executes against real I/O. The assertion target is
-the JSONL line written to .code-wiki/traces/query_{query_id}.jsonl — that record
+the JSONL line written to .graph-wiki/traces/query_{query_id}.jsonl — that record
 must carry schema_version: 1 (D-01 / D-02) AND still carry every pre-existing key.
 """
 
@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from code_wiki_agent.commands.query import run_query
+from graph_wiki_agent.commands.query import run_query
 
 
 def _seed_minimal_vault(vault: Path) -> list[str]:
@@ -30,8 +30,8 @@ def _seed_minimal_vault(vault: Path) -> list[str]:
     Same seed pattern as integration/test_mcp_cancel.py: stub index presence,
     real page files for drill_page's read_text().
     """
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     pages_dir = vault / "pages"
     pages_dir.mkdir()
@@ -76,19 +76,19 @@ async def test_query_summary_record_has_schema_version_one(
     # Same monkeypatch boundaries as integration/test_mcp_cancel.py so no
     # real Bedrock / BM25 / embedding work runs.
     monkeypatch.setattr(
-        "code_wiki_agent.commands.query.make_llm",
+        "graph_wiki_agent.commands.query.make_llm",
         lambda *a, **kw: fake_llm,
     )
     monkeypatch.setattr(
-        "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+        "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
         lambda vault_path=None: (tmp_path.resolve(), None),
     )
     monkeypatch.setattr(
-        "code_wiki_agent.commands.query.bm25_query",
+        "graph_wiki_agent.commands.query.bm25_query",
         lambda query_text, vault_path, top_k: (page_paths, [2.0, 1.5, 1.0]),
     )
     monkeypatch.setattr(
-        "code_wiki_agent.commands.query._cosine_search_sqlite",
+        "graph_wiki_agent.commands.query._cosine_search_sqlite",
         lambda vault_path, query_vec, top_k: [
             (p, 0.9 - i * 0.1) for i, p in enumerate(page_paths)
         ],
@@ -96,14 +96,14 @@ async def test_query_summary_record_has_schema_version_one(
     mock_embeddings_inst = MagicMock()
     mock_embeddings_inst.embed_query.return_value = [0.1] * 1024
     monkeypatch.setattr(
-        "code_wiki_agent.commands.query.BedrockEmbeddings",
+        "graph_wiki_agent.commands.query.BedrockEmbeddings",
         lambda **kw: mock_embeddings_inst,
     )
 
     await run_query(query="What is alpha?", vault_path=tmp_path, top_k=3)
 
     # Locate the per-query summary file. Filename pattern: query_{query_id}.jsonl
-    trace_dir = tmp_path.resolve() / ".code-wiki" / "traces"
+    trace_dir = tmp_path.resolve() / ".graph-wiki" / "traces"
     summary_files = list(trace_dir.glob("query_*.jsonl"))
     assert len(summary_files) == 1, (
         f"Expected exactly one query_*.jsonl summary file in {trace_dir}; "

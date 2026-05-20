@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Ports packages/prompt-sources/agents/ingestor.md per PORT-03 (Phase 6).
 Adapts host-specific references (slash commands, script calls, interactive
-loops) to code-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
+loops) to graph-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
 Preserves semantic rules: page-type routing, frontmatter fields, minimum-3-touches,
 cite-aggressively, red flags.
 

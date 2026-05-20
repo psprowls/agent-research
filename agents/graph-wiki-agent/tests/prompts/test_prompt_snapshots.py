@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Snapshot tests for every *_SYSTEM prompt constant exported from code_wiki_agent.prompts.
+"""Snapshot tests for every *_SYSTEM prompt constant exported from graph_wiki_agent.prompts.
 
 Each test imports its target lazily (inside the function body) so the file
 collects cleanly even when the prompts module has not landed yet. A
@@ -70,7 +70,7 @@ def _render_ctx_from_tmp(tmp_path: Path) -> str:
 
     Keeps the per-test setup short so each with-context test stays a one-liner.
     """
-    from code_wiki_agent.prompts.project_context import render_project_context
+    from graph_wiki_agent.prompts.project_context import render_project_context
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -81,7 +81,7 @@ def _render_ctx_from_tmp(tmp_path: Path) -> str:
 def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LIBRARIAN_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
+        from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LIBRARIAN_SYSTEM == snapshot
@@ -90,7 +90,7 @@ def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
 def test_ingestor_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """INGESTOR_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
+        from graph_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert INGESTOR_SYSTEM == snapshot
@@ -99,7 +99,7 @@ def test_ingestor_system_snapshot(snapshot: SnapshotAssertion) -> None:
 def test_linter_page_quality_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LINTER_PAGE_QUALITY_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import LINTER_PAGE_QUALITY_SYSTEM
+        from graph_wiki_agent.prompts.linter import LINTER_PAGE_QUALITY_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LINTER_PAGE_QUALITY_SYSTEM == snapshot
@@ -108,7 +108,7 @@ def test_linter_page_quality_system_snapshot(snapshot: SnapshotAssertion) -> Non
 def test_linter_adr_chain_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LINTER_ADR_CHAIN_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import LINTER_ADR_CHAIN_SYSTEM
+        from graph_wiki_agent.prompts.linter import LINTER_ADR_CHAIN_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LINTER_ADR_CHAIN_SYSTEM == snapshot
@@ -117,7 +117,7 @@ def test_linter_adr_chain_system_snapshot(snapshot: SnapshotAssertion) -> None:
 def test_linter_stale_claims_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LINTER_STALE_CLAIMS_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import LINTER_STALE_CLAIMS_SYSTEM
+        from graph_wiki_agent.prompts.linter import LINTER_STALE_CLAIMS_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LINTER_STALE_CLAIMS_SYSTEM == snapshot
@@ -126,7 +126,7 @@ def test_linter_stale_claims_system_snapshot(snapshot: SnapshotAssertion) -> Non
 def test_scanner_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """SCANNER_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM
+        from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert SCANNER_SYSTEM == snapshot
@@ -135,7 +135,7 @@ def test_scanner_system_snapshot(snapshot: SnapshotAssertion) -> None:
 def test_synthesizer_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """SYNTHESIZER_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM
+        from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert SYNTHESIZER_SYSTEM == snapshot
@@ -144,7 +144,7 @@ def test_synthesizer_system_snapshot(snapshot: SnapshotAssertion) -> None:
 def test_code_reader_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """CODE_READER_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM
+        from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert CODE_READER_SYSTEM == snapshot
@@ -163,7 +163,7 @@ def test_scanner_system_with_project_context(
 ) -> None:
     """build_scanner_system with rendered project-context matches snapshot."""
     try:
-        from code_wiki_agent.prompts.scanner import build_scanner_system
+        from graph_wiki_agent.prompts.scanner import build_scanner_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert build_scanner_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
@@ -174,7 +174,7 @@ def test_ingestor_system_with_project_context(
 ) -> None:
     """build_ingestor_system with rendered project-context matches snapshot."""
     try:
-        from code_wiki_agent.prompts.ingestor import build_ingestor_system
+        from graph_wiki_agent.prompts.ingestor import build_ingestor_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert build_ingestor_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
@@ -185,7 +185,7 @@ def test_linter_page_quality_system_with_project_context(
 ) -> None:
     """build_linter_page_quality_system with project-context matches snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import build_linter_page_quality_system
+        from graph_wiki_agent.prompts.linter import build_linter_page_quality_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert (
@@ -199,7 +199,7 @@ def test_linter_adr_chain_system_with_project_context(
 ) -> None:
     """build_linter_adr_chain_system with project-context matches snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import build_linter_adr_chain_system
+        from graph_wiki_agent.prompts.linter import build_linter_adr_chain_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert (
@@ -213,7 +213,7 @@ def test_linter_stale_claims_system_with_project_context(
 ) -> None:
     """build_linter_stale_claims_system with project-context matches snapshot."""
     try:
-        from code_wiki_agent.prompts.linter import build_linter_stale_claims_system
+        from graph_wiki_agent.prompts.linter import build_linter_stale_claims_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert (
@@ -232,15 +232,15 @@ def test_all_builders_degrade_without_project_context(tmp_path: Path) -> None:
     schema file still gets a working role-shaped prompt.
     """
     try:
-        from code_wiki_agent.prompts.ingestor import build_ingestor_system
-        from code_wiki_agent.prompts.librarian import build_librarian_system
-        from code_wiki_agent.prompts.linter import (
+        from graph_wiki_agent.prompts.ingestor import build_ingestor_system
+        from graph_wiki_agent.prompts.librarian import build_librarian_system
+        from graph_wiki_agent.prompts.linter import (
             build_linter_adr_chain_system,
             build_linter_page_quality_system,
             build_linter_stale_claims_system,
         )
-        from code_wiki_agent.prompts.project_context import render_project_context
-        from code_wiki_agent.prompts.scanner import build_scanner_system
+        from graph_wiki_agent.prompts.project_context import render_project_context
+        from graph_wiki_agent.prompts.scanner import build_scanner_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
 

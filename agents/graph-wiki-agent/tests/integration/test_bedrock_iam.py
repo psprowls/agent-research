@@ -1,4 +1,4 @@
-"""Bedrock IAM gate tests for code-wiki-agent.
+"""Bedrock IAM gate tests for graph-wiki-agent.
 
 Two functions:
 

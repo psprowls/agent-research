@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Scanner system prompt for code-wiki-agent.
+"""Scanner system prompt for graph-wiki-agent.
 
 Composes shared fragments (IRON_RULES, FRONTMATTER_RULES, ARCHITECTURE_OVERVIEW,
 LOG_FORMAT) with scanner-local rules adapted from packages/prompt-sources/agents/scanner.md.

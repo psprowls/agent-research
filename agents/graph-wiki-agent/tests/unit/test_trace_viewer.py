@@ -54,7 +54,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-agent", "trace"] + args,
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "trace"] + args,
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
@@ -120,7 +120,7 @@ def test_trace_command_missing_file_exits_nonzero() -> None:
 
 def test_render_trace_record_pure_function() -> None:
     """_render_trace_record returns a string with role, item_id, status, latency_ms."""
-    from code_wiki_agent.cli import _render_trace_record
+    from graph_wiki_agent.cli import _render_trace_record
 
     record = {
         "role": "scanner",
@@ -148,7 +148,7 @@ def test_aggregate_trace_by_role_model_groups_and_costs() -> None:
     - counts null-cost records into unknown_cost_count
     - excludes records carrying an 'event' or 'kind' key
     """
-    from code_wiki_agent.cli import _aggregate_trace
+    from graph_wiki_agent.cli import _aggregate_trace
 
     records = [
         # (a) two scanner records on haiku
@@ -457,15 +457,15 @@ def test_cost_rollup_format_six_decimals(tmp_path: Path) -> None:
 
 @lru_cache(maxsize=1)
 def _trace_supports_expand_flag() -> bool:
-    """Return True if `code-wiki-agent trace` understands ``--expand``.
+    """Return True if `graph-wiki-agent trace` understands ``--expand``.
 
     Plan 09-04 lands the flag. Until then, this snapshot test self-skips so the
     suite still passes in waves where 09-04 has not yet shipped.
     """
     try:
         help_result = subprocess.run(
-            ["uv", "run", "--package", "code-wiki-agent",
-             "code-wiki-agent", "trace", "--help"],
+            ["uv", "run", "--package", "graph-wiki-agent",
+             "graph-wiki-agent", "trace", "--help"],
             capture_output=True,
             text=True,
             cwd=_PROJECT_ROOT,
@@ -530,10 +530,10 @@ def _write_fan_out_fixture(
 
 
 def test_trace_command_has_expand_flag() -> None:
-    """`code-wiki-agent trace --help` advertises the --expand flag (Task 1, D-14)."""
+    """`graph-wiki-agent trace --help` advertises the --expand flag (Task 1, D-14)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "code-wiki-agent",
-         "code-wiki-agent", "trace", "--help"],
+        ["uv", "run", "--package", "graph-wiki-agent",
+         "graph-wiki-agent", "trace", "--help"],
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
@@ -1082,7 +1082,7 @@ _REAL_V0_FIXTURE_DIR = (
     / "tests"
     / "fixtures"
     / "round-trip-vault"
-    / ".code-wiki"
+    / ".code-wiki"  # NOTE(21-03): vault-io fixture dir rename deferred to plan 21-04 (cross-package sweep)
     / "traces"
 )
 

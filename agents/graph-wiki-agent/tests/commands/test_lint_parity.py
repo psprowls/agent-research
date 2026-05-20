@@ -31,7 +31,7 @@ def no_semantic_pool():
     """Context manager that patches SubagentPool to return empty semantic findings."""
     from subagent_runtime.pool import FanOutResult
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
@@ -46,7 +46,7 @@ def no_semantic_pool():
 @pytest.mark.asyncio
 async def test_lint_result_json_serializable(no_semantic_pool) -> None:
     """LintResult from edge-case-vault serializes via dataclasses.asdict + json.dumps."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     result = await run_lint(vault_path=EDGE_CASE_VAULT)
 
@@ -70,7 +70,7 @@ async def test_lint_result_json_serializable(no_semantic_pool) -> None:
 @pytest.mark.asyncio
 async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool) -> None:
     """edge-case-vault has known broken links — result.broken_links is non-empty."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     result = await run_lint(vault_path=EDGE_CASE_VAULT)
 
@@ -89,7 +89,7 @@ async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool) -> None:
 @pytest.mark.asyncio
 async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool) -> None:
     """edge-case-vault has pages with incomplete frontmatter — result.missing_frontmatter non-empty."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     result = await run_lint(vault_path=EDGE_CASE_VAULT)
 
@@ -112,7 +112,7 @@ async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool) -> 
 
     This is phase success criterion 3 verified at the parity integration layer.
     """
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     result = await run_lint(vault_path=EDGE_CASE_VAULT)
 

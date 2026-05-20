@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Unit tests for code_wiki_agent.commands.ingest (Plan 05-05).
+"""Unit tests for graph_wiki_agent.commands.ingest (Plan 05-05).
 
 Requirements: CMD-03
 Tests all public behaviors of run_ingest_source and run_ingest_work_item.
@@ -22,7 +22,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     """Fake ingestor returns page_type=concept; page written under concepts/foo.md."""
-    from code_wiki_agent.commands.ingest import IngestResult, run_ingest_source
+    from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_source
 
     # Create a fake source file
     source_file = tmp_path / "my-source.md"
@@ -36,10 +36,10 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     fake_llm_response = "---\npage_type: concept\ntarget_slug: foo\ntitle: My Source\ncategory: concept\nsummary: A test concept\n---\n\nBody text here."
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
-        patch("code_wiki_agent.commands.ingest.update_index") as mock_update_index,
-        patch("code_wiki_agent.commands.ingest.append_log") as mock_append_log,
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index") as mock_update_index,
+        patch("graph_wiki_agent.commands.ingest.append_log") as mock_append_log,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
 
@@ -75,7 +75,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_run_ingest_source_default_slug_from_title(tmp_path: Path) -> None:
     """When LLM frontmatter omits target_slug, falls back to slugified title."""
-    from code_wiki_agent.commands.ingest import IngestResult, run_ingest_source
+    from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_source
 
     source_file = tmp_path / "my-source.md"
     source_file.write_text("# My Cool Source\n\nContent.", encoding="utf-8")
@@ -88,10 +88,10 @@ async def test_run_ingest_source_default_slug_from_title(tmp_path: Path) -> None
     fake_llm_response = "---\npage_type: concept\ntitle: My Cool Source\ncategory: concept\nsummary: Cool\n---\n\nBody."
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
     ):
         mock_resolve.return_value = (wiki, tmp_path)
         fake_llm = MagicMock()
@@ -113,7 +113,7 @@ async def test_run_ingest_source_default_slug_from_title(tmp_path: Path) -> None
 @pytest.mark.asyncio
 async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) -> None:
     """Pass YAML missing 'affects' — ValueError raised with 'affects' in message."""
-    from code_wiki_agent.commands.ingest import run_ingest_work_item
+    from graph_wiki_agent.commands.ingest import run_ingest_work_item
 
     # Missing 'affects' field
     frontmatter_text = (
@@ -129,7 +129,7 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
     wiki.mkdir()
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
 
@@ -147,7 +147,7 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
 @pytest.mark.asyncio
 async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path) -> None:
     """Valid YAML: page exists at workspace/work/<opened>-<slug>.md; page_type==work."""
-    from code_wiki_agent.commands.ingest import IngestResult, run_ingest_work_item
+    from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_work_item
 
     frontmatter_text = (
         "title: Fix Auth Bug\n"
@@ -167,8 +167,8 @@ async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path)
     work_dir = tmp_path / "work"
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.file_work_item") as mock_file_work_item,
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.file_work_item") as mock_file_work_item,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
 
@@ -198,7 +198,7 @@ async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path)
 @pytest.mark.asyncio
 async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: Path) -> None:
     """force=True propagated to file_work_item()."""
-    from code_wiki_agent.commands.ingest import run_ingest_work_item
+    from graph_wiki_agent.commands.ingest import run_ingest_work_item
 
     frontmatter_text = (
         "title: Some Item\n"
@@ -216,8 +216,8 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
     (wiki / "log.md").write_text("", encoding="utf-8")
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.file_work_item") as mock_file_work_item,
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.file_work_item") as mock_file_work_item,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
         mock_file_work_item.return_value = {
@@ -243,7 +243,7 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
 
 def test_ingest_result_round_trips_to_json() -> None:
     """IngestResult serializes to JSON without error."""
-    from code_wiki_agent.commands.ingest import IngestResult
+    from graph_wiki_agent.commands.ingest import IngestResult
 
     result = IngestResult(
         status="ok",
@@ -296,7 +296,7 @@ def test_ingest_result_round_trips_to_json() -> None:
 def test_parse_ingestor_response_handles_fenced_and_unfenced(
     raw: str, expected_fm: dict, expected_body: str
 ) -> None:
-    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+    from graph_wiki_agent.commands.ingest import _parse_ingestor_response
 
     fm, body = _parse_ingestor_response(raw)
     for k, v in expected_fm.items():
@@ -305,7 +305,7 @@ def test_parse_ingestor_response_handles_fenced_and_unfenced(
 
 
 def test_parse_ingestor_response_no_frontmatter_returns_empty() -> None:
-    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+    from graph_wiki_agent.commands.ingest import _parse_ingestor_response
 
     fm, body = _parse_ingestor_response("just some text, no frontmatter")
     assert fm == {}
@@ -315,7 +315,7 @@ def test_parse_ingestor_response_no_frontmatter_returns_empty() -> None:
 def test_parse_ingestor_response_fence_without_dashes_returns_empty() -> None:
     """Fence present but no --- inside: treat as no-frontmatter, do not
     silently strip the fence and succeed on a non-YAML body."""
-    from code_wiki_agent.commands.ingest import _parse_ingestor_response
+    from graph_wiki_agent.commands.ingest import _parse_ingestor_response
 
     raw = "```yaml\nkey: value\nno_dashes: here\n```"
     fm, body = _parse_ingestor_response(raw)
@@ -330,7 +330,7 @@ def test_parse_ingestor_response_fence_without_dashes_returns_empty() -> None:
 @pytest.mark.asyncio
 async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) -> None:
     """Fake ingestor returns page_type=source; page lands under sources/foo.md."""
-    from code_wiki_agent.commands.ingest import run_ingest_source
+    from graph_wiki_agent.commands.ingest import run_ingest_source
 
     source_file = tmp_path / "an-article.md"
     source_file.write_text("# An Article\n\nBody.", encoding="utf-8")
@@ -352,10 +352,10 @@ async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) ->
     )
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
     ):
         mock_resolve.return_value = (wiki, tmp_path)
         fake_llm = MagicMock()
@@ -378,7 +378,7 @@ async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) ->
 async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) -> None:
     """LLM emits a slug that slugify() transforms; frontmatter target_slug
     in the written file must equal the on-disk filename slug."""
-    from code_wiki_agent.commands.ingest import run_ingest_source
+    from graph_wiki_agent.commands.ingest import run_ingest_source
 
     source_file = tmp_path / "src.md"
     source_file.write_text("# Src\n\nBody.", encoding="utf-8")
@@ -403,10 +403,10 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
     )
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
     ):
         mock_resolve.return_value = (wiki, tmp_path)
         fake_llm = MagicMock()
@@ -433,7 +433,7 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
 
 
 def test_resolve_wikilinks_strips_unresolved(tmp_path: Path) -> None:
-    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+    from graph_wiki_agent.commands.ingest import _resolve_wikilinks
 
     wiki = tmp_path / "wiki"
     (wiki / "concepts").mkdir(parents=True)
@@ -448,7 +448,7 @@ def test_resolve_wikilinks_strips_unresolved(tmp_path: Path) -> None:
 
 
 def test_resolve_wikilinks_resolves_subdir_qualified(tmp_path: Path) -> None:
-    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+    from graph_wiki_agent.commands.ingest import _resolve_wikilinks
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
@@ -462,7 +462,7 @@ def test_resolve_wikilinks_resolves_subdir_qualified(tmp_path: Path) -> None:
 
 
 def test_resolve_wikilinks_preserves_fenced_code(tmp_path: Path) -> None:
-    from code_wiki_agent.commands.ingest import _resolve_wikilinks
+    from graph_wiki_agent.commands.ingest import _resolve_wikilinks
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -488,7 +488,7 @@ def test_resolve_wikilinks_preserves_fenced_code(tmp_path: Path) -> None:
 async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> None:
     """End-to-end: ingestor emits a hallucinated wikilink; written file
     on disk has it stripped; append_log detail records the count."""
-    from code_wiki_agent.commands.ingest import run_ingest_source
+    from graph_wiki_agent.commands.ingest import run_ingest_source
 
     source_file = tmp_path / "src.md"
     source_file.write_text("# Src\n\nBody.", encoding="utf-8")
@@ -509,10 +509,10 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
     )
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log") as mock_append_log,
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log") as mock_append_log,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
         fake_llm = MagicMock()

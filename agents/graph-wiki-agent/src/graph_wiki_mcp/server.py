@@ -1,4 +1,4 @@
-"""code-wiki-mcp MCP server.
+"""graph-wiki-mcp MCP server.
 
 IMPORTANT: This module is consumed by stdio-based MCP hosts.
 ANY byte written to stdout other than JSON-RPC frames breaks the protocol
@@ -78,7 +78,7 @@ logging.getLogger("botocore").setLevel(logging.WARNING)
 # --- FastMCP server ---
 # NOTE: mcp 1.27.1's FastMCP constructor does not accept a `version` kwarg
 # (verified via inspect.signature). Only `name` is set here.
-mcp = FastMCP(name="code-wiki-mcp")
+mcp = FastMCP(name="graph-wiki-mcp")
 
 
 class PingInput(BaseModel):

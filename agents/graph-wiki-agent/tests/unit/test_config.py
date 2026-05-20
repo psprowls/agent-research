@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Unit tests for code_wiki_agent.config module — exercises load_config TOML parsing and the _active_config singleton. (CLI-05 / --config plumbing was removed in Phase 20 / WMC-03.)"""
+"""Unit tests for graph_wiki_agent.config module — exercises load_config TOML parsing and the _active_config singleton. (CLI-05 / --config plumbing was removed in Phase 20 / WMC-03.)"""
 
 import tomllib
 from pathlib import Path
@@ -31,7 +31,7 @@ def test_load_config_parses_remaining_fields(tmp_path: Path) -> None:
         'vault_path = "/my/vault"\nstate_gate_enabled = false\n',
     )
 
-    from code_wiki_agent.config import load_config
+    from graph_wiki_agent.config import load_config
 
     cfg = load_config(cfg_file)
     assert cfg.vault_path == "/my/vault"
@@ -45,7 +45,7 @@ def test_load_config_drops_unknown_keys(tmp_path: Path) -> None:
         'vault_path = "/vault"\nfuture_key = "ignored"\n',
     )
 
-    from code_wiki_agent.config import load_config
+    from graph_wiki_agent.config import load_config
 
     cfg = load_config(cfg_file)
     assert cfg.vault_path == "/vault"
@@ -57,7 +57,7 @@ def test_load_config_defaults_for_missing_fields(tmp_path: Path) -> None:
     """load_config() returns defaults when TOML doesn't specify all fields."""
     cfg_file = _write_toml(tmp_path / "wiki.toml", "state_gate_enabled = true\n")
 
-    from code_wiki_agent.config import load_config
+    from graph_wiki_agent.config import load_config
 
     cfg = load_config(cfg_file)
     assert cfg.vault_path is None

@@ -16,7 +16,7 @@ import pytest
 
 
 def _read_summary(wiki: Path) -> dict:
-    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir = wiki / ".graph-wiki" / "traces"
     summary_files = list(trace_dir.glob("query_*.jsonl"))
     assert len(summary_files) == 1, f"expected one query_*.jsonl, got {summary_files}"
     raw = summary_files[0].read_text().strip()
@@ -27,20 +27,20 @@ def _setup_query_patches(vault: Path):
     """Patch the same surface as the existing test_query_code_fallback fixtures."""
     return [
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page1.md"], [1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page1.md", 0.9)],
         ),
-        patch("code_wiki_agent.commands.query.BedrockEmbeddings"),
-        patch("code_wiki_agent.commands.query.make_llm"),
-        patch("code_wiki_agent.commands.query.SubagentPool"),
+        patch("graph_wiki_agent.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_agent.commands.query.make_llm"),
+        patch("graph_wiki_agent.commands.query.SubagentPool"),
     ]
 
 
@@ -50,12 +50,12 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "Useful excerpt about the topic")],
@@ -97,12 +97,12 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "Useful excerpt about the topic")],
@@ -140,12 +140,12 @@ async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Pa
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "NO_RELEVANT_CONTENT")],

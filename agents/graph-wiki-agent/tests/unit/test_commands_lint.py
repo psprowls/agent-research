@@ -31,7 +31,7 @@ EDGE_CASE_VAULT = (
 
 def test_lint_result_dataclass_shape() -> None:
     """LintResult has all 18 required fields."""
-    from code_wiki_agent.commands.lint import LintResult
+    from graph_wiki_agent.commands.lint import LintResult
 
     required_fields = {
         "wiki",
@@ -66,10 +66,10 @@ def test_lint_result_dataclass_shape() -> None:
 @pytest.mark.asyncio
 async def test_run_lint_mechanical_finds_orphans_in_fixture() -> None:
     """run_lint against edge-case-vault: result.orphans is a list."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(
@@ -110,10 +110,10 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
         encoding="utf-8",
     )
 
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(
@@ -139,7 +139,7 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
 
 def test_run_lint_stale_days_threshold_default_90() -> None:
     """run_lint has stale_days: int = 90 default."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     sig = inspect.signature(run_lint)
     assert "stale_days" in sig.parameters
@@ -153,7 +153,7 @@ def test_run_lint_stale_days_threshold_default_90() -> None:
 
 def test_run_lint_log_gap_days_threshold_default_14() -> None:
     """run_lint has log_gap_days: int = 14 default."""
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
 
     sig = inspect.signature(run_lint)
     assert "log_gap_days" in sig.parameters
@@ -183,7 +183,7 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
     )
     (wiki / "index.md").write_text("# Index\n", encoding="utf-8")
 
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
     mock_container = MagicMock(return_value=[])
@@ -195,15 +195,15 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
     mock_workflow = MagicMock(return_value=[])
 
     with (
-        patch("code_wiki_agent.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
-        patch("code_wiki_agent.commands.lint.check_container_drift", mock_container),
-        patch("code_wiki_agent.commands.lint.check_dependency_layer", mock_dependency),
-        patch("code_wiki_agent.commands.lint.check_domain_placement", mock_domain),
-        patch("code_wiki_agent.commands.lint.check_file_map_drift", mock_file_map),
-        patch("code_wiki_agent.commands.lint.check_package_sync_drift", mock_package_sync),
-        patch("code_wiki_agent.commands.lint.check_source_sync_drift", mock_source_sync),
-        patch("code_wiki_agent.commands.lint.check_workflow_hints", mock_workflow),
-        patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_agent.commands.lint.check_container_drift", mock_container),
+        patch("graph_wiki_agent.commands.lint.check_dependency_layer", mock_dependency),
+        patch("graph_wiki_agent.commands.lint.check_domain_placement", mock_domain),
+        patch("graph_wiki_agent.commands.lint.check_file_map_drift", mock_file_map),
+        patch("graph_wiki_agent.commands.lint.check_package_sync_drift", mock_package_sync),
+        patch("graph_wiki_agent.commands.lint.check_source_sync_drift", mock_source_sync),
+        patch("graph_wiki_agent.commands.lint.check_workflow_hints", mock_workflow),
+        patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool,
     ):
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
@@ -235,12 +235,12 @@ async def test_run_lint_semantic_fanout_3_groups(tmp_path: Path) -> None:
     )
     (wiki / "index.md").write_text("# Index\n", encoding="utf-8")
 
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
     captured_calls: list[dict] = []
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
 
@@ -277,12 +277,12 @@ async def test_run_lint_semantic_errors_surface_in_result_errors(tmp_path: Path)
     )
     (wiki / "index.md").write_text("# Index\n", encoding="utf-8")
 
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult, PerItemError
 
     stale_group = ("stale_claims", "sys", [])
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(
@@ -332,10 +332,10 @@ async def test_run_lint_no_write_back_to_vault(tmp_path: Path) -> None:
 
     before_hash = _dir_hash(wiki)
 
-    from code_wiki_agent.commands.lint import run_lint
+    from graph_wiki_agent.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
-    with patch("code_wiki_agent.commands.lint.SubagentPool") as MockPool:
+    with patch("graph_wiki_agent.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))

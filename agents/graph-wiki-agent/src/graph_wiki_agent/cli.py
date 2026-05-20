@@ -19,8 +19,8 @@ from graph_wiki_agent.commands.query import run_query
 from graph_wiki_agent.commands.scan import run_scan
 
 app = typer.Typer(
-    name="code-wiki-agent",
-    help="code-wiki-agent: AWS Bedrock-powered wiki maintenance CLI.",
+    name="graph-wiki-agent",
+    help="graph-wiki-agent: AWS Bedrock-powered wiki maintenance CLI.",
     no_args_is_help=True,
 )
 
@@ -35,8 +35,8 @@ KNOWN_SCHEMA_VERSION = 1
 @app.command()
 def version() -> None:
     """Print version and exit."""
-    v = importlib.metadata.version("code-wiki-agent")
-    typer.echo(f"code-wiki-agent {v}")
+    v = importlib.metadata.version("graph-wiki-agent")
+    typer.echo(f"graph-wiki-agent {v}")
 
 
 def _render_trace_record(record: dict) -> str:

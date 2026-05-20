@@ -35,7 +35,7 @@ def _make_fan_out_result(successes=None, errors=None):
 
 def test_scan_result_dataclass_shape() -> None:
     """ScanResult has all 6 required fields with correct types."""
-    from code_wiki_agent.commands.scan import ScanResult
+    from graph_wiki_agent.commands.scan import ScanResult
 
     result = ScanResult(
         added=["pkg-a"],
@@ -68,7 +68,7 @@ def test_scan_result_dataclass_shape() -> None:
 
 async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
     """run_scan maps compute_diff keys correctly to ScanResult fields."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -99,21 +99,21 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
     )
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=fake_workspaces),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
-        patch("code_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
-        patch("code_wiki_agent.commands.scan.compute_state_gate", return_value=fake_state_gate),
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value="## File map - brand-new-pkg\nTODO\n"),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
-        patch("code_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=fake_workspaces),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
+        patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value=fake_state_gate),
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value="## File map - brand-new-pkg\nTODO\n"),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=fake_fan_result)
@@ -136,7 +136,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
 
 async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
     """SubagentPool.run_all is called with role='scanner'."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -157,21 +157,21 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
     )
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg]),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
-        patch("code_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
-        patch("code_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value=None),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
-        patch("code_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg]),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
+        patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value=None),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=fake_fan_result)
@@ -192,7 +192,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
 
 async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
     """Final stub page contains file map text AFTER the LLM body."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -216,21 +216,21 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
     )
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg]),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
-        patch("code_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
-        patch("code_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value=fake_file_map),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
-        patch("code_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg]),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
+        patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value=fake_file_map),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
@@ -257,7 +257,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
 
 async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
     """Deleted packages get 'stale: true' added to their vault page frontmatter."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -293,21 +293,21 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
         append_log_calls.append((op, title))
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=[]),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value=existing),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
-        patch("code_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
-        patch("code_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value=None),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
-        patch("code_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log", side_effect=_mock_append_log),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[]),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value=existing),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
+        patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value=None),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log", side_effect=_mock_append_log),
     ):
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
@@ -329,7 +329,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
 
 async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
     """FanOutResult errors are surfaced in ScanResult.errors list."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
     from subagent_runtime.pool import PerItemError
 
     wiki = tmp_path / "wiki"
@@ -367,21 +367,21 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
     }
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg_ok, fake_pkg_err]),
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch("code_wiki_agent.commands.scan.attach_changed_files"),
-        patch("code_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
-        patch("code_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value=None),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
-        patch("code_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[fake_pkg_ok, fake_pkg_err]),
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
+        patch("graph_wiki_agent.commands.scan.compute_diff", return_value=fake_diff),
+        patch("graph_wiki_agent.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value=None),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
@@ -401,7 +401,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
 async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     """When repo_path is passed, discover_workspaces is called with it,
     NOT Path.cwd() and NOT whatever resolve_wiki_and_repo returns."""
-    from code_wiki_agent.commands.scan import run_scan
+    from graph_wiki_agent.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -410,24 +410,24 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     fake_repo.mkdir()
 
     with (
-        patch("code_wiki_agent.commands.scan.resolve_wiki_and_repo") as mock_resolve,
-        patch("code_wiki_agent.commands.scan.read_layout", return_value={}),
-        patch("code_wiki_agent.commands.scan.discover_workspaces") as mock_discover,
-        patch("code_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch("code_wiki_agent.commands.scan.attach_changed_files") as mock_attach,
-        patch("code_wiki_agent.commands.scan.compute_diff") as mock_diff,
-        patch("code_wiki_agent.commands.scan.compute_state_gate") as mock_gate,
-        patch("code_wiki_agent.commands.scan.build_file_map", return_value=None),
-        patch("code_wiki_agent.commands.scan.pick_representative", return_value=[]),
-        patch("code_wiki_agent.commands.scan.SubagentPool") as MockPool,
-        patch("code_wiki_agent.commands.scan.make_llm"),
+        patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
+        patch("graph_wiki_agent.commands.scan.discover_workspaces") as mock_discover,
+        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch("graph_wiki_agent.commands.scan.attach_changed_files") as mock_attach,
+        patch("graph_wiki_agent.commands.scan.compute_diff") as mock_diff,
+        patch("graph_wiki_agent.commands.scan.compute_state_gate") as mock_gate,
+        patch("graph_wiki_agent.commands.scan.build_file_map", return_value=None),
+        patch("graph_wiki_agent.commands.scan.pick_representative", return_value=[]),
+        patch("graph_wiki_agent.commands.scan.SubagentPool") as MockPool,
+        patch("graph_wiki_agent.commands.scan.make_llm"),
         patch(
-            "code_wiki_agent.commands.scan.load_role_config",
+            "graph_wiki_agent.commands.scan.load_role_config",
             return_value={"model_id": "fake-model", "max_concurrency": 2},
         ),
-        patch("code_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("code_wiki_agent.commands.scan.update_index"),
-        patch("code_wiki_agent.commands.scan.append_log"),
+        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
+        patch("graph_wiki_agent.commands.scan.update_index"),
+        patch("graph_wiki_agent.commands.scan.append_log"),
     ):
         mock_resolve.return_value = (wiki, None)  # repo=None forces fallback
         mock_discover.return_value = []

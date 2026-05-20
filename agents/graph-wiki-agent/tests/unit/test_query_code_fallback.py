@@ -37,7 +37,7 @@ def test_code_reader_role_in_models_toml() -> None:
 
 def test_code_reader_system_constant_defined() -> None:
     """CODE_READER_SYSTEM is a non-empty string with the no-invention contract."""
-    from code_wiki_agent.commands.query import CODE_READER_SYSTEM
+    from graph_wiki_agent.commands.query import CODE_READER_SYSTEM
 
     assert isinstance(CODE_READER_SYSTEM, str)
     assert len(CODE_READER_SYSTEM) > 100  # not a stub
@@ -55,7 +55,7 @@ def test_code_reader_system_constant_defined() -> None:
 
 def test_read_file_bounded_rejects_path_outside_repo(tmp_path: Path) -> None:
     """Path traversal via '..' is rejected with PermissionError."""
-    from code_wiki_agent.commands.query import _read_file_bounded
+    from graph_wiki_agent.commands.query import _read_file_bounded
 
     repo_a = tmp_path / "repoA"
     repo_a.mkdir()
@@ -75,7 +75,7 @@ def test_read_file_bounded_rejects_symlink_escape(tmp_path: Path) -> None:
     is_relative_to check. Without resolve(), the symlink's literal path
     would appear to live under repo_root and the check would falsely pass.
     """
-    from code_wiki_agent.commands.query import _read_file_bounded
+    from graph_wiki_agent.commands.query import _read_file_bounded
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -92,20 +92,20 @@ def test_read_file_bounded_rejects_symlink_escape(tmp_path: Path) -> None:
 
 
 def test_read_file_bounded_rejects_code_wiki(tmp_path: Path) -> None:
-    """Paths whose parts include '.code-wiki' are rejected."""
-    from code_wiki_agent.commands.query import _read_file_bounded
+    """Paths whose parts include '.graph-wiki' are rejected."""
+    from graph_wiki_agent.commands.query import _read_file_bounded
 
     repo = tmp_path / "repo"
-    (repo / ".code-wiki" / "search.db").parent.mkdir(parents=True)
-    (repo / ".code-wiki" / "search.db").write_text("vault metadata")
+    (repo / ".graph-wiki" / "search.db").parent.mkdir(parents=True)
+    (repo / ".graph-wiki" / "search.db").write_text("vault metadata")
 
     with pytest.raises(PermissionError):
-        _read_file_bounded(repo, ".code-wiki/search.db")
+        _read_file_bounded(repo, ".graph-wiki/search.db")
 
 
 def test_read_file_bounded_truncates_large_file(tmp_path: Path) -> None:
     """A file larger than max_bytes is read up to max_bytes and suffixed with [TRUNCATED]."""
-    from code_wiki_agent.commands.query import _read_file_bounded
+    from graph_wiki_agent.commands.query import _read_file_bounded
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -120,7 +120,7 @@ def test_read_file_bounded_truncates_large_file(tmp_path: Path) -> None:
 
 def test_read_file_bounded_reads_inside_repo(tmp_path: Path) -> None:
     """A regular file inside the repo is read normally."""
-    from code_wiki_agent.commands.query import _read_file_bounded
+    from graph_wiki_agent.commands.query import _read_file_bounded
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -135,7 +135,7 @@ def test_read_file_bounded_reads_inside_repo(tmp_path: Path) -> None:
 
 def test_resolve_repo_root_finds_git_parent(tmp_path: Path) -> None:
     """Vault at repo/wiki with a sibling repo/.git/ dir resolves to repo."""
-    from code_wiki_agent.commands.query import _resolve_repo_root
+    from graph_wiki_agent.commands.query import _resolve_repo_root
 
     repo = tmp_path / "repo"
     wiki = repo / "wiki"
@@ -147,7 +147,7 @@ def test_resolve_repo_root_finds_git_parent(tmp_path: Path) -> None:
 
 def test_resolve_repo_root_finds_pyproject_parent(tmp_path: Path) -> None:
     """Vault at repo/wiki with a sibling repo/pyproject.toml resolves to repo."""
-    from code_wiki_agent.commands.query import _resolve_repo_root
+    from graph_wiki_agent.commands.query import _resolve_repo_root
 
     repo = tmp_path / "repo"
     wiki = repo / "wiki"
@@ -159,7 +159,7 @@ def test_resolve_repo_root_finds_pyproject_parent(tmp_path: Path) -> None:
 
 def test_resolve_repo_root_falls_back_to_vault(tmp_path: Path) -> None:
     """No .git or pyproject.toml sibling -> repo root falls back to vault_path."""
-    from code_wiki_agent.commands.query import _resolve_repo_root
+    from graph_wiki_agent.commands.query import _resolve_repo_root
 
     wiki = tmp_path / "lonely-vault"
     wiki.mkdir()
@@ -197,20 +197,20 @@ def _setup_run_query_mocks(
 
     patches = [
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page1.md", "page2.md", "page3.md"], [2.0, 1.5, 1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page1.md", 0.9), ("page2.md", 0.8), ("page3.md", 0.7)],
         ),
-        patch("code_wiki_agent.commands.query.BedrockEmbeddings"),
-        patch("code_wiki_agent.commands.query.make_llm"),
-        patch("code_wiki_agent.commands.query.SubagentPool"),
+        patch("graph_wiki_agent.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_agent.commands.query.make_llm"),
+        patch("graph_wiki_agent.commands.query.SubagentPool"),
     ]
     return patches, mock_synth_llm, mock_librarian_llm, mock_code_llm
 
@@ -224,12 +224,12 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[
@@ -295,12 +295,12 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[
@@ -353,12 +353,12 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "NO_RELEVANT_CONTENT")],
@@ -412,12 +412,12 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
 
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import run_query
+    from graph_wiki_agent.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "NO_RELEVANT_CONTENT")],

@@ -3,7 +3,7 @@ from __future__ import annotations
 """Fast unit tests for ingest.py trace-record writing (TRACE-FU-01 D-03).
 
 Asserts the per-call trace record helper-routing change in isolation: ingest
-must emit a JSONL trace under ``<wiki>/.code-wiki/traces/`` with role="ingestor"
+must emit a JSONL trace under ``<wiki>/.graph-wiki/traces/`` with role="ingestor"
 and tokens populated from the mocked ChatBedrockConverse response's
 usage_metadata. No real Bedrock calls.
 """
@@ -18,7 +18,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     """ingest writes a JSONL trace with role=ingestor + tokens from usage_metadata."""
-    from code_wiki_agent.commands.ingest import run_ingest_source
+    from graph_wiki_agent.commands.ingest import run_ingest_source
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -43,15 +43,15 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     fake_llm.ainvoke = AsyncMock(return_value=fake_resp)
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.ingest.make_llm", return_value=fake_llm),
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
-        patch("code_wiki_agent.commands.ingest.render_project_context", return_value=""),
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.ingest.make_llm", return_value=fake_llm),
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.render_project_context", return_value=""),
     ):
         await run_ingest_source(source, vault_path=wiki)
 
-    trace_files = list((wiki / ".code-wiki" / "traces").glob("ingest_*.jsonl"))
+    trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1, f"expected one ingest_*.jsonl, found {trace_files}"
     records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(records) == 1
@@ -68,7 +68,7 @@ async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None
     """ingest must still emit a trace record when llm.ainvoke raises."""
     from botocore.exceptions import BotoCoreError
 
-    from code_wiki_agent.commands.ingest import run_ingest_source
+    from graph_wiki_agent.commands.ingest import run_ingest_source
 
     wiki = tmp_path / "wiki"
     wiki.mkdir()
@@ -79,16 +79,16 @@ async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None
     fake_llm.ainvoke = AsyncMock(side_effect=BotoCoreError())
 
     with (
-        patch("code_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("code_wiki_agent.commands.ingest.make_llm", return_value=fake_llm),
-        patch("code_wiki_agent.commands.ingest.update_index"),
-        patch("code_wiki_agent.commands.ingest.append_log"),
-        patch("code_wiki_agent.commands.ingest.render_project_context", return_value=""),
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_agent.commands.ingest.make_llm", return_value=fake_llm),
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.render_project_context", return_value=""),
         pytest.raises(BotoCoreError),
     ):
         await run_ingest_source(source, vault_path=wiki)
 
-    trace_files = list((wiki / ".code-wiki" / "traces").glob("ingest_*.jsonl"))
+    trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1
     records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(records) == 1

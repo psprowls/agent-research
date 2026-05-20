@@ -20,7 +20,7 @@ import pytest
 
 def test_query_result_is_dataclass() -> None:
     """QueryResult is a Python dataclass with the required fields."""
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     qr = QueryResult(
         answer="test answer",
@@ -36,7 +36,7 @@ def test_query_result_is_dataclass() -> None:
 
 def test_query_result_asdict_has_required_keys() -> None:
     """dataclasses.asdict(QueryResult(...)) contains answer, citations, pages_drilled, search_scores."""
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     qr = QueryResult(
         answer="x",
@@ -50,7 +50,7 @@ def test_query_result_asdict_has_required_keys() -> None:
 
 def test_search_scores_shape_per_page() -> None:
     """search_scores dict maps page path to {bm25, embed, rrf} float keys (SEARCH-06)."""
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     scores = {
         "concepts/foo.md": {"bm25": 1.5, "embed": 0.82, "rrf": 0.016},
@@ -68,7 +68,7 @@ def test_search_scores_shape_per_page() -> None:
 
 def test_json_output_valid_schema() -> None:
     """JSON round-trip: dataclasses.asdict + json.dumps/loads preserves all keys (CMD-07)."""
-    from code_wiki_agent.commands.query import QueryResult
+    from graph_wiki_agent.commands.query import QueryResult
 
     qr = QueryResult(
         answer="synthesized answer [[Foo]]",
@@ -91,7 +91,7 @@ def test_json_output_valid_schema() -> None:
 
 def test_extract_wikilinks_basic() -> None:
     """_extract_wikilinks returns inner content of [[...]] tokens."""
-    from code_wiki_agent.commands.query import _extract_wikilinks
+    from graph_wiki_agent.commands.query import _extract_wikilinks
 
     text = "see [[Foo]] and [[bar/baz]] for details"
     result = _extract_wikilinks(text)
@@ -100,7 +100,7 @@ def test_extract_wikilinks_basic() -> None:
 
 def test_extract_wikilinks_empty() -> None:
     """_extract_wikilinks returns empty list when no wikilinks present."""
-    from code_wiki_agent.commands.query import _extract_wikilinks
+    from graph_wiki_agent.commands.query import _extract_wikilinks
 
     assert _extract_wikilinks("no links here") == []
 
@@ -116,7 +116,7 @@ def test_apply_guardrails_g4_clears_citations_on_empty_successes(
     """G4: empty successes + non-empty citations -> citations cleared + warning prepended."""
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -142,7 +142,7 @@ def test_apply_guardrails_skip_g4_preserves_citations_on_empty_successes(
     """
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     (tmp_path / "concepts").mkdir()
     (tmp_path / "concepts" / "pool.md").write_text("# Pool\n")
@@ -168,7 +168,7 @@ def test_apply_guardrails_skip_g4_still_runs_g1(tmp_path: Path) -> None:
     """skip_g4=True does NOT disable G1 — unresolved wikilinks still get flagged."""
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -189,7 +189,7 @@ def test_apply_guardrails_g4_no_change_when_no_citations(tmp_path: Path) -> None
     """G4: empty successes with no citations -> no warning added."""
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -207,7 +207,7 @@ def test_apply_guardrails_g1_flags_unresolved(tmp_path: Path) -> None:
     """G1: citation pointing to non-existent page -> warning appended to answer."""
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     fan_result = FanOutResult(
         successes=[("page1.md", "excerpt")], errors=[]
@@ -228,7 +228,7 @@ def test_apply_guardrails_g1_no_warning_when_page_exists(tmp_path: Path) -> None
     """G1: citation pointing to existing page -> no warning."""
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     # Create the page file so it resolves
     (tmp_path / "ExistingPage.md").write_text("content")
@@ -252,7 +252,7 @@ def test_apply_guardrails_g1_no_double_md_extension(tmp_path: Path) -> None:
     """
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, apply_guardrails
+    from graph_wiki_agent.commands.query import QueryResult, apply_guardrails
 
     # Create the page at its actual path (as returned by the search layer)
     (tmp_path / "concepts").mkdir()
@@ -276,7 +276,7 @@ def test_apply_guardrails_g1_no_double_md_extension(tmp_path: Path) -> None:
 
 def test_librarian_system_constant_present() -> None:
     """LIBRARIAN_SYSTEM module constant is defined."""
-    from code_wiki_agent.commands.query import LIBRARIAN_SYSTEM
+    from graph_wiki_agent.commands.query import LIBRARIAN_SYSTEM
 
     assert isinstance(LIBRARIAN_SYSTEM, str)
     assert len(LIBRARIAN_SYSTEM) > 0
@@ -284,7 +284,7 @@ def test_librarian_system_constant_present() -> None:
 
 def test_synthesizer_system_constant_present() -> None:
     """SYNTHESIZER_SYSTEM module constant is defined."""
-    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+    from graph_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
 
     assert isinstance(SYNTHESIZER_SYSTEM, str)
     assert len(SYNTHESIZER_SYSTEM) > 0
@@ -297,7 +297,7 @@ def test_synthesizer_system_constant_present() -> None:
 
 def test_librarian_prompt_contains_no_invention_rule() -> None:
     """LIBRARIAN_SYSTEM must encode verbatim quoting + no-invention + NO_RELEVANT_CONTENT."""
-    from code_wiki_agent.commands.query import LIBRARIAN_SYSTEM
+    from graph_wiki_agent.commands.query import LIBRARIAN_SYSTEM
 
     lowered = LIBRARIAN_SYSTEM.lower()
     assert "verbatim" in lowered, "Librarian prompt must require verbatim quoting"
@@ -316,14 +316,14 @@ def test_librarian_prompt_keeps_sentinel() -> None:
 
     The filter at query.py:568 depends on this sentinel being emitted verbatim.
     """
-    from code_wiki_agent.commands.query import LIBRARIAN_SYSTEM
+    from graph_wiki_agent.commands.query import LIBRARIAN_SYSTEM
 
     assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM
 
 
 def test_synthesizer_prompt_requires_full_wikilink_paths() -> None:
     """SYNTHESIZER_SYSTEM must require full vault page paths (not slug-only)."""
-    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+    from graph_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
 
     # Full-path example must appear
     assert "[[wiki/" in SYNTHESIZER_SYSTEM, (
@@ -339,7 +339,7 @@ def test_synthesizer_prompt_requires_full_wikilink_paths() -> None:
 
 def test_synthesizer_prompt_requires_code_path_line_citations() -> None:
     """SYNTHESIZER_SYSTEM must instruct the model to preserve `path:line` code refs."""
-    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+    from graph_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
 
     assert "path:line" in SYNTHESIZER_SYSTEM, (
         "Synthesizer prompt must reference the path:line citation format"
@@ -351,7 +351,7 @@ def test_synthesizer_prompt_requires_code_path_line_citations() -> None:
 
 def test_synthesizer_prompt_forbids_invention() -> None:
     """SYNTHESIZER_SYSTEM must contain a no-invention / vault-thin acknowledgment directive."""
-    from code_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
+    from graph_wiki_agent.commands.query import SYNTHESIZER_SYSTEM
 
     lowered = SYNTHESIZER_SYSTEM.lower()
     no_invention_tokens = ["never invent", "do not invent", "don't invent", "no-invention"]
@@ -376,14 +376,14 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, run_query
+    from graph_wiki_agent.commands.query import QueryResult, run_query
 
-    # Build a mock vault with a .code-wiki dir (so auto-build check passes)
+    # Build a mock vault with a .graph-wiki dir (so auto-build check passes)
     vault = tmp_path / "vault"
     vault.mkdir()
-    bm25_dir = vault / ".code-wiki" / "bm25"
+    bm25_dir = vault / ".graph-wiki" / "bm25"
     bm25_dir.mkdir(parents=True)
-    db_path = vault / ".code-wiki" / "search.db"
+    db_path = vault / ".graph-wiki" / "search.db"
     db_path.touch()
 
     fake_fan_result = FanOutResult(
@@ -398,25 +398,25 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
 
     with (
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page1.md", "page2.md", "page3.md"], [2.0, 1.5, 1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page1.md", 0.9), ("page2.md", 0.8), ("page3.md", 0.7)],
         ),
         patch(
-            "code_wiki_agent.commands.query.BedrockEmbeddings",
+            "graph_wiki_agent.commands.query.BedrockEmbeddings",
         ) as mock_embeddings_cls,
         patch(
-            "code_wiki_agent.commands.query.make_llm",
+            "graph_wiki_agent.commands.query.make_llm",
         ) as mock_make_llm,
         patch(
-            "code_wiki_agent.commands.query.SubagentPool",
+            "graph_wiki_agent.commands.query.SubagentPool",
         ) as mock_pool_cls,
     ):
         # Setup embedding mock
@@ -473,20 +473,20 @@ def _patches_for_run_query(vault: Path, fan_result, synth_responses: list):
 
     patches = [
         patch(
-            "code_wiki_agent.commands.query.resolve_wiki_and_repo",
+            "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
         patch(
-            "code_wiki_agent.commands.query.bm25_query",
+            "graph_wiki_agent.commands.query.bm25_query",
             return_value=(["page1.md", "page2.md", "page3.md"], [2.0, 1.5, 1.0]),
         ),
         patch(
-            "code_wiki_agent.commands.query._cosine_search_sqlite",
+            "graph_wiki_agent.commands.query._cosine_search_sqlite",
             return_value=[("page1.md", 0.9), ("page2.md", 0.8), ("page3.md", 0.7)],
         ),
-        patch("code_wiki_agent.commands.query.BedrockEmbeddings"),
-        patch("code_wiki_agent.commands.query.make_llm"),
-        patch("code_wiki_agent.commands.query.SubagentPool"),
+        patch("graph_wiki_agent.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_agent.commands.query.make_llm"),
+        patch("graph_wiki_agent.commands.query.SubagentPool"),
     ]
     return patches, mock_synth_llm, mock_librarian_llm
 
@@ -501,12 +501,12 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, run_query
+    from graph_wiki_agent.commands.query import QueryResult, run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     fan_result = FanOutResult(
         successes=[("page1.md", "excerpt with [[wiki/real]] reference")],
@@ -563,12 +563,12 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, run_query
+    from graph_wiki_agent.commands.query import QueryResult, run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     fan_result = FanOutResult(
         successes=[("page1.md", "excerpt")],
@@ -626,12 +626,12 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
     """
     from subagent_runtime.pool import FanOutResult
 
-    from code_wiki_agent.commands.query import QueryResult, run_query
+    from graph_wiki_agent.commands.query import QueryResult, run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".code-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".code-wiki" / "search.db").touch()
+    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault / ".graph-wiki" / "search.db").touch()
 
     # Empty librarian successes — Plan 09 code-fallback path
     librarian_fan = FanOutResult(successes=[], errors=[])

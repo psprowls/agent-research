@@ -1,7 +1,7 @@
 """Verify MCP server stdout contains only valid JSON-RPC lines.
 
 This test is the end-to-end gate for MCP-05: it spawns the real
-``code-wiki-mcp`` entry point as a subprocess, drives an ``initialize``
+``graph-wiki-mcp`` entry point as a subprocess, drives an ``initialize``
 + ``notifications/initialized`` + ``tools/call wiki_ping`` exchange over
 stdin, and asserts that every non-empty line on stdout parses as JSON-RPC.
 If any library accidentally writes to stdout (boto3, anyio, a stray
@@ -61,10 +61,10 @@ def _send_tools_call() -> dict:
 
 
 def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
-    """Spawn ``code-wiki-mcp``, feed payload, return (stdout, stderr)."""
+    """Spawn ``graph-wiki-mcp``, feed payload, return (stdout, stderr)."""
     payload = "\n".join(json.dumps(obj) for obj in payload_objs) + "\n"
     proc = subprocess.Popen(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-mcp"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-mcp"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -81,7 +81,7 @@ def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
 def test_mcp_stdout_is_valid_jsonrpc():
     """Every non-empty stdout line must be valid JSON-RPC (MCP-05)."""
     if shutil.which("uv") is None:
-        pytest.skip("uv not on PATH; required to spawn code-wiki-mcp")
+        pytest.skip("uv not on PATH; required to spawn graph-wiki-mcp")
 
     stdout, stderr = _run_server(
         [
@@ -110,7 +110,7 @@ def test_mcp_stdout_is_valid_jsonrpc():
 def test_mcp_wiki_ping_returns_pong():
     """tools/call wiki_ping must round-trip pong+echo end-to-end."""
     if shutil.which("uv") is None:
-        pytest.skip("uv not on PATH; required to spawn code-wiki-mcp")
+        pytest.skip("uv not on PATH; required to spawn graph-wiki-mcp")
 
     stdout, stderr = _run_server(
         [
@@ -157,16 +157,16 @@ def _send_tools_list() -> dict:
 @pytest.mark.integration
 @INTEGRATION_GATE
 def test_wiki_query_in_tools_list() -> None:
-    """tools/list response from code-wiki-mcp includes wiki_query with hybrid description (MCP-07).
+    """tools/list response from graph-wiki-mcp includes wiki_query with hybrid description (MCP-07).
 
     Gated by CODE_WIKI_RUN_INTEGRATION=1 because the subprocess launch
-    triggers import of code_wiki_agent.commands.query, which imports bm25s,
+    triggers import of graph_wiki_agent.commands.query, which imports bm25s,
     langchain-aws, and other heavy deps that might fail without AWS config.
     The test is intentionally lightweight (no Bedrock calls) but requires
     a working install of all deps.
     """
     if shutil.which("uv") is None:
-        pytest.skip("uv not on PATH; required to spawn code-wiki-mcp")
+        pytest.skip("uv not on PATH; required to spawn graph-wiki-mcp")
 
     stdout, stderr = _run_server(
         [
