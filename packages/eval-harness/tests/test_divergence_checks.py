@@ -16,6 +16,7 @@ from eval_harness.divergence.librarian import LIBRARIAN_CHECKS
 from eval_harness.divergence.ingestor import INGESTOR_CHECKS
 from eval_harness.divergence.linter import LINTER_CHECKS
 from eval_harness.divergence.scanner import SCANNER_CHECKS
+from eval_harness.divergence.synthesizer import SYNTHESIZER_CHECKS
 
 
 # ---------------------------------------------------------------------------
@@ -465,3 +466,36 @@ No overview section here.
     verdict = check.check(AgentOutputProxy(answer=answer), fixture_vault_path)
     assert verdict.passed is False
     assert "Overview" in verdict.excerpt
+
+
+# ---------------------------------------------------------------------------
+# Synthesizer SYN-002 — slug-only wikilinks (WR-01 regression: lowercase /
+# hyphenated slug targets must be flagged, not just PascalCase).
+# ---------------------------------------------------------------------------
+
+
+def test_syn002_fails_on_lowercase_and_hyphenated_slug_only_wikilinks(
+    fixture_vault_path: Path,
+) -> None:
+    """SYN-002 must catch slug-only wikilinks regardless of casing.
+
+    Pre-WR-01 the check used a PascalCase regex and silently passed
+    `[[bedrock]]` and `[[subagent-pool]]`. The fix defines slug-only as
+    "no path separator in the target", which covers every casing variant.
+    """
+    check = _get_check(SYNTHESIZER_CHECKS, "SYN-002-no-slug-only-wikilinks")
+    for slug in ("Bedrock", "bedrock", "subagent-pool", "foo_bar"):
+        output = AgentOutputProxy(answer=f"See [[{slug}]] for details.")
+        verdict = check.check(output, fixture_vault_path)
+        assert verdict.passed is False, f"Expected SYN-002 to fail on [[{slug}]]"
+        assert slug in verdict.excerpt
+
+
+def test_syn002_passes_on_path_prefixed_wikilink(fixture_vault_path: Path) -> None:
+    """SYN-002 passes when the wikilink target contains a path separator."""
+    check = _get_check(SYNTHESIZER_CHECKS, "SYN-002-no-slug-only-wikilinks")
+    output = AgentOutputProxy(answer="See [[wiki/bedrock]] and [[packages/foo|alias]].")
+    verdict = check.check(output, fixture_vault_path)
+    assert verdict.passed is True
+
+
