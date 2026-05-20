@@ -91,6 +91,12 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
             # Error records may have None tokens by design.
             if rec.get("status") == "error":
                 continue
+            # Disclaimer/empty-fallback records may have None tokens by design
+            # (D-04 WR-04 — short-circuit paths where no model call was issued).
+            tokens_in = rec.get("tokens_in")
+            tokens_out = rec.get("tokens_out")
+            if tokens_in is None and tokens_out is None:
+                continue
             # query_summary records: assert top-level tokens_in/tokens_out are non-None.
             if rec.get("kind") == "query_summary":
                 assert rec.get("tokens_in") is not None, (
