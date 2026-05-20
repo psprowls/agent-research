@@ -157,7 +157,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 - **Strict-raises validation philosophy** (Phase 11 D-14, Phase 14 D-02) — If the trace-helper extraction needs to add a manifest-shape key, it raises on unknown keys.
 
 ### Integration Points
-- **No MCP boundary change** — Phase 16 mutates internal helpers + tests + docs. The MCP tool surface (`wiki_init/scan/ingest/query/lint/log`) signatures stay identical.
+- **No MCP boundary change** — Phase 16 mutates internal helpers + tests + docs. The MCP tool surface (`wiki_bootstrap/scan/ingest/query/lint/log`) signatures stay identical.
 - **No plugin touch** — `plugins/graph-wiki/` is out (it runs on Claude Code per `[[project_plugin_port_model]]`; trace pipeline + sweep matrix are Bedrock-side concerns).
 - **No vault schema touch** — `~/Personal/wiki/deep-agents/` is only read (D-11 live re-sweep) — no page rewrites, no log mutation.
 - **`models-qwen.toml` + `models-claude.toml` at repo root** — D-13 locks the bundled `models.toml` default (`qwen.qwen3-32b-v1:0`) but does NOT touch the project-root override profiles.

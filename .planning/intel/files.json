@@ -598,7 +598,7 @@
         "wiki_ping",
         "wiki_query",
         "wiki_log",
-        "wiki_init",
+        "wiki_bootstrap",
         "wiki_scan",
         "wiki_ingest",
         "wiki_lint"

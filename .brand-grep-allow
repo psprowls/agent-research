@@ -199,3 +199,14 @@ agents/code-wiki-agent/tests/prompts/test_provenance.py
 plugins/graph-wiki/README.md
 # rationale: Provenance — skills/graph-wiki/README.md header names the upstream lattice-wiki port.
 plugins/graph-wiki/skills/graph-wiki/README.md
+
+# ---------------------------------------------------------------------------
+# Phase 18 own plans + context + discussion log — Phase 18 documents the
+# /graph-wiki:init → /graph-wiki:bootstrap rename direction and quotes the
+# old slug throughout. CHECK 2 (graph-wiki:init|wiki_init) covers the same
+# scope; this allowlist entry keeps Phase 18's own meta files exempt.
+# ---------------------------------------------------------------------------
+# rationale: Phase 18 meta — quoted documentation of the /graph-wiki:init → /graph-wiki:bootstrap rename direction.
+.planning/phases/18-plugin-command-rename/
+# rationale: Phase 18 folded todo — filename slug references the older "init-wiki" rename direction (now superseded by /graph-wiki:bootstrap); content unchanged for traceability.
+.planning/todos/resolved/2026-05-19-rename-graph-wiki-init-command-to-init-wiki.md

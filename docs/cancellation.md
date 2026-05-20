@@ -201,7 +201,7 @@ async-native AWS client (`aioboto3` / `aiobotocore`), which is deferred to v1.2+
 - The response is discarded — no data loss, no corruption, but the Bedrock call cost
   is incurred for the wasted invocation.
 
-**Tools without fan-out:** `wiki_log` and `wiki_init` have no `report_progress` calls
+**Tools without fan-out:** `wiki_log` and `wiki_bootstrap` have no `report_progress` calls
 and no `SubagentPool` fan-out. For these tools, cancellation takes effect immediately
 at the handler entry point — there is no boto3 worker thread to orphan.
 
