@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-"""MCP tool registration tests for wiki_scan (Plan 05-04) and wiki_ingest (Plan 05-05).
+"""MCP tool registration tests for wiki_scan (Plan 05-04), wiki_ingest (Plan 05-05), and wiki_bootstrap (Phase 18-02).
 
-Requirements: MCP-01, MCP-03.
+Requirements: MCP-01, MCP-03, CMD-02.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -234,6 +234,66 @@ async def test_wiki_ingest_emits_progress() -> None:
     assert mock_ctx.report_progress.await_count >= 2, (
         f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
     )
+
+
+# ---------------------------------------------------------------------------
+# wiki_bootstrap tool registration (Phase 18-02, CMD-02)
+# ---------------------------------------------------------------------------
+
+
+def test_wiki_bootstrap_tool_registered() -> None:
+    """wiki_bootstrap tool is importable and callable (CMD-02)."""
+    from code_wiki_mcp.server import wiki_bootstrap
+
+    assert callable(wiki_bootstrap)
+    assert wiki_bootstrap.__name__ == "wiki_bootstrap"
+
+
+def test_wiki_bootstrap_input_rejects_missing_required_fields() -> None:
+    """WikiBootstrapInput raises ValidationError when topic or tool are missing."""
+    from pydantic import ValidationError
+
+    from code_wiki_mcp.server import WikiBootstrapInput
+
+    with pytest.raises(ValidationError):
+        WikiBootstrapInput()  # type: ignore[call-arg]
+
+
+@pytest.mark.asyncio
+async def test_wiki_bootstrap_calls_run_init() -> None:
+    """wiki_bootstrap MCP tool calls run_init with passed args."""
+    from pathlib import Path as _Path
+
+    from code_wiki_agent.commands.init import InitResult
+    from code_wiki_mcp.server import WikiBootstrapInput, wiki_bootstrap
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    workspace = _Path("/tmp/workspace")
+    wiki = workspace / "wiki"
+    mock_result = InitResult(
+        status="ok",
+        wiki_path=str(wiki),
+        repo_path=str(workspace),
+        topic="test-topic",
+        tool="claude-code",
+        date="2026-05-14",
+        installed_files=["CLAUDE.md", "index.md", "log.md"],
+        page_templates_copied=3,
+        layers={},
+        raw_path=str(workspace / "raw"),
+        work_path=str(workspace / "work"),
+    )
+
+    with patch("code_wiki_mcp.server.run_init", new_callable=AsyncMock) as mock_fn:
+        mock_fn.return_value = mock_result
+        result = await wiki_bootstrap(
+            WikiBootstrapInput(topic="test", tool="claude-code"), mock_ctx
+        )
+
+    mock_fn.assert_awaited_once()
+    assert result.status == "ok"
 
 
 # ---------------------------------------------------------------------------

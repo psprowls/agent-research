@@ -60,7 +60,7 @@ def _run_server_serial(
       2. Sends each subsequent tool call SERIALLY: write one request,
          await the matching id in stdout, then send the next.
 
-    This guarantees `wiki_init` (id=2) completes before `wiki_scan`
+    This guarantees `wiki_bootstrap` (id=2) completes before `wiki_scan`
     (id=3) starts, so scan does not race against vault creation (WR-04).
     Stdin stays open until all responses arrive — the MCP server cancels
     all in-flight handlers on stdin-close (mcp 1.27.1
@@ -162,13 +162,13 @@ def _run_server_serial(
 # ---------------------------------------------------------------------------
 
 
-def _send_wiki_init(request_id: int, vault_path: str) -> dict:
+def _send_wiki_bootstrap(request_id: int, vault_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
         "method": "tools/call",
         "params": {
-            "name": "wiki_init",
+            "name": "wiki_bootstrap",
             "arguments": {"input": {
                 "topic": "test repo",
                 "tool": "claude-code",
@@ -297,10 +297,10 @@ def test_all_six_tools_end_to_end(tmp_path: Path) -> None:
     ]
     # WR-04: send each tool call serially. FastMCP runs tool handlers in a
     # TaskGroup; queueing them all at once lets wiki_scan/wiki_ingest race
-    # wiki_init's vault creation. Sending one-at-a-time and awaiting each
+    # wiki_bootstrap's vault creation. Sending one-at-a-time and awaiting each
     # response guarantees ordering.
     tool_calls = [
-        _send_wiki_init(2, str(vault)),
+        _send_wiki_bootstrap(2, str(vault)),
         _send_wiki_scan(3, str(vault), str(tmp_path)),         # repo_path = tmp_path (NEW FIELD)
         _send_wiki_ingest(4, str(sample), str(vault)),
         _send_wiki_query(5, "What is alpha?", str(vault)),
