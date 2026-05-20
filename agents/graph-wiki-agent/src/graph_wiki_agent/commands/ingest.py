@@ -6,7 +6,7 @@ Public API:
     IngestResult            — dataclass: status, page_path, slug, title, page_type,
                                source_path, cross_refs_updated
     build_ingest_source_prompt(text, source_path, source_type, vault_structure) -> str
-    run_ingest_source(source_path, vault_path) -> IngestResult
+    run_ingest_source(source_path, workspace_path) -> IngestResult
     run_ingest_work_item(frontmatter_text, body, ...) -> IngestResult
 
 The ingestor system prompt is constructed inline via
@@ -368,7 +368,7 @@ def build_ingest_source_prompt(
 
 async def run_ingest_source(
     source_path: Path,
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
     model_override: str | None = None,
 ) -> IngestResult:
     """Ingest a source file into the wiki via the ingestor LLM.
@@ -387,7 +387,7 @@ async def run_ingest_source(
 
     Args:
         source_path:    Path to the source file to ingest.
-        vault_path:     Wiki root path (None -> resolved from env var or git heuristic).
+        workspace_path: Wiki workspace root path (None -> resolved from env var or git heuristic).
         model_override: Bedrock model ID to use for the ingestor role instead of
                         the default from models.toml. Used by the sweep runner
                         for single-role-swap evaluation (D-06).
@@ -396,7 +396,7 @@ async def run_ingest_source(
         IngestResult with status="ok" on success.
     """
     # Step 1: resolve wiki and repo
-    wiki, repo = resolve_wiki_and_repo(vault_path)
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
     project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()
@@ -542,7 +542,7 @@ async def run_ingest_work_item(
     force: bool = False,
     pkg_dir: Path | None = None,
     pkg_title: str | None = None,
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
 ) -> IngestResult:
     """File a structured work item into the wiki workspace.
 
@@ -563,7 +563,7 @@ async def run_ingest_work_item(
         force:            Overwrite existing page if True.
         pkg_dir:          Optional vault package directory Path for work sub-page linking.
         pkg_title:        Display title for the package sub-page template.
-        vault_path:       Wiki root path (None -> env var / git heuristic).
+        workspace_path:   Wiki workspace root path (None -> env var / git heuristic).
 
     Returns:
         IngestResult with status="ok" on success.
@@ -573,7 +573,7 @@ async def run_ingest_work_item(
         FileExistsError: If page already exists and force=False.
     """
     # Step 1: resolve wiki
-    wiki, _ = resolve_wiki_and_repo(vault_path)
+    wiki, _ = resolve_wiki_and_repo(workspace_path)
 
     # Step 2: parse frontmatter
     fm = _parse_frontmatter(frontmatter_text)

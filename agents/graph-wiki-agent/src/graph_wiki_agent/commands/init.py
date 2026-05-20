@@ -43,7 +43,8 @@ async def run_init(
     topic: str,
     tool: str,
     force: bool,
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
+    repo_path: Path | None = None,
 ) -> InitResult:
     """Bootstrap a wiki vault structure.
 
@@ -51,7 +52,8 @@ async def run_init(
         topic: Short description of the repository (e.g. "my-project").
         tool: Which schema file(s) to install (claude-code, codex, cursor, all, ...).
         force: If True, overwrite non-empty wiki directory.
-        vault_path: Explicit vault path; if None, reads GRAPH_WIKI_WORKSPACE env var.
+        workspace_path: Explicit workspace path; if None, reads GRAPH_WIKI_WORKSPACE env var.
+        repo_path: Explicit repo root path; if None, walks up from cwd.
 
     Returns:
         InitResult with fields populated from init_wiki's return dict.
@@ -64,15 +66,16 @@ async def run_init(
     # is gitignored, and registers `graph-wiki-agent` as a plugin entry
     # (D-12: installed_version == applied_version, sourced from
     # importlib.metadata per D-13).
-    repo_root = vault_path.parent if vault_path is not None else Path.cwd()
+    repo_root = repo_path if repo_path is not None else Path.cwd()
     _ws_init(
         repo_root,
+        workspace=workspace_path,
         plugin="graph-wiki-agent",
         version=importlib.metadata.version("graph-wiki-agent"),
     )
 
     # Phase 2: existing vault-io resolution + wiki tree population.
-    wiki, repo = resolve_wiki_and_repo(vault_path)
+    wiki, repo = resolve_wiki_and_repo(workspace_path, repo_root)
     if repo is None:
         repo = Path.cwd()
     logger.debug("run_init: wiki=%s repo=%s topic=%r tool=%r force=%r", wiki, repo, topic, tool, force)
