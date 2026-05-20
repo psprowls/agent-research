@@ -107,7 +107,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. Scan JSON output (`wiki_scan` response) contains `wiki_relative_path` per package entry; `vault_path` does not appear in any scan result field
   4. `GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` passes using the new field/flag names
   5. `scripts/check-brand.sh` exits non-zero when a test file introduces `vault_path` as a Pydantic Field name or `--vault` as a Typer flag literal
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 23-01-PLAN.md — workspace-api-external-rename (big-bang single plan covering WSMCP-01..07 + brand-gate CHECK 4 + integration test sweep)
 
 ### Phase 24: eval-harness-workspace-rename
 **Goal**: The eval-harness package is internally consistent with the v1.4 naming convention — `workspace_path` everywhere a workspace root is meant, `wiki` everywhere the wiki directory itself is meant, and zero residual `vault_path` / `--vault` / `vault:` occurrences
@@ -140,7 +141,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
-| 23. workspace-api-external-rename | 0/TBD | Not started | - |
+| 23. workspace-api-external-rename | 0/1 | Not started | - |
 | 24. eval-harness-workspace-rename | 0/TBD | Not started | - |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 
