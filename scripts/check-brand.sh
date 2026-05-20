@@ -77,5 +77,25 @@ if [ -n "$CLI_HITS" ]; then
   exit 1
 fi
 
-echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean)"
+# CHECK 4 — Phase 23 §WSMCP-07: ban reintroduction of the three workspace-API
+# legacy patterns:
+#   (1) `vault_path:` Pydantic Field declaration (anchored to class-body indent)
+#   (2) `"--vault"` Typer flag literal
+#   (3) `"vault_path"` JSON/dict key
+# Path scope is packages/ agents/ plugins/ only — .planning/ historical docs
+# are excluded per D-03 (this phase's CONTEXT, PATTERNS, prior SUMMARYs and
+# REQUIREMENTS legitimately reference the old name and must not be edited).
+HITS4=$(grep -rEln --exclude-dir=__pycache__ --exclude='*.pyc' -E \
+    '^[[:space:]]+vault_path:[[:space:]]+(str|Path|int|bool)|"--vault"|"vault_path"' \
+    packages/ agents/ plugins/ 2>/dev/null \
+    | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
+
+if [ -n "$HITS4" ]; then
+  echo "$HITS4"
+  COUNT4=$(printf '%s\n' "$HITS4" | wc -l | tr -d ' ')
+  echo "BRAND-WSAPI FAIL: ${COUNT4} unallowlisted hits for vault_path Field|--vault flag|\"vault_path\" key" >&2
+  exit 1
+fi
+
+echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean + BRAND-WSAPI vault_path|--vault|\"vault_path\")"
 exit 0
