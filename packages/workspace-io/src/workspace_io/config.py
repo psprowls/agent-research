@@ -1,7 +1,7 @@
 """Workspace resolution: cwd -> GraphWikiConfig.
 
 Discovery walks up from cwd looking for `.git`. Once the repo root is
-found, `.graph-wiki.local.yaml` is consulted for the `graph-wiki-directory`
+found, `.graph-wiki.local.yaml` is consulted for the `workspace-directory`
 key. Falls back to `<repo>/graph-wiki` when the key is absent.
 
 Environment variable `GRAPH_WIKI_WORKSPACE` overrides discovery and pins
@@ -18,7 +18,7 @@ from pathlib import Path
 from workspace_io import _local_config
 
 LOCAL_CONFIG_FILENAME = ".graph-wiki.local.yaml"
-LATTICE_DIRECTORY_KEY = "graph-wiki-directory"
+WORKSPACE_DIRECTORY_KEY = "workspace-directory"
 DEFAULT_WORKSPACE_NAME = "graph-wiki"
 
 
@@ -36,9 +36,9 @@ def _find_repo_root(start: Path) -> Path | None:
     return None
 
 
-def _resolve_workspace(repo_root: Path) -> Path:
+def resolve_workspace(repo_root: Path) -> Path:
     local = _local_config.read(repo_root / LOCAL_CONFIG_FILENAME)
-    raw = local.get(LATTICE_DIRECTORY_KEY, "").strip()
+    raw = local.get(WORKSPACE_DIRECTORY_KEY, "").strip()
     if not raw:
         return (repo_root / DEFAULT_WORKSPACE_NAME).resolve()
     expanded = Path(raw).expanduser()
@@ -67,13 +67,13 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
     # Normal discovery path
     cwd = Path(cwd) if cwd is not None else Path.cwd()
     repo_root = _find_repo_root(cwd) or cwd.resolve()
-    workspace = _resolve_workspace(repo_root)
+    workspace = resolve_workspace(repo_root)
     # D-03: strict — raise if no .graph-wiki.yaml present in the resolved workspace.
     manifest = workspace / ".graph-wiki.yaml"
     if not manifest.exists():
         raise RuntimeError(
             f"No .graph-wiki.yaml found in {workspace}. "
-            f"Run: graph-wiki-agent init <path>"
+            f"Run: graph-wiki-agent bootstrap <path>"
         )
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
 
