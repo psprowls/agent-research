@@ -17,11 +17,11 @@ def _v2(plugins):
 
 def test_write_then_read_roundtrip(tmp_path):
     mpath = tmp_path / ".graph-wiki.yaml"
-    write(mpath, _v2(["code-wiki-agent", "code-wiki-second"]))
+    write(mpath, _v2(["graph-wiki-agent", "code-wiki-second"]))
     result = read(mpath)
     assert result["version"] == 2
     assert result["initialized_at"] == "2026-05-08"
-    assert [p["name"] for p in result["plugins"]] == ["code-wiki-agent", "code-wiki-second"]
+    assert [p["name"] for p in result["plugins"]] == ["graph-wiki-agent", "code-wiki-second"]
 
 
 def test_read_returns_empty_dict_when_missing(tmp_path):
@@ -54,7 +54,7 @@ def test_read_raises_on_v1(tmp_path):
     """D-14: manifest.read() raises on v1 format (no coercion path)."""
     mpath = tmp_path / ".graph-wiki.yaml"
     mpath.write_text(
-        "version: 1\ninitialized_at: 2026-05-17\nplugins:\n  - code-wiki-agent\n",
+        "version: 1\ninitialized_at: 2026-05-17\nplugins:\n  - graph-wiki-agent\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError):
@@ -156,14 +156,14 @@ def test_read_roles_returns_list_for_named_plugin(tmp_path):
             "max_concurrency": 1,
         }
     ]
-    write(mpath, _v2_with_roles("code-wiki-agent", roles))
-    assert read_roles("code-wiki-agent", mpath) == roles
+    write(mpath, _v2_with_roles("graph-wiki-agent", roles))
+    assert read_roles("graph-wiki-agent", mpath) == roles
 
 
 def test_read_roles_returns_empty_for_missing_plugin(tmp_path):
     """read_roles returns [] (not raises) when the plugin name is not in the manifest."""
     mpath = tmp_path / ".graph-wiki.yaml"
-    write(mpath, _v2_with_roles("code-wiki-agent", [{"name": "preflight"}]))
+    write(mpath, _v2_with_roles("graph-wiki-agent", [{"name": "preflight"}]))
     assert read_roles("does-not-exist", mpath) == []
 
 
@@ -176,13 +176,13 @@ def test_read_roles_returns_empty_when_plugin_has_no_roles_key(tmp_path):
             "version": 2,
             "initialized_at": "2026-05-19",
             "plugins": [
-                {"name": "code-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}
+                {"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}
             ],
         },
     )
-    assert read_roles("code-wiki-agent", mpath) == []
+    assert read_roles("graph-wiki-agent", mpath) == []
 
 
 def test_read_roles_returns_empty_when_manifest_missing(tmp_path):
     """read_roles returns [] when the manifest file does not exist (matches read() contract)."""
-    assert read_roles("code-wiki-agent", tmp_path / ".graph-wiki.yaml") == []
+    assert read_roles("graph-wiki-agent", tmp_path / ".graph-wiki.yaml") == []

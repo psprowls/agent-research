@@ -30,10 +30,10 @@ from pathlib import Path
 
 from langchain_aws import ChatBedrockConverse
 
-from code_wiki_agent.commands.ingest import run_ingest_source
-from code_wiki_agent.commands.lint import run_lint
-from code_wiki_agent.commands.query import QueryResult, run_query
-from code_wiki_agent.commands.scan import run_scan
+from graph_wiki_agent.commands.ingest import run_ingest_source
+from graph_wiki_agent.commands.lint import run_lint
+from graph_wiki_agent.commands.query import QueryResult, run_query
+from graph_wiki_agent.commands.scan import run_scan
 
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
@@ -396,7 +396,7 @@ async def _sweep_scan_role(
     Returns:
         (ScanResult, summary_string) tuple.
     """
-    from code_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
+    from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
         vault_path=vault_path,

@@ -25,26 +25,26 @@ def _write_manifest(workspace: Path, plugins: list[str]) -> None:
 
 
 def test_creates_claude_md_on_first_call(tmp_path):
-    _write_manifest(tmp_path, ["code-wiki-agent"])
+    _write_manifest(tmp_path, ["graph-wiki-agent"])
     render_workspace_claude_md(tmp_path)
     claude = tmp_path / "CLAUDE.md"
     assert claude.exists()
     text = claude.read_text(encoding="utf-8")
     assert AUTO_START in text
     assert AUTO_END in text
-    assert "code-wiki-agent" in text
+    assert "graph-wiki-agent" in text
 
 
 def test_lists_each_installed_plugin(tmp_path):
-    _write_manifest(tmp_path, ["code-wiki-agent", "code-wiki-second"])
+    _write_manifest(tmp_path, ["graph-wiki-agent", "code-wiki-second"])
     render_workspace_claude_md(tmp_path)
     text = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
-    assert "code-wiki-agent" in text
+    assert "graph-wiki-agent" in text
     assert "code-wiki-second" in text
 
 
 def test_refresh_updates_plugin_block_only(tmp_path):
-    _write_manifest(tmp_path, ["code-wiki-agent"])
+    _write_manifest(tmp_path, ["graph-wiki-agent"])
     render_workspace_claude_md(tmp_path)
 
     # User adds prose between renders. Two regions: above the auto block,
@@ -56,7 +56,7 @@ def test_refresh_updates_plugin_block_only(tmp_path):
 
     # New plugin registered → re-render. Auto block updates; user prose
     # is preserved.
-    _write_manifest(tmp_path, ["code-wiki-agent", "code-wiki-second"])
+    _write_manifest(tmp_path, ["graph-wiki-agent", "code-wiki-second"])
     render_workspace_claude_md(tmp_path)
     after = claude.read_text(encoding="utf-8")
     assert "USER PROSE ABOVE" in after
@@ -65,7 +65,7 @@ def test_refresh_updates_plugin_block_only(tmp_path):
 
 
 def test_idempotent_same_plugin_set(tmp_path):
-    _write_manifest(tmp_path, ["code-wiki-agent"])
+    _write_manifest(tmp_path, ["graph-wiki-agent"])
     render_workspace_claude_md(tmp_path)
     first = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
     render_workspace_claude_md(tmp_path)

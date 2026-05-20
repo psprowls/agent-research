@@ -41,7 +41,7 @@ Example:
 version: 2
 initialized_at: '2026-05-18'
 plugins:
-- name: code-wiki-agent
+- name: graph-wiki-agent
   installed_version: 0.1.0
   applied_version: 0.1.0
   roles:
@@ -63,7 +63,7 @@ plugins:
 from pathlib import Path
 from workspace_io import read_roles
 
-roles = read_roles("code-wiki-agent", Path(".graph-wiki.yaml"))
+roles = read_roles("graph-wiki-agent", Path(".graph-wiki.yaml"))
 # -> list[dict]; [] when manifest missing, plugin absent, or no roles key
 ```
 

@@ -29,5 +29,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed by [[wiki/agents/code-wiki-agent/code-wiki-agent]] for every vault-mutating command
+- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] for every vault-mutating command
 - Path resolution is delegated to [[wiki/packages/workspace-io/workspace-io]]

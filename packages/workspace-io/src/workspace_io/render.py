@@ -33,7 +33,7 @@ _TEMPLATE_PATH = Path(__file__).resolve().parent / "assets" / "CLAUDE.md.templat
 # Known plugins → human-readable detail pointer. Unknown plugins are
 # listed with no pointer.
 _PLUGIN_POINTERS: dict[str, str] = {
-    "code-wiki-agent": "see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)",
+    "graph-wiki-agent": "see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)",
 }
 
 

@@ -27,4 +27,4 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed by [[wiki/agents/code-wiki-agent/code-wiki-agent]] commands.query for librarian + code-reader fan-outs
+- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] commands.query for librarian + code-reader fan-outs

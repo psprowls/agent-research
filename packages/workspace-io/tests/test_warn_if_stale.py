@@ -10,25 +10,25 @@ def test_no_entry_returns_false_no_write(tmp_path):
     workspace = tmp_path / "graph-wiki"
     mpath = manifest_path(workspace)
     before = mpath.read_bytes()
-    assert warn_if_stale(workspace, plugin="code-wiki-agent", version="0.7.0") is False
+    assert warn_if_stale(workspace, plugin="graph-wiki-agent", version="0.7.0") is False
     assert mpath.read_bytes() == before
 
 
 def test_match_returns_false_no_write(tmp_path):
-    init(tmp_path, plugin="code-wiki-agent", version="0.7.0")
+    init(tmp_path, plugin="graph-wiki-agent", version="0.7.0")
     workspace = tmp_path / "graph-wiki"
     mpath = manifest_path(workspace)
     before = mpath.read_bytes()
-    assert warn_if_stale(workspace, plugin="code-wiki-agent", version="0.7.0") is False
+    assert warn_if_stale(workspace, plugin="graph-wiki-agent", version="0.7.0") is False
     assert mpath.read_bytes() == before
 
 
 def test_mismatch_returns_true_writes_installed_only(tmp_path):
-    init(tmp_path, plugin="code-wiki-agent", version="0.6.0")
+    init(tmp_path, plugin="graph-wiki-agent", version="0.6.0")
     workspace = tmp_path / "graph-wiki"
-    assert warn_if_stale(workspace, plugin="code-wiki-agent", version="0.7.0") is True
+    assert warn_if_stale(workspace, plugin="graph-wiki-agent", version="0.7.0") is True
     data = read(manifest_path(workspace))
-    entry = next(p for p in data["plugins"] if p["name"] == "code-wiki-agent")
+    entry = next(p for p in data["plugins"] if p["name"] == "graph-wiki-agent")
     assert entry["installed_version"] == "0.7.0"
     assert entry["applied_version"] == "0.6.0"  # unchanged
 
@@ -47,11 +47,11 @@ def test_null_applied_version_no_signal(tmp_path):
         "version: 2\n"
         "initialized_at: 2026-05-09\n"
         "plugins:\n"
-        "  - name: code-wiki-agent\n"
+        "  - name: graph-wiki-agent\n"
         "    installed_version: null\n"
         "    applied_version: null\n",
         encoding="utf-8",
     )
     before = mpath.read_bytes()
-    assert warn_if_stale(workspace, plugin="code-wiki-agent", version="0.7.0") is False
+    assert warn_if_stale(workspace, plugin="graph-wiki-agent", version="0.7.0") is False
     assert mpath.read_bytes() == before

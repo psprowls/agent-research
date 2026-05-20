@@ -10,7 +10,7 @@ meta-test passes in CI.
 
 ## 1. Integration test gate — spec basis
 
-`code-wiki-agent` and its sibling packages distinguish two categories of test:
+`graph-wiki-agent` and its sibling packages distinguish two categories of test:
 
 - **Unit / mocked tests** — fast, deterministic, run by default in CI. Mock
   Bedrock at the LangChain boundary (`ChatBedrockConverse.ainvoke`).
@@ -62,7 +62,7 @@ shape, but downstream tooling (CI logs, pytest's skipped-test summary) renders
 the reason directly to the developer, so it must read clearly.
 
 The canonical home for this block is
-`agents/code-wiki-agent/tests/conftest.py:19-22`. Other test files may either
+`agents/graph-wiki-agent/tests/conftest.py:19-22`. Other test files may either
 import it from conftest or redefine it locally (both forms are accepted by the
 grep gate).
 
@@ -72,13 +72,13 @@ grep gate).
 
 | File | Line range | Form |
 | ---- | ---------- | ---- |
-| `agents/code-wiki-agent/tests/conftest.py` | 19–22 | canonical home |
-| `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py` | 20–23 | local redefinition |
-| `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py` | 142–143 | local redefinition |
-| `agents/code-wiki-agent/tests/integration/test_query_e2e.py` | 39–42 | local redefinition |
-| `agents/code-wiki-agent/tests/integration/test_bedrock_iam.py` | 31–35 | local redefinition (Phase 16 D-10 refactor — was inline `pytest.skip`) |
-| `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` | 27–30 | local redefinition (Phase 16 TRACE-FU-01 — new) |
-| `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` | 3–7 | **allowlisted** via `# integration-gate-allow` — mock-only test (no Bedrock cost) intentionally lacks the gate; lives in `integration/` for organizational grouping with other cancel tests |
+| `agents/graph-wiki-agent/tests/conftest.py` | 19–22 | canonical home |
+| `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` | 20–23 | local redefinition |
+| `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py` | 142–143 | local redefinition |
+| `agents/graph-wiki-agent/tests/integration/test_query_e2e.py` | 39–42 | local redefinition |
+| `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py` | 31–35 | local redefinition (Phase 16 D-10 refactor — was inline `pytest.skip`) |
+| `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` | 27–30 | local redefinition (Phase 16 TRACE-FU-01 — new) |
+| `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` | 3–7 | **allowlisted** via `# integration-gate-allow` — mock-only test (no Bedrock cost) intentionally lacks the gate; lives in `integration/` for organizational grouping with other cancel tests |
 | `packages/subagent-runtime/tests/integration/test_pool_bedrock.py` | 29–30 | cross-package canonical |
 
 The grep gate at `tests/test_integration_gate.py` walks the repo for every

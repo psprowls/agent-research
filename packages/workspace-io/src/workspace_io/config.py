@@ -73,7 +73,7 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
     if not manifest.exists():
         raise RuntimeError(
             f"No .graph-wiki.yaml found in {workspace}. "
-            f"Run: code-wiki-agent init <path>"
+            f"Run: graph-wiki-agent init <path>"
         )
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
 

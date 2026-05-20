@@ -1,6 +1,6 @@
 # Eval Harness
 
-Automated evaluation harness for `code-wiki-agent`. Compares query quality across
+Automated evaluation harness for `graph-wiki-agent`. Compares query quality across
 Bedrock model alternatives against a recorded lattice-wiki baseline.
 
 ---

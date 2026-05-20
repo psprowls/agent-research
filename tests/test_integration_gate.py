@@ -40,7 +40,14 @@ def _find_integration_test_files() -> list[Path]:
         parts = path.parts
         if ".venv" in parts or "site-packages" in parts:
             continue
-        if ".claude" in parts and "worktrees" in parts:
+        # Exclude ephemeral worktree snapshots when this check is being run
+        # from the canonical main checkout. When this file IS executed from
+        # inside a worktree (e.g., a Claude Code agent worktree at
+        # `<repo>/.claude/worktrees/agent-*/`), use a path RELATIVE to
+        # _REPO_ROOT so the exclusion only catches `.claude/worktrees/`
+        # children of the worktree itself — not the worktree root itself.
+        rel_parts = path.relative_to(_REPO_ROOT).parts
+        if ".claude" in rel_parts and "worktrees" in rel_parts:
             continue
         matches.append(path)
     return sorted(matches)

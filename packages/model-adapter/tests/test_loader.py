@@ -177,7 +177,7 @@ def _write_synthetic_workspace(tmp_path, roles):
             "initialized_at": "2026-05-19",
             "plugins": [
                 {
-                    "name": "code-wiki-agent",
+                    "name": "graph-wiki-agent",
                     "installed_version": "0.7.0",
                     "applied_version": "0.7.0",
                     "roles": roles,

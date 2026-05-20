@@ -7,9 +7,9 @@ This is a graph-wiki workspace — a per-repo container for plugin-managed knowl
 
 ## Layout
 
-- `wiki/` — code wiki (curated package/domain/concept pages, ADRs, architecture syntheses). Owned by `code-wiki-agent`. See [`wiki/CLAUDE.md`](wiki/CLAUDE.md) when present.
+- `wiki/` — code wiki (curated package/domain/concept pages, ADRs, architecture syntheses). Owned by `graph-wiki-agent`. See [`wiki/CLAUDE.md`](wiki/CLAUDE.md) when present.
 - `raw/` — immutable ingested sources (specs, PRs, articles, transcripts). The LLM reads from here but never writes.
-- `work/` — unified bug / tech-debt / feature / initiative / spike tracker. Schema owned by `workspace-io`; lifecycle (lint, sidecar, archive, status) owned by `code-wiki-agent`.
+- `work/` — unified bug / tech-debt / feature / initiative / spike tracker. Schema owned by `workspace-io`; lifecycle (lint, sidecar, archive, status) owned by `graph-wiki-agent`.
 - `knowledge/` — other plugin-managed knowledge stores.
 - `.graph-wiki.yaml` — workspace manifest. Lists registered plugins.
 - `.graph-wiki.local.yaml` — per-machine overrides (e.g. `graph-wiki-directory:` to relocate the workspace). Gitignored.
