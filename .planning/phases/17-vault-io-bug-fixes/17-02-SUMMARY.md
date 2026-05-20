@@ -9,7 +9,7 @@ dependency_graph:
   affects: [packages/vault-io/src/vault_io/update_tokens.py, packages/vault-io/tests/]
 tech_stack:
   added: []
-  patterns: [unittest.mock.patch + assert_called_once_with, CODE_WIKI_RUN_INTEGRATION gate]
+  patterns: [unittest.mock.patch + assert_called_once_with, GRAPH_WIKI_RUN_INTEGRATION gate]
 key_files:
   modified:
     - packages/vault-io/src/vault_io/update_tokens.py
@@ -21,7 +21,7 @@ key_files:
 decisions:
   - "Use input={'converse': {'messages': [...]}} — single Converse shape per D-05 (no model-id branching)"
   - "Response field is inputTokens (not inputTokenCount) per AWS API Reference; CONTEXT.md D-06 was wrong"
-  - "Register pytest.mark.integration in vault-io pyproject.toml to match code-wiki-agent pattern"
+  - "Register pytest.mark.integration in vault-io pyproject.toml to match graph-wiki-agent pattern"
 metrics:
   duration: "~8 minutes"
   completed: "2026-05-19"
@@ -56,7 +56,7 @@ Created `tests/test_update_tokens.py` with two test functions:
 - `test_count_tokens_returns_input_tokens`: asserts function returns the `inputTokens` integer from the mocked response
 
 **Task 3 — gated integration test (TOK-02 live):**
-Created `tests/integration/__init__.py` (package marker) and `tests/integration/test_count_tokens_live.py` with the canonical `INTEGRATION_GATE` pattern. Test is skipped by default; exercises real Bedrock when `CODE_WIKI_RUN_INTEGRATION=1`.
+Created `tests/integration/__init__.py` (package marker) and `tests/integration/test_count_tokens_live.py` with the canonical `INTEGRATION_GATE` pattern. Test is skipped by default; exercises real Bedrock when `GRAPH_WIKI_RUN_INTEGRATION=1`.
 
 ## Verification Results
 
@@ -77,7 +77,7 @@ Created `tests/integration/__init__.py` (package marker) and `tests/integration/
 
 **[Rule 2 - Missing Critical Config] Registered pytest.mark.integration in vault-io pyproject.toml**
 - **Found during:** Task 3
-- **Issue:** `pytest.mark.integration` caused `PytestUnknownMarkWarning` because it was not declared in vault-io's `pyproject.toml`. The code-wiki-agent package already has this registration at line 36.
+- **Issue:** `pytest.mark.integration` caused `PytestUnknownMarkWarning` because it was not declared in vault-io's `pyproject.toml`. The graph-wiki-agent package already has this registration at line 36.
 - **Fix:** Added `markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]` to `[tool.pytest.ini_options]` in `packages/vault-io/pyproject.toml`.
 - **Files modified:** `packages/vault-io/pyproject.toml`
 - **Commit:** 0765a13 (included with Task 3)

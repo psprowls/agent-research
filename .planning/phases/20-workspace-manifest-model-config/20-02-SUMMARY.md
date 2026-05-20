@@ -10,7 +10,7 @@ requires:
     plan: 01
     provides: "workspace_io.read_roles(plugin_name, manifest_path) -> list[dict] + plugins[].roles[] round-trip"
 provides:
-  - "model_adapter.loader.make_llm consults workspace manifest first (via workspace_io.read_roles for plugin 'code-wiki-agent') and falls back per-role to packaged models.toml"
+  - "model_adapter.loader.make_llm consults workspace manifest first (via workspace_io.read_roles for plugin 'graph-wiki-agent') and falls back per-role to packaged models.toml"
   - "model_adapter.loader._workspace_role_override(role) private helper — catches both ImportError and RuntimeError; returns None on either"
   - "model_adapter.__all__ no longer exposes set_models_path; the _models_path_override mechanism is deleted"
   - "packages/model-adapter/tests/conftest.py — autouse fixture neutralizes GRAPH_WIKI_WORKSPACE env-var inheritance and stubs the workspace helper to None for deterministic packaged-default test runs"
@@ -33,7 +33,7 @@ key-files:
     - packages/model-adapter/tests/test_loader.py
 
 key-decisions:
-  - "Resolution order in make_llm: (1) workspace_io.read_roles('code-wiki-agent', workspace/.graph-wiki.yaml) match by name == role, (2) packaged models.toml [roles.<role>]"
+  - "Resolution order in make_llm: (1) workspace_io.read_roles('graph-wiki-agent', workspace/.graph-wiki.yaml) match by name == role, (2) packaged models.toml [roles.<role>]"
   - "load_role_config stays packaged-only — eval-harness sweep_candidates and subagent-runtime max_concurrency consumers depend on the packaged shape; workspace overrides do NOT bleed into this accessor"
   - "RuntimeError from workspace_io.resolve() is caught inside _workspace_role_override (single point of swallowing) — callers see None and fall through to packaged"
   - "resolve-raises test patches workspace_io.resolve + workspace_io.config.resolve (not the helper) to drive the production try/except; helper-returns-None test gives branch coverage but does NOT prove the try/except works"
@@ -51,7 +51,7 @@ completed: 2026-05-20
 
 # Phase 20 Plan 02: Workspace-Aware make_llm + Per-Role Fallback Summary
 
-**`model_adapter.loader.make_llm(role)` now resolves role config from `<workspace>/.graph-wiki.yaml` (`plugins[].roles[]` for `code-wiki-agent`) when present and falls back per-role to packaged `models.toml` when the workspace is unreachable or silent on a role — `set_models_path()` and the `_models_path_override` mechanism are deleted.**
+**`model_adapter.loader.make_llm(role)` now resolves role config from `<workspace>/.graph-wiki.yaml` (`plugins[].roles[]` for `graph-wiki-agent`) when present and falls back per-role to packaged `models.toml` when the workspace is unreachable or silent on a role — `set_models_path()` and the `_models_path_override` mechanism are deleted.**
 
 ## Performance
 
@@ -98,7 +98,7 @@ Atomic commits per the project's recent style:
 - **`load_role_config` stays packaged-only.** The accessor is consumed by eval-harness (`packages/eval-harness/src/eval_harness/sweep.py`) which depends on the packaged `sweep_candidates` shape. Workspace `roles[]` entries do not carry sweep candidates; leaking workspace overrides into `load_role_config` would silently break the eval harness.
 - **Resolve-raises is the load-bearing no-workspace test, not helper-returns-None.** The fourth test (`test_make_llm_falls_back_when_helper_returns_none`) is kept for branch coverage but documented as structurally insufficient to prove the production `try/except` works.
 - **Test isolation via captured-at-import-time real helper + opt-in fixture.** Cleaner than `importlib.reload`; avoids order-of-fixture-resolution issues by making the real-helper restore explicit in the test signature.
-- **Workspace plugin name is `"code-wiki-agent"`.** Matches `graph-wiki/.graph-wiki.yaml` line 4 (the live workspace) and is the plugin that owns the role tiers per Phase 14 plugin port.
+- **Workspace plugin name is `"graph-wiki-agent"`.** Matches `graph-wiki/.graph-wiki.yaml` line 4 (the live workspace) and is the plugin that owns the role tiers per Phase 14 plugin port.
 
 ## Deviations from Plan
 
@@ -175,7 +175,7 @@ None — no new network endpoints, auth paths, or trust boundaries. The change r
 
 ## Next Phase Readiness
 
-- Plan 03 (deletion sweep of `--config` / `CODE_WIKI_CONFIG` / `models_path` from `agents/code-wiki-agent/`) can now land cleanly: the loader side already has no `set_models_path` to import, so the agent-side cleanup is purely about deleting the now-dangling import statements at `cli.py:42` and `code_wiki_mcp/server.py:449` plus the surrounding Typer/env-var wiring. NOTE for Plan 03: those two `from model_adapter.loader import set_models_path` lines will `ImportError` at runtime if the `--config` flag or `CODE_WIKI_CONFIG` env var is ever exercised between this plan and Plan 03 landing — but the imports are guarded behind those code paths so normal startup is unaffected.
+- Plan 03 (deletion sweep of `--config` / `GRAPH_WIKI_CONFIG` / `models_path` from `agents/graph-wiki-agent/`) can now land cleanly: the loader side already has no `set_models_path` to import, so the agent-side cleanup is purely about deleting the now-dangling import statements at `cli.py:42` and `graph_wiki_mcp/server.py:449` plus the surrounding Typer/env-var wiring. NOTE for Plan 03: those two `from model_adapter.loader import set_models_path` lines will `ImportError` at runtime if the `--config` flag or `GRAPH_WIKI_CONFIG` env var is ever exercised between this plan and Plan 03 landing — but the imports are guarded behind those code paths so normal startup is unaffected.
 - Plan 04 (live verify SC#4) can use `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` to override role models per the documented schema.
 
 ---

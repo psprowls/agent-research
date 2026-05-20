@@ -68,7 +68,7 @@ completed: 2026-05-19
 - Added 4 new tests to `test_manifest.py` pinning the `read_roles` contract (named plugin, missing plugin, no roles key, missing manifest).
 - Added 2 new tests to `test_manifest_v2_roundtrip.py` pinning the populated- and absent-roles round-trip.
 - Rewrote `packages/workspace-io/README.md` (was a 10-line stub): one-sentence purpose, Manifest schema section, Per-plugin `roles:` subsection with field table + copy-pasteable two-role example, "Reading roles programmatically" snippet, original provenance note preserved at the bottom.
-- Zero references to deprecated surface (`wiki-config.toml`, `--config`, `CODE_WIKI_CONFIG`) — README reflects the post-deletion world per Plan 03 intent.
+- Zero references to deprecated surface (`wiki-config.toml`, `--config`, `GRAPH_WIKI_CONFIG`) — README reflects the post-deletion world per Plan 03 intent.
 
 ## Task Commits
 
@@ -134,7 +134,7 @@ Acceptance-criteria grep gates (re-run post-commit):
 - `grep -c '^## ' packages/workspace-io/README.md` → 2 (≥2 required) — PASS
 - `grep -nE 'model_id|max_concurrency|max_tokens' packages/workspace-io/README.md` → 9 matches (≥3 required) — PASS
 - `grep -c 'read_roles' packages/workspace-io/README.md` → 3 (≥1 required) — PASS
-- `grep -c 'wiki-config.toml\|--config\|CODE_WIKI_CONFIG' packages/workspace-io/README.md` → 0 (must be 0) — PASS
+- `grep -c 'wiki-config.toml\|--config\|GRAPH_WIKI_CONFIG' packages/workspace-io/README.md` → 0 (must be 0) — PASS
 - `uv run --package workspace-io pytest -x` → `576 passed, 32 skipped` — PASS
 - `uv run --package workspace-io python -c "from workspace_io import read_roles; print('OK')"` → `OK` — PASS
 
@@ -151,7 +151,7 @@ None — no new network endpoints, auth paths, or trust boundaries. The change i
 ## Next Phase Readiness
 
 - Plan 02 (`model-adapter.loader` workspace-aware override) can now call `from workspace_io import read_roles` and receive a `list[dict]` shaped exactly like `models.toml`'s per-role table.
-- Plan 03 (deletion sweep of `--config` / `CODE_WIKI_CONFIG` / `models_path`) has no surface area changes here — workspace-io README already reflects the post-deletion world.
+- Plan 03 (deletion sweep of `--config` / `GRAPH_WIKI_CONFIG` / `models_path`) has no surface area changes here — workspace-io README already reflects the post-deletion world.
 
 ---
 *Phase: 20-workspace-manifest-model-config*

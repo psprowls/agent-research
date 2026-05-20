@@ -221,7 +221,7 @@ Region: us-east-1
 
 Updated 8 pages • Unchanged 0 pages • Skipped 2 pages
 
-  [updated] deep-agents/agents/code-wiki-agent/code-wiki-agent.md
+  [updated] deep-agents/agents/graph-wiki-agent/graph-wiki-agent.md
   [updated] deep-agents/packages/eval-harness/eval-harness.md
   [updated] deep-agents/packages/model-adapter/model-adapter.md
   [updated] deep-agents/packages/subagent-runtime/subagent-runtime.md
@@ -315,7 +315,7 @@ New tests from plan 17-05 (all pass):
 
 Evidence:
 - **Unit suite (re-verification):** `uv run --package vault-io pytest packages/vault-io/ -q` → exit 0, **93 passed**, 1 skipped in 42.94s
-- **Integration suite (gated):** `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` → **1 test** (`test_count_tokens_real_bedrock`); skipped by default per `docs/testing.md` D-10 pattern
+- **Integration suite (gated):** `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` → **1 test** (`test_count_tokens_real_bedrock`); skipped by default per `docs/testing.md` D-10 pattern
 
 ---
 

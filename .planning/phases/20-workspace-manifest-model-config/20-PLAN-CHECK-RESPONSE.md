@@ -24,9 +24,9 @@ The argument is structurally correct: stubbing `_workspace_role_override` to ret
 - Updated `<verification>` to add the resolve-raises invariant ("does not contain any reference to `_workspace_role_override`").
 
 ### `20-03-PLAN.md` (warnings #5 and #6)
-- **Warning #5 fix:** Task 1 step 1a now specifies the exact replacement docstring text verbatim (preserved as a code block in the plan) instead of vague "update the module docstring". Added a dedicated grep gate to `<verify>` and `<acceptance_criteria>`: `grep -c '@app.callback\|--config\|CODE_WIKI_CONFIG\|set_models_path' agents/code-wiki-agent/src/code_wiki_agent/config.py` returns 0.
+- **Warning #5 fix:** Task 1 step 1a now specifies the exact replacement docstring text verbatim (preserved as a code block in the plan) instead of vague "update the module docstring". Added a dedicated grep gate to `<verify>` and `<acceptance_criteria>`: `grep -c '@app.callback\|--config\|GRAPH_WIKI_CONFIG\|set_models_path' agents/graph-wiki-agent/src/graph_wiki_agent/config.py` returns 0.
 - Added a `<truth>` line in `must_haves` documenting the docstring-scrub requirement.
-- **Warning #6 fix:** added a new Task 3 ("Agent-side docs sweep") with a recursive grep gate as the acceptance criterion: `grep -rln -- '--config\|CODE_WIKI_CONFIG' agents/code-wiki-agent/ --include='*.md' --include='README*' --exclude-dir='tests' --exclude-dir='.pytest_cache'` returns 0. Task 3 also gates on `wiki-config.toml` references in the same surface (catches stale TOML mentions even when `--config` itself isn't present).
+- **Warning #6 fix:** added a new Task 3 ("Agent-side docs sweep") with a recursive grep gate as the acceptance criterion: `grep -rln -- '--config\|GRAPH_WIKI_CONFIG' agents/graph-wiki-agent/ --include='*.md' --include='README*' --exclude-dir='tests' --exclude-dir='.pytest_cache'` returns 0. Task 3 also gates on `wiki-config.toml` references in the same surface (catches stale TOML mentions even when `--config` itself isn't present).
 - Updated `<objective>`, `must_haves`, `<verification>`, and `<success_criteria>` to mention the SC#5 agent-side docs portion.
 
 ### `20-04-PLAN.md` (warnings #2 and #3)

@@ -14,8 +14,8 @@
 | `packages/vault-io/src/vault_io/init_vault.py` (`main()`, lines 305–306) | CLI entry | one-shot wiring | self; mirrors `update_tokens.py:175` | exact |
 | `packages/vault-io/tests/test_scan_companion_fold.py` (NEW) | unit test | filesystem-fixture + assert | `tests/test_lint_modules.py` (`_load_pages` helper + `tmp_path` style) | role-match |
 | `packages/vault-io/tests/test_update_tokens.py` (NEW) | unit test | mock boto3 + assert payload | `tests/test_ingest_work_item.py` (`unittest.mock.patch` + `assert_called_once_with`) | exact |
-| `packages/vault-io/tests/integration/test_count_tokens_live.py` (NEW) | gated integration test | real-API call → int | `agents/code-wiki-agent/tests/integration/test_bedrock_iam.py::test_make_llm_haiku_invoke` (lines 28–46) | exact |
-| `packages/vault-io/tests/test_detect_containers.py` (NEW) | unit test | synthetic tmp_path monorepo + monkeypatch env | `tests/test_truncated_frontmatter.py` (`tmp_path` + targeted file build) + `agents/code-wiki-agent/tests/conftest.py` (fixture path style) | role-match |
+| `packages/vault-io/tests/integration/test_count_tokens_live.py` (NEW) | gated integration test | real-API call → int | `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py::test_make_llm_haiku_invoke` (lines 28–46) | exact |
+| `packages/vault-io/tests/test_detect_containers.py` (NEW) | unit test | synthetic tmp_path monorepo + monkeypatch env | `tests/test_truncated_frontmatter.py` (`tmp_path` + targeted file build) + `agents/graph-wiki-agent/tests/conftest.py` (fixture path style) | role-match |
 
 ## Pattern Assignments
 
@@ -349,15 +349,15 @@ def test_count_tokens_request_shape() -> None:
 
 ### `tests/integration/test_count_tokens_live.py` (NEW — gated integration test)
 
-**Analog:** `agents/code-wiki-agent/tests/integration/test_bedrock_iam.py:28-46` — verbatim INTEGRATION_GATE pattern.
+**Analog:** `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py:28-46` — verbatim INTEGRATION_GATE pattern.
 
-**Required directory creation:** `packages/vault-io/tests/integration/` does NOT exist; create it with an `__init__.py` (see `agents/code-wiki-agent/tests/integration/__init__.py` as the reference — it exists as an empty package marker).
+**Required directory creation:** `packages/vault-io/tests/integration/` does NOT exist; create it with an `__init__.py` (see `agents/graph-wiki-agent/tests/integration/__init__.py` as the reference — it exists as an empty package marker).
 
 **Canonical decorator block** (verbatim from `test_bedrock_iam.py:30-35` + `docs/testing.md:53-56`):
 ```python
 """Gated integration test for vault_io.update_tokens.count_tokens.
 
-Lives in tests/integration/ and is skipped unless CODE_WIKI_RUN_INTEGRATION=1.
+Lives in tests/integration/ and is skipped unless GRAPH_WIKI_RUN_INTEGRATION=1.
 Per docs/testing.md §3.
 
 Requirements: TOK-02 (live).
@@ -369,18 +369,18 @@ import os
 
 import pytest
 
-# Canonical CODE_WIKI_RUN_INTEGRATION gate — matches docs/testing.md verbatim
+# Canonical GRAPH_WIKI_RUN_INTEGRATION gate — matches docs/testing.md verbatim
 # so the docs/testing.md grep gate sees this file as canonical.
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 
 @pytest.mark.integration
 @INTEGRATION_GATE
 def test_count_tokens_real_bedrock() -> None:
-    """Calls real Bedrock when CODE_WIKI_RUN_INTEGRATION=1; otherwise skips."""
+    """Calls real Bedrock when GRAPH_WIKI_RUN_INTEGRATION=1; otherwise skips."""
     from vault_io.update_tokens import count_tokens
 
     n = count_tokens("hello world")
@@ -389,7 +389,7 @@ def test_count_tokens_real_bedrock() -> None:
 
 **Pattern notes:**
 - Apply BOTH `@pytest.mark.integration` AND `@INTEGRATION_GATE` (per `test_bedrock_iam.py:38-40`). The `integration` mark groups it for selective runs; the GATE provides the env-var opt-in.
-- Define `INTEGRATION_GATE` locally in this file rather than importing from `agents/code-wiki-agent/tests/conftest.py` — that conftest is package-scoped to code-wiki-agent; vault-io tests cannot import from it. `docs/testing.md` explicitly says "import this from conftest or redefine it locally — either is fine."
+- Define `INTEGRATION_GATE` locally in this file rather than importing from `agents/graph-wiki-agent/tests/conftest.py` — that conftest is package-scoped to graph-wiki-agent; vault-io tests cannot import from it. `docs/testing.md` explicitly says "import this from conftest or redefine it locally — either is fine."
 - Function-level decorator, not module-level `pytestmark` (per `test_bedrock_iam.py` docstring: "Per-function marking … keeps the mock test out of the integration set").
 
 ---
@@ -478,8 +478,8 @@ def test_v1_layout_guard_no_self_exclusion(tmp_path: Path, monkeypatch):
 **Apply to:** `tests/test_detect_containers.py` (v2_workspace fixture), `tests/test_scan_companion_fold.py` (apps-not-filtered guard).
 **Pattern:** Use `tmp_path` builtin + manual `mkdir(parents=True)` + `write_text` for fixture construction. `monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", ...)` for env-honoring paths. Either extend `conftest.py` (if the fixture is reused across files) or inline (if scoped to one file).
 
-### `CODE_WIKI_RUN_INTEGRATION` gate
-**Source:** `agents/code-wiki-agent/tests/integration/test_bedrock_iam.py:30-46` + `agents/code-wiki-agent/tests/conftest.py:17-22` + `docs/testing.md:53-56`.
+### `GRAPH_WIKI_RUN_INTEGRATION` gate
+**Source:** `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py:30-46` + `agents/graph-wiki-agent/tests/conftest.py:17-22` + `docs/testing.md:53-56`.
 **Apply to:** `tests/integration/test_count_tokens_live.py`.
 **Pattern:** Define `INTEGRATION_GATE` locally (verbatim shape — reason string must match `docs/testing.md`). Apply `@pytest.mark.integration` AND `@INTEGRATION_GATE` at function level.
 
@@ -499,15 +499,15 @@ input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}
 
 ## No Analog Found
 
-None — every file in this phase has either an in-place analog (source edits) or a close-shape analog in `packages/vault-io/tests/` or `agents/code-wiki-agent/tests/integration/`.
+None — every file in this phase has either an in-place analog (source edits) or a close-shape analog in `packages/vault-io/tests/` or `agents/graph-wiki-agent/tests/integration/`.
 
 ## Metadata
 
 **Analog search scope:**
 - `packages/vault-io/src/vault_io/` (sources)
 - `packages/vault-io/tests/` (existing tests + fixtures)
-- `agents/code-wiki-agent/tests/integration/` (integration gate reference)
-- `agents/code-wiki-agent/tests/conftest.py` (gate decorator canonical definition)
+- `agents/graph-wiki-agent/tests/integration/` (integration gate reference)
+- `agents/graph-wiki-agent/tests/conftest.py` (gate decorator canonical definition)
 - `docs/testing.md` (canonical gate rule)
 
 **Files scanned:** ~22 (vault-io sources + tests + 2 cross-package gate references + 3 fixture overview pages).

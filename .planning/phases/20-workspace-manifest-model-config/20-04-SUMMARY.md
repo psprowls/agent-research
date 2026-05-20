@@ -64,9 +64,9 @@ reflects manifest edits without restart.
 | `grep -c 'wiki-config\.toml\|wiki-config-claude\.toml' .planning/intel/files.json` returns 0 | PASS |
 | `grep -c 'set_models_path' .planning/intel/files.json` returns 0 | PASS |
 | `grep -c 'set_models_path' CLAUDE.md` returns 0 | PASS |
-| `uv run --package workspace-io pytest -x` | PASS (579 passed, 32 integration tests skipped — `CODE_WIKI_RUN_INTEGRATION` unset) |
+| `uv run --package workspace-io pytest -x` | PASS (579 passed, 32 integration tests skipped — `GRAPH_WIKI_RUN_INTEGRATION` unset) |
 | `uv run --package model-adapter pytest -x` | PASS (579 passed, 32 skipped — same monorepo collection) |
-| `uv run --package code-wiki-agent pytest -x` | PASS (579 passed, 32 skipped — same monorepo collection) |
+| `uv run --package graph-wiki-agent pytest -x` | PASS (579 passed, 32 skipped — same monorepo collection) |
 
 ## Deviations from plan
 
@@ -74,7 +74,7 @@ reflects manifest edits without restart.
 
 **Found during:** Step 4 (commit attempt)
 
-**Issue:** When attempting to commit Task 1's edits, `git diff --cached --stat` showed no staged changes. Investigation revealed commit `4656429` (subject `docs(20-03): complete --config / CODE_WIKI_CONFIG deletion sweep`, dated 2026-05-19 18:33) already contained:
+**Issue:** When attempting to commit Task 1's edits, `git diff --cached --stat` showed no staged changes. Investigation revealed commit `4656429` (subject `docs(20-03): complete --config / GRAPH_WIKI_CONFIG deletion sweep`, dated 2026-05-19 18:33) already contained:
 
 - `graph-wiki/.graph-wiki.yaml`: full 9-role block (46 lines added — exactly matches what Plan 20-04 Task 1 asked for)
 - `.planning/intel/stack.json`: `wiki-config.toml` dropped from `content_formats`
@@ -166,7 +166,7 @@ honoured.
 
 ```bash
 GRAPH_WIKI_WORKSPACE=/Users/pat/Personal/deep-agents/graph-wiki \
-  uv run --package code-wiki-agent code-wiki-agent query \
+  uv run --package graph-wiki-agent graph-wiki-agent query \
   "What does workspace-io do?" --top-k 3 --quiet
 ```
 
