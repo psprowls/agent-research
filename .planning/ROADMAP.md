@@ -98,7 +98,14 @@ Plans:
   1. `plugins/graph-wiki/commands/init-wiki.md` exists; `init.md` is gone from that directory
   2. All internal plugin references (`marketplace.json`, `SKILL.md`, command bodies, READMEs) use `/init-wiki` / `graph-wiki:init-wiki` — no stale `/graph-wiki:init` references remain
   3. With the plugin installed, typing `/init` in Claude Code invokes the native "initialize CLAUDE.md" workflow, not the graph-wiki command
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 18-01-PLAN.md — Rename slash command file plugins/graph-wiki/commands/init.md → bootstrap.md (CMD-01)
+- [ ] 18-02-PLAN.md — Rename MCP tool surface wiki_init → wiki_bootstrap + Pydantic models + tests (CMD-02 MCP)
+- [ ] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
+- [ ] 18-04-PLAN.md — Sweep 11 active-source /graph-wiki:init references; add README reinstall note (CMD-03 active)
+- [ ] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
+- [ ] 18-06-PLAN.md — Extend scripts/check-brand.sh + .brand-grep-allow + red-then-green sanity; fold todo to resolved/ (CMD-03 gate)
 
 ### Phase 20: Workspace Manifest Model Config
 **Goal**: All wiki model-override configuration lives in the `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block, with the packaged `models.toml` in `model-adapter` as per-role fallback; the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path`, `--config`, `CODE_WIKI_CONFIG`) is removed.
@@ -170,12 +177,12 @@ Plans:
 | v1.0 code-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
-| v1.3 Tooling Cleanup | 5 | 9/14 | 🚧 In progress | - |
+| v1.3 Tooling Cleanup | 5 | 9/15 | 🚧 In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
-| 18. Plugin Command Rename | 0/TBD | Not started | - |
+| 18. Plugin Command Rename | 0/6 | Planning complete | - |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
 | 21. Rename code-wiki-agent → graph-wiki-agent | 0/5 | Planned (5 plans staged) | - |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
