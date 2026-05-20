@@ -143,9 +143,9 @@
       "file": "agents/code-wiki-agent/src/code_wiki_mcp/server.py",
       "description": "Append a timestamped event to log.md."
     },
-    "mcp: wiki_init": {
+    "mcp: wiki_bootstrap": {
       "method": "MCP-TOOL",
-      "path": "wiki_init",
+      "path": "wiki_bootstrap",
       "params": [
         "topic",
         "tool",

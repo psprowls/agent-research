@@ -46,5 +46,33 @@ if [ -n "$HITS" ]; then
   exit 1
 fi
 
-echo "BRAND-04 OK: zero unallowlisted hits"
+# CHECK 2 — Phase 18 CMD-rename enforcement. Catches reintroduction of the old
+# slash-command slug `graph-wiki:init` and the old MCP tool name `wiki_init`.
+# Word boundaries pin the regex so `graph-wiki:bootstrap` and `wiki_bootstrap`
+# pass cleanly. Same scope + allowlist + __pycache__ exclusions as CHECK 1.
+HITS2=$(grep -rEl --exclude-dir=__pycache__ --exclude='*.pyc' \
+    'graph-wiki:init\b|\bwiki_init\b' \
+    packages/ agents/ plugins/ .planning/ scripts/ docs/ README.md CLAUDE.md 2>/dev/null \
+    | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
+
+if [ -n "$HITS2" ]; then
+  echo "$HITS2"
+  COUNT2=$(printf '%s\n' "$HITS2" | wc -l | tr -d ' ')
+  echo "BRAND-CMD FAIL: ${COUNT2} unallowlisted hits for graph-wiki:init|wiki_init" >&2
+  exit 1
+fi
+
+# CHECK 3 — Typer subcommand regression guard. The renamed CLI subcommand is
+# `def bootstrap(`; any reintroduction of `def init(` in cli.py would re-shadow
+# Claude Code's native /init. No allowlist filter — the file has zero matches
+# post-rename. 2>/dev/null swallows missing-file errors.
+CLI_HITS=$(grep -nE '^\s*def init\(' agents/code-wiki-agent/src/code_wiki_agent/cli.py 2>/dev/null || true)
+
+if [ -n "$CLI_HITS" ]; then
+  echo "$CLI_HITS"
+  echo "BRAND-CMD-CLI FAIL: def init( reintroduced in agents/code-wiki-agent/src/code_wiki_agent/cli.py" >&2
+  exit 1
+fi
+
+echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean)"
 exit 0

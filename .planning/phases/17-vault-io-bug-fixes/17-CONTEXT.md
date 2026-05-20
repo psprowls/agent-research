@@ -155,7 +155,7 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 - **Live-vault verification transcript in `${padded_phase}-VERIFICATION.md`** (Phase 14 SC#4, Phase 15 D-08/D-09) — D-08 (TOK-03) inherits.
 
 ### Integration Points
-- **No MCP boundary change** — Phase 17 mutates `vault-io` internals + tests + scripts. The MCP tool surface (`wiki_init/scan/ingest/query/lint/log`) signatures stay identical.
+- **No MCP boundary change** — Phase 17 mutates `vault-io` internals + tests + scripts. The MCP tool surface (`wiki_bootstrap/scan/ingest/query/lint/log`) signatures stay identical.
 - **No plugin touch** — `plugins/graph-wiki/` is Phase 18 territory (and runs on Claude Code per `[[project_plugin_port_model]]`).
 - **Wiki schema unchanged** — `wiki/CLAUDE.md` `workflow_hints` block is *read*, not modified. The 35-page re-stamp (D-08) commits to the *wiki* repo, not the deep-agents code repo.
 - **`models-qwen.toml` / `models-claude.toml` unchanged** — `count_tokens()` continues to use the bundled `DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"`; no profile override touched.
