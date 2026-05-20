@@ -151,7 +151,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
   ## Verification gate
   How Phase 14 confirms this command works end-to-end. Lightweight — manual smoke or pytest:
-  - Example: `/graph-wiki:init --topic "test" --tool claude-code` in an empty dir produces a wiki/ tree byte-identical to upstream output (diff against captured baseline).
+  - Example: `/graph-wiki:bootstrap --topic "test" --tool claude-code` in an empty dir produces a wiki/ tree byte-identical to upstream output (diff against captured baseline).
   ```
 - **SP-03 (CONTRACT-INDEX.md is the single auditable summary.):** One markdown table, 9 rows (all upstream commands), columns: command / upstream source path / verdict / target script / target module / one-line rationale / per-command spec file link. Phase 14's executor scans this one file to know what to do.
 - **SP-04 (SHELL-OUT-PATTERN.md owns the cross-cutting decisions.):** SO-01..SO-04 captured here in one place so per-command files can just say "see SHELL-OUT-PATTERN.md §SO-01" without repeating boilerplate. Also houses the agent/skill rename map for files NOT command-specific (e.g., `skills/lattice-wiki/SKILL.md` → `skills/graph-wiki/SKILL.md`; `agents/{scanner,librarian,linter,ingestor}.md` rebrand prose).

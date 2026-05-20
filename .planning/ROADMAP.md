@@ -63,7 +63,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 **Milestone Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` and the `/init` plugin command shadow, and address the Phase 16 code review findings.
 
 - [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
-- [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
+- [ ] **Phase 18: Plugin Command Rename** - Rename the conflicting graph-wiki command to `/graph-wiki:bootstrap` to restore Claude Code's native `/init`
 - [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
 - [ ] **Phase 21: Rename code-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute)
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review (moved to end of execution queue; runs after 18 + 21)
@@ -91,12 +91,12 @@ Plans:
 - [x] 17-05-PLAN.md — Gap closure: plumb `workspace_path` through `init_vault._resolve_pinned_containers` and `scan_monorepo._discover_heuristic` to close WSRES-02 BLOCKER on SC#4 (WSRES-02)
 
 ### Phase 18: Plugin Command Rename
-**Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/init-wiki` with all references updated
+**Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/graph-wiki:bootstrap` with all references updated
 **Depends on**: Phase 17
 **Requirements**: CMD-01, CMD-02, CMD-03
 **Success Criteria** (what must be TRUE):
-  1. `plugins/graph-wiki/commands/init-wiki.md` exists; `init.md` is gone from that directory
-  2. All internal plugin references (`marketplace.json`, `SKILL.md`, command bodies, READMEs) use `/init-wiki` / `graph-wiki:init-wiki` — no stale `/graph-wiki:init` references remain
+  1. `plugins/graph-wiki/commands/bootstrap.md` exists; `init.md` is gone from that directory
+  2. All internal plugin references (`marketplace.json`, `SKILL.md`, command bodies, READMEs) use `/graph-wiki:bootstrap` — no stale references to the old slug remain
   3. With the plugin installed, typing `/init` in Claude Code invokes the native "initialize CLAUDE.md" workflow, not the graph-wiki command
 **Plans**: 6 plans
 Plans:
@@ -106,7 +106,7 @@ Plans:
 - [x] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 18-04-PLAN.md — Sweep 11 active-source /graph-wiki:init references; add README reinstall note (CMD-03 active)
+- [ ] 18-04-PLAN.md — Sweep 11 active-source references to the old slug → `/graph-wiki:bootstrap`; add README reinstall note (CMD-03 active)
 - [ ] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
 
 **Wave 3** *(blocked on Wave 2 completion)*

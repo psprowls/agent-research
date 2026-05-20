@@ -36,11 +36,11 @@ Source: `.planning/todos/pending/2026-05-19-fix-workspace-repo-resolution-in-ini
 
 ### Plugin Command Rename (CMD)
 
-Source: `.planning/todos/pending/2026-05-19-rename-graph-wiki-init-command-to-init-wiki.md`. The `graph-wiki` plugin ships a `/init` command (`plugins/graph-wiki/commands/init.md`) that shadows Claude Code's built-in `/init`. With the plugin installed, the native "initialize CLAUDE.md" workflow is unreachable.
+Source: `.planning/todos/resolved/2026-05-19-rename-graph-wiki-init-command-to-init-wiki.md`. The `graph-wiki` plugin shipped a `/init` command (`plugins/graph-wiki/commands/init.md`) that shadows Claude Code's built-in `/init`. With the plugin installed, the native "initialize CLAUDE.md" workflow was unreachable. Resolution: rename to `/graph-wiki:bootstrap` so the native `/init` is reachable again.
 
-- [ ] **CMD-01**: `plugins/graph-wiki/commands/init.md` renamed to `plugins/graph-wiki/commands/init-wiki.md`.
-- [ ] **CMD-02**: Internal references to `/init` or `graph-wiki:init` updated to `/init-wiki` / `graph-wiki:init-wiki` across `marketplace.json` (if present), `plugins/graph-wiki/skills/graph-wiki/SKILL.md`, READMEs, other slash command bodies, and any prompt text. Underlying `init_vault.py` script name unchanged (per the todo's explicit guidance).
-- [ ] **CMD-03**: Verified that Claude Code's built-in `/init` is reachable again with the plugin installed (manual smoke documented in the phase's UAT).
+- [ ] **CMD-01**: `plugins/graph-wiki/commands/init.md` renamed to `plugins/graph-wiki/commands/bootstrap.md` (file rename via `git mv` to preserve history; body updated).
+- [ ] **CMD-02**: Bedrock CLI subcommand (`cli.py` Typer `init` → `bootstrap`) and MCP tool (`server.py` `wiki_init` → `wiki_bootstrap` + Pydantic `WikiInitInput`/`WikiInitOutput` → `WikiBootstrapInput`/`WikiBootstrapOutput`) renamed for vocabulary consistency.
+- [ ] **CMD-03**: All 11 active-source references to the old slug swept (plugin docs, agent docs, vault-io consumers); all 18 historical `.planning/` references swept (per D-03 historical-consistency norm); `scripts/check-brand.sh` extended with word-boundary enforcement regexes for the old plugin slug, the old MCP tool identifier, and the old Typer subcommand definition; `.brand-grep-allow` updated for narrow exemptions. SC#3 manual smoke ("typing `/init` in Claude Code invokes native CLAUDE.md workflow") is owned by the phase verifier / UAT pass.
 
 ### Phase 16 Code Review Burndown (REVIEW)
 
