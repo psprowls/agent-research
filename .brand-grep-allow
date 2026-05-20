@@ -295,3 +295,14 @@ agents/graph-wiki-agent/test-out/
 packages/vault-io/tests/test_scan_companion_fold.py
 # rationale: Provenance — eval-harness scanner regression test asserts fixture vault contains no `lattice` symbols (test-guard literal).
 packages/eval-harness/tests/test_scanner_regression.py
+
+# ---------------------------------------------------------------------------
+# Phase 19 SUMMARY narrative — descriptive prose documenting the Phase 21
+# rename auto-edit (auto-block removal of `code-wiki-agent` from the plugins
+# list). Phase 19 executed after Phase 21, so its narrative wasn't anticipated
+# by Phase 21's allowlist sweep.
+# ---------------------------------------------------------------------------
+# rationale: Plan-meta — Phase 19 SUMMARY narrates the Phase 21 rename auto-edit (the auto-block was about removing `code-wiki-agent` from the plugins list).
+.planning/phases/19-phase-16-code-review-burndown/19-02-SUMMARY.md
+# rationale: Audit-meta — v1.3 milestone audit references the Phase 21 rename direction and the F1 brand-gate hit content.
+.planning/v1.3-MILESTONE-AUDIT.md
