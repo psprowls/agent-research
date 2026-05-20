@@ -59,7 +59,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 
 ### Model specification
 - Direct construction via `model_adapter.make_llm(role)` — returns `_GuardedChatBedrockConverse`; bypasses `init_chat_model` to keep the Bedrock guard wrapper in scope
-- Per-role tiers (orchestrator/librarian/etc.) defined in `models.toml`, overridable via `set_models_path` for testing
+- Per-role tiers (orchestrator/librarian/etc.) defined in `models.toml` as packaged fallback; per-workspace overrides live in `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` and are consumed by `make_llm` automatically. Tests pin a workspace via the `GRAPH_WIKI_WORKSPACE` env var.
 
 ### What NOT to use
 | Avoid | Why |

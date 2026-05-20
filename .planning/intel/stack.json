@@ -34,7 +34,7 @@
   "test_framework": "pytest + pytest-asyncio (asyncio_mode=auto) + syrupy",
   "package_manager": "uv (single lockfile across workspace)",
   "content_formats": [
-    "TOML (pyproject.toml, models.toml, wiki-config.toml)",
+    "TOML (pyproject.toml, models.toml)",
     "Markdown + YAML frontmatter (vault pages, CLAUDE.md layout block)",
     "JSONL (subagent traces, eval sweep records)",
     "Python (src + tests)"

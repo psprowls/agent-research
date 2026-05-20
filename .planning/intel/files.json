@@ -24,16 +24,6 @@
       "imports": [],
       "type": "config"
     },
-    "wiki-config.toml": {
-      "exports": [],
-      "imports": [],
-      "type": "config"
-    },
-    "wiki-config-claude.toml": {
-      "exports": [],
-      "imports": [],
-      "type": "config"
-    },
     "packages/model-adapter/pyproject.toml": {
       "exports": [],
       "imports": [
@@ -46,8 +36,7 @@
       "exports": [
         "BedrockAccessDenied",
         "load_role_config",
-        "make_llm",
-        "set_models_path"
+        "make_llm"
       ],
       "imports": [
         "model_adapter.exceptions",
@@ -57,7 +46,6 @@
     },
     "packages/model-adapter/src/model_adapter/loader.py": {
       "exports": [
-        "set_models_path",
         "make_llm",
         "load_role_config",
         "_GuardedChatBedrockConverse"

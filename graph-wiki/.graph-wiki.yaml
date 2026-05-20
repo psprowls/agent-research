@@ -6,7 +6,47 @@ plugins:
   applied_version: 0.1.0
   roles:
   - name: preflight
-    model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-    region: "us-east-1"
+    model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    region: us-east-1
     max_tokens: 64
-    max_concurrency: 1    
+    max_concurrency: 1
+  - name: librarian
+    model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    region: us-east-1
+    max_tokens: 2048
+    max_concurrency: 5
+  - name: code_reader
+    model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    region: us-east-1
+    max_tokens: 2048
+    max_concurrency: 3
+  - name: scanner
+    model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    region: us-east-1
+    max_tokens: 500
+    max_concurrency: 10
+  - name: linter
+    model_id: us.amazon.nova-lite-v1:0
+    region: us-east-1
+    max_tokens: 3000
+    max_concurrency: 10
+  - name: ingestor
+    model_id: qwen.qwen3-32b-v1:0
+    region: us-east-1
+    max_tokens: 2048
+    max_concurrency: 5
+  - name: synthesizer
+    model_id: qwen.qwen3-32b-v1:0
+    region: us-east-1
+    max_tokens: 4096
+    max_concurrency: 3
+  - name: judge_a
+    model_id: us.anthropic.claude-sonnet-4-6
+    region: us-east-1
+    max_tokens: 2048
+    max_concurrency: 2
+  - name: judge_b
+    model_id: us.amazon.nova-pro-v1:0
+    region: us-east-1
+    max_tokens: 2048
+    max_concurrency: 2
