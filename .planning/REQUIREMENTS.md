@@ -68,7 +68,7 @@ Source: `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.m
 Carry-forward items from v1.3 close, not in v1.4 scope:
 - **Nyquist compliance retroactive decision** — 0/16 v1.1+v1.2+v1.3 phases produced VALIDATION.md despite toggle enabled. Decide: retro-validate vs. disable.
 - **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured (carried v1.2 → v1.3 → now).
-- **Phase 18 SC#3 manual UAT** — install plugin, type `/init`, confirm native CLAUDE.md workflow fires.
+- **Phase 18 SC#3 manual UAT** — closed 2026-05-20 (user confirmed inline during v1.3 execution).
 - **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19.
 
 ---
@@ -84,11 +84,30 @@ Carry-forward items from v1.3 close, not in v1.4 scope:
 
 ---
 
-## Traceability (filled by roadmap)
+## Traceability
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| WSAPI-01..06 | Phase 22 | Pending |
-| WSMCP-01..07 | Phase 23 | Pending |
-| WSEVAL-01..05 | Phase 24 | Pending |
-| PKGCLS-01..05 | Phase 25 | Pending |
+| WSAPI-01 | Phase 22 | Pending |
+| WSAPI-02 | Phase 22 | Pending |
+| WSAPI-03 | Phase 22 | Pending |
+| WSAPI-04 | Phase 22 | Pending |
+| WSAPI-05 | Phase 22 | Pending |
+| WSAPI-06 | Phase 22 | Pending |
+| WSMCP-01 | Phase 23 | Pending |
+| WSMCP-02 | Phase 23 | Pending |
+| WSMCP-03 | Phase 23 | Pending |
+| WSMCP-04 | Phase 23 | Pending |
+| WSMCP-05 | Phase 23 | Pending |
+| WSMCP-06 | Phase 23 | Pending |
+| WSMCP-07 | Phase 23 | Pending |
+| WSEVAL-01 | Phase 24 | Pending |
+| WSEVAL-02 | Phase 24 | Pending |
+| WSEVAL-03 | Phase 24 | Pending |
+| WSEVAL-04 | Phase 24 | Pending |
+| WSEVAL-05 | Phase 24 | Pending |
+| PKGCLS-01 | Phase 25 | Pending |
+| PKGCLS-02 | Phase 25 | Pending |
+| PKGCLS-03 | Phase 25 | Pending |
+| PKGCLS-04 | Phase 25 | Pending |
+| PKGCLS-05 | Phase 25 | Pending |

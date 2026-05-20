@@ -2,7 +2,7 @@
 
 **Project:** deep-agents (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** none — v1.3 shipped 2026-05-20; v1.4 not yet scoped (run `/gsd-new-milestone`)
+**Current milestone:** v1.4 — Workspace Path Resolution Cleanup (started 2026-05-20)
 
 ---
 
@@ -12,6 +12,7 @@
 - ✅ **v1.1 — Quality Improvements** — Phases 6-10 (shipped 2026-05-17) — [archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 — Graph-Wiki Port & Debt Cleanup** — Phases 11-16 (shipped 2026-05-19) — [archive](milestones/v1.2-ROADMAP.md)
 - ✅ **v1.3 — Tooling Cleanup** — Phases 17-21 (shipped 2026-05-20) — [archive](milestones/v1.3-ROADMAP.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
+- 🚧 **v1.4 — Workspace Path Resolution Cleanup** — Phases 22-25 (active)
 
 ---
 
@@ -72,129 +73,75 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 
 </details>
 
+### v1.4 Workspace Path Resolution Cleanup (Phases 22-25) — ACTIVE
+
+- [ ] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion
+- [ ] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension
+- [ ] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh
+- [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` majority-manifest heuristic, plugin-side classifier sync, `--interactive` flag, unit test, and todo resolution
+
 ---
 
 ## Phase Details
 
-> v1.0–v1.3 phase details live in the milestone archives under `.planning/milestones/`. Active phase details will appear here when the next milestone is scoped via `/gsd-new-milestone`.
-
-<!--
-
-### Phase 17: vault-io Bug Fixes
-**Goal**: All three vault-io behavioral bugs are fixed so scan reports accurate diffs, token counts are stamped correctly, and repo/container resolution works at the v2 workspace layout
-**Depends on**: Phase 16 (prior milestone)
-**Requirements**: SCAN-01, SCAN-02, TOK-01, TOK-02, TOK-03, WSRES-01, WSRES-02, WSRES-03
+### Phase 22: workspace-api-internal-rename
+**Goal**: Every internal Python caller passes `workspace_path` (not `vault_path`) to command functions and the workspace resolver; the wiki path is always derived via `workspace_io.paths.wiki_dir()` rather than assembled by callers; the `.graph-wiki.local.yaml` key is hard-cut to `workspace-directory`
+**Depends on**: Phase 21 (prior milestone)
+**Requirements**: WSAPI-01, WSAPI-02, WSAPI-03, WSAPI-04, WSAPI-05, WSAPI-06
 **Success Criteria** (what must be TRUE):
-  1. `/graph-wiki:scan` on a healthy 7-package vault reports 0 deleted entries for the four companion pages per package (was 28)
-  2. After scan, all 35 wiki pages previously at `tokens: 0` show a non-zero token count in their frontmatter
-  3. `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/`
-  4. The workspace directory itself does not appear in its own layout block as a `docs` container
-  5. Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest`
-**Plans**: 5 plans
-Plans:
-- [x] 17-01-PLAN.md — SCAN companion-page fold in `_load_existing_pages` + unit tests (SCAN-01, SCAN-02)
-- [x] 17-02-PLAN.md — Bedrock CountTokens API shape fix in `update_tokens.py` + mocked unit tests + gated integration test (TOK-01, TOK-02)
-- [x] 17-03-PLAN.md — Workspace/repo resolution fixes in `init_vault.py` and `detect_containers.py` + synthetic-fixture tests (WSRES-01, WSRES-02, WSRES-03)
-- [x] 17-04-PLAN.md — TOK-03 live re-stamp against `~/Personal/wiki/deep-agents` + populate `17-VERIFICATION.md` (TOK-03)
-- [x] 17-05-PLAN.md — Gap closure: plumb `workspace_path` through `init_vault._resolve_pinned_containers` and `scan_monorepo._discover_heuristic` to close WSRES-02 BLOCKER on SC#4 (WSRES-02)
+  1. `uv run pytest` is green after all renames — no test references `vault_path=` as a kwarg in any command mock or call site
+  2. `resolve_wiki_and_repo(workspace_path=Path("/some/workspace"))` returns `(wiki_dir(workspace_path), repo_root)` without string concatenation inside the command layer
+  3. `workspace_io.config.resolve_workspace` is importable as a public symbol and is called by `run_init` instead of hardcoding `repo_root / "graph-wiki"`
+  4. A `.graph-wiki.local.yaml` containing `graph-wiki-directory: /custom/path` is silently ignored; one containing `workspace-directory: /custom/path` is honored
+  5. `grep -r "vault_path" agents/graph-wiki-agent/src packages/workspace-io/src` returns 0 hits (excluding comments in allowlist)
+**Plans**: TBD
 
-### Phase 18: Plugin Command Rename
-**Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/graph-wiki:bootstrap` with all references updated
-**Depends on**: Phase 17
-**Requirements**: CMD-01, CMD-02, CMD-03
+### Phase 23: workspace-api-external-rename
+**Goal**: Every external-facing surface — MCP tool schemas, Typer CLI flags, scan JSON output, plugin docs, and the DA-CLI integration test — uses `workspace_path` / `--workspace` / `wiki_relative_path` instead of the old `vault_path` / `--vault` nomenclature; brand-gate enforces no reintroduction
+**Depends on**: Phase 22
+**Requirements**: WSMCP-01, WSMCP-02, WSMCP-03, WSMCP-04, WSMCP-05, WSMCP-06, WSMCP-07
 **Success Criteria** (what must be TRUE):
-  1. `plugins/graph-wiki/commands/bootstrap.md` exists; `init.md` is gone from that directory
-  2. All internal plugin references (`marketplace.json`, `SKILL.md`, command bodies, READMEs) use `/graph-wiki:bootstrap` — no stale references to the old slug remain
-  3. With the plugin installed, typing `/init` in Claude Code invokes the native "initialize CLAUDE.md" workflow, not the graph-wiki command
-**Plans**: 6 plans
-Plans:
-**Wave 1**
-- [x] 18-01-PLAN.md — Rename slash command file plugins/graph-wiki/commands/init.md → bootstrap.md (CMD-01)
-- [x] 18-02-PLAN.md — Rename MCP tool surface wiki_init → wiki_bootstrap + Pydantic models + tests (CMD-02 MCP)
-- [x] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
+  1. `graph-wiki-agent scan --help` shows `--workspace` (not `--vault`) for every subcommand; `graph-wiki-agent bootstrap --help` also shows `--repo`
+  2. MCP tool call `wiki_scan` with field `workspace_path` succeeds; a call using the old field `vault_path` fails schema validation
+  3. Scan JSON output (`wiki_scan` response) contains `wiki_relative_path` per package entry; `vault_path` does not appear in any scan result field
+  4. `GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` passes using the new field/flag names
+  5. `scripts/check-brand.sh` exits non-zero when a test file introduces `vault_path` as a Pydantic Field name or `--vault` as a Typer flag literal
+**Plans**: TBD
 
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 18-04-PLAN.md — Sweep 11 active-source references to the old slug → `/graph-wiki:bootstrap`; add README reinstall note (CMD-03 active)
-- [x] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-- [x] 18-06-PLAN.md — Extend scripts/check-brand.sh + .brand-grep-allow + red-then-green sanity; fold todo to resolved/ (CMD-03 gate)
-
-### Phase 20: Workspace Manifest Model Config
-**Goal**: All wiki model-override configuration lives in the `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block, with the packaged `models.toml` in `model-adapter` as per-role fallback; the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path`, `--config`, `GRAPH_WIKI_CONFIG`) is removed.
-**Depends on**: Phase 17
-**Requirements**: WMC-01, WMC-02, WMC-03, WMC-04, WMC-05a, WMC-05b
+### Phase 24: eval-harness-workspace-rename
+**Goal**: The eval-harness package is internally consistent with the v1.4 naming convention — `workspace_path` everywhere a workspace root is meant, `wiki` everywhere the wiki directory itself is meant, and zero residual `vault_path` / `--vault` / `vault:` occurrences
+**Depends on**: Nothing (independent of Phases 22 and 23)
+**Requirements**: WSEVAL-01, WSEVAL-02, WSEVAL-03, WSEVAL-04, WSEVAL-05
 **Success Criteria** (what must be TRUE):
-  1. `workspace-io.manifest` round-trips a populated `plugins[].roles[]` block (read → write → re-read preserves nested structure) with PyYAML
-  2. `model-adapter.make_llm(role)` resolves to workspace-defined role config when present and falls back to the packaged `models.toml` per-role (per-role fallback, not all-or-nothing) when absent
-  3. `WikiConfig.models_path`, `set_models_path()`, and the `--config` / `GRAPH_WIKI_CONFIG` plumbing are removed from `graph_wiki_agent/config.py`, `graph_wiki_agent/cli.py`, and `graph_wiki_mcp/server.py`; no code path remains that reads a `wiki-config.toml`
-  4. `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` carries the full default `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge_a, judge_b — 9 entries mirroring packaged defaults)
-  5. `packages/workspace-io/README.md` documents the `roles:` schema; `graph-wiki-agent` CLI help text and docs drop all `--config` references; the workspace-io wiki page's "no PyYAML" claim is corrected
-**Out of scope**:
-  - Per-machine model selection inside `.graph-wiki.local.yaml` (Option A chosen — redirect to a different workspace directory instead)
-  - Migration tooling for the deleted `wiki-config.toml` / `wiki-config-claude.toml` (already `git rm`'d)
-**Requirement → SC map**:
-  - WMC-01 (`workspace-io.manifest` round-trips populated `roles[]`) → SC#1
-  - WMC-02 (`make_llm` workspace-override + per-role fallback) → SC#2
-  - WMC-03 (delete `WikiConfig.models_path` / `set_models_path` / `--config` / `GRAPH_WIKI_CONFIG`) → SC#3
-  - WMC-04 (populate `graph-wiki/.graph-wiki.yaml` with full role block) → SC#4
-  - WMC-05a (workspace-io README documents `roles:` schema) → SC#5 (docs portion)
-  - WMC-05b (workspace-io wiki page "no PyYAML" claim corrected; CLI help drops `--config`) → SC#5 (docs portion)
-**Plans**: 4 plans
-Plans:
-- [x] 20-01-PLAN.md — Extend `workspace-io.manifest` with `roles[]` round-trip + `read_roles` accessor + README schema docs (WMC-01, WMC-05a)
-- [x] 20-02-PLAN.md — Wire workspace-override layer into `model-adapter.loader.make_llm` with per-role fallback + tests; delete `set_models_path` (WMC-02)
-- [x] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `GRAPH_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
-- [x] 20-04-PLAN.md — Populate `graph-wiki/.graph-wiki.yaml` with full 9-role block + docs sweep (wiki page, intel JSON, CLAUDE.md) + live verify (WMC-04, WMC-05b)
+  1. `uv run --package eval-harness pytest` is green after all renames
+  2. `python -m eval_harness.baseline --help` shows `--workspace` (not `--vault`)
+  3. All divergence helper functions in `divergence/{linter,ingestor,scanner,code_reader,synthesizer}.py` accept `wiki: Path` (not `vault: Path`); callers pass the wiki dir directly
+  4. `eval/README.md` contains no `vault_path` references
+  5. `grep -r "vault_path\|vault:" packages/eval-harness/src` returns 0 hits
+**Plans**: TBD
 
-### Phase 21: Rename graph-wiki-agent → graph-wiki-agent
-**Goal**: Mechanical rename of the agent package from `graph-wiki-agent` to `graph-wiki-agent` across the full repository — directory names, Python module names, console scripts, internal symbols, user-facing strings, trace dir, plugin shell-out invocations, tests, and planning docs — landed across staged commits with `scripts/check-brand.sh` extended to enforce the new brand.
-**Depends on**: Phase 20
-**Requirements**: TBD (assigned during planning)
+### Phase 25: packages-dir-misclassification-fix
+**Goal**: Running `graph-wiki-agent bootstrap` on this repo without `--interactive` correctly classifies `packages/` as `package` and creates `wiki/packages/`; the pending todo is resolved; the plugin-side classifier matches the updated heuristic
+**Depends on**: Nothing (independent of Phases 22, 23, and 24)
+**Requirements**: PKGCLS-01, PKGCLS-02, PKGCLS-03, PKGCLS-04, PKGCLS-05
 **Success Criteria** (what must be TRUE):
-  1. `agents/graph-wiki-agent/` is gone; `agents/graph-wiki-agent/` exists with full git history preserved via `git mv`
-  2. Python packages `graph_wiki_agent` / `graph_wiki_mcp` are renamed to `graph_wiki_agent` / `graph_wiki_mcp`; all imports in src + tests updated; `uv sync && uv run pytest agents/graph-wiki-agent/tests/ -m "not integration"` passes
-  3. Console scripts `graph-wiki-agent` / `graph-wiki-mcp` are gone; `graph-wiki-agent` / `graph-wiki-mcp` work end-to-end (CLI help renders, MCP `python -c "from graph_wiki_mcp import server"` succeeds)
-  4. Plugin shell-out scripts (`plugins/graph-wiki/skills/graph-wiki/scripts/*.py`) invoke `graph-wiki-agent`, not `graph-wiki-agent`; trace directory is `.graph-wiki/traces/`, not `.graph-wiki/traces/`
-  5. `scripts/check-brand.sh` greps for the old slugs and fails CI on any reintroduction; `.brand-grep-allow` is updated; full-repo grep for `graph-wiki-agent` / `graph_wiki_agent` / `graph-wiki-mcp` / `graph_wiki_mcp` returns 0 hits outside the allowlist
-**Out of scope**:
-  - `graph-wiki/wiki/` content (companion pages, agent dir naming) — wiki is regenerated by `/graph-wiki:scan`
-  - Raw spike sources under `.planning/spikes/{001,002}/sources/**` — historical material
-  - Backwards-compat shims (no console-script alias, no deprecation stub) — hard cut per D-10
-  - `models.toml` / config file renames — unrelated to package identity
-**Plans**: 5 plans
-Plans:
-- [x] 21-01-PLAN.md — Worktree setup + `git mv` directory moves (agents/ + src/ subdirs)
-- [x] 21-02-PLAN.md — pyproject.toml `name` + console scripts + `uv.lock` regeneration
-- [x] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
-- [x] 21-04-PLAN.md — Plugin shellouts + GRAPH_WIKI_* env-var rename + integration-gate test + cross-package .graph-wiki/ trace-dir sweep
-- [x] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
-
-### Phase 19: Phase 16 Code Review Burndown
-**Goal**: Every Phase 16 code review finding has a documented disposition (fixed, dismissed with rationale, or converted to a follow-up todo) so the trace pipeline + eval harness refactor lands without carried-forward debt
-**Depends on**: Phase 21 (rename ships first so the burndown doesn't have to chase moving files)
-**Requirements**: REVIEW-01, REVIEW-02
-**Note**: Moved to end of execution queue (2026-05-20) so the rename in Phase 21 happens before triaging review findings on the renamed package surface.
-**Success Criteria** (what must be TRUE):
-  1. All 6 warning-level findings are triaged — each has one of: a code fix committed, a written rationale for dismissal, or a filed follow-up todo
-  2. All 9 info-level findings are triaged with the same fix / dismiss / follow-up disposition
-  3. Triage outcomes are recorded in the phase REVIEW.md so future code review can verify the debt is not re-accumulating
-**Plans**: 5 plans
-Plans:
-**Wave 1** *(parallel — no file-level conflicts)*
-- [x] 19-01-PLAN.md — Divergence eval regex fixes: D-01 (WR-01) `_SLUG_ONLY_RE` replacement in synthesizer.py + D-02/D-03 (WR-02/WR-03) regex tweaks in code_reader.py (REVIEW-01)
-- [x] 19-02-PLAN.md — Core runtime fixes: D-05 (WR-05) hoist `inspect.signature` in pool.py + D-06 (WR-06) `Path.is_relative_to` in ingest.py (REVIEW-01)
-- [x] 19-03-PLAN.md — Test + integration fixes: D-04 (WR-04) trace-coverage exemption + D-09/D-10/D-13 (IN-03/IN-04/IN-07) (REVIEW-01, REVIEW-02)
-- [x] 19-04-PLAN.md — Query trace + docs cleanup: D-07 (IN-01) docstring + D-12 (IN-06) synth filename qualifier + D-14 (IN-08) cancellation.md schema_version + D-15 (IN-09) G1 dedup (REVIEW-02)
-
-**Wave 2** *(blocked on Wave 1 — needs commit SHAs from plans 01-04)*
-- [x] 19-05-PLAN.md — Author 19-REVIEW-BURNDOWN.md disposition table (D-17); record D-08 (IN-02) + D-11 (IN-05) as `no-action — review self-corrected on re-scan` (REVIEW-01, REVIEW-02)
-
--->
+  1. `graph-wiki-agent bootstrap` on this repo (without `--interactive`) classifies `packages/` as `package` and creates `wiki/packages/` automatically
+  2. `_classify_dir` with a fixture dir containing 5/6 manifested children returns `package` (not `ambiguous`); unit test asserts this
+  3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` applies the identical ≥80% majority heuristic as the updated `vault-io` classifier
+  4. `graph-wiki-agent bootstrap --interactive` prompts the user on any remaining `ambiguous` classifications instead of silently skipping them
+  5. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/` and the `--interactive` flag is visible in `graph-wiki-agent bootstrap --help`
+**Plans**: TBD
 
 ---
 
 ## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 22. workspace-api-internal-rename | 0/TBD | Not started | - |
+| 23. workspace-api-external-rename | 0/TBD | Not started | - |
+| 24. eval-harness-workspace-rename | 0/TBD | Not started | - |
+| 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -202,7 +149,8 @@ Plans:
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
 | v1.3 Tooling Cleanup | 5 | 25/25 | ✅ Shipped | 2026-05-20 |
+| v1.4 Workspace Path Resolution Cleanup | 4 | 0/TBD | In progress | - |
 
 ---
 
-*Last updated: 2026-05-20 — v1.3 shipped (5 phases, 25 plans, 19/19 requirements satisfied). Next milestone TBD — run `/gsd-new-milestone` when ready.*
+*Last updated: 2026-05-20 — v1.4 roadmap created (4 phases, 23 requirements). Phases 22-25 ready for planning.*
