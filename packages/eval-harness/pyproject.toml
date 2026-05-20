@@ -1,14 +1,14 @@
 [project]
 name = "eval-harness"
 version = "0.1.0"
-description = "Deterministic eval checks, pricing, and sweep runner for code-wiki-agent"
+description = "Deterministic eval checks, pricing, and sweep runner for graph-wiki-agent"
 requires-python = ">=3.11"
 dependencies = [
     "deepeval>=4.0.0",
     "pytest-evals>=0.3.4",
     "python-frontmatter>=1.1.0",
     "aiobotocore>=2.13",
-    "code-wiki-agent",
+    "graph-wiki-agent",
     "subagent-runtime",
     "model-adapter",
 ]
@@ -18,7 +18,7 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-code-wiki-agent = { workspace = true }
+graph-wiki-agent = { workspace = true }
 subagent-runtime = { workspace = true }
 model-adapter = { workspace = true }
 
