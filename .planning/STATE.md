@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: active
-last_updated: "2026-05-20T00:00:00.000Z"
-last_activity: 2026-05-20
+status: planning
+stopped_at: Phase 22 context gathered
+last_updated: "2026-05-20T19:42:13.387Z"
+last_activity: 2026-05-20 — Milestone v1.4 roadmap created
 progress:
   total_phases: 4
   completed_phases: 0
@@ -125,9 +126,9 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-20
-**Stopped at:** Roadmap created; no plans written yet
-**Resume file:** `.planning/ROADMAP.md` (Phase 22 up next)
+**Last session:** 2026-05-20T19:42:13.379Z
+**Stopped at:** Phase 22 context gathered
+**Resume file:** .planning/phases/22-workspace-api-internal-rename/22-CONTEXT.md
 
 **Critical context for next session:**
 
