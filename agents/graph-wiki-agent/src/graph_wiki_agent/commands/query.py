@@ -531,7 +531,7 @@ async def _run_code_fallback(
     # tokens_in / tokens_out so the per-query summary reports usage.
     trace_dir = wiki / ".graph-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
-    trace_file = trace_dir / f"synth_{query_id}.jsonl"
+    trace_file = trace_dir / f"synth_codefallback_{query_id}.jsonl"
     t0 = time.monotonic()
     synth_resp = await synth_llm.ainvoke(synth_msgs)
     latency_ms = int((time.monotonic() - t0) * 1000)
@@ -961,7 +961,7 @@ async def run_query(
         # feed the summary_record so the query summary reports usage.
         synth_trace_dir = wiki / ".graph-wiki" / "traces"
         synth_trace_dir.mkdir(parents=True, exist_ok=True)
-        synth_trace_file = synth_trace_dir / f"synth_{query_id}.jsonl"
+        synth_trace_file = synth_trace_dir / f"synth_librarian_{query_id}.jsonl"
         synth_t0 = time.monotonic()
         synth_resp = await synth_llm.ainvoke(synth_msgs)
         synth_latency_ms = int((time.monotonic() - synth_t0) * 1000)
