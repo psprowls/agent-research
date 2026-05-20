@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 Phase: 19 — COMPLETE
 Plan: 1 of 5
 Status: Phase 19 complete
-Last activity: 2026-05-20 -- Phase 19 marked complete
+Last activity: 2026-05-20 -- Completed quick task 260520-bgd: close out v1.3 deferred items
 
 v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plans shipped this milestone)
 
@@ -103,6 +103,7 @@ v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plan
 |----------|-------------|--------|
 | 260519-k9t-preflight-role | Preflight role refactor — confirm preflight uses dedicated role config, not orchestrator defaults | e5fb45a |
 | 260519-lf1-bedrock-audit | Bedrock audit script — verify all model calls route through model-adapter guard layer | a459815 |
+| 260520-bgd-close-out-v1-3-deferred-items | Close out v1.3 deferred items: commit untracked archive files, backfill audit-open status for k9t+lf1, resolve stale open_questions in Phase 18 + 20 CONTEXT | (this commit) |
 
 ---
 
