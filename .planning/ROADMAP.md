@@ -65,7 +65,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
 - [x] **Phase 18: Plugin Command Rename** - Rename the conflicting graph-wiki command to `/graph-wiki:bootstrap` to restore Claude Code's native `/init` (completed 2026-05-20)
 - [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`GRAPH_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
-- [ ] **Phase 21: Rename graph-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute)
+- [x] **Phase 21: Rename graph-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute) (completed 2026-05-20)
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review (moved to end of execution queue; runs after 18 + 21)
 
 ---
@@ -160,7 +160,7 @@ Plans:
 - [x] 21-02-PLAN.md — pyproject.toml `name` + console scripts + `uv.lock` regeneration
 - [x] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
 - [x] 21-04-PLAN.md — Plugin shellouts + GRAPH_WIKI_* env-var rename + integration-gate test + cross-package .graph-wiki/ trace-dir sweep
-- [ ] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
+- [x] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
 
 ### Phase 19: Phase 16 Code Review Burndown
 **Goal**: Every Phase 16 code review finding has a documented disposition (fixed, dismissed with rationale, or converted to a follow-up todo) so the trace pipeline + eval harness refactor lands without carried-forward debt
@@ -189,7 +189,7 @@ Plans:
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
 | 18. Plugin Command Rename | 6/6 | Complete   | 2026-05-20 |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
-| 21. Rename graph-wiki-agent → graph-wiki-agent | 4/5 | In Progress|  |
+| 21. Rename graph-wiki-agent → graph-wiki-agent | 5/5 | Complete   | 2026-05-20 |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
 
 ---
