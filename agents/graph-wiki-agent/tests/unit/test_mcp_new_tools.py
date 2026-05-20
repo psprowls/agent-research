@@ -28,12 +28,12 @@ def test_wiki_scan_tool_registered() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_wiki_scan_input_default_vault_path_is_empty() -> None:
-    """WikiScanInput defaults to vault_path='' (resolves from env)."""
+def test_wiki_scan_input_default_workspace_path_is_empty() -> None:
+    """WikiScanInput defaults to workspace_path='' (resolves from env)."""
     from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
-    assert inp.vault_path == ""
+    assert inp.workspace_path == ""
 
 
 def test_wiki_scan_input_default_no_file_map_is_false() -> None:
@@ -52,12 +52,12 @@ def test_wiki_scan_input_default_max_depth_is_3() -> None:
     assert inp.max_depth == 3
 
 
-def test_wiki_scan_input_accepts_custom_vault_path() -> None:
-    """WikiScanInput accepts a vault_path string."""
+def test_wiki_scan_input_accepts_custom_workspace_path() -> None:
+    """WikiScanInput accepts a workspace_path string."""
     from graph_wiki_mcp.server import WikiScanInput
 
-    inp = WikiScanInput(vault_path="/some/path", no_file_map=True, max_depth=5)
-    assert inp.vault_path == "/some/path"
+    inp = WikiScanInput(workspace_path="/some/path", no_file_map=True, max_depth=5)
+    assert inp.workspace_path == "/some/path"
     assert inp.no_file_map is True
     assert inp.max_depth == 5
 
@@ -310,11 +310,11 @@ def test_wiki_lint_tool_registered() -> None:
 
 
 def test_wiki_lint_input_schema() -> None:
-    """WikiLintInput has vault_path, stale_days, log_gap_days with correct defaults."""
+    """WikiLintInput has workspace_path, stale_days, log_gap_days with correct defaults."""
     from graph_wiki_mcp.server import WikiLintInput
 
     inp = WikiLintInput()
-    assert inp.vault_path == ""
+    assert inp.workspace_path == ""
     assert inp.stale_days == 90
     assert inp.log_gap_days == 14
 

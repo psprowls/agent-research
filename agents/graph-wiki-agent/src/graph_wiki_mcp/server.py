@@ -57,7 +57,7 @@ import logging  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from pydantic import BaseModel, ConfigDict, Field  # noqa: E402
 
 from graph_wiki_agent.commands.query import QueryResult, run_query  # noqa: E402
 
@@ -101,8 +101,9 @@ def wiki_ping(input: PingInput) -> PingOutput:
 # --- wiki_query tool ---
 
 class WikiQueryInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     query: str
-    vault_path: str = ""  # empty -> resolve from GRAPH_WIKI_WORKSPACE env var
+    workspace_path: str = ""  # empty -> resolve from GRAPH_WIKI_WORKSPACE env var
     top_k: int = Field(default=5, ge=3, le=10)  # 3-10 range enforced (MCP-04)
 
 
@@ -118,11 +119,11 @@ class WikiQueryOutput(BaseModel):
     description=(
         "Query the code wiki using hybrid BM25+embedding search with parallel librarian "
         "analysis. Returns an answer with [[wikilink]] citations. "
-        "vault_path defaults to GRAPH_WIKI_WORKSPACE env var."
+        "workspace_path defaults to GRAPH_WIKI_WORKSPACE env var."
     ),
 )
 async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     await ctx.report_progress(progress=0, total=input.top_k, message="Starting hybrid search")
     result: QueryResult = await run_query(
         query=input.query,
@@ -148,10 +149,11 @@ from graph_wiki_agent.commands.log import LogResult, run_log  # noqa: E402
 
 
 class WikiLogInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     op: str = Field(..., description="Log operation type (scan/ingest/lint/create/update/delete/note/query)")
     title: str = Field(..., description="Short title for the log entry")
     detail: str | None = Field(None, description="Optional extended detail")
-    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiLogOutput(BaseModel):
@@ -166,7 +168,7 @@ class WikiLogOutput(BaseModel):
 
 @mcp.tool(name="wiki_log", description="Append a timestamped event to log.md.")
 async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     result: LogResult = await run_log(
         op=input.op,
         title=input.title,
@@ -190,10 +192,11 @@ from graph_wiki_agent.commands.init import InitResult, run_init  # noqa: E402
 
 
 class WikiBootstrapInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     topic: str = Field(..., description="Short description of the repository")
     tool: str = Field(..., description="Schema file(s) to install (claude-code, codex, cursor, all, ...)")
     force: bool = Field(False, description="Overwrite non-empty target directory")
-    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiBootstrapOutput(BaseModel):
@@ -212,7 +215,7 @@ class WikiBootstrapOutput(BaseModel):
 
 @mcp.tool(name="wiki_bootstrap", description="Bootstrap a wiki vault structure.")
 async def wiki_bootstrap(input: WikiBootstrapInput, ctx: Context) -> WikiBootstrapOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     result: InitResult = await run_init(
         topic=input.topic,
         tool=input.tool,
@@ -240,12 +243,13 @@ from graph_wiki_agent.commands.scan import ScanResult, run_scan  # noqa: E402
 
 
 class WikiScanInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
+    model_config = ConfigDict(extra='forbid')
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
     repo_path: str = Field(
         "",
-        description="Override repo root for scanner (default: resolved from vault_path). Use for testing.",
+        description="Override repo root for scanner (default: resolved from workspace_path). Use for testing.",
     )
 
 
@@ -263,7 +267,7 @@ class WikiScanOutput(BaseModel):
     description="Walk repo, diff packages vs vault, create/update stubs via scanner fan-out.",
 )
 async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     await ctx.report_progress(progress=0, total=2, message="Starting scan")
     result: ScanResult = await run_scan(
         workspace_path=vault,
@@ -297,6 +301,7 @@ from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_source, ru
 
 
 class WikiIngestInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     type: Literal["source", "work-item"] = Field(
         ..., description="Ingest type: 'source' for files, 'work-item' for structured tickets"
     )
@@ -306,7 +311,7 @@ class WikiIngestInput(BaseModel):
     slug: str | None = Field(None, description="Page slug (derived from title if omitted)")
     force: bool = Field(False, description="Overwrite existing page")
     pkg_dir: str = Field("", description="Optional vault package directory path for work sub-page linking")
-    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
 class WikiIngestOutput(BaseModel):
@@ -325,11 +330,11 @@ class WikiIngestOutput(BaseModel):
         "Ingest a source file or work item into the wiki. "
         "Use type='source' to route a file through the ingestor LLM into the vault. "
         "Use type='work-item' to file a structured work ticket into <workspace>/work/. "
-        "vault_path defaults to GRAPH_WIKI_WORKSPACE env var."
+        "workspace_path defaults to GRAPH_WIKI_WORKSPACE env var."
     ),
 )
 async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     await ctx.report_progress(progress=0, total=2, message="Starting ingest")
     try:
         if input.type == "source":
@@ -372,7 +377,8 @@ from graph_wiki_agent.commands.lint import LintResult, run_lint  # noqa: E402
 
 
 class WikiLintInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_WORKSPACE env var)")
+    model_config = ConfigDict(extra='forbid')
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
     stale_days: int = Field(90, description="Days before a page is flagged as stale")
     log_gap_days: int = Field(14, description="Days before a log gap is flagged")
 
@@ -403,7 +409,7 @@ class WikiLintOutput(BaseModel):
     description="Run mechanical + semantic lint pass over the wiki.",
 )
 async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
-    vault = Path(input.vault_path) if input.vault_path else None
+    vault = Path(input.workspace_path) if input.workspace_path else None
     await ctx.report_progress(progress=0, total=2, message="Starting lint")
     result: LintResult = await run_lint(
         workspace_path=vault,

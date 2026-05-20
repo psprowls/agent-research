@@ -27,12 +27,12 @@ def test_wiki_query_input_default_top_k_is_5() -> None:
     assert inp.top_k == 5
 
 
-def test_wiki_query_input_default_vault_path_is_empty() -> None:
-    """WikiQueryInput defaults to vault_path='' (empty -> resolve from env)."""
+def test_wiki_query_input_default_workspace_path_is_empty() -> None:
+    """WikiQueryInput defaults to workspace_path='' (empty -> resolve from env)."""
     from graph_wiki_mcp.server import WikiQueryInput
 
     inp = WikiQueryInput(query="test query")
-    assert inp.vault_path == ""
+    assert inp.workspace_path == ""
 
 
 def test_wiki_query_input_rejects_out_of_range_top_k() -> None:
