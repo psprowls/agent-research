@@ -45,13 +45,7 @@ packages/model-adapter/src/model_adapter/models.toml   ← packaged default
 
 ## Open questions for the planner
 
-These were flagged in the gsd-plan-phase invocation context and should be resolved during planning:
-
-1. **`RoleConfig` field set.** Should match `_GuardedChatBedrockConverse` constructor (read `packages/model-adapter/src/model_adapter/loader.py` to confirm). Confirmed needed: `model_id`, `region`, `max_tokens`, `max_concurrency`. Optional: `temperature`, `top_p`, `stop_sequences`. Lock the field set against actual constructor consumption — don't add unused fields.
-
-2. **`--config` Typer option:** Recommendation in session was **drop entirely** (don't repurpose as workspace-dir override) since `GRAPH_WIKI_WORKSPACE` env var and `.graph-wiki.local.yaml` already cover that need. Planner should adopt unless it finds a reason against.
-
-3. **`models.toml` (the file) lifecycle:** Recommendation in session was **keep the file** as the packaged fallback (don't migrate to a Python module of defaults). Simpler, no behavioral change to its content.
+All open questions resolved during phase execution. See SUMMARY.md for outcomes.
 
 ## Out of scope (explicit)
 
