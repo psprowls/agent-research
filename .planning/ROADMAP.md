@@ -75,7 +75,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 
 ### v1.4 Workspace Path Resolution Cleanup (Phases 22-25) — ACTIVE
 
-- [ ] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion
+- [x] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion (completed 2026-05-20)
 - [ ] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension
 - [ ] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh
 - [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` majority-manifest heuristic, plugin-side classifier sync, `--interactive` flag, unit test, and todo resolution
@@ -94,7 +94,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. `workspace_io.config.resolve_workspace` is importable as a public symbol and is called by `run_init` instead of hardcoding `repo_root / "graph-wiki"`
   4. A `.graph-wiki.local.yaml` containing `graph-wiki-directory: /custom/path` is silently ignored; one containing `workspace-directory: /custom/path` is honored
   5. `grep -r "vault_path" agents/graph-wiki-agent/src packages/workspace-io/src` returns 0 hits (excluding comments in allowlist)
-**Plans**: TBD
+**Plans**: 1 plan
+  - [x] 22-01-PLAN.md — workspace-api-internal-rename (big-bang single plan covering WSAPI-01..06 + ~70-mock-point test sweep)
 
 ### Phase 23: workspace-api-external-rename
 **Goal**: Every external-facing surface — MCP tool schemas, Typer CLI flags, scan JSON output, plugin docs, and the DA-CLI integration test — uses `workspace_path` / `--workspace` / `wiki_relative_path` instead of the old `vault_path` / `--vault` nomenclature; brand-gate enforces no reintroduction
@@ -138,7 +139,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. workspace-api-internal-rename | 0/TBD | Not started | - |
+| 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 0/TBD | Not started | - |
 | 24. eval-harness-workspace-rename | 0/TBD | Not started | - |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |

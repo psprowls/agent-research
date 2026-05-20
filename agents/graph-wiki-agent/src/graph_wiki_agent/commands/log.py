@@ -37,7 +37,7 @@ async def run_log(
     op: str,
     title: str,
     detail: str | None,
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
 ) -> LogResult:
     """Append a timestamped entry to the wiki log.
 
@@ -45,7 +45,7 @@ async def run_log(
         op: Log operation type (must be in VALID_OPS from append_log).
         title: Short title for the log entry.
         detail: Optional extended detail text.
-        vault_path: Explicit vault path; if None, reads GRAPH_WIKI_WORKSPACE env var.
+        workspace_path: Explicit workspace path; if None, reads GRAPH_WIKI_WORKSPACE env var.
 
     Returns:
         LogResult with fields populated from append_log's return dict.
@@ -56,7 +56,7 @@ async def run_log(
             (raise_exception=True). The MCP boundary catches this; the stdio
             server is not terminated.
     """
-    wiki, _ = resolve_wiki_and_repo(vault_path)
+    wiki, _ = resolve_wiki_and_repo(workspace_path)
     logger.debug("run_log: wiki=%s op=%s title=%r", wiki, op, title)
     result = append_log(wiki, op, title, detail, silent=True, raise_exception=True)
     return LogResult(

@@ -11,17 +11,17 @@ from eval_harness.isolation import EvalWorktree
 
 
 async def test_evalworktree_creates_copy(fixture_vault_path: Path) -> None:
-    """EvalWorktree creates a tmpdir copy; wt.path exists with index.md inside."""
+    """EvalWorktree creates a tmpdir workspace; wt.path/wiki/index.md exists."""
     async with EvalWorktree(fixture_vault_path) as wt:
         assert wt.path is not None
         assert wt.path.exists()
-        assert (wt.path / "index.md").exists()
+        assert (wt.path / "wiki" / "index.md").exists()
 
 
 async def test_evalworktree_includes_graph_wiki(fixture_vault_path: Path) -> None:
-    """EvalWorktree copy includes .graph-wiki/bm25 so indexes travel with the vault."""
+    """EvalWorktree copy includes wiki/.graph-wiki/bm25 so indexes travel with the wiki."""
     async with EvalWorktree(fixture_vault_path) as wt:
-        assert (wt.path / ".graph-wiki" / "bm25").exists()
+        assert (wt.path / "wiki" / ".graph-wiki" / "bm25").exists()
 
 
 async def test_evalworktree_cleans_up(fixture_vault_path: Path) -> None:

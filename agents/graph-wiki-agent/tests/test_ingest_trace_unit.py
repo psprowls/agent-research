@@ -49,7 +49,7 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.ingest.append_log"),
         patch("graph_wiki_agent.commands.ingest.render_project_context", return_value=""),
     ):
-        await run_ingest_source(source, vault_path=wiki)
+        await run_ingest_source(source, workspace_path=wiki)
 
     trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1, f"expected one ingest_*.jsonl, found {trace_files}"
@@ -86,7 +86,7 @@ async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None
         patch("graph_wiki_agent.commands.ingest.render_project_context", return_value=""),
         pytest.raises(BotoCoreError),
     ):
-        await run_ingest_source(source, vault_path=wiki)
+        await run_ingest_source(source, workspace_path=wiki)
 
     trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1

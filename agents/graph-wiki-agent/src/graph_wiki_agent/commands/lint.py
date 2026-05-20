@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Public API:
     LintResult              — dataclass: all 18 lint finding fields
-    run_lint(vault_path, stale_days, log_gap_days)  — end-to-end lint pipeline
+    run_lint(workspace_path, stale_days, log_gap_days)  — end-to-end lint pipeline
 
 Linter system prompts are constructed inline via
 `build_linter_{page_quality,adr_chain,stale_claims}_system(project_context=...)`
@@ -496,7 +496,7 @@ async def _semantic_pass(
 
 
 async def run_lint(
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
     stale_days: int = 90,
     log_gap_days: int = 14,
     model_override: str | None = None,
@@ -504,14 +504,14 @@ async def run_lint(
     """End-to-end lint: mechanical pass (inline scan port) + 7 module checks + semantic fan-out.
 
     Steps:
-        1. Resolve wiki and repo from vault_path.
+        1. Resolve wiki and repo from workspace_path.
         2. MECHANICAL inline pass — port of lint_wiki.py:scan() lines 77-331.
         3. MECHANICAL module pass — call all 7 drift-check modules.
         4. SEMANTIC pass — 3-group linter fan-out via SubagentPool.
         5. Return LintResult (NO write-back to vault — D-10).
 
     Args:
-        vault_path:     Path to the wiki vault root (None → env var / git heuristic).
+        workspace_path: Path to the wiki workspace root (None → env var / git heuristic).
         stale_days:     Pages not updated within this many days are flagged as stale (default 90).
         log_gap_days:   Flag if log.md has no entry within this many days (default 14).
         model_override: Bedrock model ID to use for the linter role instead of
@@ -522,7 +522,7 @@ async def run_lint(
         LintResult with all mechanical and semantic findings.
     """
     # Step 1: resolve wiki and repo
-    wiki, repo = resolve_wiki_and_repo(vault_path)
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
     project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()

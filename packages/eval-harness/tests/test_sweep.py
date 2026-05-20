@@ -70,7 +70,7 @@ async def test_run_query_accepts_tmpdir_vault(
     async with EvalWorktree(fixture_vault_path) as wt:
         result = await run_query(
             "What does lattice-wiki-core do?",
-            vault_path=wt.path,
+            workspace_path=wt.path,
             top_k=3,
         )
     assert isinstance(result, QueryResult)

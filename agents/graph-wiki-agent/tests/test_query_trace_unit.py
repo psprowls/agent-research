@@ -83,7 +83,7 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", vault_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3)
 
     summary = _read_summary(vault)
     assert summary["tokens_in"] == 200
@@ -127,7 +127,7 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", vault_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3)
 
     summary = _read_summary(vault)
     assert summary["tokens_in"] is None
@@ -184,7 +184,7 @@ async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Pa
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", vault_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3)
 
     summary = _read_summary(vault)
     assert summary["code_fallback"] is True

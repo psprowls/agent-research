@@ -85,7 +85,7 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
         from graph_wiki_agent.commands.init import run_init
 
         result = await run_init(
-            topic="my-topic", tool="claude-code", force=True, vault_path=None
+            topic="my-topic", tool="claude-code", force=True, workspace_path=None
         )
 
     assert result.status == "ok"

@@ -81,7 +81,7 @@ async def test_query_summary_record_has_schema_version_one(
     )
     monkeypatch.setattr(
         "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
-        lambda vault_path=None: (tmp_path.resolve(), None),
+        lambda workspace_path=None: (tmp_path.resolve(), None),
     )
     monkeypatch.setattr(
         "graph_wiki_agent.commands.query.bm25_query",
@@ -100,7 +100,7 @@ async def test_query_summary_record_has_schema_version_one(
         lambda **kw: mock_embeddings_inst,
     )
 
-    await run_query(query="What is alpha?", vault_path=tmp_path, top_k=3)
+    await run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3)
 
     # Locate the per-query summary file. Filename pattern: query_{query_id}.jsonl
     trace_dir = tmp_path.resolve() / ".graph-wiki" / "traces"

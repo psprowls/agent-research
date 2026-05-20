@@ -113,7 +113,7 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
 
         await run_query(
             "test query",
-            vault_path=vault,
+            workspace_path=vault,
             top_k=3,
             role_model_overrides={"synthesizer": candidate},
         )
@@ -189,7 +189,7 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
 
         await run_query(
             "How is _StdoutGuard implemented?",
-            vault_path=vault,
+            workspace_path=vault,
             top_k=3,
             role_model_overrides={"code_reader": candidate},
         )
@@ -262,7 +262,7 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
 
         await run_query(
             "test query",
-            vault_path=vault,
+            workspace_path=vault,
             top_k=3,
             librarian_model_override=candidate,
         )
@@ -344,7 +344,7 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
 
         await run_query(
             "test query",
-            vault_path=vault,
+            workspace_path=vault,
             top_k=3,
             role_model_overrides={"librarian": librarian_candidate},
         )
@@ -427,7 +427,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
         from graph_wiki_agent.commands.scan import run_scan
 
-        await run_scan(vault_path=vault, model_override=candidate)
+        await run_scan(workspace_path=vault, model_override=candidate)
 
     scanner_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
     assert len(scanner_calls) >= 1, (
@@ -535,7 +535,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
 
         from graph_wiki_agent.commands.lint import run_lint
 
-        await run_lint(vault_path=vault, model_override=candidate)
+        await run_lint(workspace_path=vault, model_override=candidate)
 
     linter_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
     assert len(linter_calls) >= 1, (
@@ -586,7 +586,7 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
     ):
         from graph_wiki_agent.commands.ingest import run_ingest_source
 
-        await run_ingest_source(source_path=source, vault_path=vault, model_override=candidate)
+        await run_ingest_source(source_path=source, workspace_path=vault, model_override=candidate)
 
     ingestor_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
     assert len(ingestor_calls) >= 1, (

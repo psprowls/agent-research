@@ -46,7 +46,7 @@ def test_local_yaml_with_absolute_path(tmp_path, monkeypatch):
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     _seed_manifest(elsewhere)
-    (repo / ".graph-wiki.local.yaml").write_text(f"graph-wiki-directory: {elsewhere}\n")
+    (repo / ".graph-wiki.local.yaml").write_text(f"workspace-directory: {elsewhere}\n")
     cfg = resolve(repo)
     assert cfg.workspace == elsewhere.resolve()
 
@@ -55,7 +55,7 @@ def test_local_yaml_with_relative_path(tmp_path, monkeypatch):
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
     _seed_manifest(repo.parent / "sidecar")
-    (repo / ".graph-wiki.local.yaml").write_text("graph-wiki-directory: ../sidecar\n")
+    (repo / ".graph-wiki.local.yaml").write_text("workspace-directory: ../sidecar\n")
     cfg = resolve(repo)
     assert cfg.workspace == (repo.parent / "sidecar").resolve()
 
@@ -67,7 +67,7 @@ def test_local_yaml_with_tilde_expansion(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(fake_home))
     repo = _make_repo(tmp_path / "repo")
     _seed_manifest(fake_home / "graph-wiki" / "myproject")
-    (repo / ".graph-wiki.local.yaml").write_text("graph-wiki-directory: ~/graph-wiki/myproject\n")
+    (repo / ".graph-wiki.local.yaml").write_text("workspace-directory: ~/graph-wiki/myproject\n")
     cfg = resolve(repo)
     assert cfg.workspace == (fake_home / "graph-wiki" / "myproject").resolve()
 
@@ -117,8 +117,8 @@ def test_cli_prints_workspace_to_stdout(tmp_path):
 
 
 def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
-    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent init."""
+    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent bootstrap."""
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="graph-wiki-agent init"):
+    with pytest.raises(RuntimeError, match="graph-wiki-agent bootstrap"):
         resolve(repo)

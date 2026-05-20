@@ -95,7 +95,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     # Patch resolve_wiki_and_repo so run_query uses our tmp_path vault directly.
     monkeypatch.setattr(
         "graph_wiki_agent.commands.query.resolve_wiki_and_repo",
-        lambda vault_path=None: (tmp_path.resolve(), None),
+        lambda workspace_path=None: (tmp_path.resolve(), None),
     )
 
     # Patch the search layer — BM25 and embedding calls — to return the seeded pages
@@ -121,7 +121,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     # --- Cancel sequence ---
     # asyncio.ensure_future schedules run_query on the running event loop.
     task = asyncio.ensure_future(
-        run_query(query="What is alpha?", vault_path=tmp_path, top_k=3)
+        run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3)
     )
 
     # Yield control long enough for asyncio.gather to start _run_one coroutines and

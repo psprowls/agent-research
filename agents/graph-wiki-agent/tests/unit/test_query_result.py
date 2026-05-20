@@ -437,7 +437,7 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fake_fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
     # The synthesizer answer is present (guardrails may append warnings)
@@ -538,7 +538,7 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
     # Retry answer was used (no warning footer because retry succeeded)
@@ -600,7 +600,7 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
     # Retry was tried (call count == 2) but failed; warning footer present
@@ -669,7 +669,7 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     assert isinstance(result, QueryResult)
     # Synthesizer was NOT called on the disclaimer path (no synth response staged

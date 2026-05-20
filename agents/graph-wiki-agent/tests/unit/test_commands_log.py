@@ -57,7 +57,7 @@ async def test_run_log_appends_to_log_md(tmp_path: Path) -> None:
     ):
         from graph_wiki_agent.commands.log import run_log
 
-        result = await run_log(op="note", title="hello", detail=None, vault_path=None)
+        result = await run_log(op="note", title="hello", detail=None, workspace_path=None)
 
     assert result.status == "ok"
     assert result.op == "note"

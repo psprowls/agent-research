@@ -5,7 +5,7 @@ from __future__ import annotations
 Public API:
     ScanResult              — dataclass: added, updated, deleted, renamed, errors, state_gate
     build_stub_prompt(pkg)  — human message: package metadata + representative file snippets
-    run_scan(vault_path, no_file_map, max_depth)  — end-to-end scan pipeline
+    run_scan(workspace_path, no_file_map, max_depth)  — end-to-end scan pipeline
 
 The scanner system prompt is constructed inline via
 `build_scanner_system(project_context=...)` where `project_context` is the
@@ -224,7 +224,7 @@ def _add_stale_tag(page_path: Path) -> None:
 
 
 async def run_scan(
-    vault_path: Path | None = None,
+    workspace_path: Path | None = None,
     no_file_map: bool = False,
     max_depth: int = 3,
     repo_path: Path | None = None,
@@ -233,7 +233,7 @@ async def run_scan(
     """End-to-end scan: discovery → diff → scanner fan-out → post-processing.
 
     Steps:
-        1. Resolve wiki and repo from vault_path.
+        1. Resolve wiki and repo from workspace_path.
         2. Read layout block from wiki/CLAUDE.md or wiki/AGENTS.md.
         3. discover_workspaces(repo, pinned_containers=pinned).
         4. Build file_map per workspace (unless no_file_map=True).
@@ -249,7 +249,7 @@ async def run_scan(
         14. Return ScanResult.
 
     Args:
-        vault_path:     Path to the wiki vault root (None → env var / git heuristic).
+        workspace_path: Path to the wiki workspace root (None → env var / git heuristic).
         no_file_map:    Skip per-workspace file-map generation (faster on huge repos).
         max_depth:      Max directory depth for file map section headers.
         repo_path:      Override the monorepo root used for workspace discovery.
@@ -266,7 +266,7 @@ async def run_scan(
         ScanResult with added, updated, deleted, renamed, errors, state_gate.
     """
     # Step 1: resolve wiki and repo
-    wiki, resolved_repo = resolve_wiki_and_repo(vault_path)
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
     project_ctx = render_project_context(wiki)
     if repo_path is not None:
         repo = repo_path.resolve()
