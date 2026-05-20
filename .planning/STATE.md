@@ -97,6 +97,15 @@ v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plan
 
 ---
 
+## Quick Tasks Completed
+
+| Quick ID | Description | Commit |
+|----------|-------------|--------|
+| 260519-k9t-preflight-role | Preflight role refactor — confirm preflight uses dedicated role config, not orchestrator defaults | e5fb45a |
+| 260519-lf1-bedrock-audit | Bedrock audit script — verify all model calls route through model-adapter guard layer | a459815 |
+
+---
+
 ## Deferred Items
 
 Items acknowledged at v1.2 close that are NOT in v1.3 scope:
@@ -112,8 +121,8 @@ Items acknowledged at v1.3 close (2026-05-20):
 | Category | Item | Status |
 |----------|------|--------|
 | verification | Phase 18 — `18-VERIFICATION.md` `human_needed` | by-design manual UAT: install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. Phase 18 D-07 explicitly classifies SC#3 as manual smoke. Owned by user on next plugin install. |
-| quick_task | 260519-k9t-preflight-role | shipped (PLAN + SUMMARY exist); status-marker stale in audit-open index — cosmetic |
-| quick_task | 260519-lf1-bedrock-audit | shipped (PLAN + SUMMARY exist); status-marker stale in audit-open index — cosmetic |
+| quick_task | 260519-k9t-preflight-role | closed (260520-bgd Task 2): SUMMARY.md stub added + Quick Tasks Completed index backfilled |
+| quick_task | 260519-lf1-bedrock-audit | closed (260520-bgd Task 2): SUMMARY.md stub added + Quick Tasks Completed index backfilled |
 | context_questions | Phase 18 `18-CONTEXT.md` — 3 open question lines | answered during execution (rename approach + reinstall instructions + historical sweep granularity), question markers not cleared from CONTEXT.md text |
 | context_questions | Phase 20 `20-CONTEXT.md` — 3 open question lines | answered during execution (RoleConfig field set + `--config` drop + `models.toml` lifecycle), question markers not cleared from CONTEXT.md text |
 
