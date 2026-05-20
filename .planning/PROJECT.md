@@ -10,45 +10,42 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current State: v1.2 Shipped — 2026-05-19
+## Current State: v1.3 Shipped — 2026-05-20
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19). 16 phases, 85 plans, 126/126 requirements satisfied across three milestones.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20). 21 phases, 110 plans, 145/145 requirements satisfied across four milestones.
 
-**What works today (post-v1.2):**
+**What works today (post-v1.3):**
 - `graph-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full graph-wiki workflow on Bedrock with within-command subagent fan-out
 - All MCP tools exposed via `graph-wiki-mcp` stdio server; verified end-to-end via DA-CLI integration test
 - Agent prompts incorporate canonical SKILL.md content; divergence eval flags remaining drift
-- Cost-frontier validated: `models.toml` defaults reflect cost-optimal picks per role (Qwen3-32B fan-out, Qwen3-80B synthesis)
+- Cost-frontier validated: per-workspace `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block carries the role-model map; packaged `models.toml` is the per-role fallback
 - Trace renderer with per-(role,model) cost rollup, `usage_metadata` populated across all 4 production fan-out callsites
 - Subagent context completion: `wiki/CLAUDE.md` layout + style + log format injected into scanner/linter/ingestor system prompts
-- **New in v1.2:** `packages/workspace-io/` owns workspace bootstrap + manifest IO + config resolution under the `graph-wiki` brand; `vault-io._workspace` delegates to it; `.graph-wiki.yaml` is the per-workspace manifest filename; `GRAPH_WIKI_WORKSPACE` is the env override
-- **New in v1.2:** `plugins/graph-wiki/` is the ported Claude Code plugin (runs on Claude Code inference, NOT a wrapper around `graph-wiki-agent`); `/graph-wiki:*` namespace; shims wired through vault-io + workspace-io; coexists with `graph-wiki-agent` as the parallel Bedrock cost-frontier surface
+- `packages/workspace-io/` owns workspace bootstrap + manifest IO + config resolution under the `graph-wiki` brand; `vault-io._workspace` delegates to it; `.graph-wiki.yaml` is the per-workspace manifest filename; `GRAPH_WIKI_WORKSPACE` is the env override
+- `plugins/graph-wiki/` is the ported Claude Code plugin (runs on Claude Code inference, NOT a wrapper around `graph-wiki-agent`); `/graph-wiki:*` namespace; `/graph-wiki:bootstrap` (renamed from `/graph-wiki:init` in v1.3 Phase 18 so Claude Code's native `/init` is reachable)
+- **New in v1.3:** vault-io scan no longer reports 28 phantom companion-page deletions; CountTokens API uses correct `input=...` boto3 shape; workspace/repo resolution works at the v2 `<workspace>/wiki/` layout
+- **New in v1.3:** Agent package mechanically renamed `code-wiki-agent → graph-wiki-agent` across the full repository (Phase 21 — `git mv` preserved history; brand-gate enforces no reintroduction)
+- **New in v1.3:** Phase 16 review burndown complete — 15 findings dispositioned (13 fixed + 2 no-action); `19-REVIEW-BURNDOWN.md` is the canonical record
 
-**Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Historical entries below may reference `cores/` because that was the path at the time; current code lives under `packages/`. Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12.
+**Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21.
 
-## Current Milestone: v1.3 Tooling Cleanup
+## Next Milestone: v1.4 (Not Yet Scoped)
 
-**Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` (`scan_monorepo`, `update_tokens`, `init_vault`/`detect_containers`) + the `/init` plugin command shadow, and address the Phase 16 code review findings so the trace pipeline + eval harness refactor lands clean.
+Run `/gsd-new-milestone` when ready to scope v1.4. Likely candidates (carried forward at v1.3 close):
 
-**Target features:**
-- Fix `scan_monorepo._load_existing_pages` so package companion pages (`api`/`context`/`patterns`/`work`) fold into the parent slug instead of being reported as `deleted` (28 false orphans on a healthy 7-package vault → 0)
-- Fix `vault_io.update_tokens.count_tokens()` Bedrock CountTokens API shape (use `input=...` not `content=...`) and re-stamp the 35 existing wiki pages currently at `tokens: 0`
-- Fix repo resolution in `init_vault.py:305` and `detect_containers.py:174` to use `_, repo = resolve_wiki_and_repo()` (second return value); exclude the workspace dir from self-classification
-- Rename plugin `/init` → `/init-wiki` and sweep references in `marketplace.json`, `SKILL.md`, READMEs so Claude Code's native `/init` is reachable again
-- Address Phase 16 code review burndown: 6 warnings + 9 info findings (0 critical) on the trace pipeline + eval harness refactor
+- **Nyquist compliance retroactive decision** — 0/16 v1.1+v1.2+v1.3 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate the 16 phases vs. disable the toggle.
+- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.3 close.
+- **Phase 18 SC#3 manual UAT** — install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. By-design manual gate from v1.3 Phase 18 D-07.
+- **`next-milestone-planning` thread closure** — carried v1.0 → v1.1 → v1.2 → v1.3. Either close at v1.4 scoping or convert to requirements at v1.5.
+- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19 (same issue as the synthesizer fix; not load-bearing today).
 
-**Deferred (carry-forward themes NOT in v1.3 scope):**
-- Nyquist compliance retroactive decision — 0/11 phases compliant despite toggle; decide retro-validate vs. disable in a later milestone
-- Phase 14 SC#4 plugin smoke transcript — capture as regression artifact in a later milestone
-- `next-milestone-planning` thread — keep deferred; revisit at v1.3 close
-
-**Explicitly out of v1.x (deferred to later milestones):**
+**Explicitly out of v1.x (deferred to v2.0+):**
 - Open-source release prep (README badges, contribution guide, PyPI publish dry-run) → **v2.0 GA**.
 - `work/` subsystem port — GSD covers work-item lifecycle (thread decision 2026-05-17).
 - Package-family monorepo support restoration — different approach planned (thread decision 2026-05-17).
 - Modules where vault-io was ahead of upstream lattice — leave as-is per spike 002 / v1.2 Phase 12 verdicts.
 
-Full v1.2 retrospective in `.planning/RETROSPECTIVE.md`; v1.2 archive in `.planning/milestones/v1.2-ROADMAP.md`.
+Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.planning/milestones/v1.3-ROADMAP.md`; v1.3 audit in `.planning/milestones/v1.3-MILESTONE-AUDIT.md`.
 
 ## Requirements
 

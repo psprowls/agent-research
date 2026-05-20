@@ -303,6 +303,14 @@ packages/eval-harness/tests/test_scanner_regression.py
 # by Phase 21's allowlist sweep.
 # ---------------------------------------------------------------------------
 # rationale: Plan-meta — Phase 19 SUMMARY narrates the Phase 21 rename auto-edit (the auto-block was about removing `code-wiki-agent` from the plugins list).
-.planning/phases/19-phase-16-code-review-burndown/19-02-SUMMARY.md
-# rationale: Audit-meta — v1.3 milestone audit references the Phase 21 rename direction and the F1 brand-gate hit content.
-.planning/v1.3-MILESTONE-AUDIT.md
+.planning/milestones/v1.3-phases/19-phase-16-code-review-burndown/19-02-SUMMARY.md
+# rationale: Audit-meta — v1.3 milestone audit + archive references the Phase 21 rename direction.
+.planning/milestones/v1.3-MILESTONE-AUDIT.md
+.planning/milestones/v1.3-ROADMAP.md
+.planning/milestones/v1.3-REQUIREMENTS.md
+# rationale: v1.3 archive — Phase 21's own planning + verification + summary files name the old slug throughout (rename direction). Mirrors the existing Phase 17/20 archive exemptions above; this entry covers the v1.3-phases/ archive path.
+.planning/milestones/v1.3-phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/
+# rationale: v1.3 archive milestones — Phase 17 + 20 + 18 documents may reference the old slug in archived form (Phase 21 rename history; .planning/ sweep was Phase 21 D-05).
+.planning/milestones/v1.3-phases/17-vault-io-bug-fixes/
+.planning/milestones/v1.3-phases/18-plugin-command-rename/
+.planning/milestones/v1.3-phases/20-workspace-manifest-model-config/

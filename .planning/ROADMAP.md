@@ -2,7 +2,7 @@
 
 **Project:** deep-agents (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.3 Tooling Cleanup (Phases 17-21; 19 reordered to end of execution queue)
+**Current milestone:** none — v1.3 shipped 2026-05-20; v1.4 not yet scoped (run `/gsd-new-milestone`)
 
 ---
 
@@ -11,7 +11,7 @@
 - ✅ **v1.0 — graph-wiki-agent parity** — Phases 1-5 (shipped 2026-05-15) — [archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 — Quality Improvements** — Phases 6-10 (shipped 2026-05-17) — [archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 — Graph-Wiki Port & Debt Cleanup** — Phases 11-16 (shipped 2026-05-19) — [archive](milestones/v1.2-ROADMAP.md)
-- 🚧 **v1.3 — Tooling Cleanup** — Phases 17-19 (in progress)
+- ✅ **v1.3 — Tooling Cleanup** — Phases 17-21 (shipped 2026-05-20) — [archive](milestones/v1.3-ROADMAP.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
 
 ---
 
@@ -58,19 +58,27 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.3 Tooling Cleanup (In Progress)
+<details>
+<summary>✅ v1.3 Tooling Cleanup (Phases 17-21) — SHIPPED 2026-05-20</summary>
 
-**Milestone Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` and the `/init` plugin command shadow, and address the Phase 16 code review findings.
+- [x] Phase 17: vault-io Bug Fixes (5/5 plans) — completed 2026-05-20
+- [x] Phase 18: Plugin Command Rename (6/6 plans) — completed 2026-05-20
+- [x] Phase 20: Workspace Manifest Model Config (4/4 plans) — completed 2026-05-20
+- [x] Phase 21: Rename graph-wiki-agent → graph-wiki-agent (5/5 plans) — completed 2026-05-20
+- [x] Phase 19: Phase 16 Code Review Burndown (5/5 plans) — completed 2026-05-20
 
-- [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
-- [x] **Phase 18: Plugin Command Rename** - Rename the conflicting graph-wiki command to `/graph-wiki:bootstrap` to restore Claude Code's native `/init` (completed 2026-05-20)
-- [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`GRAPH_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
-- [x] **Phase 21: Rename graph-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute) (completed 2026-05-20)
-- [x] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review (moved to end of execution queue; runs after 18 + 21) (completed 2026-05-20)
+Full detail: [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
+Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md)
+
+</details>
 
 ---
 
 ## Phase Details
+
+> v1.0–v1.3 phase details live in the milestone archives under `.planning/milestones/`. Active phase details will appear here when the next milestone is scoped via `/gsd-new-milestone`.
+
+<!--
 
 ### Phase 17: vault-io Bug Fixes
 **Goal**: All three vault-io behavioral bugs are fixed so scan reports accurate diffs, token counts are stamped correctly, and repo/container resolution works at the v2 workspace layout
@@ -182,6 +190,8 @@ Plans:
 **Wave 2** *(blocked on Wave 1 — needs commit SHAs from plans 01-04)*
 - [x] 19-05-PLAN.md — Author 19-REVIEW-BURNDOWN.md disposition table (D-17); record D-08 (IN-02) + D-11 (IN-05) as `no-action — review self-corrected on re-scan` (REVIEW-01, REVIEW-02)
 
+-->
+
 ---
 
 ## Progress
@@ -191,16 +201,8 @@ Plans:
 | v1.0 graph-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
-| v1.3 Tooling Cleanup | 5 | 9/20 | 🚧 In progress | - |
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
-| 18. Plugin Command Rename | 6/6 | Complete   | 2026-05-20 |
-| 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
-| 21. Rename graph-wiki-agent → graph-wiki-agent | 5/5 | Complete   | 2026-05-20 |
-| 19. Phase 16 Code Review Burndown (queued last) | 5/5 | Complete   | 2026-05-20 |
+| v1.3 Tooling Cleanup | 5 | 25/25 | ✅ Shipped | 2026-05-20 |
 
 ---
 
-*Last updated: 2026-05-20 — Phase 19 plans staged (5 plans across 2 waves; wave 1 = 4 parallel fix plans, wave 2 = burndown table consolidation).*
+*Last updated: 2026-05-20 — v1.3 shipped (5 phases, 25 plans, 19/19 requirements satisfied). Next milestone TBD — run `/gsd-new-milestone` when ready.*

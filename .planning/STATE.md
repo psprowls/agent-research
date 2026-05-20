@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: Tooling Cleanup
 status: completed
 stopped_at: Phase 19 context gathered
-last_updated: "2026-05-20T04:36:19.914Z"
+last_updated: "2026-05-20T04:52:17.835Z"
 last_activity: 2026-05-20 -- Phase 19 marked complete
 progress:
   total_phases: 5
@@ -103,9 +103,19 @@ Items acknowledged at v1.2 close that are NOT in v1.3 scope:
 
 | Category | Item | Status |
 |----------|------|--------|
-| nyquist | 0/5 v1.1 + 0/6 v1.2 phases compliant | deferred past v1.3 (decision: retro-validate vs. disable toggle) |
+| nyquist | 0/5 v1.1 + 0/6 v1.2 + 0/5 v1.3 phases compliant | deferred past v1.3 (decision: retro-validate vs. disable toggle) |
 | uat_gap | Phase 14 SC#4 plugin smoke transcript | deferred past v1.3 (capture as regression artifact later) |
 | thread | next-milestone-planning | deferred (carry-forward; close at v1.3 close or convert at v1.4 scoping) |
+
+Items acknowledged at v1.3 close (2026-05-20):
+
+| Category | Item | Status |
+|----------|------|--------|
+| verification | Phase 18 — `18-VERIFICATION.md` `human_needed` | by-design manual UAT: install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. Phase 18 D-07 explicitly classifies SC#3 as manual smoke. Owned by user on next plugin install. |
+| quick_task | 260519-k9t-preflight-role | shipped (PLAN + SUMMARY exist); status-marker stale in audit-open index — cosmetic |
+| quick_task | 260519-lf1-bedrock-audit | shipped (PLAN + SUMMARY exist); status-marker stale in audit-open index — cosmetic |
+| context_questions | Phase 18 `18-CONTEXT.md` — 3 open question lines | answered during execution (rename approach + reinstall instructions + historical sweep granularity), question markers not cleared from CONTEXT.md text |
+| context_questions | Phase 20 `20-CONTEXT.md` — 3 open question lines | answered during execution (RoleConfig field set + `--config` drop + `models.toml` lifecycle), question markers not cleared from CONTEXT.md text |
 
 ---
 

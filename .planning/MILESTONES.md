@@ -1,5 +1,36 @@
 # Milestones
 
+## v1.3 Tooling Cleanup (Shipped: 2026-05-20)
+
+**Phases completed:** 5 phases, 25 plans
+**Timeline:** 2026-05-19 → 2026-05-20 (~2 calendar days, dense execution)
+**Git range:** `04e6f8a` → `e0c2908` (65 phase commits + tracking)
+**Diff:** 186 files changed, +3,396 / −1,117 lines
+**Requirements:** 19/19 satisfied (13 declared at scoping + 6 WMC-* backfilled from Phase 20 at close)
+**Audit:** [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md) — `gaps_found` at audit time (1 brand-gate + 2 doc-refresh), all closed inline before archive.
+
+**Delivered:** Burned down the v1.2 carry-forward bug list in `vault-io` (scan companion-page fold, Bedrock CountTokens API shape, workspace/repo resolution), unshadowed Claude Code's native `/init` by renaming the plugin command to `/graph-wiki:bootstrap`, moved all model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` (deleting the orphan `wiki-config.toml` pathway), mechanically renamed the agent package `code-wiki-agent → graph-wiki-agent` across the full repository, and triaged all 15 Phase 16 code review findings (13 fixed + 2 no-action) with `19-REVIEW-BURNDOWN.md` as the canonical disposition table.
+
+### Key accomplishments
+
+- **vault-io bug burndown** — 3 v1.2 carry-forward bugs fixed in Phase 17: companion-page diff returns 0 phantom deletions (was 28), Bedrock CountTokens uses correct `input=` param shape, `init_vault` + `detect_containers` use `resolve_wiki_and_repo()`'s repo return value at v2 workspace layout. 8 wiki pages re-stamped to non-zero tokens (TOK-03 operational closure). (SCAN-01/02, TOK-01/02/03, WSRES-01/02/03)
+- **Plugin command unshadows native /init** — Phase 18 renamed `plugins/graph-wiki/commands/init.md → bootstrap.md` (git mv, history preserved). Typer CLI subcommand `init → bootstrap` + MCP tool `wiki_init → wiki_bootstrap` (with full Pydantic model rename). Brand-gate (`scripts/check-brand.sh` CHECK 2 + CHECK 3 + `.brand-grep-allow`) extended to enforce no reintroduction. SC#3 manual UAT (typing `/init` in Claude Code fires native CLAUDE.md workflow) remains user-owned. (CMD-01/02/03)
+- **Workspace manifest model config** — Phase 20 moved all model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` with per-role fallback to packaged `models.toml`. Hard-cut deleted `WikiConfig.models_path`, `set_models_path()`, `--config` CLI option, and `GRAPH_WIKI_CONFIG` env var. `graph-wiki/.graph-wiki.yaml` populated with full 9-role block; live verification confirms each role resolves. (WMC-01..05b — backfilled into REQUIREMENTS.md at close per audit F3)
+- **Mechanical package rename** — Phase 21 renamed `code-wiki-agent → graph-wiki-agent` across directories, Python modules (`code_wiki_agent`/`code_wiki_mcp` → `graph_wiki_agent`/`graph_wiki_mcp`), console scripts, internal symbols, user-facing strings, trace dir (`.code-wiki/ → .graph-wiki/`), plugin shell-outs, tests, and planning docs. 5 staged plans across 5 sequential waves. `scripts/check-brand.sh` extended with the new R-04 rule. (no REQ-IDs by design — rename scope captured in PLAN frontmatter `must_haves`)
+- **Phase 16 code review burndown** — Phase 19 triaged all 15 Phase 16 review findings (6 warnings + 9 info, 0 critical). 13 → fixed (per-commit gate green: 395 passed / 23 skipped after every commit); 2 → no-action (IN-02 + IN-05 dispositioned as "no-action — review self-corrected on re-scan"). `19-REVIEW-BURNDOWN.md` is the canonical disposition table. Wave-based parallel execution: 4 fix plans fanned out in parallel worktrees, 5th plan consolidated the burndown table with verified commit SHAs. (REVIEW-01/02)
+- **Audit-gap closures inline at close** — F1 brand-gate hit (1-line `.brand-grep-allow` for 19-02-SUMMARY.md narrative), F2 traceability checkboxes (12 of 13 flipped to Complete), F3 WMC-* backfill (6 Phase 20 requirements promoted into REQUIREMENTS.md). Brand-gate exits 0 at HEAD.
+
+### Known deferred items at close
+
+7 items (see STATE.md `## Deferred Items`):
+
+- 🔴 **Phase 18 SC#3 manual UAT** — install plugin, type `/init`, confirm native CLAUDE.md workflow fires. By-design manual gate (Phase 18 D-07).
+- 🟡 **2 quick-task status markers stale** — `260519-k9t-preflight-role` + `260519-lf1-bedrock-audit` shipped (PLAN + SUMMARY exist) but audit-open reports `missing`. Cosmetic.
+- 🔵 **2 phases with open CONTEXT.md question lines** — Phase 18 (3) + Phase 20 (3). Answered during execution; markers not cleared from CONTEXT.md.
+- 🟡 **Nyquist compliance** — 0/5 v1.3 phases produced VALIDATION.md, same pattern as v1.1 (0/5) and v1.2 (0/6). Retro decision carried to v1.4 scoping.
+
+---
+
 ## v1.2 Graph-Wiki Port & Debt Cleanup (Shipped: 2026-05-19)
 
 **Phases completed:** 6 phases, 21 plans
