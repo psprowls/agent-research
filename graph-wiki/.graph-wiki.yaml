@@ -1,9 +1,9 @@
 version: 2
 initialized_at: '2026-05-18'
 plugins:
-- name: code-wiki-agent
+- name: graph-wiki-agent
   installed_version: 0.1.0
-  applied_version: 0.1.0
+  applied_version: 0.1.0  
   roles:
   - name: preflight
     model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0

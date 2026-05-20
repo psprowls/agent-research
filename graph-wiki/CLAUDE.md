@@ -17,7 +17,8 @@ This is a graph-wiki workspace — a per-repo container for plugin-managed knowl
 ## Plugins installed
 
 <!-- workspace-io:auto:plugins:start -->
-- `code-wiki-agent` — see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)
+- `code-wiki-agent`
+- `graph-wiki-agent` — see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)
 <!-- workspace-io:auto:plugins:end -->
 
 The block above is auto-rendered from `.graph-wiki.yaml` every time `workspace-io.init()` runs (i.e. whenever a plugin registers itself with the workspace). Hand-edit anything outside the markers; it will be preserved.
