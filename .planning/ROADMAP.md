@@ -76,7 +76,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 ### v1.4 Workspace Path Resolution Cleanup (Phases 22-25) — ACTIVE
 
 - [x] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion (completed 2026-05-20)
-- [ ] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension
+- [x] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension (completed 2026-05-20)
 - [ ] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh
 - [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` majority-manifest heuristic, plugin-side classifier sync, `--interactive` flag, unit test, and todo resolution
 
@@ -108,7 +108,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   4. `GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` passes using the new field/flag names
   5. `scripts/check-brand.sh` exits non-zero when a test file introduces `vault_path` as a Pydantic Field name or `--vault` as a Typer flag literal
 **Plans**: 1 plan
-  - [ ] 23-01-PLAN.md — workspace-api-external-rename (big-bang single plan covering WSMCP-01..07 + brand-gate CHECK 4 + integration test sweep)
+  - [x] 23-01-PLAN.md — workspace-api-external-rename (big-bang single plan covering WSMCP-01..07 + brand-gate CHECK 4 + integration test sweep)
 
 ### Phase 24: eval-harness-workspace-rename
 **Goal**: The eval-harness package is internally consistent with the v1.4 naming convention — `workspace_path` everywhere a workspace root is meant, `wiki` everywhere the wiki directory itself is meant, and zero residual `vault_path` / `--vault` / `vault:` occurrences
@@ -141,7 +141,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
-| 23. workspace-api-external-rename | 0/1 | Not started | - |
+| 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
 | 24. eval-harness-workspace-rename | 0/TBD | Not started | - |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 

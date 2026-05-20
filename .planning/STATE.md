@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: Phase 22 shipped (local merge; no remote)
+status: executing
 stopped_at: Phase 23 context gathered
-last_updated: "2026-05-20T22:39:47.882Z"
-last_activity: 2026-05-20 -- Phase 22 shipped (merged to main)
+last_updated: "2026-05-20T23:37:36.903Z"
+last_activity: 2026-05-20 -- Phase 23 execution started
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 25
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 22 — workspace-api-internal-rename
+**Current Focus:** Phase 23 — workspace-api-external-rename
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 22 — COMPLETE
+Phase: 23 (workspace-api-external-rename) — EXECUTING
 Plan: 1 of 1
-Status: Phase 22 shipped (local merge; no remote)
-Last activity: 2026-05-20 -- Phase 22 shipped (merged to main)
+Status: Executing Phase 23
+Last activity: 2026-05-20 -- Phase 23 execution started
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
