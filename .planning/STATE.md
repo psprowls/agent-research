@@ -4,14 +4,14 @@ milestone: v1.3
 milestone_name: Tooling Cleanup
 status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-19T22:36:35.175Z"
-last_activity: 2026-05-19
+last_updated: "2026-05-20T00:02:07.174Z"
+last_activity: 2026-05-20
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 4
-  percent: 0
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 9
+  completed_plans: 5
+  percent: 56
 ---
 
 # Project State: deep-agents
@@ -35,12 +35,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 17 (vault-io-bug-fixes) — VERIFICATION: GAPS FOUND
-Plan: 4 of 4 (all plans shipped)
-Status: Awaiting gap closure for SC#4 (WSRES-02 partial coverage; CR-01 in 17-REVIEW.md)
-Last activity: 2026-05-19 -- Phase 17 verification flagged gaps_found
+Phase: 17 (vault-io-bug-fixes) — EXECUTED, awaiting re-verification on SC#4
+Plan: 5 of 5 (all plans shipped including 17-05 gap closure)
+Status: 17-05 (WSRES-02 gap closure) committed; ready for verifier re-run on SC#4
+Last activity: 2026-05-19 -- Phase 17 plan 17-05 complete (93 vault-io tests pass)
 
-Progress: [████████░░] 80% (4/5 must-haves verified)
+Progress: [██████████] 100% (5/5 plans complete; awaiting verification)
 
 ## Performance Metrics
 
@@ -74,6 +74,10 @@ Progress: [████████░░] 80% (4/5 must-haves verified)
 
 - v1.2 Phase 16: MCP cancel deferral re-anchored to event trigger (langchain-aws#663 OR aioboto3 GA/1.0)
 - v1.3 scope: SCAN + TOK + WSRES grouped into Phase 17 (all in packages/vault-io/, shared fixture territory); CMD isolated in Phase 18 (plugins/graph-wiki/ only, no Python); REVIEW in Phase 19
+
+### Roadmap Evolution
+
+- Phase 20 added (2026-05-19): Workspace Manifest Model Config — move wiki model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path()`, `--config`, `CODE_WIKI_CONFIG`); packaged `model-adapter/models.toml` becomes per-role fallback. Triggered by discovering `wiki-config.toml` had no source-code references and the user's direction that all config should live in the `.graph-wiki.yaml` family.
 
 ### Active TODOs
 

@@ -62,9 +62,10 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 **Milestone Goal:** Burn down the v1.2 carry-forward bug list in `vault-io` and the `/init` plugin command shadow, and address the Phase 16 code review findings.
 
-- [ ] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (4/4 plans shipped; verification flagged SC#4 partial coverage — see `17-VERIFICATION.md`; gap closure pending)
+- [ ] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped including 17-05 gap closure; awaiting verifier re-run on SC#4)
 - [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review
+- [ ] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback
 
 ---
 
@@ -80,12 +81,13 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
   3. `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/`
   4. The workspace directory itself does not appear in its own layout block as a `docs` container
   5. Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest`
-**Plans**: 4 plans
+**Plans**: 5 plans
 Plans:
 - [x] 17-01-PLAN.md — SCAN companion-page fold in `_load_existing_pages` + unit tests (SCAN-01, SCAN-02)
 - [x] 17-02-PLAN.md — Bedrock CountTokens API shape fix in `update_tokens.py` + mocked unit tests + gated integration test (TOK-01, TOK-02)
 - [x] 17-03-PLAN.md — Workspace/repo resolution fixes in `init_vault.py` and `detect_containers.py` + synthetic-fixture tests (WSRES-01, WSRES-02, WSRES-03)
 - [x] 17-04-PLAN.md — TOK-03 live re-stamp against `~/Personal/wiki/deep-agents` + populate `17-VERIFICATION.md` (TOK-03)
+- [x] 17-05-PLAN.md — Gap closure: plumb `workspace_path` through `init_vault._resolve_pinned_containers` and `scan_monorepo._discover_heuristic` to close WSRES-02 BLOCKER on SC#4 (WSRES-02)
 
 ### Phase 18: Plugin Command Rename
 **Goal**: Claude Code's built-in `/init` command is reachable again by renaming the conflicting plugin command to `/init-wiki` with all references updated
@@ -107,6 +109,33 @@ Plans:
   3. Triage outcomes are recorded in the phase REVIEW.md so future code review can verify the debt is not re-accumulating
 **Plans**: TBD
 
+### Phase 20: Workspace Manifest Model Config
+**Goal**: All wiki model-override configuration lives in the `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block, with the packaged `models.toml` in `model-adapter` as per-role fallback; the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path`, `--config`, `CODE_WIKI_CONFIG`) is removed.
+**Depends on**: Phase 17
+**Requirements**: WMC-01, WMC-02, WMC-03, WMC-04, WMC-05a, WMC-05b
+**Success Criteria** (what must be TRUE):
+  1. `workspace-io.manifest` round-trips a populated `plugins[].roles[]` block (read → write → re-read preserves nested structure) with PyYAML
+  2. `model-adapter.make_llm(role)` resolves to workspace-defined role config when present and falls back to the packaged `models.toml` per-role (per-role fallback, not all-or-nothing) when absent
+  3. `WikiConfig.models_path`, `set_models_path()`, and the `--config` / `CODE_WIKI_CONFIG` plumbing are removed from `code_wiki_agent/config.py`, `code_wiki_agent/cli.py`, and `code_wiki_mcp/server.py`; no code path remains that reads a `wiki-config.toml`
+  4. `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` carries the full default `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge_a, judge_b — 9 entries mirroring packaged defaults)
+  5. `packages/workspace-io/README.md` documents the `roles:` schema; `code-wiki-agent` CLI help text and docs drop all `--config` references; the workspace-io wiki page's "no PyYAML" claim is corrected
+**Out of scope**:
+  - Per-machine model selection inside `.graph-wiki.local.yaml` (Option A chosen — redirect to a different workspace directory instead)
+  - Migration tooling for the deleted `wiki-config.toml` / `wiki-config-claude.toml` (already `git rm`'d)
+**Requirement → SC map**:
+  - WMC-01 (`workspace-io.manifest` round-trips populated `roles[]`) → SC#1
+  - WMC-02 (`make_llm` workspace-override + per-role fallback) → SC#2
+  - WMC-03 (delete `WikiConfig.models_path` / `set_models_path` / `--config` / `CODE_WIKI_CONFIG`) → SC#3
+  - WMC-04 (populate `graph-wiki/.graph-wiki.yaml` with full role block) → SC#4
+  - WMC-05a (workspace-io README documents `roles:` schema) → SC#5 (docs portion)
+  - WMC-05b (workspace-io wiki page "no PyYAML" claim corrected; CLI help drops `--config`) → SC#5 (docs portion)
+**Plans**: 4 plans
+Plans:
+- [ ] 20-01-PLAN.md — Extend `workspace-io.manifest` with `roles[]` round-trip + `read_roles` accessor + README schema docs (WMC-01, WMC-05a)
+- [ ] 20-02-PLAN.md — Wire workspace-override layer into `model-adapter.loader.make_llm` with per-role fallback + tests; delete `set_models_path` (WMC-02)
+- [ ] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `CODE_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
+- [ ] 20-04-PLAN.md — Populate `graph-wiki/.graph-wiki.yaml` with full 9-role block + docs sweep (wiki page, intel JSON, CLAUDE.md) + live verify (WMC-04, WMC-05b)
+
 ---
 
 ## Progress
@@ -116,14 +145,15 @@ Plans:
 | v1.0 code-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
-| v1.3 Tooling Cleanup | 3 | 0/TBD | 🚧 In progress | - |
+| v1.3 Tooling Cleanup | 4 | 0/TBD | 🚧 In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. vault-io Bug Fixes | 4/4 | Gaps (SC#4) | - |
+| 17. vault-io Bug Fixes | 5/5 | Awaiting re-verification (SC#4) | - |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 19. Phase 16 Code Review Burndown | 0/TBD | Not started | - |
+| 20. Workspace Manifest Model Config | 0/4 | Planned | - |
 
 ---
 
-*Last updated: 2026-05-19 — v1.3 roadmap created (3 phases, 13/13 requirements mapped). Continues from Phase 16 (v1.2).*
+*Last updated: 2026-05-19 — Phase 20 plans 01-04 created; requirement IDs WMC-01..WMC-05b assigned.*
