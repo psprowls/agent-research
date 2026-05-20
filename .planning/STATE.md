@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Tooling Cleanup
-status: executing
+status: completed
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-20T00:02:07.174Z"
-last_activity: 2026-05-20
+last_updated: "2026-05-20T00:06:58.340Z"
+last_activity: 2026-05-20 -- Phase 17 marked complete
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
   completed_plans: 5
-  percent: 56
+  percent: 25
 ---
 
 # Project State: deep-agents
@@ -35,12 +35,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 17 (vault-io-bug-fixes) — EXECUTED, awaiting re-verification on SC#4
+Phase: 17 — COMPLETE
 Plan: 5 of 5 (all plans shipped including 17-05 gap closure)
-Status: 17-05 (WSRES-02 gap closure) committed; ready for verifier re-run on SC#4
-Last activity: 2026-05-19 -- Phase 17 plan 17-05 complete (93 vault-io tests pass)
+Status: Phase 17 complete
+Last activity: 2026-05-20 -- Phase 17 marked complete
 
-Progress: [██████████] 100% (5/5 plans complete; awaiting verification)
+Progress: [██████████] 100% (5/5 plans complete; verified 2026-05-20)
 
 ## Performance Metrics
 
@@ -60,8 +60,8 @@ Progress: [██████████] 100% (5/5 plans complete; awaiting ve
 | Requirements complete (v1.2) | 30 |
 | Plans written (v1.2) | 21 |
 | Plans complete (v1.2) | 21 |
-| Phases total (v1.3) | 3 |
-| Phases complete (v1.3) | 0 |
+| Phases total (v1.3) | 4 |
+| Phases complete (v1.3) | 1 |
 | Requirements total (v1.3) | 13 |
 
 ---

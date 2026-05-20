@@ -1,29 +1,24 @@
 ---
 phase: 17-vault-io-bug-fixes
-verified: 2026-05-19T00:00:00Z
-status: gaps_found
-score: 4/5 must-haves verified
+verified: 2026-05-19T12:00:00Z
+status: passed
+score: 5/5 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "WSRES-02 fully satisfied: workspace dir excluded from detection across ALL call paths (detect_containers.main, init_vault._resolve_pinned_containers, scan_monorepo._discover_heuristic)"
-    status: partial
-    reason: "workspace_path exclusion is wired only through detect_containers.main() (the CLI entry point). init_vault._resolve_pinned_containers calls _detect_containers(repo) with no workspace_path argument (line 86), so in v2 layout the workspace dir can still leak into the layout block written by /graph-wiki:init. scan_monorepo._discover_heuristic has no workspace_dir filter on its rglob('pyproject.toml') walk. The roadmap SC#4 wording ('does not appear in its own layout block as a docs container') is satisfied at the CLI entry point only."
-    artifacts:
-      - path: "packages/vault-io/src/vault_io/init_vault.py"
-        issue: "_resolve_pinned_containers calls _detect_containers(repo) at line 86 without workspace_path; workspace dir not excluded during init_wiki"
-      - path: "packages/vault-io/src/vault_io/scan_monorepo.py"
-        issue: "_discover_heuristic rglob walk has no workspace segment filter; descends into graph-wiki/ if present"
-    missing:
-      - "Plumb workspace_path through _resolve_pinned_containers and its call site in init_wiki"
-      - "Add workspace segment skip to _discover_heuristic rglob loop (analogous to node_modules / .venv filter)"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 4/5
+  gaps_closed:
+    - "WSRES-02 fully satisfied: workspace dir excluded from detection across ALL call paths (detect_containers.main, init_vault._resolve_pinned_containers, scan_monorepo._discover_heuristic)"
+  gaps_remaining: []
+  regressions: []
 ---
 
-# Phase 17 — Verification Report
+# Phase 17 — Re-Verification Report (Plan 17-05)
 
 **Phase Goal:** All three vault-io behavioral bugs are fixed so scan reports accurate diffs, token counts are stamped correctly, and repo/container resolution works at the v2 workspace layout
-**Verified:** 2026-05-19
-**Status:** gaps_found — 4/5 roadmap success criteria verified; SC#4 partially satisfied (CLI path only; init and scan call paths unguarded)
-**Re-verification:** No — initial verification (enhancing the executor-drafted 17-VERIFICATION.md)
+**Verified:** 2026-05-19 (re-verification after plan 17-05 gap closure)
+**Status:** passed — 5/5 roadmap success criteria verified
+**Re-verification:** Yes — initial verification returned gaps_found (4/5, SC#4 PARTIAL); plan 17-05 closed the BLOCKER
 
 ---
 
@@ -33,13 +28,68 @@ gaps:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | `/graph-wiki:scan` on a healthy 7-package vault reports 0 deleted entries for the four companion pages per package (was 28) | VERIFIED | 4/4 tests in test_scan_companion_fold.py pass; `test_compute_diff_no_phantom_deletes` asserts 0 phantom deletes against round-trip-vault fixture |
-| 2 | After scan, all wiki pages previously without tokens show a non-zero token count in their frontmatter | VERIFIED | Live re-stamp committed to wiki repo at 80a4739; grep of real pages returns 0 at `tokens: 0` |
-| 3 | `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/` | VERIFIED | 4/4 tests in test_detect_containers.py pass; test_v2_layout_finds_repo_containers asserts `packages` in results; detect_containers.main() uses `wiki, repo = resolve_wiki_and_repo()` |
-| 4 | The workspace directory itself does not appear in its own layout block as a `docs` container | PARTIAL | test_workspace_path_excluded passes for the detect() function called directly; BUT _resolve_pinned_containers (line 86 init_vault.py) calls _detect_containers(repo) without workspace_path — workspace dir not excluded during /graph-wiki:init; _discover_heuristic has no workspace segment filter |
-| 5 | Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest` | VERIFIED | 86 passed, 0 failed (full unit suite); integration test exists and skips by default |
+| 1 | `/graph-wiki:scan` on a healthy 7-package vault reports 0 deleted entries for the four companion pages per package (was 28) | VERIFIED | 4/4 tests in test_scan_companion_fold.py pass (no regression); test_compute_diff_no_phantom_deletes asserts 0 phantom deletes |
+| 2 | After scan, all wiki pages previously without tokens show a non-zero token count in their frontmatter | VERIFIED | Wiki commit 80a4739 exists; grep of real pages returns 0 at `tokens: 0` for non-template files |
+| 3 | `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/` | VERIFIED | 4/4 tests in test_detect_containers.py pass (no regression); test_v2_layout_finds_repo_containers asserts `packages` in results |
+| 4 | The workspace directory itself does not appear in its own layout block as a `docs` container | VERIFIED | All three call paths now wired: detect_containers.main() (17-03), _resolve_pinned_containers (17-05), _discover_heuristic (17-05); 7 new tests pass; no unguarded call sites remain |
+| 5 | Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest` | VERIFIED | 93 passed, 1 skipped (up from 86 baseline + 7 new from plan 17-05); integration test skips by default |
 
-**Score:** 4/5 truths verified (SC#4 is PARTIAL — BLOCKER)
+**Score:** 5/5 truths verified
+
+---
+
+## SC#4 (WSRES-02) — Full Call-Path Verification
+
+### Call Path 1: `detect_containers.main()` (17-03 baseline — unchanged)
+
+```
+detect_containers.py line 182: wiki, repo = resolve_wiki_and_repo()
+detect_containers.py line 187: detect(repo, workspace_path=wiki.parent)
+```
+
+Status: WIRED (confirmed in initial verification; no regression)
+
+### Call Path 2: `init_vault._resolve_pinned_containers` (17-05 gap closure)
+
+```python
+# packages/vault-io/src/vault_io/init_vault.py line 84-88
+def _resolve_pinned_containers(
+    repo: Path, non_interactive: bool, workspace_path: Path | None = None
+) -> list[dict]:
+    records = _detect_containers(repo, workspace_path=workspace_path)
+```
+
+Caller at line 169:
+```python
+pinned = _resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)
+```
+
+Status: WIRED — `workspace_path = wiki_path.parent` (line 164) is plumbed through to `_detect_containers`. D-11 guard inherited from `detect_containers.detect()` — no over-exclusion when `workspace_path == repo_root` (v1) or `None`.
+
+Verification: `grep -n "_detect_containers(repo)" init_vault.py | grep -v workspace_path` returns zero matches.
+
+### Call Path 3: `scan_monorepo._discover_heuristic` (17-05 gap closure)
+
+```python
+# packages/vault-io/src/vault_io/scan_monorepo.py line 512-522
+def _discover_heuristic(repo, workspace_dir=None):
+    workspace_segments: set[str] = set()
+    if workspace_dir is not None:
+        wd = Path(workspace_dir).resolve()
+        repo_r = Path(repo).resolve()
+        if wd != repo_r and wd.parent == repo_r:
+            workspace_segments = {wd.name}
+```
+
+Filter applied at both rglob loops:
+- Line 563: `if workspace_segments and any(part in workspace_segments for part in pp.parts): continue` (pyproject.toml)
+- Line 580: `if workspace_segments and any(part in workspace_segments for part in manifest.parts): continue` (.claude-plugin/plugin.json)
+
+`discover_workspaces` at line 384 accepts `workspace_dir=None` and plumbs to `_discover_heuristic` at line 392. `main()` at line 1160 passes `workspace_dir=workspace` where `workspace = wiki.parent` (line 1133).
+
+Status: WIRED — D-11 guard parity confirmed (`wd != repo_r and wd.parent == repo_r`). No over-exclusion in v1 layout.
+
+Verification: `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` returns zero matches in production source.
 
 ---
 
@@ -47,15 +97,12 @@ gaps:
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `packages/vault-io/src/vault_io/scan_monorepo.py` | Companion-fold filter via `_parse_workflow_hints` | VERIFIED | fold_companions parameter at 4 call sites; imports `_parse_workflow_hints` from lint module |
-| `packages/vault-io/tests/test_scan_companion_fold.py` | 4 unit tests covering companion fold | VERIFIED | 4 tests, all pass: test_load_existing_skips_companions, test_layout_pinned_package_skips_companions, test_apps_not_filtered, test_compute_diff_no_phantom_deletes |
-| `packages/vault-io/src/vault_io/update_tokens.py` | Fixed count_tokens using converse shape and inputTokens | VERIFIED | input={"converse":{...}} at line 42; response["inputTokens"] at line 50; no inputTokenCount, no content=[{...}] |
-| `packages/vault-io/tests/test_update_tokens.py` | 2 mocked unit tests locking request shape and response key | VERIFIED | test_count_tokens_request_shape, test_count_tokens_returns_input_tokens; assert_called_once_with with full converse payload |
-| `packages/vault-io/tests/integration/__init__.py` | Empty package marker | VERIFIED | File exists |
-| `packages/vault-io/tests/integration/test_count_tokens_live.py` | Gated integration test | VERIFIED | CODE_WIKI_RUN_INTEGRATION gate; @pytest.mark.integration; test_count_tokens_real_bedrock; skipped by default |
-| `packages/vault-io/src/vault_io/init_vault.py` | WSRES-01: uses resolve_wiki_and_repo() second return value | VERIFIED | Line 305: `wiki, repo = resolve_wiki_and_repo()` — wiki.parent is gone |
-| `packages/vault-io/src/vault_io/detect_containers.py` | WSRES-01+02: workspace-aware repo resolution + workspace_path exclusion | PARTIAL | main() is correct (line 182, 187); detect() has workspace_path param with D-11 guard; BUT _resolve_pinned_containers bypass not addressed |
-| `packages/vault-io/tests/test_detect_containers.py` | 4 synthetic-fixture tests for v2 layout and v1 guard | VERIFIED | test_v2_layout_finds_repo_containers, test_workspace_path_excluded, test_v1_layout_guard, test_v2_synthetic_repo all pass |
+| `packages/vault-io/src/vault_io/init_vault.py` | `_resolve_pinned_containers` accepts + forwards `workspace_path` | VERIFIED | Signature confirmed at line 85; `_detect_containers(repo, workspace_path=workspace_path)` at line 88; caller at line 169 passes `workspace_path=workspace_path` |
+| `packages/vault-io/src/vault_io/scan_monorepo.py` | `_discover_heuristic` + `discover_workspaces` accept `workspace_dir`; filter on both rglob loops | VERIFIED | `workspace_segments` at lines 517, 522, 563, 580 (4 matches); `workspace_dir=workspace` at line 1160 |
+| `packages/vault-io/tests/test_init_vault.py` | 3 tests proving plumb-through + v1 guard parity | VERIFIED | `test_resolve_pinned_containers_v2_excludes_workspace`, `test_resolve_pinned_containers_v1_guard`, `test_resolve_pinned_containers_default_workspace_path_none` — all pass |
+| `packages/vault-io/tests/test_scan_monorepo.py` | 4 tests proving heuristic guard + v1 parity | VERIFIED | `test_discover_heuristic_v2_skips_workspace_pyproject`, `test_discover_heuristic_v2_skips_workspace_plugin_manifest`, `test_discover_heuristic_v1_guard_workspace_eq_repo`, `test_discover_heuristic_default_workspace_dir_none` — all pass |
+| `packages/vault-io/src/vault_io/scan_monorepo.py` | Companion-fold filter (17-01 baseline) | VERIFIED | No regression |
+| `packages/vault-io/src/vault_io/update_tokens.py` | Fixed count_tokens using converse shape (17-02 baseline) | VERIFIED | No regression |
 
 ---
 
@@ -63,42 +110,14 @@ gaps:
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| scan_monorepo._collect | lint/workflow_hints._parse_workflow_hints | `from vault_io.lint.workflow_hints import _parse_workflow_hints` | WIRED | Line 47 of scan_monorepo.py; used at lines 640, 689 |
-| detect_containers.main() | resolve_wiki_and_repo() | tuple unpack `wiki, repo = resolve_wiki_and_repo()` | WIRED | Line 182 detect_containers.py |
-| detect_containers.main() | detect(repo, workspace_path=wiki.parent) | positional + kwarg call | WIRED | Line 187 detect_containers.py |
-| init_vault.main() | resolve_wiki_and_repo() | tuple unpack `wiki, repo = resolve_wiki_and_repo()` | WIRED | Line 305 init_vault.py |
-| init_vault._resolve_pinned_containers | detect(repo, workspace_path=?) | _detect_containers(repo) — workspace_path MISSING | NOT_WIRED | Line 86 init_vault.py: `records = _detect_containers(repo)` — no workspace_path passed; WSRES-02 exclusion bypassed for init path |
-| update_tokens.count_tokens | boto3 bedrock-runtime.count_tokens | input={"converse":{...}} | WIRED | Lines 40-49 update_tokens.py |
-| update_tokens.count_tokens response | inputTokens field | `response["inputTokens"]` | WIRED | Line 50 update_tokens.py |
-
----
-
-## Requirements Coverage
-
-| Requirement | Source Plan | Description | Status | Evidence |
-|-------------|------------|-------------|--------|----------|
-| SCAN-01 | 17-01-PLAN.md | _load_existing_pages folds companion files into parent slug | SATISFIED | fold_companions=True at package call sites; _parse_workflow_hints import confirmed |
-| SCAN-02 | 17-01-PLAN.md | Unit test against fixture asserts 0 deleted for companions | SATISFIED | test_compute_diff_no_phantom_deletes PASSED |
-| TOK-01 | 17-02-PLAN.md | count_tokens() uses correct boto3 bedrock-runtime.count_tokens parameter shape | SATISFIED | input={"converse":{...}}; no content=[{...}]; no inputTokenCount |
-| TOK-02 | 17-02-PLAN.md | Unit test mocks boto3 client, asserts request payload + response key; gated integration test | SATISFIED | test_count_tokens_request_shape and test_count_tokens_returns_input_tokens pass; integration test gated by CODE_WIKI_RUN_INTEGRATION |
-| TOK-03 | 17-04-PLAN.md | Existing wiki pages with tokens: 0 are re-stamped | SATISFIED | grep of real wiki returns 0 at `tokens: 0`; wiki commit 80a4739 exists |
-| WSRES-01 | 17-03-PLAN.md | init_vault.py and detect_containers.py use resolve_wiki_and_repo() second return value | SATISFIED | Both files confirmed: wiki, repo = resolve_wiki_and_repo() |
-| WSRES-02 | 17-03-PLAN.md | detect_containers.detect() excludes resolved workspace path from classification | PARTIAL — BLOCKER | detect() function itself is correct with D-11 guard; BUT init_vault._resolve_pinned_containers calls _detect_containers(repo) without workspace_path (line 86); scan_monorepo._discover_heuristic rglob has no workspace filter |
-| WSRES-03 | 17-03-PLAN.md | Test runs detector against fixture repo, asserts correct results | SATISFIED | 4 tests in test_detect_containers.py pass |
-
----
-
-## Anti-Patterns Found
-
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| update_tokens.py | 107 | Baseline construction uses extra `\n` vs on-disk content | Warning | Token count inflated marginally; idempotency holds but count != disk text with tokens stripped (per WR-01 in 17-REVIEW.md) |
-| update_tokens.py | 103,121 | parts[1].strip().split("\n") computed twice | Info | Minor redundancy (IN-02 in 17-REVIEW.md) |
-| update_tokens.py | 104 | tokens: line filter doesn't handle `tokens:42` (no space) | Warning | Duplicate tokens key on non-canonical YAML variant; idempotency break (WR-03 in 17-REVIEW.md) |
-| init_vault.py | 86 | _detect_containers(repo) called without workspace_path | BLOCKER | WSRES-02 exclusion bypassed for /graph-wiki:init path; workspace dir can pollute layout block |
-| scan_monorepo.py | 550 | _discover_heuristic rglob has no workspace segment filter | Warning | workspace dir can yield spurious pyproject.toml in v2 layout heuristic scan (CR-01 second half per 17-REVIEW.md) |
-
-No TBD, FIXME, or XXX markers found in any phase-17-modified source file.
+| `detect_containers.main()` | `detect(repo, workspace_path=wiki.parent)` | tuple unpack + kwarg | WIRED | Line 182, 187 (baseline — no change) |
+| `init_vault.init_wiki` | `_resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)` | kwarg | WIRED | Line 169; `workspace_path = wiki_path.parent` at line 164 |
+| `init_vault._resolve_pinned_containers` | `_detect_containers(repo, workspace_path=workspace_path)` | kwarg | WIRED | Line 88 |
+| `scan_monorepo.main()` | `discover_workspaces(repo, pinned_containers=pinned, workspace_dir=workspace)` | kwarg | WIRED | Line 1160; `workspace = wiki.parent` at line 1133 |
+| `scan_monorepo.discover_workspaces` | `_discover_heuristic(repo, workspace_dir=workspace_dir)` | kwarg | WIRED | Line 392 |
+| `scan_monorepo._discover_heuristic` | `workspace_segments` filter on both rglob loops | set membership check | WIRED | Lines 563, 580 |
+| `init_vault._resolve_pinned_containers` | `_detect_containers(repo)` (unguarded — OLD) | N/A | GONE | Zero matches: `grep -n "_detect_containers(repo)" init_vault.py \| grep -v workspace_path` |
+| `scan_monorepo.discover_workspaces` | `_discover_heuristic(repo)` (unguarded — OLD) | N/A | GONE | Zero matches: `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` |
 
 ---
 
@@ -106,12 +125,42 @@ No TBD, FIXME, or XXX markers found in any phase-17-modified source file.
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| update_tokens.py uses converse shape | `grep -n "input=" packages/vault-io/src/vault_io/update_tokens.py` | line 42: `input={` | PASS |
-| update_tokens.py reads inputTokens | `grep -n "inputTokens\|inputTokenCount" packages/vault-io/src/vault_io/update_tokens.py` | inputTokens at line 50; 0 inputTokenCount matches | PASS |
-| detect() has workspace_path param | Python introspection | signature confirmed | PASS |
-| init_vault._resolve_pinned_containers passes workspace_path | `grep -n "_detect_containers" init_vault.py` | line 86: `_detect_containers(repo)` — no workspace_path | FAIL |
-| Real wiki has no pages stuck at tokens: 0 (non-template) | `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents \| grep -v ".templates" \| wc -l` | 0 | PASS |
-| Full unit suite passes | `uv run --package vault-io pytest -q (unit only)` | 86 passed | PASS |
+| `_resolve_pinned_containers` accepts `workspace_path` | `grep -n "def _resolve_pinned_containers" init_vault.py` | line 84: includes `workspace_path: Path \| None = None` | PASS |
+| `_resolve_pinned_containers` forwards `workspace_path` | `grep -n "_detect_containers(repo, workspace_path=" init_vault.py` | line 88: match | PASS |
+| No unguarded `_detect_containers(repo)` in init_vault.py | `grep -n "_detect_containers(repo)" init_vault.py \| grep -v workspace_path` | zero matches | PASS |
+| `_discover_heuristic` has `workspace_segments` filter | `grep -n "workspace_segments" scan_monorepo.py` | lines 517, 522, 563, 580 (4 matches) | PASS |
+| No unguarded `_discover_heuristic(repo)` in scan_monorepo src | `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` | zero matches | PASS |
+| `main()` passes `workspace_dir=workspace` | `grep -n "workspace_dir=workspace" scan_monorepo.py` | line 1160: match | PASS |
+| Full vault-io unit suite | `uv run --package vault-io pytest packages/vault-io/ -q` | 93 passed, 1 skipped in 42.94s | PASS |
+| update_tokens.py uses converse shape (SC#2 baseline) | `grep -n "inputTokens" update_tokens.py` | line 50: `response["inputTokens"]` | PASS |
+| Real wiki pages have no `tokens: 0` (non-template) | `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents \| grep -v ".templates" \| wc -l` | 0 | PASS (previously verified) |
+
+---
+
+## Requirements Coverage
+
+| Requirement | Source Plan | Description | Status | Evidence |
+|-------------|------------|-------------|--------|----------|
+| SCAN-01 | 17-01-PLAN.md | _load_existing_pages folds companion files into parent slug | SATISFIED | No regression |
+| SCAN-02 | 17-01-PLAN.md | Unit test against fixture asserts 0 deleted for companions | SATISFIED | No regression |
+| TOK-01 | 17-02-PLAN.md | count_tokens() uses correct boto3 bedrock-runtime.count_tokens parameter shape | SATISFIED | No regression |
+| TOK-02 | 17-02-PLAN.md | Unit test mocks boto3 client, asserts request payload + response key; gated integration test | SATISFIED | No regression |
+| TOK-03 | 17-04-PLAN.md | Existing wiki pages with tokens: 0 are re-stamped | SATISFIED | No regression |
+| WSRES-01 | 17-03-PLAN.md | init_vault.py and detect_containers.py use resolve_wiki_and_repo() second return value | SATISFIED | No regression |
+| WSRES-02 | 17-03-PLAN.md + 17-05-PLAN.md | detect_containers.detect() excludes resolved workspace path from classification across ALL call paths | SATISFIED | All three call paths wired; 7 new tests; no unguarded call sites |
+| WSRES-03 | 17-03-PLAN.md | Test runs detector against fixture repo, asserts correct results | SATISFIED | No regression |
+
+---
+
+## Anti-Patterns Found
+
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| update_tokens.py | 107 | Baseline construction uses extra `\n` vs on-disk content | Warning | Token count inflated marginally; idempotency holds (WR-01) |
+| update_tokens.py | 103,121 | parts[1].strip().split("\n") computed twice | Info | Minor redundancy (IN-02) |
+| update_tokens.py | 104 | tokens: line filter doesn't handle `tokens:42` (no space) | Warning | Duplicate tokens key on non-canonical YAML variant (WR-03) |
+
+No new anti-patterns introduced by plan 17-05. No TBD, FIXME, or XXX markers in phase-17-modified source files.
 
 ---
 
@@ -123,19 +172,14 @@ None — all verifiable items resolved programmatically.
 
 ## Gaps Summary
 
-**One BLOCKER gap (CR-01 from 17-REVIEW.md):**
+No gaps remaining. Phase 17 is complete.
 
-SC#4 ("The workspace directory itself does not appear in its own layout block as a `docs` container") is achieved **at the CLI detection entry point** (`detect_containers.main()` → `detect(repo, workspace_path=wiki.parent)`). The four tests in `test_detect_containers.py` exercise this path and pass.
+**SC#4 closure (plan 17-05):** The BLOCKER gap from the initial verification is closed. WSRES-02 ("workspace directory excluded from container detection") is now satisfied across all three call paths:
+1. `detect_containers.main()` — wired in 17-03 (unchanged)
+2. `init_vault._resolve_pinned_containers` — wired in 17-05 via `workspace_path: Path | None = None` plumb-through
+3. `scan_monorepo._discover_heuristic` — wired in 17-05 via `workspace_segments` D-11-guard-parity filter on both rglob loops
 
-However, WSRES-02 is **not fully wired** through two additional call paths that matter in practice:
-
-1. **`init_vault._resolve_pinned_containers` (line 86):** Calls `_detect_containers(repo)` without `workspace_path`. When `/graph-wiki:init` runs against a v2-layout repo, the workspace dir (`graph-wiki/`) will still appear in the detection records (classified as `ambiguous` or `docs`) and may pollute the layout block written to `wiki/CLAUDE.md`. The SC says "does not appear in its own layout block" — this path can produce exactly that failure.
-
-2. **`scan_monorepo._discover_heuristic`:** The `rglob("pyproject.toml")` walk at line 550 has no workspace segment filter. If the workspace dir (`graph-wiki/`) contains a `pyproject.toml`, it will be picked up as a spurious Python package during heuristic scan. This affects `/graph-wiki:scan` when no pinned layout is found.
-
-**Verdict:** `gaps_found`. The phase goal states "repo/container resolution works at the v2 workspace layout" — the fix is structurally present in `detect()` but not propagated to the two callers that drive actual wiki bootstrap and scan. The roadmap SC#4 is satisfiable via the unit tests only because they call `detect()` directly; the production code paths that emit the layout block remain unguarded.
-
-**Recommendation:** The gap is actionable with a small follow-up. It does NOT require re-doing the current plans — the fix in `detect()` is correct and just needs to be plumbed through `_resolve_pinned_containers` and `_discover_heuristic`. This can be a targeted patch in a follow-up plan or as part of Phase 19 debt cleanup. If the developer accepts that the CLI-level exclusion is sufficient for the current milestone scope (the layout block is written interactively and the user can skip the workspace dir when prompted), an override can be applied.
+Full test suite: 93 passed, 1 skipped (86 baseline + 7 new). No regressions.
 
 ---
 
@@ -254,31 +298,24 @@ packages/vault-io/tests/test_detect_containers.py::test_v2_synthetic_repo PASSED
 
 ### SC#4 — The workspace dir does not appear in its own layout block as a `docs` container
 
-Evidence: same test file output; `test_workspace_path_excluded` specifically covers this:
+**Plan 17-05 closure:** SC#4 (WSRES-02) is now satisfied across all three call paths. See "SC#4 (WSRES-02) — Full Call-Path Verification" section above for implementation evidence.
 
-```
-packages/vault-io/tests/test_detect_containers.py::test_workspace_path_excluded PASSED [ 50%]
-```
-
-This test asserts that when `workspace_path` is provided to `detect()` and is a proper subdir of `repo_root`, the workspace directory itself is not classified as a `docs` container. The D-11 v1-layout guard (`test_v1_layout_guard`) ensures the exclusion does not apply when `workspace_path == repo_root` (v1 layout where wiki is at the repo root).
-
-**Verifier note (CR-01):** The test and the `detect()` function are correct. However, `init_vault._resolve_pinned_containers` at line 86 calls `_detect_containers(repo)` without `workspace_path`, bypassing this exclusion for the `/graph-wiki:init` production path. The SC is satisfied at the `detect_containers.main()` CLI entry point and via direct `detect()` calls, but not via `init_wiki`. See Gaps Summary.
+New tests from plan 17-05 (all pass):
+- `test_resolve_pinned_containers_v2_excludes_workspace` — proves graph-wiki excluded when workspace_path passed to _resolve_pinned_containers
+- `test_resolve_pinned_containers_v1_guard` — proves no over-exclusion when workspace_path == repo
+- `test_resolve_pinned_containers_default_workspace_path_none` — proves additive default (pre-fix behavior preserved)
+- `test_discover_heuristic_v2_skips_workspace_pyproject` — proves pyproject.toml under workspace dir is skipped
+- `test_discover_heuristic_v2_skips_workspace_plugin_manifest` — proves plugin.json under workspace dir is skipped
+- `test_discover_heuristic_v1_guard_workspace_eq_repo` — proves no over-exclusion when workspace_dir == repo
+- `test_discover_heuristic_default_workspace_dir_none` — proves additive default
 
 ---
 
 ### SC#5 — Unit and integration tests pass under `uv run --package vault-io pytest`
 
 Evidence:
-- **Unit suite:** `uv run --package vault-io pytest` (unit only, ignoring integration/) → exit 0, **86 passed** in 39.25s (verified by this verifier run)
+- **Unit suite (re-verification):** `uv run --package vault-io pytest packages/vault-io/ -q` → exit 0, **93 passed**, 1 skipped in 42.94s
 - **Integration suite (gated):** `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` → **1 test** (`test_count_tokens_real_bedrock`); skipped by default per `docs/testing.md` D-10 pattern
-
-The executor's report of 563 passed / 32 skipped reflects the full workspace suite including other packages; the vault-io package suite is 86 unit tests.
-
----
-
-*Phase 17 verification enhanced: 2026-05-19.*
-*Verifier: Claude (gsd-verifier)*
-*Note: Enhanced from executor-drafted 17-VERIFICATION.md; frontmatter and gap analysis added; SC sections preserved verbatim from draft with one verifier note added to SC#4.*
 
 ---
 
@@ -299,7 +336,7 @@ The executor's report of 563 passed / 32 skipped reflects the full workspace sui
 
 ```
 uv run --package vault-io pytest packages/vault-io/ -q
-93 passed, 1 skipped in 44.46s
+93 passed, 1 skipped in 42.94s
 ```
 
 93 tests passed (86 baseline + 7 new: 3 from test_init_vault.py + 4 from test_scan_monorepo.py).
@@ -309,7 +346,13 @@ uv run --package vault-io pytest packages/vault-io/ -q
 SC#4 ("The workspace directory itself does not appear in its own layout block as a `docs` container") is now satisfied across **all three call paths**:
 
 1. `detect_containers.main()` — wired in plan 17-03 (unchanged)
-2. `init_vault._resolve_pinned_containers` — wired in plan 17-05: signature extended with `workspace_path: Path | None = None`, forwarded to `_detect_containers(repo, workspace_path=workspace_path)`; `init_wiki` caller updated to pass `workspace_path=workspace_path` (already computed at line 162 as `wiki_path.parent`)
+2. `init_vault._resolve_pinned_containers` — wired in plan 17-05: signature extended with `workspace_path: Path | None = None`, forwarded to `_detect_containers(repo, workspace_path=workspace_path)`; `init_wiki` caller updated to pass `workspace_path=workspace_path` (already computed at line 164 as `wiki_path.parent`)
 3. `scan_monorepo._discover_heuristic` — wired in plan 17-05: `workspace_dir=None` kwarg added with D-11 guard-parity `workspace_segments` computation; filter applied to both rglob loops (`pyproject.toml` and `.claude-plugin/plugin.json`); `discover_workspaces` plumbs through; `main()` passes `workspace_dir=workspace`
 
 **Verdict:** SC#4 (WSRES-02) is now fully satisfied across all three call paths: `detect_containers.main()` (17-03), `init_vault._resolve_pinned_containers` (17-05), `scan_monorepo._discover_heuristic` (17-05).
+
+---
+
+*Phase 17 initial verification: 2026-05-19.*
+*Phase 17 re-verification (plan 17-05 gap closure): 2026-05-19.*
+*Verifier: Claude (gsd-verifier)*
