@@ -1,6 +1,6 @@
-# Roadmap: deep-agents / code-wiki-agent
+# Roadmap: deep-agents / graph-wiki-agent
 
-**Project:** deep-agents (v1 = code-wiki-agent)
+**Project:** deep-agents (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
 **Current milestone:** v1.3 Tooling Cleanup (Phases 17-21; 19 reordered to end of execution queue)
 
@@ -8,7 +8,7 @@
 
 ## Milestones
 
-- ✅ **v1.0 — code-wiki-agent parity** — Phases 1-5 (shipped 2026-05-15) — [archive](milestones/v1.0-ROADMAP.md)
+- ✅ **v1.0 — graph-wiki-agent parity** — Phases 1-5 (shipped 2026-05-15) — [archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 — Quality Improvements** — Phases 6-10 (shipped 2026-05-17) — [archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 — Graph-Wiki Port & Debt Cleanup** — Phases 11-16 (shipped 2026-05-19) — [archive](milestones/v1.2-ROADMAP.md)
 - 🚧 **v1.3 — Tooling Cleanup** — Phases 17-19 (in progress)
@@ -18,7 +18,7 @@
 ## Phases
 
 <details>
-<summary>✅ v1.0 code-wiki-agent parity (Phases 1-5) — SHIPPED 2026-05-15</summary>
+<summary>✅ v1.0 graph-wiki-agent parity (Phases 1-5) — SHIPPED 2026-05-15</summary>
 
 - [x] Phase 1: Infrastructure, Vault IO, and MCP Skeleton (5/5 plans) — completed 2026-05-13
 - [x] Phase 2: Subagent Fan-Out Runtime (4/4 plans) — completed 2026-05-13
@@ -64,8 +64,8 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 
 - [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
 - [x] **Phase 18: Plugin Command Rename** - Rename the conflicting graph-wiki command to `/graph-wiki:bootstrap` to restore Claude Code's native `/init` (completed 2026-05-20)
-- [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
-- [ ] **Phase 21: Rename code-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute)
+- [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`GRAPH_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
+- [ ] **Phase 21: Rename graph-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute)
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review (moved to end of execution queue; runs after 18 + 21)
 
 ---
@@ -113,22 +113,22 @@ Plans:
 - [x] 18-06-PLAN.md — Extend scripts/check-brand.sh + .brand-grep-allow + red-then-green sanity; fold todo to resolved/ (CMD-03 gate)
 
 ### Phase 20: Workspace Manifest Model Config
-**Goal**: All wiki model-override configuration lives in the `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block, with the packaged `models.toml` in `model-adapter` as per-role fallback; the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path`, `--config`, `CODE_WIKI_CONFIG`) is removed.
+**Goal**: All wiki model-override configuration lives in the `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block, with the packaged `models.toml` in `model-adapter` as per-role fallback; the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path`, `--config`, `GRAPH_WIKI_CONFIG`) is removed.
 **Depends on**: Phase 17
 **Requirements**: WMC-01, WMC-02, WMC-03, WMC-04, WMC-05a, WMC-05b
 **Success Criteria** (what must be TRUE):
   1. `workspace-io.manifest` round-trips a populated `plugins[].roles[]` block (read → write → re-read preserves nested structure) with PyYAML
   2. `model-adapter.make_llm(role)` resolves to workspace-defined role config when present and falls back to the packaged `models.toml` per-role (per-role fallback, not all-or-nothing) when absent
-  3. `WikiConfig.models_path`, `set_models_path()`, and the `--config` / `CODE_WIKI_CONFIG` plumbing are removed from `code_wiki_agent/config.py`, `code_wiki_agent/cli.py`, and `code_wiki_mcp/server.py`; no code path remains that reads a `wiki-config.toml`
+  3. `WikiConfig.models_path`, `set_models_path()`, and the `--config` / `GRAPH_WIKI_CONFIG` plumbing are removed from `graph_wiki_agent/config.py`, `graph_wiki_agent/cli.py`, and `graph_wiki_mcp/server.py`; no code path remains that reads a `wiki-config.toml`
   4. `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` carries the full default `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge_a, judge_b — 9 entries mirroring packaged defaults)
-  5. `packages/workspace-io/README.md` documents the `roles:` schema; `code-wiki-agent` CLI help text and docs drop all `--config` references; the workspace-io wiki page's "no PyYAML" claim is corrected
+  5. `packages/workspace-io/README.md` documents the `roles:` schema; `graph-wiki-agent` CLI help text and docs drop all `--config` references; the workspace-io wiki page's "no PyYAML" claim is corrected
 **Out of scope**:
   - Per-machine model selection inside `.graph-wiki.local.yaml` (Option A chosen — redirect to a different workspace directory instead)
   - Migration tooling for the deleted `wiki-config.toml` / `wiki-config-claude.toml` (already `git rm`'d)
 **Requirement → SC map**:
   - WMC-01 (`workspace-io.manifest` round-trips populated `roles[]`) → SC#1
   - WMC-02 (`make_llm` workspace-override + per-role fallback) → SC#2
-  - WMC-03 (delete `WikiConfig.models_path` / `set_models_path` / `--config` / `CODE_WIKI_CONFIG`) → SC#3
+  - WMC-03 (delete `WikiConfig.models_path` / `set_models_path` / `--config` / `GRAPH_WIKI_CONFIG`) → SC#3
   - WMC-04 (populate `graph-wiki/.graph-wiki.yaml` with full role block) → SC#4
   - WMC-05a (workspace-io README documents `roles:` schema) → SC#5 (docs portion)
   - WMC-05b (workspace-io wiki page "no PyYAML" claim corrected; CLI help drops `--config`) → SC#5 (docs portion)
@@ -136,19 +136,19 @@ Plans:
 Plans:
 - [x] 20-01-PLAN.md — Extend `workspace-io.manifest` with `roles[]` round-trip + `read_roles` accessor + README schema docs (WMC-01, WMC-05a)
 - [x] 20-02-PLAN.md — Wire workspace-override layer into `model-adapter.loader.make_llm` with per-role fallback + tests; delete `set_models_path` (WMC-02)
-- [x] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `CODE_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
+- [x] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `GRAPH_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
 - [x] 20-04-PLAN.md — Populate `graph-wiki/.graph-wiki.yaml` with full 9-role block + docs sweep (wiki page, intel JSON, CLAUDE.md) + live verify (WMC-04, WMC-05b)
 
-### Phase 21: Rename code-wiki-agent → graph-wiki-agent
-**Goal**: Mechanical rename of the agent package from `code-wiki-agent` to `graph-wiki-agent` across the full repository — directory names, Python module names, console scripts, internal symbols, user-facing strings, trace dir, plugin shell-out invocations, tests, and planning docs — landed across staged commits with `scripts/check-brand.sh` extended to enforce the new brand.
+### Phase 21: Rename graph-wiki-agent → graph-wiki-agent
+**Goal**: Mechanical rename of the agent package from `graph-wiki-agent` to `graph-wiki-agent` across the full repository — directory names, Python module names, console scripts, internal symbols, user-facing strings, trace dir, plugin shell-out invocations, tests, and planning docs — landed across staged commits with `scripts/check-brand.sh` extended to enforce the new brand.
 **Depends on**: Phase 20
 **Requirements**: TBD (assigned during planning)
 **Success Criteria** (what must be TRUE):
-  1. `agents/code-wiki-agent/` is gone; `agents/graph-wiki-agent/` exists with full git history preserved via `git mv`
-  2. Python packages `code_wiki_agent` / `code_wiki_mcp` are renamed to `graph_wiki_agent` / `graph_wiki_mcp`; all imports in src + tests updated; `uv sync && uv run pytest agents/graph-wiki-agent/tests/ -m "not integration"` passes
-  3. Console scripts `code-wiki-agent` / `code-wiki-mcp` are gone; `graph-wiki-agent` / `graph-wiki-mcp` work end-to-end (CLI help renders, MCP `python -c "from graph_wiki_mcp import server"` succeeds)
-  4. Plugin shell-out scripts (`plugins/graph-wiki/skills/graph-wiki/scripts/*.py`) invoke `graph-wiki-agent`, not `code-wiki-agent`; trace directory is `.graph-wiki/traces/`, not `.code-wiki/traces/`
-  5. `scripts/check-brand.sh` greps for the old slugs and fails CI on any reintroduction; `.brand-grep-allow` is updated; full-repo grep for `code-wiki-agent` / `code_wiki_agent` / `code-wiki-mcp` / `code_wiki_mcp` returns 0 hits outside the allowlist
+  1. `agents/graph-wiki-agent/` is gone; `agents/graph-wiki-agent/` exists with full git history preserved via `git mv`
+  2. Python packages `graph_wiki_agent` / `graph_wiki_mcp` are renamed to `graph_wiki_agent` / `graph_wiki_mcp`; all imports in src + tests updated; `uv sync && uv run pytest agents/graph-wiki-agent/tests/ -m "not integration"` passes
+  3. Console scripts `graph-wiki-agent` / `graph-wiki-mcp` are gone; `graph-wiki-agent` / `graph-wiki-mcp` work end-to-end (CLI help renders, MCP `python -c "from graph_wiki_mcp import server"` succeeds)
+  4. Plugin shell-out scripts (`plugins/graph-wiki/skills/graph-wiki/scripts/*.py`) invoke `graph-wiki-agent`, not `graph-wiki-agent`; trace directory is `.graph-wiki/traces/`, not `.graph-wiki/traces/`
+  5. `scripts/check-brand.sh` greps for the old slugs and fails CI on any reintroduction; `.brand-grep-allow` is updated; full-repo grep for `graph-wiki-agent` / `graph_wiki_agent` / `graph-wiki-mcp` / `graph_wiki_mcp` returns 0 hits outside the allowlist
 **Out of scope**:
   - `graph-wiki/wiki/` content (companion pages, agent dir naming) — wiki is regenerated by `/graph-wiki:scan`
   - Raw spike sources under `.planning/spikes/{001,002}/sources/**` — historical material
@@ -159,7 +159,7 @@ Plans:
 - [x] 21-01-PLAN.md — Worktree setup + `git mv` directory moves (agents/ + src/ subdirs)
 - [x] 21-02-PLAN.md — pyproject.toml `name` + console scripts + `uv.lock` regeneration
 - [x] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
-- [x] 21-04-PLAN.md — Plugin shellouts + CODE_WIKI_* env-var rename + integration-gate test + cross-package .code-wiki/ trace-dir sweep
+- [x] 21-04-PLAN.md — Plugin shellouts + GRAPH_WIKI_* env-var rename + integration-gate test + cross-package .graph-wiki/ trace-dir sweep
 - [ ] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
 
 ### Phase 19: Phase 16 Code Review Burndown
@@ -179,7 +179,7 @@ Plans:
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
-| v1.0 code-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
+| v1.0 graph-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
 | v1.3 Tooling Cleanup | 5 | 9/15 | 🚧 In progress | - |
@@ -189,7 +189,7 @@ Plans:
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
 | 18. Plugin Command Rename | 6/6 | Complete   | 2026-05-20 |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
-| 21. Rename code-wiki-agent → graph-wiki-agent | 4/5 | In Progress|  |
+| 21. Rename graph-wiki-agent → graph-wiki-agent | 4/5 | In Progress|  |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
 
 ---

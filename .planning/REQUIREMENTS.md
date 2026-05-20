@@ -23,7 +23,7 @@ Source: `graph-wiki/work/2026-05-19-scan-diff-treats-companion-pages-as-orphans.
 Source: `.planning/todos/pending/2026-05-19-fix-bedrock-count-tokens-api-shape-in-update-tokens.md`. Current `vault_io.update_tokens.count_tokens()` calls `client.count_tokens(modelId=..., content=[{"text": text}])` — boto3 rejects `content` and requires `input` per current `bedrock-runtime.count_tokens` API. Every page fails to be stamped during `/graph-wiki:scan`; 35 newly-stubbed pages in `~/Personal/wiki/deep-agents` are at `tokens: 0` as a result.
 
 - [ ] **TOK-01**: `vault_io.update_tokens.count_tokens()` uses the correct current boto3 `bedrock-runtime.count_tokens` parameter shape (`input=...`); shape verified against installed boto3 introspection and AWS docs (https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html).
-- [ ] **TOK-02**: Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks the boto3 client and asserts the request payload matches the expected shape; gated integration test (`CODE_WIKI_RUN_INTEGRATION=1`) exercises a real `count_tokens` call against Bedrock.
+- [ ] **TOK-02**: Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks the boto3 client and asserts the request payload matches the expected shape; gated integration test (`GRAPH_WIKI_RUN_INTEGRATION=1`) exercises a real `count_tokens` call against Bedrock.
 - [x] **TOK-03**: Existing wiki pages with `tokens: 0` are re-stamped after the fix (operational closure — re-run `/graph-wiki:scan` or `update_tokens.py` against `~/Personal/wiki/deep-agents`).
 
 ### Workspace / Repo Resolution (WSRES)

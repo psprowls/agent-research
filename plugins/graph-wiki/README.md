@@ -11,7 +11,7 @@ The wiki lives at `<repo>/graph-wiki/wiki/` by default. Obsidian opens the works
 The plugin has two delivery surfaces that share the same wiki format:
 
 - **Claude (default)** — Claude Code runs the wiki workflows directly via the bundled `vault_io` Python package (this plugin).
-- **Bedrock (opt-in)** — `code-wiki-agent` runs the same workflows on AWS Bedrock with parallel subagents, for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
+- **Bedrock (opt-in)** — `graph-wiki-agent` runs the same workflows on AWS Bedrock with parallel subagents, for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
 
 ## Setup
 
@@ -44,13 +44,13 @@ The plugin has two delivery surfaces that share the same wiki format:
 
 ## [plugin] block syntax
 
-The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `code-wiki-agent` on Bedrock.
+The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `graph-wiki-agent` on Bedrock.
 
 ```yaml
 plugin:
   backend_default: claude          # claude | bedrock — applies to any command not listed below
   backend_overrides:
-    query: bedrock                 # route /graph-wiki:query to code-wiki-agent
+    query: bedrock                 # route /graph-wiki:query to graph-wiki-agent
     lint: claude                   # explicit — same as the default
 ```
 
@@ -88,4 +88,4 @@ These commands depend on the work-layer subsystem (work item lifecycle lint, sid
 - `skills/graph-wiki/references/obsidian-setup.md` — recommended Obsidian configuration
 - `skills/graph-wiki/references/monorepo-principles.md` — why this pattern works for monorepos
 - `packages/vault_io/` — the Python implementation behind the claude-branch shims
-- `agents/code-wiki-agent/` — the Bedrock CLI that powers the bedrock branch
+- `agents/graph-wiki-agent/` — the Bedrock CLI that powers the bedrock branch

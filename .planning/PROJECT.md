@@ -2,27 +2,27 @@
 
 ## What This Is
 
-A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, **`code-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
+A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, **`graph-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
 ## Core Value
 
 **Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
 
-If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
+If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
 ## Current State: v1.2 Shipped — 2026-05-19
 
-**Shipped:** v1.0 (code-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19). 16 phases, 85 plans, 126/126 requirements satisfied across three milestones.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19). 16 phases, 85 plans, 126/126 requirements satisfied across three milestones.
 
 **What works today (post-v1.2):**
-- `code-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full graph-wiki workflow on Bedrock with within-command subagent fan-out
-- All MCP tools exposed via `code-wiki-mcp` stdio server; verified end-to-end via DA-CLI integration test
+- `graph-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full graph-wiki workflow on Bedrock with within-command subagent fan-out
+- All MCP tools exposed via `graph-wiki-mcp` stdio server; verified end-to-end via DA-CLI integration test
 - Agent prompts incorporate canonical SKILL.md content; divergence eval flags remaining drift
 - Cost-frontier validated: `models.toml` defaults reflect cost-optimal picks per role (Qwen3-32B fan-out, Qwen3-80B synthesis)
 - Trace renderer with per-(role,model) cost rollup, `usage_metadata` populated across all 4 production fan-out callsites
 - Subagent context completion: `wiki/CLAUDE.md` layout + style + log format injected into scanner/linter/ingestor system prompts
 - **New in v1.2:** `packages/workspace-io/` owns workspace bootstrap + manifest IO + config resolution under the `graph-wiki` brand; `vault-io._workspace` delegates to it; `.graph-wiki.yaml` is the per-workspace manifest filename; `GRAPH_WIKI_WORKSPACE` is the env override
-- **New in v1.2:** `plugins/graph-wiki/` is the ported Claude Code plugin (runs on Claude Code inference, NOT a wrapper around `code-wiki-agent`); `/graph-wiki:*` namespace; shims wired through vault-io + workspace-io; coexists with `code-wiki-agent` as the parallel Bedrock cost-frontier surface
+- **New in v1.2:** `plugins/graph-wiki/` is the ported Claude Code plugin (runs on Claude Code inference, NOT a wrapper around `graph-wiki-agent`); `/graph-wiki:*` namespace; shims wired through vault-io + workspace-io; coexists with `graph-wiki-agent` as the parallel Bedrock cost-frontier surface
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Historical entries below may reference `cores/` because that was the path at the time; current code lives under `packages/`. Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12.
 
@@ -58,10 +58,10 @@ Full v1.2 retrospective in `.planning/RETROSPECTIVE.md`; v1.2 archive in `.plann
 
 30/30 requirements satisfied across Phases 11-16. Full detail: `.planning/milestones/v1.2-ROADMAP.md` and `.planning/milestones/v1.2-REQUIREMENTS.md`.
 
-- ✓ **workspace-io package shipped** — v1.2 (WS-01..10): new `packages/workspace-io/` ported from upstream `lattice-workspace` with `.graph-wiki.yaml` manifest, `GRAPH_WIKI_WORKSPACE` env var, `GraphWikiConfig` dataclass; `vault-io._workspace.resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`; 67 ported tests green; two-phase `code-wiki-agent init` bootstrap.
+- ✓ **workspace-io package shipped** — v1.2 (WS-01..10): new `packages/workspace-io/` ported from upstream `lattice-workspace` with `.graph-wiki.yaml` manifest, `GRAPH_WIKI_WORKSPACE` env var, `GraphWikiConfig` dataclass; `vault-io._workspace.resolve_wiki_and_repo` delegates to `workspace_io.config.resolve()`; 67 ported tests green; two-phase `graph-wiki-agent init` bootstrap.
 - ✓ **Selective drift backport** — v1.2 (BACKPORT-01..04): body-diff inventory of 11 overlapping modules between `vault-io` and upstream `lattice-wiki-core` at pinned SHA; zero PORT verdicts (every drift hunk intentional or out-of-v1.2 subsystem); decisions logged in `packages/vault-io/DRIFT-DECISIONS.md`.
 - ✓ **Ecosystem rebrand complete** — v1.2 (BRAND-01/02/04): `lattice` → `graph-wiki` (kebab) / `graph_wiki` (snake) swept across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` in 5 atomic commits; `scripts/check-brand.sh` + `.brand-grep-allow` grep-gate enforces ongoing discipline; `.planning/spikes/CONVENTIONS.md` corrected.
-- ✓ **Plugin contract locked + ported** — v1.2 (PLUGIN-01..05): Phase 13 produced CONTRACT-INDEX.md + SHELL-OUT-PATTERN.md locking that the ported `plugins/graph-wiki/` plugin runs on **Claude Code inference** (not a wrapper around `code-wiki-agent`); Phase 14 ported the plugin with renamed `plugin.json` id, `/graph-wiki:*` namespace, agent/skill renames, and shims wired through vault-io. Phase 14 prerequisite: `vault_io.lint_wiki` (~509 LOC) + `vault_io.wiki_search` (~194 LOC) verbatim-ported from upstream (VP-01).
+- ✓ **Plugin contract locked + ported** — v1.2 (PLUGIN-01..05): Phase 13 produced CONTRACT-INDEX.md + SHELL-OUT-PATTERN.md locking that the ported `plugins/graph-wiki/` plugin runs on **Claude Code inference** (not a wrapper around `graph-wiki-agent`); Phase 14 ported the plugin with renamed `plugin.json` id, `/graph-wiki:*` namespace, agent/skill renames, and shims wired through vault-io. Phase 14 prerequisite: `vault_io.lint_wiki` (~509 LOC) + `vault_io.wiki_search` (~194 LOC) verbatim-ported from upstream (VP-01).
 - ✓ **Wiki self-update** — v1.2 (BRAND-03): `~/Personal/wiki/deep-agents` re-scanned + OTel re-ingested + librarian query run against post-rebrand codebase via Claude role-override profile (Haiku 4.5 fan-out + Sonnet 4.6 reasoning); 3 operational deviations auto-fixed inline.
 - ✓ **v1.1 carry-forward debt closed** — v1.2 (TRACE-FU-01, SWEEP-FU-02/03/04, MCP-CAN-01/02, MODEL-FU-01): `TaskResult` contract on `SubagentPool` threads `response.usage_metadata` into JSONL traces; all 4 fan-out callsites emit non-None tokens/cost; DivergenceMetric wired through all 6 in-scope roles with code_reader + synthesizer rubrics; scanner re-swept against fresh-package vault; MCP wire-level cancel re-deferred behind event-driven trigger (langchain-aws#663 OR aioboto3 GA); integration-gate convention codified + grep-enforced; synthesizer model_id assertion locked to Qwen reality.
 
@@ -75,44 +75,44 @@ Full v1.2 retrospective in `.planning/RETROSPECTIVE.md`; v1.2 archive in `.plann
 - ✓ **Trace schema versioned + cost-aware renderer** — v1.1 (OBS-04..06): `schema_version: 1` stamped on every JSONL record; renderer surfaces per-(role,model) cost rollup with `(+K unknown)` accounting; collapses repeated subagent groups by default with `--expand` flag
 
 #### Phase 10 Complete — 2026-05-17 (subagent-context-completion)
-- [x] Four shared fragments shipped under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` — `architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` — each with the standard `# Source: / # Anchor: / # Source-commit:` provenance header (CTX-01, CTX-02)
+- [x] Four shared fragments shipped under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/` — `architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` — each with the standard `# Source: / # Anchor: / # Source-commit:` provenance header (CTX-01, CTX-02)
 - [x] `prompts/project_context.py::render_project_context(wiki_path)` reads `wiki/CLAUDE.md` (or `AGENTS.md` fallback), parses the embedded layout block via existing `vault_io.layout_io`, returns deterministic ~30-line block or `""` on missing schema files (CTX-03)
 - [x] Four prompt builders converted to `build_X_system(project_context="")` functions (scanner, linter, ingestor, librarian) with backward-compat module-level `*_SYSTEM` constant aliases preserved; three commands (scan, lint, ingest) wire `render_project_context()` at SystemMessage construction (CTX-03)
 - [x] Snapshot tests in `test_prompt_snapshots.py` cover with-context, without-context, and missing-CLAUDE.md degradation paths — 14 snapshots, 26 prompt tests total pass (CTX-04)
 - [x] Token-budget regression in `test_token_budget.py` enforces +1500 tokens per role ceiling; ingestor tightest at +751/1500 headroom (CTX-05)
-- [x] Phase 6 divergence eval re-run live against AWS Bedrock (`CODE_WIKI_RUN_EVAL=1`) — librarian/ingestor/linter/scanner all PASSED, no hard-severity regression (CTX-05)
+- [x] Phase 6 divergence eval re-run live against AWS Bedrock (`GRAPH_WIKI_RUN_EVAL=1`) — librarian/ingestor/linter/scanner all PASSED, no hard-severity regression (CTX-05)
 
 #### Phase 08 Complete — 2026-05-17 (host-reliability)
 - [x] MCP cancellation wired through `SubagentPool.run_all` — per-item `status: cancelled` trace records and single `event: batch_cancelled` terminal record on cancel; `_write_trace` / `_write_batch_terminal` never raise (MCP-09, MCP-10)
 - [x] Deterministic in-process asyncio cancel test with stubbed LLM — zero Bedrock cost (MCP-11)
 - [x] `WikiScanInput.repo_path` field added so the E2E test can scope `wiki_scan` to a `tmp_path` vault (DACLI-01)
-- [x] Single sequential E2E integration test exercises all six MCP tools as a stdio subprocess against a fresh `tmp_path` vault; gated behind `CODE_WIKI_RUN_INTEGRATION=1` (DACLI-02, DACLI-03)
+- [x] Single sequential E2E integration test exercises all six MCP tools as a stdio subprocess against a fresh `tmp_path` vault; gated behind `GRAPH_WIKI_RUN_INTEGRATION=1` (DACLI-02, DACLI-03)
 - [x] `docs/cancellation.md` — v1.1 reference for `notifications/cancelled` protocol, internal unwinding chain, trace shapes, orphan-thread limitation, v1.2+ paths
 
-#### Milestone v1.0 SHIPPED — 2026-05-15 (code-wiki-agent parity)
+#### Milestone v1.0 SHIPPED — 2026-05-15 (graph-wiki-agent parity)
 - [x] **Phase 04 (Eval Harness)** — `cores/eval-harness` package with fixture corpus (3 repos), headless `claude -p` baseline recorder (EVAL-08 schema), `deepeval` 4.0 integration with `AmazonBedrockModel`, heterogeneous two-judge panel (claude-sonnet-4-6 + nova-pro-v1:0), cost-frontier sweep runner (`pytest-evals`), regression-check AssertionError gate, structural metrics (cites code path / wikilinks resolve / valid frontmatter) (EVAL-01..10)
 - [x] **Phase 05 (Remaining Commands)** — `init`, `scan`, `ingest`, `lint`, `log` shipped on both MCP and headless CLI surfaces with a single shared command implementation; `scan` and `lint` use SubagentPool fan-out (scanner across packages; linter across 3 rule-groups); `ingest` routes to package/concept/adr pages via a single ingestor LLM call; `--config` global Typer callback + `WikiConfig` dataclass (CMD-01..08, MCP-01..08, CLI-01..07)
 
 #### Phase 03 Complete — 2026-05-14 (query-vertical-slice-hybrid-search)
 - [x] Hybrid search: BM25 via `bm25s` + Titan v2 embeddings in SQLite (WAL), sha256 incremental rebuild, RRF fusion (SEARCH-01..06)
 - [x] `commands/query.py` — shared `run_query()` pipeline: hybrid search → librarian fan-out (SubagentPool) → synthesizer → QueryResult (CMD-04, CLI-03)
-- [x] `code-wiki-agent query` CLI subcommand with `--top-k`, `--vault`, `--json`, `--no-state-gate` (CLI-01..07, CMD-07, CMD-08)
+- [x] `graph-wiki-agent query` CLI subcommand with `--top-k`, `--vault`, `--json`, `--no-state-gate` (CLI-01..07, CMD-07, CMD-08)
 - [x] `wiki_query` MCP tool with Pydantic schemas, `ctx.report_progress()` notifications (MCP-02, MCP-04, MCP-06, MCP-07)
 - [x] G1 citation resolver normalises `.md`-suffixed wikilinks correctly (regression caught in UAT)
-- [x] 54 unit tests; 3 integration tests gated behind `CODE_WIKI_RUN_INTEGRATION=1`
+- [x] 54 unit tests; 3 integration tests gated behind `GRAPH_WIKI_RUN_INTEGRATION=1`
 
 #### Phase 02 Complete — 2026-05-14 (subagent-fan-out-runtime)
 - [x] `SubagentPool.run_all()` with partial-failure isolation, semaphore throttle, per-role concurrency (SUB-01..07)
-- [x] Structured JSONL trace output to `.code-wiki/traces/` for every fan-out call (OBS-01)
-- [x] `code-wiki-agent trace` CLI subcommand renders traces as human-readable timeline (OBS-02, OBS-03)
+- [x] Structured JSONL trace output to `.graph-wiki/traces/` for every fan-out call (OBS-01)
+- [x] `graph-wiki-agent trace` CLI subcommand renders traces as human-readable timeline (OBS-02, OBS-03)
 - [x] Real-Bedrock integration tests: 4-parallel with 1 intentional failure → 3 successes, no sibling cancellation (BED-02..05)
 
 #### Phase 01 Complete — 2026-05-13 (infrastructure-vault-io-and-mcp-skeleton)
-- [x] `uv` workspace at repo root with tiered layout: `cores/vault-io`, `cores/model-adapter`, `agents/code-wiki-agent`
+- [x] `uv` workspace at repo root with tiered layout: `cores/vault-io`, `cores/model-adapter`, `agents/graph-wiki-agent`
 - [x] Project license + README seeded (MIT, open-source-ready)
 - [x] Bedrock model adapter — `make_llm("haiku")` invokes real `ChatBedrockConverse`; `BedrockAccessDenied` raised with ARN on bad credentials
 - [x] Vault IO round-trip — reading-then-writing every page produces byte-identical output (29 tests pass)
-- [x] MCP stdio surface — FastMCP `code-wiki-mcp` server with `_StdoutGuard`; `wiki_ping` tool; provably stdout-clean
+- [x] MCP stdio surface — FastMCP `graph-wiki-mcp` server with `_StdoutGuard`; `wiki_ping` tool; provably stdout-clean
 - [x] CI pipeline (ruff + pytest); ruff clean (`ruff check .` and `ruff format --check .` both exit 0)
 - [x] **Read-compatible with existing vaults** — preserve frontmatter, layout block, wikilinks, file-map format
 
@@ -185,7 +185,7 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 | Read-compatible with existing vaults | Allows side-by-side use during transition; preserves Obsidian compatibility; no migration script needed | Validated Phase 01 |
 | Eval = cost-frontier per subagent role, baselined from current tool | Direct measurement of the project's reason for existing; recorded-from-Sonnet baseline avoids hand-curation overhead | ✓ Validated Phase 04 (harness shipped; sweep run is v1.1 work) |
 | Tiered monorepo (shared cores + agent packages) | Anticipates future agents reusing model adapters, subagent runtime, eval harness | Validated Phase 01 |
-| Package named `code-wiki-agent` (not `lattice-wiki`) | Clearer description of what it does; avoids confusion with the existing TS plugin during the transition period | Validated Phase 01 |
+| Package named `graph-wiki-agent` (not `lattice-wiki`) | Clearer description of what it does; avoids confusion with the existing TS plugin during the transition period | Validated Phase 01 |
 | No custom TUI in v1 | DeepAgents CLI is sufficient; building a TUI is parallel work that doesn't help the cost-savings goal | Validated Phase 01 |
 | Titan Embeddings v2 (`amazon.titan-embed-text-v2:0`, 1024 dims) for embedding search | No extra IAM grants beyond Phase 1 Bedrock access; native to langchain-aws BedrockEmbeddings | Validated Phase 03 |
 | CLI-05 (`--config`) deferred; `--vault` used instead in Phase 03 | ROADMAP Phase 03 success criteria do not require `--config`; tracked for Phase 05 | ✓ Closed Phase 05-01 (`--config` global Typer callback + `WikiConfig`) |
@@ -199,12 +199,12 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 | `schema_version: 1` stamped as first key on every trace JSONL record + lenient consumer that warns once per file on v0 or higher-than-known | Allows future schema evolution without breaking existing renderers; warn-but-render avoids silent skips | ✓ Validated Phase 09 |
 | `render_project_context()` at command entry (not per-subagent invocation) | Render once, pass through; respects token budget (+1500 cap per role); avoids redundant `wiki/CLAUDE.md` reads on fan-out | ✓ Validated Phase 10 |
 | No deepagents `SubAgentMiddleware` migration — keep existing `SubagentPool` dispatch | Architectural cost of migration outweighs the context-injection benefit; fragment curation pattern + project_context renderer achieve the same outcome | ✓ Validated Phase 10 |
-| `wiki-config.toml` and `.graph-wiki.yaml` are different surfaces — no migration script (WS-10, 2026-05-18) | `wiki-config.toml` (repo root) is the runtime CLI config read by `WikiConfig` dataclass — fields `{models_path, vault_path}` — pointing the CLI at models + a default vault. `.graph-wiki.yaml` (per workspace) is the manifest read/written by `workspace_io.manifest` — fields `{version, initialized_at, plugins[{name, installed_version, applied_version}]}` — tracking which plugins initialized the workspace. The two coexist with no overlap, so no migration is needed; per D-05 the existing throwaway `~/Personal/wiki/deep-agents/` is deleted and re-inited via `code-wiki-agent init` rather than migrated. | ✓ Validated Phase 11 |
+| `wiki-config.toml` and `.graph-wiki.yaml` are different surfaces — no migration script (WS-10, 2026-05-18) | `wiki-config.toml` (repo root) is the runtime CLI config read by `WikiConfig` dataclass — fields `{models_path, vault_path}` — pointing the CLI at models + a default vault. `.graph-wiki.yaml` (per workspace) is the manifest read/written by `workspace_io.manifest` — fields `{version, initialized_at, plugins[{name, installed_version, applied_version}]}` — tracking which plugins initialized the workspace. The two coexist with no overlap, so no migration is needed; per D-05 the existing throwaway `~/Personal/wiki/deep-agents/` is deleted and re-inited via `graph-wiki-agent init` rather than migrated. | ✓ Validated Phase 11 |
 | **Plugin shell-out via `uv run --project "$DEEP_AGENTS_ROOT"`** (SO-01, v1.2) | Plugin scripts at `plugins/graph-wiki/scripts/*.py` shell out to deep-agents Python helpers via `uv run --project "$DEEP_AGENTS_ROOT" python3 -m ...`; backend selection per command via `[plugin]` block in `.graph-wiki.yaml` (SO-03), defaulting to `claude` everywhere with `bedrock` as documented per-command opt-in. | ✓ Validated Phase 14 |
 | **`TaskResult` contract on `SubagentPool.run_all`** (TRACE-FU-01, v1.2) | All fan-out callbacks return a `TaskResult` wrapping the LangChain `AIMessage.usage_metadata` instead of raw scalars. JSONL trace records now emit non-None `tokens_in` / `tokens_out` / `cost_usd` per item; gated regression test verifies against real Bedrock. | ✓ Validated Phase 16 |
 | **MCP wire-level cancel deferral re-anchored to event trigger** (Phase 16 D-09, 2026-05-19) | Calendar re-evaluation dates generated noise without changing the gate outcome. Replaced with event-driven trigger: re-evaluate when `langchain-aws#663` merges OR aioboto3 GA/1.0 lands. Anchored signal, no scheduled toil. | ✓ Validated Phase 16 |
 | **No `lattice` symbols survive in-scope** (BRAND-04, v1.2) | `scripts/check-brand.sh` runs `grep -rE` across packages/agents/plugins/.planning/CLAUDE.md and pipes through `.brand-grep-allow` (52 intentionally-preserved historical refs). Exit non-zero on unallowlisted hit. Runs as a normal pytest gate. | ✓ Validated Phase 12 |
-| Phase 13 (M3a) — graph-wiki plugin contract surface locked (SP-05, 2026-05-18) | Foundational reframe: the ported graph-wiki plugin runs on **Claude Code inference** (P-01) — it is NOT a wrapper around `code-wiki-agent`. `code-wiki-agent` (Bedrock-backed CLI + MCP server) stays as the separate, headless, cost-frontier surface. The two coexist as parallel surfaces over the same underlying Python helpers in `vault-io` / `workspace-io`. Verdicts: 6 upstream commands rename or reshape (`init`, `scan`, `ingest`, `lint`, `query`, `log`) + 3 dropped (`archive`, `regen-index`, `status` — work-layer out of v1.2 per C-01). Shell-out shape: `uv run --project "$DEEP_AGENTS_ROOT" python3 ...` (SO-01) with the `[plugin]` backend-selector block in `.graph-wiki.yaml` (SO-03); backend defaults to `claude` everywhere, `bedrock` is the documented per-command opt-in (P-02). Phase 14 prerequisite: `lint_wiki.py` (~508 LOC) and `wiki_search.py` (~194 LOC) must be ported into `packages/vault-io/` as Phase 14 Plans 1 and 2 respectively before the `/graph-wiki:lint` and `/graph-wiki:query` shims can shell out (VP-01). Source-of-truth spec: [`.planning/spec/13-plugin-contract/CONTRACT-INDEX.md`](.planning/spec/13-plugin-contract/CONTRACT-INDEX.md) (audit summary) and [`.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md`](.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md) (cross-cutting decisions). | ✓ Validated Phase 13 |
+| Phase 13 (M3a) — graph-wiki plugin contract surface locked (SP-05, 2026-05-18) | Foundational reframe: the ported graph-wiki plugin runs on **Claude Code inference** (P-01) — it is NOT a wrapper around `graph-wiki-agent`. `graph-wiki-agent` (Bedrock-backed CLI + MCP server) stays as the separate, headless, cost-frontier surface. The two coexist as parallel surfaces over the same underlying Python helpers in `vault-io` / `workspace-io`. Verdicts: 6 upstream commands rename or reshape (`init`, `scan`, `ingest`, `lint`, `query`, `log`) + 3 dropped (`archive`, `regen-index`, `status` — work-layer out of v1.2 per C-01). Shell-out shape: `uv run --project "$DEEP_AGENTS_ROOT" python3 ...` (SO-01) with the `[plugin]` backend-selector block in `.graph-wiki.yaml` (SO-03); backend defaults to `claude` everywhere, `bedrock` is the documented per-command opt-in (P-02). Phase 14 prerequisite: `lint_wiki.py` (~508 LOC) and `wiki_search.py` (~194 LOC) must be ported into `packages/vault-io/` as Phase 14 Plans 1 and 2 respectively before the `/graph-wiki:lint` and `/graph-wiki:query` shims can shell out (VP-01). Source-of-truth spec: [`.planning/spec/13-plugin-contract/CONTRACT-INDEX.md`](.planning/spec/13-plugin-contract/CONTRACT-INDEX.md) (audit summary) and [`.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md`](.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md) (cross-cutting decisions). | ✓ Validated Phase 13 |
 
 ## Evolution
 
