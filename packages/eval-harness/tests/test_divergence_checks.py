@@ -12,6 +12,10 @@ from pathlib import Path
 import pytest
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck
+from eval_harness.divergence.code_reader import (
+    _GRAPH_WIKI_PREFIX_RE,
+    _PATH_LINE_RE,
+)
 from eval_harness.divergence.librarian import LIBRARIAN_CHECKS
 from eval_harness.divergence.ingestor import INGESTOR_CHECKS
 from eval_harness.divergence.linter import LINTER_CHECKS
@@ -497,5 +501,42 @@ def test_syn002_passes_on_path_prefixed_wikilink(fixture_vault_path: Path) -> No
     output = AgentOutputProxy(answer="See [[wiki/bedrock]] and [[packages/foo|alias]].")
     verdict = check.check(output, fixture_vault_path)
     assert verdict.passed is True
+
+
+# ---------------------------------------------------------------------------
+# code_reader regex behavior — WR-02 (`_GRAPH_WIKI_PREFIX_RE`) and WR-03
+# (`_PATH_LINE_RE`). Module-level regex assertions per D-18 exception
+# (silent-pass: previously zero direct coverage).
+# ---------------------------------------------------------------------------
+
+
+def test_graph_wiki_prefix_re_matches_slash_prefixed_inline_path() -> None:
+    """WR-02: `vault/.graph-wiki/foo` must match — lookbehind excludes only
+    word/hyphen characters, not the path separator."""
+    assert _GRAPH_WIKI_PREFIX_RE.search("vault/.graph-wiki/bm25") is not None
+    assert _GRAPH_WIKI_PREFIX_RE.search(".graph-wiki/foo") is not None
+
+
+def test_graph_wiki_prefix_re_still_rejects_identifier_prefixed_match() -> None:
+    """WR-02: identifier-bearing prefixes like `mygraph-wiki/foo` must NOT
+    match — the lookbehind still excludes alphanumeric/underscore/hyphen."""
+    assert _GRAPH_WIKI_PREFIX_RE.search("mygraph-wiki/foo") is None
+    assert _GRAPH_WIKI_PREFIX_RE.search("foo_.graph-wiki/bar") is None
+
+
+def test_path_line_re_matches_bare_filename_citation() -> None:
+    """WR-03: bare-filename citations like `pool.py:115` are valid `path:line`
+    annotations and must match (no mandatory `/` in the path)."""
+    assert _PATH_LINE_RE.search("pool.py:115") is not None
+    assert _PATH_LINE_RE.search("`pool.py:115`") is not None
+
+
+def test_path_line_re_still_matches_qualified_paths() -> None:
+    """WR-03: qualified `path:line` citations continue to match."""
+    assert (
+        _PATH_LINE_RE.search("packages/subagent-runtime/src/foo/pool.py:115")
+        is not None
+    )
+    assert _PATH_LINE_RE.search("src/baz.py:10-15") is not None
 
 
