@@ -101,9 +101,9 @@ Plans:
 **Plans**: 6 plans
 Plans:
 **Wave 1**
-- [ ] 18-01-PLAN.md — Rename slash command file plugins/graph-wiki/commands/init.md → bootstrap.md (CMD-01)
-- [ ] 18-02-PLAN.md — Rename MCP tool surface wiki_init → wiki_bootstrap + Pydantic models + tests (CMD-02 MCP)
-- [ ] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
+- [x] 18-01-PLAN.md — Rename slash command file plugins/graph-wiki/commands/init.md → bootstrap.md (CMD-01)
+- [x] 18-02-PLAN.md — Rename MCP tool surface wiki_init → wiki_bootstrap + Pydantic models + tests (CMD-02 MCP)
+- [x] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 18-04-PLAN.md — Sweep 11 active-source /graph-wiki:init references; add README reinstall note (CMD-03 active)
@@ -187,7 +187,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
-| 18. Plugin Command Rename | 0/6 | Planning complete | - |
+| 18. Plugin Command Rename | 3/6 | In Progress|  |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
 | 21. Rename code-wiki-agent → graph-wiki-agent | 0/5 | Planned (5 plans staged) | - |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |

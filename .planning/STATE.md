@@ -4,8 +4,8 @@ milestone: v1.3
 milestone_name: Tooling Cleanup
 status: executing
 stopped_at: Phase 21 context gathered
-last_updated: "2026-05-20T01:58:11.799Z"
-last_activity: 2026-05-20 -- Phase 18 planning complete
+last_updated: "2026-05-20T02:01:06.810Z"
+last_activity: 2026-05-20 -- Phase 18 execution started
 progress:
   total_phases: 5
   completed_phases: 2
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.3 in progress — Phases 17 + 20 complete; execution queue: 18 → 21 → 19
+**Current Focus:** Phase 18 — plugin-command-rename
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 20 — COMPLETE (verifier 5/5 SCs PASS, 2026-05-20)
-Plan: 4 of 4 (all plans shipped)
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 18 planning complete
+Phase: 18 (plugin-command-rename) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 18
+Last activity: 2026-05-20 -- Phase 18 execution started
 
 v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plans shipped this milestone)
 
