@@ -32,8 +32,13 @@ def resolve_wiki_and_repo(
     2. ``GRAPH_WIKI_WORKSPACE`` env var (via ``workspace_io.config.resolve``).
     3. ``.graph-wiki.yaml`` walk-up from cwd (via ``workspace_io.config.resolve``).
     4. Raises ``RuntimeError`` — names ``graph-wiki-agent bootstrap <path>`` as fix.
+
+    ``repo_path`` always overrides the discovered repo root when provided,
+    regardless of which branch resolved the workspace. Callers that pass
+    ``repo_path`` (e.g. ``run_init``) get symmetric semantics — the override
+    is never silently dropped.
     """
     if workspace_path is not None:
         return _ws_paths.wiki_dir(workspace_path), repo_path or _find_repo_root(Path.cwd())
     cfg = _ws_config.resolve()
-    return _ws_paths.wiki_dir(cfg.workspace), cfg.repo_root
+    return _ws_paths.wiki_dir(cfg.workspace), repo_path or cfg.repo_root

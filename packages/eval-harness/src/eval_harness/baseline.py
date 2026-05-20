@@ -343,7 +343,7 @@ class BaselineRecorder:
                 assert wt.path is not None
                 return run_headless(
                     prompt=case["query"],
-                    worktree_path=wt.path,
+                    worktree_path=wt.path / "wiki",
                     system_prompt=self._system_prompt,
                     plugin_dirs=self._plugin_dirs,
                     model_override=None,
