@@ -18,10 +18,10 @@ async def test_evalworktree_creates_copy(fixture_vault_path: Path) -> None:
         assert (wt.path / "index.md").exists()
 
 
-async def test_evalworktree_includes_code_wiki(fixture_vault_path: Path) -> None:
-    """EvalWorktree copy includes .code-wiki/bm25 so indexes travel with the vault."""
+async def test_evalworktree_includes_graph_wiki(fixture_vault_path: Path) -> None:
+    """EvalWorktree copy includes .graph-wiki/bm25 so indexes travel with the vault."""
     async with EvalWorktree(fixture_vault_path) as wt:
-        assert (wt.path / ".code-wiki" / "bm25").exists()
+        assert (wt.path / ".graph-wiki" / "bm25").exists()
 
 
 async def test_evalworktree_cleans_up(fixture_vault_path: Path) -> None:

@@ -13,7 +13,7 @@ models.toml defaults.  ROLE_COMMAND_MAP routes each role to the appropriate comm
 function (_sweep_query_role, _sweep_scan_role, _sweep_lint_role, _sweep_ingest_role).
 
 Token counts are extracted from the trace JSONL written by SubagentPool._write_trace
-into wt.path / ".code-wiki" / "traces". The most-recently-modified JSONL file is
+into wt.path / ".graph-wiki" / "traces". The most-recently-modified JSONL file is
 parsed; tokens_in/tokens_out are summed across all records for the run.
 """
 
@@ -268,7 +268,7 @@ async def run_sweep(
                 wall_seconds = time.monotonic() - t0
 
                 # Extract token counts from trace JSONL
-                trace_dir = wt.path / ".code-wiki" / "traces"
+                trace_dir = wt.path / ".graph-wiki" / "traces"
                 tokens_in, tokens_out = _extract_tokens_from_traces(trace_dir)
 
                 # Compute cost (None if model unknown or tokens unavailable)

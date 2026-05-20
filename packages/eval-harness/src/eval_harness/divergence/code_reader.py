@@ -26,9 +26,9 @@ _PATH_LINE_RE = re.compile(
 # source-code excerpts, not vault citations).
 _WIKILINK_RE = re.compile(r"\[\[[^\]]+\]\]")
 
-# Forbidden prefix: the tool refuses `.code-wiki/` reads; the agent must not
+# Forbidden prefix: the tool refuses `.graph-wiki/` reads; the agent must not
 # claim to quote anything from that prefix either.
-_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_/-])\.code-wiki/")
+_GRAPH_WIKI_PREFIX_RE = re.compile(r"(?<![A-Za-z0-9_/-])\.graph-wiki/")
 
 
 def _is_sentinel_only(text: str) -> bool:
@@ -69,7 +69,7 @@ def _check_no_wikilinks(output: AgentOutputProxy, vault: Path) -> Verdict:
 
 
 def _check_no_code_wiki_prefix(output: AgentOutputProxy, vault: Path) -> Verdict:
-    """CR-003 (hard): Output does not cite anything inside `.code-wiki/` —
+    """CR-003 (hard): Output does not cite anything inside `.graph-wiki/` —
     the tool refuses such reads, so any such citation is invented.
 
     Anchors packages/prompt-sources/agents/code_reader.md#rules (rule 4).
@@ -77,7 +77,7 @@ def _check_no_code_wiki_prefix(output: AgentOutputProxy, vault: Path) -> Verdict
     if _GRAPH_WIKI_PREFIX_RE.search(output.answer or ""):
         return Verdict(
             passed=False,
-            excerpt="Citation references forbidden .code-wiki/ prefix",
+            excerpt="Citation references forbidden .graph-wiki/ prefix",
         )
     return Verdict(passed=True, excerpt="")
 

@@ -1,7 +1,7 @@
 # Trace Schema for `graph-wiki-agent`
 
 This document is the authoritative reference for the JSONL records written by
-`graph-wiki-agent` into `.code-wiki/traces/` under any wiki root. It is intended
+`graph-wiki-agent` into `.graph-wiki/traces/` under any wiki root. It is intended
 for operators reading raw trace files with `grep` / `jq`, for downstream tooling
 that parses those files, and for future maintainers extending the schema. It
 covers the directory layout, the three record shapes that appear in those
@@ -19,7 +19,7 @@ rewritten on disk. Producers (`SubagentPool`, the `query` command) always stamp
 
 ## 1. Directory Layout and Filename Convention
 
-Trace files live under `<wiki_root>/.code-wiki/traces/`. The directory is
+Trace files live under `<wiki_root>/.graph-wiki/traces/`. The directory is
 created on demand by the writer the first time a fan-out batch or a query
 summary needs to be persisted.
 
@@ -43,7 +43,7 @@ fully-terminated line is a complete record.
 
 ## 2. Per-Record Shapes
 
-`graph-wiki-agent` writes three record shapes into `.code-wiki/traces/`. Readers
+`graph-wiki-agent` writes three record shapes into `.graph-wiki/traces/`. Readers
 distinguish them by the presence of two discriminator keys: a record with an
 `event` key is a batch event record; a record with a `kind` key is a query
 summary record; a record with neither is a per-item subagent record.
@@ -243,7 +243,7 @@ as `schema_version: 0` — the pre-versioned shape — by the renderer. Two rule
 apply:
 
 1. **No on-disk rewrite.** Existing trace fixtures under
-   `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` and any
+   `packages/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` and any
    real trace file produced by an earlier `graph-wiki-agent` build are NOT
    rewritten. They stay v0 on disk forever.
 2. **Best-effort render with a one-time warning.** When the renderer reads a

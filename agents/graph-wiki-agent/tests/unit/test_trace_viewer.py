@@ -1082,7 +1082,7 @@ _REAL_V0_FIXTURE_DIR = (
     / "tests"
     / "fixtures"
     / "round-trip-vault"
-    / ".code-wiki"  # NOTE(21-03): vault-io fixture dir rename deferred to plan 21-04 (cross-package sweep)
+    / ".graph-wiki"
     / "traces"
 )
 

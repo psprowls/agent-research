@@ -62,7 +62,7 @@ The pool creates its semaphore inside `run_all` so it binds to the active event 
 
 Good (code-fallback path):
 ```
-The `read_file` tool is allow-listed against the repo root and refuses paths inside `.code-wiki/` (`packages/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:391`).
+The `read_file` tool is allow-listed against the repo root and refuses paths inside `.graph-wiki/` (`packages/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:391`).
 ```
 
 Bad (slug-only wikilink):

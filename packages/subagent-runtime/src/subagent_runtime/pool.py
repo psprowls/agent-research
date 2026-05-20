@@ -7,7 +7,7 @@ enforces a per-role concurrency semaphore, isolates per-item failures, and
 writes a JSONL trace record for every invocation (success or error).
 
 Usage:
-    pool = SubagentPool(trace_dir=Path(".code-wiki/traces"))
+    pool = SubagentPool(trace_dir=Path(".graph-wiki/traces"))
     result = await pool.run_all(
         items=pages,
         task=summarize,          # async def summarize(item) -> AIMessage
