@@ -94,7 +94,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. `workspace_io.config.resolve_workspace` is importable as a public symbol and is called by `run_init` instead of hardcoding `repo_root / "graph-wiki"`
   4. A `.graph-wiki.local.yaml` containing `graph-wiki-directory: /custom/path` is silently ignored; one containing `workspace-directory: /custom/path` is honored
   5. `grep -r "vault_path" agents/graph-wiki-agent/src packages/workspace-io/src` returns 0 hits (excluding comments in allowlist)
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 22-01-PLAN.md — workspace-api-internal-rename (big-bang single plan covering WSAPI-01..06 + ~70-mock-point test sweep)
 
 ### Phase 23: workspace-api-external-rename
 **Goal**: Every external-facing surface — MCP tool schemas, Typer CLI flags, scan JSON output, plugin docs, and the DA-CLI integration test — uses `workspace_path` / `--workspace` / `wiki_relative_path` instead of the old `vault_path` / `--vault` nomenclature; brand-gate enforces no reintroduction
