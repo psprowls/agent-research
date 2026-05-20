@@ -119,7 +119,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=fake_fan_result)
         MockPool.return_value = mock_pool_instance
 
-        result = await run_scan(vault_path=wiki)
+        result = await run_scan(workspace_path=wiki)
 
     assert "brand-new-pkg" in result.added
     assert isinstance(result.updated, list)
@@ -177,7 +177,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=fake_fan_result)
         MockPool.return_value = mock_pool_instance
 
-        await run_scan(vault_path=wiki)
+        await run_scan(workspace_path=wiki)
 
     call_kwargs = mock_pool_instance.run_all.call_args
     assert call_kwargs is not None
@@ -236,7 +236,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
         MockPool.return_value = mock_pool_instance
 
-        await run_scan(vault_path=wiki)
+        await run_scan(workspace_path=wiki)
 
     written_page_path = wiki / "packages" / "test-pkg" / "test-pkg.md"
     assert written_page_path.exists(), "Stub page should be written to vault"
@@ -313,7 +313,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
         MockPool.return_value = mock_pool_instance
 
-        await run_scan(vault_path=wiki)
+        await run_scan(workspace_path=wiki)
 
     page_text = old_page.read_text(encoding="utf-8")
     assert "stale: true" in page_text, f"Expected 'stale: true' in page, got:\n{page_text}"
@@ -387,7 +387,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
         MockPool.return_value = mock_pool_instance
 
-        result = await run_scan(vault_path=wiki)
+        result = await run_scan(workspace_path=wiki)
 
     assert len(result.errors) == 1, f"Expected 1 error in result.errors, got {result.errors}"
     assert "bad-pkg" in result.errors[0]
@@ -437,7 +437,7 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
         mock_pool_instance.run_all = AsyncMock(return_value=_make_fan_out_result())
         MockPool.return_value = mock_pool_instance
 
-        await run_scan(vault_path=wiki, repo_path=fake_repo)
+        await run_scan(workspace_path=wiki, repo_path=fake_repo)
 
     # discover_workspaces called with fake_repo.resolve(), NOT Path.cwd()
     call_args = mock_discover.call_args

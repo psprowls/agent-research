@@ -94,7 +94,7 @@ async def test_scan_result_added_is_list(minimal_vault: Path) -> None:
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):
-        result = await run_scan(vault_path=minimal_vault)
+        result = await run_scan(workspace_path=minimal_vault)
 
     assert isinstance(result, ScanResult)
     assert isinstance(result.added, list)
@@ -115,7 +115,7 @@ async def test_scan_state_gate_has_required_keys(minimal_vault: Path) -> None:
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):
-        result = await run_scan(vault_path=minimal_vault)
+        result = await run_scan(workspace_path=minimal_vault)
 
     assert "allowed" in result.state_gate
     assert "reason" in result.state_gate
@@ -133,7 +133,7 @@ async def test_scan_result_json_roundtrip(minimal_vault: Path) -> None:
 
     repo = minimal_vault.parent
     with _scan_patches(minimal_vault, repo):
-        result = await run_scan(vault_path=minimal_vault)
+        result = await run_scan(workspace_path=minimal_vault)
 
     as_dict = dataclasses.asdict(result)
     json_str = json.dumps(as_dict, indent=2)

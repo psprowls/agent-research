@@ -75,7 +75,7 @@ async def test_run_lint_mechanical_finds_orphans_in_fixture() -> None:
         mock_pool.run_all = AsyncMock(
             return_value=FanOutResult(successes=[], errors=[])
         )
-        result = await run_lint(vault_path=EDGE_CASE_VAULT)
+        result = await run_lint(workspace_path=EDGE_CASE_VAULT)
 
     assert isinstance(result.orphans, list)
     assert isinstance(result.total_pages, int)
@@ -119,7 +119,7 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
         mock_pool.run_all = AsyncMock(
             return_value=FanOutResult(successes=[], errors=[])
         )
-        result = await run_lint(vault_path=wiki)
+        result = await run_lint(workspace_path=wiki)
 
     broken_targets = [t for _, t in result.broken_links]
     # Placeholder targets (... or < or >) must NOT appear in broken_links
@@ -208,7 +208,7 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
-        await run_lint(vault_path=wiki)
+        await run_lint(workspace_path=wiki)
 
     assert mock_container.called, "check_container_drift not called"
     assert mock_dependency.called, "check_dependency_layer not called"
@@ -252,7 +252,7 @@ async def test_run_lint_semantic_fanout_3_groups(tmp_path: Path) -> None:
             )
 
         mock_pool.run_all = capture_run_all
-        await run_lint(vault_path=wiki)
+        await run_lint(workspace_path=wiki)
 
     assert len(captured_calls) == 1, f"Expected 1 run_all call, got {len(captured_calls)}"
     assert captured_calls[0]["role"] == "linter"
@@ -291,7 +291,7 @@ async def test_run_lint_semantic_errors_surface_in_result_errors(tmp_path: Path)
                 errors=[PerItemError(item=stale_group, exception=RuntimeError("Bedrock error"))],
             )
         )
-        result = await run_lint(vault_path=wiki)
+        result = await run_lint(workspace_path=wiki)
 
     assert len(result.errors) >= 1
     # Error message should contain something about the failure
@@ -339,7 +339,7 @@ async def test_run_lint_no_write_back_to_vault(tmp_path: Path) -> None:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
-        await run_lint(vault_path=wiki)
+        await run_lint(workspace_path=wiki)
 
     after_hash = _dir_hash(wiki)
     assert before_hash == after_hash, "Vault was modified by run_lint (D-10 violation)"

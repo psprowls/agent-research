@@ -273,7 +273,7 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("how does pool work?", vault_path=vault, top_k=3)
+        result = await run_query("how does pool work?", workspace_path=vault, top_k=3)
 
     # Two fan-out calls = code-fallback fired
     assert mock_pool_inst.run_all.await_count == 2, (
@@ -336,7 +336,7 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     # Only one fan-out call: librarian. No code-fallback.
     assert mock_pool_inst.run_all.await_count == 1
@@ -395,7 +395,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     assert result.answer.startswith(
         "[vault-thin: answer derived from source code]"
@@ -455,7 +455,7 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", vault_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3)
 
     # Disclaimer line, no fabrication
     assert "vault does not document this" in result.answer
