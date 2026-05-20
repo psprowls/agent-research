@@ -102,6 +102,7 @@ These records have no `event` key:
 
 ```json
 {
+  "schema_version": 1,
   "role": "librarian",
   "model_id": "qwen.qwen3-next-80b-a3b",
   "prompt_hash": null,
@@ -120,6 +121,7 @@ These records have no `event` key:
 
 ```json
 {
+  "schema_version": 1,
   "role": "librarian",
   "model_id": "qwen.qwen3-next-80b-a3b",
   "event": "batch_cancelled",
