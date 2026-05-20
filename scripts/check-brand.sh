@@ -9,6 +9,9 @@
 #
 # Re-runnable cheaply by future phases (13, 14, 16) and by any future re-sync
 # between vault-io and upstream lattice-wiki-core.
+#
+# Per Phase 21 §D-12: extended to also catch `code-wiki-agent` / `code_wiki_agent`
+# / `code-wiki-mcp` / `code_wiki_mcp` after the rename to `graph-wiki-agent`.
 
 set -euo pipefail
 
@@ -35,7 +38,7 @@ fi
 # `uv run pytest` run; a clean CI checkout doesn't have them, so excluding
 # them keeps the gate stable across both environments.
 HITS=$(grep -rEl --exclude-dir=__pycache__ --exclude='*.pyc' \
-    'lattice|LATTICE|lattice_workspace|lattice_wiki_core' \
+    'lattice|LATTICE|lattice_workspace|lattice_wiki_core|code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' \
     packages/ agents/ plugins/ .planning/ CLAUDE.md 2>/dev/null \
     | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
 
@@ -66,11 +69,11 @@ fi
 # `def bootstrap(`; any reintroduction of `def init(` in cli.py would re-shadow
 # Claude Code's native /init. No allowlist filter — the file has zero matches
 # post-rename. 2>/dev/null swallows missing-file errors.
-CLI_HITS=$(grep -nE '^\s*def init\(' agents/code-wiki-agent/src/code_wiki_agent/cli.py 2>/dev/null || true)
+CLI_HITS=$(grep -nE '^\s*def init\(' agents/graph-wiki-agent/src/graph_wiki_agent/cli.py 2>/dev/null || true)
 
 if [ -n "$CLI_HITS" ]; then
   echo "$CLI_HITS"
-  echo "BRAND-CMD-CLI FAIL: def init( reintroduced in agents/code-wiki-agent/src/code_wiki_agent/cli.py" >&2
+  echo "BRAND-CMD-CLI FAIL: def init( reintroduced in agents/graph-wiki-agent/src/graph_wiki_agent/cli.py" >&2
   exit 1
 fi
 
