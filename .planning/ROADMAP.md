@@ -65,7 +65,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
 - [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
 - [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
-- [ ] **Phase 21: Rename code-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (CONTEXT gathered; planning pending)
+- [ ] **Phase 21: Rename code-wiki-agent → graph-wiki-agent** - Mechanical rename of the agent package across directories, Python modules, console scripts, imports, string literals, trace dir, plugin shell-outs, tests, and planning docs (5 plans staged; ready to execute)
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review (moved to end of execution queue; runs after 18 + 21)
 
 ---
@@ -142,7 +142,13 @@ Plans:
   - Raw spike sources under `.planning/spikes/{001,002}/sources/**` — historical material
   - Backwards-compat shims (no console-script alias, no deprecation stub) — hard cut per D-10
   - `models.toml` / config file renames — unrelated to package identity
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 21-01-PLAN.md — Worktree setup + `git mv` directory moves (agents/ + src/ subdirs)
+- [ ] 21-02-PLAN.md — pyproject.toml `name` + console scripts + `uv.lock` regeneration
+- [ ] 21-03-PLAN.md — Sweep imports + identifier renames + kebab strings + trace-dir inside agents/graph-wiki-agent/
+- [ ] 21-04-PLAN.md — Plugin shellouts + CODE_WIKI_* env-var rename + integration-gate test + cross-package .code-wiki/ trace-dir sweep
+- [ ] 21-05-PLAN.md — Full .planning/ sweep (live + current-milestone + archives) + repo/plugin docs + spike-findings skill + extend `scripts/check-brand.sh` + `.brand-grep-allow` Phase 21 section + SP-2 final two-stage gate
 
 ### Phase 19: Phase 16 Code Review Burndown
 **Goal**: Every Phase 16 code review finding has a documented disposition (fixed, dismissed with rationale, or converted to a follow-up todo) so the trace pipeline + eval harness refactor lands without carried-forward debt
@@ -164,16 +170,16 @@ Plans:
 | v1.0 code-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
-| v1.3 Tooling Cleanup | 5 | 9/TBD | 🚧 In progress | - |
+| v1.3 Tooling Cleanup | 5 | 9/14 | 🚧 In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
-| 21. Rename code-wiki-agent → graph-wiki-agent | 0/TBD | Planning (CONTEXT ready) | - |
+| 21. Rename code-wiki-agent → graph-wiki-agent | 0/5 | Planned (5 plans staged) | - |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
 
 ---
 
-*Last updated: 2026-05-20 — Phase 20 shipped (verifier 5/5 SCs PASS); Phase 21 (code-wiki → graph-wiki rename) added to v1.3 with CONTEXT-ready status; Phase 19 (code review burndown) reordered to end of execution queue (depends on Phase 21).*
+*Last updated: 2026-05-20 — Phase 20 shipped (verifier 5/5 SCs PASS); Phase 21 plans staged (5 plans across 5 sequential waves; ready to execute); Phase 19 (code review burndown) reordered to end of execution queue (depends on Phase 21).*
