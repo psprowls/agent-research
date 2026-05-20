@@ -3,11 +3,11 @@
 
 **deep-agents**
 
-A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`code-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
+A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`graph-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
 **Core Value:** **Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
 
-If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
+If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
 ### Constraints
 
@@ -35,9 +35,9 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 ### Agent package referencing core packages
 ### Key uv rules
 - `[dependency-groups]` (PEP 735) replaces the old `[tool.uv.dev-dependencies]`; use `uv add --group dev <pkg>` for dev-only deps scoped to the workspace root
-- All workspace members share a single `uv.lock`; `uv sync` installs everything; `uv sync --package code-wiki-agent` installs only one member's closure
+- All workspace members share a single `uv.lock`; `uv sync` installs everything; `uv sync --package graph-wiki-agent` installs only one member's closure
 - Workspace members are always installed as editable; no need to set `editable = true` manually
-- Use `uv run --package code-wiki-agent pytest` to run tests scoped to one member
+- Use `uv run --package graph-wiki-agent pytest` to run tests scoped to one member
 - `setuptools` or `hatchling` as build backend — `uv_build` is the native backend; it handles the workspace source link correctly
 - `poetry` — workspace semantics differ and you lose the lockfile speed advantage
 - A flat (single-package) layout — tiered `packages/` + `agents/` is the correct pattern here and matches official uv workspace examples
@@ -95,7 +95,7 @@ If everything else fails, a Bedrock-driven `code-wiki-agent query "..."` (or the
 ### Tool registration pattern (FastMCP)
 ### Embedding long-running agent loops behind MCP tools
 ### langchain-mcp-adapters (deferred)
-Not currently installed. Would be needed only if the agent itself consumes external MCP servers as tools. The current direction is the inverse — `code-wiki-agent` *exposes* MCP tools to a host (DeepAgents CLI, Claude Code) via FastMCP, and the host handles inbound tool routing. Revisit if/when the agent grows a need to call out to other MCP servers mid-loop.
+Not currently installed. Would be needed only if the agent itself consumes external MCP servers as tools. The current direction is the inverse — `graph-wiki-agent` *exposes* MCP tools to a host (DeepAgents CLI, Claude Code) via FastMCP, and the host handles inbound tool routing. Revisit if/when the agent grows a need to call out to other MCP servers mid-loop.
 - SSE transport — deprecated; don't build new server infrastructure on it
 - `FastAPI` + `SSEServerTransport` — the old pattern; use FastMCP's built-in transport instead
 - Streamable HTTP in v1 — unnecessary for a local CLI-hosted server
@@ -129,8 +129,8 @@ Not currently installed. Would be needed only if the agent itself consumes exter
 |---------|---------|-------|
 | `typer` | 0.25.1 | Released 2026-04-30; MIT; built on Click; type-hint-driven |
 ### Pattern
-# agents/code-wiki-agent/src/code_wiki_agent/cli.py
-# in code-wiki-agent pyproject.toml
+# agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+# in graph-wiki-agent pyproject.toml
 - `click` directly — Typer wraps Click and adds type-hint ergonomics; no reason to drop down unless you hit a specific limitation
 - `argparse` — verbose and has no auto-help/completion
 - `textual` / `rich` in v1 — explicitly out of scope; do not pull it in

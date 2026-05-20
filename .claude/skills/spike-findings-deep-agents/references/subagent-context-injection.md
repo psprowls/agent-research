@@ -4,7 +4,7 @@
 
 These are non-negotiable for the build that closes this gap:
 
-- Preserve the existing curation discipline. Every fragment under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` must carry the standard 3-line provenance header (`# Source:`, `# Anchor:`, `# Source-commit:`).
+- Preserve the existing curation discipline. Every fragment under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/` must carry the standard 3-line provenance header (`# Source:`, `# Anchor:`, `# Source-commit:`).
 - Stay within the cost-optimization mindset (see [[user_cost_optimization]]). Total added context per fan-out call should justify itself; target < ~1,500 added tokens per role on top of the current baseline (~1,060 tokens of shared fragments).
 - Do **not** require a deepagents migration to fix this. The subagent dispatch primitive is `packages/subagent-runtime/pool.py::SubagentPool`, not `deepagents.SubAgentMiddleware`. A virtual-filesystem solution is out of scope until that architecture decision is taken separately.
 - Project-specific context (wiki `CLAUDE.md` layout block, container pins, style, log format) must reach the subagents that scan/lint/ingest. Static skill content alone is not enough — the layout differs per project and changes over a project's lifetime.
@@ -15,10 +15,10 @@ The recommended approach is **Strategy C + D** from the spike report: extend the
 
 ### Step 1 — New shared fragments
 
-Add four files under `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/`, each following the existing provenance pattern:
+Add four files under `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/`, each following the existing provenance pattern:
 
 ```python
-# agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py
+# agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py
 # Source: packages/prompt-sources/SKILL.md
 # Anchor: ## Architecture (L34-L69)
 # Source-commit: <current commit of packages/prompt-sources/SOURCE-COMMIT>
@@ -42,7 +42,7 @@ The other three fragments:
 
 ### Step 2 — Project-context renderer
 
-Add `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py`:
+Add `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`:
 
 ```python
 from __future__ import annotations
@@ -96,8 +96,8 @@ Update `prompts/scanner.py`, `prompts/linter.py`, `prompts/ingestor.py`:
 
 ```python
 # Example: prompts/scanner.py
-from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 def build_scanner_system(project_context: str = "") -> str:
     parts = [
@@ -121,8 +121,8 @@ Update `commands/scan.py`, `commands/lint.py`, `commands/ingest.py` to compute t
 
 ```python
 # commands/scan.py (near the top of the invocation path)
-from code_wiki_agent.prompts.project_context import render_project_context
-from code_wiki_agent.prompts.scanner import build_scanner_system
+from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.scanner import build_scanner_system
 
 project_ctx = render_project_context(wiki)
 system_prompt = build_scanner_system(project_context=project_ctx)

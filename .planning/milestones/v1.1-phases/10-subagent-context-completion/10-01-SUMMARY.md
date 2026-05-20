@@ -38,7 +38,7 @@ A single passive data asset:
 |------|---------|-------|
 | `cores/prompt-sources/wiki-claude-md-template.md` | Verbatim copy of upstream `CLAUDE.md.template` from lattice-wiki, pinned at commit `ef05d99` | 159 |
 
-The file is cited by future fragment provenance headers of the form `# Source: cores/prompt-sources/wiki-claude-md-template.md` and is verified by `agents/code-wiki-agent/tests/prompts/test_provenance.py::test_provenance_source_paths_resolve`.
+The file is cited by future fragment provenance headers of the form `# Source: cores/prompt-sources/wiki-claude-md-template.md` and is verified by `agents/graph-wiki-agent/tests/prompts/test_provenance.py::test_provenance_source_paths_resolve`.
 
 Line anchors preserved exactly:
 - `## Log format` at line 124 — anchor for the upcoming `log_format` fragment (`L124-L133`).
@@ -50,7 +50,7 @@ Line anchors preserved exactly:
 - `wc -l cores/prompt-sources/wiki-claude-md-template.md` → 159.
 - `sed -n '124p' …` → `## Log format`.
 - `sed -n '153p' …` → `## Style`.
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/prompts/test_provenance.py -x` → 2 passed in 0.01s.
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/prompts/test_provenance.py -x` → 2 passed in 0.01s.
 - Scope Fence #1 (`grep -rn "^from deepagents" agents/ cores/`) → 0 hits.
 - Scope Fence #6 (`git diff --stat HEAD -- 'agents/*' 'cores/subagent-runtime/*'`) → 0 lines.
 

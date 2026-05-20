@@ -8,7 +8,7 @@
 
 Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebranded port of `lattice-workspace` — and make `vault-io._workspace.resolve_wiki_and_repo` delegate to `workspace_io.config.resolve()` so that all in-tree vault-io callers (8 modules + the CLI) gain `.graph-wiki.yaml` manifest discovery without changing their call sites.
 
-**In scope:** new `packages/workspace-io/` workspace member (pyproject, src, tests); port of 7 source modules from `lattice-workspace` (`config`, `init`, `manifest`, `paths`, `render`, `versions`, `_local_config`); port of `assets/CLAUDE.md.template`; rebrand sweep across the ported package (`LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`, `.lattice.yaml` → `.graph-wiki.yaml`, `LatticeConfig` → `GraphWikiConfig`, `lattice_workspace.*` → `workspace_io.*`); rewrite of `vault-io._workspace.py` to delegate; rewrite of the two vault-io tests that referenced `CODE_WIKI_REAL_VAULT_PATH`; port of `lattice-workspace/tests/` under the new module path with `.graph-wiki.yaml` filename expectations; wire `workspace_io.init` into `code-wiki-agent init` so a single command bootstraps both the workspace shell and the wiki tree.
+**In scope:** new `packages/workspace-io/` workspace member (pyproject, src, tests); port of 7 source modules from `lattice-workspace` (`config`, `init`, `manifest`, `paths`, `render`, `versions`, `_local_config`); port of `assets/CLAUDE.md.template`; rebrand sweep across the ported package (`LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`, `.lattice.yaml` → `.graph-wiki.yaml`, `LatticeConfig` → `GraphWikiConfig`, `lattice_workspace.*` → `workspace_io.*`); rewrite of `vault-io._workspace.py` to delegate; rewrite of the two vault-io tests that referenced `GRAPH_WIKI_REAL_VAULT_PATH`; port of `lattice-workspace/tests/` under the new module path with `.graph-wiki.yaml` filename expectations; wire `workspace_io.init` into `graph-wiki-agent init` so a single command bootstraps both the workspace shell and the wiki tree.
 
 **Out of scope (delegated to later phases):** rebrand of `vault-io` body, agents, planning, CLAUDE.md (Phase 12 BRAND-01..04); selective drift backport of lint/* / init_vault.py (Phase 12 BACKPORT-01..04); plugin spec/port (Phases 13–14); wiki self-update (Phase 15); v1.1 carry-forward debt (Phase 16).
 
@@ -19,25 +19,25 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 ### Resolution priority + env-var lifecycle
 
-- **D-01:** `CODE_WIKI_REAL_VAULT_PATH` is **dropped entirely** in this phase. Only `GRAPH_WIKI_WORKSPACE` is honored post-port. Code, conftest fixtures, CLI help strings, and the two vault-io test functions (`test_resolve_wiki_and_repo_raises_on_no_config`, `test_resolve_wiki_and_repo_honors_env_var` in `packages/vault-io/tests/test_ports_importable.py`) all switch to the new name. No alias, no deprecation warning.
+- **D-01:** `GRAPH_WIKI_REAL_VAULT_PATH` is **dropped entirely** in this phase. Only `GRAPH_WIKI_WORKSPACE` is honored post-port. Code, conftest fixtures, CLI help strings, and the two vault-io test functions (`test_resolve_wiki_and_repo_raises_on_no_config`, `test_resolve_wiki_and_repo_honors_env_var` in `packages/vault-io/tests/test_ports_importable.py`) all switch to the new name. No alias, no deprecation warning.
 - **D-02:** `vault-io._workspace.resolve_wiki_and_repo` becomes a **two-tier passthrough**: (1) if `vault_path` argument is provided, short-circuit and return `(vault_path.resolve(), <git-discovered repo_root or None>)`; (2) otherwise call `workspace_io.config.resolve()` and return `(paths.wiki_dir(config.workspace), config.repo_root)`. All env-var handling, `.graph-wiki.yaml` walk-up, and error messages live inside `workspace_io.config` — vault-io stays a thin shim. The explicit-path branch (step 1) is the MCP boundary contract (Phase 11 SC#3) and stays intact.
-- **D-03:** `workspace_io.config.resolve(cwd=None)` is **strict** — no fallbacks beyond `GRAPH_WIKI_WORKSPACE` env override and `.graph-wiki.yaml` cwd walk-up. If neither yields a manifest, raise `RuntimeError` with a message that names `code-wiki-agent init <path>` as the bootstrap command. No `wiki/` directory sniffing, no `wiki-config.toml` fallback.
+- **D-03:** `workspace_io.config.resolve(cwd=None)` is **strict** — no fallbacks beyond `GRAPH_WIKI_WORKSPACE` env override and `.graph-wiki.yaml` cwd walk-up. If neither yields a manifest, raise `RuntimeError` with a message that names `graph-wiki-agent init <path>` as the bootstrap command. No `wiki/` directory sniffing, no `wiki-config.toml` fallback.
 - **D-04:** Convention preserved from lattice: `paths.wiki_dir(workspace) = workspace / "wiki"`. The wiki tree is a `wiki/` subdir of the manifest-bearing workspace; manifest sits at `<workspace>/.graph-wiki.yaml`.
-- **D-05:** The existing `~/Personal/wiki/deep-agents/` content is **throwaway**. Pat will delete it and re-init at a new supported location via `code-wiki-agent init` (which calls `workspace_io.init` followed by `vault-io.init_vault.init_wiki`). No migration script, no content move.
+- **D-05:** The existing `~/Personal/wiki/deep-agents/` content is **throwaway**. Pat will delete it and re-init at a new supported location via `graph-wiki-agent init` (which calls `workspace_io.init` followed by `vault-io.init_vault.init_wiki`). No migration script, no content move.
 
 ### Module trim — port-as-is vs drop
 
 - **D-06:** **Drop** `schema.py`. Verified in spike-style read: `_SCHEMA_CONTENT` is 100% work-item frontmatter and the only caller is `lattice-workspace.init.init` invoking `write_schema(work_dir)`. Work-layer is out of scope. The `write_schema(work_dir)` call site is removed from the ported `workspace_io.init`. **Closes WS-06** with verdict "verified work-layer-only, dropped".
-- **D-07:** **Port** `init.py` and wire it into `code-wiki-agent init`. `code-wiki-agent init <path>` calls `workspace_io.init(repo_root=<path>, plugin='code-wiki-agent', version=<importlib.metadata>)` first to create `<workspace>/`, `.graph-wiki.yaml`, `git init` if needed, `.gitignore` entry, and workspace `CLAUDE.md`; then calls the existing `vault-io.init_vault.init_wiki(<workspace>/wiki)` to populate the wiki tree.
-- **D-08:** **Port** `render.py` + `versions.py` + `assets/CLAUDE.md.template`. Template content is rebranded (lattice ecosystem prose → graph-wiki ecosystem prose) but the module shapes are unchanged. `versions.warn_if_stale` runs at command startup (off `code-wiki-agent` entry point) but is effectively a no-op locally until asset hash drifts. **Out of phase:** template body wording polish — port a minimum-viable rebrand; a future ingest cycle can refine.
+- **D-07:** **Port** `init.py` and wire it into `graph-wiki-agent init`. `graph-wiki-agent init <path>` calls `workspace_io.init(repo_root=<path>, plugin='graph-wiki-agent', version=<importlib.metadata>)` first to create `<workspace>/`, `.graph-wiki.yaml`, `git init` if needed, `.gitignore` entry, and workspace `CLAUDE.md`; then calls the existing `vault-io.init_vault.init_wiki(<workspace>/wiki)` to populate the wiki tree.
+- **D-08:** **Port** `render.py` + `versions.py` + `assets/CLAUDE.md.template`. Template content is rebranded (lattice ecosystem prose → graph-wiki ecosystem prose) but the module shapes are unchanged. `versions.warn_if_stale` runs at command startup (off `graph-wiki-agent` entry point) but is effectively a no-op locally until asset hash drifts. **Out of phase:** template body wording polish — port a minimum-viable rebrand; a future ingest cycle can refine.
 - **D-09:** **Port** `paths.py` verbatim — all 5 helpers (`wiki_dir`, `raw_dir`, `work_dir`, `knowledge_dir`, `graph_dir`). Tiny module, zero cost, preserves shape compatibility. Callers ignore helpers they don't use.
 - **D-10:** **Port** `config.py`, `manifest.py`, `_local_config.py` (the delegation-critical core).
 
 ### Manifest field set
 
 - **D-11:** `.graph-wiki.yaml` v2 schema = `{version: 2, initialized_at: 'YYYY-MM-DD', plugins: [{name, installed_version, applied_version}]}` — **same shape as lattice v2**. The `plugins[]` field is preserved (not dropped, not replaced with a generic `metadata` bag) so the manifest is future-compatible with a real plugin-tracking lifecycle should one emerge.
-- **D-12:** `workspace_io.init` registers `code-wiki-agent` as a plugin entry on first init and on re-init. **Both `installed_version` and `applied_version` are written to the same value** = the current `code-wiki-agent` package version. This makes `versions.warn_if_stale` a no-op locally (installed == applied) while preserving the field shape.
-- **D-13:** Version source = `importlib.metadata.version('code-wiki-agent')` at runtime. Reads from the installed wheel metadata (works under `uv run` editable installs). No hard-coded `__version__` constant.
+- **D-12:** `workspace_io.init` registers `graph-wiki-agent` as a plugin entry on first init and on re-init. **Both `installed_version` and `applied_version` are written to the same value** = the current `graph-wiki-agent` package version. This makes `versions.warn_if_stale` a no-op locally (installed == applied) while preserving the field shape.
+- **D-13:** Version source = `importlib.metadata.version('graph-wiki-agent')` at runtime. Reads from the installed wheel metadata (works under `uv run` editable installs). No hard-coded `__version__` constant.
 
 ### Manifest v1→v2 coercion + repo_root semantics
 
@@ -49,7 +49,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 - Internal module structure of `packages/workspace-io/src/workspace_io/` — Claude picks files/grouping (will mirror lattice's flat module layout).
 - Test file naming, fixture organization, and pytest fixture reuse strategy under `packages/workspace-io/tests/` — port lattice's structure as the default; reorganize only if rebrand surfaces obvious confusion.
-- Error-message wording for the strict-manifest-required `RuntimeError` (D-03) — recommend naming `code-wiki-agent init` in the message.
+- Error-message wording for the strict-manifest-required `RuntimeError` (D-03) — recommend naming `graph-wiki-agent init` in the message.
 - Whether `workspace_io.init` is idempotent across re-runs in the same dir — lattice's already is; preserve that property without re-asking.
 - Layout of `assets/` packaging inside the wheel (`[tool.hatch.build.targets.wheel] package-data` vs `[tool.uv_build] include` vs MANIFEST.in) — choose whichever ships the template file correctly via `uv build`.
 
@@ -82,17 +82,17 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 ### Existing deep-agents code that changes
 - `packages/vault-io/src/vault_io/_workspace.py` — rewritten as a thin delegation shim (D-02). Docstring updated.
 - `packages/vault-io/src/vault_io/__init__.py` — public `resolve_wiki_and_repo` re-export stays; no API change.
-- `packages/vault-io/tests/test_ports_importable.py` — rename `CODE_WIKI_REAL_VAULT_PATH` → `GRAPH_WIKI_WORKSPACE` in `test_resolve_wiki_and_repo_raises_on_no_config` and `test_resolve_wiki_and_repo_honors_env_var`. Add a new test for the strict-manifest-required error.
-- `packages/vault-io/tests/conftest.py` (line 35) — fixture references `CODE_WIKI_REAL_VAULT_PATH`; updates to `GRAPH_WIKI_WORKSPACE`.
-- `packages/vault-io/src/vault_io/{append_log,detect_containers,graph_analyzer,ingest_source,ingest_work_item,init_vault,scan_monorepo,update_index,update_tokens}.py` — docstrings/error messages mentioning `CODE_WIKI_REAL_VAULT_PATH` get rebranded; the `wiki, _ = resolve_wiki_and_repo()` call sites are unchanged.
-- `agents/code-wiki-agent/src/code_wiki_agent/config.py` (line 38) — docstring updated.
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` (line 433) — `--vault` help text updated (`CODE_WIKI_REAL_VAULT_PATH` → `GRAPH_WIKI_WORKSPACE`).
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/init.py` (or wherever the `init` command lives) — extended to call `workspace_io.init` before `init_vault.init_wiki` (D-07).
+- `packages/vault-io/tests/test_ports_importable.py` — rename `GRAPH_WIKI_REAL_VAULT_PATH` → `GRAPH_WIKI_WORKSPACE` in `test_resolve_wiki_and_repo_raises_on_no_config` and `test_resolve_wiki_and_repo_honors_env_var`. Add a new test for the strict-manifest-required error.
+- `packages/vault-io/tests/conftest.py` (line 35) — fixture references `GRAPH_WIKI_REAL_VAULT_PATH`; updates to `GRAPH_WIKI_WORKSPACE`.
+- `packages/vault-io/src/vault_io/{append_log,detect_containers,graph_analyzer,ingest_source,ingest_work_item,init_vault,scan_monorepo,update_index,update_tokens}.py` — docstrings/error messages mentioning `GRAPH_WIKI_REAL_VAULT_PATH` get rebranded; the `wiki, _ = resolve_wiki_and_repo()` call sites are unchanged.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/config.py` (line 38) — docstring updated.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (line 433) — `--vault` help text updated (`GRAPH_WIKI_REAL_VAULT_PATH` → `GRAPH_WIKI_WORKSPACE`).
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` (or wherever the `init` command lives) — extended to call `workspace_io.init` before `init_vault.init_wiki` (D-07).
 - `pyproject.toml` (root) — `[tool.uv.workspace] members` already covers `packages/*`; no change unless `workspace-io` needs explicit listing.
 
 ### Project-level constraints
 - `CLAUDE.md` — locked tech stack (Python 3.11+, uv workspace, `pyyaml` dependency on workspace_io); ChatBedrockConverse path unchanged by this phase but the rebrand pass must avoid breaking imports.
-- `wiki-config.toml` (repo root) — confirmed **NOT the same surface** as `.graph-wiki.yaml`. `wiki-config.toml` = `{models_path, vault_path}` for code-wiki-agent CLI runtime; `.graph-wiki.yaml` = workspace manifest. No migration script; record this verdict in PROJECT.md Key Decisions during execution (closes WS-10).
+- `wiki-config.toml` (repo root) — confirmed **NOT the same surface** as `.graph-wiki.yaml`. `wiki-config.toml` = `{models_path, vault_path}` for graph-wiki-agent CLI runtime; `.graph-wiki.yaml` = workspace manifest. No migration script; record this verdict in PROJECT.md Key Decisions during execution (closes WS-10).
 
 </canonical_refs>
 
@@ -101,7 +101,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 ### Reusable Assets
 - `vault-io._workspace.resolve_wiki_and_repo` — public function that 8 vault-io modules + the CLI consume. Body is replaced; signature `resolve_wiki_and_repo(vault_path: Path | None = None) -> tuple[Path, Path | None]` stays bit-identical so callers don't touch.
-- `vault-io.init_vault.init_wiki` — runs after `workspace_io.init` in the chained `code-wiki-agent init` flow. No changes needed; just a new caller upstream.
+- `vault-io.init_vault.init_wiki` — runs after `workspace_io.init` in the chained `graph-wiki-agent init` flow. No changes needed; just a new caller upstream.
 - Existing pytest patterns: `monkeypatch.setenv` / `monkeypatch.delenv` (used in `test_ports_importable.py`); `tmp_path` fixture (used heavily for vault layout). Ported workspace-io tests follow the same idioms.
 
 ### Established Patterns
@@ -112,7 +112,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 ### Integration Points
 - `vault-io.pyproject.toml` — gains a workspace dependency on `workspace-io`. The vault-io workspace member declaration in root pyproject already auto-includes `packages/workspace-io/` if it lives under `packages/*` (no member-list edit needed; verify with `uv sync` post-port).
-- `code-wiki-agent` CLI `init` command — calls into `workspace_io.init` directly (workspace-io is added as a `code-wiki-agent` workspace dep too).
+- `graph-wiki-agent` CLI `init` command — calls into `workspace_io.init` directly (workspace-io is added as a `graph-wiki-agent` workspace dep too).
 - Trace / log / observability pipelines — none touched in this phase (manifest write is silent, init records nothing in trace JSONL).
 
 </code_context>
@@ -122,16 +122,16 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 - **Clean slate over migration.** Pat will delete the existing `~/Personal/wiki/deep-agents/` content and re-init at a new supported location. This is a vault-side action, not a code-side action — but it informs the strict-manifest-required policy (D-03) since no in-tree code needs a back-compat path.
 - **Direct rebrand for `.graph-wiki.local.yaml`.** The file rename is mechanical (D-16) but it deserves a small callout: lattice's `_local_config` already supports an unkeyed YAML, so the port preserves graceful-handling of an empty/missing file (returns `{}`).
-- **`importlib.metadata` over `__version__`.** Pat chose runtime introspection (D-13). Verify this returns a sensible value under `uv run --package code-wiki-agent` in editable mode during planning research.
-- **Two-phase init in one CLI command** (D-07) — `code-wiki-agent init <path>` is the one user-facing surface; both workspace + wiki bootstrap happen behind it. No new subcommand surface.
+- **`importlib.metadata` over `__version__`.** Pat chose runtime introspection (D-13). Verify this returns a sensible value under `uv run --package graph-wiki-agent` in editable mode during planning research.
+- **Two-phase init in one CLI command** (D-07) — `graph-wiki-agent init <path>` is the one user-facing surface; both workspace + wiki bootstrap happen behind it. No new subcommand surface.
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-- **`code-wiki-agent migrate-manifest <path>` CLI subcommand** — surfaced when discussing v1→v2 coercion (D-14). Not needed in this phase (no v1 files locally); would belong in a later phase IF Pat ever imports a v1 `.lattice.yaml` from an external repo and the friendly error proves insufficient.
-- **`versions.pending_updates` CLI startup warning** — could fire a one-time "your workspace template is stale" message on `code-wiki-agent` startup. Skipped here; revisit if template drift becomes a real problem in v1.3+.
+- **`graph-wiki-agent migrate-manifest <path>` CLI subcommand** — surfaced when discussing v1→v2 coercion (D-14). Not needed in this phase (no v1 files locally); would belong in a later phase IF Pat ever imports a v1 `.lattice.yaml` from an external repo and the friendly error proves insufficient.
+- **`versions.pending_updates` CLI startup warning** — could fire a one-time "your workspace template is stale" message on `graph-wiki-agent` startup. Skipped here; revisit if template drift becomes a real problem in v1.3+.
 - **Template body content polish** — the rebranded `assets/CLAUDE.md.template` ships with a minimum-viable lattice→graph-wiki sweep. A dedicated writing pass to make the workspace `CLAUDE.md` actually useful for agents entering the workspace is deferred — possibly to Phase 15 (wiki self-update) or its own polish phase.
 - **`DEFAULT_WORKSPACE_NAME` literal** — lattice uses `"lattice"` as the default workspace dir name when no `.graph-wiki.local.yaml` override is present. Recommend `"graph-wiki"` for graph-wiki. Confirmed via D Claude's Discretion; not a question to surface.
 - **Refining `repo_root` to be `Path | None` vs always-`Path`** — D-15 has a `workspace.parent` fallback, so `repo_root` is always a Path post-port. The current type hint `Path | None` could tighten to `Path`. Deferred; tighten in a future cleanup if no caller relies on `None`.

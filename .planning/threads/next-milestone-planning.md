@@ -19,7 +19,7 @@ Capture ideas, scope, and candidate phases for the next deep-agents milestone wh
 Parallel-session constraint: another Claude session is currently running the milestone audit and will run `/gsd-complete-milestone`. To avoid file collisions, this thread restricts itself to capture/ideation only — no edits to ROADMAP.md, STATE.md, PROJECT.md, or the active milestone directory until that session finishes.
 
 Project snapshot at thread creation:
-- Current milestone: v1 of `code-wiki-agent` (Bedrock-hosted port of lattice-wiki).
+- Current milestone: v1 of `graph-wiki-agent` (Bedrock-hosted port of lattice-wiki).
 - Most recent commits indicate Phase 9 gap-closure verified; `cores/` renamed to `packages/`.
 - Tech stack locked: `uv` workspace, Python 3.11+, deepagents 0.6.1, langchain-aws 1.4.6, mcp 1.27.1, deepeval 4.0.0, typer 0.25.1. See `CLAUDE.md` for full table.
 - Wiki vault for this project: `~/Personal/wiki/deep-agents` (Qwen3-32B fan-out, Qwen3-80B synthesis).
@@ -60,7 +60,7 @@ Source locations (verified 2026-05-17):
 Target layout in this repo (after the milestone):
 - `packages/workspace-io/` — **new** package, port of `lattice-workspace`, rebranded to `graph-wiki`
 - `packages/vault-io/` — stays. Depends on `workspace-io` for path/manifest/init concerns
-- `agents/code-wiki-agent/` — unchanged in structure; may need minor updates to consume `workspace-io` via vault-io
+- `agents/graph-wiki-agent/` — unchanged in structure; may need minor updates to consume `workspace-io` via vault-io
 - `plugins/graph-wiki/` — populated in M3 (not in this milestone unless desired)
 
 ### M1 — Port `lattice-workspace` → `workspace-io` with `graph-wiki` rebrand
@@ -112,7 +112,7 @@ Per spike 002 §Investigation A, these are the candidates. For each, decide port
 | `ingest_source.py` | -181 | vault-io is library-only (CLI moved to commands/) | **leave** — architectural choice |
 
 **The ecosystem rebrand happens here too:**
-- Grep `lattice` / `LATTICE` / `lattice_wiki_core` everywhere in `packages/vault-io/`, `agents/code-wiki-agent/`, `.planning/`, `CLAUDE.md`.
+- Grep `lattice` / `LATTICE` / `lattice_wiki_core` everywhere in `packages/vault-io/`, `agents/graph-wiki-agent/`, `.planning/`, `CLAUDE.md`.
 - Rename to `graph-wiki` (kebab) or `graph_wiki` (snake) per context.
 - Stale references already flagged: `.planning/spikes/CONVENTIONS.md` still says `cores/` (was renamed to `packages/`); `~/Personal/lattice/` paths in commit-history-only references can stay.
 
@@ -136,7 +136,7 @@ Per spike 002 §Investigation A, these are the candidates. For each, decide port
 
 - **Naming consistency sweep:** at the end of M1 + M2, grep for `lattice`, `LATTICE`, `lattice_workspace`, `lattice_wiki_core` across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` — anything remaining is a bug.
 - **Wiki self-update:** project's own wiki at `~/Personal/wiki/deep-agents` will need to absorb new package names and the new `.graph-wiki.yaml` manifest. Run a wiki scan after M1 + M2 land.
-- **Spike findings:** `Skill("spike-findings-deep-agents")` is still the implementation blueprint for code-wiki-agent itself; spike 002's drift map is the planning artifact for this milestone's port work.
+- **Spike findings:** `Skill("spike-findings-deep-agents")` is still the implementation blueprint for graph-wiki-agent itself; spike 002's drift map is the planning artifact for this milestone's port work.
 
 ## Migration Themes (superseded — kept for provenance)
 
@@ -149,12 +149,12 @@ Source locations (verified 2026-05-17):
 
 Target layout in this repo:
 - `packages/vault-io/` → renamed to `packages/workspace-io/`
-- `agents/code-wiki-agent/` — existing target for wiki-core logic
+- `agents/graph-wiki-agent/` — existing target for wiki-core logic
 - `plugins/` — currently empty; will host `plugins/graph-wiki/`
 
 ### T1 — Rename `vault-io` → `workspace-io` (rebrand step 1)
 
-**Scope:** mechanical rename. Directory move, `pyproject.toml` `name`, all `from vault_io` imports, workspace member entry in root `pyproject.toml`, any references in `code-wiki-agent` and in `.planning/`.
+**Scope:** mechanical rename. Directory move, `pyproject.toml` `name`, all `from vault_io` imports, workspace member entry in root `pyproject.toml`, any references in `graph-wiki-agent` and in `.planning/`.
 
 **Why first:** every later theme writes into this package. Renaming first avoids merging into a name that's about to change.
 
@@ -178,17 +178,17 @@ Target layout in this repo:
 - Does "rebrand" also apply to skill/command names exposed externally (e.g., `lattice-wiki:query` → `graph-wiki:query`)? — answered by T4 below, but worth aligning vocab now.
 - Resolve overlapping functionality: `vault-io` already has its own implementation. Define the merge strategy per module (replace, merge field-by-field, or wrap).
 
-### T3 — Migrate `lattice-wiki` + `lattice-wiki-core` changes into `code-wiki-agent` and `workspace-io`
+### T3 — Migrate `lattice-wiki` + `lattice-wiki-core` changes into `graph-wiki-agent` and `workspace-io`
 
 **Scope:**
-- Port `lattice-wiki-core/src/` (the agent logic) into `agents/code-wiki-agent/` where it belongs by responsibility; spill anything filesystem/vault-layer into `workspace-io`.
+- Port `lattice-wiki-core/src/` (the agent logic) into `agents/graph-wiki-agent/` where it belongs by responsibility; spill anything filesystem/vault-layer into `workspace-io`.
 - This is "the spike findings, applied" — see `Skill("spike-findings-deep-agents")` for the implementation blueprint already gathered.
 - Rebrand to `graph-wiki` terminology as you port (same rules as T2).
 
 **Dependency:** after T2 (workspace-io must be settled before downstream code targets it).
 
 **Open questions:**
-- How much of `lattice-wiki-core` is already reimplemented in `code-wiki-agent`? Need a diff/inventory pass before scoping the port — candidate for a dedicated `/gsd-spec-phase` ambiguity-scoring pass, or a short spike.
+- How much of `lattice-wiki-core` is already reimplemented in `graph-wiki-agent`? Need a diff/inventory pass before scoping the port — candidate for a dedicated `/gsd-spec-phase` ambiguity-scoring pass, or a short spike.
 - Bedrock-only constraint: any `lattice-wiki-core` Anthropic-direct calls must be rewritten through `langchain-aws` (see `CLAUDE.md` Tech Stack §3).
 
 ### T4 — Bring `lattice-wiki` plugin into `deep-agents/plugins/graph-wiki/`

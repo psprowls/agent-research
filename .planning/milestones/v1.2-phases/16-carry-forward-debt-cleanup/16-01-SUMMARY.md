@@ -12,7 +12,7 @@ requires:
   - phase: 09-observability
     provides: schema_version:1 trace record schema that trace_io.write_trace_record preserves verbatim
   - phase: 08-host-reliability
-    provides: CODE_WIKI_RUN_INTEGRATION gate (now formalized via docs/testing.md + grep gate)
+    provides: GRAPH_WIKI_RUN_INTEGRATION gate (now formalized via docs/testing.md + grep gate)
   - phase: 06-divergence-rubrics
     provides: DivergenceCheck / Verdict / AgentOutputProxy contracts extended in this plan
 
@@ -46,9 +46,9 @@ key-files:
   created:
     - "packages/subagent-runtime/src/subagent_runtime/trace_io.py — shared trace-record writer (D-04)"
     - "packages/subagent-runtime/tests/test_trace_io.py — 3 unit tests for the helper"
-    - "agents/code-wiki-agent/tests/test_ingest_trace_unit.py — fast unit (Pre-E2E gate, Task 2)"
-    - "agents/code-wiki-agent/tests/test_query_trace_unit.py — fast unit (Pre-E2E gate, Task 2)"
-    - "agents/code-wiki-agent/tests/integration/test_trace_coverage.py — gated TRACE-FU-01 regression"
+    - "agents/graph-wiki-agent/tests/test_ingest_trace_unit.py — fast unit (Pre-E2E gate, Task 2)"
+    - "agents/graph-wiki-agent/tests/test_query_trace_unit.py — fast unit (Pre-E2E gate, Task 2)"
+    - "agents/graph-wiki-agent/tests/integration/test_trace_coverage.py — gated TRACE-FU-01 regression"
     - "packages/prompt-sources/agents/code_reader.md — canonical code_reader spec"
     - "packages/prompt-sources/agents/synthesizer.md — canonical synthesizer spec"
     - "packages/eval-harness/src/eval_harness/divergence/code_reader.py — CR-001..CR-004"
@@ -63,8 +63,8 @@ key-files:
     - ".planning/phases/16-carry-forward-debt-cleanup/16-01-SUMMARY.md"
   modified:
     - "packages/subagent-runtime/src/subagent_runtime/pool.py — _write_trace delegates to trace_io"
-    - "agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py — per-call trace records"
-    - "agents/code-wiki-agent/src/code_wiki_agent/commands/query.py — synth trace + summary tokens at BOTH call sites"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py — per-call trace records"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py — synth trace + summary tokens at BOTH call sites"
     - "packages/eval-harness/src/eval_harness/divergence/__init__.py — register new role checks + rubrics"
     - "packages/eval-harness/src/eval_harness/divergence/metric.py — CR-JUDGE + SYN-JUDGE ids"
     - "packages/eval-harness/src/eval_harness/two_gate.py — ROLES_WITH_DIVERGENCE expanded to 6 roles"
@@ -72,8 +72,8 @@ key-files:
     - "eval/cases/code_reader_cases.json — 3 -> 6 cases (baseline preserved)"
     - "packages/eval-harness/tests/test_models_toml_sweep_candidates.py — relaxed len + case_ids assertions"
     - "docs/cancellation.md — §4–§5 refreshed with event-driven trigger"
-    - "agents/code-wiki-agent/tests/integration/test_bedrock_iam.py — canonical INTEGRATION_GATE decorator"
-    - "agents/code-wiki-agent/tests/integration/test_mcp_cancel.py — `# integration-gate-allow` marker"
+    - "agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py — canonical INTEGRATION_GATE decorator"
+    - "agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py — `# integration-gate-allow` marker"
     - "packages/model-adapter/tests/test_loader.py — synthesizer model_id assertion + QWEN_SYNTHESIZER_ARN constant"
 
 key-decisions:
@@ -144,7 +144,7 @@ prose, requirement status table). All 7 REQ-IDs covered; 6 COMPLETE,
 1 RE-DEFERRED (MCP-CAN-01 — cancel spike behind event-driven trigger).
 
 Non-integration test suite at end-of-plan: **549 passed, 22 skipped** in 35.15s
-(`uv run pytest -x -q --ignore=agents/code-wiki-agent/tests/integration --ignore=packages/subagent-runtime/tests/integration`).
+(`uv run pytest -x -q --ignore=agents/graph-wiki-agent/tests/integration --ignore=packages/subagent-runtime/tests/integration`).
 
 ## Decisions Made
 
@@ -162,11 +162,11 @@ Significant in-execution decisions are documented in the frontmatter
 
 **1. [Rule 1 - Bug] Bare-MagicMock `usage_metadata` poisoned trace records (JSON serialization failure)**
 
-- **Found during:** Task 2 (running the full code-wiki-agent unit suite after the ingest/query refactor)
+- **Found during:** Task 2 (running the full graph-wiki-agent unit suite after the ingest/query refactor)
 - **Issue:** Several pre-existing tests use `MagicMock(content=...)` for the LLM response without explicitly setting `usage_metadata`. MagicMock auto-creates attributes, so `resp.usage_metadata` returns a MagicMock object (truthy, not `None`), and the original None-guard (`if meta is not None: meta.get(...)`) proceeded to call `.get()` on the MagicMock, returning yet another MagicMock that then failed JSON serialization when written to the trace file.
 - **Fix:** Added an `isinstance(meta, dict)` guard in BOTH `subagent_runtime.trace_io.write_trace_record` AND the new `_extract_usage_tokens` helper in `query.py`. Real ChatBedrockConverse responses are always `dict | None`, so the guard is semantically equivalent in production and prevents the test fixture poisoning.
-- **Files modified:** `packages/subagent-runtime/src/subagent_runtime/trace_io.py`, `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py`
-- **Verification:** 205/205 code-wiki-agent unit tests pass; 549/549 cross-package non-integration tests pass.
+- **Files modified:** `packages/subagent-runtime/src/subagent_runtime/trace_io.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py`
+- **Verification:** 205/205 graph-wiki-agent unit tests pass; 549/549 cross-package non-integration tests pass.
 - **Committed in:** `b2cf7e3` (trace_io.py guard) + `7b3ce6a` (query.py guard, combined with the broader Task 2 commit)
 
 **2. [Rule 1 - Bug] Synth trace filename collided with existing test glob**
@@ -174,16 +174,16 @@ Significant in-execution decisions are documented in the frontmatter
 - **Found during:** Task 2 (after the initial query.py refactor)
 - **Issue:** First attempt wrote synth trace records to `query_<query_id>_synth.jsonl`, which matched `test_query_summary_schema_version.py`'s `query_*.jsonl` glob and caused the test to find 2 files instead of 1.
 - **Fix:** Renamed the synth trace file to `synth_<query_id>.jsonl` (different prefix). This avoids the existing test glob while keeping the file in the same trace directory.
-- **Files modified:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py`
+- **Files modified:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py`
 - **Verification:** `test_query_summary_record_has_schema_version_one` passes.
 - **Committed in:** `7b3ce6a` (combined with the broader Task 2 commit)
 
 **3. [Rule 3 - Blocking] Pre-existing `test_mcp_cancel.py` triggered the new grep gate**
 
 - **Found during:** Task 7 (first run of the new `tests/test_integration_gate.py`)
-- **Issue:** `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` lives under `tests/integration/` for organizational grouping but is intentionally NOT gated (it's mock-only — zero Bedrock cost). The new grep gate flagged it as divergent.
+- **Issue:** `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` lives under `tests/integration/` for organizational grouping but is intentionally NOT gated (it's mock-only — zero Bedrock cost). The new grep gate flagged it as divergent.
 - **Fix:** Added the `# integration-gate-allow` marker to the file with a one-line rationale + a corresponding entry in `docs/testing.md` §4 inventory. This is the documented allowlist mechanism.
-- **Files modified:** `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py`, `docs/testing.md`
+- **Files modified:** `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py`, `docs/testing.md`
 - **Verification:** Grep gate now passes; the allowlisted file is documented and discoverable.
 - **Committed in:** `4f2c512` (combined with the broader Task 7 commit)
 

@@ -6,13 +6,13 @@
 <domain>
 ## Phase Boundary
 
-Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment with the post-rebrand codebase (v1.2 Phases 11–14) by driving a `code-wiki-agent` scan + ingest pass from the Bedrock CLI surface, then verifying the result with one librarian query and a single-page spot-check.
+Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment with the post-rebrand codebase (v1.2 Phases 11–14) by driving a `graph-wiki-agent` scan + ingest pass from the Bedrock CLI surface, then verifying the result with one librarian query and a single-page spot-check.
 
 **In scope:**
 - Write a new `models-claude.toml` at the repo root (sibling of `models-qwen.toml`) overriding fan-out roles (`scanner`, `linter`, `ingestor`, `code_reader`) to Haiku 4.5 and reasoning roles (`librarian`, `synthesizer`) to Sonnet 4.6. `judge_a`/`judge_b` rows preserved (already on Claude family).
-- Run `code-wiki-agent scan` against `~/Personal/wiki/deep-agents` using the Claude override config. Scan auto-detects post-rebrand workspace state: `workspace-io` (new in Phase 11), `prompt-sources` (also missing from wiki), and refreshes existing package pages (`vault-io`, `eval-harness`, `model-adapter`, `subagent-runtime`).
-- Run `code-wiki-agent ingest` for the one existing source doc `~/Personal/wiki/raw/OTel — Story of observability.md`, using the Claude override.
-- Run `code-wiki-agent query "what is workspace-io?"` (literal SC#3) using the Claude override; paste full transcript into `15-VERIFICATION.md` as a fenced block.
+- Run `graph-wiki-agent scan` against `~/Personal/wiki/deep-agents` using the Claude override config. Scan auto-detects post-rebrand workspace state: `workspace-io` (new in Phase 11), `prompt-sources` (also missing from wiki), and refreshes existing package pages (`vault-io`, `eval-harness`, `model-adapter`, `subagent-runtime`).
+- Run `graph-wiki-agent ingest` for the one existing source doc `~/Personal/wiki/raw/OTel — Story of observability.md`, using the Claude override.
+- Run `graph-wiki-agent query "what is workspace-io?"` (literal SC#3) using the Claude override; paste full transcript into `15-VERIFICATION.md` as a fenced block.
 - Spot-check the `workspace-io` package page produced by scan: frontmatter present + valid, body has package summary + key claims, at least one `[[wikilink]]` resolves to an existing wiki page. Record in `15-VERIFICATION.md`.
 - Confirm scan-log entry (`scan-log.md` or equivalent) in the wiki vault shows the new package names without `lattice` artifacts (SC#1 literal).
 
@@ -23,7 +23,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 - Additional librarian queries beyond `what is workspace-io?` (no rebrand-surface expansion, no diff vs Phase 14 plugin transcript).
 - Spot-checking pages other than `workspace-io` (e.g., `vault-io` post-rebrand, `prompt-sources`, plugin pages). One page suffices per SC#2.
 - Lint runs (before or after); model swap experiments; cost telemetry.
-- Any edits to the `code-wiki-agent` CLI itself or to the wiki schema; this phase is content-only.
+- Any edits to the `graph-wiki-agent` CLI itself or to the wiki schema; this phase is content-only.
 - Phase 16 carry-forward debt (trace pipeline, sweep coverage, MCP cancel, model-config test drift).
 
 </domain>
@@ -33,7 +33,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Tool surface
 
-- **D-01 (Bedrock CLI only):** Phase 15 runs via `code-wiki-agent scan/ingest/query` (Bedrock). The plugin path was already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Matches SC#1's literal wording (`code-wiki-agent scan ~/Personal/wiki/deep-agents completes`). Lowest cost path; consistent with project Core Value (Bedrock-driven wiki workflows).
+- **D-01 (Bedrock CLI only):** Phase 15 runs via `graph-wiki-agent scan/ingest/query` (Bedrock). The plugin path was already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Matches SC#1's literal wording (`graph-wiki-agent scan ~/Personal/wiki/deep-agents completes`). Lowest cost path; consistent with project Core Value (Bedrock-driven wiki workflows).
 
 ### Model selection
 
@@ -56,15 +56,15 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 ### Verification
 
 - **D-08 (Single-page spot-check: `workspace-io`):** SC#2 spot-check minimum bar — open the scan-produced `workspace-io` package page, verify (a) frontmatter present and parseable, (b) body has package summary + at least 2-3 key claims, (c) at least one `[[wikilink]]` resolves to an existing page in the wiki. Documented in `15-VERIFICATION.md` with the page path. No deeper rigor (no `vault-io` rebrand check, no plugin-page check).
-- **D-09 (Literal SC#3 query — one only):** Run `code-wiki-agent query "what is workspace-io?"`. Paste full transcript (user question + fan-out evidence + synthesized answer with wikilinks/code-path citations) into `15-VERIFICATION.md` as a fenced block. No additional rebrand-surface queries; no diff vs Phase 14 plugin transcript.
+- **D-09 (Literal SC#3 query — one only):** Run `graph-wiki-agent query "what is workspace-io?"`. Paste full transcript (user question + fan-out evidence + synthesized answer with wikilinks/code-path citations) into `15-VERIFICATION.md` as a fenced block. No additional rebrand-surface queries; no diff vs Phase 14 plugin transcript.
 
 ### Plan structure
 
-- **D-10 (1 atomic plan):** All steps land in one plan: write `models-claude.toml` → `code-wiki-agent scan` → `code-wiki-agent ingest` (OTel) → `code-wiki-agent query` → spot-check → write `15-VERIFICATION.md` → commit. Phase is short (BRAND-03 single requirement; 3 SC; CLI-driven only); matches the bundled-plan pattern used in Phase 14 Plan 3 and aligns with the user preference for fewer, larger plans on mechanical work.
+- **D-10 (1 atomic plan):** All steps land in one plan: write `models-claude.toml` → `graph-wiki-agent scan` → `graph-wiki-agent ingest` (OTel) → `graph-wiki-agent query` → spot-check → write `15-VERIFICATION.md` → commit. Phase is short (BRAND-03 single requirement; 3 SC; CLI-driven only); matches the bundled-plan pattern used in Phase 14 Plan 3 and aligns with the user preference for fewer, larger plans on mechanical work.
 
 ### Claude's Discretion
 
-- Exact CLI flag name for the model-override config (`--models-config`, `--profile`, etc.) — executor reads `code-wiki-agent --help` or the relevant CLI source during scout to confirm. The CLI already supports the Qwen override (`wiki-config.toml` points to `models-qwen.toml`), so a Claude override is a known-supported shape.
+- Exact CLI flag name for the model-override config (`--models-config`, `--profile`, etc.) — executor reads `graph-wiki-agent --help` or the relevant CLI source during scout to confirm. The CLI already supports the Qwen override (`wiki-config.toml` points to `models-qwen.toml`), so a Claude override is a known-supported shape.
 - Per-role `max_tokens` and `max_concurrency` tuning in `models-claude.toml` — defaulting to the same values as `models-qwen.toml` is fine; if Haiku 4.5 / Sonnet 4.6 have meaningfully different practical concurrency limits on Bedrock, executor's call to adjust.
 - Whether the new `prompt-sources` package page (which scan will also create — it's another missing-from-wiki package) is spot-checked alongside `workspace-io` or only mentioned. SC#2 says "at least one page" — one suffices, but if `prompt-sources` is also new, calling it out as additional evidence costs ~30 seconds.
 - Exact format of `15-VERIFICATION.md` (sections, ordering) — executor's call; follow `14-VERIFICATION.md` template if a template exists.
@@ -80,7 +80,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 ### Phase scope & immediate prior context
 - `.planning/ROADMAP.md` §Phase 15 — Goal, depends-on chain, SC#1..SC#3, BRAND-03 requirement mapping.
 - `.planning/REQUIREMENTS.md` — BRAND-03 full text ("Wiki self-update — `~/Personal/wiki/deep-agents` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest").
-- `.planning/PROJECT.md` — Project Core Value, Bedrock-only constraint for code-wiki-agent, "Explicitly out of v1.2" list.
+- `.planning/PROJECT.md` — Project Core Value, Bedrock-only constraint for graph-wiki-agent, "Explicitly out of v1.2" list.
 - `.planning/phases/14-plugin-port-m3b/14-CONTEXT.md` — Phase 14 decisions (plugin port outcomes, what the wiki should now reflect).
 - `.planning/phases/14-plugin-port-m3b/14-VERIFICATION.md` — Phase 14 SC#4 transcript (`/graph-wiki:query "what is workspace-io?"` via plugin) — for context only; Phase 15 does NOT diff against it.
 - `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md` — Phase 12 rebrand decisions and `scripts/check-brand.sh` gate (the repo-side BRAND truth source, distinct from Phase 15's wiki-side BRAND-03 scope).
@@ -102,13 +102,13 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Repo state scan will observe
 - `packages/` (6 dirs): `eval-harness`, `model-adapter`, `prompt-sources`, `subagent-runtime`, `vault-io`, `workspace-io`.
-- `agents/code-wiki-agent/` — Bedrock CLI surface scan/ingest/query are invoked through.
+- `agents/graph-wiki-agent/` — Bedrock CLI surface scan/ingest/query are invoked through.
 - `plugins/graph-wiki/` — Plugin port from Phase 14 (scan may or may not capture this depending on detection rules; not in SC).
 
 ### Memory / project-level constraints
 - `[[project_wiki_setup]]` — Wiki vault path and existing Qwen profile (Phase 15 overrides for this run only; doesn't replace the default).
 - `[[user_cost_optimization]]` — Eval-driven model selection; "measure it" mindset. D-02's Haiku+Sonnet override is a deliberate one-run choice, not a profile change.
-- `[[project_plugin_port_model]]` — Plugin uses Claude Code inference; `code-wiki-agent` is the Bedrock path. Phase 15 exercises the Bedrock path only (D-01).
+- `[[project_plugin_port_model]]` — Plugin uses Claude Code inference; `graph-wiki-agent` is the Bedrock path. Phase 15 exercises the Bedrock path only (D-01).
 
 </canonical_refs>
 
@@ -116,7 +116,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 ## Existing Code Insights
 
 ### Reusable Assets
-- **`code-wiki-agent` CLI** (`agents/code-wiki-agent/src/code_wiki_agent/cli.py`) — Already supports `scan`, `ingest`, `query` subcommands; already supports an external models-config file (Qwen profile is exercised via `wiki-config.toml → models_path`). Phase 15 adds a sibling Claude profile and routes via CLI flag for one run.
+- **`graph-wiki-agent` CLI** (`agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`) — Already supports `scan`, `ingest`, `query` subcommands; already supports an external models-config file (Qwen profile is exercised via `wiki-config.toml → models_path`). Phase 15 adds a sibling Claude profile and routes via CLI flag for one run.
 - **`models-qwen.toml`** — Reference shape for `models-claude.toml`. Roles defined: `haiku`, `sonnet` (both already on Claude family — already-named slots), `librarian`, `scanner`, `linter`, `ingestor`, `code_reader`, `synthesizer`, `judge_a`, `judge_b`. Phase 15's new file mirrors this structure.
 - **Phase 11/12 pattern**: scan auto-detects new packages from `pyproject.toml` workspace members. `workspace-io` and `prompt-sources` are both present in `packages/` and absent from the wiki — scan will surface both.
 
@@ -127,8 +127,8 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Integration Points
 - **Wiki vault** (`~/Personal/wiki/deep-agents/`) — External to this repo; Phase 15 mutates it (scan adds package pages; ingest updates source summary). Vault is a git repo (likely); commits there are separate from this repo's commits.
-- **No code changes** in `agents/code-wiki-agent/` or `packages/` — Phase 15 is content-only on the wiki side, with one new config file (`models-claude.toml`) and one new doc (`15-VERIFICATION.md`) on the repo side.
-- **No MCP boundary touch** — code-wiki-mcp is not exercised by Phase 15.
+- **No code changes** in `agents/graph-wiki-agent/` or `packages/` — Phase 15 is content-only on the wiki side, with one new config file (`models-claude.toml`) and one new doc (`15-VERIFICATION.md`) on the repo side.
+- **No MCP boundary touch** — graph-wiki-mcp is not exercised by Phase 15.
 - **No plugin touch** — `plugins/graph-wiki/` already smoke-tested in Phase 14 SC#4.
 
 </code_context>
@@ -152,7 +152,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 - **Multi-query librarian audit** — Running 5-10 librarian queries spanning the rebrand surface (`what is .graph-wiki.yaml?`, `what does workspace-io do?`, `what's the graph-wiki plugin?`) for a deeper baseline. Out of scope for Phase 15's single-query SC#3; could land as a Phase 16 sub-task if cost-frontier sweep expansion is in play.
 - **Stale-content sweep across wiki pages** — `grep -r lattice ~/Personal/wiki/deep-agents/` post-run + manual rewrites of any surviving hits in concepts/architecture pages. Explicitly out per D-07; revisit if a future librarian query is found to be polluted by stale text.
 - **Qwen profile rebaseline** — Re-running this exact scan/ingest/query trio on the default Qwen profile to compare against the Claude-override output. Useful as cost-frontier evidence; out of v1.2 scope; could land as a Phase 16 sweep extension.
-- **Lint pass before/after** — Capturing `code-wiki-agent lint` output as before/after evidence of stale-content health. Considered and rejected for Phase 15 (no SC backs it; adds cost).
+- **Lint pass before/after** — Capturing `graph-wiki-agent lint` output as before/after evidence of stale-content health. Considered and rejected for Phase 15 (no SC backs it; adds cost).
 - **Promote `models-claude.toml` to the default profile** — Possible follow-up after measuring quality vs Qwen. Out of v1.2; matches the cost-frontier-mindset memory ("measure it" before defaulting).
 - **Spot-check additional pages (`vault-io` post-rebrand, plugin entry)** — Explicitly out per D-08; could land in a future audit phase.
 - **Phase 14 plugin transcript diff** — Comparing today's CLI transcript against `14-VERIFICATION.md` plugin transcript. Considered (D-09 option C) and rejected; could be revisited at milestone audit time.

@@ -27,15 +27,15 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 21 — rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r
+**Current Focus:** Phase 21 — rename-graph-wiki-agent-to-graph-wiki-agent-update-all-code-r
 
-**North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
+**North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
 ---
 
 ## Current Position
 
-Phase: 21 (rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r) — EXECUTING
+Phase: 21 (rename-graph-wiki-agent-to-graph-wiki-agent-update-all-code-r) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 21
 Last activity: 2026-05-20 -- Phase 21 execution started
@@ -79,11 +79,11 @@ v1.3 Progress: [████░░░░░░] 40% (2/5 phases complete; 9 plan
 
 ### Roadmap Evolution
 
-- Phase 20 added (2026-05-19): Workspace Manifest Model Config — move wiki model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path()`, `--config`, `CODE_WIKI_CONFIG`); packaged `model-adapter/models.toml` becomes per-role fallback. Triggered by discovering `wiki-config.toml` had no source-code references and the user's direction that all config should live in the `.graph-wiki.yaml` family.
+- Phase 20 added (2026-05-19): Workspace Manifest Model Config — move wiki model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path()`, `--config`, `GRAPH_WIKI_CONFIG`); packaged `model-adapter/models.toml` becomes per-role fallback. Triggered by discovering `wiki-config.toml` had no source-code references and the user's direction that all config should live in the `.graph-wiki.yaml` family.
 - Phase 20 completed (2026-05-20): 4 plans shipped across 3 waves; verifier 5/5 SCs PASS; checkpoint smoke checks confirmed workspace manifest is live source of truth and falls back to packaged `models.toml` per-role.
-- Phase 21 added to v1.3 (2026-05-20): code-wiki-agent → graph-wiki-agent mechanical rename. CONTEXT.md already gathered in `.planning/phases/21-rename-code-wiki-agent-...`; awaiting planning. Next-up after Phase 18.
+- Phase 21 added to v1.3 (2026-05-20): graph-wiki-agent → graph-wiki-agent mechanical rename. CONTEXT.md already gathered in `.planning/phases/21-rename-graph-wiki-agent-...`; awaiting planning. Next-up after Phase 18.
 - Phase 19 reordered (2026-05-20): code review burndown moved to end of v1.3 execution queue; now depends on Phase 21 so the rename ships before triage. Numbers unchanged (display order: 17, 18, 20, 21, 19).
-- Phase 21 added (2026-05-19): Rename code-wiki-agent to graph-wiki-agent — update all code references (excluding wiki content) so the agent package name aligns with the `graph-wiki` plugin port.
+- Phase 21 added (2026-05-19): Rename graph-wiki-agent to graph-wiki-agent — update all code references (excluding wiki content) so the agent package name aligns with the `graph-wiki` plugin port.
 
 ### Active TODOs
 
@@ -113,7 +113,7 @@ Items acknowledged at v1.2 close that are NOT in v1.3 scope:
 
 **Last session:** 2026-05-20T00:52:39.540Z
 **Stopped at:** Phase 21 context gathered
-**Resume file:** .planning/phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/21-CONTEXT.md
+**Resume file:** .planning/phases/21-rename-graph-wiki-agent-to-graph-wiki-agent-update-all-code-r/21-CONTEXT.md
 
 **Critical context for next session:**
 

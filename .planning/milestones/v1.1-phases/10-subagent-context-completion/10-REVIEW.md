@@ -4,24 +4,24 @@ reviewed: 2026-05-17T00:00:00Z
 depth: standard
 files_reviewed: 18
 files_reviewed_list:
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/claude_md_disambiguation.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/log_format.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/style_rules.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py
-  - agents/code-wiki-agent/tests/prompts/test_project_context.py
-  - agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
-  - agents/code-wiki-agent/tests/prompts/test_token_budget.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/claude_md_disambiguation.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/log_format.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/style_rules.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py
+  - agents/graph-wiki-agent/tests/prompts/test_project_context.py
+  - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
+  - agents/graph-wiki-agent/tests/prompts/test_token_budget.py
   - cores/prompt-sources/wiki-claude-md-template.md
-  - agents/code-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr
-  - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+  - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr
+  - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 findings:
   critical: 0
   warning: 4
@@ -49,7 +49,7 @@ Secondary findings: a TOCTOU-adjacent unguarded second file read in `render_proj
 
 ### WR-01: `project_context` block duplicates LOG_FORMAT (and STYLE_RULES in ingestor) producing two consecutive identical sections
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py:100-145` and `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py:107-125`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py:100-145` and `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py:107-125`
 **Issue:** When `project_context` is non-empty, each linter builder produces output containing both:
 1. A `## Log format (wiki/CLAUDE.md §Log format)` block sourced from the vault's CLAUDE.md
 2. A `## Log format` block sourced from the static `LOG_FORMAT` fragment (`_fragments/log_format.py`)
@@ -78,7 +78,7 @@ Then `pytest --snapshot-update tests/prompts/test_prompt_snapshots.py` once to r
 
 ### WR-02: `render_project_context` emits a misleading "(no layout block detected)" sentinel that the LLM will treat as authoritative
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py:86-87`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py:86-87`
 **Issue:** When `wiki/CLAUDE.md` exists but no `<!-- lattice-wiki:layout:start -->` block is present (the common state for any wiki that hasn't yet run a scan), `_render_layout` returns:
 
 ```
@@ -106,7 +106,7 @@ if layout_section:
 
 ### WR-03: Unguarded second read of schema file in `_extract_section` can raise on permission / disappearance after initial existence check
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/project_context.py:119`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py:119`
 **Issue:** `render_project_context` checks `schema.exists()` at line 45, then `read_layout(schema)` (which performs its own `exists()` check + read), then calls `_render(layout, schema)` which calls `_extract_section(schema_path, "Style")` and `_extract_section(schema_path, "Log format")`. Each `_extract_section` does an unguarded `schema_path.read_text(encoding="utf-8")`.
 
 The module docstring (lines 7-10) claims this function "never raises for missing files". That contract is broken if the file becomes unreadable (permission flip, race-condition deletion) between `schema.exists()` and any of the three subsequent `read_text` calls. In practice race deletion is unlikely, but a permission-error propagation will surface as a hard crash inside the scan/ingest/lint command pipeline rather than a graceful degradation to empty project_context.
@@ -131,7 +131,7 @@ def _extract_section(text: str, heading: str) -> str:
 
 ### WR-04: `repo_path` override in `commands/scan.py` renders project_context from the resolved-vault path, which can describe a different repo than the override
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py:270`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py:270`
 **Issue:** When the eval harness or a test passes `repo_path` to override the discovered repo, the function explicitly bypasses the vault's pinned containers (lines 280-291) on the grounds that the vault layout was generated from the original repo and would not match the override. But two lines earlier (line 270), `project_ctx = render_project_context(wiki)` reads the same vault and embeds *exactly that mismatched layout description* into every subagent system prompt for the override-targeted run.
 
 Net effect: the LLM gets a `## Project layout` block describing the source-of-truth repo (e.g. `lattice/packages/`), while the scanner is actually walking a fixture repo with a different structure. The subagent will be told that the project has containers it cannot find. This undermines the eval-harness divergence test the override exists to support.
@@ -152,32 +152,32 @@ else:
 
 ### IN-01: Snapshot files contain the duplication of WR-01 — fixing WR-01 will require regenerating these snapshots
 
-**File:** `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr:200-310, 614-645, 717-770`
+**File:** `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr:200-310, 614-645, 717-770`
 **Issue:** The recorded snapshots for `test_ingestor_system_with_project_context`, `test_linter_page_quality_system_with_project_context`, `test_linter_adr_chain_system_with_project_context`, and `test_linter_stale_claims_system_with_project_context` all contain the WR-01 duplicate-section output. Recording the bug as "expected" locks it in. If WR-01 is fixed, these snapshots must be regenerated with `pytest --snapshot-update tests/prompts/test_prompt_snapshots.py` and the diffs reviewed manually before commit.
 **Fix:** Tied to WR-01.
 
 ### IN-02: `_count_tokens` rule-of-thumb is non-load-bearing and could mask real growth on a different prompt structure
 
-**File:** `agents/code-wiki-agent/tests/prompts/test_token_budget.py:56-58`
+**File:** `agents/graph-wiki-agent/tests/prompts/test_token_budget.py:56-58`
 **Issue:** `len(s) // 4` is not a real tokenizer for any Bedrock-served model. The test correctly admits this in its docstring. On a future prompt that uses many short tokens (CJK text, dense code, frequent backticks), this approximation could understate by 40-60%. The current baselines were derived from the same approximation so the comparison is internally consistent, but a future refactor that changes the character distribution (e.g. heavy ASCII art, code samples) could pass this test while blowing real token budgets.
 **Fix:** Document the limitation more aggressively in CONTEXT.md, or replace with `boto3` `bedrock-runtime.count_tokens` against a representative model. Not a v1 concern.
 
 ### IN-03: `read_layout` is invoked once via `render_project_context` and again indirectly via `_load_existing_pages` and `_module_pass` in commands — same file read 2-3× per command
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py:270, 287-291` and `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py:522, _module_pass:327`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py:270, 287-291` and `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py:522, _module_pass:327`
 **Issue:** Each scan/lint command call reads `wiki/CLAUDE.md` via `render_project_context` once, then again via the in-command `read_layout(wiki / schema_name)` for pinned-containers extraction (scan) or code-drift detection (lint). The file is small (~few KB) and reads are local-disk, so this is not a real cost — but threading the parsed layout through (or caching at the command boundary) would make the data flow easier to reason about and would naturally fix WR-03 by funneling all reads through one error-handling path.
 **Fix:** Optional refactor; defer.
 
 ### IN-04: Doc/impl drift between `prompts/ingestor.py:14` module docstring and the actual `parts.insert(1, ...)` semantics — confusing but currently correct
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py:96-106`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py:96-106`
 **Issue:** The module-level docstring (line 13-14) says `project_context` is "inserted at position 1 (after the role intro, before IRON_RULES)". The function docstring at line 100-104 says the same. The implementation at line 124 does `parts.insert(1, project_context)`. Because `parts[0]` is `_ROLE_INTRO` and `parts[1]` is `IRON_RULES`, inserting at index 1 places `project_context` between them — correct, matches the docstring. The wording is just slightly awkward; "position 1" can be read as either "the second slot" or "before slot 1". A future reader chasing a snapshot diff may mis-read this.
 **Fix:** Re-word docstring to "inserted between the role intro (position 0) and IRON_RULES, becoming the new position 1".
 
 ### IN-05: `commands/lint.py:72-77` performs imports after the module body has begun (after `LINTED_TOPS` constant) — PEP 8 mild style nit
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py:72-77`
-**Issue:** `from code_wiki_agent.prompts.linter import (...)` and `from code_wiki_agent.prompts.project_context import render_project_context` are placed mid-module after several other top-level statements. PEP 8 prefers all imports at the top; this is a quality nit, not a correctness issue. The other command files (`scan.py`, `ingest.py`) correctly group these at the top.
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py:72-77`
+**Issue:** `from graph_wiki_agent.prompts.linter import (...)` and `from graph_wiki_agent.prompts.project_context import render_project_context` are placed mid-module after several other top-level statements. PEP 8 prefers all imports at the top; this is a quality nit, not a correctness issue. The other command files (`scan.py`, `ingest.py`) correctly group these at the top.
 **Fix:** Move the two import blocks at lines 72-77 up to join the rest of the imports at line 38.
 
 ---

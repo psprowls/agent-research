@@ -225,14 +225,14 @@ Cross-region inference is a separate resource type from foundation models. The I
 ### Pitfall 10: uv Workspace pytest Test Collision Across Members
 
 **What goes wrong:**
-`pytest` discovers test files across the entire workspace when run from the root. If two workspace members (e.g., `code-wiki-agent` and a future `shared-eval`) both have a `tests/test_utils.py`, pytest may load `conftest.py` from the wrong package root, producing import errors or silently running the wrong tests with the wrong fixtures.
+`pytest` discovers test files across the entire workspace when run from the root. If two workspace members (e.g., `graph-wiki-agent` and a future `shared-eval`) both have a `tests/test_utils.py`, pytest may load `conftest.py` from the wrong package root, producing import errors or silently running the wrong tests with the wrong fixtures.
 
 **Why it happens:**
 uv creates a unified virtual environment and installs all members as editable packages. `pytest` traverses the monorepo tree and can find same-named test files in multiple packages. `conftest.py` loading is path-based, so the first one found may shadow others.
 
 **How to avoid:**
 - Set `testpaths = ["tests"]` in each member's `pyproject.toml` `[tool.pytest.ini_options]` and run per-member tests with `uv run --package <name> pytest`.
-- Use unique test file names across members or namespace test directories: `tests/code_wiki_agent/` not just `tests/`.
+- Use unique test file names across members or namespace test directories: `tests/graph_wiki_agent/` not just `tests/`.
 - Add a root-level `conftest.py` that explicitly lists excluded packages to prevent accidental cross-member discovery.
 
 **Warning signs:**
@@ -247,7 +247,7 @@ uv creates a unified virtual environment and installs all members as editable pa
 ### Pitfall 11: uv Workspace Single-Version Enforcement Blocks Mixed Library Versions
 
 **What goes wrong:**
-uv enforces a single resolved version per package across all workspace members. If `code-wiki-agent` requires `langchain>=0.3` and a future `eval-harness` member pins `langchain==0.2.x`, uv will refuse to resolve or silently upgrade one to satisfy the other, breaking the member that expected the older version.
+uv enforces a single resolved version per package across all workspace members. If `graph-wiki-agent` requires `langchain>=0.3` and a future `eval-harness` member pins `langchain==0.2.x`, uv will refuse to resolve or silently upgrade one to satisfy the other, breaking the member that expected the older version.
 
 **Why it happens:**
 uv's workspace lock file is global — it solves a single SAT problem across all members. Member-level version constraints in sub-`pyproject.toml` files cannot override the global resolution.
@@ -371,7 +371,7 @@ The reimplementation reads a vault page with `python-frontmatter`, modifies a fi
 | Eval baseline drift | Phase 4: Eval Harness | Baseline metadata includes concrete ARN + output hash; re-recording with same ARN is idempotent |
 | MCP stdout contamination | Phase 1: MCP Server Skeleton | Subprocess capture of server stdout contains only valid JSON-RPC lines |
 | Cross-region IAM missing ARN | Phase 1: Infrastructure Setup | `aws bedrock invoke-model` succeeds with cross-region profile ARN before any code is written |
-| uv pytest test collision | Phase 1: Monorepo Setup | `uv run --package code-wiki-agent pytest` uses only that package's tests |
+| uv pytest test collision | Phase 1: Monorepo Setup | `uv run --package graph-wiki-agent pytest` uses only that package's tests |
 | uv single-version enforcement | Phase 1: Monorepo Setup | `uv lock --check` passes in CI after adding each workspace member |
 | Vault format drift on round-trip | Phase 1: Core Vault IO | `git diff` empty after write-back on real vault fixture |
 

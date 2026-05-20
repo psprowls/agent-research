@@ -10,22 +10,22 @@
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
-| `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` | test | event-driven (asyncio task cancel) | `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py` | role-match (same file, different harness mode) |
-| `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py` | test | request-response (subprocess JSON-RPC) | `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py` | exact (same subprocess+JSON-RPC pattern, extended) |
-| `agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py` | test | unit/schema | `agents/code-wiki-agent/tests/unit/test_mcp_new_tools.py` | exact (same WikiScanInput import + field assertion pattern) |
+| `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` | test | event-driven (asyncio task cancel) | `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py` | role-match (same file, different harness mode) |
+| `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` | test | request-response (subprocess JSON-RPC) | `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py` | exact (same subprocess+JSON-RPC pattern, extended) |
+| `agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py` | test | unit/schema | `agents/graph-wiki-agent/tests/unit/test_mcp_new_tools.py` | exact (same WikiScanInput import + field assertion pattern) |
 | `docs/cancellation.md` | docs | — | `README.md` (repo root) | partial (prose only; no code pattern to copy) |
 | `cores/subagent-runtime/src/subagent_runtime/pool.py` | service | event-driven (asyncio fan-out) | self (existing `except Exception` branches in same file) | self-analog |
-| `agents/code-wiki-agent/src/code_wiki_mcp/server.py` | service/config | request-response | self (existing `WikiQueryInput`/`WikiLogInput` pattern in same file) | self-analog |
+| `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` | service/config | request-response | self (existing `WikiQueryInput`/`WikiLogInput` pattern in same file) | self-analog |
 
 ---
 
 ## Pattern Assignments
 
-### `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` (test, direct-asyncio cancel)
+### `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` (test, direct-asyncio cancel)
 
-**Decision:** D-10 — cancel test runs WITHOUT `CODE_WIKI_RUN_INTEGRATION=1`. Direct asyncio, NOT subprocess. `monkeypatch` works because the test runs in-process.
+**Decision:** D-10 — cancel test runs WITHOUT `GRAPH_WIKI_RUN_INTEGRATION=1`. Direct asyncio, NOT subprocess. `monkeypatch` works because the test runs in-process.
 
-**Analog:** `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py`
+**Analog:** `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py`
 
 **Imports pattern** (`test_mcp_stdio.py` lines 1-21):
 ```python
@@ -90,11 +90,11 @@ async def test_cancel_mid_fan_out(tmp_path, monkeypatch):
 
 ---
 
-### `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py` (test, subprocess JSON-RPC)
+### `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` (test, subprocess JSON-RPC)
 
-**Decision:** D-01, D-14 — subprocess-based, gated by `CODE_WIKI_RUN_INTEGRATION=1`, one sequential test function.
+**Decision:** D-01, D-14 — subprocess-based, gated by `GRAPH_WIKI_RUN_INTEGRATION=1`, one sequential test function.
 
-**Analog:** `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py` — copy the entire harness.
+**Analog:** `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py` — copy the entire harness.
 
 **Imports pattern** (copy from `test_mcp_stdio.py` lines 1-22):
 ```python
@@ -112,22 +112,22 @@ import pytest
 ```python
 # conftest.py canonical definition:
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 # In test_mcp_e2e.py — import from conftest or redefine locally (either is fine per conftest comment):
-from agents.code_wiki_agent.tests.conftest import INTEGRATION_GATE
+from agents.graph_wiki_agent.tests.conftest import INTEGRATION_GATE
 # OR redefine at top of file same as test_mcp_stdio.py line 141-144
 ```
 
 **`_run_server` helper** (copy verbatim from `test_mcp_stdio.py` lines 63-78):
 ```python
 def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
-    """Spawn code-wiki-mcp, feed payload, return (stdout, stderr)."""
+    """Spawn graph-wiki-mcp, feed payload, return (stdout, stderr)."""
     payload = "\n".join(json.dumps(obj) for obj in payload_objs) + "\n"
     proc = subprocess.Popen(
-        ["uv", "run", "--package", "code-wiki-agent", "code-wiki-mcp"],
+        ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-mcp"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -227,9 +227,9 @@ Note: `notifications/cancelled` is a notification — it has no `id` field and r
 
 ---
 
-### `agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py` (test, unit/schema)
+### `agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py` (test, unit/schema)
 
-**Analog:** `agents/code-wiki-agent/tests/unit/test_mcp_new_tools.py` — exact pattern.
+**Analog:** `agents/graph-wiki-agent/tests/unit/test_mcp_new_tools.py` — exact pattern.
 
 **Imports pattern** (`test_mcp_new_tools.py` lines 1-8):
 ```python
@@ -249,14 +249,14 @@ import pytest
 ```python
 def test_wiki_scan_input_default_vault_path_is_empty() -> None:
     """WikiScanInput defaults to vault_path='' (resolves from env)."""
-    from code_wiki_mcp.server import WikiScanInput
+    from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.vault_path == ""
 
 def test_wiki_scan_input_default_no_file_map_is_false() -> None:
     """WikiScanInput defaults to no_file_map=False."""
-    from code_wiki_mcp.server import WikiScanInput
+    from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.no_file_map is False
@@ -266,14 +266,14 @@ def test_wiki_scan_input_default_no_file_map_is_false() -> None:
 ```python
 def test_wiki_scan_input_default_repo_path_is_empty() -> None:
     """WikiScanInput defaults to repo_path='' (no override — resolves from vault_path)."""
-    from code_wiki_mcp.server import WikiScanInput
+    from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.repo_path == ""
 
 def test_wiki_scan_input_accepts_repo_path() -> None:
     """WikiScanInput accepts an explicit repo_path string."""
-    from code_wiki_mcp.server import WikiScanInput
+    from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput(repo_path="/tmp/test-repo")
     assert inp.repo_path == "/tmp/test-repo"
@@ -393,13 +393,13 @@ The "never raises — OSError logged at WARNING" contract is copied verbatim fro
 
 ---
 
-### `agents/code-wiki-agent/src/code_wiki_mcp/server.py` (modify — service)
+### `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` (modify — service)
 
 **Self-analog: `WikiQueryInput`** (lines 103-107) — existing field-with-default pattern:
 ```python
 class WikiQueryInput(BaseModel):
     query: str
-    vault_path: str = ""  # empty -> resolve from CODE_WIKI_REAL_VAULT_PATH env var
+    vault_path: str = ""  # empty -> resolve from GRAPH_WIKI_REAL_VAULT_PATH env var
     top_k: int = Field(default=5, ge=3, le=10)
 ```
 
@@ -409,13 +409,13 @@ class WikiLogInput(BaseModel):
     op: str = Field(..., description="Log operation type (...)")
     title: str = Field(..., description="Short title for the log entry")
     detail: str | None = Field(None, description="Optional extended detail")
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_REAL_VAULT_PATH env var)")
 ```
 
 **New field to add to `WikiScanInput`** (lines 242-245) — copy `vault_path` Field style:
 ```python
 class WikiScanInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_REAL_VAULT_PATH env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
     # NEW:
@@ -489,7 +489,7 @@ field_name: str = Field("", description="...")
 ```
 
 ### pytest asyncio test functions (no `@pytest.mark.asyncio` decorator)
-**Source:** `test_mcp_new_tools.py` lines 70, 96, 151, 180 — async test functions declared without explicit `@pytest.mark.asyncio` because `asyncio_mode = "auto"` is set in `agents/code-wiki-agent/pyproject.toml`.
+**Source:** `test_mcp_new_tools.py` lines 70, 96, 151, 180 — async test functions declared without explicit `@pytest.mark.asyncio` because `asyncio_mode = "auto"` is set in `agents/graph-wiki-agent/pyproject.toml`.
 **Apply to:** All `async def test_*` functions in `test_mcp_cancel.py` and `test_wiki_scan_input.py`.
 
 ---
@@ -504,6 +504,6 @@ field_name: str = Field("", description="...")
 
 ## Metadata
 
-**Analog search scope:** `agents/code-wiki-agent/tests/`, `cores/subagent-runtime/src/`, `agents/code-wiki-agent/src/code_wiki_mcp/`, repo root `*.md`
+**Analog search scope:** `agents/graph-wiki-agent/tests/`, `cores/subagent-runtime/src/`, `agents/graph-wiki-agent/src/graph_wiki_mcp/`, repo root `*.md`
 **Files read:** 9 source files (`pool.py`, `server.py`, `test_mcp_stdio.py`, `conftest.py`, `test_mcp_new_tools.py`, `test_mcp_query_schema.py`, `test_commands_scan.py`, `README.md`, `CLAUDE.md` context headers)
 **Pattern extraction date:** 2026-05-17

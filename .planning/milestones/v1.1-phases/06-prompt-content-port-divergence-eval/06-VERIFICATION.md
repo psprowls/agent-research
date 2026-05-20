@@ -52,7 +52,7 @@ The Phase 6 sequence completed as follows:
 
 ## Success Criterion Verification (Live Codebase Evidence)
 
-### SC-1 — `code-wiki-agent query` produces citations following lattice-wiki iron rules
+### SC-1 — `graph-wiki-agent query` produces citations following lattice-wiki iron rules
 
 **Status:** PASS
 
@@ -60,7 +60,7 @@ The Phase 6 sequence completed as follows:
 - Programmatic wiring verified at initial verification (`LIBRARIAN_SYSTEM` composed from `iron_rules + citation_rules` fragments; wired in `query.py:842` via `SystemMessage`).
 - UAT Test 1 run by Pat on 2026-05-16 against freshly-scanned vault: librarian drilled 5 pages, hit no relevant content, emitted clean refusal `"The vault does not document this and source code did not yield a relevant match."` — no hallucinated wikilinks, iron-rule behavior confirmed.
 
-### SC-2 — `code-wiki-agent ingest` routes source vs work-item pages correctly + frontmatter passes mechanical lint
+### SC-2 — `graph-wiki-agent ingest` routes source vs work-item pages correctly + frontmatter passes mechanical lint
 
 **Status:** PASS
 
@@ -73,9 +73,9 @@ The Phase 6 sequence completed as follows:
 | G3 (minor) | Body `target_slug` ≠ on-disk filename | Closed 06-13 | `commands/ingest.py:102-136` — new `_rewrite_target_slug_in_body()` helper; wired at line 430-431 between `_route_target_path()` and `target_path.write_text()`. Pure text manipulation (no `yaml.load`) preserves field order and comments. |
 | G4 (major) | Hallucinated wikilinks `[[Person]]`, `[[subdir/missing-slug]]` | Closed 06-14 | `commands/ingest.py:149-209` — `_resolve_wikilinks()` strips wikilinks not present in vault (fence-aware line walk); wired at line 439-441 (two-write pattern); `append_log` detail records strip count + first 5 targets (line 447-452). Prompt names anti-patterns (`prompts/ingestor.py:43-54` — Wikilink discipline section with `[[Person Name]]` + `[[subdir/some-slug]]` examples + honest disclosure). |
 
-Mechanical checks: `pytest agents/code-wiki-agent/tests/unit/` → **138 passed**. INGESTOR_SYSTEM contains all expected new substrings (verified via live Python import).
+Mechanical checks: `pytest agents/graph-wiki-agent/tests/unit/` → **138 passed**. INGESTOR_SYSTEM contains all expected new substrings (verified via live Python import).
 
-### SC-3 — `code-wiki-agent lint` applies canonical rule set with provenance comments
+### SC-3 — `graph-wiki-agent lint` applies canonical rule set with provenance comments
 
 **Status:** PASS (unchanged since initial verification)
 
@@ -127,9 +127,9 @@ For each of the 5 gaps closed during 06-12..06-16, I verified the code is presen
 
 | Suite | Command | Result |
 |-------|---------|--------|
-| code-wiki-agent unit | `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/ -q` | **138 passed** in 6.72s |
-| code-wiki-agent prompts | `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/prompts/ -q` | **10 passed, 8 snapshots passed** in 0.01s |
-| eval-harness | `uv run --package eval-harness pytest cores/eval-harness/tests/ -q` | **108 passed, 18 skipped** in 21.59s (all skips are `CODE_WIKI_RUN_EVAL=1`-gated or `--run-eval-analysis`-gated, as designed) |
+| graph-wiki-agent unit | `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/ -q` | **138 passed** in 6.72s |
+| graph-wiki-agent prompts | `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/prompts/ -q` | **10 passed, 8 snapshots passed** in 0.01s |
+| eval-harness | `uv run --package eval-harness pytest cores/eval-harness/tests/ -q` | **108 passed, 18 skipped** in 21.59s (all skips are `GRAPH_WIKI_RUN_EVAL=1`-gated or `--run-eval-analysis`-gated, as designed) |
 
 Per-package test runs are the standard invocation pattern for this monorepo (see CLAUDE.md `uv sync --package` / `uv run --package` examples). All green.
 
@@ -191,9 +191,9 @@ _Verifier: Claude (gsd-verifier)_
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Running `code-wiki-agent query` against the fixture corpus produces citations that follow lattice-wiki iron rules (no hallucinated wikilinks, correct refusal patterns) | ? UNCERTAIN (now PASS after UAT) | LIBRARIAN_SYSTEM is composed from iron_rules + citation_rules fragments wired into query.py:842 via SystemMessage; content faithful to source. Live LLM output quality required human check → confirmed PASS in UAT Test 1. |
-| 2 | Running `code-wiki-agent ingest` routes source vs work-item pages correctly and generates frontmatter that passes the mechanical lint pass | ? UNCERTAIN (now PASS after gap closure) | INGESTOR_SYSTEM composed from iron_rules + page_categories + frontmatter_rules + citation_rules, wired in ingest.py:258 via SystemMessage. ING-001..004 checks pass unit tests. UAT Test 2 surfaced 4 defects (G1-G4); all closed in 06-12..06-14. |
-| 3 | Running `code-wiki-agent lint` applies the canonical rule set — provenance comments in `prompts/` trace every rule to a source path + anchor | ✓ VERIFIED | LINTER_{PAGE_QUALITY,ADR_CHAIN,STALE_CLAIMS}_SYSTEM all composed from IRON_RULES + linter-local rules adapted from linter.md, wired in lint.py:421-432. All 4 fragment files carry `# Source:`, `# Anchor:`, `# Source-commit:` headers verified by test_provenance.py (10 passed). |
+| 1 | Running `graph-wiki-agent query` against the fixture corpus produces citations that follow lattice-wiki iron rules (no hallucinated wikilinks, correct refusal patterns) | ? UNCERTAIN (now PASS after UAT) | LIBRARIAN_SYSTEM is composed from iron_rules + citation_rules fragments wired into query.py:842 via SystemMessage; content faithful to source. Live LLM output quality required human check → confirmed PASS in UAT Test 1. |
+| 2 | Running `graph-wiki-agent ingest` routes source vs work-item pages correctly and generates frontmatter that passes the mechanical lint pass | ? UNCERTAIN (now PASS after gap closure) | INGESTOR_SYSTEM composed from iron_rules + page_categories + frontmatter_rules + citation_rules, wired in ingest.py:258 via SystemMessage. ING-001..004 checks pass unit tests. UAT Test 2 surfaced 4 defects (G1-G4); all closed in 06-12..06-14. |
+| 3 | Running `graph-wiki-agent lint` applies the canonical rule set — provenance comments in `prompts/` trace every rule to a source path + anchor | ✓ VERIFIED | LINTER_{PAGE_QUALITY,ADR_CHAIN,STALE_CLAIMS}_SYSTEM all composed from IRON_RULES + linter-local rules adapted from linter.md, wired in lint.py:421-432. All 4 fragment files carry `# Source:`, `# Anchor:`, `# Source-commit:` headers verified by test_provenance.py (10 passed). |
 | 4 | The divergence eval metric runs against the fixture corpus and emits per-role divergence counts with concrete examples | ✓ VERIFIED (live confirmed in UAT) | DivergenceMetric.run_programmatic() + run_judge() implemented in metric.py; test_divergence.py prints per-role failure counts and accepted_failures excerpts (lines 123-129); 37 unit tests pass; 12 metric tests pass; 9 baseline tests pass. Live Bedrock run PASS in UAT Test 3 (3 roles initially, scanner added via 06-15). |
 | 5 | A recorded divergence baseline exists; re-running without `--accept-divergence-baseline` fails the gate if divergence increases | ✓ VERIFIED | 4 baseline JSON files exist at cores/eval-harness/baselines/divergence-{role}.json with D-11 schema (role, recorded_at, agent_commit, checks). --accept-divergence-baseline CLI flag wired in conftest.py:44-57. check_regression() raises AssertionError on hard-severity regressions. test_divergence_baseline.py (9 passed). Scanner baseline runs=0 fixed by 06-15 (now runs=1). |
 

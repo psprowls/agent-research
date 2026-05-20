@@ -16,13 +16,13 @@
 | **NEW** `packages/eval-harness/src/eval_harness/divergence/rubrics/code_reader.md` | config (judge rubric) | document | `packages/eval-harness/src/eval_harness/divergence/rubrics/librarian.md` | exact |
 | **NEW** `packages/eval-harness/src/eval_harness/divergence/rubrics/synthesizer.md` | config (judge rubric) | document | `packages/eval-harness/src/eval_harness/divergence/rubrics/librarian.md` | exact |
 | **NEW** `eval/cases/code_reader_cases.json` (extended) | config (test data) | document | existing 3 cases in the same file + `eval/cases/query_cases.json` shape | exact (additive — preserve baseline) |
-| **NEW** `packages/eval-harness/tests/fixtures/<vault>/...` | test fixture | file-I/O (vault read) | `packages/vault-io/tests/fixtures/round-trip-vault/` (used by `agents/code-wiki-agent/tests/conftest.py` and `test_query_e2e.py`) | role-match |
-| **NEW** `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` (or similar) | test (gated integration) | request-response (subprocess + filesystem assert) | `agents/code-wiki-agent/tests/integration/test_query_e2e.py` | exact |
+| **NEW** `packages/eval-harness/tests/fixtures/<vault>/...` | test fixture | file-I/O (vault read) | `packages/vault-io/tests/fixtures/round-trip-vault/` (used by `agents/graph-wiki-agent/tests/conftest.py` and `test_query_e2e.py`) | role-match |
+| **NEW** `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` (or similar) | test (gated integration) | request-response (subprocess + filesystem assert) | `agents/graph-wiki-agent/tests/integration/test_query_e2e.py` | exact |
 | **NEW** `docs/testing.md` | config (documentation) | document | `docs/cancellation.md` (sibling; 5-section structure) | role-match |
 | **NEW** `scripts/check-integration-gate.sh` OR `tests/test_integration_gate.py` | utility (CI gate) | transform (grep → exit code) | `scripts/check-brand.sh` (script form); existing pytest meta-tests like `test_models_toml_sweep_candidates.py` (test form) | exact |
 | **MOD** `packages/subagent-runtime/src/subagent_runtime/pool.py` | service (fan-out) | event-driven | self (refactor `_write_trace` → thin delegate to `trace_io.write_record`) | n/a — touch surgical |
-| **MOD** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:438` | controller (CLI command) | request-response | `pool.py` `_write_trace` call sites in `_run_one` (137–151) | role-match (call shape) |
-| **MOD** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:977` | controller (CLI command) | request-response | `pool.py` `_write_trace` usage_metadata extraction (203–209) | exact (graft same logic onto `query_summary` record) |
+| **MOD** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:438` | controller (CLI command) | request-response | `pool.py` `_write_trace` call sites in `_run_one` (137–151) | role-match (call shape) |
+| **MOD** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:977` | controller (CLI command) | request-response | `pool.py` `_write_trace` usage_metadata extraction (203–209) | exact (graft same logic onto `query_summary` record) |
 | **MOD** `packages/eval-harness/src/eval_harness/two_gate.py:36` | service (scoring) | transform | self (extend frozenset) | n/a — one-line change |
 | **MOD** `packages/model-adapter/tests/test_loader.py:125-130` | test | request-response | `test_load_role_config_librarian_values` (`test_loader.py:116-122`) | exact (same shape, extend with `model_id` assertion) |
 | **MOD** `docs/cancellation.md` §4–§5 | config (documentation) | document | self (edit-in-place if spike gate fails) | n/a |
@@ -137,7 +137,7 @@ def _write_trace(self, path, role, model_id, item, status, latency_ms, response,
 
 ---
 
-### MOD `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:438` (controller, request-response)
+### MOD `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:438` (controller, request-response)
 
 **Current code (no trace at all):**
 ```python
@@ -169,7 +169,7 @@ trace_dir.mkdir(parents=True, exist_ok=True)
 
 ---
 
-### MOD `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:977` (controller, backfill usage fields)
+### MOD `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:977` (controller, backfill usage fields)
 
 **Current `query_summary` record** (`query.py:980-994`):
 ```python
@@ -353,7 +353,7 @@ ROLES_WITH_DIVERGENCE: frozenset[str] = frozenset(
 
 ### NEW Synthetic fixture vault (test fixture, file-I/O)
 
-**Analog:** `packages/vault-io/tests/fixtures/round-trip-vault/` — referenced by `agents/code-wiki-agent/tests/conftest.py:25-50` (`fixture_vault_path`) and `agents/code-wiki-agent/tests/integration/test_query_e2e.py:27-34` (`FIXTURE_VAULT`).
+**Analog:** `packages/vault-io/tests/fixtures/round-trip-vault/` — referenced by `agents/graph-wiki-agent/tests/conftest.py:25-50` (`fixture_vault_path`) and `agents/graph-wiki-agent/tests/integration/test_query_e2e.py:27-34` (`FIXTURE_VAULT`).
 
 **Location decision (per "Claude's Discretion"):** Prefer `packages/eval-harness/tests/fixtures/<vault-name>/` (eval-harness-local), per CONTEXT.md.
 
@@ -371,7 +371,7 @@ FIXTURE_VAULT: Path = (
 
 ### NEW Gated integration test `test_trace_coverage.py` (test, gated)
 
-**Analog:** `agents/code-wiki-agent/tests/integration/test_query_e2e.py` (subprocess + JSON-parse + assertions).
+**Analog:** `agents/graph-wiki-agent/tests/integration/test_query_e2e.py` (subprocess + JSON-parse + assertions).
 
 **Module preamble pattern** (`test_query_e2e.py:1-42`):
 ```python
@@ -380,7 +380,7 @@ from __future__ import annotations
 """End-to-end TRACE-FU-01 regression: real fan-out asserts every JSONL
 record has non-None input_tokens / output_tokens (SC#1 D-05).
 
-Gated by CODE_WIKI_RUN_INTEGRATION=1.
+Gated by GRAPH_WIKI_RUN_INTEGRATION=1.
 """
 
 import json
@@ -397,8 +397,8 @@ FIXTURE_VAULT: Path = (
 _PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.parent.parent
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 ```
 
@@ -408,10 +408,10 @@ INTEGRATION_GATE = pytest.mark.skipif(
 @INTEGRATION_GATE
 def test_<name>(tmp_path: Path) -> None:
     """Runs scan + ingest + query against tmp_path vault; parses every
-    JSONL file under .code-wiki/traces/; asserts non-None tokens on
+    JSONL file under .graph-wiki/traces/; asserts non-None tokens on
     every non-error record."""
-    # subprocess.run(["uv", "run", "--package", "code-wiki-agent",
-    #                "code-wiki-agent", "<subcmd>", ...], cwd=_PROJECT_ROOT, ...)
+    # subprocess.run(["uv", "run", "--package", "graph-wiki-agent",
+    #                "graph-wiki-agent", "<subcmd>", ...], cwd=_PROJECT_ROOT, ...)
     # then: for jsonl in (tmp_path / ".code-wiki" / "traces").glob("*.jsonl"):
     #         for line in jsonl.read_text().splitlines():
     #             rec = json.loads(line)
@@ -441,7 +441,7 @@ def test_<name>(tmp_path: Path) -> None:
 
 **Header pattern** (`docs/cancellation.md:1-12`):
 ```markdown
-# <Topic> in code-wiki-agent
+# <Topic> in graph-wiki-agent
 
 This document describes <one-paragraph scope statement>. It covers the
 <list of major sections>.
@@ -451,20 +451,20 @@ This document describes <one-paragraph scope statement>. It covers the
 ---
 ```
 
-**Canonical skip-decorator block to document** (verbatim from `agents/code-wiki-agent/tests/conftest.py:19-22`):
+**Canonical skip-decorator block to document** (verbatim from `agents/graph-wiki-agent/tests/conftest.py:19-22`):
 ```python
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 ```
 
 **Inventory of currently-gated files (to list in `docs/testing.md`):**
-- `agents/code-wiki-agent/tests/conftest.py:19-22` — canonical home
-- `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py:20-23` — copy of the decorator (matches canonical shape)
-- `agents/code-wiki-agent/tests/integration/test_mcp_stdio.py:142-143`
-- `agents/code-wiki-agent/tests/integration/test_query_e2e.py:39-42`
-- `agents/code-wiki-agent/tests/integration/test_bedrock_iam.py:33-35` — **DIVERGES**: uses inline `pytest.skip(...)` inside test body, not a module-level decorator. Either bring this into the canonical shape or allowlist it explicitly.
+- `agents/graph-wiki-agent/tests/conftest.py:19-22` — canonical home
+- `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py:20-23` — copy of the decorator (matches canonical shape)
+- `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py:142-143`
+- `agents/graph-wiki-agent/tests/integration/test_query_e2e.py:39-42`
+- `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py:33-35` — **DIVERGES**: uses inline `pytest.skip(...)` inside test body, not a module-level decorator. Either bring this into the canonical shape or allowlist it explicitly.
 - `packages/subagent-runtime/tests/integration/test_pool_bedrock.py:29-30`
 
 ---
@@ -497,14 +497,14 @@ echo "MCP-CAN-02 OK"
 """MCP-CAN-02 grep gate (test form).
 
 Walks every */tests/integration/*.py file and asserts each contains the
-canonical CODE_WIKI_RUN_INTEGRATION skip-decorator pattern (or is explicitly
+canonical GRAPH_WIKI_RUN_INTEGRATION skip-decorator pattern (or is explicitly
 allowlisted via comment marker).
 """
 from pathlib import Path
 import re
 
 _CANONICAL_PATTERN = re.compile(
-    r'pytest\.mark\.skipif\(\s*\n?\s*not os\.environ\.get\("CODE_WIKI_RUN_INTEGRATION"\)'
+    r'pytest\.mark\.skipif\(\s*\n?\s*not os\.environ\.get\("GRAPH_WIKI_RUN_INTEGRATION"\)'
 )
 
 def test_every_gated_test_uses_canonical_pattern() -> None:
@@ -594,13 +594,13 @@ if response is not None and hasattr(response, "usage_metadata"):
         tokens_out = meta.get("output_tokens")
 ```
 
-### Canonical CODE_WIKI_RUN_INTEGRATION skip-decorator
-**Source:** `agents/code-wiki-agent/tests/conftest.py:19-22`
+### Canonical GRAPH_WIKI_RUN_INTEGRATION skip-decorator
+**Source:** `agents/graph-wiki-agent/tests/conftest.py:19-22`
 **Apply to:** Every new gated integration test
 ```python
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 ```
 **Use as decorator:** `@INTEGRATION_GATE` at function level, not inline `pytest.skip(...)` inside the body (the `test_bedrock_iam.py:33-35` anti-pattern).
@@ -646,9 +646,9 @@ INTEGRATION_GATE = pytest.mark.skipif(
 - `packages/eval-harness/src/eval_harness/divergence/` (all 4 existing rule modules + 4 rubric .md files)
 - `packages/eval-harness/src/eval_harness/two_gate.py` (frozenset extension target)
 - `packages/eval-harness/tests/` (meta-test pattern for grep gate option b)
-- `agents/code-wiki-agent/tests/integration/` (5 existing gated tests — inventory for testing.md)
-- `agents/code-wiki-agent/tests/conftest.py` (canonical INTEGRATION_GATE shape)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/{ingest,query}.py` (refactor targets)
+- `agents/graph-wiki-agent/tests/integration/` (5 existing gated tests — inventory for testing.md)
+- `agents/graph-wiki-agent/tests/conftest.py` (canonical INTEGRATION_GATE shape)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/{ingest,query}.py` (refactor targets)
 - `packages/model-adapter/tests/test_loader.py` (test extension shape)
 - `docs/cancellation.md` + `docs/trace-schema.md` (docs/ sibling shape)
 - `scripts/check-brand.sh` (script-form grep gate analog)

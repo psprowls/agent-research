@@ -7,12 +7,12 @@ files_reviewed_list:
   - .brand-grep-allow
   - .gitignore
   - CLAUDE.md
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/architecture_overview.py
-  - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
-  - agents/code-wiki-agent/tests/prompts/test_project_context.py
-  - agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py
+  - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+  - agents/graph-wiki-agent/tests/prompts/test_project_context.py
+  - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
   - packages/vault-io/DRIFT-DECISIONS-RAW.md
   - packages/vault-io/DRIFT-DECISIONS.md
   - packages/vault-io/src/vault_io/append_log.py
@@ -171,7 +171,7 @@ _BLOCK_RE = re.compile(
 
 ### WR-04: `_mechanical_pass` comment claim about upstream `LINTED_TOPS` is stale
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py:58-63`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py:58-63`
 
 **Issue:** The comment says
 
@@ -217,12 +217,12 @@ belong to a separate workspace.init() helper upstream; here they're inlined.
 
 **File:** `packages/vault-io/src/vault_io/lint/container.py:35`
 
-**Issue:** When `read_layout()` returns None (covered by WR-02), the returned string is `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`. There is no `/graph-wiki:bootstrap` slash-command in this repo today — `init_vault.py` is a Python module invoked via `code-wiki-agent init` (per its argparse `main()` at line 282-315). The slash-command vocabulary is forward-looking (Phase 14 plugin port per `plugins/.gitkeep`), but until the plugin lands, the suggested remediation does not work.
+**Issue:** When `read_layout()` returns None (covered by WR-02), the returned string is `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`. There is no `/graph-wiki:bootstrap` slash-command in this repo today — `init_vault.py` is a Python module invoked via `graph-wiki-agent init` (per its argparse `main()` at line 282-315). The slash-command vocabulary is forward-looking (Phase 14 plugin port per `plugins/.gitkeep`), but until the plugin lands, the suggested remediation does not work.
 
 **Fix:** Pick a more accurate suggestion until the plugin ships. Either:
 
 ```python
-return ["no layout block found in CLAUDE.md (run `code-wiki-agent init`)"]
+return ["no layout block found in CLAUDE.md (run `graph-wiki-agent init`)"]
 ```
 
 or the language-neutral "run init to rebuild the layout block." Low priority.

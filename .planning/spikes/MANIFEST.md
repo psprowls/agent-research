@@ -2,7 +2,7 @@
 
 ## Idea
 
-Audit subagent context loading in `agents/code-wiki-agent` against the original `lattice-wiki` Claude Code plugin. In Claude Code, when a skill triggers, the full `SKILL.md` is injected into subagent context and `CLAUDE.md` files (including the wiki-root `CLAUDE.md` with its layout block) are surfaced. In the Python port, each subagent's `SystemMessage` is hand-assembled from a small set of fragments. We may be missing load-bearing context.
+Audit subagent context loading in `agents/graph-wiki-agent` against the original `lattice-wiki` Claude Code plugin. In Claude Code, when a skill triggers, the full `SKILL.md` is injected into subagent context and `CLAUDE.md` files (including the wiki-root `CLAUDE.md` with its layout block) are surfaced. In the Python port, each subagent's `SystemMessage` is hand-assembled from a small set of fragments. We may be missing load-bearing context.
 
 ## Requirements
 

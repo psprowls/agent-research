@@ -6,7 +6,7 @@ wave: 1
 depends_on: []
 files_modified:
   - cores/subagent-runtime/src/subagent_runtime/pool.py
-  - agents/code-wiki-agent/tests/integration/test_mcp_cancel.py
+  - agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py
 autonomous: true
 requirements:
   - MCP-10
@@ -16,12 +16,12 @@ must_haves:
     - "When the asyncio task running SubagentPool.run_all is cancelled mid-fan-out, each in-flight _run_one writes a per-item trace record with status: cancelled before re-raising CancelledError."
     - "After CancelledError propagates out of asyncio.gather, run_all writes exactly one terminal trace record with event: batch_cancelled, then re-raises CancelledError so FastMCP's anyio CancelScope sees it."
     - "_write_trace and _write_batch_terminal never raise; OSError on write is logged at WARNING and swallowed (existing AI-SPEC Failure Mode #2 contract is preserved)."
-    - "The cancel test runs unconditionally (no CODE_WIKI_RUN_INTEGRATION=1 gate) and consumes zero Bedrock cost — model_adapter.loader.make_llm is monkeypatched to a slow stub."
+    - "The cancel test runs unconditionally (no GRAPH_WIKI_RUN_INTEGRATION=1 gate) and consumes zero Bedrock cost — model_adapter.loader.make_llm is monkeypatched to a slow stub."
   artifacts:
     - path: "cores/subagent-runtime/src/subagent_runtime/pool.py"
       provides: "_run_one CancelledError branch + run_all outer-cancel handler + _write_batch_terminal helper"
       contains: "async def _write_batch_terminal"
-    - path: "agents/code-wiki-agent/tests/integration/test_mcp_cancel.py"
+    - path: "agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py"
       provides: "Direct-asyncio cancel-mid-fan-out test asserting per-item cancelled + batch_cancelled records"
       contains: "async def test_cancel_mid_fan_out"
   key_links:
@@ -44,7 +44,7 @@ Wire MCP cancellation through `SubagentPool` so in-flight subagent tasks unwind 
 
 Purpose: closes MCP-10 (in-flight pool invocations terminate cleanly, traces close with a `cancelled` terminal event) and MCP-11 (automated cancel test at the MCP transport boundary, gate-consistent with v1.0). This is the precondition for Plan 02 (which shares `pool.py`) and Plan 03 (which documents the exact trace shapes emitted here).
 
-Output: modified `cores/subagent-runtime/src/subagent_runtime/pool.py` with a `CancelledError` branch in `_run_one`, a wrapped `asyncio.gather` in `run_all`, and a new `_write_batch_terminal` helper; plus a new `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` that drives the cancel chain end-to-end without subprocess overhead.
+Output: modified `cores/subagent-runtime/src/subagent_runtime/pool.py` with a `CancelledError` branch in `_run_one`, a wrapped `asyncio.gather` in `run_all`, and a new `_write_batch_terminal` helper; plus a new `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` that drives the cancel chain end-to-end without subprocess overhead.
 </objective>
 
 <execution_context>
@@ -61,7 +61,7 @@ Output: modified `cores/subagent-runtime/src/subagent_runtime/pool.py` with a `C
 @.planning/phases/08-host-reliability/08-PATTERNS.md
 @.planning/phases/08-host-reliability/08-VALIDATION.md
 @cores/subagent-runtime/src/subagent_runtime/pool.py
-@agents/code-wiki-agent/tests/integration/test_mcp_stdio.py
+@agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py
 
 <interfaces>
 <!-- Contracts the executor needs. All extracted from codebase; executor should use these directly. -->
@@ -80,13 +80,13 @@ From cores/subagent-runtime/src/subagent_runtime/pool.py (current state — see 
       logger.warning("...: %s", exc)
   ```
 
-From agents/code-wiki-agent/tests/integration/test_mcp_stdio.py:
+From agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py:
 - Module-level docstring style (lines 2-12): `"""<description>. Requirements covered: <ids>."""`
 - `from __future__ import annotations` header is mandatory.
-- `asyncio_mode = "auto"` is set in `agents/code-wiki-agent/pyproject.toml` → async test functions take NO `@pytest.mark.asyncio` decorator.
+- `asyncio_mode = "auto"` is set in `agents/graph-wiki-agent/pyproject.toml` → async test functions take NO `@pytest.mark.asyncio` decorator.
 - The cancel test should sit alongside this file but use direct-asyncio (no subprocess) — see RESEARCH.md §"Open Questions" #4 and §"Test File Layout Recommendation".
 
-From agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:
+From agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:
 - `run_query(query: str, vault_path: Path | str, top_k: int) -> ...` is the fan-out entry point that the cancel test will interrupt (RESEARCH.md Q5).
 
 From model_adapter package:
@@ -139,28 +139,28 @@ Do not touch `_write_trace`, the success branch, the existing error branch, or a
 Do NOT add `print()` anywhere — `_StdoutGuard` in `server.py` raises on stray stdout writes (Pitfall 6). All logging stays on the existing module `logger`.
   </action>
   <verify>
-    <automated>uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/ -x -k "not e2e and not integration"</automated>
-    Then (after Task 2 is also complete): `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/integration/test_mcp_cancel.py -x` passes.
+    <automated>uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/ -x -k "not e2e and not integration"</automated>
+    Then (after Task 2 is also complete): `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py -x` passes.
     Quick syntactic check: `uv run python -c "from subagent_runtime.pool import SubagentPool; p = SubagentPool.__dict__; assert '_write_batch_terminal' in p, 'helper missing'"`.
   </verify>
   <done>
     `_run_one` has an `except asyncio.CancelledError` branch BEFORE `except Exception`, writes `status: "cancelled"` via `_write_trace`, re-raises.
     `run_all` wraps `asyncio.gather` in `try / except asyncio.CancelledError`, writes the terminal summary via `_write_batch_terminal`, re-raises.
     `_write_batch_terminal` exists, emits a JSONL record with `event: batch_cancelled`, never raises (OSError logged at WARNING).
-    Existing tests still pass (`uv run --package code-wiki-agent pytest -x -k "not e2e and not integration"`).
+    Existing tests still pass (`uv run --package graph-wiki-agent pytest -x -k "not e2e and not integration"`).
   </done>
 </task>
 
 <task type="auto" tdd="true">
   <name>Task 2: Direct-asyncio cancel-mid-fan-out test (test_mcp_cancel.py)</name>
-  <files>agents/code-wiki-agent/tests/integration/test_mcp_cancel.py</files>
+  <files>agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py</files>
   <behavior>
     - `test_cancel_mid_fan_out(tmp_path, monkeypatch)` is an async test function (no `@pytest.mark.asyncio` decorator — `asyncio_mode = "auto"` per CLAUDE.md / PATTERNS.md §"pytest asyncio test functions").
-    - Test MUST run unconditionally — NO `INTEGRATION_GATE` skip-marker, NO `CODE_WIKI_RUN_INTEGRATION` check (D-10).
+    - Test MUST run unconditionally — NO `INTEGRATION_GATE` skip-marker, NO `GRAPH_WIKI_RUN_INTEGRATION` check (D-10).
     - Monkeypatch `model_adapter.loader.make_llm` (the actual function — D-09's `make_chat_model` path is stale; RESEARCH.md Q4 confirms `loader.make_llm`) to return a stub whose `ainvoke` does `await asyncio.sleep(N)` where N≈2-3s, then returns an `AIMessage`-shaped object with `.usage_metadata = None` so the existing `_write_trace` guards do not blow up on the success path.
     - Test sequence (RESEARCH.md "Simpler alternative" + PATTERNS.md cancel core pattern):
-      (1) Patch `model_adapter.loader.make_llm` before any code-wiki-agent import that resolves it.
-      (2) Seed a minimal vault under `tmp_path` (init via `run_wiki_init` or write the `.code-wiki/` skeleton + 3 pages inline — whichever is shorter; do not call the MCP layer).
+      (1) Patch `model_adapter.loader.make_llm` before any graph-wiki-agent import that resolves it.
+      (2) Seed a minimal vault under `tmp_path` (init via `run_wiki_init` or write the `.graph-wiki/` skeleton + 3 pages inline — whichever is shorter; do not call the MCP layer).
       (3) `task = asyncio.ensure_future(run_query(query="What is alpha?", vault_path=tmp_path, top_k=3))`.
       (4) `await asyncio.sleep(0)` to yield once and let `asyncio.gather` start (race control per RESEARCH.md Pattern 5 — direct-asyncio variant; `report_progress` is not observable in this mode).
       (5) `task.cancel()`.
@@ -172,12 +172,12 @@ Do NOT add `print()` anywhere — `_StdoutGuard` in `server.py` raises on stray 
       (d) Cancelled lines do NOT contain an `event` key (D-07 discriminator).
   </behavior>
   <action>
-Create `agents/code-wiki-agent/tests/integration/test_mcp_cancel.py` following PATTERNS.md §"agents/code-wiki-agent/tests/integration/test_mcp_cancel.py" lines 24-89.
+Create `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py` following PATTERNS.md §"agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py" lines 24-89.
 
 Header structure:
 - `from __future__ import annotations` (mandatory; PATTERNS.md §"Shared Patterns")
 - Module docstring: `"""Cancel-mid-fan-out test (direct asyncio; no subprocess). Requirements covered: MCP-10, MCP-11."""`
-- Imports: `asyncio`, `json`, `pathlib.Path`, `unittest.mock.AsyncMock`, `pytest`. Then `from code_wiki_agent.commands.query import run_query` (or the correct import path — verify against the actual file location).
+- Imports: `asyncio`, `json`, `pathlib.Path`, `unittest.mock.AsyncMock`, `pytest`. Then `from graph_wiki_agent.commands.query import run_query` (or the correct import path — verify against the actual file location).
 
 Stub model construction:
 - Define an async function `_slow_ainvoke(*args, **kwargs)` that does `await asyncio.sleep(3)` then returns an object with `.usage_metadata = None` and `.content = "stub"` (look at how `_write_trace` reads `response` to confirm the minimum shape — pool.py lines 185-189 guard on `response is not None and hasattr(response, "usage_metadata")`, so a `MagicMock(usage_metadata=None, content="stub")` is sufficient).
@@ -185,7 +185,7 @@ Stub model construction:
 - Apply: `monkeypatch.setattr("model_adapter.loader.make_llm", lambda *a, **kw: fake_llm)`.
 
 Vault seeding (Claude's Discretion per CONTEXT.md):
-- Use the smallest fixture that gets `run_query` into the fan-out: typically `.code-wiki/config.toml` (or whatever `run_query` resolves) plus 3 placeholder pages under `tmp_path/wiki/`. If `run_query` requires a built bm25 index, call the appropriate index-build helper inline (look at the existing `tests/integration/test_query.py` or unit tests for the pattern — do not invent a new harness).
+- Use the smallest fixture that gets `run_query` into the fan-out: typically `.graph-wiki/config.toml` (or whatever `run_query` resolves) plus 3 placeholder pages under `tmp_path/wiki/`. If `run_query` requires a built bm25 index, call the appropriate index-build helper inline (look at the existing `tests/integration/test_query.py` or unit tests for the pattern — do not invent a new harness).
 - If seeding is more than ~20 lines, extract to a `_seed_minimal_vault(tmp_path)` helper at module scope.
 
 Cancel logic verbatim shape from PATTERNS.md lines 56-86 — substitute the actual `run_query` signature and the actual trace-file path you confirmed from `pool.py`.
@@ -203,11 +203,11 @@ Do NOT use `subprocess` (subprocess monkeypatching does not work — Pitfall 2).
 Do NOT add `@pytest.mark.asyncio` (asyncio_mode = "auto").
   </action>
   <verify>
-    <automated>uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/integration/test_mcp_cancel.py -x -v</automated>
+    <automated>uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py -x -v</automated>
   </verify>
   <done>
     `test_mcp_cancel.py` exists at the specified path with one async test function `test_cancel_mid_fan_out`.
-    Test runs in <10s (per VALIDATION.md sampling-rate target) and passes without `CODE_WIKI_RUN_INTEGRATION=1`.
+    Test runs in <10s (per VALIDATION.md sampling-rate target) and passes without `GRAPH_WIKI_RUN_INTEGRATION=1`.
     Test asserts: (a) ≥1 per-item `status: cancelled` record, (b) exactly one `event: batch_cancelled` record, (c) terminal record is last line, (d) per-item records have no `event` key.
     Zero Bedrock calls during the test (verifiable by absence of AWS API activity / by the stub being the only LLM path).
   </done>
@@ -236,10 +236,10 @@ After both tasks land:
 
 ```bash
 # Cancel test (fast, no Bedrock; required green for per-commit sampling per VALIDATION.md)
-uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/integration/test_mcp_cancel.py -x -v
+uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py -x -v
 
 # Full non-integration suite (no regressions in existing _write_trace / _run_one / run_all paths)
-uv run --package code-wiki-agent pytest -x -k "not e2e"
+uv run --package graph-wiki-agent pytest -x -k "not e2e"
 
 # subagent-runtime own tests (regression on the modified pool.py)
 uv run --package subagent-runtime pytest -x
@@ -250,12 +250,12 @@ All three commands must exit 0.
 
 <success_criteria>
 - `pool.py` modifications complete: `_run_one` has explicit `except asyncio.CancelledError` branch BEFORE `except Exception`; `run_all` wraps gather; `_write_batch_terminal` exists and follows never-raises contract.
-- `test_mcp_cancel.py` exists, passes in <10s, runs without `CODE_WIKI_RUN_INTEGRATION=1`, asserts both record shapes (per-item `status: cancelled` and terminal `event: batch_cancelled`) and the ordering invariant.
-- Zero regressions in existing subagent-runtime and code-wiki-agent non-integration test suites.
+- `test_mcp_cancel.py` exists, passes in <10s, runs without `GRAPH_WIKI_RUN_INTEGRATION=1`, asserts both record shapes (per-item `status: cancelled` and terminal `event: batch_cancelled`) and the ordering invariant.
+- Zero regressions in existing subagent-runtime and graph-wiki-agent non-integration test suites.
 - MCP-10 and MCP-11 requirement IDs satisfied (see VALIDATION.md row 8-01-01 through 8-01-04).
 - Plan 02 (which also touches `pool.py` indirectly via shared `files_modified`) and Plan 03 (which documents the trace shapes emitted here) are now unblocked.
 </success_criteria>
 
 <output>
-Create `.planning/phases/08-host-reliability/08-01-SUMMARY.md` capturing: exact diff summary of pool.py (line ranges before/after), the final test file path, the cancel-test wall-clock time observed locally, any deviations from the planned trace-file path (because pool.py wrote traces elsewhere than the assumed `.code-wiki/traces/` path), and confirmation that `_write_batch_terminal` was used by no other call site (i.e., it is reachable ONLY from the new `run_all` except branch).
+Create `.planning/phases/08-host-reliability/08-01-SUMMARY.md` capturing: exact diff summary of pool.py (line ranges before/after), the final test file path, the cancel-test wall-clock time observed locally, any deviations from the planned trace-file path (because pool.py wrote traces elsewhere than the assumed `.graph-wiki/traces/` path), and confirmation that `_write_batch_terminal` was used by no other call site (i.e., it is reachable ONLY from the new `run_all` except branch).
 </output>

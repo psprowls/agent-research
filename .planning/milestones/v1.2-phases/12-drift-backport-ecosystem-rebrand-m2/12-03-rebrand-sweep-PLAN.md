@@ -21,9 +21,9 @@ files_modified:
   - packages/eval-harness/src/eval_harness/baseline.py
   - packages/eval-harness/src/eval_harness/pricing.py
   - packages/eval-harness/tests/
-  - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/
-  - agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/
+  - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/
+  - agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/
   - plugins/
   - .planning/ROADMAP.md
   - .planning/REQUIREMENTS.md
@@ -122,30 +122,30 @@ Output: four-or-five commits (Claude's Discretion on whether to fold the CONVENT
 </task>
 
 <task type="auto">
-  <name>Task 2: Commit 2 — rebrand agents/code-wiki-agent source</name>
-  <files>agents/code-wiki-agent/src/code_wiki_agent/cli.py, agents/code-wiki-agent/src/code_wiki_agent/commands/, agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/</files>
+  <name>Task 2: Commit 2 — rebrand agents/graph-wiki-agent source</name>
+  <files>agents/graph-wiki-agent/src/graph_wiki_agent/cli.py, agents/graph-wiki-agent/src/graph_wiki_agent/commands/, agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/</files>
   <read_first>
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md (SQ-02 commit-2 scope; SQ-03 mid-sweep test gate)
-    - Each file under `agents/code-wiki-agent/src/code_wiki_agent/` that turns up in a pre-edit `grep -rE 'lattice|LATTICE' agents/code-wiki-agent/src/` scan.
+    - Each file under `agents/graph-wiki-agent/src/graph_wiki_agent/` that turns up in a pre-edit `grep -rE 'lattice|LATTICE' agents/graph-wiki-agent/src/` scan.
   </read_first>
   <action>
-    Sweep `lattice` → `graph-wiki` / `graph_wiki` across `agents/code-wiki-agent/src/code_wiki_agent/`:
+    Sweep `lattice` → `graph-wiki` / `graph_wiki` across `agents/graph-wiki-agent/src/graph_wiki_agent/`:
     - `cli.py` — Phase 11 already updated `--vault` help text; sweep verifies and updates any surviving lattice references.
     - `commands/*.py` — rebrand command-prose / docstrings / error messages.
     - `prompts/_fragments/*.py` — rebrand prompt-fragment prose. Note: many prompt fragments reference lattice-wiki as the upstream reference vault — those references describe the actual upstream system, so use editorial judgment: if the fragment instructs the agent about behavior that is now graph-wiki's own behavior, rebrand; if it explicitly names upstream lattice-wiki as the historical reference, allowlist by leaving verbatim AND record the path in `12-03-carry-forward-refs.md` (written in Task 4) so plan 04 can pick it up. For commit-2, prefer rebranding unless the reference is unambiguously historical/provenance.
 
     Run `uv run pytest`. Per SQ-03: green or revert before commit.
 
-    Commit with subject `refactor: rebrand lattice → graph-wiki in agents/code-wiki-agent` (per SQ-02 commit 2 wording).
+    Commit with subject `refactor: rebrand lattice → graph-wiki in agents/graph-wiki-agent` (per SQ-02 commit 2 wording).
   </action>
   <verify>
-    <automated>uv run pytest 2&gt;&amp;1 | tail -5; PYTEST_RC=${PIPESTATUS[0]}; test "$PYTEST_RC" -eq 0 || { echo "PYTEST FAILED rc=$PYTEST_RC"; exit 1; }; HEAD_SUBJECT=$(git log -1 --format='%s'); echo "$HEAD_SUBJECT" | grep -q '^refactor: rebrand lattice → graph-wiki in agents/code-wiki-agent' || { echo "HEAD subject mismatch: $HEAD_SUBJECT"; exit 1; }; if git show --stat HEAD | grep -qE '(round-trip-vault|baselines/divergence-|rubrics/)'; then echo "TOUCHED-DISALLOWED-PATH-ABORT"; exit 1; fi</automated>
+    <automated>uv run pytest 2&gt;&amp;1 | tail -5; PYTEST_RC=${PIPESTATUS[0]}; test "$PYTEST_RC" -eq 0 || { echo "PYTEST FAILED rc=$PYTEST_RC"; exit 1; }; HEAD_SUBJECT=$(git log -1 --format='%s'); echo "$HEAD_SUBJECT" | grep -q '^refactor: rebrand lattice → graph-wiki in agents/graph-wiki-agent' || { echo "HEAD subject mismatch: $HEAD_SUBJECT"; exit 1; }; if git show --stat HEAD | grep -qE '(round-trip-vault|baselines/divergence-|rubrics/)'; then echo "TOUCHED-DISALLOWED-PATH-ABORT"; exit 1; fi</automated>
   </verify>
   <acceptance_criteria>
     - `uv run pytest` exits 0 (SQ-03 gate) — captured as `PYTEST_RC` via `${PIPESTATUS[0]}` so the pipe-to-`tail` does not mask a red run.
-    - HEAD commit subject is exactly `refactor: rebrand lattice → graph-wiki in agents/code-wiki-agent`.
-    - `grep -rE 'lattice_workspace|lattice_wiki_core' agents/code-wiki-agent/src/` returns zero matches.
-    - Any surviving `lattice` reference in `agents/code-wiki-agent/src/` is unambiguously a historical/provenance reference to upstream lattice-wiki (carried forward into Task 4's `12-03-carry-forward-refs.md`).
+    - HEAD commit subject is exactly `refactor: rebrand lattice → graph-wiki in agents/graph-wiki-agent`.
+    - `grep -rE 'lattice_workspace|lattice_wiki_core' agents/graph-wiki-agent/src/` returns zero matches.
+    - Any surviving `lattice` reference in `agents/graph-wiki-agent/src/` is unambiguously a historical/provenance reference to upstream lattice-wiki (carried forward into Task 4's `12-03-carry-forward-refs.md`).
   </acceptance_criteria>
   <done>Commit 2 landed; agent CLI/command/prompt surface is rebranded; tests green.</done>
 </task>
@@ -213,10 +213,10 @@ Output: four-or-five commits (Claude's Discretion on whether to fold the CONVENT
     grep -rEn 'lattice|LATTICE' CLAUDE.md .planning/ROADMAP.md .planning/REQUIREMENTS.md .planning/STATE.md .planning/PROJECT.md .planning/spikes/CONVENTIONS.md 2>/dev/null || true
     ```
 
-    Also grep `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` for any prompt-fragment references that Task 2 decided to keep verbatim as historical provenance:
+    Also grep `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/` for any prompt-fragment references that Task 2 decided to keep verbatim as historical provenance:
 
     ```bash
-    grep -rEn 'lattice|LATTICE' agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/ 2>/dev/null || true
+    grep -rEn 'lattice|LATTICE' agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/ 2>/dev/null || true
     ```
 
     Write `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-03-carry-forward-refs.md` with this structure (file MUST exist even if empty — plan 04 Task 1 reads it):

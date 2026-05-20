@@ -18,7 +18,7 @@ plugins/graph-wiki/
 
 Real implementation lives in `packages/vault-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests.
 
-The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `vault_io.<name>` (claude branch) or shells out to `code-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `code-wiki-agent` Bedrock CLI.
+The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `vault_io.<name>` (claude branch) or shells out to `graph-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `graph-wiki-agent` Bedrock CLI.
 
 Distribution: shims reference `vault_io` via the `uv` workspace (`uv run --project "$DEEP_AGENTS_ROOT"`), so installed users need `DEEP_AGENTS_ROOT` set and `uv` installed — no `vendor/` directory required.
 

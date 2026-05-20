@@ -13,11 +13,11 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| code-wiki-agent CLI only (Bedrock) | Matches SC#1 literally. Uses Qwen3 fan-out by default. Plugin already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Cheapest path, fewest moving parts. | ✓ |
+| graph-wiki-agent CLI only (Bedrock) | Matches SC#1 literally. Uses Qwen3 fan-out by default. Plugin already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Cheapest path, fewest moving parts. | ✓ |
 | CLI primary + plugin smoke | Run actual update via CLI (Bedrock), then add `/graph-wiki:scan` smoke from Claude Code session. More coverage; small extra step. | |
 | /graph-wiki:* plugin primary | Drive the whole update from the plugin (Claude Code inference). Stretches SC#1's wording but exercises Phase 14 deliverable harder. | |
 
-**User's choice:** code-wiki-agent CLI only (Bedrock).
+**User's choice:** graph-wiki-agent CLI only (Bedrock).
 **Notes:** Reflects cost-frontier mindset and SC#1's literal wording. Phase 14 SC#4 plugin transcript stays the plugin-side smoke; Phase 15 covers the Bedrock-side smoke.
 
 ---

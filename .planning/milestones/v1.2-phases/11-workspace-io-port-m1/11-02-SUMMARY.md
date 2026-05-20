@@ -42,17 +42,17 @@ key-files:
   deleted:
     - packages/workspace-io/src/workspace_io/assets/.gitkeep
 decisions:
-  - "D-03 implemented: config.resolve() raises RuntimeError naming 'code-wiki-agent init' when no .graph-wiki.yaml ancestor is found (strict-manifest; env-override branch bypasses the check)"
+  - "D-03 implemented: config.resolve() raises RuntimeError naming 'graph-wiki-agent init' when no .graph-wiki.yaml ancestor is found (strict-manifest; env-override branch bypasses the check)"
   - "D-06 implemented: schema.py NOT ported; write_schema call dropped from init.py"
   - "D-09 implemented: paths.py ported verbatim with all 6 helpers (manifest_path, wiki_dir, raw_dir, work_dir, knowledge_dir, graph_dir)"
   - "D-11 implemented: .graph-wiki.yaml v2 schema preserved {version, initialized_at, plugins[{name, installed_version, applied_version}]}"
-  - "D-12 implemented: init records code-wiki-agent plugin with installed_version == applied_version"
+  - "D-12 implemented: init records graph-wiki-agent plugin with installed_version == applied_version"
   - "D-14 implemented: manifest.read() raises RuntimeError on v1 format; _coerce() dropped"
   - "D-15 implemented: _find_repo_root walks up for .git from cwd; fallback to workspace.parent in resolve()"
   - "D-16 implemented: LOCAL_CONFIG_FILENAME = '.graph-wiki.local.yaml'; LATTICE_DIRECTORY_KEY = 'graph-wiki-directory'; _GITIGNORE_ENTRY = '.graph-wiki.local.yaml'"
   - "Pitfall #2 mitigated: _local_config.py ported verbatim with no yaml import (bespoke parser preserved)"
   - "Pitfall #3 mitigated: AUTO_START/AUTO_END marker strings in render.py exactly match assets/CLAUDE.md.template ('<!-- workspace-io:auto:plugins:start -->' / '...:end -->')"
-  - "_PLUGIN_POINTERS rebranded to {'code-wiki-agent': 'see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)'} (Open Question #1 — Claude's Discretion answer)"
+  - "_PLUGIN_POINTERS rebranded to {'graph-wiki-agent': 'see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)'} (Open Question #1 — Claude's Discretion answer)"
 metrics:
   duration_minutes: 8
   tasks_completed: 3
@@ -72,24 +72,24 @@ Ported 8 source modules from `lattice-workspace` to `workspace_io` with the grap
 - `_local_config.py` — verbatim port (no yaml import; bespoke line parser). Only docstring filename reference updated.
 - `versions.py` — verbatim port; imports retargeted to `workspace_io.*`. `PendingUpdate`, `warn_if_stale`, `pending_updates` exported.
 - `init.py` — idempotent bootstrap; default workspace `repo_root / "graph-wiki"`; `_GITIGNORE_ENTRY = ".graph-wiki.local.yaml"`. `write_schema` import and call removed (D-06). Plugin entry written with `installed_version == applied_version == version` (D-12).
-- `render.py` — `AUTO_START`/`AUTO_END` renamed to `workspace-io:auto:plugins:{start,end}` (Pitfall #3). `_PLUGIN_POINTERS` reset to `{"code-wiki-agent": "see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)"}` (Open Question #1). All helpers (`_render_plugin_list`, `_render_full_template`, `_refresh_auto_block`, `render_workspace_claude_md`) ported verbatim modulo imports.
-- `assets/CLAUDE.md.template` — prose rebrand (`# Graph-Wiki Workspace`, `code-wiki-agent` owner, `.graph-wiki.yaml` / `.graph-wiki.local.yaml`, `graph-wiki-directory:`). Marker strings exactly match `render.py` (Pitfall #3 fix).
+- `render.py` — `AUTO_START`/`AUTO_END` renamed to `workspace-io:auto:plugins:{start,end}` (Pitfall #3). `_PLUGIN_POINTERS` reset to `{"graph-wiki-agent": "see [`wiki/CLAUDE.md`](wiki/CLAUDE.md)"}` (Open Question #1). All helpers (`_render_plugin_list`, `_render_full_template`, `_refresh_auto_block`, `render_workspace_claude_md`) ported verbatim modulo imports.
+- `assets/CLAUDE.md.template` — prose rebrand (`# Graph-Wiki Workspace`, `graph-wiki-agent` owner, `.graph-wiki.yaml` / `.graph-wiki.local.yaml`, `graph-wiki-directory:`). Marker strings exactly match `render.py` (Pitfall #3 fix).
 - `__init__.py` — replaced docstring-only stub with the full re-export block (`GraphWikiConfig, PendingUpdate, init, pending_updates, resolve, warn_if_stale`).
 
 ## Verification Results
 
-All Task 1 acceptance criteria pass (recorded inline above): `class GraphWikiConfig`=1, `code-wiki-agent init`=1, lattice refs=0, `_coerce`=0, v1-raises regex=2, paths `.graph-wiki.yaml`=1 / `.lattice.yaml`=0, `yaml` in `_local_config`=0, versions exports=3.
+All Task 1 acceptance criteria pass (recorded inline above): `class GraphWikiConfig`=1, `graph-wiki-agent init`=1, lattice refs=0, `_coerce`=0, v1-raises regex=2, paths `.graph-wiki.yaml`=1 / `.lattice.yaml`=0, `yaml` in `_local_config`=0, versions exports=3.
 
-All Task 2 acceptance criteria pass: schema refs in `init.py`=0, `"graph-wiki"` literal=1, `"lattice"` literal=0, `.graph-wiki.local.yaml`=3, `workspace-io:auto:plugins` in `render.py`=4, lattice marker/plugin refs in `render.py`=0, `code-wiki-agent` pointer=1, template marker start=1, template lattice markers=0. Public surface importable; `render._TEMPLATE_PATH.exists()` returns True.
+All Task 2 acceptance criteria pass: schema refs in `init.py`=0, `"graph-wiki"` literal=1, `"lattice"` literal=0, `.graph-wiki.local.yaml`=3, `workspace-io:auto:plugins` in `render.py`=4, lattice marker/plugin refs in `render.py`=0, `graph-wiki-agent` pointer=1, template marker start=1, template lattice markers=0. Public surface importable; `render._TEMPLATE_PATH.exists()` returns True.
 
 All Task 3 sanity checks pass:
 
-1. **D-03 strict** — `resolve("/tmp")` with `GRAPH_WIKI_WORKSPACE` unset raises `RuntimeError` containing `"code-wiki-agent init"`.
+1. **D-03 strict** — `resolve("/tmp")` with `GRAPH_WIKI_WORKSPACE` unset raises `RuntimeError` containing `"graph-wiki-agent init"`.
 2. **D-14 v1-raises** — `manifest.read()` on a `version: 1` file raises `RuntimeError`.
 3. **D-04/D-09 paths** — `manifest_path("/tmp").name == ".graph-wiki.yaml"`; `wiki_dir("/tmp").name == "wiki"`.
-4. **Render markers** — `render.AUTO_START == "<!-- workspace-io:auto:plugins:start -->"`, `AUTO_END` matches, `_PLUGIN_POINTERS` contains `"code-wiki-agent"`.
+4. **Render markers** — `render.AUTO_START == "<!-- workspace-io:auto:plugins:start -->"`, `AUTO_END` matches, `_PLUGIN_POINTERS` contains `"graph-wiki-agent"`.
 5. **Asset template** — `_TEMPLATE_PATH` exists, body contains `workspace-io:auto:plugins:start`, no `lattice-workspace:auto` substring.
-6. **Init idempotent + D-11/D-12** — `init()` called twice in a fresh tmpdir produces a v2 manifest with one `code-wiki-agent` plugin entry where both versions equal `"0.1.0"`; `.gitignore` ends with `.graph-wiki.local.yaml`.
+6. **Init idempotent + D-11/D-12** — `init()` called twice in a fresh tmpdir produces a v2 manifest with one `graph-wiki-agent` plugin entry where both versions equal `"0.1.0"`; `.gitignore` ends with `.graph-wiki.local.yaml`.
 
 Final grep: `grep -rE 'LATTICE_WORKSPACE|LatticeConfig|lattice_workspace\.' packages/workspace-io/src/workspace_io/ --include="*.py"` returns zero matches.
 
@@ -104,7 +104,7 @@ Final grep: `grep -rE 'LATTICE_WORKSPACE|LatticeConfig|lattice_workspace\.' pack
 
 ## Decisions Made
 
-1. **`_PLUGIN_POINTERS` populated with a single `code-wiki-agent` entry pointing to `wiki/CLAUDE.md`** (RESEARCH.md Open Question #1, Claude's Discretion). All lattice plugin entries (`lattice-wiki`, `lattice-graph`, `lattice-curator`, `lattice-knowledge`, `lattice-workflows`) were dropped — no need to carry them through the rebrand.
+1. **`_PLUGIN_POINTERS` populated with a single `graph-wiki-agent` entry pointing to `wiki/CLAUDE.md`** (RESEARCH.md Open Question #1, Claude's Discretion). All lattice plugin entries (`lattice-wiki`, `lattice-graph`, `lattice-curator`, `lattice-knowledge`, `lattice-workflows`) were dropped — no need to carry them through the rebrand.
 2. **D-06 schema-drop comment kept literal-token-free.** The plan's acceptance grep `grep -cE 'write_schema|from.*schema'` flags any occurrence — the explanatory comment now says "work-layer schema bootstrap intentionally not ported" so the grep cleanly reports `0` without losing the human-readable rationale.
 3. **`assets/.gitkeep` removed** in the same commit as `CLAUDE.md.template`. The placeholder was created in Plan 01 to keep the empty directory in git; it's redundant now.
 
@@ -126,7 +126,7 @@ None introduced. The threat register in the plan (`T-11-02` env tampering, `T-11
 
 - **WS-02** — `workspace_io.config.resolve()` walks up `.git`, honors `GRAPH_WIKI_WORKSPACE`, raises strict on missing manifest.
 - **WS-03** — `workspace_io.manifest.read/write` operate on `.graph-wiki.yaml`; v1 raises per D-14.
-- **WS-04** — `workspace_io.init` bootstraps workspace (dir + git init + manifest write + CLAUDE.md render + gitignore entry). Wiring into `code-wiki-agent init` is Plan 05.
+- **WS-04** — `workspace_io.init` bootstraps workspace (dir + git init + manifest write + CLAUDE.md render + gitignore entry). Wiring into `graph-wiki-agent init` is Plan 05.
 - **WS-05** — `paths.py`, `render.py`, `versions.py`, `_local_config.py`, `assets/CLAUDE.md.template` all ported.
 - **WS-06** — `schema.py` verified work-layer-only and dropped (verdict recorded in Plan 11-RESEARCH; Plan 02 implements the drop).
 - **WS-07** — `GRAPH_WIKI_WORKSPACE` is the only env var honored in `config.py`; `GraphWikiConfig` is the only dataclass name; no `LATTICE_WORKSPACE` / `LatticeConfig` / `lattice_workspace.` references survive (final grep).

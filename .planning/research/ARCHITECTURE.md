@@ -1,6 +1,6 @@
 # Architecture Research
 
-**Domain:** Tiered uv monorepo — shared cores + agent packages (deep-agents / code-wiki-agent)
+**Domain:** Tiered uv monorepo — shared cores + agent packages (deep-agents / graph-wiki-agent)
 **Researched:** 2026-05-13
 **Confidence:** HIGH (monorepo + MCP patterns verified; deepagents subagent API is MEDIUM — library is young, v0.6.1 as of May 2026, internal fan-out API not yet formally documented)
 
@@ -43,9 +43,9 @@ deep-agents/                          # workspace root (no deployable code here)
 │           └── report.py             # cost-frontier chart generation
 │
 ├── agents/                           # agent packages (one per agent product)
-│   └── code-wiki-agent/
-│       ├── pyproject.toml            # name = "code-wiki-agent"
-│       ├── src/code_wiki_agent/
+│   └── graph-wiki-agent/
+│       ├── pyproject.toml            # name = "graph-wiki-agent"
+│       ├── src/graph_wiki_agent/
 │       │   ├── __init__.py
 │       │   ├── mcp_server.py         # FastMCP entry point (exposes tools over MCP)
 │       │   ├── cli.py                # Typer/Click CLI (headless in-process agent loop)
@@ -114,11 +114,11 @@ members = [
 # No [project] table — root is a workspace-only container
 ```
 
-### Member pyproject.toml Pattern (code-wiki-agent)
+### Member pyproject.toml Pattern (graph-wiki-agent)
 
 ```toml
 [project]
-name = "code-wiki-agent"
+name = "graph-wiki-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
@@ -139,18 +139,18 @@ deep-agents-runtime = { workspace = true }
 
 ### Where Tests and Fixtures Live
 
-Tests live **per package** (`agents/code-wiki-agent/tests/`), not at the top level. Rationale:
+Tests live **per package** (`agents/graph-wiki-agent/tests/`), not at the top level. Rationale:
 
 - `uv run pytest` from the workspace root runs all packages; from within a package it runs only that package
 - `conftest.py` scoped per package means no cross-package fixture pollution
 - Fixture vaults (sample vault directories) live in `tests/fixtures/vaults/` within the package
 - Eval baselines live in `tests/fixtures/baselines/` — committed JSON or Markdown files recorded from current lattice-wiki runs
 
-The eval harness (`cores/eval-harness/`) provides the replay engine; the baselines live in the consuming package (`agents/code-wiki-agent/tests/fixtures/baselines/`) so they version together with the commands they test.
+The eval harness (`cores/eval-harness/`) provides the replay engine; the baselines live in the consuming package (`agents/graph-wiki-agent/tests/fixtures/baselines/`) so they version together with the commands they test.
 
 ---
 
-## 2. `code-wiki-agent` Internal Architecture
+## 2. `graph-wiki-agent` Internal Architecture
 
 ### Module Responsibilities
 
@@ -226,7 +226,7 @@ The headless CLI takes the same path from `cli.py` → `commands/query.py` — t
 ### Call Graph: `query "X"` (CLI path)
 
 ```
-cli.py: code-wiki-agent query "X"
+cli.py: graph-wiki-agent query "X"
   └─ commands/query.py: run_query(request)
        │  (identical to MCP path from here)
        ▼
@@ -357,7 +357,7 @@ The parent agent's own context contains: question, page paths, collected finding
 
 ### Decision: Direct Port with Namespace Change
 
-Port from `lattice-wiki-core` to `code_wiki_agent/vault/`. Do not add an import dependency on lattice-wiki-core.
+Port from `lattice-wiki-core` to `graph_wiki_agent/vault/`. Do not add an import dependency on lattice-wiki-core.
 
 **Rationale:**
 
@@ -374,7 +374,7 @@ Port from `lattice-wiki-core` to `code_wiki_agent/vault/`. Do not add an import 
 | `ingest_source.py` / `ingest_work_item.py` | **Rewrite** | The new ingestor uses LLM subagents; old version is LLM-orchestrated from outside |
 | `_workspace.py` | **Replace** | No lattice-workspace dependency; vault path comes from `.code-wiki.json` config |
 | `_version_check.py` | **Drop** | Not needed |
-| assets / page-templates | **Copy verbatim** | Templates are format-compatible; copy to `src/code_wiki_agent/assets/` |
+| assets / page-templates | **Copy verbatim** | Templates are format-compatible; copy to `src/graph_wiki_agent/assets/` |
 
 **Why not import lattice-wiki-core directly?**
 - Deep-agents is a separate repo; adding a cross-repo path dependency creates a fragile development setup
@@ -389,9 +389,9 @@ Port from `lattice-wiki-core` to `code_wiki_agent/vault/`. Do not add an import 
 
 ### Location: Separate Core Package
 
-The eval harness lives in `cores/eval-harness/` as the `deep-agents-eval` package, not in-tree to `code-wiki-agent`. This allows future agents to reuse the same replay + scoring infrastructure.
+The eval harness lives in `cores/eval-harness/` as the `deep-agents-eval` package, not in-tree to `graph-wiki-agent`. This allows future agents to reuse the same replay + scoring infrastructure.
 
-The `code-wiki-agent` package declares `deep-agents-eval` as a dev dependency.
+The `graph-wiki-agent` package declares `deep-agents-eval` as a dev dependency.
 
 ### Structure
 
@@ -407,12 +407,12 @@ cores/eval-harness/src/deep_agents_eval/
 
 ### How It Discovers Subagent Roles to Test
 
-`runner.py` imports `RoleSpec` from `code_wiki_agent.agents.*`. Each role is a dataclass with `role_name`, `system_prompt`, `model_id`. The runner receives a `model_map: dict[str, str]` override (role_name → model_id) and patches the registry before invoking the command.
+`runner.py` imports `RoleSpec` from `graph_wiki_agent.agents.*`. Each role is a dataclass with `role_name`, `system_prompt`, `model_id`. The runner receives a `model_map: dict[str, str]` override (role_name → model_id) and patches the registry before invoking the command.
 
 ```python
 # Eval invocation pattern
 from deep_agents_eval.runner import EvalRunner
-from code_wiki_agent.config import ModelRegistry
+from graph_wiki_agent.config import ModelRegistry
 
 runner = EvalRunner(
     baseline_path="tests/fixtures/baselines/query_baseline.json",
@@ -448,7 +448,7 @@ The `ModelRegistry` is the only thing swapped. `RoleSpec.system_prompt` is read 
 cores/model-adapters       ←  no upstream dependencies (leaf)
 cores/subagent-runtime     ←  depends on: model-adapters
 cores/eval-harness         ←  depends on: model-adapters, subagent-runtime
-agents/code-wiki-agent     ←  depends on: model-adapters, subagent-runtime
+agents/graph-wiki-agent     ←  depends on: model-adapters, subagent-runtime
                            ←  dev depends on: eval-harness
 ```
 
@@ -456,9 +456,9 @@ agents/code-wiki-agent     ←  depends on: model-adapters, subagent-runtime
 
 1. `cores/` packages MUST NOT import from `agents/`
 2. `cores/model-adapters` MUST NOT import from `cores/subagent-runtime` or `cores/eval-harness`
-3. `agents/code-wiki-agent` MAY import from any `cores/` package
-4. `agents/code-wiki-agent/vault/` is internal to that package — other packages must not import from it (it's wiki-specific IO, not a shared core)
-5. `agents/code-wiki-agent/tools/` exposes LangChain tools that the vault and agents modules use — no reverse dependency
+3. `agents/graph-wiki-agent` MAY import from any `cores/` package
+4. `agents/graph-wiki-agent/vault/` is internal to that package — other packages must not import from it (it's wiki-specific IO, not a shared core)
+5. `agents/graph-wiki-agent/tools/` exposes LangChain tools that the vault and agents modules use — no reverse dependency
 6. Future agents added to `agents/` may import from `cores/` but MUST NOT import from other agents
 
 ### Component Communication Boundary Table
@@ -488,17 +488,17 @@ agents/code-wiki-agent     ←  depends on: model-adapters, subagent-runtime
       ↓
 [C] cores/subagent-runtime  (SubagentPool.fanout)
       ↓
-[D] agents/code-wiki-agent/vault/  (layout_io port, frontmatter, BM25)
+[D] agents/graph-wiki-agent/vault/  (layout_io port, frontmatter, BM25)
       ↓
-[E] agents/code-wiki-agent/tools/  (vault_tools, repo_tools — LangChain @tool)
+[E] agents/graph-wiki-agent/tools/  (vault_tools, repo_tools — LangChain @tool)
       ↓
-[F] agents/code-wiki-agent/agents/librarian  (RoleSpec + prompt)
+[F] agents/graph-wiki-agent/agents/librarian  (RoleSpec + prompt)
       ↓
-[G] agents/code-wiki-agent/commands/query  (fan-out + synthesis)
+[G] agents/graph-wiki-agent/commands/query  (fan-out + synthesis)
       ↓
-[H] agents/code-wiki-agent/mcp_server.py   (wiki_query tool)
+[H] agents/graph-wiki-agent/mcp_server.py   (wiki_query tool)
       ↓  (parallel to H)
-[H'] agents/code-wiki-agent/cli.py          (code-wiki-agent query …)
+[H'] agents/graph-wiki-agent/cli.py          (graph-wiki-agent query …)
       ↓
 [I] cores/eval-harness  (can start once G works, before other commands)
       ↓
@@ -517,13 +517,13 @@ Gate: `uv run python -c "from deep_agents_models.bedrock import make_llm; print(
 
 Deliverables: `SubagentPool.fanout()` with semaphore + `asyncio.gather`; unit tested with a mock LLM. Vault IO ported: `layout_io`, `frontmatter`, `BM25 search`, `append_log`. Fixture vaults committed for testing.
 
-Gate: `pytest agents/code-wiki-agent/tests/unit/` fully passes.
+Gate: `pytest agents/graph-wiki-agent/tests/unit/` fully passes.
 
 **Phase 3 — Minimum Vertical Slice: `query` end-to-end (E + F + G + H + H')**
 
 Deliverables: `tools/vault_tools.py`, `agents/librarian.py`, `commands/query.py`, `mcp_server.py` exposing `wiki_query`, `cli.py` with `query` subcommand. Runs against an existing lattice-wiki vault. Subagent fan-out hits real Bedrock.
 
-Gate: `code-wiki-agent query "What does the middleware pipeline do?"` returns a coherent answer with wikilink citations. MCP server starts and responds to a tool call from the DeepAgents CLI.
+Gate: `graph-wiki-agent query "What does the middleware pipeline do?"` returns a coherent answer with wikilink citations. MCP server starts and responds to a tool call from the DeepAgents CLI.
 
 This is the minimum vertical slice that proves the architecture end-to-end.
 
@@ -605,13 +605,13 @@ Gate per command: parity test against recorded lattice-wiki output for same fixt
 
 **What people do:** Factor the vault IO layer into a shared core so other agents can use it.
 
-**Why it's wrong:** The vault format is specific to code-wiki-agent. A future agent for a different domain would need different IO primitives. Premature abstraction creates coupling before the second use case exists.
+**Why it's wrong:** The vault format is specific to graph-wiki-agent. A future agent for a different domain would need different IO primitives. Premature abstraction creates coupling before the second use case exists.
 
-**Do this instead:** Keep `vault/` inside `agents/code-wiki-agent/`. Promote to a core only if a second agent needs the same vault format.
+**Do this instead:** Keep `vault/` inside `agents/graph-wiki-agent/`. Promote to a core only if a second agent needs the same vault format.
 
 ### Anti-Pattern 4: Importing lattice-wiki-core as a Runtime Dependency
 
-**What people do:** `pip install lattice-wiki-core` and import from it in code-wiki-agent to avoid porting.
+**What people do:** `pip install lattice-wiki-core` and import from it in graph-wiki-agent to avoid porting.
 
 **Why it's wrong:** lattice-wiki-core is coupled to `lattice-workspace` path resolution, which is repo-specific. It's a cross-repo, cross-tool-chain dependency that will break in CI and any environment that doesn't have the lattice monorepo checked out at a known path.
 
@@ -631,5 +631,5 @@ Gate per command: parity test against recorded lattice-wiki output for same fixt
 
 ---
 
-*Architecture research for: deep-agents Python monorepo (code-wiki-agent)*
+*Architecture research for: deep-agents Python monorepo (graph-wiki-agent)*
 *Researched: 2026-05-13*

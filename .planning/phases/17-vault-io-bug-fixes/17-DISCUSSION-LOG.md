@@ -112,7 +112,7 @@
 |--------|-------------|----------|
 | Synthetic monorepo + tmp_path | pytest tmp_path with `repo/graph-wiki/wiki/` + two pyproject packages | ✓ |
 | Reuse existing fixture | Extend `conftest.py` fixture if one exists | |
-| Use deep-agents repo itself | CODE_WIKI_RUN_INTEGRATION-gated against real repo | |
+| Use deep-agents repo itself | GRAPH_WIKI_RUN_INTEGRATION-gated against real repo | |
 
 **User's choice:** Synthetic tmp_path monorepo. Reproducible and isolated.
 
@@ -149,7 +149,7 @@
 - Exact home for the companion-set constant (module-level vs local) — module-level preferred.
 - Exact form of layout-block lookup (extend `read_layout()` return shape vs thin `workflow_hints` accessor).
 - SCAN unit-test fixture site (`conftest.py` extension vs inline in test file).
-- Decorator import path for `CODE_WIKI_RUN_INTEGRATION` skip — follow `docs/testing.md`.
+- Decorator import path for `GRAPH_WIKI_RUN_INTEGRATION` skip — follow `docs/testing.md`.
 - Whether TOK gated integration test imports a shared helper or inlines the decorator.
 - D-11 exclusion guard — `Path.resolve()` equality vs `samefile()`.
 - WSRES tests in a new module vs extending an existing one.

@@ -12,7 +12,7 @@ provides:
   - role_model_overrides dict parameter on run_query (librarian, synthesizer, code_reader)
   - model_override: str | None parameter on run_scan, run_lint, run_ingest_source
   - backward-compatible librarian_model_override alias on run_query
-  - unit test file agents/code-wiki-agent/tests/test_command_overrides.py (7 tests)
+  - unit test file agents/graph-wiki-agent/tests/test_command_overrides.py (7 tests)
 affects: [07-05-sweep-runner, future-sweep-runner-plans]
 
 # Tech tracking
@@ -27,12 +27,12 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/tests/test_command_overrides.py
+    - agents/graph-wiki-agent/tests/test_command_overrides.py
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
 
 key-decisions:
   - "Override resolution via (role_model_overrides or {}).get(role) guards against None without an explicit 'if role_model_overrides' branch, matching the PATTERNS.md shape"
@@ -94,11 +94,11 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/tests/test_command_overrides.py` — 7 unit tests proving each override surface routes to ChatBedrockConverse with the candidate model_id; includes D-06 single-role-swap assertion and librarian backward-compat test
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` — role_model_overrides parameter, synthesizer override, _run_code_fallback code_reader_override parameter, updated librarian resolution
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — ChatBedrockConverse import, model_override parameter and conditional LLM construction
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` — ChatBedrockConverse import, model_override threaded through _semantic_pass into run_linter_group closure
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — ChatBedrockConverse import, load_role_config import, model_override parameter and conditional LLM construction
+- `agents/graph-wiki-agent/tests/test_command_overrides.py` — 7 unit tests proving each override surface routes to ChatBedrockConverse with the candidate model_id; includes D-06 single-role-swap assertion and librarian backward-compat test
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — role_model_overrides parameter, synthesizer override, _run_code_fallback code_reader_override parameter, updated librarian resolution
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — ChatBedrockConverse import, model_override parameter and conditional LLM construction
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` — ChatBedrockConverse import, model_override threaded through _semantic_pass into run_linter_group closure
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — ChatBedrockConverse import, load_role_config import, model_override parameter and conditional LLM construction
 
 ## Decisions Made
 
@@ -114,7 +114,7 @@ Each task was committed atomically:
 - **Found during:** Task 3 GREEN verification (test_run_lint_model_override)
 - **Issue:** Static `FanOutResult` mock caused `run_linter_group` to never execute, so `ChatBedrockConverse` was never called inside the closure, making the assertion vacuously fail
 - **Fix:** Replaced with `_mock_run_all` that calls `await task(item)` per item; also added `domain_placement` and `dependency_layer` keys to `_module_pass` mock to match `LintResult` field set; added non-empty pages fixture so `page_quality` group fires
-- **Files modified:** `agents/code-wiki-agent/tests/test_command_overrides.py`
+- **Files modified:** `agents/graph-wiki-agent/tests/test_command_overrides.py`
 - **Verification:** `test_run_lint_model_override` passes; ChatBedrockConverse called once with candidate model_id
 - **Committed in:** `b69751d`
 

@@ -6,7 +6,7 @@ tags: [test-scaffolding, wave-1, divergence-eval, prompt-port, syrupy, pytest]
 dependency_graph:
   requires: []
   provides:
-    - agents/code-wiki-agent/tests/prompts/
+    - agents/graph-wiki-agent/tests/prompts/
     - cores/eval-harness/tests/test_divergence_checks.py
     - cores/eval-harness/tests/test_divergence_baseline.py
     - cores/eval-harness/tests/test_divergence.py
@@ -18,12 +18,12 @@ tech_stack:
   patterns:
     - "Import-guard + pytestmark.skipif for graceful skip when implementation is absent"
     - "FRAGMENT_DIR anchored to Path(__file__).resolve() for cwd-independent test paths"
-    - "EVAL_GATE = pytest.mark.skipif(not os.environ.get('CODE_WIKI_RUN_EVAL'), ...) for eval-gated integration tests"
+    - "EVAL_GATE = pytest.mark.skipif(not os.environ.get('GRAPH_WIKI_RUN_EVAL'), ...) for eval-gated integration tests"
 key_files:
   created:
-    - agents/code-wiki-agent/tests/prompts/__init__.py
-    - agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
-    - agents/code-wiki-agent/tests/prompts/test_provenance.py
+    - agents/graph-wiki-agent/tests/prompts/__init__.py
+    - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
+    - agents/graph-wiki-agent/tests/prompts/test_provenance.py
     - cores/eval-harness/tests/test_divergence_checks.py
     - cores/eval-harness/tests/test_divergence_baseline.py
     - cores/eval-harness/tests/test_divergence.py
@@ -49,11 +49,11 @@ metrics:
 
 ## What Was Built
 
-### Task 1: code-wiki-agent prompt test scaffolding (commit 40a321d)
+### Task 1: graph-wiki-agent prompt test scaffolding (commit 40a321d)
 
-- `agents/code-wiki-agent/tests/prompts/__init__.py` — empty package marker
-- `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` — 8 syrupy snapshot tests (one per `*_SYSTEM` constant: librarian, ingestor, linter×3, scanner, synthesizer, code_reader); each wraps its import in try/except ImportError → `pytest.skip`
-- `agents/code-wiki-agent/tests/prompts/test_provenance.py` — 2 unit tests with `_PROVENANCE_RE` regex matching the 3-line `# Source: / # Anchor: / # Source-commit:` header; both skip cleanly when `_fragments/` is absent
+- `agents/graph-wiki-agent/tests/prompts/__init__.py` — empty package marker
+- `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` — 8 syrupy snapshot tests (one per `*_SYSTEM` constant: librarian, ingestor, linter×3, scanner, synthesizer, code_reader); each wraps its import in try/except ImportError → `pytest.skip`
+- `agents/graph-wiki-agent/tests/prompts/test_provenance.py` — 2 unit tests with `_PROVENANCE_RE` regex matching the 3-line `# Source: / # Anchor: / # Source-commit:` header; both skip cleanly when `_fragments/` is absent
 
 ### Task 2: eval-harness divergence test scaffolding + accept_baseline (commit 6b5501c)
 

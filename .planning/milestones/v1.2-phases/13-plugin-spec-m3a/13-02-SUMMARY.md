@@ -47,7 +47,7 @@ Two SP-02-conformant per-command spec files that lock the port contract for the 
 Commit: `7913a1f`
 
 - `port_verdict: rename` — source-ingest behavior preserved byte-for-byte modulo namespace strings
-- Shell-out contract: `vault_io.ingest_source.main` (claude) / `code-wiki-agent ingest source` (bedrock, explicitly NOT `ingest work-item`)
+- Shell-out contract: `vault_io.ingest_source.main` (claude) / `graph-wiki-agent ingest source` (bedrock, explicitly NOT `ingest work-item`)
 - Args: `--source`, `--json`, `--pkg-dir`, `--pkg-title` (mapped 1:1 from upstream `ingest_source.py` argparse)
 - Prose-preservation map: all 8 upstream sections verdicted; work-item ingest noted as absent at the script level (not the command-doc level), captured by omission of `ingest_work_item.py`
 - C-01 decision referenced 6 times; work-item string appears throughout drop-callout context

@@ -18,7 +18,7 @@ why_human: ROADMAP SC#1 says "under the real DeepAgents CLI host" — test uses 
 result: [pending]
 
 ### 2. Confirm SC#2 / MCP-11 deviation is acceptable: cancel test runs without opt-in gate
-expected: Owner acknowledges that running test_mcp_cancel.py unconditionally (no CODE_WIKI_RUN_INTEGRATION=1 gate) satisfies the zero-cost stub rationale documented in the PLAN
+expected: Owner acknowledges that running test_mcp_cancel.py unconditionally (no GRAPH_WIKI_RUN_INTEGRATION=1 gate) satisfies the zero-cost stub rationale documented in the PLAN
 why_human: ROADMAP SC#2 and MCP-11 both say "opt-in gate consistent with v1.0 integration tests" — test runs unconditionally. PLAN intentionally omitted the gate because the test uses a stub LLM and incurs zero cost.
 result: [pending]
 

@@ -4,11 +4,11 @@ reviewed: 2026-05-17T00:00:00Z
 depth: standard
 files_reviewed: 9
 files_reviewed_list:
-  - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-  - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
-  - agents/code-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
-  - agents/code-wiki-agent/tests/unit/test_query_summary_schema_version.py
-  - agents/code-wiki-agent/tests/unit/test_trace_viewer.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
+  - agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
+  - agents/graph-wiki-agent/tests/unit/test_query_summary_schema_version.py
+  - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
   - cores/subagent-runtime/src/subagent_runtime/pool.py
   - cores/subagent-runtime/tests/test_pool.py
   - docs/cancellation.md
@@ -32,7 +32,7 @@ status: issues_found
 
 Phase 09 added `schema_version: 1` stamping at producers (`SubagentPool._write_trace`,
 `SubagentPool._write_batch_terminal`, `query.py` summary writer), a per-(role, model_id)
-cost rollup in the `code-wiki-agent trace` renderer, consecutive-same-role group
+cost rollup in the `graph-wiki-agent trace` renderer, consecutive-same-role group
 collapsing with `--expand` opt-out, and lenient-consumer / v0-inference warnings. The
 producer half is sound. The renderer/aggregator has one correctness bug that breaks
 mixed-model fan-outs (CR-01), several formatting and edge-case gaps in the timeline
@@ -47,7 +47,7 @@ schema_version-aware warning logic correctly de-duplicates per file.
 
 ### CR-01: Mixed-model same-role runs collapse into a single group, hiding the per-model breakdown in the timeline
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:303` (and `_render_collapsed_group` at 164-215)
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:303` (and `_render_collapsed_group` at 164-215)
 **Issue:** `_is_groupable` and the run-extension predicate group consecutive records by `role` alone (`current_run[-1].get("role") == record.get("role")`). When a fan-out (or a role override path like `role_model_overrides` in `query.py`) emits items for the *same role* on *different model_ids* (e.g. an A/B sweep of `librarian` across `claude-haiku` and `claude-sonnet`), all such records collapse into one summary line. `_render_collapsed_group` does not print `model_id` at all, so the per-model attribution is lost in the timeline.
 
 The snapshot `test_cost_rollup_snapshot` masks this because it uses `--expand`, and `test_collapsed_default_snapshot` uses a single-model fixture. The cost rollup section still itemizes per `(role, model_id)` correctly, but a reader scanning the timeline can no longer tell which item ran on which model — exactly the information the rollup is supposed to surface alongside the timeline.
@@ -83,7 +83,7 @@ Add a regression test that builds a fixture with two same-role records on differ
 
 ### WR-01: `isinstance(sv, int)` treats booleans as integers — `schema_version: true` is silently accepted
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:267`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:267`
 **Issue:** `isinstance(sv, int)` returns `True` for `bool`, because `bool` is a subclass of `int` in Python. A producer bug that wrote `"schema_version": true` would be coerced to `1` and never trigger the lenient-consumer warning, even though it is a malformed record. The comment at line 254 ("Non-integer `schema_version` values are silently rendered best-effort (T-09-15: lenient policy)") explains the intent for strings/floats, but bool is not the lenient case — it is a producer bug class that the strict-producer policy in `docs/trace-schema.md` §3 prohibits.
 
 **Fix:**
@@ -94,7 +94,7 @@ if isinstance(sv, int) and not isinstance(sv, bool) and sv > KNOWN_SCHEMA_VERSIO
 
 ### WR-02: `_aggregate_trace` per-role bucket counts non-per-item records and creates a spurious `"unknown"` role for `kind: query_summary` lines
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:124-132`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:124-132`
 **Issue:** The per-role loop runs before the `event`/`kind` filter is applied, so the `by_role` dict and the `Total records` count include batch_event and query_summary records. When a `kind: query_summary` line lacks a `role` field, line 125 (`role = record.get("role", "unknown")`) creates a synthetic `"unknown"` bucket. This is visible in the existing snapshot `test_query_summary_interleaved_breaks_group_snapshot`:
 
 ```
@@ -109,7 +109,7 @@ A reader sees `unknown: count=1` and reasonably concludes some scanner subagent 
 
 ### WR-03: `_render_collapsed_group` status breakdown silently misclassifies records whose status is not one of {success, error, cancelled}
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:182-189`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:182-189`
 **Issue:** The `counts` dict is hardcoded with three keys; any status outside that set is dropped on the floor. A run of N records all carrying `status: "timeout"` (or a future producer-added status) produces empty `breakdown_parts`, and the fallback string `"0 success"` is actively wrong — there are N records and none succeeded. Token sums and cost would still be computed, so the line would read:
 
 ```
@@ -132,14 +132,14 @@ if not breakdown_parts:
 
 ### WR-04: `_render_collapsed_group` and `_render_trace_record` silently use `-` for missing `timestamp`, which produces nonsense range labels
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:178-179, 64-66`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:178-179, 64-66`
 **Issue:** When a malformed record reaches the renderer with no `timestamp`, the collapsed group header becomes `[- .. -] scanner x4: ...`. The snapshot `test_query_summary_interleaved_breaks_group_snapshot` shows this for the query_summary line as `[-] - - - - -ms -->-` — a row of dashes that is hard to interpret. Producers are strict (every per-item record carries `timestamp` per `docs/trace-schema.md` §2.1), so this code path only fires on actual data corruption, but the fallback should at least name the file line number or the record's discriminator instead of dashes.
 
 **Fix:** Either drop the fallback (treat missing `timestamp` as a malformed record at parse time and skip with a stderr warning, matching the `JSONDecodeError` handling at line 250), or replace the dashes with a clearer marker like `<no timestamp>`. Skipping is more aligned with the strict-producer policy.
 
 ### WR-05: `_run_code_fallback` truncates `code_excerpts_text` silently, losing the warning emitted on the librarian path
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:485-486`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:485-486`
 **Issue:** The regular path at line 896-901 emits a `logger.warning("Truncating librarian excerpts before synthesis...")` when excerpts exceed 60_000 chars. The code-fallback path at 485-486 truncates with no warning, no log, no `query_id` reference. An operator debugging a code-fallback synthesis result has no signal that truncation occurred.
 
 **Fix:**
@@ -154,7 +154,7 @@ if len(code_excerpts_text) > 60000:
 
 ### WR-06: `_run_code_fallback` does not enforce a token/cost cap on the code-reader tool-call loop beyond a 5-iteration count
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:355-462`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:355-462`
 **Issue:** `_CODE_READER_MAX_ITERS = 5` caps iterations, but on each iteration the model can request multiple `read_file` calls in one tool batch (`for call in tool_calls` at 442). The bounded read at 200_000 bytes is per-file, so a single iteration that requests 5 files of 200KB each pushes 1MB of source into the next prompt. With 5 iterations cap, the worst case is ~5MB delivered to the LLM context — beyond every Bedrock model's input window and well beyond a reasonable cost cap.
 
 The 200_000-byte per-file cap and the 5-iteration cap are necessary but not sufficient. There is no aggregate cap.
@@ -185,7 +185,7 @@ for iteration in range(_CODE_READER_MAX_ITERS):
 
 ### IN-01: `cli.py:153` raises `ValueError` on non-numeric `cost_usd` instead of the documented "raise loudly"
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/cli.py:150-153`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:150-153`
 **Issue:** The comment promises "raise loudly rather than silently mis-sum," but `float(cost)` on a non-numeric string raises `ValueError` mid-iteration with no record context — the operator sees `ValueError: could not convert string to float: 'foo'` and no record line number or `item_id`. Wrap with context.
 
 **Fix:**
@@ -201,12 +201,12 @@ except (TypeError, ValueError) as exc:
 
 ### IN-02: `from __future__ import annotations` placed AFTER module docstring in `commands/query.py`
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:1-3`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:1-3`
 **Issue:** `from __future__ import annotations` is at line 1, then the module docstring is at line 3. Python's accepted convention is `docstring first, then __future__ import`. The current order works (Python permits `__future__` imports as the first non-docstring, non-comment statement), but it is unusual and tools like `flake8-future-import` flag it. This is a style nit, not a bug.
 
 ### IN-03: Duplicate G1 unresolved-link logic between `apply_guardrails` and `_compute_unresolved_wikilinks`
 
-**File:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:507-526, 615-626`
+**File:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:507-526, 615-626`
 **Issue:** `_compute_unresolved_wikilinks` (added for the retry path) and the G1 loop inside `apply_guardrails` implement the exact same resolution rules (direct lookup → `**/<base>.md` glob). Drift between the two would silently divergent the retry trigger condition from the G1 warning condition. Have `apply_guardrails` call `_compute_unresolved_wikilinks` to share one implementation.
 
 ### IN-04: `docs/cancellation.md:96` cross-reference to `docs/trace-schema.md` is correct, but the inline JSON blocks in §3 still omit `schema_version`

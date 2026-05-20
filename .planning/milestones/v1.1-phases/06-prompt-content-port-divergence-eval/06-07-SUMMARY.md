@@ -26,10 +26,10 @@ tech-stack:
 
 key-files:
   created:
-    - "agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py"
-    - "agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py"
+    - "agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr"
   modified:
-    - "agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py"
+    - "agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py"
 
 key-decisions:
   - "Scanner does not use PAGE_CATEGORIES (stubs are always category: package or app — no table needed)"
@@ -73,9 +73,9 @@ completed: 2026-05-15
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py` — New: SCANNER_SYSTEM composed at import time from shared fragments + scanner-local sections
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — New: syrupy snapshot for SCANNER_SYSTEM (and any previously recorded prompts from prior plans)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — Modified: deleted inline SCANNER_SYSTEM block (30 lines), added single import line, updated module docstring
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py` — New: SCANNER_SYSTEM composed at import time from shared fragments + scanner-local sections
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` — New: syrupy snapshot for SCANNER_SYSTEM (and any previously recorded prompts from prior plans)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — Modified: deleted inline SCANNER_SYSTEM block (30 lines), added single import line, updated module docstring
 
 ## Decisions Made
 
@@ -91,7 +91,7 @@ completed: 2026-05-15
 - **Found during:** Task 1 (Create prompts/scanner.py)
 - **Issue:** Plan acceptance criterion states `<2500 chars`. IRON_RULES (652 chars) + FRONTMATTER_RULES (1065 chars) + role-local sections combine to 3349 chars. The two mandatory fragments alone are 1717 chars, making the 2500 char target unachievable while including both fragments. This is an inconsistency in the plan's spec (the fragment sizes were finalized after the char limit was set).
 - **Fix:** Kept all mandatory fragments and semantic content; accepted the 3349 char result. At ~4 chars/token, this is approximately 700-840 tokens — within practical Bedrock limits for a subagent role prompt. The no-redundancy pass removed one full section (`_OUTPUT_SECTIONS`, ~250 chars) that duplicated content already in `_STUB_SCHEMA`.
-- **Files modified:** agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py
+- **Files modified:** agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py
 - **Verification:** All other acceptance criteria pass; scan tests green; snapshot recorded
 - **Committed in:** 84030ac (Task 1 commit)
 

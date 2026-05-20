@@ -54,7 +54,7 @@ Notes:
 
 ### `prompts/_fragments/architecture_overview.py` (prompt-fragment, transform)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py`
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py`
 
 **Module shape** (iron_rules.py lines 1-15 — copy exactly, change header values and constant name):
 ```python
@@ -80,7 +80,7 @@ Notes:
 
 ### `prompts/_fragments/style_rules.py` (prompt-fragment, transform)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py`
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py`
 
 **Module shape**:
 ```python
@@ -104,7 +104,7 @@ Notes:
 
 ### `prompts/_fragments/log_format.py` (prompt-fragment, transform)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py`
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py`
 
 **Module shape**:
 ```python
@@ -128,7 +128,7 @@ Notes:
 
 ### `prompts/_fragments/claude_md_disambiguation.py` (prompt-fragment, transform)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/page_categories.py`
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py`
 
 **Module shape** (page_categories.py lines 1-4):
 ```python
@@ -205,7 +205,7 @@ Notes:
 
 ### `prompts/scanner.py` (prompt-builder, transform — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py` (self)
 
 **Current composition pattern** (scanner.py lines 61-69):
 ```python
@@ -222,8 +222,8 @@ SCANNER_SYSTEM = "\n\n".join([
 
 **Target pattern** (from blueprint, scanner.py §Step 3):
 ```python
-from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 def build_scanner_system(project_context: str = "") -> str:
     parts = [
@@ -253,7 +253,7 @@ Notes:
 
 ### `prompts/linter.py` (prompt-builder, transform — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/linter.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py` (self)
 
 **Current composition pattern** (linter.py lines 33-63, excerpt):
 ```python
@@ -268,8 +268,8 @@ LINTER_PAGE_QUALITY_SYSTEM = "\n\n".join([
 
 **Target pattern:**
 ```python
-from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 def build_linter_page_quality_system(project_context: str = "") -> str:
     parts = [role_intro, IRON_RULES, LINT_PRIORITY_ORDER, LOG_FORMAT,
@@ -290,7 +290,7 @@ Notes:
 
 ### `prompts/ingestor.py` (prompt-builder, transform — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/ingestor.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py` (self)
 
 **Current composition pattern** (ingestor.py lines 85-96):
 ```python
@@ -310,10 +310,10 @@ INGESTOR_SYSTEM = "\n\n".join([
 
 **Target pattern:**
 ```python
-from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
-from code_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
-from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 def build_ingestor_system(project_context: str = "") -> str:
     parts = [
@@ -337,7 +337,7 @@ Notes:
 
 ### `prompts/librarian.py` (prompt-builder, transform — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/librarian.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py` (self)
 
 **Current composition pattern** (librarian.py lines 54-62):
 ```python
@@ -354,7 +354,7 @@ LIBRARIAN_SYSTEM = "\n\n".join([
 
 **Target pattern:**
 ```python
-from code_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
 
 def build_librarian_system() -> str:
     return "\n\n".join([
@@ -374,11 +374,11 @@ Notes:
 
 ### `commands/scan.py` (command, request-response — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` (self)
 
 **Current SystemMessage assembly** (scan.py lines 34, 341-346):
 ```python
-from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
 ...
 msgs = [
     SystemMessage(content=SCANNER_SYSTEM),
@@ -388,8 +388,8 @@ msgs = [
 
 **Target wiring pattern** (from blueprint §Step 4):
 ```python
-from code_wiki_agent.prompts.project_context import render_project_context
-from code_wiki_agent.prompts.scanner import build_scanner_system
+from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.scanner import build_scanner_system
 
 # Near top of the invocation path, after wiki is resolved (scan.py line 265):
 project_ctx = render_project_context(wiki)
@@ -403,13 +403,13 @@ msgs = [
 Notes:
 - `wiki` is already resolved at line 265 (`wiki, resolved_repo = resolve_wiki_and_repo(vault_path)`). Call `render_project_context(wiki)` once after that line.
 - The `generate_stub` closure captures `project_ctx` from the outer scope — no need to pass it as an argument.
-- The existing `from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM` re-export on line 34 stays until `SCANNER_SYSTEM` backward compat is confirmed as unused by other callers (check `__init__.py`).
+- The existing `from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM` re-export on line 34 stays until `SCANNER_SYSTEM` backward compat is confirmed as unused by other callers (check `__init__.py`).
 
 ---
 
 ### `commands/lint.py` (command, request-response — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` (self)
 
 **Current semantic pass assembly** (lint.py lines 422-444, excerpt):
 ```python
@@ -430,8 +430,8 @@ async def run_linter_group(group_tuple: tuple) -> list[str]:
 
 **Target wiring:**
 ```python
-from code_wiki_agent.prompts.project_context import render_project_context
-from code_wiki_agent.prompts.linter import (
+from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.linter import (
     build_linter_page_quality_system,
     build_linter_adr_chain_system,
     build_linter_stale_claims_system,
@@ -455,7 +455,7 @@ Notes:
 
 ### `commands/ingest.py` (command, request-response — wiring change)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` (self)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` (self)
 
 **Current LLM invocation** (ingest.py line 422):
 ```python
@@ -464,8 +464,8 @@ resp = await llm.ainvoke([SystemMessage(INGESTOR_SYSTEM), HumanMessage(prompt)])
 
 **Target wiring:**
 ```python
-from code_wiki_agent.prompts.project_context import render_project_context
-from code_wiki_agent.prompts.ingestor import build_ingestor_system
+from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.ingestor import build_ingestor_system
 
 # After wiki resolved (ingest.py line 379):
 project_ctx = render_project_context(wiki)
@@ -483,14 +483,14 @@ Notes:
 
 ### `tests/prompts/test_prompt_snapshots.py` (test — additive change)
 
-**Analog:** `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` (self)
+**Analog:** `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` (self)
 
 **Existing test pattern** (test_prompt_snapshots.py lines 19-25):
 ```python
 def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
     """LIBRARIAN_SYSTEM matches recorded snapshot."""
     try:
-        from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
+        from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
     except ImportError:
         pytest.skip("prompts module not yet implemented")
     assert LIBRARIAN_SYSTEM == snapshot
@@ -509,7 +509,7 @@ Notes:
 
 ### `tests/prompts/test_project_context.py` (test — new file)
 
-**Analog:** `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py`
+**Analog:** `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py`
 
 **Pattern to replicate** (blueprint §Step 5):
 ```python
@@ -521,18 +521,18 @@ def test_render_project_context_with_claude_md(snapshot: SnapshotAssertion, tmp_
     wiki = tmp_path / "wiki"
     wiki.mkdir()
     (wiki / "CLAUDE.md").write_text(FIXTURE_CLAUDE_MD)
-    from code_wiki_agent.prompts.project_context import render_project_context
+    from graph_wiki_agent.prompts.project_context import render_project_context
     ctx = render_project_context(wiki)
     assert ctx == snapshot
 
 def test_render_project_context_missing_file(tmp_path):
-    from code_wiki_agent.prompts.project_context import render_project_context
+    from graph_wiki_agent.prompts.project_context import render_project_context
     ctx = render_project_context(tmp_path / "missing")
     assert ctx == ""
 
 def test_scanner_system_degrades_without_claude_md(tmp_path):
-    from code_wiki_agent.prompts.project_context import render_project_context
-    from code_wiki_agent.prompts.scanner import build_scanner_system
+    from graph_wiki_agent.prompts.project_context import render_project_context
+    from graph_wiki_agent.prompts.scanner import build_scanner_system
     ctx = render_project_context(tmp_path / "missing")
     assert ctx == ""
     prompt = build_scanner_system(project_context=ctx)
@@ -548,7 +548,7 @@ Notes:
 
 ### `tests/unit/test_token_budget.py` (test — new file)
 
-**Analog:** `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py`
+**Analog:** `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py`
 
 **Pattern:**
 ```python
@@ -563,7 +563,7 @@ PRE_PHASE_10_BASELINE = {
 TOKEN_CEILING_DELTA = 1500
 
 def test_scanner_token_budget():
-    from code_wiki_agent.prompts.scanner import build_scanner_system
+    from graph_wiki_agent.prompts.scanner import build_scanner_system
     prompt = build_scanner_system(project_context="")
     tokens = len(prompt) / 4
     assert tokens <= PRE_PHASE_10_BASELINE["scanner"] + TOKEN_CEILING_DELTA
@@ -579,7 +579,7 @@ Notes:
 
 ### Provenance header (mandatory on all new fragments)
 
-**Source:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/iron_rules.py` lines 1-3
+**Source:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py` lines 1-3
 **Apply to:** All 4 new `_fragments/*.py` files
 **Enforced by:** `tests/prompts/test_provenance.py` — will FAIL without this header
 
@@ -593,21 +593,21 @@ Constraint: `Source:` path must start with `cores/prompt-sources/` AND the file 
 
 ### Prompt-builder function + backward-compat constant pattern
 
-**Source:** `agents/code-wiki-agent/src/code_wiki_agent/prompts/scanner.py` lines 61-69 (current), plus blueprint §Step 3
+**Source:** `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py` lines 61-69 (current), plus blueprint §Step 3
 **Apply to:** `prompts/scanner.py`, `prompts/linter.py`, `prompts/ingestor.py`
 
 Pattern: add a `build_X_system(project_context: str = "") -> str` function that composes parts and inserts `project_context` at position 1 if non-empty. Retain the module-level constant (`SCANNER_SYSTEM = build_scanner_system()`) for backward compat.
 
 ### `render_project_context` call at command entry
 
-**Source:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` line 265 (wiki resolution)
+**Source:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` line 265 (wiki resolution)
 **Apply to:** `commands/scan.py`, `commands/lint.py`, `commands/ingest.py`
 
 Pattern: call `render_project_context(wiki)` once, immediately after `wiki` is resolved by `resolve_wiki_and_repo(...)`. Capture result in `project_ctx`. Pass into prompt builder at the point of `SystemMessage` construction.
 
 ### Syrupy snapshot test pattern
 
-**Source:** `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` lines 19-25
+**Source:** `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` lines 19-25
 **Apply to:** All new prompt snapshot tests
 
 Pattern: `try/except ImportError` guard → `pytest.skip()` on missing module. `assert X == snapshot`. No assertions on snapshot content directly — let syrupy handle the comparison.
@@ -638,6 +638,6 @@ All files have analogs. No new capability areas without prior art.
 
 ## Metadata
 
-**Analog search scope:** `agents/code-wiki-agent/src/`, `cores/vault-io/src/`, `cores/prompt-sources/`, `agents/code-wiki-agent/tests/`
+**Analog search scope:** `agents/graph-wiki-agent/src/`, `cores/vault-io/src/`, `cores/prompt-sources/`, `agents/graph-wiki-agent/tests/`
 **Files scanned:** 15 source files, 4 test files
 **Pattern extraction date:** 2026-05-17

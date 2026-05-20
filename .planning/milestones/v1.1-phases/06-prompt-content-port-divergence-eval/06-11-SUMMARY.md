@@ -10,7 +10,7 @@ dependency_graph:
 tech_stack:
   added: []
   patterns:
-    - eval-gate guard on CODE_WIKI_RUN_EVAL=1
+    - eval-gate guard on GRAPH_WIKI_RUN_EVAL=1
     - asyncio.run() wrapping async agent commands for sync test context
     - sys.path.insert for conftest module import in sibling test files
 key_files:
@@ -44,7 +44,7 @@ Added `_produce_outputs(role, vault)` as a plain callable to `cores/eval-harness
 - **linter**: calls `run_lint()` against the round-trip-vault; returns one output per semantic group (`page_quality`, `adr_chain`, `stale_claims`) with findings joined as the answer
 - **scanner**: calls `run_scan()` against the vault and reads the written stub pages for `added + updated` packages
 
-All per-role producers guard on `CODE_WIKI_RUN_EVAL=1` via `pytest.skip`. Missing corpus paths produce skip messages pointing to the expected path.
+All per-role producers guard on `GRAPH_WIKI_RUN_EVAL=1` via `pytest.skip`. Missing corpus paths produce skip messages pointing to the expected path.
 
 Existing fixtures (`EVAL_GATE`, `accept_baseline`, `fixture_vault_path`) are preserved unchanged.
 
@@ -72,9 +72,9 @@ Uses `sys.path.insert(0, str(Path(__file__).parent))` (same pattern as `test_swe
 
 ## Verification
 
-- Without `CODE_WIKI_RUN_EVAL=1`: `uv run pytest cores/eval-harness/tests/test_divergence.py -x -q` reports **4 skipped, 0 failed** (confirmed)
+- Without `GRAPH_WIKI_RUN_EVAL=1`: `uv run pytest cores/eval-harness/tests/test_divergence.py -x -q` reports **4 skipped, 0 failed** (confirmed)
 - Collection: 4 tests collected correctly (confirmed)
-- The `BASELINES_DIR` (initial empty baselines from 06-10) remains unchanged — populated on first real Bedrock run with `CODE_WIKI_RUN_EVAL=1 --accept-divergence-baseline`
+- The `BASELINES_DIR` (initial empty baselines from 06-10) remains unchanged — populated on first real Bedrock run with `GRAPH_WIKI_RUN_EVAL=1 --accept-divergence-baseline`
 
 ## Baseline Snapshot (Initial — from 06-10)
 
@@ -89,7 +89,7 @@ The 4 baseline JSON files in `cores/eval-harness/baselines/` have `agent_commit:
 
 To record the v1.1 starting baseline:
 ```bash
-CODE_WIKI_RUN_EVAL=1 uv run pytest cores/eval-harness/tests/test_divergence.py --accept-divergence-baseline -s
+GRAPH_WIKI_RUN_EVAL=1 uv run pytest cores/eval-harness/tests/test_divergence.py --accept-divergence-baseline -s
 ```
 
 ## Deviations from Plan
@@ -107,7 +107,7 @@ None — plan executed as written aside from the sys.path fix.
 
 ## Threat Surface Scan
 
-No new network endpoints, auth paths, or schema changes introduced. The only security-relevant boundary is `CODE_WIKI_RUN_EVAL=1` gating Bedrock calls — mitigated by both `EVAL_GATE` mark and the `pytest.skip` guard inside `_produce_outputs` (T-06-24, belt-and-suspenders).
+No new network endpoints, auth paths, or schema changes introduced. The only security-relevant boundary is `GRAPH_WIKI_RUN_EVAL=1` gating Bedrock calls — mitigated by both `EVAL_GATE` mark and the `pytest.skip` guard inside `_produce_outputs` (T-06-24, belt-and-suspenders).
 
 ## Self-Check: PASSED
 
@@ -115,4 +115,4 @@ No new network endpoints, auth paths, or schema changes introduced. The only sec
 - test_divergence.py modified: FOUND
 - commit db5e64e (Task 1): FOUND
 - commit facb621 (Task 2): FOUND
-- 4 tests skip without CODE_WIKI_RUN_EVAL: VERIFIED (4 skipped, 0 failed)
+- 4 tests skip without GRAPH_WIKI_RUN_EVAL: VERIFIED (4 skipped, 0 failed)

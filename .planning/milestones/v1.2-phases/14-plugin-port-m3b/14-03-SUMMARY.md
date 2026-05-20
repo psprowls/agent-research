@@ -42,7 +42,7 @@ key_files:
     - .brand-grep-allow
 decisions:
   - "SO-04: _config.py reads workspace_io.manifest instead of raw JSON; uses plugin.backend_overrides[cmd] -> plugin.backend_default -> 'claude' resolution order with except Exception fallback"
-  - "SO-02: shim bedrock branch uses subprocess.run(['code-wiki-agent', cmd] + sys.argv[1:], check=True) — no agent imports, no vendor/, no shell=True"
+  - "SO-02: shim bedrock branch uses subprocess.run(['graph-wiki-agent', cmd] + sys.argv[1:], check=True) — no agent imports, no vendor/, no shell=True"
   - "C-01: no archive.md, regen-index.md, or status.md in commands/ — work-layer not ported in v1.2"
   - "lint.md reshape: dropped Pass 1b work lifecycle lint and Work lint section from Pass 3 report"
   - "D-04 README: fresh-write with 6 sections — not a rebrand of upstream README"
@@ -65,7 +65,7 @@ Plugin scaffold + workspace_io manifest extension completed through Task 3.5 (br
 
 **plugins/graph-wiki scaffold (Task 3.2):** Full rebrand port of upstream lattice-wiki plugin. 34 files created across `.claude-plugin/`, `commands/`, `agents/`, `skills/graph-wiki/`. All 12 reference docs written with brand-swap applied. `lint.md` reshaped per C-01: dropped `### Pass 1b — Work lifecycle lint` and `## Work lint` from Pass 3 report. `lifecycle-rules.md` and `sidecar-schema.md` carry upstream-only notes since work-layer not ported in v1.2. SKILL.md lists 6 commands (no archive/regen-index/status).
 
-**_config.py + 6 shim scripts (Task 3.3):** SO-04 `_config.py` reads `.graph-wiki.yaml` via `workspace_io.manifest.read()` with three-level resolution and `except Exception: return "claude"` tolerance. Six shims (init_vault, scan_monorepo, ingest_source, lint_wiki, wiki_search, detect_containers) follow SO-02 pattern: `from vault_io.<module> import main as _core_main` in claude branch, `subprocess.run(["code-wiki-agent", cmd] + sys.argv[1:], check=True)` in bedrock branch. No `vendor/`, no `shell=True`.
+**_config.py + 6 shim scripts (Task 3.3):** SO-04 `_config.py` reads `.graph-wiki.yaml` via `workspace_io.manifest.read()` with three-level resolution and `except Exception: return "claude"` tolerance. Six shims (init_vault, scan_monorepo, ingest_source, lint_wiki, wiki_search, detect_containers) follow SO-02 pattern: `from vault_io.<module> import main as _core_main` in claude branch, `subprocess.run(["graph-wiki-agent", cmd] + sys.argv[1:], check=True)` in bedrock branch. No `vendor/`, no `shell=True`.
 
 **README.md (Task 3.4):** Fresh-write with exactly 6 sections (D-04): What this plugin is, Setup, [plugin] block syntax, Commands, Not ported, See also. Explicitly documents the dual Claude/Bedrock surfaces, plugin block YAML validation rules, and lists the 3 work-layer commands not ported in v1.2.
 
@@ -100,7 +100,7 @@ The continuation agent will verify the transcript confirms the command resolves,
 
 ## Known Stubs
 
-None — all scripts are functional shims (either delegate to vault_io or shell out to code-wiki-agent). The wiki workflow content is in the reference docs which are complete.
+None — all scripts are functional shims (either delegate to vault_io or shell out to graph-wiki-agent). The wiki workflow content is in the reference docs which are complete.
 
 ## Threat Flags
 

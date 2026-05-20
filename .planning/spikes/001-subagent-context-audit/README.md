@@ -12,7 +12,7 @@ tags: [context, prompts, audit, subagents, bedrock]
 
 ## What This Validates
 
-**Given** the current Python port's subagent system prompts (`agents/code-wiki-agent/src/code_wiki_agent/prompts/*.py`) and the original sources (`cores/prompt-sources/SKILL.md`, `lattice/wiki/CLAUDE.md`),
+**Given** the current Python port's subagent system prompts (`agents/graph-wiki-agent/src/graph_wiki_agent/prompts/*.py`) and the original sources (`cores/prompt-sources/SKILL.md`, `lattice/wiki/CLAUDE.md`),
 **When** they are inventoried side-by-side and the cost of injecting missing context is estimated against Bedrock fan-out,
 **Then** we can name the load-bearing chunks that were dropped, confirm whether `wiki/CLAUDE.md` reaches subagent context, and recommend an injection strategy with a clear next step.
 
@@ -80,8 +80,8 @@ The layout block is the single most important piece of project-specific context 
 Grep across `agents/` and `cores/`:
 
 ```
-agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py:324: layout = read_layout(wiki / "CLAUDE.md")
-agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py:282-283: read_layout(wiki / schema_name)  # CLAUDE.md or AGENTS.md
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py:324: layout = read_layout(wiki / "CLAUDE.md")
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py:282-283: read_layout(wiki / schema_name)  # CLAUDE.md or AGENTS.md
 ```
 
 No other reference. `prompts/*.py` files never read `CLAUDE.md` — confirmed data-only. Subagent system prompts cannot see the project's container pins, vault dirs, or `classification: skip` entries.

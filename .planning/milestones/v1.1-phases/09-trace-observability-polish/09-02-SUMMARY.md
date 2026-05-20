@@ -50,7 +50,7 @@ OBS-04's documentation half: a new `docs/trace-schema.md` reference (319 lines, 
 
 ## Section Titles Used in docs/trace-schema.md
 
-1. `# Trace Schema for \`code-wiki-agent\`` (title)
+1. `# Trace Schema for \`graph-wiki-agent\`` (title)
 2. `## 1. Directory Layout and Filename Convention`
 3. `## 2. Per-Record Shapes` (with H3 subsections 2.1 Per-Item Subagent Record, 2.2 Batch Event Record, 2.3 Query Summary Record)
 4. `## 3. The \`schema_version\` Field`

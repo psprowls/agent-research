@@ -21,7 +21,7 @@ created: 2026-05-19
 | **Config file** | `packages/vault-io/pyproject.toml` (workspace-managed) |
 | **Quick run command** | `uv run --package vault-io pytest -x` |
 | **Full suite command** | `uv run --package vault-io pytest` |
-| **Integration suite** | `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` |
+| **Integration suite** | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` |
 | **Estimated runtime** | ~10–20 seconds (unit); ~30–60 seconds (with integration) |
 
 ---
@@ -45,7 +45,7 @@ created: 2026-05-19
 | SCAN-02 | `compute_diff` reports 0 `deleted` for companions on a healthy fixture | unit | `uv run --package vault-io pytest tests/test_scan_companion_fold.py::test_compute_diff_no_phantom_deletes -x` | ❌ W0 |
 | TOK-01 | `count_tokens` calls Bedrock with the correct `input={"converse": ...}` request shape | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_request_shape -x` | ❌ W0 |
 | TOK-01 | `count_tokens` returns `response["inputTokens"]` (not `inputTokenCount`) | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_returns_input_tokens -x` | ❌ W0 |
-| TOK-02 | Real Bedrock call succeeds; returns positive int | integration (gated) | `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest tests/integration/test_count_tokens_live.py -x` | ❌ W0 |
+| TOK-02 | Real Bedrock call succeeds; returns positive int | integration (gated) | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest tests/integration/test_count_tokens_live.py -x` | ❌ W0 |
 | TOK-03 | All 35 pages with `tokens: 0` in `~/Personal/wiki/deep-agents` have non-zero `tokens:` after re-stamp | manual + file-state | `uv run python -m vault_io.update_tokens`; `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents` returns 0 matches | manual; transcript in 17-VERIFICATION.md |
 | WSRES-01 | `init_vault.py` resolves the repo correctly under v2 workspace layout | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_v2_layout_finds_repo_containers -x` | ❌ W0 |
 | WSRES-02 | `detect()` excludes the workspace_path subdir from the layout classification | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_workspace_path_excluded -x` | ❌ W0 |

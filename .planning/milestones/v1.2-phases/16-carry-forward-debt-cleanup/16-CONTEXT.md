@@ -6,22 +6,22 @@
 <domain>
 ## Phase Boundary
 
-Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: production trace `usage_metadata` coverage (TRACE-FU-01), DivergenceMetric + cases + scanner re-sweep across the full matrix (SWEEP-FU-02/03/04), MCP wire-level cancel closure or re-deferral (MCP-CAN-01) plus a single documented `CODE_WIKI_RUN_INTEGRATION` gate rule (MCP-CAN-02), and a model-id assertion fix on the synthesizer config test (MODEL-FU-01). The phase is mechanical/maintenance — every requirement either resolves with code + tests or with explicitly-documented re-deferral evidence.
+Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: production trace `usage_metadata` coverage (TRACE-FU-01), DivergenceMetric + cases + scanner re-sweep across the full matrix (SWEEP-FU-02/03/04), MCP wire-level cancel closure or re-deferral (MCP-CAN-01) plus a single documented `GRAPH_WIKI_RUN_INTEGRATION` gate rule (MCP-CAN-02), and a model-id assertion fix on the synthesizer config test (MODEL-FU-01). The phase is mechanical/maintenance — every requirement either resolves with code + tests or with explicitly-documented re-deferral evidence.
 
 **In scope:**
-- **TRACE-FU-01** — Extract the JSONL trace-record writer from `SubagentPool._write_trace` into a shared helper (in `packages/subagent-runtime/` per D-04). Refactor `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:438` (currently calls `llm.ainvoke` directly, writes no trace) and `commands/query.py:977` (`query_summary` record missing `tokens_in`/`tokens_out`) to use the helper. All production LLM call sites (scan, lint, query fan-out, query synthesizer, query code-fallback, ingest, any future direct invokes) write a JSONL record with `input_tokens` + `output_tokens` from `usage_metadata` (None allowed only on Bedrock error responses, per existing pool guard).
-- **TRACE-FU-01 regression test** — Real-fan-out integration test (gated by `CODE_WIKI_RUN_INTEGRATION=1`) runs scan + ingest + query against a tmp_path fixture vault, parses every JSONL file under `.code-wiki/traces/`, asserts every non-error record has non-None `input_tokens` and `output_tokens`. Lives alongside existing `agents/code-wiki-agent/tests/integration/` tests.
+- **TRACE-FU-01** — Extract the JSONL trace-record writer from `SubagentPool._write_trace` into a shared helper (in `packages/subagent-runtime/` per D-04). Refactor `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:438` (currently calls `llm.ainvoke` directly, writes no trace) and `commands/query.py:977` (`query_summary` record missing `tokens_in`/`tokens_out`) to use the helper. All production LLM call sites (scan, lint, query fan-out, query synthesizer, query code-fallback, ingest, any future direct invokes) write a JSONL record with `input_tokens` + `output_tokens` from `usage_metadata` (None allowed only on Bedrock error responses, per existing pool guard).
+- **TRACE-FU-01 regression test** — Real-fan-out integration test (gated by `GRAPH_WIKI_RUN_INTEGRATION=1`) runs scan + ingest + query against a tmp_path fixture vault, parses every JSONL file under `.graph-wiki/traces/`, asserts every non-error record has non-None `input_tokens` and `output_tokens`. Lives alongside existing `agents/graph-wiki-agent/tests/integration/` tests.
 - **SWEEP-FU-02** — Add programmatic divergence rubrics for `code_reader` and `synthesizer`; extend `ROLES_WITH_DIVERGENCE` in `packages/eval-harness/src/eval_harness/two_gate.py:36` from the current 4-role frozenset (`librarian, ingestor, linter, scanner`) to all 6 in-scope roles. Rubric depth: match Phase-6 EVAL-11..13 rigor (not minimal-viable).
 - **SWEEP-FU-03** — Expand `eval/cases/code_reader_cases.json` from 3 vault-thin cases to 5–6, adding cases that reflect the post-rebrand surface (`workspace-io`, `graph-wiki` plugin, the `vault-io.lint_wiki` / `vault-io.wiki_search` port targets). Retune so every case produces a non-trivial score against the current corpus.
 - **SWEEP-FU-04** — Both: (a) build a synthetic post-rebrand fixture vault under `packages/eval-harness/tests/` (or `tests/fixtures/`) for the CI-runnable scanner regression sweep, asserting no regression vs. v1.1 baseline; (b) one manual live-vault re-sweep against `~/Personal/wiki/deep-agents` recorded into `16-VERIFICATION.md` as milestone evidence (mirrors Phase 15 D-08/D-09 transcript pattern).
 - **MCP-CAN-01** — Time-bound spike to evaluate aioboto3 / `langchain-aws#663` status. Spike gate (D-08): pursue if a working integration path exists (either a released `langchain-aws` version with native `aioboto3`, OR an `aioboto3` + thin adapter we'd own). If gate fails, refresh `docs/cancellation.md §4–§5` with the current blocker and an **upstream-signal** re-evaluation trigger (D-09): "Re-evaluate when langchain-aws cuts a release with #663 merged, OR when aioboto3 reaches a milestone we can name."
-- **MCP-CAN-02** — Author `docs/testing.md` as the single home for the `CODE_WIKI_RUN_INTEGRATION` opt-in gate rule (D-10). Document the canonical skip-decorator pattern, list every gated file, include a grep gate (script or test) that fails the build if a future test diverges from the pattern.
+- **MCP-CAN-02** — Author `docs/testing.md` as the single home for the `GRAPH_WIKI_RUN_INTEGRATION` opt-in gate rule (D-10). Document the canonical skip-decorator pattern, list every gated file, include a grep gate (script or test) that fails the build if a future test diverges from the pattern.
 - **MODEL-FU-01** — Extend `packages/model-adapter/tests/test_loader.py::test_load_role_config_synthesizer_limits` (current name; was already renamed from `_uses_sonnet` during prior work) to also assert `cfg["model_id"] == "qwen.qwen3-32b-v1:0"`. Locks the current Qwen synthesizer default so future drift fails loudly.
 - **`16-VERIFICATION.md`** — Single doc with per-SC sections (#1–#5), citing trace JSONL output, sweep result tables, the cancel spike decision, the `docs/testing.md` grep-gate output, and the synthesizer model_id assertion.
 
 **Out of scope:**
 - New trace fields beyond `input_tokens` / `output_tokens` / existing schema (`prompt_hash`, multi-turn aggregation, cache-hit telemetry). Schema stays at `schema_version: 1` unless the helper extraction surfaces an actually-required field change.
-- Reshaping the trace JSONL schema or path layout (`.code-wiki/traces/`); helper extraction is pure refactor.
+- Reshaping the trace JSONL schema or path layout (`.graph-wiki/traces/`); helper extraction is pure refactor.
 - Routing all LLM calls through `SubagentPool` (rejected option B on the writer-shape question — pool stays for fan-out; single-call paths use the shared helper directly).
 - Real `aioboto3` integration if the spike gate fails — defer per D-08/D-09.
 - SIGINT / stdin-close fallback cancel paths (`docs/cancellation.md §5` v1.2+ list); orphan-thread monitoring; per-tool granular E2E cancel tests beyond the existing `wiki_query` one.
@@ -44,7 +44,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 
 ### Gate consistency rule home (SC#4 / MCP-CAN-02)
 
-- **D-10 (`docs/testing.md` is the single source of truth):** New file `docs/testing.md`, sibling to `docs/cancellation.md`. Documents the `CODE_WIKI_RUN_INTEGRATION=1` opt-in gate: canonical skip-decorator (`pytest.mark.skipif(not os.environ.get("CODE_WIKI_RUN_INTEGRATION"), reason="…")`), the standard reason text, every gated test file path, and a static grep gate (one of: a Bash script under `scripts/`, or a pytest meta-test) that fails CI if a gated file diverges from the canonical pattern. No mention in `CLAUDE.md` — `docs/testing.md` is discoverable and `docs/` is already the established location for cross-cutting conventions (`cancellation.md`, `trace-schema.md`).
+- **D-10 (`docs/testing.md` is the single source of truth):** New file `docs/testing.md`, sibling to `docs/cancellation.md`. Documents the `GRAPH_WIKI_RUN_INTEGRATION=1` opt-in gate: canonical skip-decorator (`pytest.mark.skipif(not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"), reason="…")`), the standard reason text, every gated test file path, and a static grep gate (one of: a Bash script under `scripts/`, or a pytest meta-test) that fails CI if a gated file diverges from the canonical pattern. No mention in `CLAUDE.md` — `docs/testing.md` is discoverable and `docs/` is already the established location for cross-cutting conventions (`cancellation.md`, `trace-schema.md`).
 
 ### Trace coverage scope (SC#1 / TRACE-FU-01)
 
@@ -55,7 +55,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
   - Any future call site found during scout (executor verifies).
   None allowed on `usage_metadata` only when Bedrock returned an error response (existing pool guard semantics).
 - **D-04 (Extract pool writer into shared helper):** Pull `_write_trace`'s record-construction + JSONL append logic out of `SubagentPool` into a `trace_io` helper (location: `packages/subagent-runtime/src/subagent_runtime/trace_io.py` — keeps it next to the pool; alternative locations like a new `core-trace` package are out unless executor finds a stronger reason during scout). Pool continues to call the helper; non-pool sites (ingest, query summary) call it directly. Single source of truth for record schema; eliminates the drift surface that produced this debt in the first place. Schema stays at `schema_version: 1` unless the extraction reveals a forced field change.
-- **D-05 (Real-fan-out regression test):** Gated by `CODE_WIKI_RUN_INTEGRATION=1`. Runs scan + ingest + query against a tmp_path fixture vault, parses every JSONL file under `.code-wiki/traces/`, asserts every non-error record has non-None `input_tokens` AND `output_tokens`. SC#1's literal wording requires "a regression test that runs a real fan-out and asserts the field is populated." Belt + braces (static grep gate for ChatBedrockConverse outside the helper) was considered and rejected for now — the helper extraction makes the gap visible in code review without extra tooling.
+- **D-05 (Real-fan-out regression test):** Gated by `GRAPH_WIKI_RUN_INTEGRATION=1`. Runs scan + ingest + query against a tmp_path fixture vault, parses every JSONL file under `.graph-wiki/traces/`, asserts every non-error record has non-None `input_tokens` AND `output_tokens`. SC#1's literal wording requires "a regression test that runs a real fan-out and asserts the field is populated." Belt + braces (static grep gate for ChatBedrockConverse outside the helper) was considered and rejected for now — the helper extraction makes the gap visible in code review without extra tooling.
 
 ### Sweep matrix expansion (SC#2 / SWEEP-FU-02/03/04)
 
@@ -75,7 +75,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 ### Claude's Discretion
 
 - Exact filename and home for the trace helper (`trace_io.py` vs. extending `pool.py` with module-level functions vs. a tiny new package) — executor's call during scout; preference is `subagent-runtime/trace_io.py` per D-04 unless a stronger reason emerges.
-- Exact form of the `CODE_WIKI_RUN_INTEGRATION` grep gate (Bash script under `scripts/` vs. a `tests/test_integration_gate.py` meta-test) — executor's call; the test-based form gets free CI hookup.
+- Exact form of the `GRAPH_WIKI_RUN_INTEGRATION` grep gate (Bash script under `scripts/` vs. a `tests/test_integration_gate.py` meta-test) — executor's call; the test-based form gets free CI hookup.
 - Exact divergence-rubric content for `code_reader` and `synthesizer` (rule count, rule shape) — author them to match the rigor of existing rubrics; executor reads existing Phase-6 rubrics during scout and patterns the new ones on them.
 - Exact case text and case_ids for the 2–3 new `code_reader` cases — author against the post-rebrand surface (`workspace-io`, `graph-wiki` plugin, ported `vault-io` modules); follow the existing case JSON shape.
 - Whether the synthetic fixture vault lives under `packages/eval-harness/tests/fixtures/` or a repo-level `tests/fixtures/` — executor's call; prefer the eval-harness-local location for proximity to the sweep code.
@@ -92,15 +92,15 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 ### Phase scope & requirement traceability
 - `.planning/ROADMAP.md` §Phase 16 — Goal, depends-on (Phase 12), SC#1..SC#5, 7-requirement mapping (TRACE-FU-01, SWEEP-FU-02, SWEEP-FU-03, SWEEP-FU-04, MCP-CAN-01, MCP-CAN-02, MODEL-FU-01).
 - `.planning/REQUIREMENTS.md` lines 43–55 — Full requirement text for each of the 7 carry-forward items.
-- `.planning/PROJECT.md` — Core Value (Bedrock-only `code-wiki-agent`); v1.1 deferrals carrying into v1.2 (lines 41, 113, 185).
+- `.planning/PROJECT.md` — Core Value (Bedrock-only `graph-wiki-agent`); v1.1 deferrals carrying into v1.2 (lines 41, 113, 185).
 - `.planning/RETROSPECTIVE.md` line 72 — Phase 8 host-reliability summary; documents the v1.1 cancel deferral path.
 
 ### Trace pipeline (TRACE-FU-01)
 - `packages/subagent-runtime/src/subagent_runtime/pool.py` §`_write_trace` (lines 186–231) — Current canonical trace record shape; source for D-04 helper extraction. Includes the `usage_metadata` guard pattern (lines 205–209).
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py:977` — `query_summary` JSONL record currently missing `tokens_in`/`tokens_out`; backfill target.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py:438` — Direct `llm.ainvoke` call site writing no trace; refactor target through the new helper.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:977` — `query_summary` JSONL record currently missing `tokens_in`/`tokens_out`; backfill target.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py:438` — Direct `llm.ainvoke` call site writing no trace; refactor target through the new helper.
 - `docs/trace-schema.md` — Existing trace schema documentation (executor reads to confirm `schema_version: 1` field set).
-- `agents/code-wiki-agent/tests/integration/` — Existing gated integration tests directory; home for the new TRACE-FU-01 regression test.
+- `agents/graph-wiki-agent/tests/integration/` — Existing gated integration tests directory; home for the new TRACE-FU-01 regression test.
 
 ### Sweep matrix (SWEEP-FU-02/03/04)
 - `packages/eval-harness/src/eval_harness/two_gate.py:36` — `ROLES_WITH_DIVERGENCE` frozenset; expansion target from 4 → 6 roles.
@@ -117,8 +117,8 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 - `docs/cancellation.md` — Current cancel documentation (lines 155–210 cover v1.1 limitations + v1.2+ future-work list); refresh target if D-08 spike says re-document.
 - `.planning/research/STACK.md` lines 239, 649 — Documents `langchain-aws#663` as the upstream signal (filed Sep 2025).
 - `.planning/milestones/v1.1-MILESTONE-AUDIT.md` lines 37, 191 — Phase 8 SC#1 deferral history.
-- `agents/code-wiki-agent/tests/conftest.py:17-21` — Canonical `CODE_WIKI_RUN_INTEGRATION` skip-decorator shape (one of three current homes).
-- `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py:21-22`, `test_mcp_stdio.py:142-143`, `test_query_e2e.py:40-41`, `test_bedrock_iam.py:33-35` — All gated test files; inventory target for `docs/testing.md`.
+- `agents/graph-wiki-agent/tests/conftest.py:17-21` — Canonical `GRAPH_WIKI_RUN_INTEGRATION` skip-decorator shape (one of three current homes).
+- `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py:21-22`, `test_mcp_stdio.py:142-143`, `test_query_e2e.py:40-41`, `test_bedrock_iam.py:33-35` — All gated test files; inventory target for `docs/testing.md`.
 - `packages/subagent-runtime/tests/integration/test_pool_bedrock.py:29-30` — Cross-package gated test; same inventory.
 
 ### Model config drift (MODEL-FU-01)
@@ -134,7 +134,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 ### Memory / project-level constraints
 - `[[user_cost_optimization]]` — Eval-driven model selection; informs D-12 (no hard cap, preflight + judgement).
 - `[[project_wiki_setup]]` — Qwen profile is the wiki default; informs D-11 live-vault sweep context.
-- `[[project_plugin_port_model]]` — Plugin uses Claude Code; `code-wiki-agent` is the Bedrock path. Phase 16 work touches the Bedrock path only.
+- `[[project_plugin_port_model]]` — Plugin uses Claude Code; `graph-wiki-agent` is the Bedrock path. Phase 16 work touches the Bedrock path only.
 
 </canonical_refs>
 
@@ -146,7 +146,7 @@ Close out the four v1.1 carry-forward debt themes so v1.2 ships clean: productio
 - **`ROLES_WITH_DIVERGENCE` frozenset + `score_two_gate`** (`two_gate.py:36, 103`) — Existing 2-gate scoring infrastructure; adding `code_reader` + `synthesizer` is a frozenset extension + 2 new rubric files, not a redesign.
 - **`code_reader_cases.json` JSON shape** (`eval/cases/code_reader_cases.json`) — `{case_id, query, expected_answer, tags}` schema, 3 existing cases tagged `vault-thin`. New cases follow the same shape.
 - **Preflight estimator** (`packages/eval-harness/src/eval_harness/preflight.py`, `pricing.py`) — Existing dry-run cost surface used by D-12 to keep sweep cost judgement-driven without a hard abort.
-- **Canonical skip-decorator pattern** (`agents/code-wiki-agent/tests/conftest.py:17-21`) — Already-consistent shape across 5 known gated test files; `docs/testing.md` formalizes it as the rule rather than introducing a new shape.
+- **Canonical skip-decorator pattern** (`agents/graph-wiki-agent/tests/conftest.py:17-21`) — Already-consistent shape across 5 known gated test files; `docs/testing.md` formalizes it as the rule rather than introducing a new shape.
 
 ### Established Patterns
 - **`schema_version: 1` field on every trace record** (Phase 9 OBS-04 D-01/D-02) — Required for self-describing JSONL; D-04 helper preserves.

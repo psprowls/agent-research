@@ -28,14 +28,14 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py
-    - agents/code-wiki-agent/tests/integration/test_mcp_e2e.py
+    - agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py
+    - agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
   modified:
-    - agents/code-wiki-agent/src/code_wiki_mcp/server.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/init.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/log.py
+    - agents/graph-wiki-agent/src/graph_wiki_mcp/server.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py
     - cores/vault-io/src/vault_io/append_log.py
     - cores/vault-io/src/vault_io/ingest_work_item.py
 
@@ -93,7 +93,7 @@ completed: 2026-05-17T17:06:48Z
 **WikiScanInput** (lines 242-251 post-edit):
 ```python
 class WikiScanInput(BaseModel):
-    vault_path: str = Field("", description="Vault path (default: CODE_WIKI_REAL_VAULT_PATH env var)")
+    vault_path: str = Field("", description="Vault path (default: GRAPH_WIKI_REAL_VAULT_PATH env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
     repo_path: str = Field(
@@ -116,7 +116,7 @@ tmp_path/
     pyproject.toml
     src/alpha/sample.py   # def hello() -> str: return "alpha"
   wiki/                   # created by wiki_init
-    .code-wiki/
+    .graph-wiki/
     index.md
     log.md
 ```
@@ -145,13 +145,13 @@ No tools flagged errors. All responses were `isError: False`. `wiki_query` showe
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/src/code_wiki_mcp/server.py` — Added `repo_path` field to WikiScanInput; wired to `run_scan`
-- `agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py` — New: 3 schema unit tests
-- `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py` — New: 6-tool sequential E2E test (DACLI-01/02/03)
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/init.py` — Fixed as_json=True → as_json=False bug
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — append_log calls now use silent=True
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` — append_log call now uses silent=True
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/log.py` — append_log call now uses silent=True
+- `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` — Added `repo_path` field to WikiScanInput; wired to `run_scan`
+- `agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py` — New: 3 schema unit tests
+- `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` — New: 6-tool sequential E2E test (DACLI-01/02/03)
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` — Fixed as_json=True → as_json=False bug
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — append_log calls now use silent=True
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — append_log call now uses silent=True
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py` — append_log call now uses silent=True
 - `cores/vault-io/src/vault_io/append_log.py` — Added silent=False parameter; suppresses stdout when silent=True
 - `cores/vault-io/src/vault_io/ingest_work_item.py` — append_log call now uses silent=True
 
@@ -183,7 +183,7 @@ The comment "suppress stdout prints — required for MCP safety" was wrong. `as_
 - **Found during:** Task 2 (E2E test)
 - **Issue:** `communicate()` closes stdin after sending all requests; mcp server then cancels Bedrock calls via `tg.cancel_scope.cancel()`. Tools `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint` never responded.
 - **Fix:** Replaced `communicate()` with a stdin-open pattern: write all requests, keep stdin open, poll stdout via `select` until all expected response IDs received, then close stdin.
-- **Files modified:** `agents/code-wiki-agent/tests/integration/test_mcp_e2e.py`
+- **Files modified:** `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py`
 
 **2. [Rule 1 - Bug] append_log prints to stdout unconditionally**
 - **Found during:** Task 2 (E2E test debugging)
@@ -195,7 +195,7 @@ The comment "suppress stdout prints — required for MCP safety" was wrong. `as_
 - **Found during:** Task 2 (first E2E run, id=2 wiki_init showed isError=True)
 - **Issue:** `as_json=True` in `init_wiki()` call was intended to "suppress stdout" but actually ENABLES `print(json.dumps(result, indent=2))` (line 265 of init_vault.py), which trips `_StdoutGuard`.
 - **Fix:** Changed to `as_json=False`. Result dict is returned regardless; `non_interactive=True` already suppresses interactive prompts.
-- **Files modified:** `agents/code-wiki-agent/src/code_wiki_agent/commands/init.py`
+- **Files modified:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py`
 
 **Total deviations:** 3 auto-fixed Rule 1 bugs — all pre-existing stdout safety issues in vault_io library code that the E2E test surfaced.
 
@@ -213,8 +213,8 @@ None — no new trust boundaries. The `repo_path` field is plumbed exclusively t
 
 ## Self-Check: PASSED
 
-- FOUND: agents/code-wiki-agent/tests/unit/test_wiki_scan_input.py
-- FOUND: agents/code-wiki-agent/tests/integration/test_mcp_e2e.py
+- FOUND: agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py
+- FOUND: agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
 - FOUND: .planning/phases/08-host-reliability/08-02-SUMMARY.md
 - FOUND commit: 83f4c70
 - FOUND commit: 74fc876

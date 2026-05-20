@@ -8,7 +8,7 @@
 
 ## Why this phase exists
 
-While fleshing out wiki pages we discovered that `wiki-config.toml` and `wiki-config-claude.toml` at the repo root **had no source-code references** — nothing auto-loaded them. They worked only when explicitly passed via `code-wiki --config <path>` or `CODE_WIKI_CONFIG=<path>` env var.
+While fleshing out wiki pages we discovered that `wiki-config.toml` and `wiki-config-claude.toml` at the repo root **had no source-code references** — nothing auto-loaded them. They worked only when explicitly passed via `code-wiki --config <path>` or `GRAPH_WIKI_CONFIG=<path>` env var.
 
 Both TOML files were `git rm`'d earlier in this session (already staged). The user's direction: **all wiki configuration should live in `.graph-wiki.yaml` (workspace manifest, checked in) and/or `.graph-wiki.local.yaml` (per-machine, gitignored).** This phase makes that real.
 
@@ -20,7 +20,7 @@ Both TOML files were `git rm`'d earlier in this session (already staged). The us
 
 3. **Per-machine override mechanism (Option A):** `.graph-wiki.local.yaml` redirects to a different workspace directory via `graph-wiki-directory: <path>`. That alternate workspace carries its own `.graph-wiki.yaml` with its own `roles:` block. The flat-only local-config parser stays as-is — no nesting required.
 
-4. **Deletion sweep:** Remove `WikiConfig.models_path`, `set_models_path()`, the Typer `--config` option, and the `CODE_WIKI_CONFIG` env var. No backwards-compatibility shim — the TOML files are already gone and no users have migrated state to preserve.
+4. **Deletion sweep:** Remove `WikiConfig.models_path`, `set_models_path()`, the Typer `--config` option, and the `GRAPH_WIKI_CONFIG` env var. No backwards-compatibility shim — the TOML files are already gone and no users have migrated state to preserve.
 
 5. **`manifest.py` already uses PyYAML.** Existing code: `packages/workspace-io/src/workspace_io/manifest.py:6` (`import yaml`), `packages/workspace-io/pyproject.toml:6` (`dependencies = ["pyyaml>=6.0"]`). The earlier wiki-page claim of "no PyYAML" was wrong; the workspace-io wiki page needs a one-line correction as part of this phase.
 
@@ -32,7 +32,7 @@ repo_root/.graph-wiki.local.yaml        ← per-machine, gitignored
                 ↓
 <workspace>/.graph-wiki.yaml            ← workspace manifest, checked in
   plugins:
-    - name: code-wiki-agent
+    - name: graph-wiki-agent
       roles:
         - name: preflight | librarian | scanner | ...
           model_id: "us.anthropic.claude-..."
@@ -66,21 +66,21 @@ These were flagged in the gsd-plan-phase invocation context and should be resolv
 - `packages/workspace-io/src/workspace_io/manifest.py` — extend nested `roles[]` read/write (PyYAML, native nesting)
 - `packages/workspace-io/src/workspace_io/__init__.py` — export `read_roles` (or equivalent accessor)
 - `packages/model-adapter/src/model_adapter/loader.py` — workspace-aware override layer in `make_llm`
-- `agents/code-wiki-agent/src/code_wiki_agent/config.py` — delete `models_path` field, `set_models_path()`, `--config` plumbing
-- `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — drop `--config` Typer option
-- `agents/code-wiki-agent/src/code_wiki_mcp/server.py:446` — drop `CODE_WIKI_CONFIG` env var read
+- `agents/graph-wiki-agent/src/graph_wiki_agent/config.py` — delete `models_path` field, `set_models_path()`, `--config` plumbing
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — drop `--config` Typer option
+- `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py:446` — drop `GRAPH_WIKI_CONFIG` env var read
 
 **Tests:**
 - `packages/workspace-io/tests/test_manifest_v2_roundtrip.py` — add populated-roles fixture
 - `packages/model-adapter/tests/test_loader.py` — workspace-override + per-role fallback tests
-- `agents/code-wiki-agent/tests/unit/test_config.py` — drop `models_path` assertions
+- `agents/graph-wiki-agent/tests/unit/test_config.py` — drop `models_path` assertions
 
 **Configuration / data:**
 - `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` — fill in full `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge) mirroring packaged defaults
 
 **Docs:**
 - `packages/workspace-io/README.md` — document the `roles:` schema
-- `agents/code-wiki-agent/` README / CLI help — drop `--config wiki-config.toml` references
+- `agents/graph-wiki-agent/` README / CLI help — drop `--config wiki-config.toml` references
 - `~/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md` — correct stale "no PyYAML" claim
 - `.planning/intel/stack.json` — drop stale `wiki-config.toml` reference
 
@@ -94,7 +94,7 @@ These were flagged in the gsd-plan-phase invocation context and should be resolv
 
 - SC#1: round-trip unit test for `manifest.py` with a populated `roles[]` block
 - SC#2: paired tests in `model-adapter` — (a) workspace defines role → workspace wins; (b) workspace silent on role → fallback to `models.toml`
-- SC#3: grep gate in CI (or manual check) — no remaining `models_path`, `set_models_path`, `--config`, `CODE_WIKI_CONFIG`, or `wiki-config.toml` references in source
+- SC#3: grep gate in CI (or manual check) — no remaining `models_path`, `set_models_path`, `--config`, `GRAPH_WIKI_CONFIG`, or `wiki-config.toml` references in source
 - SC#4: live verify by running `code-wiki query "..."` against `~/Personal/deep-agents/graph-wiki/` with the full role block and confirming the configured models are used
 - SC#5: doc diff review
 

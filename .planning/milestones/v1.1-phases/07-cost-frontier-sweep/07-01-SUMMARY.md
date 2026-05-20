@@ -22,7 +22,7 @@ tech-stack:
     - "Module-level pytestmark skip guards test scaffolds until implementation lands"
     - "AsyncMock/patch style from test_sweep.py for sweep role tests"
     - "DivergenceMetric + AgentOutputProxy construction pattern from test_divergence_metric.py"
-    - "pytest.mark.eval double-gate (--run-eval + CODE_WIKI_RUN_EVAL) for eval/ tests"
+    - "pytest.mark.eval double-gate (--run-eval + GRAPH_WIKI_RUN_EVAL) for eval/ tests"
 
 key-files:
   created:

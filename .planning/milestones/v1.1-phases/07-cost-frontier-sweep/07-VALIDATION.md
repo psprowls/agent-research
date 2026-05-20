@@ -20,7 +20,7 @@ created: 2026-05-16
 | **Framework** | pytest 8.x with `pytest-evals` two-phase pattern |
 | **Config file** | `cores/eval-harness/pyproject.toml`, `cores/eval-harness/tests/conftest.py` |
 | **Quick run command** | `uv run --package eval-harness pytest -q -m "not eval"` |
-| **Full suite command** | `CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest -q` |
+| **Full suite command** | `GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest -q` |
 | **Estimated runtime** | ~30s quick (no live Bedrock); 10–20 min full matrix (live Bedrock) |
 
 ---
@@ -29,7 +29,7 @@ created: 2026-05-16
 
 - **After every task commit:** Run `uv run --package eval-harness pytest -q -m "not eval"` (offline unit + mocked-LLM tests; no Bedrock spend)
 - **After every plan wave:** Run the same quick suite plus `uv run --package eval-harness pytest -q tests/eval/test_sweep_eval.py --dry-run` (validates plumbing without spend)
-- **Before `/gsd:verify-work`:** Full suite must be green (live Bedrock matrix gated on `CODE_WIKI_RUN_EVAL=1`)
+- **Before `/gsd:verify-work`:** Full suite must be green (live Bedrock matrix gated on `GRAPH_WIKI_RUN_EVAL=1`)
 - **Max feedback latency:** 30s for quick suite; live-Bedrock run runs once per phase
 
 ---

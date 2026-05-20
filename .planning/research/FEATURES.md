@@ -277,5 +277,5 @@ Once parity is confirmed and the first cost-frontier report is generated:
 
 ---
 
-*Feature research for: code-wiki-agent (deepagents MCP server + eval harness)*
+*Feature research for: graph-wiki-agent (deepagents MCP server + eval harness)*
 *Researched: 2026-05-13*

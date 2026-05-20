@@ -131,7 +131,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 
 ## Status
 
-**v0.1.0** — port of upstream `lattice-wiki` v0.5.x targeting deep-agents vault-io/workspace-io surface. Claude Code host path; `code-wiki-agent` is the parallel Bedrock CLI companion.
+**v0.1.0** — port of upstream `lattice-wiki` v0.5.x targeting deep-agents vault-io/workspace-io surface. Claude Code host path; `graph-wiki-agent` is the parallel Bedrock CLI companion.
 
 ## License
 

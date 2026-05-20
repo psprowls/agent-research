@@ -169,7 +169,7 @@ The sweep runner then calls each command with the appropriate override for the r
 
 **Candidate vault-thin queries (verified against the vault structure):**
 
-1. `"How is _StdoutGuard implemented in the MCP server?"` — asks about a specific class in `agents/code-wiki-agent/src/code_wiki_agent/mcp_server.py`; the round-trip-vault has no page about this.
+1. `"How is _StdoutGuard implemented in the MCP server?"` — asks about a specific class in `agents/graph-wiki-agent/src/graph_wiki_agent/mcp_server.py`; the round-trip-vault has no page about this.
 2. `"What does SubagentPool._write_trace write to the trace JSONL file?"` — asks about internal implementation of `cores/subagent-runtime/src/subagent_runtime/pool.py`.
 3. `"What are the exact parameters to _read_file_bounded?"` — asks about a function in `commands/query.py`.
 4. `"How does the BM25 tokenizer handle stopwords in bm25_query?"` — asks about internal BM25 indexing behavior.
@@ -249,7 +249,7 @@ async def run_role_sweep(
     ...
 ```
 
-**`agents/code-wiki-agent/src/code_wiki_agent/commands/query.py`** — extend `run_query()` signature:
+**`agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py`** — extend `run_query()` signature:
 
 ```python
 async def run_query(
@@ -343,7 +343,7 @@ The sweep runner writes the recommendation block as a comment string per D-11 sh
 | Framework | pytest >= 8.3 with pytest-asyncio 1.3.0 + pytest-evals |
 | Config file | `cores/eval-harness/pytest.ini` (or `pyproject.toml [tool.pytest]`) — check at Wave 0 |
 | Quick run command | `uv run --package eval-harness pytest cores/eval-harness/tests/unit/ -x` |
-| Full suite command | `CODE_WIKI_RUN_EVAL=1 CODE_WIKI_RUN_JUDGES=1 uv run --package eval-harness pytest --run-eval` |
+| Full suite command | `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1 uv run --package eval-harness pytest --run-eval` |
 
 ### Phase Requirements → Test Map
 
@@ -353,8 +353,8 @@ The sweep runner writes the recommendation block as a comment string per D-11 sh
 | SWEEP-01 | single-role-swap: other roles use defaults | unit (mock LLM) | `pytest tests/unit/test_role_sweep.py::test_single_role_swap -x` | No — Wave 0 |
 | SWEEP-01 | `sweep_candidates` read from models.toml per role | unit | `pytest tests/unit/test_models_toml_sweep_candidates.py -x` | No — Wave 0 |
 | SWEEP-01 | two-gate scoring for librarian passes/fails correctly | unit | `pytest tests/unit/test_two_gate_scorer.py -x` | No — Wave 0 |
-| SWEEP-02 | BED-01 pre-flight runs before matrix (live) | eval (gated) | `CODE_WIKI_RUN_EVAL=1 pytest --run-eval tests/eval/test_sweep_eval.py::test_bed01_preflight` | No — Wave 0 |
-| SWEEP-02 | BED-01 ping confirmed in sweep run (end-to-end) | eval (gated) | `CODE_WIKI_RUN_EVAL=1 pytest --run-eval` | Partial (test_sweep_eval.py exists but needs SWEEP-02 hook) |
+| SWEEP-02 | BED-01 pre-flight runs before matrix (live) | eval (gated) | `GRAPH_WIKI_RUN_EVAL=1 pytest --run-eval tests/eval/test_sweep_eval.py::test_bed01_preflight` | No — Wave 0 |
+| SWEEP-02 | BED-01 ping confirmed in sweep run (end-to-end) | eval (gated) | `GRAPH_WIKI_RUN_EVAL=1 pytest --run-eval` | Partial (test_sweep_eval.py exists but needs SWEEP-02 hook) |
 | SWEEP-03 | `render_role_doc()` produces all required sections | unit | `pytest tests/unit/test_report_role_doc.py -x` | No — Wave 0 |
 | SWEEP-03 | INDEX.md and 6 role docs written by sweep | integration (dry-run) | `pytest tests/integration/test_sweep_dry_run.py -x` | No — Wave 0 |
 | SWEEP-04 | recommendation comment block emitted correctly | unit | `pytest tests/unit/test_recommendation_block.py -x` | No — Wave 0 |
@@ -383,7 +383,7 @@ The dry-run test file: `cores/eval-harness/tests/integration/test_sweep_dry_run.
 
 **BED-01 gate:** Confirmed in pre-flight via `make_llm("haiku").invoke("ping")` before the matrix runs. This verifies AWS credentials, IAM policy, and region availability in one shot.
 
-**Full live sweep:** `CODE_WIKI_RUN_EVAL=1 CODE_WIKI_RUN_JUDGES=1 pytest --run-eval` — existing double-gate pattern honored.
+**Full live sweep:** `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1 pytest --run-eval` — existing double-gate pattern honored.
 
 ### Cost-Correctness Validation
 
@@ -403,7 +403,7 @@ The `test_sweep_dry_run.py` integration test asserts:
 
 - **Per task commit:** `uv run --package eval-harness pytest cores/eval-harness/tests/unit/ -x`
 - **Per wave merge:** `uv run --package eval-harness pytest cores/eval-harness/tests/ -x` (unit + integration dry-run)
-- **Phase gate:** Full suite green (`CODE_WIKI_RUN_EVAL=1`) before `/gsd:verify-work`
+- **Phase gate:** Full suite green (`GRAPH_WIKI_RUN_EVAL=1`) before `/gsd:verify-work`
 
 ### Wave 0 Gaps
 
@@ -465,11 +465,11 @@ The `test_sweep_dry_run.py` integration test asserts:
 
 **How to avoid:** All Phase 7 edits to models.toml go to `cores/model-adapter/src/model_adapter/models.toml`. Consider adding a comment to the top-level file: `# STUB: this file is not loaded in production. Edit src/model_adapter/models.toml.`
 
-### Pitfall 6: Judge Cost Gating (CODE_WIKI_RUN_JUDGES)
+### Pitfall 6: Judge Cost Gating (GRAPH_WIKI_RUN_JUDGES)
 
-**What goes wrong:** Running the sweep without `CODE_WIKI_RUN_JUDGES=1` causes the two-gate end-to-end check to fall back to the structural-composite score (1.0 if all pass, 0.5 partial, 0.0 none), not the LLM judge panel mean. The frontier docs then show structural-only quality — which is a weaker signal.
+**What goes wrong:** Running the sweep without `GRAPH_WIKI_RUN_JUDGES=1` causes the two-gate end-to-end check to fall back to the structural-composite score (1.0 if all pass, 0.5 partial, 0.0 none), not the LLM judge panel mean. The frontier docs then show structural-only quality — which is a weaker signal.
 
-**How to avoid:** For the Phase 7 live sweep, set both `CODE_WIKI_RUN_EVAL=1` and `CODE_WIKI_RUN_JUDGES=1`. The pre-flight cost estimate should include judge cost when judges are enabled.
+**How to avoid:** For the Phase 7 live sweep, set both `GRAPH_WIKI_RUN_EVAL=1` and `GRAPH_WIKI_RUN_JUDGES=1`. The pre-flight cost estimate should include judge cost when judges are enabled.
 
 ---
 
@@ -550,7 +550,7 @@ The `security_enforcement` key is not set in `.planning/config.json` — treated
 - Direct read of `cores/eval-harness/src/eval_harness/pricing.py` — all 6 candidate model prices [VERIFIED: codebase]
 - Direct read of `cores/model-adapter/src/model_adapter/models.toml` — 10 entries, role structure [VERIFIED: codebase]
 - Direct read of `cores/model-adapter/src/model_adapter/loader.py` — `load_role_config()`, `make_llm()`, resource path [VERIFIED: codebase]
-- Direct read of `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` — `run_query()` signature, `_run_code_fallback()`, `make_llm("synthesizer")` usage [VERIFIED: codebase]
+- Direct read of `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — `run_query()` signature, `_run_code_fallback()`, `make_llm("synthesizer")` usage [VERIFIED: codebase]
 - Direct read of `cores/eval-harness/src/eval_harness/divergence/metric.py` — `DivergenceMetric`, `check_regression()`, `load_baseline()` [VERIFIED: codebase]
 - Direct read of `cores/eval-harness/src/eval_harness/report.py` — `cost_frontier_table()`, `print_frontier()`, `regression_check()` [VERIFIED: codebase]
 - Direct read of `cores/eval-harness/tests/eval/test_sweep_eval.py` — two-phase pytest-evals pattern, EVAL_GATE usage [VERIFIED: codebase]

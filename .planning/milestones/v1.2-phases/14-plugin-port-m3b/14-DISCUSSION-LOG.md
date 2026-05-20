@@ -64,7 +64,7 @@ Two paired questions about the new package's stamp and its README.
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Reset to 0.1.0, new package identity (Recommended) | version: '0.1.0', name: 'graph-wiki', author/license preserved. Description copy-edited from upstream with brand swap + one-line note that this is the Claude Code host path (companion to code-wiki-agent). Signals separate publish history. | ✓ |
+| Reset to 0.1.0, new package identity (Recommended) | version: '0.1.0', name: 'graph-wiki', author/license preserved. Description copy-edited from upstream with brand swap + one-line note that this is the Claude Code host path (companion to graph-wiki-agent). Signals separate publish history. | ✓ |
 | Bump from upstream (0.5.2 → 0.6.0) | Treats graph-wiki as a continuation of upstream's lineage. Implies users could migrate by id-swap alone — misleading since import surface differs. | |
 | Reset to 0.1.0, fresh description rewrite | Same version reset, but rewrite description from scratch. More effort; risks losing upstream's polished positioning. | |
 

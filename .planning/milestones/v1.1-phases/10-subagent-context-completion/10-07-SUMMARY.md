@@ -23,15 +23,15 @@ tech-stack:
 
 key-files:
   created:
-    - agents/code-wiki-agent/tests/prompts/test_token_budget.py
+    - agents/graph-wiki-agent/tests/prompts/test_token_budget.py
   modified:
-    - agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py
-    - agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
+    - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
+    - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
 
 key-decisions:
   - "PRE_PHASE_10_BASELINE pinned to git SHA e9cfd56 (parent of 1cc94f5) — fragments unchanged since, so baseline is reproducible"
   - "Duplicated FIXTURE_CLAUDE_MD into test_prompt_snapshots.py rather than importing — keeps snapshot test self-contained per CONTEXT.md §Claude's Discretion"
-  - "Task 3 divergence-eval re-run DEFERRED — live Bedrock not reachable from parallel-executor worktree (no CODE_WIKI_RUN_EVAL, no AWS creds); checkpoint must be resolved by developer before merging Phase 10"
+  - "Task 3 divergence-eval re-run DEFERRED — live Bedrock not reachable from parallel-executor worktree (no GRAPH_WIKI_RUN_EVAL, no AWS creds); checkpoint must be resolved by developer before merging Phase 10"
 
 patterns-established:
   - "Pattern 1: With-context snapshot tests use a tmp_path helper (_render_ctx_from_tmp) to materialize a wiki/CLAUDE.md fixture deterministically"
@@ -72,13 +72,13 @@ completed: 2026-05-17
 
 ## Files Created/Modified
 
-- `agents/code-wiki-agent/tests/prompts/test_token_budget.py` *(new)* — Six per-role token-budget tests with documented baselines.
-- `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` *(modified)* — Six new tests (5 with-context + 1 degradation) plus `FIXTURE_CLAUDE_MD_FOR_SNAPSHOTS` constant and `_render_ctx_from_tmp` helper.
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` *(modified)* — 5 newly recorded snapshots for the with-context builds.
+- `agents/graph-wiki-agent/tests/prompts/test_token_budget.py` *(new)* — Six per-role token-budget tests with documented baselines.
+- `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` *(modified)* — Six new tests (5 with-context + 1 degradation) plus `FIXTURE_CLAUDE_MD_FOR_SNAPSHOTS` constant and `_render_ctx_from_tmp` helper.
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` *(modified)* — 5 newly recorded snapshots for the with-context builds.
 
 ## PRE_PHASE_10_BASELINE Reference (for future phases)
 
-Measured via `len(prompt) // 4` against git SHA `e9cfd56` (parent of 1cc94f5 — the wiring commit). Fragments are byte-identical between e9cfd56 and HEAD (`git diff e9cfd56 HEAD -- agents/code-wiki-agent/src/code_wiki_agent/prompts/_fragments/` returns empty), so the baselines are reproducible.
+Measured via `len(prompt) // 4` against git SHA `e9cfd56` (parent of 1cc94f5 — the wiring commit). Fragments are byte-identical between e9cfd56 and HEAD (`git diff e9cfd56 HEAD -- agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/` returns empty), so the baselines are reproducible.
 
 | Role                  | Baseline tokens | Current tokens | Headroom (ceiling = baseline + 1500) |
 | --------------------- | --------------- | -------------- | ------------------------------------ |
@@ -105,14 +105,14 @@ None — plan executed exactly as written. The Task 3 deferral is part of the pl
 
 **Task 3 (CTX-05 second half): Phase 6 divergence-eval re-run.**
 
-The `test_divergence_regression` test at `cores/eval-harness/tests/test_divergence.py` is gated behind `CODE_WIKI_RUN_EVAL=1` and requires live AWS Bedrock credentials. Neither is available in the parallel-executor worktree environment (verified: `CODE_WIKI_RUN_EVAL=""`, `AWS_ACCESS_KEY_ID` unset, `AWS_PROFILE=""`).
+The `test_divergence_regression` test at `cores/eval-harness/tests/test_divergence.py` is gated behind `GRAPH_WIKI_RUN_EVAL=1` and requires live AWS Bedrock credentials. Neither is available in the parallel-executor worktree environment (verified: `GRAPH_WIKI_RUN_EVAL=""`, `AWS_ACCESS_KEY_ID` unset, `AWS_PROFILE=""`).
 
 **Required developer follow-up** (must complete before Phase 10 is merged into a release):
 
 1. Export AWS credentials for the Bedrock account.
 2. Run:
    ```bash
-   CODE_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -x -v
+   GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest cores/eval-harness/tests/test_divergence.py -x -v
    ```
 3. Inspect the per-role report (printed under `-s`). Expected outcomes:
    - **PASS** → CTX-05 fully satisfied; mark complete.
@@ -135,23 +135,23 @@ None for the test changes. The Task 3 deferral requires AWS Bedrock credentials 
 
 ## Self-Check: PASSED
 
-- `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py` exists (modified) — FOUND
-- `agents/code-wiki-agent/tests/prompts/test_token_budget.py` exists (new) — FOUND
-- `agents/code-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` exists (5 new snapshots) — FOUND
+- `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py` exists (modified) — FOUND
+- `agents/graph-wiki-agent/tests/prompts/test_token_budget.py` exists (new) — FOUND
+- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr` exists (5 new snapshots) — FOUND
 - Commit `0df20f9` (test 10-07 snapshot tests) — FOUND in git log
 - Commit `e2ae080` (test 10-07 token budget) — FOUND in git log
-- Full test run: `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/prompts/ -x` reports 26 passed.
+- Full test run: `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/prompts/ -x` reports 26 passed.
 
 ## Next Phase Readiness
 
 - CTX-04 is fully satisfied — snapshot + degradation tests are in CI and will catch any wiring-contract regression.
 - CTX-05 first half (+1500 token ceiling) is satisfied and will catch any fragment-bloat regression.
 - CTX-05 second half (divergence-eval re-run) is the human-verify checkpoint at Task 3 — developer must run the live-Bedrock eval before Phase 10 can be considered closed.
-- All scope fences honored: no edits to `deepagents`, `pyproject.toml`, `pool.py`, or any prompt/command source file. `git diff --name-only` for `agents/code-wiki-agent/src/code_wiki_agent/prompts/` and `commands/` reports 0 changes from this plan.
+- All scope fences honored: no edits to `deepagents`, `pyproject.toml`, `pool.py`, or any prompt/command source file. `git diff --name-only` for `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/` and `commands/` reports 0 changes from this plan.
 
 ## Task 3: Divergence Eval Result (2026-05-17)
 
-Ran live with `CODE_WIKI_RUN_EVAL=1` + AWS Bedrock (us-east-1) — **PASSED for all 4 roles (193s total)**.
+Ran live with `GRAPH_WIKI_RUN_EVAL=1` + AWS Bedrock (us-east-1) — **PASSED for all 4 roles (193s total)**.
 
 | Role | Status | Notes |
 |------|--------|-------|

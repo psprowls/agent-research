@@ -38,7 +38,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 **TOK — Bedrock CountTokens API shape (TOK-01/02/03)**
 - **D-05** `count_tokens()` uses `input={'converse': {'messages': [{'role': 'user', 'content': [{'text': text}]}]}}`. No model-id branching — single Converse shape for every Bedrock model.
 - **D-06** Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks `boto3.client`. Asserts `client.count_tokens.assert_called_once_with(modelId=..., input={'converse': {'messages': [...]}})` — locks the exact request shape. Also asserts the function returns `response['inputTokenCount']` correctly. (⚠️ See research finding — correct response field is `inputTokens` per AWS docs, not `inputTokenCount`.)
-- **D-07** `CODE_WIKI_RUN_INTEGRATION=1`-gated integration test exercises a real `count_tokens` call against Bedrock (region `us-east-1`, model `us.anthropic.claude-haiku-4-5-20251001-v1:0`). Follows `docs/testing.md` skip-decorator pattern verbatim.
+- **D-07** `GRAPH_WIKI_RUN_INTEGRATION=1`-gated integration test exercises a real `count_tokens` call against Bedrock (region `us-east-1`, model `us.anthropic.claude-haiku-4-5-20251001-v1:0`). Follows `docs/testing.md` skip-decorator pattern verbatim.
 - **D-08** TOK-03 is the final plan step. After code+tests land, run `uv run python -m vault_io.update_tokens` against `~/Personal/wiki/deep-agents` and commit page updates in the WIKI repo (not deep-agents). Diff transcript captured into `17-VERIFICATION.md`.
 
 **WSRES — Workspace / repo resolution (WSRES-01/02/03)**
@@ -55,7 +55,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 - Module-level vs local-level home for the companion-set constant in `scan_monorepo.py` — preference module-level for testability.
 - Exact form of the layout-block lookup (extend `layout_io.read_layout()` return shape vs. thin `workflow_hints` accessor) — executor reads `layout_io.py` during scout. **⚠️ This decision is now moot given the research finding that workflow_hints lives in per-page frontmatter, not the layout block. Planner must define the actual reading mechanism.**
 - SCAN unit test fixture in `tests/conftest.py` (shared) vs inline in test file.
-- `CODE_WIKI_RUN_INTEGRATION` skip wording / decorator import path — follow `docs/testing.md` canonical pattern.
+- `GRAPH_WIKI_RUN_INTEGRATION` skip wording / decorator import path — follow `docs/testing.md` canonical pattern.
 - TOK gated integration test: import shared skip helper vs inline decorator — match existing vault-io integration tests.
 - D-11 exclusion guard: `Path.resolve()` equality vs `samefile()` — executor's call.
 - WSRES tests: new `tests/test_detect_containers.py` vs extend existing module.
@@ -88,7 +88,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 | SCAN-01 | `_load_existing_pages` folds package companion files (`api.md`, `context.md`, `patterns.md`, `work.md`) inside `wiki/packages/<pkg>/` into the parent slug | Edit site located: `scan_monorepo.py:602-672` (`_load_existing_pages` + `_collect`). Companion-source mechanism: **per-page frontmatter `workflow_hints` block** on parent overview, parsed by existing `_parse_frontmatter()` helper. ⚠️ NOT the layout block as D-02 states. |
 | SCAN-02 | Unit test asserts diff reports 0 `deleted` entries for companions | Test infrastructure: `packages/vault-io/tests/conftest.py` has `tmp_repo` / `vault_path` fixtures; `tests/fixtures/round-trip-vault/` exists as model. Companion fixture can extend either. |
 | TOK-01 | `count_tokens()` uses correct `input=...` parameter shape | Verified shape via AWS docs: `input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}}`. Response field is `inputTokens` (NOT `inputTokenCount`). |
-| TOK-02 | Unit test mocks boto3 client and asserts request payload; gated integration test exercises real Bedrock | Canonical gate decorator at `agents/code-wiki-agent/tests/conftest.py:17-21`. Existing pattern documented in `docs/testing.md`. |
+| TOK-02 | Unit test mocks boto3 client and asserts request payload; gated integration test exercises real Bedrock | Canonical gate decorator at `agents/graph-wiki-agent/tests/conftest.py:17-21`. Existing pattern documented in `docs/testing.md`. |
 | TOK-03 | Existing wiki pages with `tokens: 0` are re-stamped | Target wiki: `~/Personal/wiki/deep-agents`. 35 stubbed pages confirmed in todo. `update_tokens.py` already idempotent (strips existing `tokens:` field before counting). |
 | WSRES-01 | `init_vault.py:305` and `detect_containers.py:174` use `_, repo = resolve_wiki_and_repo()` | Verified `_workspace.resolve_wiki_and_repo()` returns `(wiki, repo_root)` where `repo_root` comes from `workspace_io.config.resolve()` and is workspace-layout-aware. |
 | WSRES-02 | `detect_containers.detect()` excludes resolved workspace path from classification | Edit site: `detect_containers.py:148-166`. Workspace exclusion adjacent to existing `SKIP_DIRS` constant pattern but dynamic-per-call → parameter, not constant. |
@@ -386,15 +386,15 @@ companion_stems = {Path(p).stem for sub in hints.values() for p in sub}
 
 ### Canonical INTEGRATION_GATE decorator
 ```python
-# Source: docs/testing.md §3; agents/code-wiki-agent/tests/conftest.py:17-21
+# Source: docs/testing.md §3; agents/graph-wiki-agent/tests/conftest.py:17-21
 # [VERIFIED: docs/testing.md]
 
 import os
 import pytest
 
 INTEGRATION_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_INTEGRATION"),
-    reason="Set CODE_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
 )
 
 @INTEGRATION_GATE
@@ -476,7 +476,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | `uv` workspace | All test/run commands | ✓ | 0.11.x | — |
 | `boto3` | TOK code + TOK-02 unit test (mocked) | (via uv.lock) | ≥1.38 | — |
 | `pytest` | All tests | (via uv.lock) | ≥8.3 | — |
-| AWS Bedrock access (Haiku 4.5 in us-east-1) | TOK D-07 integration test + TOK-03 live re-stamp | unverified at research time — credentials gated to user environment | — | Integration test is skipped by default (no `CODE_WIKI_RUN_INTEGRATION`); TOK-03 blocks phase close if creds unavailable |
+| AWS Bedrock access (Haiku 4.5 in us-east-1) | TOK D-07 integration test + TOK-03 live re-stamp | unverified at research time — credentials gated to user environment | — | Integration test is skipped by default (no `GRAPH_WIKI_RUN_INTEGRATION`); TOK-03 blocks phase close if creds unavailable |
 | `~/Personal/wiki/deep-agents` git repo | TOK-03 live re-stamp commit | unverified to be clean at execution time | — | Plan step asks user to confirm clean state |
 
 **Missing dependencies with no fallback:**
@@ -494,7 +494,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | Config file | `packages/vault-io/pyproject.toml` (workspace-managed) |
 | Quick run command | `uv run --package vault-io pytest -x` |
 | Full suite command | `uv run --package vault-io pytest` |
-| Integration gate | `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` |
+| Integration gate | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` |
 
 ### Phase Requirements → Test Map
 
@@ -506,7 +506,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | SCAN-02 | `compute_diff` reports 0 `deleted` for companions on a healthy fixture | unit | `uv run --package vault-io pytest tests/test_scan_companion_fold.py::test_compute_diff_no_phantom_deletes -x` | ❌ Wave 0 |
 | TOK-01 | `count_tokens` calls Bedrock with `input={"converse": ...}` | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_request_shape -x` | ❌ Wave 0 (file may exist; method new) |
 | TOK-01 | `count_tokens` returns `response["inputTokens"]` | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_returns_input_tokens -x` | ❌ Wave 0 |
-| TOK-02 | Real Bedrock call succeeds, returns positive int | integration (gated) | `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest tests/integration/test_count_tokens_live.py -x` | ❌ Wave 0 |
+| TOK-02 | Real Bedrock call succeeds, returns positive int | integration (gated) | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest tests/integration/test_count_tokens_live.py -x` | ❌ Wave 0 |
 | TOK-03 | All 35 stubbed pages in `~/Personal/wiki/deep-agents` have non-zero `tokens:` | manual + file-state | `uv run python -m vault_io.update_tokens` then `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents` returns nothing | manual; transcript in 17-VERIFICATION.md |
 | WSRES-01 | `init_vault.py` resolves repo correctly under v2 layout | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_v2_layout_finds_repo_containers -x` | ❌ Wave 0 |
 | WSRES-02 | `detect()` excludes workspace_path subdir from classification | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_workspace_path_excluded -x` | ❌ Wave 0 |
@@ -516,7 +516,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 ### Sampling Rate
 - **Per task commit:** `uv run --package vault-io pytest -x` (fast — all unit tests; mock-only)
 - **Per wave merge:** `uv run --package vault-io pytest` (full suite without integration gate)
-- **Phase gate (SC#5):** `uv run --package vault-io pytest` green; plus `CODE_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` green; plus TOK-03 live re-stamp transcript
+- **Phase gate (SC#5):** `uv run --package vault-io pytest` green; plus `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` green; plus TOK-03 live re-stamp transcript
 
 ### Wave 0 Gaps
 - [ ] `tests/test_scan_companion_fold.py` — new file; covers SCAN-01, SCAN-02
@@ -544,7 +544,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
 | Path traversal via attacker-controlled vault contents | Tampering | `_workspace.resolve_wiki_and_repo()` only accepts paths under the resolved repo_root; companion stems are filtered, not executed; D-11 path-equality guard prevents workspace == repo exclusion footgun |
-| Hardcoded credentials in test code | Information disclosure | Integration test uses ambient `AWS_*` env vars or IAM role; no credentials in source. `CODE_WIKI_RUN_INTEGRATION` gate prevents CI from invoking real Bedrock by default |
+| Hardcoded credentials in test code | Information disclosure | Integration test uses ambient `AWS_*` env vars or IAM role; no credentials in source. `GRAPH_WIKI_RUN_INTEGRATION` gate prevents CI from invoking real Bedrock by default |
 | Prompt injection via wiki page content sent to CountTokens | Tampering / Repudiation | `count_tokens()` is a tokenizer call — the API does NOT execute model inference and does NOT respond with model output. Content cannot influence anything beyond the integer count. |
 | Race condition during TOK-03 re-stamp | Tampering | `update_tokens.py` is idempotent (strips existing `tokens:` before re-counting); concurrent runs converge to the same value |
 

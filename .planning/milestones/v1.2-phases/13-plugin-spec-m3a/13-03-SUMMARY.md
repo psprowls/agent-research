@@ -47,7 +47,7 @@ Two per-command spec files under `.planning/spec/13-plugin-contract/`, each conf
 - Primary path is Claude Code in-session inference (librarian sub-agent); no shell-out (`uv run`) on this path per P-01.
 - BM25 fallback shells out to `vault_io.wiki_search.main` via `uv run --project "$DEEP_AGENTS_ROOT"`.
 - VP-01 prerequisite called out explicitly: `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `vault_io` as Phase 14 Plan 2 before the fallback path works.
-- Bedrock backend routes to `code-wiki-agent query` subprocess (covers full flow, not just fallback).
+- Bedrock backend routes to `graph-wiki-agent query` subprocess (covers full flow, not just fallback).
 - Librarian agent rename row: name stays (`agents/librarian.md`), internal namespace prose rebranded.
 - Prose-preservation map covers all 6 upstream query.md H2 sections.
 
@@ -70,7 +70,7 @@ Two per-command spec files under `.planning/spec/13-plugin-contract/`, each conf
 
 None — plan executed exactly as written.
 
-The only discovery worth noting: the `wiki_search.py` upstream shim (inspected per plan's `read_first`) uses an in-process `asyncio.run(QueryAgent(...).run(...))` pattern for the bedrock branch (not a subprocess), whereas the spec documents the bedrock branch as `code-wiki-agent query <args>` subprocess. This matches the CONTEXT.md §SO-02 decision and is the correct graph-wiki pattern; the upstream shim's bedrock branch is being retargeted, not preserved verbatim.
+The only discovery worth noting: the `wiki_search.py` upstream shim (inspected per plan's `read_first`) uses an in-process `asyncio.run(QueryAgent(...).run(...))` pattern for the bedrock branch (not a subprocess), whereas the spec documents the bedrock branch as `graph-wiki-agent query <args>` subprocess. This matches the CONTEXT.md §SO-02 decision and is the correct graph-wiki pattern; the upstream shim's bedrock branch is being retargeted, not preserved verbatim.
 
 ## Known Stubs
 

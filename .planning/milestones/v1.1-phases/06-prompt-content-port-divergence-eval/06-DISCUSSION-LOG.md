@@ -57,7 +57,7 @@
 | Verbatim everything | Copy source verbatim including host-specific lines | |
 
 **User's choice:** Adapted — rewrite tool/host refs, preserve semantic rules
-**Notes:** Tool surface in `code-wiki-agent` is different from Claude Code's; verbatim slash-command refs would waste tokens at best and confuse tool-calling at worst. Adaptation is local to per-role composition layer; shared fragments stay closer to canonical wording.
+**Notes:** Tool surface in `graph-wiki-agent` is different from Claude Code's; verbatim slash-command refs would waste tokens at best and confuse tool-calling at worst. Adaptation is local to per-role composition layer; shared fragments stay closer to canonical wording.
 
 ---
 

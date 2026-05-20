@@ -19,7 +19,7 @@ must_haves:
     - "Future work (§5) names the v1.2+ paths concretely: aioboto3 / socket-close for wire-level cancel; SIGINT and stdin-close fallbacks; orphan-thread monitoring hooks."
   artifacts:
     - path: "docs/cancellation.md"
-      provides: "v1.1 cancellation contract documentation for code-wiki-agent — protocol, internal chain, trace shapes, known limitations, future work"
+      provides: "v1.1 cancellation contract documentation for graph-wiki-agent — protocol, internal chain, trace shapes, known limitations, future work"
       min_lines: 100
       contains: "batch_cancelled"
   key_links:
@@ -34,7 +34,7 @@ must_haves:
 ---
 
 <objective>
-Write `docs/cancellation.md` at the repo root — the v1.1 reference for what happens when an MCP host sends `notifications/cancelled` to `code-wiki-mcp` mid-fan-out. Document the protocol, the internal unwinding chain, the exact trace record shapes Plan 01 emits, the known orphan-thread limitation, and the v1.2+ future-work paths.
+Write `docs/cancellation.md` at the repo root — the v1.1 reference for what happens when an MCP host sends `notifications/cancelled` to `graph-wiki-mcp` mid-fan-out. Document the protocol, the internal unwinding chain, the exact trace record shapes Plan 01 emits, the known orphan-thread limitation, and the v1.2+ future-work paths.
 
 Purpose: closes MCP-09 ("current behavior documented"). Makes the cancellation contract legible to OSS readers, to v1.2+ implementers who will replace the orphan-thread caveat with `aioboto3`, and to Phase 9 (which will consume these trace shapes for renderer/schema versioning).
 
@@ -126,7 +126,7 @@ Style guide (PATTERNS.md §"docs/cancellation.md"):
   <action>
 Create `docs/cancellation.md` at the repo root. The `docs/` directory does not yet exist — create it.
 
-File title: `# MCP Cancellation in code-wiki-agent` (matches the structure recommended in RESEARCH.md Q10).
+File title: `# MCP Cancellation in graph-wiki-agent` (matches the structure recommended in RESEARCH.md Q10).
 
 Open with a one-paragraph intro (~3-5 sentences) summarizing what the doc covers and the v1.1 scope. State plainly: "v1.1 supports MCP-protocol `notifications/cancelled` mid-fan-out. SIGINT and stdin-close fallback paths are deferred to v1.2+." Use the framing from CONTEXT.md D-02: "spec-conformant MCP host (the same protocol surface DeepAgents CLI uses)" — NOT "DeepAgents CLI."
 
@@ -164,7 +164,7 @@ Do NOT include any content beyond the five sections (no FAQ, no "Why v1.1?" digr
 Do NOT claim the test harness IS the DeepAgents CLI — frame as "spec-conformant MCP host" (CONTEXT.md D-02).
   </action>
   <verify>
-    <automated>test -f docs/cancellation.md && wc -l docs/cancellation.md | awk '{ if ($1 >= 100 && $1 <= 250) exit 0; else { print "Line count " $1 " outside 100-250 target"; exit 1 } }' && grep -q "^# MCP Cancellation in code-wiki-agent" docs/cancellation.md && grep -q "^## 1\. Protocol Behavior" docs/cancellation.md && grep -q "^## 2\. Internal Cancellation Chain" docs/cancellation.md && grep -q "^## 3\. Trace Shapes" docs/cancellation.md && grep -q "^## 4\. Known Limitations" docs/cancellation.md && grep -q "^## 5\. Future Work" docs/cancellation.md && grep -q "batch_cancelled" docs/cancellation.md && grep -q "run_in_executor" docs/cancellation.md && grep -q "notifications/cancelled" docs/cancellation.md</automated>
+    <automated>test -f docs/cancellation.md && wc -l docs/cancellation.md | awk '{ if ($1 >= 100 && $1 <= 250) exit 0; else { print "Line count " $1 " outside 100-250 target"; exit 1 } }' && grep -q "^# MCP Cancellation in graph-wiki-agent" docs/cancellation.md && grep -q "^## 1\. Protocol Behavior" docs/cancellation.md && grep -q "^## 2\. Internal Cancellation Chain" docs/cancellation.md && grep -q "^## 3\. Trace Shapes" docs/cancellation.md && grep -q "^## 4\. Known Limitations" docs/cancellation.md && grep -q "^## 5\. Future Work" docs/cancellation.md && grep -q "batch_cancelled" docs/cancellation.md && grep -q "run_in_executor" docs/cancellation.md && grep -q "notifications/cancelled" docs/cancellation.md</automated>
   </verify>
   <done>
     `docs/cancellation.md` exists at the repo root (new `docs/` directory created).

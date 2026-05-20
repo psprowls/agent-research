@@ -48,7 +48,7 @@
 
 ### `prompts/_fragments/iron_rules.py` (constant, shared fragment)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` lines 136-148 (the `LIBRARIAN_SYSTEM` triple-quoted string is the "before" state; this is the extraction target)
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` lines 136-148 (the `LIBRARIAN_SYSTEM` triple-quoted string is the "before" state; this is the extraction target)
 
 **Fragment file structure** (lines 1-10, the full file pattern):
 ```python
@@ -95,15 +95,15 @@ Same file structure. Provenance anchor points to `cores/prompt-sources/agents/in
 
 ### `prompts/librarian.py` (constant, composition layer)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` lines 136-148
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` lines 136-148
 
 **Imports pattern** (lines 1-8):
 ```python
 from __future__ import annotations
 
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
-from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
 ```
 
 **Core composition pattern** (lines 10-20):
@@ -137,7 +137,7 @@ The composed `LIBRARIAN_SYSTEM` must preserve: the `NO_RELEVANT_CONTENT` sentine
 
 ### `prompts/ingestor.py` (constant, composition layer)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/ingest.py` lines 42-66
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` lines 42-66
 
 **Existing inline constant** (lines 42-66 — the "before" state being replaced):
 ```python
@@ -170,10 +170,10 @@ Do NOT speculate beyond what the provided source content shows.
 
 **Composition pattern:**
 ```python
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
-from code_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
-from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
 
 INGESTOR_SYSTEM = "\n\n".join([
     "You are a code wiki ingestor. ...",  # role-local intro (adapted)
@@ -189,7 +189,7 @@ INGESTOR_SYSTEM = "\n\n".join([
 
 ### `prompts/linter.py` (constants, 3-group composition layer)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` lines 69-106
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` lines 69-106
 
 **Existing inline constants** (lint.py lines 69-106 — "before" state, three exports):
 ```python
@@ -224,7 +224,7 @@ The three export names `LINTER_PAGE_QUALITY_SYSTEM`, `LINTER_ADR_CHAIN_SYSTEM`, 
 
 ### `prompts/scanner.py` (constant, composition layer)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` lines 92-115
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` lines 92-115
 
 **Existing inline constant** (scan.py lines 92-115 — "before" state):
 ```python
@@ -255,8 +255,8 @@ Do NOT include a "## File map" section — it will be appended automatically.
 
 **Composition pattern:**
 ```python
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
 
 SCANNER_SYSTEM = "\n\n".join([
     "You are a code wiki scanner. ...",  # role-local intro
@@ -272,7 +272,7 @@ Token budget constraint: the existing `SCANNER_SYSTEM` is ~115 tokens. The compo
 
 ### `prompts/synthesizer.py` (constant, relocation only)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` lines 150-163
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` lines 150-163
 
 **Content to relocate verbatim** (query.py lines 150-163):
 ```python
@@ -290,7 +290,7 @@ No provenance header needed (no canonical lattice-wiki source). No fragment comp
 
 ### `prompts/code_reader.py` (constant, relocation only)
 
-**Analog:** `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` lines 165-179
+**Analog:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` lines 165-179
 
 **Content to relocate verbatim** (query.py lines 165-179):
 ```python
@@ -315,9 +315,9 @@ CODE_READER_SYSTEM = """..."""
 
 **After state** (replace those 3 blocks with 3 import lines):
 ```python
-from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
-from code_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
-from code_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
 ```
 
 The module docstring at lines 16-18 re-exports these names in the Public API section — update those lines to note the new import source. All call sites (`SystemMessage(content=LIBRARIAN_SYSTEM)`) are unchanged.
@@ -332,7 +332,7 @@ The module docstring at lines 16-18 re-exports these names in the Public API sec
 
 **After state:**
 ```python
-from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM  # noqa: F401
 ```
 
 ---
@@ -345,7 +345,7 @@ from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM  # noqa: F401
 
 **After state:**
 ```python
-from code_wiki_agent.prompts.linter import (  # noqa: F401
+from graph_wiki_agent.prompts.linter import (  # noqa: F401
     LINTER_ADR_CHAIN_SYSTEM,
     LINTER_PAGE_QUALITY_SYSTEM,
     LINTER_STALE_CLAIMS_SYSTEM,
@@ -362,7 +362,7 @@ from code_wiki_agent.prompts.linter import (  # noqa: F401
 
 **After state:**
 ```python
-from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
+from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM  # noqa: F401
 ```
 
 ---
@@ -380,7 +380,7 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
-from code_wiki_agent.commands.query import QueryResult
+from graph_wiki_agent.commands.query import QueryResult
 ```
 
 **Core dataclass pattern** — new file, no direct analog for the `@dataclass` shape, but follows the `from dataclasses import dataclass` convention used in `commands/query.py`, `commands/ingest.py`, `commands/scan.py`, `commands/lint.py`. Use:
@@ -429,7 +429,7 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
-from code_wiki_agent.commands.query import QueryResult
+from graph_wiki_agent.commands.query import QueryResult
 
 _CODE_PATH_RE = re.compile(...)
 
@@ -574,7 +574,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from code_wiki_agent.commands.query import QueryResult
+from graph_wiki_agent.commands.query import QueryResult
 from eval_harness.structural import check_structural
 ```
 
@@ -705,8 +705,8 @@ async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:
 For divergence:
 ```python
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run divergence eval",
 )
 BASELINES_DIR = Path(__file__).parent.parent / "baselines"
 
@@ -727,7 +727,7 @@ FIXTURE_VAULT = _WORKSPACE_ROOT / "cores" / "vault-io" / "tests" / "fixtures" / 
 
 ### `tests/prompts/test_prompt_snapshots.py` (test — syrupy snapshot)
 
-**Analog:** `agents/code-wiki-agent/tests/unit/test_commands_scan.py` (structure) + syrupy usage from RESEARCH.md examples
+**Analog:** `agents/graph-wiki-agent/tests/unit/test_commands_scan.py` (structure) + syrupy usage from RESEARCH.md examples
 
 **Import + snapshot pattern:**
 ```python
@@ -736,16 +736,16 @@ from __future__ import annotations
 import pytest
 from syrupy.assertion import SnapshotAssertion
 
-from code_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
-from code_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
-from code_wiki_agent.prompts.linter import (
+from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM
+from graph_wiki_agent.prompts.ingestor import INGESTOR_SYSTEM
+from graph_wiki_agent.prompts.linter import (
     LINTER_ADR_CHAIN_SYSTEM,
     LINTER_PAGE_QUALITY_SYSTEM,
     LINTER_STALE_CLAIMS_SYSTEM,
 )
-from code_wiki_agent.prompts.scanner import SCANNER_SYSTEM
-from code_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM
-from code_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM
+from graph_wiki_agent.prompts.scanner import SCANNER_SYSTEM
+from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM
+from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM
 
 
 def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
@@ -757,13 +757,13 @@ def test_ingestor_system_snapshot(snapshot: SnapshotAssertion) -> None:
 # ... one test per exported *_SYSTEM constant
 ```
 
-First run with `--snapshot-update` records. File location: `agents/code-wiki-agent/tests/prompts/test_prompt_snapshots.py`. Syrupy stores snapshots in `tests/prompts/__snapshots__/` automatically.
+First run with `--snapshot-update` records. File location: `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py`. Syrupy stores snapshots in `tests/prompts/__snapshots__/` automatically.
 
 ---
 
 ### `tests/prompts/test_provenance.py` (test — unit, no Bedrock)
 
-**Analog:** `agents/code-wiki-agent/tests/unit/test_commands_scan.py` (style)
+**Analog:** `agents/graph-wiki-agent/tests/unit/test_commands_scan.py` (style)
 
 **Pattern — read fragment source, assert header format:**
 ```python
@@ -772,7 +772,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-FRAGMENT_DIR = Path(__file__).parent.parent.parent.parent / "src" / "code_wiki_agent" / "prompts" / "_fragments"
+FRAGMENT_DIR = Path(__file__).parent.parent.parent.parent / "src" / "graph_wiki_agent" / "prompts" / "_fragments"
 PROMPT_SOURCES_DIR = Path(__file__).parent.parent.parent.parent.parent.parent / "cores" / "prompt-sources"
 
 _PROVENANCE_RE = re.compile(
@@ -813,7 +813,7 @@ def test_provenance_source_paths_resolve() -> None:
 ## Shared Patterns
 
 ### `from __future__ import annotations` header
-**Source:** All files in `cores/eval-harness/src/eval_harness/` and `agents/code-wiki-agent/src/code_wiki_agent/commands/`
+**Source:** All files in `cores/eval-harness/src/eval_harness/` and `agents/graph-wiki-agent/src/graph_wiki_agent/commands/`
 **Apply to:** All new `.py` files
 ```python
 from __future__ import annotations
@@ -842,8 +842,8 @@ import os
 import pytest
 
 EVAL_GATE = pytest.mark.skipif(
-    not os.environ.get("CODE_WIKI_RUN_EVAL"),
-    reason="Set CODE_WIKI_RUN_EVAL=1 to run divergence eval",
+    not os.environ.get("GRAPH_WIKI_RUN_EVAL"),
+    reason="Set GRAPH_WIKI_RUN_EVAL=1 to run divergence eval",
 )
 ```
 
@@ -902,7 +902,7 @@ Three lines, exactly this format, at the very top of the file before any imports
 
 ## Metadata
 
-**Analog search scope:** `agents/code-wiki-agent/src/`, `agents/code-wiki-agent/tests/`, `cores/eval-harness/src/`, `cores/eval-harness/tests/`
+**Analog search scope:** `agents/graph-wiki-agent/src/`, `agents/graph-wiki-agent/tests/`, `cores/eval-harness/src/`, `cores/eval-harness/tests/`
 **Files scanned:** 15 source files + 12 test files read in full
 **Pattern extraction date:** 2026-05-15
 
@@ -910,7 +910,7 @@ Three lines, exactly this format, at the very top of the file before any imports
 - `from __future__ import annotations` on line 1 of every module (universal)
 - `"""\` (backslash after triple-quote) for multi-line string constants that begin a new scope — avoids leading newline (scan.py line 92, ingest.py line 42)
 - `json.dumps(..., indent=2) + "\n"` + `path.write_text(..., encoding="utf-8")` for all JSON output (baseline.py line 360)
-- `pytest.mark.skipif(not os.environ.get("CODE_WIKI_RUN_EVAL"), ...)` for eval-gated tests — not `@pytest.mark.eval` from pytest-evals (the divergence test uses the simpler env-var gate, matching `conftest.py` EVAL_GATE style, not the pytest-evals two-phase pattern)
+- `pytest.mark.skipif(not os.environ.get("GRAPH_WIKI_RUN_EVAL"), ...)` for eval-gated tests — not `@pytest.mark.eval` from pytest-evals (the divergence test uses the simpler env-var gate, matching `conftest.py` EVAL_GATE style, not the pytest-evals two-phase pattern)
 - Path resolution always anchored to `Path(__file__).parent...` — never cwd-relative
 - `_SCREAMING_SNAKE_RE = re.compile(...)` module-level regex constants with underscore prefix (structural.py line 20)
 - `from eval_harness.structural import _resolve_citation` — private function import is acceptable cross-module (structural.py line 25 exports it implicitly; divergence checks reuse it)

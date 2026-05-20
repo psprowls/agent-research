@@ -20,7 +20,7 @@ tech-stack:
   added: []
   patterns:
     - "Opt-in dataclass sentinel (TaskResult) for callback return shapes — isinstance-detected, scalar-passthrough preserved."
-    - "Integration tests that copy fixture vaults must rmtree any .code-wiki/traces directory copied over to avoid reading stale records."
+    - "Integration tests that copy fixture vaults must rmtree any .graph-wiki/traces directory copied over to avoid reading stale records."
 
 key-files:
   created:
@@ -29,10 +29,10 @@ key-files:
     - packages/subagent-runtime/src/subagent_runtime/pool.py
     - packages/subagent-runtime/src/subagent_runtime/__init__.py
     - packages/subagent-runtime/tests/test_pool.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/query.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py
-    - agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py
-    - agents/code-wiki-agent/tests/integration/test_trace_coverage.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+    - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
+    - agents/graph-wiki-agent/tests/integration/test_trace_coverage.py
     - .planning/phases/16-carry-forward-debt-cleanup/16-VERIFICATION.md
 
 key-decisions:
@@ -42,7 +42,7 @@ key-decisions:
 
 patterns-established:
   - "TaskResult opt-in contract: fan-out callbacks that want usage_metadata in their trace records return TaskResult(value=<scalar>, response=<resp>); pool unwraps .value into successes and passes .response to write_trace_record."
-  - "Fixture-vault integration tests should rmtree any .code-wiki/traces dir after copytree so assertions only walk records produced by the current run."
+  - "Fixture-vault integration tests should rmtree any .graph-wiki/traces dir after copytree so assertions only walk records produced by the current run."
 
 requirements-completed: [TRACE-FU-01]
 
@@ -85,23 +85,23 @@ completed: 2026-05-19
 - `packages/subagent-runtime/src/subagent_runtime/pool.py` — Added `TaskResult` dataclass; `_run_one` now `isinstance`-detects TaskResult and unwraps `.value` into `successes` while passing `.response` to `_write_trace`.
 - `packages/subagent-runtime/src/subagent_runtime/__init__.py` — Exported `TaskResult` alongside existing `SubagentPool`, `FanOutResult`, `PerItemError`.
 - `packages/subagent-runtime/tests/test_pool.py` — Added 3 new tests locking the contract (TaskResult path writes tokens; scalar path preserves None; TaskResult(value=None, response=None) writes None tokens with item=None in successes).
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py` — `drill_page` + both terminal paths of `code_drill` now return `TaskResult`.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/scan.py` — `generate_stub` returns `TaskResult`.
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/lint.py` — `run_linter_group` (both terminal paths) returns `TaskResult`.
-- `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` — `shutil.rmtree(stale_traces)` added immediately after `shutil.copytree(FIXTURE_VAULT, wiki)` so the assertion only walks records produced by the current run.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — `drill_page` + both terminal paths of `code_drill` now return `TaskResult`.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — `generate_stub` returns `TaskResult`.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py` — `run_linter_group` (both terminal paths) returns `TaskResult`.
+- `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` — `shutil.rmtree(stale_traces)` added immediately after `shutil.copytree(FIXTURE_VAULT, wiki)` so the assertion only walks records produced by the current run.
 - `.planning/phases/16-carry-forward-debt-cleanup/16-VERIFICATION.md` — G-01 status flipped to CLOSED with full evidence; SC#1 row flipped to VERIFIED; new `## G-01 Closure (Phase 16-02)` body section appended.
 
 ## Decisions Made
 
 - **TaskResult dataclass vs pool-side response hook.** Chose TaskResult (option (a) in the plan). Rationale: explicit type-checked sentinel is more discoverable than a configurable hook, easier to grep for at callsites, and the migration cost was only 4 callsites. The scalar fall-through (everything that isn't a TaskResult is treated as today) preserves full backward compatibility with the 13 pre-existing pool unit tests and any future caller that doesn't care about usage_metadata.
-- **Reverted fixture-side deletion.** The planner's Task 2.5 prescribed both a test-side rmtree AND deletion of the 18 JSONLs from `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/traces/` plus a new `.gitignore`. The fixture-side deletion broke `test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once`, which load-bears on those exact files as a Phase 9 D-04 v0 unversioned-record fixture. The test-side rmtree alone fully achieves the operator's stated goal (isolate integration test from any traces in copied fixture). The fixture-side deletion was reverted; documented in VERIFICATION.md G-01 `notes` field.
+- **Reverted fixture-side deletion.** The planner's Task 2.5 prescribed both a test-side rmtree AND deletion of the 18 JSONLs from `packages/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` plus a new `.gitignore`. The fixture-side deletion broke `test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once`, which load-bears on those exact files as a Phase 9 D-04 v0 unversioned-record fixture. The test-side rmtree alone fully achieves the operator's stated goal (isolate integration test from any traces in copied fixture). The fixture-side deletion was reverted; documented in VERIFICATION.md G-01 `notes` field.
 - **VERIFICATION.md status: human_needed (not passed).** Even with G-01 closed, the 3 HUMAN-UAT judgment-call items remain `[pending]` (live model-sweep, calendar-vs-event trigger, code_reader non-trivial scores). Per the verifier decision tree, any open human_verification items take priority over `passed`.
 
 ## Deviations from Plan
 
 ### Deviation 1 — Mid-plan Task 2.5 insertion (operator-authorized)
 
-**Found during:** Initial Task 3 gated Bedrock run. Test failed despite the fix working (verified manually by orchestrator). Root cause: 18 stale JSONLs committed in the fixture vault `.code-wiki/traces/` dir were being copied into the test's tmp_path and the test's `for jsonl in trace_dir.glob("*.jsonl"):` loop was reading them, asserting on a stale 2026-05-14 librarian record with tokens_in=None.
+**Found during:** Initial Task 3 gated Bedrock run. Test failed despite the fix working (verified manually by orchestrator). Root cause: 18 stale JSONLs committed in the fixture vault `.graph-wiki/traces/` dir were being copied into the test's tmp_path and the test's `for jsonl in trace_dir.glob("*.jsonl"):` loop was reading them, asserting on a stale 2026-05-14 librarian record with tokens_in=None.
 
 **Operator decision:** patch the test for self-isolation and re-run. Inserted as Task 2.5 in the resume context.
 
@@ -111,13 +111,13 @@ completed: 2026-05-19
 
 **Found during:** Task 2.5, after git-rm'ing the 18 JSONLs and adding `.gitignore`.
 
-**Issue:** Running the non-integration suite then failed `agents/code-wiki-agent/tests/unit/test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once` with `AssertionError: No real v0 fixtures found at .../round-trip-vault/.code-wiki/traces` — those JSONLs are intentionally committed as a Phase 9 D-04 v0 unversioned-record fixture for the trace viewer's lenient-consumer path.
+**Issue:** Running the non-integration suite then failed `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once` with `AssertionError: No real v0 fixtures found at .../round-trip-vault/.graph-wiki/traces` — those JSONLs are intentionally committed as a Phase 9 D-04 v0 unversioned-record fixture for the trace viewer's lenient-consumer path.
 
 **Fix:** `git restore --staged` + `git restore` the traces dir; removed the staged `.gitignore`. Kept only the test-side rmtree, which fully achieves the operator's stated isolation goal.
 
-**Verification:** Non-integration suite back to baseline (`205 passed in 19.75s` for code-wiki-agent tests).
+**Verification:** Non-integration suite back to baseline (`205 passed in 19.75s` for graph-wiki-agent tests).
 
-**Files modified by the revert:** none (reverted-to-baseline; only `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` carried changes into the Task 2.5 commit).
+**Files modified by the revert:** none (reverted-to-baseline; only `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` carried changes into the Task 2.5 commit).
 
 **Why Rule 4 (architectural):** the planner's prescribed action would silently break an unrelated test. Strict-Rule-3 (auto-fix blocker) would have re-deleted the files — wrong call. Documented in commit `4df6ace` body and in VERIFICATION.md G-01 `notes` so the follow-up path is visible (right move is to migrate `test_v0_real_fixture_renders_and_warns_once` to inline its fixture records the way its siblings already do; out of scope for 16-02).
 
@@ -134,10 +134,10 @@ completed: 2026-05-19
 
 - **Gated TRACE-FU-01 test transcript (2026-05-19):**
   ```
-  $ CODE_WIKI_RUN_INTEGRATION=1 uv run pytest agents/code-wiki-agent/tests/integration/test_trace_coverage.py -x -v
+  $ GRAPH_WIKI_RUN_INTEGRATION=1 uv run pytest agents/graph-wiki-agent/tests/integration/test_trace_coverage.py -x -v
   ============================= test session starts ==============================
   collected 1 item
-  agents/code-wiki-agent/tests/integration/test_trace_coverage.py::test_trace_pipeline_records_token_usage PASSED [100%]
+  agents/graph-wiki-agent/tests/integration/test_trace_coverage.py::test_trace_pipeline_records_token_usage PASSED [100%]
   ============================== 1 passed in 14.02s ==============================
   ```
 - **Sample librarian success records from a clean orchestrator-side manual query** (independent of the test, same fixture vault):
@@ -152,7 +152,7 @@ completed: 2026-05-19
   1. SC#2 substitution acceptance for live model-sweep (deterministic SCANNER_CHECKS 65% with structural-mismatch justification).
   2. SC#3 acceptance of event-driven trigger in place of calendar-date re-eval (D-09 deviation).
   3. SC#2 sub-clause acceptance of code_reader case structural evidence in lieu of actual scores.
-- **v0 fixture follow-up (not in this plan):** If we ever want to delete the 18 committed JSONLs from the fixture vault, the right move is to first migrate `agents/code-wiki-agent/tests/unit/test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once` to inline its fixture records (the pattern its sibling helpers `_write_newer_version_fixture` and `_write_unversioned_inline_fixture` already use). Tracked here so it's discoverable; not opening a new plan for it.
+- **v0 fixture follow-up (not in this plan):** If we ever want to delete the 18 committed JSONLs from the fixture vault, the right move is to first migrate `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py::test_v0_real_fixture_renders_and_warns_once` to inline its fixture records (the pattern its sibling helpers `_write_newer_version_fixture` and `_write_unversioned_inline_fixture` already use). Tracked here so it's discoverable; not opening a new plan for it.
 
 ## Known Stubs
 
@@ -170,11 +170,11 @@ None - no external service configuration added by this plan. Bedrock credentials
 
 - All 4 task commits exist in git log: `e97ae7f`, `629f077`, `4df6ace`, `68de2ca` ✓
 - `packages/subagent-runtime/src/subagent_runtime/pool.py` contains `class TaskResult` ✓
-- `agents/code-wiki-agent/src/code_wiki_agent/commands/{query,scan,lint}.py` all import + use `TaskResult` ✓
-- `agents/code-wiki-agent/tests/integration/test_trace_coverage.py` contains `shutil.rmtree(stale_traces)` ✓
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/{query,scan,lint}.py` all import + use `TaskResult` ✓
+- `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` contains `shutil.rmtree(stale_traces)` ✓
 - `.planning/phases/16-carry-forward-debt-cleanup/16-VERIFICATION.md` contains `status: CLOSED` (G-01 entry) and `## G-01 Closure (Phase 16-02)` ✓
 - Gated test exit code 0 with `1 passed in 14.02s` ✓
-- Non-integration suite at baseline (`205 passed` for code-wiki-agent) ✓
+- Non-integration suite at baseline (`205 passed` for graph-wiki-agent) ✓
 - HUMAN-UAT.md not modified (`git diff --name-only` confirmed empty for that path) ✓
 - No edits to STATE.md, ROADMAP.md, 16-01-PLAN.md, 16-01-SUMMARY.md, 16-CONTEXT.md, 16-PATTERNS.md, 16-DISCUSSION-LOG.md, or 16-REVIEW.md ✓
 

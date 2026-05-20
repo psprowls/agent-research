@@ -94,7 +94,7 @@ Citation: `packages/workspace-io/pyproject.toml:5`
 - [[wiki/packages/workspace-io/workspace-io]]
 - [[wiki/packages/vault-io/vault-io]]
 - [[wiki/plugins/graph-wiki/graph-wiki]]
-- [[wiki/agents/code-wiki-agent/code-wiki-agent]]
+- [[wiki/agents/graph-wiki-agent/graph-wiki-agent]]
 
 ## What the wiki knows vs. doesn't
 

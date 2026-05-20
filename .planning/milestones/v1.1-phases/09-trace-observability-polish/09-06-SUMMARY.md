@@ -14,9 +14,9 @@ provides:
   - "WR-02 fix — by_role aggregator excludes event/kind discriminator records"
   - "WR-03 fix — collapsed-group breakdown surfaces non-canonical statuses under `other` bucket; `0 success` fallback removed"
 affects:
-  - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-  - agents/code-wiki-agent/tests/unit/test_trace_viewer.py
-  - agents/code-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
+  - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+  - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
+  - agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
 tech-stack:
   added: []
   patterns:
@@ -26,9 +26,9 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - agents/code-wiki-agent/src/code_wiki_agent/cli.py
-    - agents/code-wiki-agent/tests/unit/test_trace_viewer.py
-    - agents/code-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
+    - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+    - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
+    - agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr
 decisions:
   - "Header format: `[ts_first .. ts_last] {role} / {model_short} x{N}: {breakdown}, {tin}->{tout} tokens, {cost}` — mirrors the cost-rollup `/` separator at cli.py:362 for visual consistency."
   - "model_short = model_id[-30:] (same 30-char suffix as the cost rollup) — bounds header length and re-uses an already-proven convention from Phase 9 plan 09-03."
@@ -92,7 +92,7 @@ Concrete example from the re-recorded `test_collapsed_default_snapshot`:
 
 ## Snapshots Regenerated
 
-Single `pytest --snapshot-update` pass against `agents/code-wiki-agent/tests/unit/test_trace_viewer.py`. `git diff` showed:
+Single `pytest --snapshot-update` pass against `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py`. `git diff` showed:
 
 | Snapshot | Change | Why |
 | -------- | ------ | --- |
@@ -122,7 +122,7 @@ Per the planning_context "out of scope" list:
 - IN-01 (bare ValueError on float(cost) for bad input) — UNTOUCHED
 - IN-04 (docs/cancellation.md schema_version in inline examples) — UNTOUCHED
 
-Confirmed via `git diff 0ffb900..HEAD --stat`: only `agents/code-wiki-agent/{src/code_wiki_agent/cli.py, tests/unit/test_trace_viewer.py, tests/unit/__snapshots__/test_trace_viewer.ambr}` changed. No producer code (`cores/subagent-runtime/src/subagent_runtime/pool.py`, `agents/code-wiki-agent/src/code_wiki_agent/commands/query.py`) was touched, no schema docs (`docs/trace-schema.md`, `docs/cancellation.md`) modified, and the cost rollup section of `cli.py` (lines 366-401) is byte-identical to before this plan.
+Confirmed via `git diff 0ffb900..HEAD --stat`: only `agents/graph-wiki-agent/{src/graph_wiki_agent/cli.py, tests/unit/test_trace_viewer.py, tests/unit/__snapshots__/test_trace_viewer.ambr}` changed. No producer code (`cores/subagent-runtime/src/subagent_runtime/pool.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py`) was touched, no schema docs (`docs/trace-schema.md`, `docs/cancellation.md`) modified, and the cost rollup section of `cli.py` (lines 366-401) is byte-identical to before this plan.
 
 ## Deviations from Plan
 
@@ -138,8 +138,8 @@ All plan-level `<verify>` and `<verification>` checks pass:
 - `grep -q "n} unknown" cli.py` — passes.
 - `grep -c "0 success" cli.py` — `0`.
 - `grep -c "unknown: count=1 tokens_in=0 tokens_out=0" test_trace_viewer.ambr` — `0`.
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit/test_trace_viewer.py` — 23 passed, 5 snapshots passed, exit 0 (WITHOUT `--snapshot-update`).
-- `uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/unit` — 160 passed, exit 0 (no upstream regression).
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — 23 passed, 5 snapshots passed, exit 0 (WITHOUT `--snapshot-update`).
+- `uv run --package graph-wiki-agent pytest agents/graph-wiki-agent/tests/unit` — 160 passed, exit 0 (no upstream regression).
 - D-10 invariant (renderer free of `eval_harness` imports) preserved — no new imports added.
 
 ## Self-Check: PASSED
@@ -147,4 +147,4 @@ All plan-level `<verify>` and `<verification>` checks pass:
 - All three commits exist in `git log`: `07f3b27`, `fbbd343`, `a5f4a5b` — VERIFIED via `git log --oneline -5`.
 - All three modified files exist on disk: `cli.py`, `test_trace_viewer.py`, `test_trace_viewer.ambr` — VERIFIED via `git status --short` (clean) and `git ls-files`.
 - Phantom `unknown: count=1` line absence VERIFIED via `grep -c`.
-- Full unit-test suite green VERIFIED via final `pytest agents/code-wiki-agent/tests/unit` run (160 passed).
+- Full unit-test suite green VERIFIED via final `pytest agents/graph-wiki-agent/tests/unit` run (160 passed).
