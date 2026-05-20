@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-"""Unit tests for the init command (Plan 05-01).
+"""Unit tests for the bootstrap command (Plan 05-01; renamed in Phase 18 / CMD-02).
 
-Requirements covered: CMD-01.
+The Typer subcommand was renamed `init` → `bootstrap` in Phase 18 so Claude Code's
+native `/init` slash command is reachable again. The underlying Python module
+`code_wiki_agent.commands.init` and its `run_init` function intentionally remain
+unchanged per Phase 18 D-02 (internal, machine-facing, not user-typed).
+
+Requirements covered: CMD-01, CMD-02.
 """
 
-import dataclasses
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -96,8 +100,8 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
 # ---------------------------------------------------------------------------
 
 
-def test_cli_init_json_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """CLI init --json emits valid JSON with required keys."""
+def test_bootstrap_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """CLI `bootstrap --json` emits valid JSON with required keys."""
     from typer.testing import CliRunner
 
     from code_wiki_agent.cli import app
@@ -114,7 +118,7 @@ def test_cli_init_json_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["init", "--topic", "foo", "--tool", "claude-code", "--json"],
+        ["bootstrap", "--topic", "foo", "--tool", "claude-code", "--json"],
     )
     assert result.exit_code == 0, f"Unexpected exit: {result.output}"
     parsed = json.loads(result.output)
@@ -125,43 +129,28 @@ def test_cli_init_json_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 # ---------------------------------------------------------------------------
-# MCP WikiInitInput validation
+# CLI: old `init` subcommand is gone (D-04 hard cut, no alias)
 # ---------------------------------------------------------------------------
 
 
-def test_wiki_init_input_rejects_missing_required_fields() -> None:
-    """WikiInitInput raises ValidationError when topic or tool are missing."""
-    from pydantic import ValidationError
+def test_bootstrap_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The old `init` Typer subcommand is unreachable (no backwards-compat alias).
 
-    from code_wiki_mcp.server import WikiInitInput
+    Asserts that invoking `code-wiki-agent init ...` via Typer raises a "no such
+    command" error after Phase 18's hard cut (D-04). The new `bootstrap` subcommand
+    is the only entry point.
+    """
+    from typer.testing import CliRunner
 
-    with pytest.raises(ValidationError):
-        WikiInitInput()  # type: ignore[call-arg]
+    from code_wiki_agent.cli import app
 
-
-# ---------------------------------------------------------------------------
-# MCP wiki_init calls run_init
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_wiki_init_calls_run_init() -> None:
-    """wiki_init MCP tool calls run_init with passed args."""
-    from code_wiki_mcp.server import WikiInitInput, wiki_init
-    from pathlib import Path as _Path
-
-    mock_ctx = MagicMock()
-    mock_ctx.report_progress = AsyncMock()
-
-    workspace = _Path("/tmp/workspace")
-    wiki = workspace / "wiki"
-    mock_result = _make_init_result(wiki, workspace)
-
-    with patch("code_wiki_mcp.server.run_init", new_callable=AsyncMock) as mock_fn:
-        mock_fn.return_value = mock_result
-        result = await wiki_init(
-            WikiInitInput(topic="test", tool="claude-code"), mock_ctx
-        )
-
-    mock_fn.assert_awaited_once()
-    assert result.status == "ok"
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["init", "--topic", "foo", "--tool", "claude-code"],
+    )
+    # Typer returns exit code 2 for "no such command".
+    assert result.exit_code != 0, (
+        f"`code-wiki-agent init ...` must NOT be a valid subcommand "
+        f"after Phase 18 rename; got exit_code={result.exit_code}"
+    )
