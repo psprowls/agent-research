@@ -21,6 +21,13 @@
 packages/vault-io/tests/fixtures/round-trip-vault/
 
 # ---------------------------------------------------------------------------
+# Historic-decision-log: archived milestone-planning threads retain the OLD
+# `code-wiki-agent` name as historical record of how the project came to be
+# (parallel to sketch-findings sources/ treatment). Phase 21 archive sweep.
+# ---------------------------------------------------------------------------
+.planning/threads/archive/
+
+# ---------------------------------------------------------------------------
 # R-02: eval-harness baselines + divergence rubrics — recorded measurements
 # against the upstream lattice-wiki system; renaming would lie about what
 # was measured.
