@@ -1,7 +1,7 @@
 """Tests for workspace_io.manifest — .graph-wiki.yaml read/write."""
 import pytest
 
-from workspace_io.manifest import read, write
+from workspace_io.manifest import read, read_roles, write
 
 
 def _v2(plugins):
@@ -127,3 +127,62 @@ def test_plugin_block_raises_when_not_mapping(tmp_path):
     )
     with pytest.raises(RuntimeError, match="must be a mapping"):
         read(mpath)
+
+
+def _v2_with_roles(plugin_name, roles):
+    return {
+        "version": 2,
+        "initialized_at": "2026-05-19",
+        "plugins": [
+            {
+                "name": plugin_name,
+                "installed_version": "0.7.0",
+                "applied_version": "0.7.0",
+                "roles": roles,
+            }
+        ],
+    }
+
+
+def test_read_roles_returns_list_for_named_plugin(tmp_path):
+    """read_roles returns the role-dict list for the named plugin."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    roles = [
+        {
+            "name": "preflight",
+            "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "region": "us-east-1",
+            "max_tokens": 64,
+            "max_concurrency": 1,
+        }
+    ]
+    write(mpath, _v2_with_roles("code-wiki-agent", roles))
+    assert read_roles("code-wiki-agent", mpath) == roles
+
+
+def test_read_roles_returns_empty_for_missing_plugin(tmp_path):
+    """read_roles returns [] (not raises) when the plugin name is not in the manifest."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    write(mpath, _v2_with_roles("code-wiki-agent", [{"name": "preflight"}]))
+    assert read_roles("does-not-exist", mpath) == []
+
+
+def test_read_roles_returns_empty_when_plugin_has_no_roles_key(tmp_path):
+    """read_roles returns [] when the plugin entry exists but has no roles key."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    write(
+        mpath,
+        {
+            "version": 2,
+            "initialized_at": "2026-05-19",
+            "plugins": [
+                {"name": "code-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}
+            ],
+        },
+    )
+    assert read_roles("code-wiki-agent", mpath) == []
+
+
+def test_read_roles_returns_empty_when_manifest_missing(tmp_path):
+    """read_roles returns [] when the manifest file does not exist (matches read() contract)."""
+    assert read_roles("code-wiki-agent", tmp_path / ".graph-wiki.yaml") == []

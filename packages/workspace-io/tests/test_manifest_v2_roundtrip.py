@@ -50,3 +50,55 @@ def test_v2_block_style_no_flow(tmp_path):
     # Block style: no `[`/`{` in body
     assert "[" not in text
     assert "{" not in text
+
+
+def test_v2_roles_roundtrip(tmp_path):
+    """Populated per-plugin roles[] survives write → read verbatim (order + fields)."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    data = {
+        "version": 2,
+        "initialized_at": "2026-05-19",
+        "plugins": [
+            {
+                "name": "code-wiki-agent",
+                "installed_version": "0.7.0",
+                "applied_version": "0.7.0",
+                "roles": [
+                    {
+                        "name": "preflight",
+                        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                        "region": "us-east-1",
+                        "max_tokens": 64,
+                        "max_concurrency": 1,
+                    },
+                    {
+                        "name": "librarian",
+                        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                        "region": "us-east-1",
+                        "max_tokens": 2048,
+                        "max_concurrency": 5,
+                    },
+                ],
+            }
+        ],
+    }
+    write(mpath, data)
+    result = read(mpath)
+    assert result["plugins"][0]["roles"] == data["plugins"][0]["roles"]
+
+
+def test_v2_roles_absent_round_trips_cleanly(tmp_path):
+    """Plugin with no roles key produces no roles key on read (no roles: [] artifact)."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    data = {
+        "version": 2,
+        "initialized_at": "2026-05-19",
+        "plugins": [
+            {"name": "code-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
+        ],
+    }
+    write(mpath, data)
+    result = read(mpath)
+    assert "roles" not in result["plugins"][0]
+    # .get() must not raise
+    assert result["plugins"][0].get("roles") is None
