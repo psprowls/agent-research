@@ -138,10 +138,8 @@ Rename the wiki bootstrap verb from `init` to `bootstrap` across all three user-
 </deferred>
 
 <open_questions>
-## Open Questions (for the planner to resolve)
+## Open Questions
 
-1. **Test file rename?** `tests/unit/test_commands_init.py` and any `test_*_init_*.py` files — rename file (`git mv`) or just update contents? Planner judges based on cost/benefit; if the test file is small and behavior-focused, content-only update is fine.
-2. **Reinstall instructions?** Should the plugin README's "installation" section mention that users with prior installs need to remove + reinstall to pick up the renamed command? Planner decides during the README sweep; recommended yes (one sentence).
-3. **Historical sweep granularity** (D-06 step 5): one commit per archived milestone (more readable) vs. one bundled commit (less churn). Planner picks based on diff size.
+All open questions resolved during phase execution. See SUMMARY.md for outcomes.
 
 </open_questions>
