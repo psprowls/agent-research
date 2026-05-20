@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Tooling Cleanup
 status: completed
-stopped_at: Phase 17 context gathered
-last_updated: "2026-05-20T00:06:58.340Z"
+stopped_at: Phase 21 context gathered
+last_updated: "2026-05-20T00:52:39.548Z"
 last_activity: 2026-05-20 -- Phase 17 marked complete
 progress:
-  total_phases: 4
-  completed_phases: 1
+  total_phases: 5
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 5
-  percent: 25
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State: deep-agents
@@ -78,6 +78,7 @@ Progress: [██████████] 100% (5/5 plans complete; verified 20
 ### Roadmap Evolution
 
 - Phase 20 added (2026-05-19): Workspace Manifest Model Config — move wiki model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path()`, `--config`, `CODE_WIKI_CONFIG`); packaged `model-adapter/models.toml` becomes per-role fallback. Triggered by discovering `wiki-config.toml` had no source-code references and the user's direction that all config should live in the `.graph-wiki.yaml` family.
+- Phase 21 added (2026-05-19): Rename code-wiki-agent to graph-wiki-agent — update all code references (excluding wiki content) so the agent package name aligns with the `graph-wiki` plugin port.
 
 ### Active TODOs
 
@@ -105,9 +106,9 @@ Items acknowledged at v1.2 close that are NOT in v1.3 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-19T22:36:35.168Z
-**Stopped at:** Phase 17 context gathered
-**Resume file:** None
+**Last session:** 2026-05-20T00:52:39.540Z
+**Stopped at:** Phase 21 context gathered
+**Resume file:** .planning/phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/21-CONTEXT.md
 
 **Critical context for next session:**
 
