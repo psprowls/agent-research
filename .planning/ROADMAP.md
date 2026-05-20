@@ -174,10 +174,10 @@ Plans:
 **Plans**: 5 plans
 Plans:
 **Wave 1** *(parallel — no file-level conflicts)*
-- [ ] 19-01-PLAN.md — Divergence eval regex fixes: D-01 (WR-01) `_SLUG_ONLY_RE` replacement in synthesizer.py + D-02/D-03 (WR-02/WR-03) regex tweaks in code_reader.py (REVIEW-01)
-- [ ] 19-02-PLAN.md — Core runtime fixes: D-05 (WR-05) hoist `inspect.signature` in pool.py + D-06 (WR-06) `Path.is_relative_to` in ingest.py (REVIEW-01)
-- [ ] 19-03-PLAN.md — Test + integration fixes: D-04 (WR-04) trace-coverage exemption + D-09/D-10/D-13 (IN-03/IN-04/IN-07) (REVIEW-01, REVIEW-02)
-- [ ] 19-04-PLAN.md — Query trace + docs cleanup: D-07 (IN-01) docstring + D-12 (IN-06) synth filename qualifier + D-14 (IN-08) cancellation.md schema_version + D-15 (IN-09) G1 dedup (REVIEW-02)
+- [x] 19-01-PLAN.md — Divergence eval regex fixes: D-01 (WR-01) `_SLUG_ONLY_RE` replacement in synthesizer.py + D-02/D-03 (WR-02/WR-03) regex tweaks in code_reader.py (REVIEW-01)
+- [x] 19-02-PLAN.md — Core runtime fixes: D-05 (WR-05) hoist `inspect.signature` in pool.py + D-06 (WR-06) `Path.is_relative_to` in ingest.py (REVIEW-01)
+- [x] 19-03-PLAN.md — Test + integration fixes: D-04 (WR-04) trace-coverage exemption + D-09/D-10/D-13 (IN-03/IN-04/IN-07) (REVIEW-01, REVIEW-02)
+- [x] 19-04-PLAN.md — Query trace + docs cleanup: D-07 (IN-01) docstring + D-12 (IN-06) synth filename qualifier + D-14 (IN-08) cancellation.md schema_version + D-15 (IN-09) G1 dedup (REVIEW-02)
 
 **Wave 2** *(blocked on Wave 1 — needs commit SHAs from plans 01-04)*
 - [ ] 19-05-PLAN.md — Author 19-REVIEW-BURNDOWN.md disposition table (D-17); record D-08 (IN-02) + D-11 (IN-05) as `no-action — review self-corrected on re-scan` (REVIEW-01, REVIEW-02)
@@ -199,7 +199,7 @@ Plans:
 | 18. Plugin Command Rename | 6/6 | Complete   | 2026-05-20 |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
 | 21. Rename graph-wiki-agent → graph-wiki-agent | 5/5 | Complete   | 2026-05-20 |
-| 19. Phase 16 Code Review Burndown (queued last) | 0/5 | Not started | - |
+| 19. Phase 16 Code Review Burndown (queued last) | 4/5 | In Progress|  |
 
 ---
 
