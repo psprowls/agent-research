@@ -16,10 +16,10 @@ Exports:
 # Anchor: ## Role, ## Rules, ## Red flags
 # Source-commit: ef05d99
 
-from code_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
-from code_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
-from code_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
-from code_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
 
 # Scanner does NOT use PAGE_CATEGORIES (stubs are always category: package or app)
 # Scanner does NOT use CITATION_RULES (stubs do not contain freeform claims needing citation)

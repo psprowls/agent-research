@@ -37,8 +37,8 @@ from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, sl
 from vault_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from vault_io.update_index import update_index
 
-from code_wiki_agent.prompts.ingestor import build_ingestor_system
-from code_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.ingestor import build_ingestor_system
+from graph_wiki_agent.prompts.project_context import render_project_context
 
 logger = logging.getLogger(__name__)
 
@@ -441,7 +441,7 @@ async def run_ingest_source(
     resolved_model_id = model_override or ingestor_cfg["model_id"]
     # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
     # to disk for every production ingest invocation, not just pool-driven calls.
-    trace_dir = wiki / ".code-wiki" / "traces"
+    trace_dir = wiki / ".graph-wiki" / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
     t0 = time.monotonic()

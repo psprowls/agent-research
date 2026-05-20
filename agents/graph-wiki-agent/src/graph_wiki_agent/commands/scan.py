@@ -34,8 +34,8 @@ from vault_io.scan_monorepo import (
 )
 from vault_io.update_index import update_index
 
-from code_wiki_agent.prompts.project_context import render_project_context
-from code_wiki_agent.prompts.scanner import build_scanner_system
+from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.scanner import build_scanner_system
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +331,7 @@ async def run_scan(
                 fan_items.append(w)
 
     cfg = load_role_config("scanner")
-    pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
+    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
     if model_override is not None:
         scanner_llm = ChatBedrockConverse(
             model_id=model_override,

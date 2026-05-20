@@ -69,12 +69,12 @@ _SKIPPED: dict = {"skipped": True}
 # Semantic linter prompt builders (wired with project_context per CTX-03)
 # ---------------------------------------------------------------------------
 
-from code_wiki_agent.prompts.linter import (
+from graph_wiki_agent.prompts.linter import (
     build_linter_adr_chain_system,
     build_linter_page_quality_system,
     build_linter_stale_claims_system,
 )
-from code_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.prompts.project_context import render_project_context
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +536,7 @@ async def run_lint(
     mod = _module_pass(repo, wiki, workspace, pages)
 
     # Step 4: semantic pass
-    pool = SubagentPool(trace_dir=wiki / ".code-wiki" / "traces")
+    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
     cfg = load_role_config("linter")
     semantic_findings, errors = await _semantic_pass(
         wiki, pages, pool, cfg, model_override=model_override, project_context=project_ctx
