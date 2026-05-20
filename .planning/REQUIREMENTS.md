@@ -1,0 +1,94 @@
+# Requirements — Milestone v1.4 Workspace Path Resolution Cleanup
+
+**Defined:** 2026-05-20
+**Core Value:** Faithfully reproduce the upstream `graph-wiki` wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
+
+**Milestone goal:** Eliminate `vault`/`vault_path` nomenclature globally. The canonical input becomes `workspace_path`; the wiki dir is always derived via `workspace_io.paths.wiki_dir()`. Hard-rename external surfaces (MCP, CLI) with no back-compat. Fix one known bootstrap bug along the way.
+
+**Scoped:** 2026-05-20 via `/gsd-new-milestone`. Phase numbering continues from Phase 22 (v1.3 ended at Phase 21).
+
+**Locked decisions:**
+- **Hard rename, no compat** for both MCP Pydantic fields (`vault_path` → `workspace_path`) and Typer flags (`--vault` → `--workspace`). DA-CLI integration test updates in the same phase as the schema rename.
+- **`.graph-wiki.local.yaml` key** renamed `graph-wiki-directory` → `workspace-directory`. Hard cut; document in release notes (no migration shim, matches v1.3 Phase 20 `--config` deletion precedent).
+- **Scan JSON data field** `vault_path` renamed to `wiki_relative_path` (the actual semantic is "relative path under wiki where this package's page goes", not "path to wiki root"). Plugin contract change — verify scanner→ingestor pipeline still works.
+- **`divergence/*.py` bare `vault: Path`** renamed to `wiki: Path` (matches actual semantic; helpers receive the wiki path, not the workspace).
+- **Wiki path derivation** uses `workspace_io.paths.wiki_dir(workspace_path)` everywhere (no string concat).
+
+---
+
+## Active Requirements
+
+### Workspace API — Internal Rename (WSAPI)
+
+Source: design conversation 2026-05-20 + author stash on `main` (`stash@{0}: WIP on main: 88f9e82`). The canonical input to every command and to the workspace resolver becomes `workspace_path`; the wiki path is always derived via `workspace_io.paths.wiki_dir()`. `repo_path` becomes a separate, independent caller-supplied parameter (no longer "parent of vault"). All ~20 test files that patch `resolve_wiki_and_repo` need their mock setups updated.
+
+- [ ] **WSAPI-01**: `packages/vault-io/src/vault_io/_workspace.py::resolve_wiki_and_repo` signature changes to `(workspace_path: Path | None = None, repo_path: Path | None = None) -> tuple[Path, Path | None]`. When `workspace_path` is supplied, return `(workspace_io.paths.wiki_dir(workspace_path), repo_path or _find_repo_root(workspace_path))`. When `workspace_path` is None, continue to delegate to `workspace_io.config.resolve()`.
+- [ ] **WSAPI-02**: All 6 command `run_*` functions in `agents/graph-wiki-agent/src/graph_wiki_agent/commands/` (init, scan, lint, ingest, query, log) take `workspace_path: Path | None = None` and `repo_path: Path | None = None` instead of `vault_path: Path | None = None`. Docstrings updated to match.
+- [ ] **WSAPI-03**: All in-tree call sites that pass `vault_path=...` as a kwarg (CLI entry, MCP server entry, internal command-to-command) updated to pass `workspace_path=...`. `uv run pytest` green after the rename.
+- [ ] **WSAPI-04**: All `~70 patch("...resolve_wiki_and_repo", ...)` mock points across ~20 test files updated for the new signature; tests pass under the renamed kwargs.
+- [ ] **WSAPI-05**: `.graph-wiki.local.yaml` key renamed `graph-wiki-directory` → `workspace-directory` in `packages/workspace-io/src/workspace_io/config.py` (constant `LATTICE_DIRECTORY_KEY` → `WORKSPACE_DIRECTORY_KEY`). Hard cut — existing local config files with the old key silently fall back to the default workspace. Document in release notes / changelog.
+- [ ] **WSAPI-06**: `workspace_io.config._resolve_workspace` promoted to public `resolve_workspace`; `workspace_io.init.init()` defaults the workspace to `resolve_workspace(repo_root)` instead of hardcoded `repo_root / "graph-wiki"` (per stash WIP). Existing call sites updated.
+
+### Workspace API — External Surface Rename (WSMCP)
+
+Source: design conversation 2026-05-20. Hard-rename all external surfaces with no back-compat. Six MCP tool input schemas, seven Typer CLI flags, one scan JSON output data field, and plugin markdown references all need to change in lockstep. DA-CLI integration test (`test_mcp_e2e.py`) updates in the same phase.
+
+- [ ] **WSMCP-01**: Six MCP tool input Pydantic Fields renamed `vault_path: str` → `workspace_path: str` in `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py`: `WikiScanInput`, `WikiLintInput`, `WikiIngestInput`, `WikiQueryInput`, `WikiLogInput`, `WikiBootstrapInput`. Field descriptions updated. Internal call sites that read `input.vault_path` updated to `input.workspace_path`.
+- [ ] **WSMCP-02**: Seven Typer flags renamed `--vault` → `--workspace` in `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (bootstrap, scan, lint, ingest, query, log + the legacy 7th surface). Help text mentions `GRAPH_WIKI_WORKSPACE` env var. Python parameter names align (`workspace: str = typer.Option(..., "--workspace", ...)`).
+- [ ] **WSMCP-03**: New `--repo` Typer flag exposed for `graph-wiki-agent bootstrap` (and any other command that benefits from explicit repo override). Independent of `--workspace`.
+- [ ] **WSMCP-04**: Scan JSON output data field renamed `vault_path` → `wiki_relative_path` in `packages/vault-io/src/vault_io/scan_monorepo.py` (`_vault_path_for` → `_wiki_relative_path_for` at line 399; all 3 emission sites at lines 395, 666, 717; docstring at line 616). Scanner→ingestor pipeline verified end-to-end after the rename.
+- [ ] **WSMCP-05**: Plugin markdown docs synced — `plugins/graph-wiki/agents/scanner.md`, `plugins/graph-wiki/skills/graph-wiki/references/scan-workflow.md`, `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md`, `plugins/graph-wiki/skills/graph-wiki/references/wiki-schema.md`, `plugins/graph-wiki/commands/scan.md` — both param-rename references and the data-field rename. `packages/prompt-sources/references/*.md` mirrors synced.
+- [ ] **WSMCP-06**: DA-CLI integration test `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` updated to use new MCP field names + Typer flag names; passes under `GRAPH_WIKI_RUN_INTEGRATION=1`.
+- [ ] **WSMCP-07**: `scripts/check-brand.sh` extended with a regex rule that bans the reintroduction of `vault_path` as a Pydantic Field name, `--vault` as a Typer flag literal, and the scan JSON field `"vault_path"`; `.brand-grep-allow` narrowly allowlists any intentionally-preserved historical references.
+
+### eval-harness Workspace Rename (WSEVAL)
+
+Source: design conversation 2026-05-20. `eval-harness` package has its own concentration of `vault_path` parameters in `sweep.py` (7+ functions), `baseline.py` (incl. an argparse `--vault` flag separate from typer), `structural.py`, and `divergence/*.py`. Plus, the divergence-check helpers use bare `vault: Path` (no `_path` suffix) — these actually receive the wiki path, not the workspace, so they rename to `wiki: Path`.
+
+- [ ] **WSEVAL-01**: `packages/eval-harness/src/eval_harness/sweep.py` renames `vault_path` → `workspace_path` across all parameter sites (~7 functions); internal logic that derives the wiki path uses `workspace_io.paths.wiki_dir(workspace_path)`.
+- [ ] **WSEVAL-02**: `packages/eval-harness/src/eval_harness/baseline.py` renames `vault_path` parameter → `workspace_path`; argparse flag `--vault` → `--workspace`; `_vault_content_hash` → `_workspace_content_hash` (or hashes the wiki dir specifically — choose the semantic that matches usage). `packages/eval-harness/src/eval_harness/structural.py` `vault_path` parameters renamed similarly.
+- [ ] **WSEVAL-03**: `packages/eval-harness/src/eval_harness/divergence/{linter,ingestor,scanner,code_reader,synthesizer}.py` rename bare `vault: Path` parameters → `wiki: Path` (matches actual semantic — these receive the wiki path, not the workspace).
+- [ ] **WSEVAL-04**: `packages/eval-harness/tests/{eval_helpers.py,test_sweep.py,test_baseline.py,eval/test_sweep_eval.py}` updated for the new kwargs; `EvalWorktree` callers updated to pass `workspace_path` where applicable. `uv run --package eval-harness pytest` green.
+- [ ] **WSEVAL-05**: `eval/README.md` references updated (currently mentions `vault_path`).
+
+### Packages-Dir Misclassification Fix (PKGCLS)
+
+Source: `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` (captured during `/graph-wiki:bootstrap` on this repo). The container detector classifies a top-level `packages/` directory containing 5/6 children-with-manifests as `ambiguous` instead of `package`. Under non-interactive bootstrap (`graph-wiki-agent bootstrap` hardcodes `non_interactive=True`), ambiguous rows silently become `skip` — so `wiki/packages/` never gets created and the workspace's biggest container is omitted from the wiki tree.
+
+- [ ] **PKGCLS-01**: `packages/vault-io/src/vault_io/detect_containers.py::_classify_dir` loosens the `package` rule so a strong majority of manifested children (≥80%, or equivalently `manifested >= children - 1`) still counts as `package`. `ambiguous` reserved for genuinely mixed dirs (half manifests, half loose markdown).
+- [ ] **PKGCLS-02**: Plugin-side classifier `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` updated to match (same heuristic — single source of truth).
+- [ ] **PKGCLS-03**: `graph-wiki-agent bootstrap` exposes `--interactive` flag (default off); when on, ambiguous classifications prompt the user instead of silently skipping. `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py::run_init` no longer hardcodes `non_interactive=True`.
+- [ ] **PKGCLS-04**: Unit test in `packages/vault-io/tests/` against a fixture repo with one packages dir (5/6 manifested) asserts `_classify_dir` returns `package`. Operational verification: running `graph-wiki-agent bootstrap` on this repo without `--interactive` classifies `packages/` as `package` and creates `wiki/packages/` automatically.
+- [ ] **PKGCLS-05**: Pending todo `2026-05-20-fix-packages-dir-misclassification.md` moved to `.planning/todos/resolved/` at phase close.
+
+---
+
+## Future Requirements (Deferred to v1.5+)
+
+Carry-forward items from v1.3 close, not in v1.4 scope:
+- **Nyquist compliance retroactive decision** — 0/16 v1.1+v1.2+v1.3 phases produced VALIDATION.md despite toggle enabled. Decide: retro-validate vs. disable.
+- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured (carried v1.2 → v1.3 → now).
+- **Phase 18 SC#3 manual UAT** — install plugin, type `/init`, confirm native CLAUDE.md workflow fires.
+- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19.
+
+---
+
+## Out of Scope
+
+- **`vault-io` package directory rename** — the package name `vault-io` (and `vault_io` module path) stays. This milestone only renames parameter/field/flag nomenclature, not the existing module. A future package rename would be a separate, much larger sweep.
+- **Back-compat shims for renamed surfaces** — hard rename, no deprecation period. (Locked decision above.)
+- **Scan JSON field rename targeting a third name (e.g. `page_path`)** — `wiki_relative_path` chosen and locked. Not relitigating.
+- **Migration script for old `.graph-wiki.local.yaml` files** — hard-cut key rename; document in release notes only. (Locked decision above.)
+- **Renaming `vault-io` package in scan/detect output schemas** — only the `vault_path` field renames; other field names stay.
+- **Carry-forward items from v1.3** — deferred to v1.5 (see Future Requirements above).
+
+---
+
+## Traceability (filled by roadmap)
+
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| WSAPI-01..06 | Phase 22 | Pending |
+| WSMCP-01..07 | Phase 23 | Pending |
+| WSEVAL-01..05 | Phase 24 | Pending |
+| PKGCLS-01..05 | Phase 25 | Pending |
