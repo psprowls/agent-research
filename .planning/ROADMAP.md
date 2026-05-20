@@ -106,8 +106,8 @@ Plans:
 - [x] 18-03-PLAN.md — Rename Typer CLI subcommand init → bootstrap + git mv test file + help-text assertions (CMD-02 CLI)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 18-04-PLAN.md — Sweep 11 active-source references to the old slug → `/graph-wiki:bootstrap`; add README reinstall note (CMD-03 active)
-- [ ] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
+- [x] 18-04-PLAN.md — Sweep 11 active-source references to the old slug → `/graph-wiki:bootstrap`; add README reinstall note (CMD-03 active)
+- [x] 18-05-PLAN.md — Sweep 18 historical .planning/ references (single bundled commit) (CMD-03 historical)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 18-06-PLAN.md — Extend scripts/check-brand.sh + .brand-grep-allow + red-then-green sanity; fold todo to resolved/ (CMD-03 gate)
@@ -187,7 +187,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
-| 18. Plugin Command Rename | 3/6 | In Progress|  |
+| 18. Plugin Command Rename | 5/6 | In Progress|  |
 | 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
 | 21. Rename code-wiki-agent → graph-wiki-agent | 0/5 | Planned (5 plans staged) | - |
 | 19. Phase 16 Code Review Burndown (queued last) | 0/TBD | Not started | - |
