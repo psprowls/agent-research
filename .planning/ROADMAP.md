@@ -65,7 +65,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 17: vault-io Bug Fixes** - Fix scan companion-page diff, Bedrock CountTokens API shape, and workspace/repo resolution (5/5 plans shipped; verifier re-run 2026-05-20 → complete, all 5 SCs satisfied)
 - [ ] **Phase 18: Plugin Command Rename** - Rename `/graph-wiki:init` → `/graph-wiki:init-wiki` to restore Claude Code's native `/init`
 - [ ] **Phase 19: Phase 16 Code Review Burndown** - Triage and resolve all 6 warnings + 9 info findings from the trace pipeline + eval harness review
-- [ ] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback
+- [x] **Phase 20: Workspace Manifest Model Config** - Move model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete `WikiConfig.models_path` and the `--config`/`CODE_WIKI_CONFIG` pathway; packaged `models.toml` becomes the per-role fallback (4/4 plans shipped; verifier 2026-05-20 → 5/5 SCs PASS)
 
 ---
 
@@ -131,10 +131,10 @@ Plans:
   - WMC-05b (workspace-io wiki page "no PyYAML" claim corrected; CLI help drops `--config`) → SC#5 (docs portion)
 **Plans**: 4 plans
 Plans:
-- [ ] 20-01-PLAN.md — Extend `workspace-io.manifest` with `roles[]` round-trip + `read_roles` accessor + README schema docs (WMC-01, WMC-05a)
-- [ ] 20-02-PLAN.md — Wire workspace-override layer into `model-adapter.loader.make_llm` with per-role fallback + tests; delete `set_models_path` (WMC-02)
-- [ ] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `CODE_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
-- [ ] 20-04-PLAN.md — Populate `graph-wiki/.graph-wiki.yaml` with full 9-role block + docs sweep (wiki page, intel JSON, CLAUDE.md) + live verify (WMC-04, WMC-05b)
+- [x] 20-01-PLAN.md — Extend `workspace-io.manifest` with `roles[]` round-trip + `read_roles` accessor + README schema docs (WMC-01, WMC-05a)
+- [x] 20-02-PLAN.md — Wire workspace-override layer into `model-adapter.loader.make_llm` with per-role fallback + tests; delete `set_models_path` (WMC-02)
+- [x] 20-03-PLAN.md — Delete `WikiConfig.models_path` / `--config` / `CODE_WIKI_CONFIG` plumbing + update `test_config.py` (WMC-03)
+- [x] 20-04-PLAN.md — Populate `graph-wiki/.graph-wiki.yaml` with full 9-role block + docs sweep (wiki page, intel JSON, CLAUDE.md) + live verify (WMC-04, WMC-05b)
 
 ---
 
@@ -145,14 +145,24 @@ Plans:
 | v1.0 code-wiki-agent parity | 5 | 25/25 | ✅ Shipped | 2026-05-15 |
 | v1.1 Quality Improvements | 5 | 39/39 | ✅ Shipped | 2026-05-17 |
 | v1.2 Graph-Wiki Port & Debt | 6 | 21/21 | ✅ Shipped | 2026-05-19 |
-| v1.3 Tooling Cleanup | 4 | 0/TBD | 🚧 In progress | - |
+| v1.3 Tooling Cleanup | 4 | 9/TBD | 🚧 In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 17. vault-io Bug Fixes | 5/5 | ✅ Complete | 2026-05-20 |
 | 18. Plugin Command Rename | 0/TBD | Not started | - |
 | 19. Phase 16 Code Review Burndown | 0/TBD | Not started | - |
-| 20. Workspace Manifest Model Config | 0/4 | Planned | - |
+| 20. Workspace Manifest Model Config | 4/4 | ✅ Complete | 2026-05-20 |
+
+### Phase 21: Rename code-wiki-agent to graph-wiki-agent — update all code references (excluding wiki content)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21 to break down)
 
 ---
 

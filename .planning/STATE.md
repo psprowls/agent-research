@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Tooling Cleanup
-status: completed
-stopped_at: Phase 21 context gathered
-last_updated: "2026-05-20T00:52:39.548Z"
-last_activity: 2026-05-20 -- Phase 17 marked complete
+status: in_progress
+stopped_at: Phase 20 complete
+last_updated: "2026-05-20T01:30:00Z"
+last_activity: 2026-05-20 -- Phase 20 marked complete (verifier 5/5 SCs PASS)
 progress:
-  total_phases: 5
+  total_phases: 4
   completed_phases: 2
   total_plans: 9
   completed_plans: 9
-  percent: 100
+  percent: 50
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 17 — vault-io-bug-fixes
+**Current Focus:** v1.3 in progress — Phases 17 + 20 complete; Phases 18, 19 not started
 
 **North Star:** `code-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,12 +35,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-19 after milestone v1.2 SHIPPED)
 
 ## Current Position
 
-Phase: 17 — COMPLETE
-Plan: 5 of 5 (all plans shipped including 17-05 gap closure)
-Status: Phase 17 complete
-Last activity: 2026-05-20 -- Phase 17 marked complete
+Phase: 20 — COMPLETE (verifier 5/5 SCs PASS, 2026-05-20)
+Plan: 4 of 4 (all plans shipped)
+Status: v1.3 milestone in progress — Phase 17 ✓, Phase 20 ✓; Phase 18 + 19 not started
+Last activity: 2026-05-20 -- Phase 20 marked complete
 
-Progress: [██████████] 100% (5/5 plans complete; verified 2026-05-20)
+v1.3 Progress: [█████░░░░░] 50% (2/4 phases complete; 9 plans shipped this milestone)
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [██████████] 100% (5/5 plans complete; verified 20
 ### Roadmap Evolution
 
 - Phase 20 added (2026-05-19): Workspace Manifest Model Config — move wiki model overrides into `<workspace>/.graph-wiki.yaml` `plugins[].roles[]`; delete the orphan `wiki-config.toml` pathway (`WikiConfig.models_path`, `set_models_path()`, `--config`, `CODE_WIKI_CONFIG`); packaged `model-adapter/models.toml` becomes per-role fallback. Triggered by discovering `wiki-config.toml` had no source-code references and the user's direction that all config should live in the `.graph-wiki.yaml` family.
+- Phase 20 completed (2026-05-20): 4 plans shipped across 3 waves; verifier 5/5 SCs PASS; checkpoint smoke checks confirmed workspace manifest is live source of truth and falls back to packaged `models.toml` per-role.
 - Phase 21 added (2026-05-19): Rename code-wiki-agent to graph-wiki-agent — update all code references (excluding wiki content) so the agent package name aligns with the `graph-wiki` plugin port.
 
 ### Active TODOs
