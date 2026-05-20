@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: Phase 22 shipped (local merge; no remote)
-stopped_at: Phase 22 context gathered
-last_updated: "2026-05-20T22:23:39.910Z"
+stopped_at: Phase 23 context gathered
+last_updated: "2026-05-20T22:39:47.882Z"
 last_activity: 2026-05-20 -- Phase 22 shipped (merged to main)
 progress:
   total_phases: 4
@@ -126,9 +126,9 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-20T19:42:13.379Z
-**Stopped at:** Phase 22 context gathered
-**Resume file:** .planning/phases/22-workspace-api-internal-rename/22-CONTEXT.md
+**Last session:** 2026-05-20T22:39:47.875Z
+**Stopped at:** Phase 23 context gathered
+**Resume file:** .planning/phases/23-workspace-api-external-rename/23-CONTEXT.md
 
 **Critical context for next session:**
 
