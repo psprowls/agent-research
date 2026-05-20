@@ -379,14 +379,14 @@ def trace(
 def query(
     query_text: str = typer.Argument(..., help="Natural language query"),
     top_k: int = typer.Option(5, "--top-k", help="Pages to drill (3-10)", min=3, max=10),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit QueryResult as JSON"),
     no_state_gate: bool = typer.Option(False, "--no-state-gate", help="No-op; query is read-only"),
     quiet: bool = typer.Option(False, "--quiet", help="Suppress progress output (headless mode)"),
 ) -> None:
     """Query the wiki using hybrid BM25+embedding search with librarian fan-out."""
     # state gate is a no-op for query (read-only) — D-08
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_query(query_text, workspace_path, top_k=top_k))
     except RuntimeError as e:
@@ -417,11 +417,11 @@ def log(
     op: str = typer.Option(..., "--op", help="Log operation type (scan/ingest/lint/create/update/delete/note/query)"),
     title: str = typer.Option(..., "--title", help="Short title for the log entry"),
     detail: Optional[str] = typer.Option(None, "--detail", help="Optional extended detail text"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit LogResult as JSON"),
 ) -> None:
     """Append a timestamped event to the wiki log.md."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_log(op=op, title=title, detail=detail, workspace_path=workspace_path))
     except (RuntimeError, FileNotFoundError, SystemExit) as e:
@@ -439,13 +439,15 @@ def bootstrap(
     topic: str = typer.Option(..., "--topic", help="Short description of the repository"),
     tool: str = typer.Option(..., "--tool", help="Schema file(s) to install (claude-code, codex, cursor, all, ...)"),
     force: bool = typer.Option(False, "--force", help="Overwrite non-empty target directory"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    repo: str = typer.Option("", "--repo", help="Override repo root (default: CWD walk-up)"),
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
     """Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
+    repo_path = Path(repo).resolve() if repo else None
     try:
-        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, workspace_path=workspace_path))
+        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, workspace_path=workspace_path, repo_path=repo_path))
     except (RuntimeError, FileNotFoundError, SystemExit) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -460,13 +462,13 @@ def bootstrap(
 
 @app.command()
 def scan(
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     no_file_map: bool = typer.Option(False, "--no-file-map", help="Skip per-package file-map generation"),
     max_depth: int = typer.Option(3, "--max-depth", help="Max directory depth for file map headers"),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
     """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_scan(workspace_path=workspace_path, no_file_map=no_file_map, max_depth=max_depth))
     except RuntimeError as e:
@@ -498,11 +500,11 @@ app.add_typer(ingest_app, name="ingest")
 @ingest_app.command(name="source")
 def ingest_source(
     path: Path = typer.Argument(..., help="Path to the source file to ingest"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """Ingest a source file into the wiki via the ingestor LLM."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_ingest_source(path, workspace_path))
     except (RuntimeError, ValueError) as e:
@@ -523,11 +525,11 @@ def ingest_work_item(
     slug: Optional[str] = typer.Option(None, "--slug", help="Page slug (derived from title if omitted)"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing page"),
     pkg_dir: Optional[Path] = typer.Option(None, "--pkg-dir", help="Optional vault package directory for work sub-page linking"),
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
     """File a structured work item into the wiki workspace."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(
             run_ingest_work_item(
@@ -557,13 +559,13 @@ def ingest_work_item(
 
 @app.command()
 def lint(
-    vault: str = typer.Option("", "--vault", help="Vault path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     stale_days: int = typer.Option(90, "--stale-days", help="Days before a page is flagged as stale"),
     log_gap_days: int = typer.Option(14, "--log-gap-days", help="Days before a log gap is flagged"),
     json_output: bool = typer.Option(False, "--json", help="Emit LintResult as JSON"),
 ) -> None:
     """Run mechanical + semantic lint pass over the wiki and report findings."""
-    workspace_path = Path(vault) if vault else None
+    workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_lint(workspace_path=workspace_path, stale_days=stale_days, log_gap_days=log_gap_days))
     except RuntimeError as e:

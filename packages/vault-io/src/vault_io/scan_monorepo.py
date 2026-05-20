@@ -392,12 +392,12 @@ def discover_workspaces(repo, pinned_containers=None, workspace_dir=None):
         workspaces = _discover_heuristic(repo, workspace_dir=workspace_dir)
     for w in workspaces:
         vault_dir = w.pop("_container_vault_dir", None)
-        w["vault_path"] = _vault_path_for(w, vault_dir=vault_dir)
+        w["wiki_relative_path"] = _wiki_relative_path_for(w, vault_dir=vault_dir)
     return workspaces
 
 
-def _vault_path_for(pkg: dict, vault_dir: str | None = None) -> str:
-    """Return the canonical vault page path for a discovered workspace.
+def _wiki_relative_path_for(pkg: dict, vault_dir: str | None = None) -> str:
+    """Return the wiki-relative page path for a discovered workspace.
 
     Routing:
       - apps                                    -> ``apps/<name>/<name>.md``
@@ -613,7 +613,7 @@ def _parse_frontmatter(text):
 
 
 def _load_existing_pages(wiki):
-    """Return dict of workspace name → {vault_path, package_path, category}.
+    """Return dict of workspace name → {wiki_relative_path, package_path, category}.
 
     Walks every place package/app pages may live:
 
@@ -663,7 +663,7 @@ def _load_existing_pages(wiki):
             category = fm.get("category", default_category)
             path_key = fm.get("app_path") if category == "app" else fm.get("package_path")
             pages[name] = {
-                "vault_path": str(md.relative_to(wiki)).replace("\\", "/"),
+                "wiki_relative_path": str(md.relative_to(wiki)).replace("\\", "/"),
                 "package_path": path_key,
                 "category": category,
                 "last_sync_commit": fm.get("last_sync_commit") or None,
@@ -714,7 +714,7 @@ def _load_existing_pages(wiki):
             name = fm.get("title") or md.stem
             path_key = fm.get("app_path") if category == "app" else fm.get("package_path")
             pages[name] = {
-                "vault_path": str(md.relative_to(wiki)).replace("\\", "/"),
+                "wiki_relative_path": str(md.relative_to(wiki)).replace("\\", "/"),
                 "package_path": path_key,
                 "category": category,
                 "last_sync_commit": fm.get("last_sync_commit") or None,

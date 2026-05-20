@@ -1,6 +1,6 @@
 # Scan Workflow
 
-The detailed flow the LLM follows when the user runs `/lattice-wiki:scan` or dispatches the `lattice-wiki:scanner` sub-agent.
+The detailed flow the LLM follows when the user runs `/graph-wiki:scan` or dispatches the `graph-wiki:scanner` sub-agent.
 
 ## Purpose
 
@@ -8,7 +8,7 @@ Walk the monorepo, detect workspaces, and produce/update stub pages. Each app, p
 
 ## Inputs
 
-- Path to the repo root (discovered automatically via `lattice-workspace`)
+- Path to the repo root (discovered automatically via `workspace_io`)
 - The current state of `<workspace>/wiki/packages/`, `<workspace>/wiki/apps/`, and `<workspace>/wiki/domains/<d>/packages/` (to detect new / renamed / deleted)
 
 ## What gets detected
@@ -27,7 +27,7 @@ Walk the monorepo, detect workspaces, and produce/update stub pages. Each app, p
 
 ### 1. Discover workspaces
 
-Run `python scripts/scan_monorepo.py --json` to get a structured inventory (repo discovered automatically via `lattice-workspace`):
+Run `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json` to get a structured inventory (repo discovered automatically via `workspace_io`):
 
 ```json
 {
@@ -65,7 +65,7 @@ Before writing anything, report to the user:
 
 ### 3. Create / update workspace pages
 
-The scanner emits an explicit `vault_path` for every workspace — write the page there. Routing rules (also useful when reading back drift):
+The scanner emits an explicit `wiki_relative_path` for every workspace — write the page there. Routing rules (also useful when reading back drift):
 
 - `type: app` → `<workspace>/wiki/apps/<name>/<name>.md` (uses the **app** template)
 - `type: library | service | tool` under a `domain` container → `<workspace>/wiki/domains/<domain>/packages/<name>/<name>.md` (uses the **package** template, with `domain: <domain>` set in frontmatter)
@@ -77,6 +77,31 @@ Domain detection supports two on-disk layouts and the scanner handles both:
 - **Nested:** `<container>/<domain>/packages/<package>/` (or `libs/`, etc.) — the domain groups its packages under a package container.
 
 Top-level `<workspace>/wiki/packages/` is reserved for single-package repos and globally shared (`packages/lib`-type) directories. A domain may consume a package owned by another domain — in that case the package keeps its home under its owning domain, and the consuming domain's page just links to it (see the **Linked packages from other domains** section in `domain.md`).
+
+### Package-family containers (deep / nested manifests)
+
+Use `classification: package-family` when the **package boundary** is a directory but its `package.json` (or other manifest) sits several levels deeper, often with multiple variants (e.g. an example shipped as both `private/` and `public/` HubSpot apps). The detector emits this classification automatically when it sees a directory whose children carry manifests **2+ levels deeper** and no immediate child carries a top-level manifest.
+
+Layout block fields:
+
+```yaml
+- source: references/hubspot/hubspot-ui-extensions
+  vault_dir: domains/hubspot/packages           # where pages land in wiki/
+  classification: package-family
+  package_depth: 1                               # children of source are the packages
+  manifest_glob: "**/package.json"               # how to find manifests within each
+  slug_source: dirname                           # use dir name as page slug (avoids manifest-name collisions)
+  domain: hubspot                                # optional — stamped on each pkg's frontmatter
+```
+
+Scanner behavior:
+
+- Walks to `package_depth` below `source`; each directory at that depth is one workspace entry.
+- Recursively globs `manifest_glob` inside each package dir; every matched manifest becomes a row in the page's `manifests:` frontmatter.
+- Slug is the directory name (default) — so two siblings whose `package.json` both declare `name: "charts"` get distinct pages.
+- If `domain:` is set on the row, each pkg's `wiki_relative_path` lands at `domains/<d>/packages/<slug>/<slug>.md` (overrides the explicit `vault_dir`).
+
+`source` may be a slashed path; the row need not point at a top-level directory.
 
 For each **new** workspace:
 - Create the page from the appropriate template
@@ -127,12 +152,12 @@ Report these to the user as ingest candidates:
 
 ```
 Docs to ingest: 3
-  ? docs/architecture.md  (run /lattice-wiki:ingest docs/architecture.md)
-  ? docs/runbook.md       (run /lattice-wiki:ingest docs/runbook.md)
-  ? docs/release-notes.md (run /lattice-wiki:ingest docs/release-notes.md)
+  ? docs/architecture.md  (run /graph-wiki:ingest docs/architecture.md)
+  ? docs/runbook.md       (run /graph-wiki:ingest docs/runbook.md)
+  ? docs/release-notes.md (run /graph-wiki:ingest docs/release-notes.md)
 ```
 
-The scanner does not auto-ingest; the user picks. Ingestion goes through the normal `/lattice-wiki:ingest` flow, which produces a `category: source` summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md` and updates concepts/ADRs/packages from the doc's content. PDF, DOCX, and other doc formats are deferred — see `references/ingest-workflow.md` "Future formats".
+The scanner does not auto-ingest; the user picks. Ingestion goes through the normal `/graph-wiki:ingest` flow, which produces a `category: source` summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md` and updates concepts/ADRs/packages from the doc's content. PDF, DOCX, and other doc formats are deferred — see `references/ingest-workflow.md` "Future formats".
 
 ### 6. Update cross-references
 
@@ -147,17 +172,19 @@ The scanner regenerates one marker-bounded index on every run (skip with `--no-i
 
 Lint flags `dep-index-stale` against the regen marker (that rule lands in a follow-on plan once the index is in production use).
 
-`<workspace>/work/.work-index.json` is owned by **`lattice-work`**, not by `lattice-wiki`. Run `/lattice-work:regen-index` to refresh it.
+`<workspace>/work/.work-index.json` is owned by **`graph-wiki`**. Run `/graph-wiki:regen-index` to refresh it.
+
+> **Note:** The work-layer subsystem (regen-index) is not ported in graph-wiki v1.2. This note applies when/if work-layer support is added in a future version.
 
 ### 7. Update the index
 
-Run `python scripts/update_index.py` or edit `<workspace>/wiki/index.md` inline.
+Run `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py` or edit `<workspace>/wiki/index.md` inline.
 
 ### 8. Append to log
 
 Run:
 ```bash
-python scripts/append_log.py --op scan \
+python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
     --title "detected N new, M renamed, K deleted" \
     --detail "<bulleted list of touched pages>"
 ```
@@ -169,19 +196,19 @@ Summary the user sees:
 - Pages updated (with wikilinks)
 - Renames / deletions processed
 - Packages with stale prose — suggest follow-up ingests
-- Next steps (e.g. "run `/lattice-wiki:ingest raw/specs/x.md` to flesh out the timeline domain")
+- Next steps (e.g. "run `/graph-wiki:ingest raw/specs/x.md` to flesh out the timeline domain")
 
 ## After-scan tips
 
-- **First scan?** Follow up with `/lattice-wiki:lint` to surface orphans and missing cross-references.
+- **First scan?** Follow up with `/graph-wiki:lint` to surface orphans and missing cross-references.
 - **Dependency changes?** Consider updating `[[architecture/module-graph]]` if it exists.
-- **New domain?** Domain pages (`<d>.md` and `details.md`) are created automatically via `ensure_domain_page()` and `ensure_domain_details()` in `layout_io.py` before the first package stub is written under that domain.
+- **New domain?** Domain pages (`<d>.md` plus `details.md` and any other `templates/domain/*.md` template) are scaffolded together via `ensure_domain_pages()` in `layout_io.py` before the first package stub is written under that domain.
 
-Sub-pages (`api.md`, `patterns.md`, `context.md`, `work.md`) are created lazily via `ensure_subpage()` in `layout_io.py` — they are written the first time an ingest or work-item script writes to them, not by the scanner itself. Domain pages follow the same lazy-creation pattern via `ensure_domain_page()` and `ensure_domain_details()`.
+Package sub-pages (`api.md`, `patterns.md`, `context.md`, `work.md`) are created eagerly by the scanner via `ensure_package_pages()` in `layout_io.py` — the whole set is written when a new package folder is first stubbed, so the wiki layout is always fully scaffolded after a scan. Ingests and work-item filers may continue to call the single-file `ensure_subpage()` helper for legacy packages whose folders were created before this behavior shipped; for fully-scaffolded packages those calls are silent no-ops.
 
 ## Anti-patterns
 
-- ❌ Silently deleting wiki pages for "deleted" packages — always confirm with user
-- ❌ Overwriting prose sections on existing packages — frontmatter only, unless the user asks
-- ❌ Creating stubs for every folder — only actual workspace entries (must have a manifest file)
-- ❌ Running scan on every shell command — scan is user-initiated or on explicit triggers (e.g. after pulling main)
+- Do not silently delete wiki pages for "deleted" packages — always confirm with user
+- Do not overwrite prose sections on existing packages — frontmatter only, unless the user asks
+- Do not create stubs for every folder — only actual workspace entries (must have a manifest file)
+- Do not run scan on every shell command — scan is user-initiated or on explicit triggers (e.g. after pulling main)

@@ -9,7 +9,7 @@ import pytest
 
 
 def test_wiki_scan_input_default_repo_path_is_empty() -> None:
-    """WikiScanInput defaults to repo_path='' (no override — resolves from vault_path) (DACLI-02)."""
+    """WikiScanInput defaults to repo_path='' (no override — resolves from workspace_path) (DACLI-02)."""
     from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
@@ -25,10 +25,10 @@ def test_wiki_scan_input_accepts_repo_path() -> None:
 
 
 def test_wiki_scan_input_preserves_existing_defaults() -> None:
-    """Adding repo_path does not regress existing vault_path / no_file_map / max_depth defaults (regression guard)."""
+    """Adding repo_path does not regress existing workspace_path / no_file_map / max_depth defaults (regression guard)."""
     from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()
-    assert inp.vault_path == ""
+    assert inp.workspace_path == ""
     assert inp.no_file_map is False
     assert inp.max_depth == 3
