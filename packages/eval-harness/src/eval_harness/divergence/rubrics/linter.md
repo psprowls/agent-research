@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/linter.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030 -->
+<!-- Source: plugins/graph-wiki/agents/linter.md §Rules, §Red flags -->
 
 # Divergence Rubric — Linter
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether a linter agent's findings report adheres to the skill-content expectations
-from the canonical lattice-wiki linter spec.
+from the canonical graph-wiki linter spec.
 
 ## Scoring Criteria
 

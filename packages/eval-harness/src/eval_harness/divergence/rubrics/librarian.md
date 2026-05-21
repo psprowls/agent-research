@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/librarian.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030 -->
+<!-- Source: plugins/graph-wiki/agents/librarian.md §Rules, §Red flags -->
 
 # Divergence Rubric — Librarian
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether a librarian agent's answer adheres to the skill-content expectations from
-the canonical lattice-wiki librarian spec.
+the canonical graph-wiki librarian spec.
 
 ## Scoring Criteria
 

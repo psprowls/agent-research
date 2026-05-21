@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/ingestor.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030 -->
+<!-- Source: plugins/graph-wiki/agents/ingestor.md §Rules, §Red flags -->
 
 # Divergence Rubric — Ingestor
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether an ingestor agent's output adheres to the skill-content expectations from
-the canonical lattice-wiki ingestor spec.
+the canonical graph-wiki ingestor spec.
 
 ## Scoring Criteria
 
