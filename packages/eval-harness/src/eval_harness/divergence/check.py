@@ -57,7 +57,7 @@ class DivergenceCheck:
     Attributes:
         id:            Stable rule identifier (e.g. "LIB-001-wikilink-resolves").
         source_anchor: Path + section anchor tracing back to canonical source
-                       (e.g. "packages/prompt-sources/SKILL.md#iron-rules").
+                       (e.g. "plugins/graph-wiki/skills/graph-wiki/SKILL.md#iron-rules").
         severity:      "hard" or "soft".
         check:         Pure function (AgentOutputProxy, Path) -> Verdict.
                        Must not eval/exec the output text (T-06-15).

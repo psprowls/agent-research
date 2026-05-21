@@ -12,7 +12,7 @@ from pathlib import Path
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Verdict
 
 # Sentinel string the code_reader returns when no file is relevant
-# (packages/prompt-sources/agents/code_reader.md#rules — rule 6).
+# (agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules — rule 6).
 _SENTINEL = "NO_RELEVANT_CONTENT"
 
 # path:line or path:line-line annotation, e.g. `pool.py:115`,
@@ -41,7 +41,7 @@ def _check_sentinel_or_path_line(output: AgentOutputProxy, wiki: Path) -> Verdic
     """CR-001 (hard): Output is either the bare sentinel OR contains at least one
     `path:line` annotation.
 
-    Anchors packages/prompt-sources/agents/code_reader.md#outputs (rule 6 + output format).
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs (rule 6 + output format).
     """
     text = output.answer or ""
     if _is_sentinel_only(text):
@@ -58,7 +58,7 @@ def _check_no_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-002 (hard): code_reader never emits `[[wikilinks]]` — that is the
     synthesizer's job. Wikilinks here indicate the agent confused its role.
 
-    Anchors packages/prompt-sources/agents/code_reader.md#outputs.
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs.
     """
     match = _WIKILINK_RE.search(output.answer or "")
     if match:
@@ -73,7 +73,7 @@ def _check_no_code_wiki_prefix(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-003 (hard): Output does not cite anything inside `.graph-wiki/` —
     the tool refuses such reads, so any such citation is invented.
 
-    Anchors packages/prompt-sources/agents/code_reader.md#rules (rule 4).
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules (rule 4).
     """
     if _GRAPH_WIKI_PREFIX_RE.search(output.answer or ""):
         return Verdict(
@@ -88,7 +88,7 @@ def _check_sentinel_is_bare(output: AgentOutputProxy, wiki: Path) -> Verdict:
     surrounding prose). The orchestrator filters on the bare sentinel; extras
     break that filter.
 
-    Anchors packages/prompt-sources/agents/code_reader.md#red-flags.
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#red-flags.
     """
     text = output.answer or ""
     if _SENTINEL not in text:
@@ -104,25 +104,25 @@ def _check_sentinel_is_bare(output: AgentOutputProxy, wiki: Path) -> Verdict:
 CODE_READER_CHECKS: list[DivergenceCheck] = [
     DivergenceCheck(
         id="CR-001-path-line-or-sentinel",
-        source_anchor="packages/prompt-sources/agents/code_reader.md#outputs",
+        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs",
         severity="hard",
         check=_check_sentinel_or_path_line,
     ),
     DivergenceCheck(
         id="CR-002-no-wikilinks",
-        source_anchor="packages/prompt-sources/agents/code_reader.md#outputs",
+        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs",
         severity="hard",
         check=_check_no_wikilinks,
     ),
     DivergenceCheck(
         id="CR-003-no-code-wiki-prefix",
-        source_anchor="packages/prompt-sources/agents/code_reader.md#rules",
+        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules",
         severity="hard",
         check=_check_no_code_wiki_prefix,
     ),
     DivergenceCheck(
         id="CR-004-sentinel-is-bare",
-        source_anchor="packages/prompt-sources/agents/code_reader.md#red-flags",
+        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#red-flags",
         severity="soft",
         check=_check_sentinel_is_bare,
     ),
