@@ -246,16 +246,21 @@ def _wiki_content_hash(wiki: Path) -> str:
     Collects all .md files recursively, sorts by path string for
     determinism, then computes sha256 over their concatenated content
     hashes. Returns hex digest.
+
+    Any per-file OSError propagates: silently skipping unreadable files
+    would let two runs against the same wiki content yield different
+    hashes (transient handle / permissions flicker), making the field
+    unreliable as a "same wiki" identifier and undermining EVAL-08
+    reproducibility.
     """
     md_files = sorted(wiki.rglob("*.md"), key=lambda p: str(p))
     h = hashlib.sha256()
     for f in md_files:
-        try:
-            content = f.read_bytes()
-        except OSError:
-            continue
-        # Hash individual file content and fold into overall hash
-        file_hash = hashlib.md5(content).hexdigest()  # noqa: S324
+        content = f.read_bytes()
+        # Hash individual file content and fold into overall hash.
+        # Use sha256 (not md5) to keep the inner step cryptographically
+        # sound and avoid a bandit suppression on the call site.
+        file_hash = hashlib.sha256(content).hexdigest()
         h.update(file_hash.encode())
     return h.hexdigest()
 
