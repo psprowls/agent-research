@@ -47,3 +47,8 @@ Bonus consideration: `run_init` hardcoding `non_interactive=True` means
 there's no escape hatch even when running on a TTY. Consider exposing
 `--interactive` on `graph-wiki-agent bootstrap` so users can confirm
 ambiguous classifications without dropping to `init_vault.py`.
+
+----
+## Resolution
+
+Resolved by Phase 25 — see [25-SUMMARY.md](../../phases/25-packages-dir-misclassification-fix/25-SUMMARY.md).
