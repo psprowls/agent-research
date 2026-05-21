@@ -275,7 +275,7 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type:
 
     result = await run_full_matrix(
         role_candidates=role_candidates,
-        vault_path=FIXTURE_VAULT,
+        workspace_path=FIXTURE_VAULT,
         query_cases_path=CASES_PATH,
         code_reader_cases_path=code_reader_cases_path,
         ingestor_source_path=ingestor_source,

@@ -16,6 +16,10 @@ Token counts are extracted from the trace JSONL written by SubagentPool._write_t
 into wt.path / "wiki" / ".graph-wiki" / "traces" (wt.path is the workspace root after
 the Phase 22 rename; wiki content lives under wt.path/wiki). The most-recently-modified
 JSONL file is parsed; tokens_in/tokens_out are summed across all records for the run.
+
+Every public function in this module accepts ``workspace_path: Path`` and derives the
+wiki dir internally via ``workspace_io.paths.wiki_dir(workspace_path)`` (Phase 24 §D-01,
+§D-09). EvalWorktree call sites operate on the derived wiki path.
 """
 
 from __future__ import annotations
@@ -35,6 +39,8 @@ from graph_wiki_agent.commands.ingest import run_ingest_source
 from graph_wiki_agent.commands.lint import run_lint
 from graph_wiki_agent.commands.query import QueryResult, run_query
 from graph_wiki_agent.commands.scan import run_scan
+
+from workspace_io.paths import wiki_dir
 
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
@@ -228,13 +234,13 @@ def _load_and_validate_cases(cases_path: Path) -> list[dict]:
 
 async def run_sweep(
     cases_path: Path,
-    vault_path: Path,
+    workspace_path: Path,
     model_ids: list[str],
 ) -> list[SweepResult]:
     """Run a model sweep: for each model_id, run all eval cases under isolation.
 
     For each (model_id, case) pair:
-    - Opens an EvalWorktree (isolated vault copy in tmpdir).
+    - Opens an EvalWorktree (isolated wiki copy in tmpdir).
     - Calls run_query() with librarian_model_override=model_id.
     - Collects tokens from trace JSONL and computes cost via pricing.
     - Runs check_structural() on the QueryResult.
@@ -244,20 +250,22 @@ async def run_sweep(
     one failing model does not abort the sweep — other models continue.
 
     Args:
-        cases_path: Path to query_cases.json; cases missing schema keys are skipped.
-        vault_path: Path to source vault (copied per run via EvalWorktree).
-        model_ids:  List of Bedrock model IDs to sweep over.
+        cases_path:     Path to query_cases.json; cases missing schema keys are skipped.
+        workspace_path: Path to the source workspace root; the wiki is derived
+                        internally via wiki_dir(workspace_path) (D-01/D-09).
+        model_ids:      List of Bedrock model IDs to sweep over.
 
     Returns:
         List of SweepResult (one per (model_id, case) pair that was attempted).
     """
     cases = _load_and_validate_cases(cases_path)
+    wiki = wiki_dir(workspace_path)
 
     async def _run_one(model_id: str, case: dict) -> SweepResult:
         safe_model_id = _sanitize_model_id(model_id)
         query = case["query"]
 
-        async with EvalWorktree(vault_path) as wt:
+        async with EvalWorktree(wiki) as wt:
             t0 = time.monotonic()
             try:
                 result: QueryResult = await run_query(
@@ -362,7 +370,7 @@ async def _sweep_query_role(
     role: str,
     candidate_model_id: str,
     case: dict,
-    vault_path: Path,
+    workspace_path: Path,
 ) -> tuple[QueryResult, str]:
     """Run a query sweep cell for librarian/synthesizer/code_reader.
 
@@ -374,7 +382,7 @@ async def _sweep_query_role(
     """
     result: QueryResult = await run_query(
         case["query"],
-        workspace_path=vault_path,
+        workspace_path=workspace_path,
         role_model_overrides={role: candidate_model_id},
     )
     return result, result.answer
@@ -384,7 +392,7 @@ async def _sweep_scan_role(
     role: str,
     candidate_model_id: str,
     case: dict,
-    vault_path: Path,
+    workspace_path: Path,
 ) -> tuple[object, str]:
     """Run a scan sweep cell for the scanner role.
 
@@ -392,7 +400,7 @@ async def _sweep_scan_role(
         role:               Must be "scanner".
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict (query key used for the answer stub).
-        vault_path:         Vault root for the isolated worktree.
+        workspace_path:     Workspace root for the isolated worktree.
 
     Returns:
         (ScanResult, summary_string) tuple.
@@ -400,7 +408,7 @@ async def _sweep_scan_role(
     from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
-        workspace_path=vault_path,
+        workspace_path=workspace_path,
         model_override=candidate_model_id,
     )
     # Produce a short summary string for structural checks
@@ -414,7 +422,7 @@ async def _sweep_lint_role(
     role: str,
     candidate_model_id: str,
     case: dict,
-    vault_path: Path,
+    workspace_path: Path,
 ) -> tuple[object, str]:
     """Run a lint sweep cell for the linter role.
 
@@ -422,13 +430,13 @@ async def _sweep_lint_role(
         role:               Must be "linter".
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict (unused for lint).
-        vault_path:         Vault root for the isolated worktree.
+        workspace_path:     Workspace root for the isolated worktree.
 
     Returns:
         (LintResult, summary_string) tuple.
     """
     result = await run_lint(
-        workspace_path=vault_path,
+        workspace_path=workspace_path,
         model_override=candidate_model_id,
     )
     summary = f"lint: orphans={result.orphans} errors={result.errors}"
@@ -439,20 +447,20 @@ async def _sweep_ingest_role(
     role: str,
     candidate_model_id: str,
     case: dict,
-    vault_path: Path,
+    workspace_path: Path,
 ) -> tuple[object, str]:
     """Run an ingest sweep cell for the ingestor role.
 
     The case dict may provide a ``source_path`` key pointing to a source file to
-    ingest.  When absent, a representative Python source file within the vault
-    sibling directory is used as a synthetic target so token counts are still
-    captured.  See module docstring for the fixture convention.
+    ingest.  When absent, the workspace's wiki dir is used as a synthetic target
+    so token counts are still captured.  See module docstring for the fixture
+    convention.
 
     Args:
         role:               Must be "ingestor".
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict — ``source_path`` key is optional.
-        vault_path:         Vault root for the isolated worktree.
+        workspace_path:     Workspace root for the isolated worktree.
 
     Returns:
         (IngestResult, summary_string) tuple.
@@ -460,12 +468,12 @@ async def _sweep_ingest_role(
     if "source_path" in case:
         source_path = Path(case["source_path"])
     else:
-        # Fallback: use vault_path itself as source (the ingestor accepts any Path).
-        source_path = vault_path
+        # Fallback: use the wiki dir as source (the ingestor accepts any Path).
+        source_path = wiki_dir(workspace_path)
 
     result = await run_ingest_source(
         source_path=source_path,
-        workspace_path=vault_path,
+        workspace_path=workspace_path,
         model_override=candidate_model_id,
     )
     summary = f"ingest: page_path={result.page_path} status={result.status}"
@@ -476,7 +484,7 @@ async def run_role_sweep(
     role: str,
     candidate_model_id: str,
     cases_path: Path,
-    vault_path: Path,
+    workspace_path: Path,
     repeats: int = 3,
     semaphore: asyncio.Semaphore | None = None,
 ) -> list[SweepResult]:
@@ -485,7 +493,7 @@ async def run_role_sweep(
     For each (case, repeat_idx) pair:
     - Acquires the shared semaphore (default: Semaphore(8)) to throttle Bedrock
       rate limits (Pitfall 4).
-    - Opens an EvalWorktree for vault isolation.
+    - Opens an EvalWorktree for wiki isolation.
     - Dispatches to the appropriate command function via ROLE_COMMAND_MAP.
     - Extracts tokens from the trace JSONL and computes cost.
     - Produces a SweepResult per run.
@@ -501,7 +509,9 @@ async def run_role_sweep(
         role:               Role name (must be a key in ROLE_COMMAND_MAP).
         candidate_model_id: Bedrock model ID for the role under test.
         cases_path:         Path to query_cases.json (schema validated per T-4-01).
-        vault_path:         Path to the source vault (copied per cell via EvalWorktree).
+        workspace_path:     Path to the source workspace root; the wiki is
+                            derived via wiki_dir(workspace_path) (D-01/D-09)
+                            and copied per cell via EvalWorktree.
         repeats:            Number of repeat runs per case (default 3).
         semaphore:          Optional caller-provided semaphore.  When None, a fresh
                             Semaphore(8) is created per call (Pitfall 4).
@@ -518,6 +528,7 @@ async def run_role_sweep(
     cases = _load_and_validate_cases(cases_path)
     safe_model_id = _sanitize_model_id(candidate_model_id)
     dispatch_name = ROLE_COMMAND_MAP[role]
+    wiki = wiki_dir(workspace_path)
 
     # Map dispatch name string to actual function (module-level callables)
     _dispatch: dict[str, object] = {
@@ -531,7 +542,7 @@ async def run_role_sweep(
     async def _run_role_one(case: dict, repeat_idx: int) -> SweepResult:
         query = case["query"]
         async with sem:
-            async with EvalWorktree(vault_path) as wt:
+            async with EvalWorktree(wiki) as wt:
                 t0 = time.monotonic()
                 bucket: list = []
                 token = _USAGE_CAPTURE.set(bucket)
@@ -705,7 +716,7 @@ def _panel_mean_for_candidate(
 
 async def run_full_matrix(
     role_candidates: dict[str, list[str]],
-    vault_path: Path,
+    workspace_path: Path,
     query_cases_path: Path,
     code_reader_cases_path: Path,
     ingestor_source_path: Path,
@@ -733,7 +744,8 @@ async def run_full_matrix(
 
     Args:
         role_candidates:          mapping role -> [candidate model_ids]
-        vault_path:               source vault (copied per cell by EvalWorktree)
+        workspace_path:           source workspace root (wiki copied per cell by
+                                  EvalWorktree via wiki_dir(workspace_path))
         query_cases_path:         JSON cases for query-style roles
         code_reader_cases_path:   JSON cases for the code_reader role (D-09)
         ingestor_source_path:     single source file the ingestor should ingest
@@ -784,7 +796,7 @@ async def run_full_matrix(
                 [
                     {
                         "query": f"ingest {ingestor_source_path.name}",
-                        "expected_answer": "ingestor produces a vault page",
+                        "expected_answer": "ingestor produces a wiki page",
                         "source_path": str(ingestor_source_path),
                         "case_id": "ingestor-01",
                     }
@@ -803,7 +815,7 @@ async def run_full_matrix(
                 if dry_run:
                     continue
                 cell_results = await run_role_sweep(
-                    role, candidate, cases_path, vault_path, repeats=repeats
+                    role, candidate, cases_path, workspace_path, repeats=repeats
                 )
                 role_results.extend(cell_results)
             all_results[role] = role_results

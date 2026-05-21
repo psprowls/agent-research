@@ -37,7 +37,7 @@ def _is_sentinel_only(text: str) -> bool:
     return text.strip() == _SENTINEL
 
 
-def _check_sentinel_or_path_line(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_sentinel_or_path_line(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-001 (hard): Output is either the bare sentinel OR contains at least one
     `path:line` annotation.
 
@@ -54,7 +54,7 @@ def _check_sentinel_or_path_line(output: AgentOutputProxy, vault: Path) -> Verdi
     )
 
 
-def _check_no_wikilinks(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-002 (hard): code_reader never emits `[[wikilinks]]` — that is the
     synthesizer's job. Wikilinks here indicate the agent confused its role.
 
@@ -69,7 +69,7 @@ def _check_no_wikilinks(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_code_wiki_prefix(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_code_wiki_prefix(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-003 (hard): Output does not cite anything inside `.graph-wiki/` —
     the tool refuses such reads, so any such citation is invented.
 
@@ -83,7 +83,7 @@ def _check_no_code_wiki_prefix(output: AgentOutputProxy, vault: Path) -> Verdict
     return Verdict(passed=True, excerpt="")
 
 
-def _check_sentinel_is_bare(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_sentinel_is_bare(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """CR-004 (soft): When the sentinel appears, it appears alone (no
     surrounding prose). The orchestrator filters on the bare sentinel; extras
     break that filter.

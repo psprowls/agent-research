@@ -3,7 +3,7 @@
 Security (T-06-15): All check callables use regex and string operations only.
 No eval/exec of LLM-generated text.
 Security (T-06-16): Wikilink resolution delegates to resolve_citation, which
-uses vault_path.glob() anchored to the vault root — no path traversal.
+uses wiki.glob() anchored to the wiki root — no path traversal.
 """
 
 from __future__ import annotations
@@ -12,7 +12,24 @@ import re
 from pathlib import Path
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Verdict
-from eval_harness.structural import resolve_citation as _resolve_citation
+
+
+def _resolve_in_wiki(slug: str, wiki: Path) -> Path | None:
+    """Resolve a citation slug against the wiki dir directly (D-03 layer).
+
+    Mirrors eval_harness.structural._resolve_citation's resolution order but
+    takes the wiki dir as a bare param (no workspace derivation). Divergence
+    helpers operate inside an EvalWorktree where only the wiki path is
+    available — there is no workspace concept at this layer.
+    """
+    exact = wiki / f"{slug}.md"
+    if exact.exists():
+        return exact
+    base = Path(slug).name
+    matches = list(wiki.glob(f"**/{base}.md"))
+    if matches:
+        return matches[0]
+    return None
 
 # Matches [[any content]] wikilinks.
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
@@ -30,18 +47,18 @@ _BARE_CODE_PATH_RE = re.compile(
 _BACKTICK_CODE_RE = re.compile(r"`[^`]+:[0-9]+(?:-[0-9]+)?`")
 
 
-def _check_wikilink_resolves(output: AgentOutputProxy, vault: Path) -> Verdict:
-    """LIB-001: Every [[wikilink]] in the answer resolves to an .md file in the vault."""
+def _check_wikilink_resolves(output: AgentOutputProxy, wiki: Path) -> Verdict:
+    """LIB-001: Every [[wikilink]] in the answer resolves to an .md file in the wiki."""
     links = _WIKILINK_RE.findall(output.answer)
     if not links:
         return Verdict(passed=True, excerpt="")
-    unresolved = [lnk for lnk in links if _resolve_citation(lnk, vault) is None]
+    unresolved = [lnk for lnk in links if _resolve_in_wiki(lnk, wiki) is None]
     if unresolved:
         return Verdict(passed=False, excerpt=f"Unresolved: {unresolved[0]}")
     return Verdict(passed=True, excerpt="")
 
 
-def _check_citation_present(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_citation_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LIB-002: Answer contains at least one citation (wikilink or backtick code path)."""
     has_wikilink = bool(_WIKILINK_RE.search(output.answer))
     has_code_path = bool(_BACKTICK_CODE_RE.search(output.answer))
@@ -50,7 +67,7 @@ def _check_citation_present(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_slug_only_wikilinks(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_slug_only_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LIB-003: No wikilinks of the form [[PackageName]] without a path prefix."""
     links = _WIKILINK_RE.findall(output.answer)
     for lnk in links:
@@ -61,7 +78,7 @@ def _check_no_slug_only_wikilinks(output: AgentOutputProxy, vault: Path) -> Verd
     return Verdict(passed=True, excerpt="")
 
 
-def _check_code_path_format(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_code_path_format(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LIB-004 (soft): Code paths should be cited as `path:line`, not bare text."""
     match = _BARE_CODE_PATH_RE.search(output.answer)
     if match:

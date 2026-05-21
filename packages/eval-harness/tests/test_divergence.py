@@ -71,14 +71,14 @@ def _current_agent_commit() -> str:
 @pytest.mark.parametrize("role", ["librarian", "ingestor", "linter", "scanner"])
 def test_divergence_regression(
     role: str,
-    fixture_vault_path: Path,
+    fixture_wiki_path: Path,
     accept_baseline: bool,
     capsys: pytest.CaptureFixture,
 ) -> None:
     """Full divergence eval pipeline passes without hard-severity regressions.
 
     Requires GRAPH_WIKI_RUN_EVAL=1 and a live Bedrock connection. Uses
-    fixture_vault_path from conftest.py and accept_baseline from the
+    fixture_wiki_path from conftest.py and accept_baseline from the
     --accept-divergence-baseline CLI option.
 
     When accept_baseline=True: writes current results to
@@ -90,14 +90,14 @@ def test_divergence_regression(
     visible under `pytest -s`) when there is no regression.
     """
     # Produce real agent outputs for this role via the fixture corpus
-    outputs = _produce_outputs(role, fixture_vault_path)
+    outputs = _produce_outputs(role, fixture_wiki_path)
 
     # Build and run the DivergenceMetric (programmatic + judge passes)
     metric = DivergenceMetric(
         role=role,
         checks=ROLE_CHECKS[role],
         rubric_path=ROLE_RUBRICS[role],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     results = metric.run(outputs)
 

@@ -111,7 +111,7 @@ def test_role_command_map_non_query_roles() -> None:
     assert ROLE_COMMAND_MAP["ingestor"] == "_sweep_ingest_role"
 
 
-async def test_role_sweep_calls_dispatch_map(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_role_sweep_calls_dispatch_map(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_role_sweep uses ROLE_COMMAND_MAP to route each role to the correct command."""
     cases_path = _make_cases_file(tmp_path)
 
@@ -122,7 +122,7 @@ async def test_role_sweep_calls_dispatch_map(tmp_path: Path, fixture_vault_path:
             "scanner",
             "us.amazon.nova-lite-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -131,7 +131,7 @@ async def test_role_sweep_calls_dispatch_map(tmp_path: Path, fixture_vault_path:
     assert results[0].model_id == "us.amazon.nova-lite-v1:0"
 
 
-async def test_single_role_swap_librarian(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_single_role_swap_librarian(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Sweeping librarian role passes role_model_overrides={"librarian": candidate}
     to run_query; all other roles use defaults."""
     cases_path = _make_cases_file(tmp_path)
@@ -146,7 +146,7 @@ async def test_single_role_swap_librarian(tmp_path: Path, fixture_vault_path: Pa
             "librarian",
             "us.amazon.nova-pro-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -160,7 +160,7 @@ async def test_single_role_swap_librarian(tmp_path: Path, fixture_vault_path: Pa
     assert "scanner" not in overrides
 
 
-async def test_single_role_swap_scanner(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_single_role_swap_scanner(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Sweeping scanner role calls run_scan with model_override=candidate."""
     cases_path = _make_cases_file(tmp_path)
     captured_kwargs: dict = {}
@@ -174,7 +174,7 @@ async def test_single_role_swap_scanner(tmp_path: Path, fixture_vault_path: Path
             "scanner",
             "us.amazon.nova-micro-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -184,7 +184,7 @@ async def test_single_role_swap_scanner(tmp_path: Path, fixture_vault_path: Path
     )
 
 
-async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_role_sweep can be called with candidates read from load_role_config."""
     from model_adapter.loader import load_role_config
 
@@ -205,7 +205,7 @@ async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_va
             "librarian",
             model_id,
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -213,7 +213,7 @@ async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_va
     assert results[0].model_id == model_id
 
 
-async def test_role_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_role_sweep_partial_failure(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Partial-failure isolation: one cell exception produces error SweepResult, not abort."""
     cases = [
         {"case_id": "c-01", "query": "q1", "expected_answer": "a1", "tags": []},
@@ -234,7 +234,7 @@ async def test_role_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Pa
             "librarian",
             "us.amazon.nova-lite-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -244,7 +244,7 @@ async def test_role_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Pa
     assert "error" in statuses
 
 
-async def test_role_sweep_semaphore_throttle(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_role_sweep_semaphore_throttle(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_role_sweep accepts an external semaphore for rate-limit throttling (Pitfall 4)."""
     import asyncio
 
@@ -256,7 +256,7 @@ async def test_role_sweep_semaphore_throttle(tmp_path: Path, fixture_vault_path:
             "librarian",
             "us.amazon.nova-lite-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
             semaphore=external_sem,
         )
@@ -264,7 +264,7 @@ async def test_role_sweep_semaphore_throttle(tmp_path: Path, fixture_vault_path:
     assert len(results) == 1
 
 
-async def test_role_sweep_sanitizes_model_id(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_role_sweep_sanitizes_model_id(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """SweepResult.safe_model_id has colon replaced with underscore."""
     cases_path = _make_cases_file(tmp_path)
 
@@ -273,7 +273,7 @@ async def test_role_sweep_sanitizes_model_id(tmp_path: Path, fixture_vault_path:
             "librarian",
             "us.amazon.nova-pro-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=1,
         )
 
@@ -281,7 +281,7 @@ async def test_role_sweep_sanitizes_model_id(tmp_path: Path, fixture_vault_path:
     assert results[0].safe_model_id == "us.amazon.nova-pro-v1_0"
 
 
-async def test_role_sweep_repeats(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_role_sweep_repeats(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_role_sweep with repeats=3 returns 3 SweepResult entries for 1 case."""
     cases_path = _make_cases_file(tmp_path)
 
@@ -290,7 +290,7 @@ async def test_role_sweep_repeats(tmp_path: Path, fixture_vault_path: Path) -> N
             "librarian",
             "us.amazon.nova-lite-v1:0",
             cases_path,
-            fixture_vault_path,
+            fixture_workspace_path,
             repeats=3,
         )
 

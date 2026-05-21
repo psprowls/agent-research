@@ -19,7 +19,7 @@ _REQUIRED_FIELDS = ["title", "category", "page_type", "target_slug", "summary"]
 _VALID_PAGE_TYPES = {"package", "concept", "adr", "source"}
 
 
-def _check_frontmatter_present(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_frontmatter_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """ING-001: LLM output contains --- delimited YAML frontmatter."""
     text = output.answer
     if not text.startswith("---"):
@@ -31,7 +31,7 @@ def _check_frontmatter_present(output: AgentOutputProxy, vault: Path) -> Verdict
     return Verdict(passed=True, excerpt="")
 
 
-def _check_required_fields(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_required_fields(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """ING-002: title, category, page_type, target_slug, summary all present."""
     try:
         post = frontmatter.loads(output.answer)
@@ -43,7 +43,7 @@ def _check_required_fields(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_page_type_routing(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_page_type_routing(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """ING-003: page_type is one of: package, concept, adr, source."""
     try:
         post = frontmatter.loads(output.answer)
@@ -60,7 +60,7 @@ def _check_page_type_routing(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_page_type_valid_category(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_page_type_valid_category(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """ING-004: category matches page_type (e.g. page_type:source -> category:source)."""
     try:
         post = frontmatter.loads(output.answer)

@@ -29,7 +29,7 @@ _VAULT_THIN_PHRASES_RE = re.compile(
 )
 
 
-def _check_citation_present(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_citation_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SYN-001 (hard): Answer contains at least one citation (wikilink or
     backtick-wrapped `path:line`).
 
@@ -43,7 +43,7 @@ def _check_citation_present(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=False, excerpt="No wikilink or `path:line` citation in answer")
 
 
-def _check_no_slug_only_wikilinks(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_slug_only_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SYN-002 (hard): No wikilinks of the form [[PackageName]] without a path prefix.
 
     Anchors packages/prompt-sources/agents/synthesizer.md#rules (rule 2).
@@ -58,7 +58,7 @@ def _check_no_slug_only_wikilinks(output: AgentOutputProxy, vault: Path) -> Verd
 
 
 def _check_no_path_line_promoted_to_wikilink(
-    output: AgentOutputProxy, vault: Path
+    output: AgentOutputProxy, wiki: Path
 ) -> Verdict:
     """SYN-003 (hard): A `path:line` reference inside `[[...]]` brackets is a
     promotion error — code citations must remain `` `path:line` ``, not wikilinks.
@@ -75,7 +75,7 @@ def _check_no_path_line_promoted_to_wikilink(
 
 
 def _check_vault_thin_acknowledgement(
-    output: AgentOutputProxy, vault: Path
+    output: AgentOutputProxy, wiki: Path
 ) -> Verdict:
     """SYN-004 (soft): When the answer is short and emits no wikilink citations,
     it likely needs an explicit vault-thinness acknowledgement.

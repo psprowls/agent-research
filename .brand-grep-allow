@@ -327,6 +327,8 @@ packages/eval-harness/tests/test_scanner_regression.py
 .planning/phases/22-workspace-api-internal-rename/
 # rationale: Phase 23 archive — CONTEXT / PATTERNS / PLAN docs reference upstream lattice naming + the script's own brand-gate regex.
 .planning/phases/23-workspace-api-external-rename/
+# rationale: Phase 24 archive — CONTEXT / PLAN docs reference upstream lattice-wiki baseline + the script's own brand-gate regex.
+.planning/phases/24-eval-harness-workspace-rename/
 
 # ---------------------------------------------------------------------------
 # Phase 23 §WSMCP-07 — CHECK 4 carry-forwards. D-03 narrows the gate to the
@@ -334,10 +336,15 @@ packages/eval-harness/tests/test_scanner_regression.py
 # per Phase 22 SUMMARY V8 / Phase 24 deferred (eval-harness), or test
 # scaffolding that intentionally exercises the legacy field name.
 # ---------------------------------------------------------------------------
-# rationale: Phase 24 deferred (CONTEXT.md §Phase 24) — eval-harness `vault_path` sweep across structural / sweep / baseline is out of scope for Phase 23. Sweep will land in Phase 24 (eval-harness-workspace-rename).
-packages/eval-harness/src/eval_harness/structural.py
-packages/eval-harness/src/eval_harness/sweep.py
-packages/eval-harness/src/eval_harness/baseline.py
+# rationale: Phase 24 shipped — eval-harness `vault_path` sweep across
+# structural / sweep / baseline completed (`vault_path` → `workspace_path`,
+# `_vault_content_hash` → `_wiki_content_hash`, `--vault` → `--workspace`).
+# The structural.py and sweep.py allowlist entries are removed; baseline.py
+# remains allowlisted under R-02 (recorded `lattice-evals` provenance, not WSMCP-07).
+# rationale: R-02 (extension carry-over for baseline.py only) — baseline.py still
+# contains `lattice-evals` literals naming the recorded provenance of ported
+# eval-runner code; the file no longer contains `vault_path` / `--vault` after
+# Phase 24, but its R-02 allowlist stays intact (already declared on lines 40-42).
 # rationale: Phase 22 SUMMARY V8 — `WikiConfig.vault_path` dataclass field on a separate plugin config object explicitly OOS of the Phase 22/23 MCP+CLI rename surface; rename-direction is post-v1.4 milestone.
 agents/graph-wiki-agent/src/graph_wiki_agent/config.py
 # rationale: Phase 22 SUMMARY V8 — `commands/query.py` private helpers / function-param `vault_path: Path` are OOS of the Phase 22/23 external rename (param annotation, not Pydantic Field).

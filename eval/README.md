@@ -36,9 +36,11 @@ reproducible oracle.
 3. **AWS credentials configured** — Bedrock access is required for the full eval sweep
    (Plans 02-03), but baseline recording uses the claude CLI which uses its own auth.
 
-4. **Vault path available** — point `--vault` at a local checkout of the vault you want
-   to eval against. The round-trip test fixture at
-   `packages/vault-io/tests/fixtures/round-trip-vault/` can be used for CI.
+4. **Workspace path available** — point `--workspace` at a local workspace whose
+   `wiki/` subdir contains the wiki you want to eval against. The round-trip
+   test fixture at `packages/vault-io/tests/fixtures/round-trip-vault/` can be
+   used for CI (it is laid out as a wiki dir; wrap it under `<tmp>/wiki` to
+   form a synthetic workspace, or symlink).
 
 ### Command
 
@@ -47,7 +49,7 @@ Run a full baseline recording (records one JSON file per case in `eval/baselines
 ```bash
 GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
-  --vault <path-to-vault> \
+  --workspace <path-to-workspace> \
   --out eval/baselines/
 ```
 
@@ -56,7 +58,7 @@ With an explicit plugin directory:
 ```bash
 GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
-  --vault <path-to-vault> \
+  --workspace <path-to-workspace> \
   --out eval/baselines/ \
   --plugin-dir /path/to/lattice-wiki/plugin
 ```
@@ -66,7 +68,7 @@ With a non-default model ARN:
 ```bash
 GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.baseline \
   --cases eval/cases/query_cases.json \
-  --vault <path-to-vault> \
+  --workspace <path-to-workspace> \
   --out eval/baselines/ \
   --model-arn us.anthropic.claude-sonnet-4-6
 ```
@@ -92,7 +94,7 @@ Each file contains the 8 EVAL-08 reproducibility fields:
   "answer": "lattice-wiki-core provides the core wiki maintenance logic...",
   "model_arn": "us.anthropic.claude-sonnet-4-6",
   "prompt_hash": "abc123...64-char-sha256-hex...",
-  "vault_content_hash": "def456...64-char-sha256-hex...",
+  "wiki_content_hash": "def456...64-char-sha256-hex...",
   "timestamp_utc": "2026-05-14T12:00:00+00:00",
   "seed": null
 }
@@ -100,8 +102,8 @@ Each file contains the 8 EVAL-08 reproducibility fields:
 
 **Note:** `seed` is always `null` in baselines. The `claude` CLI does not expose
 a seed parameter, so baseline runs are not deterministically reproducible at the
-token level. The `prompt_hash` and `vault_content_hash` fields together identify
-the recording conditions (same prompt text + same vault content = same oracle
+token level. The `prompt_hash` and `wiki_content_hash` fields together identify
+the recording conditions (same prompt text + same wiki content = same oracle
 population).
 
 ---

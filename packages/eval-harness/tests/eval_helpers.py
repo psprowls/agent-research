@@ -9,7 +9,7 @@ module (which is fragile and does not work reliably across pytest versions).
 
 Public API:
     EVAL_GATE     — pytest.mark.skipif decorator gating eval tests.
-    produce_outputs(role, vault) — produce agent outputs for the given role.
+    produce_outputs(role, wiki) — produce agent outputs for the given role.
 """
 
 import asyncio
@@ -44,7 +44,7 @@ _QUERY_CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
 
 def produce_outputs(
     role: str,
-    vault: Path,
+    wiki: Path,
 ) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Produce agent outputs for the given role against the fixture corpus.
 
@@ -54,17 +54,17 @@ def produce_outputs(
     The triple matches DivergenceMetric.run() expected input shape.
 
     Args:
-        role:  One of "librarian", "ingestor", "linter", "scanner".
-        vault: Path to the round-trip-vault fixture (fixture_vault_path).
+        role: One of "librarian", "ingestor", "linter", "scanner".
+        wiki: Path to the round-trip-vault wiki fixture (fixture_wiki_path).
 
     Corpus assumptions (per EVAL plan):
         - librarian: eval/cases/query_cases.json in the workspace root.
           Missing → pytest.skip with path.
-        - ingestor:  .md files from vault/packages/* or vault/concepts/*.
-          Uses existing vault pages as "source documents" to re-ingest.
+        - ingestor:  .md files from wiki/packages/* or wiki/concepts/*.
+          Uses existing wiki pages as "source documents" to re-ingest.
           Missing → pytest.skip with path.
-        - linter:    The round-trip-vault itself (passed as vault arg).
-          Missing → pytest.skip (vault check already done in fixture_vault_path).
+        - linter:    The round-trip-vault itself (passed as wiki arg).
+          Missing → pytest.skip (wiki check already done in fixture_wiki_path).
         - scanner:   Uses the eval-harness package dir itself as the "monorepo"
           (packages/eval-harness) since it's a real Python package with pyproject.toml.
           Missing → pytest.skip with path.
@@ -80,13 +80,13 @@ def produce_outputs(
         pytest.skip("GRAPH_WIKI_RUN_EVAL=1 required to produce agent outputs")
 
     if role == "librarian":
-        return _produce_librarian_outputs(vault)
+        return _produce_librarian_outputs(wiki)
     elif role == "ingestor":
-        return _produce_ingestor_outputs(vault)
+        return _produce_ingestor_outputs(wiki)
     elif role == "linter":
-        return _produce_linter_outputs(vault)
+        return _produce_linter_outputs(wiki)
     elif role == "scanner":
-        return _produce_scanner_outputs(vault)
+        return _produce_scanner_outputs(wiki)
     else:
         pytest.skip(f"Unknown role: {role}; no output producer implemented")
 
@@ -96,7 +96,7 @@ def produce_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _produce_librarian_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_librarian_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run query command against eval query cases and return outputs.
 
     Corpus: eval/cases/query_cases.json (loaded from workspace root).
@@ -123,27 +123,27 @@ def _produce_librarian_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy
     for case in valid:
         query = case["query"]
         case_id = str(case.get("case_id", query[:30]))
-        result = asyncio.run(run_query(query, vault_path=vault))
+        result = asyncio.run(run_query(query, workspace_path=wiki))
         outputs.append((case_id, AgentOutputProxy(answer=result.answer), query))
 
     return outputs
 
 
-def _produce_ingestor_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
-    """Run ingest command against existing vault pages as source documents.
+def _produce_ingestor_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+    """Run ingest command against existing wiki pages as source documents.
 
-    Corpus: up to 2 .md files from vault/packages/*/  or vault/concepts/*.
+    Corpus: up to 2 .md files from wiki/packages/*/ or wiki/concepts/*.
     Uses run_ingest_source() so the LLM processes real source content.
     The "query" slot (third tuple element) is the source file path string.
 
-    Corpus path: {vault}/packages/**/*.md or {vault}/concepts/*.md
+    Corpus path: {wiki}/packages/**/*.md or {wiki}/concepts/*.md
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
 
-    # Collect candidate source files from the vault fixture itself
+    # Collect candidate source files from the wiki fixture itself
     candidates: list[Path] = []
     for subdir in ("packages", "concepts"):
-        subdir_path = vault / subdir
+        subdir_path = wiki / subdir
         if subdir_path.exists():
             for md in sorted(subdir_path.rglob("*.md")):
                 if md.name not in {"index.md", "log.md"}:
@@ -153,8 +153,8 @@ def _produce_ingestor_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy,
 
     if not candidates:
         pytest.skip(
-            f"ingestor corpus not found: no .md files under {vault}/packages/ or "
-            f"{vault}/concepts/; add source documents for ingest eval."
+            f"ingestor corpus not found: no .md files under {wiki}/packages/ or "
+            f"{wiki}/concepts/; add source documents for ingest eval."
         )
 
     from graph_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
@@ -162,10 +162,10 @@ def _produce_ingestor_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy,
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for source_path in candidates[:2]:
         fixture_id = f"ingest:{source_path.name}"
-        result = asyncio.run(run_ingest_source(source_path, vault_path=vault))
-        # LLM output is the full page text written to vault.
+        result = asyncio.run(run_ingest_source(source_path, workspace_path=wiki))
+        # LLM output is the full page text written to the wiki.
         # Read it back to get the raw LLM content for divergence checks.
-        written_path = vault / result.page_path
+        written_path = wiki / result.page_path
         if written_path.exists():
             answer = written_path.read_text(encoding="utf-8")
         else:
@@ -181,17 +181,17 @@ def _produce_ingestor_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy,
     return outputs
 
 
-def _produce_linter_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_linter_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run lint command against the round-trip-vault and return per-group outputs.
 
-    Corpus: the round-trip-vault fixture (vault arg).
+    Corpus: the round-trip-vault fixture (wiki arg).
     Returns one output per semantic group (page_quality, adr_chain, stale_claims).
     The "query" slot is the group name.
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
     from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
 
-    result = asyncio.run(run_lint(vault_path=vault))
+    result = asyncio.run(run_lint(workspace_path=wiki))
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for group in ("page_quality", "adr_chain", "stale_claims"):
@@ -207,18 +207,18 @@ def _produce_linter_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, s
 
     if not outputs:
         pytest.skip(
-            f"linter corpus produced no outputs from vault {vault}; "
+            f"linter corpus produced no outputs from wiki {wiki}; "
             "check that semantic findings are reachable."
         )
 
     return outputs
 
 
-def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_scanner_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run scan command against the eval-harness package as the monorepo.
 
     Corpus: packages/eval-harness/ (a real Python uv workspace member).
-    vault is treated as the scanner's wiki destination.
+    wiki is treated as the scanner's wiki destination.
     The "query" slot is the package name.
 
     Passes repo_path=packages/eval-harness explicitly so workspace discovery
@@ -238,14 +238,14 @@ def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, 
 
     # repo_path override (Plan 06-15 / UAT G5): point the scanner at the
     # eval-harness package as a known-good uv workspace member so it has
-    # something to discover, regardless of pytest cwd or vault layout.
-    result = asyncio.run(run_scan(vault_path=vault, repo_path=eval_harness_dir))
+    # something to discover, regardless of pytest cwd or wiki layout.
+    result = asyncio.run(run_scan(workspace_path=wiki, repo_path=eval_harness_dir))
 
     # Collect the stub pages written for any added or updated packages
     added_or_updated = result.added + result.updated
     if not added_or_updated:
         pytest.skip(
-            f"scanner produced no added/updated stubs against vault {vault} "
+            f"scanner produced no added/updated stubs against wiki {wiki} "
             f"using repo_path={eval_harness_dir}; "
             "this is unexpected post-Plan-06-15 — discover_workspaces should find "
             "the eval-harness workspace and report it as 'new' (no existing page)."
@@ -253,13 +253,13 @@ def _produce_scanner_outputs(vault: Path) -> "list[tuple[str, AgentOutputProxy, 
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for pkg_name in added_or_updated:
-        # Read the written stub page back from the vault
-        stub_path = vault / "packages" / pkg_name / f"{pkg_name}.md"
+        # Read the written stub page back from the wiki
+        stub_path = wiki / "packages" / pkg_name / f"{pkg_name}.md"
         if stub_path.exists():
             stub_text = stub_path.read_text(encoding="utf-8")
         else:
             # Try flat path
-            stub_path = vault / f"packages/{pkg_name}.md"
+            stub_path = wiki / f"packages/{pkg_name}.md"
             stub_text = stub_path.read_text(encoding="utf-8") if stub_path.exists() else ""
         if stub_text:
             outputs.append(

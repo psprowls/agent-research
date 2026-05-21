@@ -11,7 +11,7 @@ dropped (lattice-wiki-specific, not needed in eval-harness):
   - simulator_* fields from RunResult
 
 New additions (specific to eval-harness):
-  - _vault_content_hash(): stable hash of all .md files in the vault
+  - _wiki_content_hash(): stable hash of all .md files in the wiki
   - _prompt_hash(): sha256 of (case_id, query, system_prompt)
   - BaselineRecorder: loads cases JSON, records one snapshot per case
 
@@ -22,7 +22,7 @@ command list (cmd.append(prompt)), never interpolated into a shell string.
 Security (T-4-01): case_id is sanitized before use as a filename component
 via re.sub(r"[^a-zA-Z0-9._-]", "_", case_id).
 
-Security (T-4-05): vault_path is caller-provided and is not user-input;
+Security (T-4-05): workspace_path is caller-provided and is not user-input;
 case_id sanitization is the only filename-construction security control.
 """
 
@@ -36,6 +36,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from workspace_io.paths import wiki_dir
 
 from eval_harness.isolation import EvalWorktree
 
@@ -238,14 +240,14 @@ def _prompt_hash(case_id: str, query: str, system_prompt: str) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _vault_content_hash(vault_path: Path) -> str:
-    """Stable sha256 of all .md files in the vault.
+def _wiki_content_hash(wiki: Path) -> str:
+    """Stable sha256 of all .md files in the wiki.
 
     Collects all .md files recursively, sorts by path string for
     determinism, then computes sha256 over their concatenated content
     hashes. Returns hex digest.
     """
-    md_files = sorted(vault_path.rglob("*.md"), key=lambda p: str(p))
+    md_files = sorted(wiki.rglob("*.md"), key=lambda p: str(p))
     h = hashlib.sha256()
     for f in md_files:
         try:
@@ -267,7 +269,7 @@ class BaselineRecorder:
     """Records baseline snapshots for each eval case.
 
     Loads cases from cases_path (JSON array), runs claude -p in a temporary
-    EvalWorktree copy of the vault, and writes one baseline JSON per case
+    EvalWorktree copy of the wiki, and writes one baseline JSON per case
     to baselines_dir.
 
     Baseline JSON schema (EVAL-08 reproducibility fields):
@@ -276,7 +278,7 @@ class BaselineRecorder:
         answer             str    - concatenated assistant text
         model_arn          str    - Bedrock model ARN used for recording
         prompt_hash        str    - sha256 of (case_id, query, system_prompt)
-        vault_content_hash str    - sha256 of sorted md5s of all .md files
+        wiki_content_hash  str    - sha256 of sorted md5s of all .md files in the wiki
         timestamp_utc      str    - ISO 8601 timestamp of the recording
         seed               None   - always None; claude CLI has no seed param
     """
@@ -284,7 +286,7 @@ class BaselineRecorder:
     def __init__(
         self,
         cases_path: Path,
-        vault_path: Path,
+        workspace_path: Path,
         baselines_dir: Path,
         *,
         plugin_dirs: list[Path] | None = None,
@@ -292,7 +294,7 @@ class BaselineRecorder:
         system_prompt: str = EVAL_SYSTEM_PROMPT_QA,
     ) -> None:
         self._cases_path = cases_path
-        self._vault_path = vault_path
+        self._workspace_path = workspace_path
         self._baselines_dir = baselines_dir
         self._plugin_dirs = plugin_dirs
         self._model_arn = model_arn
@@ -317,7 +319,7 @@ class BaselineRecorder:
             "answer": answer,
             "model_arn": self._model_arn,
             "prompt_hash": _prompt_hash(case_id, query, self._system_prompt),
-            "vault_content_hash": _vault_content_hash(self._vault_path),
+            "wiki_content_hash": _wiki_content_hash(wiki_dir(self._workspace_path)),
             "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
             "seed": None,  # claude CLI exposes no seed parameter
         }
@@ -339,7 +341,8 @@ class BaselineRecorder:
             raise ValueError(f"query must be a str, got: {type(case.get('query'))}")
 
         async def _run() -> tuple[RunResult, str]:
-            async with EvalWorktree(self._vault_path) as wt:
+            wiki = wiki_dir(self._workspace_path)
+            async with EvalWorktree(wiki) as wt:
                 assert wt.path is not None
                 return run_headless(
                     prompt=case["query"],
@@ -386,7 +389,7 @@ class BaselineRecorder:
 
 
 def _main() -> None:
-    """CLI: python -m eval_harness.baseline --cases ... --vault ... --out ..."""
+    """CLI: python -m eval_harness.baseline --cases ... --workspace ... --out ..."""
     import argparse
     import os
 
@@ -401,7 +404,7 @@ def _main() -> None:
 
     parser = argparse.ArgumentParser(description="Record eval baselines via claude -p")
     parser.add_argument("--cases", required=True, type=Path, help="Path to query_cases.json")
-    parser.add_argument("--vault", required=True, type=Path, help="Path to the vault directory")
+    parser.add_argument("--workspace", required=True, type=Path, help="Path to the workspace directory")
     parser.add_argument("--out", required=True, type=Path, help="Output directory for baseline JSON files")
     parser.add_argument("--plugin-dir", dest="plugin_dirs", action="append", type=Path, default=[])
     parser.add_argument("--model-arn", default="us.anthropic.claude-sonnet-4-6")
@@ -409,7 +412,7 @@ def _main() -> None:
 
     recorder = BaselineRecorder(
         cases_path=args.cases,
-        vault_path=args.vault,
+        workspace_path=args.workspace,
         baselines_dir=args.out,
         plugin_dirs=args.plugin_dirs or None,
         model_arn=args.model_arn,
