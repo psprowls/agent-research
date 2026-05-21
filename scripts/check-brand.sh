@@ -119,5 +119,22 @@ if [ -n "$HITS5" ]; then
   exit 1
 fi
 
-echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean + BRAND-WSAPI vault_path|--vault|\"vault_path\" + BRAND-WSEVAL vault_path:|vault:|\"--vault\")"
+# CHECK 6 — Phase 26 §D-10 / D-11: ban reintroduction of `packages/prompt-sources`
+# as a path literal anywhere under agents/, packages/, plugins/, scripts/, tests/.
+# Path scope EXCLUDES .planning/ — archived milestones, retrospectives, and phase
+# histories legitimately reference the deleted tree as historical record.
+# Allowlist applies via .brand-grep-allow for any in-scope self-references.
+HITS6=$(grep -rln --exclude-dir=__pycache__ --exclude='*.pyc' -F \
+    'packages/prompt-sources' \
+    agents/ packages/ plugins/ scripts/ tests/ 2>/dev/null \
+    | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
+
+if [ -n "$HITS6" ]; then
+  echo "$HITS6"
+  COUNT6=$(printf '%s\n' "$HITS6" | wc -l | tr -d ' ')
+  echo "BRAND-PROMPT-SOURCES FAIL: ${COUNT6} unallowlisted hits for packages/prompt-sources" >&2
+  exit 1
+fi
+
+echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean + BRAND-WSAPI vault_path|--vault|\"vault_path\" + BRAND-WSEVAL vault_path:|vault:|\"--vault\" + BRAND-PROMPT-SOURCES packages/prompt-sources)"
 exit 0

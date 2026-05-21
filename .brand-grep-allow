@@ -353,3 +353,30 @@ agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
 agents/graph-wiki-agent/tests/unit/test_mcp_schema_forbid_extra.py
 # rationale: round-trip-vault fixture — bm25 vocab + simulated-old-format api.md / concept.md fixtures encode the prior `"vault_path"` JSON shape on purpose (regression-test material). Not in this phase's rename surface; rewriting would invalidate the round-trip test.
 packages/vault-io/tests/fixtures/round-trip-vault/
+
+# ---------------------------------------------------------------------------
+# Phase 26 §D-11 — CHECK 6 (`packages/prompt-sources`) carry-forwards. After
+# the Phase 26 hard-cut deletion of `packages/prompt-sources/`, CHECK 6 bans
+# any reintroduction of the literal path anywhere under agents/, packages/,
+# plugins/, scripts/, tests/. A small number of in-scope files legitimately
+# retain the literal as test/regression-recorded material and are exempted
+# here. .planning/ (historical record) is out of CHECK 6's path scope and
+# requires no allowlist entries.
+# ---------------------------------------------------------------------------
+# rationale: Phase 26 §D-11 — `agents/graph-wiki-agent/tests/prompts/test_provenance.py`
+# contains the literal `packages/prompt-sources/foo.md` inside its
+# `test_disallowed_prefix_rejected` assertion (added in Plan 03). The literal
+# is required to prove the D-08 whitelist gate rejects the deleted-tree
+# prefix. The file is already allowlisted on line 251 above (Phase 21
+# Provenance carry-forward); no additional path entry required — this
+# rationale block exists to record the Phase 26 §D-11 acknowledgement.
+# rationale: Phase 26 §D-11 — `packages/eval-harness/tests/fixtures/post-rebrand-vault/`
+# is a recorded fixture vault from Phase 16 documenting the package layout
+# at the time the baseline was seeded (when `packages/prompt-sources/`
+# existed). The fixture pages (`packages/prompt-sources/prompt-sources.md`,
+# wikilinks in `index.md` and `eval-harness.md`) name the package as
+# recorded test data. Rewriting would invalidate the seeded baseline (R-02
+# class: Test-data — recorded measurement subjects). Pinned baseline list
+# in `test_scanner_regression.py:31-38` still includes `"prompt-sources"`
+# as part of the fixture-vault schema, not as a live package reference.
+packages/eval-harness/tests/fixtures/post-rebrand-vault/
