@@ -9,20 +9,20 @@ tokens: 0
 # {{PACKAGE_TITLE}} — Context
 
 ## Concepts
-- [[concepts/<slug>]]
+- [[wiki/concepts/<slug>]]
 
 ## Decisions
-- [[adrs/<id>-<slug>]]
+- [[wiki/adrs/<id>-<slug>]]
 
 ## Sources
-- [[sources/<YYYY-MM>-<slug>]]
+- [[wiki/sources/<YYYY-MM>-<slug>]]
 
 ## Belongs to domain
-- [[domains/<domain>]]
+- [[wiki/domains/<domain>]]
 
 ## Used by
-- [[packages/<other-package>]]
+- [[wiki/packages/<other-package>]]
 
 ## Related dependencies
-- [[dependencies/<lib>]]
+- [[wiki/dependencies/<lib>]]
 
