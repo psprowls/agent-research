@@ -305,11 +305,16 @@ class BaselineRecorder:
         case: dict[str, Any],
         run_result: RunResult,
         answer: str,
+        wiki_content_hash: str,
     ) -> dict[str, Any]:
         """Build the baseline snapshot dict (all 8 EVAL-08 fields).
 
         Security (T-4-05): case_id is used only as a dict value here, not
         as a filename. Filename sanitization happens in record().
+
+        wiki_content_hash is passed in so it can be computed against the
+        actual EvalWorktree copy (the wiki state the run saw), not the
+        source wiki at snapshot time — see record().
         """
         case_id: str = case["case_id"]
         query: str = case["query"]
@@ -319,7 +324,7 @@ class BaselineRecorder:
             "answer": answer,
             "model_arn": self._model_arn,
             "prompt_hash": _prompt_hash(case_id, query, self._system_prompt),
-            "wiki_content_hash": _wiki_content_hash(wiki_dir(self._workspace_path)),
+            "wiki_content_hash": wiki_content_hash,
             "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
             "seed": None,  # claude CLI exposes no seed parameter
         }
@@ -340,21 +345,27 @@ class BaselineRecorder:
         if not isinstance(case.get("query"), str):
             raise ValueError(f"query must be a str, got: {type(case.get('query'))}")
 
-        async def _run() -> tuple[RunResult, str]:
+        async def _run() -> tuple[RunResult, str, str]:
             wiki = wiki_dir(self._workspace_path)
             async with EvalWorktree(wiki) as wt:
                 assert wt.path is not None
-                return run_headless(
+                run_result_, answer_ = run_headless(
                     prompt=case["query"],
                     worktree_path=wt.path / "wiki",
                     system_prompt=self._system_prompt,
                     plugin_dirs=self._plugin_dirs,
                     model_override=None,
                 )
+                # Hash the worktree wiki (the state that produced the answer)
+                # while the worktree is still mounted. Hashing self._workspace_path
+                # afterwards would race a mutating source vault and break the
+                # EVAL-08 "identifies the recording conditions" claim.
+                wiki_hash_ = _wiki_content_hash(wt.path / "wiki")
+                return run_result_, answer_, wiki_hash_
 
-        run_result, answer = asyncio.run(_run())
+        run_result, answer, wiki_content_hash = asyncio.run(_run())
 
-        snapshot = self._make_snapshot(case, run_result, answer)
+        snapshot = self._make_snapshot(case, run_result, answer, wiki_content_hash)
 
         # T-4-05: sanitize case_id for use as filename
         safe_case_id = re.sub(r"[^a-zA-Z0-9._-]", "_", case["case_id"])

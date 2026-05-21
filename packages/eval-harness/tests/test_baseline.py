@@ -121,7 +121,9 @@ def test_baseline_schema(tmp_path: Path, fixture_workspace_path: Path) -> None:
         wall_seconds=1.5,
         turns=2,
     )
-    snapshot = recorder._make_snapshot(case, run_result, answer="The answer.")
+    snapshot = recorder._make_snapshot(
+        case, run_result, answer="The answer.", wiki_content_hash="deadbeef"
+    )
     required_keys = {
         "case_id",
         "query",
@@ -149,7 +151,9 @@ def test_baseline_seed_is_none(tmp_path: Path, fixture_workspace_path: Path) -> 
         wall_seconds=2.0,
         turns=1,
     )
-    snapshot = recorder._make_snapshot(case, run_result, answer="Another answer.")
+    snapshot = recorder._make_snapshot(
+        case, run_result, answer="Another answer.", wiki_content_hash="deadbeef"
+    )
     assert snapshot["seed"] is None
 
 
