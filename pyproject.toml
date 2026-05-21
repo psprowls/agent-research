@@ -1,6 +1,5 @@
 [tool.uv.workspace]
 members = ["packages/*", "agents/*"]
-exclude = ["packages/prompt-sources"]
 
 [dependency-groups]
 dev = [

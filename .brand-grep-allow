@@ -355,6 +355,28 @@ agents/graph-wiki-agent/tests/unit/test_mcp_schema_forbid_extra.py
 packages/vault-io/tests/fixtures/round-trip-vault/
 
 # ---------------------------------------------------------------------------
+# v1.4 milestone audit + integration docs reference the upstream
+# lattice-wiki → graph-wiki rebrand direction (same Plan-meta + Upstream-
+# reference class as v1.3-MILESTONE-AUDIT.md on line 308). Pre-existing
+# brand-gate hits surfaced after v1.4 audit docs were authored; same
+# allowlist class as the Phase 17/20/22/23/24 archive exemptions above.
+# ---------------------------------------------------------------------------
+# rationale: Plan-meta + Upstream-reference — v1.4 milestone integration audit names the upstream lattice-wiki → graph-wiki rebrand direction throughout.
+.planning/v1.4-MILESTONE-INTEGRATION.md
+# rationale: Plan-meta + Upstream-reference — v1.4 milestone audit narrates the cores → packages + lattice-wiki → graph-wiki rebrand history (same class as v1.3-MILESTONE-AUDIT.md above).
+.planning/milestones/v1.4-MILESTONE-AUDIT.md
+
+# ---------------------------------------------------------------------------
+# Phase 26 own plans + context — Phase 26 documents the deletion of the
+# `packages/prompt-sources/` upstream-snapshot tree; CONTEXT, AUDIT, PATTERNS,
+# PLAN, DISCUSSION-LOG, and SUMMARY files all narrate the upstream lattice-wiki
+# provenance of the deleted tree (same class as Phase 22/23/24 archive
+# exemptions above).
+# ---------------------------------------------------------------------------
+# rationale: Phase 26 archive — CONTEXT / AUDIT / PATTERNS / PLAN / DISCUSSION-LOG / SUMMARY docs reference upstream lattice naming + the deleted prompt-sources tree's lattice SOURCE-COMMIT provenance.
+.planning/phases/26-plugin-prompt-source-mirror-sync/
+
+# ---------------------------------------------------------------------------
 # Phase 26 §D-11 — CHECK 6 (`packages/prompt-sources`) carry-forwards. After
 # the Phase 26 hard-cut deletion of `packages/prompt-sources/`, CHECK 6 bans
 # any reintroduction of the literal path anywhere under agents/, packages/,
