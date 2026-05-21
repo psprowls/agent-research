@@ -27,7 +27,7 @@ Walk the monorepo, detect workspaces, and produce/update stub pages. Each app, p
 
 ### 1. Discover workspaces
 
-Run `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json` to get a structured inventory (repo discovered automatically via `workspace_io`):
+Run `uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json` to get a structured inventory (repo discovered automatically via `workspace_io`):
 
 ```json
 {
@@ -178,13 +178,13 @@ Lint flags `dep-index-stale` against the regen marker (that rule lands in a foll
 
 ### 7. Update the index
 
-Run `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py` or edit `<workspace>/wiki/index.md` inline.
+Run `uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py` or edit `<workspace>/wiki/index.md` inline.
 
 ### 8. Append to log
 
 Run:
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
+uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
     --title "detected N new, M renamed, K deleted" \
     --detail "<bulleted list of touched pages>"
 ```

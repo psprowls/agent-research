@@ -494,7 +494,7 @@ See `packages/common-aws-node-ts/src/handlers/baseApiHandler.ts:42`
 
 `<workspace>/wiki/index.md` is regenerated, not hand-edited. Either:
 
-- Run `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py` after every scan/ingest, OR
+- Run `uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py` after every scan/ingest, OR
 - Have the LLM rewrite the relevant section inline for small edits.
 
 The index groups pages by category, alphabetized by title. Each entry is one line with a wikilink, summary, and optional metadata.
