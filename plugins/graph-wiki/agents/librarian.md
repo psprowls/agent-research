@@ -49,7 +49,7 @@ Stop when you have enough.
 
 ### 4. Fall back if needed
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py --query "<terms>" --limit 5
+uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py --query "<terms>" --limit 5
 ```
 Then read the code directly if the vault doesn't cover it.
 

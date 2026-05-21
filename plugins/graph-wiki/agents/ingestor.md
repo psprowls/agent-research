@@ -27,7 +27,7 @@ Follow `references/ingest-workflow.md`. Summary:
 
 ### 1. Prep
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/ingest_source.py --source <path> --json
+uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/ingest_source.py --source <path> --json
 ```
 
 (Wiki and repo discovered automatically via `workspace_io`. Works for both `raw/` sources and in-repo docs.)
@@ -78,12 +78,12 @@ If the source shifts an architecture thesis, revise and append to `## How this s
 
 ### 10. Update index
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
+uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
 ```
 
 ### 11. Log
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op ingest \
+uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op ingest \
     --title "<title>" --detail "<touched pages>"
 ```
 
