@@ -56,6 +56,10 @@ _SKIPPED: dict = {"skipped": True}
 
 OPTIONAL_GROUPS = {"dependency_layer"}
 LINTED_TOPS = {"wiki", "work"}
+# Tool-schema files (emitted by init_vault.py per the --tool flag). Not wiki
+# content pages — exclude at any depth from page enumeration and from the
+# index-link parser. See plan 260521-gc0 (decision: any-depth, forward-compat).
+SCHEMA_FILENAMES = {"CLAUDE.md", "AGENTS.md"}
 
 
 def _is_placeholder_target(target: str) -> bool:
@@ -87,6 +91,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         rel = md.relative_to(workspace)
         # Exclude any path that has a dotdir component (.graph/, .obsidian/, etc.)
         if any(part.startswith(".") for part in rel.parts):
+            continue
+        # Tool-schema files (CLAUDE.md, AGENTS.md) are not wiki pages and
+        # also not wikilink targets — skip before link_targets is populated.
+        if rel.name in SCHEMA_FILENAMES:
             continue
         if rel.name in {"log.md"}:
             continue
@@ -146,6 +154,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         if rel.name != "index.md":
             continue
         if any(part.startswith(".") for part in rel.parts):
+            continue
+        # Schema files are excluded symmetrically (defensive — index.md
+        # filter above already gates this, but keeps both loops parallel).
+        if rel.name in SCHEMA_FILENAMES:
             continue
         top = rel.parts[0] if rel.parts else ""
         if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "archived":
