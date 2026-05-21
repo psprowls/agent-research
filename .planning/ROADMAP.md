@@ -181,19 +181,19 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 Plans:
 **Wave 1**
 
-- [ ] 26-01-PLAN.md — Audit: produce the D-04 unresolvable-anchor table at `26-AUDIT.md` (Wave 1)
+- [x] 26-01-PLAN.md — Audit: produce the D-04 unresolvable-anchor table at `26-AUDIT.md` (Wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 26-02-PLAN.md — Re-anchor: apply audit resolutions across prompts/, eval-harness divergence/*, and rubrics; restore `## Log format`/`## Style` to `CLAUDE.md.template`; create `prompts/sources/{code_reader,synthesizer}.md` (Wave 2)
+- [x] 26-02-PLAN.md — Re-anchor: apply audit resolutions across prompts/, eval-harness divergence/*, and rubrics; restore `## Log format`/`## Style` to `CLAUDE.md.template`; create `prompts/sources/{code_reader,synthesizer}.md` (Wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 26-03-PLAN.md — Test upgrade: rewrite `test_provenance.py` to D-08 three-check semantics (whitelist + resolution + semantic-drift @ 70%) (Wave 3)
+- [x] 26-03-PLAN.md — Test upgrade: rewrite `test_provenance.py` to D-08 three-check semantics (whitelist + resolution + semantic-drift @ 70%) (Wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 26-04-PLAN.md — Delete + gate: `git rm -r packages/prompt-sources/`, remove `pyproject.toml` exclude line, add brand-gate CHECK 6, verify full test suite + brand-gate (Wave 4)
+- [x] 26-04-PLAN.md — Delete + gate: `git rm -r packages/prompt-sources/`, remove `pyproject.toml` exclude line, add brand-gate CHECK 6, verify full test suite + brand-gate (Wave 4)
 
 ---
 
