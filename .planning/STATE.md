@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 Phase: 26 — COMPLETE
 Plan: 1 of 4
 Status: Phase 26 complete
-Last activity: 2026-05-21 -- Completed quick task 260521-hfr: scanner wikilink + section-index stubs
+Last activity: 2026-05-21 -- Completed quick task 260521-i26: CONTAINER_DIR template variable; live-wiki lint now 0 broken links
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
@@ -112,6 +112,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | 260521-ans-typer-help-ansi-strip | Fix 5 unit-test failures from ANSI escapes in Typer `--help` output: set `NO_COLOR=1`/`TERM=dumb`/`COLUMNS=200` on subprocess calls in test_cli_help.py, test_cli_query.py, test_trace_viewer.py | (this commit) |
 | 260521-gc0-tackle-four-lint-driven-fixes | Four lint-driven fixes from /graph-wiki:lint: W1 honor `repo-directory:` in workspace manifest, W5 path-qualified wikilinks in package/domain overview templates, F1 exclude CLAUDE.md/AGENTS.md from lint enumeration, F2 write `tokens: null` on unsupported-model CountTokens ValidationException | (this commit) |
 | 260521-hfr-patch-graph-wiki-scanner-wikilink-emissi | Patch graph-wiki scanner wikilink emission and add index stubs for empty sections: extend W5 fix to `package/context.md` + `domain/overview.md` templates, seed `concepts/sources/adrs/architecture/index.md` stubs in `init_wiki` (parity with `dependencies/index.md`) | (this commit) |
+| 260521-i26-add-container-dir-template-variable-for- | Add `{{CONTAINER_DIR}}` template variable to `package/overview.md` so sub-page wikilinks resolve for packages in non-`packages/` containers (`agents/`, `plugins/`, `apps/`); document the new variable in `scanner.md`; live-wiki lint drops to 0 broken links / 0 orphans | (this commit) |
 
 ---
 
