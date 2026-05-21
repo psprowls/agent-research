@@ -114,6 +114,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | 260521-hfr-patch-graph-wiki-scanner-wikilink-emissi | Patch graph-wiki scanner wikilink emission and add index stubs for empty sections: extend W5 fix to `package/context.md` + `domain/overview.md` templates, seed `concepts/sources/adrs/architecture/index.md` stubs in `init_wiki` (parity with `dependencies/index.md`) | (this commit) |
 | 260521-i26-add-container-dir-template-variable-for- | Add `{{CONTAINER_DIR}}` template variable to `package/overview.md` so sub-page wikilinks resolve for packages in non-`packages/` containers (`agents/`, `plugins/`, `apps/`); document the new variable in `scanner.md`; live-wiki lint drops to 0 broken links / 0 orphans | (this commit) |
 | 260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py | Fix graph-wiki plugin docs to use `uv run --project "$DEEP_AGENTS_ROOT" python` for shim scripts (`vault_io` is a workspace package; bare `python` failed every `/graph-wiki:*` invocation with `ModuleNotFoundError`); 11 doc files, 26 invocation lines, plus stale "Standard library only" claim corrected in SKILL.md | (this commit) |
+| 260521-lj3-workspace-io-tolerate-missing-plugins | Make `workspace_io.init.init()` heal a sparse `.graph-wiki.yaml` (`version: 2` but missing `plugins` key) via `data.setdefault("plugins", [])` instead of raising `KeyError`; unblocks `/graph-wiki:bootstrap` after a provisional manifest is seeded to satisfy the `resolve_wiki_and_repo()` chicken-and-egg in `detect_containers.py`; +1 production line, +1 regression test | 01cc109 |
 
 ---
 
