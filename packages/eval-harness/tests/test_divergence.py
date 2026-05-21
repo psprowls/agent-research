@@ -72,14 +72,17 @@ def _current_agent_commit() -> str:
 def test_divergence_regression(
     role: str,
     fixture_wiki_path: Path,
+    fixture_workspace_path: Path,
     accept_baseline: bool,
     capsys: pytest.CaptureFixture,
 ) -> None:
     """Full divergence eval pipeline passes without hard-severity regressions.
 
     Requires GRAPH_WIKI_RUN_EVAL=1 and a live Bedrock connection. Uses
-    fixture_wiki_path from conftest.py and accept_baseline from the
-    --accept-divergence-baseline CLI option.
+    fixture_workspace_path (for produce_outputs, which feeds agent commands
+    that expect a workspace_path post-Phase-24 D-01) and fixture_wiki_path
+    (for DivergenceMetric, whose check functions take a bare wiki: Path per D-03).
+    accept_baseline comes from the --accept-divergence-baseline CLI option.
 
     When accept_baseline=True: writes current results to
     packages/eval-harness/baselines/divergence-{role}.json and returns.
@@ -89,8 +92,10 @@ def test_divergence_regression(
     has more failures than the baseline. The test passes silently (report
     visible under `pytest -s`) when there is no regression.
     """
-    # Produce real agent outputs for this role via the fixture corpus
-    outputs = _produce_outputs(role, fixture_wiki_path)
+    # Produce real agent outputs for this role via the fixture corpus.
+    # produce_outputs takes a workspace path (post-Phase-24 D-01); the agent
+    # commands inside derive the wiki via wiki_dir(workspace_path).
+    outputs = _produce_outputs(role, fixture_workspace_path)
 
     # Build and run the DivergenceMetric (programmatic + judge passes)
     metric = DivergenceMetric(

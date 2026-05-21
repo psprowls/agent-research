@@ -9,7 +9,7 @@ module (which is fragile and does not work reliably across pytest versions).
 
 Public API:
     EVAL_GATE     — pytest.mark.skipif decorator gating eval tests.
-    produce_outputs(role, wiki) — produce agent outputs for the given role.
+    produce_outputs(role, workspace) — produce agent outputs for the given role.
 """
 
 import asyncio
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from workspace_io.paths import wiki_dir
 
 if TYPE_CHECKING:
     from eval_harness.divergence.check import AgentOutputProxy
@@ -44,7 +45,7 @@ _QUERY_CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
 
 def produce_outputs(
     role: str,
-    wiki: Path,
+    workspace: Path,
 ) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Produce agent outputs for the given role against the fixture corpus.
 
@@ -55,7 +56,9 @@ def produce_outputs(
 
     Args:
         role: One of "librarian", "ingestor", "linter", "scanner".
-        wiki: Path to the round-trip-vault wiki fixture (fixture_wiki_path).
+        workspace: Path to the workspace root (post-Phase-24 D-01). The wiki
+            content is derived internally via
+            ``workspace_io.paths.wiki_dir(workspace)``.
 
     Corpus assumptions (per EVAL plan):
         - librarian: eval/cases/query_cases.json in the workspace root.
@@ -63,8 +66,8 @@ def produce_outputs(
         - ingestor:  .md files from wiki/packages/* or wiki/concepts/*.
           Uses existing wiki pages as "source documents" to re-ingest.
           Missing → pytest.skip with path.
-        - linter:    The round-trip-vault itself (passed as wiki arg).
-          Missing → pytest.skip (wiki check already done in fixture_wiki_path).
+        - linter:    The wiki dir (derived from workspace).
+          Missing → pytest.skip.
         - scanner:   Uses the eval-harness package dir itself as the "monorepo"
           (packages/eval-harness) since it's a real Python package with pyproject.toml.
           Missing → pytest.skip with path.
@@ -80,13 +83,13 @@ def produce_outputs(
         pytest.skip("GRAPH_WIKI_RUN_EVAL=1 required to produce agent outputs")
 
     if role == "librarian":
-        return _produce_librarian_outputs(wiki)
+        return _produce_librarian_outputs(workspace)
     elif role == "ingestor":
-        return _produce_ingestor_outputs(wiki)
+        return _produce_ingestor_outputs(workspace)
     elif role == "linter":
-        return _produce_linter_outputs(wiki)
+        return _produce_linter_outputs(workspace)
     elif role == "scanner":
-        return _produce_scanner_outputs(wiki)
+        return _produce_scanner_outputs(workspace)
     else:
         pytest.skip(f"Unknown role: {role}; no output producer implemented")
 
@@ -96,7 +99,7 @@ def produce_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _produce_librarian_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_librarian_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run query command against eval query cases and return outputs.
 
     Corpus: eval/cases/query_cases.json (loaded from workspace root).
@@ -123,13 +126,13 @@ def _produce_librarian_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy,
     for case in valid:
         query = case["query"]
         case_id = str(case.get("case_id", query[:30]))
-        result = asyncio.run(run_query(query, workspace_path=wiki))
+        result = asyncio.run(run_query(query, workspace_path=workspace))
         outputs.append((case_id, AgentOutputProxy(answer=result.answer), query))
 
     return outputs
 
 
-def _produce_ingestor_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_ingestor_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run ingest command against existing wiki pages as source documents.
 
     Corpus: up to 2 .md files from wiki/packages/*/ or wiki/concepts/*.
@@ -140,6 +143,7 @@ def _produce_ingestor_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, 
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
 
+    wiki = wiki_dir(workspace)
     # Collect candidate source files from the wiki fixture itself
     candidates: list[Path] = []
     for subdir in ("packages", "concepts"):
@@ -162,7 +166,7 @@ def _produce_ingestor_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for source_path in candidates[:2]:
         fixture_id = f"ingest:{source_path.name}"
-        result = asyncio.run(run_ingest_source(source_path, workspace_path=wiki))
+        result = asyncio.run(run_ingest_source(source_path, workspace_path=workspace))
         # LLM output is the full page text written to the wiki.
         # Read it back to get the raw LLM content for divergence checks.
         written_path = wiki / result.page_path
@@ -181,17 +185,17 @@ def _produce_ingestor_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, 
     return outputs
 
 
-def _produce_linter_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_linter_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run lint command against the round-trip-vault and return per-group outputs.
 
-    Corpus: the round-trip-vault fixture (wiki arg).
+    Corpus: the round-trip-vault fixture (derived as wiki_dir(workspace)).
     Returns one output per semantic group (page_quality, adr_chain, stale_claims).
     The "query" slot is the group name.
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
     from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
 
-    result = asyncio.run(run_lint(workspace_path=wiki))
+    result = asyncio.run(run_lint(workspace_path=workspace))
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for group in ("page_quality", "adr_chain", "stale_claims"):
@@ -207,18 +211,19 @@ def _produce_linter_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, st
 
     if not outputs:
         pytest.skip(
-            f"linter corpus produced no outputs from wiki {wiki}; "
+            f"linter corpus produced no outputs from workspace {workspace}; "
             "check that semantic findings are reachable."
         )
 
     return outputs
 
 
-def _produce_scanner_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
+def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run scan command against the eval-harness package as the monorepo.
 
     Corpus: packages/eval-harness/ (a real Python uv workspace member).
-    wiki is treated as the scanner's wiki destination.
+    The wiki is derived from workspace; written stub pages are read back from
+    there.
     The "query" slot is the package name.
 
     Passes repo_path=packages/eval-harness explicitly so workspace discovery
@@ -239,13 +244,14 @@ def _produce_scanner_outputs(wiki: Path) -> "list[tuple[str, AgentOutputProxy, s
     # repo_path override (Plan 06-15 / UAT G5): point the scanner at the
     # eval-harness package as a known-good uv workspace member so it has
     # something to discover, regardless of pytest cwd or wiki layout.
-    result = asyncio.run(run_scan(workspace_path=wiki, repo_path=eval_harness_dir))
+    result = asyncio.run(run_scan(workspace_path=workspace, repo_path=eval_harness_dir))
 
+    wiki = wiki_dir(workspace)
     # Collect the stub pages written for any added or updated packages
     added_or_updated = result.added + result.updated
     if not added_or_updated:
         pytest.skip(
-            f"scanner produced no added/updated stubs against wiki {wiki} "
+            f"scanner produced no added/updated stubs against workspace {workspace} "
             f"using repo_path={eval_harness_dir}; "
             "this is unexpected post-Plan-06-15 — discover_workspaces should find "
             "the eval-harness workspace and report it as 'new' (no existing page)."
