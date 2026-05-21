@@ -190,7 +190,11 @@ def ensure_domain_page(
         raise FileNotFoundError(f"template not found: {tmpl}")
     date = today or dt.date.today().isoformat()
     text = tmpl.read_text(encoding="utf-8")
-    text = text.replace("{{DOMAIN_TITLE}}", domain_title).replace("{{DATE}}", date)
+    text = (
+        text.replace("{{DOMAIN_TITLE}}", domain_title)
+        .replace("{{DOMAIN_SLUG}}", domain_dir.name)
+        .replace("{{DATE}}", date)
+    )
     domain_dir.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
     return dest, True

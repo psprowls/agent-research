@@ -31,4 +31,4 @@ full detail.
 - **<Flow name>** — `<path/to/entry>:<line>` → describe
 
 ## Sub-pages
-- [[details]] — concepts, dependencies, decisions, sources, contrasts
+- [[domains/{{DOMAIN_SLUG}}/details|details]] — concepts, dependencies, decisions, sources, contrasts
