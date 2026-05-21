@@ -103,3 +103,119 @@ def test_v2_synthetic_repo(v2_workspace) -> None:
     assert packages_rec["classification"] == "package", (
         f"Expected 'packages' to be classified as 'package', got: {packages_rec['classification']}"
     )
+
+
+# --- Phase 25: permissive Rule 3 contract (D-09) ---------------------------------
+# These tests pin the new heuristic: a directory with >=1 manifested child
+# classifies as `package`, with `children_count` reporting the manifested-child
+# count (not raw subdir count), and an honest `reason` string that names what
+# was skipped. See .planning/phases/25-packages-dir-misclassification-fix/.
+
+
+def test_mixed_manifest_dirs_classify_as_package(tmp_path: Path) -> None:
+    """5/6 manifested children -> package (the bug-repro shape on this repo).
+
+    D-01 / D-02: permissive `>=1 manifested child` wins; `children_count`
+    reports manifested count; `reason` names what was skipped.
+    """
+    from vault_io.detect_containers import _classify_dir
+
+    container = tmp_path / "packages"
+    for name in ("core-bedrock", "eval-harness", "model-adapter", "subagent-runtime", "vault-io"):
+        pkg = container / name
+        pkg.mkdir(parents=True)
+        (pkg / "pyproject.toml").write_text('[project]\nname="x"\n', encoding="utf-8")
+    (container / "prompt_sources").mkdir()
+
+    rec = _classify_dir(container)
+
+    assert rec["classification"] == "package", (
+        f"Expected 'package' for 5/6 mixed-manifest dir, got: {rec['classification']} "
+        f"(reason: {rec['reason']})"
+    )
+    assert rec["children_count"] == 5, (
+        f"Expected children_count=5 (manifested count, per D-02), got: {rec['children_count']}"
+    )
+    assert "skipped" in rec["reason"], (
+        f"Expected honest reason mentioning 'skipped' (D-02), got: {rec['reason']!r}"
+    )
+
+
+def test_loose_md_file_at_container_root_does_not_block_package(tmp_path: Path) -> None:
+    """Loose `.md` at container root no longer flips to ambiguous (D-03)."""
+    from vault_io.detect_containers import _classify_dir
+
+    container = tmp_path / "packages"
+    for name in ("pkg-a", "pkg-b"):
+        pkg = container / name
+        pkg.mkdir(parents=True)
+        (pkg / "package.json").write_text('{"name":"x"}\n', encoding="utf-8")
+    (container / "README.md").write_text("# packages\n", encoding="utf-8")
+
+    rec = _classify_dir(container)
+
+    assert rec["classification"] == "package", (
+        f"Expected 'package' even with loose .md (D-03), got: {rec['classification']} "
+        f"(reason: {rec['reason']})"
+    )
+    assert rec["children_count"] == 2, (
+        f"Expected children_count=2 (manifested count), got: {rec['children_count']}"
+    )
+
+
+def test_empty_dir_falls_back_to_ambiguous(tmp_path: Path) -> None:
+    """Empty/unrecognized directory still falls back to ambiguous (D-04)."""
+    from vault_io.detect_containers import _classify_dir
+
+    container = tmp_path / "empty_container"
+    container.mkdir()
+
+    rec = _classify_dir(container)
+
+    assert rec["classification"] == "ambiguous", (
+        f"Expected 'ambiguous' fallback for empty dir, got: {rec['classification']}"
+    )
+    assert "empty" in rec["reason"], (
+        f"Expected fallback reason mentioning 'empty', got: {rec['reason']!r}"
+    )
+
+
+def test_single_manifested_child_with_many_non_manifested_siblings_still_package(
+    tmp_path: Path,
+) -> None:
+    """One manifested child + 5 non-manifested siblings -> package (D-01 `>=1` semantics)."""
+    from vault_io.detect_containers import _classify_dir
+
+    container = tmp_path / "packages"
+    pkg = container / "only-real-pkg"
+    pkg.mkdir(parents=True)
+    (pkg / "pyproject.toml").write_text('[project]\nname="x"\n', encoding="utf-8")
+    for name in ("sib1", "sib2", "sib3", "sib4", "sib5"):
+        (container / name).mkdir()
+
+    rec = _classify_dir(container)
+
+    assert rec["classification"] == "package", (
+        f"Expected 'package' for 1/6 (>=1 wins per D-01), got: {rec['classification']}"
+    )
+    assert rec["children_count"] == 1, (
+        f"Expected children_count=1 (manifested count), got: {rec['children_count']}"
+    )
+
+
+def test_no_manifest_kids_with_md_files_predominant_classifies_as_docs_not_ambiguous(
+    tmp_path: Path,
+) -> None:
+    """Rule 1 (docs) still fires when Rule 3 doesn't apply (regression guard)."""
+    from vault_io.detect_containers import _classify_dir
+
+    container = tmp_path / "docs_container"
+    container.mkdir()
+    for i in range(8):
+        (container / f"note_{i}.md").write_text(f"# note {i}\n", encoding="utf-8")
+
+    rec = _classify_dir(container)
+
+    assert rec["classification"] == "docs", (
+        f"Expected 'docs' for predominantly-.md dir (Rule 1), got: {rec['classification']}"
+    )
