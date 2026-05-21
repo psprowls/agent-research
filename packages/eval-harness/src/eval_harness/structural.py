@@ -62,18 +62,28 @@ def check_structural(result: Any, workspace_path: Path) -> dict[str, Any]:
 
     Raises:
         TypeError: if result is not a QueryResult instance.
+        FileNotFoundError: if workspace_path / "wiki" does not exist.
     """
     if not isinstance(result, QueryResult):
         raise TypeError(
             f"check_structural expects QueryResult, got {type(result).__name__!r}"
         )
 
-    # Derive the wiki once at the top per D-01 / D-09 (fail-fast on a malformed
-    # workspace_path before any check runs). The internal _resolve_citation
-    # helper re-derives the wiki from its own argument; this top-level binding
-    # keeps the D-01 "param=workspace, internals derive wiki" convention
-    # uniform across sweep / baseline / structural.
-    wiki = wiki_dir(workspace_path)  # noqa: F841
+    # Fail-fast guard (D-01 / D-09): the wiki dir must exist before any
+    # citation lookup runs. Without this guard, a caller that mistakenly
+    # passes the wiki path itself (instead of the workspace root) silently
+    # records every citation as unresolved against a non-existent nested
+    # path — masking real call-site bugs. Raising here surfaces the misuse
+    # immediately. _resolve_citation re-derives wiki from its own argument
+    # via the same helper to preserve the D-01 "param=workspace, internals
+    # derive wiki" convention uniform across sweep / baseline / structural.
+    wiki = wiki_dir(workspace_path)
+    if not wiki.is_dir():
+        raise FileNotFoundError(
+            f"wiki dir not found: {wiki} "
+            f"(workspace_path={workspace_path!r}; "
+            "expected workspace_path/'wiki' to exist)"
+        )
 
     # --- has_citation ---
     has_citation: bool = bool(result.citations)
