@@ -2,6 +2,8 @@ from __future__ import annotations
 
 """CODE_READER_SYSTEM prompt constant (relocated from commands/query.py per D-14)."""
 
+# Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md §Rules, §Outputs, §Red flags
+
 CODE_READER_SYSTEM = """You are a source-code reader operating as a vault-thin fallback. The vault did not have a useful page for this query, so your job is to read the actual source code and extract whatever directly answers the user's question.
 
 You have one tool available:

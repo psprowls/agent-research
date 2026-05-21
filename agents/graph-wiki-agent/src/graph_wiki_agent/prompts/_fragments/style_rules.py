@@ -1,6 +1,4 @@
-# Source: packages/prompt-sources/wiki-claude-md-template.md
-# Anchor: ## Style (L153-L159)
-# Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030
+# Source: packages/workspace-io/src/workspace_io/assets/CLAUDE.md.template §Style
 
 STYLE_RULES = """\
 ## Style

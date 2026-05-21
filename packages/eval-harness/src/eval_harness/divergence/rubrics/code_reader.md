@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/code_reader.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: 7b3ce6a7f700d63cc411fa4e4b6df274c6dcea13 -->
+<!-- Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md §Rules, §Red flags -->
 
 # Divergence Rubric — Code Reader
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether a code_reader agent's output adheres to the contract from
-`packages/prompt-sources/agents/code_reader.md`. The judge complements the
+`agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md`. The judge complements the
 programmatic CR-001..CR-004 checks with semantic rules that string-matching
 cannot capture.
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 """SYNTHESIZER_SYSTEM prompt constant (relocated from commands/query.py per D-14)."""
 
+# Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md §Rules
+
 SYNTHESIZER_SYSTEM = """You are a wiki synthesizer. Given a user query and a set of excerpts from relevant wiki pages, produce a concise, accurate answer drawn strictly from those excerpts.
 
 Rules:

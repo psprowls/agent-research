@@ -3,7 +3,7 @@ from __future__ import annotations
 """Scanner system prompt for graph-wiki-agent.
 
 Composes shared fragments (IRON_RULES, FRONTMATTER_RULES, ARCHITECTURE_OVERVIEW,
-LOG_FORMAT) with scanner-local rules adapted from packages/prompt-sources/agents/scanner.md.
+LOG_FORMAT) with scanner-local rules adapted from plugins/graph-wiki/agents/scanner.md.
 
 Exports:
     build_scanner_system(project_context: str = "") -> str — assembles the scanner
@@ -12,9 +12,7 @@ Exports:
     SCANNER_SYSTEM — backward-compat constant, equals build_scanner_system().
 """
 
-# Source: packages/prompt-sources/agents/scanner.md
-# Anchor: ## Role, ## Rules, ## Red flags
-# Source-commit: ef05d99
+# Source: plugins/graph-wiki/agents/scanner.md §Role, §Rules, §Red flags
 
 from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
 from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES

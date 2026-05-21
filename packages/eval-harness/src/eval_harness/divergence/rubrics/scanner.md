@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/scanner.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: ef05d991a9ab1ea12b1bc7ebc1fb20ba70074030 -->
+<!-- Source: plugins/graph-wiki/agents/scanner.md §Rules, §Red flags -->
 
 # Divergence Rubric — Scanner
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether a scanner agent's stub output adheres to the skill-content expectations
-from the canonical lattice-wiki scanner spec.
+from the canonical graph-wiki scanner spec.
 
 ## Scoring Criteria
 

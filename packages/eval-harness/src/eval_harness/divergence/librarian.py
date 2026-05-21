@@ -89,25 +89,25 @@ def _check_code_path_format(output: AgentOutputProxy, wiki: Path) -> Verdict:
 LIBRARIAN_CHECKS: list[DivergenceCheck] = [
     DivergenceCheck(
         id="LIB-001-wikilink-resolves",
-        source_anchor="packages/prompt-sources/SKILL.md#iron-rules",
+        source_anchor="plugins/graph-wiki/skills/graph-wiki/SKILL.md#iron-rules",
         severity="hard",
         check=_check_wikilink_resolves,
     ),
     DivergenceCheck(
         id="LIB-002-citation-present",
-        source_anchor="packages/prompt-sources/agents/librarian.md#rules",
+        source_anchor="plugins/graph-wiki/agents/librarian.md#rules",
         severity="hard",
         check=_check_citation_present,
     ),
     DivergenceCheck(
         id="LIB-003-no-slug-only-wikilinks",
-        source_anchor="packages/prompt-sources/agents/librarian.md#rules",
+        source_anchor="plugins/graph-wiki/agents/librarian.md#rules",
         severity="hard",
         check=_check_no_slug_only_wikilinks,
     ),
     DivergenceCheck(
         id="LIB-004-code-path-format",
-        source_anchor="packages/prompt-sources/agents/librarian.md#rules",
+        source_anchor="plugins/graph-wiki/agents/librarian.md#rules",
         severity="soft",
         check=_check_code_path_format,
     ),

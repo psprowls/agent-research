@@ -65,19 +65,19 @@ def _check_no_silent_fix(output: AgentOutputProxy, wiki: Path) -> Verdict:
 LINTER_CHECKS: list[DivergenceCheck] = [
     DivergenceCheck(
         id="LNT-001-code-drift-first",
-        source_anchor="packages/prompt-sources/agents/linter.md#rules",
+        source_anchor="plugins/graph-wiki/agents/linter.md#rules",
         severity="soft",
         check=_check_code_drift_first,
     ),
     DivergenceCheck(
         id="LNT-002-findings-nonempty-when-issues",
-        source_anchor="packages/prompt-sources/agents/linter.md#workflow-pass-3",
+        source_anchor="plugins/graph-wiki/agents/linter.md#pass-3--report",
         severity="hard",
         check=_check_findings_nonempty,
     ),
     DivergenceCheck(
         id="LNT-003-no-silent-fix",
-        source_anchor="packages/prompt-sources/agents/linter.md#rules",
+        source_anchor="plugins/graph-wiki/agents/linter.md#rules",
         severity="hard",
         check=_check_no_silent_fix,
     ),

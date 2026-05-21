@@ -1,6 +1,4 @@
-# Source: packages/prompt-sources/agents/ingestor.md
-# Anchor: ## Workflow step 4 (required fields — L50-L58)
-# Source-commit: ef05d99
+# Source: plugins/graph-wiki/agents/ingestor.md §4. Write the source summary
 
 FRONTMATTER_RULES = """\
 ## Frontmatter rules

@@ -91,25 +91,25 @@ def _check_page_type_valid_category(output: AgentOutputProxy, wiki: Path) -> Ver
 INGESTOR_CHECKS: list[DivergenceCheck] = [
     DivergenceCheck(
         id="ING-001-frontmatter-present",
-        source_anchor="packages/prompt-sources/agents/ingestor.md#workflow-step-4",
+        source_anchor="plugins/graph-wiki/agents/ingestor.md#4-write-the-source-summary",
         severity="hard",
         check=_check_frontmatter_present,
     ),
     DivergenceCheck(
         id="ING-002-required-fields",
-        source_anchor="packages/prompt-sources/agents/ingestor.md#workflow-step-4",
+        source_anchor="plugins/graph-wiki/agents/ingestor.md#4-write-the-source-summary",
         severity="hard",
         check=_check_required_fields,
     ),
     DivergenceCheck(
         id="ING-003-page-type-routing",
-        source_anchor="packages/prompt-sources/SKILL.md#page-categories",
+        source_anchor="plugins/graph-wiki/skills/graph-wiki/SKILL.md#page-categories",
         severity="hard",
         check=_check_page_type_routing,
     ),
     DivergenceCheck(
         id="ING-004-page-type-valid-category",
-        source_anchor="packages/prompt-sources/agents/ingestor.md#rules",
+        source_anchor="plugins/graph-wiki/agents/ingestor.md#rules",
         severity="hard",
         check=_check_page_type_valid_category,
     ),

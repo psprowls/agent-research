@@ -63,25 +63,25 @@ def _check_overview_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
 SCANNER_CHECKS: list[DivergenceCheck] = [
     DivergenceCheck(
         id="SCN-001-frontmatter-present",
-        source_anchor="packages/prompt-sources/agents/scanner.md#workflow-step-3",
+        source_anchor="plugins/graph-wiki/agents/scanner.md#3-create-stubs-for-new-packages",
         severity="hard",
         check=_check_frontmatter_present,
     ),
     DivergenceCheck(
         id="SCN-002-required-fields",
-        source_anchor="packages/prompt-sources/agents/scanner.md#workflow-step-3",
+        source_anchor="plugins/graph-wiki/agents/scanner.md#3-create-stubs-for-new-packages",
         severity="hard",
         check=_check_required_fields,
     ),
     DivergenceCheck(
         id="SCN-003-no-file-map-section",
-        source_anchor="packages/prompt-sources/agents/scanner.md",
+        source_anchor="plugins/graph-wiki/agents/scanner.md",
         severity="hard",
         check=_check_no_file_map_section,
     ),
     DivergenceCheck(
         id="SCN-004-overview-present",
-        source_anchor="packages/prompt-sources/agents/scanner.md#workflow-step-3",
+        source_anchor="plugins/graph-wiki/agents/scanner.md#3-create-stubs-for-new-packages",
         severity="hard",
         check=_check_overview_present,
     ),

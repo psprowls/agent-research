@@ -1,12 +1,10 @@
-<!-- Source: packages/prompt-sources/agents/synthesizer.md -->
-<!-- Anchor: ## Rules + ## Red flags -->
-<!-- Source-commit: 7b3ce6a7f700d63cc411fa4e4b6df274c6dcea13 -->
+<!-- Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md §Rules, §Red flags -->
 
 # Divergence Rubric — Synthesizer
 
 This rubric is consumed by the LLM judge (GEval via DivergenceMetric) to evaluate
 whether a synthesizer agent's answer adheres to the contract from
-`packages/prompt-sources/agents/synthesizer.md`. The judge complements the
+`agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md`. The judge complements the
 programmatic SYN-001..SYN-004 checks with semantic rules that string-matching
 cannot capture.
 
