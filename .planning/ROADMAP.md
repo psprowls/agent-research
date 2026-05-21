@@ -120,7 +120,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. All divergence helper functions in `divergence/{linter,ingestor,scanner,code_reader,synthesizer}.py` accept `wiki: Path` (not `vault: Path`); callers pass the wiki dir directly
   4. `eval/README.md` contains no `vault_path` references
   5. `grep -r "vault_path\|vault:" packages/eval-harness/src` returns 0 hits
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 24-01-PLAN.md — eval-harness-workspace-rename (big-bang single plan covering WSEVAL-01..05 + EvalWorktree source_wiki cleanup D-04 + brand-gate CHECK 5 extension D-07 + 194 test refs sweep)
 
 ### Phase 25: packages-dir-misclassification-fix
 **Goal**: Running `graph-wiki-agent bootstrap` on this repo without `--interactive` correctly classifies `packages/` as `package` and creates `wiki/packages/`; the pending todo is resolved; the plugin-side classifier matches the updated heuristic
@@ -142,7 +143,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
-| 24. eval-harness-workspace-rename | 0/TBD | Not started | - |
+| 24. eval-harness-workspace-rename | 0/1 | Not started | - |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
