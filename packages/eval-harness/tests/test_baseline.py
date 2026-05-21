@@ -6,7 +6,7 @@ All tests are pure unit — no subprocess spawned, no Bedrock calls.
 Tests cover:
 - _build_cmd(): command list construction, flags, plugin_dirs, model_override
 - _make_snapshot(): baseline JSON schema (all 8 EVAL-08 fields including seed=None)
-- _vault_content_hash(): determinism and non-empty hex output
+- _wiki_content_hash(): determinism and non-empty hex output
 - _prompt_hash(): determinism
 """
 
@@ -21,7 +21,7 @@ from eval_harness.baseline import (
     RunResult,
     _build_cmd,
     _prompt_hash,
-    _vault_content_hash,
+    _wiki_content_hash,
 )
 
 
@@ -107,11 +107,11 @@ def test_build_cmd_prompt_is_last(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_baseline_schema(tmp_path: Path, fixture_vault_path: Path) -> None:
+def test_baseline_schema(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """_make_snapshot returns dict with all 8 required EVAL-08 schema keys."""
     recorder = BaselineRecorder(
         cases_path=Path("/dev/null"),
-        vault_path=fixture_vault_path,
+        workspace_path=fixture_workspace_path,
         baselines_dir=tmp_path,
     )
     case = {"case_id": "test-case-01", "query": "What is X?"}
@@ -121,25 +121,27 @@ def test_baseline_schema(tmp_path: Path, fixture_vault_path: Path) -> None:
         wall_seconds=1.5,
         turns=2,
     )
-    snapshot = recorder._make_snapshot(case, run_result, answer="The answer.")
+    snapshot = recorder._make_snapshot(
+        case, run_result, answer="The answer.", wiki_content_hash="deadbeef"
+    )
     required_keys = {
         "case_id",
         "query",
         "answer",
         "model_arn",
         "prompt_hash",
-        "vault_content_hash",
+        "wiki_content_hash",
         "timestamp_utc",
         "seed",
     }
     assert required_keys <= snapshot.keys(), f"Missing keys: {required_keys - snapshot.keys()}"
 
 
-def test_baseline_seed_is_none(tmp_path: Path, fixture_vault_path: Path) -> None:
+def test_baseline_seed_is_none(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """snapshot['seed'] is always None (claude CLI has no seed parameter)."""
     recorder = BaselineRecorder(
         cases_path=Path("/dev/null"),
-        vault_path=fixture_vault_path,
+        workspace_path=fixture_workspace_path,
         baselines_dir=tmp_path,
     )
     case = {"case_id": "test-case-02", "query": "What is Y?"}
@@ -149,7 +151,9 @@ def test_baseline_seed_is_none(tmp_path: Path, fixture_vault_path: Path) -> None
         wall_seconds=2.0,
         turns=1,
     )
-    snapshot = recorder._make_snapshot(case, run_result, answer="Another answer.")
+    snapshot = recorder._make_snapshot(
+        case, run_result, answer="Another answer.", wiki_content_hash="deadbeef"
+    )
     assert snapshot["seed"] is None
 
 
@@ -174,21 +178,21 @@ def test_prompt_hash_differs_on_input() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _vault_content_hash() tests
+# _wiki_content_hash() tests
 # ---------------------------------------------------------------------------
 
 
-def test_vault_content_hash(fixture_vault_path: Path) -> None:
-    """_vault_content_hash returns a non-empty hex string."""
-    result = _vault_content_hash(fixture_vault_path)
+def test_wiki_content_hash(fixture_wiki_path: Path) -> None:
+    """_wiki_content_hash returns a non-empty hex string."""
+    result = _wiki_content_hash(fixture_wiki_path)
     assert isinstance(result, str)
     assert len(result) > 0
     # Should be a valid hex string
     int(result, 16)
 
 
-def test_vault_content_hash_deterministic(fixture_vault_path: Path) -> None:
-    """Calling _vault_content_hash twice with same path returns same value."""
-    h1 = _vault_content_hash(fixture_vault_path)
-    h2 = _vault_content_hash(fixture_vault_path)
+def test_wiki_content_hash_deterministic(fixture_wiki_path: Path) -> None:
+    """Calling _wiki_content_hash twice with same path returns same value."""
+    h1 = _wiki_content_hash(fixture_wiki_path)
+    h2 = _wiki_content_hash(fixture_wiki_path)
     assert h1 == h2

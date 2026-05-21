@@ -85,7 +85,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         {
             "name": "brand-new-pkg",
             "path": "packages/brand-new-pkg",
-            "vault_path": "packages/brand-new-pkg/brand-new-pkg.md",
+            "wiki_relative_path": "packages/brand-new-pkg/brand-new-pkg.md",
             "type": "library",
             "language": "python",
             "changed_files": None,
@@ -146,7 +146,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
     fake_pkg = {
         "name": "new-pkg",
         "path": "packages/new-pkg",
-        "vault_path": "packages/new-pkg/new-pkg.md",
+        "wiki_relative_path": "packages/new-pkg/new-pkg.md",
         "type": "library",
         "language": "python",
         "changed_files": None,
@@ -203,7 +203,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
     fake_pkg = {
         "name": "test-pkg",
         "path": "packages/test-pkg",
-        "vault_path": "packages/test-pkg/test-pkg.md",
+        "wiki_relative_path": "packages/test-pkg/test-pkg.md",
         "type": "library",
         "language": "python",
         "changed_files": None,
@@ -273,7 +273,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
 
     existing = {
         "old-pkg": {
-            "vault_path": "packages/old-pkg/old-pkg.md",
+            "wiki_relative_path": "packages/old-pkg/old-pkg.md",
             "package_path": "packages/old-pkg",
             "category": "package",
             "last_sync_commit": None,
@@ -340,7 +340,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
     fake_pkg_ok = {
         "name": "good-pkg",
         "path": "packages/good-pkg",
-        "vault_path": "packages/good-pkg/good-pkg.md",
+        "wiki_relative_path": "packages/good-pkg/good-pkg.md",
         "type": "library",
         "language": "python",
         "changed_files": None,
@@ -348,7 +348,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
     fake_pkg_err = {
         "name": "bad-pkg",
         "path": "packages/bad-pkg",
-        "vault_path": "packages/bad-pkg/bad-pkg.md",
+        "wiki_relative_path": "packages/bad-pkg/bad-pkg.md",
         "type": "library",
         "language": "python",
         "changed_files": None,

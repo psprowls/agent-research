@@ -111,13 +111,30 @@ if not FIXTURE_VAULT.exists():
 CASE_MODEL_PARAMS = _make_case_model_params()
 
 
+@pytest.fixture
+def fixture_workspace(tmp_path: Path) -> Path:
+    """Build a workspace-shaped tmp dir whose ``wiki/`` symlinks to FIXTURE_VAULT.
+
+    Post-Phase-24, sweep entrypoints accept ``workspace_path`` and derive the
+    wiki via ``workspace_io.paths.wiki_dir(workspace_path) = workspace_path / "wiki"``.
+    FIXTURE_VAULT itself is the wiki content (no ``wiki/`` subdir of its own),
+    so passing it directly as ``workspace_path`` would resolve the wiki at
+    ``FIXTURE_VAULT/"wiki"`` — which does not exist. This fixture wraps it
+    correctly so ``EvalWorktree`` can locate the wiki on copytree.
+    """
+    wiki_link = tmp_path / "wiki"
+    if not wiki_link.exists():
+        wiki_link.symlink_to(FIXTURE_VAULT, target_is_directory=True)
+    return tmp_path
+
+
 @pytest.mark.eval(name="query_sweep")
 @pytest.mark.parametrize("case_and_model", CASE_MODEL_PARAMS, ids=[
     f"{p['case_id']}::{p['model_id'].split('.')[-1]}"
     for p in CASE_MODEL_PARAMS
 ])
 @EVAL_GATE
-async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:  # type: ignore[no-untyped-def]
+async def test_query_sweep_case(case_and_model: dict, eval_bag, fixture_workspace: Path) -> None:  # type: ignore[no-untyped-def]
     """Run a single (case, model) combination and store metrics in eval_bag.
 
     - EVAL_GATE: skips unless GRAPH_WIKI_RUN_EVAL=1
@@ -132,7 +149,7 @@ async def test_query_sweep_case(case_and_model: dict, eval_bag) -> None:  # type
     expected = case_and_model["expected_answer"]
     model_id = case_and_model["model_id"]
 
-    results = await run_sweep(CASES_PATH, FIXTURE_VAULT, [model_id])
+    results = await run_sweep(CASES_PATH, fixture_workspace, [model_id])
     # Filter to the case matching this test's query
     matching = [r for r in results if r.query == query]
 
@@ -236,7 +253,7 @@ async def test_position_bias_check() -> None:
 
 @pytest.mark.eval(name="full_matrix")
 @EVAL_GATE
-async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace: Path) -> None:  # type: ignore[no-untyped-def]
     """Live 24-cell matrix run via run_full_matrix() — SWEEP-01..03.
 
     Drives all 6 in-scope agent roles × 4 sweep candidates against real Bedrock,
@@ -275,7 +292,7 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch) -> None:  # type:
 
     result = await run_full_matrix(
         role_candidates=role_candidates,
-        vault_path=FIXTURE_VAULT,
+        workspace_path=fixture_workspace,
         query_cases_path=CASES_PATH,
         code_reader_cases_path=code_reader_cases_path,
         ingestor_source_path=ingestor_source,

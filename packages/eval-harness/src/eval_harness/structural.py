@@ -15,6 +15,7 @@ from typing import Any
 
 import frontmatter
 from graph_wiki_agent.commands.query import QueryResult
+from workspace_io.paths import wiki_dir
 
 # Pattern for code path detection in answer text.
 _CODE_PATH_RE = re.compile(
@@ -22,18 +23,19 @@ _CODE_PATH_RE = re.compile(
 )
 
 
-def _resolve_citation(slug: str, vault_path: Path) -> Path | None:
+def _resolve_citation(slug: str, workspace_path: Path) -> Path | None:
     """Return the .md file for a citation slug, or None if not found.
 
     Resolution order:
-    1. Exact: vault_path / f"{slug}.md"
-    2. Glob fallback: vault_path.glob(f"**/{basename}.md") — first match wins
+    1. Exact: wiki / f"{slug}.md"
+    2. Glob fallback: wiki.glob(f"**/{basename}.md") — first match wins
     """
-    exact = vault_path / f"{slug}.md"
+    wiki = wiki_dir(workspace_path)
+    exact = wiki / f"{slug}.md"
     if exact.exists():
         return exact
     base = Path(slug).name
-    matches = list(vault_path.glob(f"**/{base}.md"))
+    matches = list(wiki.glob(f"**/{base}.md"))
     if matches:
         return matches[0]
     return None
@@ -43,15 +45,16 @@ def _resolve_citation(slug: str, vault_path: Path) -> Path | None:
 resolve_citation = _resolve_citation
 
 
-def check_structural(result: Any, vault_path: Path) -> dict[str, Any]:
+def check_structural(result: Any, workspace_path: Path) -> dict[str, Any]:
     """Run deterministic EVAL-06 structural checks on a QueryResult.
 
     Security (T-4-01): Validates that result is a QueryResult instance before
     accessing any fields. Does not call eval() on any field.
 
     Args:
-        result:     The QueryResult to check.
-        vault_path: Path to the wiki vault root (used for citation resolution).
+        result:         The QueryResult to check.
+        workspace_path: path to the workspace root; the wiki is derived
+                        internally via workspace_io.paths.wiki_dir(workspace_path).
 
     Returns:
         dict with keys: has_citation, citations_resolve, unresolved_citations,
@@ -59,10 +62,27 @@ def check_structural(result: Any, vault_path: Path) -> dict[str, Any]:
 
     Raises:
         TypeError: if result is not a QueryResult instance.
+        FileNotFoundError: if workspace_path / "wiki" does not exist.
     """
     if not isinstance(result, QueryResult):
         raise TypeError(
             f"check_structural expects QueryResult, got {type(result).__name__!r}"
+        )
+
+    # Fail-fast guard (D-01 / D-09): the wiki dir must exist before any
+    # citation lookup runs. Without this guard, a caller that mistakenly
+    # passes the wiki path itself (instead of the workspace root) silently
+    # records every citation as unresolved against a non-existent nested
+    # path — masking real call-site bugs. Raising here surfaces the misuse
+    # immediately. _resolve_citation re-derives wiki from its own argument
+    # via the same helper to preserve the D-01 "param=workspace, internals
+    # derive wiki" convention uniform across sweep / baseline / structural.
+    wiki = wiki_dir(workspace_path)
+    if not wiki.is_dir():
+        raise FileNotFoundError(
+            f"wiki dir not found: {wiki} "
+            f"(workspace_path={workspace_path!r}; "
+            "expected workspace_path/'wiki' to exist)"
         )
 
     # --- has_citation ---
@@ -71,7 +91,7 @@ def check_structural(result: Any, vault_path: Path) -> dict[str, Any]:
     # --- citation resolution ---
     unresolved: list[str] = []
     for slug in result.citations:
-        if _resolve_citation(slug, vault_path) is None:
+        if _resolve_citation(slug, workspace_path) is None:
             unresolved.append(slug)
 
     citations_resolve: bool = len(unresolved) == 0  # vacuously True if citations is empty
@@ -85,7 +105,7 @@ def check_structural(result: Any, vault_path: Path) -> dict[str, Any]:
     # --- frontmatter_valid ---
     frontmatter_valid: bool = True
     for slug in result.citations:
-        md_file = _resolve_citation(slug, vault_path)
+        md_file = _resolve_citation(slug, workspace_path)
         if md_file is None:
             continue  # already counted as unresolved; skip frontmatter check
         try:

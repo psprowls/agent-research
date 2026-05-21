@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: Phase 22 shipped (local merge; no remote)
-stopped_at: Phase 23 context gathered
-last_updated: "2026-05-20T22:39:47.882Z"
-last_activity: 2026-05-20 -- Phase 22 shipped (merged to main)
+status: ready_to_plan
+stopped_at: Phase 24 complete (1/1) — ready to discuss Phase 25
+last_updated: 2026-05-21T04:18:11.888Z
+last_activity: 2026-05-21 -- Phase 24 execution started
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 25
+  completed_phases: 2
+  total_plans: 110
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 22 — workspace-api-internal-rename
+**Current Focus:** Phase 25 — packages dir misclassification fix
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 22 — COMPLETE
-Plan: 1 of 1
-Status: Phase 22 shipped (local merge; no remote)
-Last activity: 2026-05-20 -- Phase 22 shipped (merged to main)
+Phase: 25
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-21
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
@@ -126,9 +126,9 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-20T22:39:47.875Z
-**Stopped at:** Phase 23 context gathered
-**Resume file:** .planning/phases/23-workspace-api-external-rename/23-CONTEXT.md
+**Last session:** 2026-05-21T02:54:50.221Z
+**Stopped at:** Phase 24 context gathered
+**Resume file:** .planning/phases/24-eval-harness-workspace-rename/24-CONTEXT.md
 
 **Critical context for next session:**
 

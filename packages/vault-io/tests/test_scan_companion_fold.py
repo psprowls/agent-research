@@ -83,7 +83,7 @@ def _companion_vault_paths(pages: dict) -> set[str]:
     companion_stems = {"api", "context", "patterns", "work"}
     result = set()
     for _name, meta in pages.items():
-        vp = meta.get("vault_path", "")
+        vp = meta.get("wiki_relative_path", "")
         stem = Path(vp).stem if vp else ""
         if stem in companion_stems:
             result.add(vp)
@@ -174,9 +174,9 @@ def test_apps_not_filtered(tmp_path: Path) -> None:
     # Apps should NOT be folded — api and context should appear in pages
     # (they have category 'app' which scan will pick up)
     app_companion_vault_paths = {
-        meta.get("vault_path", "")
+        meta.get("wiki_relative_path", "")
         for _name, meta in pages.items()
-        if Path(meta.get("vault_path", "")).stem in {"api", "context"}
+        if Path(meta.get("wiki_relative_path", "")).stem in {"api", "context"}
     }
     assert app_companion_vault_paths, (
         f"App companion files (api, context) were incorrectly folded or not found. "

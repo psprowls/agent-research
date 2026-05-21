@@ -65,7 +65,7 @@ def test_trace_pipeline_records_token_usage(tmp_path: Path) -> None:
             "uv", "run", "--package", "graph-wiki-agent",
             "graph-wiki-agent", "query",
             "What concepts are documented in the wiki?",
-            "--vault", str(wiki),
+            "--workspace", str(wiki),
             "--top-k", "3",
             "--json",
         ],

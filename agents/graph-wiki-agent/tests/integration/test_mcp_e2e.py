@@ -162,7 +162,7 @@ def _run_server_serial(
 # ---------------------------------------------------------------------------
 
 
-def _send_wiki_bootstrap(request_id: int, vault_path: str) -> dict:
+def _send_wiki_bootstrap(request_id: int, workspace_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -172,13 +172,13 @@ def _send_wiki_bootstrap(request_id: int, vault_path: str) -> dict:
             "arguments": {"input": {
                 "topic": "test repo",
                 "tool": "claude-code",
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
             }},
         },
     }
 
 
-def _send_wiki_scan(request_id: int, vault_path: str, repo_path: str) -> dict:
+def _send_wiki_scan(request_id: int, workspace_path: str, repo_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -186,7 +186,7 @@ def _send_wiki_scan(request_id: int, vault_path: str, repo_path: str) -> dict:
         "params": {
             "name": "wiki_scan",
             "arguments": {"input": {
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
                 "repo_path": repo_path,
                 "max_depth": 2,
             }},
@@ -194,7 +194,7 @@ def _send_wiki_scan(request_id: int, vault_path: str, repo_path: str) -> dict:
     }
 
 
-def _send_wiki_ingest(request_id: int, source_path: str, vault_path: str) -> dict:
+def _send_wiki_ingest(request_id: int, source_path: str, workspace_path: str) -> dict:
     # WikiIngestInput uses type="source" and source_path (not op/path)
     return {
         "jsonrpc": "2.0",
@@ -205,13 +205,13 @@ def _send_wiki_ingest(request_id: int, source_path: str, vault_path: str) -> dic
             "arguments": {"input": {
                 "type": "source",
                 "source_path": source_path,
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
             }},
         },
     }
 
 
-def _send_wiki_query(request_id: int, query: str, vault_path: str) -> dict:
+def _send_wiki_query(request_id: int, query: str, workspace_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -220,14 +220,14 @@ def _send_wiki_query(request_id: int, query: str, vault_path: str) -> dict:
             "name": "wiki_query",
             "arguments": {"input": {
                 "query": query,
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
                 "top_k": 3,
             }},
         },
     }
 
 
-def _send_wiki_lint(request_id: int, vault_path: str) -> dict:
+def _send_wiki_lint(request_id: int, workspace_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -235,13 +235,13 @@ def _send_wiki_lint(request_id: int, vault_path: str) -> dict:
         "params": {
             "name": "wiki_lint",
             "arguments": {"input": {
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
             }},
         },
     }
 
 
-def _send_wiki_log(request_id: int, vault_path: str) -> dict:
+def _send_wiki_log(request_id: int, workspace_path: str) -> dict:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -252,7 +252,7 @@ def _send_wiki_log(request_id: int, vault_path: str) -> dict:
                 "op": "note",
                 "title": "e2e test entry",
                 "detail": "smoke",
-                "vault_path": vault_path,
+                "workspace_path": workspace_path,
             }},
         },
     }
