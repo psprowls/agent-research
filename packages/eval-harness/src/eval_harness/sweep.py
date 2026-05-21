@@ -290,7 +290,7 @@ async def run_sweep(
                     except (UnknownModelError, KeyError):
                         cost_usd = None
 
-                structural = check_structural(result, wt.path / "wiki")
+                structural = check_structural(result, wt.path)
 
                 return SweepResult(
                     model_id=model_id,
@@ -586,7 +586,7 @@ async def run_role_sweep(
 
                     # Structural check: only meaningful for QueryResult
                     if hasattr(_result, "answer"):
-                        structural = check_structural(_result, wt.path / "wiki")
+                        structural = check_structural(_result, wt.path)
                         citations = getattr(_result, "citations", [])
                         pages_drilled = getattr(_result, "pages_drilled", 0)
                         answer = _answer
