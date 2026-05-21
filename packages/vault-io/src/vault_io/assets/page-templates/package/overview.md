@@ -30,8 +30,8 @@ One paragraph: what this package does, who uses it, why it exists.
 TODO — tree of relevant files with one-line descriptions.
 
 ## Sub-pages
-- [[api]]      — public API, exports, CLI subcommands
-- [[patterns]] — key patterns and conventions
-- [[work]]     — bugs, tech debt, features, open questions
-- [[context]]  — concepts, decisions, ADRs, sources
+- [[packages/{{PACKAGE_SLUG}}/api|api]]           — public API, exports, CLI subcommands
+- [[packages/{{PACKAGE_SLUG}}/patterns|patterns]] — key patterns and conventions
+- [[packages/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
+- [[packages/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
 

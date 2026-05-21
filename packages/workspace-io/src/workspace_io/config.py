@@ -7,6 +7,13 @@ key. Falls back to `<repo>/graph-wiki` when the key is absent.
 Environment variable `GRAPH_WIKI_WORKSPACE` overrides discovery and pins
 a workspace directory directly (used by tests and tools that need explicit
 workspace injection).
+
+The workspace manifest (`.graph-wiki.yaml`, layered with
+`.graph-wiki.local.yaml` on top) may also declare a `repo-directory:` key
+to pin the repo root explicitly — useful when the workspace itself lives
+in its own git repo (e.g. a separate wiki repo describing a source repo
+elsewhere on disk), where `.git`-discovery would otherwise bind to the
+wiki's own repo.
 """
 from __future__ import annotations
 
@@ -19,6 +26,7 @@ from workspace_io import _local_config
 
 LOCAL_CONFIG_FILENAME = ".graph-wiki.local.yaml"
 WORKSPACE_DIRECTORY_KEY = "workspace-directory"
+REPO_DIRECTORY_KEY = "repo-directory"
 DEFAULT_WORKSPACE_NAME = "graph-wiki"
 
 
@@ -34,6 +42,25 @@ def _find_repo_root(start: Path) -> Path | None:
         if (candidate / ".git").exists():
             return candidate
     return None
+
+
+def _repo_directory_override(workspace: Path, repo_root_default: Path) -> Path:
+    """Consult `<workspace>/.graph-wiki.yaml` + `.graph-wiki.local.yaml` for `repo-directory:`.
+
+    Local overrides committed manifest (same precedence as `workspace-directory`).
+    `~` is expanded; relative paths resolve against `workspace`. Returns
+    `repo_root_default` unchanged when the key is absent or blank.
+    """
+    committed = _local_config.read(workspace / ".graph-wiki.yaml")
+    local = _local_config.read(workspace / LOCAL_CONFIG_FILENAME)
+    merged = {**committed, **local}
+    raw = merged.get(REPO_DIRECTORY_KEY, "").strip()
+    if not raw:
+        return repo_root_default
+    expanded = Path(raw).expanduser()
+    if expanded.is_absolute():
+        return expanded.resolve()
+    return (workspace / expanded).resolve()
 
 
 def resolve_workspace(repo_root: Path) -> Path:
@@ -60,8 +87,10 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
     env_workspace = os.environ.get("GRAPH_WIKI_WORKSPACE", "").strip()
     if env_workspace:
         workspace = Path(env_workspace).expanduser().resolve()
-        # Still find repo_root by walking up from workspace
+        # Default: walk up from workspace for .git, then let the workspace
+        # manifest's `repo-directory:` (if set) override.
         repo_root = _find_repo_root(workspace) or workspace.parent.resolve()
+        repo_root = _repo_directory_override(workspace, repo_root)
         return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
 
     # Normal discovery path
@@ -75,6 +104,8 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
             f"No .graph-wiki.yaml found in {workspace}. "
             f"Run: graph-wiki-agent bootstrap <path>"
         )
+    # Workspace manifest may pin a different repo_root explicitly.
+    repo_root = _repo_directory_override(workspace, repo_root)
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
 
 

@@ -122,3 +122,86 @@ def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
     repo = _make_repo(tmp_path)
     with pytest.raises(RuntimeError, match="graph-wiki-agent bootstrap"):
         resolve(repo)
+
+
+def _seed_manifest_with(workspace: Path, extra_keys: dict[str, str]) -> None:
+    """Write a v2 .graph-wiki.yaml with additional flat top-level keys appended."""
+    workspace.mkdir(parents=True, exist_ok=True)
+    lines = ["version: 2", "initialized_at: 2026-05-17", "plugins: []"]
+    for key, value in extra_keys.items():
+        lines.append(f"{key}: {value}")
+    (workspace / ".graph-wiki.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_env_var_repo_directory_absolute_override(tmp_path, monkeypatch):
+    """Env-var branch: workspace manifest's `repo-directory:` overrides _find_repo_root."""
+    # Workspace IS a git repo (so _find_repo_root would otherwise pick it up).
+    workspace = tmp_path / "ws"
+    (workspace / ".git").mkdir(parents=True)
+    other_repo = tmp_path / "other-repo"
+    other_repo.mkdir()
+    _seed_manifest_with(workspace, {"repo-directory": str(other_repo)})
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    cfg = resolve()
+    assert cfg.workspace == workspace.resolve()
+    assert cfg.repo_root == other_repo.resolve()
+
+
+def test_env_var_repo_directory_tilde_expansion(tmp_path, monkeypatch):
+    """Env-var branch: `~` expands against $HOME for `repo-directory:`."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    target = fake_home / "projects" / "foo"
+    target.mkdir(parents=True)
+    workspace = tmp_path / "ws"
+    (workspace / ".git").mkdir(parents=True)
+    _seed_manifest_with(workspace, {"repo-directory": "~/projects/foo"})
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    cfg = resolve()
+    assert cfg.repo_root == target.resolve()
+
+
+def test_env_var_no_repo_directory_preserves_existing_behavior(tmp_path, monkeypatch):
+    """Env-var branch: absent `repo-directory:` keeps _find_repo_root result."""
+    workspace = tmp_path / "ws"
+    (workspace / ".git").mkdir(parents=True)
+    _seed_manifest_with(workspace, {})  # no repo-directory key
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    cfg = resolve()
+    # _find_repo_root(workspace) discovers the workspace itself (it has .git).
+    assert cfg.repo_root == workspace.resolve()
+
+
+def test_discovery_repo_directory_override(tmp_path, monkeypatch):
+    """Discovery branch: workspace manifest's `repo-directory:` overrides found .git."""
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    repo = _make_repo(tmp_path / "A" / "repo")
+    workspace = repo / "graph-wiki"
+    other_repo = tmp_path / "B" / "other-repo"
+    other_repo.mkdir(parents=True)
+    _seed_manifest_with(workspace, {"repo-directory": str(other_repo)})
+    cfg = resolve(repo)
+    assert cfg.workspace == workspace.resolve()
+    assert cfg.repo_root == other_repo.resolve()
+
+
+def test_discovery_no_repo_directory_preserves_existing_behavior(tmp_path, monkeypatch):
+    """Discovery branch: absent `repo-directory:` keeps discovered repo root."""
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    repo = _make_repo(tmp_path)
+    _seed_manifest_with(repo / "graph-wiki", {})
+    cfg = resolve(repo)
+    assert cfg.repo_root == repo.resolve()
+
+
+def test_repo_directory_relative_resolves_against_workspace(tmp_path, monkeypatch):
+    """`repo-directory: ../sibling-repo` expands relative to the workspace, not the repo."""
+    workspace = tmp_path / "parent" / "ws"
+    (workspace / ".git").mkdir(parents=True)
+    sibling = tmp_path / "parent" / "sibling-repo"
+    sibling.mkdir()
+    _seed_manifest_with(workspace, {"repo-directory": "../sibling-repo"})
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    cfg = resolve()
+    assert cfg.repo_root == sibling.resolve()
