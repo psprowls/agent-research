@@ -15,6 +15,7 @@ link_targets containment and renders the same in Obsidian.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
 
 
@@ -38,17 +39,23 @@ def test_package_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> No
     assert ok is True
     rendered = dest.read_text(encoding="utf-8")
 
-    # Path-qualified forms present.
-    assert "[[packages/myslug/api|api]]" in rendered
-    assert "[[packages/myslug/patterns|patterns]]" in rendered
-    assert "[[packages/myslug/work|work]]" in rendered
-    assert "[[packages/myslug/context|context]]" in rendered
+    # Workspace-rooted forms present.
+    assert "[[wiki/packages/myslug/api|api]]" in rendered
+    assert "[[wiki/packages/myslug/patterns|patterns]]" in rendered
+    assert "[[wiki/packages/myslug/work|work]]" in rendered
+    assert "[[wiki/packages/myslug/context|context]]" in rendered
 
     # Bare forms absent.
     assert "[[api]]" not in rendered
     assert "[[patterns]]" not in rendered
     assert "[[work]]" not in rendered
     assert "[[context]]" not in rendered
+
+    # Unprefixed path-qualified forms absent (regression guard).
+    assert "[[packages/myslug/api|api]]" not in rendered
+    assert "[[packages/myslug/patterns|patterns]]" not in rendered
+    assert "[[packages/myslug/work|work]]" not in rendered
+    assert "[[packages/myslug/context|context]]" not in rendered
 
     # No leftover unsubstituted slug tokens.
     assert "{{PACKAGE_SLUG}}" not in rendered
@@ -78,11 +85,25 @@ def test_domain_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> Non
     assert created is True
     rendered = dest.read_text(encoding="utf-8")
 
-    # Path-qualified form present.
-    assert "[[domains/myslug/details|details]]" in rendered
+    # Workspace-rooted form present.
+    assert "[[wiki/domains/myslug/details|details]]" in rendered
 
     # Bare form absent.
     assert "[[details]]" not in rendered
 
+    # Unprefixed path-qualified form absent (regression guard).
+    assert "[[domains/myslug/details|details]]" not in rendered
+
     # No leftover unsubstituted slug tokens.
     assert "{{DOMAIN_SLUG}}" not in rendered
+
+
+def test_package_context_template_uses_wiki_prefix() -> None:
+    """Every wikilink in package/context.md starts with `wiki/` so the example
+    forms guide the LLM toward emitting workspace-rooted links."""
+    src = ASSETS / "package" / "context.md"
+    text = src.read_text(encoding="utf-8")
+    targets = re.findall(r"\[\[([^\]]+)\]\]", text)
+    assert targets, "expected at least one wikilink in package/context.md"
+    bad = [t for t in targets if not t.startswith("wiki/")]
+    assert not bad, f"wikilinks missing wiki/ prefix: {bad}"

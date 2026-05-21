@@ -107,3 +107,53 @@ def test_resolve_pinned_containers_default_workspace_path_none(tmp_path: Path) -
     assert "graph-wiki" in sources, (
         f"Without workspace_path, 'graph-wiki' must appear (additive default). Got: {sources}"
     )
+
+
+def test_init_wiki_creates_section_index_stubs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """init_wiki seeds stub index.md files in concepts/sources/adrs/architecture
+    and preserves them across a re-init with force=True."""
+    from vault_io import init_vault
+
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname="solo"\nversion="0.0.1"\n', encoding="utf-8"
+    )
+
+    monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
+    monkeypatch.setattr(
+        init_vault, "_resolve_pinned_containers", lambda *a, **k: []
+    )
+
+    init_vault.init_wiki(
+        wiki, repo, topic="test", tool="claude-code", force=False, non_interactive=True
+    )
+
+    expected = {
+        "concepts": "Concept",
+        "sources": "Source",
+        "adrs": "ADR",
+        "architecture": "Architecture",
+    }
+    for section, label in expected.items():
+        stub = wiki / section / "index.md"
+        assert stub.exists(), f"missing stub: {stub}"
+        first = next(
+            line for line in stub.read_text(encoding="utf-8").splitlines() if line.strip()
+        )
+        assert first == f"# {label}", f"unexpected heading in {stub}: {first!r}"
+
+    sentinel = wiki / "concepts" / "index.md"
+    sentinel.write_text("SENTINEL\n", encoding="utf-8")
+
+    init_vault.init_wiki(
+        wiki, repo, topic="test", tool="claude-code", force=True, non_interactive=True
+    )
+
+    assert sentinel.read_text(encoding="utf-8") == "SENTINEL\n", (
+        "existing stub was overwritten by re-init"
+    )

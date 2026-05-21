@@ -21,7 +21,7 @@ One paragraph: what this domain covers, boundaries with adjacent domains.
 ## Packages in this domain
 
 <!-- One entry per package. Format:
-### [[packages/<pkg-slug>/<pkg-slug>|<pkg-slug>]]
+### [[wiki/packages/<pkg-slug>/<pkg-slug>|<pkg-slug>]]
 Two to three sentences describing what this package does and its role
 in the domain. Keep it concise — the package overview page has the
 full detail.
@@ -31,4 +31,4 @@ full detail.
 - **<Flow name>** — `<path/to/entry>:<line>` → describe
 
 ## Sub-pages
-- [[domains/{{DOMAIN_SLUG}}/details|details]] — concepts, dependencies, decisions, sources, contrasts
+- [[wiki/domains/{{DOMAIN_SLUG}}/details|details]] — concepts, dependencies, decisions, sources, contrasts
