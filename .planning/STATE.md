@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: planning
+status: completed
 stopped_at: Phase 25 context gathered
-last_updated: "2026-05-21T15:01:57.820Z"
-last_activity: 2026-05-21
+last_updated: "2026-05-21T15:43:52.021Z"
+last_activity: 2026-05-21 -- Phase 25 marked complete
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 75
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State: deep-agents
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 25 — packages dir misclassification fix
+**Current Focus:** Phase 25 — packages-dir-misclassification-fix
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 25
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-21
+Phase: 25 — COMPLETE
+Plan: 1 of 1
+Status: Phase 25 complete
+Last activity: 2026-05-21 -- Phase 25 marked complete
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 

@@ -78,7 +78,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 - [x] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion (completed 2026-05-20)
 - [x] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension (completed 2026-05-20)
 - [x] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh (completed 2026-05-21)
-- [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` permissive heuristic, plugin-side classifier sync, unit tests, and todo resolution
+- [x] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` permissive heuristic, plugin-side classifier sync, unit tests, and todo resolution (completed 2026-05-21)
 
 ---
 
@@ -133,7 +133,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` imports `main` from the updated `vault_io.detect_containers` (passthrough shim — no separate port)
   4. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/`
 **Plans**: 1 plan
-  - [ ] 25-01-PLAN.md — packages-dir-misclassification-fix (single-plan, 6 tasks: 3-5 new unit tests, _classify_dir Rule 3 permissive rewrite, detection-workflow.md doc sync, ROADMAP success-criteria revision per D-12/D-13, pending-todo move, full-workspace verification gate)
+  - [x] 25-01-PLAN.md — packages-dir-misclassification-fix (single-plan, 6 tasks: 3-5 new unit tests, _classify_dir Rule 3 permissive rewrite, detection-workflow.md doc sync, ROADMAP success-criteria revision per D-12/D-13, pending-todo move, full-workspace verification gate)
 
 ---
 
@@ -144,7 +144,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
 | 24. eval-harness-workspace-rename | 1/1 | Complete    | 2026-05-21 |
-| 25. packages-dir-misclassification-fix | 0/1 | Not started | - |
+| 25. packages-dir-misclassification-fix | 1/1 | Complete   | 2026-05-21 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
