@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
-status: ready_to_plan
-stopped_at: Phase 24 complete (1/1) — ready to discuss Phase 25
-last_updated: 2026-05-21T04:18:11.888Z
-last_activity: 2026-05-21 -- Phase 24 execution started
+status: planning
+stopped_at: Phase 25 context gathered
+last_updated: "2026-05-21T15:01:57.820Z"
+last_activity: 2026-05-21
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 110
+  completed_phases: 3
+  total_plans: 3
   completed_plans: 3
-  percent: 50
+  percent: 75
 ---
 
 # Project State: deep-agents
@@ -126,9 +126,9 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-21T02:54:50.221Z
-**Stopped at:** Phase 24 context gathered
-**Resume file:** .planning/phases/24-eval-harness-workspace-rename/24-CONTEXT.md
+**Last session:** 2026-05-21T15:01:57.811Z
+**Stopped at:** Phase 25 context gathered
+**Resume file:** .planning/phases/25-packages-dir-misclassification-fix/25-CONTEXT.md
 
 **Critical context for next session:**
 
