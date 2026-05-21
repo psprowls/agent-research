@@ -45,11 +45,11 @@ Source: design conversation 2026-05-20. Hard-rename all external surfaces with n
 
 Source: design conversation 2026-05-20. `eval-harness` package has its own concentration of `vault_path` parameters in `sweep.py` (7+ functions), `baseline.py` (incl. an argparse `--vault` flag separate from typer), `structural.py`, and `divergence/*.py`. Plus, the divergence-check helpers use bare `vault: Path` (no `_path` suffix) — these actually receive the wiki path, not the workspace, so they rename to `wiki: Path`.
 
-- [ ] **WSEVAL-01**: `packages/eval-harness/src/eval_harness/sweep.py` renames `vault_path` → `workspace_path` across all parameter sites (~7 functions); internal logic that derives the wiki path uses `workspace_io.paths.wiki_dir(workspace_path)`.
-- [ ] **WSEVAL-02**: `packages/eval-harness/src/eval_harness/baseline.py` renames `vault_path` parameter → `workspace_path`; argparse flag `--vault` → `--workspace`; `_vault_content_hash` → `_workspace_content_hash` (or hashes the wiki dir specifically — choose the semantic that matches usage). `packages/eval-harness/src/eval_harness/structural.py` `vault_path` parameters renamed similarly.
-- [ ] **WSEVAL-03**: `packages/eval-harness/src/eval_harness/divergence/{linter,ingestor,scanner,code_reader,synthesizer}.py` rename bare `vault: Path` parameters → `wiki: Path` (matches actual semantic — these receive the wiki path, not the workspace).
-- [ ] **WSEVAL-04**: `packages/eval-harness/tests/{eval_helpers.py,test_sweep.py,test_baseline.py,eval/test_sweep_eval.py}` updated for the new kwargs; `EvalWorktree` callers updated to pass `workspace_path` where applicable. `uv run --package eval-harness pytest` green.
-- [ ] **WSEVAL-05**: `eval/README.md` references updated (currently mentions `vault_path`).
+- [x] **WSEVAL-01**: `packages/eval-harness/src/eval_harness/sweep.py` renames `vault_path` → `workspace_path` across all parameter sites (~7 functions); internal logic that derives the wiki path uses `workspace_io.paths.wiki_dir(workspace_path)`.
+- [x] **WSEVAL-02**: `packages/eval-harness/src/eval_harness/baseline.py` renames `vault_path` parameter → `workspace_path`; argparse flag `--vault` → `--workspace`; `_vault_content_hash` → `_workspace_content_hash` (or hashes the wiki dir specifically — choose the semantic that matches usage). `packages/eval-harness/src/eval_harness/structural.py` `vault_path` parameters renamed similarly.
+- [x] **WSEVAL-03**: `packages/eval-harness/src/eval_harness/divergence/{linter,ingestor,scanner,code_reader,synthesizer}.py` rename bare `vault: Path` parameters → `wiki: Path` (matches actual semantic — these receive the wiki path, not the workspace).
+- [x] **WSEVAL-04**: `packages/eval-harness/tests/{eval_helpers.py,test_sweep.py,test_baseline.py,eval/test_sweep_eval.py}` updated for the new kwargs; `EvalWorktree` callers updated to pass `workspace_path` where applicable. `uv run --package eval-harness pytest` green.
+- [x] **WSEVAL-05**: `eval/README.md` references updated (currently mentions `vault_path`).
 
 ### Packages-Dir Misclassification Fix (PKGCLS)
 
@@ -101,11 +101,11 @@ Carry-forward items from v1.3 close, not in v1.4 scope:
 | WSMCP-05 | Phase 23 | Pending |
 | WSMCP-06 | Phase 23 | Pending |
 | WSMCP-07 | Phase 23 | Pending |
-| WSEVAL-01 | Phase 24 | Pending |
-| WSEVAL-02 | Phase 24 | Pending |
-| WSEVAL-03 | Phase 24 | Pending |
-| WSEVAL-04 | Phase 24 | Pending |
-| WSEVAL-05 | Phase 24 | Pending |
+| WSEVAL-01 | Phase 24 | Complete |
+| WSEVAL-02 | Phase 24 | Complete |
+| WSEVAL-03 | Phase 24 | Complete |
+| WSEVAL-04 | Phase 24 | Complete |
+| WSEVAL-05 | Phase 24 | Complete |
 | PKGCLS-01 | Phase 25 | Pending |
 | PKGCLS-02 | Phase 25 | Pending |
 | PKGCLS-03 | Phase 25 | Pending |

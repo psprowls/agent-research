@@ -143,7 +143,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
-| 24. eval-harness-workspace-rename | 1/1 | Complete   | 2026-05-21 |
+| 24. eval-harness-workspace-rename | 1/1 | Complete    | 2026-05-21 |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
