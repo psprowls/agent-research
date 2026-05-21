@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 from vault_io._workspace import resolve_wiki_and_repo
 from vault_io.detect_containers import detect as _detect_containers
 from vault_io.layout_io import write_layout as _write_layout
+from workspace_io.init import init as _workspace_init
+
+PLUGIN_NAME = "graph-wiki"
+PLUGIN_VERSION = "0.1.0"
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
@@ -162,9 +166,17 @@ def init_wiki(
         _error(f"{wiki_path} is not empty. Use --force to overwrite.", as_json)
 
     workspace_path = wiki_path.parent
-    # Create raw/ and work/ workspace sibling directories (Phase 5 workspace init).
+    # Create raw/ and work/ workspace sibling directories.
     (workspace_path / "raw").mkdir(parents=True, exist_ok=True)
     (workspace_path / "work").mkdir(parents=True, exist_ok=True)
+    # Register plugin with the workspace: writes .graph-wiki.yaml, runs git init
+    # if needed, ensures .graph-wiki.local.yaml is gitignored, renders <workspace>/CLAUDE.md.
+    _workspace_init(
+        repo_path,
+        plugin=PLUGIN_NAME,
+        version=PLUGIN_VERSION,
+        workspace=workspace_path,
+    )
 
     pinned = _resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)
     structural_dirs = [c["vault_dir"] for c in pinned if c["vault_dir"]]
@@ -303,8 +315,20 @@ def main():
         action="store_true",
         help="Don't prompt for ambiguous containers; mark them skip.",
     )
+    p.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace path (bypasses .graph-wiki.yaml discovery; required on first bootstrap).",
+    )
+    p.add_argument(
+        "--repo",
+        default=None,
+        help="Override repo root (default: walk up from cwd for .git).",
+    )
     args = p.parse_args()
-    wiki, repo = resolve_wiki_and_repo()
+    workspace_arg = Path(args.workspace).expanduser().resolve() if args.workspace else None
+    repo_arg = Path(args.repo).expanduser().resolve() if args.repo else None
+    wiki, repo = resolve_wiki_and_repo(workspace_path=workspace_arg, repo_path=repo_arg)
     init_wiki(
         wiki,
         repo,
