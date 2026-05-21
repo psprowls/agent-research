@@ -27,6 +27,7 @@ import argparse
 import datetime as dt
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -227,10 +228,11 @@ def init_wiki(
                 except OSError as e:
                     print(f"[warn] failed to copy template {rel}: {e}", file=sys.stderr)
 
+    repo_root_rel = os.path.relpath(repo_path, start=workspace_path)
     layout = {
         "version": 1,
         "detected_at": today,
-        "repo_root": "..",
+        "repo_root": repo_root_rel,
         "containers": pinned,
     }
     for schema_name in ("CLAUDE.md", "AGENTS.md"):
