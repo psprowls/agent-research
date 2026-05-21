@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 Phase: 26 (plugin-prompt-source-mirror-sync) — EXECUTING
 Plan: 1 of 4
 Status: Executing Phase 26
-Last activity: 2026-05-21 -- Phase 26 execution started
+Last activity: 2026-05-21 -- Completed quick task 260521-gc0: four lint-driven fixes (W1 repo-directory, W5 path-qualified wikilinks, F1 schema-file exclusion, F2 tokens null)
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
@@ -110,6 +110,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 |----------|-------------|--------|
 | 260520-bgd-close-out-v1-3-deferred-items | Close out v1.3 deferred items: commit untracked archive files, backfill audit-open status for k9t+lf1, resolve stale open_questions in Phase 18 + 20 CONTEXT | (this commit) |
 | 260521-ans-typer-help-ansi-strip | Fix 5 unit-test failures from ANSI escapes in Typer `--help` output: set `NO_COLOR=1`/`TERM=dumb`/`COLUMNS=200` on subprocess calls in test_cli_help.py, test_cli_query.py, test_trace_viewer.py | (this commit) |
+| 260521-gc0-tackle-four-lint-driven-fixes | Four lint-driven fixes from /graph-wiki:lint: W1 honor `repo-directory:` in workspace manifest, W5 path-qualified wikilinks in package/domain overview templates, F1 exclude CLAUDE.md/AGENTS.md from lint enumeration, F2 write `tokens: null` on unsupported-model CountTokens ValidationException | (this commit) |
 
 ---
 
