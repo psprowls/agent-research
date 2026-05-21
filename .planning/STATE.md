@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: executing
 stopped_at: Phase 24 context gathered
-last_updated: "2026-05-21T03:15:39.776Z"
-last_activity: 2026-05-21 -- Phase 24 planning complete
+last_updated: "2026-05-21T03:24:23.511Z"
+last_activity: 2026-05-21 -- Phase 24 execution started
 progress:
   total_phases: 4
   completed_phases: 2
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 23 — workspace-api-external-rename
+**Current Focus:** Phase 24 — eval-harness-workspace-rename
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 23 — COMPLETE
+Phase: 24 (eval-harness-workspace-rename) — EXECUTING
 Plan: 1 of 1
-Status: Ready to execute
-Last activity: 2026-05-21 -- Phase 24 planning complete
+Status: Executing Phase 24
+Last activity: 2026-05-21 -- Phase 24 execution started
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 

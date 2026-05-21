@@ -77,7 +77,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 
 - [x] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion (completed 2026-05-20)
 - [x] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension (completed 2026-05-20)
-- [ ] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh
+- [x] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh (completed 2026-05-21)
 - [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` majority-manifest heuristic, plugin-side classifier sync, `--interactive` flag, unit test, and todo resolution
 
 ---
@@ -121,7 +121,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   4. `eval/README.md` contains no `vault_path` references
   5. `grep -r "vault_path\|vault:" packages/eval-harness/src` returns 0 hits
 **Plans**: 1 plan
-  - [ ] 24-01-PLAN.md — eval-harness-workspace-rename (big-bang single plan covering WSEVAL-01..05 + EvalWorktree source_wiki cleanup D-04 + brand-gate CHECK 5 extension D-07 + 194 test refs sweep)
+  - [x] 24-01-PLAN.md — eval-harness-workspace-rename (big-bang single plan covering WSEVAL-01..05 + EvalWorktree source_wiki cleanup D-04 + brand-gate CHECK 5 extension D-07 + 194 test refs sweep)
 
 ### Phase 25: packages-dir-misclassification-fix
 **Goal**: Running `graph-wiki-agent bootstrap` on this repo without `--interactive` correctly classifies `packages/` as `package` and creates `wiki/packages/`; the pending todo is resolved; the plugin-side classifier matches the updated heuristic
@@ -143,7 +143,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 |-------|----------------|--------|-----------|
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
-| 24. eval-harness-workspace-rename | 0/1 | Not started | - |
+| 24. eval-harness-workspace-rename | 1/1 | Complete   | 2026-05-21 |
 | 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
