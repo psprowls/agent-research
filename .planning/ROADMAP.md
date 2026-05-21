@@ -133,7 +133,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
   3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` applies the identical ≥80% majority heuristic as the updated `vault-io` classifier
   4. `graph-wiki-agent bootstrap --interactive` prompts the user on any remaining `ambiguous` classifications instead of silently skipping them
   5. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/` and the `--interactive` flag is visible in `graph-wiki-agent bootstrap --help`
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 25-01-PLAN.md — packages-dir-misclassification-fix (single-plan, 6 tasks: 3-5 new unit tests, _classify_dir Rule 3 permissive rewrite, detection-workflow.md doc sync, ROADMAP success-criteria revision per D-12/D-13, pending-todo move, full-workspace verification gate)
 
 ---
 
@@ -144,7 +145,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 | 22. workspace-api-internal-rename | 1/1 | Complete   | 2026-05-20 |
 | 23. workspace-api-external-rename | 1/1 | Complete   | 2026-05-20 |
 | 24. eval-harness-workspace-rename | 1/1 | Complete    | 2026-05-21 |
-| 25. packages-dir-misclassification-fix | 0/TBD | Not started | - |
+| 25. packages-dir-misclassification-fix | 0/1 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
