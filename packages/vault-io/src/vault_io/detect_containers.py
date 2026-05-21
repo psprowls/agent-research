@@ -109,23 +109,29 @@ def _classify_dir(d: Path) -> dict:
                 "reason": f"{len(domain_kids)}/{len(children)} children are package containers",
             }
 
-    # Rule 3: package container — children have manifests
+    # Rule 3: package container — at least one immediate child has a manifest.
+    # Phase 25 (D-01..D-03): permissive heuristic. Non-manifested sibling dirs
+    # and loose .md files at the container root are silently excluded from the
+    # wiki layout; `children_count` reports the manifested-child count (the
+    # count that will actually get wiki pages), and `reason` is honest about
+    # what was skipped.
     if children:
         manifest_kids = [c for c in children if _has_manifest(c)]
-        if manifest_kids and len(manifest_kids) == len(children) and not md_files:
+        if manifest_kids:
+            skipped_dirs = len(children) - len(manifest_kids)
+            skipped_md = len(md_files)
+            if skipped_dirs == 0 and skipped_md == 0:
+                reason = f"all {len(manifest_kids)} children have manifests"
+            else:
+                reason = (
+                    f"{len(manifest_kids)}/{len(children)} children have manifests; "
+                    f"{skipped_dirs} dir(s) and {skipped_md} loose .md skipped"
+                )
             return {
                 "source": d.name,
                 "classification": "package",
                 "children_count": len(manifest_kids),
-                "reason": f"all {len(manifest_kids)} children have manifests",
-            }
-        # Mixed: some kids have manifests, some don't, or loose docs alongside packages
-        if manifest_kids and (len(manifest_kids) < len(children) or md_files):
-            return {
-                "source": d.name,
-                "classification": "ambiguous",
-                "children_count": len(children),
-                "reason": f"{len(manifest_kids)}/{len(children)} children have manifests; {len(md_files)} loose .md",
+                "reason": reason,
             }
 
     # Anything else with children but no manifest pattern: ambiguous
