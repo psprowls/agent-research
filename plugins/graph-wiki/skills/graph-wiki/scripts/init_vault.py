@@ -3,6 +3,10 @@
 import subprocess
 import sys
 
+from _uv_reexec import ensure as _ensure_uv
+
+_ensure_uv()
+
 from vault_io.init_vault import main as _core_main
 
 
