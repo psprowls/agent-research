@@ -128,3 +128,20 @@ def test_user_prose_in_claude_md_preserved_across_init(tmp_path):
     assert "USER NOTE TOP" in after
     assert "USER NOTE BOTTOM" in after
     assert "code-wiki-second" in after
+
+
+def test_init_tolerates_existing_manifest_without_plugins_key(tmp_path):
+    workspace = tmp_path / "graph-wiki"
+    workspace.mkdir()
+    mpath = manifest_path(workspace)
+    mpath.write_text("version: 2\nrepo: /some/path\n", encoding="utf-8")
+
+    init(tmp_path, plugin="graph-wiki-agent", version="1.0.0")
+
+    data = read(mpath)
+    assert isinstance(data["plugins"], list)
+    assert len(data["plugins"]) == 1
+    entry = data["plugins"][0]
+    assert entry["name"] == "graph-wiki-agent"
+    assert entry["installed_version"] == "1.0.0"
+    assert entry["applied_version"] == "1.0.0"

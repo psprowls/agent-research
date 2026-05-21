@@ -47,6 +47,8 @@ def init(
             "plugins": [],
         }
 
+    data.setdefault("plugins", [])
+
     entry = next((p for p in data["plugins"] if p["name"] == plugin), None)
     if entry is None:
         data["plugins"].append(
