@@ -1,6 +1,4 @@
-# Source: packages/prompt-sources/agents/librarian.md
-# Anchor: ## Rules (citation bullets — L73-L77)
-# Source-commit: ef05d99
+# Source: plugins/graph-wiki/agents/librarian.md §Rules
 
 CITATION_RULES = """\
 ## Citation rules

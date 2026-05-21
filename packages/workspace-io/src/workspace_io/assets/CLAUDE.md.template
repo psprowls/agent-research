@@ -27,3 +27,22 @@ The block above is auto-rendered from `.graph-wiki.yaml` every time `workspace-i
 - Treat each plugin's own schema doc as authoritative for its directory. The pointers above lead to the canonical source.
 - The `raw/` directory is read-only from the LLM's perspective.
 - Cite work items from wiki pages as `[[../work/<slug>]]` (relative to a wiki page).
+
+## Log format
+
+```
+## [YYYY-MM-DD] <op> | <title>
+<optional detail — which pages touched, what changed>
+```
+
+Valid ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
+
+Grep the log: `grep "^## \[" log.md | tail -10`
+
+## Style
+
+- Be concise. Wiki pages are read, not generated.
+- Prefer short paragraphs. Bulleted lists where appropriate.
+- Cite aggressively with `[[wikilinks]]` and `` `code-paths:line` ``.
+- When you're not sure, say so in the page. Don't invent content.
+- Update `updated:` frontmatter whenever you touch a page.

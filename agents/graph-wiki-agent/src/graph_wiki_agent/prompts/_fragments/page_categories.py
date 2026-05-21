@@ -1,6 +1,4 @@
-# Source: packages/prompt-sources/SKILL.md
-# Anchor: ## Page categories (table — L143-L155)
-# Source-commit: ef05d99
+# Source: plugins/graph-wiki/skills/graph-wiki/SKILL.md §Page categories
 
 PAGE_CATEGORIES = """\
 ## Page categories

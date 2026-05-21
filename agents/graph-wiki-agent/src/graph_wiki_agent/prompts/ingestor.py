@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """INGESTOR_SYSTEM prompt composed from shared fragments + ingestor-local prose.
 
-Ports packages/prompt-sources/agents/ingestor.md per PORT-03 (Phase 6).
+Ports plugins/graph-wiki/agents/ingestor.md per PORT-03 (Phase 6).
 Adapts host-specific references (slash commands, script calls, interactive
 loops) to graph-wiki-agent's non-interactive tool surface per RESEARCH §Adaptation Map.
 Preserves semantic rules: page-type routing, frontmatter fields, minimum-3-touches,

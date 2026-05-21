@@ -1,6 +1,4 @@
-# Source: packages/prompt-sources/SKILL.md
-# Anchor: ## Iron rules (L193-L201)
-# Source-commit: ef05d99
+# Source: plugins/graph-wiki/skills/graph-wiki/SKILL.md §Iron rules
 
 IRON_RULES = """\
 ## Iron rules
