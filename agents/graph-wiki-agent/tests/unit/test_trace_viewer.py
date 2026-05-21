@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from functools import lru_cache
 
 import pytest
 from pathlib import Path
 from syrupy.assertion import SnapshotAssertion
+
+# Disable Rich's ANSI rendering so `trace --help` output is plain text — the
+# `\x1b[1;36m--expand\x1b[0m` Typer/Rich emits otherwise breaks `"--expand" in stdout`.
+_PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +475,7 @@ def _trace_supports_expand_flag() -> bool:
             text=True,
             cwd=_PROJECT_ROOT,
             timeout=120,
+            env=_PLAIN_HELP_ENV,
         )
     except (subprocess.SubprocessError, OSError):
         return False
@@ -538,6 +544,7 @@ def test_trace_command_has_expand_flag() -> None:
         text=True,
         cwd=_PROJECT_ROOT,
         timeout=120,
+        env=_PLAIN_HELP_ENV,
     )
     assert result.returncode == 0, f"trace --help exited {result.returncode}: {result.stderr}"
     assert "--expand" in result.stdout, (

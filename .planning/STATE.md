@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: completed
 stopped_at: Phase 25 context gathered
-last_updated: "2026-05-21T15:43:52.021Z"
-last_activity: 2026-05-21 -- Phase 25 marked complete
+last_updated: "2026-05-21T16:30:00.000Z"
+last_activity: 2026-05-21 -- Quick task 260521-ans (typer-help-ansi-strip) complete
 progress:
   total_phases: 4
   completed_phases: 4
@@ -108,6 +108,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | Quick ID | Description | Commit |
 |----------|-------------|--------|
 | 260520-bgd-close-out-v1-3-deferred-items | Close out v1.3 deferred items: commit untracked archive files, backfill audit-open status for k9t+lf1, resolve stale open_questions in Phase 18 + 20 CONTEXT | (this commit) |
+| 260521-ans-typer-help-ansi-strip | Fix 5 unit-test failures from ANSI escapes in Typer `--help` output: set `NO_COLOR=1`/`TERM=dumb`/`COLUMNS=200` on subprocess calls in test_cli_help.py, test_cli_query.py, test_trace_viewer.py | (this commit) |
 
 ---
 

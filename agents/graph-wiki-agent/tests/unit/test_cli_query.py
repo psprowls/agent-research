@@ -8,6 +8,7 @@ Requirements covered: CLI-01, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CMD-08.
 import dataclasses
 import inspect
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,10 @@ import pytest
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+# Disable Rich's ANSI rendering so help output is plain text — otherwise
+# `\x1b[1;36m--top-k\x1b[0m` breaks substring assertions on flag names.
+_PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
 
 def _make_query_result():
@@ -44,6 +49,7 @@ def test_query_help_exits_zero() -> None:
         ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
+        env=_PLAIN_HELP_ENV,
     )
     assert result.returncode == 0, f"Expected exit 0, got {result.returncode}\n{result.stderr}"
     assert "--top-k" in result.stdout
@@ -59,6 +65,7 @@ def test_vault_flag_in_help() -> None:
         ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
+        env=_PLAIN_HELP_ENV,
     )
     assert result.returncode == 0
     assert "--workspace" in result.stdout
@@ -89,6 +96,7 @@ def test_state_gate_flag_present() -> None:
         ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "query", "--help"],
         capture_output=True,
         text=True,
+        env=_PLAIN_HELP_ENV,
     )
     assert result.returncode == 0
     assert "--no-state-gate" in result.stdout

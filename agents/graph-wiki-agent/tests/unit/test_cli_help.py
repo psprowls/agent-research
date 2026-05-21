@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+
+# Disable Rich's ANSI rendering so help output is plain text — otherwise
+# `\x1b[1;36mbootstrap\x1b[0m` breaks both substring and `\b`-boundary checks
+# (the trailing `m` in the SGR sequence is alphanumeric).
+_PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
 
 def _run_help() -> subprocess.CompletedProcess[str]:
@@ -9,6 +15,7 @@ def _run_help() -> subprocess.CompletedProcess[str]:
         ["uv", "run", "--package", "graph-wiki-agent", "graph-wiki-agent", "--help"],
         capture_output=True,
         text=True,
+        env=_PLAIN_HELP_ENV,
     )
 
 
