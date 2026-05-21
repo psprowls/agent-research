@@ -34,7 +34,12 @@ def test_package_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> No
     ok = render_template(
         src,
         dest,
-        {"PACKAGE_TITLE": "myslug", "PACKAGE_SLUG": "myslug", "DATE": today},
+        {
+            "PACKAGE_TITLE": "myslug",
+            "PACKAGE_SLUG": "myslug",
+            "CONTAINER_DIR": "packages",
+            "DATE": today,
+        },
     )
     assert ok is True
     rendered = dest.read_text(encoding="utf-8")
@@ -59,6 +64,45 @@ def test_package_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> No
 
     # No leftover unsubstituted slug tokens.
     assert "{{PACKAGE_SLUG}}" not in rendered
+    assert "{{CONTAINER_DIR}}" not in rendered
+
+
+def test_package_overview_supports_container_dir_variable(tmp_path: Path) -> None:
+    """The package overview template parameterizes the container segment via
+    {{CONTAINER_DIR}} so the scanner can render pages under wiki/agents/,
+    wiki/plugins/, etc., not just wiki/packages/."""
+    from vault_io.init_vault import render_template
+
+    src = ASSETS / "package" / "overview.md"
+    today = dt.date.today().isoformat()
+
+    for container in ("agents", "plugins"):
+        dest = tmp_path / f"{container}.md"
+        ok = render_template(
+            src,
+            dest,
+            {
+                "PACKAGE_TITLE": "myslug",
+                "PACKAGE_SLUG": "myslug",
+                "CONTAINER_DIR": container,
+                "DATE": today,
+            },
+        )
+        assert ok is True
+        rendered = dest.read_text(encoding="utf-8")
+
+        # Workspace-rooted forms present for this container.
+        assert f"[[wiki/{container}/myslug/api|api]]" in rendered
+        assert f"[[wiki/{container}/myslug/patterns|patterns]]" in rendered
+        assert f"[[wiki/{container}/myslug/work|work]]" in rendered
+        assert f"[[wiki/{container}/myslug/context|context]]" in rendered
+
+        # The default `packages` container must NOT leak through.
+        assert "[[wiki/packages/myslug/api|api]]" not in rendered
+
+        # Both tokens fully substituted.
+        assert "{{CONTAINER_DIR}}" not in rendered
+        assert "{{PACKAGE_SLUG}}" not in rendered
 
 
 def test_domain_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> None:

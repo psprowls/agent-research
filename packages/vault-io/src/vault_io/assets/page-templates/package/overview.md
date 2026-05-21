@@ -30,8 +30,8 @@ One paragraph: what this package does, who uses it, why it exists.
 TODO — tree of relevant files with one-line descriptions.
 
 ## Sub-pages
-- [[wiki/packages/{{PACKAGE_SLUG}}/api|api]]           — public API, exports, CLI subcommands
-- [[wiki/packages/{{PACKAGE_SLUG}}/patterns|patterns]] — key patterns and conventions
-- [[wiki/packages/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
-- [[wiki/packages/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
+- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/api|api]]           — public API, exports, CLI subcommands
+- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/patterns|patterns]] — key patterns and conventions
+- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
+- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
 
