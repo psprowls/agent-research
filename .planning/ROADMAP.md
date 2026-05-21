@@ -78,7 +78,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 - [x] **Phase 22: workspace-api-internal-rename** — Internal Python API: `resolve_wiki_and_repo` signature, all 6 `run_*` command signatures, call sites, test mocks, `.graph-wiki.local.yaml` key, and `resolve_workspace` promotion (completed 2026-05-20)
 - [x] **Phase 23: workspace-api-external-rename** — External surfaces: 6 MCP Pydantic fields, 7 Typer flags, scan JSON output field, plugin docs, DA-CLI integration test, and brand-gate extension (completed 2026-05-20)
 - [x] **Phase 24: eval-harness-workspace-rename** — eval-harness package: `vault_path` → `workspace_path` in sweep/baseline/structural, `vault:` → `wiki:` in divergence helpers, test updates, README refresh (completed 2026-05-21)
-- [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` majority-manifest heuristic, plugin-side classifier sync, `--interactive` flag, unit test, and todo resolution
+- [ ] **Phase 25: packages-dir-misclassification-fix** — Bootstrap bug: `_classify_dir` permissive heuristic, plugin-side classifier sync, unit tests, and todo resolution
 
 ---
 
@@ -130,9 +130,8 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 **Success Criteria** (what must be TRUE):
   1. `graph-wiki-agent bootstrap` on this repo (without `--interactive`) classifies `packages/` as `package` and creates `wiki/packages/` automatically
   2. `_classify_dir` with a fixture dir containing 5/6 manifested children returns `package` (not `ambiguous`); unit test asserts this
-  3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` applies the identical ≥80% majority heuristic as the updated `vault-io` classifier
-  4. `graph-wiki-agent bootstrap --interactive` prompts the user on any remaining `ambiguous` classifications instead of silently skipping them
-  5. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/` and the `--interactive` flag is visible in `graph-wiki-agent bootstrap --help`
+  3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` imports `main` from the updated `vault_io.detect_containers` (passthrough shim — no separate port)
+  4. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/`
 **Plans**: 1 plan
   - [ ] 25-01-PLAN.md — packages-dir-misclassification-fix (single-plan, 6 tasks: 3-5 new unit tests, _classify_dir Rule 3 permissive rewrite, detection-workflow.md doc sync, ROADMAP success-criteria revision per D-12/D-13, pending-todo move, full-workspace verification gate)
 
