@@ -14,7 +14,7 @@ Security:
     defaults to OpenAI GPT when model= is omitted, which silently routes calls
     outside Bedrock. The grep gate in test_divergence_metric.py enforces this.
     T-06-19: Excerpts capped at 200 chars; baseline JSON is committed to git
-    so excerpts are by definition non-sensitive vault content.
+    so excerpts are by definition non-sensitive wiki content.
     T-06-20: Judge calls are lazy — only triggered when run_judge() is invoked.
     The programmatic-only path (run_programmatic) requires no Bedrock access.
 
@@ -49,14 +49,14 @@ _ROLE_JUDGE_ID: dict[str, str] = {
 def _run_check_one(
     check: DivergenceCheck,
     output_proxy: AgentOutputProxy,
-    vault: Path,
+    wiki: Path,
 ) -> tuple[bool, str]:
     """Run a single check and return (passed, excerpt).
 
     Delegates to DivergenceCheck.check which is a pure callable that must not
     eval/exec the output text (T-06-15 constraint lives in check.py).
     """
-    verdict: Verdict = check.check(output_proxy, vault)
+    verdict: Verdict = check.check(output_proxy, wiki)
     return verdict.passed, verdict.excerpt
 
 
@@ -70,7 +70,7 @@ class DivergenceMetric:
         role:        Role name ("librarian", "ingestor", "linter", "scanner").
         checks:      List of DivergenceCheck instances for this role.
         rubric_path: Path to the per-role judge rubric .md file.
-        vault:       Path to the vault root (for wikilink resolution in checks).
+        wiki:        Path to the wiki root (for wikilink resolution in checks).
     """
 
     def __init__(
@@ -78,12 +78,12 @@ class DivergenceMetric:
         role: str,
         checks: list[DivergenceCheck],
         rubric_path: Path,
-        vault: Path,
+        wiki: Path,
     ) -> None:
         self.role = role
         self.checks = checks
         self.rubric_path = rubric_path
-        self.vault = vault
+        self.wiki = wiki
         # Read at construction time — FileNotFoundError surfaces immediately
         self._rubric_text: str = rubric_path.read_text(encoding="utf-8")
 
@@ -107,7 +107,7 @@ class DivergenceMetric:
         for fixture_id, output in outputs:
             for check in self.checks:
                 results[check.id]["runs"] += 1
-                passed, excerpt = _run_check_one(check, output, self.vault)
+                passed, excerpt = _run_check_one(check, output, self.wiki)
                 if not passed:
                     results[check.id]["failures"] += 1
                     results[check.id]["accepted_failures"].append(

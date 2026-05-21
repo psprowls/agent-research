@@ -97,5 +97,27 @@ if [ -n "$HITS4" ]; then
   exit 1
 fi
 
-echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean + BRAND-WSAPI vault_path|--vault|\"vault_path\")"
+# CHECK 5 — Phase 24 §WSEVAL-07 / D-07: ban reintroduction of the three
+# eval-harness legacy patterns:
+#   (1) function-param `vault_path:` (regex: def\s+\w+\([^)]*\bvault_path:\s*Path)
+#   (2) bare function-param `vault: Path` (regex: def\s+\w+\([^)]*\bvault:\s*Path)
+#   (3) argparse literal `"--vault"`
+# Path scope is packages/eval-harness/{src,tests} only — .planning/ historical
+# docs are excluded per D-07 (Phase 24's CONTEXT / PLAN and prior milestone
+# summaries legitimately reference the old name and must not be edited).
+# Tests are INCLUDED in scope because reintroducing `vault: Path` in test code
+# would defeat the rename (D-07 explicit policy).
+HITS5=$(grep -rEln --exclude-dir=__pycache__ --exclude='*.pyc' -E \
+    'def\s+\w+\([^)]*\bvault_path:\s*Path|def\s+\w+\([^)]*\bvault:\s*Path|"--vault"' \
+    packages/eval-harness/src packages/eval-harness/tests 2>/dev/null \
+    | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
+
+if [ -n "$HITS5" ]; then
+  echo "$HITS5"
+  COUNT5=$(printf '%s\n' "$HITS5" | wc -l | tr -d ' ')
+  echo "BRAND-WSEVAL FAIL: ${COUNT5} unallowlisted hits for vault_path: Path|vault: Path|\"--vault\"" >&2
+  exit 1
+fi
+
+echo "BRAND-04 OK: zero unallowlisted hits (BRAND-04 lattice + BRAND-CMD graph-wiki:init|wiki_init + BRAND-CMD-CLI def init( all clean + BRAND-WSAPI vault_path|--vault|\"vault_path\" + BRAND-WSEVAL vault_path:|vault:|\"--vault\")"
 exit 0

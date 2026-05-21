@@ -23,7 +23,7 @@ _WRITE_OP_RE = re.compile(
 )
 
 
-def _check_code_drift_first(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_code_drift_first(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LNT-001 (soft): Code-drift finding appears before orphan/stale findings."""
     lines = output.answer.splitlines()
     first_code_drift = None
@@ -46,14 +46,14 @@ def _check_code_drift_first(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_findings_nonempty(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_findings_nonempty(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LNT-002: Findings list is not empty (non-empty output required when issues exist)."""
     if not output.answer.strip():
         return Verdict(passed=False, excerpt="Linter output is empty")
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_silent_fix(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_silent_fix(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LNT-003: LLM does not include write operations in output (report only)."""
     match = _WRITE_OP_RE.search(output.answer)
     if match:

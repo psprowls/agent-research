@@ -9,7 +9,7 @@ removes the tmpdir on exit. This matches the post-Phase-22 API contract
 The copy includes .graph-wiki/ (BM25 index + SQLite embedding DB) so indexes
 travel with the wiki. No index rebuild is needed at sweep time.
 
-Threat mitigation T-4-01: source_vault is anchored to caller-supplied
+Threat mitigation T-4-01: source_wiki is anchored to caller-supplied
 Path; no user input is interpolated into the copy operation.
 """
 
@@ -33,8 +33,8 @@ class EvalWorktree:
     distinct paths.
     """
 
-    def __init__(self, source_vault: Path) -> None:
-        self._source = source_vault
+    def __init__(self, source_wiki: Path) -> None:
+        self._source = source_wiki
         self.path: Path | None = None
         self._tmp: str | None = None
 

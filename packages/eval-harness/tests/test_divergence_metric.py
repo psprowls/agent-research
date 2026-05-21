@@ -20,7 +20,7 @@ from eval_harness.divergence.check import AgentOutputProxy
 # ---------------------------------------------------------------------------
 
 
-def test_metric_constructs_and_reads_rubric(fixture_vault_path: Path) -> None:
+def test_metric_constructs_and_reads_rubric(fixture_wiki_path: Path) -> None:
     """DivergenceMetric can be constructed and reads the rubric at init time."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -28,14 +28,14 @@ def test_metric_constructs_and_reads_rubric(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     # rubric text was read at construction time
     assert isinstance(m._rubric_text, str)
     assert len(m._rubric_text) > 0
 
 
-def test_metric_raises_on_missing_rubric(fixture_vault_path: Path, tmp_path: Path) -> None:
+def test_metric_raises_on_missing_rubric(fixture_wiki_path: Path, tmp_path: Path) -> None:
     """DivergenceMetric raises FileNotFoundError immediately when rubric is missing."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -45,7 +45,7 @@ def test_metric_raises_on_missing_rubric(fixture_vault_path: Path, tmp_path: Pat
             role="librarian",
             checks=ROLE_CHECKS["librarian"],
             rubric_path=missing,
-            vault=fixture_vault_path,
+            wiki=fixture_wiki_path,
         )
 
 
@@ -63,7 +63,7 @@ def test_metric_importable_without_aws_env(monkeypatch: pytest.MonkeyPatch) -> N
 # ---------------------------------------------------------------------------
 
 
-def test_run_programmatic_returns_d11_shape(fixture_vault_path: Path) -> None:
+def test_run_programmatic_returns_d11_shape(fixture_wiki_path: Path) -> None:
     """run_programmatic returns dict keyed by rule_id with runs/failures/accepted_failures."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -71,7 +71,7 @@ def test_run_programmatic_returns_d11_shape(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     outputs = [("fix1", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]]."))]
     results = m.run_programmatic(outputs)
@@ -88,7 +88,7 @@ def test_run_programmatic_returns_d11_shape(fixture_vault_path: Path) -> None:
         assert isinstance(entry["accepted_failures"], list)
 
 
-def test_run_programmatic_counts_runs_correctly(fixture_vault_path: Path) -> None:
+def test_run_programmatic_counts_runs_correctly(fixture_wiki_path: Path) -> None:
     """run_programmatic increments runs for each (fixture, check) pair."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -96,7 +96,7 @@ def test_run_programmatic_counts_runs_correctly(fixture_vault_path: Path) -> Non
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     # 3 fixtures -> each check should have runs == 3
     outputs = [
@@ -110,7 +110,7 @@ def test_run_programmatic_counts_runs_correctly(fixture_vault_path: Path) -> Non
 
 
 def test_run_programmatic_records_failure_with_fixture_and_excerpt(
-    fixture_vault_path: Path,
+    fixture_wiki_path: Path,
 ) -> None:
     """Failures include accepted_failures entries with fixture and excerpt keys."""
     from eval_harness.divergence.metric import DivergenceMetric
@@ -119,7 +119,7 @@ def test_run_programmatic_records_failure_with_fixture_and_excerpt(
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     # LIB-001 fails on an unresolved wikilink
     outputs = [("fixture-bad", AgentOutputProxy(answer="See [[nonexistent/page]]."))]
@@ -134,7 +134,7 @@ def test_run_programmatic_records_failure_with_fixture_and_excerpt(
     assert len(entry["excerpt"]) <= 200  # capped at 200 chars
 
 
-def test_run_programmatic_zero_failures_on_valid_output(fixture_vault_path: Path) -> None:
+def test_run_programmatic_zero_failures_on_valid_output(fixture_wiki_path: Path) -> None:
     """Fully valid librarian output produces 0 failures across all hard checks."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -142,7 +142,7 @@ def test_run_programmatic_zero_failures_on_valid_output(fixture_vault_path: Path
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     # Well-formed: resolved wikilink, citation present, path-wikilink, code path in backticks
     outputs = [
@@ -160,7 +160,7 @@ def test_run_programmatic_zero_failures_on_valid_output(fixture_vault_path: Path
         )
 
 
-def test_run_programmatic_all_four_roles(fixture_vault_path: Path) -> None:
+def test_run_programmatic_all_four_roles(fixture_wiki_path: Path) -> None:
     """run_programmatic works for all four roles without error."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -169,7 +169,7 @@ def test_run_programmatic_all_four_roles(fixture_vault_path: Path) -> None:
             role=role,
             checks=ROLE_CHECKS[role],
             rubric_path=ROLE_RUBRICS[role],
-            vault=fixture_vault_path,
+            wiki=fixture_wiki_path,
         )
         # Minimal output — just check no exception is raised
         outputs = [("fix1", AgentOutputProxy(answer="placeholder output"))]
@@ -182,7 +182,7 @@ def test_run_programmatic_all_four_roles(fixture_vault_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_summarize_returns_d11_envelope(fixture_vault_path: Path) -> None:
+def test_summarize_returns_d11_envelope(fixture_wiki_path: Path) -> None:
     """summarize() wraps results in the D-11 envelope with required keys."""
     from eval_harness.divergence.metric import DivergenceMetric, summarize
 
@@ -190,7 +190,7 @@ def test_summarize_returns_d11_envelope(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     outputs = [("fix1", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]]."))]
     results = m.run_programmatic(outputs)
@@ -205,7 +205,7 @@ def test_summarize_returns_d11_envelope(fixture_vault_path: Path) -> None:
     assert envelope["checks"] is results
 
 
-def test_summarize_recorded_at_is_iso_timestamp(fixture_vault_path: Path) -> None:
+def test_summarize_recorded_at_is_iso_timestamp(fixture_wiki_path: Path) -> None:
     """summarize() recorded_at is a non-empty ISO-format timestamp string."""
     from eval_harness.divergence.metric import DivergenceMetric, summarize
 
@@ -213,7 +213,7 @@ def test_summarize_recorded_at_is_iso_timestamp(fixture_vault_path: Path) -> Non
         role="scanner",
         checks=ROLE_CHECKS["scanner"],
         rubric_path=ROLE_RUBRICS["scanner"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
     results = m.run_programmatic([("f1", AgentOutputProxy(answer="placeholder"))])
     envelope = summarize("scanner", results, "deadbeef")

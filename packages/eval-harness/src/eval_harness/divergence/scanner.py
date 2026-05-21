@@ -20,7 +20,7 @@ _FILE_MAP_SECTION = "## File map"
 _OVERVIEW_SECTION = "## Overview"
 
 
-def _check_frontmatter_present(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_frontmatter_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SCN-001: Scanner stub output contains --- delimited YAML frontmatter."""
     text = output.answer
     if not text.startswith("---"):
@@ -31,7 +31,7 @@ def _check_frontmatter_present(output: AgentOutputProxy, vault: Path) -> Verdict
     return Verdict(passed=True, excerpt="")
 
 
-def _check_required_fields(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_required_fields(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SCN-002: title, category, summary, package_path, language all present."""
     try:
         post = frontmatter.loads(output.answer)
@@ -43,7 +43,7 @@ def _check_required_fields(output: AgentOutputProxy, vault: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_file_map_section(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_no_file_map_section(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SCN-003: Output does not contain ## File map section (added by pipeline)."""
     if _FILE_MAP_SECTION in output.answer:
         return Verdict(
@@ -53,7 +53,7 @@ def _check_no_file_map_section(output: AgentOutputProxy, vault: Path) -> Verdict
     return Verdict(passed=True, excerpt="")
 
 
-def _check_overview_present(output: AgentOutputProxy, vault: Path) -> Verdict:
+def _check_overview_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SCN-004: Output contains ## Overview section."""
     if _OVERVIEW_SECTION not in output.answer:
         return Verdict(passed=False, excerpt="Missing '## Overview' section")

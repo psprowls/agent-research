@@ -26,7 +26,7 @@ from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_t
 # ---------------------------------------------------------------------------
 
 
-def test_two_gate_librarian_pass(fixture_vault_path: Path) -> None:
+def test_two_gate_librarian_pass(fixture_wiki_path: Path) -> None:
     """Both gates pass for a well-formed librarian answer; result is qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -38,7 +38,7 @@ def test_two_gate_librarian_pass(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
 
     # Well-formed output that should pass all hard-rule checks
@@ -75,7 +75,7 @@ def test_two_gate_librarian_pass(fixture_vault_path: Path) -> None:
     assert isinstance(outcome.divergence_failures, dict)
 
 
-def test_two_gate_librarian_divergence_fail(fixture_vault_path: Path) -> None:
+def test_two_gate_librarian_divergence_fail(fixture_wiki_path: Path) -> None:
     """Gate 1 fails when hard-rule failures exceed baseline; result is not qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -87,7 +87,7 @@ def test_two_gate_librarian_divergence_fail(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
 
     # Inject many hard-rule failures by mocking run_programmatic to return
@@ -122,7 +122,7 @@ def test_two_gate_librarian_divergence_fail(fixture_vault_path: Path) -> None:
     assert outcome.divergence_failures is not None
 
 
-def test_two_gate_librarian_quality_fail(fixture_vault_path: Path) -> None:
+def test_two_gate_librarian_quality_fail(fixture_wiki_path: Path) -> None:
     """Gate 1 passes but Gate 2 (judge score) fails threshold; result is not qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
@@ -134,7 +134,7 @@ def test_two_gate_librarian_quality_fail(fixture_vault_path: Path) -> None:
         role="librarian",
         checks=ROLE_CHECKS["librarian"],
         rubric_path=ROLE_RUBRICS["librarian"],
-        vault=fixture_vault_path,
+        wiki=fixture_wiki_path,
     )
 
     # Gate 1 passes (no assertion raised) but Gate 2 fails
@@ -170,7 +170,7 @@ def test_two_gate_librarian_quality_fail(fixture_vault_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_synthesizer_now_runs_gate1_after_phase16(fixture_vault_path: Path) -> None:
+def test_synthesizer_now_runs_gate1_after_phase16(fixture_wiki_path: Path) -> None:
     """Phase 16 D-06: synthesizer is now in ROLES_WITH_DIVERGENCE and runs Gate 1.
 
     Replaces the prior D-08 "skip Gate 1" assertion. The synthesizer rubric
@@ -181,7 +181,7 @@ def test_synthesizer_now_runs_gate1_after_phase16(fixture_vault_path: Path) -> N
     assert "code_reader" in ROLES_WITH_DIVERGENCE
 
 
-def test_no_quality_signal_is_unqualified(fixture_vault_path: Path) -> None:
+def test_no_quality_signal_is_unqualified(fixture_wiki_path: Path) -> None:
     """When neither gate has any signal (no metric + no panel), outcome is not qualified.
 
     Post-Phase-16: all roles are in ROLES_WITH_DIVERGENCE, so a missing metric

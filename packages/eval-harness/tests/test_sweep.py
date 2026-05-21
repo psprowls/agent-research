@@ -1,6 +1,6 @@
 """Unit tests for eval_harness.sweep: SweepResult dataclass and run_sweep().
 
-Integration test (test_run_query_accepts_tmpdir_vault) requires GRAPH_WIKI_RUN_EVAL=1
+Integration test (test_run_query_accepts_tmpdir_workspace) requires GRAPH_WIKI_RUN_EVAL=1
 and is marked "integration" — skipped in the normal unit suite.
 
 All other tests use AsyncMock to avoid Bedrock calls and are fully deterministic.
@@ -52,13 +52,13 @@ def _make_cases_file(tmp_path: Path, cases: list[dict] | None = None) -> Path:
 
 
 @pytest.mark.integration
-async def test_run_query_accepts_tmpdir_vault(
-    fixture_vault_path: Path,
+async def test_run_query_accepts_tmpdir_workspace(
+    fixture_wiki_path: Path,
 ) -> None:
-    """Assumption A1 validation: run_query() accepts a tmpdir vault_path.
+    """Assumption A1 validation: run_query() accepts a tmpdir workspace_path.
 
-    This test calls run_query() directly with vault_path set to a fresh
-    EvalWorktree copy of fixture_vault_path. If resolve_wiki_and_repo or
+    This test calls run_query() directly with workspace_path set to a fresh
+    EvalWorktree copy of fixture_wiki_path. If resolve_wiki_and_repo or
     any internal function rejects the tmpdir path, the failure is surfaced
     here before the sweep loop trusts it (RESEARCH.md Pitfall 6).
 
@@ -67,7 +67,7 @@ async def test_run_query_accepts_tmpdir_vault(
     from graph_wiki_agent.commands.query import run_query
     from eval_harness.isolation import EvalWorktree
 
-    async with EvalWorktree(fixture_vault_path) as wt:
+    async with EvalWorktree(fixture_wiki_path) as wt:
         result = await run_query(
             "What does lattice-wiki-core do?",
             workspace_path=wt.path,
@@ -81,20 +81,20 @@ async def test_run_query_accepts_tmpdir_vault(
 # ---------------------------------------------------------------------------
 
 
-async def test_sweep_collects_results(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_collects_results(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_sweep with 2 model_ids and 1 case returns a list of 2 SweepResult."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-lite-v1:0", "us.amazon.nova-micro-v1:0"]
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 2
     assert all(isinstance(r, SweepResult) for r in results)
 
 
-async def test_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_partial_failure(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_sweep with 2 model_ids where one raises returns 1 ok + 1 error result."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-lite-v1:0", "us.amazon.nova-micro-v1:0"]
@@ -111,7 +111,7 @@ async def test_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Path) -
         return mock_result
 
     with patch("eval_harness.sweep.run_query", new=AsyncMock(side_effect=_side_effect)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 2
     statuses = {r.status for r in results}
@@ -119,33 +119,33 @@ async def test_sweep_partial_failure(tmp_path: Path, fixture_vault_path: Path) -
     assert "error" in statuses
 
 
-async def test_sweep_includes_structural(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_includes_structural(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Each SweepResult.structural contains the 'has_citation' key."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-lite-v1:0"]
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 1
     assert "has_citation" in results[0].structural
 
 
-async def test_sweep_sanitizes_model_id(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_sanitizes_model_id(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """SweepResult for 'us.amazon.nova-pro-v1:0' has safe_model_id with colon replaced."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-pro-v1:0"]
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 1
     assert results[0].safe_model_id == "us.amazon.nova-pro-v1_0"
 
 
-async def test_sweep_loads_cases(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_loads_cases(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_sweep reads cases from cases_path JSON and validates schema (T-4-01)."""
     # Valid case plus invalid cases missing required fields — invalid should be skipped
     cases = [
@@ -158,34 +158,34 @@ async def test_sweep_loads_cases(tmp_path: Path, fixture_vault_path: Path) -> No
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     # Only the valid case should produce a SweepResult (2 invalid cases skipped)
     assert len(results) == 1
     assert results[0].query == "What?"
 
 
-async def test_sweep_records_wall_seconds(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_records_wall_seconds(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Each SweepResult.wall_seconds is greater than 0.0."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-lite-v1:0"]
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 1
     assert results[0].wall_seconds > 0.0
 
 
-async def test_sweep_result_has_seed(tmp_path: Path, fixture_vault_path: Path) -> None:
+async def test_sweep_result_has_seed(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Each SweepResult has a seed field; seed is None for non-deterministic runs."""
     cases_path = _make_cases_file(tmp_path)
     model_ids = ["us.amazon.nova-lite-v1:0"]
 
     mock_result = _make_query_result()
     with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=mock_result)):
-        results = await run_sweep(cases_path, fixture_vault_path, model_ids)
+        results = await run_sweep(cases_path, fixture_workspace_path, model_ids)
 
     assert len(results) == 1
     result = results[0]
