@@ -21,12 +21,6 @@ FILE_MAP_SECTION_RE = re.compile(
 # correspond to directory depths 1-4 below the package root. The captured
 # group is the full path from the heading (e.g. ``<pkg>/<a>/``).
 SECTION_HEADER_RE = re.compile(r"^#{3,6}\s+(\S.+?)\s*$", re.MULTILINE)
-# A bullet item: ``- `<token>` — description``. Trailing slash on the token
-# marks a directory entry; the description is ignored.
-# Group 1: leading indent (space count → nesting depth).
-# Group 2: the bullet token; trailing slash marks a directory entry.
-BULLET_RE = re.compile(r"^( *)-\s+`([^`]+)`")
-
 # Strip fenced code blocks (```...```) and inline code (`...`) before scanning
 # for wikilinks — bracketed content inside code is content, not a link.
 FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
@@ -201,81 +195,95 @@ def parse_section_entries(body: str, pkg_name: str) -> list[tuple[str, bool]]:
     Internal paths are relative to the package root — the ``<pkg>/`` prefix
     on section headers is stripped before being used as the path context.
 
-    Walks the body line by line:
+    **New table format (post-2026-05):**
 
-    - H3-H6 headers (``### <pkg>/<a>/``, ``#### <pkg>/<a>/<b>/``, ...) set
-      the active path context and are themselves recorded as directory
-      entries. A header also resets the bullet indentation stack.
-    - Bullets (``- `<token>` — ...``) are recorded as files (no trailing
-      slash) or directories (trailing slash). Bullets nested under a
-      directory bullet (greater leading indent) resolve under that
-      directory; the parser maintains a stack of in-scope directory
-      bullets and pops entries whose indent is greater than or equal to
-      the current bullet's indent.
-    - Bullets at the section's top indent (with no header and no enclosing
-      directory bullet) sit at the package root.
+    Each H3 section (``### <pkg>/<sub>/``) sets the active path context and
+    is recorded as a directory entry. Within a section, the first markdown
+    table is parsed for rows: ``Path | Kind | Description``. The Path cell
+    is expressed relative to the section's root. ``Kind`` is ``file`` or
+    ``dir``; a trailing ``/`` on the Path cell (or ``Kind == dir``) marks
+    directory entries. Brace expansion is applied to file paths only.
+
+    **Graceful fallback for old heading+bullet format (pre-2026-05):**
+
+    When the section body contains no markdown table, the function still
+    returns whatever directory entries it accumulated from H3 section
+    headers (e.g. ``("src", True)``). File-row entries are absent.
+    This means the drift lint may still flag legitimately-missing
+    directories on old-format pages (a true positive), but it will not
+    crash and will not emit false positives for phantom bullet entries.
+    Pages migrate organically when the next scan detects the unfilled
+    template condition and re-emits the block in the new table format.
 
     Brace-expanded names like ``{a,b,c}.ts`` produce one file entry each.
-    Brace expansion is not applied to directory bullets.
+    Brace expansion is not applied to directory rows.
     """
     entries: list[tuple[str, bool]] = []
     seen_dirs: set[str] = set()
     current_path = ""
-    # Stack of (indent, dir_name) for directory bullets currently in scope.
-    # Reset every time an H3-H6 header matches.
-    dir_stack: list[tuple[int, str]] = []
 
-    for line in body.splitlines():
+    lines = body.splitlines()
+    n = len(lines)
+    i = 0
+
+    # Regex to strip backticks from a path cell
+    _BACKTICK_RE = re.compile(r"^\s*`(.+?)`\s*$")
+
+    while i < n:
+        line = lines[i]
         m = SECTION_HEADER_RE.match(line)
         if m:
             header_text = m.group(1).rstrip("/").strip()
             if header_text == pkg_name:
                 current_path = ""
             elif header_text.startswith(pkg_name + "/"):
-                current_path = header_text[len(pkg_name) + 1 :]
+                current_path = header_text[len(pkg_name) + 1:]
             else:
                 current_path = ""
             if current_path and current_path not in seen_dirs:
                 entries.append((current_path, True))
                 seen_dirs.add(current_path)
+            i += 1
 
-            dir_stack = []
-            continue
+            # Collect the section block: all lines until the next H3+ header or end
+            section_lines: list[str] = []
+            while i < n and not SECTION_HEADER_RE.match(lines[i]):
+                section_lines.append(lines[i])
+                i += 1
 
-        bm = BULLET_RE.match(line)
-        if not bm:
-            continue
+            # Parse the first markdown table in this section block
+            table_result = parse_markdown_table("\n".join(section_lines))
+            if table_result is None:
+                # No table found — graceful fallback, keep directory entry only
+                continue
 
-        indent = len(bm.group(1))
-        token = bm.group(2)
-        is_dir = token.endswith("/")
-        name = token.rstrip("/")
-        if not name:
-            continue
-
-        # Pop any directory bullets at the same or deeper indent than this
-        # bullet — they no longer enclose us.
-        while dir_stack and dir_stack[-1][0] >= indent:
-            dir_stack.pop()
-
-        prefix_parts: list[str] = []
-        if current_path:
-            prefix_parts.append(current_path)
-        prefix_parts.extend(d for _, d in dir_stack)
-        prefix = "/".join(prefix_parts)
-
-        for n in expand_braces(name):
-            full_path = f"{prefix}/{n}" if prefix else n
-            if is_dir:
-                if full_path in seen_dirs:
+            _headers, rows = table_result
+            for row in rows:
+                if len(row) < 2:
                     continue
-                seen_dirs.add(full_path)
-            entries.append((full_path, is_dir))
+                raw_path = row[0]
+                raw_kind = row[1].strip().lower() if len(row) > 1 else ""
 
-        # Push this directory onto the stack so deeper-indented bullets
-        # resolve under it. Brace expansion only affects file leaves; for
-        # directory bullets we push the unexpanded name (file maps don't
-        # use brace expansion in dir tokens).
-        if is_dir:
-            dir_stack.append((indent, name))
+                # Strip backticks from path cell
+                bm = _BACKTICK_RE.match(raw_path)
+                token = bm.group(1) if bm else raw_path.strip()
+
+                is_dir = token.endswith("/") or raw_kind == "dir"
+                name = token.rstrip("/")
+                if not name:
+                    continue
+
+                if is_dir:
+                    full_path = f"{current_path}/{name}" if current_path else name
+                    if full_path not in seen_dirs:
+                        seen_dirs.add(full_path)
+                        entries.append((full_path, True))
+                else:
+                    # File entry — apply brace expansion
+                    for expanded in expand_braces(name):
+                        full_path = f"{current_path}/{expanded}" if current_path else expanded
+                        entries.append((full_path, False))
+        else:
+            i += 1
+
     return entries
