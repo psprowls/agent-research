@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: completed
 stopped_at: Phase 26 context gathered
-last_updated: "2026-05-21T18:19:54.311Z"
-last_activity: 2026-05-21 -- Phase 26 marked complete
+last_updated: "2026-05-23T18:51:28.378Z"
+last_activity: "2026-05-23 -- Completed quick task 260523-he3: Revise file_map format to per-major-folder H3 markdown tables"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -116,6 +116,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | 260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py | Fix graph-wiki plugin docs to use `uv run --project "$DEEP_AGENTS_ROOT" python` for shim scripts (`vault_io` is a workspace package; bare `python` failed every `/graph-wiki:*` invocation with `ModuleNotFoundError`); 11 doc files, 26 invocation lines, plus stale "Standard library only" claim corrected in SKILL.md | (this commit) |
 | 260521-lj3-workspace-io-tolerate-missing-plugins | Make `workspace_io.init.init()` heal a sparse `.graph-wiki.yaml` (`version: 2` but missing `plugins` key) via `data.setdefault("plugins", [])` instead of raising `KeyError`; unblocks `/graph-wiki:bootstrap` after a provisional manifest is seeded to satisfy the `resolve_wiki_and_repo()` chicken-and-egg in `detect_containers.py`; +1 production line, +1 regression test | 01cc109 |
 | 260521-mfm-add-self-healing-uv-re-exec-to-graph-wik | Add self-healing uv re-exec to graph-wiki plugin shim scripts: new `_uv_reexec.ensure()` helper that walks up to find `packages/vault-io/pyproject.toml` and re-execs under `uv run --project` when `vault_io` isn't importable; wired into 6 shims; `GRAPH_WIKI_SHIM_REEXEC=1` guard prevents loops; bare `python <shim>.py` now Just Works | 9484187 |
+| 260523-he3-revise-file-map-format | Revise file_map block from heading+bullet sub-sections to H2 + per-major-folder H3 markdown tables (Path | Kind | Description): rewrite build_file_map() emitter, rewrite parse_section_entries() as table parser with graceful fallback for old-format pages, update both page templates, round-trip fixture templates, page-formats.md spec, scanner.md, and scan-workflow.md; 17 new tests; suite 127 passed | 20b9f7e |
 
 ---
 
@@ -134,9 +135,9 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 
 ## Session Continuity
 
-**Last session:** 2026-05-21T16:49:38.314Z
+**Last session:** 2026-05-23T18:51:28.371Z
 **Stopped at:** Phase 26 context gathered
-**Resume file:** .planning/phases/26-plugin-prompt-source-mirror-sync/26-CONTEXT.md
+**Resume file:** None
 
 **Critical context for next session:**
 
