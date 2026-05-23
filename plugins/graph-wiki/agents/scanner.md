@@ -55,7 +55,7 @@ Leave prose section headers with stubs (`## Purpose`, `## Public API`, etc.) —
 
 When a new domain is encountered for the first time (no existing `<workspace>/wiki/domains/<d>/<d>.md`), call `ensure_domain_pages(domain_dir, domain_title, templates_dir)` before creating package stubs under it. This writes the domain overview (`<d>.md`) and every domain sub-page template (e.g. `details.md`) in one call. Pass the domain directory, the domain name as title, and `<workspace>/wiki/.templates` as the templates directory.
 
-If the workspace JSON includes a `file_map`, write it into the page in place of the template's `## File map - <package-name>` block. The scanner emits the full block (H2 heading + paragraph + bullets + sub-section headers); replace from the existing `## File map` heading to the next H2 heading. The bullets carry `— TODO` placeholders; per-entry descriptions stay as a follow-up for ingests.
+If the workspace JSON includes a `file_map`, write it into the page in place of the template's `## File map - <package-name>` block. The scanner emits the full block: H2 heading, one-line overview, then one H3 section per major folder (root section `### <name>/` first, then one per depth-1 subdirectory) — each H3 section contains a one-line paragraph and a markdown table with columns `Path | Kind | Description`. Replace from the existing `## File map` heading to the next H2 heading. Description cells carry `— TODO` placeholders; per-row descriptions stay as a follow-up for ingests.
 
 ### 4. Per-package change review
 
@@ -76,7 +76,7 @@ If the gate is closed, leave `last_sync_commit` and `last_sync_at` unchanged on 
 ### 5. Update existing pages (frontmatter only)
 For packages that already have pages: update `exports`, `depends_on`, `depended_on_by`, and bump `updated:` to today. **Do not overwrite prose sections.**
 
-Exception: if the page's File map section is still the unfilled template — every bullet description is `— TODO` and every directory paragraph is the placeholder `TODO — describe what this directory contains.` — replace the whole `## File map - <name>` block (heading through the next H2) with the scan's `file_map`. If anyone has filled in real descriptions, leave the section alone.
+Exception: if the page's File map section is still the unfilled template — every table row's Description cell is `— TODO` and every per-folder paragraph is the placeholder `TODO — describe what this directory contains.` — replace the whole `## File map - <name>` block (heading through the next H2) with the scan's `file_map`. A legacy heading+bullet block whose bullets are all `— TODO` ALSO qualifies as 'unfilled template' for migration purposes; replace it the same way (this is how old-format pages roll over to the new format organically). If anyone has filled in real descriptions, leave the section alone.
 
 ### 6. Process renames / deletions (after user confirm)
 - Rename: move the package's folder (`<workspace>/wiki/packages/<old>/` → `<workspace>/wiki/packages/<new>/`) and rename the overview file inside to match (`<new>.md`), then update `title` and `package_path`, and update inbound wikilinks
