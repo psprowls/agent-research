@@ -5,9 +5,9 @@ PAGE_CATEGORIES = """\
 
 | Category | What it documents | Directory |
 |---|---|---|
-| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/<app>.md` |
-| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/<pkg>.md` |
-| `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/<domain>.md` |
+| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
+| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
+| `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
 | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
 | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
 | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |

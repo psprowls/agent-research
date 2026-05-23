@@ -98,9 +98,9 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 └── wiki/                      # this plugin's curated knowledge base
     ├── index.md               # content catalog
     ├── log.md                 # append-only timeline
-    ├── apps/<app>/            # one folder per application workspace; overview at apps/<app>/<app>.md
-    ├── packages/<pkg>/        # one folder per library/service workspace; overview at packages/<pkg>/<pkg>.md
-    ├── domains/<domain>/      # one folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+    ├── apps/<app>/            # one folder per application workspace; overview at apps/<app>/overview.md
+    ├── packages/<pkg>/        # one folder per library/service workspace; overview at packages/<pkg>/overview.md
+    ├── domains/<domain>/      # one folder per cross-package feature area; overview at domains/<domain>/overview.md
     ├── concepts/              # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
     ├── dependencies/          # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/               # one summary per ingested source

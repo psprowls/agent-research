@@ -4,7 +4,7 @@ The detailed flow the LLM follows when the user runs `/graph-wiki:scan` or dispa
 
 ## Purpose
 
-Walk the monorepo, detect workspaces, and produce/update stub pages. Each app, package, and domain gets its own folder, with the overview file inside named to match the folder (e.g. `<workspace>/wiki/apps/web-next-ts/web-next-ts.md`, `<workspace>/wiki/packages/common-aws-node-ts/common-aws-node-ts.md`). The scan is the **entry point** for a fresh wiki: before you can ingest sources meaningfully, you need a page for every workspace so the ingestor has something to cross-reference.
+Walk the monorepo, detect workspaces, and produce/update stub pages. Each app, package, and domain gets its own folder, with the overview file inside always named `overview.md` (e.g. `<workspace>/wiki/apps/web-next-ts/overview.md`, `<workspace>/wiki/packages/common-aws-node-ts/overview.md`). The scan is the **entry point** for a fresh wiki: before you can ingest sources meaningfully, you need a page for every workspace so the ingestor has something to cross-reference.
 
 ## Inputs
 
@@ -67,9 +67,9 @@ Before writing anything, report to the user:
 
 The scanner emits an explicit `wiki_relative_path` for every workspace — write the page there. Routing rules (also useful when reading back drift):
 
-- `type: app` → `<workspace>/wiki/apps/<name>/<name>.md` (uses the **app** template)
-- `type: library | service | tool` under a `domain` container → `<workspace>/wiki/domains/<domain>/packages/<name>/<name>.md` (uses the **package** template, with `domain: <domain>` set in frontmatter)
-- `type: library | service | tool` everywhere else → `<workspace>/wiki/packages/<name>/<name>.md` (uses the **package** template, with `domain:` left empty)
+- `type: app` → `<workspace>/wiki/apps/<name>/overview.md` (uses the **app** template)
+- `type: library | service | tool` under a `domain` container → `<workspace>/wiki/domains/<domain>/packages/<name>/overview.md` (uses the **package** template, with `domain: <domain>` set in frontmatter)
+- `type: library | service | tool` everywhere else → `<workspace>/wiki/packages/<name>/overview.md` (uses the **package** template, with `domain:` left empty)
 
 Domain detection supports two on-disk layouts and the scanner handles both:
 
@@ -99,7 +99,7 @@ Scanner behavior:
 - Walks to `package_depth` below `source`; each directory at that depth is one workspace entry.
 - Recursively globs `manifest_glob` inside each package dir; every matched manifest becomes a row in the page's `manifests:` frontmatter.
 - Slug is the directory name (default) — so two siblings whose `package.json` both declare `name: "charts"` get distinct pages.
-- If `domain:` is set on the row, each pkg's `wiki_relative_path` lands at `domains/<d>/packages/<slug>/<slug>.md` (overrides the explicit `vault_dir`).
+- If `domain:` is set on the row, each pkg's `wiki_relative_path` lands at `domains/<d>/packages/<slug>/overview.md` (overrides the explicit `vault_dir`).
 
 `source` may be a slashed path; the row need not point at a top-level directory.
 
@@ -114,13 +114,13 @@ For each **new** workspace:
 If a workspace's type changes (e.g. a package grows into an app), flag the move for user confirmation — it requires relocating the page between `packages/` and `apps/`.
 
 For each **renamed** package (user-confirmed):
-- `git mv <workspace>/wiki/packages/<old>/ <workspace>/wiki/packages/<new>/` then `git mv <workspace>/wiki/packages/<new>/<old>.md <workspace>/wiki/packages/<new>/<new>.md` (or Write-then-delete if not git)
+- `git mv <workspace>/wiki/packages/<old>/ <workspace>/wiki/packages/<new>/` (the overview file inside is always `overview.md`, so no inner rename is needed)
 - Update `title` and `package_path` frontmatter
 - Update all inbound wikilinks
 
 For each **deleted** package (user-confirmed):
 - Option A: delete the package's folder
-- Option B: mark with `status: archived` in frontmatter and move to `<workspace>/wiki/packages/archived/<name>/<name>.md`
+- Option B: mark with `status: archived` in frontmatter and move to `<workspace>/wiki/packages/archived/<name>/overview.md`
 - The user chooses per-package
 
 For **existing** packages with changed metadata:
@@ -202,7 +202,7 @@ Summary the user sees:
 
 - **First scan?** Follow up with `/graph-wiki:lint` to surface orphans and missing cross-references.
 - **Dependency changes?** Consider updating `[[architecture/module-graph]]` if it exists.
-- **New domain?** Domain pages (`<d>.md` plus `details.md` and any other `templates/domain/*.md` template) are scaffolded together via `ensure_domain_pages()` in `layout_io.py` before the first package stub is written under that domain.
+- **New domain?** Domain pages (`overview.md` plus `details.md` and any other `templates/domain/*.md` template) are scaffolded together via `ensure_domain_pages()` in `layout_io.py` before the first package stub is written under that domain.
 
 Package sub-pages (`api.md`, `patterns.md`, `context.md`, `testing.md`, `work.md`) are created eagerly by the scanner via `ensure_package_pages()` in `layout_io.py` — the whole set is written when a new package folder is first stubbed, so the wiki layout is always fully scaffolded after a scan. Ingests and work-item filers may continue to call the single-file `ensure_subpage()` helper for legacy packages whose folders were created before this behavior shipped; for fully-scaffolded packages those calls are silent no-ops.
 

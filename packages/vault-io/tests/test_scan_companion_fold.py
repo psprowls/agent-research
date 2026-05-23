@@ -128,7 +128,7 @@ def test_layout_pinned_package_skips_companions(tmp_path: Path) -> None:
     pkg_dir.mkdir(parents=True)
 
     # Parent overview with workflow_hints
-    (pkg_dir / "pkg-x.md").write_text(_OVERVIEW_FRONTMATTER, encoding="utf-8")
+    (pkg_dir / "overview.md").write_text(_OVERVIEW_FRONTMATTER, encoding="utf-8")
 
     # Companion files — titles match what the real vault uses, stems are the key
     for companion in ("api", "context", "patterns", "work"):
@@ -159,7 +159,7 @@ def test_apps_not_filtered(tmp_path: Path) -> None:
     app_dir = wiki / "apps" / "foo"
     app_dir.mkdir(parents=True)
 
-    (app_dir / "foo.md").write_text(_APP_OVERVIEW_FRONTMATTER, encoding="utf-8")
+    (app_dir / "overview.md").write_text(_APP_OVERVIEW_FRONTMATTER, encoding="utf-8")
     (app_dir / "api.md").write_text(
         "---\ntitle: api\ncategory: app\nsummary: app api companion\ntags: []\nupdated: 2026-01-01\n---\n",
         encoding="utf-8",

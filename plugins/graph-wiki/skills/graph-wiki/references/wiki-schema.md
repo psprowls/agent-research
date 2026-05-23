@@ -140,7 +140,7 @@ updated: 2026-04-20
 ---
 ```
 
-Conditional container — `init_vault.py` creates `<workspace>/wiki/domains/` only when the detector classifies a top-level repo directory as `domain`. Many repos don't have a literal `domains/` folder on disk; a domain may be a wiki-only construct expressed through naming convention (e.g. all `healthkit-*` packages). In that case the domain page still lives at `domains/<slug>/<slug>.md` in the wiki even though the underlying workspaces sit under `<repo>/packages/`. Single-package and library-only repos typically have no domain pages.
+Conditional container — `init_vault.py` creates `<workspace>/wiki/domains/` only when the detector classifies a top-level repo directory as `domain`. Many repos don't have a literal `domains/` folder on disk; a domain may be a wiki-only construct expressed through naming convention (e.g. all `healthkit-*` packages). In that case the domain page still lives at `domains/<slug>/overview.md` in the wiki even though the underlying workspaces sit under `<repo>/packages/`. Single-package and library-only repos typically have no domain pages.
 
 `packages:` lists the workspace packages owned by the domain. The page template's body sections (`## Scope`, `## Packages in this domain`, `## Linked packages from other domains`, `## Key flows`) capture what a frontmatter list can't.
 

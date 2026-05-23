@@ -178,8 +178,14 @@ def _mechanical_pass(
             if target in link_targets:
                 outbound[key].add(target)
                 inbound[target].add(key)
+            elif (target + "/overview") in link_targets:
+                # [[<container>/<name>]] resolves to <container>/<name>/overview.md
+                resolved = target + "/overview"
+                outbound[key].add(resolved)
+                inbound[resolved].add(key)
             elif (target + "/" + Path(target).name) in link_targets:
-                # [[<container>/<name>]] resolves to <container>/<name>/<name>.md
+                # Legacy: [[<container>/<name>]] resolves to <container>/<name>/<name>.md
+                # (old naming convention — kept for backwards compat with existing links)
                 resolved = target + "/" + Path(target).name
                 outbound[key].add(resolved)
                 inbound[resolved].add(key)
