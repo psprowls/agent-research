@@ -245,3 +245,167 @@ class TestBuildFileMap:
         assert "| `README.md` | file |" in result
         # src is a dir — appears as H3 header (not a dir row since it's a standard depth-1 dir)
         assert "### mypkg/src/" in result
+
+    def test_build_file_map_regression_returns_prod_block_only(self) -> None:
+        """build_file_map() == build_file_maps()[0] — legacy API returns prod block only."""
+        from vault_io.scan_monorepo import build_file_maps
+        files = ["README.md", "src/index.ts", "tests/test_main.py", "conftest.py"]
+        prod, _test = _bfms("mypkg", files)
+        legacy = _bfm("mypkg", files)
+        assert legacy == prod, (
+            "build_file_map() must return the prod block (same as build_file_maps()[0])"
+        )
+
+
+# ---------------------------------------------------------------------------
+# _is_test_path() unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestIsTestPath:
+    """Tests for _is_test_path() classification helper."""
+
+    def test_tests_dir_component_is_test(self) -> None:
+        """tests/ directory component classifies as test."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("tests/handlers.test.ts") is True
+        assert _is_test_path("src/index.ts") is False
+
+    def test_nested_tests_dir_component_is_test(self) -> None:
+        """__tests__/ anywhere in path classifies as test."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("src/__tests__/foo.spec.ts") is True
+
+    def test_test_and_spec_dir_components(self) -> None:
+        """test/ and spec/ directory components classify as test."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("test/a.py") is True
+        assert _is_test_path("spec/login.cy.ts") is True
+
+    def test_conftest_at_root_is_test(self) -> None:
+        """conftest.py at root (and any depth) is a test config file."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("conftest.py") is True
+        assert _is_test_path("src/conftest.py") is True
+
+    def test_jest_config_is_test(self) -> None:
+        """jest.config.ts at package root is a test config file."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("jest.config.ts") is True
+
+    def test_tested_ts_is_not_test(self) -> None:
+        """tested.ts does not match — directory name match is exact."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("tested.ts") is False
+
+    def test_various_test_config_basenames(self) -> None:
+        """Test-config basenames at any path depth classify as test."""
+        from vault_io.scan_monorepo import _is_test_path
+        assert _is_test_path("pytest.ini") is True
+        assert _is_test_path("tox.ini") is True
+        assert _is_test_path("jest.config.js") is True
+        assert _is_test_path("vitest.config.ts") is True
+        assert _is_test_path("playwright.config.ts") is True
+        assert _is_test_path("cypress.config.js") is True
+        assert _is_test_path(".mocharc.json") is True
+        assert _is_test_path("karma.conf.js") is True
+        assert _is_test_path("ava.config.mjs") is True
+
+
+# ---------------------------------------------------------------------------
+# build_file_maps() (paired API) tests
+# ---------------------------------------------------------------------------
+
+
+def _bfms(pkg_name: str, files: list[str] | None, **kwargs) -> tuple[str, str] | None:
+    """Helper: run build_file_maps with a mocked _git_ls_files return value."""
+    from vault_io.scan_monorepo import build_file_maps
+    pkg_path = Path(f"/fake/{pkg_name}")
+    with patch("vault_io.scan_monorepo._git_ls_files", return_value=files):
+        return build_file_maps(pkg_path, **kwargs)
+
+
+class TestBuildFileMaps:
+    """Tests for build_file_maps() paired prod/test output."""
+
+    def test_mixed_files_splits_correctly(self) -> None:
+        """prod has source files; test has test files; neither has the other's rows."""
+        result = _bfms("mypkg", ["README.md", "src/index.ts", "tests/handlers.test.ts", "conftest.py"])
+        assert result is not None
+        prod, test = result
+        # Prod block has source files
+        assert "README.md" in prod
+        assert "index.ts" in prod
+        # Prod block has no test files
+        assert "tests" not in prod
+        assert "conftest.py" not in prod
+        # Test block has test files
+        assert "handlers.test.ts" in test
+        assert "conftest.py" in test
+        # Test block has no prod files
+        assert "README.md" not in test
+        assert "index.ts" not in test
+
+    def test_no_test_files_returns_placeholder_test_block(self) -> None:
+        """A package with no test paths returns a no-tests placeholder test block."""
+        result = _bfms("mypkg", ["README.md", "src/index.ts"])
+        assert result is not None
+        prod, test = result
+        assert "README.md" in prod
+        # Placeholder contains the no-tests message
+        assert "no test files detected" in test
+        # Placeholder has no table
+        assert "| Path | Kind | Description |" not in test
+        # Has the synthetic root H3
+        assert "### mypkg/" in test
+
+    def test_none_from_no_git_returns_none(self) -> None:
+        """Returns None when _git_ls_files returns None."""
+        result = _bfms("mypkg", None)
+        assert result is None
+
+    def test_tests_only_package_empty_prod_block(self) -> None:
+        """A tests-only package produces an empty prod block with short-circuit."""
+        result = _bfms("mypkg", ["tests/test_a.py", "conftest.py"])
+        assert result is not None
+        prod, test = result
+        assert "no tracked files" in prod or "- (no tracked files)" in prod
+        assert "test_a.py" in test
+
+    def test_h3_ordering_independent_per_block(self) -> None:
+        """Root H3 first, then alphabetical per block — applied independently."""
+        result = _bfms("mypkg", ["src/index.ts", "tests/a.ts", "spec/b.ts"])
+        assert result is not None
+        prod, test = result
+        # Prod has src; test has spec + tests
+        prod_h3 = [l for l in prod.splitlines() if l.startswith("### ")]
+        test_h3 = [l for l in test.splitlines() if l.startswith("### ")]
+        assert "### mypkg/src/" in prod_h3
+        assert "### mypkg/spec/" not in prod_h3
+        assert "### mypkg/tests/" not in prod_h3
+        assert "### mypkg/spec/" in test_h3
+        assert "### mypkg/tests/" in test_h3
+        assert "### mypkg/src/" not in test_h3
+        # Root section always first
+        assert test_h3[0] == "### mypkg/"
+        # spec/ before tests/ alphabetically
+        spec_idx = test_h3.index("### mypkg/spec/")
+        tests_idx = test_h3.index("### mypkg/tests/")
+        assert spec_idx < tests_idx
+
+    def test_truncation_marker_appears_on_both_blocks(self) -> None:
+        """When truncation occurs (combined file count > max_entries), both blocks get marker."""
+        # 3 prod files + 3 test files, max_entries=4 -> truncated=True
+        files = ["a.ts", "b.ts", "c.ts", "tests/x.ts", "tests/y.ts", "tests/z.ts"]
+        result = _bfms("mypkg", files, max_entries=4)
+        assert result is not None
+        prod, test = result
+        assert "> Truncated at 4 files." in prod
+        assert "> Truncated at 4 files." in test
+
+    def test_legacy_api_equals_prod_block(self) -> None:
+        """build_file_map() returns the same string as build_file_maps()[0]."""
+        files = ["README.md", "src/index.ts", "tests/test_main.py"]
+        prod, _test = _bfms("mypkg", files)
+        legacy = _bfm("mypkg", files)
+        assert legacy == prod
