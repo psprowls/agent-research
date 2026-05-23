@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: completed
 stopped_at: Phase 26 context gathered
-last_updated: "2026-05-23T18:52:00.000Z"
-last_activity: 2026-05-23 -- Completed quick task 260523-he3: Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder
+last_updated: "2026-05-23T19:25:00.000Z"
+last_activity: 2026-05-23 -- Completed quick task 260523-i35: Add testing.md subpage to app, package, and plugin directory templates
 progress:
   total_phases: 5
   completed_phases: 5
@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 Phase: 26 — COMPLETE
 Plan: 1 of 4
 Status: Phase 26 complete
-Last activity: 2026-05-23 -- Completed quick task 260523-he3: Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder
+Last activity: 2026-05-23 -- Completed quick task 260523-i35: Add testing.md subpage to app, package, and plugin directory templates
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
@@ -117,6 +117,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | 260521-lj3-workspace-io-tolerate-missing-plugins | Make `workspace_io.init.init()` heal a sparse `.graph-wiki.yaml` (`version: 2` but missing `plugins` key) via `data.setdefault("plugins", [])` instead of raising `KeyError`; unblocks `/graph-wiki:bootstrap` after a provisional manifest is seeded to satisfy the `resolve_wiki_and_repo()` chicken-and-egg in `detect_containers.py`; +1 production line, +1 regression test | 01cc109 |
 | 260521-mfm-add-self-healing-uv-re-exec-to-graph-wik | Add self-healing uv re-exec to graph-wiki plugin shim scripts: new `_uv_reexec.ensure()` helper that walks up to find `packages/vault-io/pyproject.toml` and re-execs under `uv run --project` when `vault_io` isn't importable; wired into 6 shims; `GRAPH_WIKI_SHIM_REEXEC=1` guard prevents loops; bare `python <shim>.py` now Just Works | 9484187 |
 | 260523-he3-revise-file-map-format-on-package-app-ov | Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder: rewrite `build_file_map()` to emit H2 + per-major-folder H3 sections with `Path \| Kind \| Description` tables; rewrite `parse_section_entries()` as single in-process table parser with graceful no-op fallback for legacy old-format pages on disk; update package/app templates + round-trip fixture templates; rewrite page-formats.md spec + worked examples; update scanner.md emission + unfilled-template detection rule (table-row Description cells, with legacy-bullets-also-qualify clause); 17 new tests, full vault-io suite 127 passed; SCN-003 unchanged (substring `## File map` still matches) | (this commit) |
+| 260523-i35-add-testing-md-subpage-to-app-package-an | Add `testing.md` subpage to app/package/plugin directory templates: 5 new templates (`package/testing.md`, `app/{overview,testing}.md`, `plugin/{overview,testing}.md`), flat `app.md` removed, `package/overview.md` Sub-pages list gains `testing`; new `_is_test_path()` deterministic split rule (paths under `tests/`/`__tests__/`/`test/`/`spec/` OR test-config basenames: pytest.ini, conftest.py, tox.ini, jest.config.\*, vitest.config.\*, playwright.config.\*, cypress.config.\*, mocha.config.\*, .mocharc\*, karma.conf\*, ava.config.\*); new paired `build_file_maps()` API returns `(prod_block, test_block)`; legacy `build_file_map()` rewired as prod-only wrapper; `scan_monorepo.main()` populates both `file_map` and `file_map_testing`; `update_index.SUBPAGE_STEMS` includes `testing`; page-formats.md gets split-rule section + Testing sub-page worked example; scanner.md + scan-workflow.md describe two-block emission; +164 test lines (6 unit + 7 integration), 142 vault-io tests pass | 683e00f |
 
 ---
 
