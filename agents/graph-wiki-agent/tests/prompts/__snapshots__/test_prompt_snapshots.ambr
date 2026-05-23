@@ -47,9 +47,9 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
       ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -68,9 +68,9 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/<app>.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/<pkg>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/<domain>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -226,9 +226,9 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
       ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -247,9 +247,9 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/<app>.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/<pkg>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/<domain>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -377,9 +377,9 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/<app>.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/<pkg>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/<domain>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -809,9 +809,9 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
       ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -937,9 +937,9 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
+      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
+      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
       ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)

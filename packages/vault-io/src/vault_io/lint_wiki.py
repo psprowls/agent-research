@@ -248,7 +248,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             vault_pkg_pages = {
                 k: p
                 for k, p in pages.items()
-                if p["fm"].get("category") in ("package", "app") and Path(k).parent.name == Path(k).name
+                if p["fm"].get("category") in ("package", "app") and Path(k).name == "overview.md"
             }
             vault_names = {Path(k).name for k, p in vault_pkg_pages.items()}
             # Pages declaring ``status: planned`` are deliberately seeded

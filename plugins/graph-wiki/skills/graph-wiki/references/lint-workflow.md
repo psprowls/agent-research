@@ -72,7 +72,7 @@ Scan pages whose `updated:` is recent. For each, check whether it contradicts an
 
 ### B. Contradictions between vault and code
 
-For each recently-touched `packages/<name>/<name>.md` page, spot-check the hand-written prose against the actual `package.json` and `src/index.ts`.
+For each recently-touched `packages/<name>/overview.md` page, spot-check the hand-written prose against the actual `package.json` and `src/index.ts`.
 
 ### C. Stale claims
 

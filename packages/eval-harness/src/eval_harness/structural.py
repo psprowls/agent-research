@@ -28,13 +28,24 @@ def _resolve_citation(slug: str, workspace_path: Path) -> Path | None:
 
     Resolution order:
     1. Exact: wiki / f"{slug}.md"
-    2. Glob fallback: wiki.glob(f"**/{basename}.md") — first match wins
+    2. Directory overview: wiki / slug / "overview.md"  (new naming convention)
+    3. Glob for overview under dir named <base>: wiki.glob(f"**/{base}/overview.md")
+    4. Glob fallback: wiki.glob(f"**/{base}.md") — first match wins (legacy + sub-pages)
     """
     wiki = wiki_dir(workspace_path)
     exact = wiki / f"{slug}.md"
     if exact.exists():
         return exact
+    # Directory-style link: [[packages/lattice-wiki-core]] → packages/lattice-wiki-core/overview.md
+    overview = wiki / slug / "overview.md"
+    if overview.exists():
+        return overview
     base = Path(slug).name
+    # Glob for a directory named <base> containing overview.md
+    overview_matches = list(wiki.glob(f"**/{base}/overview.md"))
+    if overview_matches:
+        return overview_matches[0]
+    # Glob fallback for stem-named .md files (legacy + non-overview pages)
     matches = list(wiki.glob(f"**/{base}.md"))
     if matches:
         return matches[0]

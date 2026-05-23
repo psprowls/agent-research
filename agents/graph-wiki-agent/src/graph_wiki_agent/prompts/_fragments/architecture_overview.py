@@ -12,9 +12,9 @@ The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `
 └── wiki/                       # this agent's curated knowledge base
     ├── index.md                # Content catalog (updated every ingest/scan)
     ├── log.md                  # Append-only timeline
-    ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/<app>.md
-    ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/<pkg>.md
-    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md
+    ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
+    ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
+    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
     ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)

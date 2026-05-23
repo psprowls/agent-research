@@ -46,7 +46,7 @@ Parse the JSON. Capture:
 ### Pass 2 — Semantic (read and think)
 
 - **Contradictions (vault↔vault)** — scan recently-touched pages
-- **Contradictions (vault↔code)** — spot-check recently-touched `packages/<name>/<name>.md` pages against current code
+- **Contradictions (vault↔code)** — spot-check recently-touched `packages/<name>/overview.md` pages against current code
 - **Stale claims** — are stale-flagged pages likely outdated by recent PRs or code changes?
 - **Concept gaps** — grep for concept-shaped phrases across 3+ pages without a dedicated page
 - **Issue / ticket sync** — every open `issues/*.md` should have `related_tickets`; tickets in `sources/*-ticket.md` should appear on some issue page

@@ -552,9 +552,9 @@ def _wiki_relative_path_for(pkg: dict, vault_dir: str | None = None) -> str:
     """Return the wiki-relative page path for a discovered workspace.
 
     Routing:
-      - apps                                    -> ``apps/<name>/<name>.md``
-      - domain-scoped libraries/services/tools  -> ``domains/<d>/packages/<name>/<name>.md``
-      - everything else                         -> ``<vault_dir>/<name>/<name>.md``
+      - apps                                    -> ``apps/<name>/overview.md``
+      - domain-scoped libraries/services/tools  -> ``domains/<d>/packages/<name>/overview.md``
+      - everything else                         -> ``<vault_dir>/<name>/overview.md``
         (defaults to ``packages/`` when no pinned container vault_dir applies)
 
     The ``vault_dir`` argument is the matched container's pinned vault_dir
@@ -565,12 +565,12 @@ def _wiki_relative_path_for(pkg: dict, vault_dir: str | None = None) -> str:
     """
     name = unscope(pkg["name"])
     if pkg.get("type") == "app":
-        return f"apps/{name}/{name}.md"
+        return f"apps/{name}/overview.md"
     domain = pkg.get("domain")
     if domain:
-        return f"domains/{domain}/packages/{name}/{name}.md"
+        return f"domains/{domain}/packages/{name}/overview.md"
     base = vault_dir or "packages"
-    return f"{base}/{name}/{name}.md"
+    return f"{base}/{name}/overview.md"
 
 
 def _discover_from_pinned(repo: Path, containers: list) -> list:
@@ -792,13 +792,13 @@ def _load_existing_pages(wiki):
         walked.add(resolved)
 
         # First pass: discover companion stems per directory from parent overviews.
-        # A parent overview is the .md whose stem matches its parent directory name
-        # (e.g. packages/vault-io/vault-io.md). Its workflow_hints frontmatter
+        # A parent overview is the file named `overview.md`
+        # (e.g. packages/vault-io/overview.md). Its workflow_hints frontmatter
         # declares which sibling stems are companions and should be folded.
         companions_by_dir: dict[Path, set[str]] = {}
         if fold_companions:
             for md in root.rglob("*.md"):
-                if md.stem != md.parent.name:
+                if md.name != "overview.md":
                     continue  # not a parent overview
                 text = _safe_read_text(md)
                 hints = _parse_workflow_hints(text)
@@ -844,7 +844,7 @@ def _load_existing_pages(wiki):
         # Only applies to directories whose overview declares category == 'package'.
         domain_companions_by_dir: dict[Path, set[str]] = {}
         for md in domains_dir.rglob("*.md"):
-            if md.stem != md.parent.name:
+            if md.name != "overview.md":
                 continue  # not a parent overview
             text = _safe_read_text(md)
             fm_overview = _parse_frontmatter(text)

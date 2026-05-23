@@ -51,9 +51,9 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 └── wiki/                       # this plugin's curated knowledge base
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
     ├── log.md                  # Append-only timeline
-    ├── apps/<app>/             # [conditional] One folder per application workspace (web, mobile, CLI); overview lives at apps/<app>/<app>.md
-    ├── packages/<pkg>/         # [conditional] One folder per library/service workspace package; overview at packages/<pkg>/<pkg>.md
-    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/<domain>.md (domain-scoped packages live under domains/<domain>/packages/<pkg>/<pkg>.md)
+    ├── apps/<app>/             # [conditional] One folder per application workspace (web, mobile, CLI); overview lives at apps/<app>/overview.md
+    ├── packages/<pkg>/         # [conditional] One folder per library/service workspace package; overview at packages/<pkg>/overview.md
+    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md (domain-scoped packages live under domains/<domain>/packages/<pkg>/overview.md)
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
     ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -141,9 +141,9 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 | Category | What it documents | Directory |
 |---|---|---|
-| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/apps/<app>/<app>.md` |
-| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/packages/<pkg>/<pkg>.md` |
-| `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/domains/<domain>/<domain>.md` |
+| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/apps/<app>/overview.md` |
+| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/packages/<pkg>/overview.md` |
+| `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/domains/<domain>/overview.md` |
 | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
 | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/dependencies/` |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `<workspace>/wiki/sources/` |

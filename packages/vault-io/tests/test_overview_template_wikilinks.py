@@ -2,7 +2,7 @@
 
 Bare `[[api]]`-style wikilinks in the Sub-pages block confuse lint_wiki because
 the resolver only matches against on-disk paths. A page at
-``packages/foo/foo.md`` with `[[api]]` would need a sibling named ``api.md`` —
+``packages/foo/overview.md`` with `[[api]]` would need a sibling named ``api.md`` —
 which is correct on disk — but the orphan check then fails to recognize
 ``packages/foo/api`` as having an inbound link, since the parent overview
 points to a stem that resolves only via the bare-filename shorthand and not

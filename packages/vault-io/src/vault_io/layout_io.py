@@ -177,12 +177,12 @@ def ensure_domain_page(
     templates_dir: Path,
     today: Optional[str] = None,
 ) -> tuple[Path, bool]:
-    """Create <domain>/<domain>.md from the overview template if it doesn't exist.
+    """Create <domain>/overview.md from the overview template if it doesn't exist.
 
     Returns (path, created) where created=True if the file was just written.
     Raises FileNotFoundError if the template is missing.
     """
-    dest = domain_dir / f"{domain_dir.name}.md"
+    dest = domain_dir / "overview.md"
     if dest.exists():
         return dest, False
     tmpl = templates_dir / "domain" / "overview.md"
