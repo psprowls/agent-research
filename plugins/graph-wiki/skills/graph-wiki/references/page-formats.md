@@ -14,6 +14,70 @@ App and package pages have a `## File map - <name>` section composed of one H3 s
 - The scanner pre-populates the tables via `git ls-files` (so `.gitignore` is respected) with `— TODO` Description placeholders. Per-row descriptions are filled in by the agent on a later pass.
 - `/graph-wiki:lint`'s file-map drift check flags rows whose Path is no longer on disk; new files showing up on disk do not fail lint, since `dir`-row summarization is allowed.
 - **Legacy heading+bullet pages on disk** (pre-2026-05) are parsed gracefully: directory entries from H3 headers are still extracted, but file-row entries are dropped. The next scan re-emits the block in the new table format when the page still shows the unfilled-template signature.
+- **Prod vs testing split:** the overview page's File map shows only **prod source + prod config**. Test files (any component named `tests/`, `__tests__/`, `test/`, or `spec/`), test config (`pytest.ini`, `tox.ini`, `conftest.py`, `jest.config.*`, `vitest.config.*`, `playwright.config.*`, `cypress.config.*`, `mocha.config.*`/`.mocharc.*`, `karma.conf.*`, `ava.config.*`), and test fixtures (typically under `tests/fixtures/`) live on the companion `testing.md` sub-page. The classification is implemented by `_is_test_path()` in `packages/vault-io/src/vault_io/scan_monorepo.py` — that helper is the single source of truth.
+- **Fixtures at non-test paths:** workspaces that put fixtures outside a `tests/`-prefixed path (e.g. a root-level `fixtures/` directory used at runtime too) are classified as prod by the scanner. Document them by hand in `testing.md`'s `## Fixtures` section if they are test-only.
+
+## Testing sub-page (apps, packages, plugins)
+
+Each app, package, and plugin overview has a companion `testing.md` sub-page that owns the test surface — analogous to how `api.md` owns the public interface. The page is created from the `testing.md` template by the scanner the first time a workspace is stubbed, and is populated by the scanner's `file_map_testing` block on subsequent scans.
+
+### Frontmatter
+- `title: <name> — tests`
+- `category: <package|app|plugin>` (matches the parent overview's category — the testing page is a sub-page of the same workspace, not its own taxonomy bucket)
+- `parent: <name>` — descriptive, points back to the overview slug
+- `status`, `updated`, `sources`, `tokens` — same semantics as overview
+
+### Sections
+- `## Purpose` — one paragraph: what this suite covers, which frameworks, how to invoke
+- `## How to run` — bullet list of commands (primary, secondary like smoke/e2e)
+- `## File map - <name>` — same table format as the overview, but the rows are scoped to test files + test config + fixtures (see split rule above). The block uses the same `## File map - <name>` H2 heading text as the overview; the page identity comes from the file path, not the heading.
+- `## Test conventions` — naming, structure, mocks, fixtures
+- `## Fixtures` — bullet list of fixture paths and what each represents
+- `## Coverage` — target threshold, measurement method, report location
+- `## Open questions`
+
+### Example worked output (testing.md for common-aws-node-ts)
+
+```markdown
+# common-aws-node-ts — tests
+
+## Purpose
+Integration tests for the handler factories, exercised against a local DynamoDB and SNS stack via testcontainers.
+
+## How to run
+- `pnpm -F common-aws-node-ts test` — primary jest run
+- `pnpm -F common-aws-node-ts test:e2e` — e2e suite (requires Docker)
+
+## File map - common-aws-node-ts
+
+### common-aws-node-ts/
+Root: test config.
+
+| Path | Kind | Description |
+|---|---|---|
+| `jest.config.ts` | file | jest config (ts-jest preset, coverage thresholds) |
+
+### common-aws-node-ts/tests/
+Integration tests + fixtures.
+
+| Path | Kind | Description |
+|---|---|---|
+| `handlers.test.ts` | file | integration tests for the handler factories |
+| `fixtures/` | dir | golden request/response bodies + signed JWTs |
+
+## Test conventions
+- Each handler has a `<handler>.test.ts` next to the integration suite.
+- Mocks live under `tests/mocks/` and follow the `mock<Service>.ts` naming pattern.
+
+## Fixtures
+- `tests/fixtures/` — golden request/response bodies; refresh via `pnpm refresh-fixtures` when contracts change.
+
+## Coverage
+- Target: 80% statements, 70% branches. Measured by `jest --coverage`. Report at `coverage/index.html`.
+
+## Open questions
+- Whether to roll the e2e suite into the default `test` script once CI Docker support lands.
+```
 
 ## 1. App page
 

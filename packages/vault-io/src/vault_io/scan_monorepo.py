@@ -476,7 +476,8 @@ def build_file_maps(
     the existing empty-package short circuit (``- (no tracked files)``).
 
     The split rule lives in ``_is_test_path()`` and is the single source of
-    truth.
+    truth. The caller (``main()``) stores the result as ``w["file_map"]``
+    (prod) and ``w["file_map_testing"]`` (test) on each workspace dict.
     """
     files = _git_ls_files(pkg_path)
     if files is None:
