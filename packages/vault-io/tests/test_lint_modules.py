@@ -149,3 +149,142 @@ def test_domain_check_against_round_trip_vault() -> None:
     pages = _load_pages(ROUND_TRIP_VAULT)
     result = domain.check(pages)
     assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# parse_section_entries() tests — new table-based parser
+# ---------------------------------------------------------------------------
+
+
+class TestParseSectionEntries:
+    """Tests for parse_section_entries() — table-format parser with graceful fallback."""
+
+    def _parse(self, body: str, pkg_name: str = "mypkg") -> list[tuple[str, bool]]:
+        from vault_io.lint.common import parse_section_entries
+
+        return parse_section_entries(body, pkg_name)
+
+    def test_new_format_one_h3_two_rows(self) -> None:
+        """New-format body with one H3 section and 2 rows returns expected tuples."""
+        body = """\
+### mypkg/src/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `index.ts` | file | — TODO |
+| `utils.ts` | file | — TODO |
+"""
+        result = self._parse(body)
+        # H3 header produces dir entry for "src"
+        assert ("src", True) in result
+        assert ("src/index.ts", False) in result
+        assert ("src/utils.ts", False) in result
+
+    def test_root_section_produces_tuples_without_prefix(self) -> None:
+        """Root section ### mypkg/ produces tuples without any sub-dir prefix."""
+        body = """\
+### mypkg/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `package.json` | file | — TODO |
+"""
+        result = self._parse(body)
+        assert ("package.json", False) in result
+        # No dir entry for root itself (empty current_path)
+        dirs = [p for p, is_d in result if is_d]
+        assert dirs == []
+
+    def test_nested_path_row_inside_depth1_section(self) -> None:
+        """A nested-path row middleware/auth.ts inside ### mypkg/src/ yields src/middleware/auth.ts."""
+        body = """\
+### mypkg/src/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `middleware/auth.ts` | file | — TODO |
+"""
+        result = self._parse(body)
+        assert ("src/middleware/auth.ts", False) in result
+
+    def test_dir_row_inside_depth1_section(self) -> None:
+        """A dir row inside depth-1 section yields a directory entry; H3 also yields dir entry."""
+        body = """\
+### mypkg/src/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `clients/` | dir | — TODO |
+"""
+        result = self._parse(body)
+        # H3 itself produces ("src", True)
+        assert ("src", True) in result
+        # dir row produces ("src/clients", True) — trailing slash stripped
+        assert ("src/clients", True) in result
+
+    def test_old_format_returns_empty_list_gracefully(self) -> None:
+        """Old heading+bullet format returns empty list without raising."""
+        body = """\
+### mypkg/src/
+One-paragraph description.
+
+- `index.ts` — TODO
+- `utils.ts` — TODO
+
+### mypkg/tests/
+Tests.
+
+- `spec.ts` — TODO
+"""
+        result = self._parse(body)
+        # Should not crash; returns directory entries from H3 headers only (no file rows)
+        assert isinstance(result, list)
+        # File rows are absent (no tables found)
+        files = [(p, d) for p, d in result if not d]
+        assert files == []
+
+    def test_malformed_table_missing_separator_no_crash(self) -> None:
+        """Missing separator row — no row-level entries, no crash."""
+        body = """\
+### mypkg/src/
+TODO.
+
+| Path | Kind | Description |
+| `index.ts` | file | — TODO |
+"""
+        result = self._parse(body)
+        # Should not crash
+        assert isinstance(result, list)
+        # Dir entry from H3 header still produced
+        assert ("src", True) in result
+
+    def test_brace_expansion_in_path_tokens(self) -> None:
+        """Brace-expanded path token yields two file entries."""
+        body = """\
+### mypkg/src/
+TODO.
+
+| Path | Kind | Description |
+|---|---|---|
+| `{a,b}.ts` | file | — TODO |
+"""
+        result = self._parse(body)
+        assert ("src/a.ts", False) in result
+        assert ("src/b.ts", False) in result
+
+    def test_pipe_in_description_does_not_break_parser(self) -> None:
+        """Escaped pipe in Description cell does not break table parsing."""
+        body = """\
+### mypkg/src/
+TODO.
+
+| Path | Kind | Description |
+|---|---|---|
+| `index.ts` | file | — TODO \\| with pipe |
+"""
+        result = self._parse(body)
+        assert ("src/index.ts", False) in result

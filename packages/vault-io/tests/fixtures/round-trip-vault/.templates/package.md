@@ -26,15 +26,21 @@ Main exports and when to use them. Link code with backticked paths (`path:line`)
 - `exportName(args)` — `<relative/path/to/source>:<line>` — short description
 
 ## File map - <package-name>
-One-paragraph description of what the package root contains. Top-level files are listed below as bullets with one-line descriptions; each first-level subdirectory becomes a `### <package-name>/<sub>/` section, and so on down to the depth cutoff (default 4 directory levels — `######` headings). Folders deeper than the cutoff are listed inline as bullets in their parent section. The scanner pre-populates files and folder bullets from `git ls-files`; per-entry descriptions (one line, present tense, what the entry *contains* — not how it's used) are filled in later by the agent.
+TODO — overview of this package's tree.
 
-- `<file>` — TODO
+### <package-name>/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
 
 ### <package-name>/<sub>/
-One-paragraph description of what this subdirectory contains.
+TODO — describe what this directory contains.
 
-- `<file>` — TODO
-- `<deeper-dir>/` — TODO (folder bullet for content past the depth cutoff, or anything you don't want a dedicated section for)
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
 
 ## Key patterns
 - Pattern 1

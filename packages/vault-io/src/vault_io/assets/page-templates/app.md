@@ -42,15 +42,24 @@ One paragraph: what this app is, who uses it, on what platform.
 Describe the top-level provider nesting. Reference the file that defines it.
 
 ## File map - <app-name>
-One-paragraph description of what the app root contains. Top-level files are listed below as bullets with one-line descriptions; each first-level subdirectory becomes a `### <app-name>/<sub>/` section, and so on down to the depth cutoff (default 4 directory levels — `######` headings). Folders deeper than the cutoff are listed inline as bullets in their parent section. The scanner pre-populates files and folder bullets from `git ls-files`; per-entry descriptions (one line, present tense, what the entry *contains* — not how it's used) are filled in later by the agent.
+One-paragraph description of what the app root contains.
 
-- `<file>` — TODO
+Each first-level subdirectory becomes a `### <app-name>/<sub>/` section with a markdown table. Nested files flatten into their depth-1 parent's table; directories deeper than the depth cutoff (default 4) appear as `dir` rows in their parent's table. The scanner pre-populates these tables from `git ls-files`; per-row Description cells start as `— TODO` and are filled in later by the agent.
+
+### <app-name>/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
+| `<deeper-dir>/` | dir | — TODO |
 
 ### <app-name>/<sub>/
-One-paragraph description of what this subdirectory contains.
+TODO — describe what this directory contains.
 
-- `<file>` — TODO
-- `<deeper-dir>/` — TODO (folder bullet for content past the depth cutoff, or anything you don't want a dedicated section for)
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
 
 ## Domains consumed
 - [[domains/<domain>]]

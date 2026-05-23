@@ -4,15 +4,16 @@ Every wiki page has the same skeleton: YAML frontmatter + a section structure th
 
 ## File map convention (apps and packages)
 
-App and package pages have a `## File map - <name>` section instead of a fenced tree. Rules:
+App and package pages have a `## File map - <name>` section composed of one H3 subsection per major folder, each containing a markdown table. Rules:
 
-- The H2 heading carries the package or app name: `## File map - <name>`.
-- Files at the workspace root are listed as bullets directly under the H2: `- \`<file>\` — description`.
-- Each first-level subdirectory becomes an H3 section whose heading is the full path from the workspace root with a trailing slash (e.g. `### <name>/<sub>/`). Deeper subdirectories use H4 / H5 / H6 in the same shape.
-- A short paragraph under each header describes what the directory contains.
-- Directories deeper than the depth cutoff (default 4 — `######` headings) are listed inline as folder bullets in their parent section: `- \`<dir>/\` — description`. Folder bullets are also used to summarize directories you don't want to expand into a section.
-- The scanner pre-populates files and folder bullets via `git ls-files` (so `.gitignore` is respected) with `— TODO` placeholders. Per-entry descriptions are filled in by the agent on a later pass.
-- `/graph-wiki:lint`'s file-map drift check flags entries listed in the map that are no longer on disk; new files showing up on disk do not fail lint, since folder-bullet summarization is allowed.
+- The H2 heading carries the package or app name: `## File map - <name>`, followed by a one-line overview paragraph.
+- Files at the workspace root live in a synthetic `### <name>/` H3 section directly under the H2 — uniform shape, no special-cased root.
+- Each depth-1 subdirectory gets its own H3 section whose heading is the full path from the workspace root with a trailing slash (e.g. `### <name>/<sub>/`).
+- Under each H3: a one-sentence paragraph describing the directory, then a markdown table with columns `Path | Kind | Description`. `Path` is relative to that section's root (e.g. `middleware/auth.ts` inside `### <name>/src/`). `Kind` is `file` or `dir`. `Description` starts as `— TODO` and is filled in by the agent later.
+- Nested files (depth ≥ 2) flatten into rows inside their depth-1 parent's table. Directories deeper than the cutoff (default `max_depth=4`) are listed as `dir` rows in their depth-1 parent's table instead of getting their own section.
+- The scanner pre-populates the tables via `git ls-files` (so `.gitignore` is respected) with `— TODO` Description placeholders. Per-row descriptions are filled in by the agent on a later pass.
+- `/graph-wiki:lint`'s file-map drift check flags rows whose Path is no longer on disk; new files showing up on disk do not fail lint, since `dir`-row summarization is allowed.
+- **Legacy heading+bullet pages on disk** (pre-2026-05) are parsed gracefully: directory entries from H3 headers are still extracted, but file-row entries are dropped. The next scan re-emits the block in the new table format when the page still shows the unfilled-template signature.
 
 ## 1. App page
 
@@ -67,25 +68,40 @@ One paragraph: what this app is, who uses it, on what platform.
 Source: `app/providers.tsx:12`
 
 ## File map - web-next-ts
-The Next.js app's root: build config, the auth middleware, and the four top-level source directories.
+The Next.js app's root: build config, the auth middleware, and the top-level source directories.
 
-- `package.json` — workspace manifest
-- `next.config.mjs` — Next.js build config
-- `middleware.ts` — auth gate; redirects unauthenticated users
+### web-next-ts/
+Root: workspace manifest, Next.js build config, and the auth middleware.
+
+| Path | Kind | Description |
+|---|---|---|
+| `package.json` | file | workspace manifest |
+| `next.config.mjs` | file | Next.js build config |
+| `middleware.ts` | file | auth gate; redirects unauthenticated users |
 
 ### web-next-ts/app/
 App Router routes, layouts, and the top-level provider chain.
 
-- `providers.tsx` — top-level provider chain
-- `(dashboard)/` — dashboard route group
-- `admin/` — admin surfaces (role:admin gated)
-- `api/` — API route handlers (NextAuth, etc.)
+| Path | Kind | Description |
+|---|---|---|
+| `providers.tsx` | file | top-level provider chain |
+| `(dashboard)/` | dir | dashboard route group |
+| `admin/` | dir | admin surfaces (role:admin gated) |
+| `api/` | dir | API route handlers (NextAuth, etc.) |
 
 ### web-next-ts/components/
 App-specific UI (forms, charts, layouts) not promoted to a shared package.
 
+| Path | Kind | Description |
+|---|---|---|
+| (rows omitted in example — populated by scanner) | | |
+
 ### web-next-ts/lib/
 Local adapters: env, feature flags, small helpers that don't warrant a shared package yet.
+
+| Path | Kind | Description |
+|---|---|---|
+| (rows omitted in example — populated by scanner) | | |
 
 ## Domains consumed
 - [[domains/auth]] — session, sign-in
@@ -172,35 +188,34 @@ Main exports and when to use them. Link code with backticked paths.
 ## File map - common-aws-node-ts
 The package root: workspace manifest, README, and the `src/` and `tests/` trees.
 
-- `package.json` — workspace manifest
-- `README.md` — package readme
+### common-aws-node-ts/
+Root: workspace manifest and README.
+
+| Path | Kind | Description |
+|---|---|---|
+| `package.json` | file | workspace manifest |
+| `README.md` | file | package readme |
 
 ### common-aws-node-ts/src/
 TypeScript source. `index.ts` re-exports the public handler factories; the rest is split into handlers, middlewares, and pre-configured clients.
 
-- `index.ts` — re-exports public handler factories
-
-#### common-aws-node-ts/src/handlers/
-Public and authorized handler factories that compose the middleware pipeline for callers.
-
-- `baseApiHandler.ts` — public + authorized handler factories
-- `withGlobalContext.ts` — body parsing + AsyncLocalStorage wrapper
-
-#### common-aws-node-ts/src/middleware/
-Pipeline middlewares (auth, body, context, routing) consumed by the handler factories.
-
-- `authProvider.ts` — Cognito JWT auth middleware
-- `eventBodyDeserializer.ts` — JSON body parser
-- `globalContextProvider.ts` — AsyncLocalStorage seeder
-- `httpRouteHandler.ts` — route dispatcher
-
-#### common-aws-node-ts/src/clients/
-Pre-configured AWS SDK clients (DynamoDB, S3, SNS) used across handlers.
+| Path | Kind | Description |
+|---|---|---|
+| `index.ts` | file | re-exports public handler factories |
+| `handlers/baseApiHandler.ts` | file | public + authorized handler factories |
+| `handlers/withGlobalContext.ts` | file | body parsing + AsyncLocalStorage wrapper |
+| `middleware/authProvider.ts` | file | Cognito JWT auth middleware |
+| `middleware/eventBodyDeserializer.ts` | file | JSON body parser |
+| `middleware/globalContextProvider.ts` | file | AsyncLocalStorage seeder |
+| `middleware/httpRouteHandler.ts` | file | route dispatcher |
+| `clients/` | dir | pre-configured AWS SDK clients (DynamoDB, S3, SNS) used across handlers |
 
 ### common-aws-node-ts/tests/
 Integration tests for the handler factories.
 
-- `handlers.test.ts` — integration tests for the handler factories
+| Path | Kind | Description |
+|---|---|---|
+| `handlers.test.ts` | file | integration tests for the handler factories |
 
 ## Key patterns
 - Middleware pipeline order: `globalContextProvider` → `eventBodyDeserializer` → `authProvider` → `httpRouteHandler`
