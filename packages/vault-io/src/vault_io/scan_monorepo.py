@@ -305,16 +305,13 @@ def _git_ls_files(pkg_path: Path) -> list[str] | None:
 def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
     """Build a markdown ``## File map - <name>`` block for ``pkg_path``.
 
-    Emits a sectioned format (full block including the H2 heading):
-
-    - ``## File map - <pkg-name>`` at the top with a paragraph placeholder
-      and bullets for files at the package root.
-    - One header section per subdirectory (``### <pkg>/<sub>/``,
-      ``#### <pkg>/<sub>/<sub2>/``, ...) up to ``max_depth`` directory
-      levels (default 4 → headings stop at H6 / ``######``).
-    - Subdirectories deeper than the cutoff are emitted as folder bullets
-      (``- `<sub>/` — TODO``) inside their parent section instead of getting
-      their own header.
+    Emits one H3 section per depth-1 directory plus a synthetic
+    ``### <pkg>/`` section for root-level files. Each H3 section contains
+    a one-line paragraph placeholder and a markdown table with columns
+    ``Path | Kind | Description``. Nested files (depth ≥ 2) flatten into
+    rows inside their depth-1 parent's table; directories deeper than
+    ``max_depth`` appear as ``dir`` rows in their depth-1 parent table
+    instead of getting their own H3 section.
 
     Uses ``git ls-files`` so .gitignore is respected. Per-entry
     descriptions ("— TODO") are filled in by the agent later. Returns
@@ -326,53 +323,116 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
 
     pkg_name = pkg_path.name
     title_line = f"## File map - {pkg_name}"
-    placeholder = "TODO — describe what this directory contains."
+    section_placeholder = "TODO — describe what this directory contains."
+    overview_placeholder = "TODO — overview of this package's tree."
 
     if not files:
-        return f"{title_line}\n{placeholder}\n\n- (no tracked files)\n"
+        return f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
 
     truncated = len(files) > max_entries
     files = files[:max_entries]
 
-    tree: dict = {}
+    # Build a two-level grouping:
+    #   root_files: files at depth 0 (no "/" in path)
+    #   sub_trees: dict[depth1_dir -> list of relative paths within that dir]
+    root_files: list[str] = []
+    sub_trees: dict[str, list[str]] = {}
+
     for rel in files:
         parts = rel.split("/")
-        node = tree
-        for part in parts[:-1]:
-            node = node.setdefault(part, {})
-        node[parts[-1]] = None
-
-    out: list[str] = []
-
-    def emit(node: dict, dir_depth: int, dir_path: str) -> None:
-        # ``dir_path`` is the path from (and including) the package root
-        # without a trailing slash — e.g. ``p`` for the root, ``p/src`` for
-        # a sub-section. The trailing slash is added at emit time.
-        if dir_depth == 0:
-            out.append(title_line)
+        if len(parts) == 1:
+            root_files.append(parts[0])
         else:
-            hashes = "#" * (dir_depth + 2)
-            out.append(f"{hashes} {dir_path}/")
-        out.append(placeholder)
-        out.append("")
+            top = parts[0]
+            rest = "/".join(parts[1:])
+            sub_trees.setdefault(top, []).append(rest)
 
-        file_names = sorted([k for k, v in node.items() if v is None], key=str.lower)
-        dir_names = sorted([k for k, v in node.items() if v is not None], key=str.lower)
+    TABLE_HEADER = "| Path | Kind | Description |"
+    TABLE_SEP = "|---|---|---|"
 
-        for f in file_names:
-            out.append(f"- `{f}` — TODO")
-        # Sub-dirs whose own depth would exceed ``max_depth`` are listed as
-        # folder bullets in this section instead of recursing.
-        bullet_dirs = [d for d in dir_names if dir_depth + 1 > max_depth]
-        for d in bullet_dirs:
-            out.append(f"- `{d}/` — TODO")
-        out.append("")
+    def _emit_section(heading: str, rel_paths_files: list[str], rel_dir_rows: list[str]) -> list[str]:
+        """Emit one H3 section: heading, placeholder, blank line, table."""
+        block: list[str] = []
+        block.append(heading)
+        block.append(section_placeholder)
+        block.append("")
+        block.append(TABLE_HEADER)
+        block.append(TABLE_SEP)
+        for name in rel_paths_files:
+            kind = "file"
+            block.append(f"| `{name}` | {kind} | — TODO |")
+        for name in rel_dir_rows:
+            block.append(f"| `{name}/` | dir | — TODO |")
+        block.append("")
+        return block
 
-        section_dirs = [d for d in dir_names if dir_depth + 1 <= max_depth]
-        for d in section_dirs:
-            emit(node[d], dir_depth + 1, f"{dir_path}/{d}")
+    out: list[str] = [title_line, overview_placeholder, ""]
 
-    emit(tree, dir_depth=0, dir_path=pkg_name)
+    # Synthetic root section: ### <pkg>/
+    # Collect root-level file entries + any depth-1 dirs that exceed max_depth
+    # as dir rows.  Standard depth-1 dirs get their own H3 below.
+    root_dir_rows: list[str] = []
+    for top in sorted(sub_trees.keys(), key=str.lower):
+        # Depth of this top-level dir is 1. If max_depth < 1 then it's too deep.
+        if max_depth < 1:
+            root_dir_rows.append(top)
+    root_section = _emit_section(f"### {pkg_name}/", sorted(root_files, key=str.lower), root_dir_rows)
+    out.extend(root_section)
+
+    # One H3 per depth-1 directory (sorted alphabetically, case-insensitive).
+    for top in sorted(sub_trees.keys(), key=str.lower):
+        if max_depth < 1:
+            # Already emitted as a dir row in root section.
+            continue
+
+        rel_paths = sorted(sub_trees[top], key=str.lower)
+        # Within this depth-1 dir, separate files from sub-dirs that exceed max_depth.
+        file_rows: list[str] = []
+        dir_rows: list[str] = []
+
+        # We need to reconstruct what directories exist inside this sub-tree.
+        # Walk the relative paths to find depth ≥ 1 sub-dirs.
+        sub_dir_files: dict[str, list[str]] = {}  # sub_dir -> [file names relative to it]
+        direct_files: list[str] = []
+
+        for rel in rel_paths:
+            parts = rel.split("/")
+            if len(parts) == 1:
+                direct_files.append(parts[0])
+            else:
+                sub = parts[0]
+                rest = "/".join(parts[1:])
+                sub_dir_files.setdefault(sub, []).append(rest)
+
+        # Files directly in this depth-1 dir go as file rows.
+        for f in sorted(direct_files, key=str.lower):
+            file_rows.append(f)
+
+        # Sub-dirs: they are at depth 2 from the package root.
+        # If depth-2 exceeds max_depth (max_depth < 2), they become dir rows.
+        # Otherwise, flatten their files into this section's table.
+        for sub in sorted(sub_dir_files.keys(), key=str.lower):
+            if max_depth < 2:
+                # Emit as a dir row.
+                dir_rows.append(f"{sub}/")
+            else:
+                # Flatten all files under this sub-dir into relative paths.
+                for sub_rel in sorted(sub_dir_files[sub], key=str.lower):
+                    file_rows.append(f"{sub}/{sub_rel}")
+                # Also check if sub itself is a dir entry — it will be if it has content.
+                # We represent it only as its flattened files; the dir itself is implicit.
+
+        heading = f"### {pkg_name}/{top}/"
+        # _emit_section takes file names and dir names separately
+        # file_rows are already relative paths (may include sub/ prefix)
+        # dir_rows are sub-dir names (with trailing slash already)
+        block: list[str] = [heading, section_placeholder, "", TABLE_HEADER, TABLE_SEP]
+        for name in file_rows:
+            block.append(f"| `{name}` | file | — TODO |")
+        for name in dir_rows:
+            block.append(f"| `{name}` | dir | — TODO |")
+        block.append("")
+        out.extend(block)
 
     if truncated:
         out.append(f"> Truncated at {max_entries} files.")
