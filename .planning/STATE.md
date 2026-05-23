@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: Workspace Path Resolution Cleanup
 status: completed
 stopped_at: Phase 26 context gathered
-last_updated: "2026-05-21T18:19:54.311Z"
-last_activity: 2026-05-21 -- Phase 26 marked complete
+last_updated: "2026-05-23T18:52:00.000Z"
+last_activity: 2026-05-23 -- Completed quick task 260523-he3: Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder
 progress:
   total_phases: 5
   completed_phases: 5
@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 Phase: 26 — COMPLETE
 Plan: 1 of 4
 Status: Phase 26 complete
-Last activity: 2026-05-21 -- Completed quick task 260521-mfm: Add self-healing uv re-exec to graph-wiki plugin shim scripts
+Last activity: 2026-05-23 -- Completed quick task 260523-he3: Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder
 
 Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
 
@@ -116,6 +116,7 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 | 260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py | Fix graph-wiki plugin docs to use `uv run --project "$DEEP_AGENTS_ROOT" python` for shim scripts (`vault_io` is a workspace package; bare `python` failed every `/graph-wiki:*` invocation with `ModuleNotFoundError`); 11 doc files, 26 invocation lines, plus stale "Standard library only" claim corrected in SKILL.md | (this commit) |
 | 260521-lj3-workspace-io-tolerate-missing-plugins | Make `workspace_io.init.init()` heal a sparse `.graph-wiki.yaml` (`version: 2` but missing `plugins` key) via `data.setdefault("plugins", [])` instead of raising `KeyError`; unblocks `/graph-wiki:bootstrap` after a provisional manifest is seeded to satisfy the `resolve_wiki_and_repo()` chicken-and-egg in `detect_containers.py`; +1 production line, +1 regression test | 01cc109 |
 | 260521-mfm-add-self-healing-uv-re-exec-to-graph-wik | Add self-healing uv re-exec to graph-wiki plugin shim scripts: new `_uv_reexec.ensure()` helper that walks up to find `packages/vault-io/pyproject.toml` and re-execs under `uv run --project` when `vault_io` isn't importable; wired into 6 shims; `GRAPH_WIKI_SHIM_REEXEC=1` guard prevents loops; bare `python <shim>.py` now Just Works | 9484187 |
+| 260523-he3-revise-file-map-format-on-package-app-ov | Revise file-map format on package/app overview templates from heading+bullets to markdown-tables-per-major-folder: rewrite `build_file_map()` to emit H2 + per-major-folder H3 sections with `Path \| Kind \| Description` tables; rewrite `parse_section_entries()` as single in-process table parser with graceful no-op fallback for legacy old-format pages on disk; update package/app templates + round-trip fixture templates; rewrite page-formats.md spec + worked examples; update scanner.md emission + unfilled-template detection rule (table-row Description cells, with legacy-bullets-also-qualify clause); 17 new tests, full vault-io suite 127 passed; SCN-003 unchanged (substring `## File map` still matches) | (this commit) |
 
 ---
 
