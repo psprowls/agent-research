@@ -24,9 +24,15 @@ workflow_hints:
 ## Purpose
 One paragraph: what this package does, who uses it, why it exists.
 
-## File map
+## File map - {{PACKAGE_SLUG}}
+TODO — overview of this package's tree.
 
-TODO — tree of relevant files with one-line descriptions.
+### {{PACKAGE_SLUG}}/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
 
 ## Sub-pages
 - [[api]]      — public API, exports, CLI subcommands
