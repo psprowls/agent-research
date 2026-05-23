@@ -48,18 +48,21 @@ def test_package_overview_renders_path_qualified_wikilinks(tmp_path: Path) -> No
     assert "[[wiki/packages/myslug/api|api]]" in rendered
     assert "[[wiki/packages/myslug/patterns|patterns]]" in rendered
     assert "[[wiki/packages/myslug/work|work]]" in rendered
+    assert "[[wiki/packages/myslug/testing|testing]]" in rendered
     assert "[[wiki/packages/myslug/context|context]]" in rendered
 
     # Bare forms absent.
     assert "[[api]]" not in rendered
     assert "[[patterns]]" not in rendered
     assert "[[work]]" not in rendered
+    assert "[[testing]]" not in rendered
     assert "[[context]]" not in rendered
 
     # Unprefixed path-qualified forms absent (regression guard).
     assert "[[packages/myslug/api|api]]" not in rendered
     assert "[[packages/myslug/patterns|patterns]]" not in rendered
     assert "[[packages/myslug/work|work]]" not in rendered
+    assert "[[packages/myslug/testing|testing]]" not in rendered
     assert "[[packages/myslug/context|context]]" not in rendered
 
     # No leftover unsubstituted slug tokens.

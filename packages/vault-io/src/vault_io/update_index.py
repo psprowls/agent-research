@@ -55,7 +55,7 @@ CATEGORY_INDEX_FILES = {
 GENERATED_FILES = {"index.md", "log.md"} | set(CATEGORY_INDEX_FILES.values())
 
 # Filenames (without .md) that are sub-pages, not main navigation entries
-SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work"}
+SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work", "testing"}
 CATEGORY_DIRS = {
     "apps": "app",
     "packages": "package",

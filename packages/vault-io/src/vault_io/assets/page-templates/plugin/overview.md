@@ -1,6 +1,6 @@
 ---
 title: {{PACKAGE_TITLE}}
-category: package
+category: plugin
 summary:
 status: active
 package_path:
@@ -23,10 +23,10 @@ workflow_hints:
 # {{PACKAGE_TITLE}}
 
 ## Purpose
-One paragraph: what this package does, who uses it, why it exists.
+One paragraph: what this plugin does, which host consumes it, what feature surface it adds.
 
 ## File map - {{PACKAGE_SLUG}}
-TODO — overview of this package's tree.
+TODO — overview of this plugin's tree.
 
 ### {{PACKAGE_SLUG}}/
 TODO — describe what this directory contains.
@@ -41,4 +41,3 @@ TODO — describe what this directory contains.
 - [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
 - [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/testing|testing]]   — test suite, fixtures, coverage
 - [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
-

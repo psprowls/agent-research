@@ -44,7 +44,7 @@ Describe the top-level provider nesting. Reference the file that defines it.
 ## File map - <app-name>
 One-paragraph description of what the app root contains.
 
-Each first-level subdirectory becomes a `### <app-name>/<sub>/` section with a markdown table. Nested files flatten into their depth-1 parent's table; directories deeper than the depth cutoff (default 4) appear as `dir` rows in their parent's table. The scanner pre-populates these tables from `git ls-files`; per-row Description cells start as `— TODO` and are filled in later by the agent.
+Each first-level subdirectory becomes a `### <app-name>/<sub>/` section with a markdown table. Tests, test config, and fixtures live on the companion [[wiki/{{CONTAINER_DIR}}/{{APP_SLUG}}/testing|testing]] sub-page — they are intentionally excluded from this section. Nested files flatten into their depth-1 parent's table; directories deeper than the depth cutoff (default 4) appear as `dir` rows in their parent's table. The scanner pre-populates these tables from `git ls-files`; per-row Description cells start as `— TODO` and are filled in later by the agent.
 
 ### <app-name>/
 TODO — describe what this directory contains.
@@ -85,3 +85,6 @@ TODO — describe what this directory contains.
 
 ## Open questions
 - …
+
+## Sub-pages
+- [[wiki/{{CONTAINER_DIR}}/{{APP_SLUG}}/testing|testing]] — test suite, fixtures, coverage
