@@ -302,35 +302,78 @@ def _git_ls_files(pkg_path: Path) -> list[str] | None:
     return sorted(line.strip() for line in result.stdout.splitlines() if line.strip())
 
 
-def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
-    """Build a markdown ``## File map - <name>`` block for ``pkg_path``.
+# ---------------------------------------------------------------------------
+# Test-path classification
+# ---------------------------------------------------------------------------
 
-    Emits one H3 section per depth-1 directory plus a synthetic
-    ``### <pkg>/`` section for root-level files. Each H3 section contains
-    a one-line paragraph placeholder and a markdown table with columns
-    ``Path | Kind | Description``. Nested files (depth ≥ 2) flatten into
-    rows inside their depth-1 parent's table; directories deeper than
-    ``max_depth`` appear as ``dir`` rows in their depth-1 parent table
-    instead of getting their own H3 section.
+_TEST_DIR_NAMES = frozenset({"tests", "__tests__", "test", "spec"})
+_TEST_CONFIG_NAMES = frozenset({
+    "conftest.py", "pytest.ini", "tox.ini", "pyproject-tests.toml",
+    "karma.conf.js", "karma.conf.ts",
+})
+# Matches names like jest.config.{js,ts,mjs,cjs,json}, vitest.config.{js,ts,mjs},
+# playwright.config.{js,ts}, cypress.config.{js,ts}, mocha.config.js,
+# .mocharc.{js,json,yaml,yml}, ava.config.{js,cjs,mjs}
+_TEST_CONFIG_RE = re.compile(
+    r"^("
+    r"jest\.config\.(?:js|ts|mjs|cjs|json)"
+    r"|vitest\.config\.(?:js|ts|mjs)"
+    r"|playwright\.config\.(?:js|ts)"
+    r"|cypress\.config\.(?:js|ts)"
+    r"|mocha\.config\.js"
+    r"|\.mocharc\.(?:js|json|yaml|yml)"
+    r"|ava\.config\.(?:js|cjs|mjs)"
+    r")$"
+)
 
-    Uses ``git ls-files`` so .gitignore is respected. Per-entry
-    descriptions ("— TODO") are filled in by the agent later. Returns
-    ``None`` when ``pkg_path`` isn't under git.
+
+def _is_test_path(rel: str) -> bool:
+    """Classify a package-relative path as test (True) or prod (False).
+
+    Rule:
+      1. Any path component (split on '/') matching _TEST_DIR_NAMES -> True.
+      2. Basename in _TEST_CONFIG_NAMES OR matching _TEST_CONFIG_RE -> True
+         (applies at any depth; conftest.py is a common pytest pattern at
+         non-root paths too).
+      3. Otherwise -> False.
+
+    Precondition: ``rel`` is a forward-slash-separated path relative to the
+    package root (the same shape build_file_map already receives from
+    _git_ls_files).
     """
-    files = _git_ls_files(pkg_path)
-    if files is None:
-        return None
+    parts = rel.split("/")
+    if any(p in _TEST_DIR_NAMES for p in parts):
+        return True
+    basename = parts[-1]
+    if basename in _TEST_CONFIG_NAMES or _TEST_CONFIG_RE.match(basename):
+        return True
+    return False
 
-    pkg_name = pkg_path.name
+
+# ---------------------------------------------------------------------------
+# File map emitter
+# ---------------------------------------------------------------------------
+
+def _emit_file_map_block(
+    pkg_name: str,
+    files: list[str],
+    truncated: bool,
+    max_depth: int,
+    max_entries: int = 80,
+) -> str:
+    """Emit a ``## File map - <pkg_name>`` block from the given file list.
+
+    Shared implementation used by both build_file_map() and build_file_maps().
+    ``files`` must already be truncated to max_entries before calling.
+    ``truncated`` controls whether the truncation marker is appended.
+    ``max_entries`` is used only in the truncation marker text.
+    """
     title_line = f"## File map - {pkg_name}"
     section_placeholder = "TODO — describe what this directory contains."
     overview_placeholder = "TODO — overview of this package's tree."
 
-    if not files:
-        return f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
-
-    truncated = len(files) > max_entries
-    files = files[:max_entries]
+    TABLE_HEADER = "| Path | Kind | Description |"
+    TABLE_SEP = "|---|---|---|"
 
     # Build a two-level grouping:
     #   root_files: files at depth 0 (no "/" in path)
@@ -347,52 +390,33 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
             rest = "/".join(parts[1:])
             sub_trees.setdefault(top, []).append(rest)
 
-    TABLE_HEADER = "| Path | Kind | Description |"
-    TABLE_SEP = "|---|---|---|"
-
-    def _emit_section(heading: str, rel_paths_files: list[str], rel_dir_rows: list[str]) -> list[str]:
-        """Emit one H3 section: heading, placeholder, blank line, table."""
-        block: list[str] = []
-        block.append(heading)
-        block.append(section_placeholder)
-        block.append("")
-        block.append(TABLE_HEADER)
-        block.append(TABLE_SEP)
-        for name in rel_paths_files:
-            kind = "file"
-            block.append(f"| `{name}` | {kind} | — TODO |")
-        for name in rel_dir_rows:
-            block.append(f"| `{name}/` | dir | — TODO |")
-        block.append("")
-        return block
-
     out: list[str] = [title_line, overview_placeholder, ""]
 
     # Synthetic root section: ### <pkg>/
-    # Collect root-level file entries + any depth-1 dirs that exceed max_depth
-    # as dir rows.  Standard depth-1 dirs get their own H3 below.
     root_dir_rows: list[str] = []
     for top in sorted(sub_trees.keys(), key=str.lower):
-        # Depth of this top-level dir is 1. If max_depth < 1 then it's too deep.
         if max_depth < 1:
             root_dir_rows.append(top)
-    root_section = _emit_section(f"### {pkg_name}/", sorted(root_files, key=str.lower), root_dir_rows)
-    out.extend(root_section)
+
+    # Emit root section
+    root_block: list[str] = [f"### {pkg_name}/", section_placeholder, "", TABLE_HEADER, TABLE_SEP]
+    for name in sorted(root_files, key=str.lower):
+        root_block.append(f"| `{name}` | file | — TODO |")
+    for name in root_dir_rows:
+        root_block.append(f"| `{name}/` | dir | — TODO |")
+    root_block.append("")
+    out.extend(root_block)
 
     # One H3 per depth-1 directory (sorted alphabetically, case-insensitive).
     for top in sorted(sub_trees.keys(), key=str.lower):
         if max_depth < 1:
-            # Already emitted as a dir row in root section.
             continue
 
         rel_paths = sorted(sub_trees[top], key=str.lower)
-        # Within this depth-1 dir, separate files from sub-dirs that exceed max_depth.
         file_rows: list[str] = []
         dir_rows: list[str] = []
 
-        # We need to reconstruct what directories exist inside this sub-tree.
-        # Walk the relative paths to find depth ≥ 1 sub-dirs.
-        sub_dir_files: dict[str, list[str]] = {}  # sub_dir -> [file names relative to it]
+        sub_dir_files: dict[str, list[str]] = {}
         direct_files: list[str] = []
 
         for rel in rel_paths:
@@ -404,29 +428,17 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
                 rest = "/".join(parts[1:])
                 sub_dir_files.setdefault(sub, []).append(rest)
 
-        # Files directly in this depth-1 dir go as file rows.
         for f in sorted(direct_files, key=str.lower):
             file_rows.append(f)
 
-        # Sub-dirs: they are at depth 2 from the package root.
-        # If depth-2 exceeds max_depth (max_depth < 2), they become dir rows.
-        # Otherwise, flatten their files into this section's table.
         for sub in sorted(sub_dir_files.keys(), key=str.lower):
             if max_depth < 2:
-                # Emit as a dir row.
                 dir_rows.append(f"{sub}/")
             else:
-                # Flatten all files under this sub-dir into relative paths.
                 for sub_rel in sorted(sub_dir_files[sub], key=str.lower):
                     file_rows.append(f"{sub}/{sub_rel}")
-                # Also check if sub itself is a dir entry — it will be if it has content.
-                # We represent it only as its flattened files; the dir itself is implicit.
 
-        heading = f"### {pkg_name}/{top}/"
-        # _emit_section takes file names and dir names separately
-        # file_rows are already relative paths (may include sub/ prefix)
-        # dir_rows are sub-dir names (with trailing slash already)
-        block: list[str] = [heading, section_placeholder, "", TABLE_HEADER, TABLE_SEP]
+        block: list[str] = [f"### {pkg_name}/{top}/", section_placeholder, "", TABLE_HEADER, TABLE_SEP]
         for name in file_rows:
             block.append(f"| `{name}` | file | — TODO |")
         for name in dir_rows:
@@ -439,6 +451,85 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
         out.append("")
 
     return "\n".join(out).rstrip() + "\n"
+
+
+def build_file_maps(
+    pkg_path: Path,
+    max_depth: int = 4,
+    max_entries: int = 80,
+) -> tuple[str, str] | None:
+    """Return ``(prod_block, test_block)`` where each is a full markdown
+    ``## File map - <name>`` block in the table format.
+
+    - prod_block: H2 + per-major-folder H3 sections covering ONLY prod files +
+      prod root-level config. Test directories (tests/, __tests__/, test/,
+      spec/) and test-config files are excluded.
+    - test_block: H2 + per-major-folder H3 sections covering ONLY test files,
+      test config, and fixtures.
+
+    Returns None when ``_git_ls_files(pkg_path)`` returns None.
+
+    When there are no test files in the package, ``test_block`` is a minimal
+    placeholder (no table).
+
+    When there are no prod files (tests-only meta-package), ``prod_block`` uses
+    the existing empty-package short circuit (``- (no tracked files)``).
+
+    The split rule lives in ``_is_test_path()`` and is the single source of
+    truth.
+    """
+    files = _git_ls_files(pkg_path)
+    if files is None:
+        return None
+
+    pkg_name = pkg_path.name
+    title_line = f"## File map - {pkg_name}"
+    overview_placeholder = "TODO — overview of this package's tree."
+
+    # Truncation applies to the combined list before splitting (backward compat).
+    truncated = len(files) > max_entries
+    if truncated:
+        files = files[:max_entries]
+
+    # Partition into prod and test lists.
+    prod_files = [f for f in files if not _is_test_path(f)]
+    test_files = [f for f in files if _is_test_path(f)]
+
+    # Build prod block.
+    if not prod_files:
+        prod_block = f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
+        if truncated:
+            prod_block = prod_block.rstrip("\n") + f"\n\n> Truncated at {max_entries} files.\n"
+    else:
+        prod_block = _emit_file_map_block(pkg_name, prod_files, truncated, max_depth, max_entries)
+
+    # Build test block.
+    if not test_files:
+        test_block = (
+            f"{title_line}\n{overview_placeholder}\n\n"
+            f"### {pkg_name}/\n"
+            f"TODO — no test files detected. Document test strategy here when tests land.\n"
+        )
+        if truncated:
+            test_block = test_block.rstrip("\n") + f"\n\n> Truncated at {max_entries} files.\n"
+    else:
+        test_block = _emit_file_map_block(pkg_name, test_files, truncated, max_depth, max_entries)
+
+    return prod_block, test_block
+
+
+def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
+    """Return the prod-only ``## File map - <name>`` block. (Legacy single-
+    return API; see ``build_file_maps()`` for the paired prod+test output.)
+
+    NOTE: This API now returns prod-only output. Prior to quick-260523-i35 it
+    returned a combined prod+test block. Callers relying on test-path rows in
+    the output must migrate to ``build_file_maps()[1]``.
+    """
+    fms = build_file_maps(pkg_path, max_depth=max_depth, max_entries=max_entries)
+    if fms is None:
+        return None
+    return fms[0]
 
 
 def discover_workspaces(repo, pinned_containers=None, workspace_dir=None):
@@ -1221,9 +1312,11 @@ def main():
     if not args.no_file_map:
         for w in workspaces:
             pkg_dir = repo / w["path"]
-            fm = build_file_map(pkg_dir, max_depth=args.max_depth)
-            if fm is not None:
-                w["file_map"] = fm
+            fms = build_file_maps(pkg_dir, max_depth=args.max_depth)
+            if fms is not None:
+                prod_block, test_block = fms
+                w["file_map"] = prod_block
+                w["file_map_testing"] = test_block
     existing = _load_existing_pages(wiki) if wiki.exists() else {}
     if wiki.exists():
         attach_changed_files(workspaces, existing, repo)
