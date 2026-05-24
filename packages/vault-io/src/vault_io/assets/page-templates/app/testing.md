@@ -1,6 +1,7 @@
 ---
 title: <app-name> — tests
 category: app
+summary: Test suite, fixtures, and conventions for <app-name>
 parent: <app-name>
 status: active
 updated: <YYYY-MM-DD>

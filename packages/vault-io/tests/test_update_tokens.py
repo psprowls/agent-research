@@ -68,18 +68,36 @@ def _seed_page(path: Path, tokens_value: str | int | None = 5) -> None:
     path.write_text("\n".join(fm_lines) + "\n\nBody.\n", encoding="utf-8")
 
 
-def _validation_client_error():
+def _validation_client_error(message: str = "Model does not support count tokens operation"):
     from botocore.exceptions import ClientError
 
     return ClientError(
         error_response={
             "Error": {
                 "Code": "ValidationException",
-                "Message": "Model does not support count tokens operation",
+                "Message": message,
             }
         },
         operation_name="CountTokens",
     )
+
+
+def test_unsupported_model_detector_handles_modern_phrasing() -> None:
+    """As of 2026-05 Bedrock returns 'The provided model doesn't support
+    counting tokens.' for Claude 4.x models. The detector must recognise both
+    that and the older 'count tokens operation' wording so the run gracefully
+    stamps `tokens: null` instead of crashing the whole vault refresh.
+    Regression for the 2026-05-23 lint finding (8 concept pages stuck without
+    tokens because every CountTokens call surfaced as ('skipped', 0))."""
+    from vault_io.update_tokens import _is_unsupported_model_error
+
+    legacy = _validation_client_error("Model does not support count tokens operation")
+    modern = _validation_client_error("The provided model doesn't support counting tokens.")
+    unrelated = _validation_client_error("Inference profile ARN is malformed")
+
+    assert _is_unsupported_model_error(legacy) is True
+    assert _is_unsupported_model_error(modern) is True
+    assert _is_unsupported_model_error(unrelated) is False
 
 
 def test_unsupported_model_writes_tokens_null(tmp_path: Path) -> None:

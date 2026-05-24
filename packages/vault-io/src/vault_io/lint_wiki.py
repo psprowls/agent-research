@@ -245,18 +245,37 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             # Normalize scoped names (``@psprowls/foo`` -> ``foo``) so the diff
             # compares like-for-like against vault slugs/titles.
             disk_names = {_unscope(w["name"]) for w in workspaces}
+            # Package/app overview pages are folder-shorthand at
+            # ``<container>/<slug>/overview.md`` — the slug we diff against
+            # disk is the parent directory name, not the file stem. ``k`` has
+            # already been stripped of its ``.md`` suffix upstream, so the
+            # filename comparison is against ``"overview"`` (no extension).
+            # Legacy ``<container>/<slug>/<slug>.md`` pages (pre-rename) are
+            # still recognised as a fallback.
+            def _pkg_slug(key: str) -> str | None:
+                parts = Path(key).parts
+                if len(parts) < 2:
+                    return None
+                name = parts[-1]
+                parent = parts[-2]
+                if name == "overview":
+                    return parent
+                if name == parent:
+                    return parent
+                return None
+
             vault_pkg_pages = {
                 k: p
                 for k, p in pages.items()
-                if p["fm"].get("category") in ("package", "app") and Path(k).name == "overview.md"
+                if p["fm"].get("category") in ("package", "app") and _pkg_slug(k) is not None
             }
-            vault_names = {Path(k).name for k, p in vault_pkg_pages.items()}
+            vault_names = {_pkg_slug(k) for k in vault_pkg_pages}
             # Pages declaring ``status: planned`` are deliberately seeded
             # before the workspace exists on disk (e.g. ``graph-graph``).
             # Surface them
             # separately under ``planned_in_vault`` instead of drowning real
             # drift under false positives.
-            planned_names = {Path(k).name for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
+            planned_names = {_pkg_slug(k) for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
             code_drift = {
                 "packages_on_disk": len(disk_names),
                 "packages_in_vault": len(vault_names),
@@ -270,8 +289,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             for k, p in vault_pkg_pages.items():
                 if p["fm"].get("category") == "app":
                     continue
-                title = Path(k).name
-                ws = name_to_ws.get(title)
+                slug = _pkg_slug(k)
+                if slug is None:
+                    continue
+                ws = name_to_ws.get(slug)
                 if not ws:
                     continue
                 vault_exports = p["fm"].get("exports", "").strip()

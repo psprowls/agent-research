@@ -7,7 +7,11 @@ from __future__ import annotations
 import re
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
+# Wikilinks: ``[[target]]``, ``[[target#anchor]]``, ``[[target|alias]]``.
+# Inside markdown table cells the alias separator is escaped as ``\|`` so it
+# doesn't collide with the cell delimiter — the lookahead ``(?!\\\|)`` stops
+# the target at that escaped pipe so the alias group can consume ``\|alias``.
+WIKILINK_RE = re.compile(r"\[\[((?:(?!\\\|)[^\]|#])+)(?:#[^\]|]*)?(?:\\?\|[^\]]*)?\]\]")
 LOG_ENTRY_RE = re.compile(r"^## \[(\d{4}-\d{2}-\d{2})\]", re.MULTILINE)
 
 # A "## File map - <name>" section runs from its heading to the next H2 or EOF.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from vault_io.lint.common import _is_placeholder_target
+from vault_io.lint.common import WIKILINK_RE, _is_placeholder_target
 
 
 class IsPlaceholderTargetTest(unittest.TestCase):
@@ -39,6 +39,40 @@ class IsPlaceholderTargetTest(unittest.TestCase):
         self.assertFalse(_is_placeholder_target(""))
         self.assertFalse(_is_placeholder_target("index"))
         self.assertFalse(_is_placeholder_target("page"))
+
+
+class WikilinkRegexTest(unittest.TestCase):
+    """WIKILINK_RE must capture the target only, dropping anchor and alias —
+    including the ``\\|`` table-cell-escaped alias separator."""
+
+    def _target(self, text: str) -> str:
+        m = WIKILINK_RE.search(text)
+        assert m is not None, f"no wikilink matched in {text!r}"
+        return m.group(1).strip()
+
+    def test_bare_link(self) -> None:
+        self.assertEqual(self._target("[[foo]]"), "foo")
+
+    def test_aliased_link(self) -> None:
+        self.assertEqual(self._target("[[foo|bar]]"), "foo")
+
+    def test_anchored_link(self) -> None:
+        self.assertEqual(self._target("[[foo#section]]"), "foo")
+
+    def test_table_cell_escaped_alias(self) -> None:
+        """``[[target\\|alias]]`` inside a markdown table cell must capture
+        ``target`` — not ``target\\``. Regression for the 6 false-positive
+        broken links reported by /graph-wiki:lint on 2026-05-23."""
+        self.assertEqual(
+            self._target(r"[[wiki/concepts/orchestrator-agent-anatomy\|orchestrator]]"),
+            "wiki/concepts/orchestrator-agent-anatomy",
+        )
+
+    def test_table_cell_escaped_alias_with_anchor(self) -> None:
+        self.assertEqual(
+            self._target(r"[[foo#bar\|alias]]"),
+            "foo",
+        )
 
 
 if __name__ == "__main__":

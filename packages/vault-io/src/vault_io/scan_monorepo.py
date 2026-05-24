@@ -92,6 +92,64 @@ def _parse_pyproject(text):
     return name
 
 
+# Split a PEP 508 requirement specifier on the first character that begins the
+# version/marker/extras portion, so ``foo>=1.2`` → ``foo`` and ``foo[bar]>=1``
+# → ``foo``. Falls back to the trimmed input if no boundary char is found.
+_PEP508_BOUNDARY = re.compile(r"[\s\[<>=!~;@]")
+
+
+def _pep508_name(requirement: str) -> str:
+    s = requirement.strip()
+    m = _PEP508_BOUNDARY.search(s)
+    return (s[: m.start()] if m else s).strip()
+
+
+def _parse_pyproject_deps(text: str) -> tuple[list[str], dict[str, str]]:
+    """Parse ``[project].dependencies`` and ``[tool.uv.sources]`` from a
+    pyproject.toml.
+
+    Returns ``(workspace_dep_names, external_deps)`` where:
+      - ``workspace_dep_names`` lists deps marked ``{ workspace = true }`` in
+        ``[tool.uv.sources]`` (these are workspace-internal, not external).
+      - ``external_deps`` maps the requirement name to its version specifier
+        (e.g. ``{"boto3": ">=1.38"}``); the empty string is used when no
+        specifier is declared.
+
+    Falls back to ``([], {})`` on any parse failure so a single malformed
+    pyproject doesn't break the whole scan.
+    """
+    try:
+        import tomllib  # Python 3.11+ stdlib
+    except ImportError:  # pragma: no cover — 3.10 fallback, not a target
+        return [], {}
+    try:
+        data = tomllib.loads(text)
+    except Exception:  # noqa: BLE001 — malformed pyproject, skip silently
+        return [], {}
+
+    sources = (data.get("tool", {}).get("uv", {}).get("sources") or {})
+    workspace_names = {
+        name for name, src in sources.items()
+        if isinstance(src, dict) and src.get("workspace") is True
+    }
+
+    raw_deps = data.get("project", {}).get("dependencies") or []
+    workspace_deps: list[str] = []
+    external: dict[str, str] = {}
+    for req in raw_deps:
+        if not isinstance(req, str):
+            continue
+        name = _pep508_name(req)
+        if not name:
+            continue
+        if name in workspace_names:
+            workspace_deps.append(name)
+            continue
+        spec = req.strip()[len(name):].strip()
+        external[name] = spec
+    return sorted(workspace_deps), external
+
+
 def _parse_cargo_toml(text):
     """Detect [workspace] with `members = [...]` and [package] with name."""
     members = []
@@ -207,16 +265,20 @@ def _collect_python_package(repo, pkg_path):
     pp = pkg_path / "pyproject.toml"
     if not pp.exists():
         return None
-    name = _parse_pyproject(_safe_read_text(pp))
+    text = _safe_read_text(pp)
+    name = _parse_pyproject(text)
     if not name:
         return None
+    workspace_deps, external_deps = _parse_pyproject_deps(text)
     return {
         "name": name,
         "path": str(pkg_path.relative_to(repo)).replace("\\", "/"),
         "type": "library",
         "language": "python",
         "version": None,
-        "depends_on": [],
+        "depends_on": workspace_deps,
+        "external_deps": external_deps,
+        "ecosystem": "pypi",
         "exports": [],
         "scripts": [],
     }
@@ -1162,8 +1224,22 @@ def _parse_yaml_scalar(v: str):
     return v.strip("'\"")
 
 
-def render_dependencies_index_table(deps: list[dict], services: list[dict]) -> str:
-    """Render the marker-bounded table body for dependencies/index.md."""
+def render_dependencies_index_table(
+    deps: list[dict],
+    services: list[dict],
+    deps_dir: Path | None = None,
+) -> str:
+    """Render the marker-bounded table body for dependencies/index.md.
+
+    When ``deps_dir`` is provided, the Detail column emits a wikilink only when
+    a matching ``<name>.md`` page exists under ``deps_dir``; otherwise the cell
+    is ``—`` so the lint doesn't flag the auto-block as a broken-link source.
+    """
+    def _detail_for(slug: str) -> str:
+        if deps_dir is not None and not (deps_dir / f"{slug}.md").exists():
+            return "—"
+        return f"[[{slug}]]"
+
     lines = [
         "| Name | Kind | Ecosystem/Provider | Versions | Used by | Detail |",
         "|---|---|---|---|---|---|",
@@ -1171,13 +1247,13 @@ def render_dependencies_index_table(deps: list[dict], services: list[dict]) -> s
     for d in deps:
         versions = ", ".join(d["versions_in_use"]) if d["versions_in_use"] else "—"
         used_by = ", ".join(d["used_by"]) if d["used_by"] else "—"
-        detail = f"[[{d['name']}]]"
+        detail = _detail_for(d["name"])
         lines.append(f"| {d['name']} | package | {d['ecosystem']} | {versions} | {used_by} | {detail} |")
     for s in services:
         name = s.get("name", "")
         provider = s.get("provider", "")
         used_by = ", ".join(s.get("used_by") or []) or "—"
-        detail = f"[[{_to_slug(name)}]]" if s.get("load_bearing") else "—"
+        detail = _detail_for(_to_slug(name)) if s.get("load_bearing") else "—"
         lines.append(f"| {name} | service | {provider} | n/a | {used_by} | {detail} |")
     return "\n".join(lines) + "\n"
 
@@ -1240,7 +1316,7 @@ def regenerate_dependencies_index(wiki: Path, workspaces: list[dict]) -> Path | 
         return None
     deps = collect_external_dependencies(workspaces)
     services = load_services_yaml(wiki)
-    table = render_dependencies_index_table(deps, services)
+    table = render_dependencies_index_table(deps, services, deps_dir=deps_dir)
     index_path = deps_dir / "index.md"
     existing = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     existing_body = _extract_auto_block_body(existing, DEPS_INDEX_OPEN, DEPS_INDEX_CLOSE)

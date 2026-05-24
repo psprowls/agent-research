@@ -1,6 +1,7 @@
 ---
 title: {{PACKAGE_TITLE}} — tests
 category: package
+summary: Test suite, fixtures, and conventions for {{PACKAGE_TITLE}}
 parent: {{PACKAGE_SLUG}}
 status: active
 updated: {{DATE}}

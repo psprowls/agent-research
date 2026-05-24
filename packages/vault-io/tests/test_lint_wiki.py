@@ -153,6 +153,63 @@ def test_schema_files_excluded_at_any_depth(tmp_path: Path) -> None:
             assert "AGENTS" not in key, f"{finding_list} unexpectedly contains schema file: {key}"
 
 
+def test_code_drift_recognizes_overview_md(tmp_path: Path, monkeypatch) -> None:
+    """Code-drift check must match folder-shorthand overview pages
+    (``packages/<slug>/overview.md``) against on-disk workspace slugs.
+
+    Regression for the 2026-05-23 lint run, which reported all 7 packages as
+    ``missing_in_vault`` and ``packages_in_vault: 0`` because the filter
+    compared ``Path(k).name`` to ``"overview.md"`` after ``k`` had already
+    been stripped of its ``.md`` suffix.
+    """
+    from vault_io import lint_wiki as lw
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "packages" / "alpha").mkdir(parents=True)
+    (wiki / "packages" / "alpha" / "overview.md").write_text(
+        "---\ntitle: alpha\ncategory: package\nsummary: alpha package\ntokens: 10\n"
+        "updated: 2099-01-01\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    # Pretend the on-disk monorepo has one workspace named "alpha".
+    monkeypatch.setattr(lw, "_scan_discover", lambda repo, pinned_containers=None: [{"name": "alpha"}])
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
+    cd = result["code_drift"]
+
+    assert cd["packages_on_disk"] == 1
+    assert cd["packages_in_vault"] == 1
+    assert cd["missing_in_vault"] == []
+    assert cd["orphaned_in_vault"] == []
+
+
+def test_code_drift_recognizes_legacy_pkg_pkg_md(tmp_path: Path, monkeypatch) -> None:
+    """Legacy ``<container>/<slug>/<slug>.md`` pages (pre-overview rename) are
+    still recognised so old vaults don't regress."""
+    from vault_io import lint_wiki as lw
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "packages" / "beta").mkdir(parents=True)
+    (wiki / "packages" / "beta" / "beta.md").write_text(
+        "---\ntitle: beta\ncategory: package\nsummary: beta package\ntokens: 10\n"
+        "updated: 2099-01-01\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(lw, "_scan_discover", lambda repo, pinned_containers=None: [{"name": "beta"}])
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
+    cd = result["code_drift"]
+
+    assert cd["packages_in_vault"] == 1
+    assert cd["missing_in_vault"] == []
+
+
 def test_total_pages_excludes_schema_files(tmp_path: Path) -> None:
     """total_pages reflects content pages only, not schema files."""
     from vault_io.lint_wiki import scan

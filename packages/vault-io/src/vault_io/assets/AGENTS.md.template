@@ -32,16 +32,19 @@ index.md                  → content catalog
 log.md                    → append-only timeline
 apps/                     → [conditional] one folder per application workspace
 └── <app>/
-    └── <app>.md          →   the app overview (category: app)
+    └── overview.md       →   the app overview (category: app)
 packages/                 → [conditional] cross-domain library/service packages
 └── <pkg>/
-    └── <pkg>.md          →   the package overview (category: package)
+    └── overview.md       →   the package overview (category: package)
 domains/                  → [conditional] feature areas across packages
 └── <domain>/
-    ├── <domain>.md       →   the domain overview (category: domain)
+    ├── overview.md       →   the domain overview (category: domain)
     └── packages/         →   the domain's workspace packages
         └── <pkg>/
-            └── <pkg>.md
+            └── overview.md
+<other-container>/        → [conditional] any non-default container the layout block
+└── <slug>/                  declares as `classification: package` (e.g. `plugins/`,
+    └── overview.md          `agents/`) — pages use `category: package`
 concepts/                 → cross-cutting patterns
 dependencies/             → external libraries (index.md auto-generated)
 sources/                  → one summary per ingested source (cites files in ../raw/)
@@ -57,7 +60,7 @@ Work items live at `../work/` (sibling of this wiki, owned by `graph-wiki worksp
 ```yaml
 ---
 title: <Title>
-category: app | package | domain | concept | dependency | work | source | architecture | adr
+category: app | package | domain | concept | dependency | work | source | architecture | adr | index
 summary: <one-line summary>
 tags: [tag1, tag2]
 updated: YYYY-MM-DD

@@ -128,6 +128,51 @@ def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# _collect_python_package() — pyproject deps + collect_external_dependencies
+# ---------------------------------------------------------------------------
+
+
+def test_python_package_external_deps_populated(tmp_path: Path) -> None:
+    """A Python workspace member must expose ``external_deps`` + ``ecosystem``
+    (`pypi`) so ``collect_external_dependencies`` can aggregate it into the
+    dependencies/index.md auto-block.
+
+    Regression for the 2026-05-23 lint finding: ``dependencies/index.md`` was
+    empty despite ~12 declared third-party deps because the Python collector
+    returned no ``external_deps`` / ``ecosystem`` keys.
+    """
+    from vault_io.scan_monorepo import _collect_python_package, collect_external_dependencies
+
+    repo = tmp_path
+    pkg = repo / "packages" / "alpha"
+    pkg.mkdir(parents=True)
+    (pkg / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "alpha"\n'
+        'version = "0.1.0"\n'
+        "dependencies = [\n"
+        '    "boto3>=1.38",\n'
+        '    "python-frontmatter>=1.1",\n'
+        '    "beta",\n'
+        "]\n\n"
+        "[tool.uv.sources]\n"
+        "beta = { workspace = true }\n",
+        encoding="utf-8",
+    )
+
+    ws = _collect_python_package(repo, pkg)
+    assert ws is not None
+    assert ws["ecosystem"] == "pypi"
+    assert ws["external_deps"] == {"boto3": ">=1.38", "python-frontmatter": ">=1.1"}
+    assert ws["depends_on"] == ["beta"]
+
+    aggregated = collect_external_dependencies([ws])
+    names = {d["name"] for d in aggregated}
+    assert names == {"boto3", "python-frontmatter"}
+    assert all(d["ecosystem"] == "pypi" for d in aggregated)
+
+
+# ---------------------------------------------------------------------------
 # build_file_map() tests — new table format (per-major-folder H3 sections)
 # ---------------------------------------------------------------------------
 

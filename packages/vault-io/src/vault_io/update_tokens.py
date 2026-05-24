@@ -32,18 +32,25 @@ from vault_io._workspace import resolve_wiki_and_repo
 
 SKIP_FILENAMES = {"index.md", "log.md"}
 
-DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Claude 4.x models (Haiku 4.5, Sonnet 4.x, Opus 4.x) do not support the
+# Bedrock CountTokens operation as of 2026-05. Claude 3.5 Haiku does — it is
+# the cheapest model that returns a real input-token count, which is all we
+# need here (the count is identical across same-family Anthropic models since
+# they share a tokenizer).
+DEFAULT_MODEL_ID = "anthropic.claude-3-5-haiku-20241022-v1:0"
 DEFAULT_REGION = "us-east-1"
 
 
 def _is_unsupported_model_error(exc: BaseException) -> bool:
     """Detect Bedrock CountTokens's "model does not support" ValidationException.
 
-    Bedrock raises ClientError with Error.Code == "ValidationException" and a
-    message like "Model does not support count tokens operation" when the
-    selected model+operation pair is unsupported. We match the message
-    substring (lowercased) so legitimate validation errors for OTHER reasons
-    (malformed request, etc.) still surface as ('skipped', 0).
+    Bedrock has used at least two phrasings for this error:
+      - "Model does not support count tokens operation" (older)
+      - "The provided model doesn't support counting tokens." (2026-05)
+    Both forms contain ``token`` and either ``count`` or ``counting`` together
+    with ``support`` — match that pattern so future rephrasings keep working.
+    Legitimate validation errors for OTHER reasons (malformed request, missing
+    inference profile, etc.) still surface as ``('skipped', 0)``.
     """
     if not isinstance(exc, ClientError):
         return False
@@ -51,7 +58,7 @@ def _is_unsupported_model_error(exc: BaseException) -> bool:
     if err.get("Code") != "ValidationException":
         return False
     msg = (err.get("Message") or "").lower()
-    return "count tokens" in msg
+    return "support" in msg and "token" in msg and ("count" in msg or "counting" in msg)
 
 
 def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFAULT_REGION) -> int:
