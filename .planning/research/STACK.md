@@ -1,680 +1,360 @@
-# Stack Research
+# Stack Research — v1.6 graph-io Ontology Expansion
 
-**Domain:** Python LangChain/deepagents MCP-server agents on AWS Bedrock, uv monorepo
-**Researched:** 2026-05-13
-**Confidence:** HIGH (most picks verified against PyPI, official docs, or Context7 as of this date)
+**Domain:** Embedded code-graph database (SQLite-backed), schema evolution, URI identity, manifest parsing, test-framework detection, domain config
+**Researched:** 2026-05-25
+**Confidence:** HIGH (all decisions grounded in existing codebase + verified versions)
 
 ---
 
-## 1. Monorepo / Packaging — `uv` Workspaces
+## Summary Answer
 
-### Core Tooling
+Six targeted questions. Six answers. No new runtime dependencies required. All v1.6 capabilities are achievable with stdlib, tree-sitter (already present), and PyYAML (already a transitive dep). The one optional addition worth considering is `pyyaml>=6.0.3` as an explicit dep in graph-io's pyproject.toml — currently it arrives only transitively via python-frontmatter.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `uv` | 0.11.14 | Monorepo manager, package installer, lockfile | Replaces pip/poetry/pyenv in one tool; workspace support is first-class and fast; the `uv_build` backend replaces setuptools cleanly |
-| Python | 3.11+ | Runtime (3.11 is the floor; deepagents requires `>=3.11`) | deepagents hard-requires 3.11; uv manages the interpreter automatically via `.python-version` |
+---
 
-**Confidence:** HIGH — uv 0.11.14 released 2026-05-12; deepagents PyPI page lists `>=3.11` as requirement.
+## Q1 — SQLite Schema Migration Strategy
 
-### Workspace layout
+### Decision: Hand-rolled version gate + mandatory full rebuild. Do NOT adopt yoyo-migrations or sqlite-utils.
 
+The existing pattern in `store.py` (`SchemaMismatchError` → "run `cg update --full`") is already the right architecture for this project. Schema v2 adds new columns (`uri TEXT UNIQUE NOT NULL`) and restructures identity semantics (URI becomes the stable identity, `path` becomes an attribute). That change is not safely forward-compatible through incremental migration — the entire import graph built on `(kind, name, path)` identity must be recomputed from scratch anyway.
+
+**What to change in v1.6:**
+
+- Bump `SCHEMA_VERSION = 1` → `SCHEMA_VERSION = 2` in `schema.py`
+- Add a `uri` column to the `nodes` table DDL: `uri TEXT` (nullable initially; scanner emits URIs for new node types and leaves NULL for AST nodes where stable URI is not meaningful)
+- Add `CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)` (for fast URI lookups)
+- `store.py` `_check_schema_version` already raises `SchemaMismatchError` on mismatch → exit code `SCHEMA_MISMATCH = 4` already in `exit_codes.py` — wire it through and emit a clear message pointing at `cg update --full`
+- `UPDATE_IN_PROGRESS = 6` is already in `exit_codes.py` — no change needed
+
+**Why NOT yoyo-migrations:**
+
+yoyo-migrations 9.0.0 is designed for incremental forward-migration of long-lived production databases. This project does mandatory full rebuilds on version bump — there is nothing to migrate incrementally. Adding a migration framework just to call `DROP TABLE` and `CREATE TABLE` is pure overhead. The existing `_check_schema_version` + `apply_schema` + `store.transaction` pattern handles everything needed.
+
+**Why NOT sqlite-utils:**
+
+sqlite-utils 3.39 is an excellent general-purpose SQLite manipulation library. But graph-io already owns its schema with raw `sqlite3` and has a tight, well-understood DDL. sqlite-utils would add 1 dependency (~19k LOC) to gain column-transform helpers that would be used exactly once (at schema bump). Not worth it.
+
+**Integration point:** `schema.py` (bump constant + DDL). `store.py` (the check logic already works). No new module needed.
+
+---
+
+## Q2 — URI Identity
+
+### Decision: Plain strings + two composition functions in a new `graph_io.uri` module. No URI library.
+
+The URI scheme in this project (`repo:org/foo`, `pkg:org/foo/auth-service`, `domain:billing`, `file:org/foo/auth-service/src/cli.py`) is a custom opaque identifier scheme — it is not HTTP, not standard RFC 3986, and does not need to be parsed back into components at runtime. The graph stores it in the `uri` column; callers construct it once at scan time and look it up by equality.
+
+**What is needed:**
+
+```python
+# graph_io/uri.py — total surface area
+def repo_uri(org: str, repo: str) -> str:
+    return f"repo:{org}/{repo}"
+
+def pkg_uri(org: str, repo: str, pkg_name: str) -> str:
+    return f"pkg:{org}/{repo}/{pkg_name}"
+
+def subpkg_uri(pkg_uri: str, subpkg_path: str) -> str:
+    return f"{pkg_uri}/{subpkg_path}"
+
+def file_uri(pkg_uri: str, rel_path: str) -> str:
+    return f"file:{pkg_uri.split(':', 1)[1]}/{rel_path}"
+
+def domain_uri(name: str) -> str:
+    return f"domain:{name}"
+
+def entry_point_uri(pkg_uri: str, ep_name: str) -> str:
+    return f"ep:{pkg_uri.split(':', 1)[1]}#{ep_name}"
+
+def test_suite_uri(parent_uri: str, suite_name: str) -> str:
+    return f"suite:{parent_uri.split(':', 1)[1]}/{suite_name}"
 ```
-agent-research/                        ← uv workspace root (no runtime code)
-  pyproject.toml                    ← [tool.uv.workspace] + shared dev deps
-  uv.lock                           ← single lockfile for whole monorepo
-  packages/
-    core-bedrock/                   ← shared: Bedrock adapter, multi-model routing
-    core-subagent/                  ← shared: deepagents wrapper, fan-out helpers
-    core-eval/                      ← shared: eval harness, baseline recorder
-  agents/
-    graph-wiki-agent/                ← first agent: MCP server + headless CLI
+
+**Why NOT rfc3986 / yarl / hyperlink:**
+
+- `rfc3986` (last release 2022, effectively unmaintained) — parses standard HTTP-style URIs. Our scheme is custom; the parser would not understand `pkg:` or `domain:` schemes.
+- `yarl` (aio-libs, actively maintained) — an asyncio URL library. Its value prop is immutable URL objects for HTTP request construction. Completely wrong tool for opaque identifier composition.
+- `hyperlink` — similar story; HTTP URL manipulation.
+
+None of these libraries add value for a scheme like `pkg:org/repo/name` where the only operations are construction and equality comparison. Plain f-strings + a tiny `uri.py` module is 20 lines and zero dependencies.
+
+**Integration point:** New `graph_io/uri.py` module. `packages.py` calls `pkg_uri()` when upserting package nodes. Scanner extensions call the appropriate constructor for each new node type.
+
+---
+
+## Q3 — Manifest Parsing for EntryPoint Extraction
+
+### Decision: `tomllib` (stdlib) + `json` (stdlib). No new dependency. Handle package.json `exports` with a flat recursive walk.
+
+**Python — `pyproject.toml [project.scripts]`:**
+
+`tomllib` is already imported in `packages.py` (line 8: `import tomllib`). The `[project.scripts]` section is a flat `dict[str, str]` mapping entry-point names to `module:callable` strings. Parsing it is three lines:
+
+```python
+scripts = data.get("project", {}).get("scripts", {})
+# {"myapp": "myapp.cli:main", "myapp-debug": "myapp.cli:debug_main"}
 ```
 
-### Root `pyproject.toml` pattern
+The `module:callable` format (e.g., `myapp.cli:main`) needs to be split on `:` to derive `implemented_by` pointing at a `Function` node if one exists, or falling back to `File` if not. This is plain string manipulation — no library needed.
+
+**JS/TS — `package.json bin/main/exports`:**
+
+`json` is already imported in `packages.py` (line 7: `import json`). The three cases:
+
+- `bin`: `str | dict[str, str]` — either a single path or name→path mapping. Flat, trivial.
+- `main`: `str` — single path. Trivial.
+- `exports`: complex nested conditions object.
+
+**Handling `exports` conditions:**
+
+The `exports` field can be arbitrarily nested with condition keys (`import`, `require`, `browser`, `node`, `default`, `.`, `./sub`). For v1.6, the goal is to extract *advertised entry points*, not to implement a full Node.js resolver. The correct approach is a recursive walk that collects all leaf string values under condition paths, tagged with the subpath key:
+
+```python
+def _walk_exports(val, subpath: str = ".") -> list[tuple[str, str]]:
+    """Returns [(subpath, resolved_path)] for all leaf entries."""
+    if isinstance(val, str):
+        return [(subpath, val)]
+    if isinstance(val, list):
+        # First string wins (condition list)
+        for item in val:
+            if isinstance(item, str):
+                return [(subpath, item)]
+        return []
+    if isinstance(val, dict):
+        results = []
+        for k, v in val.items():
+            if k.startswith("."):  # subpath key
+                results.extend(_walk_exports(v, k))
+            else:  # condition key — recurse, keep subpath
+                results.extend(_walk_exports(v, subpath))
+        return results
+    return []
+```
+
+This covers 95% of real-world `exports` fields without a Node.js resolver dependency. Edge cases (wildcard subpaths like `"./features/*"`) can be emitted as-is with `kind: library` and a note in `attrs_json` that the path is a pattern.
+
+**Integration point:** `packages.py` already has `_read_pyproject` and `_read_package_json`. Extend these two functions to also return `entry_points` lists. New `EntryPoint` node upsert logic goes in the same `packages.refresh()` call.
+
+---
+
+## Q4 — Test Framework Config Detection
+
+### Decision: Stdlib only. Roll our own thin detectors — each is 5-15 lines.
+
+There is no Python library that detects test framework configuration across Python and JS/TS ecosystems. The detection surface is small and well-defined:
+
+| Config file | Parser | What to extract |
+|-------------|--------|-----------------|
+| `pytest.ini` | `configparser` (stdlib) | `[pytest]` section: `testpaths`, `python_files`, `python_classes`, `python_functions` |
+| `pyproject.toml [tool.pytest.ini_options]` | `tomllib` (stdlib, already used) | same keys under `[tool.pytest.ini_options]` |
+| `setup.cfg [tool:pytest]` | `configparser` (stdlib) | same keys |
+| `jest.config.{js,ts,mjs,cjs}` | Content sniffing only | Detect presence → `framework: jest`; no JS eval |
+| `vitest.config.{js,ts,mjs,cjs}` | Content sniffing only | Detect presence → `framework: vitest` |
+| `mocha.config.{js,cjs}` / `.mocharc.{yml,json}` | Presence detection + `json`/`yaml` | Detect presence → `framework: mocha` |
+
+**Key insight:** For JS/TS config files (jest.config.js, vitest.config.ts, etc.), we do NOT need to parse the JavaScript. The goal is to detect *which framework* and *where tests live* — that comes from presence detection + possibly reading the `testMatch` / `include` field if it appears in a `.json` or `.yaml` variant. For `.js`/`.ts` config files, presence detection is sufficient for v1.6.
+
+**Implementation in a new `graph_io/detect_tests.py` module (~80 LOC):**
+
+```python
+PYTEST_CONFIGS = ("pytest.ini", "pyproject.toml", "setup.cfg")
+JEST_CONFIGS = ("jest.config.js", "jest.config.ts", "jest.config.mjs", "jest.config.cjs")
+VITEST_CONFIGS = ("vitest.config.js", "vitest.config.ts", "vitest.config.mjs")
+MOCHA_CONFIGS = ("mocha.config.js", "mocha.config.cjs", ".mocharc.json", ".mocharc.yml", ".mocharc.yaml")
+```
+
+configparser is stdlib and handles both `pytest.ini` (INI style) and `setup.cfg [tool:pytest]` correctly.
+
+**What NOT to do:** Do not reach for `configparser` on Jest/Vitest configs — they're JavaScript modules, not INI files. Do not execute them. Presence is enough for the `TestSuite.framework` attribute.
+
+**Integration point:** New `graph_io/detect_tests.py` module. Called from scanner stage 3 (test suite detection), which is a new scanner pass added additively to `update.py` or as a new `test_suites.py` module.
+
+---
+
+## Q5 — YAML for `domains.yaml`
+
+### Decision: Use PyYAML directly. Do NOT add ruamel.yaml or strictyaml.
+
+**PyYAML is already installed.** It arrives as a transitive dependency of `python-frontmatter` (version 6.0.3, confirmed in the workspace). The `domains.yaml` format for v1.6 is a simple, human-authored config file:
+
+```yaml
+domains:
+  billing:
+    packages: [auth-service, payment-processor]
+    children: [subscriptions]
+  subscriptions:
+    packages: [subscription-manager]
+```
+
+This is the exact use case PyYAML handles well: flat, read-once config parsing with `yaml.safe_load()`. The format is authored by humans and never written back by code (no round-trip requirement), which eliminates ruamel.yaml's main advantage.
+
+**Why NOT ruamel.yaml:**
+
+ruamel.yaml's value proposition is round-trip preservation of comments and formatting. `domains.yaml` is read-only from the tool's perspective — users edit it, the scanner reads it. No round-trip needed. ruamel.yaml adds ~500KB of dependency for zero gain here.
+
+**Why NOT strictyaml:**
+
+strictyaml provides schema validation and type safety. The `domains.yaml` schema is simple enough that a `dict` type check with a 10-line validator is sufficient. strictyaml's performance is also meaningfully slower than PyYAML.
+
+**Dependency action required:** Add `pyyaml>=6.0.3` as an **explicit** dependency in `packages/graph-io/pyproject.toml`. Currently it arrives only transitively via python-frontmatter. graph-io does not depend on python-frontmatter directly, so if that chain ever changes, yaml imports would break silently. Making it explicit is correct hygiene.
+
+**Integration point:** New `graph_io/domains.py` module with `load_domains(path: Path) -> DomainConfig`. Uses `yaml.safe_load()` directly.
+
+---
+
+## Q6 — File Role Flag Detection: graph-io vs source-parser Boundary
+
+### Decision: Path heuristics in graph-io scanner. AST signals via source-parser. Explicit interface contract between the two.
+
+The `source-parser` package already owns tree-sitter AST parsing. The `graph-io` scanner already owns filesystem walking. The boundary should follow what each layer knows:
+
+**graph-io scanner owns (no AST needed):**
+
+| Flag | Detection method |
+|------|-----------------|
+| `is_test` | Path patterns: `tests/`, `__tests__/`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts`, `*.test.js`, `spec/` |
+| `is_config` | Filename: `conftest.py`, `jest.config.*`, `vitest.config.*`, `*.config.ts`, `tsconfig.json`, `setup.cfg`, `pyproject.toml` |
+| `is_generated` | Path patterns: `dist/`, `build/`, `.gen/`, `generated/`, `vendor/`, `node_modules/`; content markers: `# generated by`, `// @generated`, `// Code generated by` (first 3 lines) |
+| `is_type_only` | Extension: `.d.ts` |
+| `is_executable` (partial) | Shebang detection: first 2 bytes `b'#!'`; conventional paths: `bin/`, `scripts/` |
+
+**source-parser owns (requires AST):**
+
+| Flag | Detection method |
+|------|-----------------|
+| `has_main` | Python: `if __name__ == "__main__":` top-level `if_statement` node. JS/TS: not applicable |
+| `is_executable` (refined) | Python: AST confirms presence of top-level `if __name__` block; combined with shebang |
+| `is_importable` | Python: presence of top-level `def`, `class`, or `__all__` assignment; JS/TS: presence of `export` declarations |
+
+**How to wire it:**
+
+The `PythonParser.parse()` method already produces a `SourceNode` with `attrs`. Extend `_base.LanguageParser` with a contract: `parse()` populates `attrs["has_main"]`, `attrs["is_importable"]`, and `attrs["is_executable_hint"]` on the file-level `SourceNode`. The scanner reads these attrs from the returned tree and merges them with its own path-heuristic flags.
+
+Concretely, in `python.py`, add to the `SourceNode` construction:
+
+```python
+file_node.attrs["has_main"] = _has_main_block(root, source)
+file_node.attrs["is_importable"] = _has_importable_symbols(root, source)
+```
+
+The `graph_io` scanner then reads `tree.attrs.get("has_main", False)` after calling `parse_bytes()`, combines it with shebang detection and path heuristics, and sets the final `File` node's `role_flags` blob in `attrs_json`.
+
+This keeps tree-sitter knowledge inside source-parser (correct) and filesystem/manifest knowledge inside graph-io (correct), with a clear attrs-based handoff. No new module or dependency needed — it's an extension of the existing `parse_bytes()` → `to_graph_records()` pipeline.
+
+**Integration point:** `source-parser/src/source_parser/parsers/python.py` gets two new helpers (`_has_main_block`, `_has_importable_symbols`). `graph-io/src/graph_io/scanner.py` (new module, or extension of `update.py`) reads both path heuristics and AST attrs to produce the final `File` role flags.
+
+---
+
+## Recommended Stack — New Additions Only
+
+| What | Decision | Source | Confidence |
+|------|----------|--------|------------|
+| Schema migration | Hand-rolled version gate (existing pattern) | `store.py` / `schema.py` reviewed | HIGH |
+| URI identity | Plain strings + `graph_io/uri.py` (20 LOC) | stdlib f-strings | HIGH |
+| Manifest parsing — Python | `tomllib` (stdlib, already imported) | `packages.py` line 8 | HIGH |
+| Manifest parsing — JS/TS `bin`/`main` | `json` (stdlib, already imported) | `packages.py` line 7 | HIGH |
+| Manifest parsing — JS/TS `exports` | Custom recursive walk (~30 LOC) in `packages.py` | Design verified above | HIGH |
+| Test config detection | `configparser` (stdlib) + presence detection | stdlib | HIGH |
+| YAML for `domains.yaml` | `pyyaml>=6.0.3` — **add as explicit dep** | Already transitive via python-frontmatter | HIGH |
+| File role flags — path heuristics | In-scanner logic (~50 LOC) | Existing `_ignore.py` pattern | HIGH |
+| File role flags — AST signals | Extend `source_parser.parsers.python` | Existing tree-sitter AST already parsed | HIGH |
+
+**Net new runtime dependencies for graph-io: 1** — `pyyaml>=6.0.3` (explicit, was already transitive).
+
+---
+
+## What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `yoyo-migrations` | Incremental migration tool for long-lived DBs; this project does mandatory full rebuilds — the migration is `DROP + CREATE` | Existing `SchemaMismatchError` + `cg update --full` |
+| `sqlite-utils` | General SQLite helper; graph-io owns its own thin `store.py` + `upsert.py`; would add ~19k LOC for single-use schema-bump helpers | Raw `sqlite3` (existing pattern) |
+| `rfc3986` / `yarl` / `hyperlink` | HTTP URL parsers; URI scheme is custom opaque identifiers, not HTTP | `graph_io/uri.py` (20 LOC f-strings) |
+| `ruamel.yaml` | Round-trip YAML preservation; `domains.yaml` is read-only from tool's perspective | `yaml.safe_load()` via existing PyYAML |
+| `strictyaml` | Schema-validated YAML; overkill for a shallow config dict; notably slower | Simple `yaml.safe_load()` + inline dict validation |
+| `node-interop` / JS eval for jest.config | Executing JS config files from Python is fragile | Presence detection + filename pattern matching |
+| Second TOML parser | `tomllib` (stdlib) is already used in `packages.py`; do not add `tomli`, `tomlkit`, or `toml` | `tomllib` (stdlib) |
+| Second YAML parser | PyYAML is already the transitive dep for python-frontmatter; do not add ruamel.yaml or strictyaml | `pyyaml` (explicit dep) |
+
+---
+
+## Module Map for v1.6
+
+| New / Modified | What changes |
+|----------------|--------------|
+| `graph_io/schema.py` | Bump `SCHEMA_VERSION = 2`; add `uri TEXT` column + index to DDL |
+| `graph_io/uri.py` | **New.** URI composition functions (repo, pkg, subpkg, file, domain, entry_point, test_suite) |
+| `graph_io/packages.py` | Extend `_read_pyproject` + `_read_package_json` to extract entry points; upsert `EntryPoint` nodes + `declares_entry_point` / `implemented_by` edges |
+| `graph_io/domains.py` | **New.** `load_domains(path)` using `yaml.safe_load()`; domain config dataclasses |
+| `graph_io/detect_tests.py` | **New.** Framework config detection + `TestSuite` node construction |
+| `graph_io/scanner.py` | **New** (or extend `update.py`). Additive FS walk that emits `Repository`, `SubPackage`, `File`-with-role-flags, `TestSuite`, `Domain` nodes + all new edge types |
+| `source_parser/parsers/python.py` | Add `_has_main_block()` + `_has_importable_symbols()`; populate `file_node.attrs` |
+| `graph_io/upsert.py` | Minor: handle URI field in node upsert (INSERT + ON CONFLICT update on `uri`) |
+| `graph_io/queries.py` | New query functions for `Repository`, `Domain`, `EntryPoint`, `TestSuite` node types |
+| `graph_io/cli/` | Extend `cg` CLI commands for new node/edge types |
+
+---
+
+## Installation (graph-io pyproject.toml change)
 
 ```toml
+# packages/graph-io/pyproject.toml
 [project]
-name = "agent-research-workspace"
-version = "0.1.0"
-requires-python = ">=3.11"
-
-[tool.uv.workspace]
-members = ["packages/*", "agents/*"]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=1.3",
-    "syrupy>=5.1",
-    "ruff>=0.9",
-    "pyright>=1.1",
-]
-
-[build-system]
-requires = ["uv_build>=0.11.14,<0.12"]
-build-backend = "uv_build"
-```
-
-### Per-package `pyproject.toml` pattern (e.g., `core-bedrock`)
-
-```toml
-[project]
-name = "core-bedrock"
-version = "0.1.0"
-requires-python = ">=3.11"
 dependencies = [
-    "langchain-aws>=1.4.6",
-    "boto3>=1.38",
+  "source-parser",
+  "workspace-io",
+  "pyyaml>=6.0.3",   # explicit: used by graph_io/domains.py; was previously only transitive
 ]
-
-[tool.uv.sources]
-# No workspace deps here — core-bedrock is a leaf
-
-[build-system]
-requires = ["uv_build>=0.11.14,<0.12"]
-build-backend = "uv_build"
 ```
 
-### Agent package referencing core packages
-
-```toml
-[project]
-name = "graph-wiki-agent"
-dependencies = [
-    "core-bedrock",
-    "core-subagent",
-    "langchain-aws>=1.4.6",
-    "deepagents>=0.6.1",
-    "mcp>=1.27.1",
-    "typer>=0.25.1",
-    "python-frontmatter>=1.1.0",
-    "bm25s>=0.3.8",
-]
-
-[tool.uv.sources]
-core-bedrock = { workspace = true }
-core-subagent = { workspace = true }
-```
-
-### Key uv rules
-
-- `[dependency-groups]` (PEP 735) replaces the old `[tool.uv.dev-dependencies]`; use `uv add --group dev <pkg>` for dev-only deps scoped to the workspace root
-- All workspace members share a single `uv.lock`; `uv sync` installs everything; `uv sync --package graph-wiki-agent` installs only one member's closure
-- Workspace members are always installed as editable; no need to set `editable = true` manually
-- Use `uv run --package graph-wiki-agent pytest` to run tests scoped to one member
-
-**What NOT to use:**
-- `setuptools` or `hatchling` as build backend — `uv_build` is the native backend; it handles the workspace source link correctly
-- `poetry` — workspace semantics differ and you lose the lockfile speed advantage
-- A flat (single-package) layout — tiered `packages/` + `agents/` is the correct pattern here and matches official uv workspace examples
-
----
-
-## 2. Agent Framework — deepagents + LangChain + LangGraph
-
-### Versions
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `deepagents` | 0.6.1 | Released 2026-05-12; Python ≥3.11; MIT |
-| `langchain` | 1.3.0 | Released 2026-05-12 |
-| `langgraph` | 1.2.0 | Released 2026-05-12; deepagents compiles to a LangGraph graph |
-| `langchain-core` | 1.4.0 | Required transitively; explicit pin recommended |
-
-**Confidence:** HIGH — all versions verified against PyPI 2026-05-13.
-
-### How deepagents composes with LangChain
-
-`create_deep_agent(model, tools, system_prompt)` returns a **compiled LangGraph graph**. This means:
-- Full LangGraph streaming (`astream_events` with `version="v3"`)
-- Checkpointers, human-in-the-loop, LangGraph Studio all work unchanged
-- Any `langchain_core` `@tool`-decorated function is a valid tool
-- The agent works with any LangChain chat model that supports tool calling
-
-### Model specification format
-
-deepagents uses `init_chat_model` under the hood. For Bedrock, the format is:
-
-```python
-# Direct ChatBedrockConverse (recommended — gives you full regional control)
-from langchain_aws import ChatBedrockConverse
-
-model = ChatBedrockConverse(
-    model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    region_name="us-west-2",
-)
-
-# OR via init_chat_model (shorter, supports provider string)
-from langchain.chat_models import init_chat_model
-
-model = init_chat_model(
-    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    model_provider="bedrock_converse",
-    region_name="us-west-2",
-)
-```
-
-The `provider:model-name` shorthand used in deepagents' own docs (e.g., `"openai:gpt-4o"`) does **not** work for Bedrock — Bedrock requires `model_provider="bedrock_converse"` and a full model ID. Instantiate `ChatBedrockConverse` directly and pass it as the `model` arg to `create_deep_agent`.
-
-### Subagent fan-out / parallelism
-
-deepagents provides the `task` tool via `SubAgentMiddleware`. Two patterns:
-
-**Synchronous (in-process, blocking per task but parallel via LLM multi-tool-call):**
-```python
-from deepagents import create_deep_agent
-from deepagents.middleware import SubAgentMiddleware
-
-scanner_agent = {
-    "name": "package_scanner",
-    "model": ChatBedrockConverse(model="us.anthropic.claude-haiku-4-5-...", ...),
-    "description": "Scans one package directory and returns a stub report",
-    "system_prompt": "...",
-}
-
-middleware = SubAgentMiddleware(
-    backend=backend,
-    subagents=[scanner_agent],
-)
-
-parent = create_deep_agent(
-    model=ChatBedrockConverse(model="us.anthropic.claude-sonnet-4-5-...", ...),
-    tools=[...],
-    middleware=[middleware],
-)
-```
-
-When the parent LLM issues **multiple `task` tool calls in a single step**, deepagents launches those subagents concurrently (LangGraph superstep). This is the mechanism for within-command fan-out: scanner calling `task("package_scanner", pkg_a)` and `task("package_scanner", pkg_b)` in a single tool-call batch runs both in parallel.
-
-**Async (remote, non-blocking):** Uses `start_async_task` + `check_async_task`. Requires LangGraph Platform (remote deployment). Not needed for v1 — stay with sync subagents running in-process.
-
-**Per-role model assignment:** Each entry in `subagents` takes its own `model` field. This is the primary mechanism for routing cheap models (Haiku) to fast subagents and stronger models (Sonnet) to the parent orchestrator.
-
-### What NOT to use
-
-| Avoid | Why |
-|-------|-----|
-| LangGraph directly (without deepagents) | You'd rebuild deepagents' built-in tools (filesystem, planning, subagent middleware) from scratch |
-| `langchain-anthropic` | This routes to the direct Anthropic API. Bedrock-only means `langchain-aws` only. Adding `langchain-anthropic` is a footgun that will silently route outside Bedrock if credentials are wrong |
-| Async subagents (LangGraph Platform) in v1 | Adds infrastructure complexity (remote deployment, thread management) for no gain in a single-developer local setup |
-| `ChatBedrock` (legacy class) | Deprecated in favor of `ChatBedrockConverse`; the Converse API supports all current Bedrock models uniformly |
-
----
-
-## 3. Bedrock Integration — `langchain-aws`
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `langchain-aws` | 1.4.6 | Released 2026-05-04; Python ≥3.10; MIT |
-| `boto3` | ≥1.38 | AWS SDK; pulled in transitively; pin to ≥1.38 for Converse API stability |
-
-**Confidence:** HIGH — version verified against PyPI 2026-05-13.
-
-### ChatBedrockConverse is the right class
-
-`ChatBedrockConverse` wraps the Bedrock **Converse API**, which provides a unified interface across all Bedrock models (Claude, Nova, Llama, Mistral, Titan). Use it for all model calls — it handles tool calling, streaming, structured output, and token usage metadata consistently.
-
-```python
-from langchain_aws import ChatBedrockConverse
-
-# Orchestrator (stronger, slower)
-orchestrator = ChatBedrockConverse(
-    model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    region_name="us-west-2",
-    temperature=0,
-    max_tokens=4096,
-)
-
-# Subagent role (cheap, fast)
-scanner = ChatBedrockConverse(
-    model="us.anthropic.claude-haiku-4-5-20251201-v1:0",
-    region_name="us-west-2",
-    temperature=0,
-)
-```
-
-### Async / streaming status
-
-`ChatBedrockConverse.astream()` and `ainvoke()` exist but **wrap synchronous boto3** — they are not truly async (no aioboto3). An open enhancement request (langchain-aws#663, filed Sep 2025) asks for native aioboto3 support. For v1, this is acceptable: the deepagents event loop is CPU-bound enough that true async IO isn't the bottleneck.
-
-Token usage is returned in `response.usage_metadata` after every `.invoke()` / `.stream()` call. No extra library needed for cost accounting — just accumulate `usage_metadata.input_tokens` and `usage_metadata.output_tokens` per model call.
-
-### Multi-model routing
-
-Instantiate one `ChatBedrockConverse` per subagent role and assign them at construction time. The `core-bedrock` package should export a factory:
-
-```python
-# packages/core-bedrock/src/core_bedrock/models.py
-from langchain_aws import ChatBedrockConverse
-
-def make_model(model_id: str, region: str = "us-west-2", **kwargs) -> ChatBedrockConverse:
-    return ChatBedrockConverse(model=model_id, region_name=region, temperature=0, **kwargs)
-
-HAIKU = "us.anthropic.claude-haiku-4-5-20251201-v1:0"
-SONNET = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-NOVA_MICRO = "us.amazon.nova-micro-v1:0"
-NOVA_LITE = "us.amazon.nova-lite-v1:0"
-```
-
-### Token counting for pre-flight estimation
-
-Use the Bedrock native `count_tokens` API (zero-cost call) via boto3 directly — no third-party library needed:
-
-```python
-import boto3
-
-client = boto3.client("bedrock-runtime", region_name="us-west-2")
-response = client.count_tokens(
-    modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    messages=[{"role": "user", "content": [{"text": "..."}]}],
-)
-token_count = response["tokenCount"]
-```
-
-**What NOT to use:**
-- `tiktoken` — OpenAI-specific BPE tokenizer, does not work with Claude or Bedrock models
-- `langchain-anthropic` — direct Anthropic API; excluded by Bedrock-only constraint
-- `ChatBedrock` (old class) — use `ChatBedrockConverse` only
-
----
-
-## 4. MCP Server SDK — `mcp`
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `mcp` | 1.27.1 | Released 2026-05-08; official Anthropic/ModelContextProtocol Python SDK |
-
-**Confidence:** HIGH — version verified against PyPI 2026-05-13.
-
-### Transport selection
-
-| Transport | Use When | Notes |
-|-----------|----------|-------|
-| **stdio** | DeepAgents CLI host, Claude Code, Cursor | Standard for local MCP servers consumed by a CLI host process; zero infrastructure |
-| **Streamable HTTP** | Remote/multi-client scenarios | The new standard as of protocol version 2025-03-26 |
-| ~~SSE~~ | Do not use | **Deprecated** as of MCP spec 2025-03-26; replaced by Streamable HTTP |
-
-For `graph-wiki-agent`, **stdio is correct for v1**. The DeepAgents CLI spawns the MCP server as a subprocess over stdin/stdout. No network server needed.
-
-### Tool registration pattern (FastMCP)
-
-```python
-from mcp.server.fastmcp import FastMCP
-import asyncio
-
-mcp = FastMCP("graph-wiki-agent")
-
-@mcp.tool()
-async def query(question: str, vault_path: str) -> str:
-    """Search the wiki vault and synthesize an answer."""
-    # Run the full agent loop here — this is a long-running operation
-    result = await run_query_agent(question, vault_path)
-    return result
-
-@mcp.tool()
-async def scan(repo_path: str, vault_path: str) -> str:
-    """Scan repo packages and update wiki stubs."""
-    result = await run_scan_agent(repo_path, vault_path)
-    return result
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
-```
-
-### Embedding long-running agent loops behind MCP tools
-
-The `@mcp.tool()` function simply awaits the agent graph. The MCP SDK holds the connection open for the duration. For stdio transport, the host process (DeepAgents CLI) will wait for the tool to return — there is no timeout imposed by the SDK itself. This is the correct pattern; no special streaming-to-MCP bridge is needed for v1.
-
-For future streaming progress updates to the MCP host, use `mcp.server.fastmcp.Context` to send progress notifications while the agent runs. This is optional in v1.
-
-### langchain-mcp-adapters (for consuming MCP tools inside agents)
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `langchain-mcp-adapters` | 0.2.2 | Released 2026-03-16; converts MCP tools to LangChain tools |
-
-Use this when `graph-wiki-agent` itself needs to call *other* MCP servers as tools (e.g., a future filesystem MCP server). Not needed for the server-side MCP exposure.
-
-**What NOT to use:**
-- SSE transport — deprecated; don't build new server infrastructure on it
-- `FastAPI` + `SSEServerTransport` — the old pattern; use FastMCP's built-in transport instead
-- Streamable HTTP in v1 — unnecessary for a local CLI-hosted server
-
----
-
-## 5. Eval Framework — `deepeval`
-
-**Recommendation: `deepeval` 4.0.0 + pytest**
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `deepeval` | 4.0.0 | Released 2026-05-08; Apache-2.0; pytest-native |
-
-**Confidence:** HIGH — version verified against PyPI 2026-05-13.
-
-### Why deepeval wins for this project
-
-The selection criterion is: "swap model, replay query, score against baseline output, produce cost-vs-quality chart."
-
-| Criterion | deepeval | LangSmith | inspect-ai | Custom pytest |
-|-----------|----------|-----------|------------|---------------|
-| AWS Bedrock support | Native `AmazonBedrockModel` class | Yes but per-trace pricing | Yes, provider-agnostic | Yes |
-| pytest integration | First-class (`assert_test`) | Limited | First-class (`Task`) | First-class |
-| Baseline comparison | `GEval` / custom metric | Dataset-based | Scorer-based | DIY |
-| Cost tracking per model | `cost_per_input_token` param | Per-trace billing | Token limits/reporting | DIY |
-| Per-model config in eval | Yes — pass `model=AmazonBedrockModel(...)` to each metric | No direct per-call model swap | Yes | DIY |
-| Price | Free (Apache-2.0) | $1,400+/mo at 500K traces | Free (MIT) | Free |
-| Agentic tracing (intermediate steps) | LIMITED in 4.0 | Strong | Strong | None |
-
-deepeval is the only option that has native Bedrock support, per-metric model configuration, cost tracking fields, AND pytest integration out of the box. It runs entirely locally — no hosted service required.
-
-### Usage pattern for this project
-
-```python
-# packages/core-eval/src/core_eval/harness.py
-from deepeval.models import AmazonBedrockModel
-from deepeval.metrics import GEval
-from deepeval.test_case import LLMTestCase
-
-def make_bedrock_judge(model_id: str) -> AmazonBedrockModel:
-    return AmazonBedrockModel(
-        model=model_id,
-        region="us-west-2",
-        cost_per_input_token=0.000003,   # fill in per-model pricing
-        cost_per_output_token=0.000015,
-    )
-
-# In pytest:
-def test_query_sonnet_vs_baseline(baseline_corpus):
-    for example in baseline_corpus:
-        actual = run_query_agent(example.question, model=SONNET)
-        test_case = LLMTestCase(
-            input=example.question,
-            actual_output=actual,
-            expected_output=example.baseline_answer,
-        )
-        metric = GEval(
-            name="Answer Quality",
-            criteria="Does the actual answer cover all key facts from the expected answer?",
-            model=make_bedrock_judge("us.anthropic.claude-haiku-4-5-..."),
-        )
-        assert_test(test_case, [metric])
-```
-
-### Why not the other candidates
-
-| Candidate | Verdict |
-|-----------|---------|
-| **LangSmith** | Excellent for LangChain observability but per-trace pricing makes it expensive at eval scale; the eval runner is secondary to its tracing story; lock-in to hosted service |
-| **inspect-ai** | Excellent for safety benchmarks and capability evals against standardized datasets (200+ pre-built evals). Wrong fit here: the project needs comparison against a *recorded output baseline*, not a standardized benchmark. inspect-ai's primitives (Task → Solver → Scorer) are designed for that different use case. Use it later for capability regression testing, not for cost-frontier analysis. |
-| **promptfoo** | Node.js-first; Python support is a wrapper; adds language-boundary friction in a pure Python monorepo |
-| **ragas** | RAG-specific (Retrieval-Augmented Generation); the wiki agent is not a RAG pipeline in the classical sense |
-| **Custom pytest only** | Valid escape hatch but requires building cost tracking, baseline storage, and scoring from scratch; deepeval gives this for free |
-
----
-
-## 6. CLI / Headless Entry Point — Typer
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `typer` | 0.25.1 | Released 2026-04-30; MIT; built on Click; type-hint-driven |
-
-**Confidence:** HIGH — version verified against PyPI 2026-05-13.
-
-### Pattern
-
-```python
-# agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
-import typer
-import asyncio
-
-app = typer.Typer()
-
-@app.command()
-def query(
-    question: str = typer.Argument(...),
-    vault: str = typer.Option("./wiki", help="Path to wiki vault"),
-    model: str = typer.Option("sonnet", help="Model role: haiku|sonnet|nova-lite"),
-):
-    """Search the wiki and return an answer."""
-    result = asyncio.run(run_query_agent(question, vault, model))
-    typer.echo(result)
-
-if __name__ == "__main__":
-    app()
-```
-
-The MCP server entrypoint is a separate script:
-
-```toml
-# in graph-wiki-agent pyproject.toml
-[project.scripts]
-graph-wiki-agent = "graph_wiki_agent.cli:app"
-graph-wiki-agent-mcp = "graph_wiki_agent.mcp_server:main"
-```
-
-**What NOT to use:**
-- `click` directly — Typer wraps Click and adds type-hint ergonomics; no reason to drop down unless you hit a specific limitation
-- `argparse` — verbose and has no auto-help/completion
-- `textual` / `rich` in v1 — explicitly out of scope; do not pull it in
-
----
-
-## 7. Markdown / Frontmatter / Search
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `python-frontmatter` | 1.1.0 | Released 2024-01-16; production/stable; parses YAML/TOML/JSON frontmatter |
-| `bm25s` | 0.3.8 | Released 2026-04-29; pure Python + NumPy; 5-10x faster than rank-bm25 |
-
-**Confidence:** HIGH for python-frontmatter (stable, widely used); HIGH for bm25s (active, verified on PyPI).
-
-### Why bm25s over rank-bm25
-
-`rank-bm25` 0.2.2 was last released 2022-02-16 and is effectively unmaintained. `bm25s` is an actively developed drop-in replacement that:
-- Is 5-50x faster on typical corpora (sparse matrix precomputation vs on-demand scoring)
-- Supports Okapi BM25, BM25L, BM25+, Lucene variants — the same algorithms rank-bm25 has
-- Requires only NumPy as a non-stdlib dependency
-
-The existing `lattice-wiki-core` BM25 implementation is hand-rolled stdlib. For the rewrite, `bm25s` is the right pick: fast, correct, drop-in, maintained.
-
-### Token counting for context budget
-
-Do not use `tiktoken` (OpenAI-specific). Use the Bedrock `count_tokens` API (boto3) as described in section 3. For approximate in-process counting without an API call, the `anthropic` Python SDK has a `count_tokens` utility — but that requires the direct Anthropic API key, which is excluded by the Bedrock-only constraint. Use the Bedrock CountTokens API; it is zero-cost.
-
-### python-frontmatter usage
-
-```python
-import frontmatter
-
-post = frontmatter.load("packages/my-package.md")
-print(post.metadata["category"])  # YAML frontmatter
-print(post.content)               # body text
-```
-
-The lattice-wiki frontmatter schema (category, tags, layout block) is fully compatible — `python-frontmatter` preserves key order and round-trips YAML faithfully.
-
-**What NOT to use:**
-- `rank-bm25` — abandoned since 2022
-- `tiktoken` — OpenAI-specific tokenizer, wrong for Bedrock/Claude
-- Hand-rolled YAML parsing — `python-frontmatter` handles the edge cases (nested frontmatter, encoding, round-trip preservation) better than DIY
-
----
-
-## 8. Testing — pytest stack
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| `pytest` | ≥8.3 | Current stable; no need to pin exact micro |
-| `pytest-asyncio` | 1.3.0 | Released 2025-11-10; required for `async def` test functions |
-| `syrupy` | 5.1.0 | Released 2026-01-25; snapshot testing plugin; zero external deps |
-
-**Confidence:** HIGH — all versions verified.
-
-### pytest-asyncio configuration
-
-In the workspace root `pyproject.toml` (applies to all members):
-
-```toml
-[tool.pytest.ini_options]
-asyncio_mode = "auto"           # marks all async test functions automatically
-testpaths = ["packages", "agents"]
-```
-
-### Fake Bedrock responses fixture pattern
-
-Do not mock boto3 at the network layer — mock `ChatBedrockConverse` at the LangChain boundary:
-
-```python
-# conftest.py
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from langchain_core.messages import AIMessage
-
-@pytest.fixture
-def fake_bedrock_model():
-    model = MagicMock()
-    model.invoke = MagicMock(return_value=AIMessage(
-        content="mocked response",
-        usage_metadata={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
-    ))
-    model.ainvoke = AsyncMock(return_value=AIMessage(
-        content="mocked async response",
-        usage_metadata={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
-    ))
-    return model
-```
-
-This is cheaper and more stable than VCR/cassette-based HTTP mocking for LLM responses.
-
-### Snapshot testing pattern (syrupy)
-
-Use syrupy for vault output regression tests — e.g., assert that `scan` produces the expected stub file content:
-
-```python
-def test_scan_creates_stub(snapshot, tmp_vault, fake_bedrock_model):
-    run_scan(tmp_vault, model=fake_bedrock_model)
-    stub = (tmp_vault / "packages/my-pkg.md").read_text()
-    assert stub == snapshot
-```
-
-Snapshots stored as `.ambr` files alongside tests; committed to git; updated with `pytest --snapshot-update`.
-
-**What NOT to use:**
-- `pytest-recording` / VCR cassettes for LLM responses — cassettes break whenever the prompt or model changes; mock at the LangChain boundary instead
-- `pytest-mock` instead of `unittest.mock` — fine to use either, but `unittest.mock` is stdlib and sufficient
-- `anyio` mode in pytest-asyncio — `asyncio_mode = "auto"` is simpler; `anyio` adds overhead without benefit for this stack
-
----
-
-## Supporting Libraries Summary
-
-| Library | Version | Purpose | Confidence |
-|---------|---------|---------|------------|
-| `deepagents` | 0.6.1 | Agent framework, subagent fan-out | HIGH |
-| `langchain` | 1.3.0 | LLM composition, tool calling | HIGH |
-| `langchain-aws` | 1.4.6 | Bedrock Converse API binding | HIGH |
-| `langgraph` | 1.2.0 | Durable execution runtime (deepagents dependency) | HIGH |
-| `langchain-mcp-adapters` | 0.2.2 | Consume MCP tools inside agents | HIGH |
-| `mcp` | 1.27.1 | MCP server SDK (expose tools to DeepAgents CLI) | HIGH |
-| `typer` | 0.25.1 | Headless CLI entry points | HIGH |
-| `python-frontmatter` | 1.1.0 | Vault frontmatter read/write | HIGH |
-| `bm25s` | 0.3.8 | Wiki index search | HIGH |
-| `boto3` | ≥1.38 | Bedrock CountTokens + raw AWS calls | HIGH |
-| `deepeval` | 4.0.0 | Per-subagent eval harness | HIGH |
-| `pytest` | ≥8.3 | Test runner | HIGH |
-| `pytest-asyncio` | 1.3.0 | Async test support | HIGH |
-| `syrupy` | 5.1.0 | Snapshot testing | HIGH |
-
----
-
-## Installation
-
-```bash
-# Install uv (if not already)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Bootstrap the workspace root
-uv init --bare agent-research
-cd agent-research
-
-# Create core packages
-uv init --package packages/core-bedrock
-uv init --package packages/core-subagent
-uv init --package packages/core-eval
-
-# Create first agent
-uv init --package agents/graph-wiki-agent
-
-# Add deps to each package
-uv add --package core-bedrock "langchain-aws>=1.4.6" "boto3>=1.38"
-uv add --package core-subagent "deepagents>=0.6.1" "langgraph>=1.2.0" "langchain>=1.3.0"
-uv add --package core-eval "deepeval>=4.0.0"
-uv add --package graph-wiki-agent \
-    "mcp>=1.27.1" "typer>=0.25.1" \
-    "python-frontmatter>=1.1.0" "bm25s>=0.3.8" \
-    "langchain-mcp-adapters>=0.2.2"
-
-# Add workspace dev dependencies
-uv add --group dev "pytest>=8.3" "pytest-asyncio>=1.3" "syrupy>=5.1" "ruff>=0.9" "pyright>=1.1"
-
-# Sync everything
-uv sync
-```
+No other dependency additions.
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| `deepagents` | LangGraph ReAct directly | Would require reimplementing built-in tools (filesystem, planning, SubAgentMiddleware); deepagents IS LangGraph with batteries |
-| `langchain-aws` (`ChatBedrockConverse`) | `langchain-anthropic` | Routes to direct Anthropic API — excluded by Bedrock-only constraint; would silently incur non-Bedrock costs |
-| `bm25s` | `rank-bm25` | rank-bm25 unmaintained since 2022; bm25s is 5-50x faster with active development |
-| `deepeval` | `inspect-ai` | inspect-ai is best for capability benchmarks against standardized datasets; wrong primitive set for "recorded output baseline + cost tracking per model swap" |
-| `deepeval` | `langsmith` | Per-trace pricing (~$1,400/mo at scale), hosted service dependency, worse for Bedrock-only stack |
-| `typer` | `click` | Typer adds type-hint-driven CLI generation on top of Click; no downside for this use case |
-| Bedrock CountTokens API | `tiktoken` | tiktoken is OpenAI-specific BPE; does not work for Claude/Bedrock models |
-| stdio MCP transport | SSE transport | SSE is deprecated in MCP spec 2025-03-26; streamable HTTP is the successor but unnecessary for local CLI hosting |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Schema migration | Hand-rolled version gate | yoyo-migrations 9.0.0 | Designed for incremental migration; this project does full rebuilds; zero additive value |
+| Schema migration | Hand-rolled version gate | sqlite-utils 3.39 | General-purpose Swiss Army knife; graph-io already has a tighter, purpose-built store layer |
+| URI composition | Plain strings + `uri.py` | rfc3986 / yarl | Both are HTTP URL parsers; wrong abstraction for custom opaque identifier schemes |
+| YAML config | `pyyaml` (existing transitive) | ruamel.yaml | Round-trip preservation not needed; `domains.yaml` is read-only from tool perspective |
+| YAML config | `pyyaml` (existing transitive) | strictyaml | Slower; schema validation overkill for a shallow config dict |
+| JS config detection | Presence detection | JS eval / node interop | Brittle, security risk, requires Node.js subprocess |
+| AST role flags | Extend existing source-parser | New tree-sitter pass in graph-io | graph-io does not own tree-sitter; duplicating the AST parse violates the existing package boundary |
 
 ---
 
-## Version Compatibility Notes
+## Version Compatibility
 
-| Constraint | Detail |
-|------------|--------|
-| deepagents ≥0.6.1 requires Python ≥3.11 | Sets the floor for the whole monorepo |
-| langchain-aws 1.4.6 requires Python ≥3.10 | Compatible with the ≥3.11 floor |
-| ChatBedrockConverse async is pseudo-async | `astream()`/`ainvoke()` wrap sync boto3; no aioboto3 dependency available yet |
-| `uv_build` 0.11.x is the workspace-compatible build backend | Lock to `>=0.11.14,<0.12` to avoid breaking changes |
-| deepeval 4.0.0 Bedrock metrics use `AmazonBedrockModel` | Requires `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` or IAM role in env |
-| mcp 1.27.1 dropped SSE as primary transport | Use `transport="stdio"` for CLI hosting; `transport="streamable-http"` for future remote scenarios |
+| Package | Version in workspace | Constraint | Notes |
+|---------|---------------------|------------|-------|
+| Python | 3.14.4 (system) | >=3.11 | `tomllib` is stdlib from 3.11+ |
+| `pyyaml` | 6.0.3 (transitive) | >=6.0.3 | 6.0.x is stable; `yaml.safe_load` API unchanged since 5.x |
+| `tomllib` | stdlib | 3.11+ | Already imported in `packages.py` |
+| `configparser` | stdlib | Any | Used for `pytest.ini` / `setup.cfg [tool:pytest]` detection |
+| `tree-sitter` | 0.25.2 | >=0.23.0 (source-parser constraint) | AST node type names used in role-flag detection are stable in 0.23+ |
+| `tree-sitter-language-pack` | 1.6.2 | <=1.6.2 (source-parser upper bound) | Do not change; source-parser pins this range |
 
 ---
 
 ## Sources
 
-- PyPI: `deepagents` 0.6.1 — https://pypi.org/project/deepagents/ — current version, Python req
-- PyPI: `langchain-aws` 1.4.6 — https://pypi.org/project/langchain-aws/ — current version
-- PyPI: `langchain` 1.3.0 — https://pypi.org/project/langchain/ — current version
-- PyPI: `langgraph` 1.2.0 — https://pypi.org/project/langgraph/ — current version
-- PyPI: `mcp` 1.27.1 — https://pypi.org/project/mcp/ — current version, transport status
-- PyPI: `deepeval` 4.0.0 — https://pypi.org/project/deepeval/ — current version
-- PyPI: `typer` 0.25.1 — https://pypi.org/project/typer/ — current version
-- PyPI: `python-frontmatter` 1.1.0 — https://pypi.org/project/python-frontmatter/ — current version
-- PyPI: `bm25s` 0.3.8 — https://pypi.org/project/bm25s/ — current version, performance data
-- PyPI: `pytest-asyncio` 1.3.0 — https://pypi.org/project/pytest-asyncio/ — current version
-- PyPI: `syrupy` 5.1.0 — https://pypi.org/project/syrupy/ — current version
-- GitHub: uv 0.11.14 — https://github.com/astral-sh/uv/releases — current version
-- Context7 `/langchain-ai/langchain-aws` — ChatBedrockConverse usage, init_chat_model provider string, token usage metadata
-- Context7 `/astral-sh/uv` — workspace pyproject.toml patterns, member declaration, dependency-groups
-- GitHub deepwiki: SubAgentMiddleware — https://deepwiki.com/langchain-ai/deepagents/8.4-sub-agent-workflows — sync vs async subagents, per-role model config
-- DeepEval docs: https://deepeval.com/integrations/models/amazon-bedrock — AmazonBedrockModel API, cost tracking fields
-- MCP spec: https://modelcontextprotocol.io/docs/develop/build-server — transport deprecation, stdio pattern
-- AWS docs: https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html — CountTokens API
-- deepagents docs: https://docs.langchain.com/oss/python/deepagents/overview — model format, primitives
+- `packages/graph-io/src/graph_io/schema.py` — existing DDL, `SCHEMA_VERSION = 1`
+- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, existing version gate pattern
+- `packages/graph-io/src/graph_io/packages.py` — existing `tomllib` + `json` imports, `_read_pyproject`, `_read_package_json`
+- `packages/graph-io/src/graph_io/upsert.py` — node key pattern `(kind, name, path)`, identity model
+- `packages/graph-io/src/graph_io/exit_codes.py` — `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6` already defined
+- `packages/source-parser/src/source_parser/parsers/python.py` — tree-sitter AST walker, existing attrs pattern
+- `packages/source-parser/src/source_parser/projections/graph.py` — `GraphNode.attrs` handoff point
+- `packages/graph-io/pyproject.toml` — current deps: `source-parser`, `workspace-io` (no pyyaml explicit)
+- PyPI: `PyYAML` 6.0.3 — https://pypi.org/project/PyYAML/ — confirmed latest stable; released 2024-12-16
+- PyPI: `python-frontmatter` 1.1.0 — https://pypi.org/project/python-frontmatter/ — confirmed `pyyaml` as dependency (no version pin)
+- `uv pip list` output — confirmed PyYAML 6.0.3, tree-sitter 0.25.2 currently installed in workspace
+- `.planning/research/ONTOLOGY-SPEC.md` — canonical v1.6 ontology spec (node types, edge types, scanner pipeline, identity scheme)
+- `.planning/PROJECT.md` — v1.6 milestone scope, graph-io-only constraint, deferred items
 
 ---
-*Stack research for: Python LangChain/deepagents MCP-server agents on AWS Bedrock, uv monorepo*
-*Researched: 2026-05-13*
+
+*Stack research for: v1.6 graph-io ontology expansion (schema v2, URI identity, new node/edge types, additive scanner)*
+*Researched: 2026-05-25*

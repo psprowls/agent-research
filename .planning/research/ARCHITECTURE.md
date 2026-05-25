@@ -1,635 +1,616 @@
-# Architecture Research
+# Architecture Research — v1.6 graph-io Ontology Integration
 
-**Domain:** Tiered uv monorepo — shared cores + agent packages (agent-research / graph-wiki-agent)
-**Researched:** 2026-05-13
-**Confidence:** HIGH (monorepo + MCP patterns verified; deepagents subagent API is MEDIUM — library is young, v0.6.1 as of May 2026, internal fan-out API not yet formally documented)
-
----
-
-## 1. Monorepo Layout
-
-### Concrete Directory Tree
-
-```
-agent-research/                          # workspace root (no deployable code here)
-├── pyproject.toml                    # workspace declaration only — no [project] table
-├── uv.lock                           # single shared lockfile
-├── .python-version                   # pinned Python (3.11+)
-├── README.md
-├── LICENSE
-│
-├── cores/                            # shared infrastructure packages
-│   ├── model-adapters/               # Bedrock ChatBedrock wrapper, model registry
-│   │   ├── pyproject.toml            # name = "agent-research-models"
-│   │   └── src/deep_agents_models/
-│   │       ├── __init__.py
-│   │       ├── bedrock.py            # ChatBedrock factory, model_id enum
-│   │       └── registry.py           # role → model_id mapping, loaded from config
-│   │
-│   ├── subagent-runtime/             # asyncio fan-out primitives
-│   │   ├── pyproject.toml            # name = "agent-research-runtime"
-│   │   └── src/deep_agents_runtime/
-│   │       ├── __init__.py
-│   │       ├── pool.py               # SubagentPool.fanout(), SubagentPool.map()
-│   │       └── result.py             # FanoutResult, aggregation helpers
-│   │
-│   └── eval-harness/                 # cross-agent eval scaffolding
-│       ├── pyproject.toml            # name = "agent-research-eval"
-│       └── src/deep_agents_eval/
-│           ├── __init__.py
-│           ├── recorder.py           # record baseline outputs from lattice-wiki
-│           ├── runner.py             # replay queries, swap models, score results
-│           ├── scorer.py             # similarity / rubric scoring
-│           └── report.py             # cost-frontier chart generation
-│
-├── agents/                           # agent packages (one per agent product)
-│   └── graph-wiki-agent/
-│       ├── pyproject.toml            # name = "graph-wiki-agent"
-│       ├── src/graph_wiki_agent/
-│       │   ├── __init__.py
-│       │   ├── mcp_server.py         # FastMCP entry point (exposes tools over MCP)
-│       │   ├── cli.py                # Typer/Click CLI (headless in-process agent loop)
-│       │   ├── config.py             # VaultConfig, ModelConfig, loaded from .code-wiki.json
-│       │   │
-│       │   ├── vault/                # vault IO layer (ported from lattice-wiki-core)
-│       │   │   ├── __init__.py
-│       │   │   ├── layout_io.py      # read/write layout block (direct port)
-│       │   │   ├── frontmatter.py    # parse/emit frontmatter (direct port)
-│       │   │   ├── search.py         # BM25 search (direct port of wiki_search.py)
-│       │   │   ├── index.py          # index.md read/write, category-first structure
-│       │   │   ├── templates.py      # page template rendering (port asset templates)
-│       │   │   └── log.py            # append_log port
-│       │   │
-│       │   ├── commands/             # one module per wiki command
-│       │   │   ├── __init__.py
-│       │   │   ├── init_.py          # init command (underscore avoids reserved word)
-│       │   │   ├── scan.py           # scan command
-│       │   │   ├── ingest.py         # ingest command
-│       │   │   ├── query.py          # query command (librarian subagent fan-out)
-│       │   │   ├── lint_.py          # lint command (linter subagent fan-out)
-│       │   │   └── log_.py           # log command
-│       │   │
-│       │   ├── agents/               # agent role definitions (prompts + tool sets)
-│       │   │   ├── __init__.py
-│       │   │   ├── librarian.py      # reads pages, synthesizes answers
-│       │   │   ├── linter.py         # lint rule groups
-│       │   │   ├── scanner.py        # package inventory, diff against vault
-│       │   │   └── ingestor.py       # source extraction, page routing
-│       │   │
-│       │   └── tools/                # LangChain @tool functions exposed to agents
-│       │       ├── __init__.py
-│       │       ├── vault_tools.py    # read_page, search_pages, list_pages
-│       │       ├── write_tools.py    # write_page, update_frontmatter, append_log
-│       │       └── repo_tools.py     # list_packages, detect_containers, git_state
-│       │
-│       └── tests/                    # per-package tests (live here, not at root)
-│           ├── conftest.py           # vault fixtures, tmp_path helpers
-│           ├── fixtures/
-│           │   ├── vaults/           # sample vault directories for IO tests
-│           │   └── baselines/        # recorded lattice-wiki outputs for eval replay
-│           ├── unit/
-│           │   ├── test_layout_io.py
-│           │   ├── test_frontmatter.py
-│           │   ├── test_search.py
-│           │   ├── test_lint_rules.py
-│           │   └── test_scan.py
-│           └── integration/
-│               ├── test_query_flow.py   # end-to-end query against fixture vault
-│               └── test_lint_flow.py    # end-to-end lint against fixture vault
-│
-└── .planning/                        # GSD project management (not deployed)
-    └── research/
-```
-
-### Workspace Root pyproject.toml
-
-```toml
-[tool.uv.workspace]
-members = [
-    "cores/*",
-    "agents/*",
-]
-
-[tool.uv]
-# No [project] table — root is a workspace-only container
-```
-
-### Member pyproject.toml Pattern (graph-wiki-agent)
-
-```toml
-[project]
-name = "graph-wiki-agent"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-    "agent-research-models",
-    "agent-research-runtime",
-    "deepagents>=0.6.1",
-    "langchain-aws>=0.2",
-    "langchain-mcp-adapters",
-    "fastmcp",
-    "typer",
-    "rank-bm25",          # or keep hand-rolled BM25 — see vault IO section
-]
-
-[tool.uv.sources]
-agent-research-models  = { workspace = true }
-agent-research-runtime = { workspace = true }
-```
-
-### Where Tests and Fixtures Live
-
-Tests live **per package** (`agents/graph-wiki-agent/tests/`), not at the top level. Rationale:
-
-- `uv run pytest` from the workspace root runs all packages; from within a package it runs only that package
-- `conftest.py` scoped per package means no cross-package fixture pollution
-- Fixture vaults (sample vault directories) live in `tests/fixtures/vaults/` within the package
-- Eval baselines live in `tests/fixtures/baselines/` — committed JSON or Markdown files recorded from current lattice-wiki runs
-
-The eval harness (`cores/eval-harness/`) provides the replay engine; the baselines live in the consuming package (`agents/graph-wiki-agent/tests/fixtures/baselines/`) so they version together with the commands they test.
+**Domain:** Code-graph SQLite package — additive ontology expansion
+**Researched:** 2026-05-25
+**Confidence:** HIGH (grounded entirely in the existing codebase + ONTOLOGY-SPEC.md + STACK.md + FEATURES.md)
 
 ---
 
-## 2. `graph-wiki-agent` Internal Architecture
+## System Overview
 
-### Module Responsibilities
-
-| Module | Responsibility |
-|--------|----------------|
-| `mcp_server.py` | FastMCP server instance; registers each command as an `@mcp.tool()`; no agent logic here — delegates to `commands/` |
-| `cli.py` | Typer app; one subcommand per wiki command; calls same `commands/` functions as MCP tools do |
-| `config.py` | Loads `.code-wiki.json` (or `.lattice-wiki.json` for compatibility); resolves vault path, repo root, model assignments per role |
-| `vault/` | Pure Python, no LLM calls; read/write vault on disk; shared by all commands and both surfaces |
-| `commands/` | Orchestrates one wiki command; constructs the deepagents graph or SubagentPool invocations; returns structured result |
-| `agents/` | Role definitions: system prompt, tool list, model_id. A `RoleSpec` dataclass |
-| `tools/` | LangChain `@tool` decorated functions; vault operations the LLM agents can call |
-
-### How MCP Server Composes with Agent Loop
-
-The MCP server is a thin dispatch layer. It does not run an agent loop itself — it receives a tool call from the DeepAgents CLI host (which runs the outer conversation loop on Bedrock), translates it into a command invocation, runs the command (which runs the inner agent loop using deepagents or asyncio + ChatBedrock directly), and returns the result.
+The existing graph-io architecture has a clean, stable shape. v1.6 plugs into it additively without restructuring the orchestration layer.
 
 ```
-DeepAgents CLI (outer agent, Bedrock)
-    │  MCP tool call: wiki_query(question="…")
-    ▼
-mcp_server.py  →  commands/query.py  →  SubagentPool.fanout(librarian, pages)
-                                              │
-                                     asyncio.gather(
-                                       librarian_agent.ainvoke(page_1),
-                                       librarian_agent.ainvoke(page_2),
-                                       …
-                                     )
-                                              │
-                                     aggregate → synthesize → return str
+┌─────────────────────────────────────────────────────────────────────┐
+│                          cg CLI  (cli/)                             │
+│  ops_update  ops_status  ops_dump  q_describe_*  q_find  ...       │
+│  NEW: q_describe_repo  q_list_domains  q_list_entry_points          │
+│       q_describe_domain  q_describe_suite  q_what_tests             │
+│       q_list_suites  q_list_scripts  q_domain_refs  q_domain_deps   │
+│       q_cross_cutting  q_list_packages  q_domain_tree               │
+├─────────────────────────────────────────────────────────────────────┤
+│                     Orchestrator  (update.py)                       │
+│  git diff → _process_files → packages.refresh                       │
+│  NEW CALLS (additive, after packages.refresh):                      │
+│    structural_nodes.emit  →  entry_points.emit                      │
+│    test_suites.emit       →  domains.emit                           │
+│    derived_edges.compute                                            │
+│  → resolve.sweep → _set_metadata                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                  Emitter / Scanner modules                          │
+│  packages.py (extended)   NEW: structural_nodes.py                  │
+│  NEW: entry_points.py         test_suites.py    detect_tests.py     │
+│  NEW: domains.py              derived_edges.py                      │
+│  NEW: uri.py                                                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Write layer  (upsert.py — extended)              │
+│  upsert_records(conn, GraphRecords)  [URI field added to upsert]    │
+├─────────────────────────────────────────────────────────────────────┤
+│               Read layer  (queries.py — extended)                   │
+│  find / callers / callees / imports / describe_package / ...        │
+│  NEW: describe_repo / list_domains / describe_domain                │
+│  NEW: list_entry_points / list_suites / describe_suite              │
+│  NEW: what_tests / domain_refs / domain_deps / cross_cutting        │
+├─────────────────────────────────────────────────────────────────────┤
+│              Store + Schema  (store.py / schema.py)                 │
+│  SCHEMA_VERSION 1 → 2                                               │
+│  nodes: +uri TEXT column + idx_nodes_uri index                      │
+│  edges / metadata: unchanged                                        │
+│  store.connect / read_only_connect: unchanged                       │
+│  SchemaMismatchError + SCHEMA_MISMATCH exit code: wire up           │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
-The headless CLI takes the same path from `cli.py` → `commands/query.py` — the command functions are surface-agnostic.
-
-### Call Graph: `query "X"` (MCP path)
-
-```
-[DeepAgents CLI host]
-  └─ MCP tool call: wiki_query(question="X", vault="/path/to/wiki")
-       │
-       ▼
-  mcp_server.py: @mcp.tool("wiki_query")
-       │  deserialize args → QueryRequest
-       ▼
-  commands/query.py: run_query(request)
-       │
-       ├─ vault/search.py: bm25_search(question, top_k=10)
-       │       returns: [(path, score), ...]
-       │
-       ├─ SubagentPool.fanout(
-       │     role=agents/librarian.py:LibrarianRole,
-       │     items=top_k_paths,          # one item per subagent invocation
-       │     question=question,
-       │  )
-       │       └─ asyncio.gather(
-       │            ChatBedrock(model_id=librarian_model).ainvoke(
-       │              [SystemMessage(librarian_prompt),
-       │               HumanMessage(page_content + question)]
-       │            ),
-       │            … × top_k
-       │          )
-       │       returns: [PageReading(path, findings, citations), ...]
-       │
-       ├─ aggregate: collect findings, deduplicate citations
-       │
-       └─ synthesize: single ChatBedrock call (haiku or sonnet) to stitch answer
-              returns: str (wikilink citations + prose answer)
-       │
-       ▼
-  MCP response: text/plain (answer string)
-```
-
-### Call Graph: `query "X"` (CLI path)
-
-```
-cli.py: graph-wiki-agent query "X"
-  └─ commands/query.py: run_query(request)
-       │  (identical to MCP path from here)
-       ▼
-       … same flow as above …
-       returns: str
-  └─ print(answer)
-```
-
-The CLI adds no logic — it constructs a `QueryRequest` from argv and calls the same `run_query` function.
-
-### Call Graph: `lint` (MCP path)
-
-```
-[DeepAgents CLI host]
-  └─ MCP tool call: wiki_lint(vault="/path/to/wiki", repo="/path/to/repo")
-       │
-       ▼
-  mcp_server.py: @mcp.tool("wiki_lint")
-       │
-       ▼
-  commands/lint_.py: run_lint(request)
-       │
-       ├─ vault/: collect all pages, build link graph, load layout
-       │       (pure Python, no LLM — port of lint_wiki.py scan() function)
-       │       returns: LintContext(pages, inbound, outbound, layout, disk_packages)
-       │
-       ├─ mechanical_pass: run lint rule groups in parallel (no LLM)
-       │       SubagentPool.fanout(
-       │         role=MechanicalLintRole,   # deterministic Python functions, not LLM
-       │         items=RULE_GROUPS,         # [orphans, broken_links, stale, code_drift, …]
-       │         context=LintContext,
-       │       )
-       │       returns: [RuleGroupResult, ...]
-       │
-       ├─ semantic_pass: LLM subagent fan-out over pages flagged by mechanical pass
-       │       SubagentPool.fanout(
-       │         role=agents/linter.py:SemanticLinterRole,
-       │         items=flagged_pages,
-       │         question="assess semantic quality and actionability",
-       │       )
-       │       returns: [SemanticFinding, ...]
-       │
-       └─ report: merge mechanical + semantic findings → LintReport
-              returns: str (markdown report)
-       │
-       ▼
-  MCP response: text/plain (lint report markdown)
-```
-
-Note: mechanical lint checks (orphans, broken links, stale dates, code drift, container drift) are pure-Python ports from `lint_wiki.py` — they do NOT call LLMs. Only the semantic pass (quality assessment, actionability scoring) uses LLM subagents. This keeps the mechanical pass fast and deterministic.
 
 ---
 
-## 3. Subagent Fan-Out Boundaries
+## Component Boundaries
 
-### Where Parallelism Lives
+### Existing modules and what changes
 
-| Command | Fan-Out Point | Unit of Parallelism | Aggregation |
-|---------|---------------|---------------------|-------------|
-| `query` | After BM25 retrieves top-k pages | One LLM call per page (librarian reads a page, extracts relevant findings) | Collect findings → single synthesis call |
-| `lint` (semantic) | After mechanical pass flags pages | One LLM call per flagged page group | Merge findings, rank by severity |
-| `scan` | After disk packages listed | One LLM call per package (ingestor assesses diff vs vault) | Collect stub updates |
-| `ingest` | After sources listed | One LLM call per source file | Collect routed content |
+| Module | v1.5 Responsibility | v1.6 Change |
+|--------|---------------------|-------------|
+| `schema.py` | DDL + `SCHEMA_VERSION = 1` | Bump to 2; add `uri TEXT` column + `idx_nodes_uri` index |
+| `store.py` | connect / read-only / transaction | Wire `SCHEMA_MISMATCH` exit code through `_check_schema_version`; no structural change |
+| `upsert.py` | `upsert_records` — inserts nodes/edges by `(kind, name, path)` key | Add `uri` field to `_upsert_node` and `_insert_node`; ON CONFLICT update includes `uri` |
+| `packages.py` | `refresh()` — discovers manifests, upserts package nodes + contains edges | Extend `_read_pyproject` / `_read_package_json` to return `entry_points`; the entry-point upsert moves to `entry_points.py` (packages.py hands off the data) |
+| `resolve.py` | Post-upsert sweep: resolve placeholder-dst edges | Unchanged; placeholder nodes for new node types resolve via the same `(kind, name, path IS NULL)` join |
+| `update.py` | Orchestrator: git diff → parse → upsert → resolve → metadata | Additive call sites only — see "Scanner additive integration" below |
+| `queries.py` | find / callers / callees / imports / describe_package / describe_path / imported_by / exports / exported_by | New query functions appended to the same module (or a second `queries_v2.py` if the file gets large) |
+| `sync_wiki.py` | Package → wiki_page documents edges | Unchanged; existing code is isolated and not affected by schema v2 |
+| `_ignore.py` | Default + .cgignore skip set | Unchanged |
+| `exit_codes.py` | `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6` already declared | Wire `SCHEMA_MISMATCH` in store.py; wire `UPDATE_IN_PROGRESS` in update.py (replace existing GENERIC fallback for locked DB) |
+| `cli/main.py` | Argparse dispatch + subcommand registry | Register new CLI modules; update description string (brand sweep) |
 
-### The Abstraction: `SubagentPool`
+### New modules to create
 
-Defined in `cores/subagent-runtime/src/deep_agents_runtime/pool.py`.
+| New Module | Responsibility | Depends On |
+|------------|---------------|------------|
+| `uri.py` | URI composition functions — `repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri` | stdlib only |
+| `structural_nodes.py` | FS walk emitting `Repository`, `SubPackage`, `File`-with-role-flags + `physically_contains` edges | `uri.py`, `upsert.py`, `_ignore.py` |
+| `entry_points.py` | Consumes entry-point data from `packages.py`, emits `EntryPoint` nodes + `declares_entry_point` / `implemented_by` edges | `uri.py`, `upsert.py`, `packages.py` (data only) |
+| `test_suites.py` | Emits `TestSuite` nodes + `physically_contains TestSuite → File` + `tests` edges; re-parents test files from package containment | `uri.py`, `upsert.py`, `detect_tests.py`, `_ignore.py` |
+| `detect_tests.py` | Framework config detection (pytest.ini, pyproject.toml [tool.pytest], jest.config.*, vitest.config.*); pure data, no DB access | stdlib (`configparser`, `tomllib`) |
+| `domains.py` | `load_domains(path: Path)` using `yaml.safe_load()`; `DomainConfig` / `DomainEntry` dataclasses; emits `Domain` nodes + `belongs_to_domain` + `domain_contains_domain` edges | `uri.py`, `upsert.py`, PyYAML |
+| `derived_edges.py` | Computes `references` (Domain → Package) and `depends_on` (Domain → Domain) from import graph + domain membership; re-runnable | `upsert.py`, raw `sqlite3` reads |
+
+### New CLI modules to create (in `cli/`)
+
+| New CLI Module | Command Surfaces |
+|----------------|-----------------|
+| `q_describe_repo.py` | `cg describe-repo` |
+| `q_list_packages.py` | `cg list-packages` |
+| `q_list_domains.py` | `cg list-domains` |
+| `q_describe_domain.py` | `cg describe-domain <name>` |
+| `q_domain_refs.py` | `cg domain-refs <name>` |
+| `q_domain_deps.py` | `cg domain-deps <name>` |
+| `q_domain_tree.py` | `cg domain-tree` |
+| `q_cross_cutting.py` | `cg cross-cutting` |
+| `q_list_entry_points.py` | `cg list-entry-points <package> [--kind executable\|library]` |
+| `q_list_scripts.py` | `cg list-scripts` (UNION: EntryPoint kind:executable + File is_executable:true) |
+| `q_list_suites.py` | `cg list-suites` |
+| `q_describe_suite.py` | `cg describe-suite <name>` |
+| `q_what_tests.py` | `cg what-tests <target>` (package, domain, or path variant) |
+
+---
+
+## Scanner Additive Integration
+
+The critical constraint: `update.py`'s orchestration flow is NOT restructured. The nine-stage pipeline from spec §9 is v1.7. v1.6 adds new emit calls at two points in the existing flow.
+
+### Existing `update.py` flow (unchanged skeleton)
 
 ```python
-from dataclasses import dataclass
-from typing import TypeVar, Generic, Callable, Awaitable
-import asyncio
-from langchain_aws import ChatBedrock
+def run(repo_root, *, workspace, full, lock_timeout_ms):
+    head = _head(repo_root)
+    skip_dirs = _ignore.load_skip_dirs(repo_root)
+    conn = store.connect(db_path, create=True, ...)
+    with store.transaction(conn):
+        _process_files(conn, repo_root, changed, skip_dirs)  # AST parse + upsert
+        packages.refresh(conn, repo_root=repo_root)          # manifest → package nodes
+        # ... stale-node cleanup ...
+        resolve.sweep(conn)                                   # cross-file edge resolution
+        _set_metadata(conn, "last_indexed_commit", head)
+```
 
-T = TypeVar("T")
-R = TypeVar("R")
+### v1.6 additive call sites in `update.py`
+
+```python
+with store.transaction(conn):
+    _process_files(conn, repo_root, changed, skip_dirs)   # UNCHANGED
+
+    packages.refresh(conn, repo_root=repo_root)           # UNCHANGED — also returns entry_point data
+    entry_points.emit(conn, repo_root=repo_root)          # NEW — reads manifests, emits EntryPoint nodes
+
+    structural_nodes.emit(conn, repo_root=repo_root,      # NEW — Repository + SubPackage + File role flags
+                          skip_dirs=skip_dirs)            #       + physically_contains tree
+
+    test_suites.emit(conn, repo_root=repo_root,           # NEW — TestSuite nodes + re-parenting
+                     skip_dirs=skip_dirs)
+
+    domains.emit(conn, repo_root=repo_root)               # NEW — Domain nodes + belongs_to_domain
+                                                          #       (reads domains.yaml; no-op if absent)
+
+    derived_edges.compute(conn)                           # NEW — references + depends_on edges
+                                                          #       (re-runnable; clears + recomputes)
+
+    # ... stale-node cleanup (existing, unchanged) ...
+    resolve.sweep(conn)                                   # UNCHANGED
+    _set_metadata(conn, "last_indexed_commit", head)      # UNCHANGED
+```
+
+**Why this position for each call:**
+
+- `entry_points.emit` immediately after `packages.refresh`: manifests are re-read (same `_discover_manifests` walk) but this is idempotent; it extends the same manifest data to emit `EntryPoint` nodes. Placed here rather than inside `packages.refresh` to preserve `packages.py` as the single-responsibility manifest reader.
+
+- `structural_nodes.emit` after `packages.refresh`: package paths must exist in the DB first so `physically_contains` edges from Repository → Package can reference real node IDs. The FS walk in `structural_nodes.py` is separate from the AST parse in `_process_files`.
+
+- `test_suites.emit` after `structural_nodes.emit`: test suite re-parenting deletes `physically_contains Package → File` edges for test files and inserts `physically_contains TestSuite → File` edges instead. File nodes must exist (created by `_process_files`) and package containment edges must exist (created by `packages.refresh`) before re-parenting can happen.
+
+- `domains.emit` after `structural_nodes.emit`: domain convention-based inference (strategy 2 from spec §9 — top-level folder names) needs the package list. Explicit config (`domains.yaml`) is path-based but needs package nodes to exist so `belongs_to_domain` edges can reference real IDs.
+
+- `derived_edges.compute` last (before `resolve.sweep`): depends on `belongs_to_domain` edges (from `domains.emit`) and `imports` edges (from `_process_files` + `resolve.sweep`). Running derived edges before `resolve.sweep` means some `imports` edges are still unresolved — this is acceptable in v1.6 since `derived_edges.compute` already filters on `resolution != 'unresolved'` when building the import set. Alternatively, move `derived_edges.compute` after `resolve.sweep` — that's the safer order and is recommended.
+
+**Revised safer order** (move derived edges after resolve):
+
+```python
+    _process_files(...)          # AST parse
+    packages.refresh(...)        # package nodes
+    entry_points.emit(...)       # EntryPoint nodes
+    structural_nodes.emit(...)   # Repository + SubPackage + File role flags
+    test_suites.emit(...)        # TestSuite nodes + re-parenting
+    domains.emit(...)            # Domain nodes + belongs_to_domain
+    # stale-node cleanup (existing)
+    resolve.sweep(conn)          # cross-file edge resolution  ← UNCHANGED position
+    derived_edges.compute(conn)  # references + depends_on  ← AFTER resolve, so imports are resolved
+    _set_metadata(...)           # UNCHANGED
+```
+
+This order is clean, additive, and preserves the existing `resolve.sweep` position.
+
+---
+
+## URI Identity Migration
+
+### Schema change
+
+`schema.py` adds one column and one index to the `nodes` DDL:
+
+```sql
+CREATE TABLE IF NOT EXISTS nodes (
+    id          INTEGER PRIMARY KEY,
+    kind        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    path        TEXT,
+    line        INTEGER,
+    uri         TEXT,               -- NEW: stable URI identity; NULL for AST nodes
+    attrs_json  TEXT
+)
+
+CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)
+```
+
+`uri` is nullable. AST nodes (functions, classes, methods) do not receive URIs in v1.6 — stable URI identity is meaningful only at the structural/conceptual level (Repository, Package, SubPackage, File, EntryPoint, TestSuite, Domain). This avoids a full-graph URI backfill problem that would be expensive and provides no query benefit.
+
+### URI generation point
+
+URIs are generated at upsert time inside the emitter modules, not at scan-time in source-parser. The emitter constructs the URI before calling `upsert.upsert_records`, populating `GraphNode.attrs["uri"]`. The `_upsert_node` function in `upsert.py` reads `node.attrs.get("uri")` and writes it to the `uri` column.
+
+Specifically:
+- `structural_nodes.py` generates `file_uri(...)` for every File node, `repo_uri(...)` for the Repository node, `subpkg_uri(...)` for SubPackage nodes.
+- `packages.py` generates `pkg_uri(...)` for Package nodes (the single change inside `packages.py`).
+- `entry_points.py` generates `entry_point_uri(...)` for EntryPoint nodes.
+- `test_suites.py` generates `test_suite_uri(...)` for TestSuite nodes.
+- `domains.py` generates `domain_uri(...)` for Domain nodes.
+
+The URI for a Package node requires knowing the `(org, repo)` prefix. In v1.6 (single-repo scope), the repo origin is derived from `git remote get-url origin` at `update.run()` time, parsed into `(org, repo)` components, and passed down through the emitter call chain. If the remote is missing (local-only repo), fall back to the directory name as `org=local, repo=<dirname>`.
+
+### Uniqueness
+
+`uri` is NOT declared `UNIQUE` in v1.6. The reason: `ON CONFLICT` for URI collisions requires careful thought about which record wins, and adding a UNIQUE constraint after a full rebuild forces all existing data to be collision-free before the constraint can be applied. In v1.6, uniqueness is enforced at the emitter level (each emitter generates URIs deterministically from stable inputs; no two nodes of the same type should get the same URI). Add `UNIQUE NOT NULL` in v1.7 once the URI generation is validated against real repos.
+
+### Existing edges get URIs for their endpoints
+
+Existing AST edges (`calls`, `imports`, `contains`) reference nodes by `INTEGER id`. Those nodes do not get URIs in v1.6 for AST-level nodes (functions, classes). This is correct and expected — the `uri` column is a supplemental stable identity for the structural/conceptual layer; the INTEGER primary key remains the join key for all edge lookups. No migration of existing edges is required.
+
+---
+
+## source-parser Boundary
+
+### What source-parser populates on its SourceNode
+
+The parser boundary follows what each layer knows. source-parser knows the AST; graph-io knows the filesystem and manifests.
+
+**source-parser adds to file-level `SourceNode.attrs`:**
+
+| Attr key | Detection method | Location |
+|----------|-----------------|----------|
+| `has_main` | Python: `if __name__ == "__main__":` top-level `if_statement` node | `source_parser/parsers/python.py` |
+| `is_importable` | Python: presence of top-level `def`, `class`, or `__all__`; JS/TS: presence of `export` declarations | `python.py` and the JS/TS parser |
+| `is_executable_hint` | Python: AST confirms `if __name__` block is present (same as `has_main`); combined with shebang in graph-io | `python.py` |
+
+These attrs flow through `to_graph_records()` into `GraphNode.attrs` unchanged. The scanner in graph-io reads them from `tree.attrs` after the `parse_bytes()` call and merges them with path heuristics.
+
+**graph-io scanner owns (no AST needed):**
+
+| Flag | Detection | Source |
+|------|-----------|--------|
+| `is_test` | Path patterns: `tests/`, `__tests__/`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts` | `structural_nodes.py` |
+| `is_config` | Filename: `conftest.py`, `jest.config.*`, `vitest.config.*`, `tsconfig.json`, `setup.cfg` | `structural_nodes.py` |
+| `is_generated` | Path patterns: `dist/`, `build/`, `.gen/`, `generated/`; content markers in first 3 lines (`# generated by`, `// @generated`) | `structural_nodes.py` |
+| `is_type_only` | Extension: `.d.ts` | `structural_nodes.py` |
+| `is_executable` | Shebang (`first 2 bytes == b'#!'`); conventional paths `bin/`, `scripts/`; merged with `is_executable_hint` from AST | `structural_nodes.py` |
+
+**Handoff pattern:**
+
+```python
+# in update.py _process_files (existing), attrs now include AST signals:
+tree = parse_bytes(source, path=Path(rel), package=None)
+records = to_graph_records(tree)
+# tree.attrs["has_main"], tree.attrs["is_importable"] now available
+# structural_nodes.py reads tree.attrs to merge with path heuristics
+
+# in structural_nodes.emit, per-file role flag computation:
+def _file_role_flags(rel: str, tree_attrs: dict) -> dict[str, bool]:
+    return {
+        "is_test": _path_is_test(rel),
+        "is_config": _path_is_config(rel),
+        "is_generated": _path_is_generated(rel),
+        "is_type_only": rel.endswith(".d.ts"),
+        "is_executable": _has_shebang(rel) or _in_bin_dir(rel) or tree_attrs.get("is_executable_hint", False),
+        "is_importable": tree_attrs.get("is_importable", False),
+        "has_main": tree_attrs.get("has_main", False),
+    }
+```
+
+The challenge: `structural_nodes.emit` currently does a separate FS walk. To get AST attrs without double-parsing, `_process_files` should cache the `tree.attrs` per file path in a local dict, which `structural_nodes.emit` consumes. Alternatively (simpler for v1.6): `structural_nodes.emit` computes path-heuristic flags only (which covers 5 of 7 flags), and a post-pass in `_process_files` updates `has_main` and `is_importable` from the already-parsed tree. The simpler approach avoids cross-module state passing and is the right call for v1.6.
+
+**Recommended v1.6 implementation:** `structural_nodes.emit` sets path-heuristic flags only. A second small function in `update.py` — `_apply_ast_role_flags(conn, repo_root, changed, skip_dirs)` — runs after `_process_files` and updates `attrs_json` on file nodes that have `has_main` or `is_importable` from the AST. This is a targeted UPDATE, not a full re-parse, and keeps the modules clean.
+
+---
+
+## `domains.yaml` Reader
+
+### Location
+
+`graph_io/domains.py` is the right home, not `workspace-io`. The domains.yaml config is code-graph-specific — it declares how packages in a repository map to logical domains. It is not a workspace manifest (which is `.graph-wiki.yaml` in workspace-io). `workspace-io` owns workspace bootstrapping; `graph-io` owns graph-specific config.
+
+### When read
+
+`domains.emit(conn, repo_root=repo_root)` reads `domains.yaml` from `repo_root / "domains.yaml"` each time `cg update` runs. No caching is needed — the file is read once per update invocation, and updates are not frequent enough to make reading a 1KB YAML file a bottleneck.
+
+### Error handling
+
+| Condition | Behavior |
+|-----------|---------|
+| `domains.yaml` absent | No-op. Convention-based inference (top-level named folders) runs. No error. |
+| `domains.yaml` present but malformed YAML | `yaml.YAMLError` caught; warning printed to stderr with file path; convention-based inference runs as fallback. No exception raised to the caller. |
+| `domains.yaml` references a package name not in the DB | Warning printed to stderr per unknown name; `belongs_to_domain` edge for that name is silently skipped (package may not be indexed yet if only changed files were processed). |
+| `domains.yaml` references a non-existent sub-domain | Same treatment: warning + skip. |
+
+### DomainConfig schema (in `domains.py`)
+
+```python
+@dataclass
+class DomainEntry:
+    name: str
+    description: str = ""
+    packages: list[str] = field(default_factory=list)
+    parent: str | None = None          # parent domain name for domain_contains_domain
+    subdomains: list[str] = field(default_factory=list)  # alternative to parent field
 
 @dataclass
-class RoleSpec:
-    role_name: str          # "librarian", "linter", etc.
-    system_prompt: str
-    model_id: str           # resolved from ModelRegistry at call time
-    max_tokens: int = 4096
+class DomainConfig:
+    domains: dict[str, DomainEntry]    # keyed by domain name
 
-class SubagentPool:
-    def __init__(self, model_registry):
-        self._registry = model_registry
-
-    async def fanout(
-        self,
-        role: RoleSpec,
-        items: list[T],
-        build_messages: Callable[[T], list],   # item → [SystemMessage, HumanMessage]
-        max_concurrency: int = 8,
-    ) -> list[R]:
-        llm = ChatBedrock(
-            model_id=role.model_id,
-            max_tokens=role.max_tokens,
-        )
-        sem = asyncio.Semaphore(max_concurrency)
-        async def _invoke(item: T) -> R:
-            async with sem:
-                msgs = build_messages(item)
-                return await llm.ainvoke(msgs)
-        return await asyncio.gather(*[_invoke(item) for item in items])
+def load_domains(path: Path) -> DomainConfig | None:
+    """Returns None if path does not exist. Raises ValueError on schema error."""
 ```
-
-Key decisions in this design:
-
-- `max_concurrency` semaphore prevents Bedrock rate-limit hammering (Bedrock TPS limits are per-model, per-region)
-- Each subagent invocation is a stateless `ainvoke` — no LangGraph state shared between subagents; this is intentional for v1 (within-command fan-out, not nested subagents)
-- The parent command function owns aggregation; `SubagentPool` only handles dispatch and concurrency
-
-### Keeping the Parent Context Lean
-
-The parent command function (`commands/query.py`, etc.) never passes full page content into a single growing context. Instead:
-
-1. Parent retrieves page paths from BM25 (small: just paths + scores)
-2. Parent fans out: each subagent gets one page's content + the question — context bounded per subagent
-3. Subagents return structured results (findings, citations, findings) — small
-4. Parent aggregates small results, makes one synthesis call
-
-The parent agent's own context contains: question, page paths, collected findings (structured). It never sees all pages concatenated. This is the core context-isolation benefit of within-command fan-out.
 
 ---
 
-## 4. Vault IO Layer: Port vs Rewrite
+## Build Order (Phase Dependency Chain)
 
-### Decision: Direct Port with Namespace Change
+The phases must respect the dependency chain below. Each item is the smallest atomic unit that can be built and tested independently.
 
-Port from `lattice-wiki-core` to `graph_wiki_agent/vault/`. Do not add an import dependency on lattice-wiki-core.
+```
+Phase A: Foundation (blocking — everything else depends on this)
+  ├── schema.py: SCHEMA_VERSION 1 → 2, add uri column + index
+  ├── store.py: wire SCHEMA_MISMATCH + UPDATE_IN_PROGRESS exit codes
+  ├── upsert.py: add uri field to _upsert_node / _insert_node
+  └── uri.py: new — all URI composition functions
+      Tests: test_schema.py (extend), test_store.py (extend), test_upsert.py (extend), test_uri.py (new)
 
-**Rationale:**
+Phase B: Structural Nodes (depends on A)
+  ├── structural_nodes.py: new — Repository + SubPackage + File-with-role-flags + physically_contains
+  ├── source_parser/parsers/python.py: add has_main + is_importable attrs
+  └── update.py: add structural_nodes.emit call + _apply_ast_role_flags helper
+      Tests: test_structural_nodes.py (new), test_source_parser_role_flags.py (new)
 
-| Module | Port decision | Notes |
-|--------|---------------|-------|
-| `layout_io.py` | **Port verbatim** | 209 lines, stdlib-only, stable schema, zero dependencies. Critical for read-compatibility. |
-| `wiki_search.py` | **Port + thin wrapper** | 196 lines, stdlib BM25. Extract the search function, drop the `__main__` CLI entry, add a `VaultSearch` class. |
-| `lint_wiki.py` (mechanical checks) | **Port scan() function** | The scan() function is ~200 lines of pure Python. Port it, strip the `main()` / argparse shell. The semantic pass is new code. |
-| `scan_monorepo.py` | **Port `discover_workspaces()`** | The workspace discovery logic is reusable; strip lattice-workspace integration, replace with direct path config from `.code-wiki.json` |
-| `detect_containers.py` | **Port** | Container detection is pure heuristics, no LLM |
-| `graph_analyzer.py` | **Port** | Graph analysis (wikilink traversal) is pure Python |
-| `append_log.py` | **Port** | 50-line file, trivial |
-| `update_tokens.py` | **Defer** | Token counting in frontmatter is a lattice-wiki-specific convention; port only if needed for parity |
-| `ingest_source.py` / `ingest_work_item.py` | **Rewrite** | The new ingestor uses LLM subagents; old version is LLM-orchestrated from outside |
-| `_workspace.py` | **Replace** | No lattice-workspace dependency; vault path comes from `.code-wiki.json` config |
-| `_version_check.py` | **Drop** | Not needed |
-| assets / page-templates | **Copy verbatim** | Templates are format-compatible; copy to `src/graph_wiki_agent/assets/` |
+Phase C: EntryPoint + TestSuite (depends on A + B)
+  ├── detect_tests.py: new — framework config detection
+  ├── entry_points.py: new — EntryPoint nodes + declares_entry_point / implemented_by edges
+  ├── test_suites.py: new — TestSuite nodes + re-parenting
+  ├── packages.py: extend _read_pyproject + _read_package_json to return entry_points
+  └── update.py: add entry_points.emit + test_suites.emit calls
+      Tests: test_detect_tests.py (new), test_entry_points.py (new), test_suites.py (new)
 
-**Why not import lattice-wiki-core directly?**
-- agent-research is a separate repo; adding a cross-repo path dependency creates a fragile development setup
-- lattice-wiki-core has its own `_workspace.py` that resolves paths via `lattice-workspace` — that coupling doesn't belong in agent-research
-- The relevant code is ~800 lines across ~6 files; porting is a one-day task and makes the package self-contained
+Phase D: Domain Layer (depends on A + B + C for full derived-edge accuracy)
+  ├── domains.py: new — load_domains + Domain node emit + belongs_to_domain + domain_contains_domain
+  ├── derived_edges.py: new — references + depends_on computation
+  └── update.py: add domains.emit + derived_edges.compute calls
+      Tests: test_domains.py (new), test_derived_edges.py (new)
 
-**Format compatibility commitment:** `layout_io.py` is ported verbatim, same sentinel strings (`<!-- lattice-wiki:layout:start -->`), same YAML schema. Existing vaults are read-compatible on day one.
+Phase E: Query Layer Extension (depends on A + B + C + D)
+  ├── queries.py: add describe_repo / list_domains / describe_domain / list_entry_points
+  │              list_suites / describe_suite / what_tests / domain_refs / domain_deps
+  │              cross_cutting / list_packages
+  └── Extend existing: describe_package (+ domains, entry points, suites) / describe_path (+ role flags)
+      Tests: test_queries.py (extend with new query functions)
+
+Phase F: CLI Extension (depends on E)
+  ├── New CLI modules: q_describe_repo, q_list_packages, q_list_domains, q_describe_domain,
+  │   q_domain_refs, q_domain_deps, q_domain_tree, q_cross_cutting, q_list_entry_points,
+  │   q_list_scripts, q_list_suites, q_describe_suite, q_what_tests
+  └── cli/main.py: register new subcommands; update description string
+      Tests: test_cli_smoke.py (extend), new per-command smoke tests
+
+Phase G: Brand Sweep (independent — can run in parallel with any phase, no code deps)
+  ├── README.md: "lattice-graph-core" → "graph-wiki code graph", path refs updated
+  └── cli/main.py description string: "lattice code graph CLI" → "graph-wiki code graph CLI"
+      Tests: brand grep gate (existing check-brand.sh)
+```
+
+**Key dependency facts:**
+- Phase A is a hard prerequisite for all other phases. No new node can be safely upserted without URI support in the schema.
+- Phase B must precede Phase C because TestSuite re-parenting requires `physically_contains` edges from packages to files (created by structural_nodes.emit) to exist before they can be rewritten.
+- Phase D can start after Phase A + B (Domain nodes themselves don't depend on EntryPoint or TestSuite). However, `derived_edges.compute` produces more complete results if it runs after Phase C, because test-suite imports inform which packages a suite targets, and that in turn informs domain-level `tests` edges. For v1.6, running D after C is the safe order.
+- Phase E requires all emitters to have run at least once so the query layer can be validated against real data.
+- Phase F requires Phase E for query functions to exist.
+- Phase G has zero code dependencies — it can be done in a 10-minute PR anytime.
 
 ---
 
-## 5. Eval Harness Architecture
+## Test Architecture
 
-### Location: Separate Core Package
+### Existing test modules to extend
 
-The eval harness lives in `cores/eval-harness/` as the `agent-research-eval` package, not in-tree to `graph-wiki-agent`. This allows future agents to reuse the same replay + scoring infrastructure.
+| Existing Test Module | What to Add |
+|----------------------|-------------|
+| `test_schema.py` | Assert `SCHEMA_VERSION == 2`; assert `uri` column present; assert `idx_nodes_uri` index present |
+| `test_store.py` | Test that `SchemaMismatchError` now raises exit code `SCHEMA_MISMATCH = 4` (wire-through test); test that `UPDATE_IN_PROGRESS = 6` replaces old GENERIC path |
+| `test_upsert.py` | Test that nodes upserted with a `uri` in attrs have `uri` column populated; test round-trip |
+| `test_packages.py` | Extend `test_refresh_pyproject` to verify entry-point data returned from `_read_pyproject`; `test_refresh_package_json` similarly for `bin`/`main`/`exports` |
+| `test_queries.py` | Extend with new query function tests: `describe_repo`, `list_domains`, `describe_domain`, `list_entry_points`, `list_suites`, `describe_suite`, `what_tests`, `domain_refs`, `domain_deps`, `cross_cutting` |
+| `test_cli_smoke.py` | Add smoke invocations for each new CLI subcommand (exit 0 against a seeded DB) |
+| `test_e2e.py` | Add an e2e scenario with `domains.yaml` present; verify domain nodes + derived edges appear |
 
-The `graph-wiki-agent` package declares `agent-research-eval` as a dev dependency.
+### New test modules to create
 
-### Structure
+| New Test Module | What it tests | Key Fixtures |
+|-----------------|---------------|--------------|
+| `test_uri.py` | All `uri.py` composition functions; round-trip stability; determinism | Pure unit tests, no DB fixture needed |
+| `test_structural_nodes.py` | `structural_nodes.emit` against a multi-package mini-repo; verify Repository node, SubPackage nodes, File role flags, physically_contains tree structure | `tmp_path` + `conn` fixture; git repo not required (no git diff involved) |
+| `test_detect_tests.py` | `detect_tests.py` framework detection; pytest.ini, pyproject.toml [tool.pytest], jest.config.js presence, vitest detection | Pure filesystem fixtures in `tmp_path`; no DB needed |
+| `test_entry_points.py` | `entry_points.emit` against repos with `pyproject.toml [project.scripts]` and `package.json bin/main/exports`; verify EntryPoint nodes + declares_entry_point + implemented_by edges | `tmp_path` + `conn` + seed package nodes |
+| `test_suites.py` | `test_suites.emit` against each layout pattern from spec §7 (single-package with root tests, monorepo with mirrored layout, package-local tests, mixed); verify TestSuite nodes, re-parented containment, `tests` edges | `tmp_path` + `conn` + seeded file nodes + seed package nodes |
+| `test_domains.py` | `domains.py` `load_domains` with valid/invalid/absent YAML; `domains.emit` with explicit config + convention-based inference; verify Domain nodes + belongs_to_domain + domain_contains_domain edges | `tmp_path` + `conn` + seeded package nodes |
+| `test_derived_edges.py` | `derived_edges.compute` against a DB with known imports + domain membership; verify `references` edges with correct usage_count; verify `depends_on` edges | `tmp_path` + `conn` with seeded full graph including imports + domain edges |
+| `test_source_parser_role_flags.py` | `has_main` and `is_importable` populated in `SourceNode.attrs` by the Python parser; verify via `parse_bytes` + `to_graph_records` | Small Python source fixtures as bytes |
 
-```
-cores/eval-harness/src/deep_agents_eval/
-├── recorder.py     # drives lattice-wiki (subprocess calls), captures stdout → JSON
-├── runner.py       # replay: given a recorded baseline, re-runs the command
-│                   # against the same fixture vault with a different model config
-├── scorer.py       # similarity scoring (BM25 overlap, ROUGE-L, rubric prompt)
-└── report.py       # cost per run from Bedrock API pricing table + quality score
-                    # → cost-frontier chart (CSV + matplotlib optional)
-```
+### Mini-repo fixture pattern for new tests
 
-### How It Discovers Subagent Roles to Test
-
-`runner.py` imports `RoleSpec` from `graph_wiki_agent.agents.*`. Each role is a dataclass with `role_name`, `system_prompt`, `model_id`. The runner receives a `model_map: dict[str, str]` override (role_name → model_id) and patches the registry before invoking the command.
+The existing `_git_repo.py` + `write_and_commit` pattern works for update-flow tests. For tests that don't need git history (pure emitter tests), a simpler pattern is sufficient:
 
 ```python
-# Eval invocation pattern
-from deep_agents_eval.runner import EvalRunner
-from graph_wiki_agent.config import ModelRegistry
-
-runner = EvalRunner(
-    baseline_path="tests/fixtures/baselines/query_baseline.json",
-    vault_path="tests/fixtures/vaults/sample-repo-wiki",
-)
-results = await runner.run_sweep(
-    command="query",
-    question="What does the middleware pipeline do?",
-    model_sweeps=[
-        {"librarian": "amazon.nova-micro-v1:0"},
-        {"librarian": "anthropic.claude-3-haiku-20240307-v1:0"},
-        {"librarian": "anthropic.claude-3-5-sonnet-20241022-v2:0"},
-    ],
-)
-report.cost_frontier(results, role="librarian")
+# conftest.py addition (or per-test fixture)
+@pytest.fixture
+def multi_pkg_repo(tmp_path: Path) -> Path:
+    """A two-package Python monorepo with tests at root + package-local tests."""
+    (tmp_path / "packages" / "auth" / "src" / "auth").mkdir(parents=True)
+    (tmp_path / "packages" / "billing" / "src" / "billing").mkdir(parents=True)
+    (tmp_path / "packages" / "auth" / "pyproject.toml").write_text(
+        '[project]\nname = "auth"\nversion = "0.1.0"\n[project.scripts]\nauth-cli = "auth.cli:main"\n'
+    )
+    (tmp_path / "packages" / "billing" / "pyproject.toml").write_text(
+        '[project]\nname = "billing"\nversion = "0.1.0"\n'
+    )
+    (tmp_path / "tests" / "integration").mkdir(parents=True)
+    (tmp_path / "tests" / "integration" / "test_flow.py").write_text("import auth\nimport billing\n")
+    (tmp_path / "packages" / "auth" / "tests").mkdir()
+    (tmp_path / "packages" / "auth" / "tests" / "test_auth.py").write_text("import auth\n")
+    (tmp_path / "domains.yaml").write_text(
+        "domains:\n  payments:\n    packages: [billing]\n  identity:\n    packages: [auth]\n"
+    )
+    return tmp_path
 ```
 
-### How It Holds Prompts Fixed While Varying Models
-
-The `ModelRegistry` is the only thing swapped. `RoleSpec.system_prompt` is read from the role definition and never modified by the eval runner. The runner patches `model_id` in the registry before calling the command — prompts are frozen by construction.
-
-### Baseline Recording
-
-`recorder.py` calls the existing lattice-wiki commands as subprocesses (using the Claude Code SDK via the lattice-wiki plugin, or direct python calls), captures output, and serializes to JSON. These baselines are committed to `tests/fixtures/baselines/` and serve as the gold standard.
+This fixture covers layout patterns 2 (mirrored), 4 (package-local), and gives a `domains.yaml` for domain tests — all in one reusable fixture.
 
 ---
 
-## 6. Dependency Direction
+## Brand Sweep Scope
 
-### Strict Rules
+The brand sweep is strictly contained to `packages/graph-io/`. The boundary is defined by what has `lattice` references that are not in the allow-list:
 
-```
-cores/model-adapters       ←  no upstream dependencies (leaf)
-cores/subagent-runtime     ←  depends on: model-adapters
-cores/eval-harness         ←  depends on: model-adapters, subagent-runtime
-agents/graph-wiki-agent     ←  depends on: model-adapters, subagent-runtime
-                           ←  dev depends on: eval-harness
-```
+### In scope (change these)
 
-**Rules enforced by package declarations (not enforced automatically — discipline required):**
+| Location | Current text | Target text |
+|----------|-------------|-------------|
+| `packages/graph-io/README.md` line 1 | `# lattice-graph-core` | `# graph-io` (or `# graph-wiki code graph`) |
+| `packages/graph-io/README.md` line 4 | `~/.lattice/graph/code.db` | canonical graph-wiki path per `workspace_io.paths.graph_dir()` |
+| `packages/graph-io/src/graph_io/cli/main.py` line 46 | `description="lattice code graph CLI"` | `description="graph-wiki code graph CLI"` |
+| `packages/graph-io/src/graph_io/update.py` line 132 | `os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")` | `os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")` — or add an alias that reads both |
+| `packages/graph-io/src/graph_io/packages.py` line 16 | `_SKIP_REPO_PREFIXES = ("lattice/",)` | `_SKIP_REPO_PREFIXES = ("lattice/",)` — **leave this** (it is a path skip rule for repos named `lattice/`; this is a functional behavior, not brand text; changing it would alter which directories get skipped) |
 
-1. `cores/` packages MUST NOT import from `agents/`
-2. `cores/model-adapters` MUST NOT import from `cores/subagent-runtime` or `cores/eval-harness`
-3. `agents/graph-wiki-agent` MAY import from any `cores/` package
-4. `agents/graph-wiki-agent/vault/` is internal to that package — other packages must not import from it (it's wiki-specific IO, not a shared core)
-5. `agents/graph-wiki-agent/tools/` exposes LangChain tools that the vault and agents modules use — no reverse dependency
-6. Future agents added to `agents/` may import from `cores/` but MUST NOT import from other agents
+### Out of scope (do NOT change these)
 
-### Component Communication Boundary Table
+| Location | Reason to leave alone |
+|----------|----------------------|
+| `plugins/graph-wiki/` | Plugin milestone boundary; plugin code does not reference graph-io brand text |
+| `packages/wiki-io/` | Separate package; no lattice-graph-core references in wiki-io |
+| `packages/source-parser/` | Projection module header says "aligned to lattice-graph's SQLite schema" — this is a comment, not a brand name; leave for v1.7 when source-parser gets a separate milestone |
+| `packages/graph-io/src/graph_io/packages.py` `_SKIP_REPO_PREFIXES` | Functional behavior: skips manifests under a `lattice/` directory path prefix. Changing this would break real skip behavior for repos that have a `lattice/` subdirectory. Rename only if there is a concrete reason. |
+| `.brand-grep-allow` entries for historical references | Already in the allow-list; no change needed |
 
-| From | To | Via | Notes |
-|------|----|-----|-------|
-| `mcp_server.py` | `commands/` | Direct function call | MCP tool handler = thin wrapper |
-| `cli.py` | `commands/` | Direct function call | CLI = thin wrapper |
-| `commands/` | `vault/` | Direct import | Vault IO is synchronous, no LLM |
-| `commands/` | `SubagentPool` | `await pool.fanout(...)` | Async |
-| `SubagentPool` | `ChatBedrock` | `await llm.ainvoke(msgs)` | Per subagent invocation |
-| `commands/` | `agents/` | Import `RoleSpec` dataclass | No circular dependency |
-| `commands/` | `tools/` | Construct tool list for agents | Optional — some commands run LLM without tool-calling |
-| `eval-harness` | `commands/` | Import and invoke | Test harness only |
-| `eval-harness` | `agents/` | Import `RoleSpec` to introspect roles | For sweep configuration |
+The `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var name (in `update.py`) is the one debatable case. Changing it is a breaking change for anyone using that env var. Safe approach: read both `GRAPH_WIKI_LOCK_TIMEOUT_MS` (new) and `LATTICE_GRAPH_LOCK_TIMEOUT_MS` (old fallback) with a deprecation warning on the old name. Add the old name to `.brand-grep-allow`.
 
 ---
 
-## 7. Build Order and Minimum Vertical Slice
+## Anti-Patterns
 
-### Dependency Graph
+### Anti-Pattern 1: Restructuring update.py into pipeline stages
 
-```
-[A] Monorepo scaffold (pyproject.toml, uv workspace, CI skeleton)
-      ↓
-[B] cores/model-adapters  (ChatBedrock factory, ModelRegistry)
-      ↓
-[C] cores/subagent-runtime  (SubagentPool.fanout)
-      ↓
-[D] agents/graph-wiki-agent/vault/  (layout_io port, frontmatter, BM25)
-      ↓
-[E] agents/graph-wiki-agent/tools/  (vault_tools, repo_tools — LangChain @tool)
-      ↓
-[F] agents/graph-wiki-agent/agents/librarian  (RoleSpec + prompt)
-      ↓
-[G] agents/graph-wiki-agent/commands/query  (fan-out + synthesis)
-      ↓
-[H] agents/graph-wiki-agent/mcp_server.py   (wiki_query tool)
-      ↓  (parallel to H)
-[H'] agents/graph-wiki-agent/cli.py          (graph-wiki-agent query …)
-      ↓
-[I] cores/eval-harness  (can start once G works, before other commands)
-      ↓
-[J] Remaining commands: lint, scan, ingest, init, log
-```
+**What it looks like:** Splitting `update.py` into Stage1, Stage2, ..., Stage8 classes or modules with explicit inter-stage handoffs to match spec §9.
 
-### Suggested Phase Order
+**Why wrong for v1.6:** This is the v1.7 work explicitly deferred in PROJECT.md. The additive call pattern (`emit_1(); emit_2(); emit_3()`) within the existing `store.transaction` block achieves the same functional result without the refactor cost. The domain-overlay re-run optimization (running only stages 7-8 without re-parsing AST) is the motivating reason to restructure, and that use case is not in v1.6 scope.
 
-**Phase 1 — Scaffold + Model Adapter (A + B)**
+**Correct approach:** Add flat function calls in `update.py`'s `run()` function, each delegating to a focused module. Keep the existing transaction boundary.
 
-Deliverables: uv workspace wires together; `ChatBedrock` factory proven against Bedrock in a throwaway script; `ModelRegistry` reads a config file and returns `model_id` by role name. No agent logic yet.
+### Anti-Pattern 2: Putting URI generation in source-parser
 
-Gate: `uv run python -c "from deep_agents_models.bedrock import make_llm; print(make_llm('haiku').invoke('ping'))"` works against real Bedrock.
+**What it looks like:** Having `to_graph_records()` in `source_parser/projections/graph.py` generate URI values for GraphNode objects.
 
-**Phase 2 — SubagentPool + Vault IO (C + D)**
+**Why wrong:** source-parser doesn't know the repository org/name, package hierarchy, or workspace layout. Those are graph-io's context. The `uri.py` module must live in graph-io where `(org, repo, pkg)` context is available.
 
-Deliverables: `SubagentPool.fanout()` with semaphore + `asyncio.gather`; unit tested with a mock LLM. Vault IO ported: `layout_io`, `frontmatter`, `BM25 search`, `append_log`. Fixture vaults committed for testing.
+**Correct approach:** Emitter modules in graph-io call `uri.py` functions with full context before calling `upsert.upsert_records`. The `GraphNode.attrs` dict carries the URI down to the upsert layer.
 
-Gate: `pytest agents/graph-wiki-agent/tests/unit/` fully passes.
+### Anti-Pattern 3: Putting DomainConfig in workspace-io
 
-**Phase 3 — Minimum Vertical Slice: `query` end-to-end (E + F + G + H + H')**
+**What it looks like:** Moving `domains.yaml` loading into `workspace_io.config` or a new `workspace_io.domains` module.
 
-Deliverables: `tools/vault_tools.py`, `agents/librarian.py`, `commands/query.py`, `mcp_server.py` exposing `wiki_query`, `cli.py` with `query` subcommand. Runs against an existing lattice-wiki vault. Subagent fan-out hits real Bedrock.
+**Why wrong:** `domains.yaml` is a code-graph artifact, not a workspace manifest. workspace-io owns `.graph-wiki.yaml` (workspace bootstrapping, plugin version tracking). graph-io owns domain assignment config. Mixing these creates an unwanted dependency: workspace-io would need to know about graph-io's domain ontology.
 
-Gate: `graph-wiki-agent query "What does the middleware pipeline do?"` returns a coherent answer with wikilink citations. MCP server starts and responds to a tool call from the DeepAgents CLI.
+**Correct approach:** `graph_io/domains.py` owns `load_domains(path)`. The path is derived from `repo_root / "domains.yaml"`, passed down from `update.py`.
 
-This is the minimum vertical slice that proves the architecture end-to-end.
+### Anti-Pattern 4: Adding UNIQUE NOT NULL to `uri` in v1.6
 
-**Phase 4 — Eval Harness (I)**
+**What it looks like:** Declaring `uri TEXT UNIQUE NOT NULL` in the nodes DDL, requiring all existing nodes to have URIs.
 
-Deliverables: `recorder.py` captures lattice-wiki baseline for `query`; `runner.py` replays against sweep of Bedrock models; `report.py` outputs cost vs quality table. Baselines committed.
+**Why wrong:** AST nodes (functions, classes) don't have stable URIs in v1.6 — requiring NOT NULL would either force URI generation for every AST node (expensive, semantically questionable) or break existing `_process_files` upserts that don't populate `uri`.
 
-Gate: cost-frontier chart shows at least two models at different quality/cost tradeoffs for the librarian role.
+**Correct approach:** `uri TEXT` (nullable) in v1.6. UNIQUE constraint added in v1.7 after URI coverage is complete and validated.
 
-**Phase 5 — Remaining Commands (J)**
+### Anti-Pattern 5: Calling `_discover_manifests` a third time for entry points
 
-Deliverables: `lint`, `scan`, `ingest`, `init`, `log` — in order of complexity. `lint` is the most complex (mechanical pass port + semantic fan-out). `init` and `log` are the simplest.
+**What it looks like:** `entry_points.py` does its own full `repo_root.rglob("pyproject.toml")` scan independent of `packages.py`.
 
-Suggested sub-order within Phase 5: `log` (trivial port) → `init` (template scaffolding, no LLM fan-out) → `scan` (scanner subagent fan-out) → `ingest` (ingestor subagent) → `lint` (mechanical port + semantic subagent).
+**Why wrong:** `packages.refresh` already scans manifests. A second full scan doubles I/O for no benefit.
 
-Gate per command: parity test against recorded lattice-wiki output for same fixture vault.
+**Correct approach:** Either (a) `packages.refresh` returns the manifest data it already parsed and `entry_points.emit` consumes that data, or (b) both `packages.py` and `entry_points.py` call a shared `_discover_manifests` function that is already cached as a module-level concern. Option (a) is cleaner — `packages.refresh` returns `list[tuple[Path, dict]]` and `entry_points.emit(conn, manifest_data)` receives it. The caller in `update.py` is then:
 
----
-
-## System Overview Diagram
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     Delivery Surfaces                            │
-│   ┌─────────────────────────┐   ┌──────────────────────────┐    │
-│   │   MCP Server            │   │   Headless CLI            │    │
-│   │   (mcp_server.py)       │   │   (cli.py)                │    │
-│   │   FastMCP tool wrappers │   │   Typer subcommands       │    │
-│   └────────────┬────────────┘   └────────────┬─────────────┘    │
-└────────────────┼────────────────────────────-┼──────────────────┘
-                 │ calls                       │ calls
-┌────────────────▼─────────────────────────────▼──────────────────┐
-│                   commands/ (orchestrators)                      │
-│   query.py  |  lint_.py  |  scan.py  |  ingest.py  |  init_.py  │
-│   • loads config                                                 │
-│   • reads vault (via vault/)                                     │
-│   • fans out to SubagentPool                                     │
-│   • aggregates results                                           │
-└───────────┬──────────────────────────┬───────────────────────────┘
-            │                          │
-┌───────────▼──────────┐   ┌───────────▼──────────────────────────┐
-│   vault/ (pure IO)   │   │   cores/subagent-runtime              │
-│   layout_io          │   │   SubagentPool.fanout(role, items)    │
-│   frontmatter        │   │   asyncio.gather + semaphore          │
-│   BM25 search        │   └───────────┬──────────────────────────┘
-│   index IO           │               │ ainvoke per item
-│   templates          │   ┌───────────▼──────────────────────────┐
-│   append_log         │   │   cores/model-adapters                │
-└──────────────────────┘   │   ChatBedrock(model_id=role.model_id) │
-                           │   ModelRegistry (role → model_id)     │
-                           └──────────────────────────────────────-┘
-                                         │
-                                    AWS Bedrock
-                              (Nova, Claude Haiku/Sonnet,
-                               Llama, Mistral per role)
+```python
+manifest_data = packages.refresh(conn, repo_root=repo_root)
+entry_points.emit(conn, manifest_data=manifest_data)
 ```
 
 ---
 
-## Anti-Patterns to Avoid
+## Data Flow
 
-### Anti-Pattern 1: Agent Loop in the MCP Tool Handler
+### `cg update --full` flow with all v1.6 additions
 
-**What people do:** Run a full multi-turn LangGraph agent inside the MCP tool handler, accumulating state across tool calls within a single MCP invocation.
+```
+cg update --full
+    │
+    ▼
+update.run(repo_root)
+    │
+    ├── _head(repo_root)                         → head commit SHA
+    ├── _ignore.load_skip_dirs(repo_root)        → skip_dirs frozenset
+    ├── store.connect(db_path, create=True)      → conn  [schema v2 applied on create]
+    │
+    └── store.transaction(conn):
+            │
+            ├── _process_files(conn, ...)        → AST nodes + calls/imports/contains edges
+            │
+            ├── manifest_data = packages.refresh(conn, repo_root)
+            │                                    → Package nodes + old contains edges
+            │
+            ├── entry_points.emit(conn, manifest_data)
+            │                                    → EntryPoint nodes + declares_entry_point
+            │                                       + implemented_by edges
+            │
+            ├── structural_nodes.emit(conn, repo_root, skip_dirs)
+            │                                    → Repository node + SubPackage nodes
+            │                                       + File nodes with role flags
+            │                                       + physically_contains tree edges
+            │
+            ├── test_suites.emit(conn, repo_root, skip_dirs)
+            │                                    → TestSuite nodes
+            │                                       + re-parented physically_contains edges
+            │                                       + tests edges (suite → package/domain/repo)
+            │
+            ├── domains.emit(conn, repo_root)
+            │     ├── load_domains(repo_root / "domains.yaml")  → DomainConfig | None
+            │     └──                                           → Domain nodes
+            │                                                      + belongs_to_domain edges
+            │                                                      + domain_contains_domain edges
+            │
+            ├── [stale-node cleanup — existing, unchanged]
+            │
+            ├── resolve.sweep(conn)              → placeholder edges resolved
+            │
+            ├── derived_edges.compute(conn)
+            │     ├── clear existing references + depends_on edges
+            │     ├── walk imports edges filtered by domain membership
+            │     └──                           → references edges (Domain → Package)
+            │                                      + depends_on edges (Domain → Domain)
+            │
+            └── _set_metadata(conn, "last_indexed_commit", head)
+```
 
-**Why it's wrong:** MCP tools must return quickly and cleanly. The DeepAgents CLI host manages the outer conversation loop. Putting an inner LangGraph loop inside the MCP handler creates nested loops with unclear context boundaries and makes streaming impossible.
+### Query flow (read-only)
 
-**Do this instead:** Each MCP tool handler runs a single command (one BM25 search + one fan-out + one synthesis call). The outer agent loop (hosted by DeepAgents CLI) handles multi-turn conversation across multiple tool calls.
-
-### Anti-Pattern 2: Shared Mutable Vault State Between Subagents
-
-**What people do:** Give multiple concurrent subagents write access to the same vault files.
-
-**Why it's wrong:** Race conditions on file writes. Fan-out subagents in v1 are read-only (librarian, linter semantic pass). Only the parent command writes to the vault, after collecting all subagent results.
-
-**Do this instead:** Fan-out subagents are read-only. The parent command serializes all writes after `asyncio.gather` completes.
-
-### Anti-Pattern 3: Putting Vault IO in `cores/`
-
-**What people do:** Factor the vault IO layer into a shared core so other agents can use it.
-
-**Why it's wrong:** The vault format is specific to graph-wiki-agent. A future agent for a different domain would need different IO primitives. Premature abstraction creates coupling before the second use case exists.
-
-**Do this instead:** Keep `vault/` inside `agents/graph-wiki-agent/`. Promote to a core only if a second agent needs the same vault format.
-
-### Anti-Pattern 4: Importing lattice-wiki-core as a Runtime Dependency
-
-**What people do:** `pip install lattice-wiki-core` and import from it in graph-wiki-agent to avoid porting.
-
-**Why it's wrong:** lattice-wiki-core is coupled to `lattice-workspace` path resolution, which is repo-specific. It's a cross-repo, cross-tool-chain dependency that will break in CI and any environment that doesn't have the lattice monorepo checked out at a known path.
-
-**Do this instead:** Port the 6 relevant modules (~800 lines). Strip the `_workspace.py` coupling, replace with `.code-wiki.json` config. One day of work, zero ongoing coupling.
+```
+cg describe-domain billing
+    │
+    ▼
+cli/q_describe_domain.run(args)
+    │
+    ├── store.read_only_connect(db_path)          → conn (schema v2 check)
+    │
+    ├── queries.describe_domain(conn, name="billing")
+    │     ├── SELECT uri, attrs_json FROM nodes WHERE kind='domain' AND name='billing'
+    │     ├── SELECT pkg.name FROM edges + nodes WHERE kind='belongs_to_domain' AND dst=billing.id
+    │     ├── SELECT sub.name FROM edges + nodes WHERE kind='domain_contains_domain' AND src=billing.id
+    │     ├── SELECT ref.* FROM edges WHERE kind='references' AND src=billing.id
+    │     └── SELECT dep.* FROM edges WHERE kind='depends_on' AND src=billing.id
+    │
+    └── _format.render(result) → stdout
+```
 
 ---
 
 ## Sources
 
-- uv workspace documentation: https://docs.astral.sh/uv/concepts/projects/workspaces/
-- deepagents PyPI (v0.6.1, May 2026): https://pypi.org/project/deepagents/
-- deepagents GitHub: https://github.com/langchain-ai/deepagents
-- langchain-mcp-adapters: https://github.com/langchain-ai/langchain-mcp-adapters
-- FastMCP Python server pattern: https://medium.com/@anoopninangeorge/building-a-remote-mcp-server-a-mcp-client-with-fastmcp-langchain-langgraph-17cf0e8d043b
-- ChatBedrock concurrency (ainvoke + asyncio.gather): https://python.langchain.com/api_reference/aws/chat_models/langchain_aws.chat_models.bedrock.ChatBedrock.html
-- lattice-wiki-core source: /Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/ (direct inspection)
+- `packages/graph-io/src/graph_io/schema.py` — existing DDL, current column set
+- `packages/graph-io/src/graph_io/update.py` — existing orchestration flow, transaction boundary, call sites
+- `packages/graph-io/src/graph_io/upsert.py` — `(kind, name, path)` identity model, `_upsert_node` signature
+- `packages/graph-io/src/graph_io/packages.py` — `_discover_manifests`, `refresh`, manifest scan pattern
+- `packages/graph-io/src/graph_io/resolve.py` — sweep logic, placeholder-node cleanup
+- `packages/graph-io/src/graph_io/queries.py` — existing query functions, `NodeRecord` dataclass pattern
+- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, `read_only_connect`
+- `packages/graph-io/src/graph_io/cli/main.py` — subcommand registry, `lattice` brand text locations
+- `packages/graph-io/src/graph_io/exit_codes.py` — `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6`
+- `packages/graph-io/src/graph_io/sync_wiki.py` — isolation from v1.6 changes confirmed
+- `packages/graph-io/src/graph_io/_ignore.py` — `DEFAULT_SKIP_DIRS`, `should_skip` API consumed by new scanners
+- `packages/source-parser/src/source_parser/projections/graph.py` — `GraphNode.attrs` handoff point
+- `packages/workspace-io/src/workspace_io/paths.py` — `graph_dir()` — canonical DB location
+- `.planning/research/ONTOLOGY-SPEC.md` — node types, edge types, scanner pipeline, identity scheme
+- `.planning/research/STACK.md` — library decisions, URI module design, test framework detection approach
+- `.planning/research/FEATURES.md` — CLI surface decisions, anti-features, §10 query coverage
+- `.planning/PROJECT.md` — v1.6 scope, v1.7 deferral list, pipeline restructure explicitly deferred
 
 ---
-
-*Architecture research for: agent-research Python monorepo (graph-wiki-agent)*
-*Researched: 2026-05-13*
+*Architecture research for: graph-io v1.6 ontology expansion (schema v2, URI identity, new node/edge types, additive scanner integration)*
+*Researched: 2026-05-25*

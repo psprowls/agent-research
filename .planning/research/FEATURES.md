@@ -1,281 +1,366 @@
-# Feature Research
+# Feature Research — v1.6 graph-io Ontology CLI Surface
 
-**Domain:** MCP server + deepagents-native code wiki agent with per-subagent eval harness
-**Researched:** 2026-05-13
-**Confidence:** HIGH (MCP/deepagents from Context7 official docs; eval patterns from deepagents evals lib + LangSmith SDK)
+**Domain:** Code graph CLI — new node/edge types surfaced as user-facing queries
+**Researched:** 2026-05-25
+**Confidence:** HIGH (spec §10 is the authoritative source of truth; all features mapped directly to its example queries)
 
 ---
 
-## Section 1: MCP Server Features
+## Ontology Bucketing
 
-The MCP server is the primary delivery surface. The DeepAgents CLI hosts the conversation; this server exposes tools. The question is: which MCP primitives are actually useful for a deepagents host vs which are just spec completeness?
+All features are grouped by the seven ontology categories the milestone introduces. The §10 example queries are the canonical "what users want to ask" checklist; every query is mapped below.
 
-### Table Stakes — MCP Server
+---
+
+## 1. Repository
+
+### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Tool registration for all 6 commands | DeepAgents host discovers tools via `tools/list`; missing tools = commands unreachable | S | One `@mcp.tool()` per command: `wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log` |
-| Typed input schemas (Pydantic) | MCP host renders parameter hints; type validation catches bad calls before the agent loop runs | S | FastMCP infers from function signature; use Pydantic models for complex args |
-| Structured output (Pydantic return types) | Host can parse success/failure without regex; subagent fan-out aggregation requires structured results | S | Return typed dataclasses/Pydantic models, not raw strings. FastMCP wraps automatically. |
-| `isError` flag on tool failures | MCP protocol standard: distinguish tool error from tool success with error content | S | FastMCP surfaces Python exceptions as `isError=true` content automatically |
-| `ctx.info()` / `ctx.debug()` log emission | Without log emission, debugging hangs during long scan/lint/ingest runs is impossible | S | `ctx.info(...)` during each major phase of scan/ingest/lint; `ctx.debug(...)` for per-file events |
-| `ctx.report_progress()` during long operations | scan, ingest, lint can take 30–120s on large repos; without progress the host shows nothing | S | Emit progress fraction at each package/rule-group boundary |
-| stdio transport | DeepAgents CLI spawns MCP servers as stdio subprocesses — this is the primary integration path | S | `mcp.run(transport="stdio")` is one line; required for DeepAgents CLI compatibility |
-| Graceful error returns (not process crashes) | A lint parse error on one page must not kill the server process | S | Wrap tool bodies in try/except; return `isError=true` with message |
+| `cg describe-repo` | Repository is a first-class node; users need basic inspection | S | Show URI, URL, default branch, owner, package count. Read from `Repository` node attrs. |
+| `cg status` extension: repo URI in output | `cg status` is already shipped; now that a `Repository` node exists, its URI should appear in status | S | Additive — append `repo_uri` field to existing status output. No breaking change. |
 
-### Differentiators — MCP Server
+### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Resource exposure for vault pages | Exposes individual wiki pages as addressable `wiki://page/{slug}` resources; host can `read_resource` without calling a tool | M | Useful for Cursor/Claude Code hosts that do RAG over resources; not needed for DeepAgents CLI today but costs little to add |
-| Prompt templates for common invocations | Pre-baked prompts like `wiki_query_prompt(question)` reduce token waste on repeated query framing | S | `@mcp.prompt()` decorator; low-cost, good for future MCP host compatibility |
-| Streamable HTTP transport (alternative) | Enables deployment as a standalone service (CI, remote use); not needed locally | M | `mcp.run(transport="streamable-http", stateless_http=True)` — add as an optional `--transport` flag; defer to v1.x |
-| Server `instructions` metadata | Host-visible description of what the server does and how to invoke it; improves agent planning | S | Set `name`, `description`, `instructions` on the FastMCP instance |
-| Per-tool `annotations` (readOnly, destructive) | Lets cautious hosts gate destructive tools (init, ingest) from read-only sessions | S | MCP spec supports tool annotations; mark `wiki_init`, `wiki_ingest`, `wiki_scan` as `destructive=True` |
+| `cg list-packages` (repo-scoped) | "What packages does this repo contain?" — now derivable from `physically_contains` edges from Repository | S | Currently `cg status` shows node_counts but not the package list. Expose as a lightweight list command. |
 
-### Anti-Features — MCP Server
+### §10 Mapping
 
-| Feature | Why Requested | Why Not Build It | Alternative |
-|---------|---------------|-----------------|-------------|
-| Sampling (`ctx.session.create_message`) | Lets server call back to the host LLM mid-tool | The LLM calls are handled by deepagents subagents running inside the tool, not by sampling back through MCP. Sampling adds a round-trip and couples server to host LLM choice. | Keep all LLM calls in the deepagents subagent layer, not in MCP callbacks |
-| SSE-only transport (legacy) | Some older hosts only understand SSE | SSE was deprecated in MCP spec 2025-03-26; streamable HTTP supersedes it | Implement streamable HTTP if remote access is needed; skip SSE entirely |
-| Resource subscriptions / change notifications | Nice for live-updating clients | No real-time file watcher exists in lattice-wiki; adding one is out of scope | Clients re-call tools to get fresh state |
-| MCP roots negotiation | Protocol feature for multi-root workspaces | DeepAgents CLI doesn't use roots today; the server reads repo path from tool args | Pass `repo_path` as explicit tool argument |
+None of the §10 example queries target Repository directly. The `Repository` node is load-bearing infrastructure for `TestSuite → Repository` tests edges and for multi-repo future scope, but no standalone CLI query was requested in the spec. `cg describe-repo` is an inference from "Repository is a first-class node" — it would be conspicuously absent.
 
 ---
 
-## Section 2: Subagent Fan-Out Features
+## 2. Package + SubPackage
 
-Fan-out is the primary reason for the rewrite — sequential subagents become parallel. Deepagents provides `runSwarm` (bounded parallel fan-out) and per-SubAgent model config via `subagents.yaml` or inline Python dicts.
-
-### Table Stakes — Subagent Fan-Out
+### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Per-role model routing | Different Bedrock models per role is the cost-savings mechanism; without it, all roles run the same model and there's no optimization lever | M | deepagents SubAgent dict supports `"model": "bedrock:..."` per agent; configure scanner/librarian/linter/ingestor separately |
-| Parallel page-drill (librarian) | query currently drills 3–10 pages sequentially; parallelizing is the main latency win | M | `runSwarm` with `concurrency=5`; each task = one page drill + synthesis fragment |
-| Parallel rule-group execution (linter) | lint has 6+ rule groups (container, file_map, domain, source_sync, package_sync, dependency_layer); running concurrently cuts wall time ~5x | M | Each rule-group becomes a SubAgent task; results merged into unified report |
-| Parallel package review (scanner) | scan walks N packages; reviewing each stub in parallel vs sequentially is the main scan speedup | M | One SubAgent task per package; concurrency bounded by `runSwarm` cap (10) |
-| Result aggregation | Fan-out is useless without merging partial results into a coherent output | M | Aggregator function runs after `runSwarm` completes; merges list results, deduplicates cross-refs, sorts lint findings by severity |
-| Partial-failure handling | If 2 of 10 page-drills fail (model timeout, malformed page), query must still return the 8 that succeeded | S | Check `result.status == "failed"` in `runSwarm` results; emit warning in output, continue with completed results |
-| Structured trace output per run | Without per-run trace, cost accounting and debugging are blind | S | Each SubAgent emits structured result including: role, model_id, input_tokens, output_tokens, duration_ms, status |
+| `cg describe-package` — extend to show domains | Package is now a member of 0..N domains; this is the most common "what is this package?" question | S | Additive to existing output. Append `domains: [billing, auth]` or `domains: []` (cross-cutting). |
+| `cg describe-package` — extend to show entry points | §10: "What can I run from this package?" and "What does this package export?" both start at the package | S | Append `entry_points: [{name, kind, source}]` block. Requires EntryPoint nodes (stage 2 of scanner). |
+| `cg describe-package` — extend to show suites | "What tests cover this package?" starts at the package | S | Append `test_suites: [{name, kind}]` block — suite names only, not file lists. Deep traversal lives in `cg what-tests`. |
+| `cg describe-path` — extend to show File role flags | `File` nodes now carry `is_test`, `is_executable`, `is_importable`, `is_config`, etc. | S | Additive to existing output. Append `role_flags: {is_test: false, is_executable: true, ...}` block. |
 
-### Differentiators — Subagent Fan-Out
+### SubPackage Notes
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Per-subagent cost/token accounting | Enables the cost-frontier report; without it the eval harness has no cost axis | M | Capture `usage_metadata` from LangChain AI message responses; aggregate per role per run. LangChain-AWS exposes token counts via `response_metadata`. |
-| Retry policy (per-subagent, with backoff) | Bedrock throttles under load; 1 retry with exponential backoff recovers most transient failures without manual re-run | M | Wrap SubAgent invocation in retry decorator; log retries to structured trace |
-| Concurrency limit as config | Different commands have different parallelism budgets (scan: wide, query: narrow) | S | Expose `fan_out_concurrency` per command in config; default safe values (librarian=5, linter=6, scanner=8) |
-| Agent-level system prompt overrides | Fine-tuning per-role behavior without code changes; useful for model-specific prompting | S | SubAgent `system_prompt` field; store per-model variants in config |
-| Fan-out summary log to `log.md` | Preserves the existing lattice-wiki logging convention while adding subagent stats | S | After aggregation, append structured JSON entry to `log.md` with per-role token + duration summary |
+`SubPackage` nodes are Python-only and live inside the physical containment tree. No dedicated `cg describe-subpackage` command is needed in v1.6 — `cg describe-path` already handles file-level inspection, and `cg find <name> --kind subpackage` covers discovery. The subpackage layer is structural scaffolding that enriches existing commands rather than requiring new ones.
 
-### Anti-Features — Subagent Fan-Out
+### §10 Mapping
 
-| Feature | Why Requested | Why Not Build It | Alternative |
-|---------|---------------|-----------------|-------------|
-| Nested subagents (sub-subagents) | More parallelism | PROJECT.md explicitly rules out nested subagents in v1; debugging cost is high, quality gain unproven | Profile single-level fan-out first; revisit if eval shows bottleneck |
-| Dynamic concurrency scaling | Automatically adjusting concurrency based on model latency | Over-engineering for v1; Bedrock throttle behavior is not deterministic enough for reliable auto-scaling | Fixed concurrency per command in config; manual tuning after eval |
-| Cross-command subagent pooling | Reusing a "warm" subagent across commands | Not supported by deepagents SubAgent model; each `runSwarm` call is stateless | Accept stateless fan-out; it simplifies reasoning about side effects |
+- "Give me the production code surface of this package, excluding tests." → `cg describe-package <name>` already lists files; after v1.6 the `physically_contains` subtree excludes test files by construction. The command output changes (fewer files listed) but no new command is needed.
 
 ---
 
-## Section 3: Eval Suite Features
+## 3. EntryPoint
 
-The eval suite exists to answer one question: "Which Bedrock model is cheapest while still meeting quality bar per role?" It must produce a cost-vs-quality frontier per subagent role.
-
-### Table Stakes — Eval Suite
+### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Baseline corpus capture | Without a recorded baseline from the current tool, there's no reference point for "same quality" | M | Run each lattice-wiki command against fixture repos; capture full outputs as JSON/markdown files. Store in `evals/baselines/`. Run once, commit. |
-| Fixture repos (test repos) | Eval needs stable, controlled inputs — not Pat's live repos | M | Create 2–3 small synthetic repos (monorepo with 5 packages, single package, ADR-heavy repo) as git submodules or committed snapshots in `evals/fixtures/` |
-| Per-role model comparison harness | Core eval: swap Bedrock models per role (Haiku/Sonnet/Llama/Nova), hold prompts fixed, score against baseline | M | pytest parametrize over model list per role; `deepagents-evals`-style trial runner or custom pytest fixtures |
-| Structural scoring (deterministic checks) | Some outputs are checkable without LLM: frontmatter valid, wikilinks resolve, all packages present in scan output | S | Pure Python assertions: parse frontmatter, check link targets exist, verify index entry counts |
-| Similarity scoring (vs baseline) | Measures semantic closeness of new output to recorded baseline; catches regressions that structural checks miss | M | Jaccard similarity on token sets for lightweight checks; optionally add embedding cosine similarity for query answers |
-| Cost tracking per run | Without cost data, the cost-frontier report has no Y axis | S | Capture `input_tokens` + `output_tokens` per subagent from trace; multiply by Bedrock per-token price for each model; store in trial JSON |
-| JSON trial output | Machine-readable results enable automated regression detection and chart generation | S | Per-trial JSON: `{role, model_id, query, score, cost_usd, duration_ms, baseline_match}`; schema matches deepagents evals trial format |
-| Regression detection (run vs baseline threshold) | CI must fail when quality drops below threshold | S | Assert `score >= MIN_SCORE` in pytest; MIN_SCORE set per role based on initial calibration |
-| CI integration (pytest-based) | The eval suite must be runnable in CI without manual intervention | S | Standard `pytest evals/` invocation; `@pytest.mark.slow` for LLM-calling tests; `@pytest.mark.eval` for model-comparison tests; skip by default in unit CI |
+| `cg list-entry-points <package>` | §10: "What can I run from this package?" and "What does this package export?" are explicit example queries | S | Filter by `kind: executable` or `kind: library` via `--kind` flag. Default shows both. Human output: name, kind, source, implementing file path. |
+| `cg describe-package` extension (see §2) | Entry points surfaced at the package level | S | Already captured above; cross-listed here for clarity. |
 
-### Differentiators — Eval Suite
+### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| LLM-judge scoring for query answers | Structural + similarity checks may miss answer quality nuance; an LLM judge catches factual errors and hallucinations | L | Use a cheap model (Nova Micro or Haiku) as judge; prompt: "Does this answer correctly address the question given this wiki?" Score 0–1. Higher cost; defer if similarity scoring is sufficient. |
-| Cost-vs-quality chart (per role) | The deliverable — a visual that shows which model is on the Pareto frontier per role | M | Generate via matplotlib or simple HTML table; one chart per role; axes: quality score (Y) vs $/run (X); models as labeled points |
-| Per-query breakdown report | Pinpoints which queries drive quality differences between models | M | Per-query score in trial JSON; sort by score delta vs baseline; output top-10 worst queries per model |
-| Reproducibility controls (seed, model pinning) | Ensures trial-over-trial comparability | S | Pass `temperature=0.0` where Bedrock supports it; pin `model_id` including version suffix (e.g., `anthropic.claude-haiku-4-5-20251001-v1:0`); record in trial metadata |
-| Retry-failed-only mode | Re-running only failed eval cases saves significant time/cost during debugging | S | Store failures in trial JSON; `pytest --rerun-failed=trials_summary.json`; mirrors `deepagents-evals --retry-failed` pattern |
-| LangSmith dataset integration | Offload dataset storage and experiment tracking to LangSmith; enables UI-based comparison | L | LangSmith `evaluate()` with custom evaluators; useful if suite grows large; adds dependency and auth requirement; defer unless manual JSON management becomes painful |
+| `cg find --kind entry-point` | Repo-wide search for all declared entry points | S | Extends existing `cg find` with the new node kind. Zero new code beyond registering the kind. |
+| `cg list-scripts` | §10: "What scripts exist in this repo (declared or conventional)?" — union of `EntryPoint kind:executable` + `File is_executable:true` | M | Requires a two-source query: `EntryPoint` nodes and `File` nodes with `is_executable` flag. Returns name + path + source (declared vs. conventional). |
 
-### Anti-Features — Eval Suite
+### §10 Mapping
 
-| Feature | Why Requested | Why Not Build It | Alternative |
-|---------|---------------|-----------------|-------------|
-| MMLU/academic benchmarks | General model quality benchmarks exist | This eval measures task-specific quality on wiki outputs, not general intelligence. Academic benchmarks don't tell you if Haiku can lint a Python monorepo. | Domain-specific structural + similarity + optional LLM-judge scoring |
-| Real-time eval dashboard | Pretty UI for exploring results | Overkill for one developer; adds a web server dependency | JSON files + single chart script; open in browser when needed |
-| Multi-provider eval (non-Bedrock) | Compare OpenRouter / direct Anthropic / Ollama | PROJECT.md rules out non-Bedrock in v1; adding providers now fragments the eval matrix | Bedrock-only in v1; eval harness is provider-agnostic enough to extend later |
-| Automatic prompt optimization | Iteratively improve prompts based on eval scores | Dangerous scope creep; prompt changes must be human-reviewed, not auto-applied | Eval surfaces score deltas; human decides whether to update prompts |
+- "What can I run from this package?" → `cg list-entry-points <package> --kind executable` (table stakes)
+- "What does this package export?" → `cg list-entry-points <package> --kind library` (table stakes)
+- "What scripts exist in this repo (declared or conventional)?" → `cg list-scripts` (differentiator — the union query)
 
 ---
 
-## Section 4: Features Lattice-Wiki Lacks (Consider for This Rewrite)
+## 4. TestSuite
 
-These are gaps in lattice-wiki today that a deepagents-native rebuild could address. Categorized by whether they're worth picking up during this rewrite.
+### Table Stakes
 
-### Worth Considering in v1 (Low Complexity, High Value)
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| `cg list-suites` | Discovery: "what test suites exist in this repo?" Every user will need this after the schema shifts | S | List TestSuite nodes: name, kind, framework, parent (Package or Repository), targets. |
+| `cg describe-suite <name>` | "What tests cover this package?" and "What integration tests touch the Billing domain?" require suite detail | M | Show: name, kind, framework, physically_contains files, `tests` edges (package/domain/repo targets). |
+| `cg what-tests <package>` | §10: "What tests cover this package?" is an explicit example query | M | Traverse: `tests → Package` edges, collect suites. Also traverse `tests → Domain` for suites where the package's domain matches. Output: suite names + kinds + file counts. |
 
-| Feature | Current Gap | Complexity | Recommendation |
-|---------|-------------|------------|----------------|
-| Semantic search (BM25 + embedding hybrid) | lattice-wiki uses BM25 only; semantic search finds conceptually related pages that keyword search misses | M | Add optional embedding-based re-ranking on top of BM25 results using a Bedrock embedding model (Titan Embeddings v2). Gated by config flag; BM25-only remains default. |
-| Structured scan diff output | scan today logs human-readable text; a structured JSON diff (added/updated/deleted stubs) would make scan composable with other tools | S | Return `{added: [...], updated: [...], deleted: [...]}` from `wiki_scan` tool; existing human log still emitted |
-| Query answer confidence / uncertainty signal | query today returns synthesized text with no quality signal; a confidence flag ("HIGH / LOW coverage") helps the user decide whether to ingest more pages | S | Append confidence field to query output: based on number of pages found vs requested, and whether all wikilinks resolved |
+### Differentiators
 
-### Defer to v2 (High Complexity or Needs Validation First)
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| `cg what-tests <domain>` (domain variant) | §10: "What integration tests touch the Billing domain?" — domain-level test coverage | M | Same traversal but anchor on Domain node. Output: suites with `tests → Domain(X)` + suites with multiple `tests → Package` where packages belong to the domain. Requires Domain nodes. |
+| `cg what-tests <path>` (file variant) | Advisory file-level test coverage via `File → File` tests edges | L | Best-effort only (advisory per spec §4.3). Lower priority than suite-level. Mark output as advisory. |
 
-| Feature | Current Gap | Why Defer |
-|---------|-------------|-----------|
-| Vector store / persistent embedding index | Embedding-based search requires maintaining a vector DB across runs | Adds infra dependency (local Chroma or cloud service); validate BM25+hybrid approach first |
-| Git-diff-aware ingest (only re-ingest changed files) | ingest today re-processes all files; a git-diff pre-filter would cut cost on large repos | Requires git integration inside ingest loop; significant complexity; defer until cost becomes measurable pain |
-| ADR / decision log cross-referencing | ADRs exist in the vault but aren't first-class linked to package pages they affect | Medium complexity; needs a new page category type and lint rule; worth a dedicated milestone |
-| Automatic page staleness scoring | Detect which pages are most likely out of date based on git activity vs last-ingest timestamp | Needs git integration + scoring heuristic; medium complexity; useful but not blocking parity |
-| Streaming query responses | Stream query answer tokens back to the MCP host as they arrive | Requires streaming-aware MCP tool (async generator); deepagents fan-out aggregation doesn't naturally compose with streaming; defer |
+### §10 Mapping
 
-### Explicit Non-Goals (Anti-Features for This Rewrite)
+- "What tests cover this package?" → `cg what-tests <package>` (table stakes)
+- "What integration tests touch the Billing domain?" → `cg what-tests <domain>` (differentiator variant of same command)
+- "Give me the production code surface of this package, excluding tests." → structural consequence of re-parenting test files to suites; no new command, `cg describe-package` automatically excludes them
 
-| Feature | Why Not |
-|---------|---------|
-| Full-text search over source code (not wiki) | This is a wiki agent, not a code search engine. Serena, code-index-mcp, and similar tools handle code search. The wiki is an abstraction layer over code, not a code index. |
-| Automatic wiki generation from scratch without human review | Fully automated generation without a state-gate leads to hallucinated pages. lattice-wiki's state-gate convention (DRAFT → REVIEW → STABLE) must be preserved. |
-| Real-time file watchers / auto-sync | Explicitly ruled out in PROJECT.md. Manual triggers match the existing workflow. |
-| Multi-repo federation | Each wiki vault maps to one repo. Multi-repo is an architectural change that requires vault schema changes. Defer indefinitely. |
-| Web UI for wiki browsing | Obsidian already handles this. Adding a web UI duplicates it. |
+---
+
+## 5. Domain
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| `cg describe-domain <name>` | Domain is a first-class node; users need basic inspection | M | Show: URI, description, member packages (via `belongs_to_domain`), sub-domains (via `domain_contains_domain`), derived `references` edges, derived `depends_on` edges. |
+| `cg list-domains` | Discovery: "what domains exist?" — prerequisite for all domain queries | S | List all Domain nodes with member package count and sub-domain count. |
+| `cg domain-refs <name>` | §10: "What does the Billing domain depend on (outside of itself)?" | S | Read `references` edges from the Domain node. Output: package name, domain membership of that package, usage count. |
+| `cg domain-deps <name>` | §10: "Does Billing depend on Auth?" | S | Read `depends_on` edges from the Domain node to other Domain nodes. |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| `cg cross-cutting` | §10: "Which utility packages are most widely used?" — packages with zero `belongs_to_domain` edges, ranked by incoming `references` count | M | Two-part query: find packages with no `belongs_to_domain` edges, then rank by count of distinct domains with `references → Package` edges. |
+| `cg domain-tree` | Visualize nested domain hierarchy for orientation in large repos | M | Walk `domain_contains_domain` edges recursively, print as indented tree. Only useful when domains are nested; gracefully shows flat list when no nesting exists. |
+| `cg domain-callers <name>` | §10: "What functions in the Auth domain call into the Billing domain?" | L | Requires join: `belongs_to_domain` (package → domain), `physically_contains` (transitively to function), `calls` (cross-domain). High implementation cost relative to query frequency. Flag as "needs deeper investigation" — recursive containment traversal. |
+
+### §10 Mapping
+
+- "What packages are in the Billing domain (including sub-domains)?" → `cg describe-domain billing` shows members + sub-domains; or `cg list-domains` then drill. No separate command needed beyond `describe-domain`.
+- "What does the Billing domain depend on (outside of itself)?" → `cg domain-refs billing` (table stakes)
+- "Does Billing depend on Auth?" → `cg domain-deps billing` — check if Auth appears in output (table stakes)
+- "What functions in the Auth domain call into the Billing domain?" → `cg domain-callers` (differentiator, HIGH complexity — see note)
+- "Which utility packages are most widely used?" → `cg cross-cutting` (differentiator)
+
+---
+
+## 6. Derived Edges (references, depends_on)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Derived edges computed on `cg update` | §4.5 specifies these as cached in DB (not recomputed on query) — users expect `cg domain-refs` to be fast | M | Re-run scanner stage 8 (derived edge computation) every time `cg update` runs. Store `references` and `depends_on` in the edges table with `attrs_json` carrying `usage_count`. |
+| `cg update` reruns derived edges without full AST re-parse | Domain overlay (stage 7) and derived edges (stage 8) must be re-runnable cheaply | M | After `domains.yaml` edits, users should be able to run `cg update --domains-only` (or equivalent) to recompute without re-scanning AST. The spec identifies this as a key design goal (§9: "domain assignment can be re-run without re-parsing code"). |
+
+### Anti-Features
+
+| Feature | Why Problematic | Alternative |
+|---------|-----------------|-------------|
+| Recomputing `references`/`depends_on` on every query | Expensive cross-join at query time; defeats the purpose of a cached graph | Compute in `cg update` stage 8, cache in `edges` table, read at query time |
+| Separate `cg recompute-domains` command | Creates a two-command workflow when `domains.yaml` changes; confusing for users | `cg update --domains-only` (or just `cg update` which is cheap if AST is unchanged) |
+
+### §10 Mapping
+
+Derived edges are the backing store for `cg domain-refs`, `cg domain-deps`, and `cg cross-cutting`. They have no direct CLI surface beyond those commands, but they must exist in the DB or those commands degrade to expensive live queries.
+
+---
+
+## 7. Brand Sweep (lattice → graph-wiki)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| `README.md` — "lattice-graph-core" → graph-wiki phrasing | README currently says "lattice-graph-core" and `~/.lattice/graph/code.db`; inconsistent with the rest of the rebranded repo | S | Rename package description, update path references to canonical graph-wiki path. |
+| `cli/main.py` — argparse description "lattice code graph CLI" → "graph-wiki code graph CLI" | Visible in `cg --help` output | S | One-line change. |
+| DB path references in docs/comments | `~/.lattice/graph/code.db` appears in README and possibly inline comments | S | Update to the canonical graph-wiki path wherever it appears. |
+| Exit-code doc string in README | Already references lattice; align with graph-wiki | S | Part of the same README sweep. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-wiki_init
-    └──required by──> wiki_scan (vault must exist before scan writes stubs)
-    └──required by──> wiki_ingest (vault must exist before ingest writes pages)
-    └──required by──> wiki_query (index must exist to query)
-    └──required by──> wiki_lint (vault must exist to lint)
+Schema v2 + URI identity
+    └──required-by──> cg describe-repo
+    └──required-by──> cg describe-domain
+    └──required-by──> cg list-domains
+    └──required-by──> cg domain-refs
+    └──required-by──> cg domain-deps
+    └──required-by──> cg cross-cutting
+    └──required-by──> cg list-suites
+    └──required-by──> cg describe-suite
+    └──required-by──> cg what-tests
+    └──required-by──> cg list-entry-points
+    └──required-by──> cg list-scripts
 
-wiki_scan
-    └──required by──> wiki_query (index populated by scan)
-    └──required by──> wiki_lint (stubs created by scan are lint targets)
-    └──enhances──> wiki_ingest (scan creates stubs that ingest fills)
+Scanner stage 1-3 (structural nodes + EntryPoint + TestSuite)
+    └──required-by──> cg list-entry-points
+    └──required-by──> cg list-scripts
+    └──required-by──> cg list-suites
+    └──required-by──> cg describe-suite
+    └──required-by──> cg what-tests (suite-level)
+    └──required-by──> describe-package extension (entry points + suites)
+    └──required-by──> describe-path extension (File role flags)
 
-Structured trace output (fan-out)
-    └──required by──> Cost tracking (eval)
-    └──required by──> Cost-vs-quality chart (eval)
+Scanner stage 7 (domain assignment / domains.yaml)
+    └──required-by──> cg describe-domain
+    └──required-by──> cg list-domains
+    └──required-by──> cg domain-refs
+    └──required-by──> cg domain-deps
+    └──required-by──> cg cross-cutting
+    └──required-by──> cg what-tests (domain variant)
+    └──required-by──> cg domain-callers
 
-Baseline corpus
-    └──required by──> Regression detection
-    └──required by──> Similarity scoring
-    └──required by──> Per-role model comparison harness
+Scanner stage 8 (derived edges: references, depends_on)
+    └──required-by──> cg domain-refs  (reads references edges)
+    └──required-by──> cg domain-deps  (reads depends_on edges)
+    └──required-by──> cg cross-cutting (reads references edge counts)
+    └──required-by──> cg domain-callers (joins calls + belongs_to_domain)
 
-Fixture repos
-    └──required by──> Baseline corpus capture
-    └──required by──> Per-role model comparison harness
+Domain nodes (stage 7)
+    └──required-by──> cg what-tests --kind domain (differentiator)
+    └──required-by──> cg domain-callers (differentiator)
+    └──enhances──> cg describe-package (domain membership display)
 
-Per-role model routing (fan-out)
-    └──required by──> Cost-vs-quality chart (eval)
-    └──enhances──> Cost tracking (eval)
+TestSuite nodes (stage 3)
+    └──required-by──> cg what-tests
+    └──required-by──> cg list-suites
+    └──required-by──> cg describe-suite
+
+EntryPoint nodes (stage 2)
+    └──required-by──> cg list-entry-points
+    └──required-by──> cg list-scripts (declared half)
+
+File role flags (stage 1)
+    └──required-by──> cg list-scripts (is_executable conventional half)
+    └──required-by──> describe-path extension
+    └──required-by──> describe-package (test file exclusion from production surface)
 ```
 
 ### Dependency Notes
 
-- `wiki_init` must ship before any other command can be tested end-to-end.
-- Baseline corpus capture depends on fixture repos being committed first; capture should be a one-time recorded step, not regenerated on each eval run.
-- The cost-vs-quality chart is only meaningful after per-role model routing is wired and cost tracking is capturing real token counts. These three features form a single deliverable unit.
-- Structured trace output is a cross-cutting concern that must be designed before fan-out is implemented — retrofitting it is harder than building it in.
+- `cg domain-callers` requires Domain nodes AND a recursive `physically_contains` traversal AND the `calls` edge graph. This is the most expensive query in the §10 set. Mark as "needs deep investigation" before implementation — may require a WITH RECURSIVE join that is non-trivial to write correctly.
+- `cg what-tests <domain>` requires Domain nodes. Since Domain nodes depend on domains.yaml being configured, this command gracefully returns empty results when domains are unconfigured (not an error).
+- All domain commands gracefully degrade: if `domains.yaml` is absent or empty, `cg list-domains` returns an empty list, `cg describe-domain` returns not-found. Zero-domain is acceptable per spec §4.4.
+- `cg list-scripts` is the one command that joins across two node types (EntryPoint + File). Implementable as a UNION query; medium complexity.
 
 ---
 
-## MVP Definition
+## Anti-Features (Do Not Build in v1.6)
 
-### Launch With (v1 — full parity milestone)
-
-These are the features without which the tool doesn't replace lattice-wiki.
-
-- [ ] All 6 MCP tools registered with typed schemas — required for DeepAgents host to discover commands
-- [ ] `ctx.info()` + `ctx.report_progress()` in scan, ingest, lint — required because these commands take >30s
-- [ ] Graceful error returns (`isError=true`) — required to avoid server crashes killing the DeepAgents session
-- [ ] stdio transport — required for DeepAgents CLI integration
-- [ ] Per-role model routing (scanner, librarian, linter, ingestor to separate Bedrock models) — required for the cost savings goal to be testable
-- [ ] Parallel page-drill (librarian), parallel rule-groups (linter), parallel package review (scanner) — required; these are the primary v1 differentiator over the existing tool
-- [ ] Partial-failure handling in fan-out — required; without it, one bad page crashes the whole query
-- [ ] Structured trace output per subagent run — required foundation for eval
-- [ ] Fixture repos committed — required before any eval run
-- [ ] Baseline corpus captured from current lattice-wiki — required before eval produces meaningful comparisons
-- [ ] Structural scoring (deterministic checks) — required as the lowest-cost eval signal
-- [ ] Cost tracking per run (token counts × price) — required for cost-frontier report
-- [ ] JSON trial output — required for regression detection in CI
-- [ ] pytest CI integration with `@pytest.mark.eval` — required for automated regression gate
-
-### Add After Validation (v1.x)
-
-Once parity is confirmed and the first cost-frontier report is generated:
-
-- [ ] Semantic search (BM25 + Bedrock embedding hybrid) — add when query quality evaluation shows BM25 misses are real
-- [ ] Similarity scoring (embedding cosine vs baseline) — add if structural scoring proves insufficient to catch regressions
-- [ ] Retry policy with backoff — add when Bedrock throttle events appear in trace logs
-- [ ] Streamable HTTP transport — add when there's a use case beyond the local DeepAgents CLI
-- [ ] Cost-vs-quality chart generation — add once ≥3 trial runs exist to chart
-- [ ] LLM-judge scoring — add if similarity scores produce false negatives (regressions the judge catches that Jaccard misses)
-
-### Future Consideration (v2+)
-
-- [ ] Vector store / persistent embedding index — after hybrid search is validated in v1.x
-- [ ] Git-diff-aware ingest — after cost of full ingest is measured and confirmed as a pain point
-- [ ] ADR cross-referencing as first-class feature — dedicated milestone
-- [ ] LangSmith dataset integration — if eval suite outgrows local JSON management
-- [ ] Streaming query responses — if latency becomes a complaint with DeepAgents CLI
+| Feature | Why Not v1.6 | What to Do Instead |
+|---------|-------------|---------------------|
+| Wiki render commands (`cg sync-wiki` extensions for new node types) | Wiki redesign is v1.7 scope; existing `sync-wiki` stays unchanged | Leave `ops_sync_wiki.py` as-is; the new node types are in the graph but not rendered to wiki pages yet |
+| Agent integration helpers (`cg` as a grounding tool for `graph-wiki-agent`) | Agent integration is explicitly v1.7 scope; graph-io-only milestone | No MCP exposure, no `graph-wiki-agent graph` subcommand, no tool wrappers in v1.6 |
+| `tagged_with` mechanism | Open question §11 item 2; explicitly deferred per spec | Do not add `tagged_with` edges or `cg tag` commands; use zero-domain as the cross-cutting signal |
+| Cross-repo domain queries | Open question §11 item 3; single-repo is the v1.6 scope | Domain nodes are scoped to one repo; note as a v1.7+ extension point |
+| `cg domain-callers` (Function-level cross-domain join) | Extremely high implementation complexity for a rarely-used query; recursive traversal of `physically_contains` + `calls` edges | Defer to v1.7; users can approximate with `cg callers` manually today |
+| File-level `tests` edges in `cg what-tests` | Best-effort advisory per spec §4.3; high complexity for uncertain quality | Surface suite-level `tests` edges only in v1.6; file-level is v1.7+ |
+| `cg domains-only` update flag (re-run only stages 7-8) | Valuable optimization but requires pipeline architecture (§9 decomposed stages) which is deferred to v1.7 | v1.6 runs stages 7-8 as part of the normal `cg update` full-rebuild; optimization deferred |
+| Import-graph clustering or LLM-proposed domain groupings (spec §9 domain inference strategies 3+4) | v1.6 supports only explicit config + convention (strategies 1+2) | `domains.yaml` explicit config + top-level folder convention is sufficient for v1.6 |
+| `cg domain-import-graph` or raw domain edge dump | Too raw; CLI consumers want the derived summary, not raw edge lists | `cg domain-refs` and `cg domain-deps` provide the right level of abstraction |
 
 ---
 
-## Feature Prioritization Matrix
+## §10 Example Query Coverage Matrix
+
+Every example query from spec §10 mapped to a planned command, a deferral, or a "not yet."
+
+| §10 Example Query | CLI Command | Status |
+|-------------------|-------------|--------|
+| "What packages are in the Billing domain (including sub-domains)?" | `cg describe-domain billing` (walks `domain_contains_domain` + `belongs_to_domain`) | v1.6 table stakes |
+| "What does the Billing domain depend on (outside of itself)?" | `cg domain-refs billing` | v1.6 table stakes |
+| "Does Billing depend on Auth?" | `cg domain-deps billing` (check Auth in output) | v1.6 table stakes |
+| "What functions in the Auth domain call into the Billing domain?" | `cg domain-callers` | v1.7 — deferred (HIGH complexity, recursive join) |
+| "Which utility packages are most widely used?" | `cg cross-cutting` | v1.6 differentiator |
+| "What can I run from this package?" | `cg list-entry-points <pkg> --kind executable` | v1.6 table stakes |
+| "What does this package export?" | `cg list-entry-points <pkg> --kind library` | v1.6 table stakes |
+| "What scripts exist in this repo (declared or conventional)?" | `cg list-scripts` | v1.6 differentiator |
+| "What tests cover this package?" | `cg what-tests <package>` | v1.6 table stakes |
+| "What integration tests touch the Billing domain?" | `cg what-tests <domain>` (domain variant) | v1.6 differentiator (requires Domain nodes) |
+| "Give me the production code surface of this package, excluding tests." | `cg describe-package <name>` (test files excluded by construction post-v1.6) | v1.6 — structural consequence, not a new command |
+
+---
+
+## Existing Command Changes
+
+Commands that must change in v1.6 to reflect the new schema (additive only — no breaking changes).
+
+| Command | Change | Breaking? |
+|---------|--------|-----------|
+| `cg describe-package <name>` | + domains list, + entry points list, + test suites list | No — new fields appended |
+| `cg describe-path <path>` | + File role flags block | No — new field appended |
+| `cg status` | + repo URI, updated node/edge kind lists in counts | No — new fields appended |
+| `cg find --kind <X>` | Register new node kinds: `repository`, `subpackage`, `entry-point`, `test-suite`, `domain` | No — new valid values for existing flag |
+| `cg update` | Run scanner stages 7-8 (domain assignment + derived edges) as part of existing update flow | No — internally extended |
+
+---
+
+## Domain Config: domains.yaml
+
+**Location:** `<repo-root>/domains.yaml` — checked into version control alongside code. Single-repo scope in v1.6.
+
+**Format (minimal):**
+```yaml
+domains:
+  billing:
+    description: "Payment processing and invoicing"
+    packages:
+      - billing-service
+      - invoice-worker
+    subdomains:
+      - subscriptions
+
+  auth:
+    description: "Authentication and authorization"
+    packages:
+      - auth-service
+      - token-lib
+
+  subscriptions:
+    parent: billing
+    packages:
+      - subscription-manager
+```
+
+**Who edits it:** Pat (or the developer). The file is manually curated. Convention-based inference (top-level named folders treated as domain candidates) bootstraps an initial assignment without requiring `domains.yaml` to exist. Empty domains (no `domains.yaml`) is acceptable — all packages show as zero-domain (cross-cutting). No error is raised.
+
+**Bootstrap flow:** `cg update --full` runs stage 7 (domain assignment). If `domains.yaml` is absent, the convention-based inference runs (strategy 2 from spec §9). If the top-level folder has no named subfolders that look like domain candidates, all packages get zero `belongs_to_domain` edges. The user can then create `domains.yaml` and re-run `cg update` to populate domain membership.
+
+**Multi-repo:** Deferred to v1.7+. In v1.6, `domains.yaml` is scoped to one repo root.
+
+---
+
+## Feature Prioritization Summary
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| 6 MCP tools with typed schemas | HIGH | LOW | P1 |
-| stdio transport | HIGH | LOW | P1 |
-| Progress reporting + logging in tools | HIGH | LOW | P1 |
-| Graceful error returns | HIGH | LOW | P1 |
-| Per-role model routing | HIGH | MEDIUM | P1 |
-| Parallel fan-out (librarian/linter/scanner) | HIGH | MEDIUM | P1 |
-| Partial-failure handling | HIGH | LOW | P1 |
-| Structured trace + cost tracking | HIGH | MEDIUM | P1 |
-| Fixture repos + baseline corpus | HIGH | MEDIUM | P1 |
-| Structural scoring + CI integration | HIGH | LOW | P1 |
-| Cost-vs-quality chart | HIGH | MEDIUM | P2 |
-| Semantic hybrid search | MEDIUM | MEDIUM | P2 |
-| Resource exposure (vault pages) | MEDIUM | MEDIUM | P2 |
-| Retry policy with backoff | MEDIUM | MEDIUM | P2 |
-| LLM-judge scoring | MEDIUM | HIGH | P2 |
-| Prompt templates | LOW | LOW | P2 |
-| Streamable HTTP transport | LOW | MEDIUM | P3 |
-| LangSmith integration | LOW | HIGH | P3 |
-| Streaming query responses | LOW | HIGH | P3 |
-| Git-diff-aware ingest | MEDIUM | HIGH | P3 |
+| Schema v2 + URI identity | HIGH | HIGH | P1 — foundation for everything |
+| `cg describe-package` extension (domains + entry points + suites) | HIGH | LOW | P1 — most-used existing command |
+| `cg describe-path` extension (File role flags) | MEDIUM | LOW | P1 — low-cost, high clarity |
+| `cg list-entry-points <package>` | HIGH | LOW | P1 — explicit §10 query |
+| `cg list-suites` | HIGH | LOW | P1 — discovery primitive |
+| `cg describe-suite <name>` | HIGH | MEDIUM | P1 — explicit §10 query |
+| `cg what-tests <package>` | HIGH | MEDIUM | P1 — explicit §10 query |
+| `cg list-domains` | HIGH | LOW | P1 — domain discovery primitive |
+| `cg describe-domain <name>` | HIGH | MEDIUM | P1 — explicit §10 query |
+| `cg domain-refs <name>` | HIGH | LOW | P1 — reads cached derived edges |
+| `cg domain-deps <name>` | HIGH | LOW | P1 — reads cached derived edges |
+| Derived edge computation in `cg update` | HIGH | MEDIUM | P1 — all domain queries depend on it |
+| Brand sweep (README + CLI strings) | MEDIUM | LOW | P1 — cleanliness, brand gate compliance |
+| `cg describe-repo` | MEDIUM | LOW | P2 — structural completeness |
+| `cg list-packages` | MEDIUM | LOW | P2 — convenience |
+| `cg list-scripts` | MEDIUM | MEDIUM | P2 — union query, useful but not blocking |
+| `cg cross-cutting` | MEDIUM | MEDIUM | P2 — §10 query, requires derived edges |
+| `cg what-tests <domain>` (domain variant) | MEDIUM | MEDIUM | P2 — requires Domain nodes first |
+| `cg domain-tree` | LOW | MEDIUM | P3 — useful only for deeply nested domains |
+| `cg domain-callers` | MEDIUM | HIGH | P3 (v1.7) — recursive join complexity |
 
 ---
 
 ## Sources
 
-- MCP Python SDK (Context7 `/modelcontextprotocol/python-sdk`, v1.12.4): tool registration, progress, structured output, error handling, sampling, transport options
-- DeepAgents (Context7 `/langchain-ai/deepagents`): `runSwarm`, SubAgent model config, `subagents.yaml`, MCP integration via `langchain-mcp-adapters`, eval trial schema
-- LangSmith SDK (Context7 `/langchain-ai/langsmith-sdk`): `evaluate()`, custom evaluators, dataset management
-- MCP transports: [MCP Transports Explained](https://dev.to/jefe_cool/mcp-transports-explained-stdio-vs-streamable-http-and-when-to-use-each-3lco); [Roo Code transport docs](https://docs.roocode.com/features/mcp/server-transports)
-- MCP primitives: [MCP Architecture Deep Dive](https://www.getknit.dev/blog/mcp-architecture-deep-dive-tools-resources-and-prompts-explained); [Prompts and Resources: The Primitives You're Not Using](https://dev.to/aws-heroes/mcp-prompts-and-resources-the-primitives-youre-not-using-3oo1)
-- Code wiki ecosystem: [Serena MCP Server](https://a2a-mcp.org/entry/serena-mcp-server); [Code-Index-MCP](https://github.com/johnhuang316/code-index-mcp); [Claude Context MCP](https://www.augmentcode.com/mcp/claude-context-mcp-server)
-- Eval patterns: [pytest-evals](https://github.com/AlmogBaku/pytest-evals); [LLM Testing guide](https://langfuse.com/blog/2025-10-21-testing-llm-applications)
-- Semantic code search: [Roo Code Codebase Indexing](https://docs.roocode.com/features/codebase-indexing); [Hugging Face code search cookbook](https://huggingface.co/learn/cookbook/code_search)
+- `.planning/research/ONTOLOGY-SPEC.md` §10 "Example Queries Enabled" — canonical source of user query requirements
+- `.planning/research/ONTOLOGY-SPEC.md` §4 "Edge Types" — backing store for each CLI command
+- `.planning/research/ONTOLOGY-SPEC.md` §7 "Test Suite Layout and Detection" — TestSuite command design
+- `.planning/research/ONTOLOGY-SPEC.md` §9 "Scanner Pipeline" — update flow and re-runnability design
+- `.planning/research/ONTOLOGY-SPEC.md` §11 "Open Questions" — anti-feature justifications
+- `.planning/PROJECT.md` "Current Milestone: v1.6" — explicit v1.7 deferral list
+- `packages/graph-io/src/graph_io/cli/main.py` — existing subcommand registry (13 commands)
+- `packages/graph-io/src/graph_io/queries.py` — existing query layer (find, callers, callees, imports, describe_package, describe_path, imported_by, exports, exported_by)
+- `packages/graph-io/README.md` — brand sweep targets identified
+- `packages/graph-io/src/graph_io/schema.py` — current SCHEMA_VERSION = 1, two-table structure
 
 ---
-
-*Feature research for: graph-wiki-agent (deepagents MCP server + eval harness)*
-*Researched: 2026-05-13*
+*Feature research for: graph-io v1.6 ontology CLI surface*
+*Researched: 2026-05-25*
