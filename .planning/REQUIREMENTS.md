@@ -97,7 +97,7 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 - [ ] **BRAND-01**: `packages/graph-io/README.md` rebranded — `lattice-graph-core` → graph-wiki phrasing; `~/.lattice/graph/code.db` → canonical graph-wiki path (resolved via `workspace_io.paths.graph_dir`)
 - [ ] **BRAND-02**: All `cg` CLI description/help strings use graph-wiki branding; no surviving `lattice` references in any user-facing string emitted by graph-io
-- [ ] **BRAND-03**: `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var renamed to `GRAPH_WIKI_GRAPH_LOCK_TIMEOUT_MS` (or workspace-consistent name); deprecation alias preserves backward compat for one milestone with a deprecation warning
+- [ ] **BRAND-03**: `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var renamed to `GRAPH_WIKI_LOCK_TIMEOUT_MS` (or workspace-consistent name); deprecation alias preserves backward compat for one milestone with a deprecation warning
 - [ ] **BRAND-04**: Sweep scope is LIMITED to `packages/graph-io/` and its consumers — does NOT touch `plugins/graph-wiki/`, `packages/wiki-io/`, or any other package; explicitly NOT touching `_SKIP_REPO_PREFIXES = ("lattice/",)` in `packages.py` (functional behavior, not brand text, per PITFALLS.md)
 
 ---
@@ -182,14 +182,70 @@ Which phases cover which requirements. Filled in during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (pending — populated by `gsd-roadmapper`) | — | Pending |
+| SCHEMA-01 | Phase 28 | Pending |
+| SCHEMA-02 | Phase 28 | Pending |
+| SCHEMA-03 | Phase 28 | Pending |
+| SCHEMA-04 | Phase 28 | Pending |
+| SCHEMA-05 | Phase 28 | Pending |
+| STRUCT-01 | Phase 29 | Pending |
+| STRUCT-02 | Phase 29 | Pending |
+| STRUCT-03 | Phase 29 | Pending |
+| STRUCT-04 | Phase 29 | Pending |
+| STRUCT-05 | Phase 29 | Pending |
+| STRUCT-06 | Phase 29 | Pending |
+| SPARSER-01 | Phase 29 | Pending |
+| SPARSER-02 | Phase 29 | Pending |
+| ENTRY-01 | Phase 30 | Pending |
+| ENTRY-02 | Phase 30 | Pending |
+| ENTRY-03 | Phase 30 | Pending |
+| ENTRY-04 | Phase 30 | Pending |
+| ENTRY-05 | Phase 30 | Pending |
+| TEST-01 | Phase 30 | Pending |
+| TEST-02 | Phase 30 | Pending |
+| TEST-03 | Phase 30 | Pending |
+| TEST-04 | Phase 30 | Pending |
+| TEST-05 | Phase 30 | Pending |
+| TEST-06 | Phase 30 | Pending |
+| TEST-07 | Phase 30 | Pending |
+| DOMAIN-01 | Phase 31 | Pending |
+| DOMAIN-02 | Phase 31 | Pending |
+| DOMAIN-03 | Phase 31 | Pending |
+| DOMAIN-04 | Phase 31 | Pending |
+| DOMAIN-05 | Phase 31 | Pending |
+| DERIVED-01 | Phase 31 | Pending |
+| DERIVED-02 | Phase 31 | Pending |
+| DERIVED-03 | Phase 31 | Pending |
+| DERIVED-04 | Phase 31 | Pending |
+| QUERY-01 | Phase 32 | Pending |
+| QUERY-02 | Phase 32 | Pending |
+| QUERY-03 | Phase 32 | Pending |
+| QUERY-04 | Phase 32 | Pending |
+| CLI-01 | Phase 33 | Pending |
+| CLI-02 | Phase 33 | Pending |
+| CLI-03 | Phase 33 | Pending |
+| CLI-04 | Phase 33 | Pending |
+| CLI-05 | Phase 33 | Pending |
+| CLI-06 | Phase 33 | Pending |
+| CLI-07 | Phase 33 | Pending |
+| CLI-08 | Phase 33 | Pending |
+| CLI-09 | Phase 33 | Pending |
+| CLI-10 | Phase 33 | Pending |
+| CLI-11 | Phase 33 | Pending |
+| CLI-12 | Phase 33 | Pending |
+| CLI-13 | Phase 33 | Pending |
+| CLI-14 | Phase 33 | Pending |
+| BRAND-01 | Phase 34 | Pending |
+| BRAND-02 | Phase 34 | Pending |
+| BRAND-03 | Phase 34 | Pending |
+| BRAND-04 | Phase 34 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 56 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 56 ⚠️
+- Mapped to phases: 56 ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-25*
+*Traceability filled: 2026-05-25 (gsd-roadmapper)*
 *Source-of-truth design: `.planning/research/ONTOLOGY-SPEC.md`*
 *Research synthesis: `.planning/research/SUMMARY.md`*
