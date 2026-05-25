@@ -3,14 +3,14 @@ quick_id: 260523-iws
 type: quick-task-summary
 status: complete
 date: 2026-05-23
-tags: [vault-io, scanner, overview-pages, wiki-rename, refactor]
+tags: [wiki-io, scanner, overview-pages, wiki-rename, refactor]
 key_files:
   modified:
-    - packages/vault-io/src/vault_io/scan_monorepo.py
-    - packages/vault-io/src/vault_io/layout_io.py
-    - packages/vault-io/src/vault_io/lint_wiki.py
-    - packages/vault-io/tests/test_scan_companion_fold.py
-    - packages/vault-io/tests/test_overview_template_wikilinks.py
+    - packages/wiki-io/src/wiki_io/scan_monorepo.py
+    - packages/wiki-io/src/wiki_io/layout_io.py
+    - packages/wiki-io/src/wiki_io/lint_wiki.py
+    - packages/wiki-io/tests/test_scan_companion_fold.py
+    - packages/wiki-io/tests/test_overview_template_wikilinks.py
     - packages/eval-harness/src/eval_harness/divergence/librarian.py
     - packages/eval-harness/src/eval_harness/structural.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py
@@ -25,9 +25,9 @@ key_files:
     - plugins/graph-wiki/skills/graph-wiki/references/wiki-schema.md
     - plugins/graph-wiki/skills/graph-wiki/references/lint-workflow.md
   renamed_fixtures:
-    - packages/vault-io/tests/fixtures/round-trip-vault/packages/*/overview.md (12 files)
+    - packages/wiki-io/tests/fixtures/round-trip-vault/packages/*/overview.md (12 files)
   wiki_repo:
-    - wiki/packages/vault-io/overview.md (renamed from vault-io.md)
+    - wiki/packages/wiki-io/overview.md (renamed from wiki-io.md)
     - wiki/packages/model-adapter/overview.md (renamed from model-adapter.md)
     - wiki/packages/eval-harness/overview.md (renamed from eval-harness.md)
     - wiki/packages/subagent-runtime/overview.md (renamed from subagent-runtime.md)
@@ -42,34 +42,34 @@ decisions:
 
 # Quick Task 260523-iws: Rename Wiki Overview Pages to overview.md
 
-**One-liner:** Reversed the `<dir-name>.md` overview page convention to `overview.md` throughout vault-io scanner/detector code, plugin instruction markdown, agent prompt fragments, and the live agent-research wiki (7 pages renamed via `git mv`).
+**One-liner:** Reversed the `<dir-name>.md` overview page convention to `overview.md` throughout wiki-io scanner/detector code, plugin instruction markdown, agent prompt fragments, and the live agent-research wiki (7 pages renamed via `git mv`).
 
 ## What Was Done
 
 ### Code Changes (agent-research repo — commit `176cb2c`)
 
-**`packages/vault-io/src/vault_io/scan_monorepo.py`**
+**`packages/wiki-io/src/wiki_io/scan_monorepo.py`**
 - `_wiki_relative_path_for()`: all three return branches now emit `overview.md` instead of `<name>.md`
   - `f"apps/{name}/overview.md"`, `f"domains/{domain}/packages/{name}/overview.md"`, `f"{base}/{name}/overview.md"`
 - `_load_existing_pages()` `_collect` helper first pass: `md.stem != md.parent.name` → `md.name != "overview.md"`
 - `_load_existing_pages()` domains first pass: same replacement
 - Updated docstring comments describing the overview detection idiom
 
-**`packages/vault-io/src/vault_io/layout_io.py`**
+**`packages/wiki-io/src/wiki_io/layout_io.py`**
 - `ensure_domain_page()`: `dest = domain_dir / f"{domain_dir.name}.md"` → `dest = domain_dir / "overview.md"`
 - Updated docstring from `<domain>/<domain>.md` to `<domain>/overview.md`
 
-**`packages/vault-io/src/vault_io/lint_wiki.py`** (auto-fixed, Rule 1)
+**`packages/wiki-io/src/wiki_io/lint_wiki.py`** (auto-fixed, Rule 1)
 - Overview page detection in lint: `Path(k).parent.name == Path(k).name` → `Path(k).name == "overview.md"`
 
-**`packages/vault-io/tests/test_scan_companion_fold.py`**
+**`packages/wiki-io/tests/test_scan_companion_fold.py`**
 - `pkg_dir / "pkg-x.md"` → `pkg_dir / "overview.md"`
 - `app_dir / "foo.md"` → `app_dir / "overview.md"`
 
-**`packages/vault-io/tests/test_overview_template_wikilinks.py`**
+**`packages/wiki-io/tests/test_overview_template_wikilinks.py`**
 - Docstring example updated: `packages/foo/foo.md` → `packages/foo/overview.md`
 
-**`packages/vault-io/tests/fixtures/round-trip-vault/`** (auto-fixed, Rule 3)
+**`packages/wiki-io/tests/fixtures/round-trip-vault/`** (auto-fixed, Rule 3)
 - 12 fixture overview files renamed: `<name>.md` → `overview.md` in all packages/ and plugins/ directories
 
 **`packages/eval-harness/src/eval_harness/divergence/librarian.py`** (auto-fixed, Rule 1)
@@ -103,7 +103,7 @@ decisions:
 ### Live Wiki Changes (wikis/agent-research repo — commit `c86dbbb`)
 
 7 pages renamed via `git mv` (history preserved):
-- `wiki/packages/vault-io/vault-io.md` → `wiki/packages/vault-io/overview.md`
+- `wiki/packages/wiki-io/wiki-io.md` → `wiki/packages/wiki-io/overview.md`
 - `wiki/packages/model-adapter/model-adapter.md` → `wiki/packages/model-adapter/overview.md`
 - `wiki/packages/eval-harness/eval-harness.md` → `wiki/packages/eval-harness/overview.md`
 - `wiki/packages/subagent-runtime/subagent-runtime.md` → `wiki/packages/subagent-runtime/overview.md`
@@ -119,7 +119,7 @@ Additional wikilink rewrites: 29 files total contained explicit `[[wiki/<contain
 
 | Suite | Result | Count |
 |-------|--------|-------|
-| `uv run --package vault-io pytest` | PASSED | 142 passed, 1 skipped |
+| `uv run --package wiki-io pytest` | PASSED | 142 passed, 1 skipped |
 | `uv run --package graph-wiki-agent pytest` | PASSED | 650 passed, 32 skipped |
 
 ## Locked Decision
@@ -150,14 +150,14 @@ Actions taken:
 - Found during: Task 1 verification (grep of production code for `parent.name`)
 - Issue: `lint_wiki.py:251` used `Path(k).parent.name == Path(k).name` as overview detection — old pattern
 - Fix: changed to `Path(k).name == "overview.md"`
-- Files: `packages/vault-io/src/vault_io/lint_wiki.py`
+- Files: `packages/wiki-io/src/wiki_io/lint_wiki.py`
 - Commit: `176cb2c` (included in main task commit via amend)
 
 **2. [Rule 1 - Bug] Fixed round-trip vault fixture overview files**
 - Found during: Task 1 test run (test_scan_companion_fold.py failure)
 - Issue: 12 fixture files named `<name>.md` caused companion-fold detection to fail under new `overview.md`-only logic
 - Fix: renamed 12 fixture files from `<name>.md` to `overview.md`
-- Files: 12 files in `packages/vault-io/tests/fixtures/round-trip-vault/`
+- Files: 12 files in `packages/wiki-io/tests/fixtures/round-trip-vault/`
 - Commit: `176cb2c`
 
 **3. [Rule 1 - Bug] Fixed eval-harness citation resolvers**
@@ -169,7 +169,7 @@ Actions taken:
 
 **4. [Rule 1 - Bug] Fixed lint.py wikilink resolver**
 - Found during: Task 2 grep sweep
-- Issue: `lint.py` resolved `[[packages/vault-io]]` style links to `packages/vault-io/vault-io` (old stem-match pattern)
+- Issue: `lint.py` resolved `[[packages/wiki-io]]` style links to `packages/wiki-io/wiki-io` (old stem-match pattern)
 - Fix: added `<slug>/overview` check before the legacy `<slug>/<name>` fallback (backwards-compat preserved for old-form links)
 - Files: `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py`
 - Commit: `176cb2c`

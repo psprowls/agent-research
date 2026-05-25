@@ -5,7 +5,7 @@ subsystem: project-decisions + phase-verification
 tags: [WS-10, project-md, key-decisions, end-to-end-verification, phase-close]
 requires:
   - "Plan 11-03 (workspace-io tests ported and green)"
-  - "Plan 11-04 (vault-io delegation shim shipped)"
+  - "Plan 11-04 (wiki-io delegation shim shipped)"
   - "Plan 11-05 (graph-wiki-agent two-phase init wired)"
 provides:
   - "PROJECT.md Key Decisions row recording WS-10 verdict (wiki-config.toml ≠ .graph-wiki.yaml)"
@@ -56,8 +56,8 @@ All 5 Phase 11 ROADMAP success criteria re-confirmed in this worktree:
 | SC | Check | Result |
 |----|-------|--------|
 | #1 | `uv sync` exits 0; `uv run --package workspace-io pytest` exits 0 | **PASS** — 526 passed, 30 skipped (opt-in real-Bedrock + eval gates), 19 snapshots passed; 36.45s |
-| #2 | `grep -rE 'GRAPH_WIKI_REAL_VAULT_PATH' packages/ agents/ --include="*.py" --include="*.toml" --include="*.md"` returns zero | **PASS** — 0 hits; `GRAPH_WIKI_WORKSPACE` references in vault-io + graph-wiki-agent .py = **23** (≥15 required) |
-| #3 | `uv run --package vault-io pytest` exits 0; explicit-path short-circuit test passes | **PASS** — full vault-io collection green; `test_resolve_wiki_and_repo_strict_raises_without_manifest` + `test_resolve_wiki_and_repo_honors_env_var` both PASSED |
+| #2 | `grep -rE 'GRAPH_WIKI_REAL_VAULT_PATH' packages/ agents/ --include="*.py" --include="*.toml" --include="*.md"` returns zero | **PASS** — 0 hits; `GRAPH_WIKI_WORKSPACE` references in wiki-io + graph-wiki-agent .py = **23** (≥15 required) |
+| #3 | `uv run --package wiki-io pytest` exits 0; explicit-path short-circuit test passes | **PASS** — full wiki-io collection green; `test_resolve_wiki_and_repo_strict_raises_without_manifest` + `test_resolve_wiki_and_repo_honors_env_var` both PASSED |
 | #4 | PROJECT.md WS-10 entry exists, mentions both files and is dated recently | **PASS** — row added by Task 1; dated `2026-05-18`; references `wiki-config.toml`, `.graph-wiki.yaml`, "different surfaces", and `WS-10` |
 | #5 | Ported tests use `.graph-wiki.yaml`; zero `.lattice.yaml` / `lattice_workspace` under workspace-io | **PASS** — 18 hits across 7 workspace-io test files; 0 hits for `.lattice.yaml`; 0 hits for `lattice_workspace` anywhere under `packages/workspace-io/` |
 
@@ -88,7 +88,7 @@ plugins:
 Import truths from the plan's `must_haves`:
 
 - `import workspace_io` → ok (`workspace_io`)
-- `import vault_io._workspace` → ok; `resolve_wiki_and_repo` symbol present
+- `import wiki_io._workspace` → ok; `resolve_wiki_and_repo` symbol present
 
 ## Verification
 
@@ -96,10 +96,10 @@ Import truths from the plan's `must_haves`:
 - [x] `wiki-config.toml` appears in PROJECT.md (1 hit; in the new decision)
 - [x] `.graph-wiki.yaml` appears in PROJECT.md (2 hits)
 - [x] `WS-10` / `different surfaces` appears in PROJECT.md (1 hit)
-- [x] Full workspace test suite green end-to-end: 526 passed (workspace-io + vault-io + all other workspace packages run together under root pyproject)
+- [x] Full workspace test suite green end-to-end: 526 passed (workspace-io + wiki-io + all other workspace packages run together under root pyproject)
 - [x] `grep -r GRAPH_WIKI_REAL_VAULT_PATH packages/ agents/` returns zero lines
 - [x] `uv sync` resolves the full workspace including workspace-io
-- [x] `import workspace_io` + `import vault_io._workspace` both succeed
+- [x] `import workspace_io` + `import wiki_io._workspace` both succeed
 - [x] Two-phase init smoke test creates v2 manifest at `<tmp>/graph-wiki/.graph-wiki.yaml`
 
 ## Deviations from Plan

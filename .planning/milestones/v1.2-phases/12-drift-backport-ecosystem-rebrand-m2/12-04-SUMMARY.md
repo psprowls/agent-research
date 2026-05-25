@@ -68,10 +68,10 @@ Task 2 added no commit (gate passed first try; per plan §Task 2 last paragraph 
 
 | Decision | Paths covered                                                                                                                                                                                                                                                              | Entry count |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| R-01     | `packages/vault-io/tests/fixtures/round-trip-vault/` — real upstream lattice vault preserved verbatim for byte-identical round-trip parsing.                                                                                                                              | 1           |
+| R-01     | `packages/wiki-io/tests/fixtures/round-trip-vault/` — real upstream lattice vault preserved verbatim for byte-identical round-trip parsing.                                                                                                                              | 1           |
 | R-02     | `packages/eval-harness/baselines/`, `packages/eval-harness/src/eval_harness/divergence/rubrics/`, `packages/eval-harness/src/eval_harness/{baseline,pricing}.py`, plus 6 test files citing the upstream package as measurement subject, plus 2 divergence baseline JSONs. | 11          |
 | R-03     | `.planning/RETROSPECTIVE.md`, `.planning/MILESTONES.md`, `.planning/milestones/v1.0-`, `.planning/milestones/v1.1-`, `.planning/spikes/{001,002,WRAP-UP-SUMMARY}.md`, `.planning/sweep/STORY.md`, `.planning/research/`, `.planning/threads/next-milestone-planning.md`.    | 10          |
-| R-04     | `.brand-grep-allow` + `scripts/check-brand.sh` self-allowlist; `scripts/drift-diff.sh` references upstream lattice-wiki-core paths; phase 11 + phase 12 plan dirs reference both names; spike scaffolding; vault-io DRIFT-DECISIONS{,-RAW}.md embed upstream symbols.       | 8           |
+| R-04     | `.brand-grep-allow` + `scripts/check-brand.sh` self-allowlist; `scripts/drift-diff.sh` references upstream lattice-wiki-core paths; phase 11 + phase 12 plan dirs reference both names; spike scaffolding; wiki-io DRIFT-DECISIONS{,-RAW}.md embed upstream symbols.       | 8           |
 
 Carry-forward refs from plan 03 (Plan-meta, Upstream-reference, Provenance, Parity-behavior, Test-data, Upstream-guard, Test-fixture, Historic-decision-log) add the remaining 22 entries. **Total non-comment entries: 52** (matches plan 03's "52 surviving lattice references across 10 classes" count after path-level deduplication).
 
@@ -80,7 +80,7 @@ Carry-forward refs from plan 03 (Plan-meta, Upstream-reference, Provenance, Pari
 `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-03-carry-forward-refs.md` enumerated 52 surviving references across 10 classes plus 12 scope-glob allowlists. The allowlist incorporates:
 
 - **22 per-file entries** under the "carry-forward refs" section header (each preceded by a `# rationale: …` line citing the carry-forward class).
-- **12 scope-glob entries** in the R-01/R-02/R-03 sections covering the path prefixes (`packages/vault-io/tests/fixtures/round-trip-vault/`, `packages/eval-harness/baselines/`, `.planning/milestones/v1.0-`, etc.).
+- **12 scope-glob entries** in the R-01/R-02/R-03 sections covering the path prefixes (`packages/wiki-io/tests/fixtures/round-trip-vault/`, `packages/eval-harness/baselines/`, `.planning/milestones/v1.0-`, etc.).
 - **9 post-hoc additions** for hits plan 03 did not enumerate but which classify cleanly against existing R-decisions (workspace-io Provenance, prompt-sources Provenance, eval-harness baselines JSON R-02, two agent test-prose Provenance files).
 
 The audit-trail header `# Phase 12 plan-03 carry-forward refs (from …12-03-carry-forward-refs.md)` is present so future readers see exactly which file seeded the allowlist.
@@ -95,7 +95,7 @@ The audit-trail header `# Phase 12 plan-03 carry-forward refs (from …12-03-car
 # … (full file inlined below) …
 
 # R-01: round-trip-vault test fixtures
-packages/vault-io/tests/fixtures/round-trip-vault/
+packages/wiki-io/tests/fixtures/round-trip-vault/
 
 # R-02: eval-harness baselines + divergence rubrics
 packages/eval-harness/baselines/
@@ -119,8 +119,8 @@ packages/eval-harness/src/eval_harness/pricing.py
 .brand-grep-allow
 scripts/check-brand.sh
 scripts/drift-diff.sh
-packages/vault-io/DRIFT-DECISIONS-RAW.md
-packages/vault-io/DRIFT-DECISIONS.md
+packages/wiki-io/DRIFT-DECISIONS-RAW.md
+packages/wiki-io/DRIFT-DECISIONS.md
 .planning/phases/12-drift-backport-ecosystem-rebrand-m2/
 .planning/phases/11-workspace-io-port-m1/
 .planning/spikes/MANIFEST.md
@@ -133,17 +133,17 @@ CLAUDE.md
 .planning/STATE.md
 
 # Provenance / Parity-behavior (packages/ + agents/)
-packages/vault-io/src/vault_io/__init__.py
-packages/vault-io/src/vault_io/ingest_work_item.py
-packages/vault-io/src/vault_io/ingest_source.py
+packages/wiki-io/src/wiki_io/__init__.py
+packages/wiki-io/src/wiki_io/ingest_work_item.py
+packages/wiki-io/src/wiki_io/ingest_source.py
 agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
 
 # Test prose / Upstream-guard / Test-data
-packages/vault-io/tests/test_ingest_source.py
-packages/vault-io/tests/test_ingest_work_item.py
-packages/vault-io/tests/test_wikilink_predicate.py
-packages/vault-io/tests/test_lint_modules.py
-packages/vault-io/tests/fixtures/single-package-vault/
+packages/wiki-io/tests/test_ingest_source.py
+packages/wiki-io/tests/test_ingest_work_item.py
+packages/wiki-io/tests/test_wikilink_predicate.py
+packages/wiki-io/tests/test_lint_modules.py
+packages/wiki-io/tests/fixtures/single-package-vault/
 packages/eval-harness/tests/test_two_gate_scorer.py
 packages/eval-harness/tests/test_sweep.py
 packages/eval-harness/tests/test_divergence_metric.py

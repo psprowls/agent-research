@@ -41,7 +41,7 @@ CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
 FIXTURE_VAULT = (
     _WORKSPACE_ROOT
     / "packages"
-    / "vault-io"
+    / "wiki-io"
     / "tests"
     / "fixtures"
     / "round-trip-vault"

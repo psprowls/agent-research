@@ -276,7 +276,7 @@ These records have no `event` key:
 
 **Change spec (Phase 9):** create `docs/trace-schema.md` at repo root. Required sections per D-05:
 1. Overview of `.graph-wiki/traces/` directory layout and filename convention (per-batch `{int_timestamp}_{uuid8}.jsonl`, per-query `query_{query_id}.jsonl`).
-2. Per-record-shape spec — three shapes: per-item subagent record, `event: batch_cancelled` terminator, `kind: query_summary`. Each with field table (name | type | required? | semantics). Pull JSON examples from real fixture files under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (add `"schema_version": 1` to the examples — fixtures themselves are v0 and stay v0 per D-04).
+2. Per-record-shape spec — three shapes: per-item subagent record, `event: batch_cancelled` terminator, `kind: query_summary`. Each with field table (name | type | required? | semantics). Pull JSON examples from real fixture files under `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (add `"schema_version": 1` to the examples — fixtures themselves are v0 and stay v0 per D-04).
 3. `schema_version` field — what it is, lenient-consumer / strict-producer policy (D-03), bump rules (D-02).
 4. "Additive-shape" rule cross-referencing Phase 8 D-06/D-07.
 5. v0 (unversioned) compatibility note (D-04).
@@ -368,7 +368,7 @@ def test_librarian_system_snapshot(snapshot: SnapshotAssertion) -> None:
    - `test_expand_snapshot` — same fixture, `--expand`, snapshot every per-record line.
    - `test_cost_rollup_snapshot` — mixed-model fan-out (e.g., 3 scanner@haiku + 2 scanner@sonnet) to lock the `(role, model_id)` rollup ordering (descending cost, alphabetical tie-break — D-15).
    - `test_query_summary_interleaved_snapshot` — fan-out + `kind: query_summary` record + `event: batch_cancelled` terminator in the same file, snapshot the output (verify groupable / non-groupable interleaving — D-11).
-3. ADD a v0 backward-compat unit test that loads a real fixture (e.g., `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1778766775_3d8c7377.jsonl`), runs the renderer via subprocess, asserts (a) exit code 0, (b) stderr contains a one-time warning line mentioning the file path, (c) stdout still contains the per-item role / item_id / status.
+3. ADD a v0 backward-compat unit test that loads a real fixture (e.g., `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1778766775_3d8c7377.jsonl`), runs the renderer via subprocess, asserts (a) exit code 0, (b) stderr contains a one-time warning line mentioning the file path, (c) stdout still contains the per-item role / item_id / status.
 
 **Stylistic conventions to preserve:**
 - `_PROJECT_ROOT` resolution via `Path(__file__).parent.parent.parent.parent.parent` and `uv run --package graph-wiki-agent graph-wiki-agent ...` subprocess invocation — this is the established CLI test pattern.
@@ -526,7 +526,7 @@ None. Every file in scope has a close existing pattern (`docs/cancellation.md` i
 - `agents/graph-wiki-agent/tests/unit/`
 - `agents/graph-wiki-agent/tests/prompts/` (syrupy pattern)
 - `docs/`
-- `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (real v0 fixtures)
+- `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` (real v0 fixtures)
 
 **Files scanned:**
 - Source: `pool.py`, `cli.py`, `query.py` (full read of each).

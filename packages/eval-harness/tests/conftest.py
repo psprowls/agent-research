@@ -52,7 +52,7 @@ def accept_baseline(request: pytest.FixtureRequest) -> bool:
 
 @pytest.fixture
 def fixture_wiki_path() -> Path:
-    """Return the Path to packages/vault-io/tests/fixtures/round-trip-vault.
+    """Return the Path to packages/wiki-io/tests/fixtures/round-trip-vault.
 
     The path is computed relative to this conftest file so it works regardless
     of the cwd from which pytest is invoked. The fixture asserts the path
@@ -60,7 +60,7 @@ def fixture_wiki_path() -> Path:
     confusing FileNotFoundError in downstream tests.
 
     Note: the on-disk fixture directory is named ``round-trip-vault`` and
-    lives under ``packages/vault-io/`` — those paths are milestone-locked
+    lives under ``packages/wiki-io/`` — those paths are milestone-locked
     (Phase 22 D-10 / Phase 24 D-10). Only the eval-harness fixture name
     changed (vault → wiki) per Phase 24's nomenclature rename.
 
@@ -70,7 +70,7 @@ def fixture_wiki_path() -> Path:
     wiki = (
         Path(__file__).parent.parent.parent.parent
         / "packages"
-        / "vault-io"
+        / "wiki-io"
         / "tests"
         / "fixtures"
         / "round-trip-vault"
@@ -78,7 +78,7 @@ def fixture_wiki_path() -> Path:
     if not wiki.exists():
         pytest.skip(
             f"round-trip-vault fixture not found at {wiki}; "
-            "check that packages/vault-io is present in the workspace."
+            "check that packages/wiki-io is present in the workspace."
         )
     return wiki
 

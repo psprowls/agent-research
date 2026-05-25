@@ -1,12 +1,12 @@
 # Phase 25: packages-dir-misclassification-fix — Research
 
 **Researched:** 2026-05-21
-**Domain:** vault-io classifier heuristic (Python, stdlib only)
+**Domain:** wiki-io classifier heuristic (Python, stdlib only)
 **Confidence:** HIGH — all claims verified against the worktree as of this date
 
 ## Summary
 
-This phase is a tightly scoped bug fix to `_classify_dir` in `packages/vault-io/src/vault_io/detect_containers.py` plus a lockstep update to the matching plugin reference doc, three new unit tests, ROADMAP success-criteria edits, and a todo move. All design decisions are locked in `25-CONTEXT.md` (D-01..D-13). The role of this research is to give the planner accurate file:line targets and to flag two CONTEXT.md inaccuracies the planner needs to know about before writing PLAN.md.
+This phase is a tightly scoped bug fix to `_classify_dir` in `packages/wiki-io/src/wiki_io/detect_containers.py` plus a lockstep update to the matching plugin reference doc, three new unit tests, ROADMAP success-criteria edits, and a todo move. All design decisions are locked in `25-CONTEXT.md` (D-01..D-13). The role of this research is to give the planner accurate file:line targets and to flag two CONTEXT.md inaccuracies the planner needs to know about before writing PLAN.md.
 
 **Primary recommendation:** The planner should produce a **single PLAN** (this is ~50 LOC in one file plus 3 small unit tests). No need to split into waves or multi-plan. The planner must, however, correct two CONTEXT.md claims before drafting tasks (see "User Constraints" deltas below).
 
@@ -25,7 +25,7 @@ This phase is a tightly scoped bug fix to `_classify_dir` in `packages/vault-io/
 - **D-05:** `_resolve_pinned_containers` in `init_vault.py` keeps its `if cls == "ambiguous"` branch. Under `non_interactive=True`, fallback-ambiguous rows continue to become `skip`.
 
 **Plugin shim**
-- **D-06:** `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` is already a 9-line passthrough. Success criterion 3 (plugin classifier matches) is **auto-satisfied** by the vault-io change. No separate plugin port.
+- **D-06:** `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` is already a 9-line passthrough. Success criterion 3 (plugin classifier matches) is **auto-satisfied** by the wiki-io change. No separate plugin port.
 
 **Docs sync (lockstep)**
 - **D-07:** Update `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md` in the same commit as the code change.
@@ -50,7 +50,7 @@ This phase is a tightly scoped bug fix to `_classify_dir` in `packages/vault-io/
 ### Deferred Ideas (OUT OF SCOPE)
 - `--interactive` flag on `graph-wiki-agent bootstrap` (originally PKGCLS-03 / ROADMAP SC#4). Open a backlog item.
 - `--non-interactive` parity for the MCP `bootstrap` tool path.
-- Renaming `vault-io` / `vault_io` module (separate sweep, milestone-level decision).
+- Renaming `wiki-io` / `wiki_io` module (separate sweep, milestone-level decision).
 </user_constraints>
 
 <phase_requirements>
@@ -73,9 +73,9 @@ Two factual claims in `25-CONTEXT.md` are wrong against the worktree as of 2026-
 
 CONTEXT.md `<code_context>` says:
 
-> `packages/vault-io/tests/helpers.py` — provides `tmp_repo`, `write_pkg`, `write_file`, `write_claude_plugin` for inline throwaway repos. The new unit tests should use these helpers …
+> `packages/wiki-io/tests/helpers.py` — provides `tmp_repo`, `write_pkg`, `write_file`, `write_claude_plugin` for inline throwaway repos. The new unit tests should use these helpers …
 
-**Reality:** There is no `packages/vault-io/tests/helpers.py`. The helpers actually live in `packages/vault-io/tests/conftest.py`:
+**Reality:** There is no `packages/wiki-io/tests/helpers.py`. The helpers actually live in `packages/wiki-io/tests/conftest.py`:
 
 - `tmp_repo` — pytest fixture (lines 11-14 of conftest.py). Just returns `tmp_path`.
 - `write_file` — module-level helper (lines 17-21). Writes content to a path, creating parents.
@@ -88,7 +88,7 @@ CONTEXT.md `<code_context>` says:
 
 ```python
 def test_mixed_manifest_dirs_classify_as_package(tmp_path: Path) -> None:
-    from vault_io.detect_containers import _classify_dir
+    from wiki_io.detect_containers import _classify_dir
 
     container = tmp_path / "packages"
     for name in ("a", "b", "c", "d", "e"):
@@ -109,13 +109,13 @@ CONTEXT.md says: *"verify they don't bind us to `--interactive`; if PKGCLS-04 ma
 
 PKGCLS-04 reads in full:
 
-> Unit test in `packages/vault-io/tests/` against a fixture repo with one packages dir (5/6 manifested) asserts `_classify_dir` returns `package`. Operational verification: running `graph-wiki-agent bootstrap` on this repo without `--interactive` classifies `packages/` as `package` and creates `wiki/packages/` automatically.
+> Unit test in `packages/wiki-io/tests/` against a fixture repo with one packages dir (5/6 manifested) asserts `_classify_dir` returns `package`. Operational verification: running `graph-wiki-agent bootstrap` on this repo without `--interactive` classifies `packages/` as `package` and creates `wiki/packages/` automatically.
 
 The phrase "without `--interactive`" only describes the operational mode — it doesn't require the flag to exist. The unit test (the binding part of the requirement) makes no mention of `--interactive`. **PKGCLS-04 is satisfiable in this phase without exposing the flag.** No planner adjustment needed.
 
 ## File:Line Targets (verified 2026-05-21)
 
-### Primary edit — `packages/vault-io/src/vault_io/detect_containers.py`
+### Primary edit — `packages/wiki-io/src/wiki_io/detect_containers.py`
 
 | Line range | Current content | Phase 25 action |
 |------------|-----------------|------------------|
@@ -128,7 +128,7 @@ The phrase "without `--interactive`" only describes the operational mode — it 
 
 The CONTEXT.md line-range claims (`80-145` for the function, `132-145` for the fallback branch) are accurate; the planner can quote them in PLAN.md verbatim.
 
-### Read-only context — `packages/vault-io/src/vault_io/init_vault.py`
+### Read-only context — `packages/wiki-io/src/wiki_io/init_vault.py`
 
 | Line range | Content | Phase 25 action |
 |------------|---------|------------------|
@@ -138,7 +138,7 @@ CONTEXT.md cites lines 84-133 — accurate.
 
 ### Plugin shim — `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py`
 
-Confirmed 9 lines total. Just a `from vault_io.detect_containers import main` + `if __name__ == "__main__": main()`. **No edit required** (D-06 auto-satisfied).
+Confirmed 9 lines total. Just a `from wiki_io.detect_containers import main` + `if __name__ == "__main__": main()`. **No edit required** (D-06 auto-satisfied).
 
 ### Plugin reference doc — `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md`
 
@@ -168,7 +168,7 @@ Phase 25 Success Criteria block is at **lines 130-135** (header "**Success Crite
 |------|--------------|---------------|
 | 131 | SC#1: bootstrap on this repo classifies `packages/` as `package` and creates `wiki/packages/` | **keep** (satisfied by code change) |
 | 132 | SC#2: `_classify_dir` 5/6 fixture → `package`; unit test asserts | **keep** |
-| 133 | SC#3: plugin classifier applies identical ≥80% majority heuristic | **revise per D-01**: the plugin classifier auto-inherits (D-06 — shim is a passthrough). Either reword to *"plugin-side classifier `…/scripts/detect_containers.py` imports the updated `vault_io.detect_containers` (no separate port)"*, or note the heuristic is now "≥1 manifest" not "≥80%". Recommend the former wording — it's the actual implementation guarantee. |
+| 133 | SC#3: plugin classifier applies identical ≥80% majority heuristic | **revise per D-01**: the plugin classifier auto-inherits (D-06 — shim is a passthrough). Either reword to *"plugin-side classifier `…/scripts/detect_containers.py` imports the updated `wiki_io.detect_containers` (no separate port)"*, or note the heuristic is now "≥1 manifest" not "≥80%". Recommend the former wording — it's the actual implementation guarantee. |
 | 134 | SC#4: `--interactive` prompts on remaining ambiguous classifications | **REMOVE per D-12** |
 | 135 | SC#5: todo moved to resolved AND `--interactive` flag visible in `bootstrap --help` | **revise per D-13**: drop the `--interactive` clause. Becomes simply *".planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md is moved to .planning/todos/resolved/"* |
 
@@ -193,7 +193,7 @@ Traced each of the 4 existing tests in `test_detect_containers.py` against the p
 | `test_v1_layout_guard` | `packages/` has 1 child with `pyproject.toml`; no loose `.md` | `package` (1/1, no md) | `package` (1 manifest_kid, 0 skipped) | ✅ |
 | `test_v2_synthetic_repo` | same fixture as test 1; asserts classification is `package` | `package` | `package` | ✅ |
 
-**Conclusion:** All 4 existing tests pass without modification under the new rule (D-10 holds). The planner does not need to insert a "verify existing tests still pass" remediation task — but should include a verification step running `uv run --package vault-io pytest tests/test_detect_containers.py` as part of the implementation task.
+**Conclusion:** All 4 existing tests pass without modification under the new rule (D-10 holds). The planner does not need to insert a "verify existing tests still pass" remediation task — but should include a verification step running `uv run --package wiki-io pytest tests/test_detect_containers.py` as part of the implementation task.
 
 ## Test Strategy (D-09 + edge cases revealed by code reading)
 
@@ -213,12 +213,12 @@ All 5 tests use the inline `tmp_path` + `Path.write_text` pattern (matches exist
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|--------------|----------------|-----------|
-| Container classification | `packages/vault-io` (library) | — | All real logic lives in vault-io; the plugin shim is a passthrough by design (plugin CLAUDE.md §"Source-of-truth split"). |
-| Plugin-side CLI surfacing | `plugins/graph-wiki/.../scripts/detect_containers.py` | `packages/vault-io` (via import) | 9-line shim — touched only when adding a new entry point, not for behavior changes. |
-| Bootstrap orchestration | `packages/vault-io/init_vault.py` | `agents/graph-wiki-agent/.../commands/init.py` | `_resolve_pinned_containers` consumes the classifier's output and decides `skip` vs prompt. Phase 25 does NOT touch this tier. |
+| Container classification | `packages/wiki-io` (library) | — | All real logic lives in wiki-io; the plugin shim is a passthrough by design (plugin CLAUDE.md §"Source-of-truth split"). |
+| Plugin-side CLI surfacing | `plugins/graph-wiki/.../scripts/detect_containers.py` | `packages/wiki-io` (via import) | 9-line shim — touched only when adding a new entry point, not for behavior changes. |
+| Bootstrap orchestration | `packages/wiki-io/init_vault.py` | `agents/graph-wiki-agent/.../commands/init.py` | `_resolve_pinned_containers` consumes the classifier's output and decides `skip` vs prompt. Phase 25 does NOT touch this tier. |
 | Doc lockstep | `plugins/graph-wiki/.../references/detection-workflow.md` | plugin CLAUDE.md (read-only) | Plugin CLAUDE.md mandates code+doc co-update; the reference doc is the doc half. |
 
-This map is straightforward: this phase touches **one tier** (vault-io classifier) plus a doc and a roadmap. The planner should not see cross-tier tasks.
+This map is straightforward: this phase touches **one tier** (wiki-io classifier) plus a doc and a roadmap. The planner should not see cross-tier tasks.
 
 ## Don't Hand-Roll
 
@@ -251,8 +251,8 @@ This map is straightforward: this phase touches **one tier** (vault-io classifie
 
 ### Pitfall 4: Editing the plugin shim
 **What goes wrong:** Planner sees `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` in the requirement (PKGCLS-02) and writes an edit task.
-**Why it happens:** PKGCLS-02 says "Plugin-side classifier updated to match" — sounds like an edit. D-06 says it's auto-satisfied because the shim already imports from vault-io.
-**How to avoid:** PLAN.md must explicitly state: *"plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py is a 9-line `from vault_io.detect_containers import main` shim — PKGCLS-02 is auto-satisfied. No edit task."*
+**Why it happens:** PKGCLS-02 says "Plugin-side classifier updated to match" — sounds like an edit. D-06 says it's auto-satisfied because the shim already imports from wiki-io.
+**How to avoid:** PLAN.md must explicitly state: *"plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py is a 9-line `from wiki_io.detect_containers import main` shim — PKGCLS-02 is auto-satisfied. No edit task."*
 
 ## Code Examples
 
@@ -295,10 +295,10 @@ def test_mixed_manifest_dirs_classify_as_package(tmp_path: Path) -> None:
     Regression: pre-D-01..D-03 this was 'ambiguous'. See
     .planning/todos/resolved/2026-05-20-fix-packages-dir-misclassification.md.
     """
-    from vault_io.detect_containers import _classify_dir
+    from wiki_io.detect_containers import _classify_dir
 
     container = tmp_path / "packages"
-    for name in ("core-bedrock", "eval-harness", "model-adapter", "subagent-runtime", "vault-io"):
+    for name in ("core-bedrock", "eval-harness", "model-adapter", "subagent-runtime", "wiki-io"):
         (container / name).mkdir(parents=True)
         (container / name / "pyproject.toml").write_text('[project]\nname="x"\n', encoding="utf-8")
     (container / "prompt_sources").mkdir()  # no manifest
@@ -310,7 +310,7 @@ def test_mixed_manifest_dirs_classify_as_package(tmp_path: Path) -> None:
 ```
 
 Style notes:
-- Inline `from vault_io.detect_containers import _classify_dir` matches the existing `from vault_io.detect_containers import detect` pattern.
+- Inline `from wiki_io.detect_containers import _classify_dir` matches the existing `from wiki_io.detect_containers import detect` pattern.
 - No `helpers.py` import needed.
 - The fixture replicates this repo's actual layout (the bug repro from the todo file).
 
@@ -320,26 +320,26 @@ Style notes:
 | Property | Value |
 |----------|-------|
 | Framework | pytest ≥8.3 + pytest-asyncio 1.3.0 (asyncio not needed for these tests) |
-| Config file | `pyproject.toml` in `packages/vault-io/` (workspace member) |
-| Quick run command | `uv run --package vault-io pytest tests/test_detect_containers.py -x` |
-| Full suite command | `uv run --package vault-io pytest` |
+| Config file | `pyproject.toml` in `packages/wiki-io/` (workspace member) |
+| Quick run command | `uv run --package wiki-io pytest tests/test_detect_containers.py -x` |
+| Full suite command | `uv run --package wiki-io pytest` |
 | Phase gate command | `uv run pytest` (full workspace) |
 
 ### Phase Requirements → Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|--------------|
-| PKGCLS-01 | `_classify_dir` mixed-manifest → `package` | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_mixed_manifest_dirs_classify_as_package -x` | ❌ new test |
+| PKGCLS-01 | `_classify_dir` mixed-manifest → `package` | unit | `uv run --package wiki-io pytest tests/test_detect_containers.py::test_mixed_manifest_dirs_classify_as_package -x` | ❌ new test |
 | PKGCLS-01 | loose `.md` at container root no longer blocks `package` | unit | `… ::test_loose_md_file_at_container_root_does_not_block_package -x` | ❌ new test |
 | PKGCLS-01 | empty dir still `ambiguous` (fallback retained) | unit | `… ::test_empty_dir_falls_back_to_ambiguous -x` | ❌ new test |
 | PKGCLS-01 | single manifested child with non-manifested siblings still `package` (recommended) | unit | `… ::test_single_manifested_child_with_many_non_manifested_siblings_still_package -x` | ❌ new test |
 | PKGCLS-01 | docs rule still fires when no manifest kids (regression guard, recommended) | unit | `… ::test_no_manifest_kids_with_md_files_predominant_classifies_as_docs_not_ambiguous -x` | ❌ new test |
-| PKGCLS-01 | regression: existing 4 tests unchanged | unit | `uv run --package vault-io pytest tests/test_detect_containers.py -x` | ✅ existing |
-| PKGCLS-02 | plugin shim still imports from vault_io | smoke | `python -c "from vault_io.detect_containers import main"` (existing CI) | ✅ existing |
+| PKGCLS-01 | regression: existing 4 tests unchanged | unit | `uv run --package wiki-io pytest tests/test_detect_containers.py -x` | ✅ existing |
+| PKGCLS-02 | plugin shim still imports from wiki_io | smoke | `python -c "from wiki_io.detect_containers import main"` (existing CI) | ✅ existing |
 | PKGCLS-04 | bootstrap on this repo creates `wiki/packages/` | operational (manual; not gated) | `uv run graph-wiki-agent bootstrap …` against this repo and grep output for `"packages": "classification": "package"` | manual |
 | PKGCLS-05 | todo file moved | filesystem assertion | `test -f .planning/todos/resolved/2026-05-20-fix-packages-dir-misclassification.md && ! test -f .planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` | will exist after move |
 
 ### Sampling Rate
-- **Per task commit:** `uv run --package vault-io pytest tests/test_detect_containers.py -x` (~1 second)
+- **Per task commit:** `uv run --package wiki-io pytest tests/test_detect_containers.py -x` (~1 second)
 - **Per wave merge:** N/A — single PLAN, single wave
 - **Phase gate:** `uv run pytest` full workspace green before `/gsd:verify-work`
 
@@ -356,13 +356,13 @@ This phase is a code edit + doc edit + todo move + roadmap edit. No persistent r
 | Live service config | None — no external services involved | None |
 | OS-registered state | None | None |
 | Secrets/env vars | None — `GRAPH_WIKI_WORKSPACE` env var is unaffected | None |
-| Build artifacts | None — `vault-io` is a uv workspace member installed editable, so the code change takes effect on next import. No egg-info regeneration needed. | None |
+| Build artifacts | None — `wiki-io` is a uv workspace member installed editable, so the code change takes effect on next import. No egg-info regeneration needed. | None |
 
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Python 3.11+ | all of vault-io | ✓ (project floor) | — | — |
+| Python 3.11+ | all of wiki-io | ✓ (project floor) | — | — |
 | pytest ≥8.3 | new unit tests | ✓ (workspace dep group) | — | — |
 | `uv` workspace tooling | running tests | ✓ (project standard) | — | — |
 
@@ -372,11 +372,11 @@ No external services, no DB, no Docker, no LLM calls. The classifier is pure std
 
 Relevant to this phase:
 
-- **Source-of-truth split:** Behavior changes happen in `packages/vault-io/`; the plugin shim is not edited (auto-inherits). This phase honors that strictly.
-- **Tests live in the package, not the plugin tree:** New tests go in `packages/vault-io/tests/test_detect_containers.py`. This phase honors that.
+- **Source-of-truth split:** Behavior changes happen in `packages/wiki-io/`; the plugin shim is not edited (auto-inherits). This phase honors that strictly.
+- **Tests live in the package, not the plugin tree:** New tests go in `packages/wiki-io/tests/test_detect_containers.py`. This phase honors that.
 - **Doc + code lockstep invariant:** plugin CLAUDE.md §"When changing how layout is detected, classified, or written…" mandates updating `references/detection-workflow.md` together. D-07/D-08 honor this — the planner must put the doc edit in the same commit as the code edit (or at minimum the same phase + verified in a single review).
 - **Iron Rule 1 ("code is source of truth"):** This phase fixes a bug where the code's classifier was too strict — the new rule lets the code match what real monorepos actually look like. Aligns with the rule.
-- **`vault-io` write path through `layout_io.py`:** Not relevant — this phase does not write any layout. (Worth noting because a careless planner might propose updating an example layout block in the docs. Skip that — it's not needed.)
+- **`wiki-io` write path through `layout_io.py`:** Not relevant — this phase does not write any layout. (Worth noting because a careless planner might propose updating an example layout block in the docs. Skip that — it's not needed.)
 - **GSD workflow:** This phase is being planned via `/gsd:plan-phase` after `/gsd:discuss-phase`. Standard workflow applies.
 
 ## Assumptions Log
@@ -385,7 +385,7 @@ Relevant to this phase:
 |---|-------|---------|---------------|
 | A1 | `children_count` field is not used as a strict-equality assertion target by any test outside `test_detect_containers.py` | Pitfall 1 | If wrong: another test breaks unexpectedly when D-02 lands. Mitigation: planner should grep `children_count` across the workspace before merging. **[ASSUMED — grep not performed at research time]** |
 | A2 | The user's wording for the "Rules" subsection of `detection-workflow.md` (D-08) is satisfied by the existing rules-list and does not require a new heading | "Plugin reference doc" section above | Low risk; if the user actually wants a separate heading the planner can pivot in the task description. |
-| A3 | The plugin shim at `…/scripts/detect_containers.py` truly auto-inherits — i.e. the running `uv` workspace symlinks `vault_io` correctly when the plugin script is invoked via `uv run --project "$AGENT_RESEARCH_ROOT"` | D-06 / Pitfall 4 | Verified statically (shim is a passthrough import), but not via an end-to-end run during research. Standard workflow per plugin CLAUDE.md says this works; consider a one-line smoke test in the verification step. |
+| A3 | The plugin shim at `…/scripts/detect_containers.py` truly auto-inherits — i.e. the running `uv` workspace symlinks `wiki_io` correctly when the plugin script is invoked via `uv run --project "$AGENT_RESEARCH_ROOT"` | D-06 / Pitfall 4 | Verified statically (shim is a passthrough import), but not via an end-to-end run during research. Standard workflow per plugin CLAUDE.md says this works; consider a one-line smoke test in the verification step. |
 
 ## Open Questions
 
@@ -402,8 +402,8 @@ Relevant to this phase:
 ## Sources
 
 ### Primary (HIGH confidence)
-- Filesystem read of `packages/vault-io/src/vault_io/detect_containers.py` (this worktree, 2026-05-21)
-- Filesystem read of `packages/vault-io/tests/test_detect_containers.py` + `tests/conftest.py` (this worktree, 2026-05-21)
+- Filesystem read of `packages/wiki-io/src/wiki_io/detect_containers.py` (this worktree, 2026-05-21)
+- Filesystem read of `packages/wiki-io/tests/test_detect_containers.py` + `tests/conftest.py` (this worktree, 2026-05-21)
 - Filesystem read of `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` (9-line shim confirmed)
 - Filesystem read of `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md`
 - Filesystem read of `plugins/graph-wiki/CLAUDE.md` (sections "Wiki layout invariants" and "Iron rules")
@@ -411,7 +411,7 @@ Relevant to this phase:
 - `.planning/ROADMAP.md` Phase 25 block (lines 126-135) and one-liner (line 81)
 - `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` (original bug report)
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py:88` — `non_interactive=True` hardcoding confirmed
-- `packages/vault-io/src/vault_io/init_vault.py` lines 84-133 — `_resolve_pinned_containers` confirmed
+- `packages/wiki-io/src/wiki_io/init_vault.py` lines 84-133 — `_resolve_pinned_containers` confirmed
 
 ### Secondary (MEDIUM confidence)
 - Trace of existing-test pass/fail outcomes under the new rule (analytical, not run live)

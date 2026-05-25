@@ -22,7 +22,7 @@ re_verification:
     - "Code-review CR-02 (ZeroDivisionError guard in metric.py:172 when JUDGE_PANEL_CONFIG empty)"
     - "WR-03 (LIB-002 regex misses line-range citations)"
     - "Scanner divergence test mutates round-trip-vault fixture on every run (Plan 06-15 deferred)"
-    - "Pre-existing: full-workspace `uv run pytest` fails to collect due to conftest plugin-name conflict between cores/subagent-runtime/tests and cores/vault-io/tests"
+    - "Pre-existing: full-workspace `uv run pytest` fails to collect due to conftest plugin-name conflict between cores/subagent-runtime/tests and cores/wiki-io/tests"
 human_verification: []
 ---
 
@@ -140,7 +140,7 @@ Per-package test runs are the standard invocation pattern for this monorepo (see
 **Issue:** Full-workspace `uv run pytest` (no `--package`) fails to collect with:
 ```
 ERROR cores/subagent-runtime/tests - ValueError: Plugin already registered under a different name
-ERROR cores/vault-io/tests - ValueError: Plugin already registered under a different name
+ERROR cores/wiki-io/tests - ValueError: Plugin already registered under a different name
 !!! Interrupted: 2 errors during collection !!!
 ```
 

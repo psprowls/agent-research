@@ -113,7 +113,7 @@ None — the three Phase 21 todo matches (`fix-bedrock-count-tokens-api-shape`, 
 ### Reusable Assets
 - **`scripts/check-brand.sh` + `.brand-grep-allow`** (Phase 12 artifacts) — extend with additional pattern; reuses the same exit-non-zero-on-unallowlisted-hit mechanic that already runs as a pytest gate.
 - **Phase 12 lattice → graph-wiki sweep PLAN.md** — direct template for staged-commit cadence (precedent for grepping packages/agents/plugins/.planning + atomic commits).
-- **`uv` workspace** — `pyproject.toml` `[tool.uv.sources]` declares dependents as `{ workspace = true }`; only the package's own `name` field matters for the rename. Other workspace members (`vault-io`, `model-adapter`, etc.) do NOT need their pyproject.toml touched.
+- **`uv` workspace** — `pyproject.toml` `[tool.uv.sources]` declares dependents as `{ workspace = true }`; only the package's own `name` field matters for the rename. Other workspace members (`wiki-io`, `model-adapter`, etc.) do NOT need their pyproject.toml touched.
 
 ### Established Patterns
 - **Hard-cut deletion precedent (Phase 20)** — `WikiConfig.models_path`, `--config`, `CODE_WIKI_CONFIG` deleted with no shim; same posture applies here for the console-script rename.

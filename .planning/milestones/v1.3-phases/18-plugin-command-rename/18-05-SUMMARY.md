@@ -37,7 +37,7 @@ key-files:
     - ".planning/spec/13-plugin-contract/init.md"
     - ".planning/spec/13-plugin-contract/scan.md"
     - ".planning/todos/pending/2026-05-19-fix-workspace-repo-resolution-in-init-vault-and-detect-conta.md"
-    - ".planning/phases/17-vault-io-bug-fixes/17-05-PLAN.md"
+    - ".planning/phases/17-wiki-io-bug-fixes/17-05-PLAN.md"
 decisions:
   - "BSD sed on macOS does not honor \\b — used negated-char-class boundary `[^a-zA-Z0-9_-]` instead, which preserved /graph-wiki:init-wiki and /graph-wiki:ingest correctly during the bulk sweep"
   - "Rephrased two ROADMAP narrative lines (Phase 18 bullet + Plans 18-04 line) to avoid the literal old slug `/graph-wiki:init` so the strict residual grep gate returns 0 — the BLOCKER fix in <interfaces> mandates this over an allowlist approach"
@@ -96,7 +96,7 @@ $ git status --porcelain .planning/todos/pending/2026-05-19-rename-graph-wiki-in
 - `.planning/MILESTONES.md` (line 28) — old planned-rename direction in milestone narrative
 - `.planning/STATE.md` (line 120) — old planned-rename phase narrative
 - `.planning/PROJECT.md` (lines 37, 213) — old planned-rename Goal text
-- `.planning/phases/17-vault-io-bug-fixes/17-CONTEXT.md` (line 29) — narrative referencing the OLD planned-rename for Phase 18
+- `.planning/phases/17-wiki-io-bug-fixes/17-CONTEXT.md` (line 29) — narrative referencing the OLD planned-rename for Phase 18
 - `.planning/phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/21-CONTEXT.md` (line 148) — cross-reference to the folded todo (uses the OLD slug as descriptor)
 
 These are deferred. The plan-checker WARNING that mandated the BLOCKER fix only covered ROADMAP.md + REQUIREMENTS.md; the orchestrator's objective explicitly limits scope to the 18 enumerated files; the strict-gate residual (`\bgraph-wiki:init\b|/graph-wiki:init-wiki\b`) is the binding criterion and it returns 0. The plain `init-wiki` literal across these 5 files can be addressed in a future cleanup if the brand-gate in 18-06 chooses to enforce it; today it is not enforced.

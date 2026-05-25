@@ -3,12 +3,12 @@
 # scripts/check-brand.sh — BRAND-04 grep gate.
 #
 # Per Phase 12 §SQ-04 + §W5: search for upstream `lattice` / `LATTICE` /
-# `lattice_workspace` / `lattice_wiki_core` references across in-scope paths
+# `workspace_io` / `lattice_wiki_core` references across in-scope paths
 # (packages/, agents/, plugins/, .planning/, CLAUDE.md) and fail if any hit
 # is NOT covered by `.brand-grep-allow` at repo root.
 #
 # Re-runnable cheaply by future phases (13, 14, 16) and by any future re-sync
-# between vault-io and upstream lattice-wiki-core.
+# between wiki-io and upstream lattice-wiki-core.
 #
 # Per Phase 21 §D-12: extended to also catch `code-wiki-agent` / `code_wiki_agent`
 # / `code-wiki-mcp` / `code_wiki_mcp` after the rename to `graph-wiki-agent`.
@@ -38,7 +38,7 @@ fi
 # `uv run pytest` run; a clean CI checkout doesn't have them, so excluding
 # them keeps the gate stable across both environments.
 HITS=$(grep -rEl --exclude-dir=__pycache__ --exclude='*.pyc' \
-    'lattice|LATTICE|lattice_workspace|lattice_wiki_core|code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' \
+    'lattice|LATTICE|workspace_io|lattice_wiki_core|code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' \
     packages/ agents/ plugins/ .planning/ CLAUDE.md 2>/dev/null \
     | grep -vF -f <(grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST") || true)
 

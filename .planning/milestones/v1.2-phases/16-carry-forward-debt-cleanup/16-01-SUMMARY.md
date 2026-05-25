@@ -8,7 +8,7 @@ requires:
   - phase: 15-wiki-self-update
     provides: Live agent-research vault used as the v1.1-equivalent regression target in SC#2
   - phase: 14-plugin-port-m3b
-    provides: Post-rebrand surface (workspace-io, vault-io) referenced by new code_reader cases + fixture vault
+    provides: Post-rebrand surface (workspace-io, wiki-io) referenced by new code_reader cases + fixture vault
   - phase: 09-observability
     provides: schema_version:1 trace record schema that trace_io.write_trace_record preserves verbatim
   - phase: 08-host-reliability
@@ -114,7 +114,7 @@ completed: 2026-05-19
 
 - **TRACE-FU-01:** Per-call JSONL trace records now carry `tokens_in` / `tokens_out` on every production path. Shared `subagent_runtime.trace_io.write_trace_record` helper extracted (sole owner of the record-construction logic). Five fast unit tests (no Bedrock) + one gated regression test (`test_trace_coverage.py`) lock the contract.
 - **SWEEP-FU-02:** Divergence matrix expanded from 4 to 6 roles. New canonical `prompt-sources/agents/code_reader.md` + `synthesizer.md` anchor 8 new programmatic checks (CR-001..CR-004 + SYN-001..SYN-004) + 2 new judge rubrics. `ROLES_WITH_DIVERGENCE` now `frozenset({librarian, ingestor, linter, scanner, code_reader, synthesizer})`.
-- **SWEEP-FU-03:** `code_reader_cases.json` grew from 3 to 6 cases (cases 01-03 byte-identical; new cases 04-06 target `workspace-io`, `vault-io.wiki_search`, `vault-io.lint_wiki`). Test assertions relaxed to a range + superset to permit future expansion without breaking the baseline invariant.
+- **SWEEP-FU-03:** `code_reader_cases.json` grew from 3 to 6 cases (cases 01-03 byte-identical; new cases 04-06 target `workspace-io`, `wiki-io.wiki_search`, `wiki-io.lint_wiki`). Test assertions relaxed to a range + superset to permit future expansion without breaking the baseline invariant.
 - **SWEEP-FU-04:** Synthetic post-rebrand fixture vault committed (6 package pages, zero `lattice*` symbols). Forward-CI scanner regression test passes 8/8. Two-baseline split documented and operationalized.
 - **MCP-CAN-01:** Spike (2026-05-19) confirmed neither `langchain-aws#663` nor `aioboto3` GA has landed; gate verdict re-defer. `docs/cancellation.md` §4–§5 refreshed with cited sources + the verbatim D-09 event-driven trigger (calendar-date phrasing removed).
 - **MCP-CAN-02:** `docs/testing.md` authored as canonical convention doc. Repo-level grep-gate meta-test at `tests/test_integration_gate.py` enforces the pattern on every PR. `test_bedrock_iam` divergence resolved (canonical decorator); `test_mcp_cancel` allowlisted via marker.

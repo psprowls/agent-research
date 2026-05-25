@@ -1,0 +1,149 @@
+"""cg query commands — end-to-end smoke against a tiny repo."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from _git_repo import init_repo, write_and_commit
+
+
+def _cg(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-m", "graph_io.cli.main", "--repo", str(cwd), "--mode", "test", *args],
+        capture_output=True, text=True,
+    )
+
+
+@pytest.fixture()
+def populated_repo(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "src/a.py": "__all__ = ['alpha']\n\ndef alpha():\n    return beta()\n\ndef beta():\n    return 1\n",
+            # src/b.py imports `alpha` from module `a`; the imports edge dst.path = "a"
+            # so `cg imported-by a` returns src/b.py.  --full would prune the stub node,
+            # so the fixture uses plain `update` (no --full) to preserve import edges.
+            "src/b.py": "from a import alpha\n\ndef gamma():\n    return alpha()\n",
+        },
+        "init",
+    )
+    res = _cg(["update"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_find(populated_repo: Path) -> None:
+    res = _cg(["find", "alpha", "--kind", "function"], populated_repo)
+    assert res.returncode == 0
+    assert "alpha" in res.stdout
+
+
+def test_find_json(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "find", "alpha"], populated_repo)
+    assert res.returncode == 0
+    data = json.loads(res.stdout)
+    assert any(r["name"] == "alpha" for r in data)
+
+
+def test_callers(populated_repo: Path) -> None:
+    res = _cg(["callers", "beta"], populated_repo)
+    assert res.returncode == 0
+    assert "alpha" in res.stdout
+
+
+def test_callees(populated_repo: Path) -> None:
+    res = _cg(["callees", "alpha"], populated_repo)
+    assert res.returncode == 0
+    assert "beta" in res.stdout
+
+
+def test_imports(populated_repo: Path) -> None:
+    res = _cg(["imports", "src/a.py"], populated_repo)
+    assert res.returncode == 0
+
+
+def test_describe_package(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "describe-package", "demo"], populated_repo)
+    assert res.returncode == 0
+    data = json.loads(res.stdout)
+    assert data["name"] == "demo"
+    assert data["language"] == "python"
+
+
+def test_describe_path(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "describe-path", "src/a.py"], populated_repo)
+    assert res.returncode == 0
+    data = json.loads(res.stdout)
+    assert data["path"] == "src/a.py"
+    assert any(c["name"] == "alpha" for c in data["children"])
+
+
+def test_query_without_db_returns_3(tmp_path: Path) -> None:
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+    res = _cg(["find", "alpha"], tmp_path)
+    assert res.returncode == 3
+
+
+# ── imported-by / exports / exported-by ───────────────────────────────────────
+#
+# The Python parser stores `imports` edges as  src/b.py → ("file", symbol, module)
+# where module is the bare module name (e.g. "a" for `from a import alpha`).
+# `cg imported-by` queries by dst.path, so the correct path argument is the
+# module name ("a"), not the source file path ("src/a.py").
+# `update --full` prunes placeholder nodes that aren't tracked paths, which
+# destroys the import stubs; the fixture therefore uses plain `update`.
+
+
+def test_imported_by(populated_repo: Path) -> None:
+    res = _cg(["imported-by", "a"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    assert "src/b.py" in res.stdout
+
+
+def test_imported_by_symbol_filter(populated_repo: Path) -> None:
+    res = _cg(["imported-by", "a", "--symbol", "alpha"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    assert "src/b.py" in res.stdout
+
+    res2 = _cg(["imported-by", "a", "--symbol", "no_such_symbol"], populated_repo)
+    assert res2.returncode == 0
+    assert res2.stdout.strip() == ""
+
+
+def test_imported_by_json(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "imported-by", "a"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    assert isinstance(data, list)
+    assert any(r["path"] == "src/b.py" for r in data)
+    assert all({"path", "symbol", "depth"} <= set(r) for r in data)
+
+
+def test_exports(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "exports", "src/a.py"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    names = {r["name"] for r in data}
+    assert "alpha" in names
+
+
+def test_exported_by(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "exported-by", "alpha"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    assert any(r["path"] == "src/a.py" for r in data)
+
+
+def test_imported_by_without_db_returns_3(tmp_path: Path) -> None:
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+    res = _cg(["imported-by", "a.py"], tmp_path)
+    assert res.returncode == 3

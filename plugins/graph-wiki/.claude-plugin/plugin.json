@@ -1,7 +1,7 @@
 {
     "name": "graph-wiki",
     "version": "0.1.0",
-    "description": "Build and maintain a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Adapts to the repo's folder structure: classifies top-level dirs as apps, packages, domains, or docs containers, and pins the layout in CLAUDE.md/AGENTS.md. This is the Claude Code host path; graph-wiki-agent is the parallel Bedrock CLI companion over the same vault-io surface.",
+    "description": "Build and maintain a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Adapts to the repo's folder structure: classifies top-level dirs as apps, packages, domains, or docs containers, and pins the layout in CLAUDE.md/AGENTS.md. This is the Claude Code host path; graph-wiki-agent is the parallel Bedrock CLI companion over the same wiki-io surface.",
     "author": {
         "name": "Patrick Sprowls"
     },

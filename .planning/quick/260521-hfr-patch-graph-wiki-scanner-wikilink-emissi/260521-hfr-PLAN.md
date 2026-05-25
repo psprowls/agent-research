@@ -2,12 +2,12 @@
 quick_id: 260521-hfr
 type: quick
 files_modified:
-  - packages/vault-io/src/vault_io/assets/page-templates/package/overview.md
-  - packages/vault-io/src/vault_io/assets/page-templates/package/context.md
-  - packages/vault-io/src/vault_io/assets/page-templates/domain/overview.md
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/tests/test_overview_template_wikilinks.py
-  - packages/vault-io/tests/test_init_vault.py
+  - packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/package/context.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/domain/overview.md
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/tests/test_overview_template_wikilinks.py
+  - packages/wiki-io/tests/test_init_vault.py
 autonomous: true
 ---
 
@@ -28,18 +28,18 @@ links from these two categories.
 
 <context>
 @CLAUDE.md
-@packages/vault-io/src/vault_io/init_vault.py
-@packages/vault-io/src/vault_io/assets/page-templates/package/overview.md
-@packages/vault-io/src/vault_io/assets/page-templates/package/context.md
-@packages/vault-io/src/vault_io/assets/page-templates/domain/overview.md
-@packages/vault-io/src/vault_io/lint_wiki.py
-@packages/vault-io/src/vault_io/update_index.py
-@packages/vault-io/tests/test_overview_template_wikilinks.py
+@packages/wiki-io/src/wiki_io/init_vault.py
+@packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md
+@packages/wiki-io/src/wiki_io/assets/page-templates/package/context.md
+@packages/wiki-io/src/wiki_io/assets/page-templates/domain/overview.md
+@packages/wiki-io/src/wiki_io/lint_wiki.py
+@packages/wiki-io/src/wiki_io/update_index.py
+@packages/wiki-io/tests/test_overview_template_wikilinks.py
 
 <interfaces>
 <!-- Lint resolves wikilinks against workspace-relative keys. -->
 
-From packages/vault-io/src/vault_io/lint_wiki.py (line 102):
+From packages/wiki-io/src/wiki_io/lint_wiki.py (line 102):
     key = str(rel).replace("\\", "/")[:-3]  # workspace-relative path
     link_targets.add(key)
 So a page at <workspace>/wiki/packages/foo/api.md is keyed as
@@ -49,7 +49,7 @@ via the folder-shorthand branch (line 132) if the page is at
 `[[wiki/packages/foo/api]]` (which lands in `link_targets` directly via the
 first equality branch on line 129).
 
-From packages/vault-io/src/vault_io/update_index.py (lines 224, 231):
+From packages/wiki-io/src/wiki_io/update_index.py (lines 224, 231):
     _ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}
     # Always emits `[[wiki/<cat>/index]]` even at 0 entries; targets must exist.
 
@@ -66,7 +66,7 @@ stub with `# <Label>` heading and a one-line description so the wikilink
 resolves. `_is_placeholder_target` (lint_wiki.py:65) skips targets with
 `...`/`<`/`>`, so stub content can use any markdown safely.
 
-From packages/vault-io/src/vault_io/init_vault.py (line 46):
+From packages/wiki-io/src/wiki_io/init_vault.py (line 46):
     FIXED_VAULT_DIRS = ["concepts", "architecture", "adrs", "sources",
                        "dependencies", ".templates"]
 These dirs already get `mkdir` (line 187-188). After that loop is the
@@ -75,7 +75,7 @@ right spot to seed section-index stubs.
 
 <task>
   <name>Task 1: Add `wiki/` prefix to wikilinks in package/domain overview templates and extend the regression test</name>
-  <files>packages/vault-io/src/vault_io/assets/page-templates/package/overview.md, packages/vault-io/src/vault_io/assets/page-templates/package/context.md, packages/vault-io/src/vault_io/assets/page-templates/domain/overview.md, packages/vault-io/tests/test_overview_template_wikilinks.py</files>
+  <files>packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md, packages/wiki-io/src/wiki_io/assets/page-templates/package/context.md, packages/wiki-io/src/wiki_io/assets/page-templates/domain/overview.md, packages/wiki-io/tests/test_overview_template_wikilinks.py</files>
   <action>
 Patch `package/overview.md`: change the four Sub-pages bullets from
 `[[packages/{{PACKAGE_SLUG}}/<sub>|<sub>]]` to
@@ -127,14 +127,14 @@ Extend `tests/test_overview_template_wikilinks.py`:
   with `wiki/` (allowing the `<placeholder>` content after the prefix).
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/agent-research && uv run --package vault-io pytest packages/vault-io/tests/test_overview_template_wikilinks.py -x</automated>
+    <automated>cd /Users/pat/Personal/agent-research && uv run --package wiki-io pytest packages/wiki-io/tests/test_overview_template_wikilinks.py -x</automated>
   </verify>
   <done>All three updated tests pass. Bare `[[packages/`, `[[domains/`, `[[concepts/`, `[[adrs/`, `[[sources/`, `[[dependencies/` forms no longer appear in the three patched templates (verified by grep). `{{PACKAGE_SLUG}}` and `{{DOMAIN_SLUG}}` substitution still works.</done>
 </task>
 
 <task>
   <name>Task 2: Create stub `index.md` files for concepts/sources/adrs/architecture during init_wiki + cover with a test</name>
-  <files>packages/vault-io/src/vault_io/init_vault.py, packages/vault-io/tests/test_init_vault.py</files>
+  <files>packages/wiki-io/src/wiki_io/init_vault.py, packages/wiki-io/tests/test_init_vault.py</files>
   <action>
 In `init_vault.py:init_wiki`, after the `FIXED_VAULT_DIRS` mkdir loop
 (currently lines 186-190) and before the template rendering block (line
@@ -197,7 +197,7 @@ Add a new test to `tests/test_init_vault.py`:
 `test_init_wiki_creates_section_index_stubs`. Build a minimal repo
 fixture (use `_build_v2_repo` as a model or write a smaller one if you
 prefer — one pyproject.toml-style package is enough). Call
-`vault_io.init_vault.init_wiki(wiki, repo, topic="test", tool="claude-code",
+`wiki_io.init_vault.init_wiki(wiki, repo, topic="test", tool="claude-code",
 force=False, non_interactive=True)`. Assert that
 `(wiki / "concepts" / "index.md").exists()`,
 `(wiki / "sources" / "index.md").exists()`,
@@ -212,7 +212,7 @@ up in the test, monkeypatch them to no-ops via `monkeypatch.setattr` — the
 test only cares about the section-index emission step.
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/agent-research && uv run --package vault-io pytest packages/vault-io/tests/test_init_vault.py -x</automated>
+    <automated>cd /Users/pat/Personal/agent-research && uv run --package wiki-io pytest packages/wiki-io/tests/test_init_vault.py -x</automated>
   </verify>
   <done>New test passes. All four section-index stub files are created on a fresh init. Stub files contain the expected `# <Label>` heading. Existing stub files are preserved across a second init call with `force=True`. No regressions in the existing `_resolve_pinned_containers` tests.</done>
 </task>
@@ -226,10 +226,10 @@ collapses for the two categories this PR addresses.
 
 Steps:
 1. Snapshot current lint output for diff:
-   `cd /Users/pat/Personal/agent-research && uv run python -m vault_io.lint_wiki --workspace /Users/pat/Personal/graph-wiki/agent-research 2>&1 | tee /tmp/lint-before.txt || true`
+   `cd /Users/pat/Personal/agent-research && uv run python -m wiki_io.lint_wiki --workspace /Users/pat/Personal/graph-wiki/agent-research 2>&1 | tee /tmp/lint-before.txt || true`
    (Use the same invocation pattern Pat uses for `/graph-wiki:lint`; if the
    module entry point differs, fall back to running the script directly via
-   `uv run python packages/vault-io/src/vault_io/lint_wiki.py`. Do NOT
+   `uv run python packages/wiki-io/src/wiki_io/lint_wiki.py`. Do NOT
    modify lint_wiki to make this easier — investigate the existing CLI
    first.)
 2. Re-run init with `--force` against a tmp clone of the wiki (do NOT
@@ -240,7 +240,7 @@ Steps:
    the updated templates. Confirm the new overviews contain the
    `wiki/`-prefixed wikilinks.
 4. Re-run lint against the tmp wiki:
-   `uv run python -m vault_io.lint_wiki --workspace /tmp/wiki-verify 2>&1 | tee /tmp/lint-after.txt`
+   `uv run python -m wiki_io.lint_wiki --workspace /tmp/wiki-verify 2>&1 | tee /tmp/lint-after.txt`
 5. Diff the two outputs and confirm:
    - Zero broken `[[packages/<pkg>/api]]`-style links remain (was ~40).
    - Zero broken `[[wiki/concepts/index]]` / `[[wiki/sources/index]]` /
@@ -265,8 +265,8 @@ collateral regressions before this task is marked done.
 </task>
 
 <verification>
-- Unit tests pass: `uv run --package vault-io pytest packages/vault-io/tests/test_overview_template_wikilinks.py packages/vault-io/tests/test_init_vault.py -x`
-- Full vault-io test suite still green: `uv run --package vault-io pytest`
+- Unit tests pass: `uv run --package wiki-io pytest packages/wiki-io/tests/test_overview_template_wikilinks.py packages/wiki-io/tests/test_init_vault.py -x`
+- Full wiki-io test suite still green: `uv run --package wiki-io pytest`
 - Real-wiki end-to-end (Task 3) lint output shows 0 broken links from this PR's two defect categories.
 </verification>
 

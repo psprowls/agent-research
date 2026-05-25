@@ -45,7 +45,7 @@ from langchain_core.tools import tool
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
-from vault_io._workspace import resolve_wiki_and_repo
+from wiki_io._workspace import resolve_wiki_and_repo
 from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
 from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401

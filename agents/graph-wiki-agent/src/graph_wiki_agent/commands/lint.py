@@ -35,9 +35,9 @@ from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
-from vault_io._workspace import resolve_wiki_and_repo
-from vault_io.layout_io import read_layout
-from vault_io.lint.common import (
+from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.layout_io import read_layout
+from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
     _is_placeholder_target,
@@ -45,13 +45,13 @@ from vault_io.lint.common import (
     strip_code,
     strip_frontmatter,
 )
-from vault_io.lint.container import check as check_container_drift
-from vault_io.lint.dependency import check as check_dependency_layer
-from vault_io.lint.domain import check as check_domain_placement
-from vault_io.lint.file_map import check as check_file_map_drift
-from vault_io.lint.package_sync import check as check_package_sync_drift
-from vault_io.lint.source_sync import check as check_source_sync_drift
-from vault_io.lint.workflow_hints import check as check_workflow_hints
+from wiki_io.lint.container import check as check_container_drift
+from wiki_io.lint.dependency import check as check_dependency_layer
+from wiki_io.lint.domain import check as check_domain_placement
+from wiki_io.lint.file_map import check as check_file_map_drift
+from wiki_io.lint.package_sync import check as check_package_sync_drift
+from wiki_io.lint.source_sync import check as check_source_sync_drift
+from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ def _mechanical_pass(
     stale pages/missing frontmatter/duplicate titles/log gaps.
 
     Returns a dict with all mechanical fields matching LintResult field names.
-    Imports swap upstream package -> vault_io for the linter's internals.
+    Imports swap upstream package -> wiki_io for the linter's internals.
     Logic ported verbatim from lint_wiki.py:scan() lines 77-331.
     """
     pages: dict = {}
@@ -328,7 +328,7 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
     code_drift = _SKIPPED.copy()
     if repo is not None:
         try:
-            from vault_io.scan_monorepo import discover_workspaces, unscope
+            from wiki_io.scan_monorepo import discover_workspaces, unscope
 
             layout = read_layout(wiki / "CLAUDE.md")
             pinned_containers = layout.get("containers") if layout else None

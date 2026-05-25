@@ -13,25 +13,25 @@ files_reviewed_list:
   - agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr
   - agents/graph-wiki-agent/tests/prompts/test_project_context.py
   - agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
-  - packages/vault-io/DRIFT-DECISIONS-RAW.md
-  - packages/vault-io/DRIFT-DECISIONS.md
-  - packages/vault-io/src/vault_io/append_log.py
-  - packages/vault-io/src/vault_io/assets/AGENTS.md.template
-  - packages/vault-io/src/vault_io/assets/CLAUDE.md.template
-  - packages/vault-io/src/vault_io/assets/cursorrules.template
-  - packages/vault-io/src/vault_io/assets/index.md.template
-  - packages/vault-io/src/vault_io/assets/log.md.template
-  - packages/vault-io/src/vault_io/assets/page-templates/app.md
-  - packages/vault-io/src/vault_io/assets/page-templates/package.md
-  - packages/vault-io/src/vault_io/assets/page-templates/source.md
-  - packages/vault-io/src/vault_io/git_state.py
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/src/vault_io/layout_io.py
-  - packages/vault-io/src/vault_io/lint/container.py
-  - packages/vault-io/src/vault_io/lint/dependency.py
-  - packages/vault-io/src/vault_io/scan_monorepo.py
-  - packages/vault-io/src/vault_io/update_index.py
-  - packages/vault-io/src/vault_io/update_tokens.py
+  - packages/wiki-io/DRIFT-DECISIONS-RAW.md
+  - packages/wiki-io/DRIFT-DECISIONS.md
+  - packages/wiki-io/src/wiki_io/append_log.py
+  - packages/wiki-io/src/wiki_io/assets/AGENTS.md.template
+  - packages/wiki-io/src/wiki_io/assets/CLAUDE.md.template
+  - packages/wiki-io/src/wiki_io/assets/cursorrules.template
+  - packages/wiki-io/src/wiki_io/assets/index.md.template
+  - packages/wiki-io/src/wiki_io/assets/log.md.template
+  - packages/wiki-io/src/wiki_io/assets/page-templates/app.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/package.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/source.md
+  - packages/wiki-io/src/wiki_io/git_state.py
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/src/wiki_io/layout_io.py
+  - packages/wiki-io/src/wiki_io/lint/container.py
+  - packages/wiki-io/src/wiki_io/lint/dependency.py
+  - packages/wiki-io/src/wiki_io/scan_monorepo.py
+  - packages/wiki-io/src/wiki_io/update_index.py
+  - packages/wiki-io/src/wiki_io/update_tokens.py
   - plugins/.gitkeep
   - scripts/check-brand.sh
   - scripts/drift-diff.sh
@@ -77,7 +77,7 @@ $ /usr/bin/grep -rEl 'lattice|...' ... \
       18          # ← what the gate WOULD report if blanks/comments were stripped
 ```
 
-So a future regression that, e.g., adds a fresh `from lattice_wiki_core import ...` to `packages/vault-io/src/vault_io/_workspace.py` would not be caught — the gate would still print "BRAND-04 OK: zero unallowlisted hits". The 18 hits that surface after stripping blanks are all `__pycache__/*.pyc` files (compiled bytecode containing the literal `lattice` strings from `.brand-grep-allow` allowlisted-by-rationale sources), which a clean CI checkout won't have, masking the bug there too.
+So a future regression that, e.g., adds a fresh `from lattice_wiki_core import ...` to `packages/wiki-io/src/wiki_io/_workspace.py` would not be caught — the gate would still print "BRAND-04 OK: zero unallowlisted hits". The 18 hits that surface after stripping blanks are all `__pycache__/*.pyc` files (compiled bytecode containing the literal `lattice` strings from `.brand-grep-allow` allowlisted-by-rationale sources), which a clean CI checkout won't have, masking the bug there too.
 
 The comment in `.brand-grep-allow:3-5` asserts "Lines starting with `#` are comments and are ignored by `grep -vF -f` (no line in `grep -rEl` output starts with `#`...)". That reasoning is correct for `#`-prefixed lines, but it does not address blank lines — and BSD's empty-pattern semantics are the actual failure mode.
 
@@ -107,7 +107,7 @@ After applying the fix, also add an assertion test or a sanity run in CI (e.g., 
 
 **File:** `scripts/drift-diff.sh:18`
 
-**Issue:** `UPSTREAM_REPO=/Users/pat/Personal/lattice` is the absolute path to the upstream repo on the author's machine. The script's `set -euo pipefail` plus the "FATAL: upstream repo not found at $UPSTREAM_REPO" guard at line 51-54 means the failure is loud — but any other operator (a second contributor, CI, a future Pat on a different host) cannot run the regeneration command documented in the file header and in `DRIFT-DECISIONS.md` §Re-sync. Phase 12 plan-meta calls out re-sync re-runs as a real future use case ("re-runnable cheaply by future phases (13, 14, 16) and by any future re-sync between vault-io and upstream lattice-wiki-core" — `scripts/check-brand.sh:10-11`).
+**Issue:** `UPSTREAM_REPO=/Users/pat/Personal/lattice` is the absolute path to the upstream repo on the author's machine. The script's `set -euo pipefail` plus the "FATAL: upstream repo not found at $UPSTREAM_REPO" guard at line 51-54 means the failure is loud — but any other operator (a second contributor, CI, a future Pat on a different host) cannot run the regeneration command documented in the file header and in `DRIFT-DECISIONS.md` §Re-sync. Phase 12 plan-meta calls out re-sync re-runs as a real future use case ("re-runnable cheaply by future phases (13, 14, 16) and by any future re-sync between wiki-io and upstream lattice-wiki-core" — `scripts/check-brand.sh:10-11`).
 
 **Fix:** Allow an environment override at the top of the script:
 
@@ -118,16 +118,16 @@ UPSTREAM_REPO="${UPSTREAM_REPO:-/Users/pat/Personal/lattice}"
 Then the existing "FATAL: upstream repo not found" guard still catches operators who didn't set the var. Update `DRIFT-DECISIONS.md:45` Re-sync protocol accordingly:
 
 ```
-UPSTREAM_REPO=/path/to/lattice bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md
+UPSTREAM_REPO=/path/to/lattice bash scripts/drift-diff.sh > packages/wiki-io/DRIFT-DECISIONS-RAW.md
 ```
 
 ### WR-02: Layout sentinel rename breaks `read_layout()` for existing upstream lattice-wiki vaults
 
-**File:** `packages/vault-io/src/vault_io/layout_io.py:32-33` (in concert with `CLAUDE.md` §Constraints)
+**File:** `packages/wiki-io/src/wiki_io/layout_io.py:32-33` (in concert with `CLAUDE.md` §Constraints)
 
 **Issue:** `layout_io.py` previously read/wrote layout blocks delimited by `<!-- lattice-wiki:layout:start -->` / `<!-- lattice-wiki:layout:end -->`. Phase 12 renamed both sentinels to `<!-- graph-wiki:layout:start -->` / `<!-- graph-wiki:layout:end -->`. The compiled regex `_BLOCK_RE` (line 35-38) anchors on the new strings exactly; there is no legacy fallback.
 
-The round-trip fixture vault at `packages/vault-io/tests/fixtures/round-trip-vault/CLAUDE.md:161,196` still uses the old `<!-- lattice-wiki:layout:start -->` sentinel pair (deliberately, per the R-01 allowlist entry). `read_layout()` against that file now returns `None` — silently. Cross-check with `CLAUDE.md` §Constraints:
+The round-trip fixture vault at `packages/wiki-io/tests/fixtures/round-trip-vault/CLAUDE.md:161,196` still uses the old `<!-- lattice-wiki:layout:start -->` sentinel pair (deliberately, per the R-01 allowlist entry). `read_layout()` against that file now returns `None` — silently. Cross-check with `CLAUDE.md` §Constraints:
 
 > **Format compatibility**: must read existing upstream lattice-wiki vaults without modification — preserve frontmatter schema, layout block format, wikilink/citation conventions
 
@@ -143,7 +143,7 @@ This may be the intended hard-break — Phase 12 is the rebrand phase and the pr
 (a) **Accept both formats on read.** Smallest diff; preserves the format-compat constraint for read-only paths.
 
 ```python
-# packages/vault-io/src/vault_io/layout_io.py
+# packages/wiki-io/src/wiki_io/layout_io.py
 LAYOUT_START = "<!-- graph-wiki:layout:start -->"
 LAYOUT_END = "<!-- graph-wiki:layout:end -->"
 _LEGACY_LAYOUT_START = "<!-- lattice-wiki:layout:start -->"
@@ -165,7 +165,7 @@ _BLOCK_RE = re.compile(
 
 **File:** `.brand-grep-allow` (consumed by `scripts/check-brand.sh:27`)
 
-**Issue:** The file-header comment (lines 1-15, 17-19, 24-27, etc.) explains the allowlist semantics in prose. Those comment lines are passed verbatim to `grep -vF -f` as fixed-string patterns. The author's reasoning at `.brand-grep-allow:4-5` is correct that `#`-prefixed lines can't match `grep -rEl` filename output, but the design relies on a content-dependent invariant: a future edit that introduces a path-fragment-like substring inside a comment line (e.g. someone writes `# example: packages/vault-io/foo.py`) would silently broaden the allowlist. Couple this with CR-01 and the gate's correctness depends on two implicit invariants holding simultaneously.
+**Issue:** The file-header comment (lines 1-15, 17-19, 24-27, etc.) explains the allowlist semantics in prose. Those comment lines are passed verbatim to `grep -vF -f` as fixed-string patterns. The author's reasoning at `.brand-grep-allow:4-5` is correct that `#`-prefixed lines can't match `grep -rEl` filename output, but the design relies on a content-dependent invariant: a future edit that introduces a path-fragment-like substring inside a comment line (e.g. someone writes `# example: packages/wiki-io/foo.py`) would silently broaden the allowlist. Couple this with CR-01 and the gate's correctness depends on two implicit invariants holding simultaneously.
 
 **Fix:** The fix to CR-01 (filter blanks AND comments before passing to `grep -vF`) resolves this finding as well. With `grep -vE '^[[:space:]]*(#|$)'` applied first, comment content is no longer a pattern and the invariant collapses to "every effective pattern is the rationale-attached path fragment on its own line."
 
@@ -198,7 +198,7 @@ DIFF_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 ### IN-01: `init_vault.py` references workspace bootstrap that doesn't exist yet
 
-**File:** `packages/vault-io/src/vault_io/init_vault.py:154-158, 163-165`
+**File:** `packages/wiki-io/src/wiki_io/init_vault.py:154-158, 163-165`
 
 **Issue:** The docstring says "Phase 5 will provide a workspace-bootstrap equivalent" but lines 163-165 actively create `<workspace>/raw/` and `<workspace>/work/`, which is the rebranded workspace-bootstrap behavior. The docstring is out-of-date relative to the implementation. Not a behavioral bug — just stale prose. Not introduced by phase 12 (the rename) but surfaced by reading the rebranded file. Leave-as-is is fine.
 
@@ -215,7 +215,7 @@ belong to a separate workspace.init() helper upstream; here they're inlined.
 
 ### IN-02: `lint/container.py` "run /graph-wiki:bootstrap" suggestion will mislead users on missing layout
 
-**File:** `packages/vault-io/src/vault_io/lint/container.py:35`
+**File:** `packages/wiki-io/src/wiki_io/lint/container.py:35`
 
 **Issue:** When `read_layout()` returns None (covered by WR-02), the returned string is `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`. There is no `/graph-wiki:bootstrap` slash-command in this repo today — `init_vault.py` is a Python module invoked via `graph-wiki-agent init` (per its argparse `main()` at line 282-315). The slash-command vocabulary is forward-looking (Phase 14 plugin port per `plugins/.gitkeep`), but until the plugin lands, the suggested remediation does not work.
 
@@ -229,7 +229,7 @@ or the language-neutral "run init to rebuild the layout block." Low priority.
 
 ### IN-03: `_dt.date.fromtimestamp` on `scan_monorepo.py:834` ignores timezone
 
-**File:** `packages/vault-io/src/vault_io/scan_monorepo.py:834`
+**File:** `packages/wiki-io/src/wiki_io/scan_monorepo.py:834`
 
 **Issue:** `mtime` is computed from local-system time via `_dt.date.fromtimestamp(md.stat().st_mtime)`. The rest of the codebase prefers UTC (e.g., `drift-diff.sh` line 66, `scan_monorepo.py:1047`). This is pre-existing (predates phase 12 by inspection of the upstream commit referenced in `DRIFT-DECISIONS.md`), so it's strictly out-of-scope for this review. Noting it once so the next person to touch this codepath doesn't have to re-derive it.
 

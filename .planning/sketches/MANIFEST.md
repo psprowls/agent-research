@@ -9,7 +9,7 @@ Aesthetic: warm dark terminal — Pat watches the run, so it should feel like a 
 ## Reference Points
 
 - Existing graph-wiki commands: `/graph-wiki:scan` (per-package interactive review), `/graph-wiki:ingest` (source-driven page updates), `/graph-wiki:lint` (autonomous health report)
-- Existing page templates in `packages/vault-io/src/vault_io/assets/page-templates/package/`: overview.md, api.md, context.md, patterns.md, work.md
+- Existing page templates in `packages/wiki-io/src/wiki_io/assets/page-templates/package/`: overview.md, api.md, context.md, patterns.md, work.md
 - `last_sync_commit` frontmatter convention already on package overview pages
 - Iron rule #2: LLM never writes to `<workspace>/raw/` — but refresh, as the tool, may
 
@@ -30,6 +30,6 @@ Aesthetic: warm dark terminal — Pat watches the run, so it should feel like a 
 
 ## Open questions
 
-- Single-target mode (`/graph-wiki:refresh packages/vault-io`) — same output format as sweep, just one block. Not separately sketched; revisit during plan-phase if affordances diverge.
+- Single-target mode (`/graph-wiki:refresh packages/wiki-io`) — same output format as sweep, just one block. Not separately sketched; revisit during plan-phase if affordances diverge.
 - Per-subpage fill strategy (what gets autonomously filled in `api.md` vs `patterns.md` vs `context.md`) — implicitly "do what's mechanically possible." Worth nailing down in plan-phase: `patterns.md` is the hardest and may always end up flagged for review.
 - Where in the lifecycle does `last_sync_commit` get bumped — at end of sweep, or per-package as ingest succeeds? Sketches assume per-package on success.

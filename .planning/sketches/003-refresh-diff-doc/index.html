@@ -37,7 +37,7 @@
     <h1>Sketch 003 — Diff doc anatomy</h1>
     <p class="subtitle">What does <code>raw/diffs/&lt;pkg&gt;-&lt;from&gt;..&lt;to&gt;.md</code> contain when refresh writes it for ingest?</p>
     <div class="meta-row">
-      <span><b>Example:</b> packages/vault-io · 30058ee..4656429 · 82 commits, 47 files</span>
+      <span><b>Example:</b> packages/wiki-io · 30058ee..4656429 · 82 commits, 47 files</span>
       <span><b>Reader:</b> the ingestor sub-agent (LLM), then later a human auditing</span>
       <span><b>Cost lever:</b> token budget of this doc directly drives ingest cost</span>
     </div>
@@ -63,12 +63,12 @@
     </p>
     <div class="filebar">
       <span class="badge">raw/</span>
-      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span class="name">raw/diffs/wiki-io-30058ee..HEAD.md</span>
       <span style="margin-left: auto;">~18k tokens</span>
     </div>
     <div class="md"><span class="md-fm">---
 source_type: diff
-package: packages/vault-io
+package: packages/wiki-io
 from_commit: 30058ee
 to_commit:   4656429
 generated_by: graph-wiki:refresh
@@ -79,7 +79,7 @@ loc_added: 1184
 loc_removed: 612
 ---</span>
 
-<span class="md-h1"># Diff: packages/vault-io (30058ee..4656429)</span>
+<span class="md-h1"># Diff: packages/wiki-io (30058ee..4656429)</span>
 
 <span class="md-h2">## Commits</span>
 
@@ -91,17 +91,17 @@ loc_removed: 612
 
 <span class="md-h2">## Stat</span>
 
-  src/vault_io/scan.py            | 142 +++++++++++++++++++++--------
-  src/vault_io/ingest.py          |  88 ++++++++++++--------
-  src/vault_io/layout.py          |  53 ++++++++++--
-  src/vault_io/page_templates.py  |  41 +++++++--
+  src/wiki_io/scan.py            | 142 +++++++++++++++++++++--------
+  src/wiki_io/ingest.py          |  88 ++++++++++++--------
+  src/wiki_io/layout.py          |  53 ++++++++++--
+  src/wiki_io/page_templates.py  |  41 +++++++--
   tests/test_scan.py              |  67 ++++++++++++++
   <span class="md-fm">… 42 more files</span>
   <span class="md-add">1184 insertions(+)</span>, <span class="md-rem">612 deletions(-)</span>
 
 <span class="md-h2">## Diff</span>
 
-<span class="md-diff-hdr">diff --git a/src/vault_io/scan.py b/src/vault_io/scan.py</span>
+<span class="md-diff-hdr">diff --git a/src/wiki_io/scan.py b/src/wiki_io/scan.py</span>
 <span class="md-diff-hdr">@@ -42,7 +42,7 @@ def scan_workspace(root: Path) -&gt; ScanResult:</span>
 <span class="md-rem">-    config = load_config(root / ".graph-wiki.yaml")</span>
 <span class="md-add">+    config = WorkspaceConfig.load(root)</span>
@@ -130,12 +130,12 @@ loc_removed: 612
     </p>
     <div class="filebar">
       <span class="badge">raw/</span>
-      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span class="name">raw/diffs/wiki-io-30058ee..HEAD.md</span>
       <span style="margin-left: auto;">~1.8k tokens</span>
     </div>
     <div class="md"><span class="md-fm">---
 source_type: diff
-package: packages/vault-io
+package: packages/wiki-io
 from_commit: 30058ee
 to_commit:   4656429
 generated_by: graph-wiki:refresh
@@ -146,7 +146,7 @@ files_changed: 47
 confidence: high
 ---</span>
 
-<span class="md-h1"># Semantic delta: packages/vault-io (30058ee..4656429)</span>
+<span class="md-h1"># Semantic delta: packages/wiki-io (30058ee..4656429)</span>
 
 <span class="md-h2">## TL;DR</span>
 
@@ -161,12 +161,12 @@ Two cross-cutting changes in this window:
 <span class="md-h2">## API changes</span>
 
 <span class="md-h3">### Added</span>
-- <span class="md-code">WorkspaceConfig.load(root)</span> — <span class="md-link">src/vault_io/config.py:24</span>
-- <span class="md-code">Scanner.classify_package_family(path)</span> — <span class="md-link">src/vault_io/scan.py:120</span>
+- <span class="md-code">WorkspaceConfig.load(root)</span> — <span class="md-link">src/wiki_io/config.py:24</span>
+- <span class="md-code">Scanner.classify_package_family(path)</span> — <span class="md-link">src/wiki_io/scan.py:120</span>
 
 <span class="md-h3">### Removed</span>
 - <span class="md-code">load_config(path)</span> — replaced by <span class="md-code">WorkspaceConfig.load(root)</span>
-- <span class="md-code">--config</span> CLI flag (vault-io scripts)
+- <span class="md-code">--config</span> CLI flag (wiki-io scripts)
 - <span class="md-code">CODE_WIKI_CONFIG</span> env var
 
 <span class="md-h3">### Behavior changes</span>
@@ -182,14 +182,14 @@ Two cross-cutting changes in this window:
   Propose <span class="md-link">adrs/0008-workspace-resolved-config.md</span>.
 
 <span class="md-h2">## Pages likely to need updates</span>
-- <span class="md-link">[[packages/vault-io/api]]</span> — export list changed
-- <span class="md-link">[[packages/vault-io/patterns]]</span> — "config resolution" pattern is new
-- <span class="md-link">[[packages/vault-io/context]]</span> — link new concept + ADR
+- <span class="md-link">[[packages/wiki-io/api]]</span> — export list changed
+- <span class="md-link">[[packages/wiki-io/patterns]]</span> — "config resolution" pattern is new
+- <span class="md-link">[[packages/wiki-io/context]]</span> — link new concept + ADR
 - <span class="md-link">[[concepts/layout-detection]]</span> — mention package-family
 
 <span class="md-h2">## Contradictions to verify</span>
 - Wiki claim: <em>"config is loaded from .graph-wiki.yaml via load_config"</em>
-  — stale; <span class="md-link">[[packages/vault-io/context]]</span> still describes the old path.
+  — stale; <span class="md-link">[[packages/wiki-io/context]]</span> still describes the old path.
 </div>
   </section>
 
@@ -204,12 +204,12 @@ Two cross-cutting changes in this window:
     </p>
     <div class="filebar">
       <span class="badge">raw/</span>
-      <span class="name">raw/diffs/vault-io-30058ee..HEAD.md</span>
+      <span class="name">raw/diffs/wiki-io-30058ee..HEAD.md</span>
       <span style="margin-left: auto;">~6k tokens</span>
     </div>
     <div class="md"><span class="md-fm">---
 source_type: diff
-package: packages/vault-io
+package: packages/wiki-io
 from_commit: 30058ee
 to_commit:   4656429
 generated_by: graph-wiki:refresh
@@ -222,7 +222,7 @@ sections:
   - llm:     [summary, decisions, contradictions]
 ---</span>
 
-<span class="md-h1"># Refresh diff: packages/vault-io (30058ee..4656429)</span>
+<span class="md-h1"># Refresh diff: packages/wiki-io (30058ee..4656429)</span>
 
 <span class="md-h2">## Summary</span>   <span class="md-fm">(LLM)</span>
 
@@ -236,22 +236,22 @@ Window covers the workspace-config consolidation (delete <span class="md-code">-
 <span class="md-h3">### Added</span>
 | Symbol | Where | First seen |
 |---|---|---|
-| <span class="md-code">WorkspaceConfig.load</span> | <span class="md-link">src/vault_io/config.py:24</span> | <span class="md-code">d76bf2a</span> |
-| <span class="md-code">Scanner.classify_package_family</span> | <span class="md-link">src/vault_io/scan.py:120</span> | <span class="md-code">a3f9c12</span> |
+| <span class="md-code">WorkspaceConfig.load</span> | <span class="md-link">src/wiki_io/config.py:24</span> | <span class="md-code">d76bf2a</span> |
+| <span class="md-code">Scanner.classify_package_family</span> | <span class="md-link">src/wiki_io/scan.py:120</span> | <span class="md-code">a3f9c12</span> |
 
 <span class="md-h3">### Removed</span>
 | Symbol | Where (last seen) | Removed in |
 |---|---|---|
-| <span class="md-code">load_config</span> | <span class="md-link">src/vault_io/config.py:11</span> | <span class="md-code">382a9cd</span> |
-| <span class="md-code">CODE_WIKI_CONFIG</span> (env) | <span class="md-link">src/vault_io/__init__.py</span> | <span class="md-code">382a9cd</span> |
+| <span class="md-code">load_config</span> | <span class="md-link">src/wiki_io/config.py:11</span> | <span class="md-code">382a9cd</span> |
+| <span class="md-code">CODE_WIKI_CONFIG</span> (env) | <span class="md-link">src/wiki_io/__init__.py</span> | <span class="md-code">382a9cd</span> |
 
 <span class="md-h2">## Files touched</span>   <span class="md-fm">(machine — git --stat)</span>
 
-  src/vault_io/scan.py            <span class="md-add">+142</span> <span class="md-rem">-38</span>
-  src/vault_io/ingest.py          <span class="md-add"> +88</span> <span class="md-rem">-44</span>
-  src/vault_io/config.py          <span class="md-add"> +24</span> <span class="md-rem">-71</span>  <span class="md-fm">← surface change</span>
-  src/vault_io/layout.py          <span class="md-add"> +53</span> <span class="md-rem">-12</span>
-  src/vault_io/page_templates.py  <span class="md-add"> +41</span> <span class="md-rem"> -8</span>
+  src/wiki_io/scan.py            <span class="md-add">+142</span> <span class="md-rem">-38</span>
+  src/wiki_io/ingest.py          <span class="md-add"> +88</span> <span class="md-rem">-44</span>
+  src/wiki_io/config.py          <span class="md-add"> +24</span> <span class="md-rem">-71</span>  <span class="md-fm">← surface change</span>
+  src/wiki_io/layout.py          <span class="md-add"> +53</span> <span class="md-rem">-12</span>
+  src/wiki_io/page_templates.py  <span class="md-add"> +41</span> <span class="md-rem"> -8</span>
   tests/test_scan.py              <span class="md-add"> +67</span> <span class="md-rem">  0</span>
   tests/test_config.py            <span class="md-add">  +4</span> <span class="md-rem">-89</span>  <span class="md-fm">← assertions dropped</span>
   <span class="md-fm">… 40 more files (full list below)</span>
@@ -272,12 +272,12 @@ Window covers the workspace-config consolidation (delete <span class="md-code">-
 
 <span class="md-h2">## Contradictions to verify</span>   <span class="md-fm">(LLM)</span>
 
-- <span class="md-link">[[packages/vault-io/context]]</span> mentions <span class="md-code">load_config</span> — now removed.
+- <span class="md-link">[[packages/wiki-io/context]]</span> mentions <span class="md-code">load_config</span> — now removed.
 - <span class="md-link">[[concepts/layout-detection]]</span> doesn't mention <span class="md-code">package-family</span> yet.
 
 <span class="md-h2">## Surface-change diffs</span>   <span class="md-fm">(machine — inlined for files with the largest +/- count)</span>
 
-<span class="md-h3">### src/vault_io/config.py</span>   <span class="md-fm">(+24 −71)</span>
+<span class="md-h3">### src/wiki_io/config.py</span>   <span class="md-fm">(+24 −71)</span>
 
 <span class="md-diff-hdr">@@ -1,71 +0,0 @@</span>
 <span class="md-rem">-CODE_WIKI_CONFIG = "CODE_WIKI_CONFIG"</span>
@@ -310,7 +310,7 @@ Window covers the workspace-config consolidation (delete <span class="md-code">-
 <span class="md-rem">-    ...</span>
 <span class="md-fm">…</span>
 
-<span class="md-h3">### src/vault_io/scan.py</span>   <span class="md-fm">(+142 −38)</span>
+<span class="md-h3">### src/wiki_io/scan.py</span>   <span class="md-fm">(+142 −38)</span>
 
 <span class="md-diff-hdr">@@ -42,7 +42,7 @@ def scan_workspace(root: Path) -&gt; ScanResult:</span>
 <span class="md-rem">-    config = load_config(root / ".graph-wiki.yaml")</span>

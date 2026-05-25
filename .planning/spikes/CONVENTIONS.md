@@ -26,7 +26,7 @@ Note: only one spike has been run so far (001-subagent-context-audit, an analyti
 
 - `syrupy` (5.1.0, already in stack) — snapshot tests for assembled system-prompt strings.
 - `packages/eval-harness` — recorded-output baseline comparison when validating that an injected-context change didn't regress subagent behavior.
-- `vault_io.layout_io.read_layout` — the canonical way to parse `wiki/CLAUDE.md` layout blocks. Spikes that touch project context use this, not bespoke YAML parsing.
+- `wiki_io.layout_io.read_layout` — the canonical way to parse `wiki/CLAUDE.md` layout blocks. Spikes that touch project context use this, not bespoke YAML parsing.
 
 Avoid:
 - `tiktoken` for token estimation — wrong tokenizer for Bedrock/Claude/Qwen models. Use Bedrock CountTokens API or the rule of thumb (4 chars/token for English markdown) per project CLAUDE.md.

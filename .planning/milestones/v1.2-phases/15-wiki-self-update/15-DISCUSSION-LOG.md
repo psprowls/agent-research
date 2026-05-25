@@ -132,8 +132,8 @@
 | Option | Description | Selected |
 |--------|-------------|----------|
 | workspace-io page only — frontmatter + body + at least one wikilink | Minimum bar; matches SC#2 literal. | ✓ |
-| workspace-io + vault-io (post-rebrand) pages | Two pages; catches rename-and-delegation pattern. | |
-| workspace-io + vault-io + plugin mention | Three pages; broadest spot-check. | |
+| workspace-io + wiki-io (post-rebrand) pages | Two pages; catches rename-and-delegation pattern. | |
+| workspace-io + wiki-io + plugin mention | Three pages; broadest spot-check. | |
 
 **User's choice:** workspace-io page only — frontmatter + body + at least one wikilink.
 **Notes:** SC#2 says "at least one"; one suffices. Other pages validated implicitly via scan output without explicit spot-check.
@@ -182,5 +182,5 @@
 - Qwen profile rebaseline + cost-frontier comparison vs Claude override — future cost-frontier work.
 - Lint pass before/after — no SC backs it.
 - Promote `models-claude.toml` to default profile — pending quality measurement.
-- Spot-check additional pages (`vault-io` post-rebrand, plugin entry).
+- Spot-check additional pages (`wiki-io` post-rebrand, plugin entry).
 - Phase 14 plugin transcript semantic diff — milestone audit candidate.

@@ -15,7 +15,7 @@ Composition pattern: **in-house fan-out primitives over langchain-core + langcha
 | `model-adapter` | `packages/model-adapter/` | `make_llm(role)` returns `_GuardedChatBedrockConverse`; reads `models.toml`; wraps `AccessDeniedException` into `BedrockAccessDenied` with IAM-actionable message. |
 | `subagent-runtime` | `packages/subagent-runtime/` | `SubagentPool.run_all()` async fan-out: per-role `asyncio.Semaphore`, `asyncio.gather(return_exceptions=True)` for partial-failure isolation, JSONL trace per invocation via `trace_io.write_trace_record`. |
 | `workspace-io` | `packages/workspace-io/` | Workspace bootstrap, `.graph-wiki.yaml` manifest IO, plugin version registry, `GraphWikiConfig.resolve()`. Hatchling-built (no uv_build). |
-| `vault-io` | `packages/vault-io/` | Vault page IO, frontmatter handling, layout block parser/writer in CLAUDE.md, monorepo scanner diffing, mechanical lint passes, hand-rolled YAML emitter for layout block. |
+| `wiki-io` | `packages/wiki-io/` | Vault page IO, frontmatter handling, layout block parser/writer in CLAUDE.md, monorepo scanner diffing, mechanical lint passes, hand-rolled YAML emitter for layout block. |
 | `eval-harness` | `packages/eval-harness/` | `run_sweep` / `run_role_sweep` cost-frontier model sweep, hardcoded Bedrock `PRICES` table, divergence checks, deepeval-backed judge, preflight token estimator. |
 | `code-wiki-agent` | `agents/code-wiki-agent/` | Typer CLI (`code-wiki-agent`) + FastMCP stdio server (`code-wiki-mcp`). Command modules under `commands/` (init, scan, ingest, lint, query, log) wrap subagent fan-out. Prompts assembled from `prompts/` and `prompts/_fragments/`. |
 | `prompt-sources` | `packages/prompt-sources/` | Exists on disk but **excluded from the uv workspace** (`exclude = ["packages/prompt-sources"]` in root pyproject.toml). |
@@ -23,11 +23,11 @@ Composition pattern: **in-house fan-out primitives over langchain-core + langcha
 ## Data Flow
 
 CLI (`typer.app`) or MCP host (stdio FastMCP) → command function in `code_wiki_agent.commands.*` (`run_query`, `run_scan`, `run_ingest_*`, `run_lint`, `run_init`, `run_log`)
-→ `vault_io._workspace.resolve_wiki_and_repo()` to locate vault + repo roots
+→ `wiki_io._workspace.resolve_wiki_and_repo()` to locate vault + repo roots
 → `model_adapter.loader.make_llm(role)` to construct a guarded `ChatBedrockConverse`
 → `subagent_runtime.SubagentPool.run_all(items, task, role, model_id, max_concurrency)` for parallel role-bound dispatch
 → per-invocation JSONL record via `subagent_runtime.trace_io.write_trace_record` into `<vault>/.code-wiki/traces/`
-→ vault writes via `vault_io` (layout block, log append, page IO)
+→ vault writes via `wiki_io` (layout block, log append, page IO)
 → result returned as a `dataclass` and rendered (`typer.echo`) or returned as a Pydantic MCP output model.
 
 The MCP server (`code_wiki_mcp.server`) installs an `_StdoutGuard` at import time to ensure no library writes to stdout corrupt JSON-RPC framing — only FastMCP's `sys.stdout.buffer` is allowed through.

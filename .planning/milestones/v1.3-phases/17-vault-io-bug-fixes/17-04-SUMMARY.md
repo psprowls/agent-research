@@ -1,12 +1,12 @@
 ---
-phase: 17-vault-io-bug-fixes
+phase: 17-wiki-io-bug-fixes
 plan: "04"
-subsystem: vault-io
-tags: [vault-io, bedrock, count-tokens, live-re-stamp, wiki-self-update, operational-closure]
+subsystem: wiki-io
+tags: [wiki-io, bedrock, count-tokens, live-re-stamp, wiki-self-update, operational-closure]
 
 # Dependency graph
 requires:
-  - phase: 17-vault-io-bug-fixes
+  - phase: 17-wiki-io-bug-fixes
     plan: "02"
     provides: "Fixed count_tokens() API shape (TOK-01/02) — prerequisite for live re-stamp to succeed"
 provides:
@@ -25,7 +25,7 @@ tech-stack:
 
 key-files:
   created:
-    - .planning/phases/17-vault-io-bug-fixes/17-VERIFICATION.md
+    - .planning/phases/17-wiki-io-bug-fixes/17-VERIFICATION.md
   modified: []
 
 key-decisions:
@@ -75,7 +75,7 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `.planning/phases/17-vault-io-bug-fixes/17-VERIFICATION.md` — Created: per-SC evidence for all 5 Phase 17 SCs, TOK-03 live re-stamp transcript, wiki commit SHA
+- `.planning/phases/17-wiki-io-bug-fixes/17-VERIFICATION.md` — Created: per-SC evidence for all 5 Phase 17 SCs, TOK-03 live re-stamp transcript, wiki commit SHA
 - `~/Personal/graph-wiki/agent-research*.md` (8 files) — Updated: `tokens: <N>` frontmatter field added to real wiki pages (in separate wiki repo)
 
 ## Decisions Made
@@ -128,7 +128,7 @@ None — no new network endpoints, auth paths, or file access patterns. The Coun
 ## Self-Check
 
 Files created/modified:
-- `.planning/phases/17-vault-io-bug-fixes/17-VERIFICATION.md` — FOUND (dec71d3)
+- `.planning/phases/17-wiki-io-bug-fixes/17-VERIFICATION.md` — FOUND (dec71d3)
 - `~/Personal/graph-wiki/agent-research*.md` (8 files) — FOUND (wiki commit 80a4739)
 
 Commits in agent-research:
@@ -148,5 +148,5 @@ Acceptance criteria:
 ## Self-Check: PASSED
 
 ---
-*Phase: 17-vault-io-bug-fixes*
+*Phase: 17-wiki-io-bug-fixes*
 *Completed: 2026-05-19*

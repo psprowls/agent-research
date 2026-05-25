@@ -15,7 +15,7 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 > "At this time I do not want the plugin to use any of the bedrock inference. I want it to use Claude code (or whatever harness) for all inference. I am expecting the graph-wiki to be functionally identical to lattice-wiki. I don't have the code in front of me, so I can't look at how much of the lattice-wiki-core functionality was brought over and where it lives now, but maybe we need a new graph-wiki-core that both graph-wiki-agent and the scripts used by the graph-wiki plugin's scripts."
 
-**Consequence:** Initial AskUserQuestion was rejected. Every subsequent question reframed around: plugin = Claude Code inference path, graph-wiki-agent = Bedrock path, two parallel surfaces over the same vault-io / workspace-io helpers. Saved to memory as `[[project_plugin_port_model]]` for future sessions.
+**Consequence:** Initial AskUserQuestion was rejected. Every subsequent question reframed around: plugin = Claude Code inference path, graph-wiki-agent = Bedrock path, two parallel surfaces over the same wiki-io / workspace-io helpers. Saved to memory as `[[project_plugin_port_model]]` for future sessions.
 
 ---
 
@@ -23,13 +23,13 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Plugin shims import directly from vault-io + workspace-io | `from vault_io.<x> import main`; no new package. Plugin uses `uv run --project` to pick up venv. | ✓ |
-| New `graph-wiki-core` package that re-exports vault-io + workspace-io | Adds a thin re-export package; plugin imports `graph_wiki_core`. | |
-| Move vault-io + workspace-io contents INTO new `graph-wiki-core` | Bigger refactor; collapses layered package shape from Phases 11–12. | |
+| Plugin shims import directly from wiki-io + workspace-io | `from wiki_io.<x> import main`; no new package. Plugin uses `uv run --project` to pick up venv. | ✓ |
+| New `graph-wiki-core` package that re-exports wiki-io + workspace-io | Adds a thin re-export package; plugin imports `graph_wiki_core`. | |
+| Move wiki-io + workspace-io contents INTO new `graph-wiki-core` | Bigger refactor; collapses layered package shape from Phases 11–12. | |
 | Plugin vendors its own copy of scripts | Duplicate code in plugin folder; no Python install dep at runtime. | |
 
-**User's choice:** Plugin shims import directly from vault-io + workspace-io.
-**Notes:** Avoids a new package shape; reuses the layered structure built in Phases 11–12. Compatible with the upstream shim pattern, just retargeted from `lattice_wiki_core` to `vault_io` / `workspace_io`.
+**User's choice:** Plugin shims import directly from wiki-io + workspace-io.
+**Notes:** Avoids a new package shape; reuses the layered structure built in Phases 11–12. Compatible with the upstream shim pattern, just retargeted from `lattice_wiki_core` to `wiki_io` / `workspace_io`.
 
 ---
 
@@ -37,11 +37,11 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Port both into vault-io as part of Phase 13 or Phase 14 | Treat like Phase 12 backports. Benefit graph-wiki-agent too. | ✓ |
+| Port both into wiki-io as part of Phase 13 or Phase 14 | Treat like Phase 12 backports. Benefit graph-wiki-agent too. | ✓ |
 | Port into the new shared package (only applicable if option B/C above) | N/A given previous answer. | |
 | Plugin includes its own copies (no shared port) | Duplication; graph-wiki-agent's lint/query don't get the new modules. | |
 
-**User's choice:** Port both into vault-io.
+**User's choice:** Port both into wiki-io.
 **Notes:** Specific phase placement (13 vs 14 vs 12-retroactive) clarified in the next question.
 
 ---
@@ -50,7 +50,7 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Strip the selector — plugin shims call vault-io directly, no backend branching | Simplest; plugin is Claude-only. | |
+| Strip the selector — plugin shims call wiki-io directly, no backend branching | Simplest; plugin is Claude-only. | |
 | Preserve the seam (backend=claude default; bedrock optional) | Keep upstream's `_config.py::backend_for` pattern. Future-flexible. | ✓ |
 
 **User's choice:** Preserve the seam.
@@ -71,7 +71,7 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 ---
 
-## Python path strategy — how do plugin shims find vault-io?
+## Python path strategy — how do plugin shims find wiki-io?
 
 | Option | Description | Selected |
 |--------|-------------|----------|

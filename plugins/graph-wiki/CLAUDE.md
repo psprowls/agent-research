@@ -14,15 +14,15 @@ plugins/graph-wiki/
 └── commands/                 # init, scan, ingest, query, lint, log
 ```
 
-## Source-of-truth split with `packages/vault-io/`
+## Source-of-truth split with `packages/wiki-io/`
 
-Real implementation lives in `packages/vault-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests.
+Real implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests.
 
-The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `vault_io.<name>` (claude branch) or shells out to `graph-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `graph-wiki-agent` Bedrock CLI.
+The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` (claude branch) or shells out to `graph-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `graph-wiki-agent` Bedrock CLI.
 
-Distribution: shims reference `vault_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required.
+Distribution: shims reference `wiki_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required.
 
-**When changing behavior:** edit `packages/vault-io/` and write tests there. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
+**When changing behavior:** edit `packages/wiki-io/` and write tests there. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
 
 ## Tests
 
@@ -30,19 +30,19 @@ Pytest, in the package — not in the plugin tree:
 
 ```bash
 # From repo root (preferred — uv workspace)
-uv run pytest packages/vault-io/
+uv run pytest packages/wiki-io/
 
 # Single test
-uv run pytest packages/vault-io/tests/test_layout_io.py::TestX::test_y
+uv run pytest packages/wiki-io/tests/test_layout_io.py::TestX::test_y
 ```
 
-`packages/vault-io/tests/helpers.py` provides `tmp_repo`, `write_pkg`, `write_file`, `write_claude_plugin` for inline throwaway repos. Larger shared shapes live in the repo-root `fixtures/` directory (`single-package/`, `mono-shaped/`, `non-standard/`); tests resolve them via `Path(__file__).resolve().parents[N] / "fixtures"`.
+`packages/wiki-io/tests/helpers.py` provides `tmp_repo`, `write_pkg`, `write_file`, `write_claude_plugin` for inline throwaway repos. Larger shared shapes live in the repo-root `fixtures/` directory (`single-package/`, `mono-shaped/`, `non-standard/`); tests resolve them via `Path(__file__).resolve().parents[N] / "fixtures"`.
 
 ## Script paths must use `${CLAUDE_PLUGIN_ROOT}`
 
 Every command and agent that invokes a bundled script must reference it as `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<name>.py`. Claude Code substitutes `${CLAUDE_PLUGIN_ROOT}` with the absolute path to the installed plugin directory at load time. Hardcoded absolute or relative paths break installs.
 
-The shim under that path resolves the implementation from `vault_io` via the `uv` workspace.
+The shim under that path resolves the implementation from `wiki_io` via the `uv` workspace.
 
 ## Wiki layout invariants
 
@@ -55,7 +55,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `worksp
 
 Inside `<workspace>/wiki/`, `apps/`, `packages/`, and `domains/` are **conditional** — created only when the detector finds matching containers. A single-package repo has none of those subtrees.
 
-When changing how layout is detected, classified, or written, update `init_vault` in `packages/vault-io/` together with the matching reference docs under `plugins/graph-wiki/skills/graph-wiki/references/` — `detection-workflow.md`, `scan-workflow.md`, `ingest-workflow.md`, `lint-workflow.md`, `query-workflow.md`, `wiki-schema.md`, `monorepo-principles.md`, `page-formats.md`, `obsidian-setup.md`, `cross-tool-setup.md`. The skill's behavior is defined by the union of the script and its reference doc; changing one without the other produces drift.
+When changing how layout is detected, classified, or written, update `init_vault` in `packages/wiki-io/` together with the matching reference docs under `plugins/graph-wiki/skills/graph-wiki/references/` — `detection-workflow.md`, `scan-workflow.md`, `ingest-workflow.md`, `lint-workflow.md`, `query-workflow.md`, `wiki-schema.md`, `monorepo-principles.md`, `page-formats.md`, `obsidian-setup.md`, `cross-tool-setup.md`. The skill's behavior is defined by the union of the script and its reference doc; changing one without the other produces drift.
 
 ## Iron rules the skill enforces
 

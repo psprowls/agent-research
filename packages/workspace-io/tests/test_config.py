@@ -121,9 +121,15 @@ def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
     with pytest.raises(RuntimeError, match="graph-wiki-agent bootstrap"):
-        resolve(repo)
+        resolve(repo, True)
 
-
+def test_resolve_doesnt_raise_when_no_manifest_found(tmp_path, monkeypatch):
+    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent bootstrap."""
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    repo = _make_repo(tmp_path)
+    workspace = resolve(repo, False).workspace
+    assert workspace
+        
 def _seed_manifest_with(workspace: Path, extra_keys: dict[str, str]) -> None:
     """Write a v2 .graph-wiki.yaml with additional flat top-level keys appended."""
     workspace.mkdir(parents=True, exist_ok=True)

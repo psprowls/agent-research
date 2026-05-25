@@ -163,7 +163,7 @@ The sweep runner then calls each command with the appropriate override for the r
 
 ### Tension 5: D-09 Vault-Thin Fixture Queries
 
-**Finding:** Current `eval/cases/query_cases.json` has 4 cases (pkg-lookup-01, concept-01, cross-ref-01, format-01), all of which look up general wiki concepts. The fixture vault is `cores/vault-io/tests/fixtures/round-trip-vault`.
+**Finding:** Current `eval/cases/query_cases.json` has 4 cases (pkg-lookup-01, concept-01, cross-ref-01, format-01), all of which look up general wiki concepts. The fixture vault is `cores/wiki-io/tests/fixtures/round-trip-vault`.
 
 **Vault-thin queries require asking about things that cannot be answered from vault pages.** The code_reader fires when `useful_excerpts` (librarian fan-out results with non-"NO_RELEVANT_CONTENT" content) is empty.
 
@@ -498,7 +498,7 @@ The `test_sweep_dry_run.py` integration test asserts:
 
 3. **Repeats-per-cell count.** Research confirmed total cost at 3 repeats is ~$6.19. At 5 repeats it would be ~$10. **Recommendation:** 3 repeats is sufficient for a cost-frontier with this many candidates. The Pareto frontier is robust to 1-2 noisy samples when 4 candidates are compared.
 
-4. **code_reader sweep vault fixture.** The round-trip-vault fixture lives at `cores/vault-io/tests/fixtures/round-trip-vault`. `_resolve_repo_root()` will fail to find a `.git` or `pyproject.toml` in its parent (which is `cores/vault-io/tests/fixtures/`), so it will fall back to the vault itself. This means `_read_file_bounded()` will be anchored to the vault root, and the code_reader will only be able to read files inside the vault (markdown files). It will not be able to read actual source code. **The vault-thin cases will trigger the code_reader fallback, but the code_reader will find nothing useful and return `CODE_FALLBACK_DISCLAIMER`.** This is enough to confirm the fallback fires, but won't produce a meaningful quality comparison. **Planner decision needed:** Should the code_reader sweep use a different fixture that includes actual source files? Or is confirming the fallback fires (and comparing cost at N/A quality) sufficient?
+4. **code_reader sweep vault fixture.** The round-trip-vault fixture lives at `cores/wiki-io/tests/fixtures/round-trip-vault`. `_resolve_repo_root()` will fail to find a `.git` or `pyproject.toml` in its parent (which is `cores/wiki-io/tests/fixtures/`), so it will fall back to the vault itself. This means `_read_file_bounded()` will be anchored to the vault root, and the code_reader will only be able to read files inside the vault (markdown files). It will not be able to read actual source code. **The vault-thin cases will trigger the code_reader fallback, but the code_reader will find nothing useful and return `CODE_FALLBACK_DISCLAIMER`.** This is enough to confirm the fallback fires, but won't produce a meaningful quality comparison. **Planner decision needed:** Should the code_reader sweep use a different fixture that includes actual source files? Or is confirming the fallback fires (and comparing cost at N/A quality) sufficient?
 
 5. **Ingestor/linter/scanner sweep fixtures.** These roles need different inputs than `query_cases.json`. Linter runs against the whole vault; ingestor takes a source file path; scanner takes a repo path. The sweep needs dedicated fixture inputs for each. The planner should add wave 0 tasks to create these fixture inputs.
 

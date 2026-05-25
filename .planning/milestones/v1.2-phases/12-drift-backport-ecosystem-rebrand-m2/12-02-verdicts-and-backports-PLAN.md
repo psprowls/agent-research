@@ -6,26 +6,26 @@ wave: 2
 depends_on:
   - 12-01
 files_modified:
-  - packages/vault-io/DRIFT-DECISIONS.md
+  - packages/wiki-io/DRIFT-DECISIONS.md
   - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md
-  - packages/vault-io/src/vault_io/lint/common.py
-  - packages/vault-io/src/vault_io/lint/container.py
-  - packages/vault-io/src/vault_io/lint/dependency.py
-  - packages/vault-io/src/vault_io/lint/domain.py
-  - packages/vault-io/src/vault_io/lint/file_map.py
-  - packages/vault-io/src/vault_io/lint/package_sync.py
-  - packages/vault-io/src/vault_io/lint/source_sync.py
-  - packages/vault-io/src/vault_io/lint/workflow_hints.py
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/src/vault_io/ingest_work_item.py
-  - packages/vault-io/src/vault_io/git_state.py
-  - packages/vault-io/src/vault_io/append_log.py
-  - packages/vault-io/src/vault_io/update_index.py
-  - packages/vault-io/src/vault_io/update_tokens.py
-  - packages/vault-io/src/vault_io/layout_io.py
-  - packages/vault-io/src/vault_io/detect_containers.py
-  - packages/vault-io/src/vault_io/scan_monorepo.py
-  - packages/vault-io/src/vault_io/ingest_source.py
+  - packages/wiki-io/src/wiki_io/lint/common.py
+  - packages/wiki-io/src/wiki_io/lint/container.py
+  - packages/wiki-io/src/wiki_io/lint/dependency.py
+  - packages/wiki-io/src/wiki_io/lint/domain.py
+  - packages/wiki-io/src/wiki_io/lint/file_map.py
+  - packages/wiki-io/src/wiki_io/lint/package_sync.py
+  - packages/wiki-io/src/wiki_io/lint/source_sync.py
+  - packages/wiki-io/src/wiki_io/lint/workflow_hints.py
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/src/wiki_io/ingest_work_item.py
+  - packages/wiki-io/src/wiki_io/git_state.py
+  - packages/wiki-io/src/wiki_io/append_log.py
+  - packages/wiki-io/src/wiki_io/update_index.py
+  - packages/wiki-io/src/wiki_io/update_tokens.py
+  - packages/wiki-io/src/wiki_io/layout_io.py
+  - packages/wiki-io/src/wiki_io/detect_containers.py
+  - packages/wiki-io/src/wiki_io/scan_monorepo.py
+  - packages/wiki-io/src/wiki_io/ingest_source.py
 autonomous: false
 requirements:
   - BACKPORT-01
@@ -40,30 +40,30 @@ must_haves:
     - "Every LEAVE-AHEAD row references a Phase 11 D-ID or WR-01/WR-02 in its rationale."
     - "`uv run pytest` is green after all backport commits have landed."
   artifacts:
-    - path: "packages/vault-io/DRIFT-DECISIONS.md"
-      provides: "Human-verdict table for the 11 overlapping module rows (spike 002 §A, lint/* collapsed); canonical record of vault-io ↔ upstream relationship at the pinned SHA"
+    - path: "packages/wiki-io/DRIFT-DECISIONS.md"
+      provides: "Human-verdict table for the 11 overlapping module rows (spike 002 §A, lint/* collapsed); canonical record of wiki-io ↔ upstream relationship at the pinned SHA"
       contains: "1b45172a9900842b0f8eea525c8270e7fff50605"
     - path: ".planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md"
       provides: "Persisted verdict scratch file — pre-filled 11-row template the executor fills out before writing DRIFT-DECISIONS.md"
   key_links:
-    - from: "packages/vault-io/DRIFT-DECISIONS.md"
-      to: "packages/vault-io/DRIFT-DECISIONS-RAW.md"
+    - from: "packages/wiki-io/DRIFT-DECISIONS.md"
+      to: "packages/wiki-io/DRIFT-DECISIONS-RAW.md"
       via: "table verdicts reference the raw diff dump as source-of-truth"
       pattern: "DRIFT-DECISIONS-RAW.md"
     - from: "PORT verdict rows"
-      to: "atomic backport commits in vault-io src"
+      to: "atomic backport commits in wiki-io src"
       via: "backport-commit-sha column"
       pattern: "[a-f0-9]{7,}"
 ---
 
 <objective>
-P-B (per CONTEXT.md SQ-01.2): for each of the 11 module ROWS in `DRIFT-DECISIONS-RAW.md` (matching spike 002 §A "Overlapping modules", with `lint/*` collapsed as a single row covering all 8 lint sub-files), read the diff, assign a verdict per SR-01/SR-02/SR-03, and — for any `PORT` verdicts — land the change as a separate atomic commit in `packages/vault-io/`. Verdicts are first persisted to a scratch file before being rendered into the final `packages/vault-io/DRIFT-DECISIONS.md` (DD-02 table shape, DD-04 location, DD-01 coverage). Closes BACKPORT-01..04.
+P-B (per CONTEXT.md SQ-01.2): for each of the 11 module ROWS in `DRIFT-DECISIONS-RAW.md` (matching spike 002 §A "Overlapping modules", with `lint/*` collapsed as a single row covering all 8 lint sub-files), read the diff, assign a verdict per SR-01/SR-02/SR-03, and — for any `PORT` verdicts — land the change as a separate atomic commit in `packages/wiki-io/`. Verdicts are first persisted to a scratch file before being rendered into the final `packages/wiki-io/DRIFT-DECISIONS.md` (DD-02 table shape, DD-04 location, DD-01 coverage). Closes BACKPORT-01..04.
 
 The 11 row IDs (in spike-table order) are: `git_state.py`, `append_log.py`, `update_index.py`, `update_tokens.py`, `ingest_work_item.py`, `init_vault.py`, `lint/*`, `layout_io.py`, `detect_containers.py`, `scan_monorepo.py`, `ingest_source.py`.
 
 Purpose: separates judgment (this plan) from rebrand surgery (next plan). After this plan the substantive drift question is settled and the surface is ready for the rebrand sweep.
 
-Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate) + final `packages/vault-io/DRIFT-DECISIONS.md`.
+Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate) + final `packages/wiki-io/DRIFT-DECISIONS.md`.
 </objective>
 
 <execution_context>
@@ -77,7 +77,7 @@ Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate)
 @.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md
 @.planning/phases/11-workspace-io-port-m1/11-CONTEXT.md
 @.planning/spikes/002-lattice-drift-inventory/README.md
-@packages/vault-io/DRIFT-DECISIONS-RAW.md
+@packages/wiki-io/DRIFT-DECISIONS-RAW.md
 @CLAUDE.md
 </context>
 
@@ -85,14 +85,14 @@ Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate)
 
 <task type="auto">
   <name>Task 1: Persist scratch verdicts to 12-02-scratch-verdicts.md, then land PORT backports as atomic per-module commits</name>
-  <files>.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md, packages/vault-io/src/vault_io/lint/common.py, packages/vault-io/src/vault_io/lint/container.py, packages/vault-io/src/vault_io/lint/dependency.py, packages/vault-io/src/vault_io/lint/domain.py, packages/vault-io/src/vault_io/lint/file_map.py, packages/vault-io/src/vault_io/lint/package_sync.py, packages/vault-io/src/vault_io/lint/source_sync.py, packages/vault-io/src/vault_io/lint/workflow_hints.py, packages/vault-io/src/vault_io/init_vault.py, packages/vault-io/src/vault_io/ingest_work_item.py, packages/vault-io/src/vault_io/git_state.py, packages/vault-io/src/vault_io/append_log.py, packages/vault-io/src/vault_io/update_index.py, packages/vault-io/src/vault_io/update_tokens.py, packages/vault-io/src/vault_io/layout_io.py, packages/vault-io/src/vault_io/detect_containers.py, packages/vault-io/src/vault_io/scan_monorepo.py, packages/vault-io/src/vault_io/ingest_source.py</files>
+  <files>.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md, packages/wiki-io/src/wiki_io/lint/common.py, packages/wiki-io/src/wiki_io/lint/container.py, packages/wiki-io/src/wiki_io/lint/dependency.py, packages/wiki-io/src/wiki_io/lint/domain.py, packages/wiki-io/src/wiki_io/lint/file_map.py, packages/wiki-io/src/wiki_io/lint/package_sync.py, packages/wiki-io/src/wiki_io/lint/source_sync.py, packages/wiki-io/src/wiki_io/lint/workflow_hints.py, packages/wiki-io/src/wiki_io/init_vault.py, packages/wiki-io/src/wiki_io/ingest_work_item.py, packages/wiki-io/src/wiki_io/git_state.py, packages/wiki-io/src/wiki_io/append_log.py, packages/wiki-io/src/wiki_io/update_index.py, packages/wiki-io/src/wiki_io/update_tokens.py, packages/wiki-io/src/wiki_io/layout_io.py, packages/wiki-io/src/wiki_io/detect_containers.py, packages/wiki-io/src/wiki_io/scan_monorepo.py, packages/wiki-io/src/wiki_io/ingest_source.py</files>
   <read_first>
-    - packages/vault-io/DRIFT-DECISIONS-RAW.md (every `### ` section — read each diff in full before assigning a verdict)
+    - packages/wiki-io/DRIFT-DECISIONS-RAW.md (every `### ` section — read each diff in full before assigning a verdict)
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md (SR-01 PORT criteria, SR-02 skip criteria, SR-03 verdict vocabulary, SR-04 closure gate)
     - .planning/phases/11-workspace-io-port-m1/11-CONTEXT.md (D-IDs referenced by LEAVE-AHEAD rows; WR-01/WR-02 MCP error-handling decisions)
     - .planning/PROJECT.md §"Explicitly out of v1.2" (LEAVE-ARCH justification for work-layer / package-family / CLI main())
     - CLAUDE.md (no-tiktoken constraint → informs `update_tokens.py` LEAVE-AHEAD rationale)
-    - For each module being PORTed: the corresponding `packages/vault-io/src/vault_io/<relpath>` file (the file you are about to modify)
+    - For each module being PORTed: the corresponding `packages/wiki-io/src/wiki_io/<relpath>` file (the file you are about to modify)
     - For each module being PORTed: the upstream file at `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/<relpath>` (so you understand the surrounding upstream context, not just the diff hunks)
   </read_first>
   <action>
@@ -133,11 +133,11 @@ Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate)
     2. Apply SR-01 (PORT criteria) and SR-02 (skip criteria). Assign exactly one of the SR-03 vocabulary terms: `PORT`, `LEAVE-AHEAD`, `LEAVE-ARCH`, `LEAVE-COSMETIC`, `IDENTICAL`. Do NOT invent new verdicts.
     3. Fill the `Verdict` and `Rationale` cells in `12-02-scratch-verdicts.md`. Rationale is one line; LEAVE-AHEAD rows MUST cite a Phase 11 D-ID or WR-01/WR-02; LEAVE-ARCH rows MUST cite a stripped subsystem from PROJECT.md "Explicitly out of v1.2".
     4. If verdict is `PORT`:
-       - Apply the substantive upstream change to the corresponding `packages/vault-io/src/vault_io/<relpath>` file (or for `lint/*` row, to each affected lint sub-file). Do NOT bring along stripped-subsystem code (work-layer, package-family, CLI `main()`); if a hunk mixes substantive + stripped-subsystem code, lift only the substantive part.
-       - Preserve vault-io's intentional forks: MCP error-handling additions (WR-01 `raise_exception=True`, WR-02 stderr-JSON), the no-tiktoken posture, the lib-ification surface. Do not let upstream undo them.
+       - Apply the substantive upstream change to the corresponding `packages/wiki-io/src/wiki_io/<relpath>` file (or for `lint/*` row, to each affected lint sub-file). Do NOT bring along stripped-subsystem code (work-layer, package-family, CLI `main()`); if a hunk mixes substantive + stripped-subsystem code, lift only the substantive part.
+       - Preserve wiki-io's intentional forks: MCP error-handling additions (WR-01 `raise_exception=True`, WR-02 stderr-JSON), the no-tiktoken posture, the lib-ification surface. Do not let upstream undo them.
        - If the backport adds behavior not covered by the existing test suite, add a minimal regression test in the SAME commit (SR-04). Otherwise skip the test (SR-04 default).
        - Run `uv run pytest`. If it goes red, fix or revert before continuing.
-       - Commit as `backport(vault-io): <one-line summary of substantive change> for <relpath>`. One commit per backport (for the `lint/*` row this MAY be either one commit covering all changed lint sub-files OR one commit per sub-file — executor's discretion based on whether the changes are semantically related). Record the resulting commit SHA in the scratch row's `Backport SHA` cell.
+       - Commit as `backport(wiki-io): <one-line summary of substantive change> for <relpath>`. One commit per backport (for the `lint/*` row this MAY be either one commit covering all changed lint sub-files OR one commit per sub-file — executor's discretion based on whether the changes are semantically related). Record the resulting commit SHA in the scratch row's `Backport SHA` cell.
     5. If verdict is `LEAVE-AHEAD` / `LEAVE-ARCH` / `LEAVE-COSMETIC` / `IDENTICAL`: write the one-line rationale; no code change, no commit; `Backport SHA` cell stays `—`.
 
     Per CONTEXT.md "Recommended LEAVE-AHEAD candidates": `ingest_work_item.py` likely `LEAVE-AHEAD` (file_work_item lib shape fits MCP per BACKPORT-03 text). `git_state.py` likely `IDENTICAL` per CONTEXT.md DD-01. `update_tokens.py` style references LEAVE-AHEAD (no-tiktoken). DO NOT pre-commit to verdicts before reading the actual diffs; these are priors, not assignments.
@@ -159,27 +159,27 @@ Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate)
     - Every LEAVE-ARCH row's `Rationale` text references a stripped subsystem (one of: `work-layer`, `package-family`, `CLI main()`).
     - Every PORT row's `Backport SHA` cell contains a real short SHA returned by `git log --oneline`.
     - `uv run pytest` exits 0 after all backport commits have landed (SR-04 closure gate).
-    - For every PORT verdict, there is at least one atomic commit in `git log` whose subject line starts with `backport(vault-io):` and whose touched files are confined to the corresponding `packages/vault-io/src/vault_io/<relpath>` (plus optionally a regression test under `packages/vault-io/tests/`). The `lint/*` row MAY produce 1+ commits per the executor's discretion in Step 2.4.
-    - No PORT commit touches files outside `packages/vault-io/`.
-    - No PORT commit reintroduces an `import` of stripped-subsystem code (no new references to `lattice_workspace`, `work`-layer modules, or package-family code paths in vault-io src).
+    - For every PORT verdict, there is at least one atomic commit in `git log` whose subject line starts with `backport(wiki-io):` and whose touched files are confined to the corresponding `packages/wiki-io/src/wiki_io/<relpath>` (plus optionally a regression test under `packages/wiki-io/tests/`). The `lint/*` row MAY produce 1+ commits per the executor's discretion in Step 2.4.
+    - No PORT commit touches files outside `packages/wiki-io/`.
+    - No PORT commit reintroduces an `import` of stripped-subsystem code (no new references to `lattice_workspace`, `work`-layer modules, or package-family code paths in wiki-io src).
     - If ANY diff is genuinely ambiguous (executor cannot decide between two SR-03 verdicts after reading the diff and the surrounding upstream code), STOP and surface the ambiguity to the operator before continuing — this plan is marked `autonomous: false` precisely so verdict-assignment ambiguities pause for human input. Resume signal: operator picks the verdict.
   </acceptance_criteria>
-  <done>Scratch verdict file fully populated (11/11 verdicts from SR-03 vocabulary); every PORT verdict landed as atomic commit(s); vault-io tests green; scratch file is the persistent source-of-truth that Task 2 reads to write the final DRIFT-DECISIONS.md table.</done>
+  <done>Scratch verdict file fully populated (11/11 verdicts from SR-03 vocabulary); every PORT verdict landed as atomic commit(s); wiki-io tests green; scratch file is the persistent source-of-truth that Task 2 reads to write the final DRIFT-DECISIONS.md table.</done>
 </task>
 
 <task type="auto">
-  <name>Task 2: Write final packages/vault-io/DRIFT-DECISIONS.md from the scratch verdict file</name>
-  <files>packages/vault-io/DRIFT-DECISIONS.md</files>
+  <name>Task 2: Write final packages/wiki-io/DRIFT-DECISIONS.md from the scratch verdict file</name>
+  <files>packages/wiki-io/DRIFT-DECISIONS.md</files>
   <read_first>
-    - packages/vault-io/DRIFT-DECISIONS-RAW.md (back-reference target)
+    - packages/wiki-io/DRIFT-DECISIONS-RAW.md (back-reference target)
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md (the populated scratch file — this is now the source-of-truth for verdict assignments)
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md (DD-01, DD-02 table shape, DD-04 header pin)
     - `git log --oneline -20` output to confirm backport SHAs
   </read_first>
   <action>
-    Read `12-02-scratch-verdicts.md`. Render its 11 rows into `packages/vault-io/DRIFT-DECISIONS.md` with this structure:
+    Read `12-02-scratch-verdicts.md`. Render its 11 rows into `packages/wiki-io/DRIFT-DECISIONS.md` with this structure:
 
-    1. Title: `# vault-io ⟷ lattice-wiki-core Drift Decisions`.
+    1. Title: `# wiki-io ⟷ lattice-wiki-core Drift Decisions`.
     2. Header block listing: `Upstream: lattice-wiki-core @ 1b45172a9900842b0f8eea525c8270e7fff50605 at 2026-05-18`, link/reference to `DRIFT-DECISIONS-RAW.md`, link/reference to spike 002 README, link/reference to Phase 12 plans.
     3. Short prose preamble (under 10 lines) defining the verdict vocabulary inline: `PORT`, `LEAVE-AHEAD`, `LEAVE-ARCH`, `LEAVE-COSMETIC`, `IDENTICAL`. (Per SR-03.) Note that the row set is the 11 overlapping module ROWS from spike 002 §A with `lint/*` collapsed; the `lint/*` row may carry a footnote if sub-files diverge.
     4. The verdict table (DD-02 shape). Columns: `file | upstream-commit | LOC Δ | verdict | rationale (one line) | backport-commit-sha`. Exactly 11 data rows — one per overlapping module ROW from `12-02-scratch-verdicts.md`. EVERY row's `file` column starts with the path literal wrapped in backticks: ``` | `git_state.py` | ```, ``` | `append_log.py` | ```, ..., ``` | `lint/*` | ```, ``` | `ingest_source.py` | ```. `upstream-commit` column carries the pinned SHA (same for every row at this sync). `LOC Δ` is copied from the scratch file. `verdict` is one of the SR-03 vocabulary terms. `rationale` is the one-line justification copied from the scratch file. `backport-commit-sha` is the short SHA for PORT rows or `—` for non-PORT rows.
@@ -188,31 +188,31 @@ Output: per-module backport commits + `12-02-scratch-verdicts.md` (intermediate)
     File must include the literal SHA `1b45172a9900842b0f8eea525c8270e7fff50605` in the header.
   </action>
   <verify>
-    <automated>head -30 packages/vault-io/DRIFT-DECISIONS.md | grep -q '1b45172a9900842b0f8eea525c8270e7fff50605' || { echo "MISSING SHA pin in header"; exit 1; }; EXPECTED_MODULES=(git_state.py append_log.py update_index.py update_tokens.py ingest_work_item.py init_vault.py 'lint/*' layout_io.py detect_containers.py scan_monorepo.py ingest_source.py); for m in "${EXPECTED_MODULES[@]}"; do grep -qF "| \`$m\`" packages/vault-io/DRIFT-DECISIONS.md || { echo "MISSING ROW: $m"; exit 1; }; done; ROWS=$(grep -cE '^\| \`' packages/vault-io/DRIFT-DECISIONS.md); test "$ROWS" -eq 11 || { echo "Expected 11 rows, got $ROWS"; exit 1; }; BAD=$(grep -E '^\| \`' packages/vault-io/DRIFT-DECISIONS.md | grep -vE '\| (PORT|LEAVE-AHEAD|LEAVE-ARCH|LEAVE-COSMETIC|IDENTICAL) \|'); if [ -n "$BAD" ]; then echo "Row missing SR-03 verdict:"; echo "$BAD"; exit 1; fi; uv run pytest 2&gt;&amp;1 | tail -5</automated>
+    <automated>head -30 packages/wiki-io/DRIFT-DECISIONS.md | grep -q '1b45172a9900842b0f8eea525c8270e7fff50605' || { echo "MISSING SHA pin in header"; exit 1; }; EXPECTED_MODULES=(git_state.py append_log.py update_index.py update_tokens.py ingest_work_item.py init_vault.py 'lint/*' layout_io.py detect_containers.py scan_monorepo.py ingest_source.py); for m in "${EXPECTED_MODULES[@]}"; do grep -qF "| \`$m\`" packages/wiki-io/DRIFT-DECISIONS.md || { echo "MISSING ROW: $m"; exit 1; }; done; ROWS=$(grep -cE '^\| \`' packages/wiki-io/DRIFT-DECISIONS.md); test "$ROWS" -eq 11 || { echo "Expected 11 rows, got $ROWS"; exit 1; }; BAD=$(grep -E '^\| \`' packages/wiki-io/DRIFT-DECISIONS.md | grep -vE '\| (PORT|LEAVE-AHEAD|LEAVE-ARCH|LEAVE-COSMETIC|IDENTICAL) \|'); if [ -n "$BAD" ]; then echo "Row missing SR-03 verdict:"; echo "$BAD"; exit 1; fi; uv run pytest 2&gt;&amp;1 | tail -5</automated>
   </verify>
   <acceptance_criteria>
-    - File `packages/vault-io/DRIFT-DECISIONS.md` exists.
-    - `head -30 packages/vault-io/DRIFT-DECISIONS.md | grep -q '1b45172a9900842b0f8eea525c8270e7fff50605'` succeeds (SHA pin).
+    - File `packages/wiki-io/DRIFT-DECISIONS.md` exists.
+    - `head -30 packages/wiki-io/DRIFT-DECISIONS.md | grep -q '1b45172a9900842b0f8eea525c8270e7fff50605'` succeeds (SHA pin).
     - Each of the 11 expected module path-literals appears in the table, asserted by the explicit loop in the verify command: `git_state.py`, `append_log.py`, `update_index.py`, `update_tokens.py`, `ingest_work_item.py`, `init_vault.py`, `lint/*`, `layout_io.py`, `detect_containers.py`, `scan_monorepo.py`, `ingest_source.py`.
-    - `grep -cE '^\| \`' packages/vault-io/DRIFT-DECISIONS.md` equals exactly `11` (verdict-table data rows).
+    - `grep -cE '^\| \`' packages/wiki-io/DRIFT-DECISIONS.md` equals exactly `11` (verdict-table data rows).
     - Every data row contains exactly one SR-03 vocabulary token (`PORT`, `LEAVE-AHEAD`, `LEAVE-ARCH`, `LEAVE-COSMETIC`, `IDENTICAL`) — enforced by the inverse-grep check in the verify command.
     - Every PORT row's `backport-commit-sha` column matches a real commit returned by `git log --oneline`.
     - Every LEAVE-AHEAD row's rationale text contains a Phase 11 D-ID reference (e.g., `D-02`, `D-08`) OR `WR-01` OR `WR-02`.
     - Every LEAVE-ARCH row's rationale text contains a reference to a stripped subsystem (one of: `work-layer`, `package-family`, `CLI main()`).
     - `uv run pytest` is green.
   </acceptance_criteria>
-  <done>`packages/vault-io/DRIFT-DECISIONS.md` published; exactly 11 module rows present (matching spike 002 §A row IDs); per-module path-literal presence enforced by explicit loop assertion; PORT rows have real backport SHAs; LEAVE-AHEAD rows cite Phase 11 decisions; tests green. BACKPORT-01..04 closed.</done>
+  <done>`packages/wiki-io/DRIFT-DECISIONS.md` published; exactly 11 module rows present (matching spike 002 §A row IDs); per-module path-literal presence enforced by explicit loop assertion; PORT rows have real backport SHAs; LEAVE-AHEAD rows cite Phase 11 decisions; tests green. BACKPORT-01..04 closed.</done>
 </task>
 
 </tasks>
 
 <verification>
 - `uv run pytest` exits 0.
-- `head -30 packages/vault-io/DRIFT-DECISIONS.md | grep '1b45172a9900842b0f8eea525c8270e7fff50605'` returns a hit.
+- `head -30 packages/wiki-io/DRIFT-DECISIONS.md | grep '1b45172a9900842b0f8eea525c8270e7fff50605'` returns a hit.
 - Verdict table contains exactly 11 rows; every expected module path-literal is present (per-module assertion loop in Task 2 verify).
 - Every row's verdict cell contains exactly one SR-03 vocabulary token.
-- All PORT verdicts have a corresponding commit in `git log --oneline` whose subject begins `backport(vault-io):`.
-- No backport commit touches files outside `packages/vault-io/`.
+- All PORT verdicts have a corresponding commit in `git log --oneline` whose subject begins `backport(wiki-io):`.
+- No backport commit touches files outside `packages/wiki-io/`.
 - `12-02-scratch-verdicts.md` is committed and has 11 fully-populated verdict rows.
 </verification>
 

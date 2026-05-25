@@ -153,7 +153,7 @@ def test_code_reader_cases_json_loads():
     """eval/cases/code_reader_cases.json exists with 5–6 vault-thin cases (D-07 Phase 16).
 
     Phase 16 D-07 expands from 3 → 5–6 cases targeting post-rebrand surface
-    (workspace-io, vault-io.wiki_search, vault-io.lint_wiki). The original 3
+    (workspace-io, wiki-io.wiki_search, wiki-io.lint_wiki). The original 3
     cases are preserved verbatim for baseline comparability — the assertions
     here permit the expansion via range + superset checks.
     """

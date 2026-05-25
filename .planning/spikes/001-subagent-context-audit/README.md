@@ -73,7 +73,7 @@ This is the *project-specific* wiki schema. Sections:
 | Style (concise, cite, update `updated:`) | 153-159 | **No** | **Yes** — load-bearing for librarian and ingestor output quality |
 | `<!-- lattice-wiki:layout:start -->` block | 161-191 | **No, but parsed as data** | **Yes — critical** — project-specific containers, classifications, vault dirs |
 
-The layout block is the single most important piece of project-specific context the subagents currently *don't* see. It's parsed in `commands/scan.py:282-283` and `commands/lint.py:324` via `vault_io.layout_io.read_layout`, but the parsed result is used as *control flow data* (which directories to walk), never injected into a subagent `SystemMessage`.
+The layout block is the single most important piece of project-specific context the subagents currently *don't* see. It's parsed in `commands/scan.py:282-283` and `commands/lint.py:324` via `wiki_io.layout_io.read_layout`, but the parsed result is used as *control flow data* (which directories to walk), never injected into a subagent `SystemMessage`.
 
 ### Confirmation: wiki/CLAUDE.md is data-only
 
@@ -212,7 +212,7 @@ Watch out for:
 
 Scope (estimated 4-6 atomic commits):
 1. New fragments under `prompts/_fragments/`: `architecture_overview.py`, `style_rules.py`, `log_format.py`, `claude_md_disambiguation.py` (with provenance headers).
-2. New module `prompts/project_context.py` exporting `render_project_context(wiki_path: Path) -> str` that reads `wiki/CLAUDE.md` via existing `vault_io.layout_io.read_layout` plus a simple style/log section grabber.
+2. New module `prompts/project_context.py` exporting `render_project_context(wiki_path: Path) -> str` that reads `wiki/CLAUDE.md` via existing `wiki_io.layout_io.read_layout` plus a simple style/log section grabber.
 3. Wire updates in `prompts/scanner.py`, `prompts/linter.py`, `prompts/ingestor.py`: include the new fragments where appropriate; accept an optional injected project-context string at prompt-build time.
 4. Update `commands/scan.py`, `commands/lint.py`, `commands/ingest.py` to call `render_project_context()` once at entry and pass the result into the relevant prompt builders.
 5. Tests: snapshot tests on assembled `SystemMessage` strings (using `syrupy`) plus a missing-`CLAUDE.md` degradation test.

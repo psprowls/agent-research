@@ -2,7 +2,7 @@
 phase: 18-plugin-command-rename
 plan: 04
 subsystem: docs
-tags: [graph-wiki, slash-commands, rename, sweep, vault-io]
+tags: [graph-wiki, slash-commands, rename, sweep, wiki-io]
 
 # Dependency graph
 requires:
@@ -32,8 +32,8 @@ key-files:
     - plugins/graph-wiki/skills/graph-wiki/README.md
     - plugins/graph-wiki/skills/graph-wiki/references/cross-tool-setup.md
     - plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md
-    - packages/vault-io/src/vault_io/scan_monorepo.py
-    - packages/vault-io/src/vault_io/lint/container.py
+    - packages/wiki-io/src/wiki_io/scan_monorepo.py
+    - packages/wiki-io/src/wiki_io/lint/container.py
 
 key-decisions:
   - "Reinstall callout placed in README Setup section step 1 as a blockquote (single location per plan Step 5)"
@@ -52,7 +52,7 @@ completed: 2026-05-20
 
 # Phase 18 Plan 04: Active-Source `/graph-wiki:init → /graph-wiki:bootstrap` Sweep Summary
 
-**Word-boundary sweep of 16 `/graph-wiki:init` references across 10 active-source files (8 plugin docs + 2 vault-io runtime strings), plus README reinstall callout — `init_vault` and `/graph-wiki:ingest` siblings preserved unchanged.**
+**Word-boundary sweep of 16 `/graph-wiki:init` references across 10 active-source files (8 plugin docs + 2 wiki-io runtime strings), plus README reinstall callout — `init_vault` and `/graph-wiki:ingest` siblings preserved unchanged.**
 
 ## Performance
 
@@ -65,8 +65,8 @@ completed: 2026-05-20
 ## Accomplishments
 - Active-source repo-wide grep for `\bgraph-wiki:init\b` returns zero hits across `plugins/`, `packages/`, `agents/`, `scripts/`, `docs/`, `README.md`, `CLAUDE.md`
 - Vault-io runtime user-facing strings now tell users the correct command name:
-  - `packages/vault-io/src/vault_io/lint/container.py:35` → `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`
-  - `packages/vault-io/src/vault_io/scan_monorepo.py:1157` → `"(Re-run /graph-wiki:bootstrap or hand-edit the layout block to update.)"`
+  - `packages/wiki-io/src/wiki_io/lint/container.py:35` → `"no layout block found in CLAUDE.md (run /graph-wiki:bootstrap)"`
+  - `packages/wiki-io/src/wiki_io/scan_monorepo.py:1157` → `"(Re-run /graph-wiki:bootstrap or hand-edit the layout block to update.)"`
 - Plugin README has a one-sentence upgrade/reinstall callout in the Setup section (Q2 resolution)
 - Sweep invariants verified equal pre- and post-sweep (proves no regex over-match)
 
@@ -86,8 +86,8 @@ completed: 2026-05-20
 | plugins/graph-wiki/skills/graph-wiki/README.md | 1 | 1 |
 | plugins/graph-wiki/skills/graph-wiki/references/cross-tool-setup.md | 2 | 2 |
 | plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md | 4 | 4 |
-| packages/vault-io/src/vault_io/scan_monorepo.py | 1 | 1 |
-| packages/vault-io/src/vault_io/lint/container.py | 1 | 1 |
+| packages/wiki-io/src/wiki_io/scan_monorepo.py | 1 | 1 |
+| packages/wiki-io/src/wiki_io/lint/container.py | 1 | 1 |
 | **Total** | **17** | **17** (+ 1 from reinstall note in README) |
 
 Note: pre-sweep grep listed 16 lines, but two of those lines contained 2 occurrences (`scan.md` and `detection-workflow.md` had list entries) — total token count is 17.
@@ -104,7 +104,7 @@ Note: pre-sweep grep listed 16 lines, but two of those lines contained 2 occurre
 - **AC8a — `init_vault` invariant:** PASS (`INIT_VAULT_BASELINE = 53` = `INIT_VAULT_POST = 53`)
 - **AC8b — `/graph-wiki:ingest` invariant:** PASS (`INGEST_BASELINE = 48` = `INGEST_POST = 48`)
 - **AC9 — `init_vault.py` still defines function:** PASS (4 occurrences in canonical definition file)
-- **Per-commit gate — pytest:** PASS (`code-wiki-agent` tests 212 passed; `vault-io` tests 93 passed)
+- **Per-commit gate — pytest:** PASS (`code-wiki-agent` tests 212 passed; `wiki-io` tests 93 passed)
 - **Single commit lands:** PASS (`refactor(18-04)` subject contains `sweep`)
 
 ## Invariant Counts (Pre/Post Equality)
@@ -164,8 +164,8 @@ None.
 ## Self-Check: PASSED
 
 - File `plugins/graph-wiki/README.md` — FOUND, contains 3 `/graph-wiki:bootstrap` refs and 1 `reinstall` mention
-- File `packages/vault-io/src/vault_io/lint/container.py` — FOUND, line 35 contains `/graph-wiki:bootstrap`
-- File `packages/vault-io/src/vault_io/scan_monorepo.py` — FOUND, line 1157 contains `/graph-wiki:bootstrap`
+- File `packages/wiki-io/src/wiki_io/lint/container.py` — FOUND, line 35 contains `/graph-wiki:bootstrap`
+- File `packages/wiki-io/src/wiki_io/scan_monorepo.py` — FOUND, line 1157 contains `/graph-wiki:bootstrap`
 - Commit `5d8160e` — FOUND in `git log --oneline`
 - Active-source grep `\bgraph-wiki:init\b` — returns 0 hits across `plugins/`, `packages/`, `agents/`, `scripts/`, `docs/`, `README.md`, `CLAUDE.md`
 - Invariants `init_vault` (53) and `/graph-wiki:ingest` (48) — both unchanged pre→post

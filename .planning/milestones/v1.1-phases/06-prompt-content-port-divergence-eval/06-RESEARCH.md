@@ -80,7 +80,7 @@ The Phase 4 eval harness is the natural integration point. The existing `judge.p
 | Divergence rule definitions | cores/eval-harness | — | Eval infrastructure; keeps eval code out of agent package |
 | LLM-judge rubrics | cores/eval-harness | — | Same tier as the GEval metric that reads them |
 | Baseline JSON storage | cores/eval-harness/baselines/ | — | Lives adjacent to the eval code that reads/writes it |
-| Programmatic wikilink resolution | cores/eval-harness (calls vault-io) | vault-io | `_resolve_citation()` already in `structural.py`; divergence can reuse it |
+| Programmatic wikilink resolution | cores/eval-harness (calls wiki-io) | wiki-io | `_resolve_citation()` already in `structural.py`; divergence can reuse it |
 | Pytest divergence gate | cores/eval-harness/tests/ | — | New test file in existing test suite; matches GRAPH_WIKI_RUN_EVAL pattern |
 
 ---
@@ -97,7 +97,7 @@ The Phase 4 eval harness is the natural integration point. The existing `judge.p
 | `pytest-asyncio` | 1.3.0 | Async test support | Workspace dev dep |
 | `python-frontmatter` | 1.1.0 | Parse vault pages in programmatic checks | Already in eval-harness deps |
 | `graph-wiki-agent` | workspace | Import `*_SYSTEM` constants, `QueryResult`, `IngestResult` | Workspace member |
-| `vault-io` | workspace | `_resolve_citation`-equivalent wikilink resolution | Workspace member |
+| `wiki-io` | workspace | `_resolve_citation`-equivalent wikilink resolution | Workspace member |
 
 No new packages needed. All required libraries are already in the workspace.
 
@@ -438,7 +438,7 @@ def check_regression(role: str, current: dict, baseline: dict) -> None:
 - **Putting judge rubric text inline in Python:** Rubric `.md` files are human-reviewable and linkable to source anchors. Keep them in files under `rubrics/`.
 - **Adding `pyproject.toml` to `cores/prompt-sources/`:** If a `pyproject.toml` exists in that directory, uv's `members = ["cores/*"]` glob will try to make it a workspace member. Use a bare directory with no `pyproject.toml`.
 - **Importing from `cores/prompt-sources/` in Python:** The vendored directory is documentation, not importable code. Python code reads canonical text only from fragment `.py` files, which carry the text as string constants.
-- **Using the `Vault` type as a function parameter name when you mean `Path`:** The divergence checks take `vault: Path` (the path to the vault root), not a hypothetical `Vault` class. vault-io does not expose a `Vault` class; its functions take `Path` arguments.
+- **Using the `Vault` type as a function parameter name when you mean `Path`:** The divergence checks take `vault: Path` (the path to the vault root), not a hypothetical `Vault` class. wiki-io does not expose a `Vault` class; its functions take `Path` arguments.
 
 ---
 
@@ -597,7 +597,7 @@ The judge evaluates the overall response quality against the rubric for:
 | Test isolation for eval | Custom temp-dir setup | `EvalWorktree` context manager | Already in `isolation.py`; thread-safe, auto-cleanup |
 | Baseline delta tracking | Custom diff algorithm | Simple int comparison per rule_id | Deltas are per-rule failure counts; dict subtraction is sufficient |
 
-**Key insight:** All infrastructure exists. The divergence subpackage is new wiring on top of existing deepeval, vault-io, and structural-check patterns. Do not reinvent any of these.
+**Key insight:** All infrastructure exists. The divergence subpackage is new wiring on top of existing deepeval, wiki-io, and structural-check patterns. Do not reinvent any of these.
 
 ---
 
@@ -807,18 +807,18 @@ No data migration required. This is a source-code refactor + new module addition
 |---|-------|---------|---------------|
 | A1 | `cores/prompt-sources/` must have no `pyproject.toml` to avoid workspace collision | Architecture Patterns | uv sync would fail; easy to fix by removing the file |
 | A2 | The existing `_resolve_citation()` in `structural.py` is sufficient for wikilink resolution in divergence checks | Don't Hand-Roll | If the resolution logic needs updating, the fix is local to structural.py and benefits both eval paths |
-| A3 | `update_tokens.py` referenced in scanner.md is not yet implemented in graph-wiki-agent; prompt should omit that step | Adaptation Map | If it exists, the scanner prompt should mention it; verify with `ls vault-io/src/vault_io/` |
+| A3 | `update_tokens.py` referenced in scanner.md is not yet implemented in graph-wiki-agent; prompt should omit that step | Adaptation Map | If it exists, the scanner prompt should mention it; verify with `ls wiki-io/src/wiki_io/` |
 | A4 | The `obsidian-markdown` skill invocation in lattice-wiki is not applicable to graph-wiki-agent (no skill registry) | Adaptation Map | Not applicable; confirmed by graph-wiki-agent architecture |
 | A5 | All divergence check rule IDs using prefix `LNT` for linter and `SCN` for scanner (not `LINT`/`SCAN`) | Divergence Check Inventory | Cosmetic only; rename if convention differs |
 
-**Verified:** `update_tokens.py` does exist in vault-io (`ls /Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/` shows `update_tokens.py`). A3 should be REVISED: `update_tokens` is available. The scanner prompt can reference it, but check whether `run_scan()` already calls it.
+**Verified:** `update_tokens.py` does exist in wiki-io (`ls /Users/pat/Personal/agent-research/packages/wiki-io/src/wiki_io/` shows `update_tokens.py`). A3 should be REVISED: `update_tokens` is available. The scanner prompt can reference it, but check whether `run_scan()` already calls it.
 
 ---
 
 ## Open Questions
 
 1. **Does `run_scan()` already call `update_tokens`?**
-   - What we know: `update_tokens.py` exists in vault-io; scanner.md calls it in step 8
+   - What we know: `update_tokens.py` exists in wiki-io; scanner.md calls it in step 8
    - What's unclear: whether `commands/scan.py` calls it after `update_index`
    - Recommendation: Grep `run_scan` for `update_tokens` during plan task. If not called, add the call as part of the scanner prompt port (or note the gap).
 

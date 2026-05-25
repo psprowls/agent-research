@@ -11,7 +11,7 @@
 
 ## Plan slicing past VP-01
 
-VP-01 locks Plan 1 (`vault_io.lint_wiki` port) and Plan 2 (`vault_io.wiki_search` port). Question: how to slice the remaining work (manifest extension, plugin scaffold, shim rewrites, agent/skill rename, smoke)?
+VP-01 locks Plan 1 (`wiki_io.lint_wiki` port) and Plan 2 (`wiki_io.wiki_search` port). Question: how to slice the remaining work (manifest extension, plugin scaffold, shim rewrites, agent/skill rename, smoke)?
 
 | Option | Description | Selected |
 |--------|-------------|----------|

@@ -23,7 +23,7 @@ open .planning/sketches/002-refresh-result-block/index.html
 
 ## What to Look For
 - Side-by-side comparison: each variant shows both a 3-package detail view AND a 12-package sweep view. Density changes a lot at 12.
-- For a one-package targeted refresh (`/graph-wiki:refresh packages/vault-io`), which format is the right fit?
+- For a one-package targeted refresh (`/graph-wiki:refresh packages/wiki-io`), which format is the right fit?
 - Does C's collapse-when-unchanged trick (9 packages elided in the sweep view) feel right, or annoying?
 - Does B's "flagged" count differentiate it usefully from A's terse "needs review" suffix?
 - C is the most consistent with how `/graph-wiki:ingest` already reports — does consistency matter here?

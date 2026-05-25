@@ -115,7 +115,7 @@ GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness pytest \
 
 ### Test side-effects reverted
 
-The scanner divergence test mutates the real `round-trip-vault` fixture in two ways: (a) stale-tags 60 packages and appends 60 log entries, (b) writes a new `packages/eval-harness/eval-harness.md` stub plus a trace JSONL. Both were reverted before each commit using `git checkout -- cores/vault-io/tests/fixtures/round-trip-vault/` (scoped path, allowed by destructive-git prohibition) and `rm -rf` for the untracked outputs. Pre-existing fixture trace JSONL files (from earlier eval runs) were left alone.
+The scanner divergence test mutates the real `round-trip-vault` fixture in two ways: (a) stale-tags 60 packages and appends 60 log entries, (b) writes a new `packages/eval-harness/eval-harness.md` stub plus a trace JSONL. Both were reverted before each commit using `git checkout -- cores/wiki-io/tests/fixtures/round-trip-vault/` (scoped path, allowed by destructive-git prohibition) and `rm -rf` for the untracked outputs. Pre-existing fixture trace JSONL files (from earlier eval runs) were left alone.
 
 This vault-mutation behavior is a real concern but is out of scope for plan 06-15 — a future plan should either (a) have the divergence helper copy the vault to a tmp_path before invoking the scanner, or (b) record stale-tag behavior in the baseline so it's regression-checked rather than fixture-mutating. Logged via deferred-items below.
 

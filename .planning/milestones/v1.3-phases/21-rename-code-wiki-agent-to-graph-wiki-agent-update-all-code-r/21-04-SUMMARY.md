@@ -9,18 +9,18 @@ provides:
   - plugin shellout scripts invoke graph-wiki-agent (D-09 layer 4)
   - CODE_WIKI_* env vars renamed to GRAPH_WIKI_* across all code/test/doc consumers (RUN_INTEGRATION + RUN_EVAL + siblings)
   - cross-package four-slug sweep complete (B1 fix) — code-wiki-* / code_wiki_* tokens eliminated from packages/ docs/ eval/ tests/ plugins/
-  - .code-wiki/ trace-dir fragment renamed to .graph-wiki/ across cross-package consumers + vault-io test-fixture directory (28-file git mv)
+  - .code-wiki/ trace-dir fragment renamed to .graph-wiki/ across cross-package consumers + wiki-io test-fixture directory (28-file git mv)
   - whole-repo pytest -m "not integration" green (582 passed, 23 skipped, exit 0) — D-11 gate satisfied at widest scope
 affects:
   - plugins/graph-wiki/skills/graph-wiki/scripts/*.py (5)
   - tests/test_integration_gate.py
   - root pyproject.toml + packages/eval-harness/pyproject.toml [tool.pytest.ini_options]
-  - packages/{model-adapter,vault-io,workspace-io,eval-harness,subagent-runtime,prompt-sources}/**
+  - packages/{model-adapter,wiki-io,workspace-io,eval-harness,subagent-runtime,prompt-sources}/**
   - docs/{cancellation,trace-schema,testing}.md
   - eval/README.md
   - agents/graph-wiki-agent/src/graph_wiki_agent/config.py (vestigial CODE_WIKI_CONFIG docstring rewrite)
   - agents/graph-wiki-agent/tests/unit/test_trace_viewer.py (deferred-from-21-03 fixture-dir constant)
-  - packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/ → .graph-wiki/ (28-file git mv)
+  - packages/wiki-io/tests/fixtures/round-trip-vault/.code-wiki/ → .graph-wiki/ (28-file git mv)
 tech-stack:
   added: []
   patterns:
@@ -41,7 +41,7 @@ decisions:
   - "[Rule 2 / Rule 3 — Task 2 surgical adjustment] The mechanical sed `s/CODE_WIKI_/GRAPH_WIKI_/g` would have rewritten the `CODE_WIKI_CONFIG` reference in `agents/graph-wiki-agent/src/graph_wiki_agent/config.py:12` to `GRAPH_WIKI_CONFIG` — but that env var was named `CODE_WIKI_CONFIG` when Phase 20 deleted it, not `GRAPH_WIKI_CONFIG`. The docstring is describing a historical Phase-20 deletion; a sed rewrite would inject a falsehood. Replaced the sentence to describe the deleted pathway without quoting the obsolete env-var name (`'the legacy --config / model-config-env pathway was removed in Phase 20'`)."
   - "[Rule 3 — Blocking] Fixed pre-existing bug in `tests/test_integration_gate.py:_find_integration_test_files()`: the absolute-path-parts exclusion (`if '.claude' in parts and 'worktrees' in parts`) caught the worktree-root path itself when running inside `.claude/worktrees/agent-*/`, silently emptying the match list. Surgically changed to use `path.relative_to(_REPO_ROOT).parts` so the exclusion only catches `.claude/worktrees/` CHILDREN of the worktree, not the worktree-root path components. Pre-existed plan 21-04; surfaced because Task 3 widens the gate to whole-repo for the first time. Verified the fix doesn't affect the original intent (still excludes `.claude/worktrees/` snapshots when run from main checkout). Folded into the Task 3 commit (7005600)."
   - "[D-04 bare-form .code-wiki sweep — mirroring 21-03 Deviation §1] The plan's `s|\\.code-wiki/|.graph-wiki/|g` sed catches only slash-form. Three bare-string references remained: `packages/eval-harness/tests/test_isolation.py:24` (`wt.path / '.code-wiki' / 'bm25'`), `packages/eval-harness/src/eval_harness/sweep.py:16,271` (docstring + path construction). Applied broader `s/\\.code-wiki/.graph-wiki/g` to those three files. Also renamed test function `test_evalworktree_includes_code_wiki` → `test_evalworktree_includes_graph_wiki` for coherence (function name was a description of the trace-dir token, not a brand-slug)."
-  - "Vault-io test fixture directory `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/` renamed via `git mv` (28 files, 100%-similarity renames recorded). Re-aligned the `_REAL_V0_FIXTURE_DIR` constant in `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py:1085` (the NOTE(21-03) deferral comment is now gone). This closes 21-03 Deviation §2."
+  - "Vault-io test fixture directory `packages/wiki-io/tests/fixtures/round-trip-vault/.code-wiki/` renamed via `git mv` (28 files, 100%-similarity renames recorded). Re-aligned the `_REAL_V0_FIXTURE_DIR` constant in `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py:1085` (the NOTE(21-03) deferral comment is now gone). This closes 21-03 Deviation §2."
 metrics:
   duration_min: ~25
   completed: 2026-05-19
@@ -70,9 +70,9 @@ All four landed on branch `worktree-agent-a66d97480c9c0255a`.
 
 `git show --stat <SHA>` for each commit confirms Karpathy §3 (Surgical Changes):
 - **ef29545:** Touches only `plugins/graph-wiki/skills/graph-wiki/scripts/`.
-- **4e92b20:** Touches root + eval-harness pyprojects, integration-gate test, agent-pkg integration tests + conftest + config.py docstring, eval-harness src/tests, vault-io + subagent-runtime integration tests, docs/testing.md, eval/README.md. NO `.planning/` leakage.
+- **4e92b20:** Touches root + eval-harness pyprojects, integration-gate test, agent-pkg integration tests + conftest + config.py docstring, eval-harness src/tests, wiki-io + subagent-runtime integration tests, docs/testing.md, eval/README.md. NO `.planning/` leakage.
 - **7005600:** Touches 35 cross-package files matching the B1 four-slug surface + the Rule-3 fix in `tests/test_integration_gate.py`. NO `.planning/` or `graph-wiki/wiki/` leakage.
-- **05df828:** Touches 7 cross-package text-files + 1 agent-pkg test file (closes 21-03 deferral) + 28 fixture renames (vault-io `round-trip-vault/.code-wiki/` → `.graph-wiki/`). NO `.planning/` or `graph-wiki/wiki/` leakage.
+- **05df828:** Touches 7 cross-package text-files + 1 agent-pkg test file (closes 21-03 deferral) + 28 fixture renames (wiki-io `round-trip-vault/.code-wiki/` → `.graph-wiki/`). NO `.planning/` or `graph-wiki/wiki/` leakage.
 
 ## Post-Sweep Greps (all zero hits)
 
@@ -113,7 +113,7 @@ The planned `checkpoint:human-verify` for the env-var rename was satisfied by th
 orchestrator's spawn prompt, which explicitly stated:
 
 > "Plan 21-03's SUMMARY left a forward pointer: this plan is responsible for
-> `CODE_WIKI_*` env-var rename, vault-io fixture dir rename ... Treat that as
+> `CODE_WIKI_*` env-var rename, wiki-io fixture dir rename ... Treat that as
 > authoritative scope (in addition to plan 21-04's own scope)."
 
 That is the orchestrator-level approval. No live checkpoint return was required.

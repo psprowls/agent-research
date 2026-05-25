@@ -4,8 +4,8 @@ title: Fix workspace repo resolution in init_vault and detect_containers
 area: tooling
 resolves_phase: 17
 files:
-  - packages/vault-io/src/vault_io/init_vault.py:305-306
-  - packages/vault-io/src/vault_io/detect_containers.py:174-175
+  - packages/wiki-io/src/wiki_io/init_vault.py:305-306
+  - packages/wiki-io/src/wiki_io/detect_containers.py:174-175
 ---
 
 ## Problem
@@ -33,4 +33,4 @@ Secondary bug in the detector: it self-classifies the workspace dir itself (`gra
 
 2. In `detect_containers.detect()` (or its caller), exclude the resolved workspace path from classification so the workspace dir doesn't appear in its own layout block.
 
-3. Add a test in `packages/vault-io/tests/` that runs the detector against a fixture repo with wiki at `<repo>/graph-wiki/wiki/` and asserts it finds repo-root containers (not workspace-root contents).
+3. Add a test in `packages/wiki-io/tests/` that runs the detector against a fixture repo with wiki at `<repo>/graph-wiki/wiki/` and asserts it finds repo-root containers (not workspace-root contents).

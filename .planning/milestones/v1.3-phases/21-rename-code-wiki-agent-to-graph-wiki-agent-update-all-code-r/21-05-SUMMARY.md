@@ -37,7 +37,7 @@ decisions:
   - "Task 3 D-07-analog discretion: `.planning/sketches/00{1,2,3}/index.html` excluded from the sed sweep (plan scope was `.planning/sketches/**/*.md`, html files are static design mockups quoting `agents/code-wiki-agent` paths verbatim as rendered `/graph-wiki:refresh` output examples). Same class as 21-04's D-07-analog call for `.claude/skills/sketch-findings-agent-research/sources/`. Both directly allowlisted in Task 4."
   - "Task 4 Karpathy-§3 (Surgical Changes) call: stale Phase 12 allowlist entries (lines 125/173/175 of .brand-grep-allow, pointing to old `agents/code-wiki-agent/...` paths that no longer exist) left UNTOUCHED per M4 discipline. Equivalent renamed-path entries (`agents/graph-wiki-agent/...`) added to the Phase 21 section under sub-category (a) — same surface, dual coverage."
   - "Task 4 Rule-3 (Blocking) fix: `scripts/check-brand.sh` line 69 referenced the stale CLI path `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — this is CHECK 3's regression guard against `def init(` reintroduction. The file no longer exists at that path, so the guard had silently become a no-op. Surgically updated to `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` so CHECK 3 stays effective. This is Phase 21's own brand-gate script, missed by 21-04's cross-package sweep because B1's `--exclude-dir=graph-wiki` excluded the wiki dir but the gate's own path lookups were never touched by sed-style rebrands."
-  - "Task 4 sub-category (c): added narrow allowlists for pre-existing lattice surface that would have failed even before the Phase 21 rename — `.planning/milestones/v1.2-` (REQUIREMENTS/ROADMAP/v1.2-phases/**), `.planning/phases/17-`, `.planning/phases/20-`, plus two test files (`packages/eval-harness/tests/test_scanner_regression.py`, `packages/vault-io/tests/test_scan_companion_fold.py`). These are pre-existing `lattice` / `lattice-curator-core` references in the same R-03/Provenance class as existing Phase 12 entries; R-03 only listed `v1.0-` / `v1.1-` archive prefixes so v1.2 + Phase 17/20 + the two test files were never covered. Narrow path-fragment entries per the prompt guidance: 'EXCLUDE only via narrow allowlist entries — don't broaden to mask unrelated regressions.' Documented as out-of-scope for Phase 21."
+  - "Task 4 sub-category (c): added narrow allowlists for pre-existing lattice surface that would have failed even before the Phase 21 rename — `.planning/milestones/v1.2-` (REQUIREMENTS/ROADMAP/v1.2-phases/**), `.planning/phases/17-`, `.planning/phases/20-`, plus two test files (`packages/eval-harness/tests/test_scanner_regression.py`, `packages/wiki-io/tests/test_scan_companion_fold.py`). These are pre-existing `lattice` / `lattice-curator-core` references in the same R-03/Provenance class as existing Phase 12 entries; R-03 only listed `v1.0-` / `v1.1-` archive prefixes so v1.2 + Phase 17/20 + the two test files were never covered. Narrow path-fragment entries per the prompt guidance: 'EXCLUDE only via narrow allowlist entries — don't broaden to mask unrelated regressions.' Documented as out-of-scope for Phase 21."
 metrics:
   duration_min: ~20
   completed: 2026-05-19
@@ -224,9 +224,9 @@ agents/graph-wiki-agent/test-out/
 .planning/milestones/v1.2-phases/14-plugin-port-m3b/
 .planning/milestones/v1.2-phases/15-wiki-self-update/
 .planning/milestones/v1.2-phases/16-carry-forward-debt-cleanup/
-.planning/phases/17-vault-io-bug-fixes/
+.planning/phases/17-wiki-io-bug-fixes/
 .planning/phases/20-workspace-manifest-model-config/
-packages/vault-io/tests/test_scan_companion_fold.py
+packages/wiki-io/tests/test_scan_companion_fold.py
 packages/eval-harness/tests/test_scanner_regression.py
 ```
 

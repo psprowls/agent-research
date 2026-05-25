@@ -1,5 +1,5 @@
 ---
-phase: 17-vault-io-bug-fixes
+phase: 17-wiki-io-bug-fixes
 verified: 2026-05-19T12:00:00Z
 status: passed
 score: 5/5 must-haves verified
@@ -15,7 +15,7 @@ re_verification:
 
 # Phase 17 — Re-Verification Report (Plan 17-05)
 
-**Phase Goal:** All three vault-io behavioral bugs are fixed so scan reports accurate diffs, token counts are stamped correctly, and repo/container resolution works at the v2 workspace layout
+**Phase Goal:** All three wiki-io behavioral bugs are fixed so scan reports accurate diffs, token counts are stamped correctly, and repo/container resolution works at the v2 workspace layout
 **Verified:** 2026-05-19 (re-verification after plan 17-05 gap closure)
 **Status:** passed — 5/5 roadmap success criteria verified
 **Re-verification:** Yes — initial verification returned gaps_found (4/5, SC#4 PARTIAL); plan 17-05 closed the BLOCKER
@@ -32,7 +32,7 @@ re_verification:
 | 2 | After scan, all wiki pages previously without tokens show a non-zero token count in their frontmatter | VERIFIED | Wiki commit 80a4739 exists; grep of real pages returns 0 at `tokens: 0` for non-template files |
 | 3 | `detect_containers --json` returns the repo-root containers (not an empty list) when the wiki lives at `<workspace>/wiki/` | VERIFIED | 4/4 tests in test_detect_containers.py pass (no regression); test_v2_layout_finds_repo_containers asserts `packages` in results |
 | 4 | The workspace directory itself does not appear in its own layout block as a `docs` container | VERIFIED | All three call paths now wired: detect_containers.main() (17-03), _resolve_pinned_containers (17-05), _discover_heuristic (17-05); 7 new tests pass; no unguarded call sites remain |
-| 5 | Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package vault-io pytest` | VERIFIED | 93 passed, 1 skipped (up from 86 baseline + 7 new from plan 17-05); integration test skips by default |
+| 5 | Unit and integration tests for scan companion folding and CountTokens API shape pass under `uv run --package wiki-io pytest` | VERIFIED | 93 passed, 1 skipped (up from 86 baseline + 7 new from plan 17-05); integration test skips by default |
 
 **Score:** 5/5 truths verified
 
@@ -52,7 +52,7 @@ Status: WIRED (confirmed in initial verification; no regression)
 ### Call Path 2: `init_vault._resolve_pinned_containers` (17-05 gap closure)
 
 ```python
-# packages/vault-io/src/vault_io/init_vault.py line 84-88
+# packages/wiki-io/src/wiki_io/init_vault.py line 84-88
 def _resolve_pinned_containers(
     repo: Path, non_interactive: bool, workspace_path: Path | None = None
 ) -> list[dict]:
@@ -71,7 +71,7 @@ Verification: `grep -n "_detect_containers(repo)" init_vault.py | grep -v worksp
 ### Call Path 3: `scan_monorepo._discover_heuristic` (17-05 gap closure)
 
 ```python
-# packages/vault-io/src/vault_io/scan_monorepo.py line 512-522
+# packages/wiki-io/src/wiki_io/scan_monorepo.py line 512-522
 def _discover_heuristic(repo, workspace_dir=None):
     workspace_segments: set[str] = set()
     if workspace_dir is not None:
@@ -97,12 +97,12 @@ Verification: `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` returns 
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `packages/vault-io/src/vault_io/init_vault.py` | `_resolve_pinned_containers` accepts + forwards `workspace_path` | VERIFIED | Signature confirmed at line 85; `_detect_containers(repo, workspace_path=workspace_path)` at line 88; caller at line 169 passes `workspace_path=workspace_path` |
-| `packages/vault-io/src/vault_io/scan_monorepo.py` | `_discover_heuristic` + `discover_workspaces` accept `workspace_dir`; filter on both rglob loops | VERIFIED | `workspace_segments` at lines 517, 522, 563, 580 (4 matches); `workspace_dir=workspace` at line 1160 |
-| `packages/vault-io/tests/test_init_vault.py` | 3 tests proving plumb-through + v1 guard parity | VERIFIED | `test_resolve_pinned_containers_v2_excludes_workspace`, `test_resolve_pinned_containers_v1_guard`, `test_resolve_pinned_containers_default_workspace_path_none` — all pass |
-| `packages/vault-io/tests/test_scan_monorepo.py` | 4 tests proving heuristic guard + v1 parity | VERIFIED | `test_discover_heuristic_v2_skips_workspace_pyproject`, `test_discover_heuristic_v2_skips_workspace_plugin_manifest`, `test_discover_heuristic_v1_guard_workspace_eq_repo`, `test_discover_heuristic_default_workspace_dir_none` — all pass |
-| `packages/vault-io/src/vault_io/scan_monorepo.py` | Companion-fold filter (17-01 baseline) | VERIFIED | No regression |
-| `packages/vault-io/src/vault_io/update_tokens.py` | Fixed count_tokens using converse shape (17-02 baseline) | VERIFIED | No regression |
+| `packages/wiki-io/src/wiki_io/init_vault.py` | `_resolve_pinned_containers` accepts + forwards `workspace_path` | VERIFIED | Signature confirmed at line 85; `_detect_containers(repo, workspace_path=workspace_path)` at line 88; caller at line 169 passes `workspace_path=workspace_path` |
+| `packages/wiki-io/src/wiki_io/scan_monorepo.py` | `_discover_heuristic` + `discover_workspaces` accept `workspace_dir`; filter on both rglob loops | VERIFIED | `workspace_segments` at lines 517, 522, 563, 580 (4 matches); `workspace_dir=workspace` at line 1160 |
+| `packages/wiki-io/tests/test_init_vault.py` | 3 tests proving plumb-through + v1 guard parity | VERIFIED | `test_resolve_pinned_containers_v2_excludes_workspace`, `test_resolve_pinned_containers_v1_guard`, `test_resolve_pinned_containers_default_workspace_path_none` — all pass |
+| `packages/wiki-io/tests/test_scan_monorepo.py` | 4 tests proving heuristic guard + v1 parity | VERIFIED | `test_discover_heuristic_v2_skips_workspace_pyproject`, `test_discover_heuristic_v2_skips_workspace_plugin_manifest`, `test_discover_heuristic_v1_guard_workspace_eq_repo`, `test_discover_heuristic_default_workspace_dir_none` — all pass |
+| `packages/wiki-io/src/wiki_io/scan_monorepo.py` | Companion-fold filter (17-01 baseline) | VERIFIED | No regression |
+| `packages/wiki-io/src/wiki_io/update_tokens.py` | Fixed count_tokens using converse shape (17-02 baseline) | VERIFIED | No regression |
 
 ---
 
@@ -131,7 +131,7 @@ Verification: `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` returns 
 | `_discover_heuristic` has `workspace_segments` filter | `grep -n "workspace_segments" scan_monorepo.py` | lines 517, 522, 563, 580 (4 matches) | PASS |
 | No unguarded `_discover_heuristic(repo)` in scan_monorepo src | `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` | zero matches | PASS |
 | `main()` passes `workspace_dir=workspace` | `grep -n "workspace_dir=workspace" scan_monorepo.py` | line 1160: match | PASS |
-| Full vault-io unit suite | `uv run --package vault-io pytest packages/vault-io/ -q` | 93 passed, 1 skipped in 42.94s | PASS |
+| Full wiki-io unit suite | `uv run --package wiki-io pytest packages/wiki-io/ -q` | 93 passed, 1 skipped in 42.94s | PASS |
 | update_tokens.py uses converse shape (SC#2 baseline) | `grep -n "inputTokens" update_tokens.py` | line 50: `response["inputTokens"]` | PASS |
 | Real wiki pages have no `tokens: 0` (non-template) | `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research \| grep -v ".templates" \| wc -l` | 0 | PASS (previously verified) |
 
@@ -187,13 +187,13 @@ Full test suite: 93 passed, 1 skipped (86 baseline + 7 new). No regressions.
 
 ### SC#1 — `/graph-wiki:scan` reports 0 deleted entries for companion pages
 
-Evidence: `uv run --package vault-io pytest packages/vault-io/tests/test_scan_companion_fold.py -v`
+Evidence: `uv run --package wiki-io pytest packages/wiki-io/tests/test_scan_companion_fold.py -v`
 
 ```
-packages/vault-io/tests/test_scan_companion_fold.py::test_load_existing_skips_companions PASSED [ 25%]
-packages/vault-io/tests/test_scan_companion_fold.py::test_layout_pinned_package_skips_companions PASSED [ 50%]
-packages/vault-io/tests/test_scan_companion_fold.py::test_apps_not_filtered PASSED [ 75%]
-packages/vault-io/tests/test_scan_companion_fold.py::test_compute_diff_no_phantom_deletes PASSED [100%]
+packages/wiki-io/tests/test_scan_companion_fold.py::test_load_existing_skips_companions PASSED [ 25%]
+packages/wiki-io/tests/test_scan_companion_fold.py::test_layout_pinned_package_skips_companions PASSED [ 50%]
+packages/wiki-io/tests/test_scan_companion_fold.py::test_apps_not_filtered PASSED [ 75%]
+packages/wiki-io/tests/test_scan_companion_fold.py::test_compute_diff_no_phantom_deletes PASSED [100%]
 
 4 passed in 0.06s
 ```
@@ -225,7 +225,7 @@ Updated 8 pages • Unchanged 0 pages • Skipped 2 pages
   [updated] agent-research/packages/eval-harness/eval-harness.md
   [updated] agent-research/packages/model-adapter/model-adapter.md
   [updated] agent-research/packages/subagent-runtime/subagent-runtime.md
-  [updated] agent-research/packages/vault-io/vault-io.md
+  [updated] agent-research/packages/wiki-io/wiki-io.md
   [updated] agent-research/packages/workspace-io/workspace-io.md
   [updated] agent-research/plugins/graph-wiki/graph-wiki.md
   [updated] agent-research/sources/otel-story-observability.md
@@ -281,13 +281,13 @@ Commit subject: `chore(tokens): re-stamp pages after Bedrock CountTokens fix`
 
 ### SC#3 — `detect_containers --json` returns repo-root containers under v2 layout
 
-Evidence: `uv run --package vault-io pytest packages/vault-io/tests/test_detect_containers.py -v`
+Evidence: `uv run --package wiki-io pytest packages/wiki-io/tests/test_detect_containers.py -v`
 
 ```
-packages/vault-io/tests/test_detect_containers.py::test_v2_layout_finds_repo_containers PASSED [ 25%]
-packages/vault-io/tests/test_detect_containers.py::test_workspace_path_excluded PASSED [ 50%]
-packages/vault-io/tests/test_detect_containers.py::test_v1_layout_guard PASSED [ 75%]
-packages/vault-io/tests/test_detect_containers.py::test_v2_synthetic_repo PASSED [100%]
+packages/wiki-io/tests/test_detect_containers.py::test_v2_layout_finds_repo_containers PASSED [ 25%]
+packages/wiki-io/tests/test_detect_containers.py::test_workspace_path_excluded PASSED [ 50%]
+packages/wiki-io/tests/test_detect_containers.py::test_v1_layout_guard PASSED [ 75%]
+packages/wiki-io/tests/test_detect_containers.py::test_v2_synthetic_repo PASSED [100%]
 
 4 passed in 0.03s
 ```
@@ -311,11 +311,11 @@ New tests from plan 17-05 (all pass):
 
 ---
 
-### SC#5 — Unit and integration tests pass under `uv run --package vault-io pytest`
+### SC#5 — Unit and integration tests pass under `uv run --package wiki-io pytest`
 
 Evidence:
-- **Unit suite (re-verification):** `uv run --package vault-io pytest packages/vault-io/ -q` → exit 0, **93 passed**, 1 skipped in 42.94s
-- **Integration suite (gated):** `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest -m integration` → **1 test** (`test_count_tokens_real_bedrock`); skipped by default per `docs/testing.md` D-10 pattern
+- **Unit suite (re-verification):** `uv run --package wiki-io pytest packages/wiki-io/ -q` → exit 0, **93 passed**, 1 skipped in 42.94s
+- **Integration suite (gated):** `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package wiki-io pytest -m integration` → **1 test** (`test_count_tokens_real_bedrock`); skipped by default per `docs/testing.md` D-10 pattern
 
 ---
 
@@ -327,15 +327,15 @@ Evidence:
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| init_vault._resolve_pinned_containers passes workspace_path | `grep -n "_detect_containers(repo, workspace_path=" packages/vault-io/src/vault_io/init_vault.py` | line 88: `records = _detect_containers(repo, workspace_path=workspace_path)` | PASS |
-| scan_monorepo._discover_heuristic workspace_segments filter present | `grep -n "workspace_segments" packages/vault-io/src/vault_io/scan_monorepo.py` | lines 517, 522, 563, 580 (4 matches: assignment, set construction, pyproject filter, plugin.json filter) | PASS |
+| init_vault._resolve_pinned_containers passes workspace_path | `grep -n "_detect_containers(repo, workspace_path=" packages/wiki-io/src/wiki_io/init_vault.py` | line 88: `records = _detect_containers(repo, workspace_path=workspace_path)` | PASS |
+| scan_monorepo._discover_heuristic workspace_segments filter present | `grep -n "workspace_segments" packages/wiki-io/src/wiki_io/scan_monorepo.py` | lines 517, 522, 563, 580 (4 matches: assignment, set construction, pyproject filter, plugin.json filter) | PASS |
 | No unguarded _detect_containers(repo) call remains | `grep -n "_detect_containers(repo)" init_vault.py \| grep -v workspace_path` | (zero matches) | PASS |
 | No unguarded _discover_heuristic(repo) in production src | `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` | (zero matches) | PASS |
 
 ### Full Vault-IO Unit Suite
 
 ```
-uv run --package vault-io pytest packages/vault-io/ -q
+uv run --package wiki-io pytest packages/wiki-io/ -q
 93 passed, 1 skipped in 42.94s
 ```
 

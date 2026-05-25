@@ -1,10 +1,10 @@
-# Phase 17: vault-io Bug Fixes - Discussion Log
+# Phase 17: wiki-io Bug Fixes - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
 **Date:** 2026-05-19
-**Phase:** 17-vault-io-bug-fixes
+**Phase:** 17-wiki-io-bug-fixes
 **Areas discussed:** Companion folding placement, CountTokens input shape, Workspace self-exclusion, Plan structure & TOK-03 closure
 
 ---

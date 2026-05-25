@@ -116,7 +116,7 @@ resolvable citation and asserts `result.structural["citations_resolve"] is True`
 
 **File:** `packages/eval-harness/tests/eval/test_sweep_eval.py:135, 278`
 **Issue:** `FIXTURE_VAULT` resolves to
-`packages/vault-io/tests/fixtures/round-trip-vault/`. The directory **is** the
+`packages/wiki-io/tests/fixtures/round-trip-vault/`. The directory **is** the
 wiki itself (`ls` shows `index.md`, `packages/`, `adrs/`, …); it has no
 `wiki/` subdir. Two test sites then pass it as `workspace_path`:
 

@@ -8,7 +8,7 @@
 
 Hard-rename the **internal Python API** from `vault_path` to `workspace_path`. Scope is the in-tree Python surface only:
 
-- `packages/vault-io/src/vault_io/_workspace.py::resolve_wiki_and_repo` signature
+- `packages/wiki-io/src/wiki_io/_workspace.py::resolve_wiki_and_repo` signature
 - All 6 `run_*` command function signatures in `agents/graph-wiki-agent/src/graph_wiki_agent/commands/` (init, scan, lint, ingest, query, log)
 - All in-tree callers that pass `vault_path=` as a kwarg
 - ~70 `patch("...resolve_wiki_and_repo", ...)` mock points across ~20 test files
@@ -20,7 +20,7 @@ Hard-rename the **internal Python API** from `vault_path` to `workspace_path`. S
 - MCP Pydantic field renames — Phase 23
 - eval-harness internal renames — Phase 24
 - `packages/` misclassification fix — Phase 25
-- `vault-io` package directory/module name — out of milestone scope
+- `wiki-io` package directory/module name — out of milestone scope
 
 </domain>
 
@@ -28,8 +28,8 @@ Hard-rename the **internal Python API** from `vault_path` to `workspace_path`. S
 ## Implementation Decisions
 
 ### WIP Handling
-- **D-01:** Adopt the 5 unstaged files on `main` (cli.py, commands/init.py, vault-io/_workspace.py, workspace-io/{config,init}.py) as the foundation for the implementation plan. Do NOT stash and rebuild — the prototype work is sound for WSAPI-01, WSAPI-02 (init only), WSAPI-05, and WSAPI-06.
-- **D-02:** Replace the f-string hack `Path(f"{workspace_path}" + "/wiki").resolve()` in `vault-io/_workspace.py` with `workspace_io.paths.wiki_dir(workspace_path)` per the milestone-locked decision. The hack contradicts the contract from REQUIREMENTS.md and must be fixed before commit.
+- **D-01:** Adopt the 5 unstaged files on `main` (cli.py, commands/init.py, wiki-io/_workspace.py, workspace-io/{config,init}.py) as the foundation for the implementation plan. Do NOT stash and rebuild — the prototype work is sound for WSAPI-01, WSAPI-02 (init only), WSAPI-05, and WSAPI-06.
+- **D-02:** Replace the f-string hack `Path(f"{workspace_path}" + "/wiki").resolve()` in `wiki-io/_workspace.py` with `workspace_io.paths.wiki_dir(workspace_path)` per the milestone-locked decision. The hack contradicts the contract from REQUIREMENTS.md and must be fixed before commit.
 
 ### Plan Chunking
 - **D-03:** **Big-bang single plan** — all 6 WSAPI requirements + the ~70 test-mock-point sweep land in one plan and one commit. This explicitly overrides an earlier "split by package" consideration for the test sweep. Trade-off accepted: one large commit, bisect-hostile, but eliminates ordering risk between the API rename and the test updates (tests would break for any intermediate state if split).
@@ -43,7 +43,7 @@ Hard-rename the **internal Python API** from `vault_path` to `workspace_path`. S
 - **D-07:** Hard rename, no back-compat shims (no deprecation period for the kwarg).
 - **D-08:** `.graph-wiki.local.yaml` key hard-cut to `workspace-directory`. Existing files with the old `graph-wiki-directory` key silently fall back to the default workspace location. Document in release notes only.
 - **D-09:** Wiki path always derived via `workspace_io.paths.wiki_dir(workspace_path)` — never string concatenation.
-- **D-10:** `vault-io` package directory and `vault_io` module path STAY. Only nomenclature changes, not module renames.
+- **D-10:** `wiki-io` package directory and `wiki_io` module path STAY. Only nomenclature changes, not module renames.
 - **D-11:** Phase 25 owns the pending `packages-dir-misclassification` todo — explicitly NOT folded here.
 
 ### Claude's Discretion
@@ -63,7 +63,7 @@ Hard-rename the **internal Python API** from `vault_path` to `workspace_path`. S
 - `.planning/ROADMAP.md` §"Phase 22: workspace-api-internal-rename" — goal + 5 numbered success criteria
 
 ### Files in the rename surface
-- `packages/vault-io/src/vault_io/_workspace.py` — `resolve_wiki_and_repo` (the central entry point)
+- `packages/wiki-io/src/wiki_io/_workspace.py` — `resolve_wiki_and_repo` (the central entry point)
 - `packages/workspace-io/src/workspace_io/config.py` — `LATTICE_DIRECTORY_KEY` constant + `_resolve_workspace` to promote
 - `packages/workspace-io/src/workspace_io/init.py` — `init()` default workspace logic
 - `packages/workspace-io/src/workspace_io/paths.py` — `wiki_dir()` (the canonical derivation function — already exists, just use it)

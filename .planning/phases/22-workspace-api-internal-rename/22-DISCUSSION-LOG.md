@@ -39,7 +39,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Split by package | Three plans (vault-io / graph-wiki-agent / eval-harness), each gated by `uv run --package <pkg> pytest` | ✓ (later overridden) |
+| Split by package | Three plans (wiki-io / graph-wiki-agent / eval-harness), each gated by `uv run --package <pkg> pytest` | ✓ (later overridden) |
 | Single mechanical sweep plan | One plan, one pass across all ~20 test files, gate `uv run pytest` | |
 | Per-file plans | One plan per test file (~20 plans). Maximum atomicity, maximum overhead | |
 
@@ -53,7 +53,7 @@
 | Option | Description | Selected |
 |--------|-------------|----------|
 | One plan per requirement | 6 plans (config+resolve_workspace, resolver sig, command sigs, call-site sweep, + 3 test-mock plans split by package) | |
-| Grouped by layer | 3 plans (workspace-io / vault-io+commands / test sweep split by package = 5 total) | |
+| Grouped by layer | 3 plans (workspace-io / wiki-io+commands / test sweep split by package = 5 total) | |
 | Big-bang single plan | All renames + test sweep in one plan, one commit | ✓ |
 
 **User's choice:** Big-bang single plan.

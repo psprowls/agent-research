@@ -1,26 +1,26 @@
 ---
 phase: quick-260523-he3
 plan: 01
-subsystem: vault-io / graph-wiki plugin
+subsystem: wiki-io / graph-wiki plugin
 tags: [file-map, lint, emitter, parser, templates, docs]
 dependency_graph:
   requires: []
   provides: [new-file-map-table-format]
-  affects: [vault-io.scan_monorepo, vault-io.lint.common, graph-wiki.scanner, graph-wiki.page-formats]
+  affects: [wiki-io.scan_monorepo, wiki-io.lint.common, graph-wiki.scanner, graph-wiki.page-formats]
 tech_stack:
   added: []
   patterns: [per-major-folder H3 sections, markdown tables for file map, graceful parser fallback]
 key_files:
   created: []
   modified:
-    - packages/vault-io/src/vault_io/scan_monorepo.py
-    - packages/vault-io/src/vault_io/lint/common.py
-    - packages/vault-io/src/vault_io/assets/page-templates/package/overview.md
-    - packages/vault-io/src/vault_io/assets/page-templates/app.md
-    - packages/vault-io/tests/test_scan_monorepo.py
-    - packages/vault-io/tests/test_lint_modules.py
-    - packages/vault-io/tests/fixtures/round-trip-vault/.templates/package.md
-    - packages/vault-io/tests/fixtures/round-trip-vault/.templates/package/overview.md
+    - packages/wiki-io/src/wiki_io/scan_monorepo.py
+    - packages/wiki-io/src/wiki_io/lint/common.py
+    - packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md
+    - packages/wiki-io/src/wiki_io/assets/page-templates/app.md
+    - packages/wiki-io/tests/test_scan_monorepo.py
+    - packages/wiki-io/tests/test_lint_modules.py
+    - packages/wiki-io/tests/fixtures/round-trip-vault/.templates/package.md
+    - packages/wiki-io/tests/fixtures/round-trip-vault/.templates/package/overview.md
     - plugins/graph-wiki/skills/graph-wiki/references/page-formats.md
     - plugins/graph-wiki/skills/graph-wiki/references/scan-workflow.md
     - plugins/graph-wiki/agents/scanner.md
@@ -54,7 +54,7 @@ One-liner: File map block refactored from heading+bullet sub-sections to H2 + pe
 
 ### Task 1 — build_file_map() emitter (17d1183)
 
-Rewrote `build_file_map()` in `packages/vault-io/src/vault_io/scan_monorepo.py`:
+Rewrote `build_file_map()` in `packages/wiki-io/src/wiki_io/scan_monorepo.py`:
 - Emits `## File map - <pkg>` H2 + one-line overview paragraph
 - Emits a synthetic `### <pkg>/` H3 for root-level files (files only; standard depth-1 dirs get their own H3)
 - Emits one `### <pkg>/<sub>/` H3 per depth-1 directory, alphabetically sorted
@@ -71,7 +71,7 @@ Updated templates: `package/overview.md` and `app.md` both show the new table fo
 
 ### Task 2 — parse_section_entries() parser (de3e6da)
 
-Rewrote `parse_section_entries()` in `packages/vault-io/src/vault_io/lint/common.py`:
+Rewrote `parse_section_entries()` in `packages/wiki-io/src/wiki_io/lint/common.py`:
 - Walks body line by line for H3+ headers (via existing `SECTION_HEADER_RE`)
 - For each header, derives `current_path` (strips `pkg_name/` prefix) and records dir entry
 - Collects the section block (lines until next H3+), calls `parse_markdown_table()` on it
@@ -101,17 +101,17 @@ Rewrote the "File map convention" section with the new table-based rules, includ
 ### Task 6 — Verification (no commit)
 
 All checks passed:
-- `uv run pytest packages/vault-io/ -x`: 127 passed, 1 skipped
+- `uv run pytest packages/wiki-io/ -x`: 127 passed, 1 skipped
 - `uv run pytest packages/eval-harness/ -k scanner -x`: 9 passed, 1 skipped (integration gate), 177 deselected
 - SCN-003 manual logic check: `_FILE_MAP_SECTION = "## File map"` is a substring of the new heading `## File map - <pkg>`, so the check still correctly rejects scanner stubs that include a file_map block
-- Fresh `build_file_map(Path("packages/vault-io"))` confirms: H2, overview paragraph, `### vault-io/` root section, `### vault-io/src/` section, nested files flatten correctly, tables are `| Path | Kind | Description |`
+- Fresh `build_file_map(Path("packages/wiki-io"))` confirms: H2, overview paragraph, `### wiki-io/` root section, `### wiki-io/src/` section, nested files flatten correctly, tables are `| Path | Kind | Description |`
 
-Fresh build_file_map() output excerpt (packages/vault-io):
+Fresh build_file_map() output excerpt (packages/wiki-io):
 ```
-## File map - vault-io
+## File map - wiki-io
 TODO — overview of this package's tree.
 
-### vault-io/
+### wiki-io/
 TODO — describe what this directory contains.
 
 | Path | Kind | Description |
@@ -120,13 +120,13 @@ TODO — describe what this directory contains.
 | `DRIFT-DECISIONS.md` | file | — TODO |
 | `pyproject.toml` | file | — TODO |
 
-### vault-io/src/
+### wiki-io/src/
 TODO — describe what this directory contains.
 
 | Path | Kind | Description |
 |---|---|---|
-| `vault_io/__init__.py` | file | — TODO |
-| `vault_io/lint/common.py` | file | — TODO |
+| `wiki_io/__init__.py` | file | — TODO |
+| `wiki_io/lint/common.py` | file | — TODO |
 | ...
 ```
 
@@ -147,10 +147,10 @@ None — no new network endpoints, auth paths, file access patterns, or schema c
 ## Self-Check
 
 Files exist:
-- `packages/vault-io/src/vault_io/scan_monorepo.py`: build_file_map() rewritten ✓
-- `packages/vault-io/src/vault_io/lint/common.py`: parse_section_entries() rewritten, BULLET_RE removed ✓
-- `packages/vault-io/src/vault_io/assets/page-templates/package/overview.md`: new table format ✓
-- `packages/vault-io/src/vault_io/assets/page-templates/app.md`: new table format ✓
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py`: build_file_map() rewritten ✓
+- `packages/wiki-io/src/wiki_io/lint/common.py`: parse_section_entries() rewritten, BULLET_RE removed ✓
+- `packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md`: new table format ✓
+- `packages/wiki-io/src/wiki_io/assets/page-templates/app.md`: new table format ✓
 - `plugins/graph-wiki/skills/graph-wiki/references/page-formats.md`: updated ✓
 - `plugins/graph-wiki/agents/scanner.md`: updated ✓
 

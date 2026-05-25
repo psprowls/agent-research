@@ -1,13 +1,13 @@
 ---
 phase: 14-plugin-port-m3b
 plan: "02"
-subsystem: vault-io
-tags: [port, vault-io, search, bm25, brand-rebrand]
+subsystem: wiki-io
+tags: [port, wiki-io, search, bm25, brand-rebrand]
 dependency_graph:
   requires:
-    - vault_io._workspace (resolve_wiki_and_repo)
+    - wiki_io._workspace (resolve_wiki_and_repo)
   provides:
-    - vault_io.wiki_search (main, tokenize, load_docs, bm25_scores, snippet)
+    - wiki_io.wiki_search (main, tokenize, load_docs, bm25_scores, snippet)
   affects:
     - plugins/graph-wiki/skills/graph-wiki/scripts/wiki_search.py (Plan 3 shim)
 tech_stack:
@@ -17,12 +17,12 @@ tech_stack:
     - argparse CLI with --query / --limit / --json surface
 key_files:
   created:
-    - packages/vault-io/src/vault_io/wiki_search.py
-    - packages/vault-io/tests/test_wiki_search.py
+    - packages/wiki-io/src/wiki_io/wiki_search.py
+    - packages/wiki-io/tests/test_wiki_search.py
   modified:
     - .brand-grep-allow
 decisions:
-  - "Dropped _version_check import and call site (not in vault_io scope per 14-PATTERNS.md)"
+  - "Dropped _version_check import and call site (not in wiki_io scope per 14-PATTERNS.md)"
   - "Rewrote docstring: 'lattice workspace' → 'graph-wiki workspace'; all other logic verbatim"
   - "Added Phase 14 planning folder to .brand-grep-allow (pre-existing gate miss, same allowlist class as Phase 12/13)"
   - "Added .pytest_cache/v/cache/nodeids to .brand-grep-allow (gitignored runtime artifact embedding test-guard names)"
@@ -33,20 +33,20 @@ metrics:
   files: 3
 ---
 
-# Phase 14 Plan 02: Port vault_io.wiki_search Summary
+# Phase 14 Plan 02: Port wiki_io.wiki_search Summary
 
-**One-liner:** Verbatim port of upstream BM25 wiki search (~194 LOC) into vault_io.wiki_search with lattice_wiki_core → vault_io import retarget and _version_check removal.
+**One-liner:** Verbatim port of upstream BM25 wiki search (~194 LOC) into wiki_io.wiki_search with lattice_wiki_core → wiki_io import retarget and _version_check removal.
 
 ## Tasks Completed
 
 | Task | Name | Commit | Files |
 |------|------|--------|-------|
-| 2.1 | Port wiki_search.py from upstream | 71547ff | packages/vault-io/src/vault_io/wiki_search.py, .brand-grep-allow |
-| 2.2 | Add structural tests for vault_io.wiki_search | 1d18007 | packages/vault-io/tests/test_wiki_search.py |
+| 2.1 | Port wiki_search.py from upstream | 71547ff | packages/wiki-io/src/wiki_io/wiki_search.py, .brand-grep-allow |
+| 2.2 | Add structural tests for wiki_io.wiki_search | 1d18007 | packages/wiki-io/tests/test_wiki_search.py |
 
 ## What Was Built
 
-`vault_io.wiki_search` is a verbatim port of `lattice_wiki_core.wiki_search` (~194 LOC). It implements:
+`wiki_io.wiki_search` is a verbatim port of `lattice_wiki_core.wiki_search` (~194 LOC). It implements:
 
 - **Hand-rolled BM25** (stdlib-only: `Counter`, `defaultdict`, `math.log`) — no `bm25s` or other third-party dep
 - **`main()`** — argparse CLI with `--query`, `--limit`, `--json` flags
@@ -56,8 +56,8 @@ metrics:
 - **`snippet()`** — context window extraction around first query term hit
 
 Import retargets applied:
-- `from lattice_wiki_core._workspace import resolve_wiki_and_repo` → `from vault_io._workspace import resolve_wiki_and_repo`
-- `from lattice_wiki_core._version_check import check_for_updates` → **deleted** (not in vault_io scope)
+- `from lattice_wiki_core._workspace import resolve_wiki_and_repo` → `from wiki_io._workspace import resolve_wiki_and_repo`
+- `from lattice_wiki_core._version_check import check_for_updates` → **deleted** (not in wiki_io scope)
 - `check_for_updates(wiki.parent)` call in `main()` → **deleted**
 
 The test file (`test_wiki_search.py`) provides:
@@ -68,22 +68,22 @@ The test file (`test_wiki_search.py`) provides:
 ## Verification
 
 ```
-uv run --package vault-io pytest packages/vault-io/tests/test_wiki_search.py -x
+uv run --package wiki-io pytest packages/wiki-io/tests/test_wiki_search.py -x
 # 3 passed
 
-uv run --package vault-io pytest packages/vault-io/tests/
+uv run --package wiki-io pytest packages/wiki-io/tests/
 # 74 passed
 
 bash scripts/check-brand.sh
 # BRAND-04 OK: zero unallowlisted hits
 
-grep -c 'lattice_' packages/vault-io/src/vault_io/wiki_search.py
+grep -c 'lattice_' packages/wiki-io/src/wiki_io/wiki_search.py
 # 0
 
-grep -c '_version_check' packages/vault-io/src/vault_io/wiki_search.py
+grep -c '_version_check' packages/wiki-io/src/wiki_io/wiki_search.py
 # 0
 
-grep -c '^# Source:' packages/vault-io/src/vault_io/wiki_search.py
+grep -c '^# Source:' packages/wiki-io/src/wiki_io/wiki_search.py
 # 0
 ```
 
@@ -105,7 +105,7 @@ grep -c '^# Source:' packages/vault-io/src/vault_io/wiki_search.py
 - **Found during:** Task 2.2 acceptance verification
 - **Issue:** Initial docstring said "upstream lattice-wiki-core wiki_search" — the substring `lattice` triggered the brand gate.
 - **Fix:** Rewrote to "upstream wiki_search implementation" — same meaning without the brand string.
-- **Files modified:** `packages/vault-io/tests/test_wiki_search.py`
+- **Files modified:** `packages/wiki-io/tests/test_wiki_search.py`
 - **Commit:** 1d18007
 
 ## Known Stubs
@@ -118,9 +118,9 @@ None. No new attack surface beyond what the plan's threat model covers (read-onl
 
 ## Self-Check: PASSED
 
-- `packages/vault-io/src/vault_io/wiki_search.py` — FOUND
-- `packages/vault-io/tests/test_wiki_search.py` — FOUND
+- `packages/wiki-io/src/wiki_io/wiki_search.py` — FOUND
+- `packages/wiki-io/tests/test_wiki_search.py` — FOUND
 - Commit 71547ff — FOUND (`git log --oneline | grep 71547ff`)
 - Commit 1d18007 — FOUND (`git log --oneline | grep 1d18007`)
-- 74 vault-io tests pass — VERIFIED
+- 74 wiki-io tests pass — VERIFIED
 - Brand gate exits 0 — VERIFIED

@@ -112,7 +112,7 @@
 | Wholesale rewrite | Replace code_reader_cases.json with fresh set authored against today's codebase. | |
 
 **User's choice:** Expand to 5-6 cases + retune.
-**Notes:** Captured as D-07. Targets for new cases: workspace-io, graph-wiki plugin, ported vault-io.lint_wiki / vault-io.wiki_search.
+**Notes:** Captured as D-07. Targets for new cases: workspace-io, graph-wiki plugin, ported wiki-io.lint_wiki / wiki-io.wiki_search.
 
 ### SWEEP-FU-04 — scanner re-sweep target
 

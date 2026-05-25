@@ -30,7 +30,7 @@ verdict: 2026-05-19 — Pat accepted the D-09 deviation. The event-driven trigge
 ### 4. Confirm SC#2 "code_reader cases produce non-trivial scores" is acceptable as "cases load and tag-validate cleanly + are structured to force code-fallback"
 expected: Pat confirms that cases 04-06 of `eval/cases/code_reader_cases.json` (each phrased to force the code-fallback path against post-rebrand surfaces) constitute acceptable evidence in the absence of a real sweep producing actual numeric scores.
 result: pass
-verdict: 2026-05-19 — Pat accepted the structural evidence in lieu of actual numeric scores. Cases 04-06 (workspace_io.config.resolve, vault_io.wiki_search BM25, vault_io.lint_wiki.scan) are each phrased to force the code-fallback path against post-rebrand surfaces; all 6 cases load + tag-validate (`test_code_reader_cases_json_loads` PASS). Acknowledged risk: no actual sweep was run, so no numeric scores exist; if the sweep ever runs, the cases are positioned to exercise the metric correctly.
+verdict: 2026-05-19 — Pat accepted the structural evidence in lieu of actual numeric scores. Cases 04-06 (workspace_io.config.resolve, wiki_io.wiki_search BM25, wiki_io.lint_wiki.scan) are each phrased to force the code-fallback path against post-rebrand surfaces; all 6 cases load + tag-validate (`test_code_reader_cases_json_loads` PASS). Acknowledged risk: no actual sweep was run, so no numeric scores exist; if the sweep ever runs, the cases are positioned to exercise the metric correctly.
 
 ## Summary
 

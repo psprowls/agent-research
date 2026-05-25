@@ -17,7 +17,7 @@ _PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.parent.parent
 FIXTURE_VAULT: Path = (
     _PROJECT_ROOT
     / "packages"
-    / "vault-io"
+    / "wiki-io"
     / "tests"
     / "fixtures"
     / "round-trip-vault"

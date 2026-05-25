@@ -25,14 +25,14 @@
   },
   {
     "case_id": "code-reader-05",
-    "query": "What algorithm and constants does vault_io.wiki_search.bm25_scores use?",
-    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/vault-io/src/vault_io/wiki_search.py source for the BM25 k1/b parameters and scoring loop",
+    "query": "What algorithm and constants does wiki_io.wiki_search.bm25_scores use?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/wiki-io/src/wiki_io/wiki_search.py source for the BM25 k1/b parameters and scoring loop",
     "tags": ["code-reader", "vault-thin"]
   },
   {
     "case_id": "code-reader-06",
-    "query": "Which optional checks does vault_io.lint_wiki.scan accept and how are they applied?",
-    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/vault-io/src/vault_io/lint_wiki.py source for the scan() optional_checks parameter handling",
+    "query": "Which optional checks does wiki_io.lint_wiki.scan accept and how are they applied?",
+    "expected_answer": "cannot be answered from vault pages alone; requires reading packages/wiki-io/src/wiki_io/lint_wiki.py source for the scan() optional_checks parameter handling",
     "tags": ["code-reader", "vault-thin"]
   }
 ]

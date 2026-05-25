@@ -84,7 +84,7 @@
 ## Deferred Ideas
 
 - Migrate `baseline.py` argparse → Typer (consolidation; out of scope).
-- Rename `vault-io` package directory + `vault_io` module → `wiki-io` / `wiki_io` (locked OUT of v1.4 per Phase 22 D-10).
+- Rename `wiki-io` package directory + `wiki_io` module → `wiki-io` / `wiki_io` (locked OUT of v1.4 per Phase 22 D-10).
 - `_SLUG_ONLY_RE` parity fix at `librarian.py:21` (out-of-scope observation from v1.3 Phase 19).
 - Explicit unit test rejecting OLD argparse `--vault` flag (relying on no-shim posture as implicit coverage).
 - Phase 25 (packages-dir-misclassification-fix) — independent of Phase 24.

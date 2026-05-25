@@ -29,7 +29,7 @@
       "invocation": "import (botocore.exceptions)",
       "used_by": [
         "model-adapter",
-        "vault-io"
+        "wiki-io"
       ]
     },
     "aiobotocore": {
@@ -77,7 +77,7 @@
       "type": "production",
       "invocation": "import",
       "used_by": [
-        "vault-io",
+        "wiki-io",
         "eval-harness"
       ]
     },
@@ -154,7 +154,7 @@
       "used_by": [
         "model-adapter",
         "subagent-runtime",
-        "vault-io",
+        "wiki-io",
         "eval-harness",
         "code-wiki-agent"
       ]
@@ -186,7 +186,7 @@
         "eval-harness"
       ]
     },
-    "vault-io": {
+    "wiki-io": {
       "version": "0.1.0 (workspace)",
       "type": "production",
       "invocation": "workspace member",
@@ -199,7 +199,7 @@
       "type": "production",
       "invocation": "workspace member",
       "used_by": [
-        "vault-io",
+        "wiki-io",
         "code-wiki-agent"
       ]
     },

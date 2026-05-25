@@ -12,7 +12,7 @@ files_reviewed_list:
   - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py
   - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
   - agents/graph-wiki-agent/src/graph_wiki_mcp/server.py
-  - packages/vault-io/src/vault_io/_workspace.py
+  - packages/wiki-io/src/wiki_io/_workspace.py
   - packages/workspace-io/src/workspace_io/config.py
   - packages/workspace-io/src/workspace_io/init.py
   - packages/eval-harness/src/eval_harness/isolation.py
@@ -90,7 +90,7 @@ Alternatively, if `run_headless` expects a workspace (not a wiki) path, audit an
 
 ### WR-01: `resolve_wiki_and_repo` silently ignores `repo_path` when `workspace_path is None`
 
-**File:** `packages/vault-io/src/vault_io/_workspace.py:36-39`
+**File:** `packages/wiki-io/src/wiki_io/_workspace.py:36-39`
 **Issue:** The signature accepts `repo_path: Path | None = None`, but the parameter is only consulted in the `workspace_path is not None` branch:
 
 ```python
@@ -137,8 +137,8 @@ async def __aenter__(self) -> EvalWorktree:
 
 ### WR-03: `_workspace.py` depends on a private symbol of another module
 
-**File:** `packages/vault-io/src/vault_io/_workspace.py:20`
-**Issue:** `from workspace_io.config import _find_repo_root` imports a leading-underscore (private-by-convention) symbol across package boundaries. This is fragile by Python convention — any future refactor of `workspace_io.config` is free to rename or delete `_find_repo_root` without warning, and the `vault-io` package will break with no contract violation.
+**File:** `packages/wiki-io/src/wiki_io/_workspace.py:20`
+**Issue:** `from workspace_io.config import _find_repo_root` imports a leading-underscore (private-by-convention) symbol across package boundaries. This is fragile by Python convention — any future refactor of `workspace_io.config` is free to rename or delete `_find_repo_root` without warning, and the `wiki-io` package will break with no contract violation.
 
 Either `_find_repo_root` should be promoted to public (`find_repo_root`) in the same package-public API as `resolve_workspace` (the Phase 22 already promoted one helper — same justification applies here, since this one is now a documented dependency per D-05), or `_workspace.py` should inline its own walk-up logic. Since the function is 6 lines and trivial, the latter is also acceptable.
 
@@ -173,7 +173,7 @@ except (RuntimeError, FileNotFoundError, OSError) as e:
 
 ### IN-01: Module docstring of `_workspace.py` references "MCP boundary contract, Phase 11 SC#3"
 
-**File:** `packages/vault-io/src/vault_io/_workspace.py:5`
+**File:** `packages/wiki-io/src/wiki_io/_workspace.py:5`
 **Issue:** Module docstring refers to "MCP boundary contract, Phase 11 SC#3" — Phase 11 is multiple milestones back and the contract is now owned by Phase 22 (D-06). The reference is stale and confusing for future readers.
 
 **Fix:** Replace with a reference to the locked Phase 22 decision: "MCP boundary contract per D-06 (Phase 22 v1.4 milestone)".

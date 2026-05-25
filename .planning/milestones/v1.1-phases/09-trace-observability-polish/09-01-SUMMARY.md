@@ -106,7 +106,7 @@ None — this is a purely additive, in-process change. No environment variables,
 
 ## Next Phase Readiness
 - Producer half of OBS-04 (`schema_version` stamping) is complete. The renderer half (lenient consumer for `schema_version > 1`, v0-inference warning for missing `schema_version`) is plan **09-05**'s scope per the phase context.
-- The `additive-shape` rule is preserved: every existing reader continues to work because the new field is purely additive. Phase 8 fixtures (unversioned traces under `cores/vault-io/tests/fixtures/.../traces/`) are intentionally NOT rewritten per D-04 — they stay v0 and will exercise the renderer's v0-inference path when 09-05 lands.
+- The `additive-shape` rule is preserved: every existing reader continues to work because the new field is purely additive. Phase 8 fixtures (unversioned traces under `cores/wiki-io/tests/fixtures/.../traces/`) are intentionally NOT rewritten per D-04 — they stay v0 and will exercise the renderer's v0-inference path when 09-05 lands.
 
 ## Self-Check
 

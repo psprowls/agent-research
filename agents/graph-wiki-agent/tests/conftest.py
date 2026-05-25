@@ -24,7 +24,7 @@ INTEGRATION_GATE = pytest.mark.skipif(
 
 @pytest.fixture
 def fixture_vault_path() -> Path:
-    """Return the Path to packages/vault-io/tests/fixtures/round-trip-vault.
+    """Return the Path to packages/wiki-io/tests/fixtures/round-trip-vault.
 
     The path is computed relative to this conftest file so it works regardless
     of the cwd from which pytest is invoked. The fixture asserts the path
@@ -37,7 +37,7 @@ def fixture_vault_path() -> Path:
     vault = (
         Path(__file__).parent.parent.parent.parent
         / "packages"
-        / "vault-io"
+        / "wiki-io"
         / "tests"
         / "fixtures"
         / "round-trip-vault"
@@ -45,6 +45,6 @@ def fixture_vault_path() -> Path:
     if not vault.exists():
         pytest.skip(
             f"round-trip-vault fixture not found at {vault}; "
-            "check that packages/vault-io is present in the workspace."
+            "check that packages/wiki-io is present in the workspace."
         )
     return vault

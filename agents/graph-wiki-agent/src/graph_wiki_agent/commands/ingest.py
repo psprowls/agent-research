@@ -31,11 +31,11 @@ from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.trace_io import write_trace_record
-from vault_io._workspace import resolve_wiki_and_repo
-from vault_io.append_log import append_log
-from vault_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
-from vault_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
-from vault_io.update_index import update_index
+from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.append_log import append_log
+from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
+from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
+from wiki_io.update_index import update_index
 
 from graph_wiki_agent.prompts.ingestor import build_ingestor_system
 from graph_wiki_agent.prompts.project_context import render_project_context

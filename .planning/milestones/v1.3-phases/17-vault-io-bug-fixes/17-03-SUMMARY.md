@@ -1,8 +1,8 @@
 ---
-phase: 17-vault-io-bug-fixes
+phase: 17-wiki-io-bug-fixes
 plan: "03"
-subsystem: vault-io
-tags: [vault-io, workspace, repo-resolution, detect-containers, python, pytest]
+subsystem: wiki-io
+tags: [wiki-io, workspace, repo-resolution, detect-containers, python, pytest]
 
 requires:
   - phase: 16-carry-forward-debt-cleanup
@@ -13,7 +13,7 @@ provides:
   - "WSRES-02: detect_containers.detect() accepts optional workspace_path parameter with D-11 v1-layout guard"
   - "WSRES-03: synthetic-fixture unit tests covering v2 layout positive path and v1 guard"
 
-affects: [17-vault-io-bug-fixes]
+affects: [17-wiki-io-bug-fixes]
 
 tech-stack:
   added: []
@@ -23,10 +23,10 @@ tech-stack:
 
 key-files:
   created:
-    - packages/vault-io/tests/test_detect_containers.py
+    - packages/wiki-io/tests/test_detect_containers.py
   modified:
-    - packages/vault-io/src/vault_io/init_vault.py
-    - packages/vault-io/src/vault_io/detect_containers.py
+    - packages/wiki-io/src/wiki_io/init_vault.py
+    - packages/wiki-io/src/wiki_io/detect_containers.py
 
 key-decisions:
   - "Use resolve_wiki_and_repo() second return value for repo in both init_vault and detect_containers — wiki.parent is wrong under v2 layout"
@@ -42,7 +42,7 @@ duration: 8min
 completed: 2026-05-19
 ---
 
-# Phase 17 Plan 03: vault-io WSRES Bug Fixes Summary
+# Phase 17 Plan 03: wiki-io WSRES Bug Fixes Summary
 
 **Fixed workspace/repo resolution in init_vault and detect_containers using resolve_wiki_and_repo() second return value, added workspace_path exclusion on detect() with D-11 v1-layout guard, and 4 synthetic-fixture unit tests covering v2 positive path and v1 guard.**
 
@@ -68,9 +68,9 @@ completed: 2026-05-19
 
 ## Files Created/Modified
 
-- `packages/vault-io/src/vault_io/init_vault.py` — Line 305: `wiki, _ = ... ; repo = wiki.parent` → `wiki, repo = resolve_wiki_and_repo()`
-- `packages/vault-io/src/vault_io/detect_containers.py` — `detect()` signature + D-11 exclusion logic; `main()` resolver and `detect()` call updated
-- `packages/vault-io/tests/test_detect_containers.py` — New file: 4 unit tests using `tmp_path` + `monkeypatch.setenv`
+- `packages/wiki-io/src/wiki_io/init_vault.py` — Line 305: `wiki, _ = ... ; repo = wiki.parent` → `wiki, repo = resolve_wiki_and_repo()`
+- `packages/wiki-io/src/wiki_io/detect_containers.py` — `detect()` signature + D-11 exclusion logic; `main()` resolver and `detect()` call updated
+- `packages/wiki-io/tests/test_detect_containers.py` — New file: 4 unit tests using `tmp_path` + `monkeypatch.setenv`
 
 ## Decisions Made
 
@@ -99,9 +99,9 @@ None — no external service configuration required.
 
 ## Self-Check: PASSED
 
-- `packages/vault-io/tests/test_detect_containers.py` — FOUND
-- `packages/vault-io/src/vault_io/detect_containers.py` — FOUND
-- `packages/vault-io/src/vault_io/init_vault.py` — FOUND
-- `.planning/phases/17-vault-io-bug-fixes/17-03-SUMMARY.md` — FOUND
+- `packages/wiki-io/tests/test_detect_containers.py` — FOUND
+- `packages/wiki-io/src/wiki_io/detect_containers.py` — FOUND
+- `packages/wiki-io/src/wiki_io/init_vault.py` — FOUND
+- `.planning/phases/17-wiki-io-bug-fixes/17-03-SUMMARY.md` — FOUND
 - Commit `57d185c` (Task 1) — FOUND
 - Commit `20006d1` (Task 2) — FOUND

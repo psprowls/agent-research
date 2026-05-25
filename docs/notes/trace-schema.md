@@ -243,7 +243,7 @@ as `schema_version: 0` — the pre-versioned shape — by the renderer. Two rule
 apply:
 
 1. **No on-disk rewrite.** Existing trace fixtures under
-   `packages/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` and any
+   `packages/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` and any
    real trace file produced by an earlier `graph-wiki-agent` build are NOT
    rewritten. They stay v0 on disk forever.
 2. **Best-effort render with a one-time warning.** When the renderer reads a

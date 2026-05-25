@@ -60,10 +60,10 @@ metrics:
 
 Added one new row to the Key Decisions table in `.planning/PROJECT.md` covering:
 
-- **P-01 reframe:** the ported graph-wiki plugin runs on Claude Code inference, NOT as a wrapper around `graph-wiki-agent`. The two surfaces coexist as parallel paths over the same `vault-io` / `workspace-io` helpers.
+- **P-01 reframe:** the ported graph-wiki plugin runs on Claude Code inference, NOT as a wrapper around `graph-wiki-agent`. The two surfaces coexist as parallel paths over the same `wiki-io` / `workspace-io` helpers.
 - **Verdict summary:** 6 commands rename or reshape (`init`, `scan`, `ingest`, `lint`, `query`, `log`) + 3 dropped (`archive`, `regen-index`, `status`) per C-01.
 - **Shell-out shape:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 ...` (SO-01); `[plugin]` backend-selector block in `.graph-wiki.yaml` (SO-03); `claude` default everywhere, `bedrock` as documented per-command opt-in (P-02).
-- **VP-01 prerequisite:** `lint_wiki.py` and `wiki_search.py` must land in `vault-io` as Phase 14 Plans 1 and 2.
+- **VP-01 prerequisite:** `lint_wiki.py` and `wiki_search.py` must land in `wiki-io` as Phase 14 Plans 1 and 2.
 - **Links** to `.planning/spec/13-plugin-contract/CONTRACT-INDEX.md` and `SHELL-OUT-PATTERN.md`.
 
 This satisfies Phase 13 SC#3 ("contract surface locked in PROJECT.md Key Decisions").
@@ -71,8 +71,8 @@ This satisfies Phase 13 SC#3 ("contract surface locked in PROJECT.md Key Decisio
 ### Task 2 — REQUIREMENTS.md PLUGIN-01 prerequisite note (VP-01)
 
 Appended the VP-01 prerequisite note inline on the existing PLUGIN-01 bullet, naming:
-- `vault_io.lint_wiki` (port from `lattice_wiki_core/lint_wiki.py`, ~508 LOC) — Phase 14 Plan 1
-- `vault_io.wiki_search` (port from `lattice_wiki_core/wiki_search.py`, ~194 LOC) — Phase 14 Plan 2
+- `wiki_io.lint_wiki` (port from `lattice_wiki_core/lint_wiki.py`, ~508 LOC) — Phase 14 Plan 1
+- `wiki_io.wiki_search` (port from `lattice_wiki_core/wiki_search.py`, ~194 LOC) — Phase 14 Plan 2
 
 Both required before `/graph-wiki:lint` and `/graph-wiki:query` shims can shell out. Link to `CONTRACT-INDEX.md §Phase 14 prerequisite ports` included. PLUGIN-01 checkbox left unchecked — orchestrator handles at phase close.
 

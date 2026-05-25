@@ -1,4 +1,4 @@
-# Phase 17: vault-io Bug Fixes - Context
+# Phase 17: wiki-io Bug Fixes - Context
 
 **Gathered:** 2026-05-19
 **Status:** Ready for planning
@@ -6,23 +6,23 @@
 <domain>
 ## Phase Boundary
 
-Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.2 bootstrap-of-agent-research-wiki surfaced. All are bug-fix grade — no new surface area, no new MCP tools, no new modules:
+Burn down three independent behavioral bugs in `packages/wiki-io/` that the v1.2 bootstrap-of-agent-research-wiki surfaced. All are bug-fix grade — no new surface area, no new MCP tools, no new modules:
 
 **In scope:**
 - **SCAN-01/02** — Fold `wiki/packages/<pkg>/` companion files (`api`, `context`, `patterns`, `work`) into the parent `<pkg>` slug inside `scan_monorepo._load_existing_pages._collect()`, so the scan diff stops reporting 28 false-positive `deleted` entries on a healthy 7-package vault. Companion filename set sourced from `wiki/CLAUDE.md` `workflow_hints`. Unit test against a fixture vault asserts 0 `deleted` companion entries.
-- **TOK-01/02** — Fix `vault_io.update_tokens.count_tokens()` to use the current boto3 `bedrock-runtime.count_tokens` parameter shape (`input={'converse': {'messages': [...]}}`), not the rejected `content=[...]` shape. Unit test mocks the boto3 client and asserts the exact request payload. Gated integration test (`GRAPH_WIKI_RUN_INTEGRATION=1`) exercises a real Bedrock call per `docs/testing.md` (Phase 16 D-10).
+- **TOK-01/02** — Fix `wiki_io.update_tokens.count_tokens()` to use the current boto3 `bedrock-runtime.count_tokens` parameter shape (`input={'converse': {'messages': [...]}}`), not the rejected `content=[...]` shape. Unit test mocks the boto3 client and asserts the exact request payload. Gated integration test (`GRAPH_WIKI_RUN_INTEGRATION=1`) exercises a real Bedrock call per `docs/testing.md` (Phase 16 D-10).
 - **TOK-03** — Final plan step: re-run `update_tokens.py` against `~/Personal/graph-wiki/agent-research` to re-stamp the 35 pages currently at `tokens: 0`. Commit the resulting wiki updates in the wiki repo. Diff transcript captured in `17-VERIFICATION.md`.
 - **WSRES-01** — In `init_vault.py:305-306` and `detect_containers.py:174-175`, replace `wiki, _ = resolve_wiki_and_repo(); repo = wiki.parent` with `_, repo = resolve_wiki_and_repo()`. Works for both v1 (wiki at repo root) and v2 (wiki at `<repo>/graph-wiki/wiki/`) layouts since `_workspace.resolve_wiki_and_repo()` already returns the correct `repo_root`.
 - **WSRES-02** — Add optional `workspace_path` parameter to `detect_containers.detect()`. When provided and not equal to `repo_root`, skip the matching immediate subdir during iteration so the workspace dir doesn't classify itself as a `docs` container. `main()` passes `wiki.parent` explicitly.
-- **WSRES-03** — Synthetic tmp_path fixture in `packages/vault-io/tests/`: build `repo/graph-wiki/wiki/` + `repo/packages/pkg-a/pyproject.toml` + `repo/packages/pkg-b/pyproject.toml`; set `GRAPH_WIKI_WORKSPACE`; call `detect(repo, workspace_path=repo/'graph-wiki')`; assert (1) `packages` is found as a container, (2) `graph-wiki` is not listed.
+- **WSRES-03** — Synthetic tmp_path fixture in `packages/wiki-io/tests/`: build `repo/graph-wiki/wiki/` + `repo/packages/pkg-a/pyproject.toml` + `repo/packages/pkg-b/pyproject.toml`; set `GRAPH_WIKI_WORKSPACE`; call `detect(repo, workspace_path=repo/'graph-wiki')`; assert (1) `packages` is found as a container, (2) `graph-wiki` is not listed.
 - **`17-VERIFICATION.md`** — Per-SC sections (#1–#5) citing the unit/integration test pytest output, the live re-stamp transcript (TOK-03), and a fresh `/graph-wiki:scan` output on the agent-research wiki showing 0 companion-false-deletions and non-zero `tokens:` on previously-stubbed pages.
 
 **Out of scope:**
-- New `vault-io` modules, commands, or MCP tools (per REQUIREMENTS.md "Out of Scope" — v1.3 is bug-fix grade).
+- New `wiki-io` modules, commands, or MCP tools (per REQUIREMENTS.md "Out of Scope" — v1.3 is bug-fix grade).
 - Refactoring `_load_existing_pages` beyond the companion filter (no post-process pass, no per-directory iteration rewrite — see D-01).
 - Hardcoded companion filenames (D-02 sources them from `workflow_hints`).
 - Branching `count_tokens()` shape on `model_id` family — single converse shape (D-05).
-- Fixture vault built into `packages/vault-io/tests/fixtures/` for live re-sweep (Phase 16 SWEEP-FU-04 territory, not Phase 17).
+- Fixture vault built into `packages/wiki-io/tests/fixtures/` for live re-sweep (Phase 16 SWEEP-FU-04 territory, not Phase 17).
 - Companion folding in `wiki/apps/<app>/` — app pages are single-file by design; no companions (per user clarification during discussion).
 - `init_vault` schema-writing logic changes (the bug is repo resolution only; the schema install path is unaffected).
 - Changing the `wiki/CLAUDE.md` `workflow_hints` block itself (the bug is the scanner reading it wrong, not the schema).
@@ -43,9 +43,9 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 ### TOK — Bedrock CountTokens API shape (TOK-01/02/03)
 
 - **D-05 (Converse input shape):** `count_tokens()` uses `input={'converse': {'messages': [{'role': 'user', 'content': [{'text': text}]}]}}`. Verified against `boto3.client('bedrock-runtime').count_tokens` help: the API accepts either `{'invokeModel': {'body': bytes}}` or `{'converse': {'messages': [...]}}`. Converse matches how the rest of the codebase invokes Bedrock (`ChatBedrockConverse`), is stable across Claude / Qwen / Cohere model families, and is the natural representative shape for the inference call the count is approximating. No model-id branching — single shape works for every Bedrock model we use.
-- **D-06 (Test asserts exact payload shape):** Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks `boto3.client` (or patches `bedrock-runtime.count_tokens` via `botocore.stub.Stubber` / `unittest.mock`). Asserts `client.count_tokens.assert_called_once_with(modelId=..., input={'converse': {'messages': [...]}})` — locks the exact request shape so a future regression to `content=...` fails the test. Also asserts the function returns `response['inputTokenCount']` correctly (one test, both assertions).
-- **D-07 (Gated integration test):** A `GRAPH_WIKI_RUN_INTEGRATION=1`-gated integration test exercises a real `count_tokens` call against Bedrock (region `us-east-1`, model `us.anthropic.claude-haiku-4-5-20251001-v1:0` — current default). Lives in `packages/vault-io/tests/` (a `tests/integration/` subdir if one isn't there yet). Follows the Phase 16 D-10 skip-decorator pattern from `docs/testing.md`. Smoke-asserts the call doesn't raise and returns a positive int.
-- **D-08 (TOK-03 is the final plan step — live re-stamp):** After the code+tests step lands and is verified locally, the last commit in `17-01-PLAN.md` runs `uv run python -m vault_io.update_tokens` against `~/Personal/graph-wiki/agent-research` and commits the resulting page updates *in the wiki repo* (not in agent-research). The diff transcript (counts before / after, sample of pages) is captured into `17-VERIFICATION.md`. Mirrors Phase 15 D-08/D-09 live-vault pattern. If the re-stamp fails for operational reasons (AWS creds, network), the phase doesn't close — VERIFICATION.md must show the re-stamp succeeded.
+- **D-06 (Test asserts exact payload shape):** Unit test in `packages/wiki-io/tests/test_update_tokens.py` mocks `boto3.client` (or patches `bedrock-runtime.count_tokens` via `botocore.stub.Stubber` / `unittest.mock`). Asserts `client.count_tokens.assert_called_once_with(modelId=..., input={'converse': {'messages': [...]}})` — locks the exact request shape so a future regression to `content=...` fails the test. Also asserts the function returns `response['inputTokenCount']` correctly (one test, both assertions).
+- **D-07 (Gated integration test):** A `GRAPH_WIKI_RUN_INTEGRATION=1`-gated integration test exercises a real `count_tokens` call against Bedrock (region `us-east-1`, model `us.anthropic.claude-haiku-4-5-20251001-v1:0` — current default). Lives in `packages/wiki-io/tests/` (a `tests/integration/` subdir if one isn't there yet). Follows the Phase 16 D-10 skip-decorator pattern from `docs/testing.md`. Smoke-asserts the call doesn't raise and returns a positive int.
+- **D-08 (TOK-03 is the final plan step — live re-stamp):** After the code+tests step lands and is verified locally, the last commit in `17-01-PLAN.md` runs `uv run python -m wiki_io.update_tokens` against `~/Personal/graph-wiki/agent-research` and commits the resulting page updates *in the wiki repo* (not in agent-research). The diff transcript (counts before / after, sample of pages) is captured into `17-VERIFICATION.md`. Mirrors Phase 15 D-08/D-09 live-vault pattern. If the re-stamp fails for operational reasons (AWS creds, network), the phase doesn't close — VERIFICATION.md must show the re-stamp succeeded.
 
 ### WSRES — Workspace / repo resolution (WSRES-01/02/03)
 
@@ -79,7 +79,7 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 - Exact form of the layout-block lookup (extend `layout_io.read_layout()` return shape vs. add a thin `workflow_hints` accessor) — executor reads `layout_io.py` during scout and picks the lower-diff option.
 - Whether the SCAN unit test fixture is constructed in `tests/conftest.py` (shared) or inline in the test file — executor's call; if `conftest.py` already has a monorepo fixture for other tests, extending it is the lower-friction path.
 - Exact wording / decorator import path for the `GRAPH_WIKI_RUN_INTEGRATION` skip — follow `docs/testing.md` canonical pattern verbatim.
-- Whether the TOK gated integration test imports the shared skip helper or inlines the decorator — match what other vault-io integration tests do; consistency over novelty.
+- Whether the TOK gated integration test imports the shared skip helper or inlines the decorator — match what other wiki-io integration tests do; consistency over novelty.
 - Whether D-11's exclusion guard uses `Path.resolve()` equality or `samefile()` — executor's call; `samefile()` is more correct on symlinks but `resolve()` is sufficient if symlinks aren't a concern here.
 - Whether the WSRES tests sit in a new `tests/test_detect_containers.py` or extend an existing test module — executor's call after scout.
 
@@ -93,35 +93,35 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 ### Phase scope & requirement traceability
 - `.planning/ROADMAP.md` §Phase 17 — Goal, depends-on (Phase 16), 5 success criteria, 8-requirement mapping (SCAN-01, SCAN-02, TOK-01, TOK-02, TOK-03, WSRES-01, WSRES-02, WSRES-03).
 - `.planning/REQUIREMENTS.md` lines 14–35 — Full requirement text for SCAN / TOK / WSRES clusters, source-todo links, and the "Out of Scope" table.
-- `.planning/PROJECT.md` — Core Value (Bedrock-only `graph-wiki-agent`) and the constraint that `vault-io` write path always goes through `layout_io.py`.
+- `.planning/PROJECT.md` — Core Value (Bedrock-only `graph-wiki-agent`) and the constraint that `wiki-io` write path always goes through `layout_io.py`.
 
 ### Source todos (operator-discovered bug context)
 - `.planning/todos/pending/2026-05-19-fix-bedrock-count-tokens-api-shape-in-update-tokens.md` — TOK origin; documents the exact `Parameter validation failed: Missing required parameter "input"; Unknown parameter "content"` boto3 error and the `update_tokens.py:38-44` location.
 - `.planning/todos/pending/2026-05-19-fix-workspace-repo-resolution-in-init-vault-and-detect-conta.md` — WSRES origin; documents the `init_vault.py:305-306` + `detect_containers.py:174-175` `wiki.parent` bug and the secondary self-classification bug.
 
 ### SCAN target code & tests
-- `packages/vault-io/src/vault_io/scan_monorepo.py:602-672` — `_load_existing_pages` + `_collect()`; SCAN-01 edit site.
-- `packages/vault-io/src/vault_io/scan_monorepo.py:1117` — Call site (`existing = _load_existing_pages(wiki) if wiki.exists() else {}`).
-- `packages/vault-io/src/vault_io/scan_monorepo.py:675-688` — `compute_diff()`; reads `existing` keys to compute `deleted` set. SCAN-02 test asserts against its output.
-- `packages/vault-io/src/vault_io/layout_io.py` — `read_layout()` reader; D-02 sources `workflow_hints` from here.
-- `packages/vault-io/tests/conftest.py` — Existing fixture infrastructure; extension site for the SCAN fixture vault.
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py:602-672` — `_load_existing_pages` + `_collect()`; SCAN-01 edit site.
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py:1117` — Call site (`existing = _load_existing_pages(wiki) if wiki.exists() else {}`).
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py:675-688` — `compute_diff()`; reads `existing` keys to compute `deleted` set. SCAN-02 test asserts against its output.
+- `packages/wiki-io/src/wiki_io/layout_io.py` — `read_layout()` reader; D-02 sources `workflow_hints` from here.
+- `packages/wiki-io/tests/conftest.py` — Existing fixture infrastructure; extension site for the SCAN fixture vault.
 
 ### TOK target code & tests
-- `packages/vault-io/src/vault_io/update_tokens.py:38-44` — `count_tokens()`; TOK-01 edit site.
-- `packages/vault-io/src/vault_io/update_tokens.py` — Surrounding module (page iteration, frontmatter rewrite via `layout_io` — DO NOT bypass; CLAUDE.md constraint).
-- `packages/vault-io/src/vault_io/_workspace.py` — `resolve_wiki_and_repo()` source of truth for both TOK (via `update_tokens.py` CLI) and WSRES.
+- `packages/wiki-io/src/wiki_io/update_tokens.py:38-44` — `count_tokens()`; TOK-01 edit site.
+- `packages/wiki-io/src/wiki_io/update_tokens.py` — Surrounding module (page iteration, frontmatter rewrite via `layout_io` — DO NOT bypass; CLAUDE.md constraint).
+- `packages/wiki-io/src/wiki_io/_workspace.py` — `resolve_wiki_and_repo()` source of truth for both TOK (via `update_tokens.py` CLI) and WSRES.
 - `docs/testing.md` — Canonical `GRAPH_WIKI_RUN_INTEGRATION` opt-in gate rule (Phase 16 D-10). Skip-decorator pattern verbatim.
 - `agents/graph-wiki-agent/tests/conftest.py:17-21` — Same canonical skip-decorator shape; cross-reference for consistency.
-- `packages/vault-io/src/vault_io/update_tokens.py:34-35` — `DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"`, `DEFAULT_REGION = "us-east-1"`; used by the gated integration test as-is.
+- `packages/wiki-io/src/wiki_io/update_tokens.py:34-35` — `DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"`, `DEFAULT_REGION = "us-east-1"`; used by the gated integration test as-is.
 - AWS docs: https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html — Authoritative API reference.
 
 ### WSRES target code & tests
-- `packages/vault-io/src/vault_io/init_vault.py:305-306` — WSRES-01 edit site.
-- `packages/vault-io/src/vault_io/detect_containers.py:148-166` — `detect()` signature change site (D-10).
-- `packages/vault-io/src/vault_io/detect_containers.py:174-175` — WSRES-01 edit site + `main()` call-site update to pass `workspace_path`.
-- `packages/vault-io/src/vault_io/detect_containers.py:33-47` — `SKIP_DIRS` constant; reference for where the exclusion logic conceptually belongs (alongside the dotfile/build-artifact filter).
+- `packages/wiki-io/src/wiki_io/init_vault.py:305-306` — WSRES-01 edit site.
+- `packages/wiki-io/src/wiki_io/detect_containers.py:148-166` — `detect()` signature change site (D-10).
+- `packages/wiki-io/src/wiki_io/detect_containers.py:174-175` — WSRES-01 edit site + `main()` call-site update to pass `workspace_path`.
+- `packages/wiki-io/src/wiki_io/detect_containers.py:33-47` — `SKIP_DIRS` constant; reference for where the exclusion logic conceptually belongs (alongside the dotfile/build-artifact filter).
 - `packages/workspace-io/src/workspace_io/config.py` — `_find_repo_root()`; understanding what `resolve_wiki_and_repo()` returns as `repo_root` in v1 vs v2 layouts.
-- `packages/vault-io/tests/` — WSRES-03 fixture lives here (file location TBD by executor).
+- `packages/wiki-io/tests/` — WSRES-03 fixture lives here (file location TBD by executor).
 
 ### Prior phase patterns
 - `.planning/milestones/v1.2-phases/16-carry-forward-debt-cleanup/16-CONTEXT.md` §"Plan structure" / D-14 — Bundled-plan-with-per-step-commits pattern; D-13 inherits.
@@ -131,7 +131,7 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 ### Memory / project-level constraints
 - `[[user_cost_optimization]]` — Cost-driven model selection; informs the choice to keep `count_tokens()` on Haiku 4.5 (cheapest representative tokenizer for Claude-family text) without re-litigating the model.
 - `[[project_wiki_setup]]` — Wiki lives at `~/Personal/graph-wiki/agent-research`; TOK-03 live re-stamp targets this directory.
-- `[[project_plugin_port_model]]` — Plugin runs on Claude Code; `graph-wiki-agent` is the Bedrock path. Phase 17 touches the Bedrock path (`vault-io` + scripts) only — no plugin work.
+- `[[project_plugin_port_model]]` — Plugin runs on Claude Code; `graph-wiki-agent` is the Bedrock path. Phase 17 touches the Bedrock path (`wiki-io` + scripts) only — no plugin work.
 
 </canonical_refs>
 
@@ -139,7 +139,7 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 ## Existing Code Insights
 
 ### Reusable Assets
-- **`layout_io.read_layout()`** (`packages/vault-io/src/vault_io/layout_io.py`) — Already the canonical reader for `wiki/CLAUDE.md` layout blocks; D-02 sources the companion filename set through it instead of adding a new parser. CLAUDE.md constraint: never bypass `layout_io` with `yaml.dump` or direct YAML — preserved.
+- **`layout_io.read_layout()`** (`packages/wiki-io/src/wiki_io/layout_io.py`) — Already the canonical reader for `wiki/CLAUDE.md` layout blocks; D-02 sources the companion filename set through it instead of adding a new parser. CLAUDE.md constraint: never bypass `layout_io` with `yaml.dump` or direct YAML — preserved.
 - **`scan_monorepo._parse_frontmatter()`** + `_safe_read_text()` — Existing helpers in `scan_monorepo.py`; the companion filter slots into `_collect()` between `rglob("*.md")` and `pages[name] = ...` without touching either helper.
 - **`detect_containers._immediate_subdirs()`** (`detect_containers.py:56`) — Single iteration site for the workspace exclusion; D-10 adds the filter here or in `detect()`'s caller of it.
 - **`detect_containers.SKIP_DIRS`** (`detect_containers.py:33`) — Existing skip-set pattern; the workspace exclusion is conceptually adjacent (also "skip this immediate subdir") but is dynamic per-call rather than a constant, so it's a parameter, not a SKIP_DIRS extension.
@@ -155,7 +155,7 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 - **Live-vault verification transcript in `${padded_phase}-VERIFICATION.md`** (Phase 14 SC#4, Phase 15 D-08/D-09) — D-08 (TOK-03) inherits.
 
 ### Integration Points
-- **No MCP boundary change** — Phase 17 mutates `vault-io` internals + tests + scripts. The MCP tool surface (`wiki_bootstrap/scan/ingest/query/lint/log`) signatures stay identical.
+- **No MCP boundary change** — Phase 17 mutates `wiki-io` internals + tests + scripts. The MCP tool surface (`wiki_bootstrap/scan/ingest/query/lint/log`) signatures stay identical.
 - **No plugin touch** — `plugins/graph-wiki/` is Phase 18 territory (and runs on Claude Code per `[[project_plugin_port_model]]`).
 - **Wiki schema unchanged** — `wiki/CLAUDE.md` `workflow_hints` block is *read*, not modified. The 35-page re-stamp (D-08) commits to the *wiki* repo, not the agent-research code repo.
 - **`models-qwen.toml` / `models-claude.toml` unchanged** — `count_tokens()` continues to use the bundled `DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"`; no profile override touched.
@@ -196,5 +196,5 @@ Burn down three independent behavioral bugs in `packages/vault-io/` that the v1.
 
 ---
 
-*Phase: 17-vault-io-bug-fixes*
+*Phase: 17-wiki-io-bug-fixes*
 *Context gathered: 2026-05-19*

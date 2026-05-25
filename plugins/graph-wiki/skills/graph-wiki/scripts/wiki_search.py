@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plugin shim for wiki_search — dispatches to vault_io (claude) or graph-wiki-agent (bedrock)."""
+"""Plugin shim for wiki_search — dispatches to wiki_io (claude) or graph-wiki-agent (bedrock)."""
 import subprocess
 import sys
 
@@ -7,7 +7,7 @@ from _uv_reexec import ensure as _ensure_uv
 
 _ensure_uv()
 
-from vault_io.wiki_search import main as _core_main
+from wiki_io.wiki_search import main as _core_main
 
 
 def main() -> None:

@@ -720,7 +720,7 @@ def test_divergence_regression(role, fixture_vault, accept_baseline):
 **Path resolution pattern** (test_sweep_eval.py lines 38-48):
 ```python
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
-FIXTURE_VAULT = _WORKSPACE_ROOT / "cores" / "vault-io" / "tests" / "fixtures" / "round-trip-vault"
+FIXTURE_VAULT = _WORKSPACE_ROOT / "cores" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
 ```
 
 ---
@@ -868,7 +868,7 @@ path.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
 vault = (
     Path(__file__).parent.parent.parent.parent
     / "cores"
-    / "vault-io"
+    / "wiki-io"
     / "tests"
     / "fixtures"
     / "round-trip-vault"

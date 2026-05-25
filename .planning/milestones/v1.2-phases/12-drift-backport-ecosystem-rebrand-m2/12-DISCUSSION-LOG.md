@@ -45,7 +45,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Allowlist file checked into vault-io (or repo root) | Single allowlist file consumed by the grep gate. Auditable. | ✓ |
+| Allowlist file checked into wiki-io (or repo root) | Single allowlist file consumed by the grep gate. Auditable. | ✓ |
 | Inline grep --exclude flags documented in verification doc | Equivalent but less self-documenting. | |
 | No allowlist — expect zero hits literally | Only viable if all above chose 'rename'. | |
 
@@ -59,7 +59,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| All 11 overlapping modules from spike 002 §A | Every module that appears in both lattice-wiki-core and vault-io, including byte-identical and 'leave' verdicts. | ✓ |
+| All 11 overlapping modules from spike 002 §A | Every module that appears in both lattice-wiki-core and wiki-io, including byte-identical and 'leave' verdicts. | ✓ |
 | Only active candidates — lint/* + init_vault + ingest_work_item | Matches BACKPORT-01/02/03 literally. Smaller artifact but loses context. | |
 | Only modules we actually backport | Loses 'we considered X and chose to leave it' value. | |
 
@@ -89,11 +89,11 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| packages/vault-io/DRIFT-DECISIONS.md, header pins ~/Personal/lattice commit SHA at diff time | Matches BACKPORT-04 text. Resolves 'which version did we diff against'. | ✓ |
-| packages/vault-io/docs/DRIFT-DECISIONS.md | Slightly more discoverable as 'a doc', but minor deviation from spec. | |
-| Repo-root DRIFT-DECISIONS.md | Wrong scope — this is vault-io specific. | |
+| packages/wiki-io/DRIFT-DECISIONS.md, header pins ~/Personal/lattice commit SHA at diff time | Matches BACKPORT-04 text. Resolves 'which version did we diff against'. | ✓ |
+| packages/wiki-io/docs/DRIFT-DECISIONS.md | Slightly more discoverable as 'a doc', but minor deviation from spec. | |
+| Repo-root DRIFT-DECISIONS.md | Wrong scope — this is wiki-io specific. | |
 
-**User's choice:** packages/vault-io/DRIFT-DECISIONS.md with SHA-pinned header (Recommended).
+**User's choice:** packages/wiki-io/DRIFT-DECISIONS.md with SHA-pinned header (Recommended).
 
 ---
 
@@ -104,9 +104,9 @@
 | Option | Description | Selected |
 |--------|-------------|----------|
 | Bug fixes | Observable behavior change that prevents an error or wrong result. | ✓ |
-| New helper functions / extracted methods used by ported code | Port if vault-io's overlapping code would benefit. | ✓ |
+| New helper functions / extracted methods used by ported code | Port if wiki-io's overlapping code would benefit. | ✓ |
 | New checker rules / new lint cases | Port if the rule applies to graph-wiki vaults. | ✓ |
-| Behavior-preserving refactors | Default no in the prompt; user chose yes — keeps vault-io close to upstream. | ✓ |
+| Behavior-preserving refactors | Default no in the prompt; user chose yes — keeps wiki-io close to upstream. | ✓ |
 
 **User's choice:** All four (including refactors). Note: this is a deliberate stricter-than-default position — accepts churn in exchange for smaller next-sync diff.
 
@@ -117,7 +117,7 @@
 | Comment-only / docstring-only changes | Skip unconditionally. | ✓ |
 | Formatting / whitespace / import-order changes | Skip. | ✓ |
 | Anything tied to stripped-out subsystems (work-layer, package-family, CLI main()) | NOT selected — handled via LEAVE-ARCH verdict in the table instead of skip-list. | |
-| Changes that touch vault-io's MCP-boundary error-handling additions (WR-01/WR-02) | Skip / reject — vault-io diverged on purpose. | ✓ |
+| Changes that touch wiki-io's MCP-boundary error-handling additions (WR-01/WR-02) | Skip / reject — wiki-io diverged on purpose. | ✓ |
 
 **User's choice:** Comments, formatting, MCP-boundary protection. Stripped-subsystem changes handled via `LEAVE-ARCH` verdict instead of skip-list.
 

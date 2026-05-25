@@ -39,7 +39,7 @@ human_verification_resolved:
 | ------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py`                    | 6 MCP input classes with `workspace_path` + `extra='forbid'`          | VERIFIED    | `workspace_path: str` count = 6; `extra='forbid'` count = 6; `from pydantic import BaseModel, ConfigDict, Field` present at L60; 0 bare `vault_path` tokens remain |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`                     | 7 Typer commands with `--workspace`; bootstrap also `--repo`           | VERIFIED    | `--workspace` count = 7; `--repo` count = 1; `Path(vault)` count = 0; `run_init(...repo_path=repo_path)` at L450                                |
-| `packages/vault-io/src/vault_io/scan_monorepo.py`                         | `_wiki_relative_path_for` helper + 3 `wiki_relative_path` emissions   | VERIFIED    | `_wiki_relative_path_for` count = 2 (def + call); 3 emission sites of `"wiki_relative_path"`; 0 hits for `"vault_path"` string literal           |
+| `packages/wiki-io/src/wiki_io/scan_monorepo.py`                         | `_wiki_relative_path_for` helper + 3 `wiki_relative_path` emissions   | VERIFIED    | `_wiki_relative_path_for` count = 2 (def + call); 3 emission sites of `"wiki_relative_path"`; 0 hits for `"vault_path"` string literal           |
 | `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py`               | Integration test uses new field/flag names mechanically               | VERIFIED    | 6 `"workspace_path"` JSON keys; 0 `"vault_path"`; 0 `"--vault"`                                                                                  |
 | `scripts/check-brand.sh`                                                  | CHECK 4 block banning the 3 WSMCP-07 patterns                         | VERIFIED    | CHECK 4 comment block at L80; HITS4 var at L88; literal regex `^[[:space:]]+vault_path:[[:space:]]+(str|Path|int|bool)|"--vault"|"vault_path"`; `BRAND-WSAPI` appears 2× (error + OK echo) |
 
@@ -59,7 +59,7 @@ human_verification_resolved:
 | --------------------------------------------------- | ------------------------------ | --------------------------------------------------- | ------------------ | -------- |
 | `server.py` Wiki*Input.workspace_path               | over-the-wire JSON payload     | MCP host → Pydantic validation                      | Yes (gated by extra='forbid'; ValidationError on legacy field) | FLOWING |
 | `cli.py` workspace_path local                       | Typer `workspace` parameter    | argv → typer.Option → `Path(workspace)`             | Yes (live `--help` shows wired option; bootstrap also threads `--repo` to `run_init`) | FLOWING |
-| `scan_monorepo.py` `w["wiki_relative_path"]`        | per-workspace dict             | `_wiki_relative_path_for(w, vault_dir=vault_dir)`   | Yes (helper rename complete; tests in `packages/vault-io/tests` green) | FLOWING |
+| `scan_monorepo.py` `w["wiki_relative_path"]`        | per-workspace dict             | `_wiki_relative_path_for(w, vault_dir=vault_dir)`   | Yes (helper rename complete; tests in `packages/wiki-io/tests` green) | FLOWING |
 | `commands/scan.py pkg.get("wiki_relative_path")`    | scanner→ingestor contract      | reads renamed JSON key                              | Yes (3 read sites match 3 emission sites)                              | FLOWING |
 
 ### Behavioral Spot-Checks
@@ -72,7 +72,7 @@ human_verification_resolved:
 | Pydantic rejects legacy field with `extra='forbid'`            | `python -c "WikiScanInput(**{'vault_path': '/tmp/foo'})"`                                   | `pydantic_core.ValidationError: Extra inputs are not permitted`     | PASS   |
 | SC#2 smoke pytest (positive + negative)                       | `uv run pytest agents/graph-wiki-agent/tests/unit/test_mcp_schema_forbid_extra.py -x -q`    | 2 passed in 0.43s                                                    | PASS   |
 | Brand-gate clean tree                                          | `bash scripts/check-brand.sh`                                                                | exit 0; `BRAND-04 OK: ... + BRAND-WSAPI vault_path|--vault|"vault_path"` | PASS   |
-| Brand-gate negative test (synthesized reintroduction)          | drop `    vault_path: str` into `packages/vault-io/src/vault_io/`, run gate                  | gate reports `BRAND-WSAPI FAIL: 1 unallowlisted hits` (caught)      | PASS   |
+| Brand-gate negative test (synthesized reintroduction)          | drop `    vault_path: str` into `packages/wiki-io/src/wiki_io/`, run gate                  | gate reports `BRAND-WSAPI FAIL: 1 unallowlisted hits` (caught)      | PASS   |
 | Plugin doc ↔ mirror byte-identical                             | `diff plugins/.../scan-workflow.md packages/prompt-sources/references/scan-workflow.md`     | empty diff, exit 0                                                  | PASS   |
 | Workspace-wide pytest                                          | `uv run pytest`                                                                              | 585 passed, 33 skipped, 5 failed (all pre-existing ANSI flakes)     | PASS (baseline preserved; 5 < Phase 22 baseline of 6) |
 
@@ -100,7 +100,7 @@ No probes declared in PLAN; no conventional `scripts/*/tests/probe-*.sh` files e
 | ----------------------------------------------------------------------------------- | ---- | ------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------ |
 | (none)                                                                              | —    | —                                                      | —        | No TBD/FIXME/XXX in any modified file. No empty return stubs introduced. No placeholder/coming-soon strings. |
 
-Note: "vault" appears in 2 CLI help description strings (e.g. scan command docstring "Walk repo, diff packages vs vault, create/update stubs"). These are descriptive prose, not the renamed flag (`--vault`) or field (`vault_path`). Per D-07 the internal terminology (`vault-io` package, `vault` local var) is intentionally preserved at module boundaries. Not flagged.
+Note: "vault" appears in 2 CLI help description strings (e.g. scan command docstring "Walk repo, diff packages vs vault, create/update stubs"). These are descriptive prose, not the renamed flag (`--vault`) or field (`vault_path`). Per D-07 the internal terminology (`wiki-io` package, `vault` local var) is intentionally preserved at module boundaries. Not flagged.
 
 ### Human Verification Required
 

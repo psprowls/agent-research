@@ -18,7 +18,7 @@ key_files_modified:
   - .planning/intel/apis.json (Rule 1: missed-sweep — MCP entry renamed)
   - .planning/intel/files.json (Rule 1: missed-sweep — exports list updated)
   - .planning/milestones/v1.2-phases/16-carry-forward-debt-cleanup/16-CONTEXT.md (Rule 1: missed-sweep)
-  - .planning/phases/17-vault-io-bug-fixes/17-CONTEXT.md (Rule 1: missed-sweep)
+  - .planning/phases/17-wiki-io-bug-fixes/17-CONTEXT.md (Rule 1: missed-sweep)
 decisions:
   - "Two surgical allowlist exemptions only — `.planning/phases/18-plugin-command-rename/` and `.planning/todos/resolved/<folded-todo>` — no parent-directory wildcards (T-18-18 mitigation)"
   - "Revised plan stash-push + stash-drop for CHECK 3 RED revert (NOT git checkout --) to avoid silent wipe of unrelated cli.py edits per plan-checker WARNING 2"
@@ -79,7 +79,7 @@ CHECK 2 surfaced five files that contained stale `wiki_init` references missed b
 | `.planning/intel/apis.json:146-148` | `"mcp: wiki_init"` entry + `"path": "wiki_init"` → `wiki_bootstrap` |
 | `.planning/intel/files.json:601` | server.py exports list: `wiki_init` → `wiki_bootstrap` |
 | `.planning/milestones/v1.2-phases/16-carry-forward-debt-cleanup/16-CONTEXT.md:160` | MCP surface listing `(wiki_init/scan/...)` → `(wiki_bootstrap/scan/...)` |
-| `.planning/phases/17-vault-io-bug-fixes/17-CONTEXT.md:158` | MCP surface listing same edit as above |
+| `.planning/phases/17-wiki-io-bug-fixes/17-CONTEXT.md:158` | MCP surface listing same edit as above |
 
 ## Red-then-Green Sanity Transcript (Task 3)
 
@@ -216,7 +216,7 @@ $ uv run --package code-wiki-agent pytest agents/code-wiki-agent/tests/ -m "not 
 - `.planning/intel/apis.json` (2 lines: Rule 1 — MCP entry renamed)
 - `.planning/intel/files.json` (1 line: Rule 1 — exports list)
 - `.planning/milestones/v1.2-phases/16-carry-forward-debt-cleanup/16-CONTEXT.md` (1 line: Rule 1)
-- `.planning/phases/17-vault-io-bug-fixes/17-CONTEXT.md` (1 line: Rule 1)
+- `.planning/phases/17-wiki-io-bug-fixes/17-CONTEXT.md` (1 line: Rule 1)
 
 **Renamed via git mv (R100):**
 - `.planning/todos/pending/...init-wiki.md` → `.planning/todos/resolved/...init-wiki.md`

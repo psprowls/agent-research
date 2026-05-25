@@ -122,6 +122,6 @@ skipped: 0
   test: 3
   artifacts:
     - cores/eval-harness/tests/eval_helpers.py:241
-    - cores/vault-io/tests/fixtures/round-trip-vault
+    - cores/wiki-io/tests/fixtures/round-trip-vault
   missing:
     - monorepo sibling in fixture vault OR scanner adaptation for vault-only execution

@@ -26,7 +26,7 @@ key-files:
     - "43 files in agents/graph-wiki-agent/{src,tests}/ (commit 29eca18) — including 1 .ambr snapshot"
 decisions:
   - "Extended `.code-wiki/` sed pattern to also cover bare `.code-wiki` (no trailing slash) because vault path constructions like `vault_path / \".code-wiki\"` would otherwise still resolve to the old directory at runtime — a Rule 1 bug the plan's pattern would have missed."
-  - "Reverted exactly one `.code-wiki` reference inside tests/unit/test_trace_viewer.py (the `_REAL_V0_FIXTURE_DIR` constant) and annotated it with a NOTE(21-03) comment. The fixture itself lives in packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/ — cross-package surface explicitly deferred to plan 21-04. Reverting the constant keeps the test pointing at the on-disk fixture; plan 21-04 will rename both together."
+  - "Reverted exactly one `.code-wiki` reference inside tests/unit/test_trace_viewer.py (the `_REAL_V0_FIXTURE_DIR` constant) and annotated it with a NOTE(21-03) comment. The fixture itself lives in packages/wiki-io/tests/fixtures/round-trip-vault/.code-wiki/ — cross-package surface explicitly deferred to plan 21-04. Reverting the constant keeps the test pointing at the on-disk fixture; plan 21-04 will rename both together."
   - "Task 1 committed src/ on import smoke only (not pytest) because pytest cannot collect tests/ while test imports still reference code_wiki_agent. Per-task pytest gate as written in plan was unreachable; final pytest gate at end of Task 2 satisfies the D-11 acceptance."
 metrics:
   duration_min: ~6
@@ -63,7 +63,7 @@ $ grep -rE 'code-wiki-agent|code-wiki-mcp|code_wiki_agent|code_wiki_mcp|CodeWiki
 (zero matches)
 ```
 
-Note: one residual bare-form `.code-wiki` exists inside `tests/unit/test_trace_viewer.py:1085` — annotated with `NOTE(21-03): vault-io fixture dir rename deferred to plan 21-04`. This is intentional (see Deviations §2) and does NOT match the must_have grep pattern (which requires the `/` suffix).
+Note: one residual bare-form `.code-wiki` exists inside `tests/unit/test_trace_viewer.py:1085` — annotated with `NOTE(21-03): wiki-io fixture dir rename deferred to plan 21-04`. This is intentional (see Deviations §2) and does NOT match the must_have grep pattern (which requires the `/` suffix).
 
 ## D-11 Gate — pytest non-integration green
 
@@ -111,8 +111,8 @@ No test filenames embed the old slug — no renames needed (matches planning-tim
 **2. [Rule 3 - Blocking] Reverted one `.code-wiki` in test_trace_viewer.py (cross-package fixture path)**
 
 - **Found during:** Task 2 pytest gate (Step 5)
-- **Issue:** Test `test_v0_real_fixture_renders_and_warns_once` uses `_REAL_V0_FIXTURE_DIR = Path(...) / "vault-io" / ... / ".graph-wiki" / "traces"` after the sed sweep. But the actual fixture directory at `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/` is **cross-package surface** (outside `agents/graph-wiki-agent/`) — the Task 2 acceptance grep mandates HEAD touch only `agents/graph-wiki-agent/`, so we cannot rename the fixture dir from this plan. Result: 1 test failure (`No real v0 fixtures found at ... .graph-wiki/traces`).
-- **Fix:** Reverted just the `.graph-wiki` path component in this single constant to `.code-wiki` and annotated with `# NOTE(21-03): vault-io fixture dir rename deferred to plan 21-04 (cross-package sweep)`. Plan 21-04 will rename the fixture directory AND re-update the constant in the same commit.
+- **Issue:** Test `test_v0_real_fixture_renders_and_warns_once` uses `_REAL_V0_FIXTURE_DIR = Path(...) / "wiki-io" / ... / ".graph-wiki" / "traces"` after the sed sweep. But the actual fixture directory at `packages/wiki-io/tests/fixtures/round-trip-vault/.code-wiki/` is **cross-package surface** (outside `agents/graph-wiki-agent/`) — the Task 2 acceptance grep mandates HEAD touch only `agents/graph-wiki-agent/`, so we cannot rename the fixture dir from this plan. Result: 1 test failure (`No real v0 fixtures found at ... .graph-wiki/traces`).
+- **Fix:** Reverted just the `.graph-wiki` path component in this single constant to `.code-wiki` and annotated with `# NOTE(21-03): wiki-io fixture dir rename deferred to plan 21-04 (cross-package sweep)`. Plan 21-04 will rename the fixture directory AND re-update the constant in the same commit.
 - **Files modified:** agents/graph-wiki-agent/tests/unit/test_trace_viewer.py:1085
 - **Commit:** 29eca18
 
@@ -130,7 +130,7 @@ The following remain `code-wiki` / `code_wiki` references inside `agents/graph-w
 
 - `CODE_WIKI_RUN_INTEGRATION` env-var name (in conftest.py + every integration test) — cross-consumer rename (env-var contract used by eval-harness, subagent-runtime, etc.)
 - `CODE_WIKI_CONFIG` reference in src/graph_wiki_agent/config.py docstring line 12 (vestigial pathway comment — env-var rename surface)
-- `.code-wiki` bare path in tests/unit/test_trace_viewer.py:1085 (vault-io cross-package fixture, see Deviation §2)
+- `.code-wiki` bare path in tests/unit/test_trace_viewer.py:1085 (wiki-io cross-package fixture, see Deviation §2)
 
 ## Auth Gates
 
@@ -144,7 +144,7 @@ None. Pure structural rename — no placeholder values introduced.
 
 Plan 21-04 closes out the rename:
 - `CODE_WIKI_*` env-var rename (cross-consumer: eval-harness, subagent-runtime, tests/test_integration_gate.py, conftest.py, integration tests, docs)
-- Vault-io fixture dir rename: `packages/vault-io/tests/fixtures/round-trip-vault/.code-wiki/` → `.graph-wiki/` (re-aligns the test_trace_viewer constant simultaneously)
+- Vault-io fixture dir rename: `packages/wiki-io/tests/fixtures/round-trip-vault/.code-wiki/` → `.graph-wiki/` (re-aligns the test_trace_viewer constant simultaneously)
 - Plugin shell-out scripts (referenced in 21-PATTERNS.md)
 - Integration gate test
 - Any remaining cross-package references outside `agents/graph-wiki-agent/`

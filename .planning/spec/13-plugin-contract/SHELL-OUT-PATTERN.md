@@ -18,7 +18,7 @@ export AGENT_RESEARCH_ROOT=/Users/pat/Personal/agent-research
 
 **Auto-set:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time (per PD-02). No user configuration is needed for this variable.
 
-**Rationale:** `uv run --project` resolves the agent-research venv and makes `vault_io` and `workspace_io` importable without the user needing to activate a virtual environment manually. This approach is single-user-setup-friendly: one env var line in shell rc, no per-cwd discovery logic to maintain, and no risk of import errors from the wrong Python environment.
+**Rationale:** `uv run --project` resolves the agent-research venv and makes `wiki_io` and `workspace_io` importable without the user needing to activate a virtual environment manually. This approach is single-user-setup-friendly: one env var line in shell rc, no per-cwd discovery logic to maintain, and no risk of import errors from the wrong Python environment.
 
 ## SO-02: Shim file contents (the upstream pattern, retargeted)
 
@@ -26,11 +26,11 @@ Each script file is a thin shim that dispatches to the `claude` or `bedrock` bac
 
 ```python
 #!/usr/bin/env python3
-"""Plugin shim for <cmd> — dispatches to vault_io (claude backend) or code_wiki_agent (bedrock backend)."""
+"""Plugin shim for <cmd> — dispatches to wiki_io (claude backend) or code_wiki_agent (bedrock backend)."""
 import sys
 from pathlib import Path
 
-from vault_io.<module> import main as _core_main
+from wiki_io.<module> import main as _core_main
 
 
 def main() -> None:
@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
 **Two changes from upstream shim:**
 
-1. **Import source:** `from vault_io.<module> import main` instead of `from lattice_wiki_core.<module> import main` — all helper modules route through `packages/vault-io/src/vault_io/` in this repo.
+1. **Import source:** `from wiki_io.<module> import main` instead of `from lattice_wiki_core.<module> import main` — all helper modules route through `packages/wiki-io/src/wiki_io/` in this repo.
 2. **Bedrock branch:** shells to `code-wiki-agent <cmd>` CLI subprocess instead of importing and invoking `lattice_wiki_agent` directly — the bedrock-backed Bedrock path stays entirely in the headless CLI surface.
 
 The `vendor/` sys.path injection from upstream is dropped (not needed; `uv run --project` handles the venv already via SO-01).
@@ -98,7 +98,7 @@ def backend_for(cmd: str, repo: str | None = None) -> Literal["claude", "bedrock
 
 - **PD-01:** `$AGENT_RESEARCH_ROOT` env var is the **only required user config**. It is documented in `plugins/graph-wiki/README.md` (Phase 14 will author this file). The README also documents the `plugin:` block syntax for backend overrides and notes the absence of the three work-layer commands.
 - **PD-02:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time. This follows the same convention as upstream lattice-wiki; no Phase 13 or Phase 14 work is needed here — just verified behavior.
-- **PD-03:** `uv` must be installed and on PATH. This is the same prerequisite as the rest of the agent-research monorepo; it is documented in the plugin README. There is no fallback to bare `python3` — a bare `python3` invocation would fail to resolve `from vault_io import ...` since the venv is not activated.
+- **PD-03:** `uv` must be installed and on PATH. This is the same prerequisite as the rest of the agent-research monorepo; it is documented in the plugin README. There is no fallback to bare `python3` — a bare `python3` invocation would fail to resolve `from wiki_io import ...` since the venv is not activated.
 
 ## Agent / skill rename map (cross-cutting)
 

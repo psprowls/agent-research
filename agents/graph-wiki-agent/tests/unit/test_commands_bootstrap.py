@@ -47,7 +47,7 @@ def _make_init_result(wiki: Path, workspace: Path):
 
 def test_init_wiki_creates_raw_and_work_dirs(tmp_path: Path) -> None:
     """init_wiki() creates raw/ and work/ as siblings of the wiki dir."""
-    from vault_io.init_vault import init_wiki
+    from wiki_io.init_vault import init_wiki
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()

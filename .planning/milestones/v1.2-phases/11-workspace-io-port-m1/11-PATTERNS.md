@@ -10,7 +10,7 @@
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
-| `packages/workspace-io/pyproject.toml` | config | — | `packages/vault-io/pyproject.toml` + `lattice-workspace/pyproject.toml` | exact (hatchling variant) |
+| `packages/workspace-io/pyproject.toml` | config | — | `packages/wiki-io/pyproject.toml` + `lattice-workspace/pyproject.toml` | exact (hatchling variant) |
 | `packages/workspace-io/src/workspace_io/__init__.py` | module | — | `lattice_workspace/__init__.py` | exact |
 | `packages/workspace-io/src/workspace_io/config.py` | service | request-response | `lattice_workspace/config.py` | exact (port) |
 | `packages/workspace-io/src/workspace_io/manifest.py` | service | file-I/O | `lattice_workspace/manifest.py` | exact (port, v1 branch dropped) |
@@ -31,10 +31,10 @@
 | `packages/workspace-io/tests/test_render.py` | test | — | `lattice_workspace/tests/test_render.py` | exact (rebrand, marker string) |
 | `packages/workspace-io/tests/test_warn_if_stale.py` | test | — | `lattice_workspace/tests/test_warn_if_stale.py` | role-match (v1-coercion test rewritten) |
 | `packages/workspace-io/tests/test_pending_updates.py` | test | — | `lattice_workspace/tests/test_pending_updates.py` | exact (rebrand) |
-| `packages/vault-io/src/vault_io/_workspace.py` | service | request-response | `lattice_workspace/config.py` + current `_workspace.py` | role-match (delegation rewrite) |
-| `packages/vault-io/pyproject.toml` | config | — | current `packages/vault-io/pyproject.toml` | exact (add dep block) |
-| `packages/vault-io/tests/test_ports_importable.py` | test | — | current `test_ports_importable.py` | exact (env-var rename + new test) |
-| `packages/vault-io/tests/conftest.py` | test | — | current `conftest.py` | exact (one-line rename) |
+| `packages/wiki-io/src/wiki_io/_workspace.py` | service | request-response | `lattice_workspace/config.py` + current `_workspace.py` | role-match (delegation rewrite) |
+| `packages/wiki-io/pyproject.toml` | config | — | current `packages/wiki-io/pyproject.toml` | exact (add dep block) |
+| `packages/wiki-io/tests/test_ports_importable.py` | test | — | current `test_ports_importable.py` | exact (env-var rename + new test) |
+| `packages/wiki-io/tests/conftest.py` | test | — | current `conftest.py` | exact (one-line rename) |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` | service | request-response | current `commands/init.py` | exact (prepend workspace_io.init call) |
 | `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` | service | request-response | current `server.py` | exact (Field description strings only) |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` | utility | — | current `cli.py` | exact (help string + init command) |
@@ -46,11 +46,11 @@
 ### `packages/workspace-io/pyproject.toml` (config)
 
 **Primary analog:** `/Users/pat/Personal/lattice/packages/lattice-workspace/pyproject.toml`
-**Secondary analog:** `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` (for `addopts = "--import-mode=importlib"`)
+**Secondary analog:** `/Users/pat/Personal/agent-research/packages/wiki-io/pyproject.toml` (for `addopts = "--import-mode=importlib"`)
 
 **Build backend choice:** Use hatchling (matches lattice source; asset inclusion is automatic when `assets/` sits inside `src/workspace_io/`).
 
-**Complete template** (lattice source lines 1-20 + vault-io line 16-17 merged):
+**Complete template** (lattice source lines 1-20 + wiki-io line 16-17 merged):
 ```toml
 [project]
 name = "workspace-io"
@@ -73,7 +73,7 @@ addopts = "--import-mode=importlib"
 
 **Key difference from existing agent-research packages:** All existing packages use `uv_build` backend. workspace-io uses `hatchling` because it ships the `assets/CLAUDE.md.template` inside the package and hatchling includes the `assets/` subdirectory automatically when listed in `packages = ["src/workspace_io"]`. No extra `package-data` or `include` block needed.
 
-**After scaffold:** Add `workspace-io = { workspace = true }` under `[tool.uv.sources]` in vault-io and graph-wiki-agent pyproject files.
+**After scaffold:** Add `workspace-io = { workspace = true }` under `[tool.uv.sources]` in wiki-io and graph-wiki-agent pyproject files.
 
 ---
 
@@ -649,14 +649,14 @@ def test_null_applied_version_no_signal(tmp_path):
 
 ## Modified File Pattern Assignments
 
-### `packages/vault-io/src/vault_io/_workspace.py` (service, request-response — full rewrite)
+### `packages/wiki-io/src/wiki_io/_workspace.py` (service, request-response — full rewrite)
 
-**Current analog:** `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/_workspace.py` (34 lines)
+**Current analog:** `/Users/pat/Personal/agent-research/packages/wiki-io/src/wiki_io/_workspace.py` (34 lines)
 **Post-port shape from:** RESEARCH.md §Code Examples and current source
 
 **Complete post-port file:**
 ```python
-"""Workspace path resolution for vault-io.
+"""Workspace path resolution for wiki-io.
 
 Thin delegation shim. Resolution priority:
 1. vault_path argument — short-circuit (MCP boundary contract, Phase 11 SC#3)
@@ -689,13 +689,13 @@ def resolve_wiki_and_repo(
     return _ws_paths.wiki_dir(cfg.workspace), cfg.repo_root
 ```
 
-**Signature is bit-identical** to current: `resolve_wiki_and_repo(vault_path: Path | None = None) -> tuple[Path, Path | None]`. All 9 vault-io call sites (`wiki, _ = resolve_wiki_and_repo()`) are unaffected.
+**Signature is bit-identical** to current: `resolve_wiki_and_repo(vault_path: Path | None = None) -> tuple[Path, Path | None]`. All 9 wiki-io call sites (`wiki, _ = resolve_wiki_and_repo()`) are unaffected.
 
 ---
 
-### `packages/vault-io/pyproject.toml` (config — add dep)
+### `packages/wiki-io/pyproject.toml` (config — add dep)
 
-**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` (18 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/wiki-io/pyproject.toml` (18 lines)
 
 **Two additions** — add to `[project] dependencies` and add `[tool.uv.sources]` section:
 ```toml
@@ -712,9 +712,9 @@ workspace-io = { workspace = true }   # ADD entire section
 
 ---
 
-### `packages/vault-io/tests/test_ports_importable.py` (test — targeted updates)
+### `packages/wiki-io/tests/test_ports_importable.py` (test — targeted updates)
 
-**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/tests/test_ports_importable.py` (91 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/wiki-io/tests/test_ports_importable.py` (91 lines)
 
 **`test_resolve_wiki_and_repo_raises_on_no_config`** (lines 67-78) — two changes:
 - `monkeypatch.delenv("GRAPH_WIKI_REAL_VAULT_PATH", raising=False)` → `monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)`
@@ -724,7 +724,7 @@ workspace-io = { workspace = true }   # ADD entire section
 ```python
 def test_resolve_wiki_and_repo_honors_env_var(monkeypatch, tmp_path: Path):
     """Env var alone is sufficient to resolve the wiki path."""
-    from vault_io._workspace import resolve_wiki_and_repo
+    from wiki_io._workspace import resolve_wiki_and_repo
 
     fake_workspace = tmp_path / "workspace"
     fake_workspace.mkdir()
@@ -742,7 +742,7 @@ def test_resolve_wiki_and_repo_honors_env_var(monkeypatch, tmp_path: Path):
 ```python
 def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_path: Path):
     """Without env var and without .graph-wiki.yaml, raises RuntimeError naming init command."""
-    from vault_io._workspace import resolve_wiki_and_repo
+    from wiki_io._workspace import resolve_wiki_and_repo
 
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     monkeypatch.chdir(tmp_path)
@@ -759,9 +759,9 @@ def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_p
 
 ---
 
-### `packages/vault-io/tests/conftest.py` (test — one-line update)
+### `packages/wiki-io/tests/conftest.py` (test — one-line update)
 
-**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/tests/conftest.py` (38 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/wiki-io/tests/conftest.py` (38 lines)
 
 **Single change** (line 35):
 ```python
@@ -857,7 +857,7 @@ Apply to all `@app.command()` definitions that have the `--vault` option (grep s
 
 ---
 
-### Docstring-only changes (8 vault-io modules + config.py)
+### Docstring-only changes (8 wiki-io modules + config.py)
 
 **Analog:** Current files with `GRAPH_WIKI_REAL_VAULT_PATH` in module-level docstrings.
 
@@ -874,9 +874,9 @@ Requires GRAPH_WIKI_WORKSPACE env var ...
 ```
 
 Files to update (docstring only, no logic change):
-- `packages/vault-io/src/vault_io/append_log.py:9`
-- `packages/vault-io/src/vault_io/detect_containers.py:6`
-- `packages/vault-io/src/vault_io/graph_analyzer.py:5-6`
+- `packages/wiki-io/src/wiki_io/append_log.py:9`
+- `packages/wiki-io/src/wiki_io/detect_containers.py:6`
+- `packages/wiki-io/src/wiki_io/graph_analyzer.py:5-6`
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py:48`
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py:52`
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:788`
@@ -892,7 +892,7 @@ Files to update (docstring only, no logic change):
 ```toml
 [project]
 dependencies = [
-    "vault-io",
+    "wiki-io",
     "model-adapter",
     "subagent-runtime",
     "workspace-io",           # ADD
@@ -900,7 +900,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-vault-io         = { workspace = true }
+wiki-io         = { workspace = true }
 model-adapter    = { workspace = true }
 subagent-runtime = { workspace = true }
 workspace-io     = { workspace = true }   # ADD
@@ -911,7 +911,7 @@ workspace-io     = { workspace = true }   # ADD
 ## Shared Patterns
 
 ### `from __future__ import annotations`
-**Source:** Every existing module in `vault_io/` and `lattice_workspace/`
+**Source:** Every existing module in `wiki_io/` and `lattice_workspace/`
 **Apply to:** All new `workspace_io/*.py` modules
 ```python
 from __future__ import annotations
@@ -936,7 +936,7 @@ Works identically in editable installs and built wheels. No `importlib.resources
 
 ### Workspace member dependency pattern
 **Source:** Current `agents/graph-wiki-agent/pyproject.toml` `[tool.uv.sources]` block
-**Apply to:** vault-io and graph-wiki-agent pyproject files when adding workspace-io dep
+**Apply to:** wiki-io and graph-wiki-agent pyproject files when adding workspace-io dep
 ```toml
 [tool.uv.sources]
 workspace-io = { workspace = true }
@@ -961,6 +961,6 @@ No files in this phase lack a codebase analog. All files have direct source temp
 
 ## Metadata
 
-**Analog search scope:** `/Users/pat/Personal/lattice/packages/lattice-workspace/` (all source + tests), `/Users/pat/Personal/agent-research/packages/vault-io/`, `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/`
+**Analog search scope:** `/Users/pat/Personal/lattice/packages/lattice-workspace/` (all source + tests), `/Users/pat/Personal/agent-research/packages/wiki-io/`, `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/`
 **Files read:** 28 source/test/config files
 **Pattern extraction date:** 2026-05-17

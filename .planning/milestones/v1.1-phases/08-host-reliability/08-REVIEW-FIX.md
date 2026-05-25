@@ -30,13 +30,13 @@ status: all_fixed
 
 ### WR-01: `append_log._error` calls `sys.exit(1)` from inside an MCP tool handler
 
-**Files modified:** `cores/vault-io/src/vault_io/append_log.py`, `cores/vault-io/src/vault_io/ingest_work_item.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py`
+**Files modified:** `cores/wiki-io/src/wiki_io/append_log.py`, `cores/wiki-io/src/wiki_io/ingest_work_item.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py`
 **Commit:** bff47e1 (combined with WR-02)
-**Applied fix:** Added a `raise_exception` flag to `_error` (and propagated it through `append_log`'s signature). When `True`, error paths raise `ValueError` instead of calling `sys.exit(1)`, so failures surface as normal exceptions FastMCP's `except Exception` boundary catches. All four library callers (`commands/log.py`, `commands/scan.py`'s three `append_log` calls, `commands/ingest.py`, and `vault_io/ingest_work_item.py`) now pass `raise_exception=True` alongside their existing `silent=True`. The CLI `main()` path is unchanged — it continues to `sys.exit(1)` on hard failures, which is correct for a CLI process. Updated `commands/log.py`'s docstring to document the new `ValueError` surface in place of the never-true "`SystemExit` ... converted upstream" claim. Tests: 29 command unit tests + 70 vault-io tests + 4 cancel/scan-input tests still pass.
+**Applied fix:** Added a `raise_exception` flag to `_error` (and propagated it through `append_log`'s signature). When `True`, error paths raise `ValueError` instead of calling `sys.exit(1)`, so failures surface as normal exceptions FastMCP's `except Exception` boundary catches. All four library callers (`commands/log.py`, `commands/scan.py`'s three `append_log` calls, `commands/ingest.py`, and `wiki_io/ingest_work_item.py`) now pass `raise_exception=True` alongside their existing `silent=True`. The CLI `main()` path is unchanged — it continues to `sys.exit(1)` on hard failures, which is correct for a CLI process. Updated `commands/log.py`'s docstring to document the new `ValueError` surface in place of the never-true "`SystemExit` ... converted upstream" claim. Tests: 29 command unit tests + 70 wiki-io tests + 4 cancel/scan-input tests still pass.
 
 ### WR-02: `append_log._error` still writes to stdout when `as_json=True`
 
-**Files modified:** `cores/vault-io/src/vault_io/append_log.py`
+**Files modified:** `cores/wiki-io/src/wiki_io/append_log.py`
 **Commit:** bff47e1 (combined with WR-01)
 **Applied fix:** Routed the `as_json=True` error-path JSON to stderr (`print(..., file=sys.stderr)`). The success-path JSON still goes to stdout (the CLI `--json` contract is preserved), but a hard-failure write can never trip `_StdoutGuard` even if a future caller accidentally enables `as_json=True` from inside the MCP server. This matches the pattern Phase 08 applied to `init_wiki` (which was changed to `logger.error`), restoring consistency across the two error-printing helpers.
 

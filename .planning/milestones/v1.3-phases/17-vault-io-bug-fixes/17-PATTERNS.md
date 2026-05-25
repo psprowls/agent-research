@@ -1,4 +1,4 @@
-# Phase 17: vault-io Bug Fixes — Pattern Map
+# Phase 17: wiki-io Bug Fixes — Pattern Map
 
 **Mapped:** 2026-05-19
 **Files analyzed:** 8 (4 source edits, 4 new test files)
@@ -8,20 +8,20 @@
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |-------------------|------|-----------|----------------|---------------|
-| `packages/vault-io/src/vault_io/scan_monorepo.py` (`_load_existing_pages._collect`, lines 602–672) | library / filesystem-walker | batch-transform (rglob → dict) | self (extend in place); cross-reference `vault_io/lint/workflow_hints.py::_parse_workflow_hints` (lines 13–43) | exact |
-| `packages/vault-io/src/vault_io/update_tokens.py` (`count_tokens`, lines 38–44) | library / external-API-client | request-response (boto3 → int) | self (in-place fix); shape verified against AWS docs | exact |
-| `packages/vault-io/src/vault_io/detect_containers.py` (`detect()` lines 148–166, `main()` line 174–175) | library / pure-classifier | transform (Path → list[dict]) | self; reference `SKIP_DIRS` (line 33) as the conceptual neighbor | exact |
-| `packages/vault-io/src/vault_io/init_vault.py` (`main()`, lines 305–306) | CLI entry | one-shot wiring | self; mirrors `update_tokens.py:175` | exact |
-| `packages/vault-io/tests/test_scan_companion_fold.py` (NEW) | unit test | filesystem-fixture + assert | `tests/test_lint_modules.py` (`_load_pages` helper + `tmp_path` style) | role-match |
-| `packages/vault-io/tests/test_update_tokens.py` (NEW) | unit test | mock boto3 + assert payload | `tests/test_ingest_work_item.py` (`unittest.mock.patch` + `assert_called_once_with`) | exact |
-| `packages/vault-io/tests/integration/test_count_tokens_live.py` (NEW) | gated integration test | real-API call → int | `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py::test_make_llm_haiku_invoke` (lines 28–46) | exact |
-| `packages/vault-io/tests/test_detect_containers.py` (NEW) | unit test | synthetic tmp_path monorepo + monkeypatch env | `tests/test_truncated_frontmatter.py` (`tmp_path` + targeted file build) + `agents/graph-wiki-agent/tests/conftest.py` (fixture path style) | role-match |
+| `packages/wiki-io/src/wiki_io/scan_monorepo.py` (`_load_existing_pages._collect`, lines 602–672) | library / filesystem-walker | batch-transform (rglob → dict) | self (extend in place); cross-reference `wiki_io/lint/workflow_hints.py::_parse_workflow_hints` (lines 13–43) | exact |
+| `packages/wiki-io/src/wiki_io/update_tokens.py` (`count_tokens`, lines 38–44) | library / external-API-client | request-response (boto3 → int) | self (in-place fix); shape verified against AWS docs | exact |
+| `packages/wiki-io/src/wiki_io/detect_containers.py` (`detect()` lines 148–166, `main()` line 174–175) | library / pure-classifier | transform (Path → list[dict]) | self; reference `SKIP_DIRS` (line 33) as the conceptual neighbor | exact |
+| `packages/wiki-io/src/wiki_io/init_vault.py` (`main()`, lines 305–306) | CLI entry | one-shot wiring | self; mirrors `update_tokens.py:175` | exact |
+| `packages/wiki-io/tests/test_scan_companion_fold.py` (NEW) | unit test | filesystem-fixture + assert | `tests/test_lint_modules.py` (`_load_pages` helper + `tmp_path` style) | role-match |
+| `packages/wiki-io/tests/test_update_tokens.py` (NEW) | unit test | mock boto3 + assert payload | `tests/test_ingest_work_item.py` (`unittest.mock.patch` + `assert_called_once_with`) | exact |
+| `packages/wiki-io/tests/integration/test_count_tokens_live.py` (NEW) | gated integration test | real-API call → int | `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py::test_make_llm_haiku_invoke` (lines 28–46) | exact |
+| `packages/wiki-io/tests/test_detect_containers.py` (NEW) | unit test | synthetic tmp_path monorepo + monkeypatch env | `tests/test_truncated_frontmatter.py` (`tmp_path` + targeted file build) + `agents/graph-wiki-agent/tests/conftest.py` (fixture path style) | role-match |
 
 ## Pattern Assignments
 
 ### `scan_monorepo._load_existing_pages._collect()` (library, batch-transform)
 
-**Analog (in-place edit):** `packages/vault-io/src/vault_io/scan_monorepo.py:602-672`
+**Analog (in-place edit):** `packages/wiki-io/src/wiki_io/scan_monorepo.py:602-672`
 
 **Existing iteration shape** (lines 623–638) — the edit site:
 ```python
@@ -86,7 +86,7 @@ def _parse_workflow_hints(text: str) -> dict[str, list[str]]:
 
 Companion derivation pattern (from RESEARCH.md Pattern 1):
 ```python
-from vault_io.lint.workflow_hints import _parse_workflow_hints
+from wiki_io.lint.workflow_hints import _parse_workflow_hints
 
 hints = _parse_workflow_hints(text)
 companion_stems = {Path(p).stem for sub in hints.values() for p in sub}
@@ -102,7 +102,7 @@ companion_stems = {Path(p).stem for sub in hints.values() for p in sub}
 
 ### `update_tokens.count_tokens()` (library, request-response)
 
-**Analog (in-place edit):** `packages/vault-io/src/vault_io/update_tokens.py:38-44`
+**Analog (in-place edit):** `packages/wiki-io/src/wiki_io/update_tokens.py:38-44`
 
 **Current (buggy) shape:**
 ```python
@@ -138,7 +138,7 @@ def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFA
 
 ### `detect_containers.detect()` (library, transform)
 
-**Analog (in-place edit):** `packages/vault-io/src/vault_io/detect_containers.py:148-166`
+**Analog (in-place edit):** `packages/wiki-io/src/wiki_io/detect_containers.py:148-166`
 
 **Current signature:**
 ```python
@@ -190,7 +190,7 @@ records = detect(repo, workspace_path=wiki.parent)
 
 ### `init_vault.main()` (CLI entry, one-shot)
 
-**Analog (in-place edit):** `packages/vault-io/src/vault_io/init_vault.py:305-306`
+**Analog (in-place edit):** `packages/wiki-io/src/wiki_io/init_vault.py:305-306`
 
 **Current:**
 ```python
@@ -224,7 +224,7 @@ The second return value is the workspace-aware repo root — already correct for
 
 ### `tests/test_scan_companion_fold.py` (NEW — unit test)
 
-**Analog:** `packages/vault-io/tests/test_lint_modules.py` (fixture loading + tmp_path style) + the round-trip-vault fixture (`tests/fixtures/round-trip-vault/packages/lattice-curator-core/`).
+**Analog:** `packages/wiki-io/tests/test_lint_modules.py` (fixture loading + tmp_path style) + the round-trip-vault fixture (`tests/fixtures/round-trip-vault/packages/lattice-curator-core/`).
 
 **Import + header pattern** (from `test_lint_modules.py:10-14`):
 ```python
@@ -260,7 +260,7 @@ workflow_hints:
 **Test shape — adapt from `test_round_trip.py:28-34`** for the load + assert idiom:
 ```python
 def test_load_existing_skips_companions() -> None:
-    from vault_io.scan_monorepo import _load_existing_pages
+    from wiki_io.scan_monorepo import _load_existing_pages
 
     pages = _load_existing_pages(ROUND_TRIP_VAULT)
     # Companion stems should not appear as top-level page keys
@@ -275,7 +275,7 @@ def test_load_existing_skips_companions() -> None:
 **Compute_diff regression test** — analog: existing scan tests imply this shape:
 ```python
 def test_compute_diff_no_phantom_deletes() -> None:
-    from vault_io.scan_monorepo import _load_existing_pages, compute_diff, discover_workspaces
+    from wiki_io.scan_monorepo import _load_existing_pages, compute_diff, discover_workspaces
 
     workspaces = discover_workspaces(<repo>)  # synthetic or fixture
     existing = _load_existing_pages(ROUND_TRIP_VAULT)
@@ -301,13 +301,13 @@ Then writes `wiki/apps/<app>/api.md` and asserts it IS present in `pages` (apps 
 
 ### `tests/test_update_tokens.py` (NEW — unit test)
 
-**Analog:** `packages/vault-io/tests/test_ingest_work_item.py:1-12, 159-202` — the `unittest.mock.patch` + `assert_called_once_with` pattern.
+**Analog:** `packages/wiki-io/tests/test_ingest_work_item.py:1-12, 159-202` — the `unittest.mock.patch` + `assert_called_once_with` pattern.
 
 **Import + mock setup pattern** (from `test_ingest_work_item.py:1-12`):
 ```python
 from __future__ import annotations
 
-"""Tests for vault_io.update_tokens — Bedrock CountTokens API shape.
+"""Tests for wiki_io.update_tokens — Bedrock CountTokens API shape.
 
 Requirements: TOK-01, TOK-02 (mocked).
 """
@@ -321,12 +321,12 @@ import pytest
 **Mock pattern** (derived from `test_ingest_work_item.py:166-201`):
 ```python
 def test_count_tokens_request_shape() -> None:
-    from vault_io.update_tokens import count_tokens
+    from wiki_io.update_tokens import count_tokens
 
     fake_client = MagicMock()
     fake_client.count_tokens.return_value = {"inputTokens": 42}
 
-    with patch("vault_io.update_tokens.boto3.client", return_value=fake_client) as mock_factory:
+    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client) as mock_factory:
         result = count_tokens("hello world", model_id="m1", region="us-east-1")
 
     mock_factory.assert_called_once_with("bedrock-runtime", region_name="us-east-1")
@@ -343,7 +343,7 @@ def test_count_tokens_request_shape() -> None:
     assert result == 42
 ```
 
-**Why this analog:** `test_ingest_work_item.py:166-201` uses the same `patch("vault_io.<module>.<symbol>")` style with `MagicMock` and `assert_called_once_with` — it's the canonical vault-io test idiom. No vault-io test uses `botocore.stub.Stubber`; consistency favors `unittest.mock.patch`.
+**Why this analog:** `test_ingest_work_item.py:166-201` uses the same `patch("wiki_io.<module>.<symbol>")` style with `MagicMock` and `assert_called_once_with` — it's the canonical wiki-io test idiom. No wiki-io test uses `botocore.stub.Stubber`; consistency favors `unittest.mock.patch`.
 
 ---
 
@@ -351,11 +351,11 @@ def test_count_tokens_request_shape() -> None:
 
 **Analog:** `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py:28-46` — verbatim INTEGRATION_GATE pattern.
 
-**Required directory creation:** `packages/vault-io/tests/integration/` does NOT exist; create it with an `__init__.py` (see `agents/graph-wiki-agent/tests/integration/__init__.py` as the reference — it exists as an empty package marker).
+**Required directory creation:** `packages/wiki-io/tests/integration/` does NOT exist; create it with an `__init__.py` (see `agents/graph-wiki-agent/tests/integration/__init__.py` as the reference — it exists as an empty package marker).
 
 **Canonical decorator block** (verbatim from `test_bedrock_iam.py:30-35` + `docs/testing.md:53-56`):
 ```python
-"""Gated integration test for vault_io.update_tokens.count_tokens.
+"""Gated integration test for wiki_io.update_tokens.count_tokens.
 
 Lives in tests/integration/ and is skipped unless GRAPH_WIKI_RUN_INTEGRATION=1.
 Per docs/testing.md §3.
@@ -381,7 +381,7 @@ INTEGRATION_GATE = pytest.mark.skipif(
 @INTEGRATION_GATE
 def test_count_tokens_real_bedrock() -> None:
     """Calls real Bedrock when GRAPH_WIKI_RUN_INTEGRATION=1; otherwise skips."""
-    from vault_io.update_tokens import count_tokens
+    from wiki_io.update_tokens import count_tokens
 
     n = count_tokens("hello world")
     assert isinstance(n, int) and n > 0
@@ -389,7 +389,7 @@ def test_count_tokens_real_bedrock() -> None:
 
 **Pattern notes:**
 - Apply BOTH `@pytest.mark.integration` AND `@INTEGRATION_GATE` (per `test_bedrock_iam.py:38-40`). The `integration` mark groups it for selective runs; the GATE provides the env-var opt-in.
-- Define `INTEGRATION_GATE` locally in this file rather than importing from `agents/graph-wiki-agent/tests/conftest.py` — that conftest is package-scoped to graph-wiki-agent; vault-io tests cannot import from it. `docs/testing.md` explicitly says "import this from conftest or redefine it locally — either is fine."
+- Define `INTEGRATION_GATE` locally in this file rather than importing from `agents/graph-wiki-agent/tests/conftest.py` — that conftest is package-scoped to graph-wiki-agent; wiki-io tests cannot import from it. `docs/testing.md` explicitly says "import this from conftest or redefine it locally — either is fine."
 - Function-level decorator, not module-level `pytestmark` (per `test_bedrock_iam.py` docstring: "Per-function marking … keeps the mock test out of the integration set").
 
 ---
@@ -425,7 +425,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 **v2 layout test:**
 ```python
 def test_v2_layout_packages_found_workspace_excluded(v2_workspace) -> None:
-    from vault_io.detect_containers import detect
+    from wiki_io.detect_containers import detect
 
     repo = v2_workspace["repo"]
     workspace = v2_workspace["workspace"]
@@ -443,7 +443,7 @@ def test_v2_layout_packages_found_workspace_excluded(v2_workspace) -> None:
 ```python
 def test_v1_layout_guard_no_self_exclusion(tmp_path: Path, monkeypatch):
     """When workspace == repo (v1 layout), the exclusion guard must not fire."""
-    from vault_io.detect_containers import detect
+    from wiki_io.detect_containers import detect
 
     repo = tmp_path / "repo"
     (repo / "wiki").mkdir(parents=True)
@@ -464,17 +464,17 @@ def test_v1_layout_guard_no_self_exclusion(tmp_path: Path, monkeypatch):
 ## Shared Patterns
 
 ### Frontmatter parsing (read-only)
-**Source:** `packages/vault-io/src/vault_io/scan_monorepo.py:590-599` (`_parse_frontmatter`) and `packages/vault-io/src/vault_io/lint/workflow_hints.py:13-43` (`_parse_workflow_hints`).
+**Source:** `packages/wiki-io/src/wiki_io/scan_monorepo.py:590-599` (`_parse_frontmatter`) and `packages/wiki-io/src/wiki_io/lint/workflow_hints.py:13-43` (`_parse_workflow_hints`).
 **Apply to:** SCAN-01 edit in `scan_monorepo._collect`.
-**Reuse rule:** Import `_parse_workflow_hints` from `vault_io.lint.workflow_hints`. Both modules live in the same package — a private-prefix import is acceptable (RESEARCH.md A6). Do NOT add a new YAML parser.
+**Reuse rule:** Import `_parse_workflow_hints` from `wiki_io.lint.workflow_hints`. Both modules live in the same package — a private-prefix import is acceptable (RESEARCH.md A6). Do NOT add a new YAML parser.
 
 ### `unittest.mock.patch` + `assert_called_once_with`
-**Source:** `packages/vault-io/tests/test_ingest_work_item.py:166-201`.
+**Source:** `packages/wiki-io/tests/test_ingest_work_item.py:166-201`.
 **Apply to:** `tests/test_update_tokens.py`.
-**Pattern:** Patch `vault_io.<module>.<symbol>` (e.g. `vault_io.update_tokens.boto3.client`), return a `MagicMock`, then `mock.assert_called_once_with(...)` with the exact expected payload. No `botocore.stub.Stubber`.
+**Pattern:** Patch `wiki_io.<module>.<symbol>` (e.g. `wiki_io.update_tokens.boto3.client`), return a `MagicMock`, then `mock.assert_called_once_with(...)` with the exact expected payload. No `botocore.stub.Stubber`.
 
 ### tmp_path fixture extension
-**Source:** `packages/vault-io/tests/conftest.py:11-29` (`tmp_repo`, `vault_path`).
+**Source:** `packages/wiki-io/tests/conftest.py:11-29` (`tmp_repo`, `vault_path`).
 **Apply to:** `tests/test_detect_containers.py` (v2_workspace fixture), `tests/test_scan_companion_fold.py` (apps-not-filtered guard).
 **Pattern:** Use `tmp_path` builtin + manual `mkdir(parents=True)` + `write_text` for fixture construction. `monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", ...)` for env-honoring paths. Either extend `conftest.py` (if the fixture is reused across files) or inline (if scoped to one file).
 
@@ -484,7 +484,7 @@ def test_v1_layout_guard_no_self_exclusion(tmp_path: Path, monkeypatch):
 **Pattern:** Define `INTEGRATION_GATE` locally (verbatim shape — reason string must match `docs/testing.md`). Apply `@pytest.mark.integration` AND `@INTEGRATION_GATE` at function level.
 
 ### Workspace-aware repo resolution
-**Source:** `packages/vault-io/src/vault_io/_workspace.py:23-38` (`resolve_wiki_and_repo`).
+**Source:** `packages/wiki-io/src/wiki_io/_workspace.py:23-38` (`resolve_wiki_and_repo`).
 **Apply to:** `init_vault.py:305`, `detect_containers.py:174`.
 **Pattern:** Always use the second return value (`repo`) as the repo root. Never compute `wiki.parent`. This works for both v1 and v2 layouts because `workspace_io.config.resolve()` handles layout detection inside the resolver.
 
@@ -499,17 +499,17 @@ input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}
 
 ## No Analog Found
 
-None — every file in this phase has either an in-place analog (source edits) or a close-shape analog in `packages/vault-io/tests/` or `agents/graph-wiki-agent/tests/integration/`.
+None — every file in this phase has either an in-place analog (source edits) or a close-shape analog in `packages/wiki-io/tests/` or `agents/graph-wiki-agent/tests/integration/`.
 
 ## Metadata
 
 **Analog search scope:**
-- `packages/vault-io/src/vault_io/` (sources)
-- `packages/vault-io/tests/` (existing tests + fixtures)
+- `packages/wiki-io/src/wiki_io/` (sources)
+- `packages/wiki-io/tests/` (existing tests + fixtures)
 - `agents/graph-wiki-agent/tests/integration/` (integration gate reference)
 - `agents/graph-wiki-agent/tests/conftest.py` (gate decorator canonical definition)
 - `docs/testing.md` (canonical gate rule)
 
-**Files scanned:** ~22 (vault-io sources + tests + 2 cross-package gate references + 3 fixture overview pages).
+**Files scanned:** ~22 (wiki-io sources + tests + 2 cross-package gate references + 3 fixture overview pages).
 
 **Pattern extraction date:** 2026-05-19

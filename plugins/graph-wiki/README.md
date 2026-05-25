@@ -10,7 +10,7 @@ By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defau
 
 The plugin has two delivery surfaces that share the same wiki format:
 
-- **Claude (default)** — Claude Code runs the wiki workflows directly via the bundled `vault_io` Python package (this plugin).
+- **Claude (default)** — Claude Code runs the wiki workflows directly via the bundled `wiki_io` Python package (this plugin).
 - **Bedrock (opt-in)** — `graph-wiki-agent` runs the same workflows on AWS Bedrock with parallel subagents, for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
 
 ## Setup
@@ -77,5 +77,5 @@ Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `g
 - `skills/graph-wiki/references/wiki-schema.md` — frontmatter schema and naming conventions
 - `skills/graph-wiki/references/obsidian-setup.md` — recommended Obsidian configuration
 - `skills/graph-wiki/references/monorepo-principles.md` — why this pattern works for monorepos
-- `packages/vault_io/` — the Python implementation behind the claude-branch shims
+- `packages/wiki_io/` — the Python implementation behind the claude-branch shims
 - `agents/graph-wiki-agent/` — the Bedrock CLI that powers the bedrock branch

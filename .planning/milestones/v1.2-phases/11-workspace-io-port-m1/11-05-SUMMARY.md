@@ -5,7 +5,7 @@ subsystem: graph-wiki-agent
 tags: [port, rebrand, workspace-io, wiring, env-var-sweep]
 requires:
   - workspace-io public surface (workspace_io.init from Plan 02)
-  - vault-io._workspace.resolve_wiki_and_repo (delegated by Plan 04 in parallel)
+  - wiki-io._workspace.resolve_wiki_and_repo (delegated by Plan 04 in parallel)
 provides:
   - graph-wiki-agent declares workspace-io as a workspace dependency
   - Two-phase init flow (D-07): workspace_io.init -> resolve_wiki_and_repo
@@ -88,7 +88,7 @@ All Task 2 acceptance criteria pass:
 Plan-level success criteria:
 
 - WS-04 fully satisfied: `workspace_io.init` is wired into the `graph-wiki-agent init` flow per D-07.
-- WS-07 (agent half) satisfied: zero `GRAPH_WIKI_REAL_VAULT_PATH` references remain under `agents/graph-wiki-agent/`. Plan 04 handles the vault-io half in parallel.
+- WS-07 (agent half) satisfied: zero `GRAPH_WIKI_REAL_VAULT_PATH` references remain under `agents/graph-wiki-agent/`. Plan 04 handles the wiki-io half in parallel.
 
 ## Commits
 
@@ -118,12 +118,12 @@ None introduced. The plan's threat register (`T-11-09` MCP Field description lea
 ## Requirements Satisfied
 
 - **WS-04** — `workspace_io.init` is invoked from `graph-wiki-agent init <path>` via the two-phase bootstrap pattern (D-07), with `plugin="graph-wiki-agent"` and `version` sourced from `importlib.metadata` (D-12, D-13).
-- **WS-07 (agent half)** — All `GRAPH_WIKI_REAL_VAULT_PATH` references under `agents/graph-wiki-agent/` rebranded to `GRAPH_WIKI_WORKSPACE`. Plan 04 closes the vault-io half in parallel; together the two plans leave zero references under `packages/` and `agents/`.
+- **WS-07 (agent half)** — All `GRAPH_WIKI_REAL_VAULT_PATH` references under `agents/graph-wiki-agent/` rebranded to `GRAPH_WIKI_WORKSPACE`. Plan 04 closes the wiki-io half in parallel; together the two plans leave zero references under `packages/` and `agents/`.
 
 ## Phase 11 Success Criterion Progress
 
 - **SC #1 (uv sync resolves workspace-io and tests pass)** — `uv sync` resolves workspace-io as a `graph-wiki-agent` dep cleanly; agent test suite is out of scope per phase plan (Phase 12 BACKPORT-XX covers test re-touch).
-- **SC #2 (env var rename — agent half)** — agent half satisfied; Plan 04 closes the vault-io half; Plan 06 will verify end-to-end.
+- **SC #2 (env var rename — agent half)** — agent half satisfied; Plan 04 closes the wiki-io half; Plan 06 will verify end-to-end.
 
 ## Self-Check: PASSED
 

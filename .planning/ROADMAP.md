@@ -62,7 +62,7 @@ Full detail: [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 <details>
 <summary>✅ v1.3 Tooling Cleanup (Phases 17-21) — SHIPPED 2026-05-20</summary>
 
-- [x] Phase 17: vault-io Bug Fixes (5/5 plans) — completed 2026-05-20
+- [x] Phase 17: wiki-io Bug Fixes (5/5 plans) — completed 2026-05-20
 - [x] Phase 18: Plugin Command Rename (6/6 plans) — completed 2026-05-20
 - [x] Phase 20: Workspace Manifest Model Config (4/4 plans) — completed 2026-05-20
 - [x] Phase 21: Rename graph-wiki-agent → graph-wiki-agent (5/5 plans) — completed 2026-05-20
@@ -144,7 +144,7 @@ Audit: [`milestones/v1.3-MILESTONE-AUDIT.md`](milestones/v1.3-MILESTONE-AUDIT.md
 
   1. `graph-wiki-agent bootstrap` on this repo (without `--interactive`) classifies `packages/` as `package` and creates `wiki/packages/` automatically
   2. `_classify_dir` with a fixture dir containing 5/6 manifested children returns `package` (not `ambiguous`); unit test asserts this
-  3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` imports `main` from the updated `vault_io.detect_containers` (passthrough shim — no separate port)
+  3. `plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py` imports `main` from the updated `wiki_io.detect_containers` (passthrough shim — no separate port)
   4. `.planning/todos/pending/2026-05-20-fix-packages-dir-misclassification.md` is moved to `.planning/todos/resolved/`
 
 **Plans**: 1 plan

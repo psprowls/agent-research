@@ -42,7 +42,7 @@ Out of scope (explicit):
 - **D-04:** Vendor canonical sources into the agent-research repo under **`cores/prompt-sources/`** (verbatim copy of `SKILL.md` + `agents/{librarian,ingestor,linter,scanner}.md` from `/Users/pat/Personal/lattice/plugins/lattice-wiki/`). Provenance comments in fragments point to the **vendored** path (not the sibling-repo path) plus the upstream `Source-commit`. Re-vendoring is a manual step. Drift detection becomes a trivial in-repo diff plus an SHA comparison if/when re-vendored. This decouples the agent package from the sibling lattice repo and is OSS-release-friendly.
 
 ### Port fidelity
-- **D-05:** **Adapt the port** — rewrite host-specific references (slash commands like `/lattice-wiki:ingest`, Claude Code SDK tool surface, human-driven discussion patterns) to match `graph-wiki-agent`'s actual tool surface (vault IO via the `vault_io` core, BM25 search, deepagents loop). **Preserve semantic content verbatim**: iron rules, citation rules, page-type routing, refusal patterns, lint rule definitions, package-detection rules. Provenance still points to the source anchor so a reviewer can compare.
+- **D-05:** **Adapt the port** — rewrite host-specific references (slash commands like `/lattice-wiki:ingest`, Claude Code SDK tool surface, human-driven discussion patterns) to match `graph-wiki-agent`'s actual tool surface (vault IO via the `wiki_io` core, BM25 search, deepagents loop). **Preserve semantic content verbatim**: iron rules, citation rules, page-type routing, refusal patterns, lint rule definitions, package-detection rules. Provenance still points to the source anchor so a reviewer can compare.
 - **D-06:** Adaptations are local to the per-role files (the composition layer), not the shared fragments. Shared fragments stay closer to canonical wording; per-role files apply tool/host translation in role-specific prose.
 
 ### Divergence metric mechanism (EVAL-11)
@@ -127,7 +127,7 @@ Out of scope (explicit):
 
 ### Reusable Assets
 - `cores/eval-harness` (Phase 4): `AmazonBedrockModel`-backed `GEval` metric class, fixture loader, regression-check gate, JSONL trace integration. Divergence metric class can inherit/compose with these rather than building from scratch.
-- `cores/vault-io`: `Vault` reader is what the programmatic checks (e.g., `LIB-001-wikilink-resolves`) call to validate wikilink targets. Already exercises read-compatibility with existing vaults.
+- `cores/wiki-io`: `Vault` reader is what the programmatic checks (e.g., `LIB-001-wikilink-resolves`) call to validate wikilink targets. Already exercises read-compatibility with existing vaults.
 - Phase 5's lint command lives in `commands/lint.py` with a 3-group system-prompt fan-out (mechanical / semantic / coverage groupings). The linter's prompt port preserves this 3-group split — each group's system prompt composes from `_fragments/lint_*` blocks.
 
 ### Established Patterns

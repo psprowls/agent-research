@@ -20,10 +20,10 @@ from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
-from vault_io._workspace import resolve_wiki_and_repo
-from vault_io.append_log import append_log
-from vault_io.layout_io import read_layout
-from vault_io.scan_monorepo import (
+from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.append_log import append_log
+from wiki_io.layout_io import read_layout
+from wiki_io.scan_monorepo import (
     _load_existing_pages,
     attach_changed_files,
     build_file_map,
@@ -32,7 +32,7 @@ from vault_io.scan_monorepo import (
     discover_workspaces,
     regenerate_dependencies_index,
 )
-from vault_io.update_index import update_index
+from wiki_io.update_index import update_index
 
 from graph_wiki_agent.prompts.project_context import render_project_context
 from graph_wiki_agent.prompts.scanner import build_scanner_system
@@ -314,7 +314,7 @@ async def run_scan(
     state_gate = compute_state_gate(repo)
 
     # Build workspace lookup by unscoped name for post-processing
-    from vault_io.scan_monorepo import unscope
+    from wiki_io.scan_monorepo import unscope
     ws_by_name = {unscope(w["name"]): w for w in workspaces}
 
     # Step 9: scanner fan-out

@@ -13,7 +13,7 @@
 | `prompts/_fragments/style_rules.py` | prompt-fragment | transform | `prompts/_fragments/iron_rules.py` | exact |
 | `prompts/_fragments/log_format.py` | prompt-fragment | transform | `prompts/_fragments/iron_rules.py` | exact |
 | `prompts/_fragments/claude_md_disambiguation.py` | prompt-fragment | transform | `prompts/_fragments/page_categories.py` | exact |
-| `prompts/project_context.py` | utility | file-I/O | `cores/vault-io/src/vault_io/layout_io.py` | role-match |
+| `prompts/project_context.py` | utility | file-I/O | `cores/wiki-io/src/wiki_io/layout_io.py` | role-match |
 | `prompts/scanner.py` | prompt-builder | transform | `prompts/scanner.py` (self) | exact (wiring change only) |
 | `prompts/linter.py` | prompt-builder | transform | `prompts/linter.py` (self) | exact (wiring change only) |
 | `prompts/ingestor.py` | prompt-builder | transform | `prompts/ingestor.py` (self) | exact (wiring change only) |
@@ -149,7 +149,7 @@ Notes:
 
 ### `prompts/project_context.py` (utility, file-I/O)
 
-**Analog:** `cores/vault-io/src/vault_io/layout_io.py` (the read_layout function pattern)
+**Analog:** `cores/wiki-io/src/wiki_io/layout_io.py` (the read_layout function pattern)
 
 **Imports + function signature pattern** (layout_io.py lines 25-49):
 ```python
@@ -171,7 +171,7 @@ def read_layout(schema_path: Path) -> Optional[dict]:
 from __future__ import annotations
 
 from pathlib import Path
-from vault_io.layout_io import read_layout
+from wiki_io.layout_io import read_layout
 
 def render_project_context(wiki_path: Path) -> str:
     """Read wiki/CLAUDE.md once and emit a compact project-context block.
@@ -194,7 +194,7 @@ def _render(layout, schema_path: Path) -> str:
 
 Notes:
 - Pure function — no LLM calls, no network, no mutation. Mirrors layout_io.py's pure-read discipline.
-- Use `read_layout()` from `vault_io.layout_io` for the layout block; do not write a bespoke YAML parser.
+- Use `read_layout()` from `wiki_io.layout_io` for the layout block; do not write a bespoke YAML parser.
 - Style and log-format sections are grabbed by a simple heading-based walk of the raw markdown text (no frontmatter library needed — sections are plain markdown headings, not frontmatter).
 - Returns `""` on missing file; callers MUST accept empty string without crashing.
 - Output ordering must be deterministic (sort containers by `vault_dir` or preserve YAML order) so syrupy snapshots are stable.
@@ -638,6 +638,6 @@ All files have analogs. No new capability areas without prior art.
 
 ## Metadata
 
-**Analog search scope:** `agents/graph-wiki-agent/src/`, `cores/vault-io/src/`, `cores/prompt-sources/`, `agents/graph-wiki-agent/tests/`
+**Analog search scope:** `agents/graph-wiki-agent/src/`, `cores/wiki-io/src/`, `cores/prompt-sources/`, `agents/graph-wiki-agent/tests/`
 **Files scanned:** 15 source files, 4 test files
 **Pattern extraction date:** 2026-05-17

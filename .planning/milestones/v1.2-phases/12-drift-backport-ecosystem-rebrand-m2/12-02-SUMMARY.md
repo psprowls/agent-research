@@ -1,15 +1,15 @@
 ---
 phase: 12-drift-backport-ecosystem-rebrand-m2
 plan: 02
-subsystem: vault-io
-tags: [drift, backport, vault-io, lattice-wiki-core, m2]
+subsystem: wiki-io
+tags: [drift, backport, wiki-io, lattice-wiki-core, m2]
 requires:
   - 12-01 (DRIFT-DECISIONS-RAW.md exists with 11 sections + raw diffs)
 provides:
-  - canonical-drift-decisions-artifact (packages/vault-io/DRIFT-DECISIONS.md)
+  - canonical-drift-decisions-artifact (packages/wiki-io/DRIFT-DECISIONS.md)
   - persisted-verdict-ledger (.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md)
 affects:
-  - packages/vault-io/
+  - packages/wiki-io/
 tech-stack:
   added: []
   patterns:
@@ -18,7 +18,7 @@ tech-stack:
 key-files:
   created:
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md
-    - packages/vault-io/DRIFT-DECISIONS.md
+    - packages/wiki-io/DRIFT-DECISIONS.md
   modified: []
 decisions:
   - "All 11 overlapping module rows resolve as non-PORT — no substantive upstream change warrants backport at this sync"
@@ -32,7 +32,7 @@ metrics:
 
 # Phase 12 Plan 02: Verdicts and Backports Summary
 
-Assigned SR-03 verdicts to all 11 overlapping module rows from `DRIFT-DECISIONS-RAW.md` and published the canonical `packages/vault-io/DRIFT-DECISIONS.md` table with the pinned upstream SHA. Zero PORT verdicts — every drift hunk is an intentional vault-io divergence (lib-ification / MCP error handling / no-tiktoken) or an out-of-v1.2 subsystem strip (package-family / CLI `main()`).
+Assigned SR-03 verdicts to all 11 overlapping module rows from `DRIFT-DECISIONS-RAW.md` and published the canonical `packages/wiki-io/DRIFT-DECISIONS.md` table with the pinned upstream SHA. Zero PORT verdicts — every drift hunk is an intentional wiki-io divergence (lib-ification / MCP error handling / no-tiktoken) or an out-of-v1.2 subsystem strip (package-family / CLI `main()`).
 
 ## Verdict Tally
 
@@ -54,7 +54,7 @@ None — no PORT verdicts at this sync.
 |------|-------------|--------|
 | 1a | Scaffold drift-verdict scratch template (11 rows) | `64d5588` |
 | 1b | Record drift verdicts in scratch (11 rows) | `f43120d` |
-| 2 | Publish vault-io DRIFT-DECISIONS.md (11 rows, 0 PORT) | `16fd3ff` |
+| 2 | Publish wiki-io DRIFT-DECISIONS.md (11 rows, 0 PORT) | `16fd3ff` |
 
 ## Acceptance Gates
 
@@ -67,12 +67,12 @@ None — no PORT verdicts at this sync.
 None. The plan is marked `autonomous: false` to allow pauses on genuine ambiguity, but every row's verdict was unambiguous after reading the raw diff against the SR-01/SR-02/SR-03 priors. Specifically:
 - The 4 LEAVE-ARCH rows all match the planner's operator-prior hints (package-family strip / CLI `main()` strip) verbatim.
 - 5 of the 6 LEAVE-AHEAD rows match the planner's hints verbatim (WR-01/WR-02, lib-ification, no-tiktoken, file_work_item shape).
-- `init_vault.py` was flagged TBD in the prior — body-diff confirmed all `-` lines are intentional vault-io strips (lattice_workspace.init dep, sys.exit, package-family choice) and all `+` lines are intentional vault-io additions (logger, RuntimeError, raw/work mkdir). Net: LEAVE-AHEAD (D-02 lib-ification + WR-01). No PORT-eligible upstream change found.
-- `lint/*` was flagged TBD per-file — body-diff confirmed all 8 sub-files share LEAVE-AHEAD: substantive vault-io divergences (placeholder predicate relocation, kind==package guard) and import-rename-only edits in the rest. No sub-file warrants a different verdict.
+- `init_vault.py` was flagged TBD in the prior — body-diff confirmed all `-` lines are intentional wiki-io strips (lattice_workspace.init dep, sys.exit, package-family choice) and all `+` lines are intentional wiki-io additions (logger, RuntimeError, raw/work mkdir). Net: LEAVE-AHEAD (D-02 lib-ification + WR-01). No PORT-eligible upstream change found.
+- `lint/*` was flagged TBD per-file — body-diff confirmed all 8 sub-files share LEAVE-AHEAD: substantive wiki-io divergences (placeholder predicate relocation, kind==package guard) and import-rename-only edits in the rest. No sub-file warrants a different verdict.
 
 ## Canonical Verdict Ledger
 
-`.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md` — the populated scratch file is the persisted source-of-truth that the final `packages/vault-io/DRIFT-DECISIONS.md` was rendered from. Both files cite the same pinned upstream SHA.
+`.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md` — the populated scratch file is the persisted source-of-truth that the final `packages/wiki-io/DRIFT-DECISIONS.md` was rendered from. Both files cite the same pinned upstream SHA.
 
 ## Deviations from Plan
 
@@ -83,11 +83,11 @@ None — plan executed exactly as written. No Rule 1–3 auto-fixes triggered; n
 - BACKPORT-01 (lint/* body-diff inventory) — LEAVE-AHEAD documented
 - BACKPORT-02 (init_vault.py body-diff) — LEAVE-AHEAD documented
 - BACKPORT-03 (ingest_work_item.py API divergence) — LEAVE-AHEAD documented (`file_work_item` lib shape retained)
-- BACKPORT-04 (DRIFT-DECISIONS.md location) — file published at `packages/vault-io/DRIFT-DECISIONS.md`
+- BACKPORT-04 (DRIFT-DECISIONS.md location) — file published at `packages/wiki-io/DRIFT-DECISIONS.md`
 
 ## Self-Check: PASSED
 
 - `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-02-scratch-verdicts.md` — present
-- `packages/vault-io/DRIFT-DECISIONS.md` — present, SHA pin verified
+- `packages/wiki-io/DRIFT-DECISIONS.md` — present, SHA pin verified
 - Commits `64d5588`, `f43120d`, `16fd3ff` — all present in `git log`
 - `uv run pytest` — 526 passed, 30 skipped (skips are integration tests gated on env var)

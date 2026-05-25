@@ -14,7 +14,7 @@ Phase 21 does not "create new files" in the classical sense — the work is over
 | Role Class | Data Flow | Representative File(s) | Phase 12 Analog | Match Quality |
 |------------|-----------|------------------------|-----------------|---------------|
 | `dir-move-git-mv` | filesystem move | `agents/code-wiki-agent/` → `agents/graph-wiki-agent/`; `src/code_wiki_agent/` → `src/graph_wiki_agent/`; `src/code_wiki_mcp/` → `src/graph_wiki_mcp/` | Phase 12 had **no analog** — Phase 12 swept content but did NOT rename a package directory. This is a **net-new technique for this codebase** (see "No Analog" section). | **no analog** |
-| `pyproject-manifest` | declarative-config | `agents/code-wiki-agent/pyproject.toml` (`name`, `[project.scripts]`) + root `uv.lock` regenerate | Phase 12 plan 03 Task 1 (manifest-adjacent edits in `packages/vault-io/`) | **partial** — Phase 12 didn't rename a `name =` field but touched neighboring config |
+| `pyproject-manifest` | declarative-config | `agents/code-wiki-agent/pyproject.toml` (`name`, `[project.scripts]`) + root `uv.lock` regenerate | Phase 12 plan 03 Task 1 (manifest-adjacent edits in `packages/wiki-io/`) | **partial** — Phase 12 didn't rename a `name =` field but touched neighboring config |
 | `python-module-sweep` | text-substitute | All `*.py` under `agents/code-wiki-agent/src/` + `agents/code-wiki-agent/tests/` — imports, identifiers (`CodeWikiAgentError` → `GraphWikiAgentError`), string literals, log/print messages | Phase 12 plan 03 Task 2 (rebrand `agents/code-wiki-agent/src/code_wiki_agent/`) | **exact** |
 | `plugin-shellout-script` | subprocess invocation | `plugins/graph-wiki/skills/graph-wiki/scripts/{scan_monorepo,init_vault,ingest_source,lint_wiki,wiki_search}.py` (5 files; literal `["code-wiki-agent", "<cmd>"]`) | Phase 12 plan 03 Task 2 (covered `plugins/` placeholder); actual plugin shellouts were authored in Phase 14 | **role-match** — text-sweep mechanic identical; surface didn't exist in Phase 12 |
 | `trace-dir-reference` | path-string | `.code-wiki/traces/` → `.graph-wiki/traces/` references in `agents/code-wiki-agent/src/`, `agents/code-wiki-agent/tests/`, `packages/eval-harness/`, `packages/subagent-runtime/`, `packages/prompt-sources/`, `docs/trace-schema.md`, `.planning/PROJECT.md` | Phase 12 plan 03 Task 1 (path-fragment sweep across packages/) | **exact** |
@@ -136,7 +136,7 @@ Five files, identical shape, one literal each:
 | `plugins/graph-wiki/skills/graph-wiki/scripts/lint_wiki.py` | `["code-wiki-agent", "lint"]` → `["graph-wiki-agent", "lint"]` |
 | `plugins/graph-wiki/skills/graph-wiki/scripts/wiki_search.py` | `["code-wiki-agent", "query"]` → `["graph-wiki-agent", "query"]` |
 
-Each file's module docstring (`"""Plugin shim for X — dispatches to vault_io (claude) or code-wiki-agent (bedrock)."""`) also gets the `code-wiki-agent` → `graph-wiki-agent` substitution.
+Each file's module docstring (`"""Plugin shim for X — dispatches to wiki_io (claude) or code-wiki-agent (bedrock)."""`) also gets the `code-wiki-agent` → `graph-wiki-agent` substitution.
 
 Gate per SQ-03 idiom. Commit subject: `refactor: update plugin shellouts to graph-wiki-agent`.
 
@@ -165,7 +165,7 @@ packages/prompt-sources/agents/code_reader.md
 packages/subagent-runtime/src/subagent_runtime/pool.py
 docs/trace-schema.md
 .planning/PROJECT.md
-graph-wiki/wiki/packages/vault-io/vault-io.md   # OUT OF SCOPE per D-06
+graph-wiki/wiki/packages/wiki-io/wiki-io.md   # OUT OF SCOPE per D-06
 ```
 
 All `.code-wiki/` → `.graph-wiki/` (kebab-case path fragment). The `graph-wiki/wiki/` entry is explicitly out of scope per D-06 — planner must add an exception in the sweep script or filter `--exclude-dir=graph-wiki/wiki`.
@@ -283,7 +283,7 @@ Commit subject suggestion: `chore: extend brand grep-gate for code-wiki-agent �
 
 ### Class: `top-level-integration-gate-test`
 
-**Analog:** Phase 12 plan 03 Task 1 disambiguation rule (`packages/vault-io/tests/`).
+**Analog:** Phase 12 plan 03 Task 1 disambiguation rule (`packages/wiki-io/tests/`).
 
 **Pattern to apply (folded into layer 3 or 4 by planner discretion):**
 

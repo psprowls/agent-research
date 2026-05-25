@@ -22,7 +22,7 @@ uv run graph-wiki-agent --help
 
 ```
 packages/
-  vault-io/         # vault read/write primitives (frontmatter, layout, tokens)
+  wiki-io/         # vault read/write primitives (frontmatter, layout, tokens)
   model-adapter/    # AWS Bedrock model loader + role registry
 agents/
   graph-wiki-agent/  # MCP server + Typer CLI (the user-facing surface)
@@ -32,7 +32,7 @@ Each workspace member has its own `pyproject.toml` with per-member `testpaths`.
 Run scoped tests with:
 
 ```bash
-uv run --package vault-io pytest
+uv run --package wiki-io pytest
 uv run --package model-adapter pytest
 uv run --package graph-wiki-agent pytest -m "not integration"
 ```

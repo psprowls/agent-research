@@ -108,7 +108,7 @@ Acceptance grep results:
 - `test_null_applied_version_no_signal` present in `test_warn_if_stale.py` (1 match); `v1_coerced` absent (0 matches).
 - `test_creates_work_schema` absent in `test_init.py` (0 matches).
 
-Note: `uv run --package workspace-io pytest` from the repo root collects tests from sibling packages (vault-io, eval-harness, graph-wiki-agent) whose dependencies aren't synced in this worktree, producing collection errors. Running pytest from inside `packages/workspace-io/` uses the local `pyproject.toml`'s `testpaths = ["tests"]` and isolates collection to the workspace-io suite — this is the canonical way to run the package's tests and matches the plan's acceptance test (`uv run --package workspace-io pytest -x` exit 0).
+Note: `uv run --package workspace-io pytest` from the repo root collects tests from sibling packages (wiki-io, eval-harness, graph-wiki-agent) whose dependencies aren't synced in this worktree, producing collection errors. Running pytest from inside `packages/workspace-io/` uses the local `pyproject.toml`'s `testpaths = ["tests"]` and isolates collection to the workspace-io suite — this is the canonical way to run the package's tests and matches the plan's acceptance test (`uv run --package workspace-io pytest -x` exit 0).
 
 ## Commits
 
@@ -144,7 +144,7 @@ None introduced. All tests run in pytest-managed `tmp_path` directories; no new 
 
 ## Next Plan
 
-Plan 04 rewrites `vault-io._workspace.resolve_wiki_and_repo` as a thin delegation to `workspace_io.config.resolve()` (D-02), updates the vault-io tests that referenced `GRAPH_WIKI_REAL_VAULT_PATH` to `GRAPH_WIKI_WORKSPACE` (D-01), and verifies the delegation does not break any vault-io consumers.
+Plan 04 rewrites `wiki-io._workspace.resolve_wiki_and_repo` as a thin delegation to `workspace_io.config.resolve()` (D-02), updates the wiki-io tests that referenced `GRAPH_WIKI_REAL_VAULT_PATH` to `GRAPH_WIKI_WORKSPACE` (D-01), and verifies the delegation does not break any wiki-io consumers.
 
 ## Self-Check: PASSED
 

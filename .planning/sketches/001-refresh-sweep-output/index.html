@@ -62,7 +62,7 @@
 <span class="t-info">→</span> <span class="t-bold">scan</span> <span class="t-dim">vault for under-filled pages and last_sync drift</span>
   <span class="t-ok">✓</span> <span class="t-path">packages/subagent-runtime</span>     <span class="t-dim">up-to-date</span>
   <span class="t-ok">✓</span> <span class="t-path">packages/model-adapter</span>        <span class="t-dim">up-to-date</span>
-  <span class="t-warn">!</span> <span class="t-path">packages/vault-io</span>             <span class="t-warn">drift</span> <span class="t-dim">(82 commits since last sync)</span>
+  <span class="t-warn">!</span> <span class="t-path">packages/wiki-io</span>             <span class="t-warn">drift</span> <span class="t-dim">(82 commits since last sync)</span>
   <span class="t-warn">!</span> <span class="t-path">packages/workspace-io</span>         <span class="t-warn">drift</span> <span class="t-dim">(14 commits since last sync)</span>
   <span class="t-warn">!</span> <span class="t-path">agents/code-wiki-agent</span>        <span class="t-warn">stubs</span> <span class="t-dim">(api/patterns/context have TODOs)</span>
   <span class="t-faint">…7 more up-to-date packages elided</span>
@@ -74,17 +74,17 @@
   <span class="t-ok">✓</span> <span class="t-path">agents/code-wiki-agent/context.md</span>  <span class="t-dim">cross-linked 2 sources, 1 ADR</span>
 
 <span class="t-info">→</span> <span class="t-bold">diff</span> <span class="t-dim">stale packages, write to raw/diffs/</span>
-  <span class="t-ok">✓</span> <span class="t-path">raw/diffs/vault-io-30058ee..HEAD.md</span>     <span class="t-dim">82 commits · 47 files · ~1.8k LOC</span>
+  <span class="t-ok">✓</span> <span class="t-path">raw/diffs/wiki-io-30058ee..HEAD.md</span>     <span class="t-dim">82 commits · 47 files · ~1.8k LOC</span>
   <span class="t-ok">✓</span> <span class="t-path">raw/diffs/workspace-io-d76bf2a..HEAD.md</span>  <span class="t-dim">14 commits · 9 files · ~310 LOC</span>
 
 <span class="t-info">→</span> <span class="t-bold">ingest</span> <span class="t-dim">dispatch /graph-wiki:ingest on each diff</span>
-  <span class="t-ok">✓</span> <span class="t-path">raw/diffs/vault-io-30058ee..HEAD.md</span>     <span class="t-dim">→ touched 6 pages</span>
-       <span class="t-faint">packages/vault-io/{api,patterns,context}, concepts/layout-detection, adrs/0007-package-family, index</span>
+  <span class="t-ok">✓</span> <span class="t-path">raw/diffs/wiki-io-30058ee..HEAD.md</span>     <span class="t-dim">→ touched 6 pages</span>
+       <span class="t-faint">packages/wiki-io/{api,patterns,context}, concepts/layout-detection, adrs/0007-package-family, index</span>
   <span class="t-ok">✓</span> <span class="t-path">raw/diffs/workspace-io-d76bf2a..HEAD.md</span>  <span class="t-dim">→ touched 3 pages</span>
        <span class="t-faint">packages/workspace-io/{api,context}, index</span>
 
 <span class="t-info">→</span> <span class="t-bold">sync-state</span> <span class="t-dim">bump last_sync_commit on refreshed pages</span>
-  <span class="t-ok">✓</span> <span class="t-path">packages/vault-io/overview.md</span>     <span class="t-dim">last_sync_commit: 30058ee → 4656429</span>
+  <span class="t-ok">✓</span> <span class="t-path">packages/wiki-io/overview.md</span>     <span class="t-dim">last_sync_commit: 30058ee → 4656429</span>
   <span class="t-ok">✓</span> <span class="t-path">packages/workspace-io/overview.md</span>  <span class="t-dim">last_sync_commit: d76bf2a → 4656429</span>
   <span class="t-dim">  (gated on clean tree + HEAD on main)</span>
 
@@ -118,7 +118,7 @@
 
 <span class="t-hdr">graph-wiki ► refresh</span>  <span class="t-dim">workspace ~/Personal/graph-wiki/agent-research · sweep</span>
 
-<span class="t-info">[scan]</span>     12 packages — <span class="t-warn">3 need work</span> <span class="t-dim">(vault-io, workspace-io, code-wiki-agent)</span>
+<span class="t-info">[scan]</span>     12 packages — <span class="t-warn">3 need work</span> <span class="t-dim">(wiki-io, workspace-io, code-wiki-agent)</span>
 <span class="t-info">[fill]</span>     <span class="t-ok">4 pages</span> filled <span class="t-dim">(code-wiki-agent: api, overview, patterns, context)</span>
 <span class="t-info">[diff]</span>     <span class="t-ok">2 docs</span> written to raw/diffs/
 <span class="t-info">[ingest]</span>   <span class="t-ok">9 pages</span> touched across 2 ingest runs
@@ -160,7 +160,7 @@
 <span class="t-hdr">  ◆ refresh · sweep · packages 5/12</span>                   <span class="t-dim">elapsed 0:32</span>
 <span class="t-rule">──────────────────────────────────────────────────────────────────</span>
   <span class="t-info">stage</span>   <span class="t-bold">diff</span>   <span class="t-faint">(1/2)</span>             <span class="bar"><span class="t-ok">[</span><span class="fill">████████░░░░░░░░░░░░</span><span class="t-ok">]</span></span> <span class="t-warn"> 40%</span>
-  <span class="t-info">now</span>     <span class="spin"></span> <span class="t-path">vault-io</span> <span class="t-dim">— building raw/diffs/vault-io-30058ee..HEAD.md</span>
+  <span class="t-info">now</span>     <span class="spin"></span> <span class="t-path">wiki-io</span> <span class="t-dim">— building raw/diffs/wiki-io-30058ee..HEAD.md</span>
   <span class="t-info">touched</span> <span class="t-ok">4</span>    <span class="t-info">queued</span> <span class="t-faint">2</span>   <span class="t-info">cost</span> <span class="t-dim">$0.04</span>   <span class="t-info">eta</span> <span class="t-dim">~2:10</span>
 <span class="t-rule">──────────────────────────────────────────────────────────────────</span>
 </div>
@@ -199,8 +199,8 @@
     <span class="t-warn">~</span> patterns.md   <span class="t-warn">drafted 3 patterns — review recommended</span>
 
 <span class="t-hdr">Diffed + ingested</span>
-  <span class="t-path">packages/vault-io</span>            <span class="t-dim">30058ee..4656429 · 82 commits · 47 files</span>
-    <span class="t-faint">diff:</span> <span class="t-path">raw/diffs/vault-io-30058ee..HEAD.md</span>
+  <span class="t-path">packages/wiki-io</span>            <span class="t-dim">30058ee..4656429 · 82 commits · 47 files</span>
+    <span class="t-faint">diff:</span> <span class="t-path">raw/diffs/wiki-io-30058ee..HEAD.md</span>
     <span class="t-faint">ingest touched:</span> api, patterns, context, [[concepts/layout-detection]], [[adrs/0007-package-family]], index
   <span class="t-path">packages/workspace-io</span>        <span class="t-dim">d76bf2a..4656429 · 14 commits · 9 files</span>
     <span class="t-faint">diff:</span> <span class="t-path">raw/diffs/workspace-io-d76bf2a..HEAD.md</span>

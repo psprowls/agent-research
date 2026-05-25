@@ -20,8 +20,8 @@ The BM25 fallback fires only when the LLM-driven primary path is insufficient (v
 uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" $ARGUMENTS
 ```
 
-- **Target module (claude backend, fallback only):** `vault_io.wiki_search.main`
-  - **NOTE (VP-01 prerequisite):** `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `vault_io` as Phase 14 Plan 2 before this shim's fallback path works. The module does not exist in `vault_io` today.
+- **Target module (claude backend, fallback only):** `wiki_io.wiki_search.main`
+  - **NOTE (VP-01 prerequisite):** `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `wiki_io` as Phase 14 Plan 2 before this shim's fallback path works. The module does not exist in `wiki_io` today.
 - **Target subprocess (bedrock backend):** `code-wiki-agent query <args>` — note the bedrock branch covers the entire query flow (LLM synthesis included), not just the fallback, since `code-wiki-agent query` already contains both search and synthesis internally.
 
 **Args pass-through:**
@@ -34,7 +34,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/gr
 
 **VP-01 callout:**
 
-> **Prerequisite** — `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `vault_io` as Phase 14 Plan 2 before this shim's BM25 fallback path works. Until that port lands, the fallback branch will fail with an `ImportError` on `vault_io.wiki_search`. The primary LLM-driven path is unaffected.
+> **Prerequisite** — `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `wiki_io` as Phase 14 Plan 2 before this shim's BM25 fallback path works. Until that port lands, the fallback branch will fail with an `ImportError` on `wiki_io.wiki_search`. The primary LLM-driven path is unaffected.
 
 ## Prose-preservation map
 
@@ -56,7 +56,7 @@ Walk of every H2 section in upstream `commands/query.md`:
 | Librarian agent | `agents/librarian.md` | `agents/librarian.md` | Name stays; internal namespace prose rebranded (lattice-wiki → graph-wiki; `/lattice-wiki:query` → `/graph-wiki:query`); shim invocation in step 4 updated to graph-wiki path |
 | Skill index | `skills/lattice-wiki/SKILL.md` | `skills/graph-wiki/SKILL.md` | Rename + namespace rebrand (boilerplate inherited; not query-specific) |
 | Query reference doc | `skills/lattice-wiki/references/query-workflow.md` | `skills/graph-wiki/references/query-workflow.md` | Rename + namespace rebrand |
-| BM25 shim script | `skills/lattice-wiki/scripts/wiki_search.py` | `skills/graph-wiki/scripts/wiki_search.py` | Retarget import from `lattice_wiki_core.wiki_search` → `vault_io.wiki_search`; bedrock branch shells to `code-wiki-agent query` instead of `lattice_wiki_agent.agents.query.QueryAgent` |
+| BM25 shim script | `skills/lattice-wiki/scripts/wiki_search.py` | `skills/graph-wiki/scripts/wiki_search.py` | Retarget import from `lattice_wiki_core.wiki_search` → `wiki_io.wiki_search`; bedrock branch shells to `code-wiki-agent query` instead of `lattice_wiki_agent.agents.query.QueryAgent` |
 
 ## Reshape notes
 
@@ -80,7 +80,7 @@ Trigger a no-LLM path by testing `wiki_search.py` directly:
 uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" --query "workspace-io" --limit 5
 ```
 
-Confirm: BM25 results surface relevant wiki pages. Match upstream output modulo brand strings (`graph-wiki` where upstream had `lattice-wiki`; `vault_io` where upstream had `lattice_wiki_core`).
+Confirm: BM25 results surface relevant wiki pages. Match upstream output modulo brand strings (`graph-wiki` where upstream had `lattice-wiki`; `wiki_io` where upstream had `lattice_wiki_core`).
 
 **Namespace smoke:**
 

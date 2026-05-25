@@ -13,7 +13,7 @@ updated: 2026-05-19
 ## Packages
 
 - [[wiki/packages/workspace-io/workspace-io]] — workspace path resolution and config loading
-- [[wiki/packages/vault-io/vault-io]] — vault read/write, frontmatter, indexing, BM25 search
+- [[wiki/packages/wiki-io/wiki-io]] — vault read/write, frontmatter, indexing, BM25 search
 - [[wiki/packages/prompt-sources/prompt-sources]] — canonical agent role definitions
 - [[wiki/packages/subagent-runtime/subagent-runtime]] — async fan-out pool with per-call trace JSONL
 - [[wiki/packages/model-adapter/model-adapter]] — ChatBedrockConverse role-config loader

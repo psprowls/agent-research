@@ -10,15 +10,15 @@ port_verdict: rename
 
 - **Invocation:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py" $ARGUMENTS`
   (see SHELL-OUT-PATTERN.md §SO-01 for the full rationale on `$AGENT_RESEARCH_ROOT` + `uv run --project`)
-- **Target module (claude backend):** `vault_io.init_vault.main`
+- **Target module (claude backend):** `wiki_io.init_vault.main`
 - **Target subprocess (bedrock backend):** `code-wiki-agent init <args>`
-- **Args pass-through** (all flags map 1:1 to `vault_io.init_vault.main`):
+- **Args pass-through** (all flags map 1:1 to `wiki_io.init_vault.main`):
   - `--topic "<topic>"` — required; short description of the repo (e.g. `"platform monorepo"`)
   - `--tool <claude-code|codex|cursor|antigravity|opencode|gemini-cli|all>` — which schema file(s) to install; default `all`
   - `--force` — overwrite non-empty target wiki directory
   - `--json` — emit result as JSON (used by the pre-step and by automated callers)
   - `--non-interactive` — skip ambiguous-container prompts; mark them `skip` automatically
-- **Pre-step:** `vault_io.detect_containers.main --json` runs first (inside the claude session, not via shim) to enumerate top-level repo containers. The plugin displays the detected table and prompts the user for any `ambiguous` rows before passing confirmed classifications to `init_vault.py` via `--non-interactive`. This mirrors the upstream container-detection flow verbatim; the pre-step does not go through the shim.
+- **Pre-step:** `wiki_io.detect_containers.main --json` runs first (inside the claude session, not via shim) to enumerate top-level repo containers. The plugin displays the detected table and prompts the user for any `ambiguous` rows before passing confirmed classifications to `init_vault.py` via `--non-interactive`. This mirrors the upstream container-detection flow verbatim; the pre-step does not go through the shim.
 
 ## Prose-preservation map
 
@@ -39,8 +39,8 @@ Walk of every H2/H3 section in upstream `plugins/lattice-wiki/commands/init.md` 
 
 - **Agent files used by `/init`:** None — `/graph-wiki:bootstrap` is not dispatched through a named sub-agent. The plugin command runs inline (container detection + init_vault invocation) without a separate agent document.
 - **Skill:** `skills/lattice-wiki/SKILL.md` → `skills/graph-wiki/SKILL.md` — full file rename + namespace rebrand of all `/lattice-wiki:*` prose inside the file.
-- **Script:** `skills/lattice-wiki/scripts/init_vault.py` → `skills/graph-wiki/scripts/init_vault.py` — shim retargeted per SO-02; the shim body imports `vault_io.init_vault` instead of `lattice_wiki_core.init_vault`.
-- **Detect-containers script:** `skills/lattice-wiki/scripts/detect_containers.py` → `skills/graph-wiki/scripts/detect_containers.py` — same SO-02 shim pattern; imports `vault_io.detect_containers`. (The upstream plugin invokes this as a subprocess from inside the slash command prose; graph-wiki preserves this pattern.)
+- **Script:** `skills/lattice-wiki/scripts/init_vault.py` → `skills/graph-wiki/scripts/init_vault.py` — shim retargeted per SO-02; the shim body imports `wiki_io.init_vault` instead of `lattice_wiki_core.init_vault`.
+- **Detect-containers script:** `skills/lattice-wiki/scripts/detect_containers.py` → `skills/graph-wiki/scripts/detect_containers.py` — same SO-02 shim pattern; imports `wiki_io.detect_containers`. (The upstream plugin invokes this as a subprocess from inside the slash command prose; graph-wiki preserves this pattern.)
 
 ## Reshape notes
 

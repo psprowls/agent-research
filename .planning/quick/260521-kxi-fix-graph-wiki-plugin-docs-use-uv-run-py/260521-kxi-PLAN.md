@@ -22,8 +22,8 @@ requirements:
 
 must_haves:
   truths:
-    - "Every bundled-script invocation in graph-wiki plugin docs runs via the uv workspace, so vault_io resolves on a fresh install"
-    - "The SKILL.md tool-table preamble correctly describes the shim model (imports the in-workspace vault_io package) instead of falsely claiming standard-library-only"
+    - "Every bundled-script invocation in graph-wiki plugin docs runs via the uv workspace, so wiki_io resolves on a fresh install"
+    - "The SKILL.md tool-table preamble correctly describes the shim model (imports the in-workspace wiki_io package) instead of falsely claiming standard-library-only"
     - "Shim scripts under plugins/graph-wiki/skills/graph-wiki/scripts/ are untouched"
   artifacts:
     - path: "plugins/graph-wiki/skills/graph-wiki/SKILL.md"
@@ -43,7 +43,7 @@ must_haves:
 ---
 
 <objective>
-Fix every documented bundled-script invocation across the `graph-wiki` plugin so it runs through the `uv` workspace, matching the actual shim model the plugin's own CLAUDE.md (line 23) already mandates: `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py …`. Bare `python` fails immediately with `ModuleNotFoundError: No module named 'vault_io'` because the shims import the workspace-only `vault_io` package.
+Fix every documented bundled-script invocation across the `graph-wiki` plugin so it runs through the `uv` workspace, matching the actual shim model the plugin's own CLAUDE.md (line 23) already mandates: `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py …`. Bare `python` fails immediately with `ModuleNotFoundError: No module named 'wiki_io'` because the shims import the workspace-only `wiki_io` package.
 
 Purpose: A user following any plugin doc verbatim should get a working invocation. Today every documented call breaks.
 
@@ -62,7 +62,7 @@ Output: 11 documentation files updated; one stale prose sentence in SKILL.md cor
 
 <!-- Why uv run --project "$AGENT_RESEARCH_ROOT" (not bare `uv run python`): -->
 <!-- plugins/graph-wiki/CLAUDE.md line 23 (the plugin's own iron rule): -->
-<!--   "shims reference vault_io via the uv workspace -->
+<!--   "shims reference wiki_io via the uv workspace -->
 <!--    (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need -->
 <!--    AGENT_RESEARCH_ROOT set and `uv` installed". -->
 <!-- The --project flag is required because users running the slash command -->
@@ -74,12 +74,12 @@ Output: 11 documentation files updated; one stale prose sentence in SKILL.md cor
 <!-- Shim shape (do NOT edit — confirmed via `Read` of detect_containers.py): -->
 <!-- Every file in plugins/graph-wiki/skills/graph-wiki/scripts/*.py is: -->
 <!--   #!/usr/bin/env python3 -->
-<!--   """Plugin shim for <tool> — delegates to vault_io.<tool>.""" -->
+<!--   """Plugin shim for <tool> — delegates to wiki_io.<tool>.""" -->
 <!--   import sys -->
-<!--   from vault_io.<tool> import main -->
+<!--   from wiki_io.<tool> import main -->
 <!--   if __name__ == "__main__": -->
 <!--       main() -->
-<!-- Because vault_io is a workspace member at packages/vault-io/, it is only -->
+<!-- Because wiki_io is a workspace member at packages/wiki-io/, it is only -->
 <!-- importable inside the uv-managed venv. -->
 </interfaces>
 
@@ -151,7 +151,7 @@ Output: 11 documentation files updated; one stale prose sentence in SKILL.md cor
     - `plugins/graph-wiki/commands/bootstrap.md` line 83 references a script *path* in a bullet, NOT an invocation. Leave it untouched. (Only line 35 in that file is an invocation.)
 
     Do NOT touch:
-      - Any `.py` file under `plugins/graph-wiki/skills/graph-wiki/scripts/` (per plugin CLAUDE.md: real implementation lives in `packages/vault-io/`; shims are the contract).
+      - Any `.py` file under `plugins/graph-wiki/skills/graph-wiki/scripts/` (per plugin CLAUDE.md: real implementation lives in `packages/wiki-io/`; shims are the contract).
       - Surrounding sentences, headings, list bullets, or code-fence languages.
       - The `_config.py` backend-selection logic.
       - Any file outside the 11 enumerated above.
@@ -174,24 +174,24 @@ test "$(grep -rn 'python \${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/' plug
   <action>
     On line ~123 (under the `## Python tools (`scripts/`)` heading), the current text reads:
 
-      Standard library only (via vault_io). Run with `python scripts/<tool>.py --help`.
+      Standard library only (via wiki_io). Run with `python scripts/<tool>.py --help`.
 
-    This is doubly wrong: (1) the shims aren't standard-library-only — they import the in-workspace `vault_io` package, which itself can have non-stdlib deps; (2) bare `python scripts/<tool>.py` fails for the same reason this whole plan exists.
+    This is doubly wrong: (1) the shims aren't standard-library-only — they import the in-workspace `wiki_io` package, which itself can have non-stdlib deps; (2) bare `python scripts/<tool>.py` fails for the same reason this whole plan exists.
 
     Replace that single sentence with prose that accurately describes the shim model and the correct invocation, matching the file's existing terse style. Use this replacement verbatim:
 
-      Each script is a thin shim that imports `main()` from the in-workspace `vault_io` package, so invocations must go through the uv workspace. Run with `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py --help`.
+      Each script is a thin shim that imports `main()` from the in-workspace `wiki_io` package, so invocations must go through the uv workspace. Run with `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py --help`.
 
     Do not touch the table of scripts that follows, or any other line in SKILL.md beyond what Task 1 already handled.
   </action>
   <verify>
     <automated>
-grep -q 'Each script is a thin shim that imports `main()` from the in-workspace `vault_io` package' plugins/graph-wiki/skills/graph-wiki/SKILL.md \
-  && ! grep -q 'Standard library only (via vault_io)' plugins/graph-wiki/skills/graph-wiki/SKILL.md
+grep -q 'Each script is a thin shim that imports `main()` from the in-workspace `wiki_io` package' plugins/graph-wiki/skills/graph-wiki/SKILL.md \
+  && ! grep -q 'Standard library only (via wiki_io)' plugins/graph-wiki/skills/graph-wiki/SKILL.md
     </automated>
   </verify>
   <done>
-    The "Standard library only (via vault_io). Run with `python scripts/<tool>.py --help`." sentence is gone. The replacement sentence accurately describes the shim model and shows the `uv run --project "$AGENT_RESEARCH_ROOT" python …` invocation. The script table directly below is unchanged.
+    The "Standard library only (via wiki_io). Run with `python scripts/<tool>.py --help`." sentence is gone. The replacement sentence accurately describes the shim model and shows the `uv run --project "$AGENT_RESEARCH_ROOT" python …` invocation. The script table directly below is unchanged.
   </done>
 </task>
 
@@ -219,12 +219,12 @@ grep -q 'Each script is a thin shim that imports `main()` from the in-workspace 
             CLAUDE_PLUGIN_ROOT=/Users/pat/Personal/agent-research/plugins/graph-wiki \
             bash -c 'uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --help'
 
-   Expected output: argparse `--help` text from `vault_io.detect_containers`. No `ModuleNotFoundError`.
+   Expected output: argparse `--help` text from `wiki_io.detect_containers`. No `ModuleNotFoundError`.
 </verification>
 
 <success_criteria>
 - `grep -rn 'python \${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/' plugins/graph-wiki/` returns only lines prefixed with `uv run --project "$AGENT_RESEARCH_ROOT"`, plus the single path-reference bullet at `commands/bootstrap.md:83`.
-- The stale "Standard library only (via vault_io). Run with `python scripts/<tool>.py --help`." sentence in `SKILL.md` is replaced with the shim-aware version that documents `uv run --project "$AGENT_RESEARCH_ROOT" python …`.
+- The stale "Standard library only (via wiki_io). Run with `python scripts/<tool>.py --help`." sentence in `SKILL.md` is replaced with the shim-aware version that documents `uv run --project "$AGENT_RESEARCH_ROOT" python …`.
 - `git diff --stat plugins/graph-wiki/skills/graph-wiki/scripts/` is empty.
 - One representative `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --help` invocation, run from `/tmp`, prints help text (no `ModuleNotFoundError`).
 </success_criteria>

@@ -6,19 +6,19 @@
 
 ## File Classification
 
-### Plan 1 — `vault_io.lint_wiki` port
+### Plan 1 — `wiki_io.lint_wiki` port
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
-| `packages/vault-io/src/vault_io/lint_wiki.py` | port (module) | batch / CLI | `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` (upstream, verbatim source) **and** in-tree shape `packages/vault-io/src/vault_io/scan_monorepo.py` | exact (upstream) + role-match (in-tree shape) |
-| `packages/vault-io/tests/test_lint_wiki.py` (new) | test | request-response | `packages/vault-io/tests/test_lint_modules.py` (already tests `vault_io.lint.*` siblings) | role-match |
+| `packages/wiki-io/src/wiki_io/lint_wiki.py` | port (module) | batch / CLI | `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` (upstream, verbatim source) **and** in-tree shape `packages/wiki-io/src/wiki_io/scan_monorepo.py` | exact (upstream) + role-match (in-tree shape) |
+| `packages/wiki-io/tests/test_lint_wiki.py` (new) | test | request-response | `packages/wiki-io/tests/test_lint_modules.py` (already tests `wiki_io.lint.*` siblings) | role-match |
 
-### Plan 2 — `vault_io.wiki_search` port
+### Plan 2 — `wiki_io.wiki_search` port
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
-| `packages/vault-io/src/vault_io/wiki_search.py` | port (module) | batch / CLI | `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/wiki_search.py` (verbatim source) **and** in-tree shape `packages/vault-io/src/vault_io/graph_analyzer.py` | exact (upstream) + role-match (in-tree shape) |
-| `packages/vault-io/tests/test_wiki_search.py` (new) | test | request-response | `packages/vault-io/tests/test_ports_importable.py` (smoke-import pattern) + `packages/vault-io/tests/test_lint_modules.py` (fixture-vault test pattern) | role-match |
+| `packages/wiki-io/src/wiki_io/wiki_search.py` | port (module) | batch / CLI | `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/wiki_search.py` (verbatim source) **and** in-tree shape `packages/wiki-io/src/wiki_io/graph_analyzer.py` | exact (upstream) + role-match (in-tree shape) |
+| `packages/wiki-io/tests/test_wiki_search.py` (new) | test | request-response | `packages/wiki-io/tests/test_ports_importable.py` (smoke-import pattern) + `packages/wiki-io/tests/test_lint_modules.py` (fixture-vault test pattern) | role-match |
 
 ### Plan 3 — Bundled plugin port
 
@@ -52,7 +52,7 @@
 | New File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
 | `plugins/graph-wiki/skills/graph-wiki/scripts/_config.py` | config (backend selector) | request-response | upstream `skills/lattice-wiki/scripts/_config.py` (shape) + `packages/workspace-io/src/workspace_io/manifest.py` (read API) | exact (upstream) + role-match (manifest reader) |
-| `plugins/graph-wiki/skills/graph-wiki/scripts/init_vault.py` | shim | request-response | upstream `skills/lattice-wiki/scripts/init_vault.py` (canonical template per SO-02) + in-tree analog `packages/vault-io/src/vault_io/_workspace.py` (thin-delegation idiom) | exact |
+| `plugins/graph-wiki/skills/graph-wiki/scripts/init_vault.py` | shim | request-response | upstream `skills/lattice-wiki/scripts/init_vault.py` (canonical template per SO-02) + in-tree analog `packages/wiki-io/src/wiki_io/_workspace.py` (thin-delegation idiom) | exact |
 | `plugins/graph-wiki/skills/graph-wiki/scripts/scan_monorepo.py` | shim | request-response | same as above (SO-02 retarget) | exact |
 | `plugins/graph-wiki/skills/graph-wiki/scripts/ingest_source.py` | shim | request-response | same (SO-02 retarget) | exact |
 | `plugins/graph-wiki/skills/graph-wiki/scripts/lint_wiki.py` | shim | request-response | same (SO-02 retarget) | exact |
@@ -71,10 +71,10 @@
 
 ## Pattern Assignments
 
-### `packages/vault-io/src/vault_io/lint_wiki.py` (port, batch / CLI)
+### `packages/wiki-io/src/wiki_io/lint_wiki.py` (port, batch / CLI)
 
 **Primary analog (verbatim port source):** `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py`
-**In-tree shape analog:** `packages/vault-io/src/vault_io/scan_monorepo.py` and the existing `packages/vault-io/src/vault_io/lint/*` modules
+**In-tree shape analog:** `packages/wiki-io/src/wiki_io/scan_monorepo.py` and the existing `packages/wiki-io/src/wiki_io/lint/*` modules
 
 **Module-docstring + import-block pattern** (mirror in-tree shape, lines 1–40 of `scan_monorepo.py`):
 
@@ -113,25 +113,25 @@ from pathlib import Path
 
 ```python
 # Upstream                                          # Ported
-from lattice_wiki_core.scan_monorepo import ...  →  from vault_io.scan_monorepo import ...
-from lattice_wiki_core._workspace import ...     →  from vault_io._workspace import ...
-from lattice_wiki_core.lint.container import ... →  from vault_io.lint.container import ...
-# Drop the upstream _version_check import — not present in vault_io and not in scope.
+from lattice_wiki_core.scan_monorepo import ...  →  from wiki_io.scan_monorepo import ...
+from lattice_wiki_core._workspace import ...     →  from wiki_io._workspace import ...
+from lattice_wiki_core.lint.container import ... →  from wiki_io.lint.container import ...
+# Drop the upstream _version_check import — not present in wiki_io and not in scope.
 from lattice_wiki_core._version_check import check_for_updates  →  (deleted)
 ```
 
-**No provenance comments needed.** Phase 11/12 did **not** establish `# Source: / # Anchor: / # Source-commit:` headers in tree (confirmed: zero such headers exist in `packages/vault-io/`). Match the existing in-tree pattern — clean module docstring, plain imports — not a documented header convention.
+**No provenance comments needed.** Phase 11/12 did **not** establish `# Source: / # Anchor: / # Source-commit:` headers in tree (confirmed: zero such headers exist in `packages/wiki-io/`). Match the existing in-tree pattern — clean module docstring, plain imports — not a documented header convention.
 
-**Existing in-tree env-var convention (mirror this in any new error strings):** `packages/vault-io/src/vault_io/_workspace.py` lines 7–11 use `GRAPH_WIKI_WORKSPACE` and reference `graph-wiki-agent init <path>` as the fix command. Any new error messages in `lint_wiki.py` follow that exact phrasing.
+**Existing in-tree env-var convention (mirror this in any new error strings):** `packages/wiki-io/src/wiki_io/_workspace.py` lines 7–11 use `GRAPH_WIKI_WORKSPACE` and reference `graph-wiki-agent init <path>` as the fix command. Any new error messages in `lint_wiki.py` follow that exact phrasing.
 
 **Behavior preservation rubric (Phase 12 SR-01, restated for VP-01):** Bug fixes, helper extractions, behavior-preserving refactors come over verbatim. `main()` entry point shape, CLI argparse surface, and `scan(...)` return shape match upstream byte-for-byte modulo brand strings.
 
 ---
 
-### `packages/vault-io/src/vault_io/wiki_search.py` (port, batch / CLI)
+### `packages/wiki-io/src/wiki_io/wiki_search.py` (port, batch / CLI)
 
 **Primary analog (verbatim port source):** `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/wiki_search.py`
-**In-tree shape analog:** `packages/vault-io/src/vault_io/graph_analyzer.py` (only-stdlib + argparse + JSON-output module)
+**In-tree shape analog:** `packages/wiki-io/src/wiki_io/graph_analyzer.py` (only-stdlib + argparse + JSON-output module)
 
 **Module-docstring pattern (from upstream, lines 1–10) — apply brand rename:**
 
@@ -151,17 +151,17 @@ Usage:
 **Import rewrites (same rules as lint_wiki):**
 
 ```python
-from lattice_wiki_core._workspace import resolve_wiki_and_repo  →  from vault_io._workspace import resolve_wiki_and_repo
-from lattice_wiki_core._version_check import check_for_updates  →  (deleted — not in vault_io scope)
+from lattice_wiki_core._workspace import resolve_wiki_and_repo  →  from wiki_io._workspace import resolve_wiki_and_repo
+from lattice_wiki_core._version_check import check_for_updates  →  (deleted — not in wiki_io scope)
 ```
 
 **Same `main()` + CLI + brand-rename rubric as Plan 1.**
 
 ---
 
-### `packages/vault-io/tests/test_lint_wiki.py` and `tests/test_wiki_search.py` (test)
+### `packages/wiki-io/tests/test_lint_wiki.py` and `tests/test_wiki_search.py` (test)
 
-**Analog (importability + smoke pattern):** `packages/vault-io/tests/test_ports_importable.py` lines 1–40
+**Analog (importability + smoke pattern):** `packages/wiki-io/tests/test_ports_importable.py` lines 1–40
 
 ```python
 """VAULT-07 surface check: every ported module imports cleanly."""
@@ -172,12 +172,12 @@ from pathlib import Path
 
 
 def test_all_ports_importable():
-    from vault_io.lint_wiki import main, scan  # noqa: F401
+    from wiki_io.lint_wiki import main, scan  # noqa: F401
     # …
     assert callable(scan)
 ```
 
-**Analog (fixture-vault structural pattern):** `packages/vault-io/tests/test_lint_modules.py` lines 16–40 — use `FIXTURES = Path(__file__).parent / "fixtures"` and the existing `edge-case-vault` / `round-trip-vault` directories already present under `packages/vault-io/tests/fixtures/`.
+**Analog (fixture-vault structural pattern):** `packages/wiki-io/tests/test_lint_modules.py` lines 16–40 — use `FIXTURES = Path(__file__).parent / "fixtures"` and the existing `edge-case-vault` / `round-trip-vault` directories already present under `packages/wiki-io/tests/fixtures/`.
 
 **Scope per Phase 14 (VP-02 rubric, mirrors Phase 12 SR-01):** importability + structural smoke is enough; finding-count parity with upstream is **not** in scope (matches the `test_lint_modules.py` opener: "Finding-count parity with lattice-wiki-core is a plan-05-06 concern — this file only asserts structural correctness").
 
@@ -425,11 +425,11 @@ if __name__ == "__main__":
 
 ```python
 #!/usr/bin/env python3
-"""Plugin shim for <cmd> — dispatches to vault_io (claude) or graph-wiki-agent (bedrock)."""
+"""Plugin shim for <cmd> — dispatches to wiki_io (claude) or graph-wiki-agent (bedrock)."""
 import subprocess
 import sys
 
-from vault_io.<module> import main as _core_main
+from wiki_io.<module> import main as _core_main
 
 
 def main() -> None:
@@ -453,21 +453,21 @@ if __name__ == "__main__":
 **Three deltas from upstream (per SHELL-OUT-PATTERN.md §SO-02):**
 
 1. **Drop the `vendor/` sys.path injection** — not needed; `uv run --project "$AGENT_RESEARCH_ROOT"` already resolves the venv per SO-01.
-2. **Import source rename:** `from lattice_wiki_core.<module> import main` → `from vault_io.<module> import main`.
+2. **Import source rename:** `from lattice_wiki_core.<module> import main` → `from wiki_io.<module> import main`.
 3. **Bedrock branch:** the upstream ~20-line `InitAgent` / `asyncio.run` block becomes a single `subprocess.run(["graph-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)` — entire Bedrock path stays inside the headless CLI surface.
 
 **Per-shim retarget table:**
 
 | Shim file | `<module>` import | `"<cmd>"` selector | Bedrock subcommand |
 |---|---|---|---|
-| `init_vault.py` | `vault_io.init_vault` | `"init"` | `graph-wiki-agent init` |
-| `scan_monorepo.py` | `vault_io.scan_monorepo` | `"scan"` | `graph-wiki-agent scan` |
-| `ingest_source.py` | `vault_io.ingest_source` | `"ingest"` | `graph-wiki-agent ingest source` *(explicitly `ingest source`, NOT `ingest work-item` — per `ingest.md` spec)* |
-| `lint_wiki.py` | `vault_io.lint_wiki` | `"lint"` | `graph-wiki-agent lint` |
-| `wiki_search.py` | `vault_io.wiki_search` | `"query"` | `graph-wiki-agent query` |
-| `detect_containers.py` | `vault_io.detect_containers` | `"init"` | `graph-wiki-agent init` *(pre-step of init; spec keeps it under the init backend selector per `init.md`)* |
+| `init_vault.py` | `wiki_io.init_vault` | `"init"` | `graph-wiki-agent init` |
+| `scan_monorepo.py` | `wiki_io.scan_monorepo` | `"scan"` | `graph-wiki-agent scan` |
+| `ingest_source.py` | `wiki_io.ingest_source` | `"ingest"` | `graph-wiki-agent ingest source` *(explicitly `ingest source`, NOT `ingest work-item` — per `ingest.md` spec)* |
+| `lint_wiki.py` | `wiki_io.lint_wiki` | `"lint"` | `graph-wiki-agent lint` |
+| `wiki_search.py` | `wiki_io.wiki_search` | `"query"` | `graph-wiki-agent query` |
+| `detect_containers.py` | `wiki_io.detect_containers` | `"init"` | `graph-wiki-agent init` *(pre-step of init; spec keeps it under the init backend selector per `init.md`)* |
 
-**In-tree thin-delegation pattern (sanity check that the idiom works in this monorepo):** `packages/vault-io/src/vault_io/_workspace.py` — the 39-line module proves "thin shim that imports from a sibling package" is the established shape. Plugin shims are the same idea, just out-of-tree (`plugins/` instead of `packages/`).
+**In-tree thin-delegation pattern (sanity check that the idiom works in this monorepo):** `packages/wiki-io/src/wiki_io/_workspace.py` — the 39-line module proves "thin shim that imports from a sibling package" is the established shape. Plugin shims are the same idea, just out-of-tree (`plugins/` instead of `packages/`).
 
 ---
 
@@ -483,7 +483,7 @@ if __name__ == "__main__":
 | `${CLAUDE_PLUGIN_ROOT}/skills/lattice-wiki/scripts/<x>.py` | `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py` |
 | `lattice-wiki/SKILL.md` | `graph-wiki/SKILL.md` |
 | `lattice-wiki/references/<x>.md` | `graph-wiki/references/<x>.md` |
-| `lattice_wiki_core.<module>` | `vault_io.<module>` |
+| `lattice_wiki_core.<module>` | `wiki_io.<module>` |
 | `lattice-workspace` | `workspace_io` |
 | `LATTICE_WIKI_ROOT` env reference | `GRAPH_WIKI_ROOT` env reference |
 | `lattice-wiki` (plugin id in prose) | `graph-wiki` |
@@ -605,7 +605,7 @@ override (e.g., `ingest: bedrock`).
 ```
 lattice              →  graph-wiki      (in prose / IDs)
 LATTICE              →  GRAPH_WIKI      (in env var names)
-lattice_wiki_core    →  vault_io        (in Python imports)
+lattice_wiki_core    →  wiki_io        (in Python imports)
 lattice-workspace    →  workspace_io    (in prose / Python imports)
 lattice-wiki         →  graph-wiki      (in plugin id / namespace prose / slash commands)
 LATTICE_WIKI_ROOT    →  GRAPH_WIKI_ROOT (in env var keys)
@@ -628,7 +628,7 @@ grep -rEl 'lattice|LATTICE|lattice_workspace|lattice_wiki_core' \
 grep -r 'lattice_' plugins/graph-wiki/   # must return zero hits
 ```
 
-**Allowlist policy:** Phase 14 should NOT add entries to `.brand-grep-allow`. The two `vault-io` ports and the entire `plugins/graph-wiki/` tree are expected to clear the gate without exceptions (port-and-rebrand work; no provenance lock-in). If a hit is unavoidable for any reason, add the entry with an R-decision rationale comment matching the existing format (see `.brand-grep-allow` lines 1–35 for the comment style).
+**Allowlist policy:** Phase 14 should NOT add entries to `.brand-grep-allow`. The two `wiki-io` ports and the entire `plugins/graph-wiki/` tree are expected to clear the gate without exceptions (port-and-rebrand work; no provenance lock-in). If a hit is unavoidable for any reason, add the entry with an R-decision rationale comment matching the existing format (see `.brand-grep-allow` lines 1–35 for the comment style).
 
 ### Strict-raises manifest validation (Phase 11 §D-14, carried forward by Phase 14 §D-02)
 
@@ -637,8 +637,8 @@ grep -r 'lattice_' plugins/graph-wiki/   # must return zero hits
 
 ### Thin delegation shim (Phase 11)
 
-**Source:** `packages/vault-io/src/vault_io/_workspace.py` (full 39-line file).
-**Apply to:** the 6 plugin shim scripts in `plugins/graph-wiki/skills/graph-wiki/scripts/` — same "thin shim that imports from a sibling package" idiom, just out-of-tree. Mental model: the shim is the boundary, backend (vault-io vs. graph-wiki-agent subprocess) is the back-end (this mirrors Phase 11 §D-02's two-tier MCP-boundary passthrough).
+**Source:** `packages/wiki-io/src/wiki_io/_workspace.py` (full 39-line file).
+**Apply to:** the 6 plugin shim scripts in `plugins/graph-wiki/skills/graph-wiki/scripts/` — same "thin shim that imports from a sibling package" idiom, just out-of-tree. Mental model: the shim is the boundary, backend (wiki-io vs. graph-wiki-agent subprocess) is the back-end (this mirrors Phase 11 §D-02's two-tier MCP-boundary passthrough).
 
 ### Atomic per-file commits during a sweep (SQ-02)
 
@@ -656,7 +656,7 @@ None. Every file has either an in-tree analog (Python modules, tests, manifest e
 ## Metadata
 
 **Analog search scope:**
-- In-tree: `packages/vault-io/`, `packages/workspace-io/`, `plugins/`, `scripts/`, `.planning/phases/11-*`, `.planning/phases/12-*`
+- In-tree: `packages/wiki-io/`, `packages/workspace-io/`, `plugins/`, `scripts/`, `.planning/phases/11-*`, `.planning/phases/12-*`
 - Upstream (read-only references): `/Users/pat/Personal/lattice/plugins/lattice-wiki/`, `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/`
 
 **Files scanned (read):** 21

@@ -34,9 +34,9 @@ The rationale falls into one of these classes:
 
 | Path                                                           | Line(s)            | Class            | One-line rationale                                                                |
 | -------------------------------------------------------------- | ------------------ | ---------------- | --------------------------------------------------------------------------------- |
-| packages/vault-io/src/vault_io/__init__.py                     | 1                  | Provenance       | Package docstring: "(ported from lattice-wiki-core)" — accurate port history.     |
-| packages/vault-io/src/vault_io/ingest_work_item.py             | 4, 7, 129          | Provenance       | Module + function docstrings: "Extracted from lattice-wiki-core's …"              |
-| packages/vault-io/src/vault_io/ingest_source.py                | 4                  | Provenance       | Module docstring: "Extracted from lattice-wiki-core's ingest_source.py".          |
+| packages/wiki-io/src/wiki_io/__init__.py                     | 1                  | Provenance       | Package docstring: "(ported from lattice-wiki-core)" — accurate port history.     |
+| packages/wiki-io/src/wiki_io/ingest_work_item.py             | 4, 7, 129          | Provenance       | Module + function docstrings: "Extracted from lattice-wiki-core's …"              |
+| packages/wiki-io/src/wiki_io/ingest_source.py                | 4                  | Provenance       | Module docstring: "Extracted from lattice-wiki-core's ingest_source.py".          |
 | packages/eval-harness/src/eval_harness/baseline.py             | 5, 6, 43           | Provenance       | "Ported from lattice-evals/runner_headless.py" + dropped-sections note + verbatim eval-prompt provenance. R-02. |
 | packages/eval-harness/src/eval_harness/pricing.py              | 4, 17              | Provenance       | "Ported from lattice-evals/pricing.py" + cache-key inline note. R-02.             |
 | agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py   | 8, 59, 176, 192    | Parity-behavior  | BM25 tokenizer + stopword-set parity with upstream lattice-wiki-core wiki_search. |
@@ -45,11 +45,11 @@ The rationale falls into one of these classes:
 
 | Path                                                                | Line(s)                                   | Class               | One-line rationale                                                                                                                 |
 | ------------------------------------------------------------------- | ----------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| packages/vault-io/tests/test_ingest_source.py                       | 3, 5, 239, 243, 251                       | Provenance + Upstream-guard | Module docstring + comment + function name `test_no_lattice_wiki_core_imports` + `assert "lattice_wiki_core" not in text` guard. Renaming breaks the guard. |
-| packages/vault-io/tests/test_ingest_work_item.py                    | 3, 5, 273, 277, 286                       | Provenance + Upstream-guard | Same shape as above for ingest_work_item: docstring + comment + guard test + assertion literal.                                 |
-| packages/vault-io/tests/test_wikilink_predicate.py                  | 3                                         | Provenance          | "Ported from lattice_wiki_core/tests/test_lint_wikilink_placeholders.py".                                                          |
-| packages/vault-io/tests/test_lint_modules.py                        | 4                                         | Provenance          | "Finding-count parity with lattice-wiki-core" — describes the test's parity goal.                                                  |
-| packages/vault-io/tests/fixtures/single-package-vault/log.md        | 12                                        | Test-fixture        | Fixture log file generated against upstream tooling; consumed verbatim. R-01 spirit applies outside `round-trip-vault/` too.       |
+| packages/wiki-io/tests/test_ingest_source.py                       | 3, 5, 239, 243, 251                       | Provenance + Upstream-guard | Module docstring + comment + function name `test_no_lattice_wiki_core_imports` + `assert "lattice_wiki_core" not in text` guard. Renaming breaks the guard. |
+| packages/wiki-io/tests/test_ingest_work_item.py                    | 3, 5, 273, 277, 286                       | Provenance + Upstream-guard | Same shape as above for ingest_work_item: docstring + comment + guard test + assertion literal.                                 |
+| packages/wiki-io/tests/test_wikilink_predicate.py                  | 3                                         | Provenance          | "Ported from lattice_wiki_core/tests/test_lint_wikilink_placeholders.py".                                                          |
+| packages/wiki-io/tests/test_lint_modules.py                        | 4                                         | Provenance          | "Finding-count parity with lattice-wiki-core" — describes the test's parity goal.                                                  |
+| packages/wiki-io/tests/fixtures/single-package-vault/log.md        | 12                                        | Test-fixture        | Fixture log file generated against upstream tooling; consumed verbatim. R-01 spirit applies outside `round-trip-vault/` too.       |
 | packages/eval-harness/tests/test_two_gate_scorer.py                 | 49                                        | Test-data           | Recorded answer cites `[[packages/lattice-wiki-core]]` — measures behavior against upstream subject (R-02).                       |
 | packages/eval-harness/tests/test_sweep.py                           | 72                                        | Test-data           | Query subject ("What does lattice-wiki-core do?") — recorded baseline (R-02).                                                      |
 | packages/eval-harness/tests/test_divergence_metric.py               | 76, 103, 104, 105, 152, 195               | Test-data           | Recorded answer payloads citing `[[packages/lattice-wiki-core]]` (R-02).                                                           |
@@ -61,7 +61,7 @@ The rationale falls into one of these classes:
 
 These scopes are already known carry-forward and should remain on the .brand-grep-allow allowlist without per-file enumeration:
 
-- `packages/vault-io/tests/fixtures/round-trip-vault/**` (R-01)
+- `packages/wiki-io/tests/fixtures/round-trip-vault/**` (R-01)
 - `packages/eval-harness/baselines/divergence-*.json` (R-02)
 - `packages/eval-harness/src/eval_harness/divergence/rubrics/*.md` (R-02)
 - `.planning/RETROSPECTIVE.md`, `.planning/MILESTONES.md`, `.planning/milestones/v1.0-*.md`, `.planning/milestones/v1.1-*.md` (R-03)

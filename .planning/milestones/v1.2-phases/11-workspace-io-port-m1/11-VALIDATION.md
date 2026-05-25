@@ -20,7 +20,7 @@ created: 2026-05-17
 | **Framework** | pytest 8.x (workspace root) |
 | **Config file** | `pyproject.toml` (workspace), per-package `pyproject.toml` |
 | **Quick run command** | `uv run --package workspace-io pytest -x` |
-| **Full suite command** | `uv run --package workspace-io pytest && uv run --package vault-io pytest` |
+| **Full suite command** | `uv run --package workspace-io pytest && uv run --package wiki-io pytest` |
 | **Estimated runtime** | ~30 seconds |
 
 ---
@@ -28,7 +28,7 @@ created: 2026-05-17
 ## Sampling Rate
 
 - **After every task commit:** Run `uv run --package workspace-io pytest -x`
-- **After every plan wave:** Run the full suite (workspace-io + vault-io)
+- **After every plan wave:** Run the full suite (workspace-io + wiki-io)
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 30 seconds
 

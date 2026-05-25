@@ -2,7 +2,7 @@
 phase: 25-packages-dir-misclassification-fix
 plan: 01
 subsystem: graph-wiki
-tags: [vault-io, detect_containers, classifier, _classify_dir, bootstrap, monorepo, packages]
+tags: [wiki-io, detect_containers, classifier, _classify_dir, bootstrap, monorepo, packages]
 
 # Dependency graph
 requires:
@@ -15,7 +15,7 @@ provides:
   - "Plugin reference doc detection-workflow.md kept in lockstep with the classifier change"
   - "Phase 25 ROADMAP success criteria reflect the D-12/D-13 revisions (4 SCs, --interactive deferred)"
   - "Bug-report todo 2026-05-20-fix-packages-dir-misclassification moved to resolved/ with Phase 25 footer"
-affects: [graph-wiki bootstrap, vault-io detect, init_vault interactive prompt path (future --interactive backlog), eval-harness fixture detection]
+affects: [graph-wiki bootstrap, wiki-io detect, init_vault interactive prompt path (future --interactive backlog), eval-harness fixture detection]
 
 # Tech tracking
 tech-stack:
@@ -27,8 +27,8 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - packages/vault-io/src/vault_io/detect_containers.py
-    - packages/vault-io/tests/test_detect_containers.py
+    - packages/wiki-io/src/wiki_io/detect_containers.py
+    - packages/wiki-io/tests/test_detect_containers.py
     - plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md
     - .planning/ROADMAP.md
     - .planning/todos/resolved/2026-05-20-fix-packages-dir-misclassification.md  # moved from pending/
@@ -38,7 +38,7 @@ key-decisions:
   - "D-02: children_count for `package` classifications reports manifested-child count (the count that actually gets wiki pages), not raw subdir count; reason string is honest about what was skipped"
   - "D-03: the old all-or-nothing gate (len(manifest_kids) == len(children) and not md_files) is removed; the mixed->ambiguous branch no longer exists"
   - "D-04: `ambiguous` retained only for the fallback branches (empty/unrecognized dirs)"
-  - "D-06: plugin shim plugins/graph-wiki/.../scripts/detect_containers.py auto-inherits the change via `from vault_io.detect_containers import main` — no plugin-side port needed"
+  - "D-06: plugin shim plugins/graph-wiki/.../scripts/detect_containers.py auto-inherits the change via `from wiki_io.detect_containers import main` — no plugin-side port needed"
   - "D-12: --interactive flag on graph-wiki-agent bootstrap is deferred OUT of Phase 25; ROADMAP SC#4 removed"
   - "D-13: ROADMAP SC#5 reworded to drop --interactive visibility clause"
 
@@ -67,9 +67,9 @@ completed: 2026-05-21
 
 ## Accomplishments
 
-- Rewrote `_classify_dir` Rule 3 in `packages/vault-io/src/vault_io/detect_containers.py` per locked decisions D-01..D-03: replaced two-branch logic (all-or-nothing `package` + mixed `ambiguous`) with a single permissive branch (>=1 manifested child → `package`, `children_count = len(manifest_kids)`, honest skipped-summary reason).
+- Rewrote `_classify_dir` Rule 3 in `packages/wiki-io/src/wiki_io/detect_containers.py` per locked decisions D-01..D-03: replaced two-branch logic (all-or-nothing `package` + mixed `ambiguous`) with a single permissive branch (>=1 manifested child → `package`, `children_count = len(manifest_kids)`, honest skipped-summary reason).
 - Added 5 new unit tests pinning the new contract: 3 mandatory per D-09 (mixed-manifest, loose-md, empty-fallback) plus 2 recommended (single-manifested D-01 explicit, docs Rule 1 regression-guard).
-- Verified operationally on this very repo: with a synthetic `.graph-wiki.yaml`, `uv run python -m vault_io.detect_containers --json` emits `{"source": "packages", "classification": "package", "children_count": 5, "reason": "5/6 children have manifests; 1 dir(s) and 0 loose .md skipped"}` — the bug-repro shape now resolves correctly.
+- Verified operationally on this very repo: with a synthetic `.graph-wiki.yaml`, `uv run python -m wiki_io.detect_containers --json` emits `{"source": "packages", "classification": "package", "children_count": 5, "reason": "5/6 children have manifests; 1 dir(s) and 0 loose .md skipped"}` — the bug-repro shape now resolves correctly.
 - Updated plugin reference doc `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md` per D-07/D-08: rule 3 wording now uses the literal `≥1 manifested child` token; the two contradicting bullets in "Ambiguous containers" subsection deleted.
 - Revised `.planning/ROADMAP.md` Phase 25 block per D-12/D-13: one-liner reframed (`majority-manifest` → `permissive`, `--interactive` clause dropped); SCs collapsed from 5 to 4 (SC#4 deleted, SC#5 reworded + renumbered, SC#3 rewritten to describe the passthrough-shim D-06 guarantee).
 - Resolved the pending bug-report todo via `git mv` (94% rename detected), with a "Resolved by Phase 25" footer appended; YAML frontmatter and original body preserved untouched.
@@ -89,8 +89,8 @@ _TDD gate compliance: RED (`bbdeaa9` test commit, 3 failing) → GREEN (`9681394
 
 ## Files Created/Modified
 
-- `packages/vault-io/src/vault_io/detect_containers.py` — `_classify_dir` Rule 3 collapsed to a single permissive branch (lines 112-134 in current file); old all-or-nothing gate and mixed→ambiguous branch removed; fallback branches at 131-145 (now 142-156) preserved unchanged per D-04.
-- `packages/vault-io/tests/test_detect_containers.py` — 5 new test functions appended; original 4 tests untouched.
+- `packages/wiki-io/src/wiki_io/detect_containers.py` — `_classify_dir` Rule 3 collapsed to a single permissive branch (lines 112-134 in current file); old all-or-nothing gate and mixed→ambiguous branch removed; fallback branches at 131-145 (now 142-156) preserved unchanged per D-04.
+- `packages/wiki-io/tests/test_detect_containers.py` — 5 new test functions appended; original 4 tests untouched.
 - `plugins/graph-wiki/skills/graph-wiki/references/detection-workflow.md` — rule 3 (line 14) reworded to use `≥1 manifested child` language; "Ambiguous containers" subsection (lines 32-33) loses two contradicting bullets, retains only the empty/unrecognized bullet.
 - `.planning/ROADMAP.md` — Phase 25 one-liner (line 81) and detail block (success criteria at lines 130-133) updated per D-12/D-13.
 - `.planning/todos/resolved/2026-05-20-fix-packages-dir-misclassification.md` — moved from `pending/` via `git mv` (94% rename); 5-line Resolution footer appended.
@@ -123,9 +123,9 @@ The Task 6 full-workspace `uv run pytest` surfaced 5 pre-existing failures, all 
 
 Root cause (pattern): all five assert that a literal token (e.g. `--workspace`, `--top-k`, `bootstrap`) appears in Typer `--help` output, but Typer in this repo's environment now emits ANSI-styled output (`\x1b[1m...`) that interleaves escapes with the literal — the substring assertion fails on the bracketed/wrapped form.
 
-**Verified pre-existing**: ran `git stash -u` to remove all Phase 25 work, then re-ran the failing tests on HEAD~5 — same failures. None of these tests touch vault-io or detect_containers code; they are unrelated to the Phase 25 change and out of scope per execute-plan's SCOPE BOUNDARY rule. Recommend a separate quick-fix phase to strip ANSI codes in the help-text assertion helpers (or pass `rich_markup_mode=None` to Typer in tests).
+**Verified pre-existing**: ran `git stash -u` to remove all Phase 25 work, then re-ran the failing tests on HEAD~5 — same failures. None of these tests touch wiki-io or detect_containers code; they are unrelated to the Phase 25 change and out of scope per execute-plan's SCOPE BOUNDARY rule. Recommend a separate quick-fix phase to strip ANSI codes in the help-text assertion helpers (or pass `rich_markup_mode=None` to Typer in tests).
 
-The 585 other tests pass, including all 9 in `packages/vault-io/tests/test_detect_containers.py`.
+The 585 other tests pass, including all 9 in `packages/wiki-io/tests/test_detect_containers.py`.
 
 ## User Setup Required
 
@@ -151,7 +151,7 @@ Verified post-write:
   - `adb19fb` docs(25-01) — Task 4 ROADMAP revision
   - `c961fc5` chore(25-01) — Task 5 todo move
 - Operational repro on this repo emits `{"source": "packages", "classification": "package", "children_count": 5, "reason": "5/6 children have manifests; 1 dir(s) and 0 loose .md skipped"}`.
-- Plugin shim import `from vault_io.detect_containers import main` succeeds.
+- Plugin shim import `from wiki_io.detect_containers import main` succeeds.
 - Brand-gate `scripts/check-brand.sh` exits clean.
 - `git diff --name-only` from this plan's commit range matches the plan's `files_modified` frontmatter exactly (one rename: pending/ → resolved/).
 

@@ -1,19 +1,19 @@
 ---
-phase: 17-vault-io-bug-fixes
+phase: 17-wiki-io-bug-fixes
 reviewed: 2026-05-19T00:00:00Z
 depth: standard
 files_reviewed: 10
 files_reviewed_list:
-  - packages/vault-io/pyproject.toml
-  - packages/vault-io/src/vault_io/detect_containers.py
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/src/vault_io/scan_monorepo.py
-  - packages/vault-io/src/vault_io/update_tokens.py
-  - packages/vault-io/tests/integration/__init__.py
-  - packages/vault-io/tests/integration/test_count_tokens_live.py
-  - packages/vault-io/tests/test_detect_containers.py
-  - packages/vault-io/tests/test_scan_companion_fold.py
-  - packages/vault-io/tests/test_update_tokens.py
+  - packages/wiki-io/pyproject.toml
+  - packages/wiki-io/src/wiki_io/detect_containers.py
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/src/wiki_io/scan_monorepo.py
+  - packages/wiki-io/src/wiki_io/update_tokens.py
+  - packages/wiki-io/tests/integration/__init__.py
+  - packages/wiki-io/tests/integration/test_count_tokens_live.py
+  - packages/wiki-io/tests/test_detect_containers.py
+  - packages/wiki-io/tests/test_scan_companion_fold.py
+  - packages/wiki-io/tests/test_update_tokens.py
 findings:
   critical: 1
   warning: 6
@@ -31,7 +31,7 @@ status: issues_found
 
 ## Summary
 
-Phase 17 lands four bug fixes across `vault-io`: companion-fold filter in
+Phase 17 lands four bug fixes across `wiki-io`: companion-fold filter in
 `_load_existing_pages` (SCAN-01/02), Bedrock CountTokens request-shape correction
 (TOK-02), and v1/v2 workspace exclusion in `detect_containers.detect()`
 (WSRES-02/03). Tests are well-targeted and the fixes are surgical. However, the
@@ -51,7 +51,7 @@ on rewrite, and minor robustness issues in `tokens:` line filtering.
 
 ### CR-01: `init_vault._resolve_pinned_containers` does not pass `workspace_path` to detector — v2 layout fix is bypassed
 
-**File:** `packages/vault-io/src/vault_io/init_vault.py:86`
+**File:** `packages/wiki-io/src/wiki_io/init_vault.py:86`
 **Issue:** Phase 17-03 added a `workspace_path` parameter to
 `detect_containers.detect()` so that, in v2 layouts (workspace lives inside the
 repo as an immediate child, e.g. `<repo>/graph-wiki/`), the workspace directory
@@ -110,7 +110,7 @@ for pp in repo.rglob("pyproject.toml"):
 
 ### WR-01: `update_tokens.update_page` baseline includes spurious newlines that do not match the on-disk file
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:107`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:107`
 **Issue:** The baseline used for token counting is constructed as
 
 ```python
@@ -156,7 +156,7 @@ shape was intentional.
 
 ### WR-02: Rewrite collapses blank lines inside frontmatter
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:103,121`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:103,121`
 **Issue:** Both the baseline filter and the rewrite call `parts[1].strip()`
 before `.split("\n")`. `.strip()` removes leading/trailing whitespace from the
 frontmatter block but **does not preserve blank lines inside it** beyond what
@@ -173,7 +173,7 @@ preserve exact boundaries), or document the rewrite is normalizing.
 
 ### WR-03: `tokens:` line filter is fragile to YAML variants
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:104,126`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:104,126`
 **Issue:** The filter `line == "tokens:" or line.startswith("tokens: ")`
 matches the typical PyYAML emission but not e.g. `tokens:42` (no space) or
 `tokens : 42` (space before colon). Both are valid YAML. A vault page hand-
@@ -193,7 +193,7 @@ filtered_lines = [line for line in fm_lines if not _TOKENS_RE.match(line)]
 
 ### WR-04: `boto3>=1.38` may predate `CountTokens` API; failure mode is silent skip-all
 
-**File:** `packages/vault-io/pyproject.toml:8`, `packages/vault-io/src/vault_io/update_tokens.py:40`
+**File:** `packages/wiki-io/pyproject.toml:8`, `packages/wiki-io/src/wiki_io/update_tokens.py:40`
 **Issue:** The `CountTokens` API on `bedrock-runtime` is a relatively recent
 Bedrock addition. The dependency floor `boto3>=1.38` allows installs from
 older 1.38.x where `client.count_tokens` does not exist. At runtime this
@@ -218,7 +218,7 @@ except AttributeError as exc:
 
 ### WR-05: `count_tokens` constructs a new boto3 client per page
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:39`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:39`
 **Issue:** Every call to `count_tokens` re-instantiates `boto3.client("bedrock-runtime", ...)`.
 On a vault of N pages this performs N client constructions including N rounds
 of credential lookup and endpoint resolution. This is not a correctness bug
@@ -238,7 +238,7 @@ def _get_client(region: str):
 
 ### WR-06: `_load_existing_pages` companion-fold walks `rglob` twice per package container
 
-**File:** `packages/vault-io/src/vault_io/scan_monorepo.py:633-657,681-709`
+**File:** `packages/wiki-io/src/wiki_io/scan_monorepo.py:633-657,681-709`
 **Issue:** Both the `_collect` helper (when `fold_companions=True`) and the
 `domains/` block do two full `root.rglob("*.md")` passes — one to build
 `companions_by_dir`, one to emit pages. For a large monorepo with deep
@@ -254,7 +254,7 @@ in-memory pass.
 
 ### IN-01: `update_page` calls `frontmatter.loads(raw)` before the no-frontmatter early-return
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:83,90`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:83,90`
 **Issue:** `post = frontmatter.loads(raw)` happens unconditionally before the
 `if not raw.startswith("---")` skip. For non-frontmatter files this parses a
 no-op metadata dict that is then discarded. Reorder so the cheap string check
@@ -274,7 +274,7 @@ except Exception as exc:
 
 ### IN-02: Duplicate `parts[1].strip().split("\n")` between baseline and rewrite paths
 
-**File:** `packages/vault-io/src/vault_io/update_tokens.py:103,121`
+**File:** `packages/wiki-io/src/wiki_io/update_tokens.py:103,121`
 **Issue:** The same `fm_lines = parts[1].strip().split("\n")` computation runs
 twice in `update_page`. Compute once, reuse.
 
@@ -282,7 +282,7 @@ twice in `update_page`. Compute once, reuse.
 
 ### IN-03: `_collect` first pass classifies any overview with `workflow_hints` as a fold source, regardless of category
 
-**File:** `packages/vault-io/src/vault_io/scan_monorepo.py:631-643`
+**File:** `packages/wiki-io/src/wiki_io/scan_monorepo.py:631-643`
 **Issue:** Inside `_collect`, the first pass treats *any* `.md` where
 `md.stem == md.parent.name` and `workflow_hints` is present as a parent
 overview. The downstream `domain_companions_by_dir` pass (line 681-) is
@@ -304,7 +304,7 @@ hints = _parse_workflow_hints(text)
 
 ### IN-04: `test_count_tokens_live.py` integration-marker comment lists `TOK-02 (live)` only — TOK-01 unmentioned
 
-**File:** `packages/vault-io/tests/integration/test_count_tokens_live.py:7`
+**File:** `packages/wiki-io/tests/integration/test_count_tokens_live.py:7`
 **Issue:** The module docstring mentions `TOK-02 (live)`. The mocked
 counterpart in `tests/test_update_tokens.py` lists `TOK-01, TOK-02 (mocked)`.
 The live test arguably covers TOK-01 end-to-end as well. Either trim the

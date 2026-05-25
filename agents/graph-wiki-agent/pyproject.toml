@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AWS Bedrock-powered wiki maintenance agent (MCP server + CLI)"
 requires-python = ">=3.11"
 dependencies = [
-    "vault-io",
+    "wiki-io",
     "model-adapter",
     "subagent-runtime",
     "workspace-io",
@@ -24,7 +24,7 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-vault-io         = { workspace = true }
+wiki-io         = { workspace = true }
 model-adapter    = { workspace = true }
 subagent-runtime = { workspace = true }
 workspace-io     = { workspace = true }

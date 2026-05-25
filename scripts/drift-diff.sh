@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# drift-diff.sh — reproducible raw-diff generator for vault-io ⟷ lattice-wiki-core
+# drift-diff.sh — reproducible raw-diff generator for wiki-io ⟷ lattice-wiki-core
 #
 # Phase 12 / Plan 01 (P-A per 12-CONTEXT.md §SQ-01.1).
 #
 # Emits a per-file unified-diff dump for every overlapping module row from
 # spike 002 §Investigation A, with `lint/*` collapsed as a single row that
 # contains 8 inline sub-file diffs. Writes only to stdout — caller redirects
-# to `packages/vault-io/DRIFT-DECISIONS-RAW.md`.
+# to `packages/wiki-io/DRIFT-DECISIONS-RAW.md`.
 #
 # Re-sync usage: bump UPSTREAM_SHA, re-`git -C "$UPSTREAM_REPO" checkout`,
-# and re-run `bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md`.
+# and re-run `bash scripts/drift-diff.sh > packages/wiki-io/DRIFT-DECISIONS-RAW.md`.
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ UPSTREAM_SHA=1b45172a9900842b0f8eea525c8270e7fff50605
 # below still catches operators who pointed at a missing path.
 UPSTREAM_REPO="${UPSTREAM_REPO:-/Users/pat/Personal/lattice}"
 UPSTREAM_PKG_REL=packages/lattice-wiki-core/src/lattice_wiki_core
-LOCAL_PKG_REL=packages/vault-io/src/vault_io
+LOCAL_PKG_REL=packages/wiki-io/src/wiki_io
 
 # ---- Canonical row list (spike 002 §A, lint/* collapsed = 11 rows) --------
 MODULES=(
@@ -71,10 +71,10 @@ fi
 # default) and GNU coreutils. Do not switch to `date --rfc-3339=seconds`
 # (GNU-only) or BSD-specific flags — keep the strftime literal for parity.
 DIFF_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-INVOCATION="bash scripts/drift-diff.sh > packages/vault-io/DRIFT-DECISIONS-RAW.md"
+INVOCATION="bash scripts/drift-diff.sh > packages/wiki-io/DRIFT-DECISIONS-RAW.md"
 
 cat <<HEADER
-# vault-io ⟷ lattice-wiki-core Raw Drift Dump
+# wiki-io ⟷ lattice-wiki-core Raw Drift Dump
 
 **Upstream:** lattice-wiki-core @ \`$UPSTREAM_SHA\`
 **Generated:** $DIFF_TIMESTAMP
@@ -82,9 +82,9 @@ cat <<HEADER
 
 This file is the **raw-diff source of truth** (per 12-CONTEXT.md §DD-03). Every
 overlapping module row from spike 002 §Investigation A is dumped here as a
-\`diff -u\` between vault-io and the pinned upstream commit. No verdicts, no
+\`diff -u\` between wiki-io and the pinned upstream commit. No verdicts, no
 judgment — just the diffs. The companion file
-\`packages/vault-io/DRIFT-DECISIONS.md\` (forthcoming in plan 12-02) reads this
+\`packages/wiki-io/DRIFT-DECISIONS.md\` (forthcoming in plan 12-02) reads this
 dump and assigns per-row verdicts (\`PORT\` / \`LEAVE-AHEAD\` / \`LEAVE-ARCH\` /
 \`LEAVE-COSMETIC\` / \`IDENTICAL\`).
 

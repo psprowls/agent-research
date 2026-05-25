@@ -30,7 +30,7 @@ FIXTURE_VAULT: Path = Path(__file__).parent / "fixtures" / "post-rebrand-vault"
 # The first Phase-16 run seeded this baseline; future drift trips the assertion.
 _EXPECTED_PACKAGE_FILES: tuple[str, ...] = (
     "workspace-io",
-    "vault-io",
+    "wiki-io",
     "prompt-sources",
     "subagent-runtime",
     "model-adapter",

@@ -22,11 +22,11 @@ key-files:
     - packages/eval-harness/pyproject.toml
     - packages/model-adapter/pyproject.toml
     - packages/subagent-runtime/pyproject.toml
-    - packages/vault-io/pyproject.toml
+    - packages/wiki-io/pyproject.toml
     - uv.lock
 decisions:
   - "CONTEXT 'Reusable Assets' bullet that other workspace pyprojects do NOT need touching was WRONG; eval-harness carried both a `dependencies = [..., 'code-wiki-agent', ...]` entry and a `[tool.uv.sources] code-wiki-agent = { workspace = true }` key — both rewritten in this commit (B2 fix)."
-  - "Cosmetic `description` rebrands in model-adapter / subagent-runtime / vault-io / eval-harness rolled into the same atomic commit per D-06 staged-commits rule (the pyproject manifest is the unit of change)."
+  - "Cosmetic `description` rebrands in model-adapter / subagent-runtime / wiki-io / eval-harness rolled into the same atomic commit per D-06 staged-commits rule (the pyproject manifest is the unit of change)."
   - "Layer-2 gate is `uv sync` only per D-11 relaxation. `uv run pytest` deliberately not run here — script targets point at modules whose imports still say `from code_wiki_agent...`; layer 3 sweeps those."
 metrics:
   duration: ~5 min
@@ -55,7 +55,7 @@ Date:   Tue May 19 20:44:53 2026 -0600
  packages/eval-harness/pyproject.toml     |  6 +--
  packages/model-adapter/pyproject.toml    |  2 +-
  packages/subagent-runtime/pyproject.toml |  2 +-
- packages/vault-io/pyproject.toml         |  2 +-
+ packages/wiki-io/pyproject.toml         |  2 +-
  uv.lock                                  | 64 ++++++++++++++++----------------
  6 files changed, 41 insertions(+), 41 deletions(-)
 ```
@@ -79,7 +79,7 @@ packages/model-adapter/pyproject.toml:4:description = "AWS Bedrock model loader 
 packages/eval-harness/pyproject.toml:4:description = "Deterministic eval checks, pricing, and sweep runner for code-wiki-agent"
 packages/eval-harness/pyproject.toml:11:    "code-wiki-agent",
 packages/eval-harness/pyproject.toml:21:code-wiki-agent = { workspace = true }
-packages/vault-io/pyproject.toml:4:description = "Vault IO for code-wiki-agent"
+packages/wiki-io/pyproject.toml:4:description = "Vault IO for code-wiki-agent"
 agents/graph-wiki-agent/pyproject.toml:2:name = "code-wiki-agent"
 agents/graph-wiki-agent/pyproject.toml:19:code-wiki-agent = "code_wiki_agent.cli:app"
 agents/graph-wiki-agent/pyproject.toml:20:code-wiki-mcp   = "code_wiki_mcp.server:main"
@@ -100,7 +100,7 @@ Empty — zero `code-wiki-*` tokens remain in any `pyproject.toml`.
 
 The CONTEXT.md "Reusable Assets" bullet claimed:
 
-> Other workspace members (`vault-io`, `model-adapter`, etc.) do NOT need their pyproject.toml touched.
+> Other workspace members (`wiki-io`, `model-adapter`, etc.) do NOT need their pyproject.toml touched.
 
 That claim was **WRONG**. Pre-edit survey confirmed that `packages/eval-harness/pyproject.toml` carried both:
 
@@ -109,7 +109,7 @@ That claim was **WRONG**. Pre-edit survey confirmed that `packages/eval-harness/
 
 Both MUST be rewritten in the same atomic commit, otherwise `uv sync` errors with `Package 'code-wiki-agent' is not present in the workspace` because the workspace member is now called `graph-wiki-agent`. Plan 21-02 rewrote both in this commit (the B2 fix).
 
-The sibling packages (`model-adapter`, `subagent-runtime`, `vault-io`, `eval-harness`) all carried *cosmetic* `description` strings mentioning `code-wiki-agent` — those were also rebranded in the same commit for atomicity. Per D-06's staged-commits rule, the pyproject manifest is the unit of change, so non-functional description text rides along with the name flip rather than getting deferred.
+The sibling packages (`model-adapter`, `subagent-runtime`, `wiki-io`, `eval-harness`) all carried *cosmetic* `description` strings mentioning `code-wiki-agent` — those were also rebranded in the same commit for atomicity. Per D-06's staged-commits rule, the pyproject manifest is the unit of change, so non-functional description text rides along with the name flip rather than getting deferred.
 
 ## Pytest deferred (D-11 relaxation)
 
@@ -129,7 +129,7 @@ None — plan executed exactly as written. The PIPESTATUS idiom from the plan's 
 - `packages/eval-harness/pyproject.toml` — FOUND (modified)
 - `packages/model-adapter/pyproject.toml` — FOUND (modified)
 - `packages/subagent-runtime/pyproject.toml` — FOUND (modified)
-- `packages/vault-io/pyproject.toml` — FOUND (modified)
+- `packages/wiki-io/pyproject.toml` — FOUND (modified)
 - `uv.lock` — FOUND (modified)
 - Commit `2abd539` — FOUND in `git log`
 - `uv sync` — exit 0

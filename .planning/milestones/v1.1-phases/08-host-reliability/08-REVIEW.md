@@ -13,8 +13,8 @@ files_reviewed_list:
   - agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
   - agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py
   - cores/subagent-runtime/src/subagent_runtime/pool.py
-  - cores/vault-io/src/vault_io/append_log.py
-  - cores/vault-io/src/vault_io/ingest_work_item.py
+  - cores/wiki-io/src/wiki_io/append_log.py
+  - cores/wiki-io/src/wiki_io/ingest_work_item.py
   - docs/cancellation.md
 findings:
   critical: 1
@@ -33,7 +33,7 @@ status: issues_found
 
 ## Summary
 
-Phase 08 wired MCP cancellation through `SubagentPool`, added an E2E subprocess test for all six tools, added a `repo_path` field to `WikiScanInput`, and documented the cancel chain in `docs/cancellation.md`. Auto-fix touches on `commands/init.py`, `commands/log.py`, `commands/scan.py`, `commands/ingest.py`, `vault_io/append_log.py`, and `vault_io/ingest_work_item.py` are intended to make `append_log` silent in MCP mode and to neutralize the `as_json=True` stdout footgun in `init_wiki`.
+Phase 08 wired MCP cancellation through `SubagentPool`, added an E2E subprocess test for all six tools, added a `repo_path` field to `WikiScanInput`, and documented the cancel chain in `docs/cancellation.md`. Auto-fix touches on `commands/init.py`, `commands/log.py`, `commands/scan.py`, `commands/ingest.py`, `wiki_io/append_log.py`, and `wiki_io/ingest_work_item.py` are intended to make `append_log` silent in MCP mode and to neutralize the `as_json=True` stdout footgun in `init_wiki`.
 
 The cancel machinery in `SubagentPool` (per-item `status: cancelled` records, single batch terminal record, re-raise discipline) is correct and matches the contract documented in `docs/cancellation.md`. The `repo_path` plumbing through `wiki_scan` → `run_scan` is clean, including the deliberate `pinned=None` bypass when the override is supplied.
 
@@ -78,7 +78,7 @@ After fixing the patch site, re-run the test locally without AWS creds in the en
 
 ### WR-01: `append_log._error` calls `sys.exit(1)` from inside an MCP tool handler
 
-**File:** `cores/vault-io/src/vault_io/append_log.py:39-44`
+**File:** `cores/wiki-io/src/wiki_io/append_log.py:39-44`
 **Issue:** `_error` is invoked from `append_log` on every validation/IO failure (unknown op, missing wiki, missing log.md, write OSError — lines 71, 76, 84). It calls `sys.exit(1)` unconditionally. From an MCP tool handler (`commands/log.py:59` → `append_log(..., silent=True)`), this raises `SystemExit` rather than a normal Python exception — which `commands/log.py`'s docstring acknowledges ("SystemExit: If append_log calls sys.exit() on validation error (converted upstream)") but nothing in the chain actually converts it. `SystemExit` inherits from `BaseException`, so:
 - `asyncio.CancelledError` handlers won't catch it.
 - FastMCP's `except Exception` boundary won't catch it.
@@ -96,12 +96,12 @@ def _error(message, as_json=False, raise_exception=False):
         print(f"[error] {message}", file=sys.stderr)
     sys.exit(1)
 ```
-Then pass `raise_exception=True` from `commands/log.py`/`commands/scan.py`/`commands/ingest.py` / `vault_io/ingest_work_item.py` callers, or simply have `append_log` raise directly on the error paths and reserve `_error` for the CLI `main()` entry point.
+Then pass `raise_exception=True` from `commands/log.py`/`commands/scan.py`/`commands/ingest.py` / `wiki_io/ingest_work_item.py` callers, or simply have `append_log` raise directly on the error paths and reserve `_error` for the CLI `main()` entry point.
 
 ### WR-02: `append_log._error` still writes to stdout when `as_json=True`
 
-**File:** `cores/vault-io/src/vault_io/append_log.py:40-41`
-**Issue:** Even though all current MCP callers pass `silent=True` and the default `as_json=False`, the `_error` helper unconditionally `print(json.dumps(...))` to stdout when `as_json=True`. A future caller that accidentally enables `as_json=True` from inside the MCP server would trip `_StdoutGuard` on the error path — the very class of bug Phase 08 was designed to prevent. The fact that `init_wiki` (cores/vault-io/src/vault_io/init_vault.py) was patched to log instead of print (line 138, `logger.error("%s", message)`) but `append_log._error` was not is inconsistent.
+**File:** `cores/wiki-io/src/wiki_io/append_log.py:40-41`
+**Issue:** Even though all current MCP callers pass `silent=True` and the default `as_json=False`, the `_error` helper unconditionally `print(json.dumps(...))` to stdout when `as_json=True`. A future caller that accidentally enables `as_json=True` from inside the MCP server would trip `_StdoutGuard` on the error path — the very class of bug Phase 08 was designed to prevent. The fact that `init_wiki` (cores/wiki-io/src/wiki_io/init_vault.py) was patched to log instead of print (line 138, `logger.error("%s", message)`) but `append_log._error` was not is inconsistent.
 **Fix:** Route the error-path JSON to stderr or to `logger.error`. The CLI's `--json` contract can still be honored on stdout because `_error` only runs on hard failures, and the CLI is not stdout-sensitive the way the MCP server is.
 
 ### WR-03: `_PAGE_TYPE_DIRS` does not include `"work"` despite docstring claim

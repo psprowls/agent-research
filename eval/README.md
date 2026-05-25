@@ -38,7 +38,7 @@ reproducible oracle.
 
 4. **Workspace path available** — point `--workspace` at a local workspace whose
    `wiki/` subdir contains the wiki you want to eval against. The round-trip
-   test fixture at `packages/vault-io/tests/fixtures/round-trip-vault/` can be
+   test fixture at `packages/wiki-io/tests/fixtures/round-trip-vault/` can be
    used for CI (it is laid out as a wiki dir; wrap it under `<tmp>/wiki` to
    form a synthetic workspace, or symlink).
 

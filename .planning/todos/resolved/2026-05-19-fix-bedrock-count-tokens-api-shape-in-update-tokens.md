@@ -4,12 +4,12 @@ title: Fix Bedrock count_tokens API shape in update_tokens
 area: tooling
 resolves_phase: 17
 files:
-  - packages/vault-io/src/vault_io/update_tokens.py:38-44
+  - packages/wiki-io/src/wiki_io/update_tokens.py:38-44
 ---
 
 ## Problem
 
-`vault_io.update_tokens.count_tokens()` calls the Bedrock CountTokens API with the wrong parameter name. Every page fails to be stamped during `/graph-wiki:scan`:
+`wiki_io.update_tokens.count_tokens()` calls the Bedrock CountTokens API with the wrong parameter name. Every page fails to be stamped during `/graph-wiki:scan`:
 
 ```
 Parameter validation failed:
@@ -44,7 +44,7 @@ The current boto3 shape for `bedrock-runtime.count_tokens` expects `input=...`, 
    ```
    The exact shape depends on whether `input` wraps Converse-API or InvokeModel-API messages — confirm from the boto3 introspection.
 
-3. Add a unit test in `packages/vault-io/tests/test_update_tokens.py` that mocks the boto3 client and asserts the request payload matches the expected shape.
+3. Add a unit test in `packages/wiki-io/tests/test_update_tokens.py` that mocks the boto3 client and asserts the request payload matches the expected shape.
 
 4. Re-run `/graph-wiki:scan` (or just `update_tokens.py`) to re-stamp the 35 existing wiki pages.
 

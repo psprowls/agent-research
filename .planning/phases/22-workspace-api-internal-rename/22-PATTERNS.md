@@ -19,7 +19,7 @@ This is a **mechanical rename** phase. There is no novel design — every "new" 
 
 | File | Role | Data Flow | Closest Analog | Match Quality |
 |------|------|-----------|----------------|---------------|
-| `packages/vault-io/src/vault_io/_workspace.py` | utility (path resolver) | request-response | **WIP diff on `main`** (already renamed; needs D-02 fix) | exact + 1-line fix |
+| `packages/wiki-io/src/wiki_io/_workspace.py` | utility (path resolver) | request-response | **WIP diff on `main`** (already renamed; needs D-02 fix) | exact + 1-line fix |
 | `packages/workspace-io/src/workspace_io/config.py` | config | request-response | **WIP diff on `main`** (constant + helper promoted) | exact |
 | `packages/workspace-io/src/workspace_io/init.py` | init/bootstrap | CRUD (file I/O) | **WIP diff on `main`** (routes through `resolve_workspace`) | exact (one stray comment to delete) |
 | `packages/workspace-io/src/workspace_io/paths.py` | utility | pure function | (unchanged — already correct) | n/a — consume only |
@@ -50,7 +50,7 @@ This is a **mechanical rename** phase. There is no novel design — every "new" 
 | `agents/graph-wiki-agent/tests/unit/test_query_summary_schema_version.py` | 1 | 1 (`run_query(... vault_path=tmp_path, ...)`) — also has a `lambda vault_path=None: ...` mock-side-effect signature | mock signature lambda also needs renaming |
 | `agents/graph-wiki-agent/tests/commands/test_scan_parity.py` | 2 | 0 | |
 | `packages/eval-harness/tests/test_sweep.py` | 1 | 3 (`run_query(... vault_path=wt.path)`, `run_sweep(..., fixture_vault_path, ...)`) | **CROSS-PACKAGE RIPPLE** — eval-harness test calls agent `run_query` by kwarg name; renames here even though Phase 24 owns eval-harness internals (D-04 is workspace-wide pytest gate, so this test MUST pass) |
-| `packages/vault-io/tests/test_ports_importable.py` | 10 (only the `def test_resolve_wiki_and_repo_*` function names — these are TEST NAMES, not mock points) | 0 | **NOT IN SCOPE** — these are test function identifiers containing the substring; renaming them is cosmetic. Leave alone unless executor's discretion. |
+| `packages/wiki-io/tests/test_ports_importable.py` | 10 (only the `def test_resolve_wiki_and_repo_*` function names — these are TEST NAMES, not mock points) | 0 | **NOT IN SCOPE** — these are test function identifiers containing the substring; renaming them is cosmetic. Leave alone unless executor's discretion. |
 | `packages/workspace-io/tests/test_config.py` | 0 | 0 — but **3 YAML literal strings** `"graph-wiki-directory: ..."` at lines 49, 58, 70 | Hard-cut: D-08 says these break silently if not updated; tests would still pass against the default workspace, but no longer exercise the override. Rename literals to `workspace-directory:`. |
 | `packages/workspace-io/tests/test_local_config.py` | 0 | 0 — 13 YAML literal strings `"graph-wiki-directory: ..."` | **OUT OF SCOPE.** This test exercises `_local_config.read()` (a generic YAML parser); the string is opaque data. Leave alone — these tests don't depend on the constant. |
 
@@ -63,14 +63,14 @@ This is a **mechanical rename** phase. There is no novel design — every "new" 
 | `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` Pydantic `Field` names (6× `vault_path: str = Field(...)`) | Phase 23 (external rename). Only internal kwarg-name on `run_*(vault_path=...)` flips. |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` Typer flag literal `"--vault"` | Phase 23. Only the local variable name + kwarg-name flips. |
 | `packages/eval-harness/src/eval_harness/{baseline,sweep,structural,isolation,divergence/*}.py` `vault_path` parameters | Phase 24. |
-| `packages/vault-io/src/vault_io/{ingest_source,scan_monorepo,lint_wiki,query helpers,…}.py` `vault_path` parameters | These are **internal helpers**, not part of the `resolve_wiki_and_repo`/`run_*` boundary. Out of scope. CONTEXT.md `<domain>` scopes the rename to (a) `resolve_wiki_and_repo` signature, (b) `run_*` signatures, (c) callers that pass `vault_path=` kwarg. Pure-internal `def _foo(vault_path: Path)` helpers stay. |
+| `packages/wiki-io/src/wiki_io/{ingest_source,scan_monorepo,lint_wiki,query helpers,…}.py` `vault_path` parameters | These are **internal helpers**, not part of the `resolve_wiki_and_repo`/`run_*` boundary. Out of scope. CONTEXT.md `<domain>` scopes the rename to (a) `resolve_wiki_and_repo` signature, (b) `run_*` signatures, (c) callers that pass `vault_path=` kwarg. Pure-internal `def _foo(vault_path: Path)` helpers stay. |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` private helpers (`_discover_pages`, `_cosine_search_sqlite`, `_resolve_repo_root`) | Same reason — internal helpers, not boundary. (Docstring may mention `vault_path` — executor discretion per D-discretion-3.) |
 | `packages/workspace-io/tests/test_local_config.py` | Tests opaque YAML reader; the key string is data, not behavior. |
 | `*/conftest.py` `vault_path` and `fixture_vault_path` **pytest fixtures** | Fixture names, not runtime kwargs. Out of scope. |
 
 ## Pattern Assignments
 
-### `packages/vault-io/src/vault_io/_workspace.py` — central rename (WSAPI-01)
+### `packages/wiki-io/src/wiki_io/_workspace.py` — central rename (WSAPI-01)
 
 **Analog:** WIP diff against `00f3c06` (the file already has 80% of the rename applied).
 
@@ -181,7 +181,7 @@ _ws_init(
     plugin="graph-wiki-agent",
     version=importlib.metadata.version("graph-wiki-agent"),
 )
-# Phase 2: existing vault-io resolution + wiki tree population.
+# Phase 2: existing wiki-io resolution + wiki tree population.
 wiki, repo = resolve_wiki_and_repo(workspace_path, repo_root)
 ```
 
@@ -361,7 +361,7 @@ None. Every file in scope has either a WIP-prototype analog or a sibling-pattern
 ## Metadata
 
 **Analog search scope:**
-- `packages/vault-io/src/vault_io/_workspace.py` (rename target)
+- `packages/wiki-io/src/wiki_io/_workspace.py` (rename target)
 - `packages/workspace-io/src/workspace_io/{config,init,paths}.py` (rename targets + consumed paths helper)
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/{init,scan,lint,ingest,query,log}.py` (6 commands)
 - `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (Typer entry)
@@ -375,7 +375,7 @@ None. Every file in scope has either a WIP-prototype analog or a sibling-pattern
 **WIP files (unstaged on `main`):**
 1. `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`
 2. `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py`
-3. `packages/vault-io/src/vault_io/_workspace.py`
+3. `packages/wiki-io/src/wiki_io/_workspace.py`
 4. `packages/workspace-io/src/workspace_io/config.py`
 5. `packages/workspace-io/src/workspace_io/init.py`
 

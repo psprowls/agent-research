@@ -22,12 +22,12 @@
 **User's choice:** Drop it — GRAPH_WIKI_WORKSPACE only.
 **Notes:** Single-developer project, no external users to break. Test file `test_ports_importable.py` rewrites trivially.
 
-### Q2 — Resolution priority order inside `vault-io._workspace.resolve_wiki_and_repo` after delegation?
+### Q2 — Resolution priority order inside `wiki-io._workspace.resolve_wiki_and_repo` after delegation?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| explicit arg → workspace_io.config.resolve() → raise | Two-tier; vault-io stays a thin shim; all discovery logic lives in workspace_io. | ✓ |
-| explicit arg → GRAPH_WIKI_WORKSPACE env → workspace_io.config.resolve() → raise | Three-tier with env-var fast path in vault-io. | |
+| explicit arg → workspace_io.config.resolve() → raise | Two-tier; wiki-io stays a thin shim; all discovery logic lives in workspace_io. | ✓ |
+| explicit arg → GRAPH_WIKI_WORKSPACE env → workspace_io.config.resolve() → raise | Three-tier with env-var fast path in wiki-io. | |
 | Always call workspace_io.config.resolve(cwd, explicit=...) | Push explicit-path into workspace_io's API as an optional kwarg. | |
 
 **User's choice:** explicit arg → workspace_io.config.resolve() → raise.

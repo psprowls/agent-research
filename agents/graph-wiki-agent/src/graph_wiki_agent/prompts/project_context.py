@@ -5,7 +5,7 @@ emits a compact deterministic block covering the parsed layout containers,
 the project's `## Style` rules, and its `## Log format` section.
 
 Pure: no LLM calls, no network, no mutation. Mirrors the discipline of
-`vault_io.layout_io.read_layout` — returns the empty string if neither
+`wiki_io.layout_io.read_layout` — returns the empty string if neither
 schema file exists, so callers can pass the result through unchanged.
 
 Used by `commands/scan.py`, `commands/lint.py`, and `commands/ingest.py`
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vault_io.layout_io import read_layout
+from wiki_io.layout_io import read_layout
 
 # CLAUDE.md takes priority; AGENTS.md is the fallback per CONTEXT.md §Wiring.
 _CANDIDATES: tuple[str, ...] = ("CLAUDE.md", "AGENTS.md")

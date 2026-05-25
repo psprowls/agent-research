@@ -20,7 +20,7 @@ Surfaces in scope:
 - **Brand-gate extension (eval-shapes)** — `scripts/check-brand.sh` gains 3 new regex bans targeted at eval-harness shapes (see D-07).
 
 **Explicitly NOT in this phase:**
-- `vault-io` package directory and `vault_io` module path — milestone-level lock (Phase 22 D-10).
+- `wiki-io` package directory and `wiki_io` module path — milestone-level lock (Phase 22 D-10).
 - Pydantic Field name `vault_path:` — already banned by Phase 23's brand-gate; nothing in eval-harness uses Pydantic Fields.
 - Typer flag `--vault` — already banned by Phase 23's brand-gate; eval-harness uses argparse, not Typer.
 - Scan JSON output `"vault_path"` key — Phase 23 already cut over (`wiki_relative_path`).
@@ -56,7 +56,7 @@ Surfaces in scope:
 ### Carried Forward (milestone-level locks — non-negotiable)
 - **D-08:** Hard rename, no back-compat shims. No deprecation period for `vault_path` kwargs, `--vault` argparse, or `_vault_content_hash` helper. (Phase 22 D-07, Phase 23 D-05.)
 - **D-09:** Wiki path always derived via `workspace_io.paths.wiki_dir(workspace_path)` — never string concatenation. (Phase 22 D-09, Phase 23 D-06.)
-- **D-10:** `vault-io` package directory and `vault_io` module path STAY. Only nomenclature changes inside eval-harness, not module renames anywhere else. (Phase 22 D-10.)
+- **D-10:** `wiki-io` package directory and `wiki_io` module path STAY. Only nomenclature changes inside eval-harness, not module renames anywhere else. (Phase 22 D-10.)
 - **D-11:** Baseline JSON output key change (`vault_content_hash` → `wiki_content_hash`) is a recording format change. Existing baseline JSON files on disk will have the OLD key. Either:
   - (a) Regenerate baselines after this phase, OR
   - (b) The baseline replay code accepts EITHER key during a short transition window.
@@ -95,7 +95,7 @@ Surfaces in scope:
 - `packages/workspace-io/src/workspace_io/paths.py::wiki_dir(workspace_path) -> Path` — canonical wiki-derivation function. Every public function in sweep/baseline/structural calls this. (Already exists; no implementation work.)
 
 ### Prior phase artifacts (milestone locks + pattern alignment)
-- `.planning/phases/22-workspace-api-internal-rename/22-CONTEXT.md` — milestone locks: hard rename (D-07), `wiki_dir` helper (D-09), `vault-io` stays (D-10)
+- `.planning/phases/22-workspace-api-internal-rename/22-CONTEXT.md` — milestone locks: hard rename (D-07), `wiki_dir` helper (D-09), `wiki-io` stays (D-10)
 - `.planning/phases/22-workspace-api-internal-rename/22-01-SUMMARY.md` — big-bang plan execution pattern
 - `.planning/phases/23-workspace-api-external-rename/23-CONTEXT.md` — brand-gate D-03 precedent; bootstrap-only --repo D-02; integration test gate D-04
 - `.planning/phases/23-workspace-api-external-rename/23-01-PLAN.md` — brand-gate extension implementation pattern
@@ -144,7 +144,7 @@ Surfaces in scope:
 
 ### Out of v1.4 milestone (later)
 - Migrate `baseline.py` argparse → Typer (consolidation opportunity; not a rename concern)
-- Rename `vault-io` package directory + `vault_io` module path to `wiki-io` / `wiki_io` — explicitly locked OUT of v1.4 milestone (Phase 22 D-10)
+- Rename `wiki-io` package directory + `wiki_io` module path to `wiki-io` / `wiki_io` — explicitly locked OUT of v1.4 milestone (Phase 22 D-10)
 - `_SLUG_ONLY_RE` parity fix at `librarian.py:21` — out-of-scope observation from v1.3 Phase 19 (already noted in REQUIREMENTS.md "Future Requirements")
 - Add an explicit unit test asserting that the OLD argparse flag `--vault` is rejected (success-via-error) — relying on the no-shim posture as implicit coverage instead
 

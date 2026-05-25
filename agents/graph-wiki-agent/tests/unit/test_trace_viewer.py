@@ -1085,7 +1085,7 @@ def test_isolated_record_renders_full_line(tmp_path: Path) -> None:
 _REAL_V0_FIXTURE_DIR = (
     Path(__file__).resolve().parents[4]
     / "packages"
-    / "vault-io"
+    / "wiki-io"
     / "tests"
     / "fixtures"
     / "round-trip-vault"

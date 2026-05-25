@@ -27,7 +27,7 @@ dependency_graph:
   affects:
     - graph-wiki-agent MCP server (Pydantic input schemas)
     - graph-wiki-agent Typer CLI (7 commands; bootstrap +1 flag)
-    - vault-io scan_monorepo (helper + 3 dict-key emissions)
+    - wiki-io scan_monorepo (helper + 3 dict-key emissions)
     - plugin docs + prompt-source mirrors (D-08 1:1)
     - check-brand.sh gate (CHECK 4 added)
 tech_stack:
@@ -43,8 +43,8 @@ key_files:
     - agents/graph-wiki-agent/src/graph_wiki_mcp/server.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
-    - packages/vault-io/src/vault_io/scan_monorepo.py
-    - packages/vault-io/tests/test_scan_companion_fold.py
+    - packages/wiki-io/src/wiki_io/scan_monorepo.py
+    - packages/wiki-io/tests/test_scan_companion_fold.py
     - agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
     - agents/graph-wiki-agent/tests/integration/test_query_e2e.py
     - agents/graph-wiki-agent/tests/integration/test_trace_coverage.py
@@ -65,7 +65,7 @@ decisions:
   - "D-04 mechanical integration test update + opportunistic live run (UAT-01 deferred — GRAPH_WIKI_RUN_INTEGRATION not set)"
   - "D-05 hard rename, no back-compat shim"
   - "D-06 workspace_io.paths.wiki_dir for path derivation (untouched at the MCP boundary; still in use downstream)"
-  - "D-07 vault-io package/module names stay (only `vault_path` JSON-key/Field semantics renamed)"
+  - "D-07 wiki-io package/module names stay (only `vault_path` JSON-key/Field semantics renamed)"
   - "D-08 plugin-doc ↔ prompt-source-mirror 1:1 invariant — mirror was diverged; full-file sync applied to restore byte-identical state"
 metrics:
   duration_minutes: ~35
@@ -99,8 +99,8 @@ Six tasks in six per-task commits on this branch. Final state on the branch is t
 - `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` — 6 input classes, 6 field reads, 2 description strings, ConfigDict import
 - `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — 7 Typer flags, 1 additive `--repo`, 7 body bridges
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — 3 consumer-read sites
-- `packages/vault-io/src/vault_io/scan_monorepo.py` — helper rename + 3 dict-key emissions + docstring
-- `packages/vault-io/tests/test_scan_companion_fold.py` — fixture-meta dict-key reads (Rule 1 cascade)
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py` — helper rename + 3 dict-key emissions + docstring
+- `packages/wiki-io/tests/test_scan_companion_fold.py` — fixture-meta dict-key reads (Rule 1 cascade)
 - `agents/graph-wiki-agent/tests/unit/test_commands_scan.py` — 6 fixture dict-key writes (Rule 1 cascade)
 - `agents/graph-wiki-agent/tests/unit/test_mcp_new_tools.py` — 3 unit-assert renames (Rule 1 cascade)
 - `agents/graph-wiki-agent/tests/unit/test_mcp_query_schema.py` — 1 unit-assert rename (Rule 1 cascade)
@@ -147,7 +147,7 @@ Evidence (`agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` after commit `e5
 
 ### WSMCP-04 — Scan JSON Field Renamed to `wiki_relative_path`
 
-Evidence (`packages/vault-io/src/vault_io/scan_monorepo.py` after commit `f6776b6`):
+Evidence (`packages/wiki-io/src/wiki_io/scan_monorepo.py` after commit `f6776b6`):
 - `_wiki_relative_path_for` helper defined at L399 (renamed from `_vault_path_for`); docstring first line updated
 - 3 dict-key emission sites use `"wiki_relative_path"` (count = 3 via `grep -cE '"wiki_relative_path"'`)
 - 0 `"vault_path"` literals remain (count = 0)
@@ -190,7 +190,7 @@ Evidence (`scripts/check-brand.sh` after commit `bfc4e19`):
 - CHECK 4 block present (`HITS4=` line + regex `'^[[:space:]]+vault_path:[[:space:]]+(str|Path|int|bool)|"--vault"|"vault_path"'`)
 - Path scope: `packages/ agents/ plugins/` only (D-03 narrowing — `.planning/`, `scripts/`, `docs/` excluded)
 - `BRAND-WSAPI FAIL` error message; final OK echo updated with `+ BRAND-WSAPI vault_path|--vault|"vault_path"`
-- **Negative test (verify-block, unconditional cleanup):** synthesizing `_wsmcp07_negative_test.py` in `packages/vault-io/src/vault_io/` causes the gate to exit non-zero; the fixture file is removed in both the success and failure branches; clean-tree re-run passes.
+- **Negative test (verify-block, unconditional cleanup):** synthesizing `_wsmcp07_negative_test.py` in `packages/wiki-io/src/wiki_io/` causes the gate to exit non-zero; the fixture file is removed in both the success and failure branches; clean-tree re-run passes.
 
 Allowlist entries seeded in `.brand-grep-allow` (each with `# rationale:` comment per Phase 21 style):
 1. `packages/eval-harness/src/eval_harness/structural.py` — Phase 24 deferred (CONTEXT §"Phase 24")
@@ -199,7 +199,7 @@ Allowlist entries seeded in `.brand-grep-allow` (each with `# rationale:` commen
 4. `agents/graph-wiki-agent/src/graph_wiki_agent/config.py` — Phase 22 V8 OOS (separate plugin config dataclass)
 5. `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — Phase 22 V8 OOS (private function-param annotations, not Pydantic Fields)
 6. `agents/graph-wiki-agent/tests/unit/test_mcp_schema_forbid_extra.py` — SC#2 smoke mandate (legacy literal exercises reject path)
-7. `packages/vault-io/tests/fixtures/round-trip-vault/` — bm25 vocab + simulated-old-format fixtures (regression material)
+7. `packages/wiki-io/tests/fixtures/round-trip-vault/` — bm25 vocab + simulated-old-format fixtures (regression material)
 8. `.planning/phases/22-workspace-api-internal-rename/` — CHECK 1 lattice prose (pre-existing brand-gate fail; surfaced when phase dir created in Phase 22)
 9. `.planning/phases/23-workspace-api-external-rename/` — CHECK 1 lattice prose (script's own regex literally appears in 23-PATTERNS.md)
 
@@ -222,8 +222,8 @@ vault_path
 Plus pytest mechanical smoke `test_legacy_vault_path_field_rejected_by_schema` exits 0.
 
 **SC #3 — Scan JSON emits new key:** PASS
-- `grep -cE '"wiki_relative_path"' packages/vault-io/src/vault_io/scan_monorepo.py` → 3
-- `grep -cE '"vault_path"' packages/vault-io/src/vault_io/scan_monorepo.py` → 0
+- `grep -cE '"wiki_relative_path"' packages/wiki-io/src/wiki_io/scan_monorepo.py` → 3
+- `grep -cE '"vault_path"' packages/wiki-io/src/wiki_io/scan_monorepo.py` → 0
 - `grep -cE 'pkg\.get\("wiki_relative_path"' agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` → 1 (plus 2 more `existing_rec["wiki_relative_path"]` sites)
 
 **SC #4 — Integration test runnable + smoke green:** PASS (mechanical) / DEFERRED (live)
@@ -275,7 +275,7 @@ No new failures introduced.
   - `agents/graph-wiki-agent/tests/unit/test_mcp_query_schema.py` (1 test asserting on `inp.vault_path`)
   - `agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py` (1 docstring + 1 assertion)
   - `agents/graph-wiki-agent/tests/unit/test_commands_scan.py` (6 fixture dict-keys)
-  - `packages/vault-io/tests/test_scan_companion_fold.py` (3 `meta.get("vault_path", "")` reads)
+  - `packages/wiki-io/tests/test_scan_companion_fold.py` (3 `meta.get("vault_path", "")` reads)
   - `agents/graph-wiki-agent/tests/unit/test_cli_query.py` (5 `"--vault"` literals + 2 docstrings)
   - `agents/graph-wiki-agent/tests/integration/test_query_e2e.py` (2 subprocess `"--vault"`)
   - `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` (1 subprocess `"--vault"`)
@@ -297,7 +297,7 @@ All 8 locked decisions from `23-CONTEXT.md` were honored:
 - **D-04:** Mechanical sweep + UAT-01 deferred (env var unset). Live run pending.
 - **D-05:** Hard rename, no shim; no deprecation aliases added.
 - **D-06:** `workspace_io.paths.wiki_dir` is the canonical derivation path — untouched at the MCP boundary; threading from Phase 22 preserved.
-- **D-07:** `vault-io` package directory and `vault_io` module name preserved; `vault_dir` parameter inside `_wiki_relative_path_for` preserved per CONTEXT.
+- **D-07:** `wiki-io` package directory and `wiki_io` module name preserved; `vault_dir` parameter inside `_wiki_relative_path_for` preserved per CONTEXT.
 - **D-08:** Prompt-source mirror restored to byte-identical state (see Deviation A).
 
 ## Known Stubs

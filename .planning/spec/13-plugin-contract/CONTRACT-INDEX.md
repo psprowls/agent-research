@@ -6,7 +6,7 @@ This is the single auditable summary of the Phase 13 contract. Phase 14's execut
 
 Per C-02, verdict terms are defined as follows:
 
-- `rename` = byte-for-byte text swap of upstream slash and module references (e.g., `/lattice-wiki:init` → `/graph-wiki:bootstrap`, `lattice_wiki_core` → `vault_io`)
+- `rename` = byte-for-byte text swap of upstream slash and module references (e.g., `/lattice-wiki:init` → `/graph-wiki:bootstrap`, `lattice_wiki_core` → `wiki_io`)
 - `reshape` = command behavior changes beyond a pure rename (e.g., `/lint` loses the work-layer pass 1b that ran against `work/` items)
 - `drop` = no port; no file ships in `plugins/graph-wiki/commands/` for this command
 - `defer` = port the markdown but disable execution until a later phase (unused in v1.2; documented for future phases where work-layer commands may be reconsidered)
@@ -15,11 +15,11 @@ Per C-02, verdict terms are defined as follows:
 
 | # | Upstream command | Verdict | Target script | Target Python module | Per-command spec | One-line rationale |
 |---|---|---|---|---|---|---|
-| 1 | `/lattice-wiki:init` | rename | `skills/graph-wiki/scripts/init_vault.py` | `vault_io.init_vault.main` + `vault_io.detect_containers.main` (pre-step) | [init.md](init.md) | Direct mapping; detection sub-step preserved verbatim. |
-| 2 | `/lattice-wiki:scan` | rename | `skills/graph-wiki/scripts/scan_monorepo.py` | `vault_io.scan_monorepo.main` | [scan.md](scan.md) | Direct mapping; clean-tree-on-main gate preserved. |
-| 3 | `/lattice-wiki:ingest` | rename | `skills/graph-wiki/scripts/ingest_source.py` | `vault_io.ingest_source.main` | [ingest.md](ingest.md) | source-ingest only; work-item ingest dropped per C-01. |
-| 4 | `/lattice-wiki:lint` | reshape | `skills/graph-wiki/scripts/lint_wiki.py` | `vault_io.lint_wiki.main` (VP-01 prereq) + `vault_io.graph_analyzer.main` | [lint.md](lint.md) | Mechanical pass 1 + semantic pass 2 preserved; work-lint pass 1b dropped per C-01. |
-| 5 | `/lattice-wiki:query` | rename | `skills/graph-wiki/scripts/wiki_search.py` (BM25 fallback only) | `vault_io.wiki_search.main` (VP-01 prereq) | [query.md](query.md) | LLM-driven (Claude Code inference per P-01); only BM25 fallback shells out. |
+| 1 | `/lattice-wiki:init` | rename | `skills/graph-wiki/scripts/init_vault.py` | `wiki_io.init_vault.main` + `wiki_io.detect_containers.main` (pre-step) | [init.md](init.md) | Direct mapping; detection sub-step preserved verbatim. |
+| 2 | `/lattice-wiki:scan` | rename | `skills/graph-wiki/scripts/scan_monorepo.py` | `wiki_io.scan_monorepo.main` | [scan.md](scan.md) | Direct mapping; clean-tree-on-main gate preserved. |
+| 3 | `/lattice-wiki:ingest` | rename | `skills/graph-wiki/scripts/ingest_source.py` | `wiki_io.ingest_source.main` | [ingest.md](ingest.md) | source-ingest only; work-item ingest dropped per C-01. |
+| 4 | `/lattice-wiki:lint` | reshape | `skills/graph-wiki/scripts/lint_wiki.py` | `wiki_io.lint_wiki.main` (VP-01 prereq) + `wiki_io.graph_analyzer.main` | [lint.md](lint.md) | Mechanical pass 1 + semantic pass 2 preserved; work-lint pass 1b dropped per C-01. |
+| 5 | `/lattice-wiki:query` | rename | `skills/graph-wiki/scripts/wiki_search.py` (BM25 fallback only) | `wiki_io.wiki_search.main` (VP-01 prereq) | [query.md](query.md) | LLM-driven (Claude Code inference per P-01); only BM25 fallback shells out. |
 | 6 | `/lattice-wiki:log` | rename | — (no script) | — | [log.md](log.md) | Prose-only; mirrors upstream which has no script. |
 | 7 | `/lattice-wiki:archive` | drop | — | — | — | Work-layer out of v1.2 scope per C-01 and PROJECT.md. |
 | 8 | `/lattice-wiki:regen-index` | drop | — | — | — | Work-layer out of v1.2 scope per C-01 and PROJECT.md. |
@@ -35,10 +35,10 @@ All target script paths shown above are relative to `plugins/graph-wiki/`. Scrip
 
 ## Phase 14 prerequisite ports
 
-These two modules must be ported into `vault-io` **before** their respective plugin shims are written:
+These two modules must be ported into `wiki-io` **before** their respective plugin shims are written:
 
-- **`vault_io.lint_wiki`** — port ~508 LOC from `lattice_wiki_core/lint_wiki.py` into `packages/vault-io/src/vault_io/lint_wiki.py` (Phase 14 Plan 1). Required before the `/graph-wiki:lint` shim can shell out to `lint_wiki.main`. (VP-01)
-- **`vault_io.wiki_search`** — port ~194 LOC from `lattice_wiki_core/wiki_search.py` into `packages/vault-io/src/vault_io/wiki_search.py` (Phase 14 Plan 2). Required before `/graph-wiki:query`'s BM25 fallback path works. (VP-01)
+- **`wiki_io.lint_wiki`** — port ~508 LOC from `lattice_wiki_core/lint_wiki.py` into `packages/wiki-io/src/wiki_io/lint_wiki.py` (Phase 14 Plan 1). Required before the `/graph-wiki:lint` shim can shell out to `lint_wiki.main`. (VP-01)
+- **`wiki_io.wiki_search`** — port ~194 LOC from `lattice_wiki_core/wiki_search.py` into `packages/wiki-io/src/wiki_io/wiki_search.py` (Phase 14 Plan 2). Required before `/graph-wiki:query`'s BM25 fallback path works. (VP-01)
 
 Both ports follow the Phase 12 SR-01 rubric: bug fixes, helper extractions, and behavior-preserving refactors come over verbatim. Both must clear the `scripts/check-brand.sh` brand gate (renaming `lattice` → `graph-wiki` in identifiers and prose during the port). (VP-03)
 

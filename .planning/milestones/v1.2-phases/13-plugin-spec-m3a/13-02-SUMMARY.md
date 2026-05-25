@@ -10,7 +10,7 @@ dependency_graph:
     - ".planning/spec/13-plugin-contract/lint.md"
   affects:
     - "Phase 14 M3b plugin port (ingest shim, lint shim)"
-    - "packages/vault-io (lint_wiki.py port prerequisite VP-01)"
+    - "packages/wiki-io (lint_wiki.py port prerequisite VP-01)"
 tech_stack:
   added: []
   patterns:
@@ -22,7 +22,7 @@ key_files:
   modified: []
 decisions:
   - "ingest port_verdict=rename: source-ingest behavior preserved byte-for-byte; ingest_work_item.py absent from graph-wiki (C-01)"
-  - "lint port_verdict=reshape: only reshape verdict in v1.2; work-layer pass 1b dropped (C-01); vault_io.lint_wiki VP-01 prerequisite port required in Phase 14 Plan 1"
+  - "lint port_verdict=reshape: only reshape verdict in v1.2; work-layer pass 1b dropped (C-01); wiki_io.lint_wiki VP-01 prerequisite port required in Phase 14 Plan 1"
 metrics:
   duration: "~10 minutes"
   completed: "2026-05-18T23:16:03Z"
@@ -47,7 +47,7 @@ Two SP-02-conformant per-command spec files that lock the port contract for the 
 Commit: `7913a1f`
 
 - `port_verdict: rename` — source-ingest behavior preserved byte-for-byte modulo namespace strings
-- Shell-out contract: `vault_io.ingest_source.main` (claude) / `graph-wiki-agent ingest source` (bedrock, explicitly NOT `ingest work-item`)
+- Shell-out contract: `wiki_io.ingest_source.main` (claude) / `graph-wiki-agent ingest source` (bedrock, explicitly NOT `ingest work-item`)
 - Args: `--source`, `--json`, `--pkg-dir`, `--pkg-title` (mapped 1:1 from upstream `ingest_source.py` argparse)
 - Prose-preservation map: all 8 upstream sections verdicted; work-item ingest noted as absent at the script level (not the command-doc level), captured by omission of `ingest_work_item.py`
 - C-01 decision referenced 6 times; work-item string appears throughout drop-callout context
@@ -57,8 +57,8 @@ Commit: `7913a1f`
 Commit: `aa91c21`
 
 - `port_verdict: reshape` — only reshape verdict in the v1.2 port
-- Shell-out contract: `vault_io.lint_wiki.main` (mechanical pass 1 + semantic pass 2) + `vault_io.graph_analyzer.main` (companion)
-- VP-01 prerequisite: lint_wiki.py (~508 LOC) must be ported from lattice_wiki_core to vault_io as Phase 14 Plan 1 before shim can dispatch
+- Shell-out contract: `wiki_io.lint_wiki.main` (mechanical pass 1 + semantic pass 2) + `wiki_io.graph_analyzer.main` (companion)
+- VP-01 prerequisite: lint_wiki.py (~508 LOC) must be ported from lattice_wiki_core to wiki_io as Phase 14 Plan 1 before shim can dispatch
 - Args: `--stale-days`, `--log-gap-days`, `--json`, `--check` (mapped 1:1; no work-layer flags)
 - Prose-preservation map: distinguishes pass 1 (verbatim rename), pass 1b (DROP — section omitted per C-01), pass 2 (verbatim rename), pass 3 (reshape: `## Work lint` header removed from report)
 - Reshape notes: two concrete behavior changes (pass 1b removed, VP-01 prerequisite port)

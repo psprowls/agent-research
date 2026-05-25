@@ -13,7 +13,7 @@ Surfaces in scope:
 - **MCP Pydantic input schemas (WSMCP-01)** — 6 input classes in `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` (`WikiQueryInput` line 103, `WikiLogInput` 150, `WikiBootstrapInput` 192, `WikiScanInput` 242, `WikiIngestInput` 299, `WikiLintInput` 374); each `vault_path: str = Field(...)` → `workspace_path: str = Field(...)`; descriptions updated; internal reads of `input.vault_path` → `input.workspace_path`.
 - **Typer CLI flags (WSMCP-02)** — 7 `vault: str = typer.Option("", "--vault", ...)` declarations in `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (lines 382, 420, 442, 463, 501, …); Python param name → `workspace`, flag literal → `--workspace`, help text mentions `GRAPH_WIKI_WORKSPACE`.
 - **New `--repo` flag for bootstrap (WSMCP-03)** — additive Typer option on `bootstrap` only.
-- **Scan JSON output field (WSMCP-04)** — `packages/vault-io/src/vault_io/scan_monorepo.py`: helper `_vault_path_for` → `_wiki_relative_path_for` (line 399); 3 emission sites (lines 395, 666, 717) — all currently relative to the wiki directory, semantically correct under the new name; docstring at line 616.
+- **Scan JSON output field (WSMCP-04)** — `packages/wiki-io/src/wiki_io/scan_monorepo.py`: helper `_vault_path_for` → `_wiki_relative_path_for` (line 399); 3 emission sites (lines 395, 666, 717) — all currently relative to the wiki directory, semantically correct under the new name; docstring at line 616.
 - **Plugin markdown docs (WSMCP-05)** — sync 5 plugin files (`plugins/graph-wiki/agents/scanner.md`, `plugins/graph-wiki/skills/graph-wiki/references/{scan-workflow,detection-workflow,wiki-schema}.md`, `plugins/graph-wiki/commands/scan.md`) plus `packages/prompt-sources/references/*.md` mirrors.
 - **DA-CLI integration test (WSMCP-06)** — `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` updated for new field + flag names; runs under `GRAPH_WIKI_RUN_INTEGRATION=1`.
 - **Brand-gate extension (WSMCP-07)** — `scripts/check-brand.sh` gains a regex rule banning the 3 literal patterns named in the REQ; `.brand-grep-allow` narrowly seeded for any unavoidable historical refs.
@@ -23,7 +23,7 @@ Surfaces in scope:
 - Wider brand-gate scope (D-03 below; kwarg/test-mock bans deferred)
 - eval-harness `vault_path` sweep — Phase 24
 - `packages/` misclassification fix — Phase 25
-- `vault-io` package directory/module name — out of milestone scope
+- `wiki-io` package directory/module name — out of milestone scope
 
 </domain>
 
@@ -55,7 +55,7 @@ Surfaces in scope:
 ### Carried Forward (milestone-level locks — non-negotiable)
 - **D-05:** Hard rename, no back-compat shims. No deprecation period for the old field/flag names. (Phase 22 D-07.)
 - **D-06:** Wiki path always derived via `workspace_io.paths.wiki_dir()` — never string concatenation. (Phase 22 D-09. Applies here at the MCP server's internal call sites where `Path(input.workspace_path)` is converted into the wiki dir.)
-- **D-07:** `vault-io` package directory and `vault_io` module path STAY. Only nomenclature changes, not module renames. (Phase 22 D-10.)
+- **D-07:** `wiki-io` package directory and `wiki_io` module path STAY. Only nomenclature changes, not module renames. (Phase 22 D-10.)
 - **D-08:** Plugin markdown docs sync includes BOTH the named `plugins/graph-wiki/...` files AND the `packages/prompt-sources/references/*.md` mirrors — the prompt-sources mirrors are loaded into agent system prompts at runtime, so divergence would silently regress agent behavior.
 
 ### Claude's Discretion
@@ -78,7 +78,7 @@ Surfaces in scope:
 ### Files in the rename surface
 - `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` — 6 MCP input Pydantic classes (lines 103, 150, 192, 242, 299, 374) + their internal reads of `input.vault_path`
 - `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — 7 Typer command signatures with `--vault`; bootstrap also gets new `--repo`
-- `packages/vault-io/src/vault_io/scan_monorepo.py` — `_vault_path_for` helper (line 399), 3 emission sites (lines 395, 666, 717), docstring (line 616)
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py` — `_vault_path_for` helper (line 399), 3 emission sites (lines 395, 666, 717), docstring (line 616)
 - `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` — DA-CLI integration test
 - `scripts/check-brand.sh` — existing brand-gate to extend
 - `.brand-grep-allow` — allowlist file at repo root
@@ -146,7 +146,7 @@ Surfaces in scope:
 - Adding `--repo` flag to non-bootstrap commands (scan/lint/ingest/query/log) — if user ergonomics demand it
 - Aggressive brand-gate: ban `vault_path=` kwargs in production code paths, ban string literal `vault_path` outside `.brand-grep-allow`
 - MCP input `repo_path` field exposure (mirror of CLI `--repo`) — would let MCP callers override repo root explicitly
-- Renaming `vault-io` package directory and `vault_io` module to `wiki-io`/`wiki_io` — explicitly out of milestone scope (Phase 22 D-10)
+- Renaming `wiki-io` package directory and `wiki_io` module to `wiki-io`/`wiki_io` — explicitly out of milestone scope (Phase 22 D-10)
 - Test-side schema rejection assertion: add an explicit unit test verifying that an MCP call with the old field `vault_path` fails Pydantic validation (success criteria #2 implies this; whether to add an explicit unit test or rely on integration test coverage is open)
 
 </deferred>

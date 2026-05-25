@@ -1,0 +1,21 @@
+{
+  "kind": "file",
+  "name": null,
+  "language": "typescript",
+  "package": "fixtures",
+  "attrs": {},
+  "refs": [],
+  "children": [
+    {
+      "kind": "function",
+      "name": "callIt",
+      "language": "typescript",
+      "package": "fixtures",
+      "attrs": {},
+      "refs": [
+        {"kind": "call", "target_name": "bar", "target_module": null, "attrs": {"is_member": true}}
+      ],
+      "children": []
+    }
+  ]
+}

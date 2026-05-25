@@ -31,8 +31,8 @@ jobs:
       # pytest's rootdir algorithm picks up the member's pyproject.toml
       # `[tool.pytest.ini_options]` testpaths (uv `--package` alone does not
       # change cwd, so the root pyproject would otherwise drive discovery).
-      - name: vault-io tests
-        run: uv run --directory packages/vault-io pytest
+      - name: wiki-io tests
+        run: uv run --directory packages/wiki-io pytest
 
       - name: model-adapter tests
         run: uv run --directory packages/model-adapter pytest

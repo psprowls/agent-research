@@ -675,7 +675,7 @@ _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 
 CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
 FIXTURE_VAULT = (
-    _WORKSPACE_ROOT / "cores" / "vault-io" / "tests" / "fixtures" / "round-trip-vault"
+    _WORKSPACE_ROOT / "cores" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
 )
 ```
 

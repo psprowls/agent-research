@@ -36,8 +36,8 @@ key-files:
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py
-    - cores/vault-io/src/vault_io/append_log.py
-    - cores/vault-io/src/vault_io/ingest_work_item.py
+    - cores/wiki-io/src/wiki_io/append_log.py
+    - cores/wiki-io/src/wiki_io/ingest_work_item.py
 
 key-decisions:
   - "stdin-open test helper: mcp 1.27.1 lowlevel/server.py:690 cancels in-flight handlers on stdin EOF; keeping stdin open until all responses received is required for Bedrock-calling tools"
@@ -47,7 +47,7 @@ key-decisions:
 
 patterns-established:
   - "stdin-open subprocess pattern for long-running MCP tool tests"
-  - "MCP safety pattern: all vault_io functions called from MCP handlers must suppress stdout"
+  - "MCP safety pattern: all wiki_io functions called from MCP handlers must suppress stdout"
 
 requirements-completed:
   - DACLI-01
@@ -60,7 +60,7 @@ completed: 2026-05-17T17:06:48Z
 
 # Phase 8 Plan 02: E2E Test Summary
 
-**WikiScanInput.repo_path field + six-tool subprocess E2E integration test with stdin-open pattern for Bedrock-calling tools, plus MCP stdout safety fixes across vault_io callers**
+**WikiScanInput.repo_path field + six-tool subprocess E2E integration test with stdin-open pattern for Bedrock-calling tools, plus MCP stdout safety fixes across wiki_io callers**
 
 ## Performance
 
@@ -152,8 +152,8 @@ No tools flagged errors. All responses were `isError: False`. `wiki_query` showe
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — append_log calls now use silent=True
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — append_log call now uses silent=True
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py` — append_log call now uses silent=True
-- `cores/vault-io/src/vault_io/append_log.py` — Added silent=False parameter; suppresses stdout when silent=True
-- `cores/vault-io/src/vault_io/ingest_work_item.py` — append_log call now uses silent=True
+- `cores/wiki-io/src/wiki_io/append_log.py` — Added silent=False parameter; suppresses stdout when silent=True
+- `cores/wiki-io/src/wiki_io/ingest_work_item.py` — append_log call now uses silent=True
 
 ## Decisions Made
 
@@ -169,7 +169,7 @@ This is a critical pattern for any MCP stdio subprocess test that exercises Bedr
 
 ### append_log stdout safety
 
-`vault_io/append_log.py` always prints to stdout (either human-readable or JSON format). All calls from MCP tool handlers now pass `silent=True`. The `silent` parameter defaults to `False` so CLI callers are unaffected. This is a Rule 2 (missing critical functionality) fix — the MCP server cannot have stdout writes from library code.
+`wiki_io/append_log.py` always prints to stdout (either human-readable or JSON format). All calls from MCP tool handlers now pass `silent=True`. The `silent` parameter defaults to `False` so CLI callers are unaffected. This is a Rule 2 (missing critical functionality) fix — the MCP server cannot have stdout writes from library code.
 
 ### commands/init.py as_json=True bug
 
@@ -189,7 +189,7 @@ The comment "suppress stdout prints — required for MCP safety" was wrong. `as_
 - **Found during:** Task 2 (E2E test debugging)
 - **Issue:** `append_log` with default `as_json=False` calls `print(f"[ok] appended to {log_path}")` which trips `_StdoutGuard` in the MCP subprocess, causing FastMCP to swallow the exception and the server to exit without sending the `wiki_scan` response.
 - **Fix:** Added `silent=False` parameter to `append_log`; all MCP-layer callers pass `silent=True`. This is additive — CLI callers unaffected.
-- **Files modified:** `cores/vault-io/src/vault_io/append_log.py`, all 4 callers in `commands/`
+- **Files modified:** `cores/wiki-io/src/wiki_io/append_log.py`, all 4 callers in `commands/`
 
 **3. [Rule 1 - Bug] commands/init.py as_json=True misuse**
 - **Found during:** Task 2 (first E2E run, id=2 wiki_init showed isError=True)
@@ -197,7 +197,7 @@ The comment "suppress stdout prints — required for MCP safety" was wrong. `as_
 - **Fix:** Changed to `as_json=False`. Result dict is returned regardless; `non_interactive=True` already suppresses interactive prompts.
 - **Files modified:** `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py`
 
-**Total deviations:** 3 auto-fixed Rule 1 bugs — all pre-existing stdout safety issues in vault_io library code that the E2E test surfaced.
+**Total deviations:** 3 auto-fixed Rule 1 bugs — all pre-existing stdout safety issues in wiki_io library code that the E2E test surfaced.
 
 ## WikiIngestInput shape deviation from plan
 

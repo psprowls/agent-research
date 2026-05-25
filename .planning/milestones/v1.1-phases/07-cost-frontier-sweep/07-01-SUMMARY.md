@@ -114,7 +114,7 @@ None - plan executed exactly as written.
 
 ## Issues Encountered
 
-The existing test suite has pre-existing `ValueError: Plugin already registered` errors in `cores/subagent-runtime/tests` and `cores/vault-io/tests` when pytest is invoked workspace-wide. These are unrelated to this plan and not caused by any new files. The eval-harness scoped suite (`uv run --package eval-harness pytest cores/eval-harness/tests/`) runs clean.
+The existing test suite has pre-existing `ValueError: Plugin already registered` errors in `cores/subagent-runtime/tests` and `cores/wiki-io/tests` when pytest is invoked workspace-wide. These are unrelated to this plan and not caused by any new files. The eval-harness scoped suite (`uv run --package eval-harness pytest cores/eval-harness/tests/`) runs clean.
 
 ## Threat Surface Scan
 

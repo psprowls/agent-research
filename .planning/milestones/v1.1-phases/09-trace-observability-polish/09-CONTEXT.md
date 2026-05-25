@@ -20,7 +20,7 @@ Formally document and version the JSONL trace schema written by `SubagentPool` (
   - Implement consecutive-same-role collapsing with threshold N=2 and a dense one-line group summary (count, status breakdown, time range, total tokens, total cost).
   - Wire `--expand` as a boolean flag that reverts to today's one-line-per-record rendering.
 - Snapshot tests (`syrupy`, already in stack) lock collapsed and `--expand` output for representative trace fixtures (fan-out of 4, mixed success/error, mixed `kind: query_summary` interleaving, `event: batch_cancelled` terminator).
-- Backward-compat unit test: render an unversioned trace fixture (e.g., from `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/`) and assert renderer emits a one-time stderr warning + best-effort render — does not refuse.
+- Backward-compat unit test: render an unversioned trace fixture (e.g., from `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/`) and assert renderer emits a one-time stderr warning + best-effort render — does not refuse.
 
 **Out of scope (explicit):**
 - Migrating renderer output to `rich` / `textual` — explicit v1 stack constraint (CLAUDE.md §6: "textual / rich in v1 — explicitly out of scope").
@@ -40,7 +40,7 @@ Formally document and version the JSONL trace schema written by `SubagentPool` (
 - **D-01:** **`schema_version` is written on every record** (not as a file-header line). Both `_write_trace` and `_write_batch_terminal` in `pool.py` get the field unconditionally; `query.py`'s `query_summary` writer gets it too. Rationale: each JSONL line stays self-describing — `grep` and stream-processing both work without parsing a header; mid-process crashes can't produce headerless files. Extra bytes per line are negligible vs. the existing record size.
 - **D-02:** **Integer format: `schema_version: 1`.** No semver. Bump to `2` on the next breaking change. Additive changes (new optional fields, new record kinds) DO NOT bump the integer — the Phase 8 D-06/D-07 "purely additive" rule continues to apply for non-breaking growth.
 - **D-03:** **Breaking-change policy:** the integer bumps when an existing field is renamed, removed, or has its meaning/units changed; new optional fields and new record kinds are free. The renderer accepts records with `schema_version` greater than the version it knows about and emits a one-line stderr warning (`warning: trace schema_version N is newer than supported (M); rendering best-effort`) — but continues to render. This is the "lenient consumer" half of the policy; producers (pool, query) are strict.
-- **D-04:** **`schema_version: 0` is reserved for the pre-Phase-9 unversioned shape** — the renderer infers it when the field is absent on a record and emits a one-time stderr warning per file (not per record). Existing fixture traces under `cores/vault-io/tests/fixtures/.../traces/` are NOT rewritten; they continue to render correctly under the v0-inference path. This is Claude's judgment call (user did not select the "backward compat" gray area to discuss, so the renderer takes the lenient route consistent with the rest of the policy).
+- **D-04:** **`schema_version: 0` is reserved for the pre-Phase-9 unversioned shape** — the renderer infers it when the field is absent on a record and emits a one-time stderr warning per file (not per record). Existing fixture traces under `cores/wiki-io/tests/fixtures/.../traces/` are NOT rewritten; they continue to render correctly under the v0-inference path. This is Claude's judgment call (user did not select the "backward compat" gray area to discuss, so the renderer takes the lenient route consistent with the rest of the policy).
 
 ### Schema documentation (OBS-04)
 
@@ -98,7 +98,7 @@ Formally document and version the JSONL trace schema written by `SubagentPool` (
 - `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py:48-144` — `_render_trace_record`, `_aggregate_trace`, and the `trace` Typer command. All three are extended in this phase.
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — emits the `kind: query_summary` JSONL record; this writer also gets `schema_version: 1`.
 - `agents/graph-wiki-agent/tests/unit/test_trace_viewer.py` — current test scaffolding for the trace command; extension target for collapsed/expand snapshot tests.
-- `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/*.jsonl` — real-world unversioned trace samples used for the v0 backward-compat render test.
+- `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/*.jsonl` — real-world unversioned trace samples used for the v0 backward-compat render test.
 - `cores/eval-harness/src/eval_harness/pricing.py` — pricing source consulted only at write time; renderer does NOT call it (D-10).
 
 ### Stack / framework references
@@ -133,7 +133,7 @@ Formally document and version the JSONL trace schema written by `SubagentPool` (
 ## Specific Ideas
 
 - The cost-rollup line must show model_id (D-07) — the cost story this project is named after only reads if model attribution is visible. The Phase 7 sweep produces records with different `model_id` values per role; this is the first phase that reads them back.
-- The unversioned-trace fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` are the canonical v0 backward-compat test material — don't synthesize new fixtures, exercise the renderer against these directly.
+- The unversioned-trace fixtures under `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` are the canonical v0 backward-compat test material — don't synthesize new fixtures, exercise the renderer against these directly.
 
 </specifics>
 

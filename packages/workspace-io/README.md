@@ -73,5 +73,5 @@ defaults on a per-role basis.
 
 ---
 
-Ported from `lattice-workspace` (`/Users/pat/Personal/lattice/packages/lattice-workspace/`).
+Ported from `workspace-io` (`/Users/pat/Personal/lattice/packages/workspace-io/`).
 See `.planning/phases/11-workspace-io-port-m1/` for the port plan and provenance.

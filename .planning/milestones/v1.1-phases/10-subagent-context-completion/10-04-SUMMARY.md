@@ -6,8 +6,8 @@ tags: [project-context, render, layout-io, syrupy, snapshot, pure-function]
 
 # Dependency graph
 requires:
-  - phase: 01-infrastructure-vault-io-and-mcp-skeleton
-    provides: vault_io.layout_io.read_layout — parser for the <!-- lattice-wiki:layout:start --> block
+  - phase: 01-infrastructure-wiki-io-and-mcp-skeleton
+    provides: wiki_io.layout_io.read_layout — parser for the <!-- lattice-wiki:layout:start --> block
 provides:
   - render_project_context(wiki_path: Path) -> str — pure renderer for the project-context block delivered to scanner / linter / ingestor subagents at command entry
   - Fence-aware heading-walk helper that safely extracts `## Style` and `## Log format` section bodies even when they contain `## ` lines inside fenced code blocks
@@ -47,7 +47,7 @@ completed: 2026-05-17
 
 # Phase 10 Plan 04: Project-Context Renderer Summary
 
-**Pure-function `render_project_context(wiki_path)` that reads `wiki/CLAUDE.md` (or `AGENTS.md`), parses the layout block via `vault_io.layout_io.read_layout`, and emits a deterministic ~30-line block covering project layout + style + log format for downstream subagent prompts.**
+**Pure-function `render_project_context(wiki_path)` that reads `wiki/CLAUDE.md` (or `AGENTS.md`), parses the layout block via `wiki_io.layout_io.read_layout`, and emits a deterministic ~30-line block covering project layout + style + log format for downstream subagent prompts.**
 
 ## Performance
 
@@ -64,7 +64,7 @@ completed: 2026-05-17
 - Four unit tests cover the LOCKED behavioral contract: missing-file → `""`, CLAUDE.md present with syrupy snapshot, AGENTS.md fallback, byte-identical determinism on repeated calls.
 - Snapshot baseline recorded at `tests/prompts/__snapshots__/test_project_context.ambr`; second run confirms it is stable.
 - Fence-aware heading walk so log-format code samples (`## [YYYY-MM-DD] <op> | <title>` inside a triple-backtick fence) no longer falsely terminate the `## Log format` section. This was a real bug — the first snapshot recording cut the Log format body short at line 17 (`\`\`\``) before being fixed.
-- All scope fences honored: zero `deepagents` imports, zero `pyproject.toml` changes, zero `cores/subagent-runtime/` modifications. The only new external import in the module is `from vault_io.layout_io import read_layout`.
+- All scope fences honored: zero `deepagents` imports, zero `pyproject.toml` changes, zero `cores/subagent-runtime/` modifications. The only new external import in the module is `from wiki_io.layout_io import read_layout`.
 
 ## Task Commits
 
@@ -73,13 +73,13 @@ completed: 2026-05-17
 
 ## Files Created/Modified
 
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py` — exports `render_project_context(wiki_path) -> str`; uses `vault_io.layout_io.read_layout` for the layout block; private `_render`, `_render_layout`, `_extract_section` helpers.
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py` — exports `render_project_context(wiki_path) -> str`; uses `wiki_io.layout_io.read_layout` for the layout block; private `_render`, `_render_layout`, `_extract_section` helpers.
 - `agents/graph-wiki-agent/tests/prompts/test_project_context.py` — four tests covering missing-file, CLAUDE.md-with-snapshot, AGENTS.md-fallback, deterministic-output. `FIXTURE_CLAUDE_MD` constant carries a valid layout block (apps + cores containers), `## Style` section, and `## Log format` section.
 - `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr` — single syrupy snapshot for `test_render_project_context_with_claude_md`.
 
 ## Decisions Made
 
-- Per CONTEXT.md §Project-context renderer (LOCKED): use `vault_io.layout_io.read_layout` for the layout YAML; never roll a bespoke YAML parser. Done — the module imports `read_layout` and lets it handle the YAML shape.
+- Per CONTEXT.md §Project-context renderer (LOCKED): use `wiki_io.layout_io.read_layout` for the layout YAML; never roll a bespoke YAML parser. Done — the module imports `read_layout` and lets it handle the YAML shape.
 - Per CONTEXT.md §Project-context renderer (LOCKED): deterministic container ordering. Implemented by sorting `layout["containers"]` by `vault_dir` (the YAML parser preserves insertion order, but sort-by-key is the stronger guarantee).
 - Render the `## Project layout` heading always (with a `(no layout block detected)` marker when `read_layout` returns `None` or the containers list is empty) so consumers can reason about a stable section structure even on freshly-cloned vaults.
 - Style and log-format sections are *omitted entirely* when absent (not rendered with an empty marker) — these are optional schema content; rendering empty headings would inject useless tokens into the subagent prompt and would be visible in the snapshot.

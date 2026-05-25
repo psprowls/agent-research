@@ -6,18 +6,18 @@ wave: 3
 depends_on:
   - 12-02
 files_modified:
-  - packages/vault-io/src/vault_io/__init__.py
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/src/vault_io/update_index.py
-  - packages/vault-io/src/vault_io/scan_monorepo.py
-  - packages/vault-io/src/vault_io/ingest_work_item.py
-  - packages/vault-io/src/vault_io/git_state.py
-  - packages/vault-io/src/vault_io/layout_io.py
-  - packages/vault-io/src/vault_io/ingest_source.py
-  - packages/vault-io/src/vault_io/update_tokens.py
-  - packages/vault-io/src/vault_io/append_log.py
-  - packages/vault-io/src/vault_io/detect_containers.py
-  - packages/vault-io/tests/
+  - packages/wiki-io/src/wiki_io/__init__.py
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/src/wiki_io/update_index.py
+  - packages/wiki-io/src/wiki_io/scan_monorepo.py
+  - packages/wiki-io/src/wiki_io/ingest_work_item.py
+  - packages/wiki-io/src/wiki_io/git_state.py
+  - packages/wiki-io/src/wiki_io/layout_io.py
+  - packages/wiki-io/src/wiki_io/ingest_source.py
+  - packages/wiki-io/src/wiki_io/update_tokens.py
+  - packages/wiki-io/src/wiki_io/append_log.py
+  - packages/wiki-io/src/wiki_io/detect_containers.py
+  - packages/wiki-io/tests/
   - packages/eval-harness/src/eval_harness/baseline.py
   - packages/eval-harness/src/eval_harness/pricing.py
   - packages/eval-harness/tests/
@@ -85,8 +85,8 @@ Output: four-or-five commits (Claude's Discretion on whether to fold the CONVENT
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Commit 1 — rebrand packages/ source (vault-io + eval-harness non-baseline)</name>
-  <files>packages/vault-io/src/vault_io/__init__.py, packages/vault-io/src/vault_io/init_vault.py, packages/vault-io/src/vault_io/update_index.py, packages/vault-io/src/vault_io/scan_monorepo.py, packages/vault-io/src/vault_io/ingest_work_item.py, packages/vault-io/src/vault_io/git_state.py, packages/vault-io/src/vault_io/layout_io.py, packages/vault-io/src/vault_io/ingest_source.py, packages/vault-io/src/vault_io/update_tokens.py, packages/vault-io/src/vault_io/append_log.py, packages/vault-io/src/vault_io/detect_containers.py, packages/vault-io/tests/, packages/eval-harness/src/eval_harness/baseline.py, packages/eval-harness/src/eval_harness/pricing.py, packages/eval-harness/tests/</files>
+  <name>Task 1: Commit 1 — rebrand packages/ source (wiki-io + eval-harness non-baseline)</name>
+  <files>packages/wiki-io/src/wiki_io/__init__.py, packages/wiki-io/src/wiki_io/init_vault.py, packages/wiki-io/src/wiki_io/update_index.py, packages/wiki-io/src/wiki_io/scan_monorepo.py, packages/wiki-io/src/wiki_io/ingest_work_item.py, packages/wiki-io/src/wiki_io/git_state.py, packages/wiki-io/src/wiki_io/layout_io.py, packages/wiki-io/src/wiki_io/ingest_source.py, packages/wiki-io/src/wiki_io/update_tokens.py, packages/wiki-io/src/wiki_io/append_log.py, packages/wiki-io/src/wiki_io/detect_containers.py, packages/wiki-io/tests/, packages/eval-harness/src/eval_harness/baseline.py, packages/eval-harness/src/eval_harness/pricing.py, packages/eval-harness/tests/</files>
   <read_first>
     - .planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-CONTEXT.md (R-01 round-trip-vault exclusion, R-02 baseline/rubric exclusion, SQ-02 commit-1 scope, SQ-03 mid-sweep test gate)
     - Each file listed in `files_modified` for this task before editing it (so the rebrand is informed by the actual reference shape — docstring vs error string vs identifier vs prose).
@@ -94,14 +94,14 @@ Output: four-or-five commits (Claude's Discretion on whether to fold the CONVENT
   <action>
     Sweep `lattice` → `graph-wiki` (kebab in user-facing prose / paths / CLI strings) or `graph_wiki` (snake in Python identifiers) across:
 
-    - All `packages/vault-io/src/vault_io/*.py` files (12 modules per CONTEXT.md): replace `lattice`, `LATTICE`, `lattice_workspace`, `lattice_wiki_core`, `.lattice.yaml`, `/lattice-wiki:*` command paths, "lattice workspace" prose, etc. with the graph-wiki equivalents. Phase 11 already renamed `.graph-wiki.yaml` and `GRAPH_WIKI_WORKSPACE`; sweep updates any remaining docstrings, error messages, and legacy strings.
+    - All `packages/wiki-io/src/wiki_io/*.py` files (12 modules per CONTEXT.md): replace `lattice`, `LATTICE`, `lattice_workspace`, `lattice_wiki_core`, `.lattice.yaml`, `/lattice-wiki:*` command paths, "lattice workspace" prose, etc. with the graph-wiki equivalents. Phase 11 already renamed `.graph-wiki.yaml` and `GRAPH_WIKI_WORKSPACE`; sweep updates any remaining docstrings, error messages, and legacy strings.
     - Any surviving `LatticeConfig` / `LatticeWorkspace*` Python identifiers (most should be gone after Phase 11's delegation rewrite — check, and rename if any remain to `GraphWikiConfig` etc.).
-    - `packages/vault-io/tests/*.py`: rebrand prose / identifier references. CRITICAL: do NOT touch any string literal that is testing real vault-data round-trip — that's allowlisted per R-01 (`round-trip-vault/` fixtures). For each test file, before editing a string, ask: is this asserting against real test-data ingested from `tests/fixtures/round-trip-vault/`? If yes, leave verbatim. Otherwise rebrand.
+    - `packages/wiki-io/tests/*.py`: rebrand prose / identifier references. CRITICAL: do NOT touch any string literal that is testing real vault-data round-trip — that's allowlisted per R-01 (`round-trip-vault/` fixtures). For each test file, before editing a string, ask: is this asserting against real test-data ingested from `tests/fixtures/round-trip-vault/`? If yes, leave verbatim. Otherwise rebrand.
     - `packages/eval-harness/src/eval_harness/baseline.py` + `pricing.py`: rebrand implementation prose (docstrings, variable names that aren't baseline-data refs, comments). DO NOT rename any literal that names recorded baseline data (per R-02 — "lattice-wiki literals inside `baseline.py` + `pricing.py` if they reference recorded data" stay verbatim). The disambiguation rule: if the literal is the comparison-baseline label or refers to recorded output from lattice-wiki, leave it; if it's implementation prose about how the eval works, rebrand.
     - `packages/eval-harness/tests/*.py`: same disambiguation — test-data references stay (R-02), prose/identifier references rebrand.
 
     DO NOT touch:
-    - `packages/vault-io/tests/fixtures/round-trip-vault/` — anything inside this directory tree (R-01).
+    - `packages/wiki-io/tests/fixtures/round-trip-vault/` — anything inside this directory tree (R-01).
     - `packages/eval-harness/baselines/divergence-*.json` (R-02).
     - `packages/eval-harness/src/eval_harness/divergence/rubrics/*.md` (R-02).
 
@@ -115,8 +115,8 @@ Output: four-or-five commits (Claude's Discretion on whether to fold the CONVENT
   <acceptance_criteria>
     - `uv run pytest` exits 0 (SQ-03 gate) — captured as `PYTEST_RC` via `${PIPESTATUS[0]}` so the pipe-to-`tail` does not mask a red run.
     - HEAD commit subject is exactly `refactor: rebrand lattice → graph-wiki in packages/`.
-    - HEAD commit does NOT modify any file under `packages/vault-io/tests/fixtures/round-trip-vault/`, `packages/eval-harness/baselines/`, or `packages/eval-harness/src/eval_harness/divergence/rubrics/` — verified by the `if ... grep -qE` block in the verify command (script exits 1 if any disallowed path appears in `git show --stat HEAD`).
-    - `grep -rE 'lattice_workspace|lattice_wiki_core' packages/vault-io/src/ packages/eval-harness/src/eval_harness/baseline.py packages/eval-harness/src/eval_harness/pricing.py` returns zero matches (the high-confidence symbol forms — any allowed lattice-wiki literal references inside baseline.py/pricing.py should NOT match this stricter pattern).
+    - HEAD commit does NOT modify any file under `packages/wiki-io/tests/fixtures/round-trip-vault/`, `packages/eval-harness/baselines/`, or `packages/eval-harness/src/eval_harness/divergence/rubrics/` — verified by the `if ... grep -qE` block in the verify command (script exits 1 if any disallowed path appears in `git show --stat HEAD`).
+    - `grep -rE 'lattice_workspace|lattice_wiki_core' packages/wiki-io/src/ packages/eval-harness/src/eval_harness/baseline.py packages/eval-harness/src/eval_harness/pricing.py` returns zero matches (the high-confidence symbol forms — any allowed lattice-wiki literal references inside baseline.py/pricing.py should NOT match this stricter pattern).
   </acceptance_criteria>
   <done>Commit 1 landed; tests green; no allowlisted path touched.</done>
 </task>

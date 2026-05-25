@@ -1,0 +1,24 @@
+[project]
+name = "graph-io"
+version = "0.2.1"
+description = "Code-graph core for the graph-wiki ecosystem — SQLite store, manifest scanning, queries, and the cg CLI."
+authors = [
+  { name = "Patrick Sprowls", email = "psprowls@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "source-parser",
+  "workspace-io",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+source-parser = { workspace = true }
+workspace-io = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

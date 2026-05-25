@@ -74,7 +74,7 @@ def resolve_workspace(repo_root: Path) -> Path:
     return (repo_root / expanded).resolve()
 
 
-def resolve(cwd: Path | None = None) -> GraphWikiConfig:
+def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWikiConfig:
     """Resolve the GraphWikiConfig for the given working directory.
 
     Checks GRAPH_WIKI_WORKSPACE env var first for explicit override (used by tests).
@@ -100,10 +100,11 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
     # D-03: strict — raise if no .graph-wiki.yaml present in the resolved workspace.
     manifest = workspace / ".graph-wiki.yaml"
     if not manifest.exists():
-        raise RuntimeError(
-            f"No .graph-wiki.yaml found in {workspace}. "
-            f"Run: graph-wiki-agent bootstrap <path>"
-        )
+            if require_manifest is True:
+                raise RuntimeError(
+                    f"No .graph-wiki.yaml found in {workspace}. "
+                    f"Run: graph-wiki-agent bootstrap <path>"
+                )
     # Workspace manifest may pin a different repo_root explicitly.
     repo_root = _repo_directory_override(workspace, repo_root)
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)

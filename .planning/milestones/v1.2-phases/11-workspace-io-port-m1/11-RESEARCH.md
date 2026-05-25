@@ -11,13 +11,13 @@
 
 ### Locked Decisions
 
-- **D-01:** `GRAPH_WIKI_REAL_VAULT_PATH` is dropped entirely in this phase. Only `GRAPH_WIKI_WORKSPACE` honored post-port. Code, conftest fixtures, CLI help strings, and the two vault-io test functions switch to the new name. No alias, no deprecation warning.
-- **D-02:** `vault-io._workspace.resolve_wiki_and_repo` becomes a two-tier passthrough: (1) if `vault_path` argument is provided, short-circuit and return `(vault_path.resolve(), <git-discovered repo_root or None>)`; (2) otherwise call `workspace_io.config.resolve()` and return `(paths.wiki_dir(config.workspace), config.repo_root)`. All env-var handling, `.graph-wiki.yaml` walk-up, and error messages live inside `workspace_io.config` — vault-io stays a thin shim.
+- **D-01:** `GRAPH_WIKI_REAL_VAULT_PATH` is dropped entirely in this phase. Only `GRAPH_WIKI_WORKSPACE` honored post-port. Code, conftest fixtures, CLI help strings, and the two wiki-io test functions switch to the new name. No alias, no deprecation warning.
+- **D-02:** `wiki-io._workspace.resolve_wiki_and_repo` becomes a two-tier passthrough: (1) if `vault_path` argument is provided, short-circuit and return `(vault_path.resolve(), <git-discovered repo_root or None>)`; (2) otherwise call `workspace_io.config.resolve()` and return `(paths.wiki_dir(config.workspace), config.repo_root)`. All env-var handling, `.graph-wiki.yaml` walk-up, and error messages live inside `workspace_io.config` — wiki-io stays a thin shim.
 - **D-03:** `workspace_io.config.resolve(cwd=None)` is strict — no fallbacks beyond `GRAPH_WIKI_WORKSPACE` env override and `.graph-wiki.yaml` cwd walk-up. If neither yields a manifest, raise `RuntimeError` naming `graph-wiki-agent init <path>` as bootstrap command.
 - **D-04:** Convention: `paths.wiki_dir(workspace) = workspace / "wiki"`. Manifest at `<workspace>/.graph-wiki.yaml`.
 - **D-05:** Existing `~/Personal/graph-wiki/agent-research` is throwaway. Pat will delete and re-init. No migration script.
 - **D-06:** `schema.py` dropped (work-layer only; caller was `write_schema(work_dir)` in init.py). WS-06 closed.
-- **D-07:** `init.py` ported; wired into `graph-wiki-agent init` which calls `workspace_io.init(...)` first, then `vault-io.init_vault.init_wiki(...)`.
+- **D-07:** `init.py` ported; wired into `graph-wiki-agent init` which calls `workspace_io.init(...)` first, then `wiki-io.init_vault.init_wiki(...)`.
 - **D-08:** `render.py` + `versions.py` + `assets/CLAUDE.md.template` ported with minimum-viable rebrand. Template body polish deferred.
 - **D-09:** `paths.py` ported verbatim (all 5 helpers plus `manifest_path`).
 - **D-10:** `config.py`, `manifest.py`, `_local_config.py` ported (delegation-critical core).
@@ -57,7 +57,7 @@
 | WS-05 | `paths.py`, `render.py`, `versions.py`, `_local_config.py`, `assets/CLAUDE.md.template` ported | All source files read; rebrand changes documented |
 | WS-06 | `schema.py` decision recorded — verified work-layer only, dropped | Confirmed: `_SCHEMA_CONTENT` is pure work-item frontmatter; only caller was `init.py` `write_schema` |
 | WS-07 | `LATTICE_WORKSPACE` → `GRAPH_WIKI_WORKSPACE`; all symbols renamed | Full symbol inventory documented in this research |
-| WS-08 | `vault-io/_workspace.py` delegates to `workspace_io.config.resolve()` | Current `_workspace.py` at line 14-33; full signature documented; callers mapped |
+| WS-08 | `wiki-io/_workspace.py` delegates to `workspace_io.config.resolve()` | Current `_workspace.py` at line 14-33; full signature documented; callers mapped |
 | WS-09 | Ported tests from `lattice-workspace/tests/` pass | 13 test files inventoried; port strategy documented; `test_manifest_v1_read.py` dropped per D-14 |
 | WS-10 | `wiki-config.toml` vs `.graph-wiki.yaml` question answered | Confirmed different surfaces; decision recorded in this research |
 </phase_requirements>
@@ -68,11 +68,11 @@
 
 Phase 11 is a direct Python port of an existing Python package (`lattice-workspace`) into the agent-research uv workspace. The source code is available in full at `/Users/pat/Personal/lattice/packages/lattice-workspace/`. Every module has been read in this session; no guesswork required.
 
-The port decomposes into three distinct work tracks: (1) scaffold the new `packages/workspace-io/` uv workspace member (pyproject, src layout, hatchling build backend), (2) port and rebrand 7 source modules plus the assets template, and (3) rewrite `vault-io._workspace.py` to delegate resolution to `workspace_io.config` and update all call sites of `GRAPH_WIKI_REAL_VAULT_PATH` across docstrings, tests, and CLI help strings.
+The port decomposes into three distinct work tracks: (1) scaffold the new `packages/workspace-io/` uv workspace member (pyproject, src layout, hatchling build backend), (2) port and rebrand 7 source modules plus the assets template, and (3) rewrite `wiki-io._workspace.py` to delegate resolution to `workspace_io.config` and update all call sites of `GRAPH_WIKI_REAL_VAULT_PATH` across docstrings, tests, and CLI help strings.
 
-The biggest landmines are the breadth of `GRAPH_WIKI_REAL_VAULT_PATH` references (18 occurrences across agent source, 3 in vault-io tests, and docstrings across 8 vault-io modules), the strict `manifest.read()` behavior change (v1 silently coerced → now raises), and the `render.py` asset-packaging requirement (the CLAUDE.md.template must ship inside the wheel).
+The biggest landmines are the breadth of `GRAPH_WIKI_REAL_VAULT_PATH` references (18 occurrences across agent source, 3 in wiki-io tests, and docstrings across 8 wiki-io modules), the strict `manifest.read()` behavior change (v1 silently coerced → now raises), and the `render.py` asset-packaging requirement (the CLAUDE.md.template must ship inside the wheel).
 
-**Primary recommendation:** Execute in three waves — (1) scaffold + port pure modules (config, manifest, paths, _local_config, versions, render + assets), (2) rewrite vault-io delegation + all env-var reference updates, (3) port tests and wire `workspace_io.init` into the CLI.
+**Primary recommendation:** Execute in three waves — (1) scaffold + port pure modules (config, manifest, paths, _local_config, versions, render + assets), (2) rewrite wiki-io delegation + all env-var reference updates, (3) port tests and wire `workspace_io.init` into the CLI.
 
 ---
 
@@ -82,9 +82,9 @@ The biggest landmines are the breadth of `GRAPH_WIKI_REAL_VAULT_PATH` references
 |------------|-------------|----------------|-----------|
 | Workspace manifest read/write | `workspace-io` package | — | New package owns the `.graph-wiki.yaml` surface entirely |
 | Workspace path resolution (env + walk-up) | `workspace-io` package | — | All discovery logic lives in `workspace_io.config.resolve()` per D-02 |
-| Wiki path resolution (exposed to agents) | `vault-io._workspace` (thin shim) | `workspace-io` (via delegation) | MCP boundary contract; callers never touch workspace-io directly |
-| Workspace bootstrap (git init + manifest write + gitignore) | `workspace-io.init` | — | Ported from lattice-workspace.init; called before vault-io.init_vault |
-| Wiki vault bootstrap (directory structure + templates) | `vault-io.init_vault.init_wiki` | — | Unchanged; runs after workspace_io.init in chained init flow |
+| Wiki path resolution (exposed to agents) | `wiki-io._workspace` (thin shim) | `workspace-io` (via delegation) | MCP boundary contract; callers never touch workspace-io directly |
+| Workspace bootstrap (git init + manifest write + gitignore) | `workspace-io.init` | — | Ported from lattice-workspace.init; called before wiki-io.init_vault |
+| Wiki vault bootstrap (directory structure + templates) | `wiki-io.init_vault.init_wiki` | — | Unchanged; runs after workspace_io.init in chained init flow |
 | CLI `init` command orchestration | `graph-wiki-agent` agent | both above | Two-phase: workspace_io.init first, then init_vault.init_wiki |
 | CLAUDE.md template rendering in workspace | `workspace-io.render` | — | Ships template as package asset; renders at init and on re-init |
 
@@ -104,7 +104,7 @@ The biggest landmines are the breadth of `GRAPH_WIKI_REAL_VAULT_PATH` references
 ### No new packages required
 
 All dependencies for `workspace-io` are either Python stdlib or `pyyaml` (already workspace-wide). The package does NOT require:
-- `boto3` (vault-io concern)
+- `boto3` (wiki-io concern)
 - `langchain-aws` (agent concern)
 - Any async framework
 
@@ -144,7 +144,7 @@ graph-wiki-agent CLI / MCP
         |
         | vault_path arg (explicit) OR env not set → delegate
         v
-vault-io._workspace.resolve_wiki_and_repo(vault_path)
+wiki-io._workspace.resolve_wiki_and_repo(vault_path)
         |
         |-- vault_path provided? → short-circuit: (vault_path.resolve(), git_root_or_None)
         |
@@ -174,7 +174,7 @@ workspace_io.init(repo_root=<path>, plugin="graph-wiki-agent", version=<importli
         |-- ensure .graph-wiki.local.yaml in repo_root/.gitignore
         |
         v
-vault-io.init_vault.init_wiki(workspace / "wiki")
+wiki-io.init_vault.init_wiki(workspace / "wiki")
         |-- creates wiki directory structure
         |-- installs schema files / CLAUDE.md
 ```
@@ -253,13 +253,13 @@ tests/
 
 ### Existing agent-research code that changes
 
-**`packages/vault-io/src/vault_io/_workspace.py`** (current: 34 lines)
+**`packages/wiki-io/src/wiki_io/_workspace.py`** (current: 34 lines)
 - Rewrite body completely per D-02.
 - Signature stays bit-identical: `resolve_wiki_and_repo(vault_path: Path | None = None) -> tuple[Path, Path | None]`
 - New body: if `vault_path` provided → `(vault_path.resolve(), _find_git_root(vault_path) or None)`; else → `workspace_io.config.resolve(); return (paths.wiki_dir(config.workspace), config.repo_root)`
 - Remove `os.environ.get("GRAPH_WIKI_REAL_VAULT_PATH")` — env handling moves to workspace_io.
 
-**`packages/vault-io/pyproject.toml`** — add `workspace-io` as workspace dep:
+**`packages/wiki-io/pyproject.toml`** — add `workspace-io` as workspace dep:
 ```toml
 [project]
 dependencies = [
@@ -272,17 +272,17 @@ dependencies = [
 workspace-io = { workspace = true }   # NEW
 ```
 
-**`packages/vault-io/tests/test_ports_importable.py`** — two tests updated:
+**`packages/wiki-io/tests/test_ports_importable.py`** — two tests updated:
 - `test_resolve_wiki_and_repo_raises_on_no_config`: `delenv("GRAPH_WIKI_REAL_VAULT_PATH")` → `delenv("GRAPH_WIKI_WORKSPACE")`; error message assertion updated.
 - `test_resolve_wiki_and_repo_honors_env_var`: `setenv("GRAPH_WIKI_REAL_VAULT_PATH")` → `setenv("GRAPH_WIKI_WORKSPACE")`. Note: after the rewrite, env-var path goes through `workspace_io.config.resolve()` which walks the workspace back to `wiki_dir(config.workspace)` — the test needs a `.graph-wiki.yaml` in the fake workspace for `resolve()` to not raise. Fixture will need a minimal manifest file.
 - Add new test: `test_resolve_wiki_and_repo_strict_raises_without_manifest` that verifies RuntimeError message contains `"graph-wiki-agent init"`.
 
-**`packages/vault-io/tests/conftest.py` line 35** — `os.environ.get("GRAPH_WIKI_REAL_VAULT_PATH")` → `os.environ.get("GRAPH_WIKI_WORKSPACE")`
+**`packages/wiki-io/tests/conftest.py` line 35** — `os.environ.get("GRAPH_WIKI_REAL_VAULT_PATH")` → `os.environ.get("GRAPH_WIKI_WORKSPACE")`
 
-**Docstring-only changes** (no behavior change; grep confirmed 18 occurrences in agents, 5 in vault-io src):
-- `packages/vault-io/src/vault_io/append_log.py:9` — docstring
-- `packages/vault-io/src/vault_io/detect_containers.py:6` — docstring
-- `packages/vault-io/src/vault_io/graph_analyzer.py:5-6` — docstring
+**Docstring-only changes** (no behavior change; grep confirmed 18 occurrences in agents, 5 in wiki-io src):
+- `packages/wiki-io/src/wiki_io/append_log.py:9` — docstring
+- `packages/wiki-io/src/wiki_io/detect_containers.py:6` — docstring
+- `packages/wiki-io/src/wiki_io/graph_analyzer.py:5-6` — docstring
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py:48` — docstring
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py:52` — docstring
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py:788` — docstring
@@ -299,7 +299,7 @@ workspace-io = { workspace = true }   # NEW
 **`agents/graph-wiki-agent/pyproject.toml`** — add `workspace-io` dep:
 ```toml
 dependencies = [
-    "vault-io",
+    "wiki-io",
     "model-adapter",
     "subagent-runtime",
     "workspace-io",           # NEW
@@ -313,9 +313,9 @@ workspace-io = { workspace = true }   # NEW
 
 ---
 
-## `vault-io._workspace.resolve_wiki_and_repo` — Current Signature and Callers
+## `wiki-io._workspace.resolve_wiki_and_repo` — Current Signature and Callers
 
-**File:** `packages/vault-io/src/vault_io/_workspace.py`
+**File:** `packages/wiki-io/src/wiki_io/_workspace.py`
 **Lines 14-33** (current, pre-port)
 
 ```python
@@ -328,7 +328,7 @@ def resolve_wiki_and_repo(
 - If `vault_path` is provided → `(vault_path.resolve(), git_discovered_root_or_None)`
 - If `vault_path` is None → delegates to `workspace_io.config.resolve(cwd)` → `(paths.wiki_dir(config.workspace), config.repo_root)`
 
-**Call sites in vault-io src (8 modules — all unmodified call sites):**
+**Call sites in wiki-io src (8 modules — all unmodified call sites):**
 
 | File | Pattern | Context |
 |------|---------|---------|
@@ -353,7 +353,7 @@ def resolve_wiki_and_repo(
 | `commands/log.py:59` | `resolve_wiki_and_repo(vault_path)` | |
 | `commands/lint.py:521` | `resolve_wiki_and_repo(vault_path)` | |
 
-**Re-export:** `vault_io.__init__.py` re-exports `resolve_wiki_and_repo` — unchanged, no call-site update needed.
+**Re-export:** `wiki_io.__init__.py` re-exports `resolve_wiki_and_repo` — unchanged, no call-site update needed.
 
 ---
 
@@ -431,12 +431,12 @@ addopts = "--import-mode=importlib"
 
 ## Env-Var Resolution Order
 
-**Old (`vault-io._workspace` pre-port):**
+**Old (`wiki-io._workspace` pre-port):**
 1. `vault_path` argument (explicit)
 2. `GRAPH_WIKI_REAL_VAULT_PATH` env var
 3. `RuntimeError` — no fallback
 
-**New (`vault-io._workspace` post-port, per D-02 and D-03):**
+**New (`wiki-io._workspace` post-port, per D-02 and D-03):**
 1. `vault_path` argument (explicit) → `(vault_path.resolve(), git_discovered_root_or_None)` — MCP boundary contract preserved
 2. Delegate to `workspace_io.config.resolve(cwd=None)`:
    a. `GRAPH_WIKI_WORKSPACE` env var → workspace path (repo_root discovered via `.git` walk from workspace)
@@ -510,7 +510,7 @@ addopts = "--import-mode=importlib"
 | Port with behavioral change | 2 files (`test_warn_if_stale.py`, `test_manifest_v1_read.py` → rewrite) |
 | Drop | 2 files (`test_manifest_v1_read.py` replaced with 1-test file, `test_schema.py`) |
 | New (not in lattice) | 1 test in `test_config.py` (strict-resolve-raises) |
-| New (vault-io, not workspace-io) | 1 test in `test_ports_importable.py` (strict error message) |
+| New (wiki-io, not workspace-io) | 1 test in `test_ports_importable.py` (strict error message) |
 
 ---
 
@@ -554,9 +554,9 @@ addopts = "--import-mode=importlib"
 
 **How to avoid:** `grep -n "GRAPH_WIKI_REAL_VAULT_PATH" agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` will find all 5. Update each `Field(description=...)` string.
 
-### Pitfall 7: Existing vault-io module-level `__main__` blocks break
+### Pitfall 7: Existing wiki-io module-level `__main__` blocks break
 
-**What goes wrong:** Several vault-io modules have `if __name__ == "__main__":` blocks that call `resolve_wiki_and_repo()` with no argument, expecting `GRAPH_WIKI_REAL_VAULT_PATH` to be set. After the port, these blocks now require either `GRAPH_WIKI_WORKSPACE` or a `.graph-wiki.yaml` ancestor — they will raise RuntimeError in the same conditions that previously returned a path.
+**What goes wrong:** Several wiki-io modules have `if __name__ == "__main__":` blocks that call `resolve_wiki_and_repo()` with no argument, expecting `GRAPH_WIKI_REAL_VAULT_PATH` to be set. After the port, these blocks now require either `GRAPH_WIKI_WORKSPACE` or a `.graph-wiki.yaml` ancestor — they will raise RuntimeError in the same conditions that previously returned a path.
 
 **Impact:** Low — these are development/debugging entry points, not production paths. The behavior change is correct (they should error if no workspace configured). No code change needed beyond the docstring updates.
 
@@ -602,10 +602,10 @@ def resolve(cwd: Path | None = None) -> GraphWikiConfig:
 
 **Note:** The strict check is the primary behavioral divergence from lattice. Lattice's `resolve()` returns even without a manifest; ported version raises.
 
-### vault-io._workspace — post-port delegation shim
+### wiki-io._workspace — post-port delegation shim
 
 ```python
-# Post-port shape for packages/vault-io/src/vault_io/_workspace.py
+# Post-port shape for packages/wiki-io/src/wiki_io/_workspace.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -711,15 +711,15 @@ This is a port/rebrand phase — the `GRAPH_WIKI_REAL_VAULT_PATH` env var is dro
 | WS-05 | render writes CLAUDE.md | unit | `uv run --package workspace-io pytest tests/test_render.py` | ❌ Wave 0 |
 | WS-05 | local config parser | unit | `uv run --package workspace-io pytest tests/test_local_config.py` | ❌ Wave 0 |
 | WS-05 | versions warn_if_stale + pending_updates | unit | `uv run --package workspace-io pytest tests/test_warn_if_stale.py tests/test_pending_updates.py` | ❌ Wave 0 |
-| WS-07 | `GRAPH_WIKI_WORKSPACE` is the honored env var (not old name) | unit | `uv run pytest packages/vault-io/tests/test_ports_importable.py` | ✅ (needs update) |
-| WS-08 | vault-io delegation shim returns correct paths | unit | `uv run pytest packages/vault-io/tests/test_ports_importable.py` | ✅ (needs update) |
+| WS-07 | `GRAPH_WIKI_WORKSPACE` is the honored env var (not old name) | unit | `uv run pytest packages/wiki-io/tests/test_ports_importable.py` | ✅ (needs update) |
+| WS-08 | wiki-io delegation shim returns correct paths | unit | `uv run pytest packages/wiki-io/tests/test_ports_importable.py` | ✅ (needs update) |
 | WS-09 | All ported tests pass | suite | `uv run --package workspace-io pytest` | ❌ Wave 0 |
 | WS-10 | wiki-config.toml decision recorded in PROJECT.md | manual | Code review / grep | — |
 
 ### Sampling Rate
 
 - **Per task commit:** `uv run --package workspace-io pytest` (workspace-io suite only, ~1s)
-- **Per wave merge:** `uv run pytest` (full suite — verify no regressions in vault-io, agent tests)
+- **Per wave merge:** `uv run pytest` (full suite — verify no regressions in wiki-io, agent tests)
 - **Phase gate:** Full suite green before `/gsd:verify-work`
 
 ### Wave 0 Gaps
@@ -813,11 +813,11 @@ All other claims in this research are verified by direct source code reading in 
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/src/lattice_workspace/assets/CLAUDE.md.template` — full content
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/pyproject.toml` — full content
 - All 13 test files in `/Users/pat/Personal/lattice/packages/lattice-workspace/tests/` — full content
-- `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/_workspace.py` — full source (lines 1-34)
-- `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/__init__.py` — full source
-- `/Users/pat/Personal/agent-research/packages/vault-io/tests/test_ports_importable.py` — full source
-- `/Users/pat/Personal/agent-research/packages/vault-io/tests/conftest.py` — full source
-- `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` — full content
+- `/Users/pat/Personal/agent-research/packages/wiki-io/src/wiki_io/_workspace.py` — full source (lines 1-34)
+- `/Users/pat/Personal/agent-research/packages/wiki-io/src/wiki_io/__init__.py` — full source
+- `/Users/pat/Personal/agent-research/packages/wiki-io/tests/test_ports_importable.py` — full source
+- `/Users/pat/Personal/agent-research/packages/wiki-io/tests/conftest.py` — full source
+- `/Users/pat/Personal/agent-research/packages/wiki-io/pyproject.toml` — full content
 - `/Users/pat/Personal/agent-research/pyproject.toml` (root) — full content
 - `/Users/pat/Personal/agent-research/packages/model-adapter/pyproject.toml` — full content (template)
 - `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/pyproject.toml` — full content

@@ -27,7 +27,7 @@ import pytest
 FIXTURE_VAULT: Path = (
     Path(__file__).parent.parent.parent.parent.parent
     / "packages"
-    / "vault-io"
+    / "wiki-io"
     / "tests"
     / "fixtures"
     / "round-trip-vault"

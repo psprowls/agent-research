@@ -202,7 +202,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/pyproject.toml": {
+    "packages/wiki-io/pyproject.toml": {
       "exports": [],
       "imports": [
         "python-frontmatter",
@@ -211,19 +211,19 @@
       ],
       "type": "config"
     },
-    "packages/vault-io/src/vault_io/__init__.py": {
+    "packages/wiki-io/src/wiki_io/__init__.py": {
       "exports": [
         "read_layout",
         "write_layout",
         "resolve_wiki_and_repo"
       ],
       "imports": [
-        "vault_io._workspace",
-        "vault_io.layout_io"
+        "wiki_io._workspace",
+        "wiki_io.layout_io"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/layout_io.py": {
+    "packages/wiki-io/src/wiki_io/layout_io.py": {
       "exports": [
         "read_layout",
         "write_layout"
@@ -235,7 +235,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/_workspace.py": {
+    "packages/wiki-io/src/wiki_io/_workspace.py": {
       "exports": [
         "resolve_wiki_and_repo"
       ],
@@ -245,7 +245,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/scan_monorepo.py": {
+    "packages/wiki-io/src/wiki_io/scan_monorepo.py": {
       "exports": [
         "discover_workspaces",
         "compute_diff",
@@ -261,7 +261,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/ingest_source.py": {
+    "packages/wiki-io/src/wiki_io/ingest_source.py": {
       "exports": [],
       "imports": [
         "frontmatter",
@@ -269,7 +269,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/ingest_work_item.py": {
+    "packages/wiki-io/src/wiki_io/ingest_work_item.py": {
       "exports": [],
       "imports": [
         "frontmatter",
@@ -277,7 +277,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint_wiki.py": {
+    "packages/wiki-io/src/wiki_io/lint_wiki.py": {
       "exports": [],
       "imports": [
         "frontmatter",
@@ -285,14 +285,14 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/wiki_search.py": {
+    "packages/wiki-io/src/wiki_io/wiki_search.py": {
       "exports": [],
       "imports": [
         "pathlib"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/update_index.py": {
+    "packages/wiki-io/src/wiki_io/update_index.py": {
       "exports": [
         "update_index"
       ],
@@ -301,21 +301,21 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/update_tokens.py": {
+    "packages/wiki-io/src/wiki_io/update_tokens.py": {
       "exports": [],
       "imports": [
         "boto3"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/init_vault.py": {
+    "packages/wiki-io/src/wiki_io/init_vault.py": {
       "exports": [],
       "imports": [
         "pathlib"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/git_state.py": {
+    "packages/wiki-io/src/wiki_io/git_state.py": {
       "exports": [],
       "imports": [
         "subprocess",
@@ -323,7 +323,7 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/append_log.py": {
+    "packages/wiki-io/src/wiki_io/append_log.py": {
       "exports": [
         "append_log"
       ],
@@ -333,61 +333,61 @@
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/detect_containers.py": {
+    "packages/wiki-io/src/wiki_io/detect_containers.py": {
       "exports": [],
       "imports": [
         "pathlib"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/graph_analyzer.py": {
+    "packages/wiki-io/src/wiki_io/graph_analyzer.py": {
       "exports": [],
       "imports": [
         "pathlib"
       ],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/__init__.py": {
+    "packages/wiki-io/src/wiki_io/lint/__init__.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/common.py": {
+    "packages/wiki-io/src/wiki_io/lint/common.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/container.py": {
+    "packages/wiki-io/src/wiki_io/lint/container.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/dependency.py": {
+    "packages/wiki-io/src/wiki_io/lint/dependency.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/domain.py": {
+    "packages/wiki-io/src/wiki_io/lint/domain.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/file_map.py": {
+    "packages/wiki-io/src/wiki_io/lint/file_map.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/package_sync.py": {
+    "packages/wiki-io/src/wiki_io/lint/package_sync.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/source_sync.py": {
+    "packages/wiki-io/src/wiki_io/lint/source_sync.py": {
       "exports": [],
       "imports": [],
       "type": "module"
     },
-    "packages/vault-io/src/vault_io/lint/workflow_hints.py": {
+    "packages/wiki-io/src/wiki_io/lint/workflow_hints.py": {
       "exports": [],
       "imports": [],
       "type": "module"
@@ -529,7 +529,7 @@
     "agents/code-wiki-agent/pyproject.toml": {
       "exports": [],
       "imports": [
-        "vault-io",
+        "wiki-io",
         "model-adapter",
         "subagent-runtime",
         "workspace-io",
@@ -627,7 +627,7 @@
       ],
       "imports": [
         "workspace_io",
-        "vault_io"
+        "wiki_io"
       ],
       "type": "module"
     },
@@ -638,7 +638,7 @@
         "run_ingest_work_item"
       ],
       "imports": [
-        "vault_io",
+        "wiki_io",
         "model_adapter",
         "subagent_runtime"
       ],
@@ -650,7 +650,7 @@
         "run_lint"
       ],
       "imports": [
-        "vault_io",
+        "wiki_io",
         "model_adapter",
         "subagent_runtime"
       ],
@@ -662,7 +662,7 @@
         "run_log"
       ],
       "imports": [
-        "vault_io"
+        "wiki_io"
       ],
       "type": "module"
     },
@@ -682,7 +682,7 @@
         "langchain_aws",
         "model_adapter",
         "subagent_runtime",
-        "vault_io"
+        "wiki_io"
       ],
       "type": "module"
     },
@@ -696,7 +696,7 @@
         "langchain_aws.ChatBedrockConverse",
         "model_adapter.loader",
         "subagent_runtime.pool",
-        "vault_io"
+        "wiki_io"
       ],
       "type": "module"
     },

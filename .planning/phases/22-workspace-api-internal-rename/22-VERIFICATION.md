@@ -41,7 +41,7 @@ The ROADMAP SC#5 literally says "returns 0 hits (excluding comments in allowlist
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `packages/vault-io/src/vault_io/_workspace.py` | `resolve_wiki_and_repo` with `workspace_path`/`repo_path` signature, `wiki_dir()` derivation, CWD-based repo discovery | VERIFIED | Exact signature confirmed. `_ws_paths.wiki_dir(workspace_path)` at line 42. `_find_repo_root(Path.cwd())` per D-05. WR-01 also resolved: `repo_path or cfg.repo_root` in fallback branch honors `repo_path` symmetrically. |
+| `packages/wiki-io/src/wiki_io/_workspace.py` | `resolve_wiki_and_repo` with `workspace_path`/`repo_path` signature, `wiki_dir()` derivation, CWD-based repo discovery | VERIFIED | Exact signature confirmed. `_ws_paths.wiki_dir(workspace_path)` at line 42. `_find_repo_root(Path.cwd())` per D-05. WR-01 also resolved: `repo_path or cfg.repo_root` in fallback branch honors `repo_path` symmetrically. |
 | `packages/workspace-io/src/workspace_io/config.py` | `WORKSPACE_DIRECTORY_KEY = "workspace-directory"` + public `resolve_workspace` | VERIFIED | Line 21: `WORKSPACE_DIRECTORY_KEY = "workspace-directory"`. Line 39: `def resolve_workspace(repo_root: Path) -> Path:`. Zero `LATTICE_DIRECTORY_KEY` or `_resolve_workspace` references. |
 | `packages/workspace-io/src/workspace_io/init.py` | `init()` routes default workspace through `resolve_workspace(repo_root)` | VERIFIED | Line 17: `from workspace_io.config import resolve_workspace`. Line 32: `workspace = resolve_workspace(repo_root=repo_root)`. |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` | `run_init` with `workspace_path + repo_path` kwargs | VERIFIED | Lines 46-47: both kwargs present. |
@@ -57,7 +57,7 @@ The ROADMAP SC#5 literally says "returns 0 hits (excluding comments in allowlist
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `commands/*.py` | `vault_io._workspace::resolve_wiki_and_repo` | `resolve_wiki_and_repo(workspace_path)` | VERIFIED | All 7 `run_*` call sites use `resolve_wiki_and_repo(workspace_path)` (confirmed: log.py:59, ingest.py:399,576, scan.py:269, query.py:850, lint.py:525, init.py:78). |
+| `commands/*.py` | `wiki_io._workspace::resolve_wiki_and_repo` | `resolve_wiki_and_repo(workspace_path)` | VERIFIED | All 7 `run_*` call sites use `resolve_wiki_and_repo(workspace_path)` (confirmed: log.py:59, ingest.py:399,576, scan.py:269, query.py:850, lint.py:525, init.py:78). |
 | `workspace_io/init.py` | `workspace_io/config::resolve_workspace` | `import + resolve_workspace(repo_root=repo_root)` | VERIFIED | import at line 17, call at line 32. |
 | `cli.py` | `commands/*.py::run_*` | `workspace_path=workspace_path` kwarg | VERIFIED | 5 occurrences of `workspace_path=workspace_path` in run_* calls. 7 `"--vault"` flag literals preserved. Zero `vault_path=` kwarg calls. |
 | `server.py` | `commands/*.py::run_*` | `workspace_path=vault` kwarg (Pydantic field stays) | VERIFIED | 6 `workspace_path=vault` calls confirmed. 6 `vault_path: str = Field(...)` Pydantic declarations preserved for Phase 23. Zero `vault_path=` kwarg calls to run_*. |
@@ -69,8 +69,8 @@ The ROADMAP SC#5 literally says "returns 0 hits (excluding comments in allowlist
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
 | `resolve_workspace` importable | `uv run python -c "from workspace_io.config import resolve_workspace, WORKSPACE_DIRECTORY_KEY; print(resolve_workspace, WORKSPACE_DIRECTORY_KEY)"` | `<function resolve_workspace at ...> workspace-directory` | PASS |
-| No f-string hack | `grep -c 'f"{workspace_path}"' packages/vault-io/src/vault_io/_workspace.py` | 0 | PASS |
-| CWD-based repo discovery | `grep -c "_find_repo_root(Path.cwd())" packages/vault-io/src/vault_io/_workspace.py` | 1 | PASS |
+| No f-string hack | `grep -c 'f"{workspace_path}"' packages/wiki-io/src/wiki_io/_workspace.py` | 0 | PASS |
+| CWD-based repo discovery | `grep -c "_find_repo_root(Path.cwd())" packages/wiki-io/src/wiki_io/_workspace.py` | 1 | PASS |
 | pytest workspace-wide | `uv run pytest -q` | 583 passed, 5 pre-existing failures, 33 skipped | PASS |
 | CLI --vault preserved | `grep -c '"--vault"' agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` | 7 | PASS |
 | MCP Pydantic fields preserved | `grep -c 'vault_path.*Field\|vault_path.*= ""' agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` | 6 | PASS |

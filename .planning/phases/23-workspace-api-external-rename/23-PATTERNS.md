@@ -17,7 +17,7 @@ This is a **mechanical rename phase**, not new-code authoring. Every file alread
 | `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` (6 input classes) | mcp-schema | request-response | self (Phase 22 left internals consistent) — mechanical rename | exact |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` (7 commands) | cli-entrypoint | request-response | self — uniform Typer shape across all 7 | exact |
 | `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py::bootstrap` (additive `--repo`) | cli-entrypoint | request-response | existing `repo_path` field in `WikiScanInput` (server.py L246-249) | role-match |
-| `packages/vault-io/src/vault_io/scan_monorepo.py::_vault_path_for` | utility/helper | transform | self — single helper rename + 3 dict-key emissions | exact |
+| `packages/wiki-io/src/wiki_io/scan_monorepo.py::_vault_path_for` | utility/helper | transform | self — single helper rename + 3 dict-key emissions | exact |
 | `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py` | test | request-response | self — 6 builder helpers with uniform payload shape | exact |
 | 5 plugin docs (`plugins/graph-wiki/...`) | documentation | n/a | Phase 12 / Phase 18 doc sweeps | role-match |
 | 5 prompt-source mirrors (`packages/prompt-sources/references/*.md`) | documentation (runtime-loaded) | n/a | plugin docs (file pair) | role-match |
@@ -140,7 +140,7 @@ def bootstrap(
 
 ### Scan JSON Output Field (WSMCP-04)
 
-**File:** `packages/vault-io/src/vault_io/scan_monorepo.py`
+**File:** `packages/wiki-io/src/wiki_io/scan_monorepo.py`
 
 **Helper rename — L399:**
 ```python
@@ -152,7 +152,7 @@ def _vault_path_for(pkg: dict, vault_dir: str | None = None) -> str:
 def _wiki_relative_path_for(pkg: dict, vault_dir: str | None = None) -> str:
     """Return the wiki-relative page path for a discovered workspace.
 ```
-(The `vault_dir` parameter name is OUT OF SCOPE per `vault-io` package-name preservation D-07 carried forward — `vault_dir` is a layout-pinned schema key, not the rename target.)
+(The `vault_dir` parameter name is OUT OF SCOPE per `wiki-io` package-name preservation D-07 carried forward — `vault_dir` is a layout-pinned schema key, not the rename target.)
 
 **Three emission sites — uniform pattern (dict key `"vault_path"`):**
 
@@ -417,7 +417,7 @@ If a re-grep confirms no hits, drop from the file list. Otherwise, the same plug
 
 ## Metadata
 
-**Analog search scope:** `scripts/`, `packages/vault-io/`, `packages/prompt-sources/`, `agents/graph-wiki-agent/`, `plugins/graph-wiki/`, `.planning/phases/{12,18,21,22}/` (via git log on `check-brand.sh`).
+**Analog search scope:** `scripts/`, `packages/wiki-io/`, `packages/prompt-sources/`, `agents/graph-wiki-agent/`, `plugins/graph-wiki/`, `.planning/phases/{12,18,21,22}/` (via git log on `check-brand.sh`).
 **Key analog commits referenced:**
 - `644b942` — Phase 12: initial brand-gate creation (BRAND-04)
 - `97b0b44` — Phase 18: CHECK 2 block addition (closest WSMCP-07 structural analog)

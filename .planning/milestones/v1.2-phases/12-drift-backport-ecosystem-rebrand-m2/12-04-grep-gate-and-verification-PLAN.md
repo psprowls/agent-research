@@ -77,7 +77,7 @@ Purpose: provides the reproducible mechanism that future phases (13, 14, 16) re-
     Required base entries (with `#` comments grouped by R-decision):
 
     - `# R-01: round-trip-vault test fixtures — real lattice vault for byte-identical round-trip parsing`
-    - `packages/vault-io/tests/fixtures/round-trip-vault/`
+    - `packages/wiki-io/tests/fixtures/round-trip-vault/`
     - `# R-02: eval-harness baselines + divergence rubrics — record what was measured`
     - `packages/eval-harness/baselines/`
     - `packages/eval-harness/src/eval_harness/divergence/rubrics/`
@@ -96,8 +96,8 @@ Purpose: provides the reproducible mechanism that future phases (13, 14, 16) re-
     - `# R-04 (self-allowlist per Claude's Discretion): this file itself contains 'lattice' as pattern text`
     - `.brand-grep-allow`
     - `# Phase 12 drift artifacts — diff dumps embed upstream content with lattice symbols intact`
-    - `packages/vault-io/DRIFT-DECISIONS-RAW.md`
-    - `packages/vault-io/DRIFT-DECISIONS.md`
+    - `packages/wiki-io/DRIFT-DECISIONS-RAW.md`
+    - `packages/wiki-io/DRIFT-DECISIONS.md`
     - `# Phase 12 plans + context themselves reference 'lattice' as the source-of-truth domain`
     - `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/`
     - `# scripts/check-brand.sh contains 'lattice' as the search pattern itself`

@@ -49,7 +49,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 - New module: `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`.
 - Function signature: `render_project_context(wiki_path: Path) -> str`. Pure — no LLM calls, no network, no mutation.
 - Reads `wiki/CLAUDE.md` if present; falls back to `AGENTS.md`; returns `""` if neither exists. Caller passes the empty string through to prompt builders unchanged.
-- Uses existing `vault_io.layout_io.read_layout()` for the layout block (do not write a bespoke YAML parser). Style and log-format sections are grabbed by markdown section walk (simple heading-based extraction).
+- Uses existing `wiki_io.layout_io.read_layout()` for the layout block (do not write a bespoke YAML parser). Style and log-format sections are grabbed by markdown section walk (simple heading-based extraction).
 - Output is deterministic (stable container ordering) so snapshot tests are stable.
 
 ### Wiring (LOCKED)
@@ -104,7 +104,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 - `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py` — second example of the same pattern.
 - `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py`, `linter.py`, `ingestor.py`, `librarian.py` — current prompt-builder structure; new fragments slot into these.
 - `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`, `commands/lint.py`, `commands/ingest.py` — command entry points where `render_project_context()` will be called and threaded into prompt construction.
-- `cores/vault-io/src/vault_io/layout_io.py::read_layout` — existing parser for the layout block; `render_project_context()` consumes its output.
+- `cores/wiki-io/src/wiki_io/layout_io.py::read_layout` — existing parser for the layout block; `render_project_context()` consumes its output.
 - `cores/subagent-runtime/src/subagent_runtime/pool.py::SubagentPool` — the dispatch primitive (read-only for this phase; not modified).
 - `cores/eval-harness/src/eval_harness/divergence/` — divergence eval modules invoked for the regression gate.
 

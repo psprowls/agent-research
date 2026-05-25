@@ -7,12 +7,12 @@ commits:
   - 6c98fb8  # fix(260521-hfr): emit wiki/-prefixed wikilinks in package and domain templates
   - 0cbb615  # feat(260521-hfr): seed concepts/sources/adrs/architecture index stubs in init_wiki
 files_modified:
-  - packages/vault-io/src/vault_io/assets/page-templates/package/overview.md
-  - packages/vault-io/src/vault_io/assets/page-templates/package/context.md
-  - packages/vault-io/src/vault_io/assets/page-templates/domain/overview.md
-  - packages/vault-io/src/vault_io/init_vault.py
-  - packages/vault-io/tests/test_overview_template_wikilinks.py
-  - packages/vault-io/tests/test_init_vault.py
+  - packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/package/context.md
+  - packages/wiki-io/src/wiki_io/assets/page-templates/domain/overview.md
+  - packages/wiki-io/src/wiki_io/init_vault.py
+  - packages/wiki-io/tests/test_overview_template_wikilinks.py
+  - packages/wiki-io/tests/test_init_vault.py
 ---
 
 # Quick 260521-hfr Summary
@@ -66,9 +66,9 @@ The four templates copied into `/tmp/wiki-verify/wiki/.templates/` were verified
 
 ## Verification
 
-- `uv run --package vault-io pytest packages/vault-io/tests/test_overview_template_wikilinks.py -x` — 3 passed
-- `uv run --package vault-io pytest packages/vault-io/tests/test_init_vault.py -x` — 4 passed
-- `uv run --package vault-io pytest packages/vault-io/tests/` — 109 passed, 1 skipped (no regressions)
+- `uv run --package wiki-io pytest packages/wiki-io/tests/test_overview_template_wikilinks.py -x` — 3 passed
+- `uv run --package wiki-io pytest packages/wiki-io/tests/test_init_vault.py -x` — 4 passed
+- `uv run --package wiki-io pytest packages/wiki-io/tests/` — 109 passed, 1 skipped (no regressions)
 - Real-wiki lint diff: 4 section-index broken links eliminated, 0 new regressions, 37 pre-existing unprefixed wikilinks remain in LLM-generated content (out of scope for this patch — needs agent re-emission).
 
 ## Lint output (captured)
@@ -82,11 +82,11 @@ None. The plan's Task 3 verification recipe assumed `scan_monorepo` would regene
 
 ## Self-Check: PASSED
 
-- `[ -f packages/vault-io/src/vault_io/assets/page-templates/package/overview.md ]` → FOUND
-- `[ -f packages/vault-io/src/vault_io/assets/page-templates/package/context.md ]` → FOUND
-- `[ -f packages/vault-io/src/vault_io/assets/page-templates/domain/overview.md ]` → FOUND
-- `[ -f packages/vault-io/src/vault_io/init_vault.py ]` → FOUND
-- `[ -f packages/vault-io/tests/test_overview_template_wikilinks.py ]` → FOUND
-- `[ -f packages/vault-io/tests/test_init_vault.py ]` → FOUND
+- `[ -f packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md ]` → FOUND
+- `[ -f packages/wiki-io/src/wiki_io/assets/page-templates/package/context.md ]` → FOUND
+- `[ -f packages/wiki-io/src/wiki_io/assets/page-templates/domain/overview.md ]` → FOUND
+- `[ -f packages/wiki-io/src/wiki_io/init_vault.py ]` → FOUND
+- `[ -f packages/wiki-io/tests/test_overview_template_wikilinks.py ]` → FOUND
+- `[ -f packages/wiki-io/tests/test_init_vault.py ]` → FOUND
 - Commit `6c98fb8` → FOUND in git log
 - Commit `0cbb615` → FOUND in git log

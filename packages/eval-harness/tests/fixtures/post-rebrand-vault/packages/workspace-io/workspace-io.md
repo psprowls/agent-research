@@ -28,4 +28,4 @@ updated: 2026-05-19
 ## Cross-refs
 
 - Used by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] for vault resolution
-- Initialised by [[wiki/packages/vault-io/vault-io]] when bootstrapping the wiki
+- Initialised by [[wiki/packages/wiki-io/wiki-io]] when bootstrapping the wiki

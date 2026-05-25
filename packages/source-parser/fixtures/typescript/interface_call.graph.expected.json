@@ -1,0 +1,10 @@
+{
+  "nodes": [
+    {"kind": "file", "name": "PATH", "path": "PATH", "line": null, "attrs": {}},
+    {"kind": "function", "name": "callIt", "path": "PATH", "line": 5, "attrs": {}}
+  ],
+  "edges": [
+    {"src": ["file", "PATH", "PATH"], "dst": ["function", "callIt", "PATH"], "kind": "contains", "attrs": {}},
+    {"src": ["function", "callIt", "PATH"], "dst": ["function", "bar", null], "kind": "calls", "attrs": {"is_member": true}}
+  ]
+}

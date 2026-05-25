@@ -74,7 +74,7 @@ decisions:
   - D-07 brand-gate CHECK 5 bans the three eval-shape regex patterns
   - D-08 hard rename, no back-compat shims
   - D-09 wiki always derived via workspace_io.paths.wiki_dir
-  - D-10 vault-io package directory + vault_io module path stay (milestone lock)
+  - D-10 wiki-io package directory + wiki_io module path stay (milestone lock)
   - D-11 baseline JSON output key change (vault_content_hash -> wiki_content_hash) is a recording-format break
 metrics:
   duration: ~50 minutes
@@ -356,7 +356,7 @@ Until regenerated, any baseline-replay code that reads `vault_content_hash` will
 | D-07 | 24-CONTEXT.md | brand-gate CHECK 5 — 3 eval-shape regex bans scoped to `packages/eval-harness/{src,tests}` |
 | D-08 | 24-CONTEXT.md (carried) | hard rename, no back-compat shims |
 | D-09 | 24-CONTEXT.md (carried) | wiki always via `workspace_io.paths.wiki_dir` |
-| D-10 | 24-CONTEXT.md (carried) | `vault-io` package + `vault_io` module path STAY |
+| D-10 | 24-CONTEXT.md (carried) | `wiki-io` package + `wiki_io` module path STAY |
 | D-11 | 24-CONTEXT.md (carried) | baseline JSON output key change is a recording-format break (regenerate post-ship) |
 
 ---

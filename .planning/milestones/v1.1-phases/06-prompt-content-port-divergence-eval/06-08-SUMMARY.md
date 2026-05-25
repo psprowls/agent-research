@@ -8,7 +8,7 @@ requires:
   - phase: 06-02
     provides: test scaffold (test_divergence_checks.py skip-stubs)
   - phase: 06-04
-    provides: vault-io round-trip-vault fixture used by fixture_vault_path
+    provides: wiki-io round-trip-vault fixture used by fixture_vault_path
   - phase: 06-05
     provides: ingestor prompt content driving ING-001..006 check semantics
   - phase: 06-06

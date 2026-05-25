@@ -8,7 +8,7 @@ overrides_applied: 0
 
 # Phase 14: Plugin Port (M3b) — SC#4 Smoke Verification
 
-**Phase Goal (SC#4):** A Claude Code session can load `plugins/graph-wiki/` and invoke `/graph-wiki:query` to receive a real librarian-synthesized answer against a working vault — proving the rebranded plugin, the workspace-aware `_config.py` selector, and the seven shim scripts all wire up end-to-end through `vault_io` via the `uv` workspace.
+**Phase Goal (SC#4):** A Claude Code session can load `plugins/graph-wiki/` and invoke `/graph-wiki:query` to receive a real librarian-synthesized answer against a working vault — proving the rebranded plugin, the workspace-aware `_config.py` selector, and the seven shim scripts all wire up end-to-end through `wiki_io` via the `uv` workspace.
 
 **Verified:** 2026-05-19 (re-run of the prescribed D-05 query inside the live Claude Code session)
 **Status:** passed
@@ -92,7 +92,7 @@ Citation: `packages/workspace-io/pyproject.toml:5`
 ## Related pages
 
 - [[wiki/packages/workspace-io/workspace-io]]
-- [[wiki/packages/vault-io/vault-io]]
+- [[wiki/packages/wiki-io/wiki-io]]
 - [[wiki/plugins/graph-wiki/graph-wiki]]
 - [[wiki/agents/graph-wiki-agent/graph-wiki-agent]]
 

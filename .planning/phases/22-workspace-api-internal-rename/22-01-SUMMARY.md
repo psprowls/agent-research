@@ -18,7 +18,7 @@ dependency_graph:
     - WSAPI-05
     - WSAPI-06
   affects:
-    - packages/vault-io/src/vault_io/_workspace.py
+    - packages/wiki-io/src/wiki_io/_workspace.py
     - packages/workspace-io/src/workspace_io/config.py
     - packages/workspace-io/src/workspace_io/init.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/
@@ -33,7 +33,7 @@ tech_stack:
 key_files:
   created: []
   modified:
-    - packages/vault-io/src/vault_io/_workspace.py
+    - packages/wiki-io/src/wiki_io/_workspace.py
     - packages/workspace-io/src/workspace_io/config.py
     - packages/workspace-io/src/workspace_io/init.py
     - agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py
@@ -51,7 +51,7 @@ decisions:
   - "D-06: exact signature resolve_wiki_and_repo(workspace_path, repo_path)"
   - "D-07: hard rename, no back-compat shim"
   - "D-08: workspace-directory YAML key, old graph-wiki-directory silently ignored"
-  - "D-10: vault-io package directory unchanged"
+  - "D-10: wiki-io package directory unchanged"
 metrics:
   duration_minutes: 30
   completed_date: "2026-05-20"
@@ -61,7 +61,7 @@ metrics:
 
 # Phase 22 Plan 01: Workspace API Internal Rename Summary
 
-Hard-renamed the internal Python API from `vault_path` to `workspace_path` across all 6 `run_*` command signatures, `resolve_wiki_and_repo` in vault-io, CLI/MCP server call sites, and ~30 test kwarg call sites; promoted `resolve_workspace` to public symbol; hard-cut `.graph-wiki.local.yaml` YAML key to `workspace-directory`.
+Hard-renamed the internal Python API from `vault_path` to `workspace_path` across all 6 `run_*` command signatures, `resolve_wiki_and_repo` in wiki-io, CLI/MCP server call sites, and ~30 test kwarg call sites; promoted `resolve_workspace` to public symbol; hard-cut `.graph-wiki.local.yaml` YAML key to `workspace-directory`.
 
 ## Files Touched
 
@@ -92,13 +92,13 @@ Pre-existing failures (NOT caused by Phase 22):
 
 **V1** — No f-string hack:
 ```
-grep -n 'f"{workspace_path}"' packages/vault-io/src/vault_io/_workspace.py
+grep -n 'f"{workspace_path}"' packages/wiki-io/src/wiki_io/_workspace.py
 → 0 hits
 ```
 
 **V2** — CWD-based repo walk (D-05):
 ```
-grep -n "_find_repo_root(Path.cwd())" packages/vault-io/src/vault_io/_workspace.py
+grep -n "_find_repo_root(Path.cwd())" packages/wiki-io/src/wiki_io/_workspace.py
 → 37: return _ws_paths.wiki_dir(workspace_path), repo_path or _find_repo_root(Path.cwd())
 ```
 
@@ -142,7 +142,7 @@ All remaining `vault_path` hits in `agents/graph-wiki-agent/src` + `packages/wor
 
 **V9** — Signature check:
 ```
-grep -A3 "def resolve_wiki_and_repo" packages/vault-io/src/vault_io/_workspace.py
+grep -A3 "def resolve_wiki_and_repo" packages/wiki-io/src/wiki_io/_workspace.py
 → workspace_path: Path | None = None,
 → repo_path: Path | None = None,
 → ) -> tuple[Path, Path | None]:
@@ -163,7 +163,7 @@ grep -A3 "def resolve_wiki_and_repo" packages/vault-io/src/vault_io/_workspace.p
 - **Found during:** Task 7 (pytest gate)
 - **Issue:** WIP config.py changed error message from "graph-wiki-agent init" to "graph-wiki-agent bootstrap"; 3 tests still matched old string
 - **Fix:** Updated assertions in `test_config.py` and `test_ports_importable.py` (2 tests)
-- **Files modified:** `packages/workspace-io/tests/test_config.py`, `packages/vault-io/tests/test_ports_importable.py`
+- **Files modified:** `packages/workspace-io/tests/test_config.py`, `packages/wiki-io/tests/test_ports_importable.py`
 - **Commit:** 97212fd
 
 ### Plan Inconsistency (documented, not a bug)
@@ -191,7 +191,7 @@ None. Pure internal Python API rename — no new network surface, auth paths, or
 ### Commits Exist
 
 All 7 task commits verified:
-- `fb15aba` — Task 1: vault-io/_workspace.py
+- `fb15aba` — Task 1: wiki-io/_workspace.py
 - `cc3b028` — Task 2: workspace-io/config.py + init.py
 - `a01c461` — Task 3: 6 run_* command signatures
 - `a572c00` — Task 4: CLI + MCP server internal calls
@@ -201,6 +201,6 @@ All 7 task commits verified:
 
 ### Key Files Exist
 
-All 9 source files verified present (packages/vault-io, workspace-io, and 7 command files).
+All 9 source files verified present (packages/wiki-io, workspace-io, and 7 command files).
 
 ## Self-Check: PASSED

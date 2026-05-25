@@ -57,7 +57,7 @@ human_verification:
 | `plugins/graph-wiki/commands/bootstrap.md` | `code_wiki_agent.commands.init.init_vault` (internal script) | Front-matter `name: bootstrap` + body references | WIRED | `init_vault.py` script reference left intact per D-02 (out of scope); bootstrap.md body references it for the implementation. |
 | Typer CLI `bootstrap` subcommand | `code_wiki_agent.commands.init.run_init` | `from code_wiki_agent.commands.init import run_init` | WIRED | Import preserved in `cli.py` line 14 per D-02 (internal module unchanged). `--help` shows `bootstrap` row. |
 | MCP `wiki_bootstrap` tool | `code_wiki_agent.commands.init.run_init` | `from code_wiki_agent.commands.init import InitResult, run_init` | WIRED | Internal import preserved per D-02. Single `@mcp.tool(name="wiki_bootstrap", ...)` registration. |
-| `vault-io` user-facing error strings | New slug | Direct string literal | WIRED | `packages/vault-io/src/vault_io/lint/container.py:35` and `packages/vault-io/src/vault_io/scan_monorepo.py:1157` now reference `/graph-wiki:bootstrap`. Verified via `grep`. |
+| `wiki-io` user-facing error strings | New slug | Direct string literal | WIRED | `packages/wiki-io/src/wiki_io/lint/container.py:35` and `packages/wiki-io/src/wiki_io/scan_monorepo.py:1157` now reference `/graph-wiki:bootstrap`. Verified via `grep`. |
 | `scripts/check-brand.sh` CHECK 2 | `.brand-grep-allow` | `grep -vF -f <(...)` allowlist filter | WIRED | Isolated CHECK 2 invocation returns `(no hits — GREEN)`. |
 | `scripts/check-brand.sh` CHECK 3 | `agents/code-wiki-agent/src/code_wiki_agent/cli.py` | Direct file grep | WIRED | Isolated CHECK 3 invocation returns `(no hits — GREEN)`. |
 
@@ -111,7 +111,7 @@ The Phase 18 commits are pure rename + body-text/sweep edits. No new code logic 
 
 | Item | Reason out of scope |
 |------|---------------------|
-| `packages/vault-io/src/vault_io/init_vault.py` script + `init_vault()` function | D-02 (CONTEXT.md): internal API, machine-facing, intentionally NOT renamed. Confirmed present and unchanged. |
+| `packages/wiki-io/src/wiki_io/init_vault.py` script + `init_vault()` function | D-02 (CONTEXT.md): internal API, machine-facing, intentionally NOT renamed. Confirmed present and unchanged. |
 | BRAND-04 lattice CHECK 1 still failing (79 hits) | Verification target explicitly excludes; that is Phase 21's scope (`code-wiki-agent → graph-wiki-agent` rename). |
 | 5 files with plain `init-wiki` literals (`MILESTONES.md`, `STATE.md`, `PROJECT.md`, `17-CONTEXT.md`, `21-CONTEXT.md`) | Verification target explicitly excludes. These reference the OLD planned-rename direction (`/init` → `/init-wiki`), not the actual `graph-wiki:init` slug. Not a Phase 18 success criterion. |
 

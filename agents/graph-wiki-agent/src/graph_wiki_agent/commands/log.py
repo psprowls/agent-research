@@ -14,8 +14,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from vault_io._workspace import resolve_wiki_and_repo
-from vault_io.append_log import append_log
+from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.append_log import append_log
 
 logger = logging.getLogger(__name__)
 

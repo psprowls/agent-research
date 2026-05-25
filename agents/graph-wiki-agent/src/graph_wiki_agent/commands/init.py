@@ -15,8 +15,8 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from vault_io._workspace import resolve_wiki_and_repo
-from vault_io.init_vault import init_wiki
+from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.init_vault import init_wiki
 from workspace_io import init as _ws_init
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def run_init(
         version=importlib.metadata.version("graph-wiki-agent"),
     )
 
-    # Phase 2: existing vault-io resolution + wiki tree population.
+    # Phase 2: existing wiki-io resolution + wiki tree population.
     wiki, repo = resolve_wiki_and_repo(workspace_path, repo_root)
     if repo is None:
         repo = Path.cwd()

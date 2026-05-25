@@ -59,14 +59,14 @@ The single auditable summary of the Phase 13 plugin contract. Contains:
   - 6 ported (rename or reshape): init, scan, ingest, lint, query, log
   - 3 dropped: archive, regen-index, status (work-layer, out of v1.2 scope per C-01)
 - **Resulting plugin surface**: 6 files in `plugins/graph-wiki/commands/`, 0 for dropped commands
-- **Phase 14 prerequisite ports** (VP-01): `vault_io.lint_wiki` (~508 LOC) and `vault_io.wiki_search` (~194 LOC) must land before `/lint` and `/query` shims can shell out
+- **Phase 14 prerequisite ports** (VP-01): `wiki_io.lint_wiki` (~508 LOC) and `wiki_io.wiki_search` (~194 LOC) must land before `/lint` and `/query` shims can shell out
 
 ### SHELL-OUT-PATTERN.md
 
 Cross-cutting decisions home, referenced by all per-command spec files via `§SO-NN` anchors:
 
 - **SO-01**: `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"` — the single required user config is one env var in shell rc
-- **SO-02**: Shim template (Python fenced block) showing `vault_io.<module>` import + bedrock subprocess branch — two changes from upstream: import source and bedrock dispatch mechanism
+- **SO-02**: Shim template (Python fenced block) showing `wiki_io.<module>` import + bedrock subprocess branch — two changes from upstream: import source and bedrock dispatch mechanism
 - **SO-03**: `plugin:` block in `.graph-wiki.yaml` with `backend_default: claude` and per-command `backend_overrides`; default-when-missing is `claude` everywhere
 - **SO-04**: `_config.py` helper at `plugins/graph-wiki/skills/graph-wiki/scripts/_config.py` exposing `backend_for(cmd, repo=None) -> Literal["claude", "bedrock"]`
 - **PD-01..PD-03**: Plugin discovery requirements (`$AGENT_RESEARCH_ROOT`, `$CLAUDE_PLUGIN_ROOT`, `uv`)

@@ -16,7 +16,7 @@
 | **NEW** `packages/eval-harness/src/eval_harness/divergence/rubrics/code_reader.md` | config (judge rubric) | document | `packages/eval-harness/src/eval_harness/divergence/rubrics/librarian.md` | exact |
 | **NEW** `packages/eval-harness/src/eval_harness/divergence/rubrics/synthesizer.md` | config (judge rubric) | document | `packages/eval-harness/src/eval_harness/divergence/rubrics/librarian.md` | exact |
 | **NEW** `eval/cases/code_reader_cases.json` (extended) | config (test data) | document | existing 3 cases in the same file + `eval/cases/query_cases.json` shape | exact (additive — preserve baseline) |
-| **NEW** `packages/eval-harness/tests/fixtures/<vault>/...` | test fixture | file-I/O (vault read) | `packages/vault-io/tests/fixtures/round-trip-vault/` (used by `agents/graph-wiki-agent/tests/conftest.py` and `test_query_e2e.py`) | role-match |
+| **NEW** `packages/eval-harness/tests/fixtures/<vault>/...` | test fixture | file-I/O (vault read) | `packages/wiki-io/tests/fixtures/round-trip-vault/` (used by `agents/graph-wiki-agent/tests/conftest.py` and `test_query_e2e.py`) | role-match |
 | **NEW** `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py` (or similar) | test (gated integration) | request-response (subprocess + filesystem assert) | `agents/graph-wiki-agent/tests/integration/test_query_e2e.py` | exact |
 | **NEW** `docs/testing.md` | config (documentation) | document | `docs/cancellation.md` (sibling; 5-section structure) | role-match |
 | **NEW** `scripts/check-integration-gate.sh` OR `tests/test_integration_gate.py` | utility (CI gate) | transform (grep → exit code) | `scripts/check-brand.sh` (script form); existing pytest meta-tests like `test_models_toml_sweep_candidates.py` (test form) | exact |
@@ -342,7 +342,7 @@ ROLES_WITH_DIVERGENCE: frozenset[str] = frozenset(
 ```
 
 **Expansion pattern (D-07):** Keep the existing 3 cases unmodified for baseline comparability. Append 2–3 new cases reflecting the post-rebrand surface:
-- Target candidates: `workspace-io`, `graph-wiki` plugin entry points, `vault-io.lint_wiki`, `vault-io.wiki_search`
+- Target candidates: `workspace-io`, `graph-wiki` plugin entry points, `wiki-io.lint_wiki`, `wiki-io.wiki_search`
 - New `case_id` values continue the `code-reader-04`, `code-reader-05` numbering
 - `tags` must include `"code-reader"`; `"vault-thin"` stays (cases force the code-fallback path per <specifics>)
 - `expected_answer` follows the existing "cannot be answered from vault pages alone; requires reading <file>" prose pattern
@@ -353,7 +353,7 @@ ROLES_WITH_DIVERGENCE: frozenset[str] = frozenset(
 
 ### NEW Synthetic fixture vault (test fixture, file-I/O)
 
-**Analog:** `packages/vault-io/tests/fixtures/round-trip-vault/` — referenced by `agents/graph-wiki-agent/tests/conftest.py:25-50` (`fixture_vault_path`) and `agents/graph-wiki-agent/tests/integration/test_query_e2e.py:27-34` (`FIXTURE_VAULT`).
+**Analog:** `packages/wiki-io/tests/fixtures/round-trip-vault/` — referenced by `agents/graph-wiki-agent/tests/conftest.py:25-50` (`fixture_vault_path`) and `agents/graph-wiki-agent/tests/integration/test_query_e2e.py:27-34` (`FIXTURE_VAULT`).
 
 **Location decision (per "Claude's Discretion"):** Prefer `packages/eval-harness/tests/fixtures/<vault-name>/` (eval-harness-local), per CONTEXT.md.
 
@@ -365,7 +365,7 @@ FIXTURE_VAULT: Path = (
 )
 ```
 
-**Vault contents pattern:** Package pages with current names (`workspace-io`, `prompt-sources`, `vault-io`, etc.). Mirror the structure of `~/Personal/graph-wiki/agent-research` but smaller — enough for the scanner regression sweep to produce non-trivial output.
+**Vault contents pattern:** Package pages with current names (`workspace-io`, `prompt-sources`, `wiki-io`, etc.). Mirror the structure of `~/Personal/graph-wiki/agent-research` but smaller — enough for the scanner regression sweep to produce non-trivial output.
 
 ---
 
@@ -392,7 +392,7 @@ import pytest
 
 FIXTURE_VAULT: Path = (
     Path(__file__).parent.parent.parent.parent.parent
-    / "packages" / "vault-io" / "tests" / "fixtures" / "round-trip-vault"
+    / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
 )
 _PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.parent.parent
 

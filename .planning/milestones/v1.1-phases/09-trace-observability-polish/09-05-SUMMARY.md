@@ -54,7 +54,7 @@ completed: 2026-05-17
 
 # Phase 9 Plan 5: schema_version-aware Renderer Warnings Summary
 
-**Closed OBS-04's consumer half: the trace renderer now detects unversioned records (one-shot per-file v0 warning per D-04) and records with `schema_version` greater than the renderer's known max (one-shot per-file lenient-consumer warning per D-03), continues rendering in both cases, and is locked by four focused tests including one that exercises the real unversioned fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/`.**
+**Closed OBS-04's consumer half: the trace renderer now detects unversioned records (one-shot per-file v0 warning per D-04) and records with `schema_version` greater than the renderer's known max (one-shot per-file lenient-consumer warning per D-03), continues rendering in both cases, and is locked by four focused tests including one that exercises the real unversioned fixtures under `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/`.**
 
 ## Performance
 
@@ -76,7 +76,7 @@ completed: 2026-05-17
 - Exit code stays 0 in both warning paths (lenient consumer)
 - Non-integer `schema_version` values are silently rendered best-effort (T-09-15 mitigation)
 - Renderer has zero `eval_harness` imports (D-10 invariant preserved)
-- The real fixtures under `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` render successfully with exactly one v0 warning each — fixtures themselves are NOT rewritten
+- The real fixtures under `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/` render successfully with exactly one v0 warning each — fixtures themselves are NOT rewritten
 
 ## Plan-Required Artifacts
 
@@ -94,7 +94,7 @@ completed: 2026-05-17
   - `test_versioned_clean_emits_no_version_warning`
   - `test_v0_warning_emitted_once_per_file`
 
-- **Path of the real v0 fixture used in `test_v0_real_fixture_renders_and_warns_once`:** `cores/vault-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1779049934_249e599f.jsonl` (the first entry of `sorted(_REAL_V0_FIXTURE_DIR.glob("*.jsonl"))` — the test resolves it dynamically so a new fixture landing earlier in lexicographic order would be picked up automatically; selection is deterministic for a given fixture set).
+- **Path of the real v0 fixture used in `test_v0_real_fixture_renders_and_warns_once`:** `cores/wiki-io/tests/fixtures/round-trip-vault/.graph-wiki/traces/1779049934_249e599f.jsonl` (the first entry of `sorted(_REAL_V0_FIXTURE_DIR.glob("*.jsonl"))` — the test resolves it dynamically so a new fixture landing earlier in lexicographic order would be picked up automatically; selection is deterministic for a given fixture set).
 
 ## Task Commits
 

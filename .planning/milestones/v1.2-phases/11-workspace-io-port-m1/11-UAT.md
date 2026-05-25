@@ -26,8 +26,8 @@ result: pass
 expected: `uv run --package workspace-io pytest` runs the ~67 ported tests and all pass with no failures or errors.
 result: pass
 
-### 3. vault-io test suite green (delegation shim intact)
-expected: `uv run --package vault-io pytest` passes. The shim in `vault_io/_workspace.py` delegates to `workspace_io.config.resolve()` without breaking the MCP boundary contract.
+### 3. wiki-io test suite green (delegation shim intact)
+expected: `uv run --package wiki-io pytest` passes. The shim in `wiki_io/_workspace.py` delegates to `workspace_io.config.resolve()` without breaking the MCP boundary contract.
 result: pass
 
 ### 4. graph-wiki-agent test suite green (init wiring)
@@ -35,7 +35,7 @@ expected: `uv run --package graph-wiki-agent pytest` passes. The `graph-wiki-age
 result: pass
 
 ### 5. .graph-wiki.yaml ancestor discovery (no env var)
-expected: In a directory that has a `.graph-wiki.yaml` somewhere in its ancestry, `vault_io._workspace.resolve_wiki_and_repo()` returns the correct wiki + repo paths WITHOUT `LATTICE_WORKSPACE` being set.
+expected: In a directory that has a `.graph-wiki.yaml` somewhere in its ancestry, `wiki_io._workspace.resolve_wiki_and_repo()` returns the correct wiki + repo paths WITHOUT `LATTICE_WORKSPACE` being set.
 result: pass
 
 ### 6. GRAPH_WIKI_WORKSPACE env override works

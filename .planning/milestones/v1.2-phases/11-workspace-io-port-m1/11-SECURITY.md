@@ -12,7 +12,7 @@ created: 2026-05-18
 > Per-phase security contract: threat register, accepted risks, and audit trail.
 >
 > Phase 11 ports `lattice-workspace` (workspace bootstrap, manifest IO, config
-> resolution) into `packages/workspace-io/` and turns `vault-io._workspace`
+> resolution) into `packages/workspace-io/` and turns `wiki-io._workspace`
 > into a delegation shim. The phase is a port + delegation refactor of code
 > that already shipped in `lattice-wiki-core`, so all threats reduce to: same
 > trust boundaries, same controls, no new attack surface.
@@ -26,7 +26,7 @@ created: 2026-05-18
 | env (`GRAPH_WIKI_WORKSPACE`) → `workspace_io.config` | Untrusted env path supplies the workspace root | Filesystem path (string) |
 | filesystem → `workspace_io.manifest` | `.graph-wiki.yaml` content parsed at read time | YAML structured data |
 | filesystem → `workspace_io._local_config` | `.graph-wiki.local.yaml` user-supplied paths | YAML structured data |
-| MCP client → `vault_io._workspace.resolve_wiki_and_repo` | `vault_path` arg from MCP tool call | Filesystem path (string) |
+| MCP client → `wiki_io._workspace.resolve_wiki_and_repo` | `vault_path` arg from MCP tool call | Filesystem path (string) |
 | CLI user → `graph_wiki_agent init` → `workspace_io.init` | `--vault` arg, current cwd | Filesystem path (string) |
 | `graph_wiki_agent` ↔ MCP Field descriptions | User-visible tool schema | Static documentation strings |
 | filesystem → asset template (`CLAUDE.md.template`) | Template shipped inside wheel | Static text |

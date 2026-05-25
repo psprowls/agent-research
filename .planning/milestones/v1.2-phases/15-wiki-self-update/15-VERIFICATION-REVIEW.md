@@ -77,7 +77,7 @@ Frontmatter verified as valid YAML:
 - `package_path: packages/workspace-io`
 - `exports: [GraphWikiConfig, resolve, init, PendingUpdate, pending_updates, warn_if_stale]`
 
-Three substantive key claims present in body (Overview + Notable files sections). The "File map" section contains 28 `TODO` placeholders — this is the scanner's standard stub format and is identical to existing vault pages (e.g., `vault-io.md` has 45 TODOs in the same structural position). The `TODO`-filled file map is not a blocker — it is the documented scanner stub pattern, consistent with every other package page in this vault.
+Three substantive key claims present in body (Overview + Notable files sections). The "File map" section contains 28 `TODO` placeholders — this is the scanner's standard stub format and is identical to existing vault pages (e.g., `wiki-io.md` has 45 TODOs in the same structural position). The `TODO`-filled file map is not a blocker — it is the documented scanner stub pattern, consistent with every other package page in this vault.
 
 ### Check 5: sources/ has at least one .md file
 

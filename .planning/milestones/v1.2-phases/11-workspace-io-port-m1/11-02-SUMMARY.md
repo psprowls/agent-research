@@ -134,7 +134,7 @@ None introduced. The threat register in the plan (`T-11-02` env tampering, `T-11
 ## Phase 11 Success Criterion Progress
 
 - **SC #1 (uv sync resolves workspace-io and tests pass)** — source side advanced. Tests are ported in Plan 03.
-- **SC #2 (vault-io delegates to workspace_io)** — unblocked. The public surface `GraphWikiConfig`, `resolve`, `paths.wiki_dir`, `_find_repo_root` all exist and import cleanly, ready for Plan 04's vault-io delegation rewrite.
+- **SC #2 (wiki-io delegates to workspace_io)** — unblocked. The public surface `GraphWikiConfig`, `resolve`, `paths.wiki_dir`, `_find_repo_root` all exist and import cleanly, ready for Plan 04's wiki-io delegation rewrite.
 
 ## Next Plan
 
