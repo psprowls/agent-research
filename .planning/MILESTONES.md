@@ -1,5 +1,20 @@
 # Milestones
 
+## v1.4 Workspace Path Resolution Cleanup (Shipped: 2026-05-25)
+
+**Phases completed:** 5 phases, 8 plans, 12 tasks
+
+**Key accomplishments:**
+
+- 582 passed, 33 skipped, 6 pre-existing failures
+- One-liner:
+- Issue:
+- `_classify_dir` Rule 3 collapsed to a single permissive >=1-manifested-child branch, with honest reason strings and full plugin-reference-doc lockstep; `graph-wiki-agent bootstrap` on this repo now classifies `packages/` (5/6 manifested) as `package` instead of silently skipping it.
+- 1. `_fragments/__init__.py` docstring path-prefix rebrand
+- Hard-cut deletion of the 19-file upstream-snapshot tree, single-line `pyproject.toml` exclude removal, new BRAND-PROMPT-SOURCES CHECK 6 in `check-brand.sh`, and full verification (uv sync + 599-test graph-wiki-agent + 599-test eval-harness + brand-gate) green against the resulting tree.
+
+---
+
 ## v1.3 Tooling Cleanup (Shipped: 2026-05-20)
 
 **Phases completed:** 5 phases, 25 plans

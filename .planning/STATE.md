@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Workspace Path Resolution Cleanup
-status: completed
-stopped_at: Phase 26 context gathered
-last_updated: "2026-05-23T21:00:00.000Z"
-last_activity: 2026-05-23 -- Completed quick task 260523-iws: Rename wiki overview pages from <dir-name>.md to overview.md everywhere
+milestone: v1.5
+milestone_name: TBD
+status: Awaiting milestone scoping
+stopped_at: v1.4 archived (minimal close, audit skipped)
+last_updated: "2026-05-25T22:09:18.791Z"
+last_activity: 2026-05-25 — v1.4 archived; v1.5 ready for /gsd-new-milestone
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: agent-research
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 26 — plugin-prompt-source-mirror-sync
+**Current Focus:** v1.5 scoping (next: `/gsd-new-milestone`). First expected phase is a retroactive capture of post-v1.4 unphased work: repo rename `deep-agents → agent-research`, new packages `graph-io` + `source-parser`, package rename `vault-io → wiki-io`, and assorted doc/spike cleanup commits.
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,14 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 26 — COMPLETE
-Plan: 1 of 4
-Status: Phase 26 complete
-Last activity: 2026-05-23 -- Completed quick task 260523-i35: Add testing.md subpage to app, package, and plugin directory templates
-
-Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% (0/4 phases)
-
----
+Phase: Milestone v1.4 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-25 — Milestone v1.4 completed and archived
 
 ## Performance Metrics
 
@@ -124,14 +120,35 @@ Progress bar: `░░░░░░░░░░░░░░░░░░░░` 0% 
 
 ## Deferred Items
 
-Items carried forward from v1.3 close — NOT in v1.4 scope:
+### Acknowledged at v1.4 close (2026-05-25 — minimal close, audit skipped)
 
 | Category | Item | Status |
 |----------|------|--------|
-| nyquist | 0/5 v1.1 + 0/6 v1.2 + 0/5 v1.3 phases compliant | deferred to v1.5 (decision: retro-validate vs. disable toggle) |
+| quick_task | 260521-gc0-tackle-four-lint-driven-fixes-w1-repo-di | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260521-hfr-patch-graph-wiki-scanner-wikilink-emissi | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260521-i26-add-container-dir-template-variable-for- | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260521-lj3-workspace-io-tolerate-missing-plugins | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260521-mfm-add-self-healing-uv-re-exec-to-graph-wik | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260523-he3-revise-file-map-format-on-package-app-ov | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260523-i35-add-testing-md-subpage-to-app-package-an | missing — landed in commit but no SUMMARY tracked |
+| quick_task | 260523-iws-rename-overview-pages | missing — landed in commit but no SUMMARY tracked |
+| todo | 2026-05-21-bootstrap-interactive-flag | pending — not in v1.4 scope |
+| todo | 2026-05-21-bootstrap-should-stub-empty-category-index-files | pending — not in v1.4 scope |
+
+### Carried forward from v1.3 close — NOT addressed in v1.4
+
+| Category | Item | Status |
+|----------|------|--------|
+| nyquist | 0/5 v1.1 + 0/6 v1.2 + 0/5 v1.3 + 0/5 v1.4 phases compliant | deferred to v1.5 (decision: retro-validate vs. disable toggle) |
 | uat_gap | Phase 14 SC#4 plugin smoke transcript | deferred to v1.5 (capture as regression artifact later) |
-| uat_gap | Phase 18 SC#3 manual UAT (type `/init`, confirm native CLAUDE.md fires) | closed 2026-05-20 — user confirmed inline during v1.3 execution |
 | slug_fix | `librarian.py:21` `_SLUG_ONLY_RE` parity fix | deferred to v1.5 (not load-bearing) |
+
+### Closed inline
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | Phase 18 SC#3 manual UAT (type `/init`, confirm native CLAUDE.md fires) | closed 2026-05-20 — user confirmed inline during v1.3 execution |
 
 ---
 
@@ -159,3 +176,7 @@ Items carried forward from v1.3 close — NOT in v1.4 scope:
 *v1.2 roadmap: 2026-05-17 — shipped 2026-05-19*
 *v1.3 roadmap: 2026-05-19 — shipped 2026-05-20*
 *v1.4 roadmap: 2026-05-20*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
