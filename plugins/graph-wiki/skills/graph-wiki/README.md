@@ -1,7 +1,8 @@
-# graph-wiki
+# graph-wiki 
 
 > **Maintained documentation for a source code repository — single package, monorepo, or hybrid.**
-> An adaptation of the [wiki](../wiki) skill, which itself implements [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Port of upstream `lattice-wiki` targeting the agent-research `vault-io`/`workspace-io` surface.
+> An adaptation of [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) targetting source code repositories.
+
 
 Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki detects the repo's top-level shape — single package, workspace-style monorepo (Turborepo / pnpm / Nx / Bazel / Cargo / Go workspaces), or a hybrid — and adapts the vault layout to match. The chosen layout is pinned to `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` so the LLM knows what containers exist. The LLM walks your code, produces a page per package (or per module/area in single-package repos), cross-references domains and concepts, ingests specs and articles and PRs, and keeps everything current as the code evolves.
 
@@ -129,16 +130,10 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 | No history of why decisions were made | ADRs capture decisions; log tracks every ingest/scan |
 | Specs and articles live elsewhere | Ingested into `raw/` and summarized in `sources/` |
 
-## Status
-
-**v0.1.0** — port of upstream `lattice-wiki` v0.5.x targeting agent-research vault-io/workspace-io surface. Claude Code host path; `graph-wiki-agent` is the parallel Bedrock CLI companion.
-
 ## License
 
 MIT.
 
 ## Related
-
-- [`wiki`](../wiki) — generic personal-knowledge-base version of this pattern
 - [Karpathy's original gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 - Vannevar Bush, "As We May Think" (1945) — the Memex

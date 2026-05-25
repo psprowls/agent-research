@@ -2,13 +2,13 @@
 
 A Python monorepo of LangChain/deepagents-based AI tooling, managed with `uv`.
 
-**Core Value:** Faithfully reproduce lattice-wiki's wiki-maintenance workflows
+**Core Value:** wiki-maintenance workflows running in Claude Code, or
 while running entirely on AWS Bedrock with parallel subagents, so the same
 outcomes can be achieved at meaningfully lower cost than the current
 Claude-Code-hosted plugin.
 
 The first agent, **`graph-wiki-agent`**, is a reimplementation of the existing
-`lattice-wiki` Claude Code plugin — packaged as both an MCP server (consumed
+`graph-wiki` Claude Code plugin — packaged as both an MCP server (consumed
 by the DeepAgents CLI) and a headless CLI that runs the full agent loop.
 
 ## Quickstart

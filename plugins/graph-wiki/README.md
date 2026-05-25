@@ -1,12 +1,12 @@
 # graph-wiki
 
-A Claude Code plugin that builds and maintains a persistent, cross-referenced knowledge base alongside any source-code project — single packages, monorepos, or hybrid shapes. Ported from the upstream `lattice-wiki` plugin.
+A Claude Code plugin that builds and maintains a persistent, cross-referenced knowledge base alongside any source-code project — single packages, monorepos, or hybrid shapes.
 
 ## What this plugin is
 
 `graph-wiki` gives your repo a compounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
-The wiki lives at `<repo>/graph-wiki/wiki/` by default. Obsidian opens the workspace root (`<repo>/graph-wiki/`) to see wiki, raw sources, and the work tracker as sibling directories.
+By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories.  You can override the default wiki locaiton with either.  The workspace directory can be overriden either by creating a `.graph-wiki.local.yaml` file in the repository root (and setting `workspace-directory: <workspace>`), or by setting the `GRAPH_WIKI_WORKSPACE` environment variable.
 
 The plugin has two delivery surfaces that share the same wiki format:
 
@@ -70,16 +70,6 @@ The `[plugin]` block is validated on every read: unknown keys raise `RuntimeErro
 | `/graph-wiki:log` | Show or summarize recent wiki activity from `log.md` |
 
 Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `graph-wiki:librarian`) are dispatched automatically by commands and can also be invoked directly.
-
-## Not ported
-
-The following upstream `lattice-wiki` subsystems are **not** included in graph-wiki v1.2:
-
-- `/graph-wiki:archive` — move terminal-status work items to `work/archived/`
-- `/graph-wiki:regen-index` — regenerate `work/.work-index.json` sidecar
-- `/graph-wiki:status` — display work-queue summary from the sidecar
-
-These commands depend on the work-layer subsystem (work item lifecycle lint, sidecar schema, archive/restore). The schema is documented in `skills/graph-wiki/references/sidecar-schema.md` and `references/lifecycle-rules.md` for future porting. The remaining six commands are fully functional.
 
 ## See also
 

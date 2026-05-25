@@ -3,18 +3,16 @@
 
 **agent-research**
 
-A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`graph-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
+A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`graph-wiki-agent`**, is a reimplementation of the `graph-wiki` Claude Code plugin (in this repo) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
-**Core Value:** **Faithfully reproduce the upstream lattice-wiki plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
-
-If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
+**Core Value:** **Faithfully reproduce the `graph-wiki`s plugin's wiki-maintenance workflows (now ported as `graph-wiki`) while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.**
 
 ### Constraints
 
 - **Tech stack**: Python 3.11+, `uv` workspace, `langchain-aws` + `langchain-core` + in-house `subagent-runtime` (asyncio.Semaphore-based fan-out). `deepagents`/`langgraph` were evaluated and intentionally not adopted — see §2 stack-departure note
 - **Model provider**: AWS Bedrock only in v1 — single-provider focus simplifies adapter layer and eval harness
 - **Protocol**: MCP for the primary delivery surface — interoperates with DeepAgents CLI and other MCP hosts
-- **Format compatibility**: must read existing upstream lattice-wiki vaults without modification — preserve frontmatter schema, layout block format, wikilink/citation conventions
+- **Format compatibility**: must read existing `graph-wiki` vaults without modification — preserve frontmatter schema, layout block format, wikilink/citation conventions
 - **Budget**: personal project; no team; design for one-developer velocity
 - **Audience**: Pat (now); open-source-ready hygiene (license, README, no secrets) for later release
 <!-- GSD:project-end -->

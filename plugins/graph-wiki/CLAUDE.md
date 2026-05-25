@@ -20,7 +20,7 @@ Real implementation lives in `packages/vault-io/` — IO, scan, ingest, lint, la
 
 The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `vault_io.<name>` (claude branch) or shells out to `graph-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `graph-wiki-agent` Bedrock CLI.
 
-Distribution: shims reference `vault_io` via the `uv` workspace (`uv run --project "$DEEP_AGENTS_ROOT"`), so installed users need `DEEP_AGENTS_ROOT` set and `uv` installed — no `vendor/` directory required.
+Distribution: shims reference `vault_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required.
 
 **When changing behavior:** edit `packages/vault-io/` and write tests there. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
 
@@ -46,7 +46,7 @@ The shim under that path resolves the implementation from `vault_io` via the `uv
 
 ## Wiki layout invariants
 
-The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
+The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.local.yaml`'s `workspace-directory` path key). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
 
 - `<workspace>/raw/` — immutable ingested sources. The LLM never edits files here. Owned by `workspace_io`.
 - `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
