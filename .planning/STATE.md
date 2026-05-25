@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Code Graph Ontology Expansion
-status: roadmap_created
-last_updated: "2026-05-25"
-last_activity: 2026-05-25
+status: planning
+stopped_at: Phase 28 context gathered
+last_updated: "2026-05-25T23:58:24.634Z"
+last_activity: 2026-05-25 — v1.6 roadmap created; 7 phases, 56 requirements mapped
 progress:
   total_phases: 7
   completed_phases: 0
@@ -98,9 +99,9 @@ Carried forward from v1.5 close (still pending):
 
 ## Session Continuity
 
-Last session: 2026-05-25
-Stopped at: v1.6 roadmap created — ROADMAP.md + STATE.md + REQUIREMENTS.md traceability written
-Resume file: None
+Last session: 2026-05-25T23:58:24.627Z
+Stopped at: Phase 28 context gathered
+Resume file: .planning/phases/28-schema-v2-uri-foundation/28-CONTEXT.md
 
 **Next action:** `/gsd:plan-phase 28`
 
