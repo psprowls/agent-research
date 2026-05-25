@@ -1,5 +1,35 @@
 # Milestones
 
+## v1.5 Repo Rename & Foundational Package Additions (Shipped: 2026-05-25)
+
+**Phases completed:** 1 phase, 0 plans (retroactive — SUMMARY.md is the canonical artifact)
+**Timeline:** 2026-05-24 → 2026-05-25 (work shipped before milestone was scoped)
+**Git range:** `9b8ac87` → `f896d99` (7 commits)
+**Requirements:** 7/7 satisfied (REPO-01/02, PKG-01/02, RENAME-01, CLEANUP-01/02)
+**Audit:** none — retroactive close, audit skipped per operator direction
+
+**Delivered:** Retroactively captured the seven unphased commits that landed on `main` between v1.4 archive and v1.5 scoping — repo rename `deep-agents → agent-research`, env var sweep `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT`, two new workspace packages (`graph-io` SQLite code-graph store + `cg` CLI; `source-parser` tree-sitter SourceTree projection), the final brand rename `vault-io → wiki-io`, and a sweep of stale `lattice-wiki` doc mentions plus obsolete spike/sketch removal. Foundation milestone only — wiring the new packages into the agent loop is forward-looking work deferred to v1.6+.
+
+### Key accomplishments
+
+- **Repo + env rename** (REPO-01/02) — `deep-agents → agent-research` applied across README, CLAUDE.md, docs, and all internal references; `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT` swept across plugin shell-out templates, scripts, and tests. (commits `9b8ac87`, `39f1364`)
+- **`graph-io` package added** (PKG-01) — new `packages/graph-io/` workspace member at v0.2.1: SQLite-backed code-graph store, manifest scanning, queries, and the `cg` CLI; declared workspace dependencies on `source-parser` + `workspace-io`. Not yet consumed by the agent loop. (commit `f896d99`)
+- **`source-parser` package added** (PKG-02) — new `packages/source-parser/` workspace member at v0.1.0: tree-sitter-backed Python package producing span-bearing `SourceTree` with graph projection aligned to lattice-graph; declared `tree-sitter` + `tree-sitter-language-pack` deps. (commit `f896d99`)
+- **`vault-io → wiki-io` rename** (RENAME-01) — final retirement of the `vault` brand at the package directory level (v1.4 had already swept `vault_path` and `vault:` from helpers and external surfaces). `git mv` preserved history; import sweep across `agents/`, `packages/`, `plugins/`, `eval-harness`, and tests; 663 files touched in the combined commit. (commit `f896d99`)
+- **Doc + tree cleanup** (CLEANUP-01/02) — stale `lattice-wiki` mentions purged from README and core docs (`ff835c4`); `.planning/spikes/` and `.planning/sketches/` removed (`9ab8a58`); old docs removed (`b63bcac`); README polished (`1651d14`). Final brand and exploratory-artifact cleanup ahead of v1.6+ integration work.
+
+### Known deferred items at close
+
+5 items (see STATE.md `## Deferred Items`):
+
+- 🟡 **Wire `graph-io` + `source-parser` into the agent loop** — v1.5 only added the packages; scanner/librarian do not yet consume them. Forward-looking integration deferred to v1.6+.
+- 🟡 **Nyquist compliance retro-validation** — 0/21 v1.1-v1.4 phases produced VALIDATION.md. Decision (retro-validate vs. disable toggle) carried from v1.4 close.
+- 🔵 **Phase 14 SC#4 plugin smoke transcript** — manual UAT, carried from v1.2.
+- 🔵 **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — carried from v1.3 Phase 19.
+- 🔵 **9 quick tasks + 2 todos** acknowledged-deferred at v1.4 close — still pending at v1.5 close.
+
+---
+
 ## v1.4 Workspace Path Resolution Cleanup (Shipped: 2026-05-25)
 
 **Phases completed:** 5 phases, 8 plans, 12 tasks

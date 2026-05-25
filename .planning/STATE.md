@@ -1,10 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Repo Rename & Foundational Package Additions
-status: planning
-last_updated: "2026-05-25T22:16:09.603Z"
-last_activity: 2026-05-25
+milestone: v1.6
+milestone_name: TBD
+status: Awaiting milestone scoping
+stopped_at: v1.5 archived (retroactive close, audit skipped)
+last_updated: "2026-05-25T22:41:58.504Z"
+last_activity: 2026-05-25 — v1.5 archived; v1.6 ready for /gsd-new-milestone
 progress:
   total_phases: 0
   completed_phases: 0
@@ -26,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.5 (Repo Rename & Foundational Package Additions) — retroactive milestone covering Phase 27. Work already shipped on `main` in commits `9b8ac87..f896d99`. Next forward-looking work (v1.6+) wires `graph-io` and `source-parser` into the agent loop.
+**Current Focus:** v1.6 scoping (next: `/gsd-new-milestone`). Likely first phase: wire `graph-io` queries + `source-parser` spans into the scanner/librarian for code-aware grounding.
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -34,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: 27 — post-v1.4-foundation-changes (retroactive, complete)
-Plan: — (no PLAN.md; SUMMARY.md is the canonical artifact)
-Status: v1.5 retroactive close — all 7 requirements satisfied by shipped commits
-Last activity: 2026-05-25 — Milestone v1.5 created retroactively for the post-v1.4 unphased work (commits `9b8ac87..f896d99`)
+Phase: Milestone v1.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-25 — Milestone v1.5 completed and archived
 
 ## Performance Metrics
 
@@ -187,5 +188,4 @@ Last activity: 2026-05-25 — Milestone v1.5 created retroactively for the post-
 
 ## Operator Next Steps
 
-- v1.5 is retroactively closed. To start forward-looking work, run `/gsd-new-milestone` for v1.6 (e.g. wire `graph-io` + `source-parser` into the agent loop).
-- Or formally close v1.5 with `/gsd-complete-milestone v1.5 --skip-audit` once you're ready to archive Phase 27.
+- Start the next milestone with /gsd-new-milestone
