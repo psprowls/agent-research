@@ -10,7 +10,7 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current State: v1.4 Shipped — 2026-05-25
+## Current State: v1.5 Shipped — 2026-05-25
 
 **Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25). 26 phases, 118 plans across five milestones. **v1.4 was minimally closed** — audit skipped per operator direction; carry-forward items captured in STATE.md `## Deferred Items`.
 
@@ -29,31 +29,41 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21. Repo rename `deep-agents` → `agent-research` and package rename `vault-io` → `wiki-io` swept in v1.5 Phase 27.
 
-## Current Milestone: v1.5 Repo Rename & Foundational Package Additions
+## Current Milestone: v1.6 Code Graph Ontology Expansion
 
-**Goal:** Retroactively document the post-v1.4 unphased work that already landed on `main` — repo rename, env var sweep, addition of two new packages (`graph-io`, `source-parser`) to the workspace, and the `vault-io → wiki-io` rename. Single-phase, documentation-only milestone.
+**Goal:** Land the full ontology spec (`/Users/pat/Downloads/code-graph-ontology-spec_2.md`) inside `graph-io` — schema v2, URI identity, all new node + edge types, additive scanner extensions — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. Plugin and existing wiki scripts stay functional and untouched.
 
 **Target features:**
 
-1. **Repo + env var rename** — `deep-agents → agent-research` at the GitHub repo level; `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT` env var swept globally; README polish.
-2. **`graph-io` package added** — code-graph core for the graph-wiki ecosystem (SQLite store, manifest scanning, queries, `cg` CLI). Depends on `source-parser` + `workspace-io`.
-3. **`source-parser` package added** — tree-sitter-backed Python package producing span-bearing `SourceTree` with graph projection aligned to lattice-graph.
-4. **`vault-io → wiki-io` rename** — package rename and import sweep across the workspace (final retirement of the `vault` nomenclature carried over from v1.4 external-surface rename).
-5. **Doc cleanup** — purge stale `lattice-wiki` mentions, remove obsolete spikes/sketches/docs.
+1. **Schema v2 + URI identity** — bump `SCHEMA_VERSION` to 2 (full rebuild required on upgrade). Add stable URI-style IDs (`repo:org/foo`, `pkg:org/foo/auth-service`, `domain:billing`, etc.) as the new identity layer; `path` becomes an attribute, not identity. Reserved error codes (`SCHEMA_MISMATCH`, `UPDATE_IN_PROGRESS`) wired up.
+2. **Structural nodes + tree** — `Repository`, `SubPackage` (Python-only), `File` with role flags (`is_importable`, `is_executable`, `has_main`, `is_test`, `is_config`, `is_generated`, `is_type_only`). `physically_contains` edges forming a strict tree. Generic containers (`packages/`, `libs/`, `tests/`) explicitly NOT modeled.
+3. **Entry points** — `EntryPoint` nodes from manifest declarations (`pyproject.toml [project.scripts]`, `package.json bin`/`main`/`exports`). `declares_entry_point` + `implemented_by` edges (polymorphic over `File`/`Function`/`Class`).
+4. **Test suites** — `TestSuite` nodes from FS layout + framework config (pytest.ini, jest.config.js, etc.). Re-parent test files from package containment to suites. Derived `tests` edges at suite-level (strong) and file/function-level (best-effort, advisory). Flat — no suite nesting.
+5. **Domains** — `Domain` first-class nodes. Curated `belongs_to_domain` edges from explicit `domains.yaml` config + convention-based inference (top-level named folders). `domain_contains_domain` for nested domains (tree). Multi-domain membership supported; zero-domain (cross-cutting) supported.
+6. **Derived edges** — `references` (Domain → Package, with usage count) and `depends_on` (Domain → Domain) computed from import graph + domain membership. Re-runnable.
+7. **Scanner extensions (additive)** — extend existing scanner to emit the new node/edge kinds inline. Do NOT restructure into the 9-stage pipeline yet (deferred to v1.7 when domain-overlay re-runs become a real requirement).
+8. **`cg` CLI surface for new node/edge types** — describe/query commands for `Repository`, `Domain`, `EntryPoint`, `TestSuite`; reverse-direction queries (`what tests cover X`, `what entry points does pkg Y declare`, `what does domain D reference`).
+9. **Lattice → graph-wiki brand sweep in `graph-io`** — `README.md` ("lattice-graph-core" → graph-wiki phrasing), `~/.lattice/graph/code.db` paths → canonical graph-wiki path, comments, exit-code docs. Aligns graph-io with the rest of the rebranded workspace.
 
 **Key context:**
-- Phase numbering continues from Phase 26 → v1.5 starts at Phase 27.
-- **Retroactive milestone** — all work already shipped in commits `9b8ac87 → f896d99`. SUMMARY.md is the canonical phase artifact; no PLAN.md authored.
-- No research needed — work is already done; documenting after the fact for traceability.
-- Carry-forward items from v1.4 (Nyquist decision, plugin smoke transcript, slug-only regex fix) remain **out of scope** for v1.5 — they remain candidates for v1.6+.
 
-## Deferred to v1.6+
+- **graph-io-only milestone.** `graph-wiki-agent` does NOT yet consume graph-io in v1.6 — agent integration is v1.7. Justification: landing the full ontology + URI migration is already a heavy surface; a focused milestone is cleaner.
+- **Plugin untouched.** `plugins/graph-wiki/` and its scripts continue to function as today — they don't touch graph-io.
+- **Source-of-truth spec:** `/Users/pat/Downloads/code-graph-ontology-spec_2.md` (Pat's brainstorm — should be copied into the repo as a planning artifact at scoping time).
+- **Open questions §11 of spec** (tagging, cross-repo domains, role-flag confidence, etc.) left for v1.7 — except where v1.6 must answer to ship (e.g., `EntryPoint.implemented_by` polymorphic over `File`/`Function`/`Class` — decided yes).
+- **Schema v2 forces full rebuild.** Existing `code.db` files become invalid on upgrade; users run `cg update --full`. Acceptable since the only consumers today are direct `cg` invocations.
+- Phase numbering continues from Phase 27 → v1.6 starts at Phase 28.
 
-- **Nyquist compliance retroactive decision** — 0/21 v1.1+v1.2+v1.3+v1.4 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate the 21 phases vs. disable the toggle.
-- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.4 close.
-- **Phase 18 SC#3 manual UAT** — install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. By-design manual gate from v1.3 Phase 18 D-07.
+## Deferred to v1.7+
+
+- **Wire `graph-io` into `graph-wiki-agent`** — librarian grounding tools, scanner/ingestor consumption of graph-io as source of truth, possible new top-level `graph-wiki-agent graph {build|describe|query}` command. **Primary v1.7 focus** alongside wiki redesign.
+- **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI rather than filesystem location; multiple views (flat-by-ID, by-domain, by-repo) from the same graph. Companion to the agent integration above.
+- **Scanner pipeline restructure** — split into the 9-stage pipeline per spec §9 (FS walk → manifest parse → test detect → AST → import resolve → test target derive → domain assign → derived edges → wiki render). Becomes a real requirement when domain-overlay re-runs need to be cheap.
+- **Open questions §11 of spec** — tagging mechanism, cross-repo domain scope, domain config location in multi-repo, role-flag confidence metadata, test suite consolidation threshold, test-support file flag.
+- **Nyquist compliance retroactive decision** — 0/21+ v1.1-v1.5 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle.
+- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.5 close.
 - **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19 (same issue as the synthesizer fix; not load-bearing today).
-- **Wire `graph-io` and `source-parser` into the agent loop** — v1.5 only adds the packages to the workspace; actual integration (scanner/librarian consuming the SQLite code-graph store) is forward-looking work for v1.6+.
+- **9 untracked quick tasks + 2 pending bootstrap todos** acknowledged-deferred at v1.4 close — still pending at v1.5 close.
 
 **Explicitly out of v1.x (deferred to v2.0+):**
 - Open-source release prep (README badges, contribution guide, PyPI publish dry-run) → **v2.0 GA**.
@@ -131,15 +141,9 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_Milestone v1.3 (Tooling Cleanup) — requirements live in `.planning/REQUIREMENTS.md` after `/gsd:new-milestone` scoping. See "Current Milestone" section above for the goal + target features._
+_Milestone v1.6 (Code Graph Ontology Expansion) — requirements live in `.planning/REQUIREMENTS.md` after `/gsd:new-milestone` scoping. See "Current Milestone" section above for the goal + target features._
 
-_Carry-forward acknowledgments NOT in v1.3 scope (documented tech debt, not blockers):_
-- **Nyquist compliance** — 0/5 v1.1 + 0/6 v1.2 phases reached `nyquist_compliant: true` despite toggle enabled. Decide: retro-validate the 11 phases or disable the toggle. Deferred past v1.3.
-- **Phase 14 SC#4 plugin smoke transcript** — accepted on structural evidence at close; capture as regression artifact in a later milestone.
-- **`next-milestone-planning` thread** — carried forward through v1.0 → v1.1 → v1.2 → v1.3; close at v1.3 close or convert to requirements at v1.4 scoping.
-- **MCP wire-level cancel deferral** — re-anchored to event-driven trigger (langchain-aws#663 merged OR aioboto3 GA/1.0), not calendar date. See `docs/cancellation.md §5`.
-
-_See "Out of Scope" below for items explicitly deferred past v1.x._
+_See "Deferred to v1.7+" above for items explicitly out of v1.6 scope, and "Out of Scope" below for items deferred past v1.x._
 
 ### Out of Scope
 
@@ -223,11 +227,11 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-25 — milestone v1.5 (Repo Rename & Foundational Package Additions) STARTED retroactively. Scope: single-phase documentation of post-v1.4 unphased work — repo rename `deep-agents → agent-research`, env var sweep `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT`, new packages `graph-io` + `source-parser`, package rename `vault-io → wiki-io`, doc cleanup. Phase numbering continues from Phase 27.
+**Last updated:** 2026-05-25 — milestone v1.6 (Code Graph Ontology Expansion) STARTED. Scope: land the full code-graph ontology spec inside `graph-io` (schema v2, URI identity, new structural/conceptual nodes, derived edges, additive scanner extensions, lattice→graph-wiki sweep). graph-io-only milestone — agent integration deferred to v1.7. Phase numbering continues from Phase 28.
 
-**Prior update:** 2026-05-25 — milestone v1.4 (Workspace Path Resolution Cleanup) SHIPPED minimally. 5 phases, 8 plans. Audit skipped per operator direction; deferred items captured in STATE.md.
+**Prior update:** 2026-05-25 — milestone v1.5 (Repo Rename & Foundational Package Additions) SHIPPED retroactively. 1 phase, 0 plans (single-phase doc-only milestone). 7/7 requirements satisfied; audit skipped per operator direction.
 
-**Earlier:** 2026-05-20 — milestone v1.3 (Tooling Cleanup) SHIPPED. 5 phases, 25 plans, 19/19 requirements satisfied.
+**Earlier:** 2026-05-25 — milestone v1.4 (Workspace Path Resolution Cleanup) SHIPPED minimally. 5 phases, 8 plans. Audit skipped per operator direction; deferred items captured in STATE.md.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -243,4 +247,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-25 — milestone v1.5 Repo Rename & Foundational Package Additions STARTED retroactively (single phase: 27). 26 phases / 118 plans shipped across v1.0+v1.1+v1.2+v1.3+v1.4. v1.5 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
+*Last updated: 2026-05-25 — milestone v1.6 Code Graph Ontology Expansion STARTED (phases begin at 28). 27 phases / 118 plans shipped across v1.0+v1.1+v1.2+v1.3+v1.4+v1.5. v1.6 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
