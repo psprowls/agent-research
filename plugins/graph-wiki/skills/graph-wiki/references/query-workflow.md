@@ -34,7 +34,7 @@ If a read page points to another clearly relevant page, follow it. Stop when you
 If the index doesn't surface the right page:
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py --query "<terms>" --limit 5
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py --query "<terms>" --limit 5
 ```
 
 If the wiki doesn't cover the topic at all, read the **code directly** — the wiki is not authoritative for code-level specifics. In that case, flag the gap: "The wiki doesn't document X. I read `<file>` to answer; want me to file a concept/package page?"
@@ -67,7 +67,7 @@ If yes:
 - Update `<workspace>/wiki/index.md`
 - Append to `log.md`:
   ```bash
-  uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op create \
+  uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op create \
       --title "<question>" --detail "filed query response to <path>"
   ```
 
@@ -78,7 +78,7 @@ Not every query wants a markdown answer. Offer the user:
 - **Markdown page** (default) — filed back as a wiki page
 - **Dependency list / usage table** — for "who uses X" questions, derived from package frontmatter + scan data
 - **Comparison table** — for "A vs B"
-- **Marp slide deck** — via `uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/export_marp.py` on the synthesis page
+- **Marp slide deck** — via `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/export_marp.py` on the synthesis page
 - **Chart (matplotlib)** — for data-driven questions; save to `<workspace>/wiki/assets/charts/`
 
 ## Anti-patterns

@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
 **Three deltas from upstream (per SHELL-OUT-PATTERN.md §SO-02):**
 
-1. **Drop the `vendor/` sys.path injection** — not needed; `uv run --project "$DEEP_AGENTS_ROOT"` already resolves the venv per SO-01.
+1. **Drop the `vendor/` sys.path injection** — not needed; `uv run --project "$AGENT_RESEARCH_ROOT"` already resolves the venv per SO-01.
 2. **Import source rename:** `from lattice_wiki_core.<module> import main` → `from vault_io.<module> import main`.
 3. **Bedrock branch:** the upstream ~20-line `InitAgent` / `asyncio.run` block becomes a single `subprocess.run(["graph-wiki-agent", "<cmd>", *sys.argv[1:]], check=True)` — entire Bedrock path stays inside the headless CLI surface.
 
@@ -553,7 +553,7 @@ One paragraph: Claude Code host path; companion to `graph-wiki-agent` Bedrock CL
 
 ## Setup
 
-- `$DEEP_AGENTS_ROOT` env var (PD-01) — example export in shell rc.
+- `$AGENT_RESEARCH_ROOT` env var (PD-01) — example export in shell rc.
 - `uv` prerequisite (PD-03).
 - `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code (PD-02) — note only.
 

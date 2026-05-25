@@ -23,7 +23,7 @@ No `uv run` line. No script ships under `plugins/graph-wiki/skills/graph-wiki/sc
 **Optional placeholder script (executor discretion per CONTEXT.md §decisions):** A tiny `log.py` wrapping `grep + tail` could improve UX so users don't need to construct the shell invocation manually. Default is "no script" matching upstream. If added, it would be:
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/log.py" $ARGUMENTS
+uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/log.py" $ARGUMENTS
 ```
 
 This decision is left to Phase 14 executor judgment. The default spec is no script.

@@ -32,7 +32,7 @@ Before initializing the wiki, run the container classifier so the user can confi
 1. Run the detector for a JSON snapshot:
 
    ```bash
-   uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --json
+   uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --json
    ```
 
 2. Show the user the detected table — one row per top-level dir, with `source`, `classification`, `children_count`, and `reason`.

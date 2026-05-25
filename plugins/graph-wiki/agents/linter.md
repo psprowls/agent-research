@@ -25,8 +25,8 @@ Follow `references/lint-workflow.md`. Three passes.
 ### Pass 1 — Mechanical (scripts)
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/lint_wiki.py --json > /tmp/lint.json
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/graph_analyzer.py --json > /tmp/graph.json
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/lint_wiki.py --json > /tmp/lint.json
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/graph_analyzer.py --json > /tmp/graph.json
 ```
 
 (Workspace and repo discovered automatically via `workspace_io`.)
@@ -91,7 +91,7 @@ Want me to run these in order, or pick specific ones?
 
 Then log:
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op lint \
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op lint \
     --title "<date> health check" --detail "<findings summary>"
 ```
 

@@ -41,7 +41,7 @@ must_haves:
 <objective>
 Make the 6 graph-wiki plugin shim scripts self-healing: when invoked with bare `python script.py` outside the `uv` workspace, they should detect the missing `vault_io` import, re-exec themselves under `uv run --project <repo>/packages/vault-io python <self> <args...>`, and use an env-var guard to prevent infinite re-exec loops.
 
-Purpose: Today every `/graph-wiki:*` command in the installed plugin must be invoked via `uv run --project "$DEEP_AGENTS_ROOT" python ...` (per the 260521-kxi doc fix). Making the shims self-healing lets bare `python <shim>` work too, removing a class of user setup errors and the need to keep `uv run --project` plumbed through every command body.
+Purpose: Today every `/graph-wiki:*` command in the installed plugin must be invoked via `uv run --project "$AGENT_RESEARCH_ROOT" python ...` (per the 260521-kxi doc fix). Making the shims self-healing lets bare `python <shim>` work too, removing a class of user setup errors and the need to keep `uv run --project` plumbed through every command body.
 
 Output: One new helper module (`_uv_reexec.py`) and 6 modified shims, each calling `_uv_reexec.ensure()` before its top-level `vault_io` import.
 </objective>

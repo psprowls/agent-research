@@ -5,7 +5,7 @@ subsystem: plugins/graph-wiki
 tags: [docs, plugin, uv-workspace, vault_io]
 requires: []
 provides:
-  - "All graph-wiki plugin docs invoke bundled shims via `uv run --project \"$DEEP_AGENTS_ROOT\" python …` so `vault_io` resolves"
+  - "All graph-wiki plugin docs invoke bundled shims via `uv run --project \"$AGENT_RESEARCH_ROOT\" python …` so `vault_io` resolves"
   - "SKILL.md Python-tools preamble accurately describes the shim model (in-workspace `vault_io` import, not stdlib-only)"
 affects:
   - plugins/graph-wiki/agents/librarian.md
@@ -22,7 +22,7 @@ affects:
 tech_stack:
   added: []
   patterns:
-    - "`uv run --project \"$DEEP_AGENTS_ROOT\" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py` as the canonical bundled-shim invocation across all plugin docs"
+    - "`uv run --project \"$AGENT_RESEARCH_ROOT\" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py` as the canonical bundled-shim invocation across all plugin docs"
 key_files:
   created:
     - .planning/quick/260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py/260521-kxi-01-SUMMARY.md
@@ -39,7 +39,7 @@ key_files:
     - plugins/graph-wiki/skills/graph-wiki/references/cross-tool-setup.md
     - plugins/graph-wiki/skills/graph-wiki/references/query-workflow.md
 key_decisions:
-  - "Use `uv run --project \"$DEEP_AGENTS_ROOT\"` (not bare `uv run`) so script invocations resolve the workspace regardless of the caller's cwd — matches the iron rule already in `plugins/graph-wiki/CLAUDE.md` line 23"
+  - "Use `uv run --project \"$AGENT_RESEARCH_ROOT\"` (not bare `uv run`) so script invocations resolve the workspace regardless of the caller's cwd — matches the iron rule already in `plugins/graph-wiki/CLAUDE.md` line 23"
   - "Replace stale `Standard library only (via vault_io)` claim in SKILL.md with prose that accurately describes the shim-imports-`vault_io` model"
   - "Leave `commands/bootstrap.md:83` untouched — it is a path reference in a `## Script` bullet, not an invocation"
 metrics:
@@ -52,7 +52,7 @@ metrics:
 
 # Phase 260521-kxi Plan 01: Fix graph-wiki plugin docs (use `uv run --project`) Summary
 
-**One-liner:** Every documented `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py` invocation across the 11 graph-wiki plugin doc files now runs via `uv run --project "$DEEP_AGENTS_ROOT" python …`, matching the shim model the plugin's own CLAUDE.md already mandates, so `vault_io` resolves on a fresh install.
+**One-liner:** Every documented `python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<tool>.py` invocation across the 11 graph-wiki plugin doc files now runs via `uv run --project "$AGENT_RESEARCH_ROOT" python …`, matching the shim model the plugin's own CLAUDE.md already mandates, so `vault_io` resolves on a fresh install.
 
 ## What changed
 
@@ -60,13 +60,13 @@ metrics:
 
 The shims under `plugins/graph-wiki/skills/graph-wiki/scripts/` are thin `from vault_io.<tool> import main` wrappers; `vault_io` is a `uv` workspace member (`packages/vault-io/`) and is only importable inside the uv-managed venv. Bare `python …shims…` therefore fails with `ModuleNotFoundError: No module named 'vault_io'`. The fix is to invoke through the workspace.
 
-`--project "$DEEP_AGENTS_ROOT"` (not bare `uv run`) is required because users running slash commands have an arbitrary cwd. `DEEP_AGENTS_ROOT` is already documented as a prerequisite in the plugin README.
+`--project "$AGENT_RESEARCH_ROOT"` (not bare `uv run`) is required because users running slash commands have an arbitrary cwd. `AGENT_RESEARCH_ROOT` is already documented as a prerequisite in the plugin README.
 
 ## Tasks completed
 
 | # | Task | Commit | Files |
 |---|------|--------|-------|
-| 1 | Replace bare-python invocations with `uv run --project "$DEEP_AGENTS_ROOT"` across 11 plugin doc files | 5a0ff22 | 11 files modified (26 invocation lines) |
+| 1 | Replace bare-python invocations with `uv run --project "$AGENT_RESEARCH_ROOT"` across 11 plugin doc files | 5a0ff22 | 11 files modified (26 invocation lines) |
 | 2 | Correct stale `Standard library only (via vault_io)` claim in SKILL.md Python-tools section | 36f4d56 | plugins/graph-wiki/skills/graph-wiki/SKILL.md |
 
 ## Verification
@@ -75,7 +75,7 @@ All three plan success criteria pass:
 
 1. **Grep filter empty.** `grep -rn 'python \${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/' plugins/graph-wiki/ | grep -v 'uv run --project' | grep -v 'commands/bootstrap.md:83'` → empty. Every match is now prefixed; the lone path-reference bullet at `commands/bootstrap.md:83` is the documented exception.
 2. **Shims untouched.** `git diff --stat c2706e3..HEAD -- plugins/graph-wiki/skills/graph-wiki/scripts/` → empty.
-3. **End-to-end invocation works.** Ran `uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --help` from `/tmp` with `DEEP_AGENTS_ROOT` and `CLAUDE_PLUGIN_ROOT` set. Printed argparse `--help` text from `vault_io.detect_containers` — no `ModuleNotFoundError`.
+3. **End-to-end invocation works.** Ran `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --help` from `/tmp` with `AGENT_RESEARCH_ROOT` and `CLAUDE_PLUGIN_ROOT` set. Printed argparse `--help` text from `vault_io.detect_containers` — no `ModuleNotFoundError`.
 
 ## Deviations from plan
 

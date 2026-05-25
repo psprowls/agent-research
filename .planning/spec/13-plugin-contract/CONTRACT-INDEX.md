@@ -25,7 +25,7 @@ Per C-02, verdict terms are defined as follows:
 | 8 | `/lattice-wiki:regen-index` | drop | — | — | — | Work-layer out of v1.2 scope per C-01 and PROJECT.md. |
 | 9 | `/lattice-wiki:status` | drop | — | — | — | Work-layer out of v1.2 scope per C-01 and PROJECT.md. |
 
-All target script paths shown above are relative to `plugins/graph-wiki/`. Scripts for the `claude` backend call the listed Python module via `uv run --project "$DEEP_AGENTS_ROOT"` (see [SHELL-OUT-PATTERN.md §SO-01](SHELL-OUT-PATTERN.md#so-01-uv-run-invocation-with-deep_agents_root)).
+All target script paths shown above are relative to `plugins/graph-wiki/`. Scripts for the `claude` backend call the listed Python module via `uv run --project "$AGENT_RESEARCH_ROOT"` (see [SHELL-OUT-PATTERN.md §SO-01](SHELL-OUT-PATTERN.md#so-01-uv-run-invocation-with-deep_agents_root)).
 
 ## Resulting plugin command surface
 

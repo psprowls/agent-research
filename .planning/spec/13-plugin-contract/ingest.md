@@ -8,7 +8,7 @@ port_verdict: rename
 
 ## Shell-out contract
 
-- **Invocation:** `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/ingest_source.py" $ARGUMENTS`
+- **Invocation:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/ingest_source.py" $ARGUMENTS`
 - **Target module (claude backend):** `vault_io.ingest_source.main`
 - **Target subprocess (bedrock backend):** `code-wiki-agent ingest source <args>`
   - NOTE: explicitly `ingest source`, NOT `ingest work-item` — the work-item ingest subcommand is absent from graph-wiki v1.2 per C-01.
@@ -67,4 +67,4 @@ C-01 decision: "6 commands ported, 3 dropped — total: 6 in `plugins/graph-wiki
 
 **Negative test (work-item absent):** Confirm that no `ingest_work_item.py` script exists under `plugins/graph-wiki/skills/graph-wiki/scripts/`. Any attempt to invoke `code-wiki-agent ingest work-item` from the bedrock branch should either error cleanly ("not supported in graph-wiki v1.2") or be absent from the CLI surface — in either case, no silent partial execution.
 
-**Smoke check:** `uv run --project "$DEEP_AGENTS_ROOT" python3 "<plugin>/skills/graph-wiki/scripts/ingest_source.py" --source raw/specs/test.md` exits 0 or produces a parseable brief JSON. No `ModuleNotFoundError` for `vault_io`.
+**Smoke check:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "<plugin>/skills/graph-wiki/scripts/ingest_source.py" --source raw/specs/test.md` exits 0 or produces a parseable brief JSON. No `ModuleNotFoundError` for `vault_io`.

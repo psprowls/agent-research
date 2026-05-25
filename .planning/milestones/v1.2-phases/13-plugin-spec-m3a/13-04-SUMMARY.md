@@ -65,11 +65,11 @@ The single auditable summary of the Phase 13 plugin contract. Contains:
 
 Cross-cutting decisions home, referenced by all per-command spec files via `§SO-NN` anchors:
 
-- **SO-01**: `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"` — the single required user config is one env var in shell rc
+- **SO-01**: `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"` — the single required user config is one env var in shell rc
 - **SO-02**: Shim template (Python fenced block) showing `vault_io.<module>` import + bedrock subprocess branch — two changes from upstream: import source and bedrock dispatch mechanism
 - **SO-03**: `plugin:` block in `.graph-wiki.yaml` with `backend_default: claude` and per-command `backend_overrides`; default-when-missing is `claude` everywhere
 - **SO-04**: `_config.py` helper at `plugins/graph-wiki/skills/graph-wiki/scripts/_config.py` exposing `backend_for(cmd, repo=None) -> Literal["claude", "bedrock"]`
-- **PD-01..PD-03**: Plugin discovery requirements (`$DEEP_AGENTS_ROOT`, `$CLAUDE_PLUGIN_ROOT`, `uv`)
+- **PD-01..PD-03**: Plugin discovery requirements (`$AGENT_RESEARCH_ROOT`, `$CLAUDE_PLUGIN_ROOT`, `uv`)
 - **Agent/skill rename map**: 4 agent files (names stay, prose rebranded), skill dir wholesale rename `lattice-wiki/` → `graph-wiki/`, 12 reference docs inventory, `plugin.json` id rename
 
 ## Deviations from Plan

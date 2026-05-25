@@ -27,7 +27,7 @@ Follow `references/scan-workflow.md`. Summary:
 
 ### 1. Discover workspaces
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json
 ```
 
 (Repo and wiki resolved automatically via `workspace_io`.)
@@ -84,17 +84,17 @@ Exception: if the page's File map section is still the unfilled template — eve
 
 ### 7. Update index
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
 ```
 
 ### 8. Stamp token counts
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_tokens.py
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_tokens.py
 ```
 
 ### 9. Log
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
     --title "detected N new, M renamed, K deleted" --detail "<touched pages>"
 ```
 

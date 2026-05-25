@@ -75,11 +75,11 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| `uv run --project $DEEP_AGENTS_ROOT python3 ...` (env var) | One env var line in shell rc; uv resolves venv. | ✓ |
+| `uv run --project $AGENT_RESEARCH_ROOT python3 ...` (env var) | One env var line in shell rc; uv resolves venv. | ✓ |
 | Plugin auto-discovers the agent-research repo from cwd | Walk-up + marker detection; zero config happy path; more moving parts. | |
 | Document a venv-activation prerequisite | Bare `python3`; user must activate venv first. | |
 
-**User's choice:** `uv run --project $DEEP_AGENTS_ROOT`.
+**User's choice:** `uv run --project $AGENT_RESEARCH_ROOT`.
 **Notes:** Single-user setup; env var is fine. Auto-discovery rejected as over-engineering for one developer.
 
 ---
@@ -153,7 +153,7 @@ Ideas surfaced during discussion that belong in later phases (also captured in C
 
 - Work-layer subsystem port (Phase 15+ if ever reconsidered).
 - `export_marp.py` port (never on a slash command; deferred indefinitely).
-- Auto-discovery of `$DEEP_AGENTS_ROOT` (rejected for v1.2; revisit if plugin gets shared users).
+- Auto-discovery of `$AGENT_RESEARCH_ROOT` (rejected for v1.2; revisit if plugin gets shared users).
 - MCP-server-based plugin variant (v2.0 candidate).
 - Per-command pricing telemetry in plugin shims (Phase 16 owns trace pipeline gaps).
 - Plugin marketplace publish (v2.0 GA open-source release prep).

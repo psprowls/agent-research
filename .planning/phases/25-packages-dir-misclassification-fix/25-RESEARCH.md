@@ -385,7 +385,7 @@ Relevant to this phase:
 |---|-------|---------|---------------|
 | A1 | `children_count` field is not used as a strict-equality assertion target by any test outside `test_detect_containers.py` | Pitfall 1 | If wrong: another test breaks unexpectedly when D-02 lands. Mitigation: planner should grep `children_count` across the workspace before merging. **[ASSUMED — grep not performed at research time]** |
 | A2 | The user's wording for the "Rules" subsection of `detection-workflow.md` (D-08) is satisfied by the existing rules-list and does not require a new heading | "Plugin reference doc" section above | Low risk; if the user actually wants a separate heading the planner can pivot in the task description. |
-| A3 | The plugin shim at `…/scripts/detect_containers.py` truly auto-inherits — i.e. the running `uv` workspace symlinks `vault_io` correctly when the plugin script is invoked via `uv run --project "$DEEP_AGENTS_ROOT"` | D-06 / Pitfall 4 | Verified statically (shim is a passthrough import), but not via an end-to-end run during research. Standard workflow per plugin CLAUDE.md says this works; consider a one-line smoke test in the verification step. |
+| A3 | The plugin shim at `…/scripts/detect_containers.py` truly auto-inherits — i.e. the running `uv` workspace symlinks `vault_io` correctly when the plugin script is invoked via `uv run --project "$AGENT_RESEARCH_ROOT"` | D-06 / Pitfall 4 | Verified statically (shim is a passthrough import), but not via an end-to-end run during research. Standard workflow per plugin CLAUDE.md says this works; consider a one-line smoke test in the verification step. |
 
 ## Open Questions
 

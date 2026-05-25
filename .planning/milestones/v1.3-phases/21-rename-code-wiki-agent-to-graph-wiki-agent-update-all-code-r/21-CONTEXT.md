@@ -118,7 +118,7 @@ None — the three Phase 21 todo matches (`fix-bedrock-count-tokens-api-shape`, 
 ### Established Patterns
 - **Hard-cut deletion precedent (Phase 20)** — `WikiConfig.models_path`, `--config`, `CODE_WIKI_CONFIG` deleted with no shim; same posture applies here for the console-script rename.
 - **`git mv` for directories then sweep imports** — preserves blame/history for moved files (vs. `mv` + new file creation).
-- **Plugin shell-out shape (`SO-01`, Phase 14)** — plugin scripts use `uv run --project "$DEEP_AGENTS_ROOT" python3 -m ...` for module-level invocations; the literal `["code-wiki-agent", ...]` form is direct console-script invocation. After rename, the console scripts will need to be available on `$PATH` (via `uv sync`); planner should confirm any docs or local-dev setup notes reflect the new names.
+- **Plugin shell-out shape (`SO-01`, Phase 14)** — plugin scripts use `uv run --project "$AGENT_RESEARCH_ROOT" python3 -m ...` for module-level invocations; the literal `["code-wiki-agent", ...]` form is direct console-script invocation. After rename, the console scripts will need to be available on `$PATH` (via `uv sync`); planner should confirm any docs or local-dev setup notes reflect the new names.
 
 ### Integration Points
 - **Plugin → agent CLI boundary** — `plugins/graph-wiki/skills/graph-wiki/scripts/*.py` shell out to the renamed `graph-wiki-agent` console script. This is the only inter-package consumer that hard-codes the binary name.

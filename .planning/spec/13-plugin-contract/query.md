@@ -17,7 +17,7 @@ Primary path is in-session Claude Code inference per P-01; the librarian sub-age
 The BM25 fallback fires only when the LLM-driven primary path is insufficient (vault doesn't cover the question). Invocation:
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" $ARGUMENTS
+uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" $ARGUMENTS
 ```
 
 - **Target module (claude backend, fallback only):** `vault_io.wiki_search.main`
@@ -77,7 +77,7 @@ Run `/graph-wiki:query "what is workspace-io?"` inside a Claude Code session in 
 Trigger a no-LLM path by testing `wiki_search.py` directly:
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" --query "workspace-io" --limit 5
+uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/wiki_search.py" --query "workspace-io" --limit 5
 ```
 
 Confirm: BM25 results surface relevant wiki pages. Match upstream output modulo brand strings (`graph-wiki` where upstream had `lattice-wiki`; `vault_io` where upstream had `lattice_wiki_core`).

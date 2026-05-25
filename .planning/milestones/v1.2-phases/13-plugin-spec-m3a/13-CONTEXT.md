@@ -13,7 +13,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 **In scope:**
 - `.planning/spec/13-plugin-contract/` — new directory containing one spec file per ported slash command (6 files; the 3 work-layer commands are explicitly marked DROP).
 - A `.planning/spec/13-plugin-contract/CONTRACT-INDEX.md` index that lists all 9 upstream commands, their verdicts (`rename` / `reshape` / `drop`), and links to each per-command spec file.
-- A `.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md` cross-cutting decisions doc: the `uv run --project $DEEP_AGENTS_ROOT python3 ...` invocation shape, the env-var-based agent-research discovery, the `[plugin]` table additions to `.graph-wiki.yaml`, the backend selector seam, and the agent/skill rename map.
+- A `.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md` cross-cutting decisions doc: the `uv run --project $AGENT_RESEARCH_ROOT python3 ...` invocation shape, the env-var-based agent-research discovery, the `[plugin]` table additions to `.graph-wiki.yaml`, the backend selector seam, and the agent/skill rename map.
 - PROJECT.md Key Decisions entry locking the contract surface (so Phase 14 has no open wiring questions).
 - An updated REQUIREMENTS.md note that `lint_wiki.py` + `wiki_search.py` MUST be ported into `vault-io` as a prerequisite step inside Phase 14 (before the plugin's `/lint` and `/query` shims can shell out cleanly).
 
@@ -58,11 +58,11 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 ### Shell-out invocation shape (cross-cutting)
 
-- **SO-01 (uv run with `$DEEP_AGENTS_ROOT` env var.):** Every ported plugin script in `plugins/graph-wiki/skills/graph-wiki/scripts/` is invoked as:
+- **SO-01 (uv run with `$AGENT_RESEARCH_ROOT` env var.):** Every ported plugin script in `plugins/graph-wiki/skills/graph-wiki/scripts/` is invoked as:
   ```bash
-  uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"
+  uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"
   ```
-  User sets `DEEP_AGENTS_ROOT` once in shell rc (e.g., `export DEEP_AGENTS_ROOT=/Users/pat/Personal/agent-research`). `uv run --project` resolves the agent-research venv and makes `vault_io` + `workspace_io` importable without the user needing to activate a venv manually. Single-user-setup-friendly; no per-cwd discovery logic to maintain.
+  User sets `AGENT_RESEARCH_ROOT` once in shell rc (e.g., `export AGENT_RESEARCH_ROOT=/Users/pat/Personal/agent-research`). `uv run --project` resolves the agent-research venv and makes `vault_io` + `workspace_io` importable without the user needing to activate a venv manually. Single-user-setup-friendly; no per-cwd discovery logic to maintain.
 - **SO-02 (Shim contents — the upstream pattern, retargeted.):** Each script file is a shim:
   ```python
   #!/usr/bin/env python3
@@ -129,7 +129,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
   # /graph-wiki:<cmd> — Port Spec
 
   ## Shell-out contract
-  - Invocation: `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" $ARGUMENTS`
+  - Invocation: `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" $ARGUMENTS`
   - Target module: `vault_io.<module>.main` (claude backend) | `graph-wiki-agent <cmd>` (bedrock backend)
   - Args pass-through: <list of CLI flags, mapped 1:1 to upstream where possible; any reshape called out>
   - Pre-step (if any): <e.g., `vault_io.detect_containers.main --json` for /init>
@@ -168,7 +168,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 ### Plugin discovery & runtime requirements
 
-- **PD-01 (`$DEEP_AGENTS_ROOT` env var is the only required user config.):** Documented in `plugins/graph-wiki/README.md` (Phase 14 will author this). README also notes the `[plugin]` block syntax for backend overrides and the work-layer commands' absence.
+- **PD-01 (`$AGENT_RESEARCH_ROOT` env var is the only required user config.):** Documented in `plugins/graph-wiki/README.md` (Phase 14 will author this). README also notes the `[plugin]` block syntax for backend overrides and the work-layer commands' absence.
 - **PD-02 (`$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation.):** Same convention upstream uses; no Phase 13/14 work — just verified.
 - **PD-03 (uv must be installed.):** Same prerequisite as the rest of the agent-research monorepo; documented in the plugin README. No fallback to bare `python3` — that would break the `from vault_io` import.
 
@@ -248,7 +248,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 ### Integration Points
 - **`.graph-wiki.yaml` manifest** — Phase 13 spec calls out the new `[plugin]` block; Phase 14 extends `workspace_io.manifest` to surface it. No schema change committed in Phase 13.
 - **`graph-wiki-agent` CLI surface** — Phase 13 spec assumes today's CLI commands (`init`, `scan`, `ingest source`, `ingest work-item`, `lint`, `query`, `log`) are the bedrock-branch targets. If a future phase reshapes that CLI, the plugin's bedrock branch needs an update too. Captured as Phase 14's smoke-test responsibility.
-- **`$DEEP_AGENTS_ROOT` env var** — new convention; documented in plugin README (Phase 14). No code in this repo needs to know about it; only the plugin shims.
+- **`$AGENT_RESEARCH_ROOT` env var** — new convention; documented in plugin README (Phase 14). No code in this repo needs to know about it; only the plugin shims.
 - **No new MCP boundary changes.** Plugin doesn't use MCP at all. graph-wiki-mcp stays where it is.
 - **No graph-wiki-agent changes required.** Phase 13's spec doesn't ask graph-wiki-agent to change shape. Phase 14's plugin port doesn't either — the bedrock branch shells to today's CLI.
 
@@ -259,7 +259,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 - **The reframe is the most important fact:** plugin = Claude Code inference, full stop. Every prior framing that imagined the plugin as a wrapper over graph-wiki-agent is wrong. Two surfaces, not one wrapping the other.
 - **Preserve the backend selector seam (P-02)** even though we default `claude` everywhere in v1.2. Pat may later want to flip `ingest` to bedrock for a giant source dump; the wiring exists so that's a config change, not a re-architecture.
-- **Single env var (`DEEP_AGENTS_ROOT`)** is the only user setup ask. Documented in the plugin README; no auto-discovery walk-up logic in v1.2 (rejected because it adds moving parts for a single-developer project where one env var line in shell rc is fine).
+- **Single env var (`AGENT_RESEARCH_ROOT`)** is the only user setup ask. Documented in the plugin README; no auto-discovery walk-up logic in v1.2 (rejected because it adds moving parts for a single-developer project where one env var line in shell rc is fine).
 - **`$CLAUDE_PLUGIN_ROOT`** stays as the in-plugin-relative anchor — same as upstream. Means the plugin can be installed to any Claude Code plugin path without further config.
 - **`/graph-wiki:log` has no script** — same as upstream lattice-wiki's `/lattice-wiki:log`. Just a rename of namespace + path strings in the prose. Trivial port; included for parity completeness.
 - **The 3 work-layer commands are DROPPED, not deferred** — they don't ship a markdown file at all in `plugins/graph-wiki/commands/`. Phase 15 (or later) may resurrect them when work/ is reconsidered.
@@ -274,8 +274,8 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 - **Work-layer subsystem port** — out of v1.2 entirely; would unblock /graph-wiki:archive, /regen-index, /status if revisited. Decision: GSD covers work-item lifecycle per thread decision 2026-05-17. Future phase if ever reconsidered.
 - **`export_marp.py` port** — never on a slash command; no immediate user need. Deferred indefinitely; could land if Pat wants Marp slide export inside graph-wiki later.
-- **Auto-discovery of `$DEEP_AGENTS_ROOT` from cwd** — rejected for v1.2 in favor of explicit env var. Could revisit if the plugin gets shared with other users who haven't set their shell rc up.
-- **MCP-server-based plugin variant** — currently the plugin shells to Python scripts. A future variant could expose graph-wiki commands as MCP tools (so plugin authors don't need `$DEEP_AGENTS_ROOT` at all — they'd configure `graph-wiki-mcp` as an MCP server). Out of scope for v1.2; would require treating graph-wiki-mcp as a tool dependency of the plugin. Worth revisiting in v2.0.
+- **Auto-discovery of `$AGENT_RESEARCH_ROOT` from cwd** — rejected for v1.2 in favor of explicit env var. Could revisit if the plugin gets shared with other users who haven't set their shell rc up.
+- **MCP-server-based plugin variant** — currently the plugin shells to Python scripts. A future variant could expose graph-wiki commands as MCP tools (so plugin authors don't need `$AGENT_RESEARCH_ROOT` at all — they'd configure `graph-wiki-mcp` as an MCP server). Out of scope for v1.2; would require treating graph-wiki-mcp as a tool dependency of the plugin. Worth revisiting in v2.0.
 - **Per-command pricing / cost telemetry in the plugin shims** — bedrock-branch invocations could log to the same trace pipeline as graph-wiki-agent. Out of v1.2 scope (trace pipeline gaps owned by Phase 16, TRACE-FU-01).
 - **Plugin auto-install from this monorepo** — could publish to a Claude Code plugin marketplace eventually. Out of v1.2 (open-source release prep deferred to v2.0 GA per PROJECT.md).
 - **Bedrock-branch test coverage** — Phase 14 verification per command is claude-branch only by default (since that's the v1.2 default). Adding bedrock-branch smoke tests is a useful follow-up if Pat ever exercises the seam.

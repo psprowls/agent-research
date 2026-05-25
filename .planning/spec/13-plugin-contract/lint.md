@@ -8,7 +8,7 @@ port_verdict: reshape
 
 ## Shell-out contract
 
-- **Invocation:** `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/lint_wiki.py" $ARGUMENTS`
+- **Invocation:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/lint_wiki.py" $ARGUMENTS`
 - **Target module (claude backend, mechanical pass 1 + semantic pass 2):** `vault_io.lint_wiki.main`
   - NOTE: this module does not exist in vault-io as of Phase 13. It MUST be ported from `lattice_wiki_core/lint_wiki.py` (~508 LOC) into `packages/vault-io/src/vault_io/lint_wiki.py` as Phase 14 Plan 1 (VP-01 prerequisite) before this shim can dispatch.
 - **Companion module (semantic pass 2):** `vault_io.graph_analyzer.main`
@@ -73,4 +73,4 @@ As of Phase 13, `vault_io.lint_wiki` does not exist in this repo. The upstream m
 
 **VP-01 gate:** Before running any functional test, confirm `vault_io.lint_wiki` exists (Phase 14 Plan 1 must have run). If it is absent, the shim exits with `ImportError`; this is the expected signal that VP-01 has not yet been executed.
 
-**Smoke check:** `uv run --project "$DEEP_AGENTS_ROOT" python3 "<plugin>/skills/graph-wiki/scripts/lint_wiki.py"` against a clean vault exits 0 and emits a `## Wiki lint` section. No `ModuleNotFoundError` for `vault_io.lint_wiki` or `vault_io.graph_analyzer`.
+**Smoke check:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "<plugin>/skills/graph-wiki/scripts/lint_wiki.py"` against a clean vault exits 0 and emits a `## Wiki lint` section. No `ModuleNotFoundError` for `vault_io.lint_wiki` or `vault_io.graph_analyzer`.

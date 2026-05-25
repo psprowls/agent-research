@@ -32,7 +32,7 @@ READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an
 
 ```bash
 # 1. Initialize a wiki (workspace and repo resolved automatically via workspace_io)
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
     --topic "my-repo"
 
 # 2. Open the workspace in Obsidian (sidebar will show wiki/, raw/, work/ as siblings).

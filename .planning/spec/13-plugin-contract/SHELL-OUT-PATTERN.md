@@ -2,18 +2,18 @@
 
 This file owns the cross-cutting decisions referenced by every per-command spec file in `.planning/spec/13-plugin-contract/`. Per-command files say "see SHELL-OUT-PATTERN.md §SO-NN" rather than repeating invocation boilerplate. All four SO-01..SO-04 decisions are captured here, along with the plugin discovery requirements (PD-01..PD-03) and the agent/skill rename map that applies across the whole plugin surface.
 
-## SO-01: uv run invocation with $DEEP_AGENTS_ROOT
+## SO-01: uv run invocation with $AGENT_RESEARCH_ROOT
 
 Every ported plugin script in `plugins/graph-wiki/skills/graph-wiki/scripts/` is invoked as:
 
 ```bash
-uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"
+uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"
 ```
 
-**User setup:** The user sets `DEEP_AGENTS_ROOT` once in their shell rc file, for example:
+**User setup:** The user sets `AGENT_RESEARCH_ROOT` once in their shell rc file, for example:
 
 ```bash
-export DEEP_AGENTS_ROOT=/Users/pat/Personal/agent-research
+export AGENT_RESEARCH_ROOT=/Users/pat/Personal/agent-research
 ```
 
 **Auto-set:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time (per PD-02). No user configuration is needed for this variable.
@@ -96,7 +96,7 @@ def backend_for(cmd: str, repo: str | None = None) -> Literal["claude", "bedrock
 
 ## Plugin discovery requirements (PD-01..PD-03)
 
-- **PD-01:** `$DEEP_AGENTS_ROOT` env var is the **only required user config**. It is documented in `plugins/graph-wiki/README.md` (Phase 14 will author this file). The README also documents the `plugin:` block syntax for backend overrides and notes the absence of the three work-layer commands.
+- **PD-01:** `$AGENT_RESEARCH_ROOT` env var is the **only required user config**. It is documented in `plugins/graph-wiki/README.md` (Phase 14 will author this file). The README also documents the `plugin:` block syntax for backend overrides and notes the absence of the three work-layer commands.
 - **PD-02:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time. This follows the same convention as upstream lattice-wiki; no Phase 13 or Phase 14 work is needed here — just verified behavior.
 - **PD-03:** `uv` must be installed and on PATH. This is the same prerequisite as the rest of the agent-research monorepo; it is documented in the plugin README. There is no fallback to bare `python3` — a bare `python3` invocation would fail to resolve `from vault_io import ...` since the venv is not activated.
 

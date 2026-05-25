@@ -75,12 +75,12 @@ Two paired questions about the new package's stamp and its README.
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Copy upstream + rebrand + new setup section (Recommended) | Start from upstream README.md, swap 'lattice-wiki' → 'graph-wiki' throughout, then add a new 'Setup' section ($DEEP_AGENTS_ROOT export, [plugin] block syntax, dropped commands note). Preserves upstream's polished positioning. | |
-| Fresh-write focused on graph-wiki specifics | Brand-new README covering only what differs from upstream ($DEEP_AGENTS_ROOT, [plugin] block, dropped commands, link to upstream README for the rest). Shorter; assumes readers know lattice-wiki. | ✓ |
-| Copy upstream verbatim + rebrand only, no setup section | Pure rebrand pass. Defer $DEEP_AGENTS_ROOT/[plugin]-block docs to plugin CLAUDE.md or SETUP.md. Keeps README close to upstream for easy diffing but hides critical setup. | |
+| Copy upstream + rebrand + new setup section (Recommended) | Start from upstream README.md, swap 'lattice-wiki' → 'graph-wiki' throughout, then add a new 'Setup' section ($AGENT_RESEARCH_ROOT export, [plugin] block syntax, dropped commands note). Preserves upstream's polished positioning. | |
+| Fresh-write focused on graph-wiki specifics | Brand-new README covering only what differs from upstream ($AGENT_RESEARCH_ROOT, [plugin] block, dropped commands, link to upstream README for the rest). Shorter; assumes readers know lattice-wiki. | ✓ |
+| Copy upstream verbatim + rebrand only, no setup section | Pure rebrand pass. Defer $AGENT_RESEARCH_ROOT/[plugin]-block docs to plugin CLAUDE.md or SETUP.md. Keeps README close to upstream for easy diffing but hides critical setup. | |
 
 **User's choice:** Fresh-write focused on graph-wiki specifics
-**Notes:** Captured as **D-04** in CONTEXT.md. Audience is Pat (single developer); upstream's general positioning prose is redundant for this audience. The new README documents the three things that aren't in upstream: `$DEEP_AGENTS_ROOT` setup, `[plugin]` block syntax, dropped commands. Links back to upstream README for shared concepts (iron rules, layout block, frontmatter schema).
+**Notes:** Captured as **D-04** in CONTEXT.md. Audience is Pat (single developer); upstream's general positioning prose is redundant for this audience. The new README documents the three things that aren't in upstream: `$AGENT_RESEARCH_ROOT` setup, `[plugin]` block syntax, dropped commands. Links back to upstream README for shared concepts (iron rules, layout block, frontmatter schema).
 
 ---
 
@@ -103,7 +103,7 @@ Ideas that came up during prior phases (carried forward from Phase 13 deferred l
 - Per-command pricing / cost telemetry in plugin shims — Phase 16 (TRACE-FU-01).
 - Plugin auto-install / marketplace publish — v2.0 GA.
 - MCP-server-based plugin variant — v2.0+ alternative where graph-wiki exposes commands as MCP tools.
-- Auto-discovery of `$DEEP_AGENTS_ROOT` from cwd — rejected for v1.2 in favor of explicit env var (PD-01).
+- Auto-discovery of `$AGENT_RESEARCH_ROOT` from cwd — rejected for v1.2 in favor of explicit env var (PD-01).
 - Work-layer subsystem revival — would unblock dropped commands; future phase if ever reconsidered.
 - `export_marp.py` port — not on any slash command; deferred indefinitely.
 - Structural-assertion script for the smoke gate — alternative to D-05; not adopted because Claude Code is the host.

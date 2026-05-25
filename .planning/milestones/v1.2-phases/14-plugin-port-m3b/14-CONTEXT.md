@@ -63,7 +63,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 
 - **D-04 (Fresh-write, graph-wiki-specific focus):** `plugins/graph-wiki/README.md` is **not** a copy of upstream. Authored fresh to cover only what differs:
   - **What this plugin is** (one paragraph: Claude Code host path; companion to `graph-wiki-agent` Bedrock CLI; same wiki surface).
-  - **Setup** — `$DEEP_AGENTS_ROOT` env var export (PD-01); `uv` prerequisite (PD-03); `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code (PD-02, just noted).
+  - **Setup** — `$AGENT_RESEARCH_ROOT` env var export (PD-01); `uv` prerequisite (PD-03); `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code (PD-02, just noted).
   - **`[plugin]` block syntax** — example `.graph-wiki.yaml` snippet showing `backend_default` + `backend_overrides` with one example override (e.g., `ingest: bedrock`).
   - **Commands** — the 6 ported commands listed with one-line descriptions; explicit "Not ported" subsection naming `archive` / `regen-index` / `status` and pointing to PROJECT.md "Explicitly out of v1.2" for rationale.
   - **Link to upstream README** for general framing (iron rules, layout block, frontmatter schema, etc.) — these are unchanged in the port, no need to duplicate.
@@ -162,7 +162,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 ### Integration Points
 - **`.graph-wiki.yaml` manifest** — Plan 3 adds `[plugin]` block surfacing (SO-03); strict validation per D-02; default-when-missing returns `{backend_default: "claude", backend_overrides: {}}`.
 - **`graph-wiki-agent` CLI surface** — Plan 3 shims' bedrock branch shells to today's CLI (`graph-wiki-agent <cmd> <args>`). Phase 14 does NOT touch graph-wiki-agent; shape assumed stable. If a future phase reshapes the CLI, the plugin's bedrock branch needs an update.
-- **`$DEEP_AGENTS_ROOT` env var** — New user-setup convention; documented in plugin README (D-04). No code in this repo needs to know about it; only the plugin shims (which inherit it via the shell when `uv run --project "$DEEP_AGENTS_ROOT"` is invoked).
+- **`$AGENT_RESEARCH_ROOT` env var** — New user-setup convention; documented in plugin README (D-04). No code in this repo needs to know about it; only the plugin shims (which inherit it via the shell when `uv run --project "$AGENT_RESEARCH_ROOT"` is invoked).
 - **No MCP boundary changes.** Plugin does not use MCP at all. `graph-wiki-mcp` stays where it is.
 - **No graph-wiki-agent changes required.** Plan 3 does not modify `agents/graph-wiki-agent/`.
 - **Eval harness side-effect (VP-04, non-commitment):** Once `vault_io.lint_wiki` and `vault_io.wiki_search` exist, `graph-wiki-agent lint` and `graph-wiki-agent query` could route through them. Not a Phase 14 commitment; just worth noting.
@@ -174,7 +174,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 
 - **Bundled Plan 3 is deliberate** — Pat chose "3 plans, single bundled port" over the more granular 5-plan or 7+-plan options. Rationale (not in the user's words, but inferred from the decision shape and the prior phases' rhythm): the plugin port is mechanical execution against a tight spec; multiple plans would create handoff overhead without parallelization benefit (Plans 1/2 already parallelize; everything after is sequential). One big Plan 3 with multiple commits inside it matches "atomic plugin port" better than fragmenting it.
 - **0.1.0 version reset is a clean break** — graph-wiki and lattice-wiki diverge starting now. Sharing a version lineage would mislead users into thinking they could migrate by id-swap alone (they can't — import surface differs). `0.1.0` says "new package, build up version history independently."
-- **README is graph-wiki-specific, NOT a rebrand of upstream** — the audience is Pat (single developer); positioning prose from upstream is redundant. The new README earns its keep by documenting the three things that aren't in upstream: `$DEEP_AGENTS_ROOT` setup, `[plugin]` block syntax, dropped commands.
+- **README is graph-wiki-specific, NOT a rebrand of upstream** — the audience is Pat (single developer); positioning prose from upstream is redundant. The new README earns its keep by documenting the three things that aren't in upstream: `$AGENT_RESEARCH_ROOT` setup, `[plugin]` block syntax, dropped commands.
 - **SC#4 transcript in VERIFICATION.md is the only smoke artifact** — no baseline file in `tests/`, no assertion script. The LLM nondeterminism + Claude-Code-host-only invocation make automated regression brittle; a recorded transcript is enough for debug/audit.
 - **The `[plugin]` block validation matches manifest house style** — strict-raises. Adding a new override key later means an explicit code change + manifest version consideration, not silent acceptance.
 - **`/graph-wiki:log` has no script** — same as upstream. Plan 3's command markdown file ships with prose only; no `scripts/log.py` file is created. (Matches upstream pattern; covered by Phase 13 spec/log.md.)
@@ -189,8 +189,8 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 - **Bedrock-branch smoke tests** — Phase 14 verifies the claude branch only (matches v1.2 default). A follow-up could exercise `backend_overrides: {ingest: bedrock}` and assert the subprocess to `graph-wiki-agent` fires correctly. Useful if Pat ever exercises the seam in anger.
 - **Per-command pricing / cost telemetry in plugin shims** — Bedrock-branch invocations could log to the same trace pipeline as graph-wiki-agent. Out of v1.2; trace pipeline gaps owned by Phase 16, TRACE-FU-01.
 - **Plugin auto-install / marketplace publish** — Out of v1.2; open-source release prep deferred to v2.0 GA per PROJECT.md.
-- **MCP-server-based plugin variant** — Long-term alternative where graph-wiki exposes commands as MCP tools (so users wouldn't need `$DEEP_AGENTS_ROOT`). Out of v1.2; would treat graph-wiki-mcp as a tool dependency. Worth revisiting in v2.0.
-- **Auto-discovery of `$DEEP_AGENTS_ROOT` from cwd** — Rejected for v1.2 in favor of explicit env var (PD-01). Could revisit if the plugin gets shared with other users.
+- **MCP-server-based plugin variant** — Long-term alternative where graph-wiki exposes commands as MCP tools (so users wouldn't need `$AGENT_RESEARCH_ROOT`). Out of v1.2; would treat graph-wiki-mcp as a tool dependency. Worth revisiting in v2.0.
+- **Auto-discovery of `$AGENT_RESEARCH_ROOT` from cwd** — Rejected for v1.2 in favor of explicit env var (PD-01). Could revisit if the plugin gets shared with other users.
 - **Work-layer subsystem revival** — Would unblock `/graph-wiki:archive`, `/regen-index`, `/status`. GSD covers work-item lifecycle per thread decision 2026-05-17. Future phase if ever reconsidered.
 - **`export_marp.py` port** — Not on any slash command. Deferred indefinitely; could land if Pat ever wants Marp slide export inside graph-wiki.
 - **Structural-assertion script for `/graph-wiki:query` smoke** — Alternative to D-05 that runs a query against a fixture vault and asserts non-empty output + valid wikilinks. Not adopted in v1.2 because Claude Code IS the host (hard to harness); transcript-only is enough.

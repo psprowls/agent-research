@@ -82,7 +82,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 #    Workspace and repo root are discovered via workspace_io (walks up from cwd
 #    for .git, reads .graph-wiki.yaml, defaults to <repo>/graph-wiki).
 #    Wiki is created at <workspace>/wiki/ (e.g. graph-wiki/wiki/).
-uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
     --topic "my-repo"
 
 # 2. Scan the repo to create stub pages for every package

@@ -8,8 +8,8 @@ port_verdict: rename
 
 ## Shell-out contract
 
-- **Invocation:** `uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py" $ARGUMENTS`
-  (see SHELL-OUT-PATTERN.md §SO-01 for the full rationale on `$DEEP_AGENTS_ROOT` + `uv run --project`)
+- **Invocation:** `uv run --project "$AGENT_RESEARCH_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py" $ARGUMENTS`
+  (see SHELL-OUT-PATTERN.md §SO-01 for the full rationale on `$AGENT_RESEARCH_ROOT` + `uv run --project`)
 - **Target module (claude backend):** `vault_io.scan_monorepo.main`
 - **Target subprocess (bedrock backend):** `code-wiki-agent scan <args>`
 - **Args pass-through** (all flags map 1:1 to `vault_io.scan_monorepo.main`):

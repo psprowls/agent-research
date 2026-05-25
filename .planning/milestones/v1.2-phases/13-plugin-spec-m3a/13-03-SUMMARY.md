@@ -45,7 +45,7 @@ Two per-command spec files under `.planning/spec/13-plugin-contract/`, each conf
 
 **query.md** — Documents the `/graph-wiki:query` port shape:
 - Primary path is Claude Code in-session inference (librarian sub-agent); no shell-out (`uv run`) on this path per P-01.
-- BM25 fallback shells out to `vault_io.wiki_search.main` via `uv run --project "$DEEP_AGENTS_ROOT"`.
+- BM25 fallback shells out to `vault_io.wiki_search.main` via `uv run --project "$AGENT_RESEARCH_ROOT"`.
 - VP-01 prerequisite called out explicitly: `wiki_search.py` (~194 LOC) must be ported from `lattice_wiki_core` to `vault_io` as Phase 14 Plan 2 before the fallback path works.
 - Bedrock backend routes to `graph-wiki-agent query` subprocess (covers full flow, not just fallback).
 - Librarian agent rename row: name stays (`agents/librarian.md`), internal namespace prose rebranded.
