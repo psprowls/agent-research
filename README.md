@@ -2,7 +2,7 @@
 
 A Python monorepo of LangChain/deepagents-based AI tooling, managed with `uv`.
 
-**Core Value:** wiki-maintenance workflows running in Claude Code, or
+**Graph Wiki:** wiki-maintenance workflows running in Claude Code, or
 while running entirely on AWS Bedrock with parallel subagents, so the same
 outcomes can be achieved at meaningfully lower cost than the current
 Claude-Code-hosted plugin.
