@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`workspace-io` is the workspace-resolution layer of the post-rebrand `deep-agents` monorepo. It walks upward from `cwd` to find the nearest `.graph-wiki.yaml` (or repo root), loads it into a `GraphWikiConfig` dataclass, and exposes the resolved wiki path plus repo root to downstream commands.
+`workspace-io` is the workspace-resolution layer of the post-rebrand `agent-research` monorepo. It walks upward from `cwd` to find the nearest `.graph-wiki.yaml` (or repo root), loads it into a `GraphWikiConfig` dataclass, and exposes the resolved wiki path plus repo root to downstream commands.
 
 ## API
 

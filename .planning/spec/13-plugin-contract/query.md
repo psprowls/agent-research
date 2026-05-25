@@ -70,7 +70,7 @@ The shell-out invocation fires only on the BM25-fallback branch of the primary L
 
 **Primary path smoke:**
 
-Run `/graph-wiki:query "what is workspace-io?"` inside a Claude Code session in a workspace that has a populated `wiki/` tree (e.g., `~/Personal/wiki/deep-agents`). Expected: the librarian sub-agent reads `wiki/index.md`, selects relevant pages, synthesizes an answer with `[[wikilinks]]` citations, and offers to file the answer back. Output should match the Phase 14 SC#4 smoke test behavior — a librarian answer citing graph-wiki code paths, modulo brand strings versus upstream.
+Run `/graph-wiki:query "what is workspace-io?"` inside a Claude Code session in a workspace that has a populated `wiki/` tree (e.g., `~/Personal/graph-wiki/agent-research`). Expected: the librarian sub-agent reads `wiki/index.md`, selects relevant pages, synthesizes an answer with `[[wikilinks]]` citations, and offers to file the answer back. Output should match the Phase 14 SC#4 smoke test behavior — a librarian answer citing graph-wiki code paths, modulo brand strings versus upstream.
 
 **Fallback path smoke (requires VP-01 to be complete):**
 

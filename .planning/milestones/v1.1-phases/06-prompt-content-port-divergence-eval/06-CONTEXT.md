@@ -9,7 +9,7 @@
 Port `lattice-wiki`'s canonical SKILL.md + per-role agent prompts into `graph-wiki-agent`'s agent system prompts (librarian, ingestor, linter, scanner) under a new `prompts/` module with provenance comments, and add a divergence-detection eval metric (hybrid programmatic + LLM-judge) that runs against the Phase 4 fixture corpus and gates regressions against a recorded baseline.
 
 In scope:
-- Vendoring the canonical source files into the deep-agents repo
+- Vendoring the canonical source files into the agent-research repo
 - Refactoring inline `*_SYSTEM` constants out of `commands/*.py` into a uniform `prompts/` module
 - Adapting source content to this codebase's tool surface while preserving semantic rules
 - Per-role divergence checks (hybrid: rules + judge) wired into the Phase 4 eval harness
@@ -39,7 +39,7 @@ Out of scope (explicit):
   Example shape locked in the discussion preview (see DISCUSSION-LOG.md).
 
 ### Canonical-source provenance / drift detection
-- **D-04:** Vendor canonical sources into the deep-agents repo under **`cores/prompt-sources/`** (verbatim copy of `SKILL.md` + `agents/{librarian,ingestor,linter,scanner}.md` from `/Users/pat/Personal/lattice/plugins/lattice-wiki/`). Provenance comments in fragments point to the **vendored** path (not the sibling-repo path) plus the upstream `Source-commit`. Re-vendoring is a manual step. Drift detection becomes a trivial in-repo diff plus an SHA comparison if/when re-vendored. This decouples the agent package from the sibling lattice repo and is OSS-release-friendly.
+- **D-04:** Vendor canonical sources into the agent-research repo under **`cores/prompt-sources/`** (verbatim copy of `SKILL.md` + `agents/{librarian,ingestor,linter,scanner}.md` from `/Users/pat/Personal/lattice/plugins/lattice-wiki/`). Provenance comments in fragments point to the **vendored** path (not the sibling-repo path) plus the upstream `Source-commit`. Re-vendoring is a manual step. Drift detection becomes a trivial in-repo diff plus an SHA comparison if/when re-vendored. This decouples the agent package from the sibling lattice repo and is OSS-release-friendly.
 
 ### Port fidelity
 - **D-05:** **Adapt the port** — rewrite host-specific references (slash commands like `/lattice-wiki:ingest`, Claude Code SDK tool surface, human-driven discussion patterns) to match `graph-wiki-agent`'s actual tool surface (vault IO via the `vault_io` core, BM25 search, deepagents loop). **Preserve semantic content verbatim**: iron rules, citation rules, page-type routing, refusal patterns, lint rule definitions, package-detection rules. Provenance still points to the source anchor so a reviewer can compare.

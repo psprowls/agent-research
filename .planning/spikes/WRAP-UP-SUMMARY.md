@@ -3,7 +3,7 @@
 **Date:** 2026-05-17
 **Spikes processed:** 1
 **Feature areas:** Subagent context injection
-**Skill output:** `./.claude/skills/spike-findings-deep-agents/`
+**Skill output:** `./.claude/skills/spike-findings-agent-research/`
 
 ## Processed Spikes
 

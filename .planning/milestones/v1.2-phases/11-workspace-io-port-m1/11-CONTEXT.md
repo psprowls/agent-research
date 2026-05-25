@@ -23,7 +23,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 - **D-02:** `vault-io._workspace.resolve_wiki_and_repo` becomes a **two-tier passthrough**: (1) if `vault_path` argument is provided, short-circuit and return `(vault_path.resolve(), <git-discovered repo_root or None>)`; (2) otherwise call `workspace_io.config.resolve()` and return `(paths.wiki_dir(config.workspace), config.repo_root)`. All env-var handling, `.graph-wiki.yaml` walk-up, and error messages live inside `workspace_io.config` — vault-io stays a thin shim. The explicit-path branch (step 1) is the MCP boundary contract (Phase 11 SC#3) and stays intact.
 - **D-03:** `workspace_io.config.resolve(cwd=None)` is **strict** — no fallbacks beyond `GRAPH_WIKI_WORKSPACE` env override and `.graph-wiki.yaml` cwd walk-up. If neither yields a manifest, raise `RuntimeError` with a message that names `graph-wiki-agent init <path>` as the bootstrap command. No `wiki/` directory sniffing, no `wiki-config.toml` fallback.
 - **D-04:** Convention preserved from lattice: `paths.wiki_dir(workspace) = workspace / "wiki"`. The wiki tree is a `wiki/` subdir of the manifest-bearing workspace; manifest sits at `<workspace>/.graph-wiki.yaml`.
-- **D-05:** The existing `~/Personal/wiki/deep-agents/` content is **throwaway**. Pat will delete it and re-init at a new supported location via `graph-wiki-agent init` (which calls `workspace_io.init` followed by `vault-io.init_vault.init_wiki`). No migration script, no content move.
+- **D-05:** The existing `~/Personal/graph-wiki/agent-research` content is **throwaway**. Pat will delete it and re-init at a new supported location via `graph-wiki-agent init` (which calls `workspace_io.init` followed by `vault-io.init_vault.init_wiki`). No migration script, no content move.
 
 ### Module trim — port-as-is vs drop
 
@@ -41,7 +41,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 
 ### Manifest v1→v2 coercion + repo_root semantics
 
-- **D-14:** **Drop** the v1→v2 coercion path. `manifest.read()` requires `version: 2` and raises a friendly error on v1 with guidance to hand-edit (no `migrate-manifest` CLI subcommand in this phase). Saves ~15 lines + matching test surface; deep-agents has never written a v1 file.
+- **D-14:** **Drop** the v1→v2 coercion path. `manifest.read()` requires `version: 2` and raises a friendly error on v1 with guidance to hand-edit (no `migrate-manifest` CLI subcommand in this phase). Saves ~15 lines + matching test surface; agent-research has never written a v1 file.
 - **D-15:** `repo_root` from `workspace_io.config.resolve()` is **real git-discovery from cwd** — walk up from cwd looking for `.git`; if found, that's `repo_root`; if not found, fall back to `workspace.parent`. The 8 vault-io modules that destructure `wiki, _ = resolve_wiki_and_repo()` keep ignoring it (zero behavior change), but `repo_root` is now meaningful for any future caller. Matches `lattice_workspace.config._find_repo_root` semantics directly.
 - **D-16:** `.lattice.local.yaml` renames to `.graph-wiki.local.yaml`; the `lattice-directory` key renames to `graph-wiki-directory`. Gitignore entry in `workspace_io.init` updates accordingly. Lets Pat override workspace location per-repo without committing the override — preserves lattice's affordance under the new brand.
 
@@ -79,7 +79,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/src/lattice_workspace/schema.py` — **DO NOT PORT** (D-06).
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/tests/` — port all 13 test files; rewrite imports + manifest filename + symbol names; drop v1-read test (D-14).
 
-### Existing deep-agents code that changes
+### Existing agent-research code that changes
 - `packages/vault-io/src/vault_io/_workspace.py` — rewritten as a thin delegation shim (D-02). Docstring updated.
 - `packages/vault-io/src/vault_io/__init__.py` — public `resolve_wiki_and_repo` re-export stays; no API change.
 - `packages/vault-io/tests/test_ports_importable.py` — rename `GRAPH_WIKI_REAL_VAULT_PATH` → `GRAPH_WIKI_WORKSPACE` in `test_resolve_wiki_and_repo_raises_on_no_config` and `test_resolve_wiki_and_repo_honors_env_var`. Add a new test for the strict-manifest-required error.
@@ -120,7 +120,7 @@ Create a new `packages/workspace-io/` Python package — a `graph-wiki`-rebrande
 <specifics>
 ## Specific Ideas
 
-- **Clean slate over migration.** Pat will delete the existing `~/Personal/wiki/deep-agents/` content and re-init at a new supported location. This is a vault-side action, not a code-side action — but it informs the strict-manifest-required policy (D-03) since no in-tree code needs a back-compat path.
+- **Clean slate over migration.** Pat will delete the existing `~/Personal/graph-wiki/agent-research` content and re-init at a new supported location. This is a vault-side action, not a code-side action — but it informs the strict-manifest-required policy (D-03) since no in-tree code needs a back-compat path.
 - **Direct rebrand for `.graph-wiki.local.yaml`.** The file rename is mechanical (D-16) but it deserves a small callout: lattice's `_local_config` already supports an unkeyed YAML, so the port preserves graceful-handling of an empty/missing file (returns `{}`).
 - **`importlib.metadata` over `__version__`.** Pat chose runtime introspection (D-13). Verify this returns a sensible value under `uv run --package graph-wiki-agent` in editable mode during planning research.
 - **Two-phase init in one CLI command** (D-07) — `graph-wiki-agent init <path>` is the one user-facing surface; both workspace + wiki bootstrap happen behind it. No new subcommand surface.

@@ -8,7 +8,7 @@ overrides_applied: 0
 
 # Phase 13: Plugin Spec (M3a) Verification Report
 
-**Phase Goal:** The open question "what do `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and deep-agents is documented before any plugin code is moved.
+**Phase Goal:** The open question "what do `lattice-wiki` plugin slash commands actually shell out to?" has a locked answer, and the contract surface between the plugin and agent-research is documented before any plugin code is moved.
 **Verified:** 2026-05-18T18:45:00Z
 **Status:** passed
 **Re-verification:** No — initial verification

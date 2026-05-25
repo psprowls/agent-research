@@ -811,7 +811,7 @@ No data migration required. This is a source-code refactor + new module addition
 | A4 | The `obsidian-markdown` skill invocation in lattice-wiki is not applicable to graph-wiki-agent (no skill registry) | Adaptation Map | Not applicable; confirmed by graph-wiki-agent architecture |
 | A5 | All divergence check rule IDs using prefix `LNT` for linter and `SCN` for scanner (not `LINT`/`SCAN`) | Divergence Check Inventory | Cosmetic only; rename if convention differs |
 
-**Verified:** `update_tokens.py` does exist in vault-io (`ls /Users/pat/Personal/deep-agents/cores/vault-io/src/vault_io/` shows `update_tokens.py`). A3 should be REVISED: `update_tokens` is available. The scanner prompt can reference it, but check whether `run_scan()` already calls it.
+**Verified:** `update_tokens.py` does exist in vault-io (`ls /Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/` shows `update_tokens.py`). A3 should be REVISED: `update_tokens` is available. The scanner prompt can reference it, but check whether `run_scan()` already calls it.
 
 ---
 

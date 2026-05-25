@@ -829,7 +829,7 @@ IDENTICAL
 +    NOTE: The upstream implementation called a workspace.init() helper to
 +    register the plugin with the workspace (creating `<workspace>/raw/`,
 +    `<workspace>/work/`, `.lattice.yaml`). That dependency is not available
-+    in deep-agents; Phase 5 will provide a workspace-bootstrap equivalent.
++    in agent-research; Phase 5 will provide a workspace-bootstrap equivalent.
 +    For now, this function only writes inside `wiki_path`.
      """
      if wiki_path.exists() and any(wiki_path.iterdir()) and not force:

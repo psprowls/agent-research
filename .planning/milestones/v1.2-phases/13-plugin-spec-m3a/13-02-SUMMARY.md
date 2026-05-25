@@ -70,22 +70,22 @@ Commit: `aa91c21`
 
 **Found during:** Task 1 commit
 
-**Issue:** The first commit for Task 1 accidentally landed on the main repo's `main` branch because the `git commit` command was run with `cd /Users/pat/Personal/deep-agents` (the main repo path) instead of from the worktree at `/Users/pat/Personal/deep-agents/.claude/worktrees/agent-ae045a9515948e22c`. The Write tool also wrote the initial ingest.md to the main repo's working tree.
+**Issue:** The first commit for Task 1 accidentally landed on the main repo's `main` branch because the `git commit` command was run with `cd /Users/pat/Personal/agent-research` (the main repo path) instead of from the worktree at `/Users/pat/Personal/agent-research/.claude/worktrees/agent-ae045a9515948e22c`. The Write tool also wrote the initial ingest.md to the main repo's working tree.
 
 **Fix:** 
 1. Reset main repo to `5effd12` (the base commit before this agent's work) using `git reset --hard HEAD~1` — safe because the commit was seconds old and no other concurrent commits had landed.
-2. Wrote ingest.md and lint.md to the correct worktree path (`/Users/pat/Personal/deep-agents/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/`).
+2. Wrote ingest.md and lint.md to the correct worktree path (`/Users/pat/Personal/agent-research/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/`).
 3. Committed from the worktree using `git -C <worktree-path>`.
 
 **Files affected:** None permanent — the accidental main commit was removed cleanly.
 
-**Lesson:** All file writes and git operations in this agent must use the worktree root (`/Users/pat/Personal/deep-agents/.claude/worktrees/agent-ae045a9515948e22c/`) as the base, not `/Users/pat/Personal/deep-agents/`.
+**Lesson:** All file writes and git operations in this agent must use the worktree root (`/Users/pat/Personal/agent-research/.claude/worktrees/agent-ae045a9515948e22c/`) as the base, not `/Users/pat/Personal/agent-research/`.
 
 ## Self-Check
 
 **Files exist:**
-- `/Users/pat/Personal/deep-agents/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/ingest.md` — FOUND
-- `/Users/pat/Personal/deep-agents/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/lint.md` — FOUND
+- `/Users/pat/Personal/agent-research/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/ingest.md` — FOUND
+- `/Users/pat/Personal/agent-research/.claude/worktrees/agent-ae045a9515948e22c/.planning/spec/13-plugin-contract/lint.md` — FOUND
 
 **Commits exist:**
 - `7913a1f` on `worktree-agent-ae045a9515948e22c` — FOUND

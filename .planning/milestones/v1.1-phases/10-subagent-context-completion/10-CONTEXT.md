@@ -2,7 +2,7 @@
 
 **Gathered:** 2026-05-17
 **Status:** Ready for planning
-**Source:** Synthesized from spike 001 (`.planning/spikes/001-subagent-context-audit/README.md`, verdict VALIDATED) and spike-findings skill (`.claude/skills/spike-findings-deep-agents/references/subagent-context-injection.md`)
+**Source:** Synthesized from spike 001 (`.planning/spikes/001-subagent-context-audit/README.md`, verdict VALIDATED) and spike-findings skill (`.claude/skills/spike-findings-agent-research/references/subagent-context-injection.md`)
 
 <domain>
 ## Phase Boundary
@@ -87,7 +87,7 @@ This phase closes the spike-001 gap between Phase 6's curated prompt fragments a
 ### Spike report (authoritative source for this phase)
 
 - `.planning/spikes/001-subagent-context-audit/README.md` — spike report (VALIDATED). Full inventory, token cost estimates, strategy comparison, recommended next-step scope.
-- `.claude/skills/spike-findings-deep-agents/references/subagent-context-injection.md` — implementation blueprint distilled from the spike. Step-by-step build recipe; this is the spec for the work.
+- `.claude/skills/spike-findings-agent-research/references/subagent-context-injection.md` — implementation blueprint distilled from the spike. Step-by-step build recipe; this is the spec for the work.
 - `.planning/spikes/MANIFEST.md` — spike manifest with phase requirements.
 - `.planning/spikes/CONVENTIONS.md` — spike-derived conventions (provenance headers, degrade gracefully, syrupy for prompt snapshots).
 

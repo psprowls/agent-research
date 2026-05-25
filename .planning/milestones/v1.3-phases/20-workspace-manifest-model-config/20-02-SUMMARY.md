@@ -176,7 +176,7 @@ None — no new network endpoints, auth paths, or trust boundaries. The change r
 ## Next Phase Readiness
 
 - Plan 03 (deletion sweep of `--config` / `GRAPH_WIKI_CONFIG` / `models_path` from `agents/graph-wiki-agent/`) can now land cleanly: the loader side already has no `set_models_path` to import, so the agent-side cleanup is purely about deleting the now-dangling import statements at `cli.py:42` and `graph_wiki_mcp/server.py:449` plus the surrounding Typer/env-var wiring. NOTE for Plan 03: those two `from model_adapter.loader import set_models_path` lines will `ImportError` at runtime if the `--config` flag or `GRAPH_WIKI_CONFIG` env var is ever exercised between this plan and Plan 03 landing — but the imports are guarded behind those code paths so normal startup is unaffected.
-- Plan 04 (live verify SC#4) can use `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` to override role models per the documented schema.
+- Plan 04 (live verify SC#4) can use `~/Personal/agent-research/graph-wiki/.graph-wiki.yaml` to override role models per the documented schema.
 
 ---
 *Phase: 20-workspace-manifest-model-config*

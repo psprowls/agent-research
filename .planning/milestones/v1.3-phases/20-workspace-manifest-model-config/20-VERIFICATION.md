@@ -30,7 +30,7 @@ re_verification:
 | 1 | `workspace-io.manifest` round-trips a populated `plugins[].roles[]` block with PyYAML | VERIFIED | `test_v2_roles_roundtrip` + `test_v2_roles_absent_round_trips_cleanly` pass (5/5 in test_manifest_v2_roundtrip.py); `manifest.py:78-80` carries `roles` conditionally on write; `manifest.py` imports `yaml` (PyYAML) |
 | 2 | `model-adapter.make_llm(role)` resolves to workspace-defined role config when present and falls back to packaged `models.toml` per-role when absent | VERIFIED | 4 new tests in `test_loader.py` cover workspace-wins, per-role-fallback, resolve-raises, and helper-None branches; all 21/21 model-adapter tests pass; `loader.py:39-67` defines `_workspace_role_override` with workspace-first / packaged-fallback contract; `load_role_config` is NOT workspace-aware (loader.py:135-150) — preserves `sweep_candidates` contract for eval-harness |
 | 3 | `WikiConfig.models_path`, `set_models_path()`, `--config` / `GRAPH_WIKI_CONFIG` plumbing removed from `config.py`, `cli.py`, `server.py`; no code path reads `wiki-config.toml` | VERIFIED | `grep -rn "models_path\|set_models_path\|GRAPH_WIKI_CONFIG" agents/graph-wiki-agent/src/ packages/model-adapter/src/` returns 1 match — the documented docstring breadcrumb at `config.py:12` (Plan 20-03 Deviation §1, intentional). `grep -rn -- '--config' agents/graph-wiki-agent/src/` returns 1 — same docstring breadcrumb line. `grep -rn 'wiki-config.toml' agents/ packages/` returns 0. `graph-wiki-agent --help` runs and `--config` is absent from output. |
-| 4 | `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` carries 9-role default block mirroring packaged defaults | VERIFIED | File contains exactly 9 role entries: preflight, librarian, code_reader, scanner, linter, ingestor, synthesizer, judge_a, judge_b — all `model_id`/`region`/`max_tokens`/`max_concurrency` match `model_adapter/models.toml` 1:1 (see side-by-side table below) |
+| 4 | `~/Personal/agent-research/graph-wiki/.graph-wiki.yaml` carries 9-role default block mirroring packaged defaults | VERIFIED | File contains exactly 9 role entries: preflight, librarian, code_reader, scanner, linter, ingestor, synthesizer, judge_a, judge_b — all `model_id`/`region`/`max_tokens`/`max_concurrency` match `model_adapter/models.toml` 1:1 (see side-by-side table below) |
 | 5 | `packages/workspace-io/README.md` documents `roles:` schema; `graph-wiki-agent` CLI help / docs drop `--config`; workspace-io wiki page "no PyYAML" claim corrected | VERIFIED | README.md has full `roles:` schema section (lines 17-72) with 4-field table + two-role example + `read_roles` snippet; agent `.md` docs grep returns 0 hits; live wiki page at `graph-wiki/wiki/packages/workspace-io/workspace-io.md` has none of the stale strings (`no PyYAML`, `minimal YAML parser`, `Pure standard library`) — page is a stub free of the offending claims |
 
 **Score:** 5/5 truths verified
@@ -179,11 +179,11 @@ Status: VERIFIED
 
 ### Workspace-io wiki page "no PyYAML" claim
 
-The plan originally targeted `~/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md`. Per Plan 20-04 Deviation §2, that path no longer exists — the live wiki page is at `~/Personal/deep-agents/graph-wiki/wiki/packages/workspace-io/workspace-io.md`. That page is a TODO stub (76 lines) and contains none of the targeted stale strings:
+The plan originally targeted `~/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md`. Per Plan 20-04 Deviation §2, that path no longer exists — the live wiki page is at `~/Personal/agent-research/graph-wiki/wiki/packages/workspace-io/workspace-io.md`. That page is a TODO stub (76 lines) and contains none of the targeted stale strings:
 
 ```
 $ grep -rn 'no PyYAML\|minimal YAML parser\|Pure standard library' \
-    /Users/pat/Personal/deep-agents/graph-wiki/wiki/
+    /Users/pat/Personal/agent-research/graph-wiki/wiki/
 (empty)
 ```
 
@@ -287,7 +287,7 @@ Plan 20-04 then verified the work was already complete (its Deviation §1) and p
 
 ### 2. Plan 20-04 target path drift (acknowledged)
 
-The plan targeted `~/Personal/wiki/deep-agents/...` for the workspace-io wiki page edit. That tree no longer exists; the live wiki lives at `~/Personal/deep-agents/graph-wiki/wiki/`. The live page is a TODO stub with none of the three offending strings; SC#5 wiki-page portion is vacuously satisfied. Plan 20-04 documented a follow-up suggestion (not Phase 20 work): when the wiki page is next populated by `graph-wiki ingest`/`scan`, the prose should accurately describe the PyYAML reality. This is reasonable and not in scope.
+The plan targeted `~/Personal/graph-wiki/agent-research...` for the workspace-io wiki page edit. That tree no longer exists; the live wiki lives at `~/Personal/agent-research/graph-wiki/wiki/`. The live page is a TODO stub with none of the three offending strings; SC#5 wiki-page portion is vacuously satisfied. Plan 20-04 documented a follow-up suggestion (not Phase 20 work): when the wiki page is next populated by `graph-wiki ingest`/`scan`, the prose should accurately describe the PyYAML reality. This is reasonable and not in scope.
 
 ### 3. `load_role_config` workspace-aware contract correctly preserved
 

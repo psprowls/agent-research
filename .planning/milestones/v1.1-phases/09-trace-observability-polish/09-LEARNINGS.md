@@ -1,7 +1,7 @@
 ---
 phase: 9
 phase_name: "Trace/Observability Polish"
-project: "deep-agents"
+project: "agent-research"
 generated: "2026-05-17"
 counts:
   decisions: 7

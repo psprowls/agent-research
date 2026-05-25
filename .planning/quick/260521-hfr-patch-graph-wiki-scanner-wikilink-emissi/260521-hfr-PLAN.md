@@ -127,7 +127,7 @@ Extend `tests/test_overview_template_wikilinks.py`:
   with `wiki/` (allowing the `<placeholder>` content after the prefix).
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/deep-agents && uv run --package vault-io pytest packages/vault-io/tests/test_overview_template_wikilinks.py -x</automated>
+    <automated>cd /Users/pat/Personal/agent-research && uv run --package vault-io pytest packages/vault-io/tests/test_overview_template_wikilinks.py -x</automated>
   </verify>
   <done>All three updated tests pass. Bare `[[packages/`, `[[domains/`, `[[concepts/`, `[[adrs/`, `[[sources/`, `[[dependencies/` forms no longer appear in the three patched templates (verified by grep). `{{PACKAGE_SLUG}}` and `{{DOMAIN_SLUG}}` substitution still works.</done>
 </task>
@@ -212,13 +212,13 @@ up in the test, monkeypatch them to no-ops via `monkeypatch.setattr` — the
 test only cares about the section-index emission step.
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/deep-agents && uv run --package vault-io pytest packages/vault-io/tests/test_init_vault.py -x</automated>
+    <automated>cd /Users/pat/Personal/agent-research && uv run --package vault-io pytest packages/vault-io/tests/test_init_vault.py -x</automated>
   </verify>
   <done>New test passes. All four section-index stub files are created on a fresh init. Stub files contain the expected `# <Label>` heading. Existing stub files are preserved across a second init call with `force=True`. No regressions in the existing `_resolve_pinned_containers` tests.</done>
 </task>
 
 <task>
-  <name>Task 3: End-to-end verification against the real `/Users/pat/Personal/wikis/deep-agents/` wiki</name>
+  <name>Task 3: End-to-end verification against the real `/Users/pat/Personal/graph-wiki/agent-research/` wiki</name>
   <files>(no source edits — verification only)</files>
   <action>
 Re-bootstrap and re-scan the real wiki and confirm the broken-link count
@@ -226,14 +226,14 @@ collapses for the two categories this PR addresses.
 
 Steps:
 1. Snapshot current lint output for diff:
-   `cd /Users/pat/Personal/deep-agents && uv run python -m vault_io.lint_wiki --workspace /Users/pat/Personal/wikis/deep-agents 2>&1 | tee /tmp/lint-before.txt || true`
+   `cd /Users/pat/Personal/agent-research && uv run python -m vault_io.lint_wiki --workspace /Users/pat/Personal/graph-wiki/agent-research 2>&1 | tee /tmp/lint-before.txt || true`
    (Use the same invocation pattern Pat uses for `/graph-wiki:lint`; if the
    module entry point differs, fall back to running the script directly via
    `uv run python packages/vault-io/src/vault_io/lint_wiki.py`. Do NOT
    modify lint_wiki to make this easier — investigate the existing CLI
    first.)
 2. Re-run init with `--force` against a tmp clone of the wiki (do NOT
-   destroy the real wiki — copy `/Users/pat/Personal/wikis/deep-agents/` to
+   destroy the real wiki — copy `/Users/pat/Personal/graph-wiki/agent-research/` to
    `/tmp/wiki-verify/` first, then run init against the tmp copy). Confirm
    the four new stub index.md files appear in `/tmp/wiki-verify/wiki/`.
 3. Re-run scan against the tmp wiki to regenerate package overviews from
@@ -273,7 +273,7 @@ collateral regressions before this task is marked done.
 <success_criteria>
 1. All package/domain overview wikilinks emitted by templates carry the `wiki/` prefix.
 2. `init_wiki` creates stub `index.md` files in `concepts/`, `sources/`, `adrs/`, `architecture/` on a fresh init, and never clobbers an existing stub on re-init.
-3. Re-scanning + re-linting the real deep-agents wiki shows zero broken links from these two categories.
+3. Re-scanning + re-linting the real agent-research wiki shows zero broken links from these two categories.
 4. No new lint regressions introduced.
 5. Surgical change rule honored: no refactoring, no comment churn, no adjacent edits beyond the wikilink lines and the new init block.
 </success_criteria>

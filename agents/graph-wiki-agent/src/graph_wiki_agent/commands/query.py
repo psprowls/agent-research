@@ -311,7 +311,7 @@ def _resolve_repo_root(vault_path: Path) -> Path:
     itself with a logged warning.
 
     This is intentionally a starter heuristic; the UAT vault layout (vault at
-    `~/Personal/wiki/deep-agents/` with repo at `~/Personal/deep-agents/`) is
+    `~/Personal/graph-wiki/agent-research` with repo at `~/Personal/agent-research/`) is
     NOT a parent-child relationship, so the fallback path is hit in that
     setup — that's acceptable for v1 because the code-fallback only ever
     reads files via `_read_file_bounded`, which keeps the read inside the

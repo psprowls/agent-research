@@ -14,7 +14,7 @@ progress:
   percent: 100
 ---
 
-# Project State: deep-agents
+# Project State: agent-research
 
 **Last updated:** 2026-05-20
 **Updated by:** gsd-roadmapper (v1.4 roadmap created)

@@ -365,7 +365,7 @@ FIXTURE_VAULT: Path = (
 )
 ```
 
-**Vault contents pattern:** Package pages with current names (`workspace-io`, `prompt-sources`, `vault-io`, etc.). Mirror the structure of `~/Personal/wiki/deep-agents` but smaller — enough for the scanner regression sweep to produce non-trivial output.
+**Vault contents pattern:** Package pages with current names (`workspace-io`, `prompt-sources`, `vault-io`, etc.). Mirror the structure of `~/Personal/graph-wiki/agent-research` but smaller — enough for the scanner regression sweep to produce non-trivial output.
 
 ---
 

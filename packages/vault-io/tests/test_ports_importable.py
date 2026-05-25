@@ -71,7 +71,7 @@ def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch, tmp_path: Path):
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     monkeypatch.chdir(tmp_path)
     # Force workspace_io.config.resolve() to treat this cwd as outside any
-    # git repo so it cannot accidentally pick up the real deep-agents repo.
+    # git repo so it cannot accidentally pick up the real agent-research repo.
     monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)
 
     try:

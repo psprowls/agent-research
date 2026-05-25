@@ -4,7 +4,7 @@ updated_at: "2026-05-19T00:00:00Z"
 
 ## Architecture Overview
 
-`deep-agents` is a uv-managed Python 3.11+ monorepo whose first deliverable is **`code-wiki-agent`** — a Bedrock-only port of the upstream lattice-wiki Claude Code plugin (in-tree as `graph-wiki`). The agent exposes both a Typer CLI (`code-wiki-agent`) and a stdio FastMCP server (`code-wiki-mcp`) over the same command functions.
+`agent-research` is a uv-managed Python 3.11+ monorepo whose first deliverable is **`code-wiki-agent`** — a Bedrock-only port of the upstream lattice-wiki Claude Code plugin (in-tree as `graph-wiki`). The agent exposes both a Typer CLI (`code-wiki-agent`) and a stdio FastMCP server (`code-wiki-mcp`) over the same command functions.
 
 Composition pattern: **in-house fan-out primitives over langchain-core + langchain-aws**. There is no `deepagents`, no `langgraph`, and no top-level `langchain`. Concurrency is implemented directly via `asyncio.Semaphore` inside `SubagentPool`, and Bedrock errors are translated by a `_GuardedChatBedrockConverse` subclass produced by `make_llm(role)`. This is a deliberate departure from CLAUDE.md's stack-recommendation table (documented in CLAUDE.md §2 and §4 as "rejected by design" / "deferred"), motivated by direct control over fan-out semantics and trace shape.
 

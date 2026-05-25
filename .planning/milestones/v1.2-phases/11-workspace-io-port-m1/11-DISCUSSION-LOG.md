@@ -53,14 +53,14 @@
 | wiki_path resolved via helper, default = workspace itself | Port helper but make default = workspace itself, configurable later. | |
 
 **User's choice:** wiki_path = workspace_dir + 'wiki' subdir.
-**Notes:** Lattice convention preserved. Required a follow-up (Q5) to resolve the conflict with the existing `~/Personal/wiki/deep-agents/` layout.
+**Notes:** Lattice convention preserved. Required a follow-up (Q5) to resolve the conflict with the existing `~/Personal/graph-wiki/agent-research` layout.
 
-### Q5 (follow-up) — Where does `.graph-wiki.yaml` actually live given the existing `~/Personal/wiki/deep-agents/` layout?
+### Q5 (follow-up) — Where does `.graph-wiki.yaml` actually live given the existing `~/Personal/graph-wiki/agent-research` layout?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Manifest at `~/Personal/wiki/`; rename `deep-agents/` → `wiki/` | One-wiki-per-workspace; rename existing dir. | |
-| Manifest at `~/Personal/wiki/deep-agents/`; move content into `wiki/` subdir | Each project-wiki self-contained; move existing content down one level. | |
+| Manifest at `~/Personal/wiki/`; rename `agent-research/` → `wiki/` | One-wiki-per-workspace; rename existing dir. | |
+| Manifest at `~/Personal/graph-wiki/agent-research`; move content into `wiki/` subdir | Each project-wiki self-contained; move existing content down one level. | |
 | Diverge from lattice: `wiki_path = workspace_dir` itself (overrides Q4) | Override Q4; zero file moves; documented divergence. | |
 | (Other — user-provided) | — | ✓ |
 
@@ -160,7 +160,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Drop coercion — v2 only, raise on v1 | Clean break; deep-agents has never written v1. | ✓ |
+| Drop coercion — v2 only, raise on v1 | Clean break; agent-research has never written v1. | ✓ |
 | Keep v1→v2 coercion verbatim | Future-proofs against importing old `.lattice.yaml`. | |
 | Drop coercion; ship a one-shot migrate script | Adds new CLI subcommand. | |
 

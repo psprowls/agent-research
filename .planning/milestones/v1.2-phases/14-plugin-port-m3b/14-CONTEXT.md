@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Code plugin into this repo as `plugins/graph-wiki/`, against the deep-agents vault, with zero `lattice_*` imports and at least one slash command (`/graph-wiki:query`) running end-to-end against `~/Personal/wiki/deep-agents`. The plugin runs on Claude Code inference (P-01) — it is **not** a wrapper around `graph-wiki-agent`; the two coexist as parallel surfaces over the same `vault-io` / `workspace-io` helpers.
+Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Code plugin into this repo as `plugins/graph-wiki/`, against the agent-research vault, with zero `lattice_*` imports and at least one slash command (`/graph-wiki:query`) running end-to-end against `~/Personal/graph-wiki/agent-research`. The plugin runs on Claude Code inference (P-01) — it is **not** a wrapper around `graph-wiki-agent`; the two coexist as parallel surfaces over the same `vault-io` / `workspace-io` helpers.
 
 **In scope:**
 - Port `vault_io.lint_wiki` from upstream `lattice_wiki_core/lint_wiki.py` (~508 LOC) into `packages/vault-io/src/vault_io/lint_wiki.py` per VP-01 / SR-01 rubric (Plan 1).
@@ -16,7 +16,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 - Drop archive/regen-index/status — no `.md` files in `plugins/graph-wiki/commands/` (C-01).
 - Implement `plugins/graph-wiki/skills/graph-wiki/scripts/_config.py` per SO-04 (reads `[plugin]` block via `workspace_io.manifest.read`).
 - Shim script bodies per SO-02: import from `vault_io.<module>`, dispatch on backend (`claude` default → call `_core_main()`; `bedrock` opt-in → subprocess to `graph-wiki-agent <cmd>`).
-- Smoke gate: manual `/graph-wiki:query` run against `~/Personal/wiki/deep-agents` from a Claude Code session; full transcript pasted into `14-VERIFICATION.md` as a fenced block (SC#4).
+- Smoke gate: manual `/graph-wiki:query` run against `~/Personal/graph-wiki/agent-research` from a Claude Code session; full transcript pasted into `14-VERIFICATION.md` as a fenced block (SC#4).
 - Cross-cutting brand sweep: every `lattice` → `graph-wiki` rename inside `plugins/graph-wiki/` and the two new `vault-io` files must clear `scripts/check-brand.sh` (BRAND-04 / VP-03).
 
 **Out of scope:**
@@ -71,7 +71,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 
 ### Smoke gate (SC#4)
 
-- **D-05 (Manual run + transcript pasted into `14-VERIFICATION.md`):** SC#4's "manual smoke check" wording is taken literally. Pat invokes `/graph-wiki:query "what is workspace-io?"` (or equivalent) inside a Claude Code session against `~/Personal/wiki/deep-agents` after Plan 3 lands. Full transcript — user question, librarian fan-out evidence (citations / pages read), synthesized answer with `[[wikilinks]]` and `code-path:line` citations — pasted into `14-VERIFICATION.md` as a fenced markdown block. No snapshot baseline, no structural-assertion script, no live-only demo. Rationale: Claude Code IS the host, so pytest harness is infeasible; LLM nondeterminism makes baseline diffing brittle; a recorded transcript still gives a debug/audit artifact without the false-positive overhead.
+- **D-05 (Manual run + transcript pasted into `14-VERIFICATION.md`):** SC#4's "manual smoke check" wording is taken literally. Pat invokes `/graph-wiki:query "what is workspace-io?"` (or equivalent) inside a Claude Code session against `~/Personal/graph-wiki/agent-research` after Plan 3 lands. Full transcript — user question, librarian fan-out evidence (citations / pages read), synthesized answer with `[[wikilinks]]` and `code-path:line` citations — pasted into `14-VERIFICATION.md` as a fenced markdown block. No snapshot baseline, no structural-assertion script, no live-only demo. Rationale: Claude Code IS the host, so pytest harness is infeasible; LLM nondeterminism makes baseline diffing brittle; a recorded transcript still gives a debug/audit artifact without the false-positive overhead.
 
 ### Claude's Discretion
 
@@ -80,7 +80,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 - Whether `_config.py` retains upstream's exact error shape (e.g., raising vs returning `"claude"` on manifest-missing) or matches `workspace_io` raising idioms — executor's call; upstream's pattern is fine if it's already aligned.
 - Whether the agent `.md` files (`agents/{ingestor,librarian,linter,scanner}.md`) need any prose changes beyond the namespace rebrand — if upstream prose references `/lattice-wiki:` slash commands inside the agent body, swap them; otherwise leave verbatim.
 - Whether to also drop `commands/archive.md`, `commands/regen-index.md`, `commands/status.md` from the copy-paste step (not write them) vs copy-then-delete (more visible in diff) — executor's call; both reach the same end state.
-- The example query used for the SC#4 smoke (D-05) — any non-trivial question against the deep-agents wiki that exercises librarian fan-out works; `"what is workspace-io?"` is the default unless Pat picks another at verification time.
+- The example query used for the SC#4 smoke (D-05) — any non-trivial question against the agent-research wiki that exercises librarian fan-out works; `"what is workspace-io?"` is the default unless Pat picks another at verification time.
 
 </decisions>
 
@@ -123,7 +123,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` — ~508 LOC; Plan 1 port source (VP-01).
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/wiki_search.py` — ~194 LOC; Plan 2 port source (VP-01).
 
-### Existing deep-agents code modified by Phase 14
+### Existing agent-research code modified by Phase 14
 - `packages/workspace-io/src/workspace_io/manifest.py` — Extended in Plan 3 with strict-raises `[plugin]` block (D-02).
 - `packages/workspace-io/src/workspace_io/config.py` — `GraphWikiConfig.resolve()` already discovers the workspace; `_config.py` in the plugin uses it.
 - `packages/vault-io/src/vault_io/lint_wiki.py` — New file from Plan 1 (VP-01).
@@ -137,7 +137,7 @@ Execute the locked Phase 13 contract: port the upstream `lattice-wiki` Claude Co
 - `.planning/PROJECT.md` §Constraints — Python 3.11+, uv workspace, Bedrock-only for graph-wiki-agent (not the plugin), MCP stdio convention.
 - Memory `[[project_plugin_port_model]]` — Plugin uses Claude Code inference, NOT Bedrock; functional parity with upstream lattice-wiki; graph-wiki-agent stays as separate Bedrock path (load-bearing for P-01).
 - Memory `[[user_lattice_wiki_author]]` — Pat built lattice-wiki; trust "port verbatim" calls (drives D-04 fresh-write and the bundled Plan 3 D-01).
-- Memory `[[project_wiki_setup]]` — `~/Personal/wiki/deep-agents` is the SC#4 smoke target.
+- Memory `[[project_wiki_setup]]` — `~/Personal/graph-wiki/agent-research` is the SC#4 smoke target.
 
 </canonical_refs>
 

@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`vault-io` is the on-disk vault layer of the post-rebrand `deep-agents` monorepo. It owns the YAML frontmatter parser, the layout IO module (canonical page structure), the BM25 search index, the lint pass, and the `update_index` helper that maintains `index.md` after every write.
+`vault-io` is the on-disk vault layer of the post-rebrand `agent-research` monorepo. It owns the YAML frontmatter parser, the layout IO module (canonical page structure), the BM25 search index, the lint pass, and the `update_index` helper that maintains `index.md` after every write.
 
 ## API
 

@@ -1,7 +1,7 @@
 # Phase 11: workspace-io Port (M1) — Pattern Map
 
 **Mapped:** 2026-05-17
-**Files analyzed:** 28 (10 new source modules + 12 new test files + 3 modified deep-agents files + 3 modified call-site files)
+**Files analyzed:** 28 (10 new source modules + 12 new test files + 3 modified agent-research files + 3 modified call-site files)
 **Analogs found:** 28 / 28
 
 ---
@@ -46,7 +46,7 @@
 ### `packages/workspace-io/pyproject.toml` (config)
 
 **Primary analog:** `/Users/pat/Personal/lattice/packages/lattice-workspace/pyproject.toml`
-**Secondary analog:** `/Users/pat/Personal/deep-agents/packages/vault-io/pyproject.toml` (for `addopts = "--import-mode=importlib"`)
+**Secondary analog:** `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` (for `addopts = "--import-mode=importlib"`)
 
 **Build backend choice:** Use hatchling (matches lattice source; asset inclusion is automatic when `assets/` sits inside `src/workspace_io/`).
 
@@ -71,7 +71,7 @@ testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 ```
 
-**Key difference from existing deep-agents packages:** All existing packages use `uv_build` backend. workspace-io uses `hatchling` because it ships the `assets/CLAUDE.md.template` inside the package and hatchling includes the `assets/` subdirectory automatically when listed in `packages = ["src/workspace_io"]`. No extra `package-data` or `include` block needed.
+**Key difference from existing agent-research packages:** All existing packages use `uv_build` backend. workspace-io uses `hatchling` because it ships the `assets/CLAUDE.md.template` inside the package and hatchling includes the `assets/` subdirectory automatically when listed in `packages = ["src/workspace_io"]`. No extra `package-data` or `include` block needed.
 
 **After scaffold:** Add `workspace-io = { workspace = true }` under `[tool.uv.sources]` in vault-io and graph-wiki-agent pyproject files.
 
@@ -651,7 +651,7 @@ def test_null_applied_version_no_signal(tmp_path):
 
 ### `packages/vault-io/src/vault_io/_workspace.py` (service, request-response — full rewrite)
 
-**Current analog:** `/Users/pat/Personal/deep-agents/packages/vault-io/src/vault_io/_workspace.py` (34 lines)
+**Current analog:** `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/_workspace.py` (34 lines)
 **Post-port shape from:** RESEARCH.md §Code Examples and current source
 
 **Complete post-port file:**
@@ -695,7 +695,7 @@ def resolve_wiki_and_repo(
 
 ### `packages/vault-io/pyproject.toml` (config — add dep)
 
-**Analog:** Current `/Users/pat/Personal/deep-agents/packages/vault-io/pyproject.toml` (18 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` (18 lines)
 
 **Two additions** — add to `[project] dependencies` and add `[tool.uv.sources]` section:
 ```toml
@@ -714,7 +714,7 @@ workspace-io = { workspace = true }   # ADD entire section
 
 ### `packages/vault-io/tests/test_ports_importable.py` (test — targeted updates)
 
-**Analog:** Current `/Users/pat/Personal/deep-agents/packages/vault-io/tests/test_ports_importable.py` (91 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/tests/test_ports_importable.py` (91 lines)
 
 **`test_resolve_wiki_and_repo_raises_on_no_config`** (lines 67-78) — two changes:
 - `monkeypatch.delenv("GRAPH_WIKI_REAL_VAULT_PATH", raising=False)` → `monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)`
@@ -761,7 +761,7 @@ def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_p
 
 ### `packages/vault-io/tests/conftest.py` (test — one-line update)
 
-**Analog:** Current `/Users/pat/Personal/deep-agents/packages/vault-io/tests/conftest.py` (38 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/packages/vault-io/tests/conftest.py` (38 lines)
 
 **Single change** (line 35):
 ```python
@@ -775,7 +775,7 @@ override = os.environ.get("GRAPH_WIKI_WORKSPACE")
 
 ### `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` (service — prepend workspace_io call)
 
-**Analog:** Current `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` (86 lines)
+**Analog:** Current `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` (86 lines)
 
 **Changes:**
 
@@ -955,12 +955,12 @@ Verified to return `"0.1.0"` under `uv run --package graph-wiki-agent` editable 
 
 ## No Analog Found
 
-No files in this phase lack a codebase analog. All files have direct source templates (lattice-workspace modules) or existing deep-agents files to modify.
+No files in this phase lack a codebase analog. All files have direct source templates (lattice-workspace modules) or existing agent-research files to modify.
 
 ---
 
 ## Metadata
 
-**Analog search scope:** `/Users/pat/Personal/lattice/packages/lattice-workspace/` (all source + tests), `/Users/pat/Personal/deep-agents/packages/vault-io/`, `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/`
+**Analog search scope:** `/Users/pat/Personal/lattice/packages/lattice-workspace/` (all source + tests), `/Users/pat/Personal/agent-research/packages/vault-io/`, `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/`
 **Files read:** 28 source/test/config files
 **Pattern extraction date:** 2026-05-17

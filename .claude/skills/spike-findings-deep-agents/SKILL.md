@@ -1,10 +1,10 @@
 ---
-name: spike-findings-deep-agents
-description: Implementation blueprint from spike experiments. Requirements, proven patterns, and verified knowledge for building deep-agents. Auto-loaded during implementation work.
+name: spike-findings-agent-research
+description: Implementation blueprint from spike experiments. Requirements, proven patterns, and verified knowledge for building agent-research. Auto-loaded during implementation work.
 ---
 
 <context>
-## Project: deep-agents
+## Project: agent-research
 
 A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. The first package, `graph-wiki-agent`, is a reimplementation of the existing `lattice-wiki` Claude Code plugin — packaged as both an MCP server and a headless CLI — running on AWS Bedrock with parallel subagents for cost and context savings. Spikes audit gaps between the Python port and the original plugin's runtime behavior.
 

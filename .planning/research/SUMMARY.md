@@ -1,6 +1,6 @@
 # Project Research Summary
 
-**Project:** deep-agents / graph-wiki-agent
+**Project:** agent-research / graph-wiki-agent
 **Domain:** Python MCP server + deepagents subagent fan-out on AWS Bedrock, uv monorepo
 **Researched:** 2026-05-13
 **Confidence:** HIGH (stack/features/pitfalls verified against PyPI and official docs; architecture MEDIUM on deepagents internal API)

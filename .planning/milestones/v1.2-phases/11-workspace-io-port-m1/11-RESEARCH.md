@@ -15,7 +15,7 @@
 - **D-02:** `vault-io._workspace.resolve_wiki_and_repo` becomes a two-tier passthrough: (1) if `vault_path` argument is provided, short-circuit and return `(vault_path.resolve(), <git-discovered repo_root or None>)`; (2) otherwise call `workspace_io.config.resolve()` and return `(paths.wiki_dir(config.workspace), config.repo_root)`. All env-var handling, `.graph-wiki.yaml` walk-up, and error messages live inside `workspace_io.config` — vault-io stays a thin shim.
 - **D-03:** `workspace_io.config.resolve(cwd=None)` is strict — no fallbacks beyond `GRAPH_WIKI_WORKSPACE` env override and `.graph-wiki.yaml` cwd walk-up. If neither yields a manifest, raise `RuntimeError` naming `graph-wiki-agent init <path>` as bootstrap command.
 - **D-04:** Convention: `paths.wiki_dir(workspace) = workspace / "wiki"`. Manifest at `<workspace>/.graph-wiki.yaml`.
-- **D-05:** Existing `~/Personal/wiki/deep-agents/` is throwaway. Pat will delete and re-init. No migration script.
+- **D-05:** Existing `~/Personal/graph-wiki/agent-research` is throwaway. Pat will delete and re-init. No migration script.
 - **D-06:** `schema.py` dropped (work-layer only; caller was `write_schema(work_dir)` in init.py). WS-06 closed.
 - **D-07:** `init.py` ported; wired into `graph-wiki-agent init` which calls `workspace_io.init(...)` first, then `vault-io.init_vault.init_wiki(...)`.
 - **D-08:** `render.py` + `versions.py` + `assets/CLAUDE.md.template` ported with minimum-viable rebrand. Template body polish deferred.
@@ -50,7 +50,7 @@
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| WS-01 | New `packages/workspace-io/` workspace member exists with pyproject.toml, src/workspace_io/, tests/ | Pyproject template from lattice-workspace + existing deep-agents package patterns |
+| WS-01 | New `packages/workspace-io/` workspace member exists with pyproject.toml, src/workspace_io/, tests/ | Pyproject template from lattice-workspace + existing agent-research package patterns |
 | WS-02 | `config.py` ported as `workspace_io.config` with `GraphWikiConfig` dataclass and `resolve(cwd)` discovery walking upward for `.graph-wiki.yaml` | Source at `/Users/pat/Personal/lattice/packages/lattice-workspace/src/lattice_workspace/config.py` — 78 lines, full logic documented |
 | WS-03 | `manifest.py` ported reading/writing `.graph-wiki.yaml` | Source at `/Users/pat/Personal/lattice/packages/lattice-workspace/src/lattice_workspace/manifest.py` — v1 coercion removed per D-14 |
 | WS-04 | `init.py` ported performing workspace bootstrap | Source at `.../init.py`; `write_schema` call removed per D-06; GITIGNORE_ENTRY renamed |
@@ -66,7 +66,7 @@
 
 ## Summary
 
-Phase 11 is a direct Python port of an existing Python package (`lattice-workspace`) into the deep-agents uv workspace. The source code is available in full at `/Users/pat/Personal/lattice/packages/lattice-workspace/`. Every module has been read in this session; no guesswork required.
+Phase 11 is a direct Python port of an existing Python package (`lattice-workspace`) into the agent-research uv workspace. The source code is available in full at `/Users/pat/Personal/lattice/packages/lattice-workspace/`. Every module has been read in this session; no guesswork required.
 
 The port decomposes into three distinct work tracks: (1) scaffold the new `packages/workspace-io/` uv workspace member (pyproject, src layout, hatchling build backend), (2) port and rebrand 7 source modules plus the assets template, and (3) rewrite `vault-io._workspace.py` to delegate resolution to `workspace_io.config` and update all call sites of `GRAPH_WIKI_REAL_VAULT_PATH` across docstrings, tests, and CLI help strings.
 
@@ -251,7 +251,7 @@ tests/
 | `src/lattice_workspace/__init__.py` | `src/workspace_io/__init__.py` | 13 | `LatticeConfig` → `GraphWikiConfig`; import paths |
 | `src/lattice_workspace/schema.py` | **DO NOT PORT** | — | Work-layer only per D-06 |
 
-### Existing deep-agents code that changes
+### Existing agent-research code that changes
 
 **`packages/vault-io/src/vault_io/_workspace.py`** (current: 34 lines)
 - Rewrite body completely per D-02.
@@ -378,10 +378,10 @@ plugins:
 
 ## `wiki-config.toml` vs `.graph-wiki.yaml` — Different Surfaces (WS-10 Answer)
 
-**`/Users/pat/Personal/deep-agents/wiki-config.toml` (confirmed by reading):**
+**`/Users/pat/Personal/agent-research/wiki-config.toml` (confirmed by reading):**
 ```toml
-models_path = "/Users/pat/Personal/deep-agents/models-qwen.toml"
-vault_path  = "/Users/pat/Personal/wiki/deep-agents"
+models_path = "/Users/pat/Personal/agent-research/models-qwen.toml"
+vault_path  = "/Users/pat/Personal/graph-wiki/agent-research"
 ```
 
 **Purpose:** Runtime config for the `graph-wiki-agent` CLI's `--config` flag. Fields: `models_path` (model role TOML), `vault_path` (default wiki path). Read by `WikiConfig` dataclass in `graph_wiki_agent.config`.
@@ -534,7 +534,7 @@ addopts = "--import-mode=importlib"
 
 **What goes wrong:** `render.py` defines `AUTO_START = "<!-- lattice-workspace:auto:plugins:start -->"`. The template `assets/CLAUDE.md.template` contains `{{PLUGIN_LIST}}` which is replaced on first render, but the marker strings are hardcoded in render.py AND must match any existing workspace CLAUDE.md files. After port, if the marker strings are renamed (e.g., to `workspace-io:auto`), existing workspace CLAUDE.md files with the old lattice markers will not have their auto-block refreshed — the fallback path (append at end) will trigger.
 
-**How to avoid:** Since Pat is deleting the existing `~/Personal/wiki/deep-agents/` (D-05), there are no existing workspace CLAUDE.md files to worry about. Rename the marker strings to `workspace-io:auto:plugins:start/end` consistently in both `render.py` (constants) and the template.
+**How to avoid:** Since Pat is deleting the existing `~/Personal/graph-wiki/agent-research` (D-05), there are no existing workspace CLAUDE.md files to worry about. Rename the marker strings to `workspace-io:auto:plugins:start/end` consistently in both `render.py` (constants) and the template.
 
 ### Pitfall 4: `init.py` default workspace name in tests
 
@@ -813,18 +813,18 @@ All other claims in this research are verified by direct source code reading in 
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/src/lattice_workspace/assets/CLAUDE.md.template` — full content
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/pyproject.toml` — full content
 - All 13 test files in `/Users/pat/Personal/lattice/packages/lattice-workspace/tests/` — full content
-- `/Users/pat/Personal/deep-agents/packages/vault-io/src/vault_io/_workspace.py` — full source (lines 1-34)
-- `/Users/pat/Personal/deep-agents/packages/vault-io/src/vault_io/__init__.py` — full source
-- `/Users/pat/Personal/deep-agents/packages/vault-io/tests/test_ports_importable.py` — full source
-- `/Users/pat/Personal/deep-agents/packages/vault-io/tests/conftest.py` — full source
-- `/Users/pat/Personal/deep-agents/packages/vault-io/pyproject.toml` — full content
-- `/Users/pat/Personal/deep-agents/pyproject.toml` (root) — full content
-- `/Users/pat/Personal/deep-agents/packages/model-adapter/pyproject.toml` — full content (template)
-- `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/pyproject.toml` — full content
-- `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — lines 1-50, 420-490
-- `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` — full source
-- `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/src/graph_wiki_agent/config.py` — full source
-- `/Users/pat/Personal/deep-agents/wiki-config.toml` — full content (WS-10)
+- `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/_workspace.py` — full source (lines 1-34)
+- `/Users/pat/Personal/agent-research/packages/vault-io/src/vault_io/__init__.py` — full source
+- `/Users/pat/Personal/agent-research/packages/vault-io/tests/test_ports_importable.py` — full source
+- `/Users/pat/Personal/agent-research/packages/vault-io/tests/conftest.py` — full source
+- `/Users/pat/Personal/agent-research/packages/vault-io/pyproject.toml` — full content
+- `/Users/pat/Personal/agent-research/pyproject.toml` (root) — full content
+- `/Users/pat/Personal/agent-research/packages/model-adapter/pyproject.toml` — full content (template)
+- `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/pyproject.toml` — full content
+- `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — lines 1-50, 420-490
+- `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` — full source
+- `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/src/graph_wiki_agent/config.py` — full source
+- `/Users/pat/Personal/agent-research/wiki-config.toml` — full content (WS-10)
 - `grep -rn "GRAPH_WIKI_REAL_VAULT_PATH"` — full output (all 38 occurrences across codebase)
 - `uv run --package graph-wiki-agent python -c "import importlib.metadata; print(importlib.metadata.version('graph-wiki-agent'))"` → `"0.1.0"` (D-13 verified)
 
@@ -840,7 +840,7 @@ All other claims in this research are verified by direct source code reading in 
 **Confidence breakdown:**
 - Source layout and file contents: HIGH — all files read directly
 - Rebrand symbol inventory: HIGH — grep confirmed all occurrences
-- pyproject.toml scaffolding pattern: HIGH — lattice source + two deep-agents members read
+- pyproject.toml scaffolding pattern: HIGH — lattice source + two agent-research members read
 - Test porting strategy: HIGH — all 13 test files read; behavioral changes from D-14 and D-06 applied
 - Runtime state inventory: MEDIUM — shell dotfile state is not inspectable remotely
 

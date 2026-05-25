@@ -29,7 +29,7 @@ def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFA
     return response["inputTokenCount"]
 ```
 
-The current boto3 shape for `bedrock-runtime.count_tokens` expects `input=...`, not `content=...`. Discovered during the bootstrap scan of the deep-agents repo (2026-05-18) — all 35 newly-stubbed pages have `tokens: 0` because every CountTokens call failed.
+The current boto3 shape for `bedrock-runtime.count_tokens` expects `input=...`, not `content=...`. Discovered during the bootstrap scan of the agent-research repo (2026-05-18) — all 35 newly-stubbed pages have `tokens: 0` because every CountTokens call failed.
 
 ## Solution
 

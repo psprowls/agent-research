@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`eval-harness` is the model-evaluation layer of the post-rebrand `deep-agents` monorepo. It owns the per-role divergence checks (one module per role under `src/eval_harness/divergence/`), the matching judge rubrics under `src/eval_harness/divergence/rubrics/`, the two-gate scoring protocol (`two_gate.py`), and the model-sweep runner (`sweep.py`) used to explore the cost frontier under the D-06 single-role-swap protocol.
+`eval-harness` is the model-evaluation layer of the post-rebrand `agent-research` monorepo. It owns the per-role divergence checks (one module per role under `src/eval_harness/divergence/`), the matching judge rubrics under `src/eval_harness/divergence/rubrics/`, the two-gate scoring protocol (`two_gate.py`), and the model-sweep runner (`sweep.py`) used to explore the cost frontier under the D-06 single-role-swap protocol.
 
 Phase 16 D-06 extended `ROLES_WITH_DIVERGENCE` to the full set of six in-scope roles (librarian, ingestor, linter, scanner, code_reader, synthesizer); the prior D-08 skip for code_reader + synthesizer is superseded.
 

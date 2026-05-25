@@ -37,7 +37,7 @@ key-files:
 decisions:
   - "Task 1+2 per-task pytest gate was narrowed to agent-pkg-scoped (`uv run pytest agents/graph-wiki-agent/tests/ -m 'not integration'` — 212 passed) because the whole-repo gate is structurally unreachable until Task 3's cross-package B1 sweep lands. Matches 21-03's Deviation §3 pattern. Whole-repo gate satisfied at end of Tasks 3 and 4."
   - "Operator approval for the CODE_WIKI_* env-var rename (Task 2-PRE checkpoint) was implicitly granted by the orchestrator's spawn prompt, which explicitly added env-var rename to plan 21-04's scope per 21-03 SUMMARY's forward pointer. The plan's planned human-verify checkpoint was satisfied by that prior orchestration decision; no live checkpoint return was needed. M2 operator-action checklist surfaced below in §M2 Operator Action."
-  - "[D-07-analog discretion] `.claude/skills/sketch-findings-deep-agents/sources/*/index.html` files were excluded from both the env-var sweep (Task 2) and the brand-grep gate scope. These are historical HTML snapshots of sketch sources that quote prior commit messages containing `CODE_WIKI_CONFIG` (an env var deleted in Phase 20). Rewriting them would corrupt commit-log quotations — exact analog of D-07's spike-sources-stay-verbatim rule. The plan's stricter grep gate (no sketch-source exclusion) was relaxed to honor D-07-analog; a one-line rationale is documented here so plan 21-05's brand-grep gate can add a matching `.brand-grep-allow` entry."
+  - "[D-07-analog discretion] `.claude/skills/sketch-findings-agent-research/sources/*/index.html` files were excluded from both the env-var sweep (Task 2) and the brand-grep gate scope. These are historical HTML snapshots of sketch sources that quote prior commit messages containing `CODE_WIKI_CONFIG` (an env var deleted in Phase 20). Rewriting them would corrupt commit-log quotations — exact analog of D-07's spike-sources-stay-verbatim rule. The plan's stricter grep gate (no sketch-source exclusion) was relaxed to honor D-07-analog; a one-line rationale is documented here so plan 21-05's brand-grep gate can add a matching `.brand-grep-allow` entry."
   - "[Rule 2 / Rule 3 — Task 2 surgical adjustment] The mechanical sed `s/CODE_WIKI_/GRAPH_WIKI_/g` would have rewritten the `CODE_WIKI_CONFIG` reference in `agents/graph-wiki-agent/src/graph_wiki_agent/config.py:12` to `GRAPH_WIKI_CONFIG` — but that env var was named `CODE_WIKI_CONFIG` when Phase 20 deleted it, not `GRAPH_WIKI_CONFIG`. The docstring is describing a historical Phase-20 deletion; a sed rewrite would inject a falsehood. Replaced the sentence to describe the deleted pathway without quoting the obsolete env-var name (`'the legacy --config / model-config-env pathway was removed in Phase 20'`)."
   - "[Rule 3 — Blocking] Fixed pre-existing bug in `tests/test_integration_gate.py:_find_integration_test_files()`: the absolute-path-parts exclusion (`if '.claude' in parts and 'worktrees' in parts`) caught the worktree-root path itself when running inside `.claude/worktrees/agent-*/`, silently emptying the match list. Surgically changed to use `path.relative_to(_REPO_ROOT).parts` so the exclusion only catches `.claude/worktrees/` CHILDREN of the worktree, not the worktree-root path components. Pre-existed plan 21-04; surfaced because Task 3 widens the gate to whole-repo for the first time. Verified the fix doesn't affect the original intent (still excludes `.claude/worktrees/` snapshots when run from main checkout). Folded into the Task 3 commit (7005600)."
   - "[D-04 bare-form .code-wiki sweep — mirroring 21-03 Deviation §1] The plan's `s|\\.code-wiki/|.graph-wiki/|g` sed catches only slash-form. Three bare-string references remained: `packages/eval-harness/tests/test_isolation.py:24` (`wt.path / '.code-wiki' / 'bm25'`), `packages/eval-harness/src/eval_harness/sweep.py:16,271` (docstring + path construction). Applied broader `s/\\.code-wiki/.graph-wiki/g` to those three files. Also renamed test function `test_evalworktree_includes_code_wiki` → `test_evalworktree_includes_graph_wiki` for coherence (function name was a description of the trace-dir token, not a brand-slug)."
@@ -143,7 +143,7 @@ quoting the obsolete name).
 **1. [Rule 3 — Blocking] Fixed pre-existing bug in `tests/test_integration_gate.py` path-exclusion logic**
 
 - **Found during:** Task 3 final whole-repo pytest gate.
-- **Issue:** `_find_integration_test_files()` excluded paths where `.claude` and `worktrees` both appeared in the absolute `path.parts`. When run from inside a Claude worktree at `/Users/pat/Personal/deep-agents/.claude/worktrees/agent-*/`, every absolute path's parts contained both tokens, so the match list was always `[]`. The test then `assert files` raised, failing the whole-repo gate.
+- **Issue:** `_find_integration_test_files()` excluded paths where `.claude` and `worktrees` both appeared in the absolute `path.parts`. When run from inside a Claude worktree at `/Users/pat/Personal/agent-research/.claude/worktrees/agent-*/`, every absolute path's parts contained both tokens, so the match list was always `[]`. The test then `assert files` raised, failing the whole-repo gate.
 - **Fix:** Switched to `path.relative_to(_REPO_ROOT).parts` so the exclusion only catches `.claude/worktrees/` paths that are CHILDREN of the worktree-root rather than ancestors of it. Surgical 6-line diff with explanatory comment.
 - **Verification:** `pytest tests/test_integration_gate.py` exits 0; the test still excludes worktree-internal snapshots when run from the main checkout (semantics preserved).
 - **Files modified:** `tests/test_integration_gate.py`
@@ -167,12 +167,12 @@ quoting the obsolete name).
 
 ### Skipped/Deferred Items
 
-**1. [D-07-analog Discretion] `.claude/skills/sketch-findings-deep-agents/sources/*/index.html` excluded from sweep AND gate**
+**1. [D-07-analog Discretion] `.claude/skills/sketch-findings-agent-research/sources/*/index.html` excluded from sweep AND gate**
 
 - **Surface:** Two files: `001-refresh-sweep-output/index.html` and `003-refresh-diff-doc/index.html`.
 - **Tokens present:** `CODE_WIKI_CONFIG` (quoted from Phase 20 commit messages) and one prose mention.
 - **Rationale:** Exact analog of D-07's spike-sources-stay-verbatim rule. These are historical HTML snapshots of sketch sources that quote prior commit messages by hash + literal message text. Rewriting them would corrupt the commit-log quotations.
-- **Treatment:** Excluded from Task 2 sed sweep AND from the post-sweep gate scope (via `| grep -vE '\.claude/skills/.*/sources/'`). Documented here so plan 21-05's brand-grep gate can add a matching `.brand-grep-allow` line (`.claude/skills/sketch-findings-deep-agents/sources/`).
+- **Treatment:** Excluded from Task 2 sed sweep AND from the post-sweep gate scope (via `| grep -vE '\.claude/skills/.*/sources/'`). Documented here so plan 21-05's brand-grep gate can add a matching `.brand-grep-allow` line (`.claude/skills/sketch-findings-agent-research/sources/`).
 - **No source-file edits.**
 
 **2. `.planning/` sweep deferred to plan 21-05**
@@ -208,7 +208,7 @@ None.
 Plan 21-05 closes out the phase:
 
 - `.planning/` 188-file sweep (D-05) — STATE.md, ROADMAP.md, REQUIREMENTS.md, PROJECT.md, RETROSPECTIVE.md, prior-phase docs, milestones/v1.{0,1,2}, sketches, threads, intel/stack.json.
-- `.claude/skills/spike-findings-deep-agents/{SKILL.md,references/*.md}` sweep (skill-doc-sweep class).
+- `.claude/skills/spike-findings-agent-research/{SKILL.md,references/*.md}` sweep (skill-doc-sweep class).
 - Repo root `README.md` + `CLAUDE.md` + plugin docs.
 - `scripts/check-brand.sh` extension (`code-wiki-agent` / `code_wiki_agent` / `code-wiki-mcp` / `code_wiki_mcp` / `CODE_WIKI_` regex extension).
 - `.brand-grep-allow` additions:

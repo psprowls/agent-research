@@ -1,7 +1,7 @@
 # Testing
 
 This document is the **single source of truth** for the integration-gate
-convention used across the `deep-agents` monorepo. Every test that invokes real
+convention used across the `agent-research` monorepo. Every test that invokes real
 AWS Bedrock (or any other real-network / real-cost dependency) MUST follow the
 canonical pattern documented here so the `tests/test_integration_gate.py`
 meta-test passes in CI.

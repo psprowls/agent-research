@@ -18,4 +18,4 @@ Decisions that emerged during the spike. Non-negotiable for the follow-on phase:
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | subagent-context-audit | standard | Given current `prompts/*.py` and `cores/prompt-sources/SKILL.md` + `lattice/wiki/CLAUDE.md`, identify load-bearing chunks dropped, confirm wiki CLAUDE.md is data-only, estimate injection token cost on Bedrock fan-out, and recommend an injection strategy | VALIDATED ✓ | context, prompts, audit, subagents, bedrock |
-| 002 | lattice-drift-inventory | standard | Given the three lattice source packages and current deep-agents packages, walk public modules/functions on each side and issue per-source PORT verdict (ALL/DELTAS-ONLY/NONE) with module-level rationale | VALIDATED ✓ | drift, inventory, port-planning, lattice, refactor |
+| 002 | lattice-drift-inventory | standard | Given the three lattice source packages and current agent-research packages, walk public modules/functions on each side and issue per-source PORT verdict (ALL/DELTAS-ONLY/NONE) with module-level rationale | VALIDATED ✓ | drift, inventory, port-planning, lattice, refactor |

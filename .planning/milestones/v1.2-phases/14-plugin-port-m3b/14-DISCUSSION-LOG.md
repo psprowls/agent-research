@@ -46,7 +46,7 @@ SC#4 wording itself says "manual smoke check." Question: what artifact (if any) 
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Manual run + transcript pasted into 14-VERIFICATION.md (Recommended) | User invokes /graph-wiki:query inside a Claude Code session against ~/Personal/wiki/deep-agents. Paste the full transcript into 14-VERIFICATION.md as a fenced block. Lightweight, matches SC#4 wording, no nondeterminism brittleness. | ✓ |
+| Manual run + transcript pasted into 14-VERIFICATION.md (Recommended) | User invokes /graph-wiki:query inside a Claude Code session against ~/Personal/graph-wiki/agent-research. Paste the full transcript into 14-VERIFICATION.md as a fenced block. Lightweight, matches SC#4 wording, no nondeterminism brittleness. | ✓ |
 | Snapshot baseline in plugins/graph-wiki/tests/smoke/ | Capture the transcript as a baseline; future re-runs do prose-level structural diff. Heavier; risks false positives from LLM nondeterminism but enables regression checks. | |
 | Live demo only — no recorded artifact | Run it once during gsd-verify-work; verify in conversation, no transcript persisted. Cheapest but leaves no audit trail. | |
 | Manual transcript + structural assertion script | Both: paste transcript AND ship scripts/check-query-smoke.sh that runs against a fixture vault and asserts non-empty output + valid wikilinks. Belt and braces; more upfront work. | |

@@ -215,8 +215,8 @@ grep -q 'Each script is a thin shim that imports `main()` from the in-workspace 
 3. Spot-check one invocation actually works end-to-end (no behavior change is being introduced, but the docs should now match reality):
 
        cd /tmp \
-         && DEEP_AGENTS_ROOT=/Users/pat/Personal/deep-agents \
-            CLAUDE_PLUGIN_ROOT=/Users/pat/Personal/deep-agents/plugins/graph-wiki \
+         && DEEP_AGENTS_ROOT=/Users/pat/Personal/agent-research \
+            CLAUDE_PLUGIN_ROOT=/Users/pat/Personal/agent-research/plugins/graph-wiki \
             bash -c 'uv run --project "$DEEP_AGENTS_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --help'
 
    Expected output: argparse `--help` text from `vault_io.detect_containers`. No `ModuleNotFoundError`.

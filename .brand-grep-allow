@@ -258,8 +258,8 @@ graph-wiki/wiki/
 .planning/spikes/002-lattice-drift-inventory/sources/
 # rationale: Phase 21 self-allowlist — the phase dir itself documents the rename and naturally references both old and new names side-by-side (mirrors Phase 12's self-allowlist pattern at line 75).
 .planning/phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/
-# rationale: D-07-analog (per 21-04 SUMMARY forward pointer) — `.claude/skills/sketch-findings-deep-agents/sources/*/index.html` are historical HTML snapshots of sketch sources that quote prior commit messages containing CODE_WIKI_CONFIG; rewriting would corrupt commit-log quotations.
-.claude/skills/sketch-findings-deep-agents/sources/
+# rationale: D-07-analog (per 21-04 SUMMARY forward pointer) — `.claude/skills/sketch-findings-agent-research/sources/*/index.html` are historical HTML snapshots of sketch sources that quote prior commit messages containing CODE_WIKI_CONFIG; rewriting would corrupt commit-log quotations.
+.claude/skills/sketch-findings-agent-research/sources/
 # rationale: D-07-analog (Plan 21-05 Task 3 discretion) — `.planning/sketches/00{1,2,3}/index.html` are static sketch mockups quoting `agents/code-wiki-agent` paths verbatim as rendered `/graph-wiki:refresh` output examples; rewriting would corrupt the design artifact. Plan scope was `.planning/sketches/**/*.md`, not *.html.
 .planning/sketches/001-refresh-sweep-output/index.html
 .planning/sketches/002-refresh-result-block/index.html

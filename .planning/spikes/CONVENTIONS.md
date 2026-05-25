@@ -13,7 +13,7 @@ Note: only one spike has been run so far (001-subagent-context-audit, an analyti
 
 - One folder per spike: `.planning/spikes/NNN-descriptive-name/`. Required file: `README.md` with YAML frontmatter (spike, name, type, validates, verdict, related, tags).
 - Analytical / audit spikes (no runnable code) keep just the README. Code-experiment spikes add `scripts/`, `test-*.py`, or `app/` subfolders as appropriate.
-- Source files for wrapped-up spikes are copied to `./.claude/skills/spike-findings-deep-agents/sources/NNN-name/` at wrap-up time.
+- Source files for wrapped-up spikes are copied to `./.claude/skills/spike-findings-agent-research/sources/NNN-name/` at wrap-up time.
 
 ## Patterns
 

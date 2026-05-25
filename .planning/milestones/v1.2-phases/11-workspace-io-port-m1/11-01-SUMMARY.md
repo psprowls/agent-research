@@ -71,7 +71,7 @@ Scaffolded a new `packages/workspace-io/` uv workspace member using the hatchlin
 
 ## Decisions Made
 
-1. **hatchling over uv_build for this package.** Every other deep-agents workspace member uses `uv_build`. workspace-io diverges because subsequent plans ship `assets/CLAUDE.md.template` inside the package; hatchling auto-includes any subdirectory of `src/workspace_io/` in the wheel without extra `[tool.hatch.build] include` or `package-data` configuration. The RESEARCH.md anti-pattern call-out ("do NOT use `uv_build` despite other packages using it") is honored.
+1. **hatchling over uv_build for this package.** Every other agent-research workspace member uses `uv_build`. workspace-io diverges because subsequent plans ship `assets/CLAUDE.md.template` inside the package; hatchling auto-includes any subdirectory of `src/workspace_io/` in the wheel without extra `[tool.hatch.build] include` or `package-data` configuration. The RESEARCH.md anti-pattern call-out ("do NOT use `uv_build` despite other packages using it") is honored.
 2. **Empty `__init__.py` for this plan.** PATTERNS.md prescribes a re-export block referencing `config`, `init`, and `versions` modules — none of which exist yet. Adding the imports now would break `uv sync` resolution. Re-exports are added in Plan 02 after the modules land.
 3. **No root `pyproject.toml` edit.** The existing `[tool.uv.workspace] members = ["packages/*", "agents/*"]` glob already discovers `packages/workspace-io/`. Per the plan's `<action>` and `<acceptance_criteria>`, leaving the root unchanged is the correct outcome.
 

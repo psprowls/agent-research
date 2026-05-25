@@ -62,7 +62,7 @@ Prove `graph-wiki-mcp` behaves correctly under a real stdio MCP host: (a) when t
 
 ### Test fixture/vault strategy
 - **D-12:** **Fresh `tmp_path` per run, init + inline seed.** Test sequence: (1) `wiki_init` against `tmp_path` (validates DACLI-02 init coverage); (2) write a small deterministic seed inline (3–5 pages + 1 source file + 1 work item) so scan/ingest/lint/query/log have material; (3) drive each remaining tool with realistic inputs; (4) assert non-error outcomes. Each tool runs against the same evolving vault — natural ordering reflects real usage.
-- **D-13:** **CWD discipline.** `wiki_scan` walks the configured repo root, so tests MUST set the scan target to `tmp_path` (not the deep-agents workspace) — otherwise scanner fan-out would walk the live repo and either time out or rack up Bedrock cost. Planner: confirm the env-var or config plumbing for scan target; extend if needed.
+- **D-13:** **CWD discipline.** `wiki_scan` walks the configured repo root, so tests MUST set the scan target to `tmp_path` (not the agent-research workspace) — otherwise scanner fan-out would walk the live repo and either time out or rack up Bedrock cost. Planner: confirm the env-var or config plumbing for scan target; extend if needed.
 - **D-14:** **One test function with sequential sub-assertions**, not six independent tests. Reason: vault state has a natural dependency chain (init → scan → ingest → query → lint → log), and six independent tests would each pay subprocess-spawn overhead (~1s) plus Bedrock latency. Single subprocess, single stdin pipeline keeps the test under a reasonable wall-clock budget.
 
 ### Docs surface (MCP-09)

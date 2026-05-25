@@ -13,7 +13,7 @@ updated: 2026-05-19
 
 ## Goal
 
-Capture ideas, scope, and candidate phases for the next deep-agents milestone while the current milestone audit and close-out runs in a parallel session. Promote the resulting material into ROADMAP.md once `/gsd-complete-milestone` finishes.
+Capture ideas, scope, and candidate phases for the next agent-research milestone while the current milestone audit and close-out runs in a parallel session. Promote the resulting material into ROADMAP.md once `/gsd-complete-milestone` finishes.
 
 ## Context
 
@@ -25,14 +25,14 @@ Project snapshot at thread creation:
 - Current milestone: v1 of `code-wiki-agent` (Bedrock-hosted port of lattice-wiki).
 - Most recent commits indicate Phase 9 gap-closure verified; `cores/` renamed to `packages/`.
 - Tech stack locked: `uv` workspace, Python 3.11+, deepagents 0.6.1, langchain-aws 1.4.6, mcp 1.27.1, deepeval 4.0.0, typer 0.25.1. See `CLAUDE.md` for full table.
-- Wiki vault for this project: `~/Personal/wiki/deep-agents` (Qwen3-32B fan-out, Qwen3-80B synthesis).
+- Wiki vault for this project: `~/Personal/graph-wiki/agent-research` (Qwen3-32B fan-out, Qwen3-80B synthesis).
 
 ## References
 
 - `CLAUDE.md` — locked stack and constraints
 - `.planning/ROADMAP.md` — current milestone phases (do NOT edit from this thread)
-- `Skill("spike-findings-deep-agents")` — implementation blueprint and proven patterns
-- `~/Personal/wiki/deep-agents` — wiki for cross-reference
+- `Skill("spike-findings-agent-research")` — implementation blueprint and proven patterns
+- `~/Personal/graph-wiki/agent-research` — wiki for cross-reference
 
 ## Next Steps
 
@@ -91,7 +91,7 @@ Target layout in this repo (after the milestone):
 **Verify schema.py before porting.** If it only writes work-item schemas, drop it (we're skipping the work layer). If it writes anything else, keep it.
 
 **Open questions:**
-- Existing user-level config file: `~/Personal/wiki/deep-agents/wiki-config.toml` (from memory `project_wiki_setup`). Does it become `~/Personal/wiki/deep-agents/.graph-wiki.yaml`? Migration script needed if yes.
+- Existing user-level config file: `~/Personal/graph-wiki/agent-researchwiki-config.toml` (from memory `project_wiki_setup`). Does it become `~/Personal/graph-wiki/agent-research.graph-wiki.yaml`? Migration script needed if yes.
 - Does the workspace bootstrap (`init.py`) also create the wiki tree, or only the workspace shell? If only shell, `vault-io.init_vault.init_wiki` still runs after to populate `wiki/`.
 
 ### M2 — Selective drift backport from `lattice-wiki-core` into `vault-io` + `graph-wiki` rebrand
@@ -138,8 +138,8 @@ Per spike 002 §Investigation A, these are the candidates. For each, decide port
 ### Cross-cutting
 
 - **Naming consistency sweep:** at the end of M1 + M2, grep for `lattice`, `LATTICE`, `lattice_workspace`, `lattice_wiki_core` across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` — anything remaining is a bug.
-- **Wiki self-update:** project's own wiki at `~/Personal/wiki/deep-agents` will need to absorb new package names and the new `.graph-wiki.yaml` manifest. Run a wiki scan after M1 + M2 land.
-- **Spike findings:** `Skill("spike-findings-deep-agents")` is still the implementation blueprint for code-wiki-agent itself; spike 002's drift map is the planning artifact for this milestone's port work.
+- **Wiki self-update:** project's own wiki at `~/Personal/graph-wiki/agent-research` will need to absorb new package names and the new `.graph-wiki.yaml` manifest. Run a wiki scan after M1 + M2 land.
+- **Spike findings:** `Skill("spike-findings-agent-research")` is still the implementation blueprint for code-wiki-agent itself; spike 002's drift map is the planning artifact for this milestone's port work.
 
 ## Migration Themes (superseded — kept for provenance)
 
@@ -177,7 +177,7 @@ Target layout in this repo:
 **Dependency:** after T1.
 
 **Open questions:**
-- Are there config files at the *user* level (e.g., `~/Personal/wiki/deep-agents/wiki-config.toml` per the project_wiki_setup memory) that need renaming? If yes, ship a one-shot migration script and document the move.
+- Are there config files at the *user* level (e.g., `~/Personal/graph-wiki/agent-researchwiki-config.toml` per the project_wiki_setup memory) that need renaming? If yes, ship a one-shot migration script and document the move.
 - Does "rebrand" also apply to skill/command names exposed externally (e.g., `lattice-wiki:query` → `graph-wiki:query`)? — answered by T4 below, but worth aligning vocab now.
 - Resolve overlapping functionality: `vault-io` already has its own implementation. Define the merge strategy per module (replace, merge field-by-field, or wrap).
 
@@ -185,7 +185,7 @@ Target layout in this repo:
 
 **Scope:**
 - Port `lattice-wiki-core/src/` (the agent logic) into `agents/code-wiki-agent/` where it belongs by responsibility; spill anything filesystem/vault-layer into `workspace-io`.
-- This is "the spike findings, applied" — see `Skill("spike-findings-deep-agents")` for the implementation blueprint already gathered.
+- This is "the spike findings, applied" — see `Skill("spike-findings-agent-research")` for the implementation blueprint already gathered.
 - Rebrand to `graph-wiki` terminology as you port (same rules as T2).
 
 **Dependency:** after T2 (workspace-io must be settled before downstream code targets it).
@@ -194,7 +194,7 @@ Target layout in this repo:
 - How much of `lattice-wiki-core` is already reimplemented in `code-wiki-agent`? Need a diff/inventory pass before scoping the port — candidate for a dedicated `/gsd-spec-phase` ambiguity-scoring pass, or a short spike.
 - Bedrock-only constraint: any `lattice-wiki-core` Anthropic-direct calls must be rewritten through `langchain-aws` (see `CLAUDE.md` Tech Stack §3).
 
-### T4 — Bring `lattice-wiki` plugin into `deep-agents/plugins/graph-wiki/`
+### T4 — Bring `lattice-wiki` plugin into `agent-research/plugins/graph-wiki/`
 
 **Scope:**
 - Copy `/Users/pat/Personal/lattice/plugins/lattice-wiki/` → `plugins/graph-wiki/`.
@@ -205,16 +205,16 @@ Target layout in this repo:
 **Dependency:** after T2 (needs `workspace-io`) and T3 (needs core logic available for any plugin scripts that invoke it).
 
 **Open questions:**
-- Where do the plugin's slash commands shell out to? If they call the deep-agents CLI / MCP server, the contract surface needs to be locked before the plugin port. If they shell out to lattice CLIs, those calls must be rewritten.
+- Where do the plugin's slash commands shell out to? If they call the agent-research CLI / MCP server, the contract surface needs to be locked before the plugin port. If they shell out to lattice CLIs, those calls must be rewritten.
 - The plugin still ships as a Claude Code plugin at this stage — that's the v1 endpoint of T4. T5 is the optional follow-on.
 
 **Open questions:**
-- Does Pat want the plugin to remain Claude-Code-only, or run on Bedrock through the deep-agents CLI / MCP server?
+- Does Pat want the plugin to remain Claude-Code-only, or run on Bedrock through the agent-research CLI / MCP server?
 - If (b): what's the host runtime — `deepagents` SubAgentMiddleware, a sibling agent under `agents/`, or a new top-level package?
 - uv workspace mechanics for (a) are straightforward: add `plugins/graph-wiki/` as a workspace member with `uv_build` backend and a non-Python `data_files` block.
 
 ### Cross-cutting
 
 - **Naming consistency sweep:** at the end of T1–T4, grep for `lattice`, `vault-io`, `vault_io` across `packages/`, `agents/`, `plugins/`, `.planning/`, `CLAUDE.md` — anything remaining is a bug.
-- **Wiki self-update:** the project's own wiki at `~/Personal/wiki/deep-agents` will need to absorb the new package names. Run `/lattice-wiki:scan` (or its renamed successor) after T1+T2 land.
-- **Spike findings already cover this surface:** `Skill("spike-findings-deep-agents")` is the implementation blueprint. Re-read it before planning T2/T3 to avoid relitigating decisions.
+- **Wiki self-update:** the project's own wiki at `~/Personal/graph-wiki/agent-research` will need to absorb the new package names. Run `/lattice-wiki:scan` (or its renamed successor) after T1+T2 land.
+- **Spike findings already cover this surface:** `Skill("spike-findings-agent-research")` is the implementation blueprint. Re-read it before planning T2/T3 to avoid relitigating decisions.

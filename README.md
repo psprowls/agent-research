@@ -1,4 +1,4 @@
-# deep-agents
+# agent-research
 
 A Python monorepo of LangChain/deepagents-based AI tooling, managed with `uv`.
 

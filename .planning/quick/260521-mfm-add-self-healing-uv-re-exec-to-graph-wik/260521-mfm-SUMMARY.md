@@ -28,7 +28,7 @@ Make `python <plugin-shim>.py` work from any shell, not just under `uv run --pro
 From a clean cwd (`/tmp`) with no uv project context:
 
 ```
-$ /usr/bin/env python3 /Users/pat/Personal/deep-agents/plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help
+$ /usr/bin/env python3 /Users/pat/Personal/agent-research/plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help
 usage: detect_containers.py [-h] [--json]
 Classify a repo's top-level dirs.
 …

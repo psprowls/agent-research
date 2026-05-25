@@ -1,6 +1,6 @@
-# Roadmap: deep-agents / graph-wiki-agent
+# Roadmap: agent-research / graph-wiki-agent
 
-**Project:** deep-agents (v1 = graph-wiki-agent)
+**Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
 **Current milestone:** v1.4 — Workspace Path Resolution Cleanup (started 2026-05-20)
 

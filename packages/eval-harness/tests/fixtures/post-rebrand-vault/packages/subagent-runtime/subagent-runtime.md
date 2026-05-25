@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`subagent-runtime` is the async fan-out primitive of the post-rebrand `deep-agents` monorepo. `SubagentPool.run_all` dispatches N items in parallel through a caller-supplied async task, enforces a per-role semaphore, isolates per-item failures, and writes a JSONL trace record per invocation (success / cancelled / error). The trace-writing logic was extracted in Phase 16 D-04 into the `trace_io.write_trace_record` helper so command-level callers (ingest, query) can emit identically-shaped records without duplicating the construction logic.
+`subagent-runtime` is the async fan-out primitive of the post-rebrand `agent-research` monorepo. `SubagentPool.run_all` dispatches N items in parallel through a caller-supplied async task, enforces a per-role semaphore, isolates per-item failures, and writes a JSONL trace record per invocation (success / cancelled / error). The trace-writing logic was extracted in Phase 16 D-04 into the `trace_io.write_trace_record` helper so command-level callers (ingest, query) can emit identically-shaped records without duplicating the construction logic.
 
 ## API
 

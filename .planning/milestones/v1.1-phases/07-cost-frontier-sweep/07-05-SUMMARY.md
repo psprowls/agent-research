@@ -112,10 +112,10 @@ completed: 2026-05-16
 
 ## Files Created/Modified
 
-- `/Users/pat/Personal/deep-agents/cores/eval-harness/src/eval_harness/two_gate.py` — ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate
-- `/Users/pat/Personal/deep-agents/cores/eval-harness/src/eval_harness/sweep.py` — ROLE_COMMAND_MAP, _sweep_*_role helpers, run_role_sweep, new imports
-- `/Users/pat/Personal/deep-agents/cores/eval-harness/tests/test_two_gate_scorer.py` — 6 tests replacing scaffold stubs
-- `/Users/pat/Personal/deep-agents/cores/eval-harness/tests/test_role_sweep.py` — 11 tests replacing scaffold stubs
+- `/Users/pat/Personal/agent-research/packages/eval-harness/src/eval_harness/two_gate.py` — ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate
+- `/Users/pat/Personal/agent-research/packages/eval-harness/src/eval_harness/sweep.py` — ROLE_COMMAND_MAP, _sweep_*_role helpers, run_role_sweep, new imports
+- `/Users/pat/Personal/agent-research/packages/eval-harness/tests/test_two_gate_scorer.py` — 6 tests replacing scaffold stubs
+- `/Users/pat/Personal/agent-research/packages/eval-harness/tests/test_role_sweep.py` — 11 tests replacing scaffold stubs
 
 ## Decisions Made
 

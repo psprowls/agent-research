@@ -25,7 +25,7 @@ decisions:
     under a misleading `docs(20-03)` subject. Re-applying the edits in this
     session yielded no diff (idempotent). Acceptance criteria all satisfied
     by the existing on-disk state."
-  - "The plan's wiki-page target path (/Users/pat/Personal/wiki/deep-agents/...)
+  - "The plan's wiki-page target path (/Users/pat/Personal/graph-wiki/agent-research...)
     does not exist. The live wiki page is at graph-wiki/wiki/packages/
     workspace-io/workspace-io.md and is a TODO stub free of the three stale
     strings (`no PyYAML`, `minimal YAML parser`, `Pure standard library`).
@@ -91,7 +91,7 @@ The 20-03 executor scope-crept into Plan 20-04's Task 1, likely because the dele
 
 **Found during:** Task 1 step 2 (wiki page edit)
 
-**Issue:** The plan targets `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md`. That path does not exist — `/Users/pat/Personal/wiki/` itself is absent. The graph-wiki workspace was relocated to `/Users/pat/Personal/deep-agents/graph-wiki/wiki/`, and the page at `graph-wiki/wiki/packages/workspace-io/workspace-io.md` is a TODO stub (lines 1-77) with none of the three targeted stale strings.
+**Issue:** The plan targets `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md`. That path does not exist — `/Users/pat/Personal/wiki/` itself is absent. The graph-wiki workspace was relocated to `/Users/pat/Personal/agent-research/graph-wiki/wiki/`, and the page at `graph-wiki/wiki/packages/workspace-io/workspace-io.md` is a TODO stub (lines 1-77) with none of the three targeted stale strings.
 
 **Fix:** None needed — the grep gate `grep -E 'no PyYAML|minimal YAML parser|Pure standard library' <file>` already returns 0 against the live page. The page is a stub; rewriting the `Purpose` / `File map` TODO content is out of scope for Plan 20-04.
 
@@ -107,10 +107,10 @@ the checkpoint payload. All passed.
 
 ### Check 1 — sanity ping (workspace pinned)
 
-Command (from `/Users/pat/Personal/deep-agents`):
+Command (from `/Users/pat/Personal/agent-research`):
 
 ```bash
-GRAPH_WIKI_WORKSPACE=/Users/pat/Personal/deep-agents/graph-wiki \
+GRAPH_WIKI_WORKSPACE=/Users/pat/Personal/agent-research/graph-wiki \
   uv run --package model-adapter python -c "
 from model_adapter.loader import make_llm
 for role in ['preflight','librarian','scanner','linter','ingestor','synthesizer','code_reader','judge_a','judge_b']:
@@ -151,7 +151,7 @@ ended this checkpoint byte-identical to its pre-check state.
 
 ### Check 3 — no-workspace fallback
 
-From `/Users/pat/Personal/deep-agents/packages` with `GRAPH_WIKI_WORKSPACE`
+From `/Users/pat/Personal/agent-research/packages` with `GRAPH_WIKI_WORKSPACE`
 unset:
 
 ```
@@ -165,7 +165,7 @@ honoured.
 ### Check 4 — live Bedrock query (optional)
 
 ```bash
-GRAPH_WIKI_WORKSPACE=/Users/pat/Personal/deep-agents/graph-wiki \
+GRAPH_WIKI_WORKSPACE=/Users/pat/Personal/agent-research/graph-wiki \
   uv run --package graph-wiki-agent graph-wiki-agent query \
   "What does workspace-io do?" --top-k 3 --quiet
 ```

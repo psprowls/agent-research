@@ -3,7 +3,7 @@
 **Date:** 2026-05-19
 **Sketches processed:** 3
 **Design areas:** Refresh command UX
-**Skill output:** `./.claude/skills/sketch-findings-deep-agents/`
+**Skill output:** `./.claude/skills/sketch-findings-agent-research/`
 
 ## Included Sketches
 

@@ -14,7 +14,7 @@ Both TOML files were `git rm`'d earlier in this session (already staged). The us
 
 ## Locked decisions (from session)
 
-1. **Canonical config source:** `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block. The existing manifest in `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` already proves the shape with a single `preflight` role.
+1. **Canonical config source:** `<workspace>/.graph-wiki.yaml` `plugins[].roles[]` block. The existing manifest in `~/Personal/agent-research/graph-wiki/.graph-wiki.yaml` already proves the shape with a single `preflight` role.
 
 2. **Fallback layer:** Packaged `packages/model-adapter/src/model_adapter/models.toml`. Used per-role when workspace manifest is silent on that role (not all-or-nothing).
 
@@ -51,7 +51,7 @@ All open questions resolved during phase execution. See SUMMARY.md for outcomes.
 
 - **Per-machine model selection inside `.graph-wiki.local.yaml`.** User explicitly chose Option A — redirect to a different workspace dir instead. Do not extend the flat-only local-config parser to support nested role overrides.
 - **Migrating data from deleted `wiki-config.toml` files.** Already deleted; no migration path needed.
-- **`~/Personal/wiki/deep-agents/` vs `~/Personal/deep-agents/graph-wiki/wiki/` divergence.** Surfaced in session as a separate decision; not part of this phase.
+- **`~/Personal/graph-wiki/agent-research` vs `~/Personal/agent-research/graph-wiki/wiki/` divergence.** Surfaced in session as a separate decision; not part of this phase.
 - **Changes to `models-claude.toml`.** Separately staged deletion in `git status`, unrelated.
 
 ## Files to touch (initial inventory — planner refines)
@@ -70,12 +70,12 @@ All open questions resolved during phase execution. See SUMMARY.md for outcomes.
 - `agents/graph-wiki-agent/tests/unit/test_config.py` — drop `models_path` assertions
 
 **Configuration / data:**
-- `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml` — fill in full `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge) mirroring packaged defaults
+- `~/Personal/agent-research/graph-wiki/.graph-wiki.yaml` — fill in full `roles[]` set (preflight, librarian, scanner, linter, ingestor, synthesizer, code_reader, judge) mirroring packaged defaults
 
 **Docs:**
 - `packages/workspace-io/README.md` — document the `roles:` schema
 - `agents/graph-wiki-agent/` README / CLI help — drop `--config wiki-config.toml` references
-- `~/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md` — correct stale "no PyYAML" claim
+- `~/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md` — correct stale "no PyYAML" claim
 - `.planning/intel/stack.json` — drop stale `wiki-config.toml` reference
 
 ## Dependencies and risks
@@ -89,7 +89,7 @@ All open questions resolved during phase execution. See SUMMARY.md for outcomes.
 - SC#1: round-trip unit test for `manifest.py` with a populated `roles[]` block
 - SC#2: paired tests in `model-adapter` — (a) workspace defines role → workspace wins; (b) workspace silent on role → fallback to `models.toml`
 - SC#3: grep gate in CI (or manual check) — no remaining `models_path`, `set_models_path`, `--config`, `GRAPH_WIKI_CONFIG`, or `wiki-config.toml` references in source
-- SC#4: live verify by running `code-wiki query "..."` against `~/Personal/deep-agents/graph-wiki/` with the full role block and confirming the configured models are used
+- SC#4: live verify by running `code-wiki query "..."` against `~/Personal/agent-research/graph-wiki/` with the full role block and confirming the configured models are used
 - SC#5: doc diff review
 
 ## Glossary

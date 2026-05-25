@@ -214,7 +214,7 @@ None — no new network endpoints, no new auth paths, no new trust boundaries. D
 
 - **SC#3 closed:** `WikiConfig.models_path`, `set_models_path()`, `--config`, and `GRAPH_WIKI_CONFIG` are all removed. The only residual references are the two plan-mandated docstring breadcrumbs noted in Deviations §§1-2; no code path reads `wiki-config.toml`.
 - **SC#5 agent-side docs portion closed:** no `.md` files under `agents/graph-wiki-agent/` outside tests reference the deleted surface.
-- **Plan 20-04 (live verify SC#4)** can now proceed against `~/Personal/deep-agents/graph-wiki/.graph-wiki.yaml`: the agent has no remaining code path that would short-circuit workspace resolution via the deleted plumbing.
+- **Plan 20-04 (live verify SC#4)** can now proceed against `~/Personal/agent-research/graph-wiki/.graph-wiki.yaml`: the agent has no remaining code path that would short-circuit workspace resolution via the deleted plumbing.
 
 ---
 *Phase: 20-workspace-manifest-model-config*

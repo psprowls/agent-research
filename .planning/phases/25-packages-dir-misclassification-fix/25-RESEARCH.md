@@ -448,7 +448,7 @@ Relevant to this phase:
 5. **ROADMAP.md edits are at lines 130-135 (Success Criteria) + line 81 (one-liner).** Drop SC#4 entirely; revise SC#3 (the ≥80% heuristic wording is now `≥1`); revise SC#5 to drop the `--interactive` flag-visibility clause. Plugin CLAUDE.md's "interactive" framing still applies to fallback-ambiguous rows — **no edit needed there**.
 
 ### File Created
-`/Users/pat/Personal/deep-agents/.claude/worktrees/phase-25-discuss/.planning/phases/25-packages-dir-misclassification-fix/25-RESEARCH.md`
+`/Users/pat/Personal/agent-research/.claude/worktrees/phase-25-discuss/.planning/phases/25-packages-dir-misclassification-fix/25-RESEARCH.md`
 
 ### Ready for Planning
 Yes. Recommend the planner produce a single PLAN.md with ~6 tasks: (1) rewrite `_classify_dir` Rule 3 branch; (2) add 3-5 new unit tests; (3) update `detection-workflow.md` (rule 3 wording + delete contradicting bullet); (4) move todo to `resolved/` with a "resolved by Phase 25" note; (5) edit ROADMAP.md Phase 25 block (line 81 + lines 130-135 SC list); (6) verification step running `uv run pytest`.

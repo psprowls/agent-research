@@ -25,7 +25,7 @@ key_files:
     - "agents/code-wiki-agent/ → agents/graph-wiki-agent/ (70 files, dir + 2 Python module subdirs in ONE commit)"
 decisions:
   - "Executed all three git mv operations in a single commit per plan body (lines 127-131) and acceptance criteria (lines 161-162). Orchestrator parallel_execution note suggested keeping Python module subdirs un-renamed at this layer, but plan body, acceptance criteria, and must_haves all explicitly require the module renames here. Plan governs."
-  - "Skipped plan Task 1 (worktree-creation checkpoint:human-verify). Already running inside a Claude Code worktree (agent-a1c9c480efbaf6b54 on branch worktree-agent-a1c9c480efbaf6b54), which satisfies the D-08 worktree containment constraint. The plan's proposed ../deep-agents-rename worktree is not used; this Claude Code worktree IS the worktree."
+  - "Skipped plan Task 1 (worktree-creation checkpoint:human-verify). Already running inside a Claude Code worktree (agent-a1c9c480efbaf6b54 on branch worktree-agent-a1c9c480efbaf6b54), which satisfies the D-08 worktree containment constraint. The plan's proposed ../agent-research-rename worktree is not used; this Claude Code worktree IS the worktree."
   - "Commit subject uses refactor(21-01) rather than the plan example's refactor(21). Follows project executor convention {type}({phase}-{plan}). Substantively matches the plan's intent."
 metrics:
   duration_sec: 94
@@ -44,9 +44,9 @@ metrics:
 
 ## Worktree Confirmation
 
-- **Worktree path:** `/Users/pat/Personal/deep-agents/.claude/worktrees/agent-a1c9c480efbaf6b54`
+- **Worktree path:** `/Users/pat/Personal/agent-research/.claude/worktrees/agent-a1c9c480efbaf6b54`
 - **Branch:** `worktree-agent-a1c9c480efbaf6b54` (Claude Code parallel-executor worktree)
-- **Plan's proposed `../deep-agents-rename` worktree:** NOT created. The Claude Code worktree already provides D-08 worktree containment (main checkout at `~/Personal/deep-agents/` is read-only during this execution). Plan Task 1's `git worktree add` step is satisfied transitively.
+- **Plan's proposed `../agent-research-rename` worktree:** NOT created. The Claude Code worktree already provides D-08 worktree containment (main checkout at `~/Personal/agent-research/` is read-only during this execution). Plan Task 1's `git worktree add` step is satisfied transitively.
 
 ## HEAD Commit
 
@@ -99,7 +99,7 @@ This deviates from the plan's `<acceptance_criteria>` line ("`uv sync` exits 0")
 
 ## Subsequent-Task Reminder
 
-All Phase 21 tasks (plans 21-02, 21-03, 21-04) execute inside this Claude Code worktree (`/Users/pat/Personal/deep-agents/.claude/worktrees/agent-a1c9c480efbaf6b54`) on branch `worktree-agent-a1c9c480efbaf6b54`, not in the plan's originally-proposed `../deep-agents-rename` sibling worktree. The orchestrator's wave runner will spawn each subsequent layer's executor with the same worktree-cwd convention.
+All Phase 21 tasks (plans 21-02, 21-03, 21-04) execute inside this Claude Code worktree (`/Users/pat/Personal/agent-research/.claude/worktrees/agent-a1c9c480efbaf6b54`) on branch `worktree-agent-a1c9c480efbaf6b54`, not in the plan's originally-proposed `../agent-research-rename` sibling worktree. The orchestrator's wave runner will spawn each subsequent layer's executor with the same worktree-cwd convention.
 
 ## Deviations from Plan
 

@@ -32,7 +32,7 @@
 
 **Test fixture / vault strategy:**
 - D-12: Fresh `tmp_path` per run. Sequence: `wiki_init` → inline seed (3-5 pages + 1 source + 1 work item) → `wiki_scan` → `wiki_ingest` → `wiki_query` → `wiki_lint` → `wiki_log`.
-- D-13: CWD discipline — scan target MUST be `tmp_path`, not the deep-agents workspace.
+- D-13: CWD discipline — scan target MUST be `tmp_path`, not the agent-research workspace.
 - D-14: One test function, sequential sub-assertions.
 
 **Docs surface:**
@@ -387,13 +387,13 @@ This phase is not a rename/refactor/migration phase. Section omitted.
 
 ### Pitfall 4: `wiki_scan` in MCP server has no `repo_path` field
 
-**What goes wrong:** The E2E test calls `wiki_scan` with `vault_path=str(tmp_path)` but scan still walks the deep-agents workspace because `resolve_wiki_and_repo` returns `repo_root=None` and `run_scan` falls back to `Path.cwd()`. Scan fans out over the entire monorepo, times out, and racks up Bedrock cost.
+**What goes wrong:** The E2E test calls `wiki_scan` with `vault_path=str(tmp_path)` but scan still walks the agent-research workspace because `resolve_wiki_and_repo` returns `repo_root=None` and `run_scan` falls back to `Path.cwd()`. Scan fans out over the entire monorepo, times out, and racks up Bedrock cost.
 
 **Why it happens:** `WikiScanInput` in `server.py` only exposes `vault_path`, `no_file_map`, and `max_depth`. The `repo_path` override in `run_scan` is never passed through the MCP tool layer.
 
 **How to avoid:** The planner must add `repo_path: str = Field("", description="...")` to `WikiScanInput` and pass `repo_path=Path(input.repo_path) if input.repo_path else None` to `run_scan(...)`. This is a required code change for the E2E test.
 
-**Warning signs:** E2E scan call takes >30 seconds; errors mentioning the deep-agents monorepo packages appear in the scan output; cost spikes during test.
+**Warning signs:** E2E scan call takes >30 seconds; errors mentioning the agent-research monorepo packages appear in the scan output; cost spikes during test.
 
 ### Pitfall 5: FastMCP does not send a response to a cancelled request
 

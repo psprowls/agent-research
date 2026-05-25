@@ -4,7 +4,7 @@ See [INDEX.md](INDEX.md) for the per-role artifacts.
 
 ## What v1.0 Promised
 
-deep-agents / graph-wiki-agent exists to "faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin" (PROJECT.md Core Value). Phase 7 is where that "meaningfully lower cost" claim either lands or doesn't — the cost-frontier sweep ranks 4 Bedrock candidates per agent role and produces the data needed to swap defaults toward the cost-optimal pick at acceptable quality.
+agent-research / graph-wiki-agent exists to "faithfully reproduce lattice-wiki's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin" (PROJECT.md Core Value). Phase 7 is where that "meaningfully lower cost" claim either lands or doesn't — the cost-frontier sweep ranks 4 Bedrock candidates per agent role and produces the data needed to swap defaults toward the cost-optimal pick at acceptable quality.
 
 ## What v1.1 Measured
 

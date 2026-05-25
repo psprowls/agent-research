@@ -1,6 +1,6 @@
 # Architecture Research
 
-**Domain:** Tiered uv monorepo — shared cores + agent packages (deep-agents / graph-wiki-agent)
+**Domain:** Tiered uv monorepo — shared cores + agent packages (agent-research / graph-wiki-agent)
 **Researched:** 2026-05-13
 **Confidence:** HIGH (monorepo + MCP patterns verified; deepagents subagent API is MEDIUM — library is young, v0.6.1 as of May 2026, internal fan-out API not yet formally documented)
 
@@ -11,7 +11,7 @@
 ### Concrete Directory Tree
 
 ```
-deep-agents/                          # workspace root (no deployable code here)
+agent-research/                          # workspace root (no deployable code here)
 ├── pyproject.toml                    # workspace declaration only — no [project] table
 ├── uv.lock                           # single shared lockfile
 ├── .python-version                   # pinned Python (3.11+)
@@ -20,21 +20,21 @@ deep-agents/                          # workspace root (no deployable code here)
 │
 ├── cores/                            # shared infrastructure packages
 │   ├── model-adapters/               # Bedrock ChatBedrock wrapper, model registry
-│   │   ├── pyproject.toml            # name = "deep-agents-models"
+│   │   ├── pyproject.toml            # name = "agent-research-models"
 │   │   └── src/deep_agents_models/
 │   │       ├── __init__.py
 │   │       ├── bedrock.py            # ChatBedrock factory, model_id enum
 │   │       └── registry.py           # role → model_id mapping, loaded from config
 │   │
 │   ├── subagent-runtime/             # asyncio fan-out primitives
-│   │   ├── pyproject.toml            # name = "deep-agents-runtime"
+│   │   ├── pyproject.toml            # name = "agent-research-runtime"
 │   │   └── src/deep_agents_runtime/
 │   │       ├── __init__.py
 │   │       ├── pool.py               # SubagentPool.fanout(), SubagentPool.map()
 │   │       └── result.py             # FanoutResult, aggregation helpers
 │   │
 │   └── eval-harness/                 # cross-agent eval scaffolding
-│       ├── pyproject.toml            # name = "deep-agents-eval"
+│       ├── pyproject.toml            # name = "agent-research-eval"
 │       └── src/deep_agents_eval/
 │           ├── __init__.py
 │           ├── recorder.py           # record baseline outputs from lattice-wiki
@@ -122,8 +122,8 @@ name = "graph-wiki-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "deep-agents-models",
-    "deep-agents-runtime",
+    "agent-research-models",
+    "agent-research-runtime",
     "deepagents>=0.6.1",
     "langchain-aws>=0.2",
     "langchain-mcp-adapters",
@@ -133,8 +133,8 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-deep-agents-models  = { workspace = true }
-deep-agents-runtime = { workspace = true }
+agent-research-models  = { workspace = true }
+agent-research-runtime = { workspace = true }
 ```
 
 ### Where Tests and Fixtures Live
@@ -377,8 +377,8 @@ Port from `lattice-wiki-core` to `graph_wiki_agent/vault/`. Do not add an import
 | assets / page-templates | **Copy verbatim** | Templates are format-compatible; copy to `src/graph_wiki_agent/assets/` |
 
 **Why not import lattice-wiki-core directly?**
-- Deep-agents is a separate repo; adding a cross-repo path dependency creates a fragile development setup
-- lattice-wiki-core has its own `_workspace.py` that resolves paths via `lattice-workspace` — that coupling doesn't belong in deep-agents
+- agent-research is a separate repo; adding a cross-repo path dependency creates a fragile development setup
+- lattice-wiki-core has its own `_workspace.py` that resolves paths via `lattice-workspace` — that coupling doesn't belong in agent-research
 - The relevant code is ~800 lines across ~6 files; porting is a one-day task and makes the package self-contained
 
 **Format compatibility commitment:** `layout_io.py` is ported verbatim, same sentinel strings (`<!-- lattice-wiki:layout:start -->`), same YAML schema. Existing vaults are read-compatible on day one.
@@ -389,9 +389,9 @@ Port from `lattice-wiki-core` to `graph_wiki_agent/vault/`. Do not add an import
 
 ### Location: Separate Core Package
 
-The eval harness lives in `cores/eval-harness/` as the `deep-agents-eval` package, not in-tree to `graph-wiki-agent`. This allows future agents to reuse the same replay + scoring infrastructure.
+The eval harness lives in `cores/eval-harness/` as the `agent-research-eval` package, not in-tree to `graph-wiki-agent`. This allows future agents to reuse the same replay + scoring infrastructure.
 
-The `graph-wiki-agent` package declares `deep-agents-eval` as a dev dependency.
+The `graph-wiki-agent` package declares `agent-research-eval` as a dev dependency.
 
 ### Structure
 
@@ -631,5 +631,5 @@ Gate per command: parity test against recorded lattice-wiki output for same fixt
 
 ---
 
-*Architecture research for: deep-agents Python monorepo (graph-wiki-agent)*
+*Architecture research for: agent-research Python monorepo (graph-wiki-agent)*
 *Researched: 2026-05-13*

@@ -16,7 +16,7 @@ requirements:
   - DACLI-03
 must_haves:
   truths:
-    - "WikiScanInput accepts an explicit repo_path string; wiki_scan tool passes it through to run_scan so MCP-layer callers can scope the scan target (preventing the test from walking the live deep-agents workspace)."
+    - "WikiScanInput accepts an explicit repo_path string; wiki_scan tool passes it through to run_scan so MCP-layer callers can scope the scan target (preventing the test from walking the live agent-research workspace)."
     - "A single end-to-end integration test launches graph-wiki-mcp as a stdio subprocess via uv run --package graph-wiki-agent graph-wiki-mcp and drives JSON-RPC over stdin/stdout (DACLI-01)."
     - "The test exercises all six shipped tools — wiki_init, wiki_scan, wiki_ingest, wiki_query, wiki_lint, wiki_log — sequentially against a fresh tmp_path vault and asserts non-error JSON-RPC responses for each (DACLI-02)."
     - "The test is gated by GRAPH_WIKI_RUN_INTEGRATION=1 because 4/6 tools call real Bedrock; the gate matches v1.0 integration-test conventions (DACLI-03)."
@@ -46,7 +46,7 @@ must_haves:
 ---
 
 <objective>
-Add the missing `repo_path` field to `WikiScanInput` (required precondition — without it the E2E test would scan the live deep-agents workspace per RESEARCH.md Pitfall 4), then write a single sequential E2E integration test that launches `graph-wiki-mcp` as a stdio subprocess and exercises all six shipped MCP tools against a fresh `tmp_path` vault.
+Add the missing `repo_path` field to `WikiScanInput` (required precondition — without it the E2E test would scan the live agent-research workspace per RESEARCH.md Pitfall 4), then write a single sequential E2E integration test that launches `graph-wiki-mcp` as a stdio subprocess and exercises all six shipped MCP tools against a fresh `tmp_path` vault.
 
 Purpose: closes DACLI-01 (subprocess launch from spec-conformant host), DACLI-02 (all 6 tools exercised with non-error outcomes), and DACLI-03 (`GRAPH_WIKI_RUN_INTEGRATION=1` opt-in gate). This is the v1.1 proof that every shipped tool round-trips correctly through the real FastMCP stdio transport — not just unit-tested in isolation.
 
@@ -205,7 +205,7 @@ Do NOT add an `INTEGRATION_GATE` — these are pure schema tests, no Bedrock.
     - Drives JSON-RPC initialize → initialized → six `tools/call` payloads in order: `wiki_init`, `wiki_scan`, `wiki_ingest`, `wiki_query`, `wiki_lint`, `wiki_log` (D-12 sequence; natural dependency chain).
     - Each tool call uses an incrementing integer `id` (2, 3, 4, 5, 6, 7 — id 1 is reserved for initialize).
     - For each tool response, asserts: (a) response present with the expected `id`, (b) `"result"` key present, (c) `tool_resp["result"].get("isError") is False`.
-    - The `wiki_scan` payload MUST include `"repo_path": str(tmp_path)` (DACLI-02 / D-13 — without this, scan walks the live deep-agents workspace per RESEARCH.md Pitfall 4; this is the entire reason Task 1 exists).
+    - The `wiki_scan` payload MUST include `"repo_path": str(tmp_path)` (DACLI-02 / D-13 — without this, scan walks the live agent-research workspace per RESEARCH.md Pitfall 4; this is the entire reason Task 1 exists).
     - Test seeds `tmp_path` with a minimal pyproject + one source file BEFORE launching the subprocess so `wiki_scan` and `wiki_ingest` have material to process.
     - `wiki_init` is the FIRST tool call (creates `.graph-wiki/`); subsequent tools operate on the same vault (D-12 — fresh tmp_path, init + inline seed).
     - No `notifications/cancelled` in this test — cancel is Plan 01's scope.
@@ -314,7 +314,7 @@ Do NOT wait for a JSON-RPC response on the `notifications/initialized` notificat
     `test_mcp_e2e.py` exists with one `INTEGRATION_GATE`-decorated test function.
     Ungated `pytest` run shows the test as SKIPPED (DACLI-03 gate works).
     `GRAPH_WIKI_RUN_INTEGRATION=1` run completes within ~180s and all six tools return non-error responses.
-    `wiki_scan` walks `tmp_path` (NOT the deep-agents workspace) — confirmed by absence of monorepo package names in scan output.
+    `wiki_scan` walks `tmp_path` (NOT the agent-research workspace) — confirmed by absence of monorepo package names in scan output.
     Estimated cost per run: ≤$0.01 (RESEARCH.md §"Bedrock Cost Estimate" — ~$0.003-0.01).
   </done>
 </task>

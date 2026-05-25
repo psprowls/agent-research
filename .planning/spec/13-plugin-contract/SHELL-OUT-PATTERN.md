@@ -13,12 +13,12 @@ uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph
 **User setup:** The user sets `DEEP_AGENTS_ROOT` once in their shell rc file, for example:
 
 ```bash
-export DEEP_AGENTS_ROOT=/Users/pat/Personal/deep-agents
+export DEEP_AGENTS_ROOT=/Users/pat/Personal/agent-research
 ```
 
 **Auto-set:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time (per PD-02). No user configuration is needed for this variable.
 
-**Rationale:** `uv run --project` resolves the deep-agents venv and makes `vault_io` and `workspace_io` importable without the user needing to activate a virtual environment manually. This approach is single-user-setup-friendly: one env var line in shell rc, no per-cwd discovery logic to maintain, and no risk of import errors from the wrong Python environment.
+**Rationale:** `uv run --project` resolves the agent-research venv and makes `vault_io` and `workspace_io` importable without the user needing to activate a virtual environment manually. This approach is single-user-setup-friendly: one env var line in shell rc, no per-cwd discovery logic to maintain, and no risk of import errors from the wrong Python environment.
 
 ## SO-02: Shim file contents (the upstream pattern, retargeted)
 
@@ -98,7 +98,7 @@ def backend_for(cmd: str, repo: str | None = None) -> Literal["claude", "bedrock
 
 - **PD-01:** `$DEEP_AGENTS_ROOT` env var is the **only required user config**. It is documented in `plugins/graph-wiki/README.md` (Phase 14 will author this file). The README also documents the `plugin:` block syntax for backend overrides and notes the absence of the three work-layer commands.
 - **PD-02:** `$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation time. This follows the same convention as upstream lattice-wiki; no Phase 13 or Phase 14 work is needed here — just verified behavior.
-- **PD-03:** `uv` must be installed and on PATH. This is the same prerequisite as the rest of the deep-agents monorepo; it is documented in the plugin README. There is no fallback to bare `python3` — a bare `python3` invocation would fail to resolve `from vault_io import ...` since the venv is not activated.
+- **PD-03:** `uv` must be installed and on PATH. This is the same prerequisite as the rest of the agent-research monorepo; it is documented in the plugin README. There is no fallback to bare `python3` — a bare `python3` invocation would fail to resolve `from vault_io import ...` since the venv is not activated.
 
 ## Agent / skill rename map (cross-cutting)
 

@@ -133,7 +133,7 @@ Verification: `grep -nE "_discover_heuristic\(repo\)" scan_monorepo.py` returns 
 | `main()` passes `workspace_dir=workspace` | `grep -n "workspace_dir=workspace" scan_monorepo.py` | line 1160: match | PASS |
 | Full vault-io unit suite | `uv run --package vault-io pytest packages/vault-io/ -q` | 93 passed, 1 skipped in 42.94s | PASS |
 | update_tokens.py uses converse shape (SC#2 baseline) | `grep -n "inputTokens" update_tokens.py` | line 50: `response["inputTokens"]` | PASS |
-| Real wiki pages have no `tokens: 0` (non-template) | `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents \| grep -v ".templates" \| wc -l` | 0 | PASS (previously verified) |
+| Real wiki pages have no `tokens: 0` (non-template) | `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research \| grep -v ".templates" \| wc -l` | 0 | PASS (previously verified) |
 
 ---
 
@@ -204,40 +204,40 @@ All 4 tests pass. `test_compute_diff_no_phantom_deletes` specifically asserts th
 
 ### SC#2 — All wiki pages previously at `tokens: 0` show non-zero token count
 
-**Discovery during execution:** The BEFORE count of 17 (recorded at preflight, Task 1) represents files entirely within the `.templates/` dotdir (`~/Personal/wiki/deep-agents/.templates/`). The `update_tokens.iter_pages()` function skips dotdir paths by design (any path component starting with `.`), so template files are intentionally excluded from re-stamping. Template files contain placeholder content and `tokens: 0` is their correct long-term value.
+**Discovery during execution:** The BEFORE count of 17 (recorded at preflight, Task 1) represents files entirely within the `.templates/` dotdir (`~/Personal/graph-wiki/agent-research.templates/`). The `update_tokens.iter_pages()` function skips dotdir paths by design (any path component starting with `.`), so template files are intentionally excluded from re-stamping. Template files contain placeholder content and `tokens: 0` is their correct long-term value.
 
 The 8 real wiki pages (non-dotdir) had **no `tokens:` field at all** (not `tokens: 0`) because the CountTokens API was broken before phase 17's TOK-01/02 fix. These are the pages that required stamping.
 
-**BEFORE:** `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents | wc -l` → **17** (all in `.templates/`, excluded from processing by `iter_pages()`)
+**BEFORE:** `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research | wc -l` → **17** (all in `.templates/`, excluded from processing by `iter_pages()`)
 
 **Real pages needing stamps:** 8 pages with no `tokens:` field (confirmed by dry-run before execution).
 
 **Re-stamp transcript (`/tmp/17-tok03-restamp.log`):**
 
 ```
-Target wiki: /Users/pat/Personal/wiki/deep-agents
+Target wiki: /Users/pat/Personal/graph-wiki/agent-research
 Model: anthropic.claude-3-5-haiku-20241022-v1:0
 Region: us-east-1
 
 Updated 8 pages • Unchanged 0 pages • Skipped 2 pages
 
-  [updated] deep-agents/agents/graph-wiki-agent/graph-wiki-agent.md
-  [updated] deep-agents/packages/eval-harness/eval-harness.md
-  [updated] deep-agents/packages/model-adapter/model-adapter.md
-  [updated] deep-agents/packages/subagent-runtime/subagent-runtime.md
-  [updated] deep-agents/packages/vault-io/vault-io.md
-  [updated] deep-agents/packages/workspace-io/workspace-io.md
-  [updated] deep-agents/plugins/graph-wiki/graph-wiki.md
-  [updated] deep-agents/sources/otel-story-observability.md
-  [skipped] deep-agents/CLAUDE.md
-  [skipped] deep-agents/concepts/otel-story-of-observability.md
+  [updated] agent-research/agents/graph-wiki-agent/graph-wiki-agent.md
+  [updated] agent-research/packages/eval-harness/eval-harness.md
+  [updated] agent-research/packages/model-adapter/model-adapter.md
+  [updated] agent-research/packages/subagent-runtime/subagent-runtime.md
+  [updated] agent-research/packages/vault-io/vault-io.md
+  [updated] agent-research/packages/workspace-io/workspace-io.md
+  [updated] agent-research/plugins/graph-wiki/graph-wiki.md
+  [updated] agent-research/sources/otel-story-observability.md
+  [skipped] agent-research/CLAUDE.md
+  [skipped] agent-research/concepts/otel-story-of-observability.md
 ```
 
 **Note on model ID:** The plan's default model `us.anthropic.claude-haiku-4-5-20251001-v1:0` (cross-region inference profile) does not support the Bedrock CountTokens API — it returns `ValidationException: The provided model doesn't support counting tokens`. The non-prefixed model `anthropic.claude-3-5-haiku-20241022-v1:0` was used instead (confirmed working via API test before execution). The TOK-01/02 fix in plan 17-02 corrected the request *shape*; this execution also resolved the model ID mismatch.
 
-**AFTER:** `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents | wc -l` → **17** (same `.templates/` files, unchanged — intentionally at 0)
+**AFTER:** `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research | wc -l` → **17** (same `.templates/` files, unchanged — intentionally at 0)
 
-**AFTER for real pages:** `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents | grep -v ".templates" | wc -l` → **0** (all real wiki pages now have non-zero token counts)
+**AFTER for real pages:** `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research | grep -v ".templates" | wc -l` → **0** (all real wiki pages now have non-zero token counts)
 
 **Sample of re-stamped pages** (from `git diff HEAD~1 -- '*.md'` in the wiki repo):
 

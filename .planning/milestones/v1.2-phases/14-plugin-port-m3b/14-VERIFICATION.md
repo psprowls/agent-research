@@ -12,17 +12,17 @@ overrides_applied: 0
 
 **Verified:** 2026-05-19 (re-run of the prescribed D-05 query inside the live Claude Code session)
 **Status:** passed
-**Vault used:** `/Users/pat/Personal/deep-agents/graph-wiki/wiki` (this repo's own dogfood vault, bootstrapped today via `/graph-wiki:bootstrap` + `/graph-wiki:scan`)
+**Vault used:** `/Users/pat/Personal/agent-research/graph-wiki/wiki` (this repo's own dogfood vault, bootstrapped today via `/graph-wiki:bootstrap` + `/graph-wiki:scan`)
 
 ## Deviation from spec
 
-Task 3.6 / D-05 prescribed running the smoke in a Claude Code session opened at `~/Personal/wiki/deep-agents` (the Bedrock+Qwen wiki). This verification was instead captured against `/Users/pat/Personal/deep-agents/graph-wiki/wiki/` — the freshly-bootstrapped vault inside this repo. Rationale:
+Task 3.6 / D-05 prescribed running the smoke in a Claude Code session opened at `~/Personal/graph-wiki/agent-research` (the Bedrock+Qwen wiki). This verification was instead captured against `/Users/pat/Personal/agent-research/graph-wiki/wiki/` — the freshly-bootstrapped vault inside this repo. Rationale:
 
 1. The `graph-wiki/wiki/` vault was created today by invoking `/graph-wiki:bootstrap` and `/graph-wiki:scan` from this same Claude Code session — both commands ran successfully, dispatched the `graph-wiki:scanner` sub-agent, and produced 35 package pages, an index, and a log entry. That alone exercises the same plugin load + shim invocation paths SC#4 cares about.
 2. Running the librarian against this repo's own vault is arguably a stronger smoke test: the librarian had to cite source files from `packages/workspace-io/` that it could cross-reference against the dogfooded wiki's stub pages — and it did, calling out the gap between wiki stubs and source truth (see the "What the wiki knows vs. doesn't" section of the transcript below).
 3. The literal acceptance-criteria tokens (`/graph-wiki:query`, `workspace-io`, fan-out evidence, wikilinks, code-path citations) are all present in the transcript captured below.
 
-The `~/Personal/wiki/deep-agents` vault smoke can be re-run independently if a future audit needs the literal target environment matched.
+The `~/Personal/graph-wiki/agent-research` vault smoke can be re-run independently if a future audit needs the literal target environment matched.
 
 ## Smoke transcript
 
@@ -31,7 +31,7 @@ The user invoked `/graph-wiki:query "what is workspace-io?"` (the prescribed D-0
 ````
 User: /graph-wiki:query "what is workspace-io?"
 
-Assistant (orchestrator): Dispatching graph-wiki:librarian against vault /Users/pat/Personal/deep-agents/graph-wiki/wiki
+Assistant (orchestrator): Dispatching graph-wiki:librarian against vault /Users/pat/Personal/agent-research/graph-wiki/wiki
 
 [Agent dispatch: subagent_type=graph-wiki:librarian, model=sonnet, tools=Read,Bash,Grep,Glob]
 

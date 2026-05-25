@@ -8,28 +8,28 @@ overrides_applied: 0
 
 # Phase 15: Wiki Self-Update — SC#1/#2/#3 Verification
 
-**Phase Goal (SC#1/#2/#3 — ROADMAP Phase 15):** Bring `~/Personal/wiki/deep-agents` into alignment with the post-rebrand codebase (Phases 11–14) by running `graph-wiki-agent scan` against the live vault (SC#1), re-ingesting the OTel source doc and confirming the scan-produced `workspace-io` package page is well-formed (SC#2), and verifying with one librarian query that the post-rebrand surface is now reflected in the wiki (SC#3). Closes BRAND-03.
+**Phase Goal (SC#1/#2/#3 — ROADMAP Phase 15):** Bring `~/Personal/graph-wiki/agent-research` into alignment with the post-rebrand codebase (Phases 11–14) by running `graph-wiki-agent scan` against the live vault (SC#1), re-ingesting the OTel source doc and confirming the scan-produced `workspace-io` package page is well-formed (SC#2), and verifying with one librarian query that the post-rebrand surface is now reflected in the wiki (SC#3). Closes BRAND-03.
 
 **Verified:** 2026-05-19
 **Status:** passed
-**Vault used:** `/Users/pat/Personal/wiki/deep-agents`
-**Models config:** `/Users/pat/Personal/deep-agents/models-claude.toml` (Haiku 4.5 fan-out + Sonnet 4.6 reasoning, applied via `wiki-config-claude.toml`)
+**Vault used:** `/Users/pat/Personal/graph-wiki/agent-research`
+**Models config:** `/Users/pat/Personal/agent-research/models-claude.toml` (Haiku 4.5 fan-out + Sonnet 4.6 reasoning, applied via `wiki-config-claude.toml`)
 
 ## Deviation from spec
 
 Three operational deviations were encountered during Tasks 3–5 and resolved inline (auto-fixed per Rule 1) before the SC-bearing scan/ingest/query run. They are recorded here for honesty and to inform any future Phase 15-equivalent run.
 
-1. **`--config` flag does NOT propagate `vault_path` to subcommands.** The CLI's top-level `--config` callback (cli.py:35-45) sets `_active_config` and `set_models_path()` but the `scan`, `ingest source`, and `query` subcommands all resolve the vault via their own `--vault` option (defaulting to `None`, which falls through to `workspace_io.config.resolve()`). Without `--vault`, the scan resolved to the dogfood vault at `/Users/pat/Personal/deep-agents/graph-wiki/wiki` and reported `+0 ~0 -28`, stale-tagging 28 pages in the wrong vault. Fix: removed the false `stale: true` tags from those 28 dogfood pages; subsequent invocations all included `--vault /Users/pat/Personal/wiki/deep-agents`. No code change was made — this is a known CLI shape and the workaround is to always pass `--vault` explicitly alongside `--config`.
+1. **`--config` flag does NOT propagate `vault_path` to subcommands.** The CLI's top-level `--config` callback (cli.py:35-45) sets `_active_config` and `set_models_path()` but the `scan`, `ingest source`, and `query` subcommands all resolve the vault via their own `--vault` option (defaulting to `None`, which falls through to `workspace_io.config.resolve()`). Without `--vault`, the scan resolved to the dogfood vault at `/Users/pat/Personal/agent-research/graph-wiki/wiki` and reported `+0 ~0 -28`, stale-tagging 28 pages in the wrong vault. Fix: removed the false `stale: true` tags from those 28 dogfood pages; subsequent invocations all included `--vault /Users/pat/Personal/graph-wiki/agent-research`. No code change was made — this is a known CLI shape and the workaround is to always pass `--vault` explicitly alongside `--config`.
 
-2. **Stale layout block in `~/Personal/wiki/deep-agents/CLAUDE.md` referenced pre-Phase-12 directory name (`cores`).** The wiki's layout block listed `source: cores → vault_dir: packages` (from when the repo had a `cores/` directory pre-rename in commit `c5a47ba`). With `--vault` correctly pointing at this wiki, the second scan still reported `+0 ~0 -4` because `discover_workspaces` looked for `cores/` and found nothing, so the four existing package pages (eval-harness, model-adapter, subagent-runtime, vault-io) were marked stale. Fix: updated the layout block to `source: packages → vault_dir: packages` with `children_count: 6`, added a `plugins` container, removed the stale `lattice` container, and removed the false stale tags from the four wiki package pages. Vault-side fix; no repo files changed.
+2. **Stale layout block in `~/Personal/graph-wiki/agent-researchCLAUDE.md` referenced pre-Phase-12 directory name (`cores`).** The wiki's layout block listed `source: cores → vault_dir: packages` (from when the repo had a `cores/` directory pre-rename in commit `c5a47ba`). With `--vault` correctly pointing at this wiki, the second scan still reported `+0 ~0 -4` because `discover_workspaces` looked for `cores/` and found nothing, so the four existing package pages (eval-harness, model-adapter, subagent-runtime, vault-io) were marked stale. Fix: updated the layout block to `source: packages → vault_dir: packages` with `children_count: 6`, added a `plugins` container, removed the stale `lattice` container, and removed the false stale tags from the four wiki package pages. Vault-side fix; no repo files changed.
 
 3. **BM25 index not auto-rebuilt after scan, causing first query to return empty result.** The first `query "what is workspace-io?"` invocation returned "The vault does not document this and source code did not yield a relevant match" because the BM25 index was built before the new `workspace-io.md` page existed (the scan adds files but doesn't refresh `.graph-wiki/bm25/`). Fix: rebuilt the index manually via `build_index(vault)`, then re-ran the query — which returned a rich librarian-synthesized answer with wikilinks and citations.
 
-**SC#2 wikilink-criterion interpretation:** The scan-produced `workspace-io.md` stub has no outbound `[[wikilinks]]` in its body (scanner stubs do not emit outbound wikilinks by design — every existing stub page in this vault behaves the same way). Per human-verifier decision at the Task 6 checkpoint, SC#2 criterion 4 is interpreted as "any `[[wikilink]]` involving the workspace-io page resolves to an existing file in the vault" — the inbound wikilink from `index.md` (`[[wiki/packages/workspace-io/workspace-io|workspace-io]]`) → `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md` satisfies this. Status stays `passed`.
+**SC#2 wikilink-criterion interpretation:** The scan-produced `workspace-io.md` stub has no outbound `[[wikilinks]]` in its body (scanner stubs do not emit outbound wikilinks by design — every existing stub page in this vault behaves the same way). Per human-verifier decision at the Task 6 checkpoint, SC#2 criterion 4 is interpreted as "any `[[wikilink]]` involving the workspace-io page resolves to an existing file in the vault" — the inbound wikilink from `index.md` (`[[wiki/packages/workspace-io/workspace-io|workspace-io]]`) → `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md` satisfies this. Status stays `passed`.
 
 ## SC#1 — Scan-log evidence
 
-`graph-wiki-agent scan --config wiki-config-claude.toml --vault /Users/pat/Personal/wiki/deep-agents` completed with exit code 0 and reported `Scan complete: +2 ~0 -0` (two new pages: `packages/workspace-io/workspace-io.md` and `plugins/graph-wiki/graph-wiki.md`). The newly-appended `log.md` entry from this run reads:
+`graph-wiki-agent scan --config wiki-config-claude.toml --vault /Users/pat/Personal/graph-wiki/agent-research` completed with exit code 0 and reported `Scan complete: +2 ~0 -0` (two new pages: `packages/workspace-io/workspace-io.md` and `plugins/graph-wiki/graph-wiki.md`). The newly-appended `log.md` entry from this run reads:
 
 ````
 ## [2026-05-18] scan | scan complete: +2 ~0 -0
@@ -43,7 +43,7 @@ The scan-log entries from the two failed invocations earlier (`+0 ~0 -28` agains
 
 The scan-produced `workspace-io` page was opened and verified against the D-08 minimum bar.
 
-**Absolute path:** `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md`
+**Absolute path:** `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md`
 
 **Frontmatter excerpt (parses cleanly as YAML):**
 
@@ -74,8 +74,8 @@ exports:
 
 **Resolved wikilink + target file path (inbound, per Deviation note above):**
 
-- Wikilink: `[[wiki/packages/workspace-io/workspace-io|workspace-io]]` (in `/Users/pat/Personal/wiki/deep-agents/index.md`, line 17)
-- Target file: `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md` — **exists** (the very page being spot-checked).
+- Wikilink: `[[wiki/packages/workspace-io/workspace-io|workspace-io]]` (in `/Users/pat/Personal/graph-wiki/agent-researchindex.md`, line 17)
+- Target file: `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md` — **exists** (the very page being spot-checked).
 
 The scanner stub does not emit outbound wikilinks; this is documented in the Deviation section. All four D-08 data points are captured.
 
@@ -83,15 +83,15 @@ The scanner stub does not emit outbound wikilinks; this is documented in the Dev
 
 ## SC#3 — Query transcript
 
-`graph-wiki-agent query "what is workspace-io?" --config wiki-config-claude.toml --vault /Users/pat/Personal/wiki/deep-agents` was run (after the BM25 index was rebuilt — see Deviation 3 above). The librarian (Sonnet 4.6) fanned out over the 10 vault pages, drilled the top 5 via BM25 + embedding hybrid search, and returned a synthesized answer with wikilinks and code-path citations. Full transcript follows.
+`graph-wiki-agent query "what is workspace-io?" --config wiki-config-claude.toml --vault /Users/pat/Personal/graph-wiki/agent-research` was run (after the BM25 index was rebuilt — see Deviation 3 above). The librarian (Sonnet 4.6) fanned out over the 10 vault pages, drilled the top 5 via BM25 + embedding hybrid search, and returned a synthesized answer with wikilinks and code-path citations. Full transcript follows.
 
 ````
-User: graph-wiki-agent --config /Users/pat/Personal/deep-agents/wiki-config-claude.toml query "what is workspace-io?" --vault /Users/pat/Personal/wiki/deep-agents
+User: graph-wiki-agent --config /Users/pat/Personal/agent-research/wiki-config-claude.toml query "what is workspace-io?" --vault /Users/pat/Personal/graph-wiki/agent-research
 
 Pipeline:
 - Tokenize texts: 1/1
 - BM25S Retrieve: 1/1
-- _resolve_repo_root: no .git or pyproject.toml at /Users/pat/Personal/wiki; falling back to vault_path itself (/Users/pat/Personal/wiki/deep-agents) for code-fallback reads
+- _resolve_repo_root: no .git or pyproject.toml at /Users/pat/Personal/wiki; falling back to vault_path itself (/Users/pat/Personal/graph-wiki/agent-research) for code-fallback reads
 - code-reader hit max iteration cap (5) on page agents/graph-wiki-agent/graph-wiki-agent.md (query_id=b5769763dc39)
 - code-reader hit max iteration cap (5) on page CLAUDE.md (query_id=b5769763dc39)
 - code-reader hit max iteration cap (5) on page packages/eval-harness/eval-harness.md (query_id=b5769763dc39)

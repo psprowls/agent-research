@@ -22,7 +22,7 @@ must_haves:
     - "`uv run --package vault-io pytest` passes."
     - "`uv run --package graph-wiki-agent pytest` passes."
     - "Plugin scanner.md, scan-workflow.md, and page_categories.py describe the `overview.md` naming everywhere."
-    - "The live wiki at `/Users/pat/Personal/wikis/deep-agents/wiki/` has 7 renamed pages now named `overview.md` and an updated `index.md` whose package wikilinks point at `…/overview|…` form."
+    - "The live wiki at `/Users/pat/Personal/graph-wiki/agent-research/wiki/` has 7 renamed pages now named `overview.md` and an updated `index.md` whose package wikilinks point at `…/overview|…` form."
     - "No `[[wiki/.../<name>/<name>…]]` explicit wikilink to the 7 renamed pages remains anywhere in the vault."
     - "iCloud Obsidian mirror reflects the rename (or the executor reports the mirror path was not found and skipped, per scope §5)."
   artifacts:
@@ -43,14 +43,14 @@ must_haves:
       to: "packages/vault-io/src/vault_io/scan_monorepo.py"
       via: "instruction markdown describes the same naming convention the scanner emits"
       pattern: "overview\\.md"
-    - from: "/Users/pat/Personal/wikis/deep-agents/wiki/index.md"
+    - from: "/Users/pat/Personal/graph-wiki/agent-research/wiki/index.md"
       to: "renamed package pages"
       via: "wikilinks of the form `[[wiki/<container>/<name>/overview|<name>]]`"
       pattern: "/overview\\|"
 ---
 
 <objective>
-Reverse the prior decision to name wiki overview pages `<dir-name>.md`. Going forward, every app/package/domain overview page is named `overview.md`. Update the vault-io scanner code + tests, the graph-wiki plugin instruction markdown + the agent prompt fragment, rename the 7 live pages in the deep-agents wiki, rewrite explicit wikilinks in `index.md` (and anywhere else), and sync the iCloud Obsidian mirror.
+Reverse the prior decision to name wiki overview pages `<dir-name>.md`. Going forward, every app/package/domain overview page is named `overview.md`. Update the vault-io scanner code + tests, the graph-wiki plugin instruction markdown + the agent prompt fragment, rename the 7 live pages in the agent-research wiki, rewrite explicit wikilinks in `index.md` (and anywhere else), and sync the iCloud Obsidian mirror.
 
 Purpose: Cleaner, more predictable file naming (`overview.md` is self-describing; doesn't require knowing the parent dir name to find the entry page). Locked decision — no backwards-compatible fallback.
 
@@ -81,10 +81,10 @@ Output:
 @agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py
 
 # Live wiki (separate git repo) — read before renaming:
-@/Users/pat/Personal/wikis/deep-agents/wiki/index.md
+@/Users/pat/Personal/graph-wiki/agent-research/wiki/index.md
 
 # iCloud mirror path reference:
-@/Users/pat/.claude/projects/-Users-pat-Personal-deep-agents/memory/reference_icloud_obsidian_mirror.md
+@/Users/pat/.claude/projects/-Users-pat-Personal-agent-research/memory/reference_icloud_obsidian_mirror.md
 
 <interfaces>
 Routing function signature (unchanged), only the return strings change:
@@ -214,7 +214,7 @@ Rewrite every doc/prompt site that describes the old `<dir>/<dir>.md` overview n
 </task>
 
 <task type="auto" tdd="false">
-  <name>Task 3: Commit code/test/doc changes to deep-agents repo</name>
+  <name>Task 3: Commit code/test/doc changes to agent-research repo</name>
   <files>
     packages/vault-io/src/vault_io/scan_monorepo.py,
     packages/vault-io/src/vault_io/layout_io.py,
@@ -248,7 +248,7 @@ the implicit "filename mirrors parent dir name" coupling.
 - vault-io + graph-wiki-agent test suites pass
 
 Live wiki rename + iCloud mirror sync handled in the wiki repo
-(separate commit at /Users/pat/Personal/wikis/deep-agents/).
+(separate commit at /Users/pat/Personal/graph-wiki/agent-research/).
 ```
 
 Run `git status` afterward to confirm a clean working tree (the wiki rename happens in Task 4 in a different repo).
@@ -257,28 +257,28 @@ Run `git status` afterward to confirm a clean working tree (the wiki rename happ
     <automated>git log -1 --pretty=format:'%s' | grep -q 'quick-260523-iws.*overview' &amp;&amp; git status --short</automated>
   </verify>
   <done>
-    One commit lands on `main` with the scope described above. `git status` in the deep-agents repo shows a clean tree.
+    One commit lands on `main` with the scope described above. `git status` in the agent-research repo shows a clean tree.
   </done>
 </task>
 
 <task type="auto" tdd="false">
   <name>Task 4: Rename 7 wiki pages + rewrite explicit wikilinks + commit in wiki repo</name>
   <files>
-    /Users/pat/Personal/wikis/deep-agents/wiki/packages/vault-io/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/packages/model-adapter/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/packages/eval-harness/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/packages/subagent-runtime/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/packages/workspace-io/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/agents/graph-wiki-agent/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/plugins/graph-wiki/overview.md,
-    /Users/pat/Personal/wikis/deep-agents/wiki/index.md
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/packages/vault-io/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/packages/model-adapter/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/packages/eval-harness/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/packages/subagent-runtime/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/packages/workspace-io/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/agents/graph-wiki-agent/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/plugins/graph-wiki/overview.md,
+    /Users/pat/Personal/graph-wiki/agent-research/wiki/index.md
   </files>
   <action>
-The wiki at `/Users/pat/Personal/wikis/deep-agents/` is its own git repo (confirmed during planning: `git -C ... rev-parse --git-dir` → `.git`). Use `git mv` to preserve history.
+The wiki at `/Users/pat/Personal/graph-wiki/agent-research/` is its own git repo (confirmed during planning: `git -C ... rev-parse --git-dir` → `.git`). Use `git mv` to preserve history.
 
 1. Rename 7 pages (run from the wiki repo root):
    ```
-   cd /Users/pat/Personal/wikis/deep-agents
+   cd /Users/pat/Personal/graph-wiki/agent-research
    git mv wiki/packages/vault-io/vault-io.md         wiki/packages/vault-io/overview.md
    git mv wiki/packages/model-adapter/model-adapter.md wiki/packages/model-adapter/overview.md
    git mv wiki/packages/eval-harness/eval-harness.md   wiki/packages/eval-harness/overview.md
@@ -299,20 +299,20 @@ The wiki at `/Users/pat/Personal/wikis/deep-agents/` is its own git repo (confir
 
 3. Grep the entire wiki for any other explicit wikilinks pointing to the 7 renamed pages. Naked `[[X]]` links resolve via glob fallback and stay valid — only path-qualified forms need rewriting:
    ```
-   cd /Users/pat/Personal/wikis/deep-agents
+   cd /Users/pat/Personal/graph-wiki/agent-research
    grep -rn -E '\[\[[^]]*/(vault-io/vault-io|model-adapter/model-adapter|eval-harness/eval-harness|subagent-runtime/subagent-runtime|workspace-io/workspace-io|graph-wiki-agent/graph-wiki-agent|graph-wiki/graph-wiki)(\||\]\])' wiki/
    ```
    For every match, rewrite the path segment from `<name>/<name>` to `<name>/overview`. Preserve the display alias after `|`. If a match has no alias (`[[…/vault-io/vault-io]]`), add one to keep the readable label: `[[…/vault-io/overview|vault-io]]`.
 
 4. Stage and commit in the wiki repo:
    ```
-   cd /Users/pat/Personal/wikis/deep-agents
+   cd /Users/pat/Personal/graph-wiki/agent-research
    git add -A wiki/
    git status   # confirm only the 7 renames + index.md + any wikilink rewrites
    git commit -m "$(cat <<'EOF'
    refactor: rename package/app/plugin overview pages to overview.md
 
-   Match the scanner's new convention (deep-agents quick-260523-iws):
+   Match the scanner's new convention (agent-research quick-260523-iws):
    overview pages are now always named overview.md, not <dir>/<dir>.md.
 
    - Renamed 7 overview files via git mv (history preserved)
@@ -325,7 +325,7 @@ The wiki at `/Users/pat/Personal/wikis/deep-agents/` is its own git repo (confir
    ```
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/wikis/deep-agents &amp;&amp; ls wiki/packages/vault-io/overview.md wiki/packages/model-adapter/overview.md wiki/packages/eval-harness/overview.md wiki/packages/subagent-runtime/overview.md wiki/packages/workspace-io/overview.md wiki/agents/graph-wiki-agent/overview.md wiki/plugins/graph-wiki/overview.md &amp;&amp; ! grep -rn -E '\[\[[^]]*/(vault-io/vault-io|model-adapter/model-adapter|eval-harness/eval-harness|subagent-runtime/subagent-runtime|workspace-io/workspace-io|graph-wiki-agent/graph-wiki-agent|graph-wiki/graph-wiki)(\||\]\])' wiki/ &amp;&amp; git log -1 --pretty=format:'%s' | grep -q overview</automated>
+    <automated>cd /Users/pat/Personal/graph-wiki/agent-research &amp;&amp; ls wiki/packages/vault-io/overview.md wiki/packages/model-adapter/overview.md wiki/packages/eval-harness/overview.md wiki/packages/subagent-runtime/overview.md wiki/packages/workspace-io/overview.md wiki/agents/graph-wiki-agent/overview.md wiki/plugins/graph-wiki/overview.md &amp;&amp; ! grep -rn -E '\[\[[^]]*/(vault-io/vault-io|model-adapter/model-adapter|eval-harness/eval-harness|subagent-runtime/subagent-runtime|workspace-io/workspace-io|graph-wiki-agent/graph-wiki-agent|graph-wiki/graph-wiki)(\||\]\])' wiki/ &amp;&amp; git log -1 --pretty=format:'%s' | grep -q overview</automated>
   </verify>
   <done>
     All 7 renamed files exist at their new paths in the wiki repo. `index.md` and any other explicit wikilinks point at the `…/overview|…` form. One commit lands in the wiki repo. `git status` in the wiki repo is clean.
@@ -335,35 +335,35 @@ The wiki at `/Users/pat/Personal/wikis/deep-agents/` is its own git repo (confir
 <task type="auto" tdd="false">
   <name>Task 5: Sync iCloud Obsidian mirror</name>
   <files>
-    /Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/
+    /Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/
   </files>
   <action>
-Per the memory note at `/Users/pat/.claude/projects/-Users-pat-Personal-deep-agents/memory/reference_icloud_obsidian_mirror.md`, the mirror destination is:
+Per the memory note at `/Users/pat/.claude/projects/-Users-pat-Personal-agent-research/memory/reference_icloud_obsidian_mirror.md`, the mirror destination is:
 
-`/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/`
+`/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/`
 
-(The wiki repo is `/Users/pat/Personal/wikis/deep-agents/` and the iCloud mirror is a manual `cp`-based copy of its `wiki/` tree.)
+(The wiki repo is `/Users/pat/Personal/graph-wiki/agent-research/` and the iCloud mirror is a manual `cp`-based copy of its `wiki/` tree.)
 
 1. Confirm the destination exists:
    ```
-   test -d "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki" && echo "mirror present" || echo "MIRROR MISSING — skip and report"
+   test -d "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki" && echo "mirror present" || echo "MIRROR MISSING — skip and report"
    ```
 
 2. If present, mirror the 7 renamed overviews + the rewritten `index.md` (and any other files touched in Task 4):
    - Remove stale `<name>/<name>.md` overview copies first so the mirror doesn't carry both forms:
      ```
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/vault-io/vault-io.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/model-adapter/model-adapter.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/eval-harness/eval-harness.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/subagent-runtime/subagent-runtime.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/workspace-io/workspace-io.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/agents/graph-wiki-agent/graph-wiki-agent.md" 2>/dev/null
-     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/plugins/graph-wiki/graph-wiki.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/vault-io/vault-io.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/model-adapter/model-adapter.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/eval-harness/eval-harness.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/subagent-runtime/subagent-runtime.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/workspace-io/workspace-io.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/agents/graph-wiki-agent/graph-wiki-agent.md" 2>/dev/null
+     rm "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/plugins/graph-wiki/graph-wiki.md" 2>/dev/null
      ```
    - Then copy each new `overview.md` + the updated `index.md`:
      ```
-     SRC=/Users/pat/Personal/wikis/deep-agents/wiki
-     DST="/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki"
+     SRC=/Users/pat/Personal/graph-wiki/agent-research/wiki
+     DST="/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki"
      cp "$SRC/packages/vault-io/overview.md"          "$DST/packages/vault-io/overview.md"
      cp "$SRC/packages/model-adapter/overview.md"     "$DST/packages/model-adapter/overview.md"
      cp "$SRC/packages/eval-harness/overview.md"      "$DST/packages/eval-harness/overview.md"
@@ -375,10 +375,10 @@ Per the memory note at `/Users/pat/.claude/projects/-Users-pat-Personal-deep-age
      ```
    - If Task 4 rewrote any additional files (extra explicit-wikilink files surfaced by the grep), `cp` each of those across to its mirror path too.
 
-3. If the destination does NOT exist, do NOT guess an alternate path. Report in the SUMMARY: "iCloud mirror path `/Users/pat/.../deep-agents/wiki` not present — skipped per scope §5 (executor should not guess)."
+3. If the destination does NOT exist, do NOT guess an alternate path. Report in the SUMMARY: "iCloud mirror path `/Users/pat/.../agent-research/wiki` not present — skipped per scope §5 (executor should not guess)."
   </action>
   <verify>
-    <automated>if [ -d "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki" ]; then ls "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/vault-io/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/model-adapter/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/eval-harness/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/subagent-runtime/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/packages/workspace-io/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/agents/graph-wiki-agent/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki/plugins/graph-wiki/overview.md"; else echo "mirror skipped — destination not present"; fi</automated>
+    <automated>if [ -d "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki" ]; then ls "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/vault-io/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/model-adapter/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/eval-harness/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/subagent-runtime/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/packages/workspace-io/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/agents/graph-wiki-agent/overview.md" "/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki/plugins/graph-wiki/overview.md"; else echo "mirror skipped — destination not present"; fi</automated>
   </verify>
   <done>
     Either all 7 `overview.md` files plus `index.md` exist at the iCloud mirror paths AND the 7 stale `<name>/<name>.md` siblings are removed, OR the mirror was not present and the skip is documented in SUMMARY.md.
@@ -395,12 +395,12 @@ Per the memory note at `/Users/pat/.claude/projects/-Users-pat-Personal-deep-age
 1. Write `.planning/quick/260523-iws-rename-overview-pages/260523-iws-SUMMARY.md` covering:
    - Quick ID: 260523-iws
    - Description: Rename wiki overview pages from `<dir-name>.md` to `overview.md` everywhere.
-   - Files changed (split by repo: deep-agents vs. wiki).
+   - Files changed (split by repo: agent-research vs. wiki).
    - Test results: vault-io test count and result, graph-wiki-agent test count and result.
    - Locked decision noted: detection uses `overview.md` ONLY, no backwards-compatible fallback.
    - Vault diff: 7 pages renamed via `git mv` in the wiki repo, `index.md` updated, count of additional explicit-wikilink rewrites if any.
    - iCloud mirror status (synced N files / skipped because path not present).
-   - Commit SHAs: one in deep-agents, one in wikis/deep-agents.
+   - Commit SHAs: one in agent-research, one in wikis/agent-research.
    - Follow-up: none in scope. Out-of-scope `.claude/worktrees/agent-*` fixtures are transient and will regenerate on next scan.
 
 2. Append a new row to STATE.md's "Quick Tasks Completed" table:
@@ -435,9 +435,9 @@ End-of-plan checks (after all 6 tasks):
 2. `uv run --package graph-wiki-agent pytest` — all tests pass.
 3. `grep -rn 'parent\.name' packages/vault-io/src/` returns no overview-detection use (only legitimate uses like fixture/segment matching).
 4. `grep -rn -E '<(name|app|pkg|d|domain|slug)>/<(name|app|pkg|d|domain|slug)>\.md' plugins/graph-wiki/ agents/graph-wiki-agent/src/` returns nothing (or only `overview.md` matches).
-5. In `/Users/pat/Personal/wikis/deep-agents/wiki/`: 7 `overview.md` pages exist; 0 stale `<dir>/<dir>.md` overview siblings remain in the 7 renamed dirs; `index.md` lines 11–17 link to `…/overview|…` form.
-6. deep-agents repo: one new commit on `main` for code/tests/docs, one for SUMMARY+STATE. `git status` clean.
-7. wikis/deep-agents repo: one new commit for the rename + wikilink rewrites. `git status` clean.
+5. In `/Users/pat/Personal/graph-wiki/agent-research/wiki/`: 7 `overview.md` pages exist; 0 stale `<dir>/<dir>.md` overview siblings remain in the 7 renamed dirs; `index.md` lines 11–17 link to `…/overview|…` form.
+6. agent-research repo: one new commit on `main` for code/tests/docs, one for SUMMARY+STATE. `git status` clean.
+7. wikis/agent-research repo: one new commit for the rename + wikilink rewrites. `git status` clean.
 8. iCloud mirror: either updated or skip explicitly recorded in SUMMARY.
 </verification>
 
@@ -447,15 +447,15 @@ End-of-plan checks (after all 6 tasks):
 - 7 live wiki overview pages renamed via `git mv` (history preserved).
 - `index.md` and any other explicit path-qualified wikilinks to those pages updated to `…/overview|…` form. Naked `[[X]]` links left as-is (resolve via glob).
 - iCloud Obsidian mirror synced (or explicit skip note recorded in SUMMARY).
-- Three commits land: (1) deep-agents code/tests/docs, (2) wikis/deep-agents rename + wikilink rewrites, (3) deep-agents SUMMARY + STATE.
+- Three commits land: (1) agent-research code/tests/docs, (2) wikis/agent-research rename + wikilink rewrites, (3) agent-research SUMMARY + STATE.
 - STATE.md "Quick Tasks Completed" table has the new row.
 </success_criteria>
 
 <output>
 After all tasks complete, the following artifacts exist:
 
-- `.planning/quick/260523-iws-rename-overview-pages/260523-iws-SUMMARY.md` (committed in deep-agents)
+- `.planning/quick/260523-iws-rename-overview-pages/260523-iws-SUMMARY.md` (committed in agent-research)
 - Updated row in `.planning/STATE.md` "Quick Tasks Completed" table
-- Three commits (two in deep-agents, one in wikis/deep-agents)
+- Three commits (two in agent-research, one in wikis/agent-research)
 - 7 renamed `overview.md` files in the wiki repo and (if mirror present) iCloud
 </output>

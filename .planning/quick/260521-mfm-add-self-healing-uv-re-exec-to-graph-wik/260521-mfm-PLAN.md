@@ -106,7 +106,7 @@ Implementation notes:
 - No `argparse`, no `__main__` block, no validation of `sys.argv[0]` — it is whatever the caller's interpreter ran, which is exactly what we want to re-exec.
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/deep-agents &amp;&amp; python plugins/graph-wiki/skills/graph-wiki/scripts/_uv_reexec.py 2>&amp;1 || true; python -c "import sys; sys.path.insert(0, 'plugins/graph-wiki/skills/graph-wiki/scripts'); import _uv_reexec; assert hasattr(_uv_reexec, 'ensure'), 'ensure() missing'; print('OK: _uv_reexec.ensure exists')"</automated>
+    <automated>cd /Users/pat/Personal/agent-research &amp;&amp; python plugins/graph-wiki/skills/graph-wiki/scripts/_uv_reexec.py 2>&amp;1 || true; python -c "import sys; sys.path.insert(0, 'plugins/graph-wiki/skills/graph-wiki/scripts'); import _uv_reexec; assert hasattr(_uv_reexec, 'ensure'), 'ensure() missing'; print('OK: _uv_reexec.ensure exists')"</automated>
   </verify>
   <done>
 File `plugins/graph-wiki/skills/graph-wiki/scripts/_uv_reexec.py` exists, is ~30 lines, defines `ensure() -> None`, does not import `vault_io` at top level, walks up looking for `packages/vault-io/pyproject.toml`, and uses `os.execvpe` with `GRAPH_WIKI_SHIM_REEXEC=1` guard set in the child env.
@@ -142,7 +142,7 @@ Do NOT:
 - Add type hints or rename the alias — `from _uv_reexec import ensure as _ensure_uv` keeps the call site distinctive at a glance and avoids shadowing any local `ensure` name in `init_vault`'s subprocess-dispatch code path.
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/deep-agents &amp;&amp; for f in detect_containers ingest_source init_vault lint_wiki scan_monorepo wiki_search; do path="plugins/graph-wiki/skills/graph-wiki/scripts/$f.py"; grep -q '_uv_reexec' "$path" || { echo "MISSING ensure() in $f"; exit 1; }; grep -n '_uv_reexec\|from vault_io' "$path" | awk -F: 'BEGIN{r=0;v=0} /_uv_reexec/{if(r==0)r=$1} /from vault_io/{if(v==0)v=$1} END{if(r==0||v==0||r>=v){print "ORDER BAD in '"$f"': reexec="r" vault_io="v; exit 1}}' || exit 1; done; echo 'OK: all 6 shims call _uv_reexec before vault_io import'</automated>
+    <automated>cd /Users/pat/Personal/agent-research &amp;&amp; for f in detect_containers ingest_source init_vault lint_wiki scan_monorepo wiki_search; do path="plugins/graph-wiki/skills/graph-wiki/scripts/$f.py"; grep -q '_uv_reexec' "$path" || { echo "MISSING ensure() in $f"; exit 1; }; grep -n '_uv_reexec\|from vault_io' "$path" | awk -F: 'BEGIN{r=0;v=0} /_uv_reexec/{if(r==0)r=$1} /from vault_io/{if(v==0)v=$1} END{if(r==0||v==0||r>=v){print "ORDER BAD in '"$f"': reexec="r" vault_io="v; exit 1}}' || exit 1; done; echo 'OK: all 6 shims call _uv_reexec before vault_io import'</automated>
   </verify>
   <done>
 All 6 shims contain `from _uv_reexec import ensure as _ensure_uv` followed by a `_ensure_uv()` call, both appearing on lines strictly before the file's first `from vault_io...` import. No other changes to dispatching logic.
@@ -157,7 +157,7 @@ Verify the self-healing behavior end-to-end. The cheapest deterministic check is
 
 Steps:
 
-1. From `/Users/pat/Personal/deep-agents`, run:
+1. From `/Users/pat/Personal/agent-research`, run:
    `python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help`
    This should print the underlying `vault_io.detect_containers` help text (or whatever the tool emits when given `--help` / when it has no required args), NOT a `ModuleNotFoundError`. The shim should silently re-exec under `uv run --project .../packages/vault-io python ...` and the user-visible output should look the same as if the user had typed `uv run --project . python ...` themselves.
 
@@ -165,14 +165,14 @@ Steps:
    `GRAPH_WIKI_SHIM_REEXEC=1 python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help`
    Expected: `ModuleNotFoundError: No module named 'vault_io'`. This proves the guard short-circuits and the original import surfaces.
 
-3. Sanity check: invoking via `uv run --project /Users/pat/Personal/deep-agents python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help` should still work as before (no regression). The first `import vault_io` inside `ensure()` will succeed and the function returns immediately.
+3. Sanity check: invoking via `uv run --project /Users/pat/Personal/agent-research python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help` should still work as before (no regression). The first `import vault_io` inside `ensure()` will succeed and the function returns immediately.
 
 If step 1 fails with `ModuleNotFoundError` despite the shim being wired correctly, the most likely cause is that `uv` is not on PATH for the bare-`python` subshell — investigate by running `which uv` and confirming it is in the env that `os.execvpe` will inherit.
 
 Note: this task adds no files and is verification-only. If steps 1-3 all pass, the plan is done.
   </action>
   <verify>
-    <automated>cd /Users/pat/Personal/deep-agents &amp;&amp; OUT=$(python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help 2>&amp;1); EC=$?; echo "$OUT" | grep -qi 'No module named'\''vault_io'\''\|ModuleNotFoundError.*vault_io' &amp;&amp; { echo "FAIL: bare python still errors with ModuleNotFoundError"; echo "$OUT"; exit 1; }; echo "OK: bare python invocation did not ModuleNotFoundError (exit=$EC)"; GUARD_OUT=$(GRAPH_WIKI_SHIM_REEXEC=1 python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help 2>&amp;1 || true); echo "$GUARD_OUT" | grep -qi 'ModuleNotFoundError\|No module named' &amp;&amp; echo "OK: guard env var short-circuits re-exec (original ImportError surfaces)" || { echo "WARN: guard test did not surface ModuleNotFoundError — may indicate vault_io is importable in the current interpreter; manual confirmation needed"; }</automated>
+    <automated>cd /Users/pat/Personal/agent-research &amp;&amp; OUT=$(python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help 2>&amp;1); EC=$?; echo "$OUT" | grep -qi 'No module named'\''vault_io'\''\|ModuleNotFoundError.*vault_io' &amp;&amp; { echo "FAIL: bare python still errors with ModuleNotFoundError"; echo "$OUT"; exit 1; }; echo "OK: bare python invocation did not ModuleNotFoundError (exit=$EC)"; GUARD_OUT=$(GRAPH_WIKI_SHIM_REEXEC=1 python plugins/graph-wiki/skills/graph-wiki/scripts/detect_containers.py --help 2>&amp;1 || true); echo "$GUARD_OUT" | grep -qi 'ModuleNotFoundError\|No module named' &amp;&amp; echo "OK: guard env var short-circuits re-exec (original ImportError surfaces)" || { echo "WARN: guard test did not surface ModuleNotFoundError — may indicate vault_io is importable in the current interpreter; manual confirmation needed"; }</automated>
   </verify>
   <done>
 Bare `python <shim> --help` from the repo root succeeds (no `ModuleNotFoundError`) AND running the same command with `GRAPH_WIKI_SHIM_REEXEC=1` already set produces the original `ModuleNotFoundError` (proving no infinite loop). No regression for `uv run --project ... python <shim>` invocation.

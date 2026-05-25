@@ -47,7 +47,7 @@ Added `test_init_wiki_creates_section_index_stubs` covering both the creation pa
 
 ### Task 3 — End-to-end verification (no source edits)
 
-Copied `/Users/pat/Personal/wikis/deep-agents/` to `/tmp/wiki-verify/`, re-ran `init_vault` with `--force` against the tmp copy, and re-ran lint.
+Copied `/Users/pat/Personal/graph-wiki/agent-research/` to `/tmp/wiki-verify/`, re-ran `init_vault` with `--force` against the tmp copy, and re-ran lint.
 
 ```
 BEFORE: 41 broken wikilinks

@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`prompt-sources` is the canonical home for every agent role definition shipped with `deep-agents`. Each role lives at `packages/prompt-sources/agents/<role>.md` and supplies the system prompt, the input/output contract, the Rules section, and the Red flags section. The Phase 16 Bedrock divergence rubrics under `packages/eval-harness/src/eval_harness/divergence/rubrics/` anchor every check back into the matching prompt source.
+`prompt-sources` is the canonical home for every agent role definition shipped with `agent-research`. Each role lives at `packages/prompt-sources/agents/<role>.md` and supplies the system prompt, the input/output contract, the Rules section, and the Red flags section. The Phase 16 Bedrock divergence rubrics under `packages/eval-harness/src/eval_harness/divergence/rubrics/` anchor every check back into the matching prompt source.
 
 ## Roles
 

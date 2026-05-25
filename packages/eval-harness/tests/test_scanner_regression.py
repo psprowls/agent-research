@@ -8,7 +8,7 @@ NOTE — two-baseline split: This is the FORWARD-regression half. The first
 Phase-16 run seeds the snapshot baseline; subsequent runs compare. Because the
 synthetic fixture is brand-new in Phase 16, it has no v1.1 baseline to compare
 against. The v1.1-equivalent regression check (live-vault re-sweep against
-`~/Personal/wiki/deep-agents`) lives in Task 9 / 16-VERIFICATION.md SC#2 and
+`~/Personal/graph-wiki/agent-research`) lives in Task 9 / 16-VERIFICATION.md SC#2 and
 provides the v1.1 → v1.2 regression evidence on the same vault that v1.1 ran
 against.
 """

@@ -47,8 +47,8 @@ The argument is structurally correct: stubbing `_workspace_role_override` to ret
 
 ## Files updated
 
-- `/Users/pat/Personal/deep-agents/.planning/phases/20-workspace-manifest-model-config/20-02-PLAN.md`
-- `/Users/pat/Personal/deep-agents/.planning/phases/20-workspace-manifest-model-config/20-03-PLAN.md`
-- `/Users/pat/Personal/deep-agents/.planning/phases/20-workspace-manifest-model-config/20-04-PLAN.md`
+- `/Users/pat/Personal/agent-research/.planning/phases/20-workspace-manifest-model-config/20-02-PLAN.md`
+- `/Users/pat/Personal/agent-research/.planning/phases/20-workspace-manifest-model-config/20-03-PLAN.md`
+- `/Users/pat/Personal/agent-research/.planning/phases/20-workspace-manifest-model-config/20-04-PLAN.md`
 
 `20-01-PLAN.md` and `ROADMAP.md` were not modified — no findings against them.

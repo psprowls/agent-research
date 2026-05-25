@@ -20,7 +20,7 @@
 ### Workspace layout
 
 ```
-deep-agents/                        ← uv workspace root (no runtime code)
+agent-research/                        ← uv workspace root (no runtime code)
   pyproject.toml                    ← [tool.uv.workspace] + shared dev deps
   uv.lock                           ← single lockfile for whole monorepo
   packages/
@@ -35,7 +35,7 @@ deep-agents/                        ← uv workspace root (no runtime code)
 
 ```toml
 [project]
-name = "deep-agents-workspace"
+name = "agent-research-workspace"
 version = "0.1.0"
 requires-python = ">=3.11"
 
@@ -596,8 +596,8 @@ Snapshots stored as `.ambr` files alongside tests; committed to git; updated wit
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Bootstrap the workspace root
-uv init --bare deep-agents
-cd deep-agents
+uv init --bare agent-research
+cd agent-research
 
 # Create core packages
 uv init --package packages/core-bedrock

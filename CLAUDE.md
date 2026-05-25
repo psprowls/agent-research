@@ -1,7 +1,7 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**deep-agents**
+**agent-research**
 
 A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling running on AWS Bedrock, with a hand-rolled subagent runtime (`SubagentPool`) instead of a heavier orchestration framework. The first package, **`graph-wiki-agent`**, is a reimplementation of the upstream `lattice-wiki` Claude Code plugin (being ported in this repo as `graph-wiki`) — packaged as both an MCP server (consumed by the DeepAgents CLI) and a headless CLI that runs the full agent loop. It exists primarily so Pat can run the same wiki workflows on AWS Bedrock with within-command subagent fan-out for cost and context savings.
 
@@ -267,8 +267,8 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 
 ## Spike Findings
 
-- **Spike findings for deep-agents** (implementation patterns, constraints, gotchas) → `Skill("spike-findings-deep-agents")`
+- **Spike findings for agent-research** (implementation patterns, constraints, gotchas) → `Skill("spike-findings-agent-research")`
 
 ## Sketch Findings
 
-- **Sketch findings for deep-agents** (design decisions for `/graph-wiki:refresh` — sweep + targeted modes, autonomous run, hybrid diff doc) → `Skill("sketch-findings-deep-agents")`
+- **Sketch findings for agent-research** (design decisions for `/graph-wiki:refresh` — sweep + targeted modes, autonomous run, hybrid diff doc) → `Skill("sketch-findings-agent-research")`

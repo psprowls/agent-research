@@ -19,7 +19,7 @@ Mechanical rename of the agent package from `code-wiki-agent` to `graph-wiki-age
 - Plugin shell-out scripts (`plugins/graph-wiki/skills/graph-wiki/scripts/*.py`) that invoke `["code-wiki-agent", ...]`
 - Repo `README.md`, `CLAUDE.md`, plugin `README.md`/`CLAUDE.md`, `plugins/graph-wiki/.claude-plugin/plugin.json`
 - All 188 `.planning/` files (per D-04 override): STATE.md, ROADMAP.md, REQUIREMENTS.md, PROJECT.md, prior phase CONTEXT/PLAN/VERIFICATION docs, RETROSPECTIVE.md, intel/stack.json, milestone archives
-- `.claude/skills/spike-findings-deep-agents/SKILL.md` + active reference files
+- `.claude/skills/spike-findings-agent-research/SKILL.md` + active reference files
 - Extend `scripts/check-brand.sh` + `.brand-grep-allow` to enforce the rename going forward
 
 **Out of scope (explicit):**
@@ -43,10 +43,10 @@ Mechanical rename of the agent package from `code-wiki-agent` to `graph-wiki-age
 ### Scope Boundary
 - **D-05:** Sweep ALL 188 `.planning/` files including historical phase docs, archived milestones, RETROSPECTIVE.md. User override of the default "active docs only" recommendation. Rationale: full historical consistency — a future grep of `.planning/` for project-name references should return one name. Acknowledged trade-off: alters historical record vs. git log/commit messages (which retain the old name immutably).
 - **D-06:** Skip `graph-wiki/wiki/` content entirely. Wiki is healed via next `/graph-wiki:scan` run, not via direct edits.
-- **D-07:** Update `.claude/skills/spike-findings-deep-agents/SKILL.md` + active references; leave `.planning/spikes/{001,002}/sources/**/*.md` as historical raw spike material.
+- **D-07:** Update `.claude/skills/spike-findings-agent-research/SKILL.md` + active references; leave `.planning/spikes/{001,002}/sources/**/*.md` as historical raw spike material.
 
 ### Cutover Strategy
-- **D-08:** Work in a git worktree. Main checkout stays usable during the multi-commit rename. Use `git worktree add ../deep-agents-rename rename-21` (or planner's preferred naming).
+- **D-08:** Work in a git worktree. Main checkout stays usable during the multi-commit rename. Use `git worktree add ../agent-research-rename rename-21` (or planner's preferred naming).
 - **D-09:** Staged commits per layer, each landing green:
   1. `git mv` directories (`agents/code-wiki-agent/` and `src/` subdirs) — preserves git history for moved files
   2. `pyproject.toml` `name` + console scripts + `uv.lock` regenerate
@@ -99,7 +99,7 @@ None — the three Phase 21 todo matches (`fix-bedrock-count-tokens-api-shape`, 
 - `plugins/graph-wiki/{README.md,CLAUDE.md}` + `plugins/graph-wiki/skills/graph-wiki/README.md`
 - Root `README.md` + `CLAUDE.md`
 - `tests/test_integration_gate.py` (top-level integration gate)
-- `.claude/skills/spike-findings-deep-agents/SKILL.md` + `.claude/skills/spike-findings-deep-agents/references/*.md`
+- `.claude/skills/spike-findings-agent-research/SKILL.md` + `.claude/skills/spike-findings-agent-research/references/*.md`
 
 ### Conventions
 - `CLAUDE.md` §"Doing tasks" — "Avoid backwards-compatibility hacks" (justifies D-10 hard cut)

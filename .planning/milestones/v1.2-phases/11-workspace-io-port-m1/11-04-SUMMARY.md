@@ -95,7 +95,7 @@ completed: 2026-05-18
 ## Decisions Made
 
 - **Repo discovery in explicit-vault_path branch:** Use `workspace_io.config._find_repo_root(vault_path)` (walks up looking for `.git`) instead of returning `None`. This is a behavior **improvement** over the pre-port shim (which always returned `None`) and matches the workspace-io semantics from D-15. The 9 vault-io call sites destructure with `wiki, _ = resolve_wiki_and_repo()` and ignore `repo_root`, so no caller breaks — but `repo_root` is now meaningful for any future caller that needs it.
-- **Test isolation strategy:** Both raises-tests `monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)` so the tests don't pick up the real deep-agents `.git` directory and accidentally resolve a real workspace. This is the recommended pattern from RESEARCH.md Pitfall #1 and PATTERNS.md test_config.py reasoning.
+- **Test isolation strategy:** Both raises-tests `monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)` so the tests don't pick up the real agent-research `.git` directory and accidentally resolve a real workspace. This is the recommended pattern from RESEARCH.md Pitfall #1 and PATTERNS.md test_config.py reasoning.
 
 ## Deviations from Plan
 

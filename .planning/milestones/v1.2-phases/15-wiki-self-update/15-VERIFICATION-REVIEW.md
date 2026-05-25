@@ -8,7 +8,7 @@ overrides_applied: 0
 
 # Phase 15: Wiki Self-Update — Independent Verification Review
 
-**Phase Goal (ROADMAP):** The project's own wiki at `~/Personal/wiki/deep-agents` reflects the post-rebrand codebase — new package names, `.graph-wiki.yaml` manifest awareness, plugin port outcomes — so future librarian queries return answers consistent with the shipped code.
+**Phase Goal (ROADMAP):** The project's own wiki at `~/Personal/graph-wiki/agent-research` reflects the post-rebrand codebase — new package names, `.graph-wiki.yaml` manifest awareness, plugin port outcomes — so future librarian queries return answers consistent with the shipped code.
 
 **Verified:** 2026-05-18 (independent review by gsd-verifier)
 **Status:** PASS
@@ -21,7 +21,7 @@ overrides_applied: 0
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
 | SC#1 | Scan completes; scan-log shows new package names without `lattice` | VERIFIED (with scoping note) | `log.md` line 45: `scan complete: +2 ~0 -0`; new pages exist on disk; no `lattice` in new entries |
-| SC#2 | `workspace-io` scan page exists and is well-formed (frontmatter, key claims, wikilink) | VERIFIED | `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md` exists; frontmatter parses; 3 key claims; inbound wikilink from `index.md` |
+| SC#2 | `workspace-io` scan page exists and is well-formed (frontmatter, key claims, wikilink) | VERIFIED | `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md` exists; frontmatter parses; 3 key claims; inbound wikilink from `index.md` |
 | SC#3 | Librarian query returns answer citing `packages/workspace-io/` (not `lattice-workspace`) | VERIFIED | Full transcript in 15-VERIFICATION.md; citations: `packages/workspace-io/workspace-io`; `[[packages/workspace-io/workspace-io]]` wikilinks present |
 
 **Score: 3/3 SCs verified**
@@ -50,8 +50,8 @@ File opens with 4-line provenance comment block (4 lines, not 3 as specified —
 **Result: PASS**
 
 Parsed via `tomllib`. Confirmed:
-- `models_path` = `/Users/pat/Personal/deep-agents/models-claude.toml` (exact match)
-- `vault_path` = `/Users/pat/Personal/wiki/deep-agents` (exact match)
+- `models_path` = `/Users/pat/Personal/agent-research/models-claude.toml` (exact match)
+- `vault_path` = `/Users/pat/Personal/graph-wiki/agent-research` (exact match)
 
 ### Check 3: wiki-config.toml (default Qwen profile) unchanged
 
@@ -59,8 +59,8 @@ Parsed via `tomllib`. Confirmed:
 
 `wiki-config.toml` still reads:
 ```
-models_path = "/Users/pat/Personal/deep-agents/models-qwen.toml"
-vault_path  = "/Users/pat/Personal/wiki/deep-agents"
+models_path = "/Users/pat/Personal/agent-research/models-qwen.toml"
+vault_path  = "/Users/pat/Personal/graph-wiki/agent-research"
 ```
 No modification. D-06 honored.
 
@@ -68,7 +68,7 @@ No modification. D-06 honored.
 
 **Result: PASS**
 
-File exists at `/Users/pat/Personal/wiki/deep-agents/packages/workspace-io/workspace-io.md`.
+File exists at `/Users/pat/Personal/graph-wiki/agent-researchpackages/workspace-io/workspace-io.md`.
 
 Frontmatter verified as valid YAML:
 - `title: workspace-io`
@@ -83,7 +83,7 @@ Three substantive key claims present in body (Overview + Notable files sections)
 
 **Result: PASS**
 
-`/Users/pat/Personal/wiki/deep-agents/sources/` contains:
+`/Users/pat/Personal/graph-wiki/agent-researchsources/` contains:
 - `index.md`
 - `otel-story-observability.md`
 
@@ -190,7 +190,7 @@ All three deviations are documented honestly with their root causes, manifestati
 
 ## Phase Goal Alignment
 
-The phase goal states: "The project's own wiki at `~/Personal/wiki/deep-agents` reflects the post-rebrand codebase — new package names, `.graph-wiki.yaml` manifest awareness, plugin port outcomes — so future librarian queries return answers consistent with the shipped code."
+The phase goal states: "The project's own wiki at `~/Personal/graph-wiki/agent-research` reflects the post-rebrand codebase — new package names, `.graph-wiki.yaml` manifest awareness, plugin port outcomes — so future librarian queries return answers consistent with the shipped code."
 
 **Assessment:**
 

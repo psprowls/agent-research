@@ -112,7 +112,7 @@
 |--------|-------------|----------|
 | Synthetic monorepo + tmp_path | pytest tmp_path with `repo/graph-wiki/wiki/` + two pyproject packages | ✓ |
 | Reuse existing fixture | Extend `conftest.py` fixture if one exists | |
-| Use deep-agents repo itself | GRAPH_WIKI_RUN_INTEGRATION-gated against real repo | |
+| Use agent-research repo itself | GRAPH_WIKI_RUN_INTEGRATION-gated against real repo | |
 
 **User's choice:** Synthetic tmp_path monorepo. Reproducible and isolated.
 
@@ -136,7 +136,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Final step in the plan | Run `update_tokens.py` on `~/Personal/wiki/deep-agents`, commit wiki-side updates, transcript into VERIFICATION.md | ✓ |
+| Final step in the plan | Run `update_tokens.py` on `~/Personal/graph-wiki/agent-research`, commit wiki-side updates, transcript into VERIFICATION.md | ✓ |
 | Post-merge operational | Operator re-runs separately; transcript pasted into VERIFICATION.md | |
 | Out of plan — follow-up todo | TOK-03 becomes a pending todo (risk: slips) | |
 

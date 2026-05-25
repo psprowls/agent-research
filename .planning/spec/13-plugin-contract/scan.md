@@ -50,7 +50,7 @@ No behavior changes vs upstream. Pure rename of namespace and import target. The
 
 Phase 14 confirms `/graph-wiki:scan` works by running the following smoke:
 
-1. Use a workspace that has a freshly initialized wiki (from `/graph-wiki:bootstrap`) — e.g. `~/Personal/wiki/deep-agents`.
+1. Use a workspace that has a freshly initialized wiki (from `/graph-wiki:bootstrap`) — e.g. `~/Personal/graph-wiki/agent-research`.
 2. Ensure the working tree is clean and HEAD is on `main` (enables the full update path including `last_sync_commit` bump).
 3. Run `/graph-wiki:scan` from that directory.
 4. Verify output lists the expected packages (e.g. `vault-io`, `workspace-io`, `code-wiki-agent`, `eval-harness`) with their `new`, `unchanged`, or `renamed` diff status.

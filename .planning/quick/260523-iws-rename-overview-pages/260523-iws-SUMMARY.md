@@ -42,11 +42,11 @@ decisions:
 
 # Quick Task 260523-iws: Rename Wiki Overview Pages to overview.md
 
-**One-liner:** Reversed the `<dir-name>.md` overview page convention to `overview.md` throughout vault-io scanner/detector code, plugin instruction markdown, agent prompt fragments, and the live deep-agents wiki (7 pages renamed via `git mv`).
+**One-liner:** Reversed the `<dir-name>.md` overview page convention to `overview.md` throughout vault-io scanner/detector code, plugin instruction markdown, agent prompt fragments, and the live agent-research wiki (7 pages renamed via `git mv`).
 
 ## What Was Done
 
-### Code Changes (deep-agents repo — commit `176cb2c`)
+### Code Changes (agent-research repo — commit `176cb2c`)
 
 **`packages/vault-io/src/vault_io/scan_monorepo.py`**
 - `_wiki_relative_path_for()`: all three return branches now emit `overview.md` instead of `<name>.md`
@@ -100,7 +100,7 @@ decisions:
 - `plugins/graph-wiki/skills/graph-wiki/references/wiki-schema.md`: domain slug path updated
 - `plugins/graph-wiki/skills/graph-wiki/references/lint-workflow.md`: Section B updated
 
-### Live Wiki Changes (wikis/deep-agents repo — commit `c86dbbb`)
+### Live Wiki Changes (wikis/agent-research repo — commit `c86dbbb`)
 
 7 pages renamed via `git mv` (history preserved):
 - `wiki/packages/vault-io/vault-io.md` → `wiki/packages/vault-io/overview.md`
@@ -128,7 +128,7 @@ Detection uses `overview.md` ONLY. No backwards-compatible fallback for the old 
 
 ## iCloud Obsidian Mirror Status
 
-Mirror present at `/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/deep-agents/wiki`.
+Mirror present at `/Users/pat/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-research/wiki`.
 
 Actions taken:
 - Removed 7 stale `<name>.md` overview files
@@ -140,9 +140,9 @@ Actions taken:
 
 | Repo | Hash | Description |
 |------|------|-------------|
-| deep-agents | `176cb2c` | refactor(quick-260523-iws): rename wiki overview pages to overview.md |
-| wikis/deep-agents | `c86dbbb` | refactor: rename package/app/plugin overview pages to overview.md |
-| deep-agents (docs) | (this commit) | docs(quick-260523-iws): record overview-rename quick task in SUMMARY + STATE |
+| agent-research | `176cb2c` | refactor(quick-260523-iws): rename wiki overview pages to overview.md |
+| wikis/agent-research | `c86dbbb` | refactor: rename package/app/plugin overview pages to overview.md |
+| agent-research (docs) | (this commit) | docs(quick-260523-iws): record overview-rename quick task in SUMMARY + STATE |
 
 ## Deviations from Plan
 

@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | `plugins/graph-wiki/.claude-plugin/plugin.json` | config (plugin metadata) | static | `/Users/pat/Personal/lattice/plugins/lattice-wiki/.claude-plugin/plugin.json` | exact (rebrand + version reset per D-03) |
 | `plugins/graph-wiki/CLAUDE.md` | docs (host-loaded guidance) | static | upstream `plugins/lattice-wiki/CLAUDE.md` | exact (brand-swap pass) |
-| `plugins/graph-wiki/README.md` | docs | FRESH-WRITE | none in upstream — D-04 deliberately diverges; structural sibling is `packages/workspace-io/README.md` | role-match (deep-agents-repo readme tone) |
+| `plugins/graph-wiki/README.md` | docs | FRESH-WRITE | none in upstream — D-04 deliberately diverges; structural sibling is `packages/workspace-io/README.md` | role-match (agent-research-repo readme tone) |
 | `plugins/graph-wiki/commands/init.md` | docs (slash command body) | event-driven (Claude Code dispatch) | upstream `commands/init.md` | exact (rename per spec) |
 | `plugins/graph-wiki/commands/scan.md` | docs | event-driven | upstream `commands/scan.md` | exact |
 | `plugins/graph-wiki/commands/ingest.md` | docs | event-driven | upstream `commands/ingest.md` | exact |
@@ -581,7 +581,7 @@ override (e.g., `ingest: bedrock`).
 - Upstream `lattice-wiki` README for general framing (iron rules, layout block, frontmatter schema).
 ```
 
-**Tone analog:** `packages/workspace-io/README.md` (terse, deep-agents-internal, audience = Pat).
+**Tone analog:** `packages/workspace-io/README.md` (terse, agent-research-internal, audience = Pat).
 
 ---
 
@@ -589,7 +589,7 @@ override (e.g., `ingest: bedrock`).
 
 **Analog:** `.planning/phases/12-drift-backport-ecosystem-rebrand-m2/12-VERIFICATION.md` (Phase 12's verification log shape).
 
-**Required content (CONTEXT.md §D-05):** fenced markdown block containing the **full** transcript of `/graph-wiki:query "what is workspace-io?"` (or equivalent) run in a Claude Code session against `~/Personal/wiki/deep-agents`. Includes: user question, librarian fan-out evidence (citations, pages read), synthesized answer with `[[wikilinks]]` and `code-path:line` citations. No snapshot baseline, no assertion script.
+**Required content (CONTEXT.md §D-05):** fenced markdown block containing the **full** transcript of `/graph-wiki:query "what is workspace-io?"` (or equivalent) run in a Claude Code session against `~/Personal/graph-wiki/agent-research`. Includes: user question, librarian fan-out evidence (citations, pages read), synthesized answer with `[[wikilinks]]` and `code-path:line` citations. No snapshot baseline, no assertion script.
 
 ---
 
@@ -615,7 +615,7 @@ LATTICE_WIKI_ROOT    →  GRAPH_WIKI_ROOT (in env var keys)
 
 ### Brand gate (BRAND-04 / VP-03 / SC#3)
 
-**Source:** `/Users/pat/Personal/deep-agents/scripts/check-brand.sh` + `/Users/pat/Personal/deep-agents/.brand-grep-allow`
+**Source:** `/Users/pat/Personal/agent-research/scripts/check-brand.sh` + `/Users/pat/Personal/agent-research/.brand-grep-allow`
 **Apply to:** every file created or modified in Phase 14 — full tree must pass.
 
 **Invocation (verbatim Phase 12 / from CONTEXT.md §SC#3 area):**

@@ -64,7 +64,7 @@ re_verification:
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
 | 9 tests in test_detect_containers.py all pass | `uv run --package vault-io pytest packages/vault-io/tests/test_detect_containers.py -v` | `9 passed in 0.06s` | PASS |
-| Operational repro on this repo's packages/ dir | `detect(Path("/Users/pat/Personal/deep-agents/.claude/worktrees/phase-25-discuss"))` then filter source==packages | classification=package, children_count=5, reason="5/6 children have manifests; 1 dir(s) and 0 loose .md skipped" | PASS |
+| Operational repro on this repo's packages/ dir | `detect(Path("/Users/pat/Personal/agent-research/.claude/worktrees/phase-25-discuss"))` then filter source==packages | classification=package, children_count=5, reason="5/6 children have manifests; 1 dir(s) and 0 loose .md skipped" | PASS |
 | Plugin shim imports cleanly | `uv run python -c "from vault_io.detect_containers import main"` | exit 0 | PASS |
 | Pre-existing test failures truly pre-existing | Checked out detect_containers.py + test file from pre-Phase-25 commit (6b67ffd) and re-ran `test_cli_help.py` | `test_cli_help_lists_bootstrap_subcommand` FAILS identically — ANSI escape codes wrap the `bootstrap` literal in Typer/Rich help output. Predates Phase 25 (test file last touched 29eca18 in Phase 21). | PASS (pre-existing confirmed) |
 

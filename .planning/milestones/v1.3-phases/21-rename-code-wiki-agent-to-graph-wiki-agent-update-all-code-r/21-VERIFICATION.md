@@ -75,7 +75,7 @@ human_verification: []
 
 None blocking. Verified findings:
 
-- The 14 `CODE_WIKI_` matches remaining in the repo are exclusively `CODE_WIKI_CONFIG` (a Phase 20 token already deleted from live code), appearing inside `.claude/skills/sketch-findings-deep-agents/sources/*/index.html` HTML snapshots of historical commit messages — explicitly allowlisted in `.brand-grep-allow` with D-07-analog rationale ("rewriting would corrupt commit-log quotations"). These are NOT Phase 21 brand tokens (`CODE_WIKI_RUN_INTEGRATION` / `CODE_WIKI_RUN_EVAL`).
+- The 14 `CODE_WIKI_` matches remaining in the repo are exclusively `CODE_WIKI_CONFIG` (a Phase 20 token already deleted from live code), appearing inside `.claude/skills/sketch-findings-agent-research/sources/*/index.html` HTML snapshots of historical commit messages — explicitly allowlisted in `.brand-grep-allow` with D-07-analog rationale ("rewriting would corrupt commit-log quotations"). These are NOT Phase 21 brand tokens (`CODE_WIKI_RUN_INTEGRATION` / `CODE_WIKI_RUN_EVAL`).
 - The 30 `.planning/` files still containing `code-wiki-*` references are all properly allowlisted (intel auto-gen files, spec/13-plugin-contract docs about a different rename, Phase 18 phase dir, sketches/*.html, threads/archive/). Each allowlist entry carries a `# rationale:` comment per SP-6.
 
 ### Requirements Coverage

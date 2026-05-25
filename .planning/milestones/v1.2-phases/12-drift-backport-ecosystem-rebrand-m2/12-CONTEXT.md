@@ -127,7 +127,7 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/{git_state,append_log,update_index,update_tokens,layout_io,detect_containers,scan_monorepo,ingest_source}.py` — the rest of the overlapping module set.
 - Upstream SHA at diff time: `1b45172a9900842b0f8eea525c8270e7fff50605` (current `~/Personal/lattice` HEAD). Pinned in DRIFT-DECISIONS.md header.
 
-### Existing deep-agents code that changes
+### Existing agent-research code that changes
 - `packages/vault-io/src/vault_io/lint/*.py` — `PORT` rows land here. 7 candidate files (excluding `__init__.py` empty, `domain.py` identical).
 - `packages/vault-io/src/vault_io/init_vault.py` — rebrand surfaces visible (`/lattice-wiki:scan`, "lattice workspace" prose, `.lattice.yaml` docstring); may also receive a `PORT` from BACKPORT-02 depending on body-diff.
 - `packages/vault-io/src/vault_io/{update_index,scan_monorepo,ingest_work_item,init_vault,git_state,layout_io,ingest_source,update_tokens,append_log}.py` — 12 src files have `lattice` grep hits; mostly docstrings, error messages, and a few `.lattice.yaml` legacy strings. Rebrand sweep updates these.
@@ -147,7 +147,7 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 
 ### Project-level constraints
 - `CLAUDE.md` — Python 3.11+, uv workspace, no tiktoken (informs `update_tokens.py` `LEAVE-AHEAD` verdict), MCP error-handling pattern (WR-01/WR-02 informs `LEAVE-AHEAD` verdicts).
-- Memory `[[project_wiki_setup]]` — deep-agents wiki at `~/Personal/wiki/deep-agents` is the Phase 15 self-update target; Phase 12 does NOT touch the wiki itself.
+- Memory `[[project_wiki_setup]]` — agent-research wiki at `~/Personal/graph-wiki/agent-research` is the Phase 15 self-update target; Phase 12 does NOT touch the wiki itself.
 
 </canonical_refs>
 
@@ -189,10 +189,10 @@ Two parallel tracks landing together as the v1.2 "make the codebase actually gra
 
 - **Per-backport regression tests as a hard requirement** — SR-04 keeps this soft (only add tests for behavior not covered by existing suite). If a future sync surfaces a class of upstream changes that the existing suite doesn't catch, tighten the rubric in a follow-up phase.
 - **JSON / structured-data shape for DRIFT-DECISIONS.md** — single-developer tool; markdown table fits. Could change if a future tool wants to consume it programmatically.
-- **Rebranding the `~/Personal/lattice/` source tree** — out of scope entirely. lattice is upstream; deep-agents doesn't own it.
+- **Rebranding the `~/Personal/lattice/` source tree** — out of scope entirely. lattice is upstream; agent-research doesn't own it.
 - **Rebranding archived/historical planning docs** — explicit R-03 decision. Could reconsider in a future "documentation polish" phase if the historical references confuse contributors, but provenance value is real.
 - **Re-recording eval baselines against rebranded code** — out of scope per R-02. Baselines are a record of measured behavior; only re-record if the prompt or model meaningfully changes (Phase 7 already validated cost-frontier picks).
-- **Wiki self-update against rebranded codebase** — Phase 15 (BRAND-03). Scanning + ingesting `~/Personal/wiki/deep-agents` against the post-rebrand repo happens AFTER Phase 14's plugin port lands.
+- **Wiki self-update against rebranded codebase** — Phase 15 (BRAND-03). Scanning + ingesting `~/Personal/graph-wiki/agent-research` against the post-rebrand repo happens AFTER Phase 14's plugin port lands.
 - **Add a `pytest` test that shells out to `check-brand.sh`** — alternative to Phase 12 verification owning the call. Could land in Phase 16 if "brand drift" becomes a recurring concern.
 
 </deferred>

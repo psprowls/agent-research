@@ -1,10 +1,10 @@
 ---
-name: sketch-findings-deep-agents
+name: sketch-findings-agent-research
 description: Validated design decisions for the /graph-wiki:refresh command (sweep + targeted modes, autonomous run with post-hoc review, diff doc to raw/ then dispatch ingest). Auto-loaded during plan-phase or implementation work on graph-wiki refresh.
 ---
 
 <context>
-## Project: deep-agents
+## Project: agent-research
 
 These findings cover the design of `/graph-wiki:refresh` — a command that fleshes out under-filled wiki package/domain pages (replacing `TODO` placeholders in `api.md`, `context.md`, `patterns.md`, and `overview.md` File maps) and re-syncs stale pages by writing a synthetic source to `raw/diffs/` then dispatching `/graph-wiki:ingest` on it.
 

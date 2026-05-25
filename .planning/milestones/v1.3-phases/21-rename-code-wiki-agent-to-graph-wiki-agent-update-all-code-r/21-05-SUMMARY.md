@@ -7,7 +7,7 @@ requires:
   - 21-04 (cross-package + env vars + trace-dir rebrand; whole-repo pytest -m "not integration" green)
 provides:
   - .planning/ historical sweep complete (D-05 override of R-03) — STATE/ROADMAP/REQUIREMENTS/PROJECT/RETROSPECTIVE/MILESTONES + 17/20 phase docs + threads + v1.0/v1.1/v1.2 milestone archives + sketches/ + sweep/ + research/ + spike READMEs+MANIFEST+CONVENTIONS+WRAP-UP
-  - .claude/skills/spike-findings-deep-agents/{SKILL.md,references/**} swept (D-07 active-refs inclusion)
+  - .claude/skills/spike-findings-agent-research/{SKILL.md,references/**} swept (D-07 active-refs inclusion)
   - repo + plugin docs swept (README.md, CLAUDE.md, plugins/graph-wiki/{README,CLAUDE}.md, skills/graph-wiki/README.md, .claude-plugin/plugin.json)
   - scripts/check-brand.sh extended with code-wiki-agent / code_wiki_agent / code-wiki-mcp / code_wiki_mcp regex (D-12 single-gate extension)
   - .brand-grep-allow Phase 21 section authored with three sub-categories (renamed-path mirrors + Phase-21 carve-outs + pre-existing-lattice narrow allowlists); every entry SP-6-compliant
@@ -15,7 +15,7 @@ provides:
   - Phase 21 goal SC#5 satisfied — full-repo grep for the four code-wiki-* slugs returns zero unallowlisted hits
 affects:
   - .planning/ (188 files swept across Tasks 1+2+3; 175+ updated, balance had zero hits)
-  - .claude/skills/spike-findings-deep-agents/ (SKILL.md + 1 active reference)
+  - .claude/skills/spike-findings-agent-research/ (SKILL.md + 1 active reference)
   - README.md, CLAUDE.md, plugins/graph-wiki/** (docs)
   - scripts/check-brand.sh, .brand-grep-allow
 tech-stack:
@@ -34,7 +34,7 @@ key-files:
     - "172 files in Task 3 (historical archives v1.0/v1.1/v1.2 + sketches *.md + sweep + research + spike READMEs+meta) — commit ee40a15"
     - "2 files in Task 4 (scripts/check-brand.sh, .brand-grep-allow) — commit 161a1cd"
 decisions:
-  - "Task 3 D-07-analog discretion: `.planning/sketches/00{1,2,3}/index.html` excluded from the sed sweep (plan scope was `.planning/sketches/**/*.md`, html files are static design mockups quoting `agents/code-wiki-agent` paths verbatim as rendered `/graph-wiki:refresh` output examples). Same class as 21-04's D-07-analog call for `.claude/skills/sketch-findings-deep-agents/sources/`. Both directly allowlisted in Task 4."
+  - "Task 3 D-07-analog discretion: `.planning/sketches/00{1,2,3}/index.html` excluded from the sed sweep (plan scope was `.planning/sketches/**/*.md`, html files are static design mockups quoting `agents/code-wiki-agent` paths verbatim as rendered `/graph-wiki:refresh` output examples). Same class as 21-04's D-07-analog call for `.claude/skills/sketch-findings-agent-research/sources/`. Both directly allowlisted in Task 4."
   - "Task 4 Karpathy-§3 (Surgical Changes) call: stale Phase 12 allowlist entries (lines 125/173/175 of .brand-grep-allow, pointing to old `agents/code-wiki-agent/...` paths that no longer exist) left UNTOUCHED per M4 discipline. Equivalent renamed-path entries (`agents/graph-wiki-agent/...`) added to the Phase 21 section under sub-category (a) — same surface, dual coverage."
   - "Task 4 Rule-3 (Blocking) fix: `scripts/check-brand.sh` line 69 referenced the stale CLI path `agents/code-wiki-agent/src/code_wiki_agent/cli.py` — this is CHECK 3's regression guard against `def init(` reintroduction. The file no longer exists at that path, so the guard had silently become a no-op. Surgically updated to `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` so CHECK 3 stays effective. This is Phase 21's own brand-gate script, missed by 21-04's cross-package sweep because B1's `--exclude-dir=graph-wiki` excluded the wiki dir but the gate's own path lookups were never touched by sed-style rebrands."
   - "Task 4 sub-category (c): added narrow allowlists for pre-existing lattice surface that would have failed even before the Phase 21 rename — `.planning/milestones/v1.2-` (REQUIREMENTS/ROADMAP/v1.2-phases/**), `.planning/phases/17-`, `.planning/phases/20-`, plus two test files (`packages/eval-harness/tests/test_scanner_regression.py`, `packages/vault-io/tests/test_scan_companion_fold.py`). These are pre-existing `lattice` / `lattice-curator-core` references in the same R-03/Provenance class as existing Phase 12 entries; R-03 only listed `v1.0-` / `v1.1-` archive prefixes so v1.2 + Phase 17/20 + the two test files were never covered. Narrow path-fragment entries per the prompt guidance: 'EXCLUDE only via narrow allowlist entries — don't broaden to mask unrelated regressions.' Documented as out-of-scope for Phase 21."
@@ -70,8 +70,8 @@ across the four commits (count of unique paths; some files touched only once).
 
 ```
 $ git show --stat 9610ef0 --format=
- .claude/skills/spike-findings-deep-agents/SKILL.md                  |  2 +-
- .claude/skills/spike-findings-deep-agents/references/subagent-context-injection.md |  6 ++--
+ .claude/skills/spike-findings-agent-research/SKILL.md                  |  2 +-
+ .claude/skills/spike-findings-agent-research/references/subagent-context-injection.md |  6 ++--
  .planning/MILESTONES.md                                             |  4 +-
  .planning/PROJECT.md                                                | 26 +++++++--------
  .planning/REQUIREMENTS.md                                           |  8 ++---
@@ -205,7 +205,7 @@ graph-wiki/wiki/
 .planning/spikes/001-subagent-context-audit/sources/
 .planning/spikes/002-lattice-drift-inventory/sources/
 .planning/phases/21-rename-code-wiki-agent-to-graph-wiki-agent-update-all-code-r/
-.claude/skills/sketch-findings-deep-agents/sources/
+.claude/skills/sketch-findings-agent-research/sources/
 .planning/sketches/001-refresh-sweep-output/index.html
 .planning/sketches/002-refresh-result-block/index.html
 .planning/sketches/003-refresh-diff-doc/index.html
@@ -260,7 +260,7 @@ deletion-guard run after Task 4 commit returned zero output.
 
 Two analog classes were treated the same way as D-07 spike sources:
 
-- `.claude/skills/sketch-findings-deep-agents/sources/*/index.html` — per
+- `.claude/skills/sketch-findings-agent-research/sources/*/index.html` — per
   21-04 SUMMARY's forward pointer. Historical HTML snapshots that quote
   prior commit messages containing `CODE_WIKI_CONFIG`.
 - `.planning/sketches/00{1,2,3}/index.html` — Plan 21-05 Task 3 discretion.
@@ -375,7 +375,7 @@ files, not broad wildcards). All same R-03 / Provenance class as Phase 12.
   result-block/index.html`).
 - **Rationale:** Plan scope was `.planning/sketches/**/*.md`, not `*.html`.
   Same class as 21-04's D-07-analog call for `.claude/skills/sketch-
-  findings-deep-agents/sources/*.html` (static design artifacts; rewriting
+  findings-agent-research/sources/*.html` (static design artifacts; rewriting
   corrupts them as historical mockups).
 - **Treatment:** 3 entries in Phase 21 section sub-category (b), each
   with a `# rationale:` naming the D-07-analog discretion.

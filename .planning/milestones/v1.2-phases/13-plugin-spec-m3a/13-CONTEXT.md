@@ -13,7 +13,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 **In scope:**
 - `.planning/spec/13-plugin-contract/` — new directory containing one spec file per ported slash command (6 files; the 3 work-layer commands are explicitly marked DROP).
 - A `.planning/spec/13-plugin-contract/CONTRACT-INDEX.md` index that lists all 9 upstream commands, their verdicts (`rename` / `reshape` / `drop`), and links to each per-command spec file.
-- A `.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md` cross-cutting decisions doc: the `uv run --project $DEEP_AGENTS_ROOT python3 ...` invocation shape, the env-var-based deep-agents discovery, the `[plugin]` table additions to `.graph-wiki.yaml`, the backend selector seam, and the agent/skill rename map.
+- A `.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md` cross-cutting decisions doc: the `uv run --project $DEEP_AGENTS_ROOT python3 ...` invocation shape, the env-var-based agent-research discovery, the `[plugin]` table additions to `.graph-wiki.yaml`, the backend selector seam, and the agent/skill rename map.
 - PROJECT.md Key Decisions entry locking the contract surface (so Phase 14 has no open wiring questions).
 - An updated REQUIREMENTS.md note that `lint_wiki.py` + `wiki_search.py` MUST be ported into `vault-io` as a prerequisite step inside Phase 14 (before the plugin's `/lint` and `/query` shims can shell out cleanly).
 
@@ -62,7 +62,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
   ```bash
   uv run --project "$DEEP_AGENTS_ROOT" python3 "${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/<x>.py" "$@"
   ```
-  User sets `DEEP_AGENTS_ROOT` once in shell rc (e.g., `export DEEP_AGENTS_ROOT=/Users/pat/Personal/deep-agents`). `uv run --project` resolves the deep-agents venv and makes `vault_io` + `workspace_io` importable without the user needing to activate a venv manually. Single-user-setup-friendly; no per-cwd discovery logic to maintain.
+  User sets `DEEP_AGENTS_ROOT` once in shell rc (e.g., `export DEEP_AGENTS_ROOT=/Users/pat/Personal/agent-research`). `uv run --project` resolves the agent-research venv and makes `vault_io` + `workspace_io` importable without the user needing to activate a venv manually. Single-user-setup-friendly; no per-cwd discovery logic to maintain.
 - **SO-02 (Shim contents — the upstream pattern, retargeted.):** Each script file is a shim:
   ```python
   #!/usr/bin/env python3
@@ -170,7 +170,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 
 - **PD-01 (`$DEEP_AGENTS_ROOT` env var is the only required user config.):** Documented in `plugins/graph-wiki/README.md` (Phase 14 will author this). README also notes the `[plugin]` block syntax for backend overrides and the work-layer commands' absence.
 - **PD-02 (`$CLAUDE_PLUGIN_ROOT` is auto-set by Claude Code at slash-command invocation.):** Same convention upstream uses; no Phase 13/14 work — just verified.
-- **PD-03 (uv must be installed.):** Same prerequisite as the rest of the deep-agents monorepo; documented in the plugin README. No fallback to bare `python3` — that would break the `from vault_io` import.
+- **PD-03 (uv must be installed.):** Same prerequisite as the rest of the agent-research monorepo; documented in the plugin README. No fallback to bare `python3` — that would break the `from vault_io` import.
 
 ### Claude's Discretion
 
@@ -211,7 +211,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` — ~508 LOC; port source for VP-01.
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/lattice_wiki_core/wiki_search.py` — ~194 LOC; port source for VP-01.
 
-### Existing deep-agents code referenced by the spec
+### Existing agent-research code referenced by the spec
 - `packages/vault-io/src/vault_io/{init_vault,scan_monorepo,ingest_source,detect_containers,layout_io,append_log,git_state,graph_analyzer,update_index,update_tokens}.py` — every shim's `claude` branch imports from these. Spec contracts call these out per-command.
 - `packages/vault-io/src/vault_io/lint/*.py` — `/graph-wiki:lint`'s mechanical pass 1 dispatches lint rule modules from here.
 - `packages/workspace-io/src/workspace_io/manifest.py` — Phase 14 extends this to read the new `[plugin]` block (SO-03). Phase 13 spec calls out the extension; Phase 14 implements it.
@@ -224,7 +224,7 @@ A locked, per-command contract surface for porting the upstream `lattice-wiki` C
 - `.planning/PROJECT.md` §"Explicitly out of v1.2" — work/ subsystem out; package-family monorepo out; vault-io-ahead modules out. Drives C-01 drop verdicts.
 - Memory `[[project_plugin_port_model]]` — captures the Claude-Code-inference-only reframe (2026-05-18); load-bearing context for the whole spec.
 - Memory `[[user_lattice_wiki_author]]` — Pat built lattice-wiki; trust his "port verbatim" calls. Drives P-03 (functional parity).
-- Memory `[[project_wiki_setup]]` — deep-agents wiki at `~/Personal/wiki/deep-agents`; the future Phase 15 self-update target. Phase 13 spec doesn't touch this; just notes it as the consumer of a working plugin.
+- Memory `[[project_wiki_setup]]` — agent-research wiki at `~/Personal/graph-wiki/agent-research`; the future Phase 15 self-update target. Phase 13 spec doesn't touch this; just notes it as the consumer of a working plugin.
 
 </canonical_refs>
 

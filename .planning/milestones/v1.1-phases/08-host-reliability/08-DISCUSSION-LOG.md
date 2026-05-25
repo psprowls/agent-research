@@ -54,9 +54,9 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Fresh `tmp_path` per run, init + seed inline | Each run: `wiki_init` to tmp_path → write small deterministic seed (3-5 pages, 1 source, 1 work item) → drive remaining tools. Isolated, deterministic, exercises init genuinely. Requires CWD discipline so scan doesn't walk deep-agents. | ✓ |
+| Fresh `tmp_path` per run, init + seed inline | Each run: `wiki_init` to tmp_path → write small deterministic seed (3-5 pages, 1 source, 1 work item) → drive remaining tools. Isolated, deterministic, exercises init genuinely. Requires CWD discipline so scan doesn't walk agent-research. | ✓ |
 | Copy Phase 4 eval fixture corpus | `shutil.copytree` the eval fixture; corpus is realistic + pre-indexed but designed for divergence eval, not 6-tool sweep; init has no clean target. | |
-| Snapshot of live wiki (`~/Personal/wiki/deep-agents`) | Maximally realistic; host-specific, changes constantly, maintenance burden. | |
+| Snapshot of live wiki (`~/Personal/graph-wiki/agent-research`) | Maximally realistic; host-specific, changes constantly, maintenance burden. | |
 
 **User's choice:** Fresh `tmp_path` per run, init + seed inline
 **Notes:** Drove D-13 (CWD discipline — scan target must be `tmp_path`, not the workspace) and D-14 (one sequential test function over six independent tests, given the natural state dependency chain init → scan → ingest → query → lint → log).

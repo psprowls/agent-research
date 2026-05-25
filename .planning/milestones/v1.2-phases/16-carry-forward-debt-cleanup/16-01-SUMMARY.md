@@ -6,7 +6,7 @@ tags: [tracing, bedrock, divergence, eval, mcp, cancel, integration-gate, model-
 
 requires:
   - phase: 15-wiki-self-update
-    provides: Live deep-agents vault used as the v1.1-equivalent regression target in SC#2
+    provides: Live agent-research vault used as the v1.1-equivalent regression target in SC#2
   - phase: 14-plugin-port-m3b
     provides: Post-rebrand surface (workspace-io, vault-io) referenced by new code_reader cases + fixture vault
   - phase: 09-observability
@@ -81,7 +81,7 @@ key-decisions:
   - "Defensive isinstance(dict) guard on usage_metadata in BOTH trace_io.py and the new _extract_usage_tokens helper in query.py — prevents bare-MagicMock test responses from poisoning trace records (Rule 1 auto-fix; surfaced by pre-existing test_run_query_synthesizer_override mock pattern)"
   - "Synth-call trace filename renamed to synth_<query_id>.jsonl (not query_<query_id>_synth.jsonl) so test_query_summary_schema_version's `query_*.jsonl` glob still finds exactly one match — preserves existing test invariant"
   - "ROLES_WITH_DIVERGENCE expanded to 6 roles (D-06); D-08 skip behavior for code_reader + synthesizer superseded — Gate 1 now applies universally to the in-scope role set"
-  - "Two-baseline split for 'no regression vs v1.1 baseline' (D-11): forward-CI uses the synthetic fixture vault seeded on first Phase-16 run; v1.1-equivalent uses live-vault SCANNER_CHECKS transcript against ~/Personal/wiki/deep-agents"
+  - "Two-baseline split for 'no regression vs v1.1 baseline' (D-11): forward-CI uses the synthetic fixture vault seeded on first Phase-16 run; v1.1-equivalent uses live-vault SCANNER_CHECKS transcript against ~/Personal/graph-wiki/agent-research"
   - "MCP cancel gate verdict: re-defer (neither langchain-aws#663 nor aioboto3 GA has landed); docs/cancellation.md §5 swaps calendar phrasing for the verbatim D-09 event-driven trigger"
   - "test_bedrock_iam divergence resolved via canonical decorator (D-10 option a) rather than allowlist; second function intentionally stays ungated (mock-only IAM error path)"
   - "test_mcp_cancel allowlisted via `# integration-gate-allow` marker (mock-only test in integration/ dir for organizational grouping); documented in docs/testing.md §4"
@@ -198,7 +198,7 @@ Significant in-execution decisions are documented in the frontmatter
 
 ### Scoped-down items (called out, not auto-fixed)
 
-- **Live model-sweep against `~/Personal/wiki/deep-agents`:** Per Task 9's "judgement-driven" language, the actual `run_role_sweep` invocation against the live vault was NOT executed. Setting up a real Bedrock sweep (baseline directory, candidate model list, repeats) is out of scope for this debt-cleanup plan. Instead, the v1.1-equivalent regression check is captured by running the deterministic `SCANNER_CHECKS` hard rules against the live vault's existing scanner output (the same content v1.1 produced). The finding is documented in `16-VERIFICATION.md` SC#2.
+- **Live model-sweep against `~/Personal/graph-wiki/agent-research`:** Per Task 9's "judgement-driven" language, the actual `run_role_sweep` invocation against the live vault was NOT executed. Setting up a real Bedrock sweep (baseline directory, candidate model list, repeats) is out of scope for this debt-cleanup plan. Instead, the v1.1-equivalent regression check is captured by running the deterministic `SCANNER_CHECKS` hard rules against the live vault's existing scanner output (the same content v1.1 produced). The finding is documented in `16-VERIFICATION.md` SC#2.
 - **The 7 SCN-002/SCN-003 "failures" on the live vault** are NOT a v1.1->v1.2 regression. They are a structural mismatch between divergence rules (which describe the LLM's stub output BEFORE the scanner pipeline runs) and the on-disk FINAL-STATE pages (which include `## File map` appended by the pipeline). The v1.1 behavior matches — no regression. Future plan: gate this check on raw LLM output rather than final-state pages (deferred — out of scope for 16-01).
 
 ## Known Stubs

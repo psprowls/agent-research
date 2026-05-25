@@ -41,7 +41,7 @@
 
 **Vendored destination:**
 ```
-/Users/pat/Personal/deep-agents/cores/prompt-sources/wiki-claude-md-template.md
+/Users/pat/Personal/agent-research/packages/prompt-sources/wiki-claude-md-template.md
 ```
 
 Notes:

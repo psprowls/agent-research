@@ -124,11 +124,11 @@ The Phase 18 commits are pure rename + body-text/sweep edits. No new code logic 
 - **Why human:** Cannot install/load a Claude Code plugin from the verifier process. Requires an interactive Claude Code session. This is the canonical SC#3 manual smoke test per CONTEXT.md D-07 and was deferred to UAT by design.
 
 **UAT result (2026-05-20, during quick task 260520-bgd):**
-- Plugin installation state: `graph-wiki@deep-agents`, scope `local`, `projectPath: /Users/pat/Personal/deep-agents`.
+- Plugin installation state: `graph-wiki@agent-research`, scope `local`, `projectPath: /Users/pat/Personal/agent-research`.
 - Plugin source resolution: For local-scope plugins, Claude Code reads command files from `projectPath` (post-rename: `plugins/graph-wiki/commands/bootstrap.md`), not from the `~/.claude/plugins/cache/` snapshot (which is still pre-rename from the 2026-05-18 install — pre-dates the 2026-05-19 rename commit `a9ae5af`). Available skills in the live session correctly include `graph-wiki:bootstrap` and NOT `graph-wiki:init`.
-- **Test outcome:** User typed `/init` in an active Claude Code session loaded against `/Users/pat/Personal/deep-agents`. Claude Code dispatched the prompt to its **native `init` skill** — confirmed by the canonical native-init prompt text ("Please analyze this codebase and create a CLAUDE.md file…") arriving at the model layer. The graph-wiki bootstrap workflow did **not** fire.
+- **Test outcome:** User typed `/init` in an active Claude Code session loaded against `/Users/pat/Personal/agent-research`. Claude Code dispatched the prompt to its **native `init` skill** — confirmed by the canonical native-init prompt text ("Please analyze this codebase and create a CLAUDE.md file…") arriving at the model layer. The graph-wiki bootstrap workflow did **not** fire.
 - **Verdict:** ✅ PASS. `/init` is unshadowed by the plugin; native CLAUDE.md init workflow is reachable. `/graph-wiki:bootstrap` remains the only way to invoke the plugin's bootstrap workflow.
-- **Note for fresh installs:** The cached plugin under `~/.claude/plugins/cache/deep-agents/graph-wiki/0.1.0/commands/` is stale (pre-rename `init.md` still present). This does not affect local-scope plugin resolution but means anyone using a non-local install scope MUST reinstall to pick up the rename. The reinstall callout already lives in `plugins/graph-wiki/README.md` (line ~27).
+- **Note for fresh installs:** The cached plugin under `~/.claude/plugins/cache/agent-research/graph-wiki/0.1.0/commands/` is stale (pre-rename `init.md` still present). This does not affect local-scope plugin resolution but means anyone using a non-local install scope MUST reinstall to pick up the rename. The reinstall callout already lives in `plugins/graph-wiki/README.md` (line ~27).
 
 ### Gaps Summary
 

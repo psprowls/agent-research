@@ -6,11 +6,11 @@
 <domain>
 ## Phase Boundary
 
-Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment with the post-rebrand codebase (v1.2 Phases 11–14) by driving a `graph-wiki-agent` scan + ingest pass from the Bedrock CLI surface, then verifying the result with one librarian query and a single-page spot-check.
+Bring the project's own wiki at `~/Personal/graph-wiki/agent-research` into alignment with the post-rebrand codebase (v1.2 Phases 11–14) by driving a `graph-wiki-agent` scan + ingest pass from the Bedrock CLI surface, then verifying the result with one librarian query and a single-page spot-check.
 
 **In scope:**
 - Write a new `models-claude.toml` at the repo root (sibling of `models-qwen.toml`) overriding fan-out roles (`scanner`, `linter`, `ingestor`, `code_reader`) to Haiku 4.5 and reasoning roles (`librarian`, `synthesizer`) to Sonnet 4.6. `judge_a`/`judge_b` rows preserved (already on Claude family).
-- Run `graph-wiki-agent scan` against `~/Personal/wiki/deep-agents` using the Claude override config. Scan auto-detects post-rebrand workspace state: `workspace-io` (new in Phase 11), `prompt-sources` (also missing from wiki), and refreshes existing package pages (`vault-io`, `eval-harness`, `model-adapter`, `subagent-runtime`).
+- Run `graph-wiki-agent scan` against `~/Personal/graph-wiki/agent-research` using the Claude override config. Scan auto-detects post-rebrand workspace state: `workspace-io` (new in Phase 11), `prompt-sources` (also missing from wiki), and refreshes existing package pages (`vault-io`, `eval-harness`, `model-adapter`, `subagent-runtime`).
 - Run `graph-wiki-agent ingest` for the one existing source doc `~/Personal/wiki/raw/OTel — Story of observability.md`, using the Claude override.
 - Run `graph-wiki-agent query "what is workspace-io?"` (literal SC#3) using the Claude override; paste full transcript into `15-VERIFICATION.md` as a fenced block.
 - Spot-check the `workspace-io` package page produced by scan: frontmatter present + valid, body has package summary + key claims, at least one `[[wikilink]]` resolves to an existing wiki page. Record in `15-VERIFICATION.md`.
@@ -19,7 +19,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 **Out of scope:**
 - The `/graph-wiki:*` plugin path — Phase 14 SC#4 already smoke-tested it (transcript in `14-VERIFICATION.md`). Phase 15 exercises the Bedrock CLI surface only.
 - Any cleanup of pre-existing stale `lattice*` references in wiki pages or `log.md` history. Scan/ingest refresh what they touch; everything else stays as-is (`log.md` is append-only by convention).
-- Post-run `grep -r lattice` sweep across `~/Personal/wiki/deep-agents/`. SC#1's literal wording requires only that the scan-log shows new package names without lattice artifacts; surviving stale refs in untouched pages are not in scope.
+- Post-run `grep -r lattice` sweep across `~/Personal/graph-wiki/agent-research`. SC#1's literal wording requires only that the scan-log shows new package names without lattice artifacts; surviving stale refs in untouched pages are not in scope.
 - Additional librarian queries beyond `what is workspace-io?` (no rebrand-surface expansion, no diff vs Phase 14 plugin transcript).
 - Spot-checking pages other than `workspace-io` (e.g., `vault-io` post-rebrand, `prompt-sources`, plugin pages). One page suffices per SC#2.
 - Lint runs (before or after); model swap experiments; cost telemetry.
@@ -33,7 +33,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Tool surface
 
-- **D-01 (Bedrock CLI only):** Phase 15 runs via `graph-wiki-agent scan/ingest/query` (Bedrock). The plugin path was already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Matches SC#1's literal wording (`graph-wiki-agent scan ~/Personal/wiki/deep-agents completes`). Lowest cost path; consistent with project Core Value (Bedrock-driven wiki workflows).
+- **D-01 (Bedrock CLI only):** Phase 15 runs via `graph-wiki-agent scan/ingest/query` (Bedrock). The plugin path was already smoke-tested in Phase 14 SC#4 — no need to re-exercise. Matches SC#1's literal wording (`graph-wiki-agent scan ~/Personal/graph-wiki/agent-research completes`). Lowest cost path; consistent with project Core Value (Bedrock-driven wiki workflows).
 
 ### Model selection
 
@@ -42,7 +42,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Ingest scope
 
-- **D-04 (Re-ingest OTel only):** `~/Personal/wiki/raw/` contains exactly one source doc (`OTel — Story of observability.md`); `~/Personal/wiki/deep-agents/sources/` is empty. "Full re-ingest of sources" effectively = 1 doc. No bootstrapping of new post-rebrand sources from `.planning/` (the rebrand surface lands in the wiki via the scan-detected package pages, not via source-summary ingests).
+- **D-04 (Re-ingest OTel only):** `~/Personal/wiki/raw/` contains exactly one source doc (`OTel — Story of observability.md`); `~/Personal/graph-wiki/agent-researchsources/` is empty. "Full re-ingest of sources" effectively = 1 doc. No bootstrapping of new post-rebrand sources from `.planning/` (the rebrand surface lands in the wiki via the scan-detected package pages, not via source-summary ingests).
 
 ### Run order
 
@@ -79,7 +79,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 
 ### Phase scope & immediate prior context
 - `.planning/ROADMAP.md` §Phase 15 — Goal, depends-on chain, SC#1..SC#3, BRAND-03 requirement mapping.
-- `.planning/REQUIREMENTS.md` — BRAND-03 full text ("Wiki self-update — `~/Personal/wiki/deep-agents` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest").
+- `.planning/REQUIREMENTS.md` — BRAND-03 full text ("Wiki self-update — `~/Personal/graph-wiki/agent-research` scanned + ingested after rebrand to absorb new package names and `.graph-wiki.yaml` manifest").
 - `.planning/PROJECT.md` — Project Core Value, Bedrock-only constraint for graph-wiki-agent, "Explicitly out of v1.2" list.
 - `.planning/phases/14-plugin-port-m3b/14-CONTEXT.md` — Phase 14 decisions (plugin port outcomes, what the wiki should now reflect).
 - `.planning/phases/14-plugin-port-m3b/14-VERIFICATION.md` — Phase 14 SC#4 transcript (`/graph-wiki:query "what is workspace-io?"` via plugin) — for context only; Phase 15 does NOT diff against it.
@@ -87,13 +87,13 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 - `.planning/phases/11-workspace-io-port-m1/11-CONTEXT.md` — `workspace-io` package shape and rationale (drives the new wiki package page).
 
 ### Wiki vault under update (read-only references for the executor)
-- `/Users/pat/Personal/wiki/deep-agents/` — Vault root being updated.
-- `/Users/pat/Personal/wiki/deep-agents/index.md` — Wiki root index.
-- `/Users/pat/Personal/wiki/deep-agents/packages/` — Current package pages (`eval-harness`, `model-adapter`, `subagent-runtime`, `vault-io`). Missing: `workspace-io`, `prompt-sources` (scan will add).
-- `/Users/pat/Personal/wiki/deep-agents/log.md` — Append-only log. Scan/ingest will add new entries; pre-existing `/lattice-wiki:scan` line stays as historical record (D-06).
-- `/Users/pat/Personal/wiki/deep-agents/CLAUDE.md` — Wiki schema; defines layout block + style rules read by scanner/linter/ingestor.
+- `/Users/pat/Personal/graph-wiki/agent-research` — Vault root being updated.
+- `/Users/pat/Personal/graph-wiki/agent-researchindex.md` — Wiki root index.
+- `/Users/pat/Personal/graph-wiki/agent-researchpackages/` — Current package pages (`eval-harness`, `model-adapter`, `subagent-runtime`, `vault-io`). Missing: `workspace-io`, `prompt-sources` (scan will add).
+- `/Users/pat/Personal/graph-wiki/agent-researchlog.md` — Append-only log. Scan/ingest will add new entries; pre-existing `/lattice-wiki:scan` line stays as historical record (D-06).
+- `/Users/pat/Personal/graph-wiki/agent-researchCLAUDE.md` — Wiki schema; defines layout block + style rules read by scanner/linter/ingestor.
 - `/Users/pat/Personal/wiki/raw/OTel — Story of observability.md` — The one existing source doc; ingest target per D-04.
-- `/Users/pat/Personal/wiki/deep-agents/sources/` — Currently empty; ingest will land OTel summary here.
+- `/Users/pat/Personal/graph-wiki/agent-researchsources/` — Currently empty; ingest will land OTel summary here.
 
 ### Repo configuration this phase touches
 - `models-qwen.toml` — Existing Qwen role-override profile; reference shape for the new `models-claude.toml` (D-03). Sibling at repo root.
@@ -126,7 +126,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 - **Atomic per-step commits within an atomic plan** — Phase 14 Plan 3 produced multiple commits inside one plan family. Phase 15's single plan (D-10) follows the same shape: commit `models-claude.toml` first, then scan output, then ingest output, then verification doc.
 
 ### Integration Points
-- **Wiki vault** (`~/Personal/wiki/deep-agents/`) — External to this repo; Phase 15 mutates it (scan adds package pages; ingest updates source summary). Vault is a git repo (likely); commits there are separate from this repo's commits.
+- **Wiki vault** (`~/Personal/graph-wiki/agent-research`) — External to this repo; Phase 15 mutates it (scan adds package pages; ingest updates source summary). Vault is a git repo (likely); commits there are separate from this repo's commits.
 - **No code changes** in `agents/graph-wiki-agent/` or `packages/` — Phase 15 is content-only on the wiki side, with one new config file (`models-claude.toml`) and one new doc (`15-VERIFICATION.md`) on the repo side.
 - **No MCP boundary touch** — graph-wiki-mcp is not exercised by Phase 15.
 - **No plugin touch** — `plugins/graph-wiki/` already smoke-tested in Phase 14 SC#4.
@@ -136,10 +136,10 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 <specifics>
 ## Specific Ideas
 
-- **Wiki is meaningfully drifted** — `~/Personal/wiki/deep-agents/packages/` is missing both `workspace-io` (added in Phase 11) and `prompt-sources` (added separately during v1.1 → v1.2). One scan should land both. Spot-checking `workspace-io` only (D-08) leaves `prompt-sources` validated implicitly (it shows up in scan log or doesn't).
+- **Wiki is meaningfully drifted** — `~/Personal/graph-wiki/agent-researchpackages/` is missing both `workspace-io` (added in Phase 11) and `prompt-sources` (added separately during v1.1 → v1.2). One scan should land both. Spot-checking `workspace-io` only (D-08) leaves `prompt-sources` validated implicitly (it shows up in scan log or doesn't).
 - **The Qwen profile is the wiki's default, NOT being replaced** — `models-claude.toml` is a one-off override for this rebrand-baseline pass. Future wiki updates continue on Qwen unless Pat decides otherwise; `wiki-config.toml` stays pointed at `models-qwen.toml`.
 - **D-09 is deliberately narrow** — Phase 14 SC#4 already exercised "what is workspace-io?" via the plugin. Re-running the same query via the CLI gives the Bedrock-side answer for the same question; the two transcripts (`14-VERIFICATION.md` + `15-VERIFICATION.md`) form an implicit cross-surface comparison without making it a SC.
-- **No `.graph-wiki.yaml` in the wiki workspace today** — BRAND-03 mentions ".graph-wiki.yaml manifest" awareness, but `~/Personal/wiki/` and `~/Personal/wiki/deep-agents/` currently have no manifest file. Phase 15 does **not** create one — `wiki-config.toml` at the repo root is the working surface, and Phase 11's manifest filename change is about the **repo-side** workspace, not the wiki vault. (If a manifest is later wanted on the wiki side, that's a follow-up.)
+- **No `.graph-wiki.yaml` in the wiki workspace today** — BRAND-03 mentions ".graph-wiki.yaml manifest" awareness, but `~/Personal/wiki/` and `~/Personal/graph-wiki/agent-research` currently have no manifest file. Phase 15 does **not** create one — `wiki-config.toml` at the repo root is the working surface, and Phase 11's manifest filename change is about the **repo-side** workspace, not the wiki vault. (If a manifest is later wanted on the wiki side, that's a follow-up.)
 - **`log.md` integrity** — the existing `2026-05-16` entries reference `/lattice-wiki:*` slash commands. These are kept as-is per D-06. New scan/ingest/query entries appended by Phase 15 will use the post-rebrand entry shape automatically.
 
 </specifics>
@@ -150,7 +150,7 @@ Bring the project's own wiki at `~/Personal/wiki/deep-agents` into alignment wit
 - **Wiki-side `.graph-wiki.yaml` manifest** — BRAND-03 names manifest awareness; deferred because Phase 15 routes via `wiki-config.toml` (repo-side) and the wiki vault has no manifest today. Could be revisited if the wiki ever needs to advertise its own `[plugin]` block or detection schema.
 - **Bedrock vs Claude Code CLI cross-surface diff** — Running `what is workspace-io?` on both surfaces and diffing the answers (semantically, not byte-wise) would be valuable for the v1.2 close-out. Not part of SC; could land as part of v1.2 milestone audit.
 - **Multi-query librarian audit** — Running 5-10 librarian queries spanning the rebrand surface (`what is .graph-wiki.yaml?`, `what does workspace-io do?`, `what's the graph-wiki plugin?`) for a deeper baseline. Out of scope for Phase 15's single-query SC#3; could land as a Phase 16 sub-task if cost-frontier sweep expansion is in play.
-- **Stale-content sweep across wiki pages** — `grep -r lattice ~/Personal/wiki/deep-agents/` post-run + manual rewrites of any surviving hits in concepts/architecture pages. Explicitly out per D-07; revisit if a future librarian query is found to be polluted by stale text.
+- **Stale-content sweep across wiki pages** — `grep -r lattice ~/Personal/graph-wiki/agent-research` post-run + manual rewrites of any surviving hits in concepts/architecture pages. Explicitly out per D-07; revisit if a future librarian query is found to be polluted by stale text.
 - **Qwen profile rebaseline** — Re-running this exact scan/ingest/query trio on the default Qwen profile to compare against the Claude-override output. Useful as cost-frontier evidence; out of v1.2 scope; could land as a Phase 16 sweep extension.
 - **Lint pass before/after** — Capturing `graph-wiki-agent lint` output as before/after evidence of stale-content health. Considered and rejected for Phase 15 (no SC backs it; adds cost).
 - **Promote `models-claude.toml` to the default profile** — Possible follow-up after measuring quality vs Qwen. Out of v1.2; matches the cost-frontier-mindset memory ("measure it" before defaulting).

@@ -25,7 +25,7 @@ key-files:
     - .planning/PROJECT.md
   deleted: []
 decisions:
-  - "WS-10 closed: wiki-config.toml (runtime CLI config) and .graph-wiki.yaml (per-workspace manifest) are different surfaces. No migration script. Per D-05, existing throwaway ~/Personal/wiki/deep-agents/ will be deleted and re-inited via `graph-wiki-agent init`."
+  - "WS-10 closed: wiki-config.toml (runtime CLI config) and .graph-wiki.yaml (per-workspace manifest) are different surfaces. No migration script. Per D-05, existing throwaway ~/Personal/graph-wiki/agent-research will be deleted and re-inited via `graph-wiki-agent init`."
   - "Decision recorded as a single row in the existing `## Key Decisions` markdown table — same convention as the other 17 decision rows. No new sub-heading introduced."
 requirements-completed: [WS-10]
 metrics:
@@ -45,7 +45,7 @@ WS-10 closed by recording the `wiki-config.toml` vs `.graph-wiki.yaml` verdict i
 
 A single new row appended to the `## Key Decisions` table in `.planning/PROJECT.md` (after the last existing row, before `## Evolution`):
 
-> `wiki-config.toml` and `.graph-wiki.yaml` are different surfaces — no migration script (WS-10, 2026-05-18) | `wiki-config.toml` (repo root) is the runtime CLI config read by `WikiConfig` dataclass — fields `{models_path, vault_path}` — pointing the CLI at models + a default vault. `.graph-wiki.yaml` (per workspace) is the manifest read/written by `workspace_io.manifest` — fields `{version, initialized_at, plugins[{name, installed_version, applied_version}]}` — tracking which plugins initialized the workspace. The two coexist with no overlap, so no migration is needed; per D-05 the existing throwaway `~/Personal/wiki/deep-agents/` is deleted and re-inited via `graph-wiki-agent init` rather than migrated. | ✓ Validated Phase 11
+> `wiki-config.toml` and `.graph-wiki.yaml` are different surfaces — no migration script (WS-10, 2026-05-18) | `wiki-config.toml` (repo root) is the runtime CLI config read by `WikiConfig` dataclass — fields `{models_path, vault_path}` — pointing the CLI at models + a default vault. `.graph-wiki.yaml` (per workspace) is the manifest read/written by `workspace_io.manifest` — fields `{version, initialized_at, plugins[{name, installed_version, applied_version}]}` — tracking which plugins initialized the workspace. The two coexist with no overlap, so no migration is needed; per D-05 the existing throwaway `~/Personal/graph-wiki/agent-research` is deleted and re-inited via `graph-wiki-agent init` rather than migrated. | ✓ Validated Phase 11
 
 The row matches the existing 3-column convention (decision | rationale | outcome). No other lines in PROJECT.md were modified.
 

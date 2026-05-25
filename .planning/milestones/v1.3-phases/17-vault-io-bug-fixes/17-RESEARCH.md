@@ -39,7 +39,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 - **D-05** `count_tokens()` uses `input={'converse': {'messages': [{'role': 'user', 'content': [{'text': text}]}]}}`. No model-id branching — single Converse shape for every Bedrock model.
 - **D-06** Unit test in `packages/vault-io/tests/test_update_tokens.py` mocks `boto3.client`. Asserts `client.count_tokens.assert_called_once_with(modelId=..., input={'converse': {'messages': [...]}})` — locks the exact request shape. Also asserts the function returns `response['inputTokenCount']` correctly. (⚠️ See research finding — correct response field is `inputTokens` per AWS docs, not `inputTokenCount`.)
 - **D-07** `GRAPH_WIKI_RUN_INTEGRATION=1`-gated integration test exercises a real `count_tokens` call against Bedrock (region `us-east-1`, model `us.anthropic.claude-haiku-4-5-20251001-v1:0`). Follows `docs/testing.md` skip-decorator pattern verbatim.
-- **D-08** TOK-03 is the final plan step. After code+tests land, run `uv run python -m vault_io.update_tokens` against `~/Personal/wiki/deep-agents` and commit page updates in the WIKI repo (not deep-agents). Diff transcript captured into `17-VERIFICATION.md`.
+- **D-08** TOK-03 is the final plan step. After code+tests land, run `uv run python -m vault_io.update_tokens` against `~/Personal/graph-wiki/agent-research` and commit page updates in the WIKI repo (not agent-research). Diff transcript captured into `17-VERIFICATION.md`.
 
 **WSRES — Workspace / repo resolution (WSRES-01/02/03)**
 - **D-09** `init_vault.py:305` and `detect_containers.py:174` both change from `wiki, _ = resolve_wiki_and_repo(); repo = wiki.parent` to `_, repo = resolve_wiki_and_repo()`. Two-line edit; works for v1 and v2 layouts because `_workspace.resolve_wiki_and_repo()` returns the workspace-aware repo root.
@@ -72,7 +72,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 - Three-plan split (one per bug cluster).
 - Two-plan split (code vs. closure).
 - TOK-03 as a follow-up todo (must close in-plan with transcript).
-- Integration test against real `deep-agents` repo for WSRES — synthetic tmp_path is reproducible and isolated.
+- Integration test against real `agent-research` repo for WSRES — synthetic tmp_path is reproducible and isolated.
 - New `vault-io` modules / MCP tools (v1.3 is bug-fix grade).
 - Companion folding in `wiki/apps/` — single-file by convention.
 - `init_vault` schema-writing logic changes.
@@ -89,7 +89,7 @@ Three independent bugs in `packages/vault-io/` need surgical fixes. All three ha
 | SCAN-02 | Unit test asserts diff reports 0 `deleted` entries for companions | Test infrastructure: `packages/vault-io/tests/conftest.py` has `tmp_repo` / `vault_path` fixtures; `tests/fixtures/round-trip-vault/` exists as model. Companion fixture can extend either. |
 | TOK-01 | `count_tokens()` uses correct `input=...` parameter shape | Verified shape via AWS docs: `input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}}`. Response field is `inputTokens` (NOT `inputTokenCount`). |
 | TOK-02 | Unit test mocks boto3 client and asserts request payload; gated integration test exercises real Bedrock | Canonical gate decorator at `agents/graph-wiki-agent/tests/conftest.py:17-21`. Existing pattern documented in `docs/testing.md`. |
-| TOK-03 | Existing wiki pages with `tokens: 0` are re-stamped | Target wiki: `~/Personal/wiki/deep-agents`. 35 stubbed pages confirmed in todo. `update_tokens.py` already idempotent (strips existing `tokens:` field before counting). |
+| TOK-03 | Existing wiki pages with `tokens: 0` are re-stamped | Target wiki: `~/Personal/graph-wiki/agent-research`. 35 stubbed pages confirmed in todo. `update_tokens.py` already idempotent (strips existing `tokens:` field before counting). |
 | WSRES-01 | `init_vault.py:305` and `detect_containers.py:174` use `_, repo = resolve_wiki_and_repo()` | Verified `_workspace.resolve_wiki_and_repo()` returns `(wiki, repo_root)` where `repo_root` comes from `workspace_io.config.resolve()` and is workspace-layout-aware. |
 | WSRES-02 | `detect_containers.detect()` excludes resolved workspace path from classification | Edit site: `detect_containers.py:148-166`. Workspace exclusion adjacent to existing `SKIP_DIRS` constant pattern but dynamic-per-call → parameter, not constant. |
 | WSRES-03 | Test against fixture repo with wiki at `<repo>/graph-wiki/wiki/` asserts repo-root containers are found | Synthetic tmp_path fixture per D-12. `_workspace.py` already honors `GRAPH_WIKI_WORKSPACE` env var → can use `monkeypatch.setenv`. |
@@ -283,7 +283,7 @@ def detect(repo_root: Path, workspace_path: Path | None = None) -> list[dict]:
 
 | Category | Items Found | Action Required |
 |----------|-------------|------------------|
-| Stored data | 35 wiki pages in `~/Personal/wiki/deep-agents/**/*.md` currently have `tokens: 0` due to the API bug | Data migration (TOK-03 plan step): `uv run python -m vault_io.update_tokens` against `~/Personal/wiki/deep-agents`. `update_tokens.py` is idempotent (strips existing tokens line before re-counting) so re-running is safe. |
+| Stored data | 35 wiki pages in `~/Personal/graph-wiki/agent-research**/*.md` currently have `tokens: 0` due to the API bug | Data migration (TOK-03 plan step): `uv run python -m vault_io.update_tokens` against `~/Personal/graph-wiki/agent-research`. `update_tokens.py` is idempotent (strips existing tokens line before re-counting) so re-running is safe. |
 | Live service config | None — no n8n / Datadog / Tailscale / Cloudflare config touches the wiki. | None |
 | OS-registered state | None — vault-io scripts are invoked on-demand; no Task Scheduler / launchd / pm2 / systemd registrations exist for them. | None |
 | Secrets/env vars | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or IAM role) required for TOK-03 live re-stamp. `GRAPH_WIKI_WORKSPACE` used by tests (monkeypatched). | None — env vars referenced by name unchanged |
@@ -295,13 +295,13 @@ def detect(repo_root: Path, workspace_path: Path | None = None) -> list[dict]:
 
 ### Pitfall 1: Sourcing workflow_hints from the wrong place
 
-**What goes wrong:** Executor reads CONTEXT.md D-02 literally — calls `layout_io.read_layout(wiki / 'CLAUDE.md')` and looks for `workflow_hints` in the returned dict. Result: `KeyError` or `None`, falls through to empty-set fallback (D-03), and the SCAN-02 unit test passes only because the test fixture also lacks workflow_hints. On the real deep-agents wiki the 28 false-deletes return — silently.
+**What goes wrong:** Executor reads CONTEXT.md D-02 literally — calls `layout_io.read_layout(wiki / 'CLAUDE.md')` and looks for `workflow_hints` in the returned dict. Result: `KeyError` or `None`, falls through to empty-set fallback (D-03), and the SCAN-02 unit test passes only because the test fixture also lacks workflow_hints. On the real agent-research wiki the 28 false-deletes return — silently.
 
-**Why it happens:** CONTEXT.md misidentifies the source. `wiki/CLAUDE.md` layout block schema (verified on `~/Personal/wiki/deep-agents/CLAUDE.md`) is `version / detected_at / repo_root / containers`. `workflow_hints` is **per-page frontmatter** on parent overview pages (e.g. `packages/vault-io/vault-io.md`), declared by the package template (`.templates/package/overview.md`).
+**Why it happens:** CONTEXT.md misidentifies the source. `wiki/CLAUDE.md` layout block schema (verified on `~/Personal/graph-wiki/agent-researchCLAUDE.md`) is `version / detected_at / repo_root / containers`. `workflow_hints` is **per-page frontmatter** on parent overview pages (e.g. `packages/vault-io/vault-io.md`), declared by the package template (`.templates/package/overview.md`).
 
 **How to avoid:** Read the parent page's frontmatter inside `_collect()`. The lint module already has the parser (`vault_io.lint.workflow_hints._parse_workflow_hints`) — reuse it. The fixture for SCAN-02 must include companions referenced via per-page `workflow_hints` to exercise the real code path.
 
-**Warning signs:** SCAN-02 test passes but `/graph-wiki:scan` on the real vault still reports phantom deletes. Always smoke-test against `~/Personal/wiki/deep-agents` before declaring SC#1 met.
+**Warning signs:** SCAN-02 test passes but `/graph-wiki:scan` on the real vault still reports phantom deletes. Always smoke-test against `~/Personal/graph-wiki/agent-research` before declaring SC#1 met.
 
 ### Pitfall 2: Asserting the wrong response field name in TOK unit test
 
@@ -445,7 +445,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | The existing `update_tokens.py` line-by-line frontmatter manipulation correctly preserves YAML formatting in edge cases (unicode, escaped chars, multi-line values) | Don't Hand-Roll | LOW — code is in production; if it breaks on TOK-03 re-stamp, planner must add regression test before deploying |
-| A2 | All 7 packages in the deep-agents wiki use the template-emitted `workflow_hints` block with the same 4 companion names | Pitfall 1 / SCAN-01 | LOW — verified by spot-check; if a package omits the block, that package contributes 0 companion folds (correct fallback behavior) |
+| A2 | All 7 packages in the agent-research wiki use the template-emitted `workflow_hints` block with the same 4 companion names | Pitfall 1 / SCAN-01 | LOW — verified by spot-check; if a package omits the block, that package contributes 0 companion folds (correct fallback behavior) |
 | A3 | `workspace_io.config.resolve()` correctly returns `repo_root == <repo>` (not `<repo>/graph-wiki`) when `GRAPH_WIKI_WORKSPACE` is set to a subdir of a git repo | Pattern 3 / D-09 | LOW — code at `config.py:60-66` walks up from workspace looking for `.git`; verified |
 | A4 | `botocore` `count_tokens` operation is available in the boto3 version pinned by the workspace (≥1.38) | Standard Stack | LOW — pinned ≥1.38; CountTokens API supported since boto3 1.36+ |
 | A5 | The "35 pages at tokens: 0" claim from the todo / SC#2 is still accurate at TOK-03 execution time | Runtime State Inventory | LOW — if pages have been touched in the interim, count may differ; TOK-03 re-stamp is idempotent so this only affects the transcript number |
@@ -464,7 +464,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
    - Recommendation: Extend the fixture or create a new minimal one with one `pkg-a/` directory containing `pkg-a.md` (with workflow_hints declaring `api.md`, `context.md`, `patterns.md`, `work.md`) plus the four companion files. Assert diff returns 0 deletes for this package.
 
 3. **For the TOK-03 live re-stamp, who runs it and where do the wiki-side commits go?**
-   - What we know: CONTEXT.md D-08 says commit "in the wiki repo" (i.e. inside `~/Personal/wiki/deep-agents`, which is its own git repo). Diff transcript in `17-VERIFICATION.md`.
+   - What we know: CONTEXT.md D-08 says commit "in the wiki repo" (i.e. inside `~/Personal/graph-wiki/agent-research`, which is its own git repo). Diff transcript in `17-VERIFICATION.md`.
    - What's unclear: Whether the wiki repo has uncommitted state at the time of execution, and whether the executor has push access.
    - Recommendation: Plan step pre-condition: `git status` in the wiki repo is clean. Post-condition: a commit in the wiki repo with the 35 token-stamped pages. If the wiki repo has unrelated dirty state, the plan stops and asks the user.
 
@@ -477,7 +477,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | `boto3` | TOK code + TOK-02 unit test (mocked) | (via uv.lock) | ≥1.38 | — |
 | `pytest` | All tests | (via uv.lock) | ≥8.3 | — |
 | AWS Bedrock access (Haiku 4.5 in us-east-1) | TOK D-07 integration test + TOK-03 live re-stamp | unverified at research time — credentials gated to user environment | — | Integration test is skipped by default (no `GRAPH_WIKI_RUN_INTEGRATION`); TOK-03 blocks phase close if creds unavailable |
-| `~/Personal/wiki/deep-agents` git repo | TOK-03 live re-stamp commit | unverified to be clean at execution time | — | Plan step asks user to confirm clean state |
+| `~/Personal/graph-wiki/agent-research` git repo | TOK-03 live re-stamp commit | unverified to be clean at execution time | — | Plan step asks user to confirm clean state |
 
 **Missing dependencies with no fallback:**
 - None at code-and-test stage.
@@ -507,7 +507,7 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 | TOK-01 | `count_tokens` calls Bedrock with `input={"converse": ...}` | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_request_shape -x` | ❌ Wave 0 (file may exist; method new) |
 | TOK-01 | `count_tokens` returns `response["inputTokens"]` | unit | `uv run --package vault-io pytest tests/test_update_tokens.py::test_count_tokens_returns_input_tokens -x` | ❌ Wave 0 |
 | TOK-02 | Real Bedrock call succeeds, returns positive int | integration (gated) | `GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package vault-io pytest tests/integration/test_count_tokens_live.py -x` | ❌ Wave 0 |
-| TOK-03 | All 35 stubbed pages in `~/Personal/wiki/deep-agents` have non-zero `tokens:` | manual + file-state | `uv run python -m vault_io.update_tokens` then `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents` returns nothing | manual; transcript in 17-VERIFICATION.md |
+| TOK-03 | All 35 stubbed pages in `~/Personal/graph-wiki/agent-research` have non-zero `tokens:` | manual + file-state | `uv run python -m vault_io.update_tokens` then `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research` returns nothing | manual; transcript in 17-VERIFICATION.md |
 | WSRES-01 | `init_vault.py` resolves repo correctly under v2 layout | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_v2_layout_finds_repo_containers -x` | ❌ Wave 0 |
 | WSRES-02 | `detect()` excludes workspace_path subdir from classification | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_workspace_path_excluded -x` | ❌ Wave 0 |
 | WSRES-02 | v1 layout (workspace == repo) does NOT exclude (guard works) | unit | `uv run --package vault-io pytest tests/test_detect_containers.py::test_v1_layout_guard -x` | ❌ Wave 0 |
@@ -561,9 +561,9 @@ def v2_workspace(tmp_path: Path, monkeypatch):
 - `packages/vault-io/src/vault_io/layout_io.py:51-59` — `read_layout`; D-02 reference (read-verified — does NOT return workflow_hints)
 - `packages/vault-io/src/vault_io/lint/workflow_hints.py:13-43` — `_parse_workflow_hints` reusable parser (read-verified)
 - `packages/workspace-io/src/workspace_io/config.py` — `_find_repo_root` and `resolve()` (read-verified)
-- `~/Personal/wiki/deep-agents/CLAUDE.md` — confirmed layout block does NOT contain workflow_hints (inspected 2026-05-19)
-- `~/Personal/wiki/deep-agents/.templates/package/overview.md` — template emits per-page `workflow_hints` block (inspected 2026-05-19)
-- `~/Personal/wiki/deep-agents/packages/vault-io/vault-io.md` — actual overview page with workflow_hints in frontmatter (inspected 2026-05-19)
+- `~/Personal/graph-wiki/agent-researchCLAUDE.md` — confirmed layout block does NOT contain workflow_hints (inspected 2026-05-19)
+- `~/Personal/graph-wiki/agent-research.templates/package/overview.md` — template emits per-page `workflow_hints` block (inspected 2026-05-19)
+- `~/Personal/graph-wiki/agent-researchpackages/vault-io/vault-io.md` — actual overview page with workflow_hints in frontmatter (inspected 2026-05-19)
 - `docs/testing.md` §3 — canonical `INTEGRATION_GATE` decorator pattern
 - AWS Bedrock User Guide — CountTokens API: https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html [CITED 2026-05-19]
 - AWS Bedrock API Reference — CountTokens: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_CountTokens.html [CITED 2026-05-19 — response field is `inputTokens`]

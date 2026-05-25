@@ -15,12 +15,12 @@ The plugin has two delivery surfaces that share the same wiki format:
 
 ## Setup
 
-**Prerequisites:** Python 3.11+, `uv` installed, `DEEP_AGENTS_ROOT` pointing to the deep-agents repo root.
+**Prerequisites:** Python 3.11+, `uv` installed, `DEEP_AGENTS_ROOT` pointing to the agent-research repo root.
 
 1. Install the plugin in Claude Code:
 
    ```bash
-   # From the deep-agents repo root
+   # From the agent-research repo root
    claude plugin install plugins/graph-wiki
    ```
 

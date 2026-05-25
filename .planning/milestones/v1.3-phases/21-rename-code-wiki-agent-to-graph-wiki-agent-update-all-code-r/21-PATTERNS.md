@@ -21,7 +21,7 @@ Phase 21 does not "create new files" in the classical sense — the work is over
 | `repo-doc` | prose | Root `README.md`, root `CLAUDE.md` | Phase 12 plan 03 Task 4 (`CLAUDE.md` rebrand of live prose) | **exact** |
 | `plugin-doc` | prose | `plugins/graph-wiki/{README.md,CLAUDE.md}`, `plugins/graph-wiki/skills/graph-wiki/README.md`, `plugins/graph-wiki/.claude-plugin/plugin.json` | Phase 12 plan 03 Task 2 (allowlisted Phase 14 plugin docs); plugin docs were authored in Phase 14 | **role-match** |
 | `planning-doc-sweep` | prose, bulk | All 188 `.planning/` files (STATE.md, ROADMAP.md, REQUIREMENTS.md, PROJECT.md, prior-phase CONTEXT/PLAN/VERIFICATION/SUMMARY, milestones/v1.0..v1.2 archives, RETROSPECTIVE.md, intel/stack.json, sketches, threads/archive) | Phase 12 plan 03 Task 4 (live planning surface only — Phase 12 explicitly **skipped** historical archives per R-03; **Phase 21 D-05 overrides R-03 and sweeps everything**) | **role-match with documented divergence** |
-| `skill-doc-sweep` | prose | `.claude/skills/spike-findings-deep-agents/SKILL.md` + active reference files under `.claude/skills/spike-findings-deep-agents/references/*.md` (leaving `.planning/spikes/00{1,2}/sources/**/*.md` verbatim per D-07) | Phase 12 plan 03 Task 4 (skill/doc prose sweep with historical-preservation carveout) | **exact** |
+| `skill-doc-sweep` | prose | `.claude/skills/spike-findings-agent-research/SKILL.md` + active reference files under `.claude/skills/spike-findings-agent-research/references/*.md` (leaving `.planning/spikes/00{1,2}/sources/**/*.md` verbatim per D-07) | Phase 12 plan 03 Task 4 (skill/doc prose sweep with historical-preservation carveout) | **exact** |
 | `brand-grep-gate-extension` | shell-script + allowlist | `scripts/check-brand.sh` regex extension, `.brand-grep-allow` additions | Phase 12 plan 04 Task 1 (initial authoring of the same files) | **exact** — same files, same tool, same allowlist format |
 | `top-level-integration-gate-test` | test-file | `tests/test_integration_gate.py` (CLI/console-script invocations) | Phase 12 plan 03 Task 1 (test-file string sweep with disambiguation rule) | **exact** |
 
@@ -34,7 +34,7 @@ Phase 21 does not "create new files" in the classical sense — the work is over
 **Analog:** none in this repo. Phase 12 swept content within stable directories. Phase 11 (`11-workspace-io-port-m1`) introduced a new package but did not move an existing one.
 
 **Pattern to apply (per CONTEXT.md D-09 layer 1 + D-08 worktree):**
-1. Create worktree: `git worktree add ../deep-agents-rename rename-21`.
+1. Create worktree: `git worktree add ../agent-research-rename rename-21`.
 2. Inside the worktree, the three moves are independent and can be batched into ONE commit (D-09 layer 1):
    ```bash
    git mv agents/code-wiki-agent agents/graph-wiki-agent
@@ -204,7 +204,7 @@ The 188-file scope is too large for a single commit to inspect cleanly. Recommen
 
 1. **Live planning surface** — `.planning/{STATE,ROADMAP,REQUIREMENTS,PROJECT,RETROSPECTIVE,MILESTONES}.md`, `.planning/intel/stack.json`, `.planning/threads/`.
 2. **Current-milestone phase docs** — `.planning/phases/{17,20,21}/**/*.md`.
-3. **Historical archives** — `.planning/milestones/v1.{0,1,2}-phases/**/*.md`, `.planning/sketches/**`, `.planning/sweep/**`, `.planning/research/**`, `.planning/spikes/00{1,2}/README.md` and `.claude/skills/spike-findings-deep-agents/{SKILL.md,references/*.md}` (the `skill-doc-sweep` class folds here). **Excluded per D-07:** `.planning/spikes/00{1,2}/sources/**/*.md` (raw spike sources stay verbatim).
+3. **Historical archives** — `.planning/milestones/v1.{0,1,2}-phases/**/*.md`, `.planning/sketches/**`, `.planning/sweep/**`, `.planning/research/**`, `.planning/spikes/00{1,2}/README.md` and `.claude/skills/spike-findings-agent-research/{SKILL.md,references/*.md}` (the `skill-doc-sweep` class folds here). **Excluded per D-07:** `.planning/spikes/00{1,2}/sources/**/*.md` (raw spike sources stay verbatim).
 
 For each sub-commit:
 - Grep first to scope: `grep -rEl 'code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' <subscope>`.
@@ -324,8 +324,8 @@ If `uv run pytest` is red after a commit: `git reset --hard HEAD~1`, diagnose, r
 **Apply to:** Entire Phase 21 lifecycle.
 
 ```bash
-git worktree add ../deep-agents-rename rename-21
-cd ../deep-agents-rename
+git worktree add ../agent-research-rename rename-21
+cd ../agent-research-rename
 # ...all phase work happens here...
 ```
 
@@ -361,7 +361,7 @@ Adding to the allowlist is the exception; the rebrand is the rule. Each new entr
 - `scripts/check-brand.sh`, `.brand-grep-allow` (live infrastructure)
 - `agents/code-wiki-agent/{pyproject.toml,src,tests}` (rename surface inventory)
 - `plugins/graph-wiki/skills/graph-wiki/scripts/` (plugin shellout inventory)
-- `grep -rEl 'code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' /Users/pat/Personal/deep-agents` (full rename surface; 308 hits)
+- `grep -rEl 'code-wiki-agent|code_wiki_agent|code-wiki-mcp|code_wiki_mcp' /Users/pat/Personal/agent-research` (full rename surface; 308 hits)
 - `grep -rEl '\.code-wiki/' ...` (trace-dir reference inventory; 15 hits)
 
 **Files scanned (direct Read):** 5

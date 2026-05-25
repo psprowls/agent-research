@@ -2,7 +2,7 @@
 spike: 002
 name: lattice-drift-inventory
 type: standard
-validates: "Given the three lattice source packages (lattice-workspace, lattice-wiki-core, lattice-wiki plugin) and the current deep-agents packages (vault-io, graph-wiki-agent), when we walk public modules/functions on each side, then we can issue an actionable port verdict (PORT-ALL / PORT-DELTAS-ONLY / PORT-NONE) per source package with module-level rationale"
+validates: "Given the three lattice source packages (lattice-workspace, lattice-wiki-core, lattice-wiki plugin) and the current agent-research packages (vault-io, graph-wiki-agent), when we walk public modules/functions on each side, then we can issue an actionable port verdict (PORT-ALL / PORT-DELTAS-ONLY / PORT-NONE) per source package with module-level rationale"
 verdict: VALIDATED ✓
 related: [001-subagent-context-audit]
 tags: [drift, inventory, port-planning, lattice, refactor]
@@ -12,7 +12,7 @@ tags: [drift, inventory, port-planning, lattice, refactor]
 
 ## What This Validates
 
-**Given** the three lattice source packages and the current deep-agents packages, **when** we walk public modules/functions on each side, **then** we can issue an actionable port verdict per source package with module-level rationale — so the next milestone can decide what (if anything) to migrate.
+**Given** the three lattice source packages and the current agent-research packages, **when** we walk public modules/functions on each side, **then** we can issue an actionable port verdict per source package with module-level rationale — so the next milestone can decide what (if anything) to migrate.
 
 User insight that reshaped the spike: the original framing assumed `lattice-workspace` had drift with `vault-io`. It does not — `vault-io` deliberately replaced the workspace abstraction with a simpler explicit-path model. The real drift lives between **`lattice-wiki-core` and `vault-io`** (plus `graph-wiki-agent`). The plugin pairing was scoped out as T4 territory.
 
@@ -28,8 +28,8 @@ No external libraries researched; this is a code-archaeology spike. Read directl
 
 - `/Users/pat/Personal/lattice/packages/lattice-workspace/src/` (10 files)
 - `/Users/pat/Personal/lattice/packages/lattice-wiki-core/src/` (36 files)
-- `/Users/pat/Personal/deep-agents/packages/vault-io/src/` (22 files)
-- `/Users/pat/Personal/deep-agents/agents/graph-wiki-agent/src/` (incl. `commands/`, `prompts/`)
+- `/Users/pat/Personal/agent-research/packages/vault-io/src/` (22 files)
+- `/Users/pat/Personal/agent-research/agents/graph-wiki-agent/src/` (incl. `commands/`, `prompts/`)
 
 Method: `grep -E '^(def|class|async def)' file.py` per module to extract public surface, then `diff -q` + LOC delta per overlapping module, then targeted body-diff on the most-changed files to confirm pattern (refactor vs feature delta).
 
@@ -75,7 +75,7 @@ Findings below.
 
 | Module | Surface | Reimplemented in graph-wiki-agent? |
 |---|---|---|
-| `archive_work.py` | Archive command + sidecar regen | ❌ No (no `archive` command in deep-agents) |
+| `archive_work.py` | Archive command + sidecar regen | ❌ No (no `archive` command in agent-research) |
 | `export_marp.py` | Marp slide export | ❌ No |
 | `lint_wiki.py` | Wiki-layer lint orchestrator | ✅ Yes — re-implemented in `commands/lint.py::_mechanical_pass` + `_module_pass` using vault_io.lint.* |
 | `lint_work.py` | Work-layer lint orchestrator | ❌ No (work-layer lifecycle absent) |
@@ -107,11 +107,11 @@ Findings below.
 | `versions.warn_if_stale + pending_updates` | Asset-template drift warnings |
 | `assets/CLAUDE.md.template` | Workspace bootstrap template |
 
-**What deep-agents has instead:**
+**What agent-research has instead:**
 
 `vault-io/_workspace.py::resolve_wiki_and_repo(vault_path)` — 30-line module. Takes an explicit `Path`, falls back to `GRAPH_WIKI_REAL_VAULT_PATH` env var, raises `RuntimeError` otherwise. The docstring is explicit: *"There is no lattice-workspace discovery in this codebase."*
 
-This is a **deliberate architectural rejection**, not a gap. The deep-agents v1 model is: caller (CLI / MCP) supplies the vault path; no auto-discovery, no manifest, no workspace bootstrap.
+This is a **deliberate architectural rejection**, not a gap. The agent-research v1 model is: caller (CLI / MCP) supplies the vault path; no auto-discovery, no manifest, no workspace bootstrap.
 
 **The decision hinges on a value judgment:**
 
@@ -125,21 +125,21 @@ This is a **deliberate architectural rejection**, not a gap. The deep-agents v1 
 
 | Source | Verdict | Confidence | Rationale |
 |---|---|---|---|
-| `lattice-wiki-core` | **PORT-DELTAS-ONLY** (selective) | High | Most overlapping modules already in vault-io and intentionally diverged. The interesting question is: which of the **8 source-only modules** (work-layer + archive + export_marp + work_status + regenerate_work_index) do we want? Almost all are about **work-item lifecycle management** — a subsystem deep-agents currently doesn't have. Decide work-layer scope first, then port the matching modules. |
-| `lattice-workspace` | **DEFER** (recommended) — or SKIP | Medium | Deep-agents explicitly rejected the workspace abstraction. Porting it now would reverse that design decision speculatively. Defer until a concrete need (e.g., "I want to run the agent from a subdirectory") surfaces. |
+| `lattice-wiki-core` | **PORT-DELTAS-ONLY** (selective) | High | Most overlapping modules already in vault-io and intentionally diverged. The interesting question is: which of the **8 source-only modules** (work-layer + archive + export_marp + work_status + regenerate_work_index) do we want? Almost all are about **work-item lifecycle management** — a subsystem agent-research currently doesn't have. Decide work-layer scope first, then port the matching modules. |
+| `lattice-workspace` | **DEFER** (recommended) — or SKIP | Medium | agent-research explicitly rejected the workspace abstraction. Porting it now would reverse that design decision speculatively. Defer until a concrete need (e.g., "I want to run the agent from a subdirectory") surfaces. |
 | `lattice-wiki` plugin | (deferred to T4 scoping) | — | Scoped out of this spike. T4 will need its own inventory. |
 
 ### Key Discoveries
 
 1. **`vault-io` is a deliberate fork, not a parallel implementation.** Same filenames, same lint/* checker shapes, same `git_state.py` byte-for-byte. The deltas are surgical (lib-ification for MCP, package-family strip, CLI removal). Future graph-wiki-agent work should *update* vault-io from lattice-wiki-core selectively, not re-port wholesale.
 
-2. **The whole `work/` subsystem is missing from deep-agents.** `work/archive.py`, `work/lifecycle_lint.py`, `work/plan_table.py`, `work/sidecar.py`, `archive_work.py`, `work_status.py`, `lint_work.py`, `regenerate_work_index.py` — none of these exist in deep-agents. If the project wants work-item lifecycle (and per the lattice plugin's `commands/archive.md` + `commands/status.md`, the user surface for it does exist there), this is the single biggest port candidate.
+2. **The whole `work/` subsystem is missing from agent-research.** `work/archive.py`, `work/lifecycle_lint.py`, `work/plan_table.py`, `work/sidecar.py`, `archive_work.py`, `work_status.py`, `lint_work.py`, `regenerate_work_index.py` — none of these exist in agent-research. If the project wants work-item lifecycle (and per the lattice plugin's `commands/archive.md` + `commands/status.md`, the user surface for it does exist there), this is the single biggest port candidate.
 
 3. **`wiki_search.py` is already covered.** `graph-wiki-agent/commands/query.py` explicitly says "Tokenizer matching lattice-wiki-core behavior" and "stopword set copied verbatim from lattice-wiki-core wiki_search.py" — and then *adds* embeddings + RRF fusion on top. Do not re-port `wiki_search.py`. (Could note this in the wiki itself.)
 
 4. **`lint_wiki.py` is also already covered.** `commands/lint.py::_mechanical_pass` + `_module_pass` reimplement the orchestration using vault_io.lint.* checkers. Do not re-port.
 
-5. **Package-family monorepo support was stripped.** Three modules (`detect_containers.py`, `scan_monorepo.py`, `layout_io.py`) lost their package-family helpers. If a future deep-agents user has a monorepo with package families (e.g., `packages/cli/*`, `packages/sdk/*`), the current vault-io will miss them. This is a regression vs. lattice but may be intentional (YAGNI for Pat's projects).
+5. **Package-family monorepo support was stripped.** Three modules (`detect_containers.py`, `scan_monorepo.py`, `layout_io.py`) lost their package-family helpers. If a future agent-research user has a monorepo with package families (e.g., `packages/cli/*`, `packages/sdk/*`), the current vault-io will miss them. This is a regression vs. lattice but may be intentional (YAGNI for Pat's projects).
 
 6. **`lattice-workspace` is wholly absent by design.** Don't treat it as a gap; treat it as a rejected concept that may be revisited.
 
@@ -152,7 +152,7 @@ This is a **deliberate architectural rejection**, not a gap. The deep-agents v1 
 
 For the migration themes captured in `.planning/threads/next-milestone-planning.md`:
 
-- **T1 (rename `vault-io` → `workspace-io`)** — still mechanical, no change. But the name `workspace-io` is now slightly misleading since deep-agents has explicitly rejected the workspace abstraction. Consider `wiki-io` as an alternative name (matches what the package actually does: wiki-vault I/O).
+- **T1 (rename `vault-io` → `workspace-io`)** — still mechanical, no change. But the name `workspace-io` is now slightly misleading since agent-research has explicitly rejected the workspace abstraction. Consider `wiki-io` as an alternative name (matches what the package actually does: wiki-vault I/O).
 - **T2 (merge `lattice-workspace` into target package)** — **drop this from T2.** lattice-workspace is a DEFER verdict, not a port. T2 reduces to "rebrand lattice → graph-wiki" only.
 - **T3 (migrate lattice-wiki-core into graph-wiki-agent + workspace-io)** — **reframe.** This is not a wholesale port. It is: (a) decide whether to add the work-layer subsystem (~8 modules); (b) selectively bring drift fixes back from lattice into vault-io's overlapping modules (e.g., does the package-family support belong back?); (c) leave already-covered modules (wiki_search, lint_wiki) alone.
 - **T5 (plugin as first-class Python package)** — unchanged; out of scope here.

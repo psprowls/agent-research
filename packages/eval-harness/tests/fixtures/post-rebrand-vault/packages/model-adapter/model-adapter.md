@@ -17,7 +17,7 @@ updated: 2026-05-19
 
 ## Overview
 
-`model-adapter` is the Bedrock model-config layer of the post-rebrand `deep-agents` monorepo. It reads `packages/model-adapter/src/model_adapter/models.toml` and exposes `load_role_config(role)` + `make_llm(role)` for every in-scope role. The bundled defaults are the Qwen-family synthesizer (`qwen.qwen3-32b-v1:0`), the Haiku librarian, and so on. Override at call time via `ChatBedrockConverse(model_id=..., region_name=..., max_tokens=...)`.
+`model-adapter` is the Bedrock model-config layer of the post-rebrand `agent-research` monorepo. It reads `packages/model-adapter/src/model_adapter/models.toml` and exposes `load_role_config(role)` + `make_llm(role)` for every in-scope role. The bundled defaults are the Qwen-family synthesizer (`qwen.qwen3-32b-v1:0`), the Haiku librarian, and so on. Override at call time via `ChatBedrockConverse(model_id=..., region_name=..., max_tokens=...)`.
 
 ## API
 

@@ -63,7 +63,7 @@ C-01 decision: "6 commands ported, 3 dropped — total: 6 in `plugins/graph-wiki
 
 ## Verification gate
 
-**Positive test:** Run `/graph-wiki:ingest raw/specs/some-spec.md` (or equivalent path) against a test vault in a deep-agents-backed workspace. The resulting source summary page diff against an upstream `/lattice-wiki:ingest <same-file>` baseline should match modulo brand strings (`lattice` → `graph`, `lattice-wiki` → `graph-wiki`, module references).
+**Positive test:** Run `/graph-wiki:ingest raw/specs/some-spec.md` (or equivalent path) against a test vault in a agent-research-backed workspace. The resulting source summary page diff against an upstream `/lattice-wiki:ingest <same-file>` baseline should match modulo brand strings (`lattice` → `graph`, `lattice-wiki` → `graph-wiki`, module references).
 
 **Negative test (work-item absent):** Confirm that no `ingest_work_item.py` script exists under `plugins/graph-wiki/skills/graph-wiki/scripts/`. Any attempt to invoke `code-wiki-agent ingest work-item` from the bedrock branch should either error cleanly ("not supported in graph-wiki v1.2") or be absent from the CLI surface — in either case, no silent partial execution.
 

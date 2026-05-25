@@ -8,7 +8,7 @@
 
 ## Scope reminder (from 15-CONTEXT.md)
 
-Phase 15 is content-only. It mutates external state (the wiki vault at `~/Personal/wiki/deep-agents/`) by driving the existing `graph-wiki-agent` CLI; it does **not** edit `packages/` or `agents/` source code. The only repo files touched are:
+Phase 15 is content-only. It mutates external state (the wiki vault at `~/Personal/graph-wiki/agent-research`) by driving the existing `graph-wiki-agent` CLI; it does **not** edit `packages/` or `agents/` source code. The only repo files touched are:
 
 1. `models-claude.toml` — new config at repo root (sibling of `models-qwen.toml`).
 2. `.planning/phases/15-wiki-self-update/15-VERIFICATION.md` — new phase verification doc.
@@ -32,7 +32,7 @@ The remaining work (`graph-wiki-agent scan`, `graph-wiki-agent ingest source`, `
 
 ### `models-claude.toml` (config, static TOML)
 
-**Analog:** `/Users/pat/Personal/deep-agents/models-qwen.toml`
+**Analog:** `/Users/pat/Personal/agent-research/models-qwen.toml`
 
 **Schema is fixed.** Every TOML table is `[roles.<role_name>]` with exactly four keys: `model_id`, `region`, `max_tokens`, `max_concurrency`. The full role set is `haiku`, `sonnet`, `librarian`, `scanner`, `linter`, `ingestor`, `code_reader`, `synthesizer`, `judge_a`, `judge_b` (10 tables total — `model_adapter.loader` reads each one by role-name key). Match the analog's order and key spacing.
 
@@ -88,7 +88,7 @@ max_concurrency = 10
 
 ### `15-VERIFICATION.md` (docs, transcript artifact)
 
-**Analog:** `/Users/pat/Personal/deep-agents/.planning/phases/14-plugin-port-m3b/14-VERIFICATION.md`
+**Analog:** `/Users/pat/Personal/agent-research/.planning/phases/14-plugin-port-m3b/14-VERIFICATION.md`
 
 **Frontmatter pattern** (`14-VERIFICATION.md:1-7`) — fenced YAML frontmatter at top of file:
 
@@ -129,7 +129,7 @@ User: graph-wiki-agent query "what is workspace-io?"
 **Per-SC mapping for Phase 15** (Phase 14 has only SC#4; Phase 15 has SC#1, SC#2, SC#3 per ROADMAP Phase 15 — all three need evidence in this single doc):
 
 - **SC#1** — scan-log entries showing new package names, no `lattice` artifacts. Capture as a fenced block inside the transcript section showing the relevant `scan-log.md` (or equivalent log) entries appended by the Phase 15 scan run. Per D-07: only the newly-appended entries need to be free of `lattice`; pre-existing historical lines may contain `lattice` and are out of scope.
-- **SC#2** — `workspace-io` package page spot-check. Capture as a sub-section recording (a) the absolute path of the page in `~/Personal/wiki/deep-agents/packages/workspace-io/`, (b) confirmation that frontmatter parses, (c) 2-3 key claims excerpted from the body, (d) at least one `[[wikilink]]` and the existence of its target. Per D-08 minimum bar.
+- **SC#2** — `workspace-io` package page spot-check. Capture as a sub-section recording (a) the absolute path of the page in `~/Personal/graph-wiki/agent-researchpackages/workspace-io/`, (b) confirmation that frontmatter parses, (c) 2-3 key claims excerpted from the body, (d) at least one `[[wikilink]]` and the existence of its target. Per D-08 minimum bar.
 - **SC#3** — `graph-wiki-agent query "what is workspace-io?"` full transcript. Capture in a four-backtick fence following the same shape as `14-VERIFICATION.md:31-104` — user question, fan-out evidence (Read/Grep traces from the librarian subagent), synthesized answer with `[[wikilinks]]` and `code-path:line` citations.
 
 **Result section pattern** (`14-VERIFICATION.md:106-110`):
@@ -144,7 +144,7 @@ SC#N satisfied. <one-paragraph narration of what passed and which acceptance tok
 
 Phase 15 closer should read: `BRAND-03 satisfied. Phase 15 closes.`
 
-**Optional Deviation-from-spec section** (`14-VERIFICATION.md:18-25`) — Phase 14 used this to explain that it smoked against the in-repo dogfood vault instead of `~/Personal/wiki/deep-agents`. Phase 15's spec IS `~/Personal/wiki/deep-agents`, so a Deviation section is only needed if the executor cannot run against that vault for some reason; otherwise omit.
+**Optional Deviation-from-spec section** (`14-VERIFICATION.md:18-25`) — Phase 14 used this to explain that it smoked against the in-repo dogfood vault instead of `~/Personal/graph-wiki/agent-research`. Phase 15's spec IS `~/Personal/graph-wiki/agent-research`, so a Deviation section is only needed if the executor cannot run against that vault for some reason; otherwise omit.
 
 **Error handling pattern:** none — this is a static doc. If the smoke fails, capture the failure transcript honestly with `status: failed` in frontmatter rather than fabricating a pass.
 
@@ -172,17 +172,17 @@ def main_callback(
 
 **Apply to:** every CLI invocation in the Phase 15 plan (scan, ingest source, query).
 
-**Mechanics:** the CLI flag is `--config` (top-level callback option, applies before any subcommand), NOT `--models-config`. It accepts a `WikiConfig`-shaped TOML — same shape as `wiki-config.toml` (two-line file with `models_path` and `vault_path` keys, per `/Users/pat/Personal/deep-agents/wiki-config.toml`). The callback's `set_models_path()` call routes all subsequent model-role loads to the file pointed at by `models_path`.
+**Mechanics:** the CLI flag is `--config` (top-level callback option, applies before any subcommand), NOT `--models-config`. It accepts a `WikiConfig`-shaped TOML — same shape as `wiki-config.toml` (two-line file with `models_path` and `vault_path` keys, per `/Users/pat/Personal/agent-research/wiki-config.toml`). The callback's `set_models_path()` call routes all subsequent model-role loads to the file pointed at by `models_path`.
 
 **Two viable invocation shapes** (executor picks one during scout — both are confirmed-supported by the existing CLI):
 
 1. **Sibling override-config file** (recommended; matches existing default's mechanism):
    - Create a one-off `wiki-config-claude.toml` at repo root containing exactly:
      ```toml
-     models_path = "/Users/pat/Personal/deep-agents/models-claude.toml"
-     vault_path  = "/Users/pat/Personal/wiki/deep-agents"
+     models_path = "/Users/pat/Personal/agent-research/models-claude.toml"
+     vault_path  = "/Users/pat/Personal/graph-wiki/agent-research"
      ```
-   - Invoke `graph-wiki-agent --config /Users/pat/Personal/deep-agents/wiki-config-claude.toml scan ...` (and `... ingest source ...` and `... query "..."`).
+   - Invoke `graph-wiki-agent --config /Users/pat/Personal/agent-research/wiki-config-claude.toml scan ...` (and `... ingest source ...` and `... query "..."`).
    - Mirrors the existing `wiki-config.toml` pattern exactly; reusable for any future Claude-profile runs.
 
 2. **In-place flag-only** (no second config file): not directly supported — `--config` requires a full WikiConfig TOML, not a bare `models_path`. Skip this option unless CLI is extended in a future phase.
@@ -213,16 +213,16 @@ CONTEXT §Claude's Discretion confirms executor reads `graph-wiki-agent --help` 
 
 None. Both new files have exact analogs in the repo.
 
-**Worth noting:** the optional `wiki-config-claude.toml` (only created if the executor chooses invocation shape #1 above) has an exact analog at `/Users/pat/Personal/deep-agents/wiki-config.toml:1-2` — a two-line TOML with `models_path` and `vault_path`. No separate pattern entry is justified.
+**Worth noting:** the optional `wiki-config-claude.toml` (only created if the executor chooses invocation shape #1 above) has an exact analog at `/Users/pat/Personal/agent-research/wiki-config.toml:1-2` — a two-line TOML with `models_path` and `vault_path`. No separate pattern entry is justified.
 
 ---
 
 ## External vault mutations (not repo files — for planner orientation only)
 
-The bulk of Phase 15's "output" is changes in `~/Personal/wiki/deep-agents/` driven by the `graph-wiki-agent` CLI. These are **not** in scope for pattern extraction (no repo source code is generating them in this phase — the existing CLI does), but the planner should know to orchestrate them in this order per CONTEXT D-05:
+The bulk of Phase 15's "output" is changes in `~/Personal/graph-wiki/agent-research` driven by the `graph-wiki-agent` CLI. These are **not** in scope for pattern extraction (no repo source code is generating them in this phase — the existing CLI does), but the planner should know to orchestrate them in this order per CONTEXT D-05:
 
-1. **Scan** appends to `~/Personal/wiki/deep-agents/scan-log.md` (or equivalent), creates `~/Personal/wiki/deep-agents/packages/workspace-io/` page set, creates `~/Personal/wiki/deep-agents/packages/prompt-sources/` page set, refreshes the four existing package pages.
-2. **Ingest** updates `~/Personal/wiki/deep-agents/sources/<OTel summary>.md` from `~/Personal/wiki/raw/OTel — Story of observability.md`.
+1. **Scan** appends to `~/Personal/graph-wiki/agent-researchscan-log.md` (or equivalent), creates `~/Personal/graph-wiki/agent-researchpackages/workspace-io/` page set, creates `~/Personal/graph-wiki/agent-researchpackages/prompt-sources/` page set, refreshes the four existing package pages.
+2. **Ingest** updates `~/Personal/graph-wiki/agent-researchsources/<OTel summary>.md` from `~/Personal/wiki/raw/OTel — Story of observability.md`.
 3. **Query** is read-only — no vault mutation; produces transcript captured into `15-VERIFICATION.md`.
 4. **Spot-check** is read-only — produces narration captured into `15-VERIFICATION.md`.
 

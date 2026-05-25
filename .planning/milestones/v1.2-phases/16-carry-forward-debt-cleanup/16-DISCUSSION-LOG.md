@@ -118,7 +118,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Use ~/Personal/wiki/deep-agents (post-Phase 15) | Re-sweep against live wiki vault. Real-world signal. | |
+| Use ~/Personal/graph-wiki/agent-research (post-Phase 15) | Re-sweep against live wiki vault. Real-world signal. | |
 | Build synthetic fixture vault | Author tmp_path fixture mirroring fresh post-rebrand shape. Reproducible, CI-runnable. | |
 | Both — fixture for CI, live for milestone evidence | Synthetic fixture for pytest regression; manual live-vault re-sweep into 16-VERIFICATION.md. | ✓ |
 

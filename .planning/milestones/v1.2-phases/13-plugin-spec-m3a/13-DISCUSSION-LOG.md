@@ -76,7 +76,7 @@ Initial framing in the first AskUserQuestion (per-command shell-out target / int
 | Option | Description | Selected |
 |--------|-------------|----------|
 | `uv run --project $DEEP_AGENTS_ROOT python3 ...` (env var) | One env var line in shell rc; uv resolves venv. | ✓ |
-| Plugin auto-discovers the deep-agents repo from cwd | Walk-up + marker detection; zero config happy path; more moving parts. | |
+| Plugin auto-discovers the agent-research repo from cwd | Walk-up + marker detection; zero config happy path; more moving parts. | |
 | Document a venv-activation prerequisite | Bare `python3`; user must activate venv first. | |
 
 **User's choice:** `uv run --project $DEEP_AGENTS_ROOT`.

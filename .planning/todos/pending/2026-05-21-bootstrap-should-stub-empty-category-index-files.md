@@ -16,7 +16,7 @@ Only `wiki/dependencies/index.md` is created. The first `/graph-wiki:lint` run
 on a fresh wiki reports 4 broken wikilinks in `index.md` as a result.
 
 Surfaced by lint of the 2026-05-21 fresh bootstrap of
-`/Users/pat/Personal/wikis/deep-agents/wiki/`.
+`/Users/pat/Personal/graph-wiki/agent-research/wiki/`.
 
 ## Solution
 

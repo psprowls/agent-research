@@ -10,7 +10,7 @@ requires:
     plan: "02"
     provides: "Fixed count_tokens() API shape (TOK-01/02) — prerequisite for live re-stamp to succeed"
 provides:
-  - "TOK-03 operational closure: 8 real wiki pages in ~/Personal/wiki/deep-agents now have non-zero tokens: frontmatter"
+  - "TOK-03 operational closure: 8 real wiki pages in ~/Personal/graph-wiki/agent-research now have non-zero tokens: frontmatter"
   - "17-VERIFICATION.md with per-SC evidence for all 5 Phase 17 success criteria"
   - "Wiki-side commit 80a4739 in ~/Personal/wiki (separate git repo)"
 affects: []
@@ -30,7 +30,7 @@ key-files:
 
 key-decisions:
   - "Used anthropic.claude-3-5-haiku-20241022-v1:0 (non-prefixed) for CountTokens — cross-region inference profile IDs (us.*) raise ValidationException for this API"
-  - "Called update_vault() directly with explicit wiki Path instead of going through main() — workspace_io discovery does not find ~/Personal/wiki/deep-agents from the deep-agents cwd"
+  - "Called update_vault() directly with explicit wiki Path instead of going through main() — workspace_io discovery does not find ~/Personal/graph-wiki/agent-research from the agent-research cwd"
   - "Template files in .templates/ (dotdir) intentionally remain at tokens:0 — iter_pages() skips dotdir paths by design; templates are placeholder content, not real wiki pages"
   - "BEFORE=17 from preflight was all .templates/ files; the 8 real pages had no tokens field at all (not tokens:0) — plan's AFTER=0 criterion is reframed as: no real (non-dotdir) pages have tokens:0 or missing tokens"
 
@@ -47,7 +47,7 @@ completed: 2026-05-19
 
 # Phase 17 Plan 04: TOK-03 Live Re-stamp and Phase Verification Summary
 
-**Ran live re-stamp of 8 real wiki pages in `~/Personal/wiki/deep-agents` using `anthropic.claude-3-5-haiku-20241022-v1:0` CountTokens; captured per-SC evidence for all 5 Phase 17 success criteria in `17-VERIFICATION.md`.**
+**Ran live re-stamp of 8 real wiki pages in `~/Personal/graph-wiki/agent-research` using `anthropic.claude-3-5-haiku-20241022-v1:0` CountTokens; captured per-SC evidence for all 5 Phase 17 success criteria in `17-VERIFICATION.md`.**
 
 ## Performance
 
@@ -59,7 +59,7 @@ completed: 2026-05-19
 
 ## Accomplishments
 
-- Executed live re-stamp against `~/Personal/wiki/deep-agents`; 8 pages updated with non-zero `tokens:` frontmatter
+- Executed live re-stamp against `~/Personal/graph-wiki/agent-research`; 8 pages updated with non-zero `tokens:` frontmatter
 - Discovered and resolved two operational issues: workspace resolution mismatch and model ID incompatibility with CountTokens API
 - Created `17-VERIFICATION.md` with full evidence for all 5 Phase 17 success criteria (SC#1-SC#5), including re-stamp transcript, before/after counts, sample diffs, and wiki commit SHA
 - Wiki-side commit `80a4739` in `~/Personal/wiki` captures the 8 updated pages
@@ -68,7 +68,7 @@ completed: 2026-05-19
 
 Each task was committed atomically:
 
-1. **Task 2: Live re-stamp of ~/Personal/wiki/deep-agents** — wiki commit `80a4739` in `~/Personal/wiki` repo (NOT in deep-agents); no deep-agents commit for this task
+1. **Task 2: Live re-stamp of ~/Personal/graph-wiki/agent-research** — wiki commit `80a4739` in `~/Personal/wiki` repo (NOT in agent-research); no agent-research commit for this task
 2. **Task 3: Populate 17-VERIFICATION.md with per-SC evidence** — `dec71d3` (docs)
 
 **Plan metadata:** (committed after SUMMARY creation)
@@ -76,12 +76,12 @@ Each task was committed atomically:
 ## Files Created/Modified
 
 - `.planning/phases/17-vault-io-bug-fixes/17-VERIFICATION.md` — Created: per-SC evidence for all 5 Phase 17 SCs, TOK-03 live re-stamp transcript, wiki commit SHA
-- `~/Personal/wiki/deep-agents/*.md` (8 files) — Updated: `tokens: <N>` frontmatter field added to real wiki pages (in separate wiki repo)
+- `~/Personal/graph-wiki/agent-research*.md` (8 files) — Updated: `tokens: <N>` frontmatter field added to real wiki pages (in separate wiki repo)
 
 ## Decisions Made
 
 - **Model ID correction:** `us.anthropic.claude-haiku-4-5-20251001-v1:0` (cross-region inference profile, the plan's default) raises `ValidationException: The provided model doesn't support counting tokens`. CountTokens requires the non-prefixed Bedrock model ID `anthropic.claude-3-5-haiku-20241022-v1:0`. This is a second bug beyond TOK-01/02 — the model ID format matters for this specific API.
-- **Direct API bypass:** `update_tokens.main()` calls `resolve_wiki_and_repo()` which discovers `~/Personal/deep-agents/graph-wiki` from the cwd, not `~/Personal/wiki/deep-agents`. Called `update_vault(wiki, ...)` directly with `wiki = Path('/Users/pat/Personal/wiki/deep-agents')` to bypass the workspace discovery. No code changes required — just a different invocation pattern.
+- **Direct API bypass:** `update_tokens.main()` calls `resolve_wiki_and_repo()` which discovers `~/Personal/agent-research/graph-wiki` from the cwd, not `~/Personal/graph-wiki/agent-research`. Called `update_vault(wiki, ...)` directly with `wiki = Path('/Users/pat/Personal/graph-wiki/agent-research')` to bypass the workspace discovery. No code changes required — just a different invocation pattern.
 - **Template files not stamped:** The 17 `tokens: 0` files from the BEFORE preflight are all in `.templates/` (a dotdir). `iter_pages()` skips them by design. They are intentionally at 0 — template files contain placeholder content. The VERIFICATION.md documents this distinction (BEFORE=17 in templates; 0 real pages at `tokens: 0`).
 
 ## Deviations from Plan
@@ -98,8 +98,8 @@ Each task was committed atomically:
 
 **2. [Rule 1 - Bug] Workspace resolution mismatch: update_tokens.main() resolves wrong wiki**
 - **Found during:** Task 2 (investigation before execution)
-- **Issue:** `update_tokens.main()` calls `resolve_wiki_and_repo()` which walks up from the deep-agents cwd and finds `~/Personal/deep-agents/graph-wiki` (where `.graph-wiki.yaml` lives), not `~/Personal/wiki/deep-agents`. The `wiki_dir()` function appends `/wiki` to the workspace path, so `GRAPH_WIKI_WORKSPACE=~/Personal/wiki/deep-agents` would resolve to `~/Personal/wiki/deep-agents/wiki` (wrong).
-- **Fix:** Bypassed `main()` by calling `update_vault(Path('/Users/pat/Personal/wiki/deep-agents'), ...)` directly with the explicit wiki path. No code change needed.
+- **Issue:** `update_tokens.main()` calls `resolve_wiki_and_repo()` which walks up from the agent-research cwd and finds `~/Personal/agent-research/graph-wiki` (where `.graph-wiki.yaml` lives), not `~/Personal/graph-wiki/agent-research`. The `wiki_dir()` function appends `/wiki` to the workspace path, so `GRAPH_WIKI_WORKSPACE=~/Personal/graph-wiki/agent-research` would resolve to `~/Personal/graph-wiki/agent-researchwiki` (wrong).
+- **Fix:** Bypassed `main()` by calling `update_vault(Path('/Users/pat/Personal/graph-wiki/agent-research'), ...)` directly with the explicit wiki path. No code change needed.
 - **Files modified:** None (invocation only)
 - **Verification:** Dry-run confirmed 8 pages detected; full run updated all 8 correctly.
 - **Committed in:** n/a (operational invocation, not a code commit)
@@ -129,9 +129,9 @@ None — no new network endpoints, auth paths, or file access patterns. The Coun
 
 Files created/modified:
 - `.planning/phases/17-vault-io-bug-fixes/17-VERIFICATION.md` — FOUND (dec71d3)
-- `~/Personal/wiki/deep-agents/*.md` (8 files) — FOUND (wiki commit 80a4739)
+- `~/Personal/graph-wiki/agent-research*.md` (8 files) — FOUND (wiki commit 80a4739)
 
-Commits in deep-agents:
+Commits in agent-research:
 - `dec71d3` — FOUND: `docs(17-04): add 17-VERIFICATION.md with per-SC evidence for Phase 17`
 
 Wiki commit:
@@ -140,10 +140,10 @@ Wiki commit:
 Wiki commit subject contains "re-stamp": YES (`chore(tokens): re-stamp pages after Bedrock CountTokens fix`)
 
 Acceptance criteria:
-- AFTER grep (real pages, non-dotdir): `grep -rn "^tokens: 0" ~/Personal/wiki/deep-agents | grep -v ".templates" | wc -l` → 0 ✓
+- AFTER grep (real pages, non-dotdir): `grep -rn "^tokens: 0" ~/Personal/graph-wiki/agent-research | grep -v ".templates" | wc -l` → 0 ✓
 - Wiki commit with "re-stamp" in subject ✓
 - /tmp/17-tok03-restamp.log exists with transcript ✓
-- No new commits in deep-agents during Task 2 ✓
+- No new commits in agent-research during Task 2 ✓
 
 ## Self-Check: PASSED
 

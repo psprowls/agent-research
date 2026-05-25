@@ -127,7 +127,7 @@ From the direct asyncio test run:
 ```
 added=['alpha', 'e2e-test-root'], updated=[], deleted=[]
 ```
-Confirms scan walked `tmp_path` (found 2 new packages: `alpha` and `e2e-test-root`), NOT the deep-agents monorepo.
+Confirms scan walked `tmp_path` (found 2 new packages: `alpha` and `e2e-test-root`), NOT the agent-research monorepo.
 
 ## Observed wall-clock time
 
