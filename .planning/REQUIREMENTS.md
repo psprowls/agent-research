@@ -1,0 +1,56 @@
+# Requirements — Milestone v1.5 Repo Rename & Foundational Package Additions
+
+**Defined:** 2026-05-25
+**Mode:** Retroactive — all work already shipped in commits `9b8ac87..f896d99`. This file documents what was delivered, not what is to be done.
+
+---
+
+## v1.5 Requirements
+
+All requirements are checked as complete at definition time; the canonical evidence is `.planning/phases/27-post-v1.4-foundation-changes/27-SUMMARY.md`.
+
+### Repo / Env Rename
+
+- [x] **REPO-01** — Repo rename `deep-agents → agent-research` applied across README, CLAUDE.md, docs, and any internal path references.
+- [x] **REPO-02** — Env var `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT` swept across all shell-out templates, plugin docs, and scripts.
+
+### New Packages
+
+- [x] **PKG-01** — `packages/graph-io/` added to the workspace: SQLite code-graph store, manifest scanning, queries, and `cg` CLI. Declared workspace dependencies on `source-parser` + `workspace-io`. Not yet wired into the agent loop (see Out of Scope).
+- [x] **PKG-02** — `packages/source-parser/` added to the workspace: tree-sitter-backed Python package producing span-bearing `SourceTree` with graph projection aligned to lattice-graph. Dependencies `tree-sitter` and `tree-sitter-language-pack` declared.
+
+### Package Rename
+
+- [x] **RENAME-01** — `packages/vault-io/ → packages/wiki-io/` rename. Module name `vault_io → wiki_io`. Import sweep across `agents/`, `packages/`, `plugins/`, `eval-harness`, and tests. `git mv` preserved history.
+
+### Doc / Repo Cleanup
+
+- [x] **CLEANUP-01** — Stale `lattice-wiki` mentions purged from README and core docs (commit `ff835c4`).
+- [x] **CLEANUP-02** — Obsolete `.planning/spikes/` and `.planning/sketches/` directories removed; old docs removed (commits `9ab8a58`, `b63bcac`); README tweaked (`1651d14`).
+
+---
+
+## Traceability
+
+| Requirement | Phase | Status | Evidence |
+|-------------|-------|--------|----------|
+| REPO-01 | Phase 27 | Complete | commit `9b8ac87` |
+| REPO-02 | Phase 27 | Complete | commit `39f1364` |
+| PKG-01 | Phase 27 | Complete | commit `f896d99` — `packages/graph-io/` |
+| PKG-02 | Phase 27 | Complete | commit `f896d99` — `packages/source-parser/` |
+| RENAME-01 | Phase 27 | Complete | commit `f896d99` — `git mv vault-io wiki-io` |
+| CLEANUP-01 | Phase 27 | Complete | commit `ff835c4` |
+| CLEANUP-02 | Phase 27 | Complete | commits `9ab8a58`, `b63bcac`, `1651d14` |
+
+---
+
+## Out of Scope (v1.5)
+
+- **Wiring `graph-io` and `source-parser` into the agent loop** — packages are present in the workspace but the scanner/librarian do not yet consume the SQLite code-graph store or the tree-sitter `SourceTree` projection. Forward-looking integration work is deferred to v1.6+.
+- **Nyquist compliance retro-validation** — carried forward from v1.4 close. Decision (retro-validate vs. disable toggle) still pending.
+- **Plugin smoke transcript (Phase 14 SC#4)** — manual UAT carried forward.
+- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — carried forward.
+
+---
+
+*Last updated: 2026-05-25 — retroactive milestone definition.*

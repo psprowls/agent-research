@@ -10,9 +10,9 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current State: v1.3 Shipped — 2026-05-20
+## Current State: v1.4 Shipped — 2026-05-25
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20). 21 phases, 110 plans, 145/145 requirements satisfied across four milestones.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25). 26 phases, 118 plans across five milestones. **v1.4 was minimally closed** — audit skipped per operator direction; carry-forward items captured in STATE.md `## Deferred Items`.
 
 **What works today (post-v1.3):**
 - `graph-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full graph-wiki workflow on Bedrock with within-command subagent fan-out
@@ -27,31 +27,33 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 - **New in v1.3:** Agent package mechanically renamed `code-wiki-agent → graph-wiki-agent` across the full repository (Phase 21 — `git mv` preserved history; brand-gate enforces no reintroduction)
 - **New in v1.3:** Phase 16 review burndown complete — 15 findings dispositioned (13 fixed + 2 no-action); `19-REVIEW-BURNDOWN.md` is the canonical record
 
-**Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21.
+**Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21. Repo rename `deep-agents` → `agent-research` and package rename `vault-io` → `wiki-io` swept in v1.5 Phase 27.
 
-## Current Milestone: v1.4 Workspace Path Resolution Cleanup
+## Current Milestone: v1.5 Repo Rename & Foundational Package Additions
 
-**Goal:** Eliminate `vault`/`vault_path` nomenclature globally. The canonical input becomes `workspace_path`; the wiki dir is always derived via `workspace_io.paths.wiki_dir()`. Hard-rename external surfaces (MCP, CLI) with no back-compat. Fix one known bootstrap bug along the way.
+**Goal:** Retroactively document the post-v1.4 unphased work that already landed on `main` — repo rename, env var sweep, addition of two new packages (`graph-io`, `source-parser`) to the workspace, and the `vault-io → wiki-io` rename. Single-phase, documentation-only milestone.
 
 **Target features:**
 
-1. **Internal API rename** — `resolve_wiki_and_repo(workspace_path, repo_path)`, all 6 command `run_*` signatures, all test mock setups, `.graph-wiki.local.yaml` key rename (`graph-wiki-directory` → `workspace-directory`).
-2. **External surface rename** — 6 MCP tool fields (`vault_path` → `workspace_path`), 7 Typer flags (`--vault` → `--workspace`), scan JSON field (`vault_path` → `wiki_relative_path`), plugin doc sync.
-3. **eval-harness sweep** — `vault_path` params across `sweep.py`/`baseline.py`/`structural.py`/`divergence/*.py`; bare `vault:` in divergence helpers → `wiki:`.
-4. **Packages-dir misclassification fix** — `_classify_dir` heuristic accepts majority-manifested dirs as `package`; `--interactive` opt-in on bootstrap (closes pending todo 2026-05-20).
+1. **Repo + env var rename** — `deep-agents → agent-research` at the GitHub repo level; `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT` env var swept globally; README polish.
+2. **`graph-io` package added** — code-graph core for the graph-wiki ecosystem (SQLite store, manifest scanning, queries, `cg` CLI). Depends on `source-parser` + `workspace-io`.
+3. **`source-parser` package added** — tree-sitter-backed Python package producing span-bearing `SourceTree` with graph projection aligned to lattice-graph.
+4. **`vault-io → wiki-io` rename** — package rename and import sweep across the workspace (final retirement of the `vault` nomenclature carried over from v1.4 external-surface rename).
+5. **Doc cleanup** — purge stale `lattice-wiki` mentions, remove obsolete spikes/sketches/docs.
 
 **Key context:**
-- Phase numbering continues from Phase 21 → v1.4 starts at Phase 22.
-- No research needed — mechanical rename + one localized bug fix.
-- Hard-rename strategy: breaks any external MCP consumer; DA-CLI integration test updates in the same phase as the schema rename.
-- Carry-forward items from v1.3 (Nyquist decision, plugin smoke transcript, manual UAT, slug-only regex fix) are **not** in v1.4 — they remain candidates for v1.5.
+- Phase numbering continues from Phase 26 → v1.5 starts at Phase 27.
+- **Retroactive milestone** — all work already shipped in commits `9b8ac87 → f896d99`. SUMMARY.md is the canonical phase artifact; no PLAN.md authored.
+- No research needed — work is already done; documenting after the fact for traceability.
+- Carry-forward items from v1.4 (Nyquist decision, plugin smoke transcript, slug-only regex fix) remain **out of scope** for v1.5 — they remain candidates for v1.6+.
 
-## Deferred to v1.5+
+## Deferred to v1.6+
 
-- **Nyquist compliance retroactive decision** — 0/16 v1.1+v1.2+v1.3 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate the 16 phases vs. disable the toggle.
-- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.3 close.
+- **Nyquist compliance retroactive decision** — 0/21 v1.1+v1.2+v1.3+v1.4 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate the 21 phases vs. disable the toggle.
+- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.4 close.
 - **Phase 18 SC#3 manual UAT** — install graph-wiki plugin in Claude Code, type `/init`, confirm native CLAUDE.md workflow fires. By-design manual gate from v1.3 Phase 18 D-07.
 - **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19 (same issue as the synthesizer fix; not load-bearing today).
+- **Wire `graph-io` and `source-parser` into the agent loop** — v1.5 only adds the packages to the workspace; actual integration (scanner/librarian consuming the SQLite code-graph store) is forward-looking work for v1.6+.
 
 **Explicitly out of v1.x (deferred to v2.0+):**
 - Open-source release prep (README badges, contribution guide, PyPI publish dry-run) → **v2.0 GA**.
@@ -221,11 +223,11 @@ _See "Out of Scope" below for items explicitly deferred past v1.x._
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-20 — milestone v1.4 (Workspace Path Resolution Cleanup) STARTED. Scope: 3-phase `vault`/`vault_path` → `workspace`/`workspace_path` rename (internal API, external MCP+CLI surface, eval-harness) + packages-dir misclassification bug fix. Phase numbering continues from Phase 22.
+**Last updated:** 2026-05-25 — milestone v1.5 (Repo Rename & Foundational Package Additions) STARTED retroactively. Scope: single-phase documentation of post-v1.4 unphased work — repo rename `deep-agents → agent-research`, env var sweep `DEEP_AGENTS_ROOT → AGENT_RESEARCH_ROOT`, new packages `graph-io` + `source-parser`, package rename `vault-io → wiki-io`, doc cleanup. Phase numbering continues from Phase 27.
 
-**Prior update:** 2026-05-20 — milestone v1.3 (Tooling Cleanup) SHIPPED. 5 phases, 25 plans, 19/19 requirements satisfied.
+**Prior update:** 2026-05-25 — milestone v1.4 (Workspace Path Resolution Cleanup) SHIPPED minimally. 5 phases, 8 plans. Audit skipped per operator direction; deferred items captured in STATE.md.
 
-**Earlier:** 2026-05-19 — milestone v1.2 (Graph-Wiki Port & Debt Cleanup) SHIPPED. 6 phases, 21 plans, 30/30 requirements satisfied.
+**Earlier:** 2026-05-20 — milestone v1.3 (Tooling Cleanup) SHIPPED. 5 phases, 25 plans, 19/19 requirements satisfied.
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
@@ -241,4 +243,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-20 — milestone v1.4 Workspace Path Resolution Cleanup STARTED (phase numbering continues from Phase 22). 21 phases / 110 plans / 145/145 requirements shipped across v1.0+v1.1+v1.2+v1.3. v1.4 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
+*Last updated: 2026-05-25 — milestone v1.5 Repo Rename & Foundational Package Additions STARTED retroactively (single phase: 27). 26 phases / 118 plans shipped across v1.0+v1.1+v1.2+v1.3+v1.4. v1.5 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*

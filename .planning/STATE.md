@@ -1,11 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.5
-milestone_name: TBD
-status: Awaiting milestone scoping
-stopped_at: v1.4 archived (minimal close, audit skipped)
-last_updated: "2026-05-25T22:09:18.791Z"
-last_activity: 2026-05-25 — v1.4 archived; v1.5 ready for /gsd-new-milestone
+milestone_name: Repo Rename & Foundational Package Additions
+status: planning
+last_updated: "2026-05-25T22:16:09.603Z"
+last_activity: 2026-05-25
 progress:
   total_phases: 0
   completed_phases: 0
@@ -27,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 **Core Value:** Faithfully reproduce the upstream graph-wiki wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, so the same outcomes can be achieved at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.5 scoping (next: `/gsd-new-milestone`). First expected phase is a retroactive capture of post-v1.4 unphased work: repo rename `deep-agents → agent-research`, new packages `graph-io` + `source-parser`, package rename `vault-io → wiki-io`, and assorted doc/spike cleanup commits.
+**Current Focus:** v1.5 (Repo Rename & Foundational Package Additions) — retroactive milestone covering Phase 27. Work already shipped on `main` in commits `9b8ac87..f896d99`. Next forward-looking work (v1.6+) wires `graph-io` and `source-parser` into the agent loop.
 
 **North Star:** `graph-wiki-agent query "..."` returns answers as good as today's graph-wiki librarian, on cheaper Bedrock models, faster.
 
@@ -35,10 +34,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-20 after milestone v1.3 SHIPPED)
 
 ## Current Position
 
-Phase: Milestone v1.4 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-25 — Milestone v1.4 completed and archived
+Phase: 27 — post-v1.4-foundation-changes (retroactive, complete)
+Plan: — (no PLAN.md; SUMMARY.md is the canonical artifact)
+Status: v1.5 retroactive close — all 7 requirements satisfied by shipped commits
+Last activity: 2026-05-25 — Milestone v1.5 created retroactively for the post-v1.4 unphased work (commits `9b8ac87..f896d99`)
 
 ## Performance Metrics
 
@@ -64,10 +63,18 @@ Last activity: 2026-05-25 — Milestone v1.4 completed and archived
 | Requirements complete (v1.3) | 19 |
 | Plans written (v1.3) | 25 |
 | Plans complete (v1.3) | 25 |
-| Phases total (v1.4) | 4 |
-| Phases complete (v1.4) | 0 |
+| Phases total (v1.4) | 5 |
+| Phases complete (v1.4) | 5 |
 | Requirements total (v1.4) | 23 |
-| Requirements complete (v1.4) | 0 |
+| Requirements complete (v1.4) | 23 |
+| Plans written (v1.4) | 8 |
+| Plans complete (v1.4) | 8 |
+| Phases total (v1.5) | 1 |
+| Phases complete (v1.5) | 1 |
+| Requirements total (v1.5) | 7 |
+| Requirements complete (v1.5) | 7 |
+| Plans written (v1.5) | 0 (retro) |
+| Plans complete (v1.5) | 0 (retro) |
 
 ---
 
@@ -154,9 +161,9 @@ Last activity: 2026-05-25 — Milestone v1.4 completed and archived
 
 ## Session Continuity
 
-**Last session:** 2026-05-21T16:49:38.314Z
-**Stopped at:** Phase 26 context gathered
-**Resume file:** .planning/phases/26-plugin-prompt-source-mirror-sync/26-CONTEXT.md
+**Last session:** 2026-05-25T22:16:00.000Z
+**Stopped at:** v1.5 retroactively closed (Phase 27 SUMMARY.md authored)
+**Resume file:** .planning/phases/27-post-v1.4-foundation-changes/27-SUMMARY.md
 
 **Critical context for next session:**
 
@@ -175,8 +182,10 @@ Last activity: 2026-05-25 — Milestone v1.4 completed and archived
 *v1.1 roadmap: 2026-05-15 — shipped 2026-05-17*
 *v1.2 roadmap: 2026-05-17 — shipped 2026-05-19*
 *v1.3 roadmap: 2026-05-19 — shipped 2026-05-20*
-*v1.4 roadmap: 2026-05-20*
+*v1.4 roadmap: 2026-05-20 — shipped 2026-05-25 (minimal close, audit skipped)*
+*v1.5 milestone created retroactively: 2026-05-25 — Phase 27 SUMMARY.md is the canonical artifact*
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- v1.5 is retroactively closed. To start forward-looking work, run `/gsd-new-milestone` for v1.6 (e.g. wire `graph-io` + `source-parser` into the agent loop).
+- Or formally close v1.5 with `/gsd-complete-milestone v1.5 --skip-audit` once you're ready to archive Phase 27.
