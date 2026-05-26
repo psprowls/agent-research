@@ -239,7 +239,7 @@ Plans:
 | 28. Schema v2 + URI Foundation | 5/5 | Complete    | 2026-05-26 |
 | 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
-| 31. Domain Layer + Derived Edges | 1/4 | In Progress|  |
+| 31. Domain Layer + Derived Edges | 2/4 | In Progress|  |
 | 32. Query Layer Extensions | 0/TBD | Not started | - |
 | 33. CLI Surface | 0/TBD | Not started | - |
 | 34. Brand Sweep | 0/TBD | Not started | - |
