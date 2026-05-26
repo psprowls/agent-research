@@ -146,7 +146,7 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
     locker.execute("BEGIN EXCLUSIVE")
     try:
         write_and_commit(tmp_path, {"b.py": "y = 2\n"}, "second")
-        env = {**os.environ, "LATTICE_GRAPH_LOCK_TIMEOUT_MS": "200"}
+        env = {**os.environ, "GRAPH_WIKI_LOCK_TIMEOUT_MS": "200"}
         started = time.monotonic()
         res = subprocess.run(
             [sys.executable, "-m", "graph_io.cli.main",

@@ -151,7 +151,7 @@ def _process_files(
 
 
 def _default_lock_timeout() -> int:
-    raw = os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")
+    raw = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")
     if raw is None:
         return 30_000
     try:
