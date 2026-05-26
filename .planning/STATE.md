@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
-status: executing
+status: completed
 stopped_at: Phase 37 context gathered
-last_updated: "2026-05-26T17:26:18.427Z"
-last_activity: 2026-05-26 -- Phase 37 planning complete
+last_updated: "2026-05-26T17:32:57.984Z"
+last_activity: 2026-05-26 -- Phase 36 marked complete
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State: agent-research
@@ -33,10 +33,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 36 (cg-find-parser-ergonomics) — EXECUTING
+Phase: 36 — COMPLETE
 Plan: 1 of 1
-Status: Ready to execute
-Last activity: 2026-05-26 -- Phase 37 planning complete
+Status: Phase 36 complete
+Last activity: 2026-05-26 -- Phase 36 marked complete
 
 Progress: [░░░░░░░░░░] 0% (0/6 phases complete)
 
