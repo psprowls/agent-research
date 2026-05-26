@@ -292,12 +292,20 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 # test_suites -> update -> ... cycle (each reuses
                 # update._git / NotInGitRepoError or imports from structural_nodes
                 # which imports from update).
-                from graph_io import entry_points, structural_nodes, test_suites  # noqa: PLC0415
+                from graph_io import (  # noqa: PLC0415
+                    derived_edges,
+                    domains,
+                    entry_points,
+                    structural_nodes,
+                    test_suites,
+                )
                 structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+                domains.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 resolve.sweep(conn)
                 _enforce_strict_tree_invariant(conn)
+                derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
                 _set_metadata(conn, "last_indexed_commit", head)
                 _set_metadata(conn, "last_indexed_at", _dt.datetime.now(_dt.UTC).isoformat())
         except sqlite3.OperationalError as exc:
