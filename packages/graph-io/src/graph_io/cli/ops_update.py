@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from graph_io import exit_codes, update
+from graph_io import exit_codes, store, update
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -21,6 +21,9 @@ def run(args: argparse.Namespace) -> int:
     except update.UpdateInProgressError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.UPDATE_IN_PROGRESS
+    except store.SchemaMismatchError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return exit_codes.SCHEMA_MISMATCH
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.GENERIC
