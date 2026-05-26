@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
 status: completed
-stopped_at: Completed 39-01-PLAN.md
-last_updated: "2026-05-26T20:00:54.011Z"
+stopped_at: Phase 41 context gathered
+last_updated: "2026-05-26T21:30:06.747Z"
 last_activity: 2026-05-26 -- Phase 40 marked complete
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 9
   completed_plans: 9
@@ -72,6 +72,10 @@ Progress: [██████████] 100%
 - Pitfall 4: Per-tool-call connection open causes up to 50 SQLite opens per `run_query()` — use `build_graph_tools(conn)` closure pattern
 - Pitfall 5: `cg find` positional callers in `packages/graph-io/tests/` will break silently — grep and fix all callers in the same commit as Phase 36
 
+### Roadmap Evolution
+
+- Phase 41 added: Address v1.7 tech debt: integration_gate + traceability (post-audit cleanup; integration_gate skipif fix + REQUIREMENTS.md checkbox sync)
+
 ### Pending Todos
 
 None — fresh milestone start.
@@ -98,8 +102,8 @@ Note: All 10 quick tasks + 2 bootstrap todos are now v1.7 Phase 35 scope (HYGIEN
 
 ## Session Continuity
 
-Last session: 2026-05-26T19:40:46.563Z
-Stopped at: Completed 39-01-PLAN.md
+Last session: 2026-05-26T21:30:06.737Z
+Stopped at: Phase 41 context gathered
 
 **Next action:** `/gsd:plan-phase 35` to plan the Wiki & Bootstrap Hygiene Burn-Down phase.
 
