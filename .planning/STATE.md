@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.6
-milestone_name: — Code Graph Ontology Expansion
-status: completed
-stopped_at: Phase 34 context gathered
-last_updated: "2026-05-26T04:46:33.943Z"
-last_activity: 2026-05-26 -- Phase 33 marked complete
+milestone_name: — Code Graph Ontology Expansion (SHIPPED 2026-05-26)
+status: shipped
+stopped_at: v1.6 milestone archived; awaiting /gsd-new-milestone for v1.7
+last_updated: "2026-05-26T05:35:00.000Z"
+last_activity: 2026-05-26 -- v1.6 milestone archived
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 30
-  completed_plans: 25
-  percent: 83
+  completed_plans: 30
+  percent: 100
 ---
 
 # Project State: agent-research
@@ -86,26 +86,37 @@ None.
 
 ## Deferred Items
 
-Carried forward from v1.5 close (still pending):
+Carried forward from prior milestone closes (still pending after v1.6 ship 2026-05-26):
 
 | Category | Item | Status |
 |----------|------|--------|
 | nyquist | 0/21+ v1.1-v1.5 phases produced VALIDATION.md | decision pending (retro-validate vs. disable toggle) |
 | uat_gap | Phase 14 SC#4 plugin smoke transcript | deferred from v1.2 |
 | slug_fix | `librarian.py:21` `_SLUG_ONLY_RE` parity fix | deferred, not load-bearing |
-| quick_tasks | 9 untracked quick tasks + 2 bootstrap todos | acknowledged-deferred |
+| quick_task | 260521-ans-typer-help-ansi-strip | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-gc0-tackle-four-lint-driven-fixes-w1-repo-di | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-hfr-patch-graph-wiki-scanner-wikilink-emissi | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-i26-add-container-dir-template-variable-for- | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-kxi-fix-graph-wiki-plugin-docs-use-uv-run-py | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-lj3-workspace-io-tolerate-missing-plugins | acknowledged-deferred (v1.6 close) |
+| quick_task | 260521-mfm-add-self-healing-uv-re-exec-to-graph-wik | acknowledged-deferred (v1.6 close) |
+| quick_task | 260523-he3-revise-file-map-format-on-package-app-ov | acknowledged-deferred (v1.6 close) |
+| quick_task | 260523-i35-add-testing-md-subpage-to-app-package-an | acknowledged-deferred (v1.6 close) |
+| quick_task | 260523-iws-rename-overview-pages | acknowledged-deferred (v1.6 close) |
+| todo | 2026-05-21-bootstrap-interactive-flag.md | acknowledged-deferred (v1.6 close) |
+| todo | 2026-05-21-bootstrap-should-stub-empty-category-index-files.md | acknowledged-deferred (v1.6 close) |
+| audit | v1.6-MILESTONE-AUDIT.md not produced | acknowledged at v1.6 close — phase-level SC checks passed for all 7 phases |
 
 ---
 
 ## Session Continuity
 
-Last session: 2026-05-26T03:10:46.603Z
-Stopped at: Phase 34 context gathered
-Resume file: .planning/phases/34-brand-sweep/34-CONTEXT.md
+Last session: 2026-05-26 — v1.6 milestone closed and archived.
+Stopped at: awaiting v1.7 scoping.
 
-**Next action:** `/gsd:plan-phase 28`
+**Next action:** `/gsd-new-milestone` to scope v1.7. Primary candidate: wire `graph-io` into `graph-wiki-agent` (the integration v1.6 was explicitly built to enable).
 
 ---
 
 *State initialized: 2026-05-13*
-*v1.6 roadmap created: 2026-05-25 — 7 phases (28-34), 56 requirements*
+*v1.6 archived: 2026-05-26 — 7 phases (28-34), 30 plans, 56 requirements, all SC checks pass; no audit produced (acknowledged at close)*

@@ -10,9 +10,17 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current State: v1.5 Shipped — 2026-05-25
+## Current State: v1.6 Shipped — 2026-05-26
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25). 26 phases, 118 plans across five milestones. **v1.4 was minimally closed** — audit skipped per operator direction; carry-forward items captured in STATE.md `## Deferred Items`.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26). **34 phases, 148 plans** across seven milestones. **v1.6 closed without audit** per operator direction; phase-level SC checks passed for all 7 phases; carry-forward items captured in STATE.md `## Deferred Items`.
+
+**New in v1.6 — `graph-io` ontology landed:**
+- **Schema v2 + URI identity** — `nodes.uri TEXT` column; `graph_io.uri` exposes `repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri`. `cg update --full` v1→v2 rebuild; `SCHEMA_MISMATCH` (exit 4) on incremental v1→v2.
+- **Structural containment tree** — `Repository`, `SubPackage` (Python-only), `File` with 7 role flags (`is_importable`, `is_executable`, `has_main`, `is_test`, `is_config`, `is_generated`, `is_type_only`). `physically_contains` strict tree; `resolve.sweep` guard.
+- **EntryPoints + TestSuites** — manifests (pyproject.scripts, package.json bin/main/exports) produce `EntryPoint` nodes with polymorphic `implemented_by`. `TestSuite` nodes from FS layout + framework configs (pytest/jest/vitest/mocha); test files re-parented out of Package containment.
+- **Domains + derived edges** — `domains.yaml` at repo root drives `Domain` nodes; `belongs_to_domain`, `domain_contains_domain` with cycle detection; derived `references` (Domain → Package with usage count) and `depends_on` (Domain → Domain) computed post-update.
+- **14 new `cg` CLI subcommands** — `describe-repo`, `list-packages`, `list-entry-points`, `list-scripts`, `list-suites`, `describe-suite`, `what-tests`, `list-domains`, `describe-domain`, `domain-refs`, `domain-deps`, `cross-cutting`, plus `cg status` extended with repository line. `cg --help` lists 25 subcommands total.
+- **Brand sweep in `graph-io`** — `lattice-graph-core` → `graph-io` README, `~/.lattice/graph/code.db` → `paths.graph_dir(workspace)`, CLI description rebranded, `LATTICE_GRAPH_LOCK_TIMEOUT_MS` straight-renamed to `GRAPH_WIKI_LOCK_TIMEOUT_MS` with **no alias** (revised mid-milestone — single-user repo, no backwards compat). Dead `_SKIP_REPO_PREFIXES` deleted. Brand grep gate passes.
 
 **What works today (post-v1.3):**
 - `graph-wiki-agent {init|scan|ingest|query|lint|log|trace}` — full graph-wiki workflow on Bedrock with within-command subagent fan-out
@@ -29,9 +37,19 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21. Repo rename `deep-agents` → `agent-research` and package rename `vault-io` → `wiki-io` swept in v1.5 Phase 27.
 
-## Current Milestone: v1.6 Code Graph Ontology Expansion
+## Current Milestone: (none — v1.6 shipped, awaiting v1.7 scoping)
 
-**Goal:** Land the full ontology spec (`/Users/pat/Downloads/code-graph-ontology-spec_2.md`) inside `graph-io` — schema v2, URI identity, all new node + edge types, additive scanner extensions — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. Plugin and existing wiki scripts stay functional and untouched.
+**Next milestone (v1.7) — primary candidates:**
+1. **Wire `graph-io` into `graph-wiki-agent`** — librarian grounding tools, scanner/ingestor consumption of graph-io as source of truth, possible new top-level `graph-wiki-agent graph {build|describe|query}` command. **Highest-leverage v1.7 focus** — v1.6 built the entire ontology with this integration as the explicit goal.
+2. **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI rather than filesystem location; multiple views (flat-by-ID, by-domain, by-repo) from the same graph. Natural companion to (1).
+3. **`cg find` parser ergonomics** — currently requires positional name; `--kind file --name foo.py` doesn't parse. Small fix; bundle into (1).
+4. **check-brand.sh regex trim** — drop `workspace_io` from the regex to shrink `.brand-grep-allow` to a handful of genuine carve-outs. Out of v1.6 by D-17; could be a v1.7 "milestone hygiene" sub-phase.
+
+Run `/gsd-new-milestone` to formally scope v1.7 (research → requirements → roadmap).
+
+## Previous Milestone: v1.6 Code Graph Ontology Expansion (SHIPPED 2026-05-26)
+
+**Goal (achieved):** Land the full ontology spec (`.planning/research/ONTOLOGY-SPEC.md`) inside `graph-io` — schema v2, URI identity, all new node + edge types, additive scanner extensions, brand sweep — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. Plugin and existing wiki scripts stay functional and untouched.
 
 **Target features:**
 
@@ -56,14 +74,18 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 ## Deferred to v1.7+
 
-- **Wire `graph-io` into `graph-wiki-agent`** — librarian grounding tools, scanner/ingestor consumption of graph-io as source of truth, possible new top-level `graph-wiki-agent graph {build|describe|query}` command. **Primary v1.7 focus** alongside wiki redesign.
-- **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI rather than filesystem location; multiple views (flat-by-ID, by-domain, by-repo) from the same graph. Companion to the agent integration above.
+- **Wire `graph-io` into `graph-wiki-agent`** — primary v1.7 candidate (see above).
+- **Wiki redesign on top of graph-io** — companion v1.7 candidate.
 - **Scanner pipeline restructure** — split into the 9-stage pipeline per spec §9 (FS walk → manifest parse → test detect → AST → import resolve → test target derive → domain assign → derived edges → wiki render). Becomes a real requirement when domain-overlay re-runs need to be cheap.
-- **Open questions §11 of spec** — tagging mechanism, cross-repo domain scope, domain config location in multi-repo, role-flag confidence metadata, test suite consolidation threshold, test-support file flag.
-- **Nyquist compliance retroactive decision** — 0/21+ v1.1-v1.5 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle.
-- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript not captured at v1.2 close; carried forward through v1.5 close.
-- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — out-of-scope observation from v1.3 Phase 19 (same issue as the synthesizer fix; not load-bearing today).
-- **9 untracked quick tasks + 2 pending bootstrap todos** acknowledged-deferred at v1.4 close — still pending at v1.5 close.
+- **Open questions §11 of ONTOLOGY-SPEC** — tagging mechanism, cross-repo domain scope, domain config location in multi-repo, role-flag confidence metadata, test suite consolidation threshold, test-support file flag.
+- **`cg find` parser ergonomics** — `find --kind file --name foo.py` form does not parse; currently requires positional name.
+- **check-brand.sh regex over-breadth** — `workspace_io|lattice_wiki_core` in the regex causes legitimate matches across the repo; minimal allowlist papered over it. A regex trim would let `.brand-grep-allow` shrink dramatically.
+- **Pre-existing test failure** — `tests/test_integration_gate.py` fails on `packages/graph-io/tests/fixtures/sample_monorepo/tests/integration/test_top.py`. Confirmed pre-v1.6 via `git stash` during Phase 34.
+- **Nyquist compliance retroactive decision** — 0/28+ v1.1-v1.6 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle. **Overdue** at v1.6 close.
+- **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript still not captured (carried since v1.2 close).
+- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — carried since v1.3 close; not load-bearing today.
+- **9 untracked quick-tasks + 2 pending bootstrap todos** acknowledged-deferred at v1.4 / v1.5 / v1.6 closes — need a triage pass at v1.7 scoping (most likely obsolete after the v1.2-v1.3 brand sweeps and v1.4 workspace-path cleanup).
+- **v1.6 milestone audit not produced** — acknowledged at close.
 
 **Explicitly out of v1.x (deferred to v2.0+):**
 - Open-source release prep (README badges, contribution guide, PyPI publish dry-run) → **v2.0 GA**.

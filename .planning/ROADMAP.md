@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.6 — Code Graph Ontology Expansion
+**Current milestone:** (none — v1.6 shipped 2026-05-26, ready for v1.7 scoping)
 
 ---
 
@@ -14,7 +14,7 @@
 - ✅ **v1.3 — Tooling Cleanup** — Phases 17-21 (shipped 2026-05-20) — [archive](milestones/v1.3-ROADMAP.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
 - ✅ **v1.4 — Workspace Path Resolution Cleanup** — Phases 22-26 (shipped 2026-05-25) — [archive](milestones/v1.4-ROADMAP.md) · [audit](milestones/v1.4-MILESTONE-AUDIT.md)
 - ✅ **v1.5 — Repo Rename & Foundational Package Additions** — Phase 27 (shipped 2026-05-25, retroactive) — [archive](milestones/v1.5-ROADMAP.md)
-- 🚧 **v1.6 — Code Graph Ontology Expansion** — Phases 28-34 (in progress)
+- ✅ **v1.6 — Code Graph Ontology Expansion** — Phases 28-34 (shipped 2026-05-26) — [archive](milestones/v1.6-ROADMAP.md)
 
 ---
 
@@ -98,21 +98,33 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.6 — Code Graph Ontology Expansion (In Progress)
+<details>
+<summary>✅ v1.6 Code Graph Ontology Expansion (Phases 28-34) — SHIPPED 2026-05-26</summary>
 
-**Milestone Goal:** Land the full ontology spec inside `graph-io` — schema v2, URI identity, all new node and edge types, additive scanner extensions, brand sweep — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. `graph-io`-only milestone; plugin and existing wiki scripts stay functional and untouched.
+- [x] Phase 28: Schema v2 + URI Foundation (5/5 plans) — completed 2026-05-26
+- [x] Phase 29: Structural Nodes + Containment Tree (4/4 plans) — completed 2026-05-26
+- [x] Phase 30: Entry Points + Test Suites (4/4 plans) — completed 2026-05-26
+- [x] Phase 31: Domain Layer + Derived Edges (4/4 plans) — completed 2026-05-26
+- [x] Phase 32: Query Layer Extensions (3/3 plans) — completed 2026-05-26
+- [x] Phase 33: CLI Surface (5/5 plans) — completed 2026-05-26
+- [x] Phase 34: Brand Sweep (5/5 plans) — completed 2026-05-26
 
-- [x] **Phase 28: Schema v2 + URI Foundation** - Bump schema to v2, add `uri` column, wire `SCHEMA_MISMATCH` exit code, ship `uri.py` helpers (completed 2026-05-26)
-- [x] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs (completed 2026-05-26)
-- [x] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting (completed 2026-05-26)
-- [x] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges (completed 2026-05-26)
-- [x] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path` (completed 2026-05-26)
-- [x] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries (completed 2026-05-26)
-- [x] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
+Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
+
+</details>
+
+### Next: v1.7 — TBD
+
+Run `/gsd-new-milestone` to scope v1.7. v1.6 stops at the `graph-io` ontology + CLI; v1.7's natural next step is integrating `graph-io` into `graph-wiki-agent` and redesigning the wiki on top of it.
 
 ---
 
-## Phase Details
+## Phase Details (active milestone)
+
+*No active milestone — v1.6 archived. Phase details for shipped milestones live in their respective `milestones/v[X]-ROADMAP.md` archives.*
+
+<details>
+<summary>v1.6 archived phase details (collapsed)</summary>
 
 ### Phase 28: Schema v2 + URI Foundation
 **Goal**: The `graph-io` store speaks schema v2 — every new emitter has a `uri` column to write to, schema mismatches exit cleanly with code 4, and URI composition is tested before any emitter is built
@@ -231,6 +243,8 @@ Plans:
 **Wave 3** *(blocked on Waves 1+2)*
 - [x] 34-05-PLAN.md — verification: 34-VERIFICATION.md + run all four SC checks + regression suite (BRAND-01..04)
 
+</details>
+
 ---
 
 ## Progress
@@ -243,18 +257,8 @@ Plans:
 | v1.3 Tooling Cleanup | 5 | 25/25 | ✅ Shipped | 2026-05-20 |
 | v1.4 Workspace Path Resolution Cleanup | 5 | 8/8 | ✅ Shipped | 2026-05-25 |
 | v1.5 Repo Rename & Foundational Package Additions | 1 | 0/0 (retro) | ✅ Shipped | 2026-05-25 |
-| v1.6 Code Graph Ontology Expansion | 7 | 0/TBD | 🚧 In progress | - |
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 28. Schema v2 + URI Foundation | 5/5 | Complete    | 2026-05-26 |
-| 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
-| 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
-| 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
-| 32. Query Layer Extensions | 3/3 | Complete    | 2026-05-26 |
-| 33. CLI Surface | 5/5 | Complete   | 2026-05-26 |
-| 34. Brand Sweep | 5/5 | Complete   | 2026-05-26 |
+| v1.6 Code Graph Ontology Expansion | 7 | 30/30 | ✅ Shipped | 2026-05-26 |
 
 ---
 
-*Last updated: 2026-05-26 — Phase 29 complete (4/4 plans). Structural containment tree (Repository → Package → SubPackage → File) shipped with all 7 role-flag attrs and STRUCT-04 strict-tree invariant locked by sample_monorepo fixture test.*
+*Last updated: 2026-05-26 — v1.6 shipped (7 phases, 30 plans). Code-graph ontology + URI identity + 14 new CLI subcommands + `graph-io` brand sweep complete. Run `/gsd-new-milestone` to scope v1.7.*
