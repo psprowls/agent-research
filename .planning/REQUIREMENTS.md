@@ -61,8 +61,8 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 - [x] **DERIVED-01**: `references` edges (Domain → Package) are computed when a package in domain D imports a package P that does NOT belong to D; carries `usage_count` attr (number of distinct packages in D that import P)
 - [x] **DERIVED-02**: `depends_on` edges (Domain → Domain) are computed when a package in domain A imports a package belonging to domain B
-- [ ] **DERIVED-03**: Derived edges are recomputed on every `cg update` (after `resolve.sweep` completes) and persisted to the `edges` table — query-time reads are cheap and do not recompute
-- [ ] **DERIVED-04**: Transitive domain membership for nested domains is NOT stored — queries walk `domain_contains_domain` at read time per spec §6
+- [x] **DERIVED-03**: Derived edges are recomputed on every `cg update` (after `resolve.sweep` completes) and persisted to the `edges` table — query-time reads are cheap and do not recompute
+- [x] **DERIVED-04**: Transitive domain membership for nested domains is NOT stored — queries walk `domain_contains_domain` at read time per spec §6
 
 ### Source-Parser AST Extensions
 
@@ -214,8 +214,8 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | DOMAIN-05 | Phase 31 | Complete |
 | DERIVED-01 | Phase 31 | Complete |
 | DERIVED-02 | Phase 31 | Complete |
-| DERIVED-03 | Phase 31 | Pending |
-| DERIVED-04 | Phase 31 | Pending |
+| DERIVED-03 | Phase 31 | Complete |
+| DERIVED-04 | Phase 31 | Complete |
 | QUERY-01 | Phase 32 | Pending |
 | QUERY-02 | Phase 32 | Pending |
 | QUERY-03 | Phase 32 | Pending |
