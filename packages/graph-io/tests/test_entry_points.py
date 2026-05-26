@@ -199,6 +199,183 @@ def test_implemented_by_null_on_missing_file(tmp_path: Path, capsys: pytest.Capt
     assert "cannot resolve implemented_by" in captured.err
 
 
+# ---------- Task 3: package.json ----------
+
+
+def test_packagejson_bin_string_form(tmp_path: Path) -> None:
+    """D-08: 'bin' string form emits EntryPoint named after the package."""
+    pkg_dir = tmp_path / "packages" / "jspkg"
+    (pkg_dir / "src").mkdir(parents=True)
+    (pkg_dir / "src" / "cli.js").write_text("#!/usr/bin/env node\n")
+    _write_package_json(pkg_dir, {"name": "jspkg", "bin": "./src/cli.js"})
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='jspkg'"
+    ).fetchone()
+    assert row is not None
+    attrs = json.loads(row[0])
+    assert attrs["entry_kind"] == "executable"
+    assert attrs["source"] == "package.json.bin"
+    assert attrs["callable"] is None
+    assert _impl_target(conn, "jspkg") == "packages/jspkg/src/cli.js"
+
+
+def test_packagejson_bin_object_form(tmp_path: Path) -> None:
+    """D-08: 'bin' object form emits one EntryPoint per key."""
+    pkg_dir = tmp_path / "packages" / "multi"
+    (pkg_dir / "src").mkdir(parents=True)
+    (pkg_dir / "src" / "foo.js").write_text("")
+    (pkg_dir / "src" / "bar.js").write_text("")
+    _write_package_json(
+        pkg_dir,
+        {"name": "multi", "bin": {"foo-cli": "./src/foo.js", "bar-cli": "./src/bar.js"}},
+    )
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    for name in ("foo-cli", "bar-cli"):
+        row = conn.execute(
+            "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name=?",
+            (name,),
+        ).fetchone()
+        assert row is not None, f"{name} EntryPoint missing"
+        attrs = json.loads(row[0])
+        assert attrs["entry_kind"] == "executable"
+        assert attrs["source"] == "package.json.bin"
+    assert _impl_target(conn, "foo-cli") == "packages/multi/src/foo.js"
+    assert _impl_target(conn, "bar-cli") == "packages/multi/src/bar.js"
+
+
+def test_packagejson_main_and_module(tmp_path: Path) -> None:
+    """ENTRY-02/03: 'main' and 'module' both produce one library EntryPoint."""
+    pkg_dir = tmp_path / "packages" / "libpkg"
+    (pkg_dir / "dist").mkdir(parents=True)
+    (pkg_dir / "dist" / "index.cjs.js").write_text("")
+    (pkg_dir / "dist" / "index.esm.js").write_text("")
+    _write_package_json(
+        pkg_dir,
+        {
+            "name": "libpkg",
+            "main": "./dist/index.cjs.js",
+            "module": "./dist/index.esm.js",
+        },
+    )
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    main_row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='main'"
+    ).fetchone()
+    mod_row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='module'"
+    ).fetchone()
+    assert main_row is not None and mod_row is not None
+    main_attrs = json.loads(main_row[0])
+    mod_attrs = json.loads(mod_row[0])
+    assert main_attrs["source"] == "package.json.main"
+    assert main_attrs["entry_kind"] == "library"
+    assert mod_attrs["source"] == "package.json.module"
+    assert mod_attrs["entry_kind"] == "library"
+
+
+def test_packagejson_exports_recursive_walk(tmp_path: Path) -> None:
+    """D-07: exports recursion produces one EntryPoint per string leaf,
+    distinguished by condition keys; wildcards mark is_wildcard + leave
+    implemented_by NULL."""
+    pkg_dir = tmp_path / "packages" / "exp"
+    (pkg_dir / "dist").mkdir(parents=True)
+    (pkg_dir / "dist" / "esm.js").write_text("")
+    (pkg_dir / "dist" / "cjs.js").write_text("")
+    _write_package_json(
+        pkg_dir,
+        {
+            "name": "exp",
+            "exports": {
+                ".": {
+                    "import": "./dist/esm.js",
+                    "require": "./dist/cjs.js",
+                },
+                "./helpers/*": "./dist/helpers/*.js",
+            },
+        },
+    )
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    rows = conn.execute(
+        "SELECT name, attrs_json FROM nodes WHERE kind='entry_point'"
+    ).fetchall()
+    by_name_cond: dict[tuple[str, str | None], dict] = {}
+    for name, attrs_json in rows:
+        attrs = json.loads(attrs_json)
+        by_name_cond[(name, attrs.get("condition"))] = attrs
+
+    # Conditional exports for "." produce two EntryPoints sharing name="."
+    # but distinguished by condition.
+    assert (".", "import") in by_name_cond
+    assert (".", "require") in by_name_cond
+    assert by_name_cond[(".", "import")]["source"] == "package.json.exports"
+    assert by_name_cond[(".", "import")]["entry_kind"] == "library"
+    assert by_name_cond[(".", "import")]["is_wildcard"] is False
+
+    # Wildcard leaf
+    wildcard_keys = [k for k in by_name_cond if "helpers" in k[0]]
+    assert wildcard_keys, "wildcard export leaf not emitted"
+    wkey = wildcard_keys[0]
+    assert by_name_cond[wkey]["is_wildcard"] is True
+    assert "*" in (by_name_cond[wkey]["path_pattern"] or "")
+    assert _impl_target(conn, wkey[0]) is None  # wildcards never resolve to a file
+
+
+def test_declares_entry_point_edge_present(tmp_path: Path) -> None:
+    """Every EntryPoint has a declares_entry_point edge from its declaring Package."""
+    pkg_dir = tmp_path / "packages" / "edgepkg"
+    (pkg_dir / "src").mkdir(parents=True)
+    (pkg_dir / "src" / "main.js").write_text("")
+    _write_package_json(
+        pkg_dir, {"name": "edgepkg", "main": "./src/main.js", "bin": "./src/main.js"}
+    )
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    ep_names = [
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM nodes WHERE kind='entry_point'"
+        ).fetchall()
+    ]
+    assert ep_names, "no EntryPoint emitted"
+    for name in ep_names:
+        assert _declares_edge_exists(
+            conn, "edgepkg", name
+        ), f"declares_entry_point edge missing for {name}"
+
+
+def test_shebang_script_does_not_emit_entry_point(tmp_path: Path) -> None:
+    """ENTRY-05: shebang scripts are not declared entries; no EntryPoint emitted."""
+    pkg_dir = tmp_path / "packages" / "shy"
+    _write_pyproject(pkg_dir, name="shy")  # No scripts, no entry_points declared
+    _write_python_src(pkg_dir, "shy")
+    (pkg_dir / "scripts").mkdir()
+    shebang = pkg_dir / "scripts" / "run.py"
+    shebang.write_text("#!/usr/bin/env python3\nprint('hi')\n")
+    conn = _setup_db(tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+    entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+
+    cnt = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='entry_point'"
+    ).fetchone()[0]
+    assert cnt == 0
+
+
 def test_malformed_pyproject_does_not_crash(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
