@@ -103,7 +103,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 **Milestone Goal:** Land the full ontology spec inside `graph-io` — schema v2, URI identity, all new node and edge types, additive scanner extensions, brand sweep — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. `graph-io`-only milestone; plugin and existing wiki scripts stay functional and untouched.
 
 - [x] **Phase 28: Schema v2 + URI Foundation** - Bump schema to v2, add `uri` column, wire `SCHEMA_MISMATCH` exit code, ship `uri.py` helpers (completed 2026-05-26)
-- [ ] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs
+- [x] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs (completed 2026-05-26)
 - [ ] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting
 - [ ] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges
 - [ ] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path`
@@ -142,10 +142,10 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
   4. `cg describe-path packages/graph-io/src/graph_io/update.py` shows role flags including `is_importable: true`; a file at `packages/graph-io/src/graph_io/cli/main.py` shows `has_main: true`; a file under `tests/` shows `is_test: true`
   5. `cg describe-package graph-io` lists no test files in its `physically_contains` subtree — each file appears under exactly one structural parent
 **Plans**: 4 plans
-- [ ] 29-01-PLAN.md — SPARSER-01 source-parser AST extension (_has_main_block + _has_importable_symbols on file-level SourceNode.attrs) [Wave 1]
-- [ ] 29-02-PLAN.md — resolve.sweep guard (D-16 `AND uri IS NULL` predicate + D-17 sentinel test) [Wave 1]
-- [ ] 29-03-PLAN.md — structural_nodes.py emitter (Repository + SubPackage + File role flags + SPARSER-02 read + unit tests) [Wave 2]
-- [ ] 29-04-PLAN.md — update.run wire-in (D-23) + sample_monorepo fixture (D-22) + STRUCT-04 strict-tree invariant test [Wave 3]
+- [x] 29-01-PLAN.md — SPARSER-01 source-parser AST extension (_has_main_block + _has_importable_symbols on file-level SourceNode.attrs) [Wave 1]
+- [x] 29-02-PLAN.md — resolve.sweep guard (D-16 `AND uri IS NULL` predicate + D-17 sentinel test) [Wave 1]
+- [x] 29-03-PLAN.md — structural_nodes.py emitter (Repository + SubPackage + File role flags + SPARSER-02 read + unit tests) [Wave 2]
+- [x] 29-04-PLAN.md — update.run wire-in (D-23) + sample_monorepo fixture (D-22) + STRUCT-04 strict-tree invariant test [Wave 3]
 
 ### Phase 30: Entry Points + Test Suites
 **Goal**: Declared entry points from manifests and test suites from filesystem layout are first-class graph nodes, test files are re-parented from package containment to suite containment, and the `update.py` call order is enforced by a test
@@ -222,7 +222,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 28. Schema v2 + URI Foundation | 5/5 | Complete    | 2026-05-26 |
-| 29. Structural Nodes + Containment Tree | 0/TBD | Not started | - |
+| 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
 | 30. Entry Points + Test Suites | 0/TBD | Not started | - |
 | 31. Domain Layer + Derived Edges | 0/TBD | Not started | - |
 | 32. Query Layer Extensions | 0/TBD | Not started | - |
@@ -231,4 +231,4 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 ---
 
-*Last updated: 2026-05-25 — v1.6 roadmap created (Phases 28-34, 56 requirements, 7 phases). Phase 28 planned (5 plans, 3 waves).*
+*Last updated: 2026-05-26 — Phase 29 complete (4/4 plans). Structural containment tree (Repository → Package → SubPackage → File) shipped with all 7 role-flag attrs and STRUCT-04 strict-tree invariant locked by sample_monorepo fixture test.*
