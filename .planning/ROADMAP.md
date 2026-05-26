@@ -217,7 +217,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Schema v2 + URI Foundation | 5/5 | Complete   | 2026-05-26 |
+| 28. Schema v2 + URI Foundation | 5/5 | Complete    | 2026-05-26 |
 | 29. Structural Nodes + Containment Tree | 0/TBD | Not started | - |
 | 30. Entry Points + Test Suites | 0/TBD | Not started | - |
 | 31. Domain Layer + Derived Edges | 0/TBD | Not started | - |

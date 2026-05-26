@@ -16,11 +16,11 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### Schema v2 + URI Identity Foundation
 
-- [ ] **SCHEMA-01**: `cg update --full` on a schema-v1 database upgrades to schema v2, rebuilding nodes + edges with URIs populated and producing a consistent v2 store
-- [ ] **SCHEMA-02**: `cg update` (incremental) against a v1.5 database raises `SCHEMA_MISMATCH` (exit code 4) with a clear message instructing the user to run `cg update --full`
-- [ ] **SCHEMA-03**: `graph_io.uri` exposes composition helpers (`repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri`) producing stable URI-style IDs (`pkg:org/foo/auth-service`, `repo:org/foo`, `domain:billing`)
-- [ ] **SCHEMA-04**: URIs are persisted on a dedicated `uri TEXT` column on the `nodes` table (not inside `attrs_json`); URI column is nullable in v1.6 — AST nodes (functions, classes, methods) have NULL URI
-- [ ] **SCHEMA-05**: `cg update --full` is idempotent — running twice on the same git state produces a byte-identical `code.db`
+- [x] **SCHEMA-01**: `cg update --full` on a schema-v1 database upgrades to schema v2, rebuilding nodes + edges with URIs populated and producing a consistent v2 store
+- [x] **SCHEMA-02**: `cg update` (incremental) against a v1.5 database raises `SCHEMA_MISMATCH` (exit code 4) with a clear message instructing the user to run `cg update --full`
+- [x] **SCHEMA-03**: `graph_io.uri` exposes composition helpers (`repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri`) producing stable URI-style IDs (`pkg:org/foo/auth-service`, `repo:org/foo`, `domain:billing`)
+- [x] **SCHEMA-04**: URIs are persisted on a dedicated `uri TEXT` column on the `nodes` table (not inside `attrs_json`); URI column is nullable in v1.6 — AST nodes (functions, classes, methods) have NULL URI
+- [x] **SCHEMA-05**: `cg update --full` is idempotent — running twice on the same git state produces a byte-identical `code.db`
 
 ### Structural Nodes + Containment Tree
 
@@ -182,11 +182,11 @@ Which phases cover which requirements. Filled in during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHEMA-01 | Phase 28 | Pending |
-| SCHEMA-02 | Phase 28 | Pending |
-| SCHEMA-03 | Phase 28 | Pending |
-| SCHEMA-04 | Phase 28 | Pending |
-| SCHEMA-05 | Phase 28 | Pending |
+| SCHEMA-01 | Phase 28 | Complete |
+| SCHEMA-02 | Phase 28 | Complete |
+| SCHEMA-03 | Phase 28 | Complete |
+| SCHEMA-04 | Phase 28 | Complete |
+| SCHEMA-05 | Phase 28 | Complete |
 | STRUCT-01 | Phase 29 | Pending |
 | STRUCT-02 | Phase 29 | Pending |
 | STRUCT-03 | Phase 29 | Pending |
