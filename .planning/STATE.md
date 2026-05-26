@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: — Code Graph Ontology Expansion (SHIPPED 2026-05-26)
-status: shipped
-stopped_at: v1.6 milestone archived; awaiting /gsd-new-milestone for v1.7
-last_updated: "2026-05-26T05:35:00.000Z"
-last_activity: 2026-05-26 -- v1.6 milestone archived
+milestone: v1.7
+milestone_name: graph-io Integration & Wiki Hygiene
+status: planning
+last_updated: "2026-05-26T15:18:28.556Z"
+last_activity: 2026-05-26
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 30
-  completed_plans: 30
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: agent-research
@@ -33,14 +32,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 33 — COMPLETE
-Plan: 5 of 5
-Status: Phase 33 complete
-Last activity: 2026-05-26 -- Phase 33 marked complete
-
-Progress: [███████░░░] 67%
-
----
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-26 — Milestone v1.7 started
 
 ## Performance Metrics
 
