@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
-status: planning
+status: executing
 stopped_at: Phase 36 context gathered
-last_updated: "2026-05-26T16:47:16.756Z"
-last_activity: 2026-05-26 — v1.7 roadmap created; Phase 35 is next
+last_updated: "2026-05-26T16:49:58.235Z"
+last_activity: 2026-05-26 -- Phase 35 planning complete
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 1
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -35,8 +35,8 @@ See: `.planning/PROJECT.md`
 
 Phase: 35 of 40 (Wiki & Bootstrap Hygiene Burn-Down)
 Plan: — (not started)
-Status: Ready to plan
-Last activity: 2026-05-26 — v1.7 roadmap created; Phase 35 is next
+Status: Ready to execute
+Last activity: 2026-05-26 -- Phase 35 planning complete
 
 Progress: [░░░░░░░░░░] 0% (0/6 phases complete)
 
