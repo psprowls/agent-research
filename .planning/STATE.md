@@ -4,14 +4,14 @@ milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
 status: executing
 stopped_at: Phase 40 context gathered
-last_updated: "2026-05-26T18:37:45.945Z"
-last_activity: 2026-05-26 -- Phase 38 planning complete
+last_updated: "2026-05-26T19:00:57.696Z"
+last_activity: 2026-05-26
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State: agent-research
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 37 — librarian-grounding-tools
+**Current Focus:** Phase 38 — graph-wiki-agent-graph-subcommand
 
 ---
 
 ## Current Position
 
-Phase: 38
-Plan: Not started
+Phase: 38 (graph-wiki-agent-graph-subcommand) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-05-26 -- Phase 38 planning complete
+Last activity: 2026-05-26
 
 Progress: [░░░░░░░░░░] 0% (0/6 phases complete)
 
