@@ -29,6 +29,7 @@ from typing import Iterable
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 from graph_io import _ignore, upsert
+from graph_io.import_scan import scan_files_imports
 from graph_io.structural_nodes import (
     _TEST_DIR_NAMES,
     _owning_package,
@@ -49,12 +50,6 @@ _UNIT_FILENAME_GLOBS = (
 
 _PYTEST_INI_FILENAMES = frozenset({"pytest.ini"})
 _JS_TEST_CONFIG_GLOBS = ("jest.config.*", "vitest.config.*")
-
-_PYTHON_IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([\w\.]+)", re.MULTILINE)
-_JS_IMPORT_RE = re.compile(
-    r"""(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]""",
-    re.MULTILINE,
-)
 
 
 @dataclass(frozen=True)
@@ -412,9 +407,6 @@ def emit(
     )
 
 
-_JS_RESOLVE_SUFFIXES: tuple[str, ...] = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
-
-
 def _emit_tests_edges(
     conn: sqlite3.Connection,
     repo_root: Path,
@@ -430,26 +422,9 @@ def _emit_tests_edges(
     When a single suite imports from >=_REPOSITORY_EDGE_THRESHOLD distinct
     first-party packages, also emits a TestSuite -> Repository edge (D-12).
 
-    Python: top-level dotted module looked up against
-            pkg_name.replace('-', '_') (D-10).
-    JS/TS: bare specs looked up against package.json 'name' directly
-           (D-11); relative specs resolved against the importing file's
-           directory and mapped via _owning_package (D-11).
+    The regex scan + package-prefix resolution lives in
+    graph_io.import_scan.scan_files_imports (Phase 31 D-10 back-port).
     """
-    py_importable_to_pkg: dict[str, tuple[str, str | None]] = {}
-    js_name_to_pkg: dict[str, tuple[str, str | None]] = {}
-
-    for pkg_name, pkg_rel, pkg_attrs_json in pkg_rows:
-        attrs = json.loads(pkg_attrs_json) if pkg_attrs_json else {}
-        lang = attrs.get("language")
-        if lang == "python":
-            importable = pkg_name.replace("-", "_")
-            py_importable_to_pkg[importable] = (pkg_name, pkg_rel)
-        elif lang in {"javascript", "typescript"}:
-            js_name_to_pkg[pkg_name] = (pkg_name, pkg_rel)
-
-    pkg_index = _build_pkg_index(pkg_rows)
-
     edges_out: list[GraphEdge] = []
 
     for r in roots:
@@ -459,54 +434,8 @@ def _emit_tests_edges(
             suite_key_name = Path(r.rel_path).name
         suite_key = ("test_suite", suite_key_name, r.rel_path)
 
-        matched_pkgs: set[tuple[str, str | None]] = set()
-        for file_rel in root_files[r.rel_path]:
-            fpath = repo_root / file_rel
-            try:
-                content = fpath.read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                continue
-
-            ext = Path(file_rel).suffix
-            if ext == ".py":
-                for m in _PYTHON_IMPORT_RE.finditer(content):
-                    mod = m.group(1).split(".")[0]
-                    if mod in py_importable_to_pkg:
-                        matched_pkgs.add(py_importable_to_pkg[mod])
-            elif ext in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}:
-                for m in _JS_IMPORT_RE.finditer(content):
-                    spec = m.group(1)
-                    if spec.startswith(".") or spec.startswith("/"):
-                        try:
-                            resolved = (fpath.parent / spec).resolve()
-                        except OSError:
-                            continue
-                        # Try common JS resolution rules: exact, exact + ext,
-                        # then index.* inside a directory.
-                        cands: list[Path] = [resolved]
-                        for suf in _JS_RESOLVE_SUFFIXES:
-                            cands.append(resolved.with_suffix(suf))
-                        for suf in _JS_RESOLVE_SUFFIXES:
-                            cands.append(resolved / f"index{suf}")
-                        for cand in cands:
-                            if cand.exists():
-                                try:
-                                    rel = cand.relative_to(repo_root).as_posix()
-                                except ValueError:
-                                    break
-                                owner = _owning_package(rel, pkg_index)
-                                if owner is not None:
-                                    matched_pkgs.add(owner)
-                                break
-                    else:
-                        # Bare spec. Scoped packages like @scope/name use the
-                        # first two segments as the package name.
-                        if spec.startswith("@"):
-                            key = "/".join(spec.split("/", 2)[:2])
-                        else:
-                            key = spec.split("/", 1)[0]
-                        if key in js_name_to_pkg:
-                            matched_pkgs.add(js_name_to_pkg[key])
+        file_rel_paths = list(root_files[r.rel_path])
+        matched_pkgs = scan_files_imports(repo_root, file_rel_paths, pkg_rows)
 
         for pkg_name, pkg_rel in matched_pkgs:
             edges_out.append(
