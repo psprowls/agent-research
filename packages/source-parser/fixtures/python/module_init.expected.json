@@ -3,7 +3,7 @@
   "name": null,
   "language": "python",
   "package": "fixtures",
-  "attrs": {},
+  "attrs": {"_has_main_block": false, "_has_importable_symbols": false},
   "refs": [
     {"kind": "import", "target_name": "Service", "target_module": ".core", "attrs": {}},
     {"kind": "import", "target_name": "helper", "target_module": ".util", "attrs": {}},

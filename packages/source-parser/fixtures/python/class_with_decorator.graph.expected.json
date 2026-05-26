@@ -1,6 +1,6 @@
 {
   "nodes": [
-    {"kind": "file", "name": "PATH", "path": "PATH", "line": null, "attrs": {}},
+    {"kind": "file", "name": "PATH", "path": "PATH", "line": null, "attrs": {"_has_main_block": false, "_has_importable_symbols": true}},
     {"kind": "class", "name": "Greeter", "path": "PATH", "line": 5, "attrs": {}},
     {"kind": "method", "name": "greet", "path": "PATH", "line": 8, "attrs": {}}
   ],

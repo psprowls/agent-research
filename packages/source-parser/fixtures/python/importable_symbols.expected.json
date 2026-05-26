@@ -6,6 +6,6 @@
   "attrs": {"_has_main_block": false, "_has_importable_symbols": true},
   "refs": [],
   "children": [
-    {"kind": "function", "name": "greet", "language": "python", "package": "fixtures", "attrs": {}, "refs": [], "children": []}
+    {"kind": "function", "name": "public", "language": "python", "package": "fixtures", "attrs": {}, "refs": [], "children": []}
   ]
 }

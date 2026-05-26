@@ -213,6 +213,44 @@ def _imports_at(file_root: tree_sitter.Node, source: bytes) -> list[Reference]:
     return refs
 
 
+def _has_main_block(file_root: tree_sitter.Node, source: bytes) -> bool:
+    """Detect `if __name__ == "__main__":` at file scope (SPARSER-01 / D-19)."""
+    for child in file_root.children:
+        if child.type == "if_statement":
+            cond = child.child_by_field_name("condition")
+            if cond is not None:
+                cond_text = _text(cond, source)
+                if "__name__" in cond_text and "__main__" in cond_text:
+                    return True
+    return False
+
+
+def _has_importable_symbols(file_root: tree_sitter.Node, source: bytes) -> bool:
+    """Detect public top-level def/class/assignment (SPARSER-01 / D-19).
+
+    A symbol is "importable" if it sits at module scope and its name does not
+    start with an underscore.
+    """
+    for child in file_root.children:
+        if child.type in {"function_definition", "class_definition"}:
+            name = _name_of(child, source)
+            if name and not name.startswith("_"):
+                return True
+        elif child.type == "decorated_definition":
+            inner = child.child_by_field_name("definition")
+            if inner is not None:
+                name = _name_of(inner, source)
+                if name and not name.startswith("_"):
+                    return True
+        elif child.type == "assignment":
+            left = child.child_by_field_name("left")
+            if left is not None:
+                txt = _text(left, source)
+                if txt and not txt.startswith("_") and txt.isidentifier():
+                    return True
+    return False
+
+
 def _all_exports_at(file_root: tree_sitter.Node, source: bytes) -> list[Reference]:
     """Capture `__all__ = ['x', 'y']` exports at the top level.
 
@@ -277,6 +315,8 @@ class PythonParser(LanguageParser):
         errors = _collect_parse_errors(root)
         if errors:
             file_node.attrs["parse_errors"] = errors
+        file_node.attrs["_has_main_block"] = _has_main_block(root, source)
+        file_node.attrs["_has_importable_symbols"] = _has_importable_symbols(root, source)
 
         for child in root.children:
             if child.type == "function_definition":
