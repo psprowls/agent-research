@@ -44,10 +44,10 @@
 
 ### GRAPHCMD — `graph-wiki-agent graph` Subcommand
 
-- [ ] **GRAPHCMD-01** — `graph-wiki-agent graph --help` exits 0 listing exactly 3 subcommands: `build`, `describe`, `query`
-- [ ] **GRAPHCMD-02** — `graph-wiki-agent graph build` invokes graph-io update (full or incremental); only flags beyond `cg`'s are `--trace` and `--model`
-- [ ] **GRAPHCMD-03** — `graph describe` and `graph query` mirror `cg` semantics; cost-tracked trace record written when `--trace` is set
-- [ ] **GRAPHCMD-04** — MCP server (`graph-wiki-mcp`) exposes `graph_build`, `graph_describe`, `graph_query` tools (prefix parallel to existing `wiki_*` tools)
+- [x] **GRAPHCMD-01** — `graph-wiki-agent graph --help` exits 0 listing exactly 3 subcommands: `build`, `describe`, `query`
+- [x] **GRAPHCMD-02** — `graph-wiki-agent graph build` invokes graph-io update (full or incremental); only flags beyond `cg`'s are `--trace` and `--model`
+- [x] **GRAPHCMD-03** — `graph describe` and `graph query` mirror `cg` semantics; cost-tracked trace record written when `--trace` is set
+- [x] **GRAPHCMD-04** — MCP server (`graph-wiki-mcp`) exposes `graph_build`, `graph_describe`, `graph_query` tools (prefix parallel to existing `wiki_*` tools)
 
 ### SCANNER — Scanner Consumes graph-io
 
@@ -114,10 +114,10 @@
 | LIBTOOLS-03 | Phase 37 | Complete |
 | LIBTOOLS-04 | Phase 37 | Complete |
 | LIBTOOLS-05 | Phase 37 | Complete |
-| GRAPHCMD-01 | Phase 38 | Pending |
-| GRAPHCMD-02 | Phase 38 | Pending |
-| GRAPHCMD-03 | Phase 38 | Pending |
-| GRAPHCMD-04 | Phase 38 | Pending |
+| GRAPHCMD-01 | Phase 38 | Complete |
+| GRAPHCMD-02 | Phase 38 | Complete |
+| GRAPHCMD-03 | Phase 38 | Complete |
+| GRAPHCMD-04 | Phase 38 | Complete |
 | SCANNER-01 | Phase 39 | Pending |
 | SCANNER-02 | Phase 39 | Pending |
 | SCANNER-03 | Phase 39 | Pending |

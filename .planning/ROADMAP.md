@@ -121,7 +121,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - [x] **Phase 35: Wiki & Bootstrap Hygiene Burn-Down** - Clear all 10 deferred quick tasks + 2 bootstrap todos before integration touches overlapping files (completed 2026-05-26)
 - [x] **Phase 36: `cg find` Parser Ergonomics** - Named-flag form (`--name`/`--kind`) replaces positional; old positional produces clear parse error (completed 2026-05-26)
 - [x] **Phase 37: Librarian Grounding Tools** - `graph_tools.py` with ≤5 `@tool` callables wired into `commands/query.py` via `bind_tools()` (completed 2026-05-26)
-- [ ] **Phase 38: `graph-wiki-agent graph` Subcommand** - `build`/`describe`/`query` verbs on CLI + 3 MCP tools with cost-tracked traces
+- [x] **Phase 38: `graph-wiki-agent graph` Subcommand** - `build`/`describe`/`query` verbs on CLI + 3 MCP tools with cost-tracked traces (completed 2026-05-26)
 - [ ] **Phase 39: Scanner Consumes graph-io** - Scanner derives vault page slugs from graph URIs; `run_scan()` calls `cg update` before fan-out
 - [ ] **Phase 40: Ingestor Consumes graph-io** - Ingestor checks graph for entity existence; clear `NOT_INITIALIZED` error; URI-drift documented
 
@@ -240,7 +240,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 | 35. Wiki & Bootstrap Hygiene Burn-Down | v1.7 | 2/2 | Complete   | 2026-05-26 |
 | 36. `cg find` Parser Ergonomics | v1.7 | 1/1 | Complete   | 2026-05-26 |
 | 37. Librarian Grounding Tools | v1.7 | 2/2 | Complete    | 2026-05-26 |
-| 38. `graph-wiki-agent graph` Subcommand | v1.7 | 1/2 | In Progress|  |
+| 38. `graph-wiki-agent graph` Subcommand | v1.7 | 2/2 | Complete   | 2026-05-26 |
 | 39. Scanner Consumes graph-io | v1.7 | 0/TBD | Not started | - |
 | 40. Ingestor Consumes graph-io | v1.7 | 0/TBD | Not started | - |
 
