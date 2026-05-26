@@ -1,6 +1,7 @@
 ---
 phase: 260521-gc0
 plan: 01
+status: complete
 subsystem: wiki-lint-and-config
 tags: [quick, lint, workspace-io, wiki-io, tdd]
 dependency_graph:

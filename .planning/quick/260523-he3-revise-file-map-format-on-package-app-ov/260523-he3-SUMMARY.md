@@ -1,6 +1,7 @@
 ---
 phase: quick-260523-he3
 plan: 01
+status: complete
 subsystem: wiki-io / graph-wiki plugin
 tags: [file-map, lint, emitter, parser, templates, docs]
 dependency_graph:

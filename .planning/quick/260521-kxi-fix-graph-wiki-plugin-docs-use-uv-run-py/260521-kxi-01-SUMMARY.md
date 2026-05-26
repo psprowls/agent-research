@@ -1,6 +1,7 @@
 ---
 phase: 260521-kxi
 plan: 01
+status: complete
 subsystem: plugins/graph-wiki
 tags: [docs, plugin, uv-workspace, wiki_io]
 requires: []
