@@ -33,6 +33,7 @@ def test_apply_schema_creates_indexes(conn: sqlite3.Connection) -> None:
     assert _index_names(conn) == {
         "idx_nodes_kind_name",
         "idx_nodes_path",
+        "idx_nodes_uri",
         "idx_edges_dst_kind",
         "idx_edges_src_kind",
     }
@@ -54,5 +55,14 @@ def test_apply_schema_is_idempotent(conn: sqlite3.Connection) -> None:
     assert rows == (1,)
 
 
-def test_schema_version_is_one() -> None:
-    assert schema.SCHEMA_VERSION == 1
+def test_schema_version_is_two() -> None:
+    assert schema.SCHEMA_VERSION == 2
+
+
+def test_nodes_table_has_uri_column(conn: sqlite3.Connection) -> None:
+    schema.apply_schema(conn)
+    rows = conn.execute("PRAGMA table_info('nodes')").fetchall()
+    # PRAGMA table_info row layout: (cid, name, type, notnull, dflt_value, pk)
+    uri_rows = [r for r in rows if r[1] == "uri"]
+    assert len(uri_rows) == 1, f"expected exactly one uri column, got {uri_rows!r}"
+    assert uri_rows[0][2].upper() == "TEXT"
