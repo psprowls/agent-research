@@ -33,21 +33,21 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### Entry Points
 
-- [ ] **ENTRY-01**: Scanner emits `EntryPoint` nodes from `pyproject.toml [project.scripts]` and `[project.entry-points]` declarations
-- [ ] **ENTRY-02**: Scanner emits `EntryPoint` nodes from `package.json` `bin`, `main`, `module`, and `exports` declarations (with recursive walk over conditional `exports` per STACK.md)
-- [ ] **ENTRY-03**: `EntryPoint.kind` is `executable` (CLI/bin entries) or `library` (importable entries); `EntryPoint.source` identifies which manifest declaration produced it (e.g., `pyproject.scripts`, `package.json.bin`, `package.json.exports`)
-- [ ] **ENTRY-04**: `declares_entry_point` edges connect Package → EntryPoint; `implemented_by` edges connect EntryPoint → File for path-only entries, or EntryPoint → Function/Class for callable-syntax entries (`pkg.cli:main`)
-- [ ] **ENTRY-05**: Convention-based executable files (shebang scripts in `scripts/`, etc.) are captured via `File.is_executable: true` — they do NOT produce `EntryPoint` nodes (per spec §3 "Explicitly not nodes")
+- [x] **ENTRY-01**: Scanner emits `EntryPoint` nodes from `pyproject.toml [project.scripts]` and `[project.entry-points]` declarations
+- [x] **ENTRY-02**: Scanner emits `EntryPoint` nodes from `package.json` `bin`, `main`, `module`, and `exports` declarations (with recursive walk over conditional `exports` per STACK.md)
+- [x] **ENTRY-03**: `EntryPoint.kind` is `executable` (CLI/bin entries) or `library` (importable entries); `EntryPoint.source` identifies which manifest declaration produced it (e.g., `pyproject.scripts`, `package.json.bin`, `package.json.exports`)
+- [x] **ENTRY-04**: `declares_entry_point` edges connect Package → EntryPoint; `implemented_by` edges connect EntryPoint → File for path-only entries, or EntryPoint → Function/Class for callable-syntax entries (`pkg.cli:main`)
+- [x] **ENTRY-05**: Convention-based executable files (shebang scripts in `scripts/`, etc.) are captured via `File.is_executable: true` — they do NOT produce `EntryPoint` nodes (per spec §3 "Explicitly not nodes")
 
 ### Test Suites
 
-- [ ] **TEST-01**: Scanner emits `TestSuite` nodes from filesystem layout + framework config (pytest.ini, pyproject.toml [tool.pytest], setup.cfg [tool:pytest], jest.config.{js,ts,mjs,cjs}, vitest.config.{js,ts}, mocha config variants)
-- [ ] **TEST-02**: Repo-root `tests/` is NOT a node — each immediate subdirectory of `tests/` becomes a `TestSuite`; if `tests/` contains test files directly (no subdirs), `tests/` itself becomes one suite contained by Repository
-- [ ] **TEST-03**: Package-local test directories (`packages/auth/tests/`) become `TestSuite` nodes contained by their Package; test files within are under the suite, not directly under the Package
-- [ ] **TEST-04**: Test files are re-parented from Package containment to TestSuite containment — `Package physically_contains` subtree NEVER includes test files
-- [ ] **TEST-05**: `TestSuite.kind` is best-effort-classified as `unit`, `integration`, `e2e`, `contract`, or `unknown` from naming + config; directory names (`integration/`, `e2e/`) inform `kind` but do NOT determine suite targets
-- [ ] **TEST-06**: Suite-level `tests` edges are derived from imports in the suite's test files: `TestSuite → Package` (one or many), `TestSuite → Domain` (when the suite touches a whole domain), or `TestSuite → Repository` (whole-system suites)
-- [ ] **TEST-07**: TestSuites are flat — there is NO `TestSuite → TestSuite` hierarchy even when on-disk layout suggests one (`tests/integration/auth/`)
+- [x] **TEST-01**: Scanner emits `TestSuite` nodes from filesystem layout + framework config (pytest.ini, pyproject.toml [tool.pytest], setup.cfg [tool:pytest], jest.config.{js,ts,mjs,cjs}, vitest.config.{js,ts}, mocha config variants)
+- [x] **TEST-02**: Repo-root `tests/` is NOT a node — each immediate subdirectory of `tests/` becomes a `TestSuite`; if `tests/` contains test files directly (no subdirs), `tests/` itself becomes one suite contained by Repository
+- [x] **TEST-03**: Package-local test directories (`packages/auth/tests/`) become `TestSuite` nodes contained by their Package; test files within are under the suite, not directly under the Package
+- [x] **TEST-04**: Test files are re-parented from Package containment to TestSuite containment — `Package physically_contains` subtree NEVER includes test files
+- [x] **TEST-05**: `TestSuite.kind` is best-effort-classified as `unit`, `integration`, `e2e`, `contract`, or `unknown` from naming + config; directory names (`integration/`, `e2e/`) inform `kind` but do NOT determine suite targets
+- [x] **TEST-06**: Suite-level `tests` edges are derived from imports in the suite's test files: `TestSuite → Package` (one or many), `TestSuite → Domain` (when the suite touches a whole domain), or `TestSuite → Repository` (whole-system suites)
+- [x] **TEST-07**: TestSuites are flat — there is NO `TestSuite → TestSuite` hierarchy even when on-disk layout suggests one (`tests/integration/auth/`)
 
 ### Domains (explicit-config-only)
 
@@ -195,18 +195,18 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | STRUCT-06 | Phase 29 | Pending |
 | SPARSER-01 | Phase 29 | Pending |
 | SPARSER-02 | Phase 29 | Pending |
-| ENTRY-01 | Phase 30 | Pending |
-| ENTRY-02 | Phase 30 | Pending |
-| ENTRY-03 | Phase 30 | Pending |
-| ENTRY-04 | Phase 30 | Pending |
-| ENTRY-05 | Phase 30 | Pending |
-| TEST-01 | Phase 30 | Pending |
-| TEST-02 | Phase 30 | Pending |
-| TEST-03 | Phase 30 | Pending |
-| TEST-04 | Phase 30 | Pending |
-| TEST-05 | Phase 30 | Pending |
-| TEST-06 | Phase 30 | Pending |
-| TEST-07 | Phase 30 | Pending |
+| ENTRY-01 | Phase 30 | Complete |
+| ENTRY-02 | Phase 30 | Complete |
+| ENTRY-03 | Phase 30 | Complete |
+| ENTRY-04 | Phase 30 | Complete |
+| ENTRY-05 | Phase 30 | Complete |
+| TEST-01 | Phase 30 | Complete |
+| TEST-02 | Phase 30 | Complete |
+| TEST-03 | Phase 30 | Complete |
+| TEST-04 | Phase 30 | Complete |
+| TEST-05 | Phase 30 | Complete |
+| TEST-06 | Phase 30 | Complete |
+| TEST-07 | Phase 30 | Complete |
 | DOMAIN-01 | Phase 31 | Pending |
 | DOMAIN-02 | Phase 31 | Pending |
 | DOMAIN-03 | Phase 31 | Pending |
