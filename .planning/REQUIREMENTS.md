@@ -71,10 +71,10 @@ Requirements for this milestone. Each maps to a roadmap phase.
 
 ### Query Layer Extensions
 
-- [ ] **QUERY-01**: `find` extended to accept new node kinds (`repository`, `subpackage`, `entry_point`, `test_suite`, `domain`)
-- [ ] **QUERY-02**: `describe_package` output extended with: domains the package belongs to, entry points it declares, test suites that target it
-- [ ] **QUERY-03**: `describe_path` output extended with File role flags for file-kind nodes
-- [ ] **QUERY-04**: New read-only query helpers shipped: `describe_repository`, `describe_domain`, `describe_entry_point`, `describe_test_suite`, `domain_references`, `domain_depends_on`, `cross_cutting_packages`, `tests_for_package`, `tests_for_domain`, `entry_points_for_package`, `list_repositories`, `list_packages`, `list_entry_points`, `list_test_suites`, `list_domains`, `list_scripts`
+- [x] **QUERY-01**: `find` extended to accept new node kinds (`repository`, `subpackage`, `entry_point`, `test_suite`, `domain`)
+- [x] **QUERY-02**: `describe_package` output extended with: domains the package belongs to, entry points it declares, test suites that target it
+- [x] **QUERY-03**: `describe_path` output extended with File role flags for file-kind nodes
+- [x] **QUERY-04**: New read-only query helpers shipped: `describe_repository`, `describe_domain`, `describe_entry_point`, `describe_test_suite`, `domain_references`, `domain_depends_on`, `cross_cutting_packages`, `tests_for_package`, `tests_for_domain`, `entry_points_for_package`, `list_repositories`, `list_packages`, `list_entry_points`, `list_test_suites`, `list_domains`, `list_scripts`
 
 ### `cg` CLI Surface
 
@@ -216,10 +216,10 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | DERIVED-02 | Phase 31 | Complete |
 | DERIVED-03 | Phase 31 | Complete |
 | DERIVED-04 | Phase 31 | Complete |
-| QUERY-01 | Phase 32 | Pending |
-| QUERY-02 | Phase 32 | Pending |
-| QUERY-03 | Phase 32 | Pending |
-| QUERY-04 | Phase 32 | Pending |
+| QUERY-01 | Phase 32 | Complete |
+| QUERY-02 | Phase 32 | Complete |
+| QUERY-03 | Phase 32 | Complete |
+| QUERY-04 | Phase 32 | Complete |
 | CLI-01 | Phase 33 | Pending |
 | CLI-02 | Phase 33 | Pending |
 | CLI-03 | Phase 33 | Pending |

@@ -240,7 +240,7 @@ Plans:
 | 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
-| 32. Query Layer Extensions | 3/3 | Complete   | 2026-05-26 |
+| 32. Query Layer Extensions | 3/3 | Complete    | 2026-05-26 |
 | 33. CLI Surface | 0/TBD | Not started | - |
 | 34. Brand Sweep | 0/TBD | Not started | - |
 
