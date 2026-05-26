@@ -1,28 +1,33 @@
 # Phase 34: Brand Sweep - Context
 
 **Gathered:** 2026-05-25
+**Revised:** 2026-05-26 — single-user repo, no backwards compatibility required. The deprecation
+alias + warning machinery for `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is dropped; `_SKIP_REPO_PREFIXES`
+(which targeted a `lattice/` vendor directory that does not exist in this repo) is deleted along
+with its test. `.brand-grep-allow` ships with broader-codebase carve-outs only (workspace_io
+package, ported-from comments, historical planning docs); zero Phase-34-specific entries.
+
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-After Phase 34, all USER-VISIBLE `lattice` brand text inside `packages/graph-io/` is replaced with graph-wiki phrasing across:
+After Phase 34, all `lattice` brand text inside `packages/graph-io/` is gone — no deprecation
+window, no allowlist entry for graph-io itself. The sweep covers:
 
-1. **README.md** — first-line title → `# graph-io`; second-line tagline → `Code-graph backend for graph-wiki. Owns:`; path reference `~/.lattice/graph/code.db` → prose pointing at `workspace_io.paths.graph_dir()` per SC#2.
-2. **cli/main.py:45** — argparse `description="lattice code graph CLI"` → `description="graph-wiki code graph CLI"` (or planner-chosen graph-wiki variant; SC#1 requires `cg --help` to contain "graph-wiki" and NOT contain "lattice" in user-visible strings).
-3. **update.py:154** — `_default_lock_timeout()` rewritten per D-09: reads new `GRAPH_WIKI_LOCK_TIMEOUT_MS` first, falls back to deprecated `LATTICE_GRAPH_LOCK_TIMEOUT_MS` with stderr warning, both-set case warns + new wins. Old env var still respected to preserve backwards compat for one milestone.
-4. **`.brand-grep-allow`** — entry for `LATTICE_GRAPH_LOCK_TIMEOUT_MS` (intentional deprecated alias in update.py). Existing entry for `_SKIP_REPO_PREFIXES = ('lattice/',)` in packages.py should already exist (functional behavior — verify; add if absent).
-5. **Test files** — comprehensive rebrand of brand text in `test_sync_wiki.py`, `test_packages.py`, `test_cli_sync_wiki.py`, `test_cli_exit_codes.py` per D-11, with explicit carve-outs for tests asserting functional `_SKIP_REPO_PREFIXES = ('lattice/',)` behavior (those keep `lattice/` test data per BRAND-04).
-6. **Env var test refactor** — existing test reading `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is updated to read `GRAPH_WIKI_LOCK_TIMEOUT_MS` per D-13. SC#3's deprecation-warning behavior is verified manually at phase-verify time per D-14 — NO automated test covers the deprecation path.
-7. **`scripts/check-brand.sh` BRAND-04 gate** — exits 0 on the post-sweep tree per SC#4. The script ALREADY exists at repo root (verified). Phase 34 adds .brand-grep-allow entries; does NOT modify check-brand.sh.
+1. **README.md** — first-line title → `# graph-io`; second-line tagline → `Code-graph backend for graph-wiki. Owns:`; path reference `~/.lattice/graph/code.db` → prose pointing at `workspace_io.paths.graph_dir()` per SC#2; the `plugins/lattice-graph/` reference is rebranded to `plugins/graph-wiki/`.
+2. **cli/main.py:45** — argparse `description="lattice code graph CLI"` → `description="graph-wiki code graph CLI"` (SC#1).
+3. **update.py:153-160** — `_default_lock_timeout()` is a straight rename: reads `GRAPH_WIKI_LOCK_TIMEOUT_MS` only. No alias, no warning, no precedence logic. Per D-09 (revised) this collapses to the original 6-line shape with just the env-var name swapped.
+4. **packages.py:17,27** — `_SKIP_REPO_PREFIXES = ("lattice/",)` and the `rel.startswith(p)` check in `_should_skip` are **deleted**. Per D-16 (revised) the agent-research repo has no `lattice/` directory and the `.cgignore` mechanism covers any user-driven exclusion. The test `test_refresh_skips_lattice_dir_manifests` (test_packages.py lines 112-126) is deleted with it.
+5. **`.brand-grep-allow`** — created at repo root with carve-outs for legitimate uses elsewhere in the codebase (workspace_io package itself, source-parser/eval-harness ported-from comments, wiki-io test fixture vault that references the original lattice-* package names, .planning/ historical docs, CLAUDE.md). **Zero entries for packages/graph-io/** — the sweep eliminates every match there.
+6. **Test files** — comprehensive rebrand of brand text in `test_sync_wiki.py`, `test_packages.py`, `test_cli_sync_wiki.py`, `test_cli_exit_codes.py`. No carve-outs. test_packages.py loses the `test_refresh_skips_lattice_dir_manifests` test entirely (covered by the packages.py deletion in D-16).
+7. **Env var test refactor** — `test_cli_exit_codes.py:130` updated to set `GRAPH_WIKI_LOCK_TIMEOUT_MS=200` (single-string replacement).
+8. **`scripts/check-brand.sh`** — unchanged. Phase 34 only adds the `.brand-grep-allow` file.
 
 **Strictly NOT in this phase:**
-- `_SKIP_REPO_PREFIXES = ("lattice/",)` in `packages.py:17` — FUNCTIONAL behavior (skip filter for a specific upstream repo namespace), NOT brand text. BRAND-04 explicitly excludes this from rewriting. PITFALLS.md documents the trap.
 - Any file outside `packages/graph-io/` (including `plugins/graph-wiki/`, `packages/wiki-io/`, `agents/graph-wiki-agent/`). BRAND-04 limits scope.
-- Other potential `LATTICE_*` env vars — `_default_lock_timeout()` is the only one in graph-io (verified via grep). No other env-var renames in this phase.
-- `cg --help` subcommand listing — that's Phase 33's surface; Phase 34 only edits the top-level argparse description string.
-- Removing the LATTICE_GRAPH_LOCK_TIMEOUT_MS deprecated alias — v1.7 milestone work (one-milestone backward-compat window per BRAND-03).
-- README sections beyond first 3 lines if they don't contain `lattice` references — Phase 34 is surgical, not a full README rewrite.
+- Refactoring the `check-brand.sh` regex itself (e.g. dropping `workspace_io` from the regex). That regex looks aggressive but its current shape is what the v1.6 brand sweep accepts; revisit in a later milestone if the allowlist size becomes a maintenance burden.
+- A README full rewrite — Phase 34 is surgical, not a full README rewrite.
 
 Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 
@@ -33,128 +38,106 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 
 ### README.md rebrand (BRAND-01)
 
-- **D-01:** **First-line title**: `# graph-io`. Terse, matches the Python package directory name (`packages/graph-io/`), grep-friendly (`head -1 packages/graph-io/README.md` returns the package name). Predictable for `cat`/`head` workflows. Diverges from SC#2's parenthetical alternative `# graph-wiki code graph` — the simpler form was preferred.
+- **D-01:** **First-line title**: `# graph-io`. Terse, matches the Python package directory name (`packages/graph-io/`), grep-friendly (`head -1 packages/graph-io/README.md` returns the package name). Predictable for `cat`/`head` workflows.
 
 - **D-02:** **Second-line tagline**: `Code-graph backend for graph-wiki. Owns:` (literal text, no link). The current second line `Code-graph core for the [lattice](../../README.md) ecosystem. Owns:` has a relative link `../../README.md` that would point at a `graph-wiki` README that doesn't exist in this monorepo at that path — strip the link entirely. "backend" is a more concrete description than "core" or "ecosystem".
 
-- **D-03:** **Path reference rebrand**: replace `~/.lattice/graph/code.db` with prose: `The code graph DB lives at \`<paths.graph_dir(workspace)>/code.db\` — see \`workspace_io.paths\` for the workspace-mode-aware resolution rule.` No hardcoded path; reference the helper directly. Aligns with SC#2's literal wording ("canonical path via `workspace_io.paths.graph_dir()`").
+- **D-03:** **Path reference rebrand**: replace `~/.lattice/graph/code.db` with prose: `The code graph DB lives at \`<paths.graph_dir(workspace)>/code.db\` — see \`workspace_io.paths\` for the workspace-mode-aware resolution rule.` No hardcoded path; reference the helper directly.
 
-- **D-04:** **Other README lattice references** (if any beyond the first 3 lines): Claude's discretion. Apply the same patterns: rebrand brand text, leave functional behavior text alone. Most likely scope: 1-2 sentences.
+- **D-04:** **Other README lattice references** (e.g. `plugins/lattice-graph/` on line 12): rebrand to `plugins/graph-wiki/` per RESEARCH F-04. After Phase 34, the README contains **zero** lattice/LATTICE references.
 
 ### `cli/main.py` argparse description (BRAND-02)
 
 - **D-05:** **Replace** `description="lattice code graph CLI"` with `description="graph-wiki code graph CLI"`. Single-character-precision edit. SC#1 verification: `cg --help` output should contain "graph-wiki" and NOT contain "lattice".
 
-### Env var rename (BRAND-03)
+### Env var rename (BRAND-03) — REVISED 2026-05-26
 
-- **D-06:** **Target name**: `GRAPH_WIKI_LOCK_TIMEOUT_MS` per SC#3 literal. Not `GRAPH_IO_LOCK_TIMEOUT_MS` (which would be more package-scoped); the SC fixes the new name.
+- **D-06:** **Target name**: `GRAPH_WIKI_LOCK_TIMEOUT_MS`. Single-user repo; no backwards-compat alias.
 
-- **D-07:** **Precedence when BOTH env vars are set**:
-  - `GRAPH_WIKI_LOCK_TIMEOUT_MS` (new) wins.
-  - `LATTICE_GRAPH_LOCK_TIMEOUT_MS` (old) is IGNORED for value purposes.
-  - stderr warning fires: `"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated and ignored; using GRAPH_WIKI_LOCK_TIMEOUT_MS=<value>."`. Single line.
-  - Encourages migration without breaking environments that have the old name set during transition.
+- **D-07 (revised):** **No precedence logic.** The function reads only `GRAPH_WIKI_LOCK_TIMEOUT_MS`. If `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is set in the user's environment, it is silently ignored (the same way any other unknown env var would be).
 
-- **D-08:** **Deprecation warning (old set, new not set)**:
-  - stderr: `"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated, use GRAPH_WIKI_LOCK_TIMEOUT_MS instead (value=<old_value> still respected)"`. Single line, includes the new var name and the parsed value.
-  - Value is respected (timeout still applied).
-  - **No suppression mechanism in v1.6** — every `cg` invocation that reads the deprecated var prints the warning. `cg` is short-lived; one warning per shell-command is acceptable noise.
+- **D-08 (revised):** **No deprecation warning.** No stderr output. The old env var name is gone from the codebase; there is no deprecation contract to preserve.
 
-- **D-09:** **`_default_lock_timeout()` refactor**:
+- **D-09 (revised):** **`_default_lock_timeout()` straight rename**:
   ```python
   def _default_lock_timeout() -> int:
-      new = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")
-      old = os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")
-      if new is not None and old is not None:
-          print(
-              f"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated and "
-              f"ignored; using GRAPH_WIKI_LOCK_TIMEOUT_MS={new}",
-              file=sys.stderr,
-          )
-          raw = new
-      elif new is not None:
-          raw = new
-      elif old is not None:
-          print(
-              f"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated, "
-              f"use GRAPH_WIKI_LOCK_TIMEOUT_MS instead (value={old} still respected)",
-              file=sys.stderr,
-          )
-          raw = old
-      else:
+      raw = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")
+      if raw is None:
           return 30_000
       try:
           return max(0, int(raw))
       except ValueError:
           return 30_000
   ```
-  Sequential branch tree; no helper abstraction (only one env var renamed in v1.6 — premature to factor a `_resolve_env_alias` helper). `sys` import needs to be added at the top of `update.py` if not already imported (existing module uses `os.environ.get`; check imports).
+  Six lines, identical shape to the pre-Phase-34 function. Only the env var name changes.
 
-- **D-10:** **Deprecation timeline**: The `LATTICE_GRAPH_LOCK_TIMEOUT_MS` alias is kept through v1.7 (next milestone) per BRAND-03 ("preserves backward compat for one milestone with a deprecation warning"). Removal happens in v1.8 or later. Phase 34 ships the alias + warning; it does NOT ship the removal.
+- **D-10 (revised):** **No deprecation timeline.** There is no alias to remove later. v1.7 and beyond can ignore the env-var rename entirely.
 
-### Test file scope (BRAND-02 ambiguity)
+### Test file scope (BRAND-02 ambiguity) — REVISED 2026-05-26
 
-- **D-11:** **Comprehensive rebrand of brand text** in the four test files (`test_sync_wiki.py`, `test_packages.py`, `test_cli_sync_wiki.py`, `test_cli_exit_codes.py`). Scope:
-  - Test descriptions, docstrings, comments that mention "lattice" as a brand → rebrand to "graph-wiki".
-  - Test fixture data and string literals that test BRAND TEXT in production code (e.g. `assert "lattice code graph CLI" in result.stderr`) → update to `"graph-wiki code graph CLI"` to match the new production string (otherwise the test fails after Phase 34 ships).
-  - **Carve-out**: Tests asserting `_SKIP_REPO_PREFIXES = ("lattice/",)` functional behavior — keep `"lattice/"` strings AS-IS. These exercise BRAND-04-excluded functional code. The planner inspects each test method:
-    - If the test ASSERTS that `lattice/foo` (or similar) is filtered/skipped by `_SKIP_REPO_PREFIXES`, the literal `"lattice/foo"` MUST stay (functional contract).
-    - If the test casually mentions `lattice` in a description but asserts something unrelated to `_SKIP_REPO_PREFIXES`, rebrand the description and replace lattice fixture data with `graph-wiki/foo` or similar non-loaded test input.
+- **D-11 (revised):** **Comprehensive rebrand of all `lattice`/`LATTICE` references** in the four test files (`test_sync_wiki.py`, `test_packages.py`, `test_cli_sync_wiki.py`, `test_cli_exit_codes.py`). No carve-outs. After Phase 34, `grep -E 'lattice|LATTICE' packages/graph-io/tests/` returns zero hits.
 
-- **D-12:** **Test file decision rubric for the planner**:
+- **D-12 (revised):** **Test file decision rubric for the planner**:
   | File | Action |
   |------|--------|
-  | `test_sync_wiki.py` | Rebrand brand text in comments/docstrings; preserve any wiki-sync fixture paths that exercise the lattice/ prefix |
-  | `test_packages.py` | Rebrand brand text; PRESERVE `_SKIP_REPO_PREFIXES` test that asserts `lattice/` filtering (functional, BRAND-04 carve-out) |
-  | `test_cli_sync_wiki.py` | Rebrand any assertion against the cli description; preserve sync-wiki fixture data |
-  | `test_cli_exit_codes.py` | Rebrand brand-text mentions; exit-code asserts are functional, unchanged |
+  | `test_sync_wiki.py` | Rename fixture path `tmp_path / "lattice"` → `tmp_path / "graph-wiki"`; rename `.lattice.yaml` → `.graph-wiki.yaml` |
+  | `test_packages.py` | **Delete** `test_refresh_skips_lattice_dir_manifests` (lines 112-126). The function being tested (`_SKIP_REPO_PREFIXES`) is deleted by D-16. |
+  | `test_cli_sync_wiki.py` | Rename `lattice/.lattice.yaml` fixture key → `graph-wiki/.graph-wiki.yaml` (two occurrences) |
+  | `test_cli_exit_codes.py` | Rename env var literal on line 130: `"LATTICE_GRAPH_LOCK_TIMEOUT_MS": "200"` → `"GRAPH_WIKI_LOCK_TIMEOUT_MS": "200"` |
 
-  Planner reads each file before editing; the rubric is guidance, not exhaustive.
+### Env var test refactor (SC#3) — REVISED 2026-05-26
 
-### Env var test refactor (SC#3)
+- **D-13:** **Existing env var test refactor**: `test_cli_exit_codes.py:130` sets the new var name. The test continues to assert the lock-timeout-respected behavior (200ms timeout, `elapsed_ms < 5000`).
 
-- **D-13:** **Existing env var test refactor**: tests that currently set `LATTICE_GRAPH_LOCK_TIMEOUT_MS` and assert the value is respected get updated to set `GRAPH_WIKI_LOCK_TIMEOUT_MS` instead. The test continues to assert the timeout-respect behavior but with the new var name. Single-string-replacement edit per test.
+- **D-14 (revised):** **No manual deprecation scenarios.** SC#3's old "three scenarios at phase-verify time" content is dropped. There is nothing to verify manually — the env var is just renamed.
 
-- **D-14:** **NO automated test for the deprecation-warning behavior**. SC#3's deprecation-warning + value-still-respected branch is verified MANUALLY at phase-verify time. Manual verification steps (planner adds to VERIFICATION.md):
-  1. `unset GRAPH_WIKI_LOCK_TIMEOUT_MS; LATTICE_GRAPH_LOCK_TIMEOUT_MS=5000 cg update` → assert stderr contains "deprecated" and "GRAPH_WIKI_LOCK_TIMEOUT_MS" and update completes with the 5000ms timeout applied.
-  2. `LATTICE_GRAPH_LOCK_TIMEOUT_MS=5000 GRAPH_WIKI_LOCK_TIMEOUT_MS=2000 cg update` → assert stderr contains "deprecated and ignored" and "using GRAPH_WIKI_LOCK_TIMEOUT_MS=2000".
-  3. `GRAPH_WIKI_LOCK_TIMEOUT_MS=5000 cg update` → assert no warning on stderr (silent acceptance).
+### `.brand-grep-allow` entries (BRAND-04 / SC#4) — REVISED 2026-05-26
 
-  **Risk note for planner**: this is a deliberate test-coverage gap per user decision. A future refactor of `_default_lock_timeout()` could silently regress the deprecation contract without CI noticing. Trade-off accepted.
+- **D-15 (revised):** **No Phase-34-specific entries.** No deprecated alias to allowlist; no `_SKIP_REPO_PREFIXES` to allowlist (it is deleted, not preserved).
 
-### `.brand-grep-allow` entries (BRAND-04 / SC#4)
+- **D-16 (revised):** **Delete `_SKIP_REPO_PREFIXES` rather than allowlist it.** The `packages.py:17` tuple targets a `lattice/` vendor directory that does not exist in this repo (verified: `ls /Users/pat/Personal/agent-research/` shows no `lattice/`). The `.cgignore` mechanism covers any user-driven directory exclusions. Delete the constant, delete the `rel.startswith(p)` check in `_should_skip` (line 27), and delete the test `test_refresh_skips_lattice_dir_manifests`.
 
-- **D-15:** **New entry for `LATTICE_GRAPH_LOCK_TIMEOUT_MS`**: add a substring pattern to `.brand-grep-allow` covering the single line in `update.py` that reads the deprecated env var. Format (matches existing allowlist convention from `check-brand.sh`'s `grep -vF -f`): one substring per line, supports `#` comments. Recommended entry:
+- **D-17:** **No edits to `check-brand.sh`**. The script is well-tested (CR-01, WR-03 already addressed); Phase 34 only adds the allowlist file. The script's regex includes `workspace_io|lattice_wiki_core|...` which still triggers on legitimate code elsewhere in the repo (the `workspace_io` package itself, ported-from comments in source-parser/eval-harness, fixture vaults in wiki-io). The minimal allowlist below covers those.
+
+- **D-19 (new):** **Minimal `.brand-grep-allow` content.** Entries are file-path substrings (matched by `grep -vF -f` against `grep -rEl` output):
   ```
-  # Phase 34 BRAND-03: deprecated env var alias kept for one-milestone backward compat (D-10)
-  LATTICE_GRAPH_LOCK_TIMEOUT_MS
+  # workspace_io package directory — the package is literally named workspace_io
+  packages/workspace-io/
+
+  # Ported-from comments referencing the original lattice-* packages
+  packages/source-parser/
+  packages/eval-harness/
+
+  # Wiki test fixture vault — round-trip-vault preserves the historical lattice-* layout
+  packages/wiki-io/
+
+  # Cross-package imports of workspace_io
+  packages/model-adapter/
+  agents/graph-wiki-agent/
+  plugins/graph-wiki/
+
+  # Historical milestone documentation references the original lattice provenance
+  .planning/
+
+  # CLAUDE.md references workspace_io as the canonical package name
+  CLAUDE.md
   ```
-  The `grep -vF` operates on substring match against file paths AND content fragments — so this entry covers any line/file containing the literal string. Verify behavior with `bash scripts/check-brand.sh` post-sweep.
+  Zero entries under `packages/graph-io/` — the sweep eliminates every match there. The planner runs `bash scripts/check-brand.sh` post-sweep with this allowlist to confirm exit 0.
 
-- **D-16:** **Existing entry for `_SKIP_REPO_PREFIXES = ('lattice/',)` in packages.py**: VERIFY it exists in `.brand-grep-allow`. If absent, ADD an entry:
-  ```
-  # BRAND-04 carve-out: functional behavior (per PITFALLS.md), not brand text
-  packages/graph-io/src/graph_io/packages.py
-  ```
-  (Path-based entry — `check-brand.sh` uses `grep -vF` so file path substrings match.) Planner does a `bash scripts/check-brand.sh` dry run BEFORE making any edits to discover the baseline allowlist state, then ADDS the minimum new entries needed.
+### Verification flow — REVISED 2026-05-26
 
-- **D-17:** **No edits to `check-brand.sh`**. The script is well-tested (CR-01, WR-03 already addressed); Phase 34 only adds allowlist entries.
-
-### Verification flow
-
-- **D-18:** **Phase 34 SC verification order** (planner builds this into VERIFICATION.md):
+- **D-18 (revised):** **Phase 34 SC verification order** (planner builds this into VERIFICATION.md):
   1. SC#1: `cg --help` output check (string match: contains "graph-wiki", NOT contains "lattice")
-  2. SC#2: `head -1 packages/graph-io/README.md` = `# graph-io`; grep README for `~/.lattice/graph/code.db` returns no matches.
-  3. SC#3: three manual env var scenarios per D-14.
-  4. SC#4: `bash scripts/check-brand.sh` exits 0; `grep -c LATTICE_GRAPH_LOCK_TIMEOUT_MS .brand-grep-allow` ≥ 1.
+  2. SC#2: `head -1 packages/graph-io/README.md` = `# graph-io`; grep README for `~/.lattice/graph/code.db` returns no matches; grep README for any `lattice` returns no matches.
+  3. SC#3: `grep -qF 'GRAPH_WIKI_LOCK_TIMEOUT_MS' packages/graph-io/src/graph_io/update.py` AND `! grep -qF 'LATTICE_GRAPH_LOCK_TIMEOUT_MS' packages/graph-io/` AND `test_cli_exit_codes.py` test passes with the renamed env var. All automated — no manual scenarios.
+  4. SC#4: `bash scripts/check-brand.sh` exits 0; `packages/graph-io/` is grep-clean of `lattice|LATTICE`.
 
 ### Claude's Discretion
 
-- Exact wording of stderr deprecation warnings (D-07/D-08 prototypes are starting points; planner can tweak for grammar/clarity).
-- Removal of `[lattice](../../README.md)` markdown link in D-02 — if the README has OTHER `[lattice]` markdown links (probably not, but check), apply the same strip-link-keep-prose rule.
-- Whether the warning includes "Removed in v1.7" timeline hint — D-08 doesn't include it for brevity; planner can add if useful, max one line.
-- `.brand-grep-allow` entry SHAPE — D-15 picks substring, D-16 picks path. Planner verifies which form check-brand.sh actually filters on (it's `grep -vF -f`, which is substring against the OUTPUT of the first grep, which is `grep -rEl` returning file paths). So entries should be file-path substrings primarily. Adjust if needed.
-- Order of edits in the plan waves — D-09 update.py + D-13 test update should land together (commit-atomically: code + test); D-01..D-04 README is a separate commit; D-05 cli/main.py is a third; D-15/D-16 allowlist edits land first as a "prep" wave so check-brand.sh wouldn't fail mid-sweep.
+- Whether to factor a helper for the (now trivially small) env-var read in update.py — D-09 keeps the inline shape; no abstraction needed.
+- Whether to keep the `_should_skip` function in `packages.py` after dropping the rel-path check, or inline it into the caller. D-16 keeps the function and just deletes the lattice-prefix branch — the `_ignore.should_skip(...)` delegation still has a single caller.
+- `.brand-grep-allow` entry ordering and comment style — D-19 prototype is a starting point; planner can tighten or expand as long as `check-brand.sh` exits 0 post-sweep and `packages/graph-io/` is grep-clean.
+- Order of edits in the plan waves — Wave 1 still creates the allowlist; Waves 2 are independent edits (README + fixtures, CLI description + packages.py deletion + test_packages.py edits, env var rename); Wave 3 is verification.
 
 </decisions>
 
@@ -164,30 +147,30 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 **Downstream agents MUST read these before planning or implementing.**
 
 ### v1.6 research
-- `.planning/research/PITFALLS.md` — Pitfall about `_SKIP_REPO_PREFIXES = ('lattice/',)` being FUNCTIONAL, not brand. D-11/D-12/D-16 honor this carve-out.
+- `.planning/research/PITFALLS.md` — historical note about `_SKIP_REPO_PREFIXES` being functional. Revised D-16 supersedes this: the function is dead-weight in this repo, deleted not preserved.
 
 ### Requirements + roadmap
 - `.planning/REQUIREMENTS.md` — BRAND-01..04 (lines 98–101); pending-phase mapping lines 237–240
-- `.planning/ROADMAP.md` — Phase 34 block + SC#1–4. SC#3 is the deprecation-warning verification driver; SC#4 is the .brand-grep-allow + check-brand.sh gate.
+- `.planning/ROADMAP.md` — Phase 34 block + SC#1–4. Phase 34's goal and SC#3 were revised to drop the deprecation contract.
 
 ### Existing graph-io code (in-scope for editing)
-- `packages/graph-io/README.md` — first 3 lines are the primary edit target; lines 1-3 are `# lattice-graph-core` / blank / `Code-graph core for the [lattice](../../README.md) ecosystem. Owns:`
-- `packages/graph-io/src/graph_io/cli/main.py:45` — argparse `description="lattice code graph CLI"`; D-05 edits
-- `packages/graph-io/src/graph_io/update.py:154` (function `_default_lock_timeout`, body around lines 153-160) — D-09 refactor lands here
-- `packages/graph-io/src/graph_io/packages.py:17` (`_SKIP_REPO_PREFIXES = ("lattice/",)`) — DO NOT EDIT, allowlist instead (D-16)
+- `packages/graph-io/README.md` — first 3 lines + line 12 are the primary edit target.
+- `packages/graph-io/src/graph_io/cli/main.py:45` — argparse `description="lattice code graph CLI"`; D-05 edits.
+- `packages/graph-io/src/graph_io/update.py:153-160` (function `_default_lock_timeout`) — D-09 (revised) straight rename.
+- `packages/graph-io/src/graph_io/packages.py:17,20-27` — D-16 (revised) deletes `_SKIP_REPO_PREFIXES` and the rel-prefix check in `_should_skip`.
 
-### Test files (in-scope per D-11/D-12)
+### Test files (in-scope per D-11)
 - `packages/graph-io/tests/test_sync_wiki.py`
-- `packages/graph-io/tests/test_packages.py` — carve-out for `_SKIP_REPO_PREFIXES` tests
+- `packages/graph-io/tests/test_packages.py` — D-12 (revised) deletes `test_refresh_skips_lattice_dir_manifests`
 - `packages/graph-io/tests/test_cli_sync_wiki.py`
 - `packages/graph-io/tests/test_cli_exit_codes.py`
 
 ### Brand sweep infrastructure (existing)
-- `scripts/check-brand.sh` — the BRAND-04 gate. Already well-developed (handles CR-01 blank-line bug, WR-03 comment patterns, 6 CHECK passes for various rename concerns from prior phases). Phase 34 does NOT modify this script.
-- `.brand-grep-allow` at repo root — allowlist file. check-brand.sh requires it to exist (exits 2 if missing). Planner verifies existence and current entries via `cat .brand-grep-allow` before editing.
+- `scripts/check-brand.sh` — the BRAND-04 gate. Already well-developed. Phase 34 does NOT modify this script.
+- `.brand-grep-allow` at repo root — created by Plan 34-01 with the broader-codebase carve-outs from D-19.
 
 ### Existing rebranding precedents
-- Phase v1.2 / v1.3 milestones (per scripts/check-brand.sh comments) — performed the original lattice → graph-wiki sweep across `agents/`, `plugins/`, `wiki-io/`. Phase 34 finishes the work in `packages/graph-io/` which was deliberately deferred to avoid merge conflicts with v1.6's other phases.
+- Phase v1.2 / v1.3 milestones — performed the original lattice → graph-wiki sweep across `agents/`, `plugins/`, `wiki-io/`. Phase 34 finishes the work in `packages/graph-io/`.
 
 </canonical_refs>
 
@@ -195,40 +178,38 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 ## Existing Code Insights
 
 ### Reusable Assets
-- **`scripts/check-brand.sh`** — already handles 6 brand-pattern checks. Phase 34 uses it as the BRAND-04 gate without modification.
-- **`.brand-grep-allow`** format and conventions — established by prior brand sweeps. Comment lines via `#`; blank lines ignored; substring matching via `grep -vF`.
-- **`os.environ.get(...)` pattern** — existing `_default_lock_timeout()` already uses this; D-09 extends with two env var reads.
+- **`scripts/check-brand.sh`** — already handles multiple brand-pattern checks. Phase 34 uses it as the BRAND-04 gate without modification.
+- **`.brand-grep-allow`** format and conventions — established by prior brand sweeps. Comment lines via `#`; blank lines ignored; substring matching via `grep -vF` against file paths.
+- **`os.environ.get(...)` pattern** — preserved in D-09's straight-rename refactor.
 
 ### Established Patterns
-- **One-milestone deprecation window** for renamed env vars (BRAND-03 wording) — Phase 34 ships the alias, v1.7 removes.
-- **stderr for warnings, exit 0** — deprecation is not a failure; the run completes with the value respected.
-- **Surgical brand sweeps**: edit only brand text, preserve functional code (PITFALLS.md lesson from prior phases).
-- **Allowlist entries before code edits** — add `.brand-grep-allow` entries first so check-brand.sh doesn't fail during mid-sweep test runs.
+- **Surgical brand sweeps**: edit only brand text, preserve functional code. After this revision, the only functional code touched is `_SKIP_REPO_PREFIXES` — which we are deliberately deleting because it has no callers in this repo's filesystem layout.
+- **Allowlist scoped to legitimate uses, not deprecation windows** — entries cover code that should not be rewritten (workspace_io package name, ported-from comments).
 
 ### Integration Points
-- **D-05 (cli/main.py description) ↔ Phase 33** — Phase 33 expanded `_SUBCOMMANDS` dict but didn't touch the parser description string. Phase 34 changes ONLY that string. Independent edit, no merge risk if Phase 33 still in flight at execute time.
-- **D-09 (update.py) ↔ Phase 29's update.py edits** — Phase 29 shipped changes to `update.run()` ordering (D-23). The `_default_lock_timeout()` function is independent of `run()`'s orchestration. No conflict.
+- **D-05 (cli/main.py description) ↔ Phase 33** — Phase 33 expanded `_SUBCOMMANDS` dict but didn't touch the parser description string. Independent.
+- **D-09 (update.py) ↔ Phase 29's update.py edits** — Phase 29 shipped changes to `update.run()` ordering. The `_default_lock_timeout()` function is independent of `run()`'s orchestration. No conflict.
+- **D-16 (packages.py deletion) ↔ Phase 29's containment-tree work** — Phase 29 reads manifests via `packages.refresh()`. Deleting `_SKIP_REPO_PREFIXES` only widens the set of manifests scanned; if a `lattice/` directory ever appears in this repo, its manifests would now be scanned (which is correct behavior — `.cgignore` is the right knob for user-driven exclusion).
 - **D-11..D-12 test edits ↔ Phase 30/31 test additions** — Phase 30 added `test_call_order_pitfall`, Phase 31 added cycle + derived-edge tests. None overlap with the four files Phase 34 edits. Independent.
-- **No conflict with Phase 33 cli/main.py edits** — Phase 33 modifies `_SUBCOMMANDS` dict (line ~28-42) and adds 12 new subcommand modules. Phase 34 edits line 45 (parser description). Disjoint.
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-- D-01..D-03 README diff prototype:
+- D-01..D-04 README diff prototype:
   ```diff
   -# lattice-graph-core
   +# graph-io
 
   -Code-graph core for the [lattice](../../README.md) ecosystem. Owns:
   +Code-graph backend for graph-wiki. Owns:
-  ```
-  And replace `~/.lattice/graph/code.db` references (likely 1-2 occurrences) with prose:
-  ```diff
-  -The code graph database is stored at ~/.lattice/graph/code.db.
-  +The code graph database lives at `<paths.graph_dir(workspace)>/code.db` —
-  +see `workspace_io.paths` for the workspace-mode-aware resolution rule.
+
+  -- SQLite schema + store at `<repo>/.lattice/graph/code.db`
+  +- SQLite schema + store at `<paths.graph_dir(workspace)>/code.db` (see `workspace_io.paths` for workspace-mode-aware resolution)
+
+  -The Claude Code plugin shell lives separately at `plugins/lattice-graph/`.
+  +The Claude Code plugin shell lives separately at `plugins/graph-wiki/`.
   ```
 
 - D-05 cli/main.py diff:
@@ -237,55 +218,59 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
   +    parser = argparse.ArgumentParser(prog="cg", description="graph-wiki code graph CLI")
   ```
 
-- D-09 update.py diff:
+- D-09 (revised) update.py diff:
   ```diff
-  -import os
-  +import os
-  +import sys
-
-   ...
    def _default_lock_timeout() -> int:
   -    raw = os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")
-  -    if raw is None:
-  -        return 30_000
+  +    raw = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")
+       if raw is None:
+           return 30_000
+       try:
+           return max(0, int(raw))
+       except ValueError:
+           return 30_000
+  ```
+  No `import sys` change. No alias. No warning.
+
+- D-16 (revised) packages.py diff:
+  ```diff
+  -_SKIP_REPO_PREFIXES = ("lattice/",)
+  -
+  -
+   def _should_skip(manifest_path: Path, repo_root: Path, skip_dirs: frozenset[str]) -> bool:
+       if _ignore.should_skip(str(manifest_path), skip_dirs):
+           return True
   -    try:
-  -        return max(0, int(raw))
+  -        rel = manifest_path.relative_to(repo_root).as_posix()
   -    except ValueError:
-  -        return 30_000
-  +    new = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")
-  +    old = os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")
-  +    if new is not None and old is not None:
-  +        print(
-  +            f"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated and "
-  +            f"ignored; using GRAPH_WIKI_LOCK_TIMEOUT_MS={new}",
-  +            file=sys.stderr,
-  +        )
-  +        raw = new
-  +    elif new is not None:
-  +        raw = new
-  +    elif old is not None:
-  +        print(
-  +            f"warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated, "
-  +            f"use GRAPH_WIKI_LOCK_TIMEOUT_MS instead (value={old} still respected)",
-  +            file=sys.stderr,
-  +        )
-  +        raw = old
-  +    else:
-  +        return 30_000
-  +    try:
-  +        return max(0, int(raw))
-  +    except ValueError:
-  +        return 30_000
+  -        return False
+  -    return any(rel.startswith(p) for p in _SKIP_REPO_PREFIXES)
+  +    return False
+  ```
+  After this edit, `_should_skip` only delegates to `_ignore.should_skip`. Caller in `refresh()` is unchanged.
+
+- D-12 (revised) test_packages.py diff:
+  ```diff
+  -def test_refresh_skips_lattice_dir_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
+  -    lattice_pkg = tmp_path / "lattice" / "some-tool"
+  -    lattice_pkg.mkdir(parents=True)
+  -    (lattice_pkg / "pyproject.toml").write_text('[project]\nname = "tool"\nversion = "0.0.0"\n')
+  -
+  -    real_pkg = tmp_path / "packages" / "real"
+  -    real_pkg.mkdir(parents=True)
+  -    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.0"\n')
+  -
+  -    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+  -
+  -    names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
+  -    assert "real" in names
+  -    assert "tool" not in names
+  -
+  -
+   def test_refresh_skips_cgignore_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
   ```
 
-- D-15 .brand-grep-allow entry:
-  ```
-  # Phase 34 BRAND-03: LATTICE_GRAPH_LOCK_TIMEOUT_MS deprecated env var alias (D-10).
-  # Removed in v1.7+.
-  LATTICE_GRAPH_LOCK_TIMEOUT_MS
-  ```
-
-- D-18 SC verification commands the planner inlines into VERIFICATION.md:
+- D-18 (revised) SC verification commands the planner inlines into VERIFICATION.md:
   ```bash
   # SC#1
   uv run cg --help | grep -q 'graph-wiki'
@@ -293,29 +278,29 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 
   # SC#2
   test "$(head -1 packages/graph-io/README.md)" = '# graph-io'
-  ! grep -q '~/.lattice/graph/code.db' packages/graph-io/README.md
+  ! grep -qE 'lattice|LATTICE' packages/graph-io/README.md
 
-  # SC#3 (manual): three env var scenarios per D-14
+  # SC#3
+  grep -qF 'GRAPH_WIKI_LOCK_TIMEOUT_MS' packages/graph-io/src/graph_io/update.py
+  ! grep -rqF 'LATTICE_GRAPH_LOCK_TIMEOUT_MS' packages/graph-io/
+  uv run --package graph-io pytest packages/graph-io/tests/test_cli_exit_codes.py -q
 
   # SC#4
   bash scripts/check-brand.sh
-  grep -q 'LATTICE_GRAPH_LOCK_TIMEOUT_MS' .brand-grep-allow
+  ! grep -rEl --exclude-dir=__pycache__ --exclude='*.pyc' 'lattice|LATTICE' packages/graph-io/
   ```
 
-- Pre-sweep snapshot for planner's safety: `bash scripts/check-brand.sh > /tmp/preflight.txt 2>&1 || true; echo "Baseline hits: $(wc -l < /tmp/preflight.txt)"`. After sweep, re-run; expect zero hits.
+- Pre-sweep snapshot for planner's safety: `bash scripts/check-brand.sh > /tmp/preflight.txt 2>&1 || true`. After sweep, re-run; expect exit 0.
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-- **Removal of LATTICE_GRAPH_LOCK_TIMEOUT_MS alias** — v1.7 milestone. Phase 34 ships the alias + warning; v1.7 (or later) removes.
-- **GRAPH_WIKI_SUPPRESS_DEPRECATION env var** — could quiet the warning for users who can't migrate. Not in v1.6 scope.
-- **Generalised env-var-rename helper** — `_resolve_env_alias(new, old)` style abstraction. Premature for one rename; revisit if v1.7+ adds more env var renames.
-- **README full rewrite** — Phase 34 is a brand sweep; a comprehensive README modernization (architecture diagrams, getting-started, API reference) is its own future phase.
-- **Automated deprecation-warning test** — D-14 explicitly skips; coverage gap accepted. Could land in v1.7 alongside the removal.
+- **Trim the `check-brand.sh` regex** — `workspace_io|lattice_wiki_core` is overly broad given workspace_io is the current canonical name. A future phase could narrow the regex and shrink `.brand-grep-allow`. Out of scope for Phase 34.
+- **README full rewrite** — a comprehensive README modernization (architecture diagrams, getting-started, API reference) is its own future phase.
 - **Brand sweep of `plugins/graph-wiki/` or `agents/graph-wiki-agent/`** — explicitly out of scope per BRAND-04. Prior phases handled those.
-- **Migration guide / CHANGELOG entry** — could document the env var rename for users upgrading from v1.5 to v1.6+. Phase 34 doesn't ship docs beyond README edits.
+- **Migration guide / CHANGELOG entry** — irrelevant: single user, no migration needed.
 - **`cg` CLI version bump tied to brand sweep** — semver-style version in `pyproject.toml`. Not in Phase 34 scope.
 
 </deferred>
@@ -323,4 +308,4 @@ Requirements addressed: BRAND-01, BRAND-02, BRAND-03, BRAND-04.
 ---
 
 *Phase: 34-brand-sweep*
-*Context gathered: 2026-05-25*
+*Context gathered: 2026-05-25; revised 2026-05-26 to drop backwards compat*

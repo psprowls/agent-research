@@ -108,7 +108,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - [x] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges (completed 2026-05-26)
 - [x] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path` (completed 2026-05-26)
 - [x] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries (completed 2026-05-26)
-- [ ] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
+- [x] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
 
 ---
 
@@ -218,7 +218,18 @@ Plans:
   2. `packages/graph-io/README.md` first line reads `# graph-io`; `~/.lattice/graph/code.db` path reference is replaced with the canonical path via `workspace_io.paths.graph_dir()`; the README is grep-clean of `lattice|LATTICE`
   3. `GRAPH_WIKI_LOCK_TIMEOUT_MS` is the only env var that controls the lock timeout: setting it changes the timeout; setting the old `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is silently ignored; `LATTICE_GRAPH_LOCK_TIMEOUT_MS` appears nowhere in `packages/graph-io/`
   4. `scripts/check-brand.sh` exits 0 on the post-sweep tree; `packages/graph-io/` is grep-clean of `lattice|LATTICE` (zero allowlist entries needed for it)
-**Plans**: TBD
+
+Plans:
+**Wave 1**
+- [x] 34-01-PLAN.md — create `.brand-grep-allow` with broader-codebase carve-outs (BRAND-04)
+
+**Wave 2** *(blocked on Wave 1)*
+- [x] 34-02-PLAN.md — README.md + sync-wiki test fixture rebrand (BRAND-01, BRAND-02, BRAND-04)
+- [x] 34-03-PLAN.md — cli/main.py description + delete _SKIP_REPO_PREFIXES + test cleanup (BRAND-02, BRAND-04)
+- [x] 34-04-PLAN.md — straight-rename LATTICE_GRAPH_LOCK_TIMEOUT_MS → GRAPH_WIKI_LOCK_TIMEOUT_MS (BRAND-03)
+
+**Wave 3** *(blocked on Waves 1+2)*
+- [x] 34-05-PLAN.md — verification: 34-VERIFICATION.md + run all four SC checks + regression suite (BRAND-01..04)
 
 ---
 
@@ -242,7 +253,7 @@ Plans:
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
 | 32. Query Layer Extensions | 3/3 | Complete    | 2026-05-26 |
 | 33. CLI Surface | 5/5 | Complete   | 2026-05-26 |
-| 34. Brand Sweep | 0/TBD | Not started | - |
+| 34. Brand Sweep | 5/5 | Complete   | 2026-05-26 |
 
 ---
 

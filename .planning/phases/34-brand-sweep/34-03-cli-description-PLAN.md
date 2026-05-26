@@ -5,6 +5,7 @@ wave: 2
 depends_on: ["34-01"]
 files_modified:
   - packages/graph-io/src/graph_io/cli/main.py
+  - packages/graph-io/src/graph_io/packages.py
   - packages/graph-io/tests/test_packages.py
 autonomous: true
 requirements:
@@ -14,25 +15,35 @@ must_haves:
   truths:
     - "cli/main.py line 45 description string reads `graph-wiki code graph CLI` (D-05)"
     - "`cg --help` output contains `graph-wiki` and does NOT contain `lattice` in any user-visible string (SC#1)"
-    - "test_packages.py: brand-text mentions rebranded; `test_refresh_skips_lattice_dir_manifests` and its `lattice/` fixture literals are preserved verbatim (D-12, RESEARCH F-06)"
-    - "All tests in test_packages.py still pass"
+    - "packages.py: `_SKIP_REPO_PREFIXES` and the rel-prefix check in `_should_skip` are deleted (D-16 revised). `_should_skip` reduces to delegating to `_ignore.should_skip`."
+    - "test_packages.py: `test_refresh_skips_lattice_dir_manifests` is deleted (D-12 revised). All remaining tests pass."
+    - "After this plan, `grep -rE 'lattice|LATTICE' packages/graph-io/src/graph_io/cli/main.py packages/graph-io/src/graph_io/packages.py packages/graph-io/tests/test_packages.py` returns zero hits."
   goal_check: |
     grep -qF 'description="graph-wiki code graph CLI"' packages/graph-io/src/graph_io/cli/main.py && \
     uv run cg --help 2>&1 | grep -qF 'graph-wiki' && \
     ! (uv run cg --help 2>&1 | grep -qiF 'lattice') && \
+    ! grep -qF '_SKIP_REPO_PREFIXES' packages/graph-io/src/graph_io/packages.py && \
+    ! grep -qF 'test_refresh_skips_lattice_dir_manifests' packages/graph-io/tests/test_packages.py && \
     uv run --package graph-io pytest packages/graph-io/tests/test_packages.py -q
 ---
 
-# Plan 34-03: cli/main.py argparse description + test_packages.py brand-text
+# Plan 34-03: cli/main.py description + packages.py skip-prefix removal + test_packages.py cleanup
 
 <objective>
-Edit the top-level argparse `description` string in `cli/main.py` so `cg --help` reports the
-graph-wiki brand (D-05, SC#1). Rebrand brand-text mentions in `test_packages.py` while preserving
-the functional carve-out (`test_refresh_skips_lattice_dir_manifests` — RESEARCH F-06, D-12 row 2).
+Three coupled edits that together leave `packages/graph-io/` with zero `lattice`/`LATTICE`
+references in the touched files:
 
-This plan groups these two files together because the `cli/main.py` edit is one character-precision
-line change and the `test_packages.py` rebrand is a surgical sweep with a clearly-scoped carve-out;
-neither needs a dedicated plan and both touch BRAND-02 / BRAND-04 surfaces.
+1. Rebrand the argparse `description` string in `cli/main.py` so `cg --help` reports the
+   graph-wiki brand (D-05, SC#1).
+2. Delete `_SKIP_REPO_PREFIXES = ("lattice/",)` and the rel-prefix check in `_should_skip()`
+   from `packages.py` (D-16 revised). The function targeted a `lattice/` vendor directory that
+   does not exist in this repo; `.cgignore` covers any user-driven exclusion need.
+3. Delete `test_refresh_skips_lattice_dir_manifests` from `test_packages.py` (D-12 revised) —
+   the function it exercised no longer exists.
+
+These are coupled because deleting `_SKIP_REPO_PREFIXES` without deleting the test would break
+the test; deleting the test without removing the dead code would leave a grep hit. They land
+atomically.
 </objective>
 
 <tasks>
@@ -40,9 +51,8 @@ neither needs a dedicated plan and both touch BRAND-02 / BRAND-04 surfaces.
 <task id="34-03-T1">
 <title>Edit cli/main.py argparse description string</title>
 <read_first>
-  - packages/graph-io/src/graph_io/cli/main.py (current state — confirm line 45 is the parser construction; verify Phase 33 has NOT yet edited lines 28-45, or if it has, that line 45 remains the parser description per RESEARCH F-10)
-  - .planning/phases/34-brand-sweep/34-CONTEXT.md (D-05, §specifics for diff)
-  - .planning/phases/34-brand-sweep/34-RESEARCH.md (F-10 — Phase 33 disjointness confirmed)
+  - packages/graph-io/src/graph_io/cli/main.py (confirm line 45 is the parser construction)
+  - .planning/phases/34-brand-sweep/34-CONTEXT.md (D-05)
 </read_first>
 <action>
 Edit `packages/graph-io/src/graph_io/cli/main.py`. Replace exactly one substring inside the
@@ -50,64 +60,96 @@ Edit `packages/graph-io/src/graph_io/cli/main.py`. Replace exactly one substring
 
 - `description="lattice code graph CLI"` → `description="graph-wiki code graph CLI"`
 
-This is a single-character-precision edit. Do NOT touch the `_SUBCOMMANDS` dict above (Phase 33
-territory), help strings, argparse arguments, or any other code in the file.
+Single-character-precision edit. Do NOT touch `_SUBCOMMANDS`, help strings, argparse arguments,
+or any other code in the file.
 </action>
 <acceptance_criteria>
   - `grep -qF 'description="graph-wiki code graph CLI"' packages/graph-io/src/graph_io/cli/main.py`
   - `! grep -qF 'description="lattice code graph CLI"' packages/graph-io/src/graph_io/cli/main.py`
   - `uv run cg --help 2>&1` exits 0 AND contains the substring `graph-wiki`
-  - `uv run cg --help 2>&1 | grep -ciF 'lattice'` outputs `0` (no user-visible lattice text)
-  - File diff shows exactly one changed line: `git diff --numstat packages/graph-io/src/graph_io/cli/main.py | awk '{print $1, $2}'` shows `1 1`
+  - `uv run cg --help 2>&1 | grep -ciF 'lattice'` outputs `0`
+  - File diff shows exactly one changed line for this edit.
 </acceptance_criteria>
 </task>
 
 <task id="34-03-T2">
-<title>Rebrand test_packages.py brand text while preserving the _SKIP_REPO_PREFIXES test verbatim</title>
+<title>Delete _SKIP_REPO_PREFIXES and the rel-prefix check in _should_skip()</title>
 <read_first>
-  - packages/graph-io/tests/test_packages.py (current state — focus on lines 112-126 which contain `test_refresh_skips_lattice_dir_manifests`)
-  - .planning/phases/34-brand-sweep/34-CONTEXT.md (D-11, D-12 row 2 — `PRESERVE _SKIP_REPO_PREFIXES test that asserts lattice/ filtering`)
-  - .planning/phases/34-brand-sweep/34-RESEARCH.md (F-06 — the carve-out test is the ONLY method that keeps lattice literals)
-  - packages/graph-io/src/graph_io/packages.py (verify `_SKIP_REPO_PREFIXES = ("lattice/",)` is the functional filter being tested)
+  - packages/graph-io/src/graph_io/packages.py (lines 17 and 20-27)
+  - .planning/phases/34-brand-sweep/34-CONTEXT.md (D-16 revised — delete, not allowlist)
 </read_first>
 <action>
-Edit `packages/graph-io/tests/test_packages.py`. Apply the following carve-out rule:
+Edit `packages/graph-io/src/graph_io/packages.py`. Apply two deletions:
 
-**PRESERVE verbatim** (do NOT modify):
-- The function name `test_refresh_skips_lattice_dir_manifests` (line 112).
-- All string literals inside that function body that contain `"lattice"` or `"lattice/"` —
-  specifically `tmp_path / "lattice" / "some-tool"` on line 113 and the surrounding test logic
-  (lines 112-126). These exercise the BRAND-04-excluded `_SKIP_REPO_PREFIXES = ("lattice/",)`
-  functional filter (PITFALLS.md). Modifying them would break the assertion that
-  `packages.refresh()` skips `lattice/*` manifests.
+1. **Line 17 (and the surrounding blank lines)** — delete `_SKIP_REPO_PREFIXES = ("lattice/",)`.
+2. **Lines 23-27** — inside `_should_skip()`, delete the `try/except ValueError` block and the
+   `return any(rel.startswith(p) for p in _SKIP_REPO_PREFIXES)` line. Replace with `return False`.
 
-**REBRAND** any OTHER brand-text mentions of `lattice` / `LATTICE` in the file — for example
-docstrings, comments, or test-data fixtures that do NOT exercise `_SKIP_REPO_PREFIXES`. Use
-`graph-wiki` as the replacement brand. If there are NO such other mentions (likely: the only
-lattice references in this file are in `test_refresh_skips_lattice_dir_manifests`), make NO
-edits to the file in this task — and document that conclusion in the commit message.
+The resulting function:
 
-The file's allowlist entry (added by Plan 34-01: `packages/graph-io/tests/test_packages.py`)
-covers the surviving `lattice/` literals so `scripts/check-brand.sh` will not flag them.
+```python
+def _should_skip(manifest_path: Path, repo_root: Path, skip_dirs: frozenset[str]) -> bool:
+    if _ignore.should_skip(str(manifest_path), skip_dirs):
+        return True
+    return False
+```
+
+Note: `repo_root` parameter is now unused by the function body, but keep it in the signature —
+the caller in `refresh()` passes it positionally and removing the parameter would require an
+additional call-site edit. Karpathy-clean: leave the parameter unused but in place; no other
+callers exist.
+
+Do NOT modify any other functions, imports, or the file's top docstring.
 </action>
 <acceptance_criteria>
-  - The function `test_refresh_skips_lattice_dir_manifests` still exists verbatim:
-    `grep -qE '^def test_refresh_skips_lattice_dir_manifests' packages/graph-io/tests/test_packages.py`
-  - The fixture literal is preserved:
-    `grep -qF 'tmp_path / "lattice" / "some-tool"' packages/graph-io/tests/test_packages.py`
-  - All `lattice` occurrences in the file are inside the body of `test_refresh_skips_lattice_dir_manifests`
-    (verify by inspecting `grep -n lattice packages/graph-io/tests/test_packages.py` — every hit line
-    number must be between the function's `def` line and its closing line; if there are hits OUTSIDE
-    that function, they must have been rebranded by this task)
-  - `uv run --package graph-io pytest packages/graph-io/tests/test_packages.py -q` exits 0 (all tests pass, including the carve-out test)
-  - `uv run --package graph-io pytest packages/graph-io/tests/test_packages.py::test_refresh_skips_lattice_dir_manifests -q` exits 0 (the functional carve-out is intact)
+  - `! grep -qF '_SKIP_REPO_PREFIXES' packages/graph-io/src/graph_io/packages.py`
+  - `! grep -qE 'lattice|LATTICE' packages/graph-io/src/graph_io/packages.py`
+  - The function `_should_skip` still exists and still takes 3 args:
+    `grep -qE '^def _should_skip\(manifest_path: Path, repo_root: Path, skip_dirs: frozenset\[str\]\) -> bool:' packages/graph-io/src/graph_io/packages.py`
+  - Module imports unchanged:
+    `grep -q '^from graph_io import _ignore' packages/graph-io/src/graph_io/packages.py`
+  - Module is syntactically valid:
+    `uv run python -c 'from graph_io import packages' 2>&1` exits 0
+</acceptance_criteria>
+</task>
+
+<task id="34-03-T3">
+<title>Delete test_refresh_skips_lattice_dir_manifests from test_packages.py</title>
+<read_first>
+  - packages/graph-io/tests/test_packages.py (lines 112-126 — the test to delete; verify nothing in
+    the rest of the file mentions `lattice` outside this method)
+  - .planning/phases/34-brand-sweep/34-CONTEXT.md (D-12 revised; D-16 revised — the function under
+    test is gone, the test goes with it)
+</read_first>
+<action>
+Edit `packages/graph-io/tests/test_packages.py`. Delete the entire function
+`test_refresh_skips_lattice_dir_manifests` (lines 112-126, including its leading blank line
+and the blank line after `assert "tool" not in names`). The surrounding tests
+(`test_refresh_skips_cgignore_manifests` and others) are unaffected.
+
+After deletion, the file has zero `lattice`/`LATTICE` references. If `grep -nE 'lattice|LATTICE'
+packages/graph-io/tests/test_packages.py` returns ANY hit after this edit, stop and report the
+hit — it indicates a stray reference outside the deleted function that this plan did not catch.
+
+Do NOT modify any other tests, imports, or fixtures in the file.
+</action>
+<acceptance_criteria>
+  - The deleted function is gone:
+    `! grep -qF 'test_refresh_skips_lattice_dir_manifests' packages/graph-io/tests/test_packages.py`
+  - The surviving cgignore test is still present:
+    `grep -qF 'test_refresh_skips_cgignore_manifests' packages/graph-io/tests/test_packages.py`
+  - Whole-file lattice grep is clean:
+    `grep -cE 'lattice|LATTICE' packages/graph-io/tests/test_packages.py` outputs `0`
+  - All remaining tests pass:
+    `uv run --package graph-io pytest packages/graph-io/tests/test_packages.py -q` exits 0
 </acceptance_criteria>
 </task>
 
 </tasks>
 
 <verification>
-After both tasks complete:
+After all three tasks complete (committed atomically — the packages.py deletion and the
+test_packages.py deletion MUST land together or the test suite will fail):
 
 ```bash
 # CLI description rebranded
@@ -115,12 +157,17 @@ grep -qF 'description="graph-wiki code graph CLI"' packages/graph-io/src/graph_i
 uv run cg --help | grep -qF 'graph-wiki'
 ! (uv run cg --help | grep -qiF 'lattice')
 
-# test_packages.py carve-out preserved
-grep -qE '^def test_refresh_skips_lattice_dir_manifests' packages/graph-io/tests/test_packages.py
+# Dead code deleted
+! grep -qF '_SKIP_REPO_PREFIXES' packages/graph-io/src/graph_io/packages.py
+! grep -qE 'lattice|LATTICE' packages/graph-io/src/graph_io/packages.py
+
+# Test cleaned up
+! grep -qF 'test_refresh_skips_lattice_dir_manifests' packages/graph-io/tests/test_packages.py
+! grep -qE 'lattice|LATTICE' packages/graph-io/tests/test_packages.py
 
 # Tests still pass
 uv run --package graph-io pytest packages/graph-io/tests/test_packages.py -q
 ```
 
-All four assertions exit 0.
+All seven assertions exit 0.
 </verification>
