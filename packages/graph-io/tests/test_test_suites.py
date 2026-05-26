@@ -277,3 +277,125 @@ def test_test_file_re_parented_from_repository_to_suite(tmp_path: Path) -> None:
     assert parent_kinds == {"test_suite"}, (
         f"expected only TestSuite parent, got {parent_kinds}"
     )
+
+
+# ---------- Task 4: kind classification, config, malformed, idempotency ----------
+
+
+def _suite_kind(conn: sqlite3.Connection, path: str) -> str:
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='test_suite' AND path=?",
+        (path,),
+    ).fetchone()
+    if row is None:
+        return ""
+    return json.loads(row[0])["suite_kind"]
+
+
+def test_suite_kind_classification(tmp_path: Path) -> None:
+    """D-17: dir-name precedence (integration/e2e/contract) then filename fallback."""
+    _seed_root_pkg(tmp_path)
+    cases = {
+        "tests/integration": "test_a.py",
+        "tests/e2e": "test_b.py",
+        "tests/contract": "test_c.py",
+        "tests/spec_files": "thing_spec.py",
+        "tests/unit": "test_d.py",
+        "tests/misc": "empty.txt",
+    }
+    for sub, fname in cases.items():
+        (tmp_path / sub).mkdir(parents=True)
+        (tmp_path / sub / fname).write_text("")
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    assert _suite_kind(conn, "tests/integration") == "integration"
+    assert _suite_kind(conn, "tests/e2e") == "e2e"
+    assert _suite_kind(conn, "tests/contract") == "contract"
+    assert _suite_kind(conn, "tests/spec_files") == "contract"
+    assert _suite_kind(conn, "tests/unit") == "unit"
+    assert _suite_kind(conn, "tests/misc") == "unknown"
+
+
+def test_framework_config_testpaths_adds_root(tmp_path: Path) -> None:
+    """D-18: pyproject [tool.pytest.ini_options] testpaths adds extra roots."""
+    pkg_dir = tmp_path / "packages" / "foo"
+    body = (
+        '[tool.pytest.ini_options]\n'
+        'testpaths = ["spec"]\n'
+    )
+    _write_pyproject(pkg_dir, name="foo", body=body)
+    _write_python_pkg(pkg_dir, "foo")
+    (pkg_dir / "spec").mkdir()
+    (pkg_dir / "spec" / "test_x.py").write_text("")
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    rows = _suite_rows(conn)
+    assert any(p == "packages/foo/spec" for _, p in rows), (
+        f"testpaths spec/ not discovered as suite root; rows={rows}"
+    )
+
+
+def test_malformed_pyproject_does_not_crash(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """D-18: malformed config -> stderr warning + fall back to filesystem-only."""
+    pkg_dir = tmp_path / "packages" / "foo"
+    _write_pyproject(pkg_dir, name="foo")
+    _write_python_pkg(pkg_dir, "foo")
+    (pkg_dir / "tests").mkdir()
+    (pkg_dir / "tests" / "test_x.py").write_text("")
+
+    conn = _setup(tmp_path)
+    # Run a clean pass first so packages.refresh writes the row.
+    with store.transaction(conn):
+        packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
+        structural_nodes.emit(
+            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
+        )
+    # Now corrupt pyproject before test_suites.emit reads it for testpaths.
+    (pkg_dir / "pyproject.toml").write_text("[tool.pytest.ini_options\nbad")
+    with store.transaction(conn):
+        test_suites.emit(
+            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
+        )
+
+    # Suite still discovered via conventional FS walk.
+    rows = _suite_rows(conn)
+    assert any(p == "packages/foo/tests" for _, p in rows)
+    captured = capsys.readouterr()
+    assert "malformed" in captured.err
+
+
+def test_idempotency_two_runs_identical_edges(tmp_path: Path) -> None:
+    """Re-running emit produces a byte-identical physically_contains + tests
+    edge set."""
+    pkg_dir = tmp_path / "packages" / "foo"
+    _write_pyproject(pkg_dir, name="foo")
+    _write_python_pkg(pkg_dir, "foo")
+    (pkg_dir / "tests").mkdir()
+    (pkg_dir / "tests" / "test_x.py").write_text("import foo\n")
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+    snap1 = conn.execute(
+        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') "
+        "ORDER BY src, dst, kind"
+    ).fetchall()
+
+    # Second run inside a new transaction (emit() is independently invocable).
+    with store.transaction(conn):
+        test_suites.emit(
+            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
+        )
+    snap2 = conn.execute(
+        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') "
+        "ORDER BY src, dst, kind"
+    ).fetchall()
+
+    assert snap1 == snap2, (
+        f"emit() not idempotent — first run {len(snap1)} edges, second {len(snap2)}"
+    )
