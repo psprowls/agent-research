@@ -9,7 +9,11 @@ from pathlib import Path
 import pytest
 
 from graph_io import packages, store, upsert
+from graph_io.uri import RepoContext
 from source_parser.projections.graph import GraphNode, GraphRecords
+
+
+_CTX = RepoContext(org="test", repo="repo")
 
 
 @pytest.fixture()
@@ -38,7 +42,7 @@ def test_refresh_pyproject(tmp_path: Path, conn: sqlite3.Connection) -> None:
     )
     _seed_file_node(conn, "packages/alpha/src/a.py")
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     row = conn.execute(
         "SELECT name, attrs_json FROM nodes WHERE kind='package'"
@@ -57,7 +61,7 @@ def test_refresh_package_json(tmp_path: Path, conn: sqlite3.Connection) -> None:
         json.dumps({"name": "frontend", "version": "1.0.0", "dependencies": {"x": "1"}})
     )
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     row = conn.execute(
         "SELECT name, attrs_json FROM nodes WHERE kind='package'"
@@ -76,7 +80,7 @@ def test_refresh_creates_contains_edges(tmp_path: Path, conn: sqlite3.Connection
     _seed_file_node(conn, "alpha/src/b.py")
     _seed_file_node(conn, "outside/c.py")
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     rows = conn.execute(
         "SELECT n2.name FROM edges e "
@@ -97,7 +101,7 @@ def test_refresh_skips_venv_manifests(tmp_path: Path, conn: sqlite3.Connection) 
     real_pkg.mkdir(parents=True)
     (real_pkg / "pyproject.toml").write_text('[project]\nname = "real-pkg"\nversion = "0.1.0"\n')
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     rows = conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()
     names = {row[0] for row in rows}
@@ -114,7 +118,7 @@ def test_refresh_skips_lattice_dir_manifests(tmp_path: Path, conn: sqlite3.Conne
     real_pkg.mkdir(parents=True)
     (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.0"\n')
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
     assert "real" in names
@@ -132,7 +136,7 @@ def test_refresh_skips_cgignore_manifests(tmp_path: Path, conn: sqlite3.Connecti
     real_pkg.mkdir(parents=True)
     (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.0"\n')
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
     assert names == {"real"}
@@ -144,9 +148,30 @@ def test_refresh_skips_broken_pyproject(tmp_path: Path, conn: sqlite3.Connection
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text("not valid toml [[[[")
 
-    packages.refresh(conn, repo_root=tmp_path)
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     captured = capsys.readouterr()
     assert "alpha" in captured.err or "pyproject.toml" in captured.err
     count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='package'").fetchone()[0]
     assert count == 0
+
+
+def test_refresh_writes_pkg_uri_on_package_nodes(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """SC#1: every Package node has a non-NULL pkg:org/repo/name uri."""
+    pkg_dir = tmp_path / "foo_pkg"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "foo"\nversion = "0.1.0"\n')
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=RepoContext("myorg", "myrepo"))
+
+    row = conn.execute(
+        "SELECT uri, attrs_json FROM nodes WHERE kind='package' AND name='foo'"
+    ).fetchone()
+    assert row is not None
+    uri, attrs_json = row
+    assert uri == "pkg:myorg/myrepo/foo"
+    # PITFALL 4 lock: uri must NOT leak into attrs_json.
+    if attrs_json is not None:
+        assert "uri" not in json.loads(attrs_json)
