@@ -266,8 +266,160 @@ def emit(
     ctx: RepoContext,
     skip_dirs: frozenset[str],
 ) -> None:
-    """Emit TestSuite nodes + physically_contains re-parenting + tests edges.
+    """Emit TestSuite nodes + physically_contains re-parenting + tests edges."""
+    repo_root = Path(repo_root).resolve()
 
-    Filled in by Tasks 2 and 3.
-    """
+    pkg_rows_raw = conn.execute(
+        "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+    ).fetchall()
+    pkg_rows: list[tuple[str, str | None, str | None]] = [
+        (r[0], r[1], r[2]) for r in pkg_rows_raw
+    ]
+
+    roots = _discover_test_roots(repo_root, skip_dirs, pkg_rows)
+
+    # Map each TestRoot's rel_path -> list of test File rel-paths it owns.
+    root_files: dict[str, list[str]] = {r.rel_path: [] for r in roots}
+
+    test_file_rows = conn.execute(
+        "SELECT id, path FROM nodes "
+        "WHERE kind='file' AND json_extract(attrs_json, '$.is_test') = 1"
+    ).fetchall()
+
+    def _assign_root(file_rel: str) -> _TestRoot | None:
+        # D-15 cascade: deepest-prefix match wins.
+        best: _TestRoot | None = None
+        best_len = -1
+        for r in roots:
+            if file_rel == r.rel_path or file_rel.startswith(r.rel_path + "/"):
+                if len(r.rel_path) > best_len:
+                    best_len = len(r.rel_path)
+                    best = r
+        return best
+
+    for _file_id, file_rel in test_file_rows:
+        r = _assign_root(file_rel)
+        if r is None:
+            # D-15 case 4 — after Plan 30-01's D-01 amendment this shouldn't
+            # happen for files outside any tests/ ancestor, but a file matching
+            # a test glob inside a Package import root is is_test=False, so
+            # the only way to land here is a hand-crafted DB; log + skip.
+            print(
+                f"[test_suites] warning: test file {file_rel} not under any "
+                f"discovered test root — leaving Repository -> File edge in place "
+                f"(D-15 case 4)",
+                file=sys.stderr,
+            )
+            continue
+        root_files[r.rel_path].append(file_rel)
+
+    # Find Repository node id (parent for repo-owned suites).
+    repo_row = conn.execute(
+        "SELECT id, name FROM nodes WHERE kind='repository'"
+    ).fetchone()
+    if repo_row is None:
+        # Defensive: structural_nodes.emit hasn't run yet — abort.
+        return
+    repo_name = repo_row[1]
+    repo_key = ("repository", repo_name, None)
+
+    # Build TestSuite nodes + physically_contains parent edges.
+    nodes: list[GraphNode] = []
+    edges: list[GraphEdge] = []
+
+    for r in roots:
+        # D-16 naming: repository-owned suites use the full rel_path as the
+        # display name; package-owned suites use the basename ('tests' or
+        # '__tests__') with the path slot as the discriminator.
+        if r.owner_kind == "repository":
+            suite_name = r.rel_path
+        else:
+            suite_name = Path(r.rel_path).name
+
+        kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
+
+        attrs: dict = {
+            "uri": test_suite_uri(ctx, r.rel_path),
+            "suite_kind": kind_attr,
+            "path": r.rel_path,
+            "owner_kind": r.owner_kind,
+        }
+        if r.language is not None:
+            attrs["language"] = r.language
+
+        nodes.append(
+            GraphNode(
+                kind="test_suite",
+                name=suite_name,
+                path=r.rel_path,
+                line=None,
+                attrs=attrs,
+            )
+        )
+
+        if r.owner_kind == "repository":
+            parent_src = repo_key
+        else:
+            parent_src = ("package", r.owner_name, r.owner_pkg_rel)
+        edges.append(
+            GraphEdge(
+                src=parent_src,
+                dst=("test_suite", suite_name, r.rel_path),
+                kind="physically_contains",
+                attrs={},
+            )
+        )
+
+    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+
+    # Re-parent test files: DELETE-then-INSERT atomic per D-14. The outer
+    # update.run already wraps emit() in a transaction (Plan 30-04 wiring),
+    # so the per-file DELETE+INSERT is atomic with the rest of cg update.
+    for r in roots:
+        if r.owner_kind == "repository":
+            suite_key_name = r.rel_path
+        else:
+            suite_key_name = Path(r.rel_path).name
+        suite_row = conn.execute(
+            "SELECT id FROM nodes WHERE kind='test_suite' AND name=? AND path=?",
+            (suite_key_name, r.rel_path),
+        ).fetchone()
+        if suite_row is None:
+            continue
+        suite_id = suite_row[0]
+
+        for file_rel in root_files[r.rel_path]:
+            file_id_row = conn.execute(
+                "SELECT id FROM nodes WHERE kind='file' AND path=?",
+                (file_rel,),
+            ).fetchone()
+            if file_id_row is None:
+                continue
+            file_id = file_id_row[0]
+            conn.execute(
+                "DELETE FROM edges WHERE kind='physically_contains' AND dst=?",
+                (file_id,),
+            )
+            conn.execute(
+                "INSERT INTO edges (src, dst, kind, attrs_json) "
+                "VALUES (?, ?, 'physically_contains', NULL)",
+                (suite_id, file_id),
+            )
+
+    # tests-edge derivation (TestSuite -> Package, TestSuite -> Repository).
+    _emit_tests_edges(
+        conn, repo_root, ctx, pkg_rows, roots, root_files, repo_key
+    )
+
+
+def _emit_tests_edges(
+    conn: sqlite3.Connection,
+    repo_root: Path,
+    ctx: RepoContext,
+    pkg_rows: list[tuple[str, str | None, str | None]],
+    roots: list[_TestRoot],
+    root_files: dict[str, list[str]],
+    repo_key: tuple[str, str, str | None],
+) -> None:
+    """Stub — Task 3 fills this in."""
     return
