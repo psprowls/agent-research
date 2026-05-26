@@ -102,7 +102,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 **Milestone Goal:** Land the full ontology spec inside `graph-io` — schema v2, URI identity, all new node and edge types, additive scanner extensions, brand sweep — so v1.7 can integrate graph-io into `graph-wiki-agent` and redesign the wiki on top of it. `graph-io`-only milestone; plugin and existing wiki scripts stay functional and untouched.
 
-- [ ] **Phase 28: Schema v2 + URI Foundation** - Bump schema to v2, add `uri` column, wire `SCHEMA_MISMATCH` exit code, ship `uri.py` helpers
+- [x] **Phase 28: Schema v2 + URI Foundation** - Bump schema to v2, add `uri` column, wire `SCHEMA_MISMATCH` exit code, ship `uri.py` helpers (completed 2026-05-26)
 - [ ] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs
 - [ ] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting
 - [ ] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges
@@ -129,7 +129,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - [x] 28-02-PLAN.md — URI helpers + RepoContext + parse_remote_url (graph_io/uri.py + full test_uri.py)
 - [x] 28-03-PLAN.md — upsert.py pops uri attr → writes to uri column (PITFALL 4 lock + sentinel test)
 - [x] 28-04-PLAN.md — ops_update.py wires SchemaMismatchError → exit code 4 + regression tests
-- [ ] 28-05-PLAN.md — update.run v1→v2 unlink+rebuild + RepoContext threading + packages.refresh writes pkg_uri + idempotency test
+- [x] 28-05-PLAN.md — update.run v1→v2 unlink+rebuild + RepoContext threading + packages.refresh writes pkg_uri + idempotency test
 
 ### Phase 29: Structural Nodes + Containment Tree
 **Goal**: The graph contains a strict physical containment tree — one Repository node, SubPackage nodes for Python subdirs, File nodes with role flags — and `resolve.sweep` cannot silently delete structural nodes that have no filesystem path
@@ -217,7 +217,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Schema v2 + URI Foundation | 4/5 | In Progress|  |
+| 28. Schema v2 + URI Foundation | 5/5 | Complete   | 2026-05-26 |
 | 29. Structural Nodes + Containment Tree | 0/TBD | Not started | - |
 | 30. Entry Points + Test Suites | 0/TBD | Not started | - |
 | 31. Domain Layer + Derived Edges | 0/TBD | Not started | - |
