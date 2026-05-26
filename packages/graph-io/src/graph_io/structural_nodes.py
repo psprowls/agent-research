@@ -551,13 +551,18 @@ def emit(
         if _ignore.should_skip(rel, skip_dirs):
             continue
         owner = _owning_package(rel, pkg_index)
-        if owner is None:
-            # File not under any Package — skip (Repository-only files are
-            # covered by test_file parent rule via is_test, and there are
-            # no other Repository-direct files in v1.6).
+        # D-14: test files outside any Package are still emitted with
+        # Repository as their physically_contains parent — Phase 30 will
+        # re-parent them under their TestSuite. Non-test files outside any
+        # Package remain skipped (Repository-direct non-test files are not
+        # part of v1.6).
+        is_test_orphan = owner is None and _is_test_path(
+            rel,
+            package_dirs=[(name, prel) for _, name, prel in pkg_index],
+            repo_root=repo_root,
+        )
+        if owner is None and not is_test_orphan:
             continue
-        owner_name, owner_rel = owner
-        pkg_key = ("package", owner_name, owner_rel)
 
         fpath = repo_root / rel
         if not fpath.exists():
@@ -566,6 +571,15 @@ def emit(
         filename = fpath.name
         if filename in _GENERIC_CONTAINER_DIRS:
             continue
+
+        if owner is not None:
+            owner_name, owner_rel = owner
+            pkg_key = ("package", owner_name, owner_rel)
+        else:
+            # Orphan test file — parent will be Repository (handled below).
+            owner_name = None
+            owner_rel = None
+            pkg_key = repo_key
 
         emitted_file_paths.add(rel)
 

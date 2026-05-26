@@ -412,6 +412,9 @@ def emit(
     )
 
 
+_JS_RESOLVE_SUFFIXES: tuple[str, ...] = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
+
+
 def _emit_tests_edges(
     conn: sqlite3.Connection,
     repo_root: Path,
@@ -421,5 +424,110 @@ def _emit_tests_edges(
     root_files: dict[str, list[str]],
     repo_key: tuple[str, str, str | None],
 ) -> None:
-    """Stub — Task 3 fills this in."""
-    return
+    """Scan every test file in each TestSuite for imports and emit
+    TestSuite -> Package edges for matched first-party packages.
+
+    When a single suite imports from >=_REPOSITORY_EDGE_THRESHOLD distinct
+    first-party packages, also emits a TestSuite -> Repository edge (D-12).
+
+    Python: top-level dotted module looked up against
+            pkg_name.replace('-', '_') (D-10).
+    JS/TS: bare specs looked up against package.json 'name' directly
+           (D-11); relative specs resolved against the importing file's
+           directory and mapped via _owning_package (D-11).
+    """
+    py_importable_to_pkg: dict[str, tuple[str, str | None]] = {}
+    js_name_to_pkg: dict[str, tuple[str, str | None]] = {}
+
+    for pkg_name, pkg_rel, pkg_attrs_json in pkg_rows:
+        attrs = json.loads(pkg_attrs_json) if pkg_attrs_json else {}
+        lang = attrs.get("language")
+        if lang == "python":
+            importable = pkg_name.replace("-", "_")
+            py_importable_to_pkg[importable] = (pkg_name, pkg_rel)
+        elif lang in {"javascript", "typescript"}:
+            js_name_to_pkg[pkg_name] = (pkg_name, pkg_rel)
+
+    pkg_index = _build_pkg_index(pkg_rows)
+
+    edges_out: list[GraphEdge] = []
+
+    for r in roots:
+        if r.owner_kind == "repository":
+            suite_key_name = r.rel_path
+        else:
+            suite_key_name = Path(r.rel_path).name
+        suite_key = ("test_suite", suite_key_name, r.rel_path)
+
+        matched_pkgs: set[tuple[str, str | None]] = set()
+        for file_rel in root_files[r.rel_path]:
+            fpath = repo_root / file_rel
+            try:
+                content = fpath.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+
+            ext = Path(file_rel).suffix
+            if ext == ".py":
+                for m in _PYTHON_IMPORT_RE.finditer(content):
+                    mod = m.group(1).split(".")[0]
+                    if mod in py_importable_to_pkg:
+                        matched_pkgs.add(py_importable_to_pkg[mod])
+            elif ext in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}:
+                for m in _JS_IMPORT_RE.finditer(content):
+                    spec = m.group(1)
+                    if spec.startswith(".") or spec.startswith("/"):
+                        try:
+                            resolved = (fpath.parent / spec).resolve()
+                        except OSError:
+                            continue
+                        # Try common JS resolution rules: exact, exact + ext,
+                        # then index.* inside a directory.
+                        cands: list[Path] = [resolved]
+                        for suf in _JS_RESOLVE_SUFFIXES:
+                            cands.append(resolved.with_suffix(suf))
+                        for suf in _JS_RESOLVE_SUFFIXES:
+                            cands.append(resolved / f"index{suf}")
+                        for cand in cands:
+                            if cand.exists():
+                                try:
+                                    rel = cand.relative_to(repo_root).as_posix()
+                                except ValueError:
+                                    break
+                                owner = _owning_package(rel, pkg_index)
+                                if owner is not None:
+                                    matched_pkgs.add(owner)
+                                break
+                    else:
+                        # Bare spec. Scoped packages like @scope/name use the
+                        # first two segments as the package name.
+                        if spec.startswith("@"):
+                            key = "/".join(spec.split("/", 2)[:2])
+                        else:
+                            key = spec.split("/", 1)[0]
+                        if key in js_name_to_pkg:
+                            matched_pkgs.add(js_name_to_pkg[key])
+
+        for pkg_name, pkg_rel in matched_pkgs:
+            edges_out.append(
+                GraphEdge(
+                    src=suite_key,
+                    dst=("package", pkg_name, pkg_rel),
+                    kind="tests",
+                    attrs={},
+                )
+            )
+
+        # D-12: K=5 whole-system edge.
+        if len(matched_pkgs) >= _REPOSITORY_EDGE_THRESHOLD:
+            edges_out.append(
+                GraphEdge(
+                    src=suite_key,
+                    dst=repo_key,
+                    kind="tests",
+                    attrs={},
+                )
+            )
+
+    if edges_out:
+        upsert.upsert_records(conn, GraphRecords(nodes=[], edges=edges_out))
