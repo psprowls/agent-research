@@ -30,6 +30,28 @@ class UpdateInProgressError(Exception):
     """Raised when another writer holds the SQLite write lock past the timeout."""
 
 
+class StrictTreeInvariantError(Exception):
+    """Raised when the physically_contains containment tree has a child node
+    with more than one parent edge — violates the strict tree invariant
+    (Phase 29 STRUCT-04 / Phase 30 D-19b).
+
+    Most commonly caused by an emitter inserting a duplicate parent edge or
+    by test_suites.emit's re-parenting failing to DELETE the prior
+    physically_contains edge before INSERTing the new one.
+    """
+
+    def __init__(self, *, offending_child_ids: list[int]):
+        self.offending_child_ids = offending_child_ids
+        count = len(offending_child_ids)
+        sample = offending_child_ids[:20]
+        super().__init__(
+            f"physically_contains tree invariant violated for {count} node(s). "
+            f"Likely cause: an emitter inserted a duplicate parent edge, or "
+            f"test re-parenting failed to delete the prior edge. "
+            f"Offending child node ids (first {min(count, 20)}): {sample}"
+        )
+
+
 def _git(args: list[str], *, cwd: Path) -> str:
     result = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, check=False
@@ -178,6 +200,23 @@ def _read_schema_version_or_none(db_path: Path) -> str | None:
     finally:
         conn.close()
     return row[0] if row else None
+
+
+def _enforce_strict_tree_invariant(conn: sqlite3.Connection) -> None:
+    """D-19b: raise StrictTreeInvariantError if any child has >1
+    physically_contains parents. Always on. Always runs at the end of
+    update.run inside the transaction (D-20)."""
+    rows = conn.execute(
+        "SELECT dst, COUNT(*) "
+        "FROM edges "
+        "WHERE kind = 'physically_contains' "
+        "GROUP BY dst "
+        "HAVING COUNT(*) > 1"
+    ).fetchall()
+    if rows:
+        raise StrictTreeInvariantError(
+            offending_child_ids=[row[0] for row in rows]
+        )
 
 
 def _unlink_db_files(db_path: Path) -> None:
