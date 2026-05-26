@@ -35,32 +35,35 @@ def _insert_node(
     key: NodeKey,
     line: int | None,
     attrs_json: str | None,
+    uri: str | None,
 ) -> int:
     kind, name, path = key
     cursor = conn.execute(
-        "INSERT INTO nodes(kind, name, path, line, attrs_json) VALUES (?, ?, ?, ?, ?)",
-        (kind, name, path, line, attrs_json),
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, ?, ?)",
+        (kind, name, path, line, attrs_json, uri),
     )
     return cursor.lastrowid
 
 
 def _upsert_node(conn: sqlite3.Connection, node: GraphNode) -> int:
     key: NodeKey = (node.kind, node.name, node.path)
+    attrs_for_json = dict(node.attrs)
+    uri_value = attrs_for_json.pop("uri", None)
     nid = _node_id(conn, key)
     if nid is not None:
         conn.execute(
-            "UPDATE nodes SET line=?, attrs_json=? WHERE id=?",
-            (node.line, _serialize(node.attrs), nid),
+            "UPDATE nodes SET line=?, attrs_json=?, uri=? WHERE id=?",
+            (node.line, _serialize(attrs_for_json), uri_value, nid),
         )
         return nid
-    return _insert_node(conn, key, node.line, _serialize(node.attrs))
+    return _insert_node(conn, key, node.line, _serialize(attrs_for_json), uri_value)
 
 
 def _ensure_node(conn: sqlite3.Connection, key: NodeKey) -> int:
     nid = _node_id(conn, key)
     if nid is not None:
         return nid
-    return _insert_node(conn, key, None, None)
+    return _insert_node(conn, key, None, None, None)
 
 
 def _upsert_edge(conn: sqlite3.Connection, edge: GraphEdge) -> None:
