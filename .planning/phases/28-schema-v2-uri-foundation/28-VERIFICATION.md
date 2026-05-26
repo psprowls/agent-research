@@ -1,34 +1,31 @@
 ---
 phase: 28
 verified: 2026-05-25T00:00:00Z
-status: gaps_found
-score: 4/5 must-haves verified
+re_verified: 2026-05-25T19:30:00Z
+status: passed
+score: 5/5 must-haves verified
 requirements_covered: SCHEMA-01, SCHEMA-02, SCHEMA-03, SCHEMA-04, SCHEMA-05
-test_count: 141
+test_count: 143
 test_failures: 0
 overrides_applied: 0
-gaps:
-  - truth: "URI composition is fully unit-tested before any emitter is built (SC#3 + D-03 + D-08)"
-    status: partial
-    reason: "parse_remote_url SSH regex violates D-03 by accepting GitLab subgroups (multi-segment paths). Confirmed live in repo: `parse_remote_url('git@gitlab.com:group/sub/repo.git')` returns `('group', 'sub/repo')` instead of `None`. This produces a malformed 4-segment pkg URI (`pkg:group/sub/repo/name`) that violates the D-07 shape contract. The HTTPS regex correctly rejects subgroups; the SSH parametrize list has no subgroup case (IN-02), which is what allowed CR-01 through the D-08 'full unit coverage' gate. Phase 29+ emitters consume these URIs as opaque identifiers — the malformed shape is silent until a downstream consumer parses it."
-    artifacts:
-      - path: "packages/graph-io/src/graph_io/uri.py"
-        issue: "Line 43: `_SSH_REMOTE_RE = re.compile(r'^git@[^:]+:([^/]+)/(.+?)(?:\\.git)?$')` — the `.+?` second group accepts `/` characters, allowing subgroup paths through"
-      - path: "packages/graph-io/tests/test_uri.py"
-        issue: "Lines 69-82: parametrize list covers HTTPS subgroup → None but has no SSH subgroup case"
-    missing:
-      - "Tighten SSH regex: `_SSH_REMOTE_RE = re.compile(r'^git@[^:]+:([^/]+)/([^/]+?)(?:\\.git)?$')` (mirror HTTPS pattern's bounded `[^/]+?` second group)"
-      - "Add SSH subgroup negative cases to `test_parse_remote_url` parametrize: `('git@gitlab.com:group/sub/repo.git', None)` and `('git@gitlab.com:group/sub/repo', None)`"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 4/5
+  gaps_closed:
+    - "URI composition is fully unit-tested before any emitter is built (SC#3 + D-03 + D-08) — CR-01 / IN-02 closed by commit 162c089"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 28: Schema v2 + URI Foundation Verification Report
 
 **Phase Goal:** The `graph-io` store speaks schema v2 — every new emitter has a `uri` column to write to, schema mismatches exit cleanly with code 4, and URI composition is tested before any emitter is built.
 
-**Verified:** 2026-05-25
-**Status:** gaps_found
-**Score:** 4/5 must-haves verified
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-25 (initial)
+**Re-verified:** 2026-05-25 (after CR-01 fix in commit `162c089`)
+**Status:** passed
+**Score:** 5/5 must-haves verified
+**Re-verification:** Yes — gap CR-01 closed; all SCs now PASS
 
 ## Goal Achievement
 
@@ -38,11 +35,11 @@ gaps:
 |---|-------------------|--------|----------|
 | 1 | `cg update --full` against schema-v1 detects mismatch, rebuilds at v2, exits 0 | VERIFIED | `update.py:211-219` probes schema_version pre-connect; under `--full` prints `"Schema v1 detected — rebuilding code.db at schema v2."` to stderr (line 215-218) and calls `_unlink_db_files(db_path)` (line 219). Verified by `test_store.py::test_update_full_rebuilds_v1_db_to_v2` (lines 112-142) — passes |
 | 2 | Non-`--full` commands exit with code 4 + friendly stderr message on a v1 DB | VERIFIED | `update.py:220-221` raises `store.SchemaMismatchError(found=found, expected=schema.SCHEMA_VERSION)` on non-`--full` path; `cli/ops_update.py:24-26` catches it and returns `exit_codes.SCHEMA_MISMATCH` (= 4). Verified by `test_cli_exit_codes.py::test_cg_update_on_v1_db_exits_schema_mismatch` and `::test_exit_4_schema_mismatch` (11 subcommand check) |
-| 3 | `graph_io/uri.py` ships with RepoContext + 7 helpers + parse_remote_url, fully unit-tested | **PARTIAL** | All 7 helpers + RepoContext present (`uri.py:9-54`); 17 collected test cases (`test_uri.py`). **GAP: parse_remote_url SSH regex accepts GitLab subgroups (CR-01), violating D-03. Unit coverage missing the SSH subgroup case (IN-02).** |
+| 3 | `graph_io/uri.py` ships with RepoContext + 7 helpers + parse_remote_url, fully unit-tested | **VERIFIED** | All 7 helpers + RepoContext present (`uri.py:9-54`); **19 collected parse_remote_url cases (was 17). CR-01 closed by commit `162c089`: `uri.py:43` SSH regex tightened from `(.+?)` to `([^/]+?)` (mirrors HTTPS branch). IN-02 closed by `test_uri.py:78-79` adding two SSH subgroup → None cases. Live re-check: `parse_remote_url('git@gitlab.com:group/sub/repo.git')` now returns `None`** |
 | 4 | After `cg update --full`, every Package node has a non-NULL `uri` column derived from `pkg_uri(ctx, name)` | VERIFIED | `packages.py:124`: `"uri": pkg_uri(ctx, info["name"])` in the Package node attrs dict. `_upsert_node` (upsert.py:48-59) pops uri and writes to column. Verified by `test_packages.py::test_refresh_writes_pkg_uri_on_package_nodes` |
 | 5 | `_upsert_node` writes URI to the dedicated `uri` column, NOT into `attrs_json` (PITFALL 4 locked) | VERIFIED | `upsert.py:50-51` copies attrs and pops uri BEFORE serialize; INSERT (line 42) and UPDATE (line 55) SQL both write the dedicated `uri` column. D-12 sentinel `test_upsert.py::test_upsert_uri_lands_in_column` (line 107) verifies absence from attrs_json |
 
-**Score:** 4/5 — SC#3 PARTIAL due to CR-01 (D-03 violation).
+**Score:** 5/5 — all ROADMAP success criteria PASS.
 
 ### Observable Truths
 
@@ -56,21 +53,21 @@ gaps:
 | 6 | `cg update --full` on v1 DB exits 0 (Plan-04 xfail removed) | VERIFIED | `test_cli_exit_codes.py::test_cg_update_full_on_v1_db_does_not_exit_4_from_ops_update_handler` (line 192-203) — no xfail decorator; `grep xfail` returns 0 matches |
 | 7 | `update.run` derives RepoContext once and threads it to `packages.refresh` | VERIFIED | `update.py:207` derives ctx; `update.py:236` `packages.refresh(conn, repo_root=repo_root, ctx=ctx)` |
 | 8 | `packages.refresh` writes `pkg_uri(ctx, name)` on every Package node | VERIFIED | `packages.py:124` |
-| 9 | `parse_remote_url` correctly rejects HTTPS GitLab subgroups, git://, file://, garbage | VERIFIED | `test_uri.py:69-82` parametrize cases all green |
-| 10 | `parse_remote_url` correctly rejects SSH GitLab subgroups per D-03 | **FAILED** | **CR-01 confirmed live: `parse_remote_url('git@gitlab.com:group/sub/repo.git')` returns `('group', 'sub/repo')` — D-03 violated** |
-| 11 | `cg update --full` is idempotent (SCHEMA-05) | VERIFIED (with caveat) | Structural equivalence proven by `test_update_full_twice_produces_byte_identical_db`. **Caveat:** ROADMAP SC#4 wording says "byte-identical" but implementation asserts structural equivalence due to intentional `last_indexed_at` wall-clock metadata write. Plan 05 SUMMARY documents this deviation as the semantically-meaningful invariant SCHEMA-05 cares about — accepted as documented |
+| 9 | `parse_remote_url` correctly rejects HTTPS GitLab subgroups, git://, file://, garbage | VERIFIED | `test_uri.py:77` (HTTPS subgroup); `:80-82` (git://, file://, garbage) — all green |
+| 10 | `parse_remote_url` correctly rejects SSH GitLab subgroups per D-03 | **VERIFIED** | **CR-01 closed by `162c089`. `uri.py:43` now `^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$`. Live re-check `parse_remote_url('git@gitlab.com:group/sub/repo.git')` → `None`. Locked by `test_uri.py:78-79`: `("git@gitlab.com:group/subgroup/repo.git", None)` and `("git@gitlab.com:group/subgroup/repo", None)`** |
+| 11 | `cg update --full` is idempotent (SCHEMA-05) | VERIFIED (with documented deviation) | Structural equivalence proven by `test_update_full_twice_produces_byte_identical_db`. **Documented deviation:** ROADMAP SC#4 wording says "byte-identical" but implementation asserts structural equivalence due to intentional `last_indexed_at` wall-clock metadata write. Plan 05 SUMMARY documents this as the semantically-meaningful invariant SCHEMA-05 cares about — accepted as documented |
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
 | `packages/graph-io/src/graph_io/schema.py` | SCHEMA_VERSION=2, uri column, idx_nodes_uri | VERIFIED | All present (lines 12, 23, 28) |
-| `packages/graph-io/src/graph_io/uri.py` | RepoContext + 7 helpers + parse_remote_url | VERIFIED (existence); SSH regex contract violated | All 9 exports present; SSH regex bug |
+| `packages/graph-io/src/graph_io/uri.py` | RepoContext + 7 helpers + parse_remote_url | VERIFIED | All 9 exports present; SSH regex bounded to single-segment repo (line 43) per D-03 |
 | `packages/graph-io/src/graph_io/upsert.py` | Uri column write path | VERIFIED | dict-copy + pop + column write on INSERT & UPDATE |
 | `packages/graph-io/src/graph_io/update.py` | v1→v2 unlink+rebuild + ctx derivation + threading | VERIFIED | 3 new helpers, all wired |
 | `packages/graph-io/src/graph_io/packages.py` | refresh accepts ctx; writes pkg_uri | VERIFIED | Required `ctx: RepoContext` kw arg, pkg_uri in attrs |
 | `packages/graph-io/src/graph_io/cli/ops_update.py` | SchemaMismatchError handler before generic Exception | VERIFIED | Handler positioned at lines 24-26, before line 27 Exception catch |
-| `packages/graph-io/tests/test_uri.py` | Full helper + parse_remote_url coverage | VERIFIED (existence); subgroup-SSH parametrize missing | 17 collected cases; IN-02 gap |
+| `packages/graph-io/tests/test_uri.py` | Full helper + parse_remote_url coverage including SSH subgroup negatives | VERIFIED | 19 parametrize cases (was 17); SSH subgroup negatives at lines 78-79 |
 | `packages/graph-io/tests/test_schema.py` | D-12 sentinels #1 + #2 | VERIFIED | `test_schema_version_is_two` (line 58); `test_nodes_table_has_uri_column` (line 62) |
 | `packages/graph-io/tests/test_upsert.py` | D-12 sentinel #3 | VERIFIED | `test_upsert_uri_lands_in_column` (line 107) |
 | `packages/graph-io/tests/test_store.py` | v1→v2 rebuild test | VERIFIED | `test_update_full_rebuilds_v1_db_to_v2` + `test_update_incremental_on_v1_db_raises_schema_mismatch` |
@@ -83,7 +80,7 @@ gaps:
 |------|----|----|--------|---------|
 | `update.run` | `packages.refresh` | `ctx=ctx` keyword | WIRED | `update.py:236`: `packages.refresh(conn, repo_root=repo_root, ctx=ctx)` |
 | `packages.refresh` | `pkg_uri` | call in node construction | WIRED | `packages.py:124`: `"uri": pkg_uri(ctx, info["name"])` |
-| `update.run` | `(org, repo)` | `parse_remote_url(_git(['remote','get-url','origin']))` | WIRED | `update.py:141-157` `_derive_repo_context` → `update.py:207` |
+| `update.run` | `(org, repo)` | `parse_remote_url(_git(['remote','get-url','origin']))` | WIRED | `update.py:141-157` `_derive_repo_context` → `update.py:207`; SSH branch now D-03-compliant |
 | `_upsert_node` | `nodes.uri` column | pop attrs → INSERT/UPDATE | WIRED | `upsert.py:50-59` |
 | `ops_update.run` | `exit_codes.SCHEMA_MISMATCH` | `except store.SchemaMismatchError` | WIRED | `cli/ops_update.py:24-26`, positioned before generic Exception |
 | `update.run` | `store.SchemaMismatchError(found=, expected=)` | raised on non-`--full` v1 | WIRED | `update.py:220-221`; kwargs verified against `store.py:20` |
@@ -92,7 +89,7 @@ gaps:
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|--------------|--------|--------------------|--------|
-| Package node `uri` column | `attrs["uri"]` | `pkg_uri(ctx, info["name"])` where `ctx` derives from real `git remote get-url origin` (or `local/<repo_root.name>` fallback) | YES — real (org, repo) for the agent-research repo; falls back to local sentinel correctly | FLOWING |
+| Package node `uri` column | `attrs["uri"]` | `pkg_uri(ctx, info["name"])` where `ctx` derives from real `git remote get-url origin` (or `local/<repo_root.name>` fallback) | YES — real (org, repo) for the agent-research repo; falls back to local sentinel correctly; SSH-subgroup remotes now correctly fall through to the local sentinel | FLOWING |
 | Schema-version probe value | `found` | `_read_schema_version_or_none(db_path)` reads real `metadata.schema_version` via read-only sqlite URI | YES — verified by `_seed_v1_db` sanity assert (test_store.py:104-108) | FLOWING |
 
 ### Behavioral Spot-Checks
@@ -100,8 +97,10 @@ gaps:
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
 | All helpers import + pkg_uri composes | `uv run --package graph-io python -c "from graph_io.uri import RepoContext, pkg_uri; print(pkg_uri(RepoContext('org','repo'), 'name'))"` | `pkg:org/repo/name` | PASS |
-| Full graph-io test suite | `uv run --package graph-io pytest packages/graph-io/tests/ -x` | 141 passed in 9.76s | PASS |
-| CR-01 reproduction | `uv run --package graph-io python -c "from graph_io.uri import parse_remote_url; print(parse_remote_url('git@gitlab.com:group/sub/repo.git'))"` | `('group', 'sub/repo')` (expected: `None`) | **FAIL** — D-03 violated |
+| Full graph-io test suite | `uv run --package graph-io pytest packages/graph-io/tests/` | **143 passed in 9.73s** | PASS |
+| CR-01 closed (SSH subgroup → None) | `uv run --package graph-io python -c "from graph_io.uri import parse_remote_url; print(parse_remote_url('git@gitlab.com:group/sub/repo.git'))"` | `None` (was `('group', 'sub/repo')` before fix) | **PASS — D-03 honored** |
+| CR-01 closed (no-suffix variant) | `... parse_remote_url('git@gitlab.com:group/sub/repo'))` | `None` | **PASS** |
+| No regression on canonical SSH | `... parse_remote_url('git@github.com:pat/agent-research.git'))` | `('pat', 'agent-research')` | PASS |
 | D-12 sentinel #1 | `pytest test_schema.py::test_schema_version_is_two` | passes | PASS |
 | D-12 sentinel #2 | `pytest test_schema.py::test_nodes_table_has_uri_column` | passes | PASS |
 | D-12 sentinel #3 | `pytest test_upsert.py::test_upsert_uri_lands_in_column` | passes | PASS |
@@ -119,7 +118,7 @@ gaps:
 |-------------|-------------|-------------|--------|----------|
 | SCHEMA-01 | 28-01, 28-05 | `cg update --full` on v1 upgrades to v2, rebuilds nodes+edges with URIs populated | SATISFIED | schema.py v2 DDL + update.py unlink+rebuild + packages.refresh writes pkg_uri |
 | SCHEMA-02 | 28-04 | `cg update` (incremental) on v1.5 raises SCHEMA_MISMATCH (exit 4) with `cg update --full` instruction | SATISFIED | update.py:220-221 raises; ops_update.py:24-26 routes; test_cli_exit_codes.py covers |
-| SCHEMA-03 | 28-02 | `graph_io.uri` exposes 7 composition helpers + stable URI shapes | SATISFIED w/ caveat | All helpers ship; URI shapes correct; **but parse_remote_url SSH branch violates D-03 for GitLab subgroups (see gap)** |
+| SCHEMA-03 | 28-02 | `graph_io.uri` exposes 7 composition helpers + stable URI shapes | **SATISFIED** | All helpers ship; URI shapes correct; **parse_remote_url SSH branch now honors D-03 (CR-01 closed by `162c089`)** |
 | SCHEMA-04 | 28-01, 28-03 | URIs persisted on dedicated `uri TEXT` column (not in attrs_json); nullable | SATISFIED | schema.py:23 + upsert.py pop-and-bind to column; test_upsert.py D-12 sentinel |
 | SCHEMA-05 | 28-05 | `cg update --full` is idempotent — twice on same git state → byte-identical code.db | SATISFIED (with documented deviation) | Structural equivalence asserted; byte-identity precluded by intentional `last_indexed_at` metadata write — Plan 05 SUMMARY documents the decision and justifies structural equality as the semantic invariant |
 
@@ -127,71 +126,49 @@ gaps:
 
 ### Anti-Patterns Found
 
-Scanned all 6 modified source files plus 6 test files. Results:
+Re-scanned all 6 modified source files plus 6 test files (including post-fix `uri.py` and `test_uri.py`). Results:
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| (none) | — | TBD/FIXME/XXX/TODO/HACK/PLACEHOLDER | — | Zero debt markers in any Phase 28 file |
+| (none) | — | TBD/FIXME/XXX/TODO/HACK/PLACEHOLDER | — | Zero debt markers in any Phase 28 file (including post-fix files) |
 
-**Plan-05 known deviations (acknowledged in 28-05-SUMMARY.md):**
-- Structural-equivalence test for SCHEMA-05 byte-identity (Info — documented decision)
+**Plan-05 known deviations (acknowledged in 28-05-SUMMARY.md), unchanged from initial verification:**
+- Structural-equivalence test for SCHEMA-05 byte-identity (Info — documented decision; accepted as documented deviation)
 - `LATTICE_GRAPH_LOCK_TIMEOUT_MS` untouched (Info — explicitly Phase 34 scope)
 - T-28-05-03 concurrent --full race accepted as residual risk (Info)
 
-**Code-review findings inherited from 28-REVIEW.md:**
+**Code-review findings inherited from 28-REVIEW.md, updated dispositions:**
 
-| ID | Severity | File:Line | Disposition in this verification |
-|----|----------|-----------|----------------------------------|
-| CR-01 | BLOCKER | `uri.py:43` | **Treated as gap** — D-03 violation; SC#3 "fully unit-tested" partial |
-| WR-01 | Warning | `update.py:188-190` | Latent (no caller currently passes non-`code.db` path); flag for follow-up |
-| WR-02 | Warning | `update.py:149-152` | Latent (missing `git` binary edge case); D-04 says "any failure" — actual catch narrower |
-| WR-03 | Warning | `test_store.py:95-109` | Test fixture seeds v2-shape DDL with v1 metadata; adequate for current unlink+rebuild strategy but not for hypothetical in-place migration tests |
-| IN-01 | Info | `test_cli_exit_codes.py:152-156` | Stale docstring (Plan-05 has shipped the real probe); test still valid as CLI-handler unit test |
-| IN-02 | Info | `test_uri.py:69-82` | Missing SSH subgroup parametrize case — root cause of CR-01 slipping through |
+| ID | Severity | File:Line | Disposition after re-verification |
+|----|----------|-----------|------------------------------------|
+| CR-01 | BLOCKER | `uri.py:43` | **CLOSED** — fix landed in commit `162c089`; SSH regex bounded to single-segment repo; SC#3 now PASS |
+| IN-02 | Info | `test_uri.py` parametrize | **CLOSED** — two SSH subgroup negative cases added (lines 78-79); 19 cases collected |
+| WR-01 | Warning | `update.py:188-190` | Open advisory — latent (no caller currently passes non-`code.db` path); flag for next phase |
+| WR-02 | Warning | `update.py:149-152` | Open advisory — latent (missing `git` binary edge case); D-04 says "any failure" — actual catch narrower |
+| WR-03 | Warning | `test_store.py:95-109` | Open advisory — test fixture seeds v2-shape DDL with v1 metadata; adequate for current unlink+rebuild strategy but not for hypothetical in-place migration tests |
+| IN-01 | Info | `test_cli_exit_codes.py:152-156` | Open advisory — stale docstring (Plan-05 has shipped the real probe); test still valid as CLI-handler unit test |
 
 ### Gaps Summary
 
-**One gap blocks the phase verdict: CR-01 (D-03 violation in parse_remote_url SSH regex).**
+**No gaps remaining.** All five ROADMAP success criteria PASS:
+- The CR-01 blocker (D-03 violation in SSH regex) is closed by `162c089` — verified live and via the new parametrize cases.
+- IN-02 (missing SSH subgroup parametrize) is closed by the two cases added at `test_uri.py:78-79`.
+- SC#5 byte-identity deviation remains as an acknowledged, documented design decision in `28-05-SUMMARY.md`; structural equivalence is the semantic invariant SCHEMA-05 cares about. Accepted.
 
-The phase goal says "URI composition is tested before any emitter is built." The implementation ships all 7 helpers and `parse_remote_url` with 17 collected test cases — but the test parametrization has a hole (no SSH subgroup case, IN-02), and behind that hole sits a real contract violation (CR-01): the SSH regex `^git@[^:]+:([^/]+)/(.+?)(?:\.git)?$` uses an unbounded second group that accepts multi-segment paths. This produces malformed URIs with 4 path segments after the scheme (`pkg:group/sub/repo/name`) instead of the locked 3 (`pkg:org/repo/name` per D-07), and the malformation is silent until a downstream consumer parses the URI.
+### Follow-Up (Advisory — NOT blocking Phase 29)
 
-For agent-research specifically (flat GitHub path `pat/agent-research`), CR-01 has zero observable runtime effect. The fix is also small and local — 1-line regex tightening + 2-line test addition (~5 minutes' work). But CR-01 ships a defect into the foundation layer that every Phase 29-31 emitter will consume, and D-08 explicitly promised "full unit coverage" as the Phase 28 exit criterion. I'm calling this a gap rather than waving through.
+Carry these forward into the next phase's planning context:
 
-**SC#5 byte-identity deviation is NOT a gap.** It's an acknowledged, documented design choice in 28-05-SUMMARY.md, and the structural-equivalence assertion captures the semantically-meaningful guarantee SCHEMA-05 cares about. The only way to recover pure byte-identity would be to remove the intentional `last_indexed_at` wall-clock metadata write, which is explicitly out of Phase 28 scope. Accepting per Plan 05 author's decision.
-
-**WR-01/WR-02/WR-03/IN-01 are NOT gaps.** They are latent risks or cosmetic documentation issues that don't block the phase goal. Surface as recommended follow-up.
-
-### Recommended Next Steps
-
-**To close the gap (5-minute fix):**
-
-1. In `packages/graph-io/src/graph_io/uri.py:43`, change:
-   ```python
-   _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/(.+?)(?:\.git)?$")
-   ```
-   to:
-   ```python
-   _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")
-   ```
-2. In `packages/graph-io/tests/test_uri.py:69-82` parametrize list, add:
-   ```python
-   ("git@gitlab.com:group/sub/repo.git", None),
-   ("git@gitlab.com:group/sub/repo", None),
-   ```
-3. Run `uv run --package graph-io pytest packages/graph-io/tests/test_uri.py -x` to confirm 19 cases collected, all green.
-4. Re-run `/gsd:verify-work 28` (or equivalent) — gap should close to `passed`.
-
-**Optional follow-up (NOT blocking Phase 29):**
-
-- WR-01: Derive WAL/SHM sibling names from `db_path.name` in `_unlink_db_files` (defensive — current sole caller is safe).
-- WR-02: Broaden `_derive_repo_context` catch to `(NotInGitRepoError, FileNotFoundError)` per D-04's "any failure" wording.
-- WR-03/IN-01: Tighten docstrings in test helpers to reflect post-28-05 reality.
+- **WR-01**: Derive WAL/SHM sibling names from `db_path.name` in `_unlink_db_files` (defensive — current sole caller is safe).
+- **WR-02**: Broaden `_derive_repo_context` catch to `(NotInGitRepoError, FileNotFoundError)` per D-04's "any failure" wording.
+- **WR-03**: Tighten `test_store.py:95-109` fixture docstring to reflect that it seeds v2-shape DDL with v1 metadata for the unlink+rebuild path (not in-place migration).
+- **IN-01**: Refresh stale docstring in `test_cli_exit_codes.py:152-156` to acknowledge that the real Plan-05 probe has shipped; this test remains a valid CLI-handler unit.
 
 ### Test Summary
 
 ```
-uv run --package graph-io pytest packages/graph-io/tests/ -x
-============================= 141 passed in 9.76s ==============================
+uv run --package graph-io pytest packages/graph-io/tests/
+============================= 143 passed in 9.73s ==============================
 ```
 
 | Test File | Tests Passing |
@@ -202,11 +179,20 @@ uv run --package graph-io pytest packages/graph-io/tests/ -x
 | test_store.py | 8 (includes Plan-05 `test_update_full_rebuilds_v1_db_to_v2` + `test_update_incremental_on_v1_db_raises_schema_mismatch`) |
 | test_update_idempotent.py | 2 (includes Plan-05 `test_update_full_twice_produces_byte_identical_db`) |
 | test_upsert.py | 8 (includes D-12 sentinel #3 + 2 regression guards) |
-| test_uri.py | 17 cases (9 functions; parametrized parse_remote_url contributes 9) |
+| test_uri.py | **19 parametrize cases + 8 single-helper tests** (was 17 parametrize cases pre-fix; +2 SSH subgroup negatives at lines 78-79) |
 | (other unchanged files) | 82 |
-| **Total** | **141 passed, 0 failed, 0 xfailed** |
+| **Total** | **143 passed, 0 failed, 0 xfailed** (was 141 pre-fix) |
 
 ---
 
+## Resolution Log
+
+| Timestamp | Event |
+|-----------|-------|
+| 2026-05-25 (initial) | Verification ran on Phase 28 SUMMARYs and codebase. 4/5 SCs PASS; SC#3 PARTIAL due to CR-01 (SSH regex accepts GitLab subgroups, violating D-03). Status: `gaps_found`. |
+| 2026-05-25 (fix) | Inline fix landed as commit `162c089` — `fix(28-CR-01): bound SSH remote regex to single-segment repo (D-03)`. Two-line change to `uri.py:43` (regex tightened to `([^/]+?)`) + two new parametrize cases at `test_uri.py:78-79` for SSH subgroup → None contract. |
+| 2026-05-25 (re-verify) | Re-verification confirmed: live `parse_remote_url('git@gitlab.com:group/sub/repo.git')` returns `None`; canonical `git@github.com:pat/agent-research.git` still parses correctly; full suite is **143 passed, 0 failed** (was 141 + 2 new cases). SC#3 promoted to PASS. CR-01 and IN-02 closed. No regressions. Status: `passed`. |
+
 _Verified: 2026-05-25_
+_Re-verified: 2026-05-25 (post-fix)_
 _Verifier: Claude (gsd-verifier)_
