@@ -203,7 +203,7 @@ Plans:
 **Wave 1**
 - [x] 33-01-PLAN.md — exit_codes.AMBIGUOUS + extend cg status with repository line (CLI-14)
 - [x] 33-02-PLAN.md — 4 q_* modules: describe-repo, list-packages, list-entry-points, list-scripts (CLI-01..04)
-- [ ] 33-03-PLAN.md *(blocked on Wave 0 completion — 33-01)* — 3 q_* modules: list-suites, describe-suite, what-tests with probe-both dispatch (CLI-05..08)
+- [x] 33-03-PLAN.md *(blocked on Wave 0 completion — 33-01)* — 3 q_* modules: list-suites, describe-suite, what-tests with probe-both dispatch (CLI-05..08)
 - [x] 33-04-PLAN.md — 5 q_* modules: list-domains, describe-domain, domain-refs, domain-deps, cross-cutting (CLI-09..13)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -241,7 +241,7 @@ Plans:
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
 | 32. Query Layer Extensions | 3/3 | Complete    | 2026-05-26 |
-| 33. CLI Surface | 3/5 | In Progress|  |
+| 33. CLI Surface | 4/5 | In Progress|  |
 | 34. Brand Sweep | 0/TBD | Not started | - |
 
 ---
