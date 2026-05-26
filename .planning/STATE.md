@@ -4,8 +4,8 @@ milestone: v1.6
 milestone_name: Code Graph Ontology Expansion
 status: executing
 stopped_at: Phase 28 context gathered
-last_updated: "2026-05-26T00:26:59.547Z"
-last_activity: 2026-05-26 -- Phase 28 planning complete
+last_updated: "2026-05-26T00:29:56.987Z"
+last_activity: 2026-05-26 -- Phase 28 execution started
 progress:
   total_phases: 7
   completed_phases: 0
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.6 Phase 28 — Schema v2 + URI Foundation (ready to plan)
+**Current Focus:** Phase 28 — schema-v2-uri-foundation
 
 ---
 
 ## Current Position
 
-Phase: 28 of 34 (Schema v2 + URI Foundation)
-Plan: — (not yet planned)
-Status: Ready to execute
-Last activity: 2026-05-26 -- Phase 28 planning complete
+Phase: 28 (schema-v2-uri-foundation) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 28
+Last activity: 2026-05-26 -- Phase 28 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
