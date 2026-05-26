@@ -944,168 +944,257 @@ async def run_query(
         )
     else:
         librarian_llm = make_llm("librarian")
-    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
 
-    async def drill_page(page_path: str) -> TaskResult:
-        page_text = (wiki / page_path).read_text(encoding="utf-8", errors="replace")
-        # Truncation guard per AI-SPEC §4b.4: cap at 24000 chars
-        if len(page_text) > 24000:
-            page_text = page_text[:24000] + "\n[TRUNCATED]"
-            logger.warning("Truncated oversized page: %s", page_path)
-        msgs = [
-            SystemMessage(content=LIBRARIAN_SYSTEM),
-            HumanMessage(content=f"Query: {query}\n\nPage ({page_path}):\n{page_text}"),
-        ]
-        resp = await librarian_llm.ainvoke(msgs)
-        # Phase 16-02 G-01: wrap in TaskResult so the pool's trace record
-        # carries resp.usage_metadata; downstream consumers still receive
-        # the scalar resp.content via fan_result.successes.
-        return TaskResult(value=resp.content, response=resp)
+    # ---- Phase 37: open read-only graph conn (LIBTOOLS-04, D-07/D-08) ----
+    # wiki is workspace/wiki under the standard layout; .graph lives next to it.
+    workspace = wiki.parent
+    db_path = graph_dir(workspace) / "code.db"
+    conn: sqlite3.Connection | None = None
+    graph_tools: list = []
+    addendum = ""
+    try:
+        conn = read_only_connect(db_path)
+        graph_tools = build_graph_tools(conn)
+    except GraphNotInitializedError:
+        # D-08: emit-once stderr signal; D-07: prompt addendum, no tools.
+        sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
+        addendum = _LIBRARIAN_FALLBACK_ADDENDUM
+        # graph_tools stays []; conn stays None.
 
-    fan_result: FanOutResult = await pool.run_all(
-        items=top_pages,
-        task=drill_page,
-        role="librarian",
-        model_id=lib_cfg["model_id"],
-        max_concurrency=lib_cfg["max_concurrency"],
-    )
-
-    # Step 7: Determine whether the librarian fan-out yielded any useful
-    # excerpts. Plan 09 vault-thin code-fallback fires only when this is empty.
-    useful_excerpts = [
-        (item, result)
-        for item, result in fan_result.successes
-        if (result or "").strip() and (result or "").strip() != "NO_RELEVANT_CONTENT"
-    ]
-
-    code_fallback_used = False
-
-    if useful_excerpts:
-        # ---- Regular path (vault-rich): synth on librarian excerpts ----
-        excerpts_text = "\n\n---\n\n".join(
-            f"[{item}]\n{result}" for item, result in useful_excerpts
+    # ---- Phase 37: CountTokens pre-flight gate (LIBTOOLS-05, D-04..D-06) ----
+    # Pre-read top pages once for the gate; cache the text so drill_page can
+    # reuse it. Missing pages (e.g., when tests mock the search but never
+    # create the files) are skipped here — drill_page handles re-read at
+    # fan-out time the same way the pre-Phase-37 code did.
+    budget = int(LIBRARIAN_CONTEXT_WINDOW * LIBRARIAN_BUDGET_FRACTION)
+    _page_texts: dict[str, str] = {}
+    for p in top_pages:
+        try:
+            text = (wiki / p).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if len(text) > 24000:
+            text = text[:24000] + "\n[TRUNCATED]"
+        _page_texts[p] = text
+    try:
+        prompt_tokens = count_tokens(LIBRARIAN_SYSTEM + addendum)
+        tool_tokens = _estimate_tool_schema_tokens(graph_tools)
+        input_tokens = sum(count_tokens(t) for t in _page_texts.values())
+        measured = prompt_tokens + tool_tokens + input_tokens
+    except Exception:
+        # CountTokens API failure → permissive (RESEARCH.md §2). Set measured=0.
+        measured = 0
+    if measured > budget:
+        sys.stderr.write(
+            _BUDGET_EXCEEDED_TEMPLATE.format(measured=measured, budget=budget) + "\n"
         )
-        # Optional safety truncation per AI-SPEC §4b.4
-        if len(excerpts_text) > 60000:
+        if conn is not None:
+            conn.close()
+        sys.exit(BUDGET_EXCEEDED_EXIT_CODE)
+
+    # ---- Phase 37: bind graph tools when available (LIBTOOLS-04) ----
+    if graph_tools:
+        librarian_llm = librarian_llm.bind_tools(graph_tools)
+
+    # ---- Phase 37: wrap remaining run_query body in try/finally (LIBTOOLS-03) ----
+    try:
+        pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+
+        async def drill_page(page_path: str) -> TaskResult:
+            page_text = _page_texts.get(page_path) or (wiki / page_path).read_text(
+                encoding="utf-8", errors="replace"
+            )
+            # Truncation guard per AI-SPEC §4b.4: cap at 24000 chars
+            if len(page_text) > 24000:
+                page_text = page_text[:24000] + "\n[TRUNCATED]"
+                logger.warning("Truncated oversized page: %s", page_path)
+            msgs: list = [
+                SystemMessage(content=LIBRARIAN_SYSTEM + addendum),
+                HumanMessage(content=f"Query: {query}\n\nPage ({page_path}):\n{page_text}"),
+            ]
+            # Phase 37 agentic tool-call loop — mirrors _run_code_fallback's
+            # loop at query.py:461-489. When graph_tools is empty
+            # (NOT_INITIALIZED path), the first ainvoke returns no tool_calls
+            # because nothing was bound; loop exits in iteration 0.
+            for _iteration in range(_LIBRARIAN_MAX_ITERS):
+                resp = await librarian_llm.ainvoke(msgs)
+                tool_calls = getattr(resp, "tool_calls", None) or []
+                if not tool_calls:
+                    # Phase 16-02 G-01: terminal AIMessage carries usage_metadata.
+                    return TaskResult(value=getattr(resp, "content", "") or "", response=resp)
+                msgs.append(resp)
+                for call in tool_calls:
+                    call_name = call.get("name", "") if isinstance(call, dict) else ""
+                    call_args = call.get("args", {}) if isinstance(call, dict) else {}
+                    call_id = call.get("id", "") if isinstance(call, dict) else ""
+                    tool_obj = next(
+                        (t for t in graph_tools if t.name == call_name), None
+                    )
+                    if tool_obj is None:
+                        tool_output = f"ERROR: unknown tool {call_name!r}"
+                    else:
+                        try:
+                            tool_output = tool_obj.invoke(call_args)
+                        except Exception as exc:
+                            tool_output = f"ERROR: {exc}"
+                    if not isinstance(tool_output, str):
+                        tool_output = str(tool_output)
+                    msgs.append(ToolMessage(content=tool_output, tool_call_id=call_id))
             logger.warning(
-                "Truncating librarian excerpts before synthesis (query_id=%s)",
+                "librarian hit max iteration cap (%d) on page %s (query_id=%s)",
+                _LIBRARIAN_MAX_ITERS,
+                page_path,
                 query_id,
             )
-            excerpts_text = excerpts_text[:60000]
+            return TaskResult(value="NO_RELEVANT_CONTENT", response=None)
 
-        synth_override = (role_model_overrides or {}).get("synthesizer")
-        synth_cfg = load_role_config("synthesizer")
-        if synth_override is not None:
-            synth_llm = ChatBedrockConverse(
-                model_id=synth_override,
-                region_name=synth_cfg["region"],
-                max_tokens=synth_cfg["max_tokens"],
-            )
-        else:
-            synth_llm = make_llm("synthesizer")
-        resolved_synth_model_id = synth_override or synth_cfg["model_id"]
-        synth_msgs = [
-            SystemMessage(content=SYNTHESIZER_SYSTEM),
-            HumanMessage(
-                content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"
-            ),
+        fan_result: FanOutResult = await pool.run_all(
+            items=top_pages,
+            task=drill_page,
+            role="librarian",
+            model_id=lib_cfg["model_id"],
+            max_concurrency=lib_cfg["max_concurrency"],
+        )
+
+        # Step 7: Determine whether the librarian fan-out yielded any useful
+        # excerpts. Plan 09 vault-thin code-fallback fires only when this is empty.
+        useful_excerpts = [
+            (item, result)
+            for item, result in fan_result.successes
+            if (result or "").strip() and (result or "").strip() != "NO_RELEVANT_CONTENT"
         ]
-        # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
-        # feed the summary_record so the query summary reports usage.
-        synth_trace_dir = wiki / ".graph-wiki" / "traces"
-        synth_trace_dir.mkdir(parents=True, exist_ok=True)
-        synth_trace_file = synth_trace_dir / f"synth_librarian_{query_id}.jsonl"
-        synth_t0 = time.monotonic()
-        synth_resp = await synth_llm.ainvoke(synth_msgs)
-        synth_latency_ms = int((time.monotonic() - synth_t0) * 1000)
-        write_trace_record(
-            synth_trace_file,
-            role="synthesizer",
-            model_id=resolved_synth_model_id,
-            item=query_id,
-            status="success",
-            latency_ms=synth_latency_ms,
-            response=synth_resp,
-        )
-        tokens_in, tokens_out = _extract_usage_tokens(synth_resp)
-        answer = synth_resp.content
 
-        # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
-        # wikilinks. fan_result.successes is non-empty here by construction
-        # (useful_excerpts is a subset).
-        unresolved = _compute_unresolved_wikilinks(answer, wiki)
-        if unresolved:
+        code_fallback_used = False
+
+        if useful_excerpts:
+            # ---- Regular path (vault-rich): synth on librarian excerpts ----
+            excerpts_text = "\n\n---\n\n".join(
+                f"[{item}]\n{result}" for item, result in useful_excerpts
+            )
+            # Optional safety truncation per AI-SPEC §4b.4
+            if len(excerpts_text) > 60000:
+                logger.warning(
+                    "Truncating librarian excerpts before synthesis (query_id=%s)",
+                    query_id,
+                )
+                excerpts_text = excerpts_text[:60000]
+
+            synth_override = (role_model_overrides or {}).get("synthesizer")
+            synth_cfg = load_role_config("synthesizer")
+            if synth_override is not None:
+                synth_llm = ChatBedrockConverse(
+                    model_id=synth_override,
+                    region_name=synth_cfg["region"],
+                    max_tokens=synth_cfg["max_tokens"],
+                )
+            else:
+                synth_llm = make_llm("synthesizer")
+            resolved_synth_model_id = synth_override or synth_cfg["model_id"]
+            synth_msgs = [
+                SystemMessage(content=SYNTHESIZER_SYSTEM),
+                HumanMessage(
+                    content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"
+                ),
+            ]
+            # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
+            # feed the summary_record so the query summary reports usage.
+            synth_trace_dir = wiki / ".graph-wiki" / "traces"
+            synth_trace_dir.mkdir(parents=True, exist_ok=True)
+            synth_trace_file = synth_trace_dir / f"synth_librarian_{query_id}.jsonl"
+            synth_t0 = time.monotonic()
+            synth_resp = await synth_llm.ainvoke(synth_msgs)
+            synth_latency_ms = int((time.monotonic() - synth_t0) * 1000)
+            write_trace_record(
+                synth_trace_file,
+                role="synthesizer",
+                model_id=resolved_synth_model_id,
+                item=query_id,
+                status="success",
+                latency_ms=synth_latency_ms,
+                response=synth_resp,
+            )
+            tokens_in, tokens_out = _extract_usage_tokens(synth_resp)
+            answer = synth_resp.content
+
+            # Plan 03-08: One-shot retry if the synthesizer emitted unresolved
+            # wikilinks. fan_result.successes is non-empty here by construction
+            # (useful_excerpts is a subset).
+            unresolved = _compute_unresolved_wikilinks(answer, wiki)
+            if unresolved:
+                logger.info(
+                    "synthesizer emitted %d unresolved wikilink(s); retrying once: %s",
+                    len(unresolved),
+                    unresolved,
+                )
+                answer = await _retry_synthesis_drop_unresolved(
+                    synth_llm, query, excerpts_text, unresolved
+                )
+        else:
+            # ---- Plan 09 vault-thin code-fallback branch ----
             logger.info(
-                "synthesizer emitted %d unresolved wikilink(s); retrying once: %s",
-                len(unresolved),
-                unresolved,
+                "librarian fan-out returned no useful excerpts; entering code-fallback (query_id=%s)",
+                query_id,
             )
-            answer = await _retry_synthesis_drop_unresolved(
-                synth_llm, query, excerpts_text, unresolved
+            code_fallback_used = True
+            answer, tokens_in, tokens_out = await _run_code_fallback(
+                query=query,
+                wiki=wiki,
+                top_pages=top_pages,
+                pool=pool,
+                query_id=query_id,
+                code_reader_override=(role_model_overrides or {}).get("code_reader"),
             )
-    else:
-        # ---- Plan 09 vault-thin code-fallback branch ----
-        logger.info(
-            "librarian fan-out returned no useful excerpts; entering code-fallback (query_id=%s)",
-            query_id,
-        )
-        code_fallback_used = True
-        answer, tokens_in, tokens_out = await _run_code_fallback(
-            query=query,
-            wiki=wiki,
-            top_pages=top_pages,
-            pool=pool,
-            query_id=query_id,
-            code_reader_override=(role_model_overrides or {}).get("code_reader"),
+
+        # Step 8: Build QueryResult with search_scores
+        query_result = QueryResult(
+            answer=answer,
+            citations=_extract_wikilinks(answer),
+            pages_drilled=len(fan_result.successes),
+            search_scores={
+                p: {
+                    "bm25": bm25_score_map.get(p, 0.0),
+                    "embed": embed_score_map.get(p, 0.0),
+                    "rrf": fused.get(p, 0.0),
+                }
+                for p in top_pages
+            },
         )
 
-    # Step 8: Build QueryResult with search_scores
-    query_result = QueryResult(
-        answer=answer,
-        citations=_extract_wikilinks(answer),
-        pages_drilled=len(fan_result.successes),
-        search_scores={
-            p: {
-                "bm25": bm25_score_map.get(p, 0.0),
-                "embed": embed_score_map.get(p, 0.0),
-                "rrf": fused.get(p, 0.0),
+        # Step 9: Apply guardrails (G1 + G4). On the code-fallback path the
+        # librarian fan_result may have zero successes (all errored, or none at
+        # all) — G4 would then falsely flag the code-derived answer as
+        # unsupported. Skip G4 on the code-fallback path; G1 still runs so
+        # unresolved wikilinks emitted by the synthesizer are caught either way.
+        query_result = apply_guardrails(
+            query_result, wiki, fan_result, skip_g4=code_fallback_used
+        )
+
+        # Write query summary trace record (RESEARCH Open Question 1 — write directly)
+        ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
+        trace_dir = wiki / ".graph-wiki" / "traces"
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        summary_file = trace_dir / f"query_{query_id}.jsonl"
+        try:
+            summary_record = {
+                "schema_version": 1,  # Phase 9 OBS-04 D-01/D-02 — every record self-describing
+                "kind": "query_summary",
+                "query_id": query_id,
+                "query": query,
+                "top_k": top_k,
+                "pages_retrieved": len(top_pages),
+                "pages_drilled": query_result.pages_drilled,
+                "code_fallback": code_fallback_used,
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "tokens_in": tokens_in,  # TRACE-FU-01 D-03: synth usage_metadata
+                "tokens_out": tokens_out,
             }
-            for p in top_pages
-        },
-    )
+            with summary_file.open("w") as f:
+                f.write(json.dumps(summary_record) + "\n")
+        except OSError as exc:
+            logger.warning("Could not write query summary trace: %s", exc)
 
-    # Step 9: Apply guardrails (G1 + G4). On the code-fallback path the
-    # librarian fan_result may have zero successes (all errored, or none at
-    # all) — G4 would then falsely flag the code-derived answer as
-    # unsupported. Skip G4 on the code-fallback path; G1 still runs so
-    # unresolved wikilinks emitted by the synthesizer are caught either way.
-    query_result = apply_guardrails(
-        query_result, wiki, fan_result, skip_g4=code_fallback_used
-    )
-
-    # Write query summary trace record (RESEARCH Open Question 1 — write directly)
-    ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
-    trace_dir = wiki / ".graph-wiki" / "traces"
-    trace_dir.mkdir(parents=True, exist_ok=True)
-    summary_file = trace_dir / f"query_{query_id}.jsonl"
-    try:
-        summary_record = {
-            "schema_version": 1,  # Phase 9 OBS-04 D-01/D-02 — every record self-describing
-            "kind": "query_summary",
-            "query_id": query_id,
-            "query": query,
-            "top_k": top_k,
-            "pages_retrieved": len(top_pages),
-            "pages_drilled": query_result.pages_drilled,
-            "code_fallback": code_fallback_used,
-            "started_at": started_at,
-            "ended_at": ended_at,
-            "tokens_in": tokens_in,  # TRACE-FU-01 D-03: synth usage_metadata
-            "tokens_out": tokens_out,
-        }
-        with summary_file.open("w") as f:
-            f.write(json.dumps(summary_record) + "\n")
-    except OSError as exc:
-        logger.warning("Could not write query summary trace: %s", exc)
-
-    return query_result
+        return query_result
+    finally:
+        if conn is not None:
+            conn.close()
