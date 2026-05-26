@@ -174,6 +174,60 @@ def _emit_pyproject_entries(
     return nodes, edges
 
 
+def _walk_exports(
+    obj: object,
+    *,
+    key_path: str,
+    condition: str | None,
+    callback,
+    source: str,
+) -> None:
+    """Recursively walk a package.json exports object, calling callback for
+    each string-valued leaf with a derived key path.
+
+    - Strings are leaves; the callback receives the derived name (key path),
+      the path value, the current condition selector, and a wildcard flag.
+    - Dicts split into condition selectors (keys in _EXPORT_CONDITION_KEYS)
+      and sub-path keys (starting with "./" or just "."). Condition keys
+      recurse with an updated condition; sub-path keys extend the key path.
+    - Anything else is skipped.
+    """
+    if isinstance(obj, str):
+        is_wildcard = "*" in obj
+        callback(
+            key_path,
+            None if is_wildcard else obj,
+            entry_kind="library",
+            source=source,
+            condition=condition,
+            is_wildcard=is_wildcard,
+            path_pattern=obj if is_wildcard else None,
+        )
+        return
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in _EXPORT_CONDITION_KEYS:
+                _walk_exports(
+                    v,
+                    key_path=key_path,
+                    condition=k,
+                    callback=callback,
+                    source=source,
+                )
+            elif k == "." or k.startswith("./"):
+                if key_path == ".":
+                    new_key = k
+                else:
+                    new_key = f"{key_path}/{k.removeprefix('./')}"
+                _walk_exports(
+                    v,
+                    key_path=new_key,
+                    condition=condition,
+                    callback=callback,
+                    source=source,
+                )
+
+
 def _emit_packagejson_entries(
     pkg_name: str,
     pkg_rel: str,
@@ -181,8 +235,157 @@ def _emit_packagejson_entries(
     ctx: RepoContext,
     repo_root: Path,
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
-    """Parse package.json and emit EntryPoint nodes + edges (Task 3)."""
-    return [], []
+    """Parse package.json and emit EntryPoint nodes + edges.
+
+    Handles 'main' / 'module' (library), 'bin' (executable, string or object
+    form per D-08), and a recursive walk of 'exports' (library; D-07).
+    Path resolution: leading './' stripped, resolved against the Package
+    directory; missing files yield a stderr warning + no implemented_by edge.
+    Wildcards (`*`) are never resolved to files (path expansion deferred).
+    """
+    nodes: list[GraphNode] = []
+    edges: list[GraphEdge] = []
+    pjson = pkg_dir / "package.json"
+    if not pjson.exists():
+        return [], []
+
+    try:
+        data = json.loads(pjson.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(
+            f"[entry_points] warning: failed to parse {pjson}: {exc}",
+            file=sys.stderr,
+        )
+        return [], []
+
+    pkg_key = ("package", pkg_name, pkg_rel if pkg_rel else None)
+    pkgjson_name = data.get("name", pkg_name) if isinstance(data, dict) else pkg_name
+
+    def _resolve_path(value: str) -> str | None:
+        if "*" in value:
+            return None
+        cleaned = value
+        if cleaned.startswith("./"):
+            cleaned = cleaned[2:]
+        candidate = (pkg_dir / cleaned).resolve()
+        if not candidate.exists():
+            return None
+        try:
+            return candidate.relative_to(repo_root).as_posix()
+        except ValueError:
+            return None
+
+    def _emit_entry(
+        ep_name: str,
+        value: str | None,
+        *,
+        entry_kind: str,
+        source: str,
+        condition: str | None = None,
+        is_wildcard: bool = False,
+        path_pattern: str | None = None,
+    ) -> None:
+        # Disambiguate conditional exports via the upsert path slot — two
+        # EntryPoint nodes with the same export key ("." for example) and
+        # different conditions ("import" vs "require") must be distinct
+        # rows. The condition is also stored in attrs for queries.
+        node_path = f"condition:{condition}" if condition else None
+        attrs = {
+            "uri": entry_point_uri(ctx, pkg_name, ep_name),
+            "entry_kind": entry_kind,
+            "source": source,
+            "callable": None,
+            "condition": condition,
+            "is_wildcard": is_wildcard,
+            "path_pattern": path_pattern,
+        }
+        nodes.append(
+            GraphNode(
+                kind="entry_point",
+                name=ep_name,
+                path=node_path,
+                line=None,
+                attrs=attrs,
+            )
+        )
+        ep_key = ("entry_point", ep_name, node_path)
+        edges.append(
+            GraphEdge(
+                src=pkg_key,
+                dst=ep_key,
+                kind="declares_entry_point",
+                attrs={},
+            )
+        )
+        if value is not None and not is_wildcard:
+            file_rel = _resolve_path(value)
+            if file_rel is not None:
+                edges.append(
+                    GraphEdge(
+                        src=ep_key,
+                        dst=("file", file_rel, file_rel),
+                        kind="implemented_by",
+                        attrs={},
+                    )
+                )
+            else:
+                print(
+                    f"[entry_points] warning: cannot resolve implemented_by "
+                    f"for {pkg_name} entry '{ep_name}' = '{value}' "
+                    f"(manifest: {pjson})",
+                    file=sys.stderr,
+                )
+
+    if not isinstance(data, dict):
+        return [], []
+
+    # main, module
+    main_val = data.get("main")
+    if isinstance(main_val, str):
+        _emit_entry("main", main_val, entry_kind="library", source="package.json.main")
+    module_val = data.get("module")
+    if isinstance(module_val, str):
+        _emit_entry(
+            "module", module_val, entry_kind="library", source="package.json.module"
+        )
+
+    # bin (string or object)
+    bin_val = data.get("bin")
+    if isinstance(bin_val, str):
+        _emit_entry(
+            pkgjson_name,
+            bin_val,
+            entry_kind="executable",
+            source="package.json.bin",
+        )
+    elif isinstance(bin_val, dict):
+        for bin_key, bin_path in bin_val.items():
+            if isinstance(bin_path, str):
+                _emit_entry(
+                    bin_key,
+                    bin_path,
+                    entry_kind="executable",
+                    source="package.json.bin",
+                )
+
+    # exports (recursive)
+    exports = data.get("exports")
+    if exports is not None:
+        _walk_exports(
+            exports,
+            key_path=".",
+            condition=None,
+            callback=_emit_entry,
+            source="package.json.exports",
+        )
+
+    return nodes, edges
+
+
+# ENTRY-05: shebang scripts are NOT entry points — they ride on
+# File.is_executable from Phase 29. Do NOT add shebang-script handling here.
+# _SHEBANG_NOT_ENTRY_POINT = True
+
 
 
 # --- Public emit() ---
