@@ -8,7 +8,11 @@ packages/eval-harness/
 # Wiki test fixture vault — round-trip-vault preserves the historical lattice-* layout
 packages/wiki-io/
 
-# Cross-package imports of workspace_io
+# Cross-package imports of workspace_io (the canonical post-rename package name;
+# graph-io imports workspace_io.config + workspace_io.paths — D-19 didn't list this
+# because the plan assumed only `lattice|LATTICE` mattered in graph-io, but
+# check-brand.sh's regex also catches `workspace_io` literal references)
+packages/graph-io/
 packages/model-adapter/
 agents/graph-wiki-agent/
 plugins/graph-wiki/
@@ -18,3 +22,8 @@ plugins/graph-wiki/
 
 # CLAUDE.md references workspace_io as the canonical package name
 CLAUDE.md
+
+# The brand-check script's own self-references (matches its own CHECK 2 regex literal in
+# the script's comments and shell pattern). Pre-existing carry-over from prior brand
+# sweeps; D-19 dropped it but the gate fails without it.
+scripts/check-brand.sh
