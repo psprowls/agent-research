@@ -2,6 +2,7 @@
 created: 2026-05-21T17:43:14.204Z
 title: Bootstrap should stub empty category index files
 area: graph-wiki
+resolves_phase: 35
 files:
   - packages/wiki-io/src/wiki_io/init_vault.py
   - packages/wiki-io/src/assets/page-templates/

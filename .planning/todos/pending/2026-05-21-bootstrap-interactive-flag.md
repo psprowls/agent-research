@@ -4,6 +4,7 @@ title: graph-wiki-agent bootstrap --interactive flag
 area: graph-wiki
 origin_phase: 25
 deferred_from: PKGCLS-03 (D-12)
+resolves_phase: 35
 files:
   - agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
   - agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py
