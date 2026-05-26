@@ -75,6 +75,8 @@ def test_domain_uri_has_no_ctx() -> None:
         ("https://github.com/pat/agent-research", ("pat", "agent-research")),
         ("https://github.com/pat/agent-research/", ("pat", "agent-research")),
         ("https://gitlab.com/group/subgroup/repo", None),
+        ("git@gitlab.com:group/subgroup/repo.git", None),
+        ("git@gitlab.com:group/subgroup/repo", None),
         ("git://foo/bar", None),
         ("file:///tmp/x", None),
         ("not a url", None),

@@ -40,7 +40,7 @@ def domain_uri(name: str) -> str:
     return f"domain:{name}"
 
 
-_SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/(.+?)(?:\.git)?$")
+_SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")
 _HTTPS_REMOTE_RE = re.compile(r"^https?://[^/]+/([^/]+)/([^/]+?)(?:\.git)?/?$")
 
 
