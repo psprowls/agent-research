@@ -40,13 +40,13 @@ def populated_repo(tmp_path: Path) -> Path:
 
 
 def test_find(populated_repo: Path) -> None:
-    res = _cg(["find", "alpha", "--kind", "function"], populated_repo)
+    res = _cg(["find", "--name", "alpha", "--kind", "function"], populated_repo)
     assert res.returncode == 0
     assert "alpha" in res.stdout
 
 
 def test_find_json(populated_repo: Path) -> None:
-    res = _cg(["--fmt", "json", "find", "alpha"], populated_repo)
+    res = _cg(["--fmt", "json", "find", "--name", "alpha"], populated_repo)
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert any(r["name"] == "alpha" for r in data)
@@ -88,7 +88,7 @@ def test_describe_path(populated_repo: Path) -> None:
 def test_query_without_db_returns_3(tmp_path: Path) -> None:
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
-    res = _cg(["find", "alpha"], tmp_path)
+    res = _cg(["find", "--name", "alpha"], tmp_path)
     assert res.returncode == 3
 
 
@@ -147,3 +147,47 @@ def test_imported_by_without_db_returns_3(tmp_path: Path) -> None:
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
     res = _cg(["imported-by", "a.py"], tmp_path)
     assert res.returncode == 3
+
+
+# ── Phase 36: cg find named-flag UX (CGFIND-01/02/03) ────────────────────────
+
+
+def test_find_with_named_flags(populated_repo: Path) -> None:
+    res = _cg(["find", "--name", "alpha", "--kind", "function"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    assert "alpha" in res.stdout
+
+
+def test_find_no_filters_errors(populated_repo: Path) -> None:
+    res = _cg(["find"], populated_repo)
+    assert res.returncode == 2, (res.returncode, res.stderr)
+    err = res.stderr.lower()
+    assert "--name" in err and "--kind" in err and "--in-package" in err
+
+
+def test_find_invalid_kind_errors(populated_repo: Path) -> None:
+    res = _cg(["find", "--name", "alpha", "--kind", "bogus"], populated_repo)
+    assert res.returncode == 2, (res.returncode, res.stderr)
+    err = res.stderr.lower()
+    assert "invalid choice" in err or "choose from" in err
+
+
+def test_find_in_package(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "find", "--in-package", "demo"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    names = {r["name"] for r in data}
+    assert "alpha" in names
+
+
+def test_find_in_package_case_insensitive(populated_repo: Path) -> None:
+    res = _cg(["--fmt", "json", "find", "--in-package", "DEMO"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    names = {r["name"] for r in data}
+    assert "alpha" in names
+
+
+def test_find_in_package_unknown_exits_1(populated_repo: Path) -> None:
+    res = _cg(["find", "--in-package", "nonexistent-pkg-xyz"], populated_repo)
+    assert res.returncode == 1, (res.returncode, res.stdout, res.stderr)

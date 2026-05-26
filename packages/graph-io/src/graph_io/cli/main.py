@@ -89,7 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     for name, mod in _SUBCOMMANDS.items():
         sp = sub.add_parser(name)
         mod.add_arguments(sp)
-        sp.set_defaults(_module=mod)
+        sp.set_defaults(_module=mod, _parser=sp)
     return parser
 
 

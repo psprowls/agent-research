@@ -81,7 +81,7 @@ def post_phase33_fixture(tmp_path_factory) -> FixtureRefs:
 
     # Resolve a known-good package, file, and symbol from the seeded DB so
     # the parametrized assertions never use brittle hardcoded names.
-    find_func = _run_cli(["--fmt", "json", "find", "main"], repo_dir)
+    find_func = _run_cli(["--fmt", "json", "find", "--name", "main"], repo_dir)
     assert find_func.returncode == 0, find_func.stderr
     funcs = json.loads(find_func.stdout or "[]")
     assert funcs, "fixture did not produce any 'main' symbol"
@@ -115,7 +115,7 @@ def test_pre_existing_subcommand_exits_zero(
     refs = post_phase33_fixture
     args_by_cmd: dict[str, list[str]] = {
         "update": ["update", "--full"],
-        "find": ["find", "main"],
+        "find": ["find", "--name", "main"],
         "status": ["status"],
         "describe-package": ["describe-package", refs.package_name],
         "describe-path": ["describe-path", refs.file_path],
@@ -126,6 +126,21 @@ def test_pre_existing_subcommand_exits_zero(
     assert result.returncode == 0, (
         f"cg {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
     )
+
+
+def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
+    """D-11: `cg find <name>` positional form must produce a parse error.
+
+    Guards against silent regression — without this, a future refactor that
+    re-added `parser.add_argument("name")` would pass every other test
+    (they all use --name now).
+    """
+    refs = post_phase33_fixture
+    result = _run_cli(["find", "foo.py"], refs.repo_dir)
+    assert result.returncode != 0, (
+        f"positional `cg find foo.py` should error, got rc=0: {result.stdout}"
+    )
+    assert "unrecognized arguments" in result.stderr.lower(), result.stderr
 
 
 # Bonus assertion (D-16) — covers the 6 pre-existing subcommands not

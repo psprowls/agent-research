@@ -105,7 +105,7 @@ def test_exit_4_schema_mismatch(tmp_path: Path) -> None:
     for argv in (
         ["status"],
         ["dump"],
-        ["find", "x"],
+        ["find", "--name", "x"],
         ["callers", "x"],
         ["callees", "x"],
         ["imports", "a.py"],
@@ -201,7 +201,7 @@ def test_cg_find_on_v1_db_exits_schema_mismatch(tmp_path: Path) -> None:
     """
     _make_v1_db(tmp_path)
 
-    res = _cg(["find", "foo"], tmp_path)
+    res = _cg(["find", "--name", "foo"], tmp_path)
 
     assert res.returncode == 4, (res.stdout, res.stderr)
     assert "cg update --full" in res.stderr, res.stderr

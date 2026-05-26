@@ -114,3 +114,54 @@ def test_render_exporter_record_falls_through() -> None:
     rows = [ExporterRecord(path="a.py", name="foo")]
     parsed = json.loads(_format.render(rows, fmt="json"))
     assert parsed == [{"path": "a.py", "name": "foo"}]
+
+
+# ── Phase 36: cap + on_truncate (D-09) ───────────────────────────────────────
+
+
+def _make_rows(n: int) -> list[Row]:
+    return [Row("function", f"f{i}", f"f{i}.py", i) for i in range(n)]
+
+
+def test_render_caps_human_at_50() -> None:
+    rows = _make_rows(75)
+    out = _format.render(rows, fmt="human", cap=50)
+    lines = out.splitlines()
+    # 50 data rows + 1 trailer line
+    assert len(lines) == 51
+    assert "showing 50 of 75" in lines[-1]
+    assert "truncated" in lines[-1]
+
+
+def test_render_caps_json_at_50() -> None:
+    rows = _make_rows(75)
+    out = _format.render(rows, fmt="json", cap=50)
+    parsed = json.loads(out)
+    # Flat array, no envelope wrap (RESEARCH §3.2 option 1)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 50
+
+
+def test_render_invokes_on_truncate_callback() -> None:
+    calls: list[tuple[int, int]] = []
+
+    def _cb(shown: int, total: int) -> None:
+        calls.append((shown, total))
+
+    # Truncation fires
+    _format.render(_make_rows(75), fmt="human", cap=50, on_truncate=_cb)
+    assert calls == [(50, 75)]
+
+    # No truncation when total <= cap
+    calls.clear()
+    _format.render(_make_rows(10), fmt="human", cap=50, on_truncate=_cb)
+    assert calls == []
+
+
+def test_render_no_cap_passes_through() -> None:
+    rows = _make_rows(75)
+    out = _format.render(rows, fmt="human")
+    lines = out.splitlines()
+    assert len(lines) == 75
+    # No truncation trailer present
+    assert not any("truncated" in line for line in lines)

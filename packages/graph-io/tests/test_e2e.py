@@ -32,7 +32,7 @@ def test_e2e_pipeline(tmp_path: Path) -> None:
 
     assert _cg(["update", "--full"], tmp_path).returncode == 0
 
-    res = _cg(["--fmt", "json", "find", "alpha"], tmp_path)
+    res = _cg(["--fmt", "json", "find", "--name", "alpha"], tmp_path)
     assert res.returncode == 0
     assert any(r["name"] == "alpha" for r in json.loads(res.stdout))
 

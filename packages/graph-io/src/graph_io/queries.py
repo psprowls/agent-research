@@ -168,36 +168,60 @@ def find(
     *,
     name: str | None = None,
     kind: str | None = None,
+    in_package: str | None = None,
 ) -> list[NodeRecord]:
-    """Find nodes by name and/or kind.
+    """Find nodes by name, kind, and/or containing package.
+
+    Filters AND-combine: passing multiple filters narrows results to nodes
+    matching all of them. `in_package` matches the short package name
+    (case-insensitive, exact) — i.e. the `name` column of the containing
+    `package` node — and selects every node whose `path` is contained by
+    that package via a `contains`-edge from package → file.
 
     `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
 
     Raises:
         ValueError: when `kind` is provided but is not in `_VALID_KINDS`,
-            or when both `name` and `kind` are None.
+            or when all of `name`, `kind`, and `in_package` are None.
     """
     if kind is not None and kind not in _VALID_KINDS:
         raise ValueError(
             f"unknown kind {kind!r}; valid: {sorted(_VALID_KINDS)}"
         )
-    if name is None and kind is None:
-        raise ValueError("find requires at least one of name or kind")
-    if name is not None and kind is None:
-        rows = conn.execute(
-            "SELECT kind, name, path, line, attrs_json FROM nodes WHERE name = ?",
-            (name,),
-        ).fetchall()
-    elif name is not None and kind is not None:
-        rows = conn.execute(
-            "SELECT kind, name, path, line, attrs_json FROM nodes WHERE name = ? AND kind = ?",
-            (name, kind),
-        ).fetchall()
-    else:  # name is None and kind is not None
-        rows = conn.execute(
-            "SELECT kind, name, path, line, attrs_json FROM nodes WHERE kind = ? ORDER BY name",
-            (kind,),
-        ).fetchall()
+    if name is None and kind is None and in_package is None:
+        raise ValueError(
+            "find requires at least one of name, kind, or in_package"
+        )
+
+    where_parts: list[str] = []
+    params: list = []
+    if name is not None:
+        where_parts.append("n.name = ?")
+        params.append(name)
+    if kind is not None:
+        where_parts.append("n.kind = ?")
+        params.append(kind)
+    if in_package is not None:
+        where_parts.append(
+            "n.path IN ("
+            "SELECT f.path FROM nodes p "
+            "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
+            "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
+            "WHERE p.kind='package' AND LOWER(p.name) = LOWER(?)"
+            ")"
+        )
+        params.append(in_package)
+
+    sql = (
+        "SELECT kind, name, path, line, attrs_json FROM nodes n WHERE "
+        + " AND ".join(where_parts)
+    )
+    # Preserve historical ORDER BY for kind-only queries — existing callers
+    # (e.g. test_find_per_kind) rely on alphabetical ordering.
+    if name is None and in_package is None and kind is not None:
+        sql += " ORDER BY name"
+
+    rows = conn.execute(sql, params).fetchall()
     return [_row_to_node(r) for r in rows]
 
 

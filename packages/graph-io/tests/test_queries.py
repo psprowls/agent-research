@@ -338,6 +338,69 @@ def test_find_requires_name_or_kind(empty_db: sqlite3.Connection) -> None:
     assert "name" in msg or "kind" in msg
 
 
+def _seed_demo_package(conn: sqlite3.Connection) -> None:
+    """Seed a single `demo` package containing src/a.py with `def alpha()`."""
+    upsert.upsert_records(conn, GraphRecords(
+        nodes=[
+            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="file", name="src/a.py", path="src/a.py", line=None, attrs={}),
+            GraphNode(kind="function", name="alpha", path="src/a.py", line=1, attrs={}),
+        ],
+        edges=[
+            GraphEdge(src=("package", "demo", "demo"), dst=("file", "src/a.py", "src/a.py"), kind="contains", attrs={}),
+            GraphEdge(src=("file", "src/a.py", "src/a.py"), dst=("function", "alpha", "src/a.py"), kind="contains", attrs={}),
+        ],
+    ))
+
+
+def test_find_in_package(conn: sqlite3.Connection) -> None:
+    _seed_demo_package(conn)
+    rows = queries.find(conn, in_package="demo")
+    found = {(r.kind, r.name) for r in rows}
+    assert ("file", "src/a.py") in found
+    assert ("function", "alpha") in found
+
+
+def test_find_in_package_case_insensitive(conn: sqlite3.Connection) -> None:
+    _seed_demo_package(conn)
+    lower = {(r.kind, r.name, r.path) for r in queries.find(conn, in_package="demo")}
+    upper = {(r.kind, r.name, r.path) for r in queries.find(conn, in_package="DEMO")}
+    mixed = {(r.kind, r.name, r.path) for r in queries.find(conn, in_package="Demo")}
+    assert lower == upper == mixed
+    assert lower, "expected non-empty result"
+
+
+def test_find_all_three_filters(conn: sqlite3.Connection) -> None:
+    # Two packages each defining a function named "alpha"; AND of all three
+    # filters must return only the one inside `demo`.
+    upsert.upsert_records(conn, GraphRecords(
+        nodes=[
+            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="package", name="other", path="other", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="file", name="demo/a.py", path="demo/a.py", line=None, attrs={}),
+            GraphNode(kind="file", name="other/a.py", path="other/a.py", line=None, attrs={}),
+            GraphNode(kind="function", name="alpha", path="demo/a.py", line=1, attrs={}),
+            GraphNode(kind="function", name="alpha", path="other/a.py", line=1, attrs={}),
+        ],
+        edges=[
+            GraphEdge(src=("package", "demo", "demo"), dst=("file", "demo/a.py", "demo/a.py"), kind="contains", attrs={}),
+            GraphEdge(src=("package", "other", "other"), dst=("file", "other/a.py", "other/a.py"), kind="contains", attrs={}),
+        ],
+    ))
+    rows = queries.find(conn, name="alpha", kind="function", in_package="demo")
+    assert [(r.kind, r.name, r.path) for r in rows] == [("function", "alpha", "demo/a.py")]
+
+
+def test_find_no_filters_raises(empty_db: sqlite3.Connection) -> None:
+    with pytest.raises(ValueError) as exc:
+        find(empty_db)
+    msg = str(exc.value).lower()
+    assert "name" in msg
+    assert "kind" in msg
+    # accept both `in_package` and `in-package` spellings
+    assert "in_package" in msg or "in-package" in msg
+
+
 def _count(conn: sqlite3.Connection, sql: str, *params) -> int:
     return conn.execute(sql, params).fetchone()[0]
 
