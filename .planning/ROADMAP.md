@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.7 — graph-io Integration & Wiki Hygiene (Phases 35-41)
+**Current milestone:** Planning next (v1.8)
 
 ---
 
@@ -15,7 +15,7 @@
 - ✅ **v1.4 — Workspace Path Resolution Cleanup** — Phases 22-26 (shipped 2026-05-25) — [archive](milestones/v1.4-ROADMAP.md) · [audit](milestones/v1.4-MILESTONE-AUDIT.md)
 - ✅ **v1.5 — Repo Rename & Foundational Package Additions** — Phase 27 (shipped 2026-05-25, retroactive) — [archive](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.6 — Code Graph Ontology Expansion** — Phases 28-34 (shipped 2026-05-26) — [archive](milestones/v1.6-ROADMAP.md)
-- 🚧 **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-41 (in progress)
+- ✅ **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-41 (shipped 2026-05-26) — [archive](milestones/v1.7-ROADMAP.md) · [audit](milestones/v1.7-MILESTONE-AUDIT.md)
 
 ---
 
@@ -114,103 +114,25 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.7 graph-io Integration & Wiki Hygiene (Phases 35-41)
+<details>
+<summary>✅ v1.7 graph-io Integration & Wiki Hygiene (Phases 35-41) — SHIPPED 2026-05-26</summary>
 
-**Milestone Goal:** Wire `graph-io` into `graph-wiki-agent` as the source of truth for librarian/scanner/ingestor, expose graph operations through a new `graph-wiki-agent graph` subcommand, fix `cg find` parser ergonomics, and burn down accumulated wiki/bootstrap/test-infra debt — so v1.7 closes with the agent actually using the ontology v1.6 built.
+- [x] Phase 35: Wiki & Bootstrap Hygiene Burn-Down (2/2 plans) — completed 2026-05-26
+- [x] Phase 36: `cg find` Parser Ergonomics (1/1 plan) — completed 2026-05-26
+- [x] Phase 37: Librarian Grounding Tools (2/2 plans) — completed 2026-05-26
+- [x] Phase 38: `graph-wiki-agent graph` Subcommand (2/2 plans) — completed 2026-05-26
+- [x] Phase 39: Scanner Consumes graph-io (1/1 plan) — completed 2026-05-26
+- [x] Phase 40: Ingestor Consumes graph-io (1/1 plan) — completed 2026-05-26
+- [x] Phase 41: Address v1.7 tech debt — integration_gate + traceability (1/1 plan) — completed 2026-05-26
 
-- [x] **Phase 35: Wiki & Bootstrap Hygiene Burn-Down** - Clear all 10 deferred quick tasks + 2 bootstrap todos before integration touches overlapping files (completed 2026-05-26)
-- [x] **Phase 36: `cg find` Parser Ergonomics** - Named-flag form (`--name`/`--kind`) replaces positional; old positional produces clear parse error (completed 2026-05-26)
-- [x] **Phase 37: Librarian Grounding Tools** - `graph_tools.py` with ≤5 `@tool` callables wired into `commands/query.py` via `bind_tools()` (completed 2026-05-26)
-- [x] **Phase 38: `graph-wiki-agent graph` Subcommand** - `build`/`describe`/`query` verbs on CLI + 3 MCP tools with cost-tracked traces (completed 2026-05-26)
-- [x] **Phase 39: Scanner Consumes graph-io** - Scanner derives vault page slugs from graph URIs; `run_scan()` calls `cg update` before fan-out (completed 2026-05-26)
-- [x] **Phase 40: Ingestor Consumes graph-io** - Ingestor checks graph for entity existence; clear `NOT_INITIALIZED` error; URI-drift documented (completed 2026-05-26)
-- [x] **Phase 41: Address v1.7 tech debt — integration_gate + traceability** - Restore canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on Phase 39 scan-end-to-end test + sync 20 stale REQUIREMENTS.md checkboxes/traceability rows (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) (planned) (completed 2026-05-26)
+Full detail: [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
+Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md)
 
----
+</details>
 
-## Phase Details
+### 📋 v1.8 (Planning)
 
-### Phase 35: Wiki & Bootstrap Hygiene Burn-Down
-**Goal**: The wiki templates, workspace-io, and bootstrap infrastructure are clean and correct — all 10 deferred quick tasks and 2 bootstrap todos are closed — before any integration phase touches overlapping files
-**Depends on**: Phase 34 (v1.6 shipped)
-**Requirements**: HYGIENE-01, HYGIENE-02, HYGIENE-03, HYGIENE-04, HYGIENE-05, HYGIENE-06, HYGIENE-07, HYGIENE-08, HYGIENE-09, HYGIENE-10, HYGIENE-11, HYGIENE-12, HYGIENE-13, HYGIENE-14
-**Success Criteria** (what must be TRUE):
-  1. A freshly-bootstrapped and scanned wiki has zero broken wikilinks — all `[[wiki/<container>/...]]`-prefixed links in package overview / context / domain overview templates resolve to existing pages (`hfr`)
-  2. The 3/3 `test_cli_help.py` ANSI-strip tests pass (verified, not re-implemented; `260521-ans` closed as already-resolved at scoping)
-  3. `workspace_io.init()` tolerates a sparse v2 manifest with no `plugins` key without raising (`lj3`), and `workspace_io.config.resolve()` correctly finds the repo dir when `GRAPH_WIKI_WORKSPACE` points at a workspace that is itself a git repo (`gc0`)
-  4. The graph-wiki bootstrap self-heals via `uv` re-exec using `Path(__file__).resolve()` (not `sys.argv[0]`), with loop-prevention env var in place, and the `--interactive` flag is wired (`mfm`, HYGIENE-11)
-  5. Plugin docs (`plugins/graph-wiki/agents/*.md` and `plugins/graph-wiki/skills/graph-wiki/*`) use the `uv run --project "$AGENT_RESEARCH_ROOT" python ...` shim form throughout (`kxi`); Phase 14 SC#4 manual `/graph-wiki:query` plugin smoke transcript is captured and committed (`HYGIENE-14`)
-**Plans**: TBD
-
-### Phase 36: `cg find` Parser Ergonomics
-**Goal**: The `cg find` subcommand accepts named flags (`--name`, `--kind`, `--in-package`) for all filter combinations, and the old positional-only form produces a clear parse error rather than silent wrong behavior
-**Depends on**: Phase 35
-**Requirements**: CGFIND-01, CGFIND-02, CGFIND-03
-**Success Criteria** (what must be TRUE):
-  1. `cg find --name foo.py --kind file` exits 0 and returns correct matches (no arg-parse failure)
-  2. `cg find --name SubagentPool --kind class` exits 0 or 1 (found / not-found), never exit code 2 (arg-parse error)
-  3. `cg find foo.py` (old positional form) produces a clear human-readable parse error — no silent wrong behavior — and all internal callers in `packages/graph-io/tests/` that used the positional form are updated in the same commit
-**Plans**: TBD
-
-### Phase 37: Librarian Grounding Tools
-**Goal**: The librarian agent can resolve symbol and package identity through the code graph rather than guessing from context — `graph_tools.py` exposes ≤5 `@tool` callables, wired into `commands/query.py` with a shared read-only connection and token-budget validation
-**Depends on**: Phase 35
-**Requirements**: LIBTOOLS-01, LIBTOOLS-02, LIBTOOLS-03, LIBTOOLS-04, LIBTOOLS-05
-**Success Criteria** (what must be TRUE):
-  1. `graph_tools.py` exists at `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py` and exposes exactly ≤5 `@tool`-decorated callables (count locked at phase scoping; see open scoping question below)
-  2. Every tool callable declares `-> str` return type and serializes results through `graph_io.cli._format.render(records, fmt="human")` with a hard 50-row cap and an explicit truncation notice when the cap is hit
-  3. `build_graph_tools(conn)` factory accepts a single open `graph_io.store.read_only_connect()` connection via closure; one connection opened at command entry, shared by all tool closures, closed in `finally` — no per-tool-call connection open
-  4. `commands/query.py` opens a read-only connection against `workspace_io.paths.graph_dir(workspace) / "code.db"`, binds tools via `.bind_tools()`, and falls back gracefully to librarian-without-tools (with a clear console notice) when graph-io is not initialized
-  5. CountTokens pre-flight verifies that system prompt + tool schemas + input stays within model context budget; the gate is enforced at command entry before any LLM call
-
-**Open scoping question for Phase 37 planning (NOT a research gap — a deliberate design choice):** The exact grouping and naming of the ≤5 librarian `@tool` callables must be decided at phase scoping, before implementation begins. Research caps the COUNT at ≤5 and prescribes the return format, but does NOT prescribe which of the 15+ `queries.py` functions become tools or how they cluster. The phase plan must open with this design decision locked.
-**Plans**: TBD
-
-### Phase 38: `graph-wiki-agent graph` Subcommand
-**Goal**: Graph operations are first-class in the agent CLI — `graph-wiki-agent graph build|describe|query` surfaces `cg` operations with agent-aware `--trace` and `--model` options, and three corresponding MCP tools are registered in `server.py`
-**Depends on**: Phase 35 (hygiene done; can proceed in parallel with Phase 37 — different files)
-**Requirements**: GRAPHCMD-01, GRAPHCMD-02, GRAPHCMD-03, GRAPHCMD-04
-**Success Criteria** (what must be TRUE):
-  1. `graph-wiki-agent graph --help` exits 0 and lists exactly 3 subcommands: `build`, `describe`, `query` — no more, no fewer
-  2. `graph-wiki-agent graph build` invokes the graph-io update path (incremental by default, `--full` for rebuild); the only flags beyond `cg`'s own set are `--trace` and `--model`
-  3. `graph describe` and `graph query` mirror `cg describe-*` / `cg find` semantics exactly; a cost-tracked JSONL trace record is written to `.graph-wiki/traces/` when `--trace` is set for `graph build`
-  4. `graph-wiki-mcp` server exposes `graph_build`, `graph_describe`, and `graph_query` MCP tools (using the `graph_` prefix, parallel to the existing `wiki_*` tools); all three appear in `wiki_ping` server discovery
-**UI hint**: no
-**Plans**: TBD
-
-### Phase 39: Scanner Consumes graph-io
-**Goal**: The scanner uses graph-io as the source of truth for what gets scanned and where vault pages land — URIs key page slugs, graph is refreshed before every scan, and degradation when the graph is absent is explicit and logged
-**Depends on**: Phase 35, Phase 37 (validates `build_graph_tools(conn)` / connection-lifetime pattern before page-writing changes land)
-**Requirements**: SCANNER-01, SCANNER-02, SCANNER-03
-**Success Criteria** (what must be TRUE):
-  1. `run_scan()` calls `cg update` (incremental) before subagent fan-out so graph URIs are fresh at scan time; this call is visible in the scan log output
-  2. The scanner derives vault page slugs from graph URIs (e.g., `pkg:org/repo/graph-io` → `wiki/packages/graph-io/overview.md`) rather than inferring from filesystem path; when the graph is not initialized, the scanner falls back to path-based slug logic with a clearly labeled log line (`NOT_INITIALIZED fallback`)
-  3. The Phase 14 SC#4 manual `/graph-wiki:query` plugin smoke transcript is captured (or confirmed already captured from Phase 35) and committed as a regression artifact; `plugins/graph-wiki/` end-to-end smoke runs successfully against unchanged wiki-io behavior
-**Plans**: TBD
-
-### Phase 40: Ingestor Consumes graph-io
-**Goal**: The ingestor resolves entity existence through graph-io rather than reconstructing from filesystem — canonical entities are verified before ingest decisions, absent graph is a clear error not a silent fallback, and the URI-drift limitation is documented for v1.8 reconciliation
-**Depends on**: Phase 39 (URI-keyed slugs established by scanner before ingestor existence-check diff is meaningful)
-**Requirements**: INGESTOR-01, INGESTOR-02, INGESTOR-03
-**Success Criteria** (what must be TRUE):
-  1. `run_ingest_source()` checks graph-io for canonical entity existence before making ingest routing decisions (e.g., verifying that a package URI exists in the graph before creating a package page)
-  2. Invoking `graph-wiki-agent ingest` against a workspace with no initialized graph-io DB surfaces a clear `NOT_INITIALIZED` error message to the user — not a silent fallback or an unrelated stack trace
-  3. The URI-drift / orphaned-page limitation (pages keyed to a URI that has since changed on package rename) is documented in `commands/ingest.py` as a code comment AND referenced in the phase plan as a v1.8 reconciliation item — the limitation is acknowledged, not worked around in v1.7
-**Plans**: TBD
-
-### Phase 41: Address v1.7 tech debt — integration_gate + traceability
-**Goal**: Close the v1.7 milestone tech-debt items called out in `.planning/v1.7-MILESTONE-AUDIT.md` so `/gsd-complete-milestone` can run: (a) restore the canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py` so `tests/test_integration_gate.py` exits 0, and (b) flip 20 stale `[ ]` checkboxes in `.planning/REQUIREMENTS.md` (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) plus the matching traceability rows from `Pending` to `Satisfied`. Out of scope (deferred to v1.8): pre-commit/CI lint hook, sample_monorepo fixture fix, exit-code-3 collision, URI-drift reconciliation, retro UAT for Phases 39/40.
-**Depends on**: Phase 40
-**Requirements**: (none — tech-debt phase; the 20 requirement IDs above were satisfied by earlier v1.7 phases, only their tracking status is being synced here)
-**Success Criteria** (what must be TRUE):
-  1. `pytest tests/test_integration_gate.py` exits 0 (was failing before this phase)
-  2. `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py` contains the canonical `INTEGRATION_GATE = pytest.mark.skipif(not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"), ...)` constant and the test function is decorated with `@INTEGRATION_GATE`
-  3. `.planning/REQUIREMENTS.md` shows `- [x]` for all 14 HYGIENE-*, 3 CGFIND-*, and 3 INGESTOR-* checkboxes, and the corresponding 20 traceability rows show Status = `Satisfied`
-  4. LIBTOOLS-*, GRAPHCMD-*, SCANNER-* rows and `Complete` statuses are untouched; no structural changes to REQUIREMENTS.md
-**Plans:** 1/1 plans complete
-
-Plans:
-- [x] 41-01-PLAN.md — Restore canonical INTEGRATION_GATE on scan-end-to-end test + sync 20 REQUIREMENTS.md checkboxes/rows
+No phases defined yet — run `/gsd:new-milestone` to start v1.8 scoping.
 
 ---
 
@@ -262,4 +184,4 @@ Plans:
 
 ---
 
-*Last updated: 2026-05-26 — Phase 41 planned (integration_gate + traceability sync). 40 phases / 149 plans shipped across v1.0-v1.7 (excluding the planned Phase 41 plan). v1.7 targeting 7 phases (35-41), 27 requirements.*
+*Last updated: 2026-05-26 — v1.7 milestone shipped (graph-io Integration & Wiki Hygiene). 41 phases / 150 plans shipped across v1.0-v1.7. Ready to scope v1.8.*

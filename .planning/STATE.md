@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 41 context gathered
-last_updated: "2026-05-26T23:36:16.547Z"
-last_activity: 2026-05-26 -- Phase 41 marked complete
+last_updated: "2026-05-26T23:51:19.410Z"
+last_activity: 2026-05-26 — Milestone v1.7 completed and archived
 progress:
   total_phases: 7
   completed_phases: 7
@@ -33,14 +33,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 41 — COMPLETE
-Plan: 1 of 1
-Status: Phase 41 complete
-Last activity: 2026-05-26 -- Phase 41 marked complete
-
-Progress: [██████████] 100%
-
----
+Phase: Milestone v1.7 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-26 — Milestone v1.7 completed and archived
 
 ## Performance Metrics
 
@@ -112,3 +108,7 @@ Stopped at: Phase 41 context gathered
 *State initialized: 2026-05-13*
 *v1.6 archived: 2026-05-26 — 7 phases (28-34), 30 plans, 56 requirements*
 *v1.7 roadmap created: 2026-05-26 — 6 phases (35-40), 27 requirements*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.7 graph-io Integration & Wiki Hygiene (Shipped: 2026-05-26)
+
+**Phases completed:** 7 phases, 10 plans, 25 tasks
+
+**Key accomplishments:**
+
+- `cg find` migrated from positional-first to named-flag-only UX (--name / --kind / --in-package), with --in-package as a new package-scoped filter, a 50-row cap convention, and an anti-regression guard against silent re-introduction of the positional form.
+- 5 closure-bound `@tool` callables wrapping `graph_io.queries` with a shared read-only conn, 50-row render cap, and never-raise error contract — ready for `commands/query.py` to bind in Plan 02.
+- Librarian fan-out now opens one read-only graph conn at command entry, runs a CountTokens budget gate, binds 5 grounding tools onto the LLM (or gracefully degrades to vault-thin with a one-shot stderr signal when the graph is missing), drives an agentic tool-call loop bounded at 5 iterations per page, and closes the conn in `finally`.
+- run_scan now dispatches `cg update` before fan-out, decorates every workspace dict with `pkg["uri"]` + `pkg["domain"]` from the graph (recomputing the vault slug on domain change), and enforces a strict error policy with a stderr-pattern-matched filesystem-init fallback.
+- run_ingest_source now consults the workspace graph DB for canonical entity URIs before any LLM-driven routing decision — slugs and entity_uri frontmatter come from the graph when a match exists, and a missing graph hard-fails with CLI exit code 3 instead of silently producing drift.
+
+---
+
 ## v1.5 Repo Rename & Foundational Package Additions (Shipped: 2026-05-25)
 
 **Phases completed:** 1 phase, 0 plans (retroactive — SUMMARY.md is the canonical artifact)

@@ -10,9 +10,23 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current State: v1.6 Shipped — 2026-05-26
+## Current State: v1.7 Shipped — 2026-05-26
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26). **34 phases, 148 plans** across seven milestones. **v1.6 closed without audit** per operator direction; phase-level SC checks passed for all 7 phases; carry-forward items captured in STATE.md `## Deferred Items`.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26). **41 phases, 150 plans** across eight milestones. **v1.7 closed with audit passed** (`milestones/v1.7-MILESTONE-AUDIT.md` — 32/32 requirements, 10/10 cross-phase contracts wired, 6/6 E2E flows).
+
+**New in v1.7 — graph-io is now the agent's identity layer:**
+- **`cg find` named-flag UX** — `--name`/`--kind`/`--in-package` replace positional; anti-regression guard prevents silent re-introduction of the old form.
+- **Librarian Grounding Tools** — 5 closure-bound `@tool` callables wrap `graph_io.queries`; one read-only conn opened at command entry, shared across tools, closed in `finally`; CountTokens pre-flight budget gate; graceful vault-thin fallback when graph is missing.
+- **`graph-wiki-agent graph` subcommand** — first-class `build`/`describe`/`query` in agent CLI + 3 parallel MCP tools (`graph_build`/`graph_describe`/`graph_query`).
+- **Scanner ↔ graph-io** — `run_scan` dispatches `cg update` before fan-out; workspaces decorated with graph `uri` + `domain`; vault slug recomputed on domain change; strict NOT_INITIALIZED error with filesystem fallback.
+- **Ingestor ↔ graph-io** — entity URIs come from graph before LLM routing; missing graph hard-fails with exit code 3 (no silent drift).
+- **Wiki & Bootstrap Hygiene** — 10 deferred quick-tasks + 2 bootstrap todos closed (self-healing `uv` re-exec, `--interactive` flag, testing.md subpage scaffold, file-map table format, plugin shim docs).
+- **Tech debt closeout** — canonical `INTEGRATION_GATE` restored on scan-e2e test; 20 REQUIREMENTS.md checkboxes + 20 traceability rows synced; v1.6-era `sample_monorepo` fixture allowlisted.
+
+**Accepted into v1.8:**
+- Exit-code-3 collision between LIBTOOLS-05 (BUDGET_EXCEEDED) and INGESTOR-02 (NOT_INITIALIZED) — documented intentional per Phase 37 D-04.
+- URI-drift / orphaned-page reconciliation (INGESTOR-03) — already v1.8 design item.
+- Formal VERIFICATION.md coverage for code-only phases — v1.8 process candidate.
 
 **New in v1.6 — `graph-io` ontology landed:**
 - **Schema v2 + URI identity** — `nodes.uri TEXT` column; `graph_io.uri` exposes `repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri`. `cg update --full` v1→v2 rebuild; `SCHEMA_MISMATCH` (exit 4) on incremental v1→v2.
@@ -37,7 +51,15 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21. Repo rename `deep-agents` → `agent-research` and package rename `vault-io` → `wiki-io` swept in v1.5 Phase 27.
 
-## Current Milestone: v1.7 graph-io Integration & Wiki Hygiene
+## Next Milestone: v1.8 (Planning)
+
+Run `/gsd:new-milestone` to scope v1.8. Candidate themes surfaced during v1.7:
+- **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI; flat-by-ID / by-domain / by-repo views (largest expected v1.8 scope).
+- **URI-drift reconciliation** (INGESTOR-03) — orphaned-page handling when entity URIs change on rename.
+- **Exit-code namespace cleanup** — disambiguate 3 between BUDGET_EXCEEDED and NOT_INITIALIZED.
+- **VERIFICATION.md coverage process** — formalize verification-artifact requirements for code-only phases.
+
+## Previous Milestone: v1.7 graph-io Integration & Wiki Hygiene (SHIPPED 2026-05-26)
 
 **Goal:** Wire `graph-io` into `graph-wiki-agent` as the source of truth for librarian/scanner/ingestor, expose graph operations through a new `graph-wiki-agent graph` subcommand, fix `cg find` parser ergonomics, and burn down accumulated wiki/bootstrap/test-infra debt — so v1.7 closes with the agent actually using the ontology v1.6 built.
 
@@ -283,4 +305,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — milestone v1.7 graph-io Integration & Wiki Hygiene STARTED (phases begin at 35). 34 phases / 148 plans shipped across v1.0+v1.1+v1.2+v1.3+v1.4+v1.5+v1.6. v1.7 requirements in `.planning/REQUIREMENTS.md`; roadmap in `.planning/ROADMAP.md`.*
+*Last updated: 2026-05-26 — milestone v1.7 SHIPPED (graph-io Integration & Wiki Hygiene). 41 phases / 150 plans shipped across v1.0-v1.7. Next: scope v1.8 via `/gsd:new-milestone`.*
