@@ -61,9 +61,15 @@ def _ensure_uv_workspace() -> None:
 
 _ensure_uv_workspace()
 
+from graph_io import exit_codes as _gio_exit_codes
+
 from graph_wiki_agent.commands.graph import graph_app
 from graph_wiki_agent.commands.init import run_init
-from graph_wiki_agent.commands.ingest import run_ingest_source, run_ingest_work_item
+from graph_wiki_agent.commands.ingest import (
+    IngestorGraphNotInitializedError,
+    run_ingest_source,
+    run_ingest_work_item,
+)
 from graph_wiki_agent.commands.lint import run_lint
 from graph_wiki_agent.commands.log import run_log
 from graph_wiki_agent.commands.query import run_query
@@ -572,6 +578,11 @@ def ingest_source(
     workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(run_ingest_source(path, workspace_path))
+    except IngestorGraphNotInitializedError as e:
+        # Phase 40 / INGESTOR-02 / D-01: NOT_INITIALIZED has its own exit code
+        # so script consumers can branch on it (3 vs generic 1).
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=_gio_exit_codes.NOT_INITIALIZED)
     except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)

@@ -322,6 +322,7 @@ class WikiIngestOutput(BaseModel):
     page_type: str
     source_path: str
     cross_refs_updated: int
+    entity_uri: str | None = None  # Phase 40: canonical entity URI (None for free-form sources)
 
 
 @mcp.tool(
@@ -368,6 +369,7 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         page_type=result.page_type,
         source_path=result.source_path,
         cross_refs_updated=result.cross_refs_updated,
+        entity_uri=result.entity_uri,
     )
 
 
