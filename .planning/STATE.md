@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: graph-io Integration & Wiki Hygiene
-status: completed
+status: executing
 stopped_at: Phase 37 context gathered
-last_updated: "2026-05-26T17:20:12.024Z"
-last_activity: 2026-05-26 -- Phase 35 marked complete
+last_updated: "2026-05-26T17:26:18.427Z"
+last_activity: 2026-05-26 -- Phase 37 planning complete
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 4
+  total_plans: 5
   completed_plans: 2
-  percent: 17
+  percent: 40
 ---
 
 # Project State: agent-research
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 35 — Wiki & Bootstrap Hygiene Burn-Down
+**Current Focus:** Phase 36 — cg-find-parser-ergonomics
 
 ---
 
 ## Current Position
 
-Phase: 35 — COMPLETE
-Plan: 1 of 2
-Status: Phase 35 complete
-Last activity: 2026-05-26 -- Phase 35 marked complete
+Phase: 36 (cg-find-parser-ergonomics) — EXECUTING
+Plan: 1 of 1
+Status: Ready to execute
+Last activity: 2026-05-26 -- Phase 37 planning complete
 
 Progress: [░░░░░░░░░░] 0% (0/6 phases complete)
 
