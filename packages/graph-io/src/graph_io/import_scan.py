@@ -109,4 +109,87 @@ def _match_js_import(
     return js_map.get(key)
 
 
-# Task 2 adds: scan_package_imports / scan_files_imports
+import sqlite3
+
+
+def scan_files_imports(
+    repo_root: Path,
+    file_rel_paths: list[str],
+    pkg_rows: list[PkgRow],
+) -> set[tuple[str, str | None]]:
+    """Scan a list of files for first-party Package imports.
+
+    Returns the deduplicated set of (pkg_name, pkg_rel) tuples for every
+    first-party Package the files import. Unreadable files (OSError) are
+    silently skipped. Stdlib / third-party imports that don't appear in
+    the py/js maps are ignored.
+    """
+    py_map, js_map = _build_importable_maps(pkg_rows)
+    pkg_index = _build_pkg_index(pkg_rows)
+    matched: set[tuple[str, str | None]] = set()
+    for rel in file_rel_paths:
+        fpath = repo_root / rel
+        try:
+            content = fpath.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        ext = Path(rel).suffix
+        if ext == ".py":
+            for m in _PYTHON_IMPORT_RE.finditer(content):
+                hit = _match_python_import(m.group(1), py_map)
+                if hit is not None:
+                    matched.add(hit)
+        elif ext in _SCAN_EXTENSIONS_JS:
+            for m in _JS_IMPORT_RE.finditer(content):
+                hit = _match_js_import(
+                    m.group(1), fpath, repo_root, js_map, pkg_index,
+                )
+                if hit is not None:
+                    matched.add(hit)
+    return matched
+
+
+def scan_package_imports(
+    conn: sqlite3.Connection,
+    repo_root: Path,
+    pkg_name: str,
+    pkg_rel: str | None,
+    *,
+    include_test_files: bool = False,
+) -> set[tuple[str, str | None]]:
+    """Return distinct first-party Packages imported by files in pkg.
+
+    pkg_rel is the Package's repo-relative path prefix (None for root).
+    include_test_files=False excludes files with attrs_json.is_test=true
+    (Phase 31 D-11). include_test_files=True returns all imports —
+    needed by Phase 30 test_suites.emit when scanning test-file imports.
+    """
+    # Collect all Package rows once for the maps/index
+    pkg_rows: list[PkgRow] = [
+        (row[0], row[1], row[2])
+        for row in conn.execute(
+            "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+        ).fetchall()
+    ]
+
+    # Query File rows scoped to the Package
+    if pkg_rel:
+        like = pkg_rel + "/%"
+        rows = conn.execute(
+            "SELECT path, attrs_json FROM nodes WHERE kind='file' AND path LIKE ?",
+            (like,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT path, attrs_json FROM nodes WHERE kind='file'"
+        ).fetchall()
+
+    file_paths: list[str] = []
+    for path, attrs_json in rows:
+        if not include_test_files:
+            attrs = json.loads(attrs_json) if attrs_json else {}
+            if attrs.get("is_test"):
+                continue
+        file_paths.append(path)
+
+    return scan_files_imports(repo_root, file_paths, pkg_rows)
