@@ -4,7 +4,22 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+_VALID_KINDS = frozenset(
+    {
+        "function",
+        "class",
+        "method",
+        "file",
+        "package",
+        "repository",
+        "subpackage",
+        "entry_point",
+        "test_suite",
+        "domain",
+    }
+)
 
 _RESOLVED_FILTER = (
     "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
@@ -35,12 +50,51 @@ class ImportRecord:
 
 
 @dataclass(frozen=True)
+class RepoDescription:
+    name: str
+    uri: str
+    owner: str | None
+    url: str | None
+    default_branch: str | None
+    package_count: int
+
+
+@dataclass(frozen=True)
+class DomainDescription:
+    name: str
+    uri: str
+    parent: str | None
+    description: str | None
+
+
+@dataclass(frozen=True)
+class EntryPointDescription:
+    name: str
+    uri: str
+    kind: str
+    callable: str | None
+    implemented_by_path: str | None
+    source: str
+
+
+@dataclass(frozen=True)
+class SuiteDescription:
+    name: str
+    uri: str
+    kind: str
+    file_count: int
+
+
+@dataclass(frozen=True)
 class PackageDescription:
     name: str
     language: str
     version: str
     files: list[str]
     counts: dict[str, int]
+    domains: list[str] = field(default_factory=list)
+    entry_points: list[EntryPointDescription] = field(default_factory=list)
+    test_suites: list[SuiteDescription] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -48,6 +102,7 @@ class PathDescription:
     path: str
     children: list[NodeRecord]
     imports: list[NodeRecord]
+    role_flags: dict[str, bool] | None = None
 
 
 def _row_to_node(row) -> NodeRecord:
@@ -56,16 +111,40 @@ def _row_to_node(row) -> NodeRecord:
     return NodeRecord(kind=kind, name=name, path=path, line=line, attrs=attrs)
 
 
-def find(conn: sqlite3.Connection, *, name: str, kind: str | None = None) -> list[NodeRecord]:
-    if kind is None:
+def find(
+    conn: sqlite3.Connection,
+    *,
+    name: str | None = None,
+    kind: str | None = None,
+) -> list[NodeRecord]:
+    """Find nodes by name and/or kind.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+
+    Raises:
+        ValueError: when `kind` is provided but is not in `_VALID_KINDS`,
+            or when both `name` and `kind` are None.
+    """
+    if kind is not None and kind not in _VALID_KINDS:
+        raise ValueError(
+            f"unknown kind {kind!r}; valid: {sorted(_VALID_KINDS)}"
+        )
+    if name is None and kind is None:
+        raise ValueError("find requires at least one of name or kind")
+    if name is not None and kind is None:
         rows = conn.execute(
             "SELECT kind, name, path, line, attrs_json FROM nodes WHERE name = ?",
             (name,),
         ).fetchall()
-    else:
+    elif name is not None and kind is not None:
         rows = conn.execute(
             "SELECT kind, name, path, line, attrs_json FROM nodes WHERE name = ? AND kind = ?",
             (name, kind),
+        ).fetchall()
+    else:  # name is None and kind is not None
+        rows = conn.execute(
+            "SELECT kind, name, path, line, attrs_json FROM nodes WHERE kind = ? ORDER BY name",
+            (kind,),
         ).fetchall()
     return [_row_to_node(r) for r in rows]
 
