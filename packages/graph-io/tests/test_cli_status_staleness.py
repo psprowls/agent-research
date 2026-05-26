@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,3 +61,27 @@ def test_status_no_db_returns_3(tmp_path: Path) -> None:
 def test_status_outside_git_returns_5(tmp_path: Path) -> None:
     res = _cg(["status"], tmp_path)
     assert res.returncode == 5
+
+
+def test_status_repository_line_prepended_human(tmp_path: Path) -> None:
+    """cg status (human) emits 'repository: repo:<uri>' as the first line (CLI-14 / D-15)."""
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+    assert _cg(["update", "--full"], tmp_path).returncode == 0
+    res = _cg(["status"], tmp_path)
+    assert res.returncode == 0, (res.stdout, res.stderr)
+    first_nonempty = next(line for line in res.stdout.split("\n") if line.strip())
+    assert re.match(r"^repository:\s+repo:", first_nonempty), first_nonempty
+
+
+def test_status_repository_field_in_json(tmp_path: Path) -> None:
+    """cg status --fmt json includes top-level 'repository' field (CLI-14 / D-15)."""
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+    assert _cg(["update", "--full"], tmp_path).returncode == 0
+    res = _cg(["--fmt", "json", "status"], tmp_path)
+    assert res.returncode == 0, (res.stdout, res.stderr)
+    data = json.loads(res.stdout)
+    assert "repository" in data
+    assert isinstance(data["repository"], str)
+    assert data["repository"].startswith("repo:")

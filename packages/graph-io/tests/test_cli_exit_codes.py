@@ -35,6 +35,25 @@ def _make_v1_db(repo_root: Path) -> Path:
     return db
 
 
+def test_exit_codes_module_constants() -> None:
+    """Pin every documented exit code so script consumers can rely on them.
+
+    AMBIGUOUS=7 documents a deviation from CONTEXT.md D-20 (which proposed
+    AMBIGUOUS=2). Value 2 is already STALE, so the next free integer (7)
+    was used instead. Future re-reads of D-20 land on this tested value.
+    """
+    from graph_io import exit_codes
+
+    assert exit_codes.SUCCESS == 0
+    assert exit_codes.GENERIC == 1
+    assert exit_codes.STALE == 2
+    assert exit_codes.NOT_INITIALIZED == 3
+    assert exit_codes.SCHEMA_MISMATCH == 4
+    assert exit_codes.NOT_IN_GIT_REPO == 5
+    assert exit_codes.UPDATE_IN_PROGRESS == 6
+    assert exit_codes.AMBIGUOUS == 7
+
+
 def test_exit_0_success(tmp_path: Path) -> None:
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
