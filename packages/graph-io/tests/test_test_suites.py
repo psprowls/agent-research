@@ -421,3 +421,26 @@ def test_strict_tree_invariant_class_and_helper_exist() -> None:
     assert "tree invariant violated" in msg
     assert "3 node(s)" in msg
     assert "duplicate parent edge" in msg or "delete the prior edge" in msg
+
+
+def test_update_run_calls_emitters_in_correct_order() -> None:
+    """Task 2: update.run sources contains entry_points.emit + test_suites.emit +
+    the invariant call in the required order (D-21)."""
+    import inspect
+
+    from graph_io import update
+
+    src = inspect.getsource(update.run)
+    assert "entry_points.emit" in src
+    assert "test_suites.emit" in src
+    assert "_enforce_strict_tree_invariant" in src
+
+    i_struct = src.index("structural_nodes.emit")
+    i_entry = src.index("entry_points.emit")
+    i_test = src.index("test_suites.emit")
+    i_resolve = src.index("resolve.sweep")
+    i_inv = src.index("_enforce_strict_tree_invariant")
+    assert i_struct < i_entry < i_test < i_resolve < i_inv, (
+        f"wrong order in update.run: struct={i_struct} entry={i_entry} "
+        f"test={i_test} resolve={i_resolve} inv={i_inv}"
+    )
