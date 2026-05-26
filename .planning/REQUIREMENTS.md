@@ -13,26 +13,26 @@
 
 ### HYGIENE — Wiki & Bootstrap Burn-Down
 
-- [ ] **HYGIENE-01** — Scanner emits `[[wiki/<container>/...]]`-prefixed wikilinks in package overview / context / domain overview templates; zero broken links on freshly-bootstrapped + scanned wiki (`260521-hfr`)
-- [ ] **HYGIENE-02** — `init_vault` creates stub `index.md` files in 4 missing section dirs (`concepts`, `sources`, `adrs`, `architecture`); zero broken `## More` links on fresh wiki (`260521-hfr` Task 2)
-- [ ] **HYGIENE-03** — `{{CONTAINER_DIR}}` template variable wired into `package/overview.md`; scanner agent docs updated so non-`packages/` containers (agents, plugins) emit correct paths (`260521-i26`)
-- [ ] **HYGIENE-04** — File-map format on package/app overview pages revised per spec (`260523-he3`)
-- [ ] **HYGIENE-05** — `testing.md` subpage added to app/package templates (`260523-i35`)
-- [ ] **HYGIENE-06** — Overview pages renamed per convention (`260523-iws`)
-- [ ] **HYGIENE-07** — `workspace_io.config.resolve()` respects `repo-directory:` in workspace manifest when `GRAPH_WIKI_WORKSPACE` points at a workspace that is itself a git repo; + 3 other lint-driven fixes in `wiki-io` (schema file exclusion, tokens-null-on-unsupported, lint_wiki path-qualified wikilinks) (`260521-gc0`)
-- [ ] **HYGIENE-08** — `workspace_io.init()` tolerates sparse v2 manifests without a `plugins` key (defensive heal on the write path) (`260521-lj3`)
-- [ ] **HYGIENE-09** — graph-wiki bootstrap self-healing `uv` re-exec; uses `Path(__file__).resolve()` not `sys.argv[0]`; loop prevention env var hygiene; test from a tmp working directory (`260521-mfm`)
-- [ ] **HYGIENE-10** — graph-wiki plugin docs use `uv run --project "$AGENT_RESEARCH_ROOT" python …` shim form across all `plugins/graph-wiki/agents/*.md` and `plugins/graph-wiki/skills/graph-wiki/*` files (`260521-kxi`)
-- [ ] **HYGIENE-11** — `--interactive` flag wired into graph-wiki bootstrap (todo: `2026-05-21-bootstrap-interactive-flag.md`)
-- [ ] **HYGIENE-12** — Bootstrap stubs empty category index files (todo: `2026-05-21-bootstrap-should-stub-empty-category-index-files.md`)
-- [ ] **HYGIENE-13** — `260521-ans` (Typer `--help` ANSI strip) closed as already-resolved at scoping; 3/3 `test_cli_help.py` tests verified passing under the existing `NO_COLOR=1 TERM=dumb COLUMNS=200` env-injection pattern before close
-- [ ] **HYGIENE-14** — Phase 14 SC#4 plugin smoke transcript captured at scanner-phase close (carried since v1.2; manual `/graph-wiki:query` transcript)
+- [x] **HYGIENE-01** — Scanner emits `[[wiki/<container>/...]]`-prefixed wikilinks in package overview / context / domain overview templates; zero broken links on freshly-bootstrapped + scanned wiki (`260521-hfr`)
+- [x] **HYGIENE-02** — `init_vault` creates stub `index.md` files in 4 missing section dirs (`concepts`, `sources`, `adrs`, `architecture`); zero broken `## More` links on fresh wiki (`260521-hfr` Task 2)
+- [x] **HYGIENE-03** — `{{CONTAINER_DIR}}` template variable wired into `package/overview.md`; scanner agent docs updated so non-`packages/` containers (agents, plugins) emit correct paths (`260521-i26`)
+- [x] **HYGIENE-04** — File-map format on package/app overview pages revised per spec (`260523-he3`)
+- [x] **HYGIENE-05** — `testing.md` subpage added to app/package templates (`260523-i35`)
+- [x] **HYGIENE-06** — Overview pages renamed per convention (`260523-iws`)
+- [x] **HYGIENE-07** — `workspace_io.config.resolve()` respects `repo-directory:` in workspace manifest when `GRAPH_WIKI_WORKSPACE` points at a workspace that is itself a git repo; + 3 other lint-driven fixes in `wiki-io` (schema file exclusion, tokens-null-on-unsupported, lint_wiki path-qualified wikilinks) (`260521-gc0`)
+- [x] **HYGIENE-08** — `workspace_io.init()` tolerates sparse v2 manifests without a `plugins` key (defensive heal on the write path) (`260521-lj3`)
+- [x] **HYGIENE-09** — graph-wiki bootstrap self-healing `uv` re-exec; uses `Path(__file__).resolve()` not `sys.argv[0]`; loop prevention env var hygiene; test from a tmp working directory (`260521-mfm`)
+- [x] **HYGIENE-10** — graph-wiki plugin docs use `uv run --project "$AGENT_RESEARCH_ROOT" python …` shim form across all `plugins/graph-wiki/agents/*.md` and `plugins/graph-wiki/skills/graph-wiki/*` files (`260521-kxi`)
+- [x] **HYGIENE-11** — `--interactive` flag wired into graph-wiki bootstrap (todo: `2026-05-21-bootstrap-interactive-flag.md`)
+- [x] **HYGIENE-12** — Bootstrap stubs empty category index files (todo: `2026-05-21-bootstrap-should-stub-empty-category-index-files.md`)
+- [x] **HYGIENE-13** — `260521-ans` (Typer `--help` ANSI strip) closed as already-resolved at scoping; 3/3 `test_cli_help.py` tests verified passing under the existing `NO_COLOR=1 TERM=dumb COLUMNS=200` env-injection pattern before close
+- [x] **HYGIENE-14** — Phase 14 SC#4 plugin smoke transcript captured at scanner-phase close (carried since v1.2; manual `/graph-wiki:query` transcript)
 
 ### CGFIND — `cg find` Parser Ergonomics
 
-- [ ] **CGFIND-01** — `cg find --name foo.py --kind file` parses and returns correct matches
-- [ ] **CGFIND-02** — `cg find` with no positional + `--name` / `--kind` / `--in-package` flags works for all valid combinations
-- [ ] **CGFIND-03** — Old positional form `cg find foo.py` produces a clear parse error (no silent wrong behavior); all internal callers in `packages/graph-io/tests/` updated in the same commit
+- [x] **CGFIND-01** — `cg find --name foo.py --kind file` parses and returns correct matches
+- [x] **CGFIND-02** — `cg find` with no positional + `--name` / `--kind` / `--in-package` flags works for all valid combinations
+- [x] **CGFIND-03** — Old positional form `cg find foo.py` produces a clear parse error (no silent wrong behavior); all internal callers in `packages/graph-io/tests/` updated in the same commit
 
 ### LIBTOOLS — Librarian Grounding Tools
 
@@ -57,9 +57,9 @@
 
 ### INGESTOR — Ingestor Consumes graph-io
 
-- [ ] **INGESTOR-01** — `run_ingest_source()` checks graph-io for canonical entity existence before ingest decisions
-- [ ] **INGESTOR-02** — Clear `NOT_INITIALIZED` error surfaced (not silent fallback) when ingest invoked against a workspace with no graph-io DB
-- [ ] **INGESTOR-03** — URI-drift / orphaned-page limitation explicitly documented in code comments + phase plan as a v1.8 reconciliation item (do NOT attempt to solve in v1.7)
+- [x] **INGESTOR-01** — `run_ingest_source()` checks graph-io for canonical entity existence before ingest decisions
+- [x] **INGESTOR-02** — Clear `NOT_INITIALIZED` error surfaced (not silent fallback) when ingest invoked against a workspace with no graph-io DB
+- [x] **INGESTOR-03** — URI-drift / orphaned-page limitation explicitly documented in code comments + phase plan as a v1.8 reconciliation item (do NOT attempt to solve in v1.7)
 
 ---
 
@@ -92,23 +92,23 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HYGIENE-01 | Phase 35 | Pending |
-| HYGIENE-02 | Phase 35 | Pending |
-| HYGIENE-03 | Phase 35 | Pending |
-| HYGIENE-04 | Phase 35 | Pending |
-| HYGIENE-05 | Phase 35 | Pending |
-| HYGIENE-06 | Phase 35 | Pending |
-| HYGIENE-07 | Phase 35 | Pending |
-| HYGIENE-08 | Phase 35 | Pending |
-| HYGIENE-09 | Phase 35 | Pending |
-| HYGIENE-10 | Phase 35 | Pending |
-| HYGIENE-11 | Phase 35 | Pending |
-| HYGIENE-12 | Phase 35 | Pending |
-| HYGIENE-13 | Phase 35 | Pending |
-| HYGIENE-14 | Phase 35 | Pending |
-| CGFIND-01 | Phase 36 | Pending |
-| CGFIND-02 | Phase 36 | Pending |
-| CGFIND-03 | Phase 36 | Pending |
+| HYGIENE-01 | Phase 35 | Satisfied |
+| HYGIENE-02 | Phase 35 | Satisfied |
+| HYGIENE-03 | Phase 35 | Satisfied |
+| HYGIENE-04 | Phase 35 | Satisfied |
+| HYGIENE-05 | Phase 35 | Satisfied |
+| HYGIENE-06 | Phase 35 | Satisfied |
+| HYGIENE-07 | Phase 35 | Satisfied |
+| HYGIENE-08 | Phase 35 | Satisfied |
+| HYGIENE-09 | Phase 35 | Satisfied |
+| HYGIENE-10 | Phase 35 | Satisfied |
+| HYGIENE-11 | Phase 35 | Satisfied |
+| HYGIENE-12 | Phase 35 | Satisfied |
+| HYGIENE-13 | Phase 35 | Satisfied |
+| HYGIENE-14 | Phase 35 | Satisfied |
+| CGFIND-01 | Phase 36 | Satisfied |
+| CGFIND-02 | Phase 36 | Satisfied |
+| CGFIND-03 | Phase 36 | Satisfied |
 | LIBTOOLS-01 | Phase 37 | Complete |
 | LIBTOOLS-02 | Phase 37 | Complete |
 | LIBTOOLS-03 | Phase 37 | Complete |
@@ -121,6 +121,6 @@
 | SCANNER-01 | Phase 39 | Complete |
 | SCANNER-02 | Phase 39 | Complete |
 | SCANNER-03 | Phase 39 | Complete |
-| INGESTOR-01 | Phase 40 | Pending |
-| INGESTOR-02 | Phase 40 | Pending |
-| INGESTOR-03 | Phase 40 | Pending |
+| INGESTOR-01 | Phase 40 | Satisfied |
+| INGESTOR-02 | Phase 40 | Satisfied |
+| INGESTOR-03 | Phase 40 | Satisfied |
