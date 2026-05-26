@@ -190,6 +190,50 @@
 
 ---
 
+## Milestone: v1.7 — graph-io Integration & Wiki Hygiene
+
+**Shipped:** 2026-05-26
+**Phases:** 7 (35-41) | **Plans:** 10 | **Tasks:** 25
+
+> Note: v1.3-v1.6 retrospective entries are not present in this file (rapid-fire shipping pace from v1.3 onward outpaced retrospective backfill); cross-milestone trends below also skip those rows. Each shipped milestone has its own archived ROADMAP/REQUIREMENTS/AUDIT under `milestones/` as the authoritative record. Add v1.3-v1.6 entries here later if the cross-milestone view is needed.
+
+### What Was Built
+- **Librarian Grounding Tools** — 5 closure-bound `@tool` callables wrap `graph_io.queries`; one read-only conn shared via factory, closed in `finally`; CountTokens budget gate; vault-thin graceful degradation when graph missing.
+- **`graph-wiki-agent graph` subcommand** — first-class `build`/`describe`/`query` on agent CLI + 3 parallel MCP tools registered alongside `wiki_*`.
+- **Scanner ↔ graph-io** — `run_scan` dispatches `cg update` before fan-out; workspaces decorated with `pkg["uri"]` + `pkg["domain"]`; strict NOT_INITIALIZED error with filesystem fallback.
+- **Ingestor ↔ graph-io** — entity URIs from graph drive routing decisions; missing graph hard-fails with exit code 3 (no silent drift).
+- **`cg find` named-flag UX** — `--name`/`--kind`/`--in-package` replace positional form, with anti-regression guard.
+- **Wiki & Bootstrap Hygiene** — 10 deferred quick-tasks + 2 bootstrap todos closed; self-healing `uv` re-exec; `--interactive` flag; testing.md scaffold.
+- **Tech debt closeout (Phase 41)** — canonical `INTEGRATION_GATE` restored on scan-e2e test; 20 REQUIREMENTS.md checkboxes + 20 traceability rows synced; v1.6-era `sample_monorepo` fixture allowlisted.
+
+### What Worked
+- **Pattern-mapper agent** (introduced in plan-phase pipeline) caught the "24-vs-20" CONTEXT.md count discrepancy during Phase 41 planning by trusting explicit ID enumeration over narrative count labels — saved a wrong-output execution.
+- **Worktree isolation** for executor agents held up cleanly on a 2-file tech-debt phase (Phase 41) — atomic per-task commits, clean merge, no `.git/config.lock` contention.
+- **Integration checker WIRED verdicts as evidence** — Phase 41 D-08 formalized that the 3-source cross-reference (SUMMARY frontmatter + automated suite + integration-checker output) is sufficient for code-only phases; this freed Phases 39/40 from retro-UAT churn.
+- **Audit-first close-out cadence** — milestone audit ran BEFORE complete-milestone, surfaced the integration-gate blocker and traceability-sync gap, → Phase 41 was scoped to close both, → re-audit confirmed `passed`. Clean two-step rather than ad-hoc.
+
+### What Was Inefficient
+- **SDK audit-open / CJS audit-open divergence** — SDK looks for bare `SUMMARY.md`; the project uses `{quick-id}-SUMMARY.md`. Required 10 symlinks to make the pre-flight audit pass for milestone close. Should be reconciled in the SDK (or the CJS implementation merged into the dist).
+- **CONTEXT.md count-label vs ID-list contradictions** — Phase 41 CONTEXT.md said "24 checkboxes" but listed 20 IDs (HYGIENE-14 + CGFIND-3 + INGESTOR-3). The planner caught it, but a tighter discuss-phase validation could catch count/list mismatches up front.
+- **Plan-checker "24" warnings landed in two passes** — the first revision fixed three "24"s, then a second pass found four more elsewhere. Plan-checker should sweep the entire plan for the flagged literal, not just the cited locations.
+
+### Patterns Established
+- **D-NN citation in plan frontmatter `decisions_addressed:` block** — Phase 41 introduced this for decision-coverage-gate. Cleaner than scattered prose D-NN mentions; verifiable; future plans should adopt.
+- **Scope-expansion-with-rationale commits** — Phase 41's `c02f8e6` documented why crossing CONTEXT.md D-01 scope was correct (fixture file ≠ real integration test → D-04's marker prohibition doesn't apply). Good template for future user-approved scope expansions during execution.
+- **Two-step milestone close** — `/gsd-audit-milestone` then a remediation phase if needed (Phase 41 pattern) then `/gsd-complete-milestone`. Avoids closing on known tech debt.
+
+### Key Lessons
+- **Trust explicit enumerations over count labels.** When CONTEXT.md says "N" and lists items, the list is ground truth — pin acceptance criteria to grep-counts of the list, not narrative N.
+- **Worktree mode shields shared files.** Executor agents in worktrees can't accidentally clobber STATE.md/ROADMAP.md — those writes happen in the orchestrator after merge.
+- **Audit-tool drift compounds silently.** The audit-open SDK regression went unnoticed for several quick-tasks because each individual task was fine; only at milestone close did the false-positive count add up. A simple `gsd-tools audit-open` sanity check after each quick task would catch it earlier.
+
+### Cost Observations
+- **Model mix:** Opus 4.7 for orchestrator + planner; Sonnet 4.6 for researcher / executor / verifier / plan-checker / integration-checker.
+- **Sessions:** intense single-day execution — v1.7 (35→41) shipped 2026-05-26, building on v1.6 which also shipped 2026-05-26. Two complete milestones in one calendar day.
+- **Notable:** Pattern-mapper agent on Phase 41 ran in ~70s and produced a tight 2-file PATTERNS.md — the analog (`test_bedrock_iam.py`) was already named in CONTEXT.md, so the mapper mostly confirmed and provided code excerpts. Low-cost but added measurable value (the verbatim INTEGRATION_GATE block landed in the executor's read-path without ambiguity).
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
