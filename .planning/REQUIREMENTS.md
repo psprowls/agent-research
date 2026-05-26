@@ -52,10 +52,10 @@ Requirements for this milestone. Each maps to a roadmap phase.
 ### Domains (explicit-config-only)
 
 - [x] **DOMAIN-01**: Scanner emits `Domain` nodes from a `domains.yaml` file at the repository root (format documented in graph-io README)
-- [ ] **DOMAIN-02**: `belongs_to_domain` edges connect Package → Domain; a package may belong to 0..N domains — zero-domain packages are intentional (cross-cutting utilities), multi-domain membership is supported
+- [x] **DOMAIN-02**: `belongs_to_domain` edges connect Package → Domain; a package may belong to 0..N domains — zero-domain packages are intentional (cross-cutting utilities), multi-domain membership is supported
 - [x] **DOMAIN-03**: `domain_contains_domain` edges form a tree (one parent per domain); cycle detection during scan raises a clear error identifying the cycle
-- [ ] **DOMAIN-04**: Missing `domains.yaml` is NOT an error — all packages show as zero-domain (cross-cutting); zero-domain is the default behavior
-- [ ] **DOMAIN-05**: Domain assignment in v1.6 is EXPLICIT-CONFIG-ONLY — convention-based folder-name inference, import-graph clustering, and LLM-proposed groupings are deferred to v1.7+ (decision logged 2026-05-25)
+- [x] **DOMAIN-04**: Missing `domains.yaml` is NOT an error — all packages show as zero-domain (cross-cutting); zero-domain is the default behavior
+- [x] **DOMAIN-05**: Domain assignment in v1.6 is EXPLICIT-CONFIG-ONLY — convention-based folder-name inference, import-graph clustering, and LLM-proposed groupings are deferred to v1.7+ (decision logged 2026-05-25)
 
 ### Derived Edges
 
@@ -208,10 +208,10 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | TEST-06 | Phase 30 | Complete |
 | TEST-07 | Phase 30 | Complete |
 | DOMAIN-01 | Phase 31 | Complete |
-| DOMAIN-02 | Phase 31 | Pending |
+| DOMAIN-02 | Phase 31 | Complete |
 | DOMAIN-03 | Phase 31 | Complete |
-| DOMAIN-04 | Phase 31 | Pending |
-| DOMAIN-05 | Phase 31 | Pending |
+| DOMAIN-04 | Phase 31 | Complete |
+| DOMAIN-05 | Phase 31 | Complete |
 | DERIVED-01 | Phase 31 | Complete |
 | DERIVED-02 | Phase 31 | Complete |
 | DERIVED-03 | Phase 31 | Pending |
