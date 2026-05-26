@@ -108,7 +108,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - [x] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges (completed 2026-05-26)
 - [ ] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path`
 - [ ] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries
-- [ ] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, env var rename with deprecation alias
+- [ ] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
 
 ---
 
@@ -210,14 +210,14 @@ Plans:
 - [ ] 33-05-PLAN.md *(blocked on Wave 0+1 completion — 33-01..04)* — wire 12 new modules into _SUBCOMMANDS + SC#5 anti-regression test (D-16)
 
 ### Phase 34: Brand Sweep
-**Goal**: All `lattice` brand text inside `packages/graph-io/` is replaced with graph-wiki phrasing; the deprecated `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var still works with a deprecation warning; `cg --help` shows "graph-wiki" branding; the brand grep gate passes
+**Goal**: All `lattice` brand text inside `packages/graph-io/` is replaced with graph-wiki phrasing; the env var `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is renamed to `GRAPH_WIKI_LOCK_TIMEOUT_MS` with no alias or deprecation warning (single-user repo, no backwards compat); the dead `_SKIP_REPO_PREFIXES = ("lattice/",)` filter and its test are deleted; `cg --help` shows "graph-wiki" branding; the brand grep gate passes
 **Depends on**: Phase 28 (brand sweep is logically independent of B-F but runs last to avoid merge conflicts)
 **Requirements**: BRAND-01, BRAND-02, BRAND-03, BRAND-04
 **Success Criteria** (what must be TRUE):
   1. `cg --help` output contains "graph-wiki" and does not contain "lattice" in any user-visible string
-  2. `packages/graph-io/README.md` first line reads `# graph-io` (or `# graph-wiki code graph`); `~/.lattice/graph/code.db` path reference is replaced with the canonical path via `workspace_io.paths.graph_dir()`
-  3. Setting `LATTICE_GRAPH_LOCK_TIMEOUT_MS=5000` and running `cg update` prints a deprecation warning to stderr and respects the 5000ms timeout; setting `GRAPH_WIKI_LOCK_TIMEOUT_MS=5000` respects the timeout silently
-  4. `scripts/check-brand.sh` exits 0 on the post-sweep tree; `LATTICE_GRAPH_LOCK_TIMEOUT_MS` in `update.py` is covered by a `.brand-grep-allow` entry (intentional deprecated alias)
+  2. `packages/graph-io/README.md` first line reads `# graph-io`; `~/.lattice/graph/code.db` path reference is replaced with the canonical path via `workspace_io.paths.graph_dir()`; the README is grep-clean of `lattice|LATTICE`
+  3. `GRAPH_WIKI_LOCK_TIMEOUT_MS` is the only env var that controls the lock timeout: setting it changes the timeout; setting the old `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is silently ignored; `LATTICE_GRAPH_LOCK_TIMEOUT_MS` appears nowhere in `packages/graph-io/`
+  4. `scripts/check-brand.sh` exits 0 on the post-sweep tree; `packages/graph-io/` is grep-clean of `lattice|LATTICE` (zero allowlist entries needed for it)
 **Plans**: TBD
 
 ---
@@ -240,7 +240,7 @@ Plans:
 | 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
-| 32. Query Layer Extensions | 1/3 | In Progress|  |
+| 32. Query Layer Extensions | 2/3 | In Progress|  |
 | 33. CLI Surface | 0/TBD | Not started | - |
 | 34. Brand Sweep | 0/TBD | Not started | - |
 
