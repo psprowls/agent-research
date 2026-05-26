@@ -12,6 +12,7 @@ import pytest
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 from graph_io import store, structural_nodes, upsert
+from graph_io.structural_nodes import _is_test_path
 from graph_io.uri import RepoContext
 
 _CTX = RepoContext(org="test", repo="repo")
@@ -196,6 +197,41 @@ def test_is_test_path_negative() -> None:
     assert not structural_nodes._is_test_path("src/foo.py")
     assert not structural_nodes._is_test_path("pkg/main.py")
     assert not structural_nodes._is_test_path("index.js")
+
+
+def test_is_test_path_filename_inside_import_root_is_not_test(tmp_path: Path) -> None:
+    """D-01: filename test_*.py inside a Python Package's src import root is
+    NOT a test file — the src-override flips the filename-only D-09 branch."""
+    (tmp_path / "packages/foo/src/foo").mkdir(parents=True)
+    (tmp_path / "packages/foo/src/foo/__init__.py").write_text("")
+    (tmp_path / "packages/foo/pyproject.toml").write_text("[project]\nname='foo'\n")
+    assert _is_test_path(
+        "packages/foo/src/foo/test_helpers.py",
+        package_dirs=[("foo", "packages/foo")],
+        repo_root=tmp_path,
+    ) is False
+
+
+def test_is_test_path_tests_dir_branch_unchanged(tmp_path: Path) -> None:
+    """D-01: tests/ ancestor is still authoritative — filename match
+    irrelevant when a tests/ dir is above the file."""
+    assert _is_test_path(
+        "packages/foo/tests/test_x.py",
+        package_dirs=[("foo", "packages/foo")],
+        repo_root=tmp_path,
+    ) is True
+
+
+def test_is_test_path_jsts_inside_package_root_is_not_test(tmp_path: Path) -> None:
+    """D-01: *.test.ts inside JS Package dir but outside __tests__/ is NOT
+    a test file."""
+    (tmp_path / "packages/jspkg").mkdir(parents=True)
+    (tmp_path / "packages/jspkg/package.json").write_text('{"name":"jspkg"}')
+    assert _is_test_path(
+        "packages/jspkg/src/foo.test.ts",
+        package_dirs=[("jspkg", "packages/jspkg")],
+        repo_root=tmp_path,
+    ) is False
 
 
 def test_owning_package_is_module_level_callable() -> None:
