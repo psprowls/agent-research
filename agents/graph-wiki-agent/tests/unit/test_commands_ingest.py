@@ -8,10 +8,75 @@ Tests all public behaviors of run_ingest_source and run_ingest_work_item.
 
 import dataclasses
 import json
+import sqlite3
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Phase 40 graph-seeding helper for ingest tests
+# ---------------------------------------------------------------------------
+
+
+def _seed_graph_db_for_ingest_tests(
+    workspace: Path,
+    packages: list[tuple[str, str, str | None]],
+    extra_nodes: list[tuple[str, str, str | None, str | None]] | None = None,
+) -> Path:
+    """Create <workspace>/.graph/code.db with package nodes + (optional) file nodes.
+
+    Each `packages` entry is (name, uri, rel_file_path | None). When rel_file_path
+    is supplied, a 'file' node is inserted and a 'contains' edge wires
+    package -> file. The URI is written to the dedicated `nodes.uri` column
+    (Phase 39 finding: production stores URI in the column, NOT in attrs_json).
+
+    `extra_nodes` lets tests add non-package entity nodes (e.g. class) for the
+    name-fallback path. Each entry is (kind, name, path | None, uri | None).
+
+    Returns the DB path.
+    """
+    from graph_io.store import connect
+    from workspace_io.paths import graph_dir
+
+    db = graph_dir(workspace) / "code.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    conn = connect(db, create=True)
+    try:
+        next_id = 1
+        for name, uri, rel_path in packages:
+            pkg_id = next_id
+            next_id += 1
+            conn.execute(
+                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) "
+                "VALUES (?, 'package', ?, NULL, NULL, NULL, ?)",
+                (pkg_id, name, uri),
+            )
+            if rel_path is not None:
+                file_id = next_id
+                next_id += 1
+                conn.execute(
+                    "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) "
+                    "VALUES (?, 'file', ?, ?, NULL, NULL, NULL)",
+                    (file_id, Path(rel_path).name, rel_path),
+                )
+                conn.execute(
+                    "INSERT INTO edges (src, dst, kind, attrs_json) "
+                    "VALUES (?, ?, 'contains', NULL)",
+                    (pkg_id, file_id),
+                )
+        for entry in extra_nodes or []:
+            kind, name, path, uri = entry
+            conn.execute(
+                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) "
+                "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+                (next_id, kind, name, path, uri),
+            )
+            next_id += 1
+    finally:
+        conn.close()
+    return db
 
 
 # ---------------------------------------------------------------------------
@@ -530,3 +595,358 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
     detail = call_args.kwargs.get("detail") or (call_args.args[3] if len(call_args.args) >= 4 else "")
     assert "stripped 1" in detail or "stripped 1 unresolved" in detail
     assert result.page_type == "concept"
+
+
+# ===========================================================================
+# Phase 40: graph-io integration tests (INGESTOR-01, INGESTOR-02)
+# ===========================================================================
+
+_FM_TEMPLATE = (
+    "---\n"
+    "title: {title}\n"
+    "category: {category}\n"
+    "page_type: {page_type}\n"
+    "target_slug: {slug}\n"
+    "summary: x\n"
+    "---\n"
+    "Body."
+)
+
+
+def _build_workspace_with_repo(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Create a workspace dir, a sibling wiki dir, and a repo root.
+
+    Returns (workspace, wiki, repo). workspace == repo for these tests so
+    that source files placed under workspace/<rel_path> are relative to the
+    repo root as the graph stores them.
+    """
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    wiki.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    return workspace, wiki, workspace
+
+
+# ---------------------------------------------------------------------------
+# Test: NOT_INITIALIZED — typed exception raised, LLM never invoked
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_not_initialized_raises_typed_exception(
+    tmp_path: Path,
+) -> None:
+    """Missing .graph/code.db → IngestorGraphNotInitializedError; LLM not invoked."""
+    from graph_wiki_agent.commands.ingest import (
+        IngestorGraphNotInitializedError,
+        run_ingest_source,
+    )
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+
+    # Do NOT create workspace/.graph/code.db — that is the test scenario.
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        # Record any LLM construction attempt — none should happen.
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content="never"))
+        mock_make_llm.return_value = fake_llm
+
+        with pytest.raises(IngestorGraphNotInitializedError) as exc_info:
+            await run_ingest_source(source_file, workspace)
+
+    msg = str(exc_info.value)
+    assert "graph-io not initialized for this workspace" in msg
+    assert "graph-wiki-agent graph build" in msg
+    assert mock_make_llm.call_count == 0, (
+        f"LLM must NOT be invoked on NOT_INITIALIZED path; was called {mock_make_llm.call_count}x"
+    )
+    assert fake_llm.ainvoke.call_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Test: path match overrides LLM slug
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_path_match_overrides_slug(tmp_path: Path) -> None:
+    """Seeded path lookup returns canonical URI; LLM slug is replaced."""
+    from graph_wiki_agent.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    rel_path = "packages/graph-io/src/graph_io/store.py"
+    source_file = workspace / rel_path
+    source_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file.write_text("# store\n\nBody.", encoding="utf-8")
+
+    canonical_uri = "pkg:agent-research/agent-research/graph-io"
+    _seed_graph_db_for_ingest_tests(
+        workspace,
+        packages=[("graph-io", canonical_uri, rel_path)],
+    )
+
+    fake_llm_response = _FM_TEMPLATE.format(
+        title="Store",
+        category="package",
+        page_type="package",
+        slug="wrong-slug",  # the LLM's guess that we expect to be overridden
+    )
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    expected_page = wiki / "packages" / "graph-io.md"
+    assert expected_page.exists(), f"expected page at {expected_page}"
+    body = expected_page.read_text(encoding="utf-8")
+    assert f"entity_uri: {canonical_uri}" in body
+    assert "target_slug: graph-io" in body
+    assert "target_slug: wrong-slug" not in body
+    assert result.entity_uri == canonical_uri
+    assert result.slug == "graph-io"
+
+
+# ---------------------------------------------------------------------------
+# Test: name fallback overrides slug when path lookup misses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_name_fallback_overrides_slug(
+    tmp_path: Path,
+) -> None:
+    """When path lookup misses, the name fallback resolves via title_guess."""
+    from graph_wiki_agent.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    # Source file is OUTSIDE the package path used by the graph entry, so path
+    # lookup misses and we fall through to the name lookup.
+    source_file = workspace / "random" / "src.md"
+    source_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file.write_text("# SubagentPool\n\nBody.", encoding="utf-8")
+
+    canonical_uri = "cls:subagent_runtime.pool.SubagentPool"
+    _seed_graph_db_for_ingest_tests(
+        workspace,
+        packages=[],
+        extra_nodes=[("class", "SubagentPool", None, canonical_uri)],
+    )
+
+    # title_guess derives from extract() title -> source_path.stem fallback.
+    # We set the LLM frontmatter title so the body keeps "SubagentPool"; the
+    # in-code title_guess will be "Src" from filename. Force the name match
+    # path by ALSO seeding the title path: extract() reads from the source
+    # file's first heading. The file's first heading is "# SubagentPool".
+    fake_llm_response = _FM_TEMPLATE.format(
+        title="SubagentPool",
+        category="concept",
+        page_type="concept",
+        slug="some-other-thing",
+    )
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    assert result.entity_uri == canonical_uri
+    # slug should be derived from the URI tail
+    assert result.slug == "subagent_runtime.pool.SubagentPool"
+    written = (wiki / "concepts" / f"{result.slug}.md").read_text(encoding="utf-8")
+    assert f"entity_uri: {canonical_uri}" in written
+
+
+# ---------------------------------------------------------------------------
+# Test: no match writes entity_uri: null
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_no_match_writes_null_entity_uri(
+    tmp_path: Path,
+) -> None:
+    """Empty graph DB → entity_uri is None and body has 'entity_uri: null'."""
+    from graph_wiki_agent.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+
+    # Empty graph — schema exists, no entity rows.
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    fake_llm_response = _FM_TEMPLATE.format(
+        title="My Thing",
+        category="concept",
+        page_type="concept",
+        slug="my-thing",
+    )
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    assert result.entity_uri is None
+    written = (wiki / "concepts" / "my-thing.md").read_text(encoding="utf-8")
+    assert "entity_uri: null" in written
+
+
+# ---------------------------------------------------------------------------
+# Test: multi-match → stderr warning + treat as no match
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_multi_match_warns_and_falls_back(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Multiple entity-kind nodes named 'Helper' → stderr warn + entity_uri null."""
+    from graph_wiki_agent.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "src.md"
+    source_file.write_text("# Helper\n\nBody.", encoding="utf-8")
+
+    _seed_graph_db_for_ingest_tests(
+        workspace,
+        packages=[],
+        extra_nodes=[
+            ("class", "Helper", "packages/a/src/a/helper.py", "cls:agent-research/a/Helper"),
+            ("class", "Helper", "packages/b/src/b/helper.py", "cls:agent-research/b/Helper"),
+        ],
+    )
+
+    fake_llm_response = _FM_TEMPLATE.format(
+        title="Helper",
+        category="concept",
+        page_type="concept",
+        slug="helper",
+    )
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    captured = capsys.readouterr()
+    assert "matches multiple graph nodes" in captured.err
+    written = (wiki / "concepts" / "helper.md").read_text(encoding="utf-8")
+    assert "entity_uri: null" in written
+    assert result.entity_uri is None
+
+
+# ---------------------------------------------------------------------------
+# Test: conn closed even when LLM raises
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_closes_conn_on_exception(tmp_path: Path) -> None:
+    """conn.close() is called in finally even if ainvoke raises."""
+    from graph_wiki_agent.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    recorded_conn = MagicMock(spec=sqlite3.Connection)
+    recorded_conn.execute.return_value.fetchone.return_value = None
+    recorded_conn.execute.return_value.fetchall.return_value = []
+
+    class _Boom(RuntimeError):
+        pass
+
+    with (
+        patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_agent.commands.ingest.read_only_connect") as mock_connect,
+        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_agent.commands.ingest.update_index"),
+        patch("graph_wiki_agent.commands.ingest.append_log"),
+        patch("graph_wiki_agent.commands.ingest.queries") as mock_queries,
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        mock_connect.return_value = recorded_conn
+        mock_queries.find.return_value = []
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(side_effect=_Boom("llm fail"))
+        mock_make_llm.return_value = fake_llm
+
+        with pytest.raises(_Boom):
+            await run_ingest_source(source_file, workspace)
+
+    recorded_conn.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Test: _set_entity_uri_in_body — body rewriter (unit-level)
+# ---------------------------------------------------------------------------
+
+
+def test_set_entity_uri_in_body_inserts_after_target_slug() -> None:
+    from graph_wiki_agent.commands.ingest import _set_entity_uri_in_body
+
+    text = "---\ntarget_slug: foo\ntitle: Foo\n---\n\nBody"
+    out = _set_entity_uri_in_body(text, "pkg:x/y/foo")
+    assert "target_slug: foo\nentity_uri: pkg:x/y/foo\n" in out
+
+    # None → null literal
+    out_null = _set_entity_uri_in_body(text, None)
+    assert "entity_uri: null" in out_null
+
+    # Idempotence: calling twice yields exactly one entity_uri: line
+    twice = _set_entity_uri_in_body(out, "pkg:x/y/foo")
+    assert twice.count("entity_uri:") == 1
+
+    # No target_slug: in frontmatter → entity_uri inserted at top
+    no_slug = "---\ntitle: Foo\n---\n\nBody"
+    out2 = _set_entity_uri_in_body(no_slug, "pkg:x/y/foo")
+    # First frontmatter line after the opening --- should be entity_uri
+    lines = out2.splitlines()
+    assert lines[0] == "---"
+    assert lines[1] == "entity_uri: pkg:x/y/foo"
