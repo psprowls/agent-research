@@ -1,0 +1,20 @@
+# workspace_io package directory — the package is literally named workspace_io
+packages/workspace-io/
+
+# Ported-from comments referencing the original lattice-* packages
+packages/source-parser/
+packages/eval-harness/
+
+# Wiki test fixture vault — round-trip-vault preserves the historical lattice-* layout
+packages/wiki-io/
+
+# Cross-package imports of workspace_io
+packages/model-adapter/
+agents/graph-wiki-agent/
+plugins/graph-wiki/
+
+# Historical milestone documentation references the original lattice provenance
+.planning/
+
+# CLAUDE.md references workspace_io as the canonical package name
+CLAUDE.md
