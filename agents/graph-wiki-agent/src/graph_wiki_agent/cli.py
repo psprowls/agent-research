@@ -61,6 +61,7 @@ def _ensure_uv_workspace() -> None:
 
 _ensure_uv_workspace()
 
+from graph_wiki_agent.commands.graph import graph_app
 from graph_wiki_agent.commands.init import run_init
 from graph_wiki_agent.commands.ingest import run_ingest_source, run_ingest_work_item
 from graph_wiki_agent.commands.lint import run_lint
@@ -614,6 +615,10 @@ def ingest_work_item(
     else:
         typer.echo(f"[ok] Filed work item: {result.page_path}")
         typer.echo(f"     slug: {result.slug}")
+
+
+# graph subapp (Phase 38 — code graph operations via in-process cg dispatch)
+app.add_typer(graph_app, name="graph")
 
 
 # ---------------------------------------------------------------------------
