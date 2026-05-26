@@ -571,6 +571,15 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
         captured_converse_calls.append(kwargs)
         return converse_instance
 
+    # Phase 40: run_ingest_source opens a read-only graph DB at workspace start.
+    # Seed an empty graph so the test exercises the model_override path.
+    from graph_io.store import connect as _gio_connect
+    from workspace_io.paths import graph_dir as _gio_graph_dir
+    _gio_db = _gio_graph_dir(vault) / "code.db"
+    _gio_db.parent.mkdir(parents=True, exist_ok=True)
+    _gio_conn = _gio_connect(_gio_db, create=True)
+    _gio_conn.close()
+
     with (
         patch(
             "graph_wiki_agent.commands.ingest.resolve_wiki_and_repo",

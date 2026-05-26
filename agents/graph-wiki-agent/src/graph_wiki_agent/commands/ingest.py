@@ -22,6 +22,7 @@ Cross-ref update scope (CONTEXT.md deferred decision):
 
 import logging
 import re
+import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -37,10 +38,43 @@ from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slu
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
 
+from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
+from graph_io.store import GraphNotInitializedError, read_only_connect
+from workspace_io.paths import graph_dir
+
 from graph_wiki_agent.prompts.ingestor import build_ingestor_system
 from graph_wiki_agent.prompts.project_context import render_project_context
+from graph_wiki_agent.uri_slug import slug_from_uri
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Phase 40 / INGESTOR-02 / D-01 / D-02 — typed NOT_INITIALIZED error
+# ---------------------------------------------------------------------------
+
+
+class IngestorGraphNotInitializedError(RuntimeError):
+    """Raised when run_ingest_source() cannot open the workspace's graph DB.
+
+    Surface contract (Phase 40 / INGESTOR-02 / D-01 / D-02):
+      - The CLI layer catches this exception and exits with code
+        `graph_io.exit_codes.NOT_INITIALIZED` (=3).
+      - The exception's message is the D-02 stderr text — clients can
+        forward it verbatim to stderr.
+
+    Note (Phase 40 SC#2 invariant): unlike the scanner (Phase 39 D-08), the
+    ingestor does NOT gracefully fall back when the graph DB is missing —
+    slug-aligning new pages with the graph is the whole point of this command.
+    Operating without a graph would silently produce drift; hard-fail instead.
+    """
+
+    def __init__(self, workspace: Path) -> None:
+        self.workspace = workspace
+        super().__init__(
+            "error: graph-io not initialized for this workspace. "
+            "Run 'graph-wiki-agent graph build' (or 'cg update') to initialize, then retry."
+        )
 
 # Matches YAML list items with any indentation (2-space, 4-space, tab)
 _LIST_ITEM_RE = re.compile(r"^[ \t]+- ")
@@ -67,6 +101,10 @@ class IngestResult:
                             <workspace>/work/ via file_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
+        entity_uri:         Phase 40 (INGESTOR-01) canonical entity URI when the graph
+                            matched the source by path or by name; None when no graph
+                            match was found OR when the result was produced by
+                            `run_ingest_work_item` (work items bypass entity lookup).
     """
 
     status: str
@@ -76,6 +114,7 @@ class IngestResult:
     page_type: str
     source_path: str
     cross_refs_updated: int
+    entity_uri: str | None = None  # Phase 40: canonical entity URI; None for free-form sources
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +127,71 @@ _PAGE_TYPE_DIRS: dict[str, str] = {
     "adr": "adrs",
     "source": "sources",
 }
+
+
+# D-03 name-fallback: only consider entity-bearing kinds (file names are noisy).
+_ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
+
+
+def _lookup_entity_by_path(conn, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
+    """Return (uri, name) for the package CONTAINING the source file, or None.
+
+    Strategy: resolve source_path relative to repo_root (POSIX-style), then join
+    nodes (file) -> edges (contains) -> nodes (package) for an exact match.
+    The graph stores POSIX-relative paths from repo root (schema invariant);
+    if source_path is outside repo_root, returns None (no path-relative form).
+
+    Reads URI from the dedicated `nodes.uri` column (Phase 39 finding: production
+    stores URI in the column, NOT in attrs_json).
+    """
+    try:
+        rel = source_path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+    row = conn.execute(
+        "SELECT p.name, p.uri FROM nodes f "
+        "JOIN edges e ON e.dst = f.id AND e.kind='contains' "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE f.kind='file' AND f.path = ? AND p.kind='package' "
+        "LIMIT 1",
+        (rel,),
+    ).fetchone()
+    if row is None:
+        return None
+    name, uri = row
+    if not uri:
+        return None
+    return uri, name
+
+
+def _lookup_entity_by_name(conn, name: str) -> tuple[str, str] | None:
+    """Return (uri, name) for the unique entity-kind match by name, or None.
+
+    Multi-match policy (D-03 / CONTEXT specifics): when more than one entity-kind
+    node shares the name, emit one stderr warning and return None (fall back to
+    the no-match path).
+
+    URIs are read from the dedicated `nodes.uri` column (Phase 39 finding).
+    """
+    if not name:
+        return None
+    placeholders = ",".join("?" for _ in _ENTITY_KINDS)
+    sql = (
+        f"SELECT name, uri, kind FROM nodes "
+        f"WHERE name = ? AND kind IN ({placeholders}) AND uri IS NOT NULL"
+    )
+    rows = conn.execute(sql, [name, *sorted(_ENTITY_KINDS)]).fetchall()
+    if not rows:
+        return None
+    if len(rows) > 1:
+        uris = [r[1] for r in rows]
+        sys.stderr.write(
+            f"[ingest: name {name!r} matches multiple graph nodes "
+            f"({', '.join(uris)}); falling back to LLM-guessed slug]\n"
+        )
+        return None
+    matched_name, matched_uri, _kind = rows[0]
+    return matched_uri, matched_name
 
 
 def _route_target_path(wiki: Path, page_type: str, slug: str) -> Path:
@@ -146,6 +250,59 @@ def _rewrite_target_slug_in_body(text: str, canonical_slug: str) -> str:
             new_lines.append(line)
     if not found:
         new_lines.insert(0, f"target_slug: {canonical_slug}")
+    new_fm = "\n".join(new_lines)
+    return f"{leading_ws}---\n{new_fm}{body_and_close}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 40 D-05 / D-06: write `entity_uri:` frontmatter on every ingest.
+# ---------------------------------------------------------------------------
+
+
+def _set_entity_uri_in_body(text: str, entity_uri: str | None) -> str:
+    """Insert or replace the `entity_uri:` line in the YAML frontmatter of `text`.
+
+    Placement (CONTEXT specifics): immediately AFTER the `target_slug:` line. When
+    no `target_slug:` line exists, insert as the FIRST field of the frontmatter
+    block. When called repeatedly the result is idempotent (only one
+    `entity_uri:` line ever appears).
+
+    `entity_uri=None` writes the literal value `null` so downstream tooling
+    (lint, link-checker, v1.8 reconciliation) can distinguish free-form pages
+    from entity-backed ones (D-05).
+
+    Operates on the raw text — does not re-emit YAML — so it preserves comments,
+    ordering, and indentation of other frontmatter fields. Returns text
+    unchanged when no frontmatter is present.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+
+    value_str = "null" if entity_uri is None else entity_uri
+    new_lines: list[str] = []
+    inserted = False
+    for line in fm_block.splitlines():
+        stripped_line = line.lstrip()
+        # Drop any existing entity_uri: line (idempotence)
+        if stripped_line.startswith("entity_uri:"):
+            continue
+        new_lines.append(line)
+        # Insert immediately after target_slug:
+        if not inserted and stripped_line.startswith("target_slug:"):
+            indent = line[: len(line) - len(stripped_line)]
+            new_lines.append(f"{indent}entity_uri: {value_str}")
+            inserted = True
+    if not inserted:
+        # No target_slug: line — insert at the top of the frontmatter block.
+        new_lines.insert(0, f"entity_uri: {value_str}")
     new_fm = "\n".join(new_lines)
     return f"{leading_ws}---\n{new_fm}{body_and_close}"
 
@@ -401,133 +558,174 @@ async def run_ingest_source(
     if repo is None:
         repo = Path.cwd()
 
-    # Step 2: extract text and title
-    text, title = extract(source_path)
-    title_guess = title or source_path.stem.replace("-", " ").title()
-    slug = slugify(title_guess)
+    # Phase 40 D-01: open read-only graph conn at command entry.
+    # `wiki = <workspace>/wiki` per wiki_io._workspace.resolve_wiki_and_repo;
+    # the workspace root is `workspace_path` when supplied, else `wiki.parent`.
+    workspace_root = workspace_path if workspace_path is not None else wiki.parent
+    db_path = graph_dir(workspace_root) / "code.db"
+    try:
+        conn = read_only_connect(db_path)
+    except GraphNotInitializedError as exc:
+        raise IngestorGraphNotInitializedError(workspace_root) from exc
 
-    # Step 3: guess source type
-    rel_to_wiki: Path | None = None
-    rel_to_repo: Path | None = None
     try:
-        rel_to_wiki = source_path.relative_to(wiki)
-    except ValueError:
-        pass
-    try:
-        rel_to_repo = source_path.relative_to(repo)
-    except ValueError:
-        pass
-    source_type = guess_source_type(rel_to_wiki, rel_to_repo)
+        # Step 2: extract text and title
+        text, title = extract(source_path)
+        title_guess = title or source_path.stem.replace("-", " ").title()
+        slug = slugify(title_guess)
 
-    # Step 4: vault structure for context
-    vault_structure: list[str] = []
-    try:
-        vault_structure = sorted(
-            d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith(".")
+        # Step 3: guess source type
+        rel_to_wiki: Path | None = None
+        rel_to_repo: Path | None = None
+        try:
+            rel_to_wiki = source_path.relative_to(wiki)
+        except ValueError:
+            pass
+        try:
+            rel_to_repo = source_path.relative_to(repo)
+        except ValueError:
+            pass
+        source_type = guess_source_type(rel_to_wiki, rel_to_repo)
+
+        # URI-drift limitation (INGESTOR-03 / Phase 40):
+        #
+        # When a package is renamed in the source repo, the `entity_uri` recorded
+        # in existing ingested pages becomes orphaned — it still points at the
+        # old URI even though the graph now uses the new one. Phase 40 does NOT
+        # automatically migrate orphaned URIs; this is tracked as a v1.8
+        # reconciliation item.
+        #
+        # Surfaces: grep -r "entity_uri: pkg:" wiki/ will find all entity-backed
+        # pages; a v1.8 tool may parse + reconcile against the live graph.
+        canonical: tuple[str, str] | None = _lookup_entity_by_path(
+            conn, repo, source_path
         )
-    except OSError:
-        pass
+        if canonical is None:
+            canonical = _lookup_entity_by_name(conn, title_guess)
+        canonical_uri: str | None = canonical[0] if canonical else None
 
-    prompt = build_ingest_source_prompt(text, source_path, source_type, vault_structure)
+        # Step 4: vault structure for context
+        vault_structure: list[str] = []
+        try:
+            vault_structure = sorted(
+                d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith(".")
+            )
+        except OSError:
+            pass
 
-    # Step 5: single ingestor LLM call
-    ingestor_cfg = load_role_config("ingestor")
-    if model_override is not None:
-        llm = ChatBedrockConverse(
-            model_id=model_override,
-            region_name=ingestor_cfg["region"],
-            max_tokens=ingestor_cfg["max_tokens"],
-        )
-    else:
-        llm = make_llm("ingestor")
-    resolved_model_id = model_override or ingestor_cfg["model_id"]
-    # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
-    # to disk for every production ingest invocation, not just pool-driven calls.
-    trace_dir = wiki / ".graph-wiki" / "traces"
-    trace_dir.mkdir(parents=True, exist_ok=True)
-    trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
-    t0 = time.monotonic()
-    try:
-        resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
-    except Exception as exc:
+        prompt = build_ingest_source_prompt(text, source_path, source_type, vault_structure)
+
+        # Step 5: single ingestor LLM call
+        ingestor_cfg = load_role_config("ingestor")
+        if model_override is not None:
+            llm = ChatBedrockConverse(
+                model_id=model_override,
+                region_name=ingestor_cfg["region"],
+                max_tokens=ingestor_cfg["max_tokens"],
+            )
+        else:
+            llm = make_llm("ingestor")
+        resolved_model_id = model_override or ingestor_cfg["model_id"]
+        # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
+        # to disk for every production ingest invocation, not just pool-driven calls.
+        trace_dir = wiki / ".graph-wiki" / "traces"
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+        t0 = time.monotonic()
+        try:
+            resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
+        except Exception as exc:
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            write_trace_record(
+                trace_file,
+                role="ingestor",
+                model_id=resolved_model_id,
+                item=str(source_path),
+                status="error",
+                latency_ms=latency_ms,
+                response=None,
+                error=str(exc),
+            )
+            raise
         latency_ms = int((time.monotonic() - t0) * 1000)
         write_trace_record(
             trace_file,
             role="ingestor",
             model_id=resolved_model_id,
             item=str(source_path),
-            status="error",
+            status="success",
             latency_ms=latency_ms,
-            response=None,
-            error=str(exc),
+            response=resp,
         )
-        raise
-    latency_ms = int((time.monotonic() - t0) * 1000)
-    write_trace_record(
-        trace_file,
-        role="ingestor",
-        model_id=resolved_model_id,
-        item=str(source_path),
-        status="success",
-        latency_ms=latency_ms,
-        response=resp,
-    )
-    llm_output: str = resp.content
+        llm_output: str = resp.content
 
-    # Step 6: parse response to get page_type and target_slug
-    fm, _body = _parse_ingestor_response(llm_output)
-    page_type = str(fm.get("page_type", "concept")).lower()
-    if page_type not in _PAGE_TYPE_DIRS:
-        page_type = "concept"
+        # Step 6: parse response to get page_type and target_slug
+        fm, _body = _parse_ingestor_response(llm_output)
+        page_type = str(fm.get("page_type", "concept")).lower()
+        if page_type not in _PAGE_TYPE_DIRS:
+            page_type = "concept"
 
-    target_slug = str(fm.get("target_slug", "")).strip()
-    # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
-    target_slug = slugify(target_slug) if target_slug else slug
+        target_slug = str(fm.get("target_slug", "")).strip()
+        # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
+        target_slug = slugify(target_slug) if target_slug else slug
 
-    # Step 7: write page
-    target_path = _route_target_path(wiki, page_type, target_slug)
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    # Reconcile target_slug in the body with the on-disk filename slug.
-    # _route_target_path uses slugify(target_slug); if that differs from
-    # what the LLM wrote, rewrite the body's `target_slug:` line to match.
-    # Also handles the case where the LLM omitted target_slug entirely
-    # (we fell back to slugify(title)) — write that fallback into the body.
-    canonical_slug = target_path.stem
-    llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
-    # Write the file first so it is part of the "known pages" set when
-    # resolving self-references in the body (e.g. an ADR linking to
-    # itself or a sibling created earlier in the same ingest).
-    target_path.write_text(llm_output, encoding="utf-8")
-    # Plan 06-14 / UAT G4: strip wikilinks the LLM fabricated for pages
-    # that do not exist in the vault. Two writes is acceptable — vaults
-    # are local-disk and writes are <1ms.
-    resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
-    if stripped_wikilinks:
-        target_path.write_text(resolved_output, encoding="utf-8")
+        # D-04: graph is ground truth for slugs of entity-backed pages.
+        if canonical_uri is not None:
+            target_slug = slug_from_uri(canonical_uri)
 
-    # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
-    update_index(wiki)
+        # Step 7: write page
+        target_path = _route_target_path(wiki, page_type, target_slug)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        # Reconcile target_slug in the body with the on-disk filename slug.
+        # _route_target_path uses slugify(target_slug); if that differs from
+        # what the LLM wrote, rewrite the body's `target_slug:` line to match.
+        # Also handles the case where the LLM omitted target_slug entirely
+        # (we fell back to slugify(title)) — write that fallback into the body.
+        canonical_slug = target_path.stem
+        llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
+        # D-05/D-06: write entity_uri frontmatter on every successful ingest.
+        # null when no graph match; full URI when matched.
+        llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
+        # Write the file first so it is part of the "known pages" set when
+        # resolving self-references in the body (e.g. an ADR linking to
+        # itself or a sibling created earlier in the same ingest).
+        target_path.write_text(llm_output, encoding="utf-8")
+        # Plan 06-14 / UAT G4: strip wikilinks the LLM fabricated for pages
+        # that do not exist in the vault. Two writes is acceptable — vaults
+        # are local-disk and writes are <1ms.
+        resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
+        if stripped_wikilinks:
+            target_path.write_text(resolved_output, encoding="utf-8")
 
-    # Step 9: append log (record stripped-wikilink count for hallucination audit)
-    detail = f"source: {source_path}"
-    if stripped_wikilinks:
-        detail += (
-            f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
-            f"{stripped_wikilinks[:5]}"
+        # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
+        update_index(wiki)
+
+        # Step 9: append log (record stripped-wikilink count for hallucination audit)
+        detail = f"source: {source_path}"
+        if stripped_wikilinks:
+            detail += (
+                f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
+                f"{stripped_wikilinks[:5]}"
+            )
+        append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
+
+        # Step 10: return result
+        page_path_rel = str(target_path.relative_to(wiki))
+        return IngestResult(
+            status="ok",
+            page_path=page_path_rel,
+            slug=target_slug,
+            title=title_guess,
+            page_type=page_type,
+            source_path=str(source_path),
+            cross_refs_updated=1,
+            entity_uri=canonical_uri,
         )
-    append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
-
-    # Step 10: return result
-    page_path_rel = str(target_path.relative_to(wiki))
-    return IngestResult(
-        status="ok",
-        page_path=page_path_rel,
-        slug=target_slug,
-        title=title_guess,
-        page_type=page_type,
-        source_path=str(source_path),
-        cross_refs_updated=1,
-    )
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass  # closing a read-only conn should not raise; defensive
 
 
 # ---------------------------------------------------------------------------

@@ -100,6 +100,8 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
 
     fake_llm_response = "---\npage_type: concept\ntarget_slug: foo\ntitle: My Source\ncategory: concept\nsummary: A test concept\n---\n\nBody text here."
 
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
+
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
         patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
@@ -118,7 +120,13 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     # Page should be written under concepts/foo.md
     expected_page = wiki / "concepts" / "foo.md"
     assert expected_page.exists(), f"Expected page at {expected_page}"
-    assert expected_page.read_text(encoding="utf-8") == fake_llm_response
+    # Phase 40: body now also contains an entity_uri: null line (no graph match);
+    # use substring assertions rather than strict equality.
+    written_body = expected_page.read_text(encoding="utf-8")
+    assert "page_type: concept" in written_body
+    assert "target_slug: foo" in written_body
+    assert "entity_uri: null" in written_body
+    assert "Body text here." in written_body
 
     # update_index and append_log must be called
     mock_update_index.assert_called_once_with(wiki)
@@ -151,6 +159,8 @@ async def test_run_ingest_source_default_slug_from_title(tmp_path: Path) -> None
 
     # LLM response: no target_slug, but page_type=concept
     fake_llm_response = "---\npage_type: concept\ntitle: My Cool Source\ncategory: concept\nsummary: Cool\n---\n\nBody."
+
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
@@ -416,6 +426,8 @@ async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) ->
         "Body text here."
     )
 
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
+
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
         patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
@@ -466,6 +478,8 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
         "---\n"
         "Body."
     )
+
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
@@ -572,6 +586,8 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
         "---\n"
         "Refers to [[real-thing]] and to [[Hallucinated Person]]."
     )
+
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo") as mock_resolve,

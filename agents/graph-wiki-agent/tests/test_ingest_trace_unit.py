@@ -15,6 +15,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+def _seed_empty_graph(workspace: Path) -> None:
+    """Seed an empty .graph/code.db so Phase 40's NOT_INITIALIZED gate is satisfied."""
+    from graph_io.store import connect
+    from workspace_io.paths import graph_dir
+
+    db = graph_dir(workspace) / "code.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    conn = connect(db, create=True)
+    conn.close()
+
+
 @pytest.mark.asyncio
 async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     """ingest writes a JSONL trace with role=ingestor + tokens from usage_metadata."""
@@ -41,6 +52,8 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     }
     fake_llm = MagicMock()
     fake_llm.ainvoke = AsyncMock(return_value=fake_resp)
+
+    _seed_empty_graph(wiki)
 
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
@@ -77,6 +90,8 @@ async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None
 
     fake_llm = MagicMock()
     fake_llm.ainvoke = AsyncMock(side_effect=BotoCoreError())
+
+    _seed_empty_graph(wiki)
 
     with (
         patch("graph_wiki_agent.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
