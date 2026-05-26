@@ -769,6 +769,7 @@ version = "0.1.0"
 source = { editable = "agents/graph-wiki-agent" }
 dependencies = [
     { name = "bm25s" },
+    { name = "graph-io" },
     { name = "langchain-aws" },
     { name = "mcp" },
     { name = "model-adapter" },
@@ -782,7 +783,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bm25s", specifier = "==0.3.8" },
-    { name = "langchain-aws", specifier = ">=1.4.6" },
+    { name = "graph-io", editable = "packages/graph-io" },
+    { name = "langchain-aws", specifier = ">=1.4.7" },
     { name = "mcp", specifier = ">=1.27.1" },
     { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -1089,7 +1091,7 @@ wheels = [
 
 [[package]]
 name = "langchain-aws"
-version = "1.4.6"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -1097,9 +1099,9 @@ dependencies = [
     { name = "numpy" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/93/2f52f3b4b635c640c4915f3bbe634610d375c8cbf0a64f0a11f0b2c8c286/langchain_aws-1.4.6.tar.gz", hash = "sha256:eb7d48d17967313f436729cbf1beffc10be1a654583f3170a3798e57efaaea04", size = 513150, upload-time = "2026-05-04T21:48:53.605Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/e4/9a3d8914b121d24a30fd1017910eeeebb9a720b6afe5dfb82018684cd889/langchain_aws-1.5.0.tar.gz", hash = "sha256:b5e2b0a34704837f911182774ce1b7c709fbd2dbdea1e9ef7ee7e00b247084f0", size = 515712, upload-time = "2026-05-19T19:42:40.068Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/c6/656a7ac130b542021b78de8d133091a5f2e34fbb5a226321febcc71ec25c/langchain_aws-1.4.6-py3-none-any.whl", hash = "sha256:0b30f30aef099549367e4e0f75c8ce602645c0e9318a25ae4a563c03ef8a0ee0", size = 201547, upload-time = "2026-05-04T21:48:52.333Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/08/f10ae62cbb6bcdd2b62e5a697470351eef1e33bd4a40b7e2e03230582ff0/langchain_aws-1.5.0-py3-none-any.whl", hash = "sha256:c15177686393d0e0f5e86333ae9fb7980119220878590dbd5845efe020fe1c72", size = 202704, upload-time = "2026-05-19T19:42:38.942Z" },
 ]
 
 [[package]]

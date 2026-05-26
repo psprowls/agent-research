@@ -8,9 +8,10 @@ dependencies = [
     "model-adapter",
     "subagent-runtime",
     "workspace-io",
+    "graph-io",
     "bm25s==0.3.8",
     "mcp>=1.27.1",
-    "langchain-aws>=1.4.6",
+    "langchain-aws>=1.4.7",
     "typer>=0.25.1",
     "pydantic>=2.0",
 ]
@@ -25,6 +26,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 wiki-io         = { workspace = true }
+graph-io         = { workspace = true }
 model-adapter    = { workspace = true }
 subagent-runtime = { workspace = true }
 workspace-io     = { workspace = true }
