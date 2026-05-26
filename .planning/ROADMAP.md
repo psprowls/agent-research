@@ -107,7 +107,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - [x] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting (completed 2026-05-26)
 - [x] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges (completed 2026-05-26)
 - [x] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path` (completed 2026-05-26)
-- [ ] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries
+- [x] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries (completed 2026-05-26)
 - [ ] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
 
 ---
@@ -207,7 +207,7 @@ Plans:
 - [x] 33-04-PLAN.md — 5 q_* modules: list-domains, describe-domain, domain-refs, domain-deps, cross-cutting (CLI-09..13)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 33-05-PLAN.md *(blocked on Wave 0+1 completion — 33-01..04)* — wire 12 new modules into _SUBCOMMANDS + SC#5 anti-regression test (D-16)
+- [x] 33-05-PLAN.md *(blocked on Wave 0+1 completion — 33-01..04)* — wire 12 new modules into _SUBCOMMANDS + SC#5 anti-regression test (D-16)
 
 ### Phase 34: Brand Sweep
 **Goal**: All `lattice` brand text inside `packages/graph-io/` is replaced with graph-wiki phrasing; the env var `LATTICE_GRAPH_LOCK_TIMEOUT_MS` is renamed to `GRAPH_WIKI_LOCK_TIMEOUT_MS` with no alias or deprecation warning (single-user repo, no backwards compat); the dead `_SKIP_REPO_PREFIXES = ("lattice/",)` filter and its test are deleted; `cg --help` shows "graph-wiki" branding; the brand grep gate passes
@@ -241,7 +241,7 @@ Plans:
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
 | 32. Query Layer Extensions | 3/3 | Complete    | 2026-05-26 |
-| 33. CLI Surface | 4/5 | In Progress|  |
+| 33. CLI Surface | 5/5 | Complete   | 2026-05-26 |
 | 34. Brand Sweep | 0/TBD | Not started | - |
 
 ---
