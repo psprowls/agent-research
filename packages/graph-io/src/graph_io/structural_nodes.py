@@ -196,6 +196,15 @@ def _is_executable(path: Path, name: str) -> bool:
 # --- SubPackage helpers (D-04..D-08) ---
 
 
+def _tracked_files(repo_root: Path) -> list[str]:
+    """Return repo-relative paths of git-tracked files. Empty list on non-git repos."""
+    try:
+        out = _git(["ls-files"], cwd=repo_root)
+    except NotInGitRepoError:
+        return []
+    return [line for line in out.splitlines() if line]
+
+
 def _resolve_import_root(pkg_dir: Path, importable: str) -> Path | None:
     """D-06: src-layout probe then flat-layout probe; None if neither."""
     src_root = pkg_dir / "src" / importable / "__init__.py"
@@ -309,9 +318,62 @@ def emit(
 
     # --- Per-package emission ---
 
+    # Tracked-file enumeration (git ls-files). Fallback to FS walk when
+    # the repo has no git history (used in tests with bare tmp_path trees).
+    tracked = _tracked_files(repo_root)
+    if not tracked:
+        tracked = []
+        for dirpath, dirnames, filenames in os.walk(repo_root, followlinks=False):
+            d = Path(dirpath)
+            dirnames[:] = [
+                name for name in dirnames
+                if not _ignore.should_skip(name, skip_dirs)
+            ]
+            try:
+                d_rel = d.relative_to(repo_root).as_posix()
+            except ValueError:
+                continue
+            if d_rel and _ignore.should_skip(d_rel, skip_dirs):
+                continue
+            for filename in filenames:
+                fpath = d / filename
+                try:
+                    rel = fpath.relative_to(repo_root).as_posix()
+                except ValueError:
+                    continue
+                if _ignore.should_skip(rel, skip_dirs):
+                    continue
+                tracked.append(rel)
+
+    # Sort to keep emission order deterministic (stable IDs across runs).
+    tracked = sorted(set(tracked))
+
+    # Build a fast lookup: pkg sorted by path-depth desc so we can find the
+    # most-specific (deepest) package containing each file.
+    pkg_index = sorted(
+        (
+            (pkg_rel or "", pkg_name, pkg_rel)
+            for pkg_name, pkg_rel, _ in pkg_rows
+        ),
+        key=lambda t: len(t[0]),
+        reverse=True,
+    )
+
+    def _owning_package(rel_path: str) -> tuple[str, str | None] | None:
+        for pkg_prefix, pkg_name, pkg_rel in pkg_index:
+            if not pkg_prefix:
+                return (pkg_name, pkg_rel)
+            if rel_path == pkg_prefix or rel_path.startswith(pkg_prefix + "/"):
+                return (pkg_name, pkg_rel)
+        return None
+
     # Track which files we've already covered so we don't double-emit when
     # files sit under multiple packages (e.g. root manifest + nested manifest).
     emitted_file_paths: set[str] = set()
+
+    # Map: pkg_name -> dict[absolute_subpkg_dir -> (dotted_path, rel_path)],
+    # used by File-parent resolution to pick the deepest enclosing SubPackage.
+    pkg_to_subpkg_map: dict[str, dict[Path, tuple[str, str]]] = {}
 
     for pkg_name, pkg_rel_path, pkg_attrs_json in pkg_rows:
         pkg_attrs = json.loads(pkg_attrs_json) if pkg_attrs_json else {}
@@ -336,8 +398,6 @@ def emit(
                     key=lambda p: p.as_posix(),
                 )
 
-        # Build SubPackage nodes + edges
-        # Track subpkg by absolute path -> (dotted_path, rel_path) for File parenting
         subpkg_by_dir: dict[Path, tuple[str, str]] = {}
         for subpkg_dir in subpkg_dirs:
             assert import_root is not None
@@ -366,13 +426,11 @@ def emit(
             # Parent: deepest enclosing SubPackage, else Package
             parent_dir = subpkg_dir.parent.resolve()
             if subpkg_dir.resolve() == import_root.resolve():
-                # Top-level subpkg sits directly under Package
                 parent_src = pkg_key
             elif parent_dir in subpkg_by_dir:
                 parent_dotted, parent_rel = subpkg_by_dir[parent_dir]
                 parent_src = ("subpackage", parent_dotted, parent_rel)
             else:
-                # Shouldn't happen, but fall back to Package
                 parent_src = pkg_key
 
             edges.append(
@@ -384,122 +442,125 @@ def emit(
                 )
             )
 
-        # File emission — walk every tracked file under pkg_dir
-        for dirpath, dirnames, filenames in os.walk(pkg_dir, followlinks=False):
-            d = Path(dirpath)
-            try:
-                d_rel = d.relative_to(repo_root).as_posix()
-            except ValueError:
-                continue
-            # Filter dirs in-place
-            dirnames[:] = [
-                name for name in dirnames
-                if not _ignore.should_skip(name, skip_dirs)
-            ]
-            if d_rel and _ignore.should_skip(d_rel, skip_dirs):
-                continue
-            for filename in filenames:
-                fpath = d / filename
-                try:
-                    rel = fpath.relative_to(repo_root).as_posix()
-                except ValueError:
-                    continue
-                if _ignore.should_skip(rel, skip_dirs):
-                    continue
-                if rel in emitted_file_paths:
-                    continue
-                emitted_file_paths.add(rel)
+        pkg_to_subpkg_map[pkg_name] = subpkg_by_dir
 
-                ext = Path(filename).suffix
-                is_python = ext == ".py"
-                is_jsts = ext in _JSTS_EXTENSIONS
-                file_language = "python" if is_python else (
-                    "javascript" if ext in {".js", ".jsx", ".mjs", ".cjs"} else (
-                        "typescript" if ext in {".ts", ".tsx"} else None
-                    )
+    # --- Global File enumeration over tracked files ---
+
+    for rel in tracked:
+        if rel in emitted_file_paths:
+            continue
+        if _ignore.should_skip(rel, skip_dirs):
+            continue
+        owner = _owning_package(rel)
+        if owner is None:
+            # File not under any Package — skip (Repository-only files are
+            # covered by test_file parent rule via is_test, and there are
+            # no other Repository-direct files in v1.6).
+            continue
+        owner_name, owner_rel = owner
+        pkg_key = ("package", owner_name, owner_rel)
+
+        fpath = repo_root / rel
+        if not fpath.exists():
+            continue
+
+        filename = fpath.name
+        if filename in _GENERIC_CONTAINER_DIRS:
+            continue
+
+        emitted_file_paths.add(rel)
+
+        ext = Path(filename).suffix
+        is_python = ext == ".py"
+        is_jsts = ext in _JSTS_EXTENSIONS
+        file_language = "python" if is_python else (
+            "javascript" if ext in {".js", ".jsx", ".mjs", ".cjs"} else (
+                "typescript" if ext in {".ts", ".tsx"} else None
+            )
+        )
+
+        has_main = False
+        is_importable = False
+        if is_python:
+            row = conn.execute(
+                "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
+                (rel,),
+            ).fetchone()
+            if row and row[0]:
+                sparser_attrs = json.loads(row[0])
+                has_main = bool(sparser_attrs.get("_has_main_block", False))
+                is_importable = bool(
+                    sparser_attrs.get("_has_importable_symbols", False)
                 )
+        elif is_jsts:
+            has_main = False
+            is_importable = True
 
-                # SPARSER attrs for Python (D-20)
-                has_main = False
-                is_importable = False
-                if is_python:
-                    row = conn.execute(
-                        "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
-                        (rel,),
-                    ).fetchone()
-                    if row and row[0]:
-                        sparser_attrs = json.loads(row[0])
-                        has_main = bool(sparser_attrs.get("_has_main_block", False))
-                        is_importable = bool(
-                            sparser_attrs.get("_has_importable_symbols", False)
-                        )
-                elif is_jsts:
-                    has_main = False
-                    is_importable = True
-                # else: both default False
+        is_test = _is_test_path(rel)
+        is_config = _is_config_file(filename)
+        is_generated = _is_generated(fpath, filename, rel)
+        is_type_only = _is_type_only(filename)
+        is_executable = _is_executable(fpath, filename)
 
-                is_test = _is_test_path(rel)
-                is_config = _is_config_file(filename)
-                is_generated = _is_generated(fpath, filename, rel)
-                is_type_only = _is_type_only(filename)
-                is_executable = _is_executable(fpath, filename)
+        file_attrs = {
+            "uri": file_uri(ctx, rel),
+            "is_importable": is_importable,
+            "is_executable": is_executable,
+            "has_main": has_main,
+            "is_test": is_test,
+            "is_config": is_config,
+            "is_generated": is_generated,
+            "is_type_only": is_type_only,
+        }
+        if file_language is not None:
+            file_attrs["language"] = file_language
 
-                file_attrs = {
-                    "uri": file_uri(ctx, rel),
-                    "is_importable": is_importable,
-                    "is_executable": is_executable,
-                    "has_main": has_main,
-                    "is_test": is_test,
-                    "is_config": is_config,
-                    "is_generated": is_generated,
-                    "is_type_only": is_type_only,
-                }
-                if file_language is not None:
-                    file_attrs["language"] = file_language
+        # File node name matches the source-parser convention:
+        # `source_parser.projections.graph._emit_node` uses
+        # `name = str(node.path)` for file SourceNodes. Using the same
+        # name here means we update the existing File node in place
+        # (single row per file) instead of creating a duplicate.
+        file_name = rel
 
-                # D-15 guard: file basenames matching generic container dirs
-                # would only matter if someone literally named a file "tests"
-                # without an extension. Defensive: skip if it would collide.
-                if filename in _GENERIC_CONTAINER_DIRS:
-                    continue
+        nodes.append(
+            GraphNode(
+                kind="file",
+                name=file_name,
+                path=rel,
+                line=None,
+                attrs=file_attrs,
+            )
+        )
 
-                nodes.append(
-                    GraphNode(
-                        kind="file",
-                        name=filename,
-                        path=rel,
-                        line=None,
-                        attrs=file_attrs,
-                    )
-                )
-
-                # Parent resolution (D-13, D-14)
-                if is_test:
-                    parent_src = repo_key  # D-14: Repository, not Package
-                elif is_python and subpkg_by_dir:
-                    # Find deepest enclosing SubPackage by directory
-                    cur = d.resolve()
-                    parent_src = None
-                    while True:
-                        if cur in subpkg_by_dir:
-                            sp_dotted, sp_rel = subpkg_by_dir[cur]
-                            parent_src = ("subpackage", sp_dotted, sp_rel)
-                            break
-                        if cur == pkg_dir or cur.parent == cur:
-                            break
-                        cur = cur.parent
-                    if parent_src is None:
-                        parent_src = pkg_key
-                else:
+        # Parent resolution (D-13, D-14)
+        if is_test:
+            parent_src = repo_key  # D-14: Repository, not Package
+        else:
+            sub_map = pkg_to_subpkg_map.get(owner_name, {})
+            if is_python and sub_map:
+                cur = fpath.parent.resolve()
+                parent_src = None
+                while True:
+                    if cur in sub_map:
+                        sp_dotted, sp_rel = sub_map[cur]
+                        parent_src = ("subpackage", sp_dotted, sp_rel)
+                        break
+                    parent = cur.parent
+                    if parent == cur:
+                        break
+                    cur = parent
+                if parent_src is None:
                     parent_src = pkg_key
+            else:
+                parent_src = pkg_key
 
-                edges.append(
-                    GraphEdge(
-                        src=parent_src,
-                        dst=("file", filename, rel),
-                        kind="physically_contains",
-                        attrs={},
-                    )
-                )
+        edges.append(
+            GraphEdge(
+                src=parent_src,
+                dst=("file", file_name, rel),
+                kind="physically_contains",
+                attrs={},
+            )
+        )
 
     upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))

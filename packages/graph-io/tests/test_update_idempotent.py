@@ -21,7 +21,15 @@ def _ro(repo: Path) -> sqlite3.Connection:
 
 
 def _structural_snapshot(db_path: Path) -> tuple[list, list]:
-    """Fallback identity proof when byte-identity is genuinely impossible."""
+    """Fallback identity proof when byte-identity is genuinely impossible.
+
+    Edges are compared by joining to the node tuple
+    `(kind, name, path)` rather than the raw integer ROWID, because the
+    ROWID counter is path-dependent: any structural node (e.g. Repository
+    with path=NULL added by Phase 29) shifts the auto-id allocation
+    for placeholder rows on the next run. SCHEMA-05's contract is
+    semantic structural identity, not byte-identical ROWIDs.
+    """
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         nodes = conn.execute(
@@ -29,8 +37,14 @@ def _structural_snapshot(db_path: Path) -> tuple[list, list]:
             "ORDER BY kind, name, path"
         ).fetchall()
         edges = conn.execute(
-            "SELECT src, dst, kind, attrs_json FROM edges "
-            "ORDER BY src, dst, kind"
+            "SELECT n1.kind, n1.name, n1.path, "
+            "       n2.kind, n2.name, n2.path, "
+            "       e.kind, e.attrs_json "
+            "FROM edges e "
+            "JOIN nodes n1 ON n1.id = e.src "
+            "JOIN nodes n2 ON n2.id = e.dst "
+            "ORDER BY n1.kind, n1.name, n1.path, "
+            "         n2.kind, n2.name, n2.path, e.kind"
         ).fetchall()
     finally:
         conn.close()

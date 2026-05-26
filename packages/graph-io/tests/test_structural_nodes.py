@@ -468,14 +468,16 @@ def test_file_python_reads_sparser_has_main(
     )
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
-    # Pre-seed source-parser attrs on the File node (as _process_files would)
+    # Pre-seed source-parser attrs on the File node (as _process_files would).
+    # `name=path` matches `source_parser.projections.graph._emit_node`'s
+    # convention for file SourceNodes (name = str(node.path)).
     upsert.upsert_records(
         conn,
         GraphRecords(
             nodes=[
                 GraphNode(
                     kind="file",
-                    name="main.py",
+                    name="packages/mypkg/src/mypkg/main.py",
                     path="packages/mypkg/src/mypkg/main.py",
                     line=None,
                     attrs={
@@ -607,6 +609,102 @@ def test_non_test_python_file_parented_by_subpackage(
 # ============================================================================
 # E. Generic container exclusion (D-15)
 # ============================================================================
+
+
+def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
+    """STRUCT-04 / D-22: every node has exactly one physically_contains parent.
+
+    Copies the sample_monorepo fixture into tmp_path, init-repos it, commits,
+    runs cg update --full, then asserts the strict-tree invariant via SQL.
+    """
+    import shutil
+    import subprocess
+
+    from graph_io import update
+    from workspace_io.config import resolve as resolve_workspace
+    from workspace_io.paths import graph_dir
+
+    fixture_src = Path(__file__).parent / "fixtures" / "sample_monorepo"
+    shutil.copytree(fixture_src, tmp_path, dirs_exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "test"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True
+    )
+
+    update.run(tmp_path, full=True)
+
+    ws = resolve_workspace(tmp_path, require_manifest=False).workspace
+    db_path = graph_dir(ws) / "code.db"
+    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as probe:
+        # Assertion 1: strict tree — no child has >1 structural parent
+        dupes = probe.execute(
+            "SELECT dst, COUNT(*) FROM edges WHERE kind='physically_contains' "
+            "GROUP BY dst HAVING COUNT(*) > 1"
+        ).fetchall()
+        assert dupes == [], f"Nodes with multiple structural parents: {dupes}"
+
+        # Assertion 2: exactly one Repository node
+        n_repos = probe.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='repository'"
+        ).fetchone()[0]
+        assert n_repos == 1, f"Expected 1 Repository node, got {n_repos}"
+
+        # Assertion 3: Repository → Package edges only (no Package parented by anything else)
+        pkg_parents = probe.execute(
+            "SELECT DISTINCT n.kind FROM edges e "
+            "JOIN nodes n ON n.id = e.src "
+            "WHERE e.kind='physically_contains' "
+            "AND e.dst IN (SELECT id FROM nodes WHERE kind='package')"
+        ).fetchall()
+        kinds = {row[0] for row in pkg_parents}
+        assert kinds == {"repository"} or kinds == set(), (
+            f"Packages have non-Repository parents: {kinds}"
+        )
+
+        # Assertion 4: test files parented by Repository, not Package/SubPackage (D-14)
+        test_file_parents = probe.execute(
+            "SELECT DISTINCT n.kind FROM edges e "
+            "JOIN nodes n ON n.id = e.src "
+            "WHERE e.kind='physically_contains' "
+            "AND e.dst IN ("
+            "  SELECT id FROM nodes WHERE kind='file' "
+            "  AND json_extract(attrs_json, '$.is_test') = 1"
+            ")"
+        ).fetchall()
+        parent_kinds = {row[0] for row in test_file_parents}
+        assert parent_kinds == {"repository"} or parent_kinds == set(), (
+            f"Test files have non-Repository parents: {parent_kinds}"
+        )
+
+        # Assertion 5: SubPackage walk fires for Python (mypkg) — D-04, D-05, D-07
+        n_subpkgs = probe.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
+        ).fetchone()[0]
+        assert n_subpkgs >= 3, (
+            f"Expected >=3 SubPackage nodes (mypkg, mypkg.sub, mypkg.sub.deep), got {n_subpkgs}"
+        )
+
+        # Assertion 6: D-18 — no SubPackage for jspkg
+        jspkg_subpkgs = probe.execute(
+            "SELECT name FROM nodes WHERE kind='subpackage' AND name LIKE 'jspkg%'"
+        ).fetchall()
+        assert jspkg_subpkgs == [], (
+            f"JS package should not produce SubPackages: {jspkg_subpkgs}"
+        )
+
+        # Assertion 7: D-15 — generic container dirs are never node names
+        bad = probe.execute(
+            "SELECT kind, name FROM nodes WHERE name IN "
+            "('packages', 'tests', 'libs', 'apps', 'shared', 'common')"
+        ).fetchall()
+        assert bad == [], f"Generic container dirs leaked into nodes: {bad}"
 
 
 def test_generic_container_dirs_never_emitted_as_nodes(
