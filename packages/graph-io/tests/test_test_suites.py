@@ -1,9 +1,11 @@
-"""Unit tests for test_suites.emit (TEST-01..07)."""
+"""Unit tests for test_suites.emit (TEST-01..07) + Plan 30-04 integration."""
 
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -399,3 +401,23 @@ def test_idempotency_two_runs_identical_edges(tmp_path: Path) -> None:
     assert snap1 == snap2, (
         f"emit() not idempotent — first run {len(snap1)} edges, second {len(snap2)}"
     )
+
+
+# ============================================================================
+# Plan 30-04: integration + enforcement
+# ============================================================================
+
+
+def test_strict_tree_invariant_class_and_helper_exist() -> None:
+    """Task 1: StrictTreeInvariantError + _enforce_strict_tree_invariant are
+    importable from graph_io.update; the exception carries offending_child_ids
+    and the D-20 hint message format."""
+    from graph_io.update import StrictTreeInvariantError, _enforce_strict_tree_invariant
+
+    assert callable(_enforce_strict_tree_invariant)
+    e = StrictTreeInvariantError(offending_child_ids=[1, 2, 3])
+    assert e.offending_child_ids == [1, 2, 3]
+    msg = str(e)
+    assert "tree invariant violated" in msg
+    assert "3 node(s)" in msg
+    assert "duplicate parent edge" in msg or "delete the prior edge" in msg
