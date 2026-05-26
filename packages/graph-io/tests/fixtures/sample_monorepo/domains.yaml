@@ -1,0 +1,9 @@
+core:
+  packages: [mypkg]
+  description: "Core utilities domain"
+web:
+  packages: [jspkg]
+  parent: presentation
+presentation:
+  packages: []
+  description: "Top-level UI layer"
