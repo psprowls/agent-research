@@ -165,7 +165,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 **Requirements**: DOMAIN-01, DOMAIN-02, DOMAIN-03, DOMAIN-04, DOMAIN-05, DERIVED-01, DERIVED-02, DERIVED-03, DERIVED-04
 **Success Criteria** (what must be TRUE):
   1. A `domains.yaml` declaring `billing: packages: [billing-service]` at repo root produces a `Domain(billing)` node after `cg update`; `cg list-domains` shows it; `cg update` with no `domains.yaml` exits 0 with no Domain nodes (zero-domain is not an error)
-  2. A `domains.yaml` with a cycle (`payments → billing → payments`) causes `domains.emit` to print a warning identifying the cycle and skip all `domain_contains_domain` edges without crashing — `cg update` exits 0
+  2. A `domains.yaml` with a cycle (`payments → billing → payments`) causes `domains.emit` to print a warning identifying the cycle and skip ONLY the cycle-participating containment edges (keeping the acyclic remainder) without crashing — `cg update` exits 0
   3. After `cg update --full` on a repo with domains configured and cross-domain imports, `SELECT COUNT(*) FROM edges WHERE kind='references'` returns > 0; `SELECT COUNT(*) FROM edges WHERE kind='depends_on'` returns > 0; running `cg update` a second time does not duplicate the derived edges
   4. A `domains.yaml` referencing a package name that does not exist in the DB prints a warning including the list of known package names — the user can see what names are valid
   5. A repo with `tests/billing/` at root (no `domains.yaml`) does NOT produce a `Domain(billing)` node — convention inference does not treat test subdirectories as domain candidates
