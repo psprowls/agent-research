@@ -4,12 +4,62 @@ import asyncio
 import dataclasses
 import importlib.metadata
 import json
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
 import typer
+
+
+def _ensure_uv_workspace() -> None:
+    """Self-healing uv re-exec for `graph-wiki-agent` bootstrap (HYGIENE-09).
+
+    When the user invokes ``graph-wiki-agent`` (e.g. via a stale shebang or a
+    bare ``python -m graph_wiki_agent.cli`` outside the uv workspace), the
+    `wiki_io` import can fail with ModuleNotFoundError. To recover automatically,
+    walk up from this file's own location (Path(__file__).resolve(), NOT
+    sys.argv[0]) looking for `<ancestor>/packages/wiki-io/pyproject.toml`, then
+    re-exec the current process under
+    ``uv run --project <ancestor>/packages/wiki-io python <sys.argv[0]> <args...>``.
+
+    Loop prevention: GRAPH_WIKI_BOOTSTRAP_REEXEC=1 short-circuits the helper so
+    a second re-exec cannot fire (if wiki_io still fails to import after the
+    first re-exec, the original ImportError must surface naturally).
+    """
+    if os.environ.get("GRAPH_WIKI_BOOTSTRAP_REEXEC"):
+        return
+    try:
+        import wiki_io  # noqa: F401  — probe only
+        return
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    here = Path(__file__).resolve().parent
+    workspace_pkg: Path | None = None
+    candidate = here
+    while True:
+        marker = candidate / "packages" / "wiki-io" / "pyproject.toml"
+        if marker.is_file():
+            workspace_pkg = marker.parent
+            break
+        if candidate == candidate.parent:
+            break
+        candidate = candidate.parent
+
+    if workspace_pkg is None:
+        return  # let the natural ImportError surface from the import that follows
+
+    new_env = {**os.environ, "GRAPH_WIKI_BOOTSTRAP_REEXEC": "1"}
+    os.execvpe(
+        "uv",
+        ["uv", "run", "--project", str(workspace_pkg), "python", sys.argv[0], *sys.argv[1:]],
+        new_env,
+    )
+
+
+_ensure_uv_workspace()
 
 from graph_wiki_agent.commands.init import run_init
 from graph_wiki_agent.commands.ingest import run_ingest_source, run_ingest_work_item
