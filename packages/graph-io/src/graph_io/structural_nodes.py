@@ -119,17 +119,101 @@ def _detect_repo_url(repo_root: Path, ctx: RepoContext) -> str:
 # --- Role-flag heuristics (D-09..D-12) ---
 
 
-def _is_test_path(rel_path: str) -> bool:
-    """D-09: True if path traverses a test directory OR filename matches a test glob."""
+def _is_test_path(
+    rel_path: str,
+    *,
+    package_dirs: list[tuple[str, str | None]] | None = None,
+    repo_root: Path | None = None,
+) -> bool:
+    """D-09 + D-01: True if path traverses a test directory, OR (filename
+    matches a test glob AND the file is NOT inside a Package import root).
+
+    The tests/ directory branch is always authoritative — a file under any
+    ``tests/`` / ``__tests__`` / ``test`` ancestor is is_test=True regardless
+    of Package context.
+
+    The src-override (D-01) applies only to the filename-only branch:
+      - Python: a file whose path is inside a Package's import root
+        (``<pkg>/src/<importable>/`` or ``<pkg>/<importable>/``) is
+        is_test=False even if its filename matches ``test_*.py``.
+      - JS/TS: a file inside a Package directory but outside any
+        ``tests/``/``__tests__`` subdir is is_test=False even if its
+        filename matches ``*.test.ts``/``*.spec.ts``.
+
+    When ``package_dirs`` is None or empty the function falls back to the
+    pure D-09 heuristic (filename match -> True), preserving existing call
+    sites that lack Package context (e.g. unit tests exercising the
+    heuristic in isolation).
+    """
     p = Path(rel_path)
+    # D-09 directory branch — always authoritative.
     for part in p.parts[:-1]:
         if part in _TEST_DIR_NAMES:
             return True
+
     name = p.name
-    for glob in _TEST_FILENAME_GLOBS:
-        if fnmatch.fnmatch(name, glob):
+    matched_glob = any(fnmatch.fnmatch(name, glob) for glob in _TEST_FILENAME_GLOBS)
+    if not matched_glob:
+        return False
+
+    # Filename matches a test glob. Without Package context the legacy
+    # D-09 verdict stands (True).
+    if not package_dirs:
+        return True
+
+    # D-01 src-override: consult package_dirs (deepest-first sorted by caller).
+    for entry in package_dirs:
+        pkg_name, pkg_rel = entry
+        if pkg_rel is None or pkg_rel == "":
+            # Root-Package sentinel is ambiguous for import-root probes; skip.
+            continue
+        if rel_path != pkg_rel and not rel_path.startswith(pkg_rel + "/"):
+            continue
+
+        # Choose Python vs JS/TS branch.
+        ext = p.suffix
+        is_python_branch: bool
+        if repo_root is not None:
+            pkg_abs = repo_root / pkg_rel
+            if (pkg_abs / "pyproject.toml").exists():
+                is_python_branch = True
+            elif (pkg_abs / "package.json").exists():
+                is_python_branch = False
+            else:
+                is_python_branch = ext == ".py"
+        else:
+            is_python_branch = ext == ".py"
+
+        if is_python_branch:
+            if repo_root is None:
+                # No FS context to probe an import root — cannot apply the
+                # Python override; the filename match stands.
+                return True
+            importable = pkg_name.replace("-", "_")
+            pkg_abs = repo_root / pkg_rel
+            import_root = _resolve_import_root(pkg_abs, importable)
+            if import_root is None:
+                # No import root resolved — Python override does not apply.
+                return True
+            try:
+                import_root_rel = import_root.relative_to(repo_root).as_posix()
+            except ValueError:
+                return True
+            if rel_path == import_root_rel or rel_path.startswith(
+                import_root_rel + "/"
+            ):
+                return False
+            # Inside the Package but outside its import root: keep filename
+            # verdict (still is_test).
             return True
-    return False
+
+        # JS/TS branch: the directory check at the top already ruled out
+        # tests/ ancestors; being inside the Package means outside tests/
+        # subdirs, so apply override.
+        return False
+
+    # Filename matches a glob but no Package matched — legacy verdict stands.
+    return True
 
 
 def _is_config_file(name: str) -> bool:
@@ -511,7 +595,11 @@ def emit(
             has_main = False
             is_importable = True
 
-        is_test = _is_test_path(rel)
+        is_test = _is_test_path(
+            rel,
+            package_dirs=[(name, prel) for _, name, prel in pkg_index],
+            repo_root=repo_root,
+        )
         is_config = _is_config_file(filename)
         is_generated = _is_generated(fpath, filename, rel)
         is_type_only = _is_type_only(filename)
