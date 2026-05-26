@@ -104,7 +104,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 - [x] **Phase 28: Schema v2 + URI Foundation** - Bump schema to v2, add `uri` column, wire `SCHEMA_MISMATCH` exit code, ship `uri.py` helpers (completed 2026-05-26)
 - [x] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs (completed 2026-05-26)
-- [ ] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting
+- [x] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting (completed 2026-05-26)
 - [ ] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges
 - [ ] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path`
 - [ ] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries
@@ -192,7 +192,22 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
   3. `cg what-tests graph-io` returns the TestSuite nodes that cover the `graph-io` package via suite-level `tests` edges
   4. `cg list-scripts` returns the union of `EntryPoint kind:executable` entries and `File is_executable:true` entries — declared and conventional scripts in one query
   5. All pre-existing `cg` subcommands (`cg update`, `cg find`, `cg status`, `cg describe-package`, `cg describe-path`, `cg callers`, `cg callees`) continue to exit 0 on the same inputs as before Phase 33 (anti-regression smoke test)
-**Plans**: TBD
+**Plans**: 5 plans
+
+**Cross-cutting constraints** (truths appearing in 2+ plans):
+- All new `q_*` CLI modules follow the `q_describe_package.py` template (open `store.read_only_connect`, dispatch to a Phase 32 helper, render per `--fmt`, return exit code).
+- Empty-state handling per D-03 (list-*: stderr msg + exit 0) vs not-found per D-04 (describe-*: stderr error + exit GENERIC) is uniform across all 12 new subcommands.
+- `exit_codes.AMBIGUOUS = 7` (not 2 — STALE already owns 2; see plan 33-01 deviation note from CONTEXT.md D-20).
+
+Plans:
+**Wave 1**
+- [ ] 33-01-PLAN.md — exit_codes.AMBIGUOUS + extend cg status with repository line (CLI-14)
+- [ ] 33-02-PLAN.md — 4 q_* modules: describe-repo, list-packages, list-entry-points, list-scripts (CLI-01..04)
+- [ ] 33-03-PLAN.md *(blocked on Wave 0 completion — 33-01)* — 3 q_* modules: list-suites, describe-suite, what-tests with probe-both dispatch (CLI-05..08)
+- [ ] 33-04-PLAN.md — 5 q_* modules: list-domains, describe-domain, domain-refs, domain-deps, cross-cutting (CLI-09..13)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 33-05-PLAN.md *(blocked on Wave 0+1 completion — 33-01..04)* — wire 12 new modules into _SUBCOMMANDS + SC#5 anti-regression test (D-16)
 
 ### Phase 34: Brand Sweep
 **Goal**: All `lattice` brand text inside `packages/graph-io/` is replaced with graph-wiki phrasing; the deprecated `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var still works with a deprecation warning; `cg --help` shows "graph-wiki" branding; the brand grep gate passes
@@ -223,7 +238,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 |-------|----------------|--------|-----------|
 | 28. Schema v2 + URI Foundation | 5/5 | Complete    | 2026-05-26 |
 | 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
-| 30. Entry Points + Test Suites | 0/TBD | Not started | - |
+| 30. Entry Points + Test Suites | 4/4 | Complete   | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 0/TBD | Not started | - |
 | 32. Query Layer Extensions | 0/TBD | Not started | - |
 | 33. CLI Surface | 0/TBD | Not started | - |
