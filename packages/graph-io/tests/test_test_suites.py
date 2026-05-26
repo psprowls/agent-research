@@ -150,6 +150,107 @@ def test_jsts_underscores_tests_dir_same_as_c(tmp_path: Path) -> None:
     assert ("__tests__", "packages/jspkg/__tests__") in rows
 
 
+# ---------- Task 3: tests edges ----------
+
+
+def _tests_edge_targets(conn: sqlite3.Connection, suite_path: str) -> set[tuple[str, str | None]]:
+    rows = conn.execute(
+        """
+        SELECT n.kind, n.name FROM edges e
+        JOIN nodes s ON e.src = s.id
+        JOIN nodes n ON e.dst = n.id
+        WHERE e.kind='tests' AND s.kind='test_suite' AND s.path=?
+        """,
+        (suite_path,),
+    ).fetchall()
+    return {(r[0], r[1]) for r in rows}
+
+
+def test_tests_edge_python_imports(tmp_path: Path) -> None:
+    """D-09/D-10: Python test file 'from foo import bar' -> TestSuite -> Package(foo)."""
+    foo_dir = tmp_path / "packages" / "foo"
+    _write_pyproject(foo_dir, name="foo")
+    _write_python_pkg(foo_dir, "foo")
+    bar_dir = tmp_path / "packages" / "bar"
+    _write_pyproject(bar_dir, name="bar")
+    _write_python_pkg(bar_dir, "bar")
+
+    (tmp_path / "tests" / "integration").mkdir(parents=True)
+    (tmp_path / "tests" / "integration" / "test_x.py").write_text(
+        "from foo import baz\nimport bar\n"
+    )
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    targets = _tests_edge_targets(conn, "tests/integration")
+    assert ("package", "foo") in targets
+    assert ("package", "bar") in targets
+
+
+def test_tests_edge_js_bare_imports(tmp_path: Path) -> None:
+    """D-11: JS test 'import x from \"jspkg\"' -> TestSuite -> Package(jspkg)."""
+    pkg_dir = tmp_path / "packages" / "jspkg"
+    _write_package_json(pkg_dir, {"name": "jspkg"})
+    other_dir = tmp_path / "packages" / "other"
+    _write_package_json(other_dir, {"name": "other"})
+
+    (pkg_dir / "__tests__").mkdir()
+    (pkg_dir / "__tests__" / "index.test.js").write_text(
+        'import { x } from "other";\n'
+    )
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    targets = _tests_edge_targets(conn, "packages/jspkg/__tests__")
+    assert ("package", "other") in targets
+
+
+def test_tests_edge_js_relative_imports(tmp_path: Path) -> None:
+    """D-11: JS test 'import x from \"../src/foo\"' -> TestSuite -> Package via _owning_package."""
+    pkg_dir = tmp_path / "packages" / "jspkg"
+    _write_package_json(pkg_dir, {"name": "jspkg"})
+    (pkg_dir / "src").mkdir()
+    (pkg_dir / "src" / "foo.js").write_text("export const x = 1;\n")
+
+    (pkg_dir / "__tests__").mkdir()
+    (pkg_dir / "__tests__" / "rel.test.js").write_text(
+        'import { x } from "../src/foo";\n'
+    )
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    targets = _tests_edge_targets(conn, "packages/jspkg/__tests__")
+    assert ("package", "jspkg") in targets
+
+
+def test_tests_edge_repository_threshold(tmp_path: Path) -> None:
+    """D-12: a suite importing >=5 first-party packages gets an extra
+    TestSuite -> Repository edge."""
+    for n in ("p1", "p2", "p3", "p4", "p5"):
+        pkg_dir = tmp_path / "packages" / n
+        _write_pyproject(pkg_dir, name=n)
+        _write_python_pkg(pkg_dir, n)
+
+    (tmp_path / "tests" / "wide").mkdir(parents=True)
+    (tmp_path / "tests" / "wide" / "test_x.py").write_text(
+        "import p1\nimport p2\nimport p3\nimport p4\nimport p5\n"
+    )
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    targets = _tests_edge_targets(conn, "tests/wide")
+    pkg_targets = {t for t in targets if t[0] == "package"}
+    assert len(pkg_targets) >= 5
+    # Repository edge present
+    assert any(t[0] == "repository" for t in targets), (
+        f"expected Repository edge with >=5 pkg imports; targets={targets}"
+    )
+
+
 def test_test_file_re_parented_from_repository_to_suite(tmp_path: Path) -> None:
     """TEST-04: the only physically_contains parent of a test file is its
     TestSuite, not the Repository (Phase 29 placement is replaced)."""
