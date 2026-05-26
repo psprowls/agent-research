@@ -109,22 +109,6 @@ def test_refresh_skips_venv_manifests(tmp_path: Path, conn: sqlite3.Connection) 
     assert "foo" not in names
 
 
-def test_refresh_skips_lattice_dir_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
-    lattice_pkg = tmp_path / "lattice" / "some-tool"
-    lattice_pkg.mkdir(parents=True)
-    (lattice_pkg / "pyproject.toml").write_text('[project]\nname = "tool"\nversion = "0.0.0"\n')
-
-    real_pkg = tmp_path / "packages" / "real"
-    real_pkg.mkdir(parents=True)
-    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.0"\n')
-
-    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-
-    names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
-    assert "real" in names
-    assert "tool" not in names
-
-
 def test_refresh_skips_cgignore_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
     (tmp_path / ".cgignore").write_text("generated\n")
 

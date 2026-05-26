@@ -42,7 +42,7 @@ _SUBCOMMANDS = {
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="cg", description="lattice code graph CLI")
+    parser = argparse.ArgumentParser(prog="cg", description="graph-wiki code graph CLI")
     parser.add_argument(
         "--repo",
         type=Path,

@@ -14,17 +14,10 @@ from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 from graph_io import _ignore, upsert
 from graph_io.uri import RepoContext, pkg_uri
 
-_SKIP_REPO_PREFIXES = ("lattice/",)
-
-
 def _should_skip(manifest_path: Path, repo_root: Path, skip_dirs: frozenset[str]) -> bool:
     if _ignore.should_skip(str(manifest_path), skip_dirs):
         return True
-    try:
-        rel = manifest_path.relative_to(repo_root).as_posix()
-    except ValueError:
-        return False
-    return any(rel.startswith(p) for p in _SKIP_REPO_PREFIXES)
+    return False
 
 
 def _read_pyproject(path: Path) -> dict[str, Any] | None:
