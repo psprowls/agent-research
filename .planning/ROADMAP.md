@@ -106,7 +106,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - [x] **Phase 29: Structural Nodes + Containment Tree** - Repository, SubPackage, File role flags, `physically_contains` strict tree, resolve.sweep guard, source-parser AST attrs (completed 2026-05-26)
 - [x] **Phase 30: Entry Points + Test Suites** - EntryPoint nodes from manifests, TestSuite nodes from FS layout + framework config, test file re-parenting (completed 2026-05-26)
 - [x] **Phase 31: Domain Layer + Derived Edges** - Domain nodes from `domains.yaml`, `belongs_to_domain`/`domain_contains_domain` edges, cycle detection, `references`/`depends_on` computed edges (completed 2026-05-26)
-- [ ] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path`
+- [x] **Phase 32: Query Layer Extensions** - New query helpers for all new node/edge types, extensions to `describe_package` and `describe_path` (completed 2026-05-26)
 - [ ] **Phase 33: CLI Surface** - 14 new/extended `cg` subcommands for Repository, Domain, EntryPoint, TestSuite queries
 - [ ] **Phase 34: Brand Sweep** - `graph-io` README, CLI help strings, straight env var rename, delete dead `_SKIP_REPO_PREFIXES`
 
@@ -240,7 +240,7 @@ Plans:
 | 29. Structural Nodes + Containment Tree | 4/4 | Complete    | 2026-05-26 |
 | 30. Entry Points + Test Suites | 4/4 | Complete    | 2026-05-26 |
 | 31. Domain Layer + Derived Edges | 4/4 | Complete    | 2026-05-26 |
-| 32. Query Layer Extensions | 2/3 | In Progress|  |
+| 32. Query Layer Extensions | 3/3 | Complete   | 2026-05-26 |
 | 33. CLI Surface | 0/TBD | Not started | - |
 | 34. Brand Sweep | 0/TBD | Not started | - |
 
