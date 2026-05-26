@@ -82,7 +82,19 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             result = fn(conn)
         elif kind == "path":
             result = fn(conn, path=identifier)
+        elif kind == "test_suite":
+            result = fn(conn, suite_name=identifier)
+        elif kind == "entry_point":
+            # entry_point's underlying query needs both package and entry name.
+            # Accept "<package>:<entry>" as the identifier; reject other shapes
+            # with the standard not-found string so the LLM gets a recoverable
+            # signal (D-12) rather than an exception.
+            if ":" not in identifier:
+                return f"error: no {kind} named '{identifier}' found in graph"
+            package_name, _, entry_name = identifier.partition(":")
+            result = fn(conn, package_name=package_name, entry_name=entry_name)
         else:
+            # package, domain — both take `name=`.
             result = fn(conn, name=identifier)
         if result is None:
             return f"error: no {kind} named '{identifier}' found in graph"
