@@ -51,9 +51,9 @@
 
 ### SCANNER — Scanner Consumes graph-io
 
-- [ ] **SCANNER-01** — `run_scan()` calls `cg update` (incremental) before subagent fan-out so graph URIs are fresh
-- [ ] **SCANNER-02** — Scanner derives vault page slug from graph URI (not from filesystem path inference); falls back to path-based logic gracefully when graph not initialized, with a clear log line
-- [ ] **SCANNER-03** — Plugin (`plugins/graph-wiki/`) end-to-end smoke runs successfully against unchanged wiki-io behavior (regression guard captured as success criterion of any phase touching wiki-io templates)
+- [x] **SCANNER-01** — `run_scan()` calls `cg update` (incremental) before subagent fan-out so graph URIs are fresh
+- [x] **SCANNER-02** — Scanner derives vault page slug from graph URI (not from filesystem path inference); falls back to path-based logic gracefully when graph not initialized, with a clear log line
+- [x] **SCANNER-03** — Plugin (`plugins/graph-wiki/`) end-to-end smoke runs successfully against unchanged wiki-io behavior (regression guard captured as success criterion of any phase touching wiki-io templates)
 
 ### INGESTOR — Ingestor Consumes graph-io
 
@@ -118,9 +118,9 @@
 | GRAPHCMD-02 | Phase 38 | Complete |
 | GRAPHCMD-03 | Phase 38 | Complete |
 | GRAPHCMD-04 | Phase 38 | Complete |
-| SCANNER-01 | Phase 39 | Pending |
-| SCANNER-02 | Phase 39 | Pending |
-| SCANNER-03 | Phase 39 | Pending |
+| SCANNER-01 | Phase 39 | Complete |
+| SCANNER-02 | Phase 39 | Complete |
+| SCANNER-03 | Phase 39 | Complete |
 | INGESTOR-01 | Phase 40 | Pending |
 | INGESTOR-02 | Phase 40 | Pending |
 | INGESTOR-03 | Phase 40 | Pending |
