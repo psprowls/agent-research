@@ -111,6 +111,8 @@ def tmp_workspace(tmp_path, monkeypatch):
     repo = workspace / "repo"
     (wiki / ".graph-wiki").mkdir(parents=True)
     (wiki / "CLAUDE.md").write_text("# Wiki\n\nNo pinned containers.\n")
+    # append_log validates the wiki by checking for log.md at the wiki root.
+    (wiki / "log.md").write_text("", encoding="utf-8")
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     return workspace
@@ -192,7 +194,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
 
     # Pretend cg succeeded but no DB on disk → conn open should fail with
     # GraphNotInitializedError; scan should still complete via fallback.
-    asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     assert order, "expected at least the cg_update step to run"
     assert order[0] == "cg_update", f"cg update must run first; got order={order}"
@@ -214,9 +216,9 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
         scan_module, "_capture_run", lambda mod, args: (exit_codes.SUCCESS, "", "")
     )
 
-    asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
-    log_path = wiki / ".graph-wiki" / "log.md"
+    log_path = wiki / "log.md"
     assert log_path.exists(), f"scan log not written at {log_path}"
     log_text = log_path.read_text(encoding="utf-8")
     assert "cg update complete: exit_code=0" in log_text
@@ -232,7 +234,7 @@ def test_decoration_adds_uri_and_domain(tmp_workspace_with_packages, monkeypatch
     repo = workspace / "repo"
 
     # Seed the graph DB at the expected path so read_only_connect succeeds.
-    db = wiki / ".graph-wiki" / "graph" / "code.db"
+    db = workspace / ".graph" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -285,7 +287,7 @@ def test_decoration_adds_uri_and_domain(tmp_workspace_with_packages, monkeypatch
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
-    asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     # Inspect the decorated workspaces (mutated in place by the decoration step).
     pkg_a = next(w for w in fake_workspaces if w["name"] == "pkg-a")
@@ -307,7 +309,7 @@ def test_slug_recomputed_on_domain_change(tmp_workspace_with_packages, monkeypat
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = wiki / ".graph-wiki" / "graph" / "code.db"
+    db = workspace / ".graph" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -340,7 +342,7 @@ def test_slug_recomputed_on_domain_change(tmp_workspace_with_packages, monkeypat
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
-    asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     assert pkg_a["domain"] == "my-domain"
     assert (
@@ -382,7 +384,7 @@ def test_hard_abort_on_runtime_failure(
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _track)
 
     with pytest.raises(scan_module.ScanAbortedError) as excinfo:
-        asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+        asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     assert excinfo.value.exit_code == exit_code
     assert str(exit_code) in str(excinfo.value)
@@ -407,7 +409,7 @@ def test_hard_abort_on_generic_runtime_failure(tmp_workspace_with_packages, monk
     )
 
     with pytest.raises(scan_module.ScanAbortedError):
-        asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+        asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     captured = capsys.readouterr()
     assert "[NOT_INITIALIZED fallback:" not in captured.err
@@ -450,7 +452,7 @@ def test_graceful_fallback_on_init_failure(
 
     # Scan should complete without raising.
     result = asyncio.run(
-        scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True)
+        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True)
     )
     assert result is not None  # ScanResult returned
 
@@ -471,7 +473,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = wiki / ".graph-wiki" / "graph" / "code.db"
+    db = workspace / ".graph" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -523,7 +525,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
     with pytest.raises(RuntimeError, match="simulated fan-out crash"):
-        asyncio.run(scan_module.run_scan(workspace_path=wiki, repo_path=repo, no_file_map=True))
+        asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
     mock_conn.close.assert_called(), "read-only conn must be closed in finally"
 

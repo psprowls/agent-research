@@ -13,9 +13,12 @@ rendered output of `render_project_context(wiki)` — see CTX-03.
 """
 
 import logging
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from graph_io import exit_codes, queries
+from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
@@ -25,6 +28,7 @@ from wiki_io.append_log import append_log
 from wiki_io.layout_io import read_layout
 from wiki_io.scan_monorepo import (
     _load_existing_pages,
+    _wiki_relative_path_for,
     attach_changed_files,
     build_file_map,
     compute_diff,
@@ -33,11 +37,84 @@ from wiki_io.scan_monorepo import (
     regenerate_dependencies_index,
 )
 from wiki_io.update_index import update_index
+from workspace_io.paths import graph_dir
 
+from graph_wiki_agent.commands.graph import _build_namespace, _capture_run, ops_update
 from graph_wiki_agent.prompts.project_context import render_project_context
 from graph_wiki_agent.prompts.scanner import build_scanner_system
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Phase 39 — graph-io integration helpers
+# ---------------------------------------------------------------------------
+
+
+class ScanAbortedError(RuntimeError):
+    """Raised when run_scan() must hard-abort because `cg update` failed with
+    a non-recoverable runtime error (D-07).
+
+    Carries the cg exit_code and any stderr the cg layer produced so callers
+    (CLI / MCP tool) can surface a meaningful diagnostic without re-running.
+    """
+
+    def __init__(self, exit_code: int, stderr: str) -> None:
+        self.exit_code = exit_code
+        self.stderr = stderr
+        super().__init__(
+            f"cg update failed (exit_code={exit_code}); scan aborted. "
+            f"stderr: {stderr.strip() or '<empty>'}"
+        )
+
+
+# D-08 init-failure detection: when `cg update` returns GENERIC and stderr matches
+# one of these substrings, we treat it as a filesystem init failure (permission/disk)
+# rather than a runtime data-correctness failure. Conservative — false positives
+# would graceful-fallback on a runtime error; false negatives would hard-abort on
+# an unusual init failure. Both are safe-side per Phase 39 RESEARCH §11.
+_INIT_FAILURE_STDERR_PATTERNS = (
+    "Permission denied",
+    "Read-only file system",
+    "No space left on device",
+    "Errno 13",
+    "Errno 28",
+    "Errno 30",
+)
+
+
+def _is_init_failure_stderr(stderr: str) -> bool:
+    """Return True if `stderr` matches a known init-failure pattern (D-08)."""
+    return any(p in stderr for p in _INIT_FAILURE_STDERR_PATTERNS)
+
+
+def _query_package_domains(conn) -> dict[str, str]:
+    """Return {package_name: domain_name} for every package with a
+    `belongs_to_domain` edge.
+
+    Single SQL round trip. Packages with no domain edge are absent from the
+    returned dict (caller uses dict.get with the filesystem-derived default).
+    """
+    rows = conn.execute(
+        "SELECT p.name, d.name FROM nodes p "
+        "JOIN edges e ON e.src = p.id AND e.kind='belongs_to_domain' "
+        "JOIN nodes d ON e.dst = d.id "
+        "WHERE p.kind='package' AND d.kind='domain'"
+    ).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+def _query_package_uris(conn) -> dict[str, str]:
+    """Return {package_name: uri} for every package node in the graph.
+
+    Reads from the dedicated `nodes.uri` column populated by `upsert._upsert_node`
+    (which pops `uri` from attrs before serializing the rest into attrs_json,
+    see packages/graph-io/src/graph_io/upsert.py). Single SQL round trip.
+    """
+    rows = conn.execute(
+        "SELECT name, uri FROM nodes WHERE kind='package' AND uri IS NOT NULL"
+    ).fetchall()
+    return {row[0]: row[1] for row in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -275,182 +352,298 @@ async def run_scan(
     else:
         repo = Path.cwd()
 
-    # Step 2: read layout block
-    # When repo_path is supplied as an override, also bypass the vault's
-    # pinned_containers — the vault layout describes the ORIGINAL monorepo
-    # the vault was generated from (e.g. `graph-wiki/packages/` + `plugins/`)
-    # and almost certainly does not match the override repo's directory
-    # structure. Using unpinned discovery against the override lets
-    # discover_workspaces find the workspace by its own pyproject.toml.
-    pinned: list[dict] | None = None
-    if repo_path is None:
-        for schema_name in ("CLAUDE.md", "AGENTS.md"):
-            layout = read_layout(wiki / schema_name)
-            if layout and layout.get("containers"):
-                pinned = layout.get("containers", [])
-                break
-
-    # Step 3: discover workspaces
-    workspaces = discover_workspaces(repo, pinned_containers=pinned)
-
-    # Step 4: build file_map per workspace
-    if not no_file_map:
-        for w in workspaces:
-            pkg_dir = repo / w["path"]
-            fm = build_file_map(pkg_dir, max_depth=max_depth)
-            if fm is not None:
-                w["file_map"] = fm
-
-    # Step 5: load existing vault pages
-    existing = _load_existing_pages(wiki)
-
-    # Step 6: attach changed files since last sync
-    attach_changed_files(workspaces, existing, repo)
-
-    # Step 7: compute diff
-    diff = compute_diff(workspaces, existing)
-
-    # Step 8: compute state gate
-    state_gate = compute_state_gate(repo)
-
-    # Build workspace lookup by unscoped name for post-processing
-    from wiki_io.scan_monorepo import unscope
-    ws_by_name = {unscope(w["name"]): w for w in workspaces}
-
-    # Step 9: scanner fan-out
-    # Items = new packages + unchanged packages with changed files
-    fan_items: list[dict] = []
-    for name in diff["new"]:
-        if name in ws_by_name:
-            fan_items.append(ws_by_name[name])
-    for name in diff["unchanged"]:
-        if name in ws_by_name:
-            w = ws_by_name[name]
-            changed = w.get("changed_files")
-            if changed:  # non-empty list means files changed
-                fan_items.append(w)
-
-    cfg = load_role_config("scanner")
-    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
-    if model_override is not None:
-        scanner_llm = ChatBedrockConverse(
-            model_id=model_override,
-            region_name=cfg["region"],
-            max_tokens=cfg["max_tokens"],
-        )
-    else:
-        scanner_llm = make_llm("scanner")
-
-    async def generate_stub(pkg: dict) -> TaskResult:
-        prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
-        msgs = [
-            SystemMessage(content=build_scanner_system(project_context=project_ctx)),
-            HumanMessage(content=prompt),
-        ]
-        resp = await scanner_llm.ainvoke(msgs)
-        # Phase 16-02 G-01: wrap in TaskResult so pool's trace record carries
-        # resp.usage_metadata; downstream still sees the string body.
-        return TaskResult(value=resp.content, response=resp)
-
-    fan_result: FanOutResult = await pool.run_all(
-        items=fan_items,
-        task=generate_stub,
-        role="scanner",
-        model_id=cfg["model_id"],
-        max_concurrency=cfg["max_concurrency"],
-    )
-
-    # Step 10: write successful stub pages
-    added: list[str] = []
-    updated: list[str] = []
-
-    for pkg, llm_body in fan_result.successes:
-        pkg_name = unscope(pkg["name"])
-        vault_page_rel = pkg.get("wiki_relative_path", f"packages/{pkg_name}/{pkg_name}.md")
-        page_path = wiki / vault_page_rel
-        page_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Deterministic file map append (RESEARCH Risk 5)
-        pkg_dir = repo / pkg["path"]
-        file_map_text = ""
-        if not no_file_map:
-            fm = build_file_map(pkg_dir, max_depth=max_depth)
-            if fm is not None:
-                file_map_text = "\n\n" + fm
-
-        final_page = llm_body + file_map_text
-        page_path.write_text(final_page, encoding="utf-8")
-
-        if pkg_name in diff["new"]:
-            added.append(pkg_name)
-        else:
-            updated.append(pkg_name)
-
-    # Collect errors
-    errors: list[str] = [
-        f"{unscope(err.item['name'])}: {err.exception}"
-        for err in fan_result.errors
-    ]
-
-    # Step 11: stale-tag deleted packages
-    for pkg_name in diff["deleted"]:
-        existing_rec = existing.get(pkg_name)
-        if existing_rec:
-            page_path = wiki / existing_rec["wiki_relative_path"]
-            _add_stale_tag(page_path)
-            append_log(
-                wiki,
-                "scan",
-                f"marked stale: {pkg_name}",
-                detail=None,
-                silent=True,
-                raise_exception=True,
-            )
-            logger.info("Marked stale: %s", pkg_name)
-
-    # stale-tag renamed packages (old side)
-    for rename_pair in diff["renamed"]:
-        old_name = rename_pair[0]
-        existing_rec = existing.get(old_name)
-        if existing_rec:
-            page_path = wiki / existing_rec["wiki_relative_path"]
-            _add_stale_tag(page_path)
-            new_name = rename_pair[1] if len(rename_pair) > 1 else "unknown"
-            append_log(
-                wiki,
-                "scan",
-                f"marked stale: {old_name} (renamed to {new_name})",
-                detail=None,
-                silent=True,
-                raise_exception=True,
-            )
-            logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
-
-    # Step 12: regenerate indexes
-    regenerate_dependencies_index(wiki, workspaces)
+    # Phase 39 D-05: single read-only conn for graph queries; closed in finally
+    conn = None
     try:
-        update_index(wiki)
-    except Exception as exc:
-        logger.warning("update_index failed (non-fatal): %s", exc)
+        # Phase 39 Step 1.5 (D-01/D-02/D-06/D-07/D-08): pre-scan cg update.
+        # Use Phase 38's in-process helpers — full=False, no --trace, no --model.
+        append_log(
+            wiki,
+            "scan",
+            "cg update (incremental)",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        _cg_args = _build_namespace(ops_update, repo=repo, workspace=wiki, full=False)
+        _cg_exit, _cg_stdout, _cg_stderr = _capture_run(ops_update, _cg_args)
+        _graph_ready = False
+        if _cg_exit == exit_codes.SUCCESS:
+            append_log(
+                wiki,
+                "scan",
+                "cg update complete: exit_code=0",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+            _graph_ready = True
+        elif _cg_exit == exit_codes.GENERIC and _is_init_failure_stderr(_cg_stderr):
+            # D-08 graceful fallback: init failure (permission/disk). One stderr line.
+            reason = (
+                _cg_stderr.strip().splitlines()[-1]
+                if _cg_stderr.strip()
+                else "unknown init failure"
+            )
+            sys.stderr.write(
+                f"[NOT_INITIALIZED fallback: graph could not be initialized "
+                f"({reason}); using path-based slugs]\n"
+            )
+            append_log(
+                wiki,
+                "scan",
+                f"NOT_INITIALIZED fallback: {reason}",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+            _graph_ready = False
+        else:
+            # D-07 hard abort: any other non-success exit code or unrecognized GENERIC stderr.
+            append_log(
+                wiki,
+                "scan",
+                f"cg update failed: exit_code={_cg_exit}",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+            raise ScanAbortedError(exit_code=_cg_exit, stderr=_cg_stderr)
 
-    # Step 13: final log entry
-    n_added = len(added)
-    n_updated = len(updated)
-    n_deleted = len(diff["deleted"])
-    append_log(
-        wiki,
-        "scan",
-        f"scan complete: +{n_added} ~{n_updated} -{n_deleted}",
-        detail=None,
-        silent=True,
-        raise_exception=True,
-    )
+        # Phase 39 Step 1.6 (D-05): open the read-only graph conn ONCE on success.
+        # wiki is workspace/wiki under the standard layout; .graph lives next to it
+        # (mirrors the pattern in commands/query.py — librarian's graph-tools wiring).
+        if _graph_ready:
+            try:
+                conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+            except GraphNotInitializedError as exc:
+                # Defensive: should not happen after a successful cg update,
+                # but treat as a NOT_INITIALIZED-class fallback if it does.
+                sys.stderr.write(
+                    f"[NOT_INITIALIZED fallback: graph could not be initialized "
+                    f"({exc}); using path-based slugs]\n"
+                )
+                append_log(
+                    wiki,
+                    "scan",
+                    f"NOT_INITIALIZED fallback (post-update): {exc}",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+                conn = None
 
-    return ScanResult(
-        added=added,
-        updated=updated,
-        deleted=diff["deleted"],
-        renamed=diff["renamed"],
-        errors=errors,
-        state_gate=state_gate,
-    )
+        # Step 2: read layout block
+        # When repo_path is supplied as an override, also bypass the vault's
+        # pinned_containers — the vault layout describes the ORIGINAL monorepo
+        # the vault was generated from (e.g. `graph-wiki/packages/` + `plugins/`)
+        # and almost certainly does not match the override repo's directory
+        # structure. Using unpinned discovery against the override lets
+        # discover_workspaces find the workspace by its own pyproject.toml.
+        pinned: list[dict] | None = None
+        if repo_path is None:
+            for schema_name in ("CLAUDE.md", "AGENTS.md"):
+                layout = read_layout(wiki / schema_name)
+                if layout and layout.get("containers"):
+                    pinned = layout.get("containers", [])
+                    break
+
+        # Step 3: discover workspaces
+        workspaces = discover_workspaces(repo, pinned_containers=pinned)
+
+        # Phase 39 Step 3.5 (D-03/D-04): decorate workspaces with graph URIs + domain.
+        # Single batch query for package URIs + single SQL join for belongs_to_domain.
+        # wiki_relative_path is recomputed only when graph domain changes the routing.
+        from wiki_io.scan_monorepo import unscope as _unscope
+        if conn is not None:
+            pkg_uri_map = _query_package_uris(conn)
+            domain_map = _query_package_domains(conn)
+            n_decorated = 0
+            for w in workspaces:
+                key = _unscope(w["name"])
+                uri = pkg_uri_map.get(key)
+                if uri:
+                    w["uri"] = uri
+                    n_decorated += 1
+                graph_domain = domain_map.get(key)
+                if graph_domain and w.get("domain") != graph_domain:
+                    w["domain"] = graph_domain
+                    # Domain-routed workspaces use domains/<d>/packages/<n>/overview.md;
+                    # vault_dir is structurally unused on that branch.
+                    w["wiki_relative_path"] = _wiki_relative_path_for(w, vault_dir=None)
+            append_log(
+                wiki,
+                "scan",
+                f"graph decoration: {n_decorated}/{len(workspaces)} workspaces",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+
+        # Step 4: build file_map per workspace
+        if not no_file_map:
+            for w in workspaces:
+                pkg_dir = repo / w["path"]
+                fm = build_file_map(pkg_dir, max_depth=max_depth)
+                if fm is not None:
+                    w["file_map"] = fm
+
+        # Step 5: load existing vault pages
+        existing = _load_existing_pages(wiki)
+
+        # Step 6: attach changed files since last sync
+        attach_changed_files(workspaces, existing, repo)
+
+        # Step 7: compute diff
+        diff = compute_diff(workspaces, existing)
+
+        # Step 8: compute state gate
+        state_gate = compute_state_gate(repo)
+
+        # Build workspace lookup by unscoped name for post-processing
+        unscope = _unscope
+        ws_by_name = {unscope(w["name"]): w for w in workspaces}
+
+        # Step 9: scanner fan-out
+        # Items = new packages + unchanged packages with changed files
+        fan_items: list[dict] = []
+        for name in diff["new"]:
+            if name in ws_by_name:
+                fan_items.append(ws_by_name[name])
+        for name in diff["unchanged"]:
+            if name in ws_by_name:
+                w = ws_by_name[name]
+                changed = w.get("changed_files")
+                if changed:  # non-empty list means files changed
+                    fan_items.append(w)
+
+        cfg = load_role_config("scanner")
+        pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+        if model_override is not None:
+            scanner_llm = ChatBedrockConverse(
+                model_id=model_override,
+                region_name=cfg["region"],
+                max_tokens=cfg["max_tokens"],
+            )
+        else:
+            scanner_llm = make_llm("scanner")
+
+        async def generate_stub(pkg: dict) -> TaskResult:
+            prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
+            msgs = [
+                SystemMessage(content=build_scanner_system(project_context=project_ctx)),
+                HumanMessage(content=prompt),
+            ]
+            resp = await scanner_llm.ainvoke(msgs)
+            # Phase 16-02 G-01: wrap in TaskResult so pool's trace record carries
+            # resp.usage_metadata; downstream still sees the string body.
+            return TaskResult(value=resp.content, response=resp)
+
+        fan_result: FanOutResult = await pool.run_all(
+            items=fan_items,
+            task=generate_stub,
+            role="scanner",
+            model_id=cfg["model_id"],
+            max_concurrency=cfg["max_concurrency"],
+        )
+
+        # Step 10: write successful stub pages
+        added: list[str] = []
+        updated: list[str] = []
+
+        for pkg, llm_body in fan_result.successes:
+            pkg_name = unscope(pkg["name"])
+            vault_page_rel = pkg.get("wiki_relative_path", f"packages/{pkg_name}/{pkg_name}.md")
+            page_path = wiki / vault_page_rel
+            page_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Deterministic file map append (RESEARCH Risk 5)
+            pkg_dir = repo / pkg["path"]
+            file_map_text = ""
+            if not no_file_map:
+                fm = build_file_map(pkg_dir, max_depth=max_depth)
+                if fm is not None:
+                    file_map_text = "\n\n" + fm
+
+            final_page = llm_body + file_map_text
+            page_path.write_text(final_page, encoding="utf-8")
+
+            if pkg_name in diff["new"]:
+                added.append(pkg_name)
+            else:
+                updated.append(pkg_name)
+
+        # Collect errors
+        errors: list[str] = [
+            f"{unscope(err.item['name'])}: {err.exception}"
+            for err in fan_result.errors
+        ]
+
+        # Step 11: stale-tag deleted packages
+        for pkg_name in diff["deleted"]:
+            existing_rec = existing.get(pkg_name)
+            if existing_rec:
+                page_path = wiki / existing_rec["wiki_relative_path"]
+                _add_stale_tag(page_path)
+                append_log(
+                    wiki,
+                    "scan",
+                    f"marked stale: {pkg_name}",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+                logger.info("Marked stale: %s", pkg_name)
+
+        # stale-tag renamed packages (old side)
+        for rename_pair in diff["renamed"]:
+            old_name = rename_pair[0]
+            existing_rec = existing.get(old_name)
+            if existing_rec:
+                page_path = wiki / existing_rec["wiki_relative_path"]
+                _add_stale_tag(page_path)
+                new_name = rename_pair[1] if len(rename_pair) > 1 else "unknown"
+                append_log(
+                    wiki,
+                    "scan",
+                    f"marked stale: {old_name} (renamed to {new_name})",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+                logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
+
+        # Step 12: regenerate indexes
+        regenerate_dependencies_index(wiki, workspaces)
+        try:
+            update_index(wiki)
+        except Exception as exc:
+            logger.warning("update_index failed (non-fatal): %s", exc)
+
+        # Step 13: final log entry
+        n_added = len(added)
+        n_updated = len(updated)
+        n_deleted = len(diff["deleted"])
+        append_log(
+            wiki,
+            "scan",
+            f"scan complete: +{n_added} ~{n_updated} -{n_deleted}",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+
+        return ScanResult(
+            added=added,
+            updated=updated,
+            deleted=diff["deleted"],
+            renamed=diff["renamed"],
+            errors=errors,
+            state_gate=state_gate,
+        )
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass  # closing a read-only conn should not raise; defensive
