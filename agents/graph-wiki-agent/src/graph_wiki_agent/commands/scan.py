@@ -452,15 +452,22 @@ async def run_scan(
         workspaces = discover_workspaces(repo, pinned_containers=pinned)
 
         # Phase 39 Step 3.5 (D-03/D-04): decorate workspaces with graph URIs + domain.
-        # Single batch query for package URIs + single SQL join for belongs_to_domain.
-        # wiki_relative_path is recomputed only when graph domain changes the routing.
+        # queries.list_packages enumerates known package NodeRecords (one round trip);
+        # _query_package_uris (one round trip) maps name → nodes.uri because the URI
+        # lives in the dedicated uri column rather than attrs_json (see upsert.py);
+        # _query_package_domains (one SQL join) maps name → domain via
+        # belongs_to_domain. wiki_relative_path is recomputed only when graph
+        # domain changes the routing.
         from wiki_io.scan_monorepo import unscope as _unscope
         if conn is not None:
+            known_pkg_names = {rec.name for rec in queries.list_packages(conn)}
             pkg_uri_map = _query_package_uris(conn)
             domain_map = _query_package_domains(conn)
             n_decorated = 0
             for w in workspaces:
                 key = _unscope(w["name"])
+                if key not in known_pkg_names:
+                    continue
                 uri = pkg_uri_map.get(key)
                 if uri:
                     w["uri"] = uri
