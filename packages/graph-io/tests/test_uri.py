@@ -61,9 +61,10 @@ def test_test_suite_uri() -> None:
     assert _test_suite_uri(RepoContext("org", "repo"), "unit") == "test_suite:org/repo/unit"
 
 
-def test_domain_uri_has_no_ctx() -> None:
-    # D-06 exception: Domain identity is repo-agnostic in v1.6
-    assert domain_uri("billing") == "domain:billing"
+def test_domain_uri_with_ctx() -> None:
+    # Domain identity is repo-scoped per Phase 31 D-05.
+    ctx = RepoContext(org="acme", repo="repo")
+    assert domain_uri(ctx, "billing") == "domain:acme/repo/billing"
 
 
 @pytest.mark.parametrize(
