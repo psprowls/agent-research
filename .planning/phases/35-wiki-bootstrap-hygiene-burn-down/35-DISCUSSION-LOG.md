@@ -89,3 +89,73 @@
 - Workspace-manifest-driven container dirs (revisit if/when per-workspace customization is needed)
 - One-time manual `/graph-wiki:query` smoke transcript (capture as freestanding artifact for a v1.7 release if desired; NOT as HYGIENE-14 closure)
 - Extracting `NO_COLOR/TERM/COLUMNS` into a pytest fixture (revisit if other CLI test files need the same env injection)
+
+---
+
+## HYGIENE-13 Closure: test_cli_help.py 3/3 verified passing
+
+**Date:** 2026-05-26
+**Per:** Phase 35 CONTEXT.md D-04 — "Verify + add inline regression guard comment"
+
+Pytest output (verbatim, captured at Plan B Task 1 verification step):
+
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0 -- /Users/pat/Personal/agent-research/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/pat/Personal/agent-research/agents/graph-wiki-agent
+configfile: pyproject.toml
+plugins: repeat-0.9.4, rerunfailures-16.2, syrupy-5.1.0, xdist-3.8.0, harvest-1.10.5, deepeval-4.0.2, asyncio-1.3.0, langsmith-0.8.3, evals-0.3.4, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 3 items
+
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_exits_zero PASSED [ 33%]
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_lists_bootstrap_subcommand PASSED [ 66%]
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_init_subcommand_removed PASSED [100%]Running teardown with pytest sessionfinish...
+
+
+============================== 3 passed in 1.76s ===============================
+```
+
+Inline comment added at `agents/graph-wiki-agent/tests/unit/test_cli_help.py`
+above `_PLAIN_HELP_ENV` references `260521-ans` per D-04 specifics. Future
+maintainers refactoring CLI test infrastructure can grep `260521-ans` to find
+the original incident context in `.planning/quick/260521-ans-typer-help-ansi-strip/`.
+
+**Closure status:** HYGIENE-13 closed as already-resolved at Phase 35 scoping
+(not re-implemented). The 260521-ans pattern (`NO_COLOR=1 TERM=dumb COLUMNS=200`)
+is load-bearing infrastructure and is now documented as such inline.
+
+---
+
+## HYGIENE-14 Closure: D-03 supersedes manual transcript
+
+**Date:** 2026-05-26
+**Per:** Phase 35 CONTEXT.md D-02 (automated-only verification) and D-03
+(HYGIENE-14 closes via the automated test).
+
+The roadmap's original wording (Phase 35 SC#5 / Phase 14 SC#4) called for a
+manual `/graph-wiki:query` plugin smoke transcript as the regression artifact.
+Phase 35 scoping decision D-03 superseded this with an automated pytest
+fixture that bootstraps a sandbox workspace into `tmp_path`, renders all three
+container-type overview templates, runs `wiki_io.lint_wiki.scan()`, and asserts
+zero broken wikilinks. Rationale (verbatim from D-03 / CONTEXT.md):
+
+> A test that runs on every CI is strictly stronger evidence than a one-time
+> manual transcript.
+
+**Closure artifact:** `packages/wiki-io/tests/test_bootstrap_e2e_no_broken_links.py`
+— exists, passes (1/1), and is the live regression fence catching any future
+template / scanner / lint drift that would break
+`[[wiki/<container>/...]]` link resolution.
+
+**Impact on Phase 39 SC#3:** Phase 39's wording about "the Phase 14 SC#4
+manual `/graph-wiki:query` plugin smoke transcript is captured (or confirmed
+already captured from Phase 35)" is satisfied by referencing this automated
+test as the captured artifact. Future Phase 39 planning can cite
+`packages/wiki-io/tests/test_bootstrap_e2e_no_broken_links.py` rather than
+re-running a manual smoke.
+
+**If the user later wants a one-time human-eye smoke** (e.g. before a v1.7
+release): per CONTEXT.md deferred section, capture it as a freestanding
+artifact, NOT as Phase 35 HYGIENE-14 closure evidence (which is now this test).
