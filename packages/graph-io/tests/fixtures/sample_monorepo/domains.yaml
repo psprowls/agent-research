@@ -1,8 +1,8 @@
 core:
-  packages: [mypkg]
+  packages: [mypkg, pyutil]
   description: "Core utilities domain"
 web:
-  packages: [jspkg]
+  packages: [jspkg, webutil]
   parent: presentation
 presentation:
   packages: []

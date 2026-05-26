@@ -261,3 +261,177 @@ def test_exported_by_returns_owning_files(conn: sqlite3.Connection) -> None:
     rows = queries.exported_by(conn, name="foo")
     assert sorted(r.path for r in rows) == ["a.py", "b.py"]
     assert all(r.name == "foo" for r in rows)
+
+
+# ============================================================================
+# Phase 32 Wave 0: dataclass shapes, find() allow-list, fixture audit.
+# ============================================================================
+
+import dataclasses
+
+from graph_io.queries import (
+    DomainDescription,
+    EntryPointDescription,
+    PackageDescription,
+    PathDescription,
+    RepoDescription,
+    SuiteDescription,
+    _VALID_KINDS,
+    find,
+)
+
+
+def test_dataclass_field_shapes() -> None:
+    """Every new dataclass has the exact declared field set and is frozen."""
+    expected = {
+        RepoDescription: {"name", "uri", "owner", "url", "default_branch", "package_count"},
+        DomainDescription: {"name", "uri", "parent", "description"},
+        EntryPointDescription: {
+            "name",
+            "uri",
+            "kind",
+            "callable",
+            "implemented_by_path",
+            "source",
+        },
+        SuiteDescription: {"name", "uri", "kind", "file_count"},
+    }
+    for cls, want in expected.items():
+        got = {f.name for f in dataclasses.fields(cls)}
+        assert got == want, f"{cls.__name__}: expected {want}, got {got}"
+
+    pkg_fields = {f.name for f in dataclasses.fields(PackageDescription)}
+    assert {"domains", "entry_points", "test_suites"}.issubset(pkg_fields)
+
+    path_fields = {f.name for f in dataclasses.fields(PathDescription)}
+    assert "role_flags" in path_fields
+
+    # frozen check
+    repo = RepoDescription(
+        name="r",
+        uri="u",
+        owner=None,
+        url=None,
+        default_branch=None,
+        package_count=0,
+    )
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        repo.name = "other"  # type: ignore[misc]
+
+
+def test_find_unknown_kind_raises(empty_db: sqlite3.Connection) -> None:
+    """find raises ValueError when kind is not in _VALID_KINDS."""
+    with pytest.raises(ValueError) as exc:
+        find(empty_db, name="x", kind="InvalidKind")
+    msg = str(exc.value)
+    assert "InvalidKind" in msg
+    # Allow-list mentioned in message
+    for kind in _VALID_KINDS:
+        assert kind in msg
+
+
+def test_find_requires_name_or_kind(empty_db: sqlite3.Connection) -> None:
+    """find raises ValueError when neither name nor kind is provided."""
+    with pytest.raises(ValueError) as exc:
+        find(empty_db)
+    msg = str(exc.value).lower()
+    assert "name" in msg or "kind" in msg
+
+
+def _count(conn: sqlite3.Connection, sql: str, *params) -> int:
+    return conn.execute(sql, params).fetchone()[0]
+
+
+def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
+    """D-15 checklist: sample_monorepo fixture has the expected shape.
+
+    Skips when Phase 31's domains.yaml has not yet shipped (the fixture
+    will have zero Domain nodes). Fails when domains exist but other
+    checklist items are missing — those are Phase 32's responsibility
+    to back-fill.
+    """
+    n_domains = _count(
+        seeded_db, "SELECT COUNT(*) FROM nodes WHERE kind='domain'"
+    )
+    if n_domains == 0:
+        pytest.skip(
+            "Phase 31 dependency: domains.yaml not present in "
+            "sample_monorepo fixture — Phase 32 tests cannot run "
+            "until Phase 31 ships."
+        )
+
+    missing: list[str] = []
+    if n_domains < 2:
+        missing.append(f"need >= 2 Domain nodes, found {n_domains}")
+
+    n_dcd = _count(
+        seeded_db,
+        "SELECT COUNT(*) FROM edges WHERE kind='domain_contains_domain'",
+    )
+    if n_dcd < 1:
+        missing.append("need >= 1 domain_contains_domain edge (parent-child)")
+
+    n_cross = _count(
+        seeded_db,
+        "SELECT COUNT(*) FROM nodes n "
+        "WHERE n.kind='package' AND NOT EXISTS ("
+        "  SELECT 1 FROM edges e WHERE e.src=n.id AND e.kind='belongs_to_domain'"
+        ") AND EXISTS ("
+        "  SELECT 1 FROM edges r WHERE r.dst=n.id AND r.kind='references'"
+        ")",
+    )
+    if n_cross < 1:
+        missing.append("need >= 1 cross-cutting Package (zero domains, referenced)")
+
+    n_ep_callable = _count(
+        seeded_db,
+        "SELECT COUNT(*) FROM nodes WHERE kind='entry_point' "
+        "AND json_extract(attrs_json, '$.callable') IS NOT NULL",
+    )
+    if n_ep_callable < 1:
+        missing.append("need >= 1 EntryPoint with non-null callable")
+
+    n_ep_wildcard = _count(
+        seeded_db,
+        "SELECT COUNT(*) FROM nodes WHERE kind='entry_point' "
+        "AND json_extract(attrs_json, '$.is_wildcard') = 1",
+    )
+    if n_ep_wildcard < 1:
+        missing.append(
+            "need >= 1 wildcard EntryPoint (jspkg/package.json exports with '*')"
+        )
+
+    n_suite_dom = _count(
+        seeded_db,
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes s ON e.src=s.id "
+        "JOIN nodes d ON e.dst=d.id "
+        "WHERE e.kind='tests' AND s.kind='test_suite' AND d.kind='domain'",
+    )
+    if n_suite_dom < 1:
+        missing.append(
+            "need >= 1 single-domain TestSuite (direct TestSuite->Domain edge)"
+        )
+
+    # Multi-domain TestSuite: a TestSuite whose Package targets span 2+ Domains
+    row = seeded_db.execute(
+        "SELECT COUNT(*) FROM ("
+        "  SELECT s.id, COUNT(DISTINCT bt.dst) AS doms "
+        "  FROM nodes s "
+        "  JOIN edges st ON st.src=s.id AND st.kind='tests' "
+        "  JOIN nodes p ON st.dst=p.id AND p.kind='package' "
+        "  LEFT JOIN edges bt ON bt.src=p.id AND bt.kind='belongs_to_domain' "
+        "  WHERE s.kind='test_suite' "
+        "  GROUP BY s.id "
+        "  HAVING doms >= 2"
+        ")"
+    ).fetchone()
+    if (row[0] if row else 0) < 1:
+        missing.append(
+            "need >= 1 multi-domain TestSuite (Package edges span 2+ Domains)"
+        )
+
+    assert not missing, (
+        "sample_monorepo fixture is missing items required by D-15:\n"
+        + "\n".join(f"  - {m}" for m in missing)
+    )
