@@ -25,6 +25,21 @@ _RESOLVED_FILTER = (
     "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
 )
 
+# Recursive CTE: yields the id of the named Domain and every descendant
+# reachable via `domain_contains_domain` edges. The first ?-parameter is the
+# domain name. `UNION` (not `UNION ALL`) provides defence-in-depth against a
+# `domain_contains_domain` cycle — Phase 31 D-15 guarantees acyclicity, but
+# explicit dedup costs nothing at the bounded sizes we expect.
+_DOMAIN_DESCENDANTS_CTE = """
+WITH RECURSIVE descendants(id) AS (
+    SELECT id FROM nodes WHERE name = ? AND kind = 'domain'
+    UNION
+    SELECT e.dst FROM edges e
+    JOIN descendants d ON e.src = d.id
+    WHERE e.kind = 'domain_contains_domain'
+)
+"""
+
 
 @dataclass(frozen=True)
 class NodeRecord:
@@ -673,3 +688,191 @@ def exported_by(conn: sqlite3.Connection, *, name: str) -> list[ExporterRecord]:
         (name,),
     ).fetchall()
     return [ExporterRecord(path=r[0], name=r[1]) for r in rows]
+
+
+# ============================================================================
+# Phase 32 Wave 2: bubble-up and cross-cutting helpers.
+# ============================================================================
+
+
+def tests_for_package(
+    conn: sqlite3.Connection, *, package_name: str
+) -> list[SuiteDescription]:
+    """Return TestSuites that cover the package via `tests` edges.
+
+    Returns [] when the package has no matching edges. Honors
+    `_RESOLVED_FILTER` (D-17): suites whose `tests` edge has
+    resolution='unresolved' are excluded.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    # _RESOLVED_FILTER uses alias `e`; substitute alias `t` for our query.
+    tests_resolved_filter = _RESOLVED_FILTER.replace("e.", "t.")
+    rows = conn.execute(
+        f"SELECT ts.name, ts.uri, ts.attrs_json, "
+        f"(SELECT COUNT(*) FROM edges pc "
+        f" WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc "
+        f"FROM edges t "
+        f"JOIN nodes ts ON t.src = ts.id "
+        f"JOIN nodes p ON t.dst = p.id "
+        f"WHERE t.kind='tests' AND ts.kind='test_suite' "
+        f"AND p.kind='package' AND p.name = ? "
+        f"AND {tests_resolved_filter} "
+        f"ORDER BY ts.name",
+        (package_name,),
+    ).fetchall()
+    return [_load_suite_description(r) for r in rows]
+
+
+def entry_points_for_package(
+    conn: sqlite3.Connection, *, package_name: str
+) -> list[EntryPointDescription]:
+    """Return EntryPoints declared by the package, sorted by name.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    rows = conn.execute(
+        "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+        "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
+        "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
+        "WHERE pkg.kind='package' AND pkg.name = ? "
+        "ORDER BY ep.name",
+        (package_name,),
+    ).fetchall()
+    return [_load_entry_point_description(r) for r in rows]
+
+
+def tests_for_domain(
+    conn: sqlite3.Connection, *, domain_name: str
+) -> list[SuiteDescription]:
+    """Return TestSuites covering the domain or any descendant.
+
+    D-09 UNION:
+      (a) direct `TestSuite -> Domain` edge (Phase 31 D-12 single-domain).
+      (b) indirect via `TestSuite -> Package -> belongs_to_domain`
+          (Phase 31 D-13 multi-domain inferred at query time).
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    sql = _DOMAIN_DESCENDANTS_CTE + """
+        SELECT ts_name, ts_uri, ts_attrs, fc FROM (
+            SELECT ts.id AS ts_id, ts.name AS ts_name, ts.uri AS ts_uri,
+                   ts.attrs_json AS ts_attrs,
+                   (SELECT COUNT(*) FROM edges pc
+                    WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc
+            FROM edges e
+            JOIN descendants d ON e.dst = d.id
+            JOIN nodes ts ON e.src = ts.id
+            WHERE e.kind='tests' AND ts.kind='test_suite'
+            UNION
+            SELECT ts.id AS ts_id, ts.name AS ts_name, ts.uri AS ts_uri,
+                   ts.attrs_json AS ts_attrs,
+                   (SELECT COUNT(*) FROM edges pc
+                    WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc
+            FROM edges st
+            JOIN nodes p ON st.dst = p.id AND p.kind='package'
+            JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain'
+            JOIN descendants d ON bt.dst = d.id
+            JOIN nodes ts ON st.src = ts.id
+            WHERE st.kind='tests' AND ts.kind='test_suite'
+        )
+        ORDER BY ts_name
+    """
+    rows = conn.execute(sql, (domain_name,)).fetchall()
+    return [_load_suite_description(r) for r in rows]
+
+
+def domain_references(
+    conn: sqlite3.Connection, *, domain_name: str
+) -> list[tuple[str, int, int]]:
+    """Bubble-up package references from the domain + its descendants.
+
+    Returns rows of `(package_name, total_usage_count, distinct_domain_count)`
+    ordered by total_usage_count DESC then package_name ASC. `conn` must be
+    a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    sql = _DOMAIN_DESCENDANTS_CTE + """
+        SELECT n.name,
+               COALESCE(SUM(CAST(
+                 json_extract(e.attrs_json, '$.usage_count') AS INTEGER
+               )), 0) AS total_usage,
+               COUNT(DISTINCT e.src) AS distinct_domains
+        FROM edges e
+        JOIN descendants d ON e.src = d.id
+        JOIN nodes n ON e.dst = n.id
+        WHERE e.kind='references' AND n.kind='package'
+        GROUP BY n.name
+        ORDER BY total_usage DESC, n.name ASC
+    """
+    rows = conn.execute(sql, (domain_name,)).fetchall()
+    return [(r[0], int(r[1] or 0), int(r[2] or 0)) for r in rows]
+
+
+def domain_depends_on(
+    conn: sqlite3.Connection, *, domain_name: str
+) -> list[tuple[str, int]]:
+    """Bubble-up domain dependencies from the domain + its descendants.
+
+    Excludes self-loops (any descendant depending on any other descendant
+    of the same root) via `NOT IN (SELECT id FROM descendants)`. Returns
+    rows of `(target_domain_name, total_usage_count)` ordered by usage
+    DESC then name ASC. `conn` must be opened with `mode=ro`.
+    """
+    sql = _DOMAIN_DESCENDANTS_CTE + """
+        SELECT n.name,
+               COALESCE(SUM(CAST(
+                 json_extract(e.attrs_json, '$.usage_count') AS INTEGER
+               )), 0) AS total_usage
+        FROM edges e
+        JOIN descendants d ON e.src = d.id
+        JOIN nodes n ON e.dst = n.id
+        WHERE e.kind='depends_on' AND n.kind='domain'
+        AND n.id NOT IN (SELECT id FROM descendants)
+        GROUP BY n.name
+        ORDER BY total_usage DESC, n.name ASC
+    """
+    rows = conn.execute(sql, (domain_name,)).fetchall()
+    return [(r[0], int(r[1] or 0)) for r in rows]
+
+
+def cross_cutting_packages(
+    conn: sqlite3.Connection,
+) -> list[tuple[PackageDescription, int]]:
+    """Packages with zero `belongs_to_domain` edges, ranked.
+
+    Ranked by SUM of `usage_count` across incoming `references` edges
+    (D-11). This is a deliberate divergence from ontology spec §11.4
+    ('ranked by incoming references count from distinct domains'): the
+    rendering choice prioritises 'how heavily depended on' over 'how
+    broadly depended on'. This is a query-layer rendering choice, NOT a
+    spec amendment — ONTOLOGY-SPEC.md stays as written.
+
+    Returns list of (PackageDescription, score) sorted by score
+    descending, ties broken alphabetically by package name (D-12).
+    `conn` must be opened with `mode=ro`.
+    """
+    rows = conn.execute(
+        "SELECT n.id, n.name, "
+        "COALESCE(SUM(CAST("
+        "  json_extract(e.attrs_json, '$.usage_count') AS INTEGER"
+        ")), 0) AS score "
+        "FROM nodes n "
+        "LEFT JOIN edges e ON e.dst = n.id AND e.kind='references' "
+        "WHERE n.kind='package' "
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM edges bt "
+        "  WHERE bt.src = n.id AND bt.kind='belongs_to_domain'"
+        ") "
+        "GROUP BY n.id, n.name "
+        "ORDER BY score DESC, n.name ASC"
+    ).fetchall()
+    out: list[tuple[PackageDescription, int]] = []
+    for _id, name, score in rows:
+        desc = describe_package(conn, name=name)
+        if desc is None:
+            continue  # defensive — shouldn't happen
+        out.append((desc, int(score or 0)))
+    return out

@@ -668,3 +668,325 @@ def test_describe_path_returns_none_on_missing_empty_db(
     empty_db: sqlite3.Connection,
 ) -> None:
     assert describe_path(empty_db, path="nonexistent/path.py") is None
+
+
+# ============================================================================
+# Phase 32 Wave 2: bubble-up + cross-cutting + CTE cycle-safety tests.
+# ============================================================================
+
+import signal
+import sys
+
+from graph_io.queries import (
+    cross_cutting_packages,
+    domain_depends_on,
+    domain_references,
+    entry_points_for_package,
+    tests_for_domain,
+    tests_for_package,
+)
+from graph_io.upsert import _upsert_edge, _upsert_node
+
+# pytest's default `python_functions` rule collects any callable whose name
+# starts with "test" — `tests_for_domain` and `tests_for_package` happen to
+# match. Mark them as non-test callables so pytest's collector skips them
+# (the actual unit tests below have the explicit `test_` prefix).
+tests_for_domain.__test__ = False  # type: ignore[attr-defined]
+tests_for_package.__test__ = False  # type: ignore[attr-defined]
+
+
+def _make_node(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    name: str,
+    path: str | None = None,
+    line: int | None = None,
+    attrs: dict | None = None,
+    uri: str | None = None,
+) -> int:
+    """Convenience: build a GraphNode and run _upsert_node, returning the row id."""
+    n_attrs = dict(attrs or {})
+    if uri is not None:
+        n_attrs["uri"] = uri
+    node = GraphNode(kind=kind, name=name, path=path, line=line, attrs=n_attrs)
+    return _upsert_node(conn, node)
+
+
+def _make_edge(
+    conn: sqlite3.Connection,
+    *,
+    src: tuple[str, str, str | None],
+    dst: tuple[str, str, str | None],
+    kind: str,
+    attrs: dict | None = None,
+) -> None:
+    """Convenience: build a GraphEdge and run _upsert_edge."""
+    _upsert_edge(
+        conn,
+        GraphEdge(src=src, dst=dst, kind=kind, attrs=dict(attrs or {})),
+    )
+
+
+# --- happy-path tests against seeded_db ------------------------------------
+
+
+def test_tests_for_package(seeded_db: sqlite3.Connection) -> None:
+    pkgs = list_packages(seeded_db)
+    assert pkgs
+    for pkg in pkgs:
+        suites = tests_for_package(seeded_db, package_name=pkg.name)
+        if suites:
+            for s in suites:
+                assert isinstance(s, SuiteDescription)
+            return
+    pytest.skip("seeded_db has no package with tests edges")
+
+
+def test_entry_points_for_package(seeded_db: sqlite3.Connection) -> None:
+    pkgs = list_packages(seeded_db)
+    assert pkgs
+    for pkg in pkgs:
+        eps = entry_points_for_package(seeded_db, package_name=pkg.name)
+        if eps:
+            for e in eps:
+                assert isinstance(e, EntryPointDescription)
+            names = [e.name for e in eps]
+            assert names == sorted(names)
+            return
+    pytest.skip("seeded_db has no package with EntryPoints")
+
+
+def test_tests_for_domain_union(seeded_db: sqlite3.Connection) -> None:
+    _skip_if_phase31_missing(seeded_db)
+    domains = list_domains(seeded_db)
+    assert domains
+    for dom in domains:
+        suites = tests_for_domain(seeded_db, domain_name=dom.name)
+        if suites:
+            for s in suites:
+                assert isinstance(s, SuiteDescription)
+            names = [s.name for s in suites]
+            assert len(names) == len(set(names)), (
+                f"tests_for_domain({dom.name!r}) returned duplicate suite names: {names}"
+            )
+            return
+    pytest.skip("seeded_db has no domain with TestSuites")
+
+
+def test_tests_for_domain_bubbles_to_descendants(
+    seeded_db: sqlite3.Connection,
+) -> None:
+    """A parent domain's tests_for_domain should bubble up child-domain suites."""
+    _skip_if_phase31_missing(seeded_db)
+    # Find a domain with a child (presentation -> web in our fixture)
+    parents = seeded_db.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src=p.id "
+        "WHERE e.kind='domain_contains_domain' "
+        "LIMIT 1"
+    ).fetchall()
+    if not parents:
+        pytest.skip("no parent-child domain pair in seeded_db")
+    parent_name = parents[0][0]
+    suites = tests_for_domain(seeded_db, domain_name=parent_name)
+    # Just confirm the CTE doesn't blow up and returns the expected shape;
+    # exact suite count depends on fixture content.
+    for s in suites:
+        assert isinstance(s, SuiteDescription)
+
+
+def test_domain_references_bubble(seeded_db: sqlite3.Connection) -> None:
+    _skip_if_phase31_missing(seeded_db)
+    for dom in list_domains(seeded_db):
+        refs = domain_references(seeded_db, domain_name=dom.name)
+        if refs:
+            for pkg_name, total, distinct in refs:
+                assert isinstance(pkg_name, str)
+                assert total >= 0
+                assert distinct >= 0
+            totals = [r[1] for r in refs]
+            assert totals == sorted(totals, reverse=True)
+            return
+    pytest.skip("seeded_db has no domain with references")
+
+
+def test_domain_depends_on_no_self_loop(seeded_db: sqlite3.Connection) -> None:
+    _skip_if_phase31_missing(seeded_db)
+    for dom in list_domains(seeded_db):
+        deps = domain_depends_on(seeded_db, domain_name=dom.name)
+        if deps:
+            assert dom.name not in [d[0] for d in deps]
+            return
+    pytest.skip("seeded_db has no domain with depends_on edges")
+
+
+def test_cross_cutting_packages_ranking(seeded_db: sqlite3.Connection) -> None:
+    _skip_if_phase31_missing(seeded_db)
+    result = cross_cutting_packages(seeded_db)
+    for pkg, score in result:
+        assert isinstance(pkg, PackageDescription)
+        assert isinstance(score, int)
+        assert score >= 0
+        assert pkg.domains == []
+    for i in range(len(result) - 1):
+        a, b = result[i], result[i + 1]
+        assert a[1] >= b[1]
+        if a[1] == b[1]:
+            assert a[0].name <= b[0].name
+
+
+# --- empty-DB graceful degradation -----------------------------------------
+
+
+def test_tests_for_package_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert tests_for_package(empty_db, package_name="x") == []
+
+
+def test_entry_points_for_package_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert entry_points_for_package(empty_db, package_name="x") == []
+
+
+def test_tests_for_domain_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert tests_for_domain(empty_db, domain_name="x") == []
+
+
+def test_domain_references_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert domain_references(empty_db, domain_name="x") == []
+
+
+def test_domain_depends_on_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert domain_depends_on(empty_db, domain_name="x") == []
+
+
+def test_cross_cutting_packages_returns_empty_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert cross_cutting_packages(empty_db) == []
+
+
+# --- targeted edge cases: tests_for_domain UNION branches separately -------
+
+
+def test_tests_for_domain_direct_edge_only(empty_db: sqlite3.Connection) -> None:
+    """Only branch (a): direct TestSuite -> Domain edge."""
+    _make_node(
+        empty_db,
+        kind="domain",
+        name="billing",
+        attrs={"description": "x"},
+        uri="domain:acme/repo/billing",
+    )
+    _make_node(
+        empty_db,
+        kind="test_suite",
+        name="test_billing",
+        path="tests/billing",
+        attrs={"suite_kind": "unit"},
+        uri="test_suite:acme/repo/test_billing",
+    )
+    _make_edge(
+        empty_db,
+        src=("test_suite", "test_billing", "tests/billing"),
+        dst=("domain", "billing", None),
+        kind="tests",
+    )
+    empty_db.commit()
+    result = tests_for_domain(empty_db, domain_name="billing")
+    assert len(result) == 1
+    assert result[0].name == "test_billing"
+
+
+def test_tests_for_domain_indirect_via_package(
+    empty_db: sqlite3.Connection,
+) -> None:
+    """Only branch (b): TestSuite -> Package -> belongs_to_domain."""
+    _make_node(
+        empty_db,
+        kind="domain",
+        name="billing",
+        uri="domain:acme/repo/billing",
+    )
+    _make_node(
+        empty_db,
+        kind="package",
+        name="bill-svc",
+        path="packages/bill-svc",
+        attrs={"language": "python"},
+        uri="pkg:acme/repo/bill-svc",
+    )
+    _make_node(
+        empty_db,
+        kind="test_suite",
+        name="test_multi",
+        path="tests/multi",
+        attrs={"suite_kind": "integration"},
+        uri="test_suite:acme/repo/test_multi",
+    )
+    _make_edge(
+        empty_db,
+        src=("package", "bill-svc", "packages/bill-svc"),
+        dst=("domain", "billing", None),
+        kind="belongs_to_domain",
+    )
+    _make_edge(
+        empty_db,
+        src=("test_suite", "test_multi", "tests/multi"),
+        dst=("package", "bill-svc", "packages/bill-svc"),
+        kind="tests",
+    )
+    empty_db.commit()
+    result = tests_for_domain(empty_db, domain_name="billing")
+    assert len(result) == 1
+    assert result[0].name == "test_multi"
+
+
+# --- defence in depth: CTE must not hang on cycle --------------------------
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX signal.alarm not available on Windows",
+)
+def test_cte_cycle_safe(empty_db: sqlite3.Connection) -> None:
+    """Paranoid test: insert a domain_contains_domain cycle and confirm
+    tests_for_domain returns within 5 seconds. Phase 31 D-15 guarantees
+    acyclicity, but we want defence in depth.
+    """
+    _make_node(empty_db, kind="domain", name="a", uri="domain:acme/repo/a")
+    _make_node(empty_db, kind="domain", name="b", uri="domain:acme/repo/b")
+    _make_edge(
+        empty_db,
+        src=("domain", "a", None),
+        dst=("domain", "b", None),
+        kind="domain_contains_domain",
+    )
+    _make_edge(
+        empty_db,
+        src=("domain", "b", None),
+        dst=("domain", "a", None),
+        kind="domain_contains_domain",
+    )
+    empty_db.commit()
+
+    def _timeout(*_args):
+        raise TimeoutError("CTE hung on cycle")
+
+    old = signal.signal(signal.SIGALRM, _timeout)
+    signal.alarm(5)
+    try:
+        result = tests_for_domain(empty_db, domain_name="a")
+        assert result == []
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
