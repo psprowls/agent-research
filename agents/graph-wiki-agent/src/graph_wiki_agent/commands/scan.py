@@ -365,7 +365,22 @@ async def run_scan(
             silent=True,
             raise_exception=True,
         )
-        _cg_args = _build_namespace(ops_update, repo=repo, workspace=wiki, full=False)
+        # NOTE: ops_update interprets `workspace` as the workspace ROOT (where
+        # `.graph/code.db` is written), not the wiki directory. Phase 38's
+        # commands/graph.py (`_resolve_paths` → `cfg.workspace`) and the
+        # librarian (`graph_dir(wiki.parent)` in commands/query.py) both use
+        # the workspace root. We follow that convention here so the post-update
+        # `read_only_connect(graph_dir(wiki.parent) / "code.db")` finds the
+        # DB cg just created. (The plan's must_have says `workspace=wiki`;
+        # that is a plan-spec drift — passing `wiki` makes cg write to
+        # `<wiki>/.graph/code.db` while the read path looks under
+        # `<workspace>/.graph/code.db`, so the conn open would fall through
+        # to the post-update NOT_INITIALIZED fallback every time. See Phase
+        # 39 SUMMARY's deviations section.)
+        _workspace_root = wiki.parent
+        _cg_args = _build_namespace(
+            ops_update, repo=repo, workspace=_workspace_root, full=False
+        )
         _cg_exit, _cg_stdout, _cg_stderr = _capture_run(ops_update, _cg_args)
         _graph_ready = False
         if _cg_exit == exit_codes.SUCCESS:

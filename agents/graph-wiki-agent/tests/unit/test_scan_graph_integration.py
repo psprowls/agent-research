@@ -198,11 +198,17 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
 
     assert order, "expected at least the cg_update step to run"
     assert order[0] == "cg_update", f"cg update must run first; got order={order}"
-    # Verify the args shape — full=False, module=ops_update, workspace=wiki
+    # Verify the args shape — full=False, module=ops_update.
+    # `workspace` is the workspace ROOT (wiki.parent) — ops_update writes
+    # `.graph/code.db` under workspace, not under the wiki directory. This
+    # mirrors Phase 38 commands/graph.py and the librarian's read path
+    # (commands/query.py uses `graph_dir(wiki.parent)`).
     args = captured_args["args"]
     assert args.full is False, f"expected full=False; got {args.full}"
     assert captured_args["module"] is scan_module.ops_update
-    assert args.workspace == wiki
+    assert args.workspace == workspace, (
+        f"expected workspace root; got {args.workspace}"
+    )
     assert args.repo == repo
 
 
