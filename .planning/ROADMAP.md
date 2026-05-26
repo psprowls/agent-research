@@ -124,7 +124,12 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
   3. `graph_io.uri` module exposes all composition helpers and `python -c "from graph_io.uri import pkg_uri; print(pkg_uri('org','repo','name'))"` prints `pkg:org/repo/name`
   4. Running `cg update --full` twice on the same git state produces a byte-identical `code.db` (idempotency)
   5. `test_schema_version_is_two` (updated from `_is_one`) passes; `test_nodes_table_has_uri_column` passes; `test_upsert_uri_lands_in_column` passes — all three sentinel tests exist and are green before Phase 29 begins
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 28-01-PLAN.md — Schema v2 DDL bump (uri column + idx_nodes_uri index + sentinel tests)
+- [ ] 28-02-PLAN.md — URI helpers + RepoContext + parse_remote_url (graph_io/uri.py + full test_uri.py)
+- [ ] 28-03-PLAN.md — upsert.py pops uri attr → writes to uri column (PITFALL 4 lock + sentinel test)
+- [ ] 28-04-PLAN.md — ops_update.py wires SchemaMismatchError → exit code 4 + regression tests
+- [ ] 28-05-PLAN.md — update.run v1→v2 unlink+rebuild + RepoContext threading + packages.refresh writes pkg_uri + idempotency test
 
 ### Phase 29: Structural Nodes + Containment Tree
 **Goal**: The graph contains a strict physical containment tree — one Repository node, SubPackage nodes for Python subdirs, File nodes with role flags — and `resolve.sweep` cannot silently delete structural nodes that have no filesystem path
@@ -212,7 +217,7 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Schema v2 + URI Foundation | 0/TBD | Not started | - |
+| 28. Schema v2 + URI Foundation | 0/5 | Planned | - |
 | 29. Structural Nodes + Containment Tree | 0/TBD | Not started | - |
 | 30. Entry Points + Test Suites | 0/TBD | Not started | - |
 | 31. Domain Layer + Derived Edges | 0/TBD | Not started | - |
@@ -222,4 +227,4 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
 ---
 
-*Last updated: 2026-05-25 — v1.6 roadmap created (Phases 28-34, 56 requirements, 7 phases). Ready to plan Phase 28.*
+*Last updated: 2026-05-25 — v1.6 roadmap created (Phases 28-34, 56 requirements, 7 phases). Phase 28 planned (5 plans, 3 waves).*
