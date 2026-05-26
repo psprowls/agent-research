@@ -26,7 +26,7 @@ def repo_with_wiki(tmp_path: Path) -> Path:
         {
             "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
             "src/a.py": "x = 1\n",
-            "lattice/.lattice.yaml": "registered_plugins: []\n",
+            "graph-wiki/.graph-wiki.yaml": "registered_plugins: []\n",
             "graph-wiki/wiki/packages/demo/demo.md": "# demo\n",
         },
         "init",
@@ -61,7 +61,7 @@ def test_sync_wiki_reports_undocumented(tmp_path: Path) -> None:
         {
             "pyproject.toml": '[project]\nname = "lonely"\nversion = "0.1.0"\n',
             "src/a.py": "x = 1\n",
-            "lattice/.lattice.yaml": "registered_plugins: []\n",
+            "graph-wiki/.graph-wiki.yaml": "registered_plugins: []\n",
         },
         "init",
     )

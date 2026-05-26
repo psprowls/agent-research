@@ -12,9 +12,9 @@ from source_parser.projections.graph import GraphNode, GraphRecords
 
 @pytest.fixture()
 def workspace(tmp_path: Path) -> Path:
-    ws = tmp_path / "lattice"
+    ws = tmp_path / "graph-wiki"
     ws.mkdir()
-    (ws / ".lattice.yaml").write_text("registered_plugins: []\n")
+    (ws / ".graph-wiki.yaml").write_text("registered_plugins: []\n")
     (ws / "wiki").mkdir()
     return ws
 

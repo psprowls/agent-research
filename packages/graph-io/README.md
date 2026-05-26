@@ -1,15 +1,15 @@
-# lattice-graph-core
+# graph-io
 
-Code-graph core for the [lattice](../../README.md) ecosystem. Owns:
+Code-graph backend for graph-wiki. Owns:
 
-- SQLite schema + store at `<repo>/.lattice/graph/code.db`
+- SQLite schema + store at `<paths.graph_dir(workspace)>/code.db` (see `workspace_io.paths` for workspace-mode-aware resolution)
 - Upsert from `source-parser`'s `GraphRecords`
 - Manifest scanning (`pyproject.toml`, `package.json`) → `kind:package` nodes
 - Cross-file edge resolution sweep
 - Read-only query layer (`find`, `callers`, `callees`, `imports`, `describe_package`, `describe_path`)
 - The `cg` CLI
 
-The Claude Code plugin shell lives separately at `plugins/lattice-graph/`.
+The Claude Code plugin shell lives separately at `plugins/graph-wiki/`.
 
 ## Exit codes
 
