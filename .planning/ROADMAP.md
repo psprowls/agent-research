@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.7 — graph-io Integration & Wiki Hygiene (Phases 35-40)
+**Current milestone:** v1.7 — graph-io Integration & Wiki Hygiene (Phases 35-41)
 
 ---
 
@@ -15,7 +15,7 @@
 - ✅ **v1.4 — Workspace Path Resolution Cleanup** — Phases 22-26 (shipped 2026-05-25) — [archive](milestones/v1.4-ROADMAP.md) · [audit](milestones/v1.4-MILESTONE-AUDIT.md)
 - ✅ **v1.5 — Repo Rename & Foundational Package Additions** — Phase 27 (shipped 2026-05-25, retroactive) — [archive](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.6 — Code Graph Ontology Expansion** — Phases 28-34 (shipped 2026-05-26) — [archive](milestones/v1.6-ROADMAP.md)
-- 🚧 **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-40 (in progress)
+- 🚧 **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-41 (in progress)
 
 ---
 
@@ -114,7 +114,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.7 graph-io Integration & Wiki Hygiene (Phases 35-40)
+### 🚧 v1.7 graph-io Integration & Wiki Hygiene (Phases 35-41)
 
 **Milestone Goal:** Wire `graph-io` into `graph-wiki-agent` as the source of truth for librarian/scanner/ingestor, expose graph operations through a new `graph-wiki-agent graph` subcommand, fix `cg find` parser ergonomics, and burn down accumulated wiki/bootstrap/test-infra debt — so v1.7 closes with the agent actually using the ontology v1.6 built.
 
@@ -124,6 +124,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - [x] **Phase 38: `graph-wiki-agent graph` Subcommand** - `build`/`describe`/`query` verbs on CLI + 3 MCP tools with cost-tracked traces (completed 2026-05-26)
 - [x] **Phase 39: Scanner Consumes graph-io** - Scanner derives vault page slugs from graph URIs; `run_scan()` calls `cg update` before fan-out (completed 2026-05-26)
 - [x] **Phase 40: Ingestor Consumes graph-io** - Ingestor checks graph for entity existence; clear `NOT_INITIALIZED` error; URI-drift documented (completed 2026-05-26)
+- [ ] **Phase 41: Address v1.7 tech debt — integration_gate + traceability** - Restore canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on Phase 39 scan-end-to-end test + sync 20 stale REQUIREMENTS.md checkboxes/traceability rows (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) (planned)
 
 ---
 
@@ -197,6 +198,20 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
   3. The URI-drift / orphaned-page limitation (pages keyed to a URI that has since changed on package rename) is documented in `commands/ingest.py` as a code comment AND referenced in the phase plan as a v1.8 reconciliation item — the limitation is acknowledged, not worked around in v1.7
 **Plans**: TBD
 
+### Phase 41: Address v1.7 tech debt — integration_gate + traceability
+**Goal**: Close the v1.7 milestone tech-debt items called out in `.planning/v1.7-MILESTONE-AUDIT.md` so `/gsd-complete-milestone` can run: (a) restore the canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py` so `tests/test_integration_gate.py` exits 0, and (b) flip 20 stale `[ ]` checkboxes in `.planning/REQUIREMENTS.md` (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) plus the matching traceability rows from `Pending` to `Satisfied`. Out of scope (deferred to v1.8): pre-commit/CI lint hook, sample_monorepo fixture fix, exit-code-3 collision, URI-drift reconciliation, retro UAT for Phases 39/40.
+**Depends on**: Phase 40
+**Requirements**: (none — tech-debt phase; the 20 requirement IDs above were satisfied by earlier v1.7 phases, only their tracking status is being synced here)
+**Success Criteria** (what must be TRUE):
+  1. `pytest tests/test_integration_gate.py` exits 0 (was failing before this phase)
+  2. `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py` contains the canonical `INTEGRATION_GATE = pytest.mark.skipif(not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"), ...)` constant and the test function is decorated with `@INTEGRATION_GATE`
+  3. `.planning/REQUIREMENTS.md` shows `- [x]` for all 14 HYGIENE-*, 3 CGFIND-*, and 3 INGESTOR-* checkboxes, and the corresponding 20 traceability rows show Status = `Satisfied`
+  4. LIBTOOLS-*, GRAPHCMD-*, SCANNER-* rows and `Complete` statuses are untouched; no structural changes to REQUIREMENTS.md
+**Plans:** 1 plan
+
+Plans:
+- [ ] 41-01-PLAN.md — Restore canonical INTEGRATION_GATE on scan-end-to-end test + sync 20 REQUIREMENTS.md checkboxes/rows
+
 ---
 
 ## Progress
@@ -243,7 +258,8 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 | 38. `graph-wiki-agent graph` Subcommand | v1.7 | 2/2 | Complete   | 2026-05-26 |
 | 39. Scanner Consumes graph-io | v1.7 | 1/1 | Complete   | 2026-05-26 |
 | 40. Ingestor Consumes graph-io | v1.7 | 1/1 | Complete   | 2026-05-26 |
+| 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 0/1 | Planned   | — |
 
 ---
 
-*Last updated: 2026-05-26 — v1.7 roadmap created (Phases 35-40). 34 phases / 148 plans shipped across v1.0-v1.6. v1.7 targeting 6 phases (35-40), 27 requirements.*
+*Last updated: 2026-05-26 — Phase 41 planned (integration_gate + traceability sync). 40 phases / 149 plans shipped across v1.0-v1.7 (excluding the planned Phase 41 plan). v1.7 targeting 7 phases (35-41), 27 requirements.*
