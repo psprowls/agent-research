@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _DDL_STATEMENTS = (
     """
@@ -19,11 +19,13 @@ _DDL_STATEMENTS = (
         name        TEXT NOT NULL,
         path        TEXT,
         line        INTEGER,
-        attrs_json  TEXT
+        attrs_json  TEXT,
+        uri         TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_nodes_kind_name ON nodes(kind, name)",
     "CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)",
+    "CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)",
     """
     CREATE TABLE IF NOT EXISTS edges (
         src         INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
