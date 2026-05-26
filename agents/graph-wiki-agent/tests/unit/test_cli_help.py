@@ -4,9 +4,14 @@ import os
 import re
 import subprocess
 
+# load-bearing: 260521-ans — strip ANSI so Typer --help output is parseable.
 # Disable Rich's ANSI rendering so help output is plain text — otherwise
 # `\x1b[1;36mbootstrap\x1b[0m` breaks both substring and `\b`-boundary checks
-# (the trailing `m` in the SGR sequence is alphanumeric).
+# (the trailing `m` in the SGR sequence is alphanumeric). This env injection
+# is NOT cosmetic — removing NO_COLOR / TERM / COLUMNS will silently break
+# test_cli_help_lists_bootstrap_subcommand and test_cli_help_init_subcommand_removed.
+# Future maintainers refactoring this block: `grep -r 260521-ans .planning/` for
+# the original incident context before changing anything.
 _PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
 
