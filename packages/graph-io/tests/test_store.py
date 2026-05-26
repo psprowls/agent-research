@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import io
 import sqlite3
+import time
+from contextlib import redirect_stderr
 from pathlib import Path
 
 import pytest
 
-from graph_io import exit_codes, store
+from workspace_io.config import resolve as resolve_workspace
+from workspace_io.paths import graph_dir
+
+from graph_io import exit_codes, schema, store, update
+from _git_repo import init_repo, write_and_commit
 
 
 def test_exit_codes_constants() -> None:
@@ -83,3 +90,67 @@ def test_transaction_rolls_back_on_exception(tmp_path: Path) -> None:
         assert row is None
     finally:
         conn.close()
+
+
+def _seed_v1_db(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Create a code.db at schema_version='1' under the workspace's graph dir."""
+    ws = resolve_workspace(repo_root, require_manifest=False).workspace
+    db_path = graph_dir(ws) / "code.db"
+    monkeypatch.setattr(schema, "SCHEMA_VERSION", 1)
+    conn = store.connect(db_path, create=True)
+    conn.close()
+    monkeypatch.undo()
+    # Sanity: confirm it really is v1 on disk.
+    with sqlite3.connect(db_path) as probe:
+        row = probe.execute(
+            "SELECT value FROM metadata WHERE key='schema_version'"
+        ).fetchone()
+    assert row == ("1",), row
+    return db_path
+
+
+def test_update_full_rebuilds_v1_db_to_v2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`cg update --full` on a schema-v1 DB unlinks + rebuilds at v2 (D-01)."""
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+
+    db_path = _seed_v1_db(tmp_path, monkeypatch)
+    started = time.time()
+    time.sleep(0.01)  # ensure mtime delta is observable
+
+    buf = io.StringIO()
+    with redirect_stderr(buf):
+        update.run(tmp_path, full=True)
+
+    stderr = buf.getvalue()
+    # Discretionary wording per D-01; substrings are the contract.
+    assert "v1" in stderr, stderr
+    assert "v2" in stderr, stderr
+    assert "rebuild" in stderr.lower(), stderr
+
+    assert db_path.exists()
+    # Stale v1 WAL/SHM siblings did not survive the unlink — any *new* WAL/SHM
+    # is fine; we only assert the main DB was rebuilt (mtime after test start).
+    assert db_path.stat().st_mtime >= started
+
+    with sqlite3.connect(db_path) as probe:
+        row = probe.execute(
+            "SELECT value FROM metadata WHERE key='schema_version'"
+        ).fetchone()
+    assert row == (str(schema.SCHEMA_VERSION),) == ("2",)
+
+
+def test_update_incremental_on_v1_db_raises_schema_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Non-`--full` path on a v1 DB raises SchemaMismatchError (D-01 + Plan 04)."""
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
+    _seed_v1_db(tmp_path, monkeypatch)
+
+    with pytest.raises(store.SchemaMismatchError) as excinfo:
+        update.run(tmp_path, full=False)
+    assert excinfo.value.found == "1"
+    assert excinfo.value.expected == 2

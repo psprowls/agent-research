@@ -12,6 +12,7 @@ from typing import Any
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 from graph_io import _ignore, upsert
+from graph_io.uri import RepoContext, pkg_uri
 
 _SKIP_REPO_PREFIXES = ("lattice/",)
 
@@ -91,8 +92,11 @@ def _file_nodes_under(conn: sqlite3.Connection, prefix: str) -> list[str]:
     return [row[0] for row in rows]
 
 
-def refresh(conn: sqlite3.Connection, *, repo_root: Path) -> None:
+def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> None:
     """Rescan manifests under `repo_root` and upsert kind:package nodes + contains edges.
+
+    `ctx` carries the (org, repo) identifiers used to compose the
+    `pkg:org/repo/name` URI written onto every Package node (D-09/D-10).
 
     Containment is by directory-prefix: every file under a package's directory
     subtree gets a `contains` edge from that package. A manifest at the repo
@@ -117,6 +121,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path) -> None:
                     "version": info["version"],
                     "dependencies": info["dependencies"],
                     "language": info["language"],
+                    "uri": pkg_uri(ctx, info["name"]),
                 },
             )
         ]

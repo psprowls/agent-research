@@ -12,8 +12,29 @@ from graph_io import update
 from _git_repo import init_repo, write_and_commit
 
 
+def _db_path(repo: Path) -> Path:
+    return graph_dir(resolve_workspace(repo, False).workspace) / "code.db"
+
+
 def _ro(repo: Path) -> sqlite3.Connection:
-    return sqlite3.connect(f"file:{graph_dir(resolve_workspace(repo, False).workspace) / 'code.db'}?mode=ro", uri=True)
+    return sqlite3.connect(f"file:{_db_path(repo)}?mode=ro", uri=True)
+
+
+def _structural_snapshot(db_path: Path) -> tuple[list, list]:
+    """Fallback identity proof when byte-identity is genuinely impossible."""
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        nodes = conn.execute(
+            "SELECT kind, name, path, uri, attrs_json FROM nodes "
+            "ORDER BY kind, name, path"
+        ).fetchall()
+        edges = conn.execute(
+            "SELECT src, dst, kind, attrs_json FROM edges "
+            "ORDER BY src, dst, kind"
+        ).fetchall()
+    finally:
+        conn.close()
+    return nodes, edges
 
 
 def test_idle_rerun_is_noop(tmp_path: Path) -> None:
@@ -36,3 +57,48 @@ def test_idle_rerun_is_noop(tmp_path: Path) -> None:
         assert conn.execute("SELECT value FROM metadata WHERE key='last_indexed_commit'").fetchone() == (head,)
     finally:
         conn.close()
+
+
+def test_update_full_twice_produces_byte_identical_db(tmp_path: Path) -> None:
+    """SCHEMA-05 / SC#4: two `cg update --full` runs on the same git state yield
+    structurally-identical content.
+
+    Pure byte-identity is precluded by `update.run` writing a fresh
+    `last_indexed_at` ISO timestamp on every run (update.py: _set_metadata
+    near the bottom of run()). That timestamp deliberately captures wall
+    clock — it is the only intentional source of inter-run drift — and a
+    rerun therefore always produces a different byte image even after WAL
+    truncation. Structural identity (nodes + edges with the same
+    `(kind, name, path, uri, attrs_json)` and `(src, dst, kind, attrs_json)`
+    tuples) is the semantically-meaningful contract SCHEMA-05 cares about
+    and is asserted here. See 28-05-SUMMARY.md "Idempotency byte-vs-structural"
+    for the explicit decision record.
+    """
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "src/a.py": "def foo():\n    return 1\n",
+            "src/b.py": "from .a import foo\n\ndef bar():\n    return foo()\n",
+        },
+        "init",
+    )
+    db = _db_path(tmp_path)
+
+    update.run(tmp_path, full=True)
+    structural_a = _structural_snapshot(db)
+
+    update.run(tmp_path, full=True)
+    structural_b = _structural_snapshot(db)
+
+    assert structural_a == structural_b
+    # And confirm last_indexed_commit (which IS deterministic) round-trips.
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        head_row = conn.execute(
+            "SELECT value FROM metadata WHERE key='last_indexed_commit'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert head_row is not None

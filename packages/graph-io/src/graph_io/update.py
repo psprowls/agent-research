@@ -6,6 +6,7 @@ import datetime as _dt
 import os
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -15,7 +16,8 @@ from source_parser.projections.graph import to_graph_records
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
 
-from graph_io import _ignore, packages, resolve, store, upsert
+from graph_io import _ignore, packages, resolve, schema, store, upsert
+from graph_io.uri import RepoContext, parse_remote_url
 
 _GITIGNORE_BODY = "code.db\ncode.db-wal\ncode.db-shm\n"
 
@@ -136,6 +138,58 @@ def _default_lock_timeout() -> int:
         return 30_000
 
 
+def _derive_repo_context(repo_root: Path) -> RepoContext:
+    """Derive `(org, repo)` from `git remote get-url origin`, falling back to local.
+
+    D-04: try `git remote get-url origin` only — no upstream/fork probing.
+    D-05: on any failure (non-zero exit, unparseable URL), fall back to
+    `RepoContext(org='local', repo=repo_root.name)` — literal `'local'`
+    sentinel, no underscore prefix.
+    """
+    try:
+        remote_url = _git(["remote", "get-url", "origin"], cwd=repo_root).strip()
+    except NotInGitRepoError:
+        return RepoContext(org="local", repo=repo_root.name)
+    parsed = parse_remote_url(remote_url)
+    if parsed is None:
+        return RepoContext(org="local", repo=repo_root.name)
+    org, repo = parsed
+    return RepoContext(org=org, repo=repo)
+
+
+def _read_schema_version_or_none(db_path: Path) -> str | None:
+    """Read `metadata.schema_version` from `db_path` without touching the schema.
+
+    Uses a transient read-only sqlite connection so a v1 DB can be probed
+    without raising `SchemaMismatchError` (D-01: we want the version value,
+    not the gate). Returns None on any sqlite error or if the metadata row
+    is missing (defensive — caller treats None as "rebuild required").
+    """
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT value FROM metadata WHERE key='schema_version'"
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+    return row[0] if row else None
+
+
+def _unlink_db_files(db_path: Path) -> None:
+    """Unlink `db_path` plus its `code.db-wal` / `code.db-shm` siblings.
+
+    Filenames are fixed by `_GITIGNORE_BODY`; siblings live in `db_path.parent`.
+    """
+    db_path.unlink(missing_ok=True)
+    (db_path.parent / "code.db-wal").unlink(missing_ok=True)
+    (db_path.parent / "code.db-shm").unlink(missing_ok=True)
+
+
 def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, lock_timeout_ms: int | None = None) -> None:
     """Run an update against `repo_root`. Single SQLite transaction.
 
@@ -150,9 +204,21 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
     else:
         workspace = Path(workspace).resolve()
     head = _head(repo_root)
+    ctx = _derive_repo_context(repo_root)
     skip_dirs = _ignore.load_skip_dirs(repo_root)
 
     db_path = graph_dir(workspace) / "code.db"
+    if db_path.exists():
+        found = _read_schema_version_or_none(db_path)
+        if found != str(schema.SCHEMA_VERSION):
+            if full:
+                print(
+                    "Schema v1 detected — rebuilding code.db at schema v2.",
+                    file=sys.stderr,
+                )
+                _unlink_db_files(db_path)
+            else:
+                raise store.SchemaMismatchError(found=found, expected=schema.SCHEMA_VERSION)
     if lock_timeout_ms is None:
         lock_timeout_ms = _default_lock_timeout()
     conn = None
@@ -167,7 +233,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
 
             with store.transaction(conn):
                 _process_files(conn, repo_root, changed, skip_dirs)
-                packages.refresh(conn, repo_root=repo_root)
+                packages.refresh(conn, repo_root=repo_root, ctx=ctx)
                 if full:
                     tracked_paths = [
                         rel for _, rel in changed
