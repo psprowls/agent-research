@@ -50,7 +50,9 @@ def sweep(conn: sqlite3.Connection) -> None:
     # Delete placeholder nodes that were successfully resolved — their edges now point
     # at real nodes, so these stubs are unreferenced and would otherwise appear as
     # spurious path=None hits in `cg find` and similar queries.
+    # D-16 / STRUCT-06: spare URI-bearing structural nodes (Repository,
+    # Domain, TestSuite, EntryPoint) — they have no path but are not orphans.
     conn.execute(
-        "DELETE FROM nodes WHERE path IS NULL AND kind != 'package' "
+        "DELETE FROM nodes WHERE path IS NULL AND uri IS NULL AND kind != 'package' "
         "AND id NOT IN (SELECT dst FROM edges)"
     )

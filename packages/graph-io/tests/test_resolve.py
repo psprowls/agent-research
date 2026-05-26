@@ -156,6 +156,30 @@ def test_sweep_keeps_unresolved_placeholders(conn: sqlite3.Connection) -> None:
     assert null_nodes == 1
 
 
+def test_sweep_preserves_uri_bearing_structural_nodes(conn: sqlite3.Connection) -> None:
+    """STRUCT-06 / D-17: Repository (path=NULL, uri='repo:...') survives sweep;
+    orphan AST node (path=NULL, uri=NULL) is deleted."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="repository", name="x", path=None, line=None,
+                    attrs={"uri": "repo:test/x"},
+                ),
+                GraphNode(
+                    kind="function", name="orphan", path=None, line=None, attrs={},
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    resolve.sweep(conn)
+    kinds = {row[0] for row in conn.execute("SELECT kind FROM nodes").fetchall()}
+    assert "repository" in kinds, "Repository node was deleted by sweep (STRUCT-06 violated)"
+    assert "function" not in kinds, "Orphan AST node was not cleaned by sweep"
+
+
 def test_sweep_is_idempotent(conn: sqlite3.Connection) -> None:
     _seed(
         conn,
