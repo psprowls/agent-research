@@ -189,33 +189,15 @@ def test_cg_find_on_v1_db_exits_schema_mismatch(tmp_path: Path) -> None:
     assert "Traceback" not in res.stderr, res.stderr
 
 
-@pytest.mark.xfail(strict=False, reason="Plan 05 wires the --full path that converts v1 → v2; until then this test confirms the handler is correctly bypassed for --full")
 def test_cg_update_full_on_v1_db_does_not_exit_4_from_ops_update_handler(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
-    """Handler-precedence guard: SchemaMismatchError must NOT swallow `--full`.
-
-    With the monkeypatch simulating Plan 05's probe behavior (raise on any path),
-    this test currently sees rc=4 and fails the `rc != 4` assertion — xfail.
-    Plan 05 will wire update.run so that `--full` runs an unlink+rebuild that
-    returns 0 (not 4), making this test pass naturally; Plan 05 Task 4 removes
-    this xfail marker.
+    """`cg update --full` on a v1 DB now exits 0 — the unlink+rebuild path
+    in update.run (Plan 28-05) takes over before any SchemaMismatchError
+    can surface, so the CLI handler is correctly bypassed for --full.
     """
     _make_v1_db(tmp_path)
 
-    from graph_io import store, update
-    from graph_io.cli.main import main
+    res = _cg(["update", "--full"], tmp_path)
 
-    def _raise_schema_mismatch(*args, **kwargs):
-        raise store.SchemaMismatchError(found="1", expected=2)
-
-    monkeypatch.setattr(update, "run", _raise_schema_mismatch)
-
-    buf = io.StringIO()
-    with redirect_stderr(buf):
-        rc = main(["--repo", str(tmp_path), "--mode", "test", "update", "--full"])
-
-    # The IMPORTANT assertion: the SchemaMismatchError handler did NOT swallow
-    # the --full path. Once Plan 05 lands, rc == 0 (success); until then, the
-    # monkeypatch makes update.run raise on every path → rc == 4 → xfail.
-    assert rc != 4, (rc, buf.getvalue())
+    assert res.returncode == 0, (res.returncode, res.stdout, res.stderr)
