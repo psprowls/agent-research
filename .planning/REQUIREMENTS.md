@@ -39,8 +39,8 @@
 - [x] **LIBTOOLS-01** — `graph_tools.py` exists at `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py` exposing ≤5 `@tool`-decorated callables wrapping `graph_io.queries.*`
 - [x] **LIBTOOLS-02** — All tools declare `-> str` return type and serialize results via `graph_io.cli._format.render(records, fmt="human")`; row results hard-capped at 50 with explicit truncation notice
 - [x] **LIBTOOLS-03** — `build_graph_tools(conn)` factory accepts an open `graph_io.store` connection via closure; single connection opened at command entry, shared by all tool callables, closed in `finally`
-- [ ] **LIBTOOLS-04** — `commands/query.py` opens `read_only_connect()` against `workspace_io.paths.graph_dir(workspace) / "code.db"`, calls `bind_tools()` on librarian LLM with `build_graph_tools(conn)`; graceful `NOT_INITIALIZED` fallback (librarian still runs, with a clear notice that graph-tools are unavailable)
-- [ ] **LIBTOOLS-05** — CountTokens pre-flight verifies system prompt + tool schemas + input stays within model context budget; gate enforced at command entry before any LLM call
+- [x] **LIBTOOLS-04** — `commands/query.py` opens `read_only_connect()` against `workspace_io.paths.graph_dir(workspace) / "code.db"`, calls `bind_tools()` on librarian LLM with `build_graph_tools(conn)`; graceful `NOT_INITIALIZED` fallback (librarian still runs, with a clear notice that graph-tools are unavailable)
+- [x] **LIBTOOLS-05** — CountTokens pre-flight verifies system prompt + tool schemas + input stays within model context budget; gate enforced at command entry before any LLM call
 
 ### GRAPHCMD — `graph-wiki-agent graph` Subcommand
 
@@ -112,8 +112,8 @@
 | LIBTOOLS-01 | Phase 37 | Complete |
 | LIBTOOLS-02 | Phase 37 | Complete |
 | LIBTOOLS-03 | Phase 37 | Complete |
-| LIBTOOLS-04 | Phase 37 | Pending |
-| LIBTOOLS-05 | Phase 37 | Pending |
+| LIBTOOLS-04 | Phase 37 | Complete |
+| LIBTOOLS-05 | Phase 37 | Complete |
 | GRAPHCMD-01 | Phase 38 | Pending |
 | GRAPHCMD-02 | Phase 38 | Pending |
 | GRAPHCMD-03 | Phase 38 | Pending |
