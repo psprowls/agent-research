@@ -90,4 +90,37 @@
 
 ## Traceability
 
-_Filled by the roadmapper when ROADMAP.md is created — each REQ-ID maps to exactly one phase._
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| HYGIENE-01 | Phase 35 | Pending |
+| HYGIENE-02 | Phase 35 | Pending |
+| HYGIENE-03 | Phase 35 | Pending |
+| HYGIENE-04 | Phase 35 | Pending |
+| HYGIENE-05 | Phase 35 | Pending |
+| HYGIENE-06 | Phase 35 | Pending |
+| HYGIENE-07 | Phase 35 | Pending |
+| HYGIENE-08 | Phase 35 | Pending |
+| HYGIENE-09 | Phase 35 | Pending |
+| HYGIENE-10 | Phase 35 | Pending |
+| HYGIENE-11 | Phase 35 | Pending |
+| HYGIENE-12 | Phase 35 | Pending |
+| HYGIENE-13 | Phase 35 | Pending |
+| HYGIENE-14 | Phase 35 | Pending |
+| CGFIND-01 | Phase 36 | Pending |
+| CGFIND-02 | Phase 36 | Pending |
+| CGFIND-03 | Phase 36 | Pending |
+| LIBTOOLS-01 | Phase 37 | Pending |
+| LIBTOOLS-02 | Phase 37 | Pending |
+| LIBTOOLS-03 | Phase 37 | Pending |
+| LIBTOOLS-04 | Phase 37 | Pending |
+| LIBTOOLS-05 | Phase 37 | Pending |
+| GRAPHCMD-01 | Phase 38 | Pending |
+| GRAPHCMD-02 | Phase 38 | Pending |
+| GRAPHCMD-03 | Phase 38 | Pending |
+| GRAPHCMD-04 | Phase 38 | Pending |
+| SCANNER-01 | Phase 39 | Pending |
+| SCANNER-02 | Phase 39 | Pending |
+| SCANNER-03 | Phase 39 | Pending |
+| INGESTOR-01 | Phase 40 | Pending |
+| INGESTOR-02 | Phase 40 | Pending |
+| INGESTOR-03 | Phase 40 | Pending |
