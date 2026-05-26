@@ -435,3 +435,236 @@ def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
         "sample_monorepo fixture is missing items required by D-15:\n"
         + "\n".join(f"  - {m}" for m in missing)
     )
+
+
+# ============================================================================
+# Phase 32 Wave 1: find per-kind, describe_*, list_*, extended describe_*.
+# ============================================================================
+
+from graph_io.queries import (
+    describe_domain,
+    describe_entry_point,
+    describe_package,
+    describe_path,
+    describe_repository,
+    describe_test_suite,
+    list_domains,
+    list_entry_points,
+    list_packages,
+    list_repositories,
+    list_scripts,
+    list_test_suites,
+)
+
+
+def _skip_if_phase31_missing(conn: sqlite3.Connection) -> None:
+    """Skip when Phase 31's domains.yaml has not yet shipped."""
+    n = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='domain'"
+    ).fetchone()[0]
+    if n == 0:
+        pytest.skip(
+            "Phase 31 dependency: domains.yaml not present in "
+            "sample_monorepo fixture — Phase 32 tests cannot run "
+            "until Phase 31 ships."
+        )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "function",
+        "class",
+        "method",
+        "file",
+        "package",
+        "repository",
+        "subpackage",
+        "entry_point",
+        "test_suite",
+        "domain",
+    ],
+)
+def test_find_per_kind(seeded_db: sqlite3.Connection, kind: str) -> None:
+    if kind == "domain":
+        _skip_if_phase31_missing(seeded_db)
+    rows = find(seeded_db, kind=kind)
+    assert isinstance(rows, list)
+    if kind in {"file", "package", "repository"}:
+        assert rows, f"expected non-empty result for kind={kind!r}"
+    for r in rows:
+        assert r.kind == kind
+
+
+def test_describe_repository(seeded_db: sqlite3.Connection) -> None:
+    repo = describe_repository(seeded_db)
+    assert repo is not None
+    assert isinstance(repo, RepoDescription)
+    assert repo.name
+    assert repo.package_count >= 1
+
+
+def test_describe_repository_returns_none_on_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert describe_repository(empty_db) is None
+
+
+def test_describe_domain(seeded_db: sqlite3.Connection) -> None:
+    _skip_if_phase31_missing(seeded_db)
+    domains = list_domains(seeded_db)
+    assert domains, "expected at least one Domain in seeded_db"
+    first = domains[0].name
+    dom = describe_domain(seeded_db, name=first)
+    assert dom is not None
+    assert isinstance(dom, DomainDescription)
+    assert dom.name == first
+
+
+def test_describe_domain_returns_none_on_missing(
+    seeded_db: sqlite3.Connection,
+) -> None:
+    assert describe_domain(seeded_db, name="__nonexistent__") is None
+
+
+def test_describe_entry_point(seeded_db: sqlite3.Connection) -> None:
+    eps = list_entry_points(seeded_db)
+    if not eps:
+        pytest.skip("seeded_db has no EntryPoint nodes")
+    first = eps[0]
+    pkg_row = seeded_db.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='declares_entry_point' AND e.dst = ("
+        "  SELECT id FROM nodes WHERE kind='entry_point' AND name = ?"
+        ") LIMIT 1",
+        (first.name,),
+    ).fetchone()
+    assert pkg_row is not None
+    ep = describe_entry_point(
+        seeded_db,
+        package_name=pkg_row[0],
+        entry_name=first.name,
+    )
+    assert ep is not None
+    assert isinstance(ep, EntryPointDescription)
+    assert ep.name == first.name
+    assert ep.kind in {"executable", "library"}
+
+
+def test_describe_entry_point_returns_none_on_missing(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert (
+        describe_entry_point(empty_db, package_name="x", entry_name="y") is None
+    )
+
+
+def test_describe_test_suite(seeded_db: sqlite3.Connection) -> None:
+    suites = list_test_suites(seeded_db)
+    if not suites:
+        pytest.skip("seeded_db has no TestSuite nodes")
+    first = suites[0]
+    s = describe_test_suite(seeded_db, suite_name=first.name)
+    assert s is not None
+    assert isinstance(s, SuiteDescription)
+    assert s.name == first.name
+
+
+def test_describe_test_suite_returns_none_on_missing(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert describe_test_suite(empty_db, suite_name="x") is None
+
+
+@pytest.mark.parametrize(
+    "fn, kind",
+    [
+        (list_repositories, "repository"),
+        (list_packages, "package"),
+        (list_entry_points, "entry_point"),
+        (list_test_suites, "test_suite"),
+        (list_domains, "domain"),
+    ],
+)
+def test_list_returns_sorted_node_records(
+    seeded_db: sqlite3.Connection, fn, kind: str
+) -> None:
+    if kind == "domain":
+        _skip_if_phase31_missing(seeded_db)
+    rows = fn(seeded_db)
+    assert isinstance(rows, list)
+    assert all(r.kind == kind for r in rows)
+    names = [r.name for r in rows]
+    assert names == sorted(names), f"{fn.__name__} not alphabetical"
+
+
+def test_list_returns_empty_on_empty_db(empty_db: sqlite3.Connection) -> None:
+    for fn in [
+        list_repositories,
+        list_packages,
+        list_entry_points,
+        list_test_suites,
+        list_domains,
+        list_scripts,
+    ]:
+        assert fn(empty_db) == []
+
+
+def test_list_scripts(seeded_db: sqlite3.Connection) -> None:
+    scripts = list_scripts(seeded_db)
+    assert isinstance(scripts, list)
+    for r in scripts:
+        assert r.kind in {"file", "entry_point"}
+        if r.kind == "file":
+            assert r.attrs.get("is_executable") is True
+        else:
+            assert r.attrs.get("entry_kind") == "executable"
+
+
+def test_describe_package_extended(seeded_db: sqlite3.Connection) -> None:
+    pkgs = list_packages(seeded_db)
+    assert pkgs, "expected packages in seeded_db"
+    name = pkgs[0].name
+    desc = describe_package(seeded_db, name=name)
+    assert desc is not None
+    assert isinstance(desc.domains, list)
+    assert isinstance(desc.entry_points, list)
+    assert isinstance(desc.test_suites, list)
+    for ep in desc.entry_points:
+        assert isinstance(ep, EntryPointDescription)
+    for ts in desc.test_suites:
+        assert isinstance(ts, SuiteDescription)
+
+
+def test_describe_package_returns_none_on_missing(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert describe_package(empty_db, name="__nonexistent__") is None
+
+
+def test_describe_path_role_flags(seeded_db: sqlite3.Connection) -> None:
+    row = seeded_db.execute(
+        "SELECT path FROM nodes WHERE kind='file' LIMIT 1"
+    ).fetchone()
+    assert row is not None, "expected a File node"
+    desc = describe_path(seeded_db, path=row[0])
+    assert desc is not None
+    assert isinstance(desc.role_flags, dict)
+    assert set(desc.role_flags.keys()) == {
+        "is_importable",
+        "has_main",
+        "is_test",
+        "is_config",
+        "is_generated",
+        "is_type_only",
+        "is_executable",
+    }
+    for k, v in desc.role_flags.items():
+        assert isinstance(v, bool), f"{k}: {v!r} not a bool"
+
+
+def test_describe_path_returns_none_on_missing_empty_db(
+    empty_db: sqlite3.Connection,
+) -> None:
+    assert describe_path(empty_db, path="nonexistent/path.py") is None

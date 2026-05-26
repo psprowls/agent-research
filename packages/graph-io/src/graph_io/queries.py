@@ -111,6 +111,43 @@ def _row_to_node(row) -> NodeRecord:
     return NodeRecord(kind=kind, name=name, path=path, line=line, attrs=attrs)
 
 
+def _load_entry_point_description(row) -> EntryPointDescription:
+    """Project a raw EntryPoint SQL row into a Description.
+
+    Expected row shape: (name, uri, attrs_json, impl_path).
+    attrs_json is parsed; `kind`, `callable`, `source` are read from it.
+    `implemented_by_path` is the joined File.path (may be None).
+    """
+    name, uri, attrs_json, impl_path = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    # Phase 30 emits the kind as `entry_kind` in attrs_json; fall back to
+    # `kind` for forward compatibility / projector-level unit tests.
+    kind = attrs.get("entry_kind") or attrs.get("kind", "")
+    return EntryPointDescription(
+        name=name,
+        uri=uri or "",
+        kind=kind,
+        callable=attrs.get("callable"),
+        implemented_by_path=impl_path,
+        source=attrs.get("source", ""),
+    )
+
+
+def _load_suite_description(row) -> SuiteDescription:
+    """Project a TestSuite row into a SuiteDescription.
+
+    Expected row shape: (name, uri, attrs_json, file_count).
+    """
+    name, uri, attrs_json, file_count = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    return SuiteDescription(
+        name=name,
+        uri=uri or "",
+        kind=attrs.get("suite_kind", ""),
+        file_count=int(file_count or 0),
+    )
+
+
 def find(
     conn: sqlite3.Connection,
     *,
@@ -236,12 +273,57 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
             file_paths,
         ).fetchall()
         counts = {kind: count for kind, count in rows}
+
+    # Domains the package belongs to (D-01)
+    domain_rows = conn.execute(
+        "SELECT d.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "JOIN nodes d ON e.dst = d.id "
+        "WHERE e.kind='belongs_to_domain' "
+        "AND p.kind='package' AND p.name = ? "
+        "ORDER BY d.name",
+        (name,),
+    ).fetchall()
+    domain_names = [r[0] for r in domain_rows]
+
+    # EntryPoints declared by the package
+    ep_rows = conn.execute(
+        "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+        "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
+        "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
+        "WHERE pkg.kind='package' AND pkg.name = ? "
+        "ORDER BY ep.name",
+        (name,),
+    ).fetchall()
+    entry_points = [_load_entry_point_description(r) for r in ep_rows]
+
+    # TestSuites covering the package
+    suite_rows = conn.execute(
+        "SELECT ts.name, ts.uri, ts.attrs_json, "
+        "(SELECT COUNT(*) FROM edges pc "
+        " WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc "
+        "FROM edges t "
+        "JOIN nodes ts ON t.src = ts.id "
+        "JOIN nodes p ON t.dst = p.id "
+        "WHERE t.kind='tests' AND ts.kind='test_suite' "
+        "AND p.kind='package' AND p.name = ? "
+        "ORDER BY ts.name",
+        (name,),
+    ).fetchall()
+    test_suites = [_load_suite_description(r) for r in suite_rows]
+
     return PackageDescription(
         name=name,
         language=attrs.get("language", ""),
         version=attrs.get("version", ""),
         files=file_paths,
         counts=counts,
+        domains=domain_names,
+        entry_points=entry_points,
+        test_suites=test_suites,
     )
 
 
@@ -274,11 +356,186 @@ def describe_path(conn: sqlite3.Connection, *, path: str) -> PathDescription | N
         """,
         (path,),
     ).fetchall()
+    # Project the 7 File role flags into a dict (D-05)
+    file_attrs = json.loads(file_row[4]) if file_row[4] else {}
+    role_flags: dict[str, bool] | None = {
+        "is_importable": bool(file_attrs.get("is_importable", False)),
+        "has_main": bool(file_attrs.get("has_main", False)),
+        "is_test": bool(file_attrs.get("is_test", False)),
+        "is_config": bool(file_attrs.get("is_config", False)),
+        "is_generated": bool(file_attrs.get("is_generated", False)),
+        "is_type_only": bool(file_attrs.get("is_type_only", False)),
+        "is_executable": bool(file_attrs.get("is_executable", False)),
+    }
     return PathDescription(
         path=path,
         children=[_row_to_node(r) for r in children_rows],
         imports=[_row_to_node(r) for r in import_rows],
+        role_flags=role_flags,
     )
+
+
+def describe_repository(conn: sqlite3.Connection) -> RepoDescription | None:
+    """Return the single Repository node's description, or None if absent.
+
+    Phase 29 D-01 guarantees exactly one Repository per DB. `conn` must
+    be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    row = conn.execute(
+        "SELECT name, uri, attrs_json FROM nodes "
+        "WHERE kind='repository' LIMIT 1"
+    ).fetchone()
+    if not row:
+        return None
+    name, uri, attrs_json = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    pkg_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='package'"
+    ).fetchone()[0]
+    return RepoDescription(
+        name=name,
+        uri=uri or "",
+        owner=attrs.get("owner"),
+        url=attrs.get("url"),
+        default_branch=attrs.get("default_branch"),
+        package_count=int(pkg_count or 0),
+    )
+
+
+def describe_domain(
+    conn: sqlite3.Connection, *, name: str
+) -> DomainDescription | None:
+    """Return the named Domain's description, or None if not found.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    row = conn.execute(
+        "SELECT id, name, uri, attrs_json FROM nodes "
+        "WHERE kind='domain' AND name = ?",
+        (name,),
+    ).fetchone()
+    if not row:
+        return None
+    dom_id, dom_name, uri, attrs_json = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    parent_row = conn.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='domain_contains_domain' AND e.dst = ? "
+        "LIMIT 1",
+        (dom_id,),
+    ).fetchone()
+    return DomainDescription(
+        name=dom_name,
+        uri=uri or "",
+        parent=parent_row[0] if parent_row else None,
+        description=attrs.get("description"),
+    )
+
+
+def describe_entry_point(
+    conn: sqlite3.Connection,
+    *,
+    package_name: str,
+    entry_name: str,
+) -> EntryPointDescription | None:
+    """Return the named EntryPoint declared by the package, or None.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    row = conn.execute(
+        "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+        "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
+        "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
+        "WHERE pkg.kind='package' AND pkg.name = ? AND ep.name = ?",
+        (package_name, entry_name),
+    ).fetchone()
+    if not row:
+        return None
+    return _load_entry_point_description(row)
+
+
+def describe_test_suite(
+    conn: sqlite3.Connection, *, suite_name: str
+) -> SuiteDescription | None:
+    """Return the named TestSuite description, or None.
+
+    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
+    """
+    row = conn.execute(
+        "SELECT id, name, uri, attrs_json FROM nodes "
+        "WHERE kind='test_suite' AND name = ?",
+        (suite_name,),
+    ).fetchone()
+    if not row:
+        return None
+    suite_id, name, uri, attrs_json = row
+    fc = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE src = ? AND kind='physically_contains'",
+        (suite_id,),
+    ).fetchone()[0]
+    return _load_suite_description((name, uri, attrs_json, fc))
+
+
+def _list_by_kind(conn: sqlite3.Connection, kind: str) -> list[NodeRecord]:
+    rows = conn.execute(
+        "SELECT kind, name, path, line, attrs_json FROM nodes "
+        "WHERE kind = ? ORDER BY name",
+        (kind,),
+    ).fetchall()
+    return [_row_to_node(r) for r in rows]
+
+
+def list_repositories(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Repository nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "repository")
+
+
+def list_packages(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Package nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "package")
+
+
+def list_entry_points(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all EntryPoint nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "entry_point")
+
+
+def list_test_suites(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all TestSuite nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "test_suite")
+
+
+def list_domains(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Domain nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "domain")
+
+
+def list_scripts(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """Union of executable Files and executable EntryPoints.
+
+    UNION (not UNION ALL) dedups identical rows. In practice the two
+    SELECTs target different `kind` columns ('file' vs 'entry_point')
+    so dedup is conservative. Matches Phase 33 SC#4 expectation.
+
+    Note: Phase 30 emits the EntryPoint kind in attrs_json under the
+    `entry_kind` key (not `kind`), so we filter on that. `conn` must be
+    read-only.
+    """
+    rows = conn.execute(
+        "SELECT kind, name, path, line, attrs_json FROM nodes "
+        "WHERE kind='file' "
+        "AND json_extract(attrs_json, '$.is_executable') = 1 "
+        "UNION "
+        "SELECT kind, name, path, line, attrs_json FROM nodes "
+        "WHERE kind='entry_point' "
+        "AND json_extract(attrs_json, '$.entry_kind') = 'executable' "
+        "ORDER BY name"
+    ).fetchall()
+    return [_row_to_node(r) for r in rows]
 
 
 @dataclass(frozen=True)
