@@ -239,7 +239,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 | 34. Brand Sweep | v1.6 | 5/5 | Complete | 2026-05-26 |
 | 35. Wiki & Bootstrap Hygiene Burn-Down | v1.7 | 2/2 | Complete   | 2026-05-26 |
 | 36. `cg find` Parser Ergonomics | v1.7 | 1/1 | Complete   | 2026-05-26 |
-| 37. Librarian Grounding Tools | v1.7 | 2/2 | Complete   | 2026-05-26 |
+| 37. Librarian Grounding Tools | v1.7 | 2/2 | Complete    | 2026-05-26 |
 | 38. `graph-wiki-agent graph` Subcommand | v1.7 | 0/TBD | Not started | - |
 | 39. Scanner Consumes graph-io | v1.7 | 0/TBD | Not started | - |
 | 40. Ingestor Consumes graph-io | v1.7 | 0/TBD | Not started | - |
