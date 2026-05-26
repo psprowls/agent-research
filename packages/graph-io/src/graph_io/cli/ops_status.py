@@ -11,7 +11,7 @@ from pathlib import Path
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, schema, store
+from graph_io import exit_codes, queries, schema, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -71,15 +71,18 @@ def run(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
+        repo_desc = queries.describe_repository(conn)
         info = _collect(conn)
     finally:
         conn.close()
+    info["repository"] = repo_desc.uri if repo_desc else None
     info["head"] = head
     info["stale"] = info["last_indexed_commit"] != head
 
     if args.fmt == "json":
         print(_json.dumps(info))
     else:
+        print(f"repository:          {info['repository'] if info['repository'] else '(none)'}")
         print(f"schema_version:      {info['schema_version']}")
         print(f"last_indexed_commit: {info['last_indexed_commit']}   (HEAD: {head})")
         print(f"stale:               {info['stale']}")
