@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Code Graph Ontology Expansion
-status: planning
+status: executing
 stopped_at: Phase 34 context gathered
-last_updated: "2026-05-26T03:10:46.608Z"
+last_updated: "2026-05-26T03:18:40.914Z"
 last_activity: 2026-05-26
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 25
-  completed_plans: 13
-  percent: 52
+  total_plans: 26
+  completed_plans: 14
+  percent: 54
 ---
 
 # Project State: agent-research
@@ -27,15 +27,15 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 30 — entry-points-test-suites
+**Current Focus:** Phase 31 — Domain Layer + Derived Edges
 
 ---
 
 ## Current Position
 
-Phase: 31
-Plan: Not started
-Status: Ready to plan
+Phase: 31 (Domain Layer + Derived Edges) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-05-26
 
 Progress: [█████░░░░░] 54%
