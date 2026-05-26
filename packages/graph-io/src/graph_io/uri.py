@@ -36,8 +36,8 @@ def test_suite_uri(ctx: RepoContext, suite_name: str) -> str:
     return f"test_suite:{ctx.org}/{ctx.repo}/{suite_name}"
 
 
-def domain_uri(name: str) -> str:
-    return f"domain:{name}"
+def domain_uri(ctx: RepoContext, name: str) -> str:
+    return f"domain:{ctx.org}/{ctx.repo}/{name}"
 
 
 _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")
