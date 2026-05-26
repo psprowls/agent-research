@@ -445,6 +445,205 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
     )
 
 
+# ---------------------------------------------------------------------------
+# graph_build, graph_describe, graph_query tools (Phase 38 / GRAPHCMD-04)
+# ---------------------------------------------------------------------------
+
+import time  # noqa: E402
+
+from graph_wiki_agent.commands import graph as graph_module  # noqa: E402
+
+
+class GraphBuildInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    full: bool = Field(False, description="Full rebuild from scratch (else incremental).")
+    trace: bool = Field(False, description="Write JSONL trace to .graph-wiki/traces/.")
+    model: str | None = Field(
+        None,
+        description="Model ID — recorded in trace; NOT invoked in v1.7 (graph build does not call an LLM).",
+    )
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var).")
+
+
+class GraphDescribeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal[
+        "package", "path", "repository", "domain", "entry_point", "test_suite"
+    ] = Field(..., description="Entity kind (snake_case enum).")
+    identifier: str | None = Field(
+        None,
+        description="Identifier (e.g. package name, file path). Required for all kinds except 'repository'.",
+    )
+    trace: bool = Field(False, description="Write JSONL trace to .graph-wiki/traces/.")
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var).")
+
+
+class GraphQueryInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(None, description="Node name (exact match).")
+    kind: str | None = Field(None, description="Node kind (e.g. class, function, file).")
+    in_package: str | None = Field(None, description="Filter to nodes in named package.")
+    trace: bool = Field(False, description="Write JSONL trace to .graph-wiki/traces/.")
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var).")
+
+
+class GraphCommandOutput(BaseModel):
+    status: Literal["success", "error"]
+    exit_code: int
+    stdout: str
+    stderr: str
+    trace_path: str | None = None
+
+
+def _pack_output(
+    exit_code: int, stdout: str, stderr: str, trace_path: str | None
+) -> GraphCommandOutput:
+    return GraphCommandOutput(
+        status="success" if exit_code == 0 else "error",
+        exit_code=exit_code,
+        stdout=stdout,
+        stderr=stderr,
+        trace_path=trace_path,
+    )
+
+
+@mcp.tool(
+    name="graph_build",
+    description="Build the code graph (cg update) for the workspace. Mirrors `graph-wiki-agent graph build`.",
+)
+async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutput:
+    repo, workspace = graph_module._resolve_paths(input.workspace_path)
+    trace_file = None
+    trace_path_str: str | None = None
+    if input.trace:
+        shared_stamp = graph_module._iso_utc_timestamp()
+        trace_file = graph_module._trace_path(workspace, "graph-build", shared_stamp)
+        trace_path_str = str(trace_file.resolve())
+        graph_module._write_trace_record(
+            trace_file,
+            event="graph_build_start",
+            command="graph build",
+            args_dict={"full": input.full, "model": input.model},
+            exit_code=None,
+            duration_ms=0,
+            model_id=input.model,
+        )
+
+    args = graph_module._build_namespace(
+        graph_module.ops_update,
+        repo=repo,
+        workspace=workspace,
+        full=input.full,
+    )
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = graph_module._capture_run(graph_module.ops_update, args)
+    dur_ms = int((time.monotonic() - t0) * 1000)
+
+    if trace_file is not None:
+        graph_module._write_trace_record(
+            trace_file,
+            event="graph_build_complete",
+            command="graph build",
+            args_dict={"full": input.full, "model": input.model},
+            exit_code=exit_code,
+            duration_ms=dur_ms,
+            model_id=input.model,
+        )
+
+    return _pack_output(exit_code, stdout, stderr, trace_path_str)
+
+
+@mcp.tool(
+    name="graph_describe",
+    description="Describe a graph entity by kind and identifier. Mirrors `graph-wiki-agent graph describe <kind>`.",
+)
+async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphCommandOutput:
+    module, id_attr = graph_module._DESCRIBE_DISPATCH[input.kind]
+    if id_attr is not None and input.identifier is None:
+        return _pack_output(
+            exit_code=2,
+            stdout="",
+            stderr=f"identifier required for kind={input.kind}",
+            trace_path=None,
+        )
+
+    repo, workspace = graph_module._resolve_paths(input.workspace_path)
+    extras: dict = {} if id_attr is None else {id_attr: input.identifier}
+
+    trace_file = None
+    trace_path_str: str | None = None
+    if input.trace:
+        shared_stamp = graph_module._iso_utc_timestamp()
+        trace_file = graph_module._trace_path(workspace, "graph-describe", shared_stamp)
+        trace_path_str = str(trace_file.resolve())
+
+    args = graph_module._build_namespace(module, repo=repo, workspace=workspace, **extras)
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = graph_module._capture_run(module, args)
+    dur_ms = int((time.monotonic() - t0) * 1000)
+
+    if trace_file is not None:
+        graph_module._write_trace_record(
+            trace_file,
+            event="graph_describe",
+            command=f"graph describe {input.kind.replace('_', '-')}",
+            args_dict={"kind": input.kind, "identifier": input.identifier},
+            exit_code=exit_code,
+            duration_ms=dur_ms,
+            model_id=None,  # D-03 honest-omission: cost fields absent on proxy commands
+        )
+
+    return _pack_output(exit_code, stdout, stderr, trace_path_str)
+
+
+@mcp.tool(
+    name="graph_query",
+    description="Find graph nodes by name/kind/in-package. Mirrors `graph-wiki-agent graph query` (= `cg find`).",
+)
+async def graph_query(input: GraphQueryInput, ctx: Context) -> GraphCommandOutput:
+    if input.name is None and input.kind is None and input.in_package is None:
+        return _pack_output(
+            exit_code=2,
+            stdout="",
+            stderr="at least one of name, kind, in_package required",
+            trace_path=None,
+        )
+
+    repo, workspace = graph_module._resolve_paths(input.workspace_path)
+
+    trace_file = None
+    trace_path_str: str | None = None
+    if input.trace:
+        shared_stamp = graph_module._iso_utc_timestamp()
+        trace_file = graph_module._trace_path(workspace, "graph-query", shared_stamp)
+        trace_path_str = str(trace_file.resolve())
+
+    args = graph_module._build_namespace(
+        graph_module.q_find,
+        repo=repo,
+        workspace=workspace,
+        name=input.name,
+        kind=input.kind,
+        in_package=input.in_package,
+    )
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = graph_module._capture_run(graph_module.q_find, args)
+    dur_ms = int((time.monotonic() - t0) * 1000)
+
+    if trace_file is not None:
+        graph_module._write_trace_record(
+            trace_file,
+            event="graph_query",
+            command="graph query",
+            args_dict={"name": input.name, "kind": input.kind, "in_package": input.in_package},
+            exit_code=exit_code,
+            duration_ms=dur_ms,
+            model_id=None,  # D-03 honest-omission
+        )
+
+    return _pack_output(exit_code, stdout, stderr, trace_path_str)
+
+
 def main() -> None:
     # Be explicit about transport — do not rely on the default (RESEARCH A2).
     mcp.run(transport="stdio")
