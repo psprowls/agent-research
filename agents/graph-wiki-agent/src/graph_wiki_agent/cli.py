@@ -491,13 +491,27 @@ def bootstrap(
     force: bool = typer.Option(False, "--force", help="Overwrite non-empty target directory"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     repo: str = typer.Option("", "--repo", help="Override repo root (default: CWD walk-up)"),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        help="Prompt for ambiguous container classifications (default: silent-skip).",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
     """Bootstrap a wiki vault structure (creates raw/ and work/ siblings)."""
     workspace_path = Path(workspace) if workspace else None
     repo_path = Path(repo).resolve() if repo else None
     try:
-        result = asyncio.run(run_init(topic=topic, tool=tool, force=force, workspace_path=workspace_path, repo_path=repo_path))
+        result = asyncio.run(
+            run_init(
+                topic=topic,
+                tool=tool,
+                force=force,
+                interactive=interactive,
+                workspace_path=workspace_path,
+                repo_path=repo_path,
+            )
+        )
     except (RuntimeError, FileNotFoundError, SystemExit) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)

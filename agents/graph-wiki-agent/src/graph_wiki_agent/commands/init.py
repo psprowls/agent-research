@@ -43,6 +43,7 @@ async def run_init(
     topic: str,
     tool: str,
     force: bool,
+    interactive: bool = False,
     workspace_path: Path | None = None,
     repo_path: Path | None = None,
 ) -> InitResult:
@@ -52,6 +53,8 @@ async def run_init(
         topic: Short description of the repository (e.g. "my-project").
         tool: Which schema file(s) to install (claude-code, codex, cursor, all, ...).
         force: If True, overwrite non-empty wiki directory.
+        interactive: If True, prompt for ambiguous container classifications;
+                     if False (default), silent-skip ambiguous rows (today's behavior).
         workspace_path: Explicit workspace path; if None, reads GRAPH_WIKI_WORKSPACE env var.
         repo_path: Explicit repo root path; if None, walks up from cwd.
 
@@ -85,7 +88,7 @@ async def run_init(
         topic=topic,
         tool=tool,
         force=force,
-        non_interactive=True,
+        non_interactive=not interactive,
         as_json=False,  # MCP safety: as_json=True emits print(json.dumps(...)) which trips _StdoutGuard
     )
     return InitResult(
