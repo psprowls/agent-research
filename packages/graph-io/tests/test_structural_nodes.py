@@ -727,7 +727,10 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
             f"Packages have non-Repository parents: {kinds}"
         )
 
-        # Assertion 4: test files parented by Repository, not Package/SubPackage (D-14)
+        # Assertion 4: test files parented by TestSuite, not Package/SubPackage/Repository (D-14)
+        # Phase 29 placed test files under Repository; Phase 30's test_suites.emit
+        # re-parents them under their owning TestSuite inside the same update.run
+        # transaction, so the post-update.run shape is TestSuite -> File.
         test_file_parents = probe.execute(
             "SELECT DISTINCT n.kind FROM edges e "
             "JOIN nodes n ON n.id = e.src "
@@ -738,8 +741,8 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
             ")"
         ).fetchall()
         parent_kinds = {row[0] for row in test_file_parents}
-        assert parent_kinds == {"repository"} or parent_kinds == set(), (
-            f"Test files have non-Repository parents: {parent_kinds}"
+        assert parent_kinds == {"test_suite"} or parent_kinds == set(), (
+            f"Test files have non-TestSuite parents post-Phase-30: {parent_kinds}"
         )
 
         # Assertion 5: SubPackage walk fires for Python (mypkg) — D-04, D-05, D-07
@@ -758,12 +761,17 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
             f"JS package should not produce SubPackages: {jspkg_subpkgs}"
         )
 
-        # Assertion 7: D-15 — generic container dirs are never node names
+        # Assertion 7: D-15 — generic container dirs are never used as
+        # Package / SubPackage / File node names. Phase 30 D-16 explicitly
+        # allows the TestSuite for a flat repo-root `tests/` to be named
+        # 'tests' (with path='tests' as the discriminator), so this
+        # assertion narrows to the structural kinds D-15 was guarding.
         bad = probe.execute(
             "SELECT kind, name FROM nodes WHERE name IN "
-            "('packages', 'tests', 'libs', 'apps', 'shared', 'common')"
+            "('packages', 'tests', 'libs', 'apps', 'shared', 'common') "
+            "AND kind IN ('package', 'subpackage', 'file')"
         ).fetchall()
-        assert bad == [], f"Generic container dirs leaked into nodes: {bad}"
+        assert bad == [], f"Generic container dirs leaked into structural nodes: {bad}"
 
 
 def test_generic_container_dirs_never_emitted_as_nodes(

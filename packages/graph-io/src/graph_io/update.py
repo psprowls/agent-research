@@ -288,11 +288,16 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                         conn.execute(
                             "DELETE FROM nodes WHERE kind != 'package' AND path IS NOT NULL"
                         )
-                # Deferred import to avoid the structural_nodes -> update -> ... cycle
-                # (structural_nodes reuses update._git / NotInGitRepoError).
-                from graph_io import structural_nodes  # noqa: PLC0415
+                # Deferred imports to avoid the structural_nodes / entry_points /
+                # test_suites -> update -> ... cycle (each reuses
+                # update._git / NotInGitRepoError or imports from structural_nodes
+                # which imports from update).
+                from graph_io import entry_points, structural_nodes, test_suites  # noqa: PLC0415
                 structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+                entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+                test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 resolve.sweep(conn)
+                _enforce_strict_tree_invariant(conn)
                 _set_metadata(conn, "last_indexed_commit", head)
                 _set_metadata(conn, "last_indexed_at", _dt.datetime.now(_dt.UTC).isoformat())
         except sqlite3.OperationalError as exc:
