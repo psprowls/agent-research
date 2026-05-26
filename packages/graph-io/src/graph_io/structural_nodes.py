@@ -216,6 +216,29 @@ def _resolve_import_root(pkg_dir: Path, importable: str) -> Path | None:
     return None
 
 
+def _owning_package(
+    rel_path: str,
+    pkg_index: list[tuple[str, str, str | None]],
+) -> tuple[str, str | None] | None:
+    """Return (pkg_name, pkg_rel) for the deepest Package whose path
+    prefixes rel_path, or None if no Package matches.
+
+    pkg_index must be pre-sorted by len(pkg_prefix) DESC so deepest matches
+    first. Empty pkg_prefix is the root-Package sentinel and matches any
+    rel_path.
+
+    Hoisted from a closure inside emit() so Phase 30 entry_points.emit and
+    test_suites.emit can reuse the deepest-Package-wins lookup without
+    duplicating it.
+    """
+    for pkg_prefix, pkg_name, pkg_rel in pkg_index:
+        if not pkg_prefix:
+            return (pkg_name, pkg_rel)
+        if rel_path == pkg_prefix or rel_path.startswith(pkg_prefix + "/"):
+            return (pkg_name, pkg_rel)
+    return None
+
+
 def _walk_subpackages(
     import_root: Path, skip_dirs: frozenset[str], repo_root: Path
 ) -> Iterator[Path]:
@@ -359,14 +382,6 @@ def emit(
         reverse=True,
     )
 
-    def _owning_package(rel_path: str) -> tuple[str, str | None] | None:
-        for pkg_prefix, pkg_name, pkg_rel in pkg_index:
-            if not pkg_prefix:
-                return (pkg_name, pkg_rel)
-            if rel_path == pkg_prefix or rel_path.startswith(pkg_prefix + "/"):
-                return (pkg_name, pkg_rel)
-        return None
-
     # Track which files we've already covered so we don't double-emit when
     # files sit under multiple packages (e.g. root manifest + nested manifest).
     emitted_file_paths: set[str] = set()
@@ -451,7 +466,7 @@ def emit(
             continue
         if _ignore.should_skip(rel, skip_dirs):
             continue
-        owner = _owning_package(rel)
+        owner = _owning_package(rel, pkg_index)
         if owner is None:
             # File not under any Package — skip (Repository-only files are
             # covered by test_file parent rule via is_test, and there are
