@@ -1,360 +1,255 @@
-# Stack Research — v1.6 graph-io Ontology Expansion
+# Stack Research — v1.7 graph-io Integration & Wiki Hygiene
 
-**Domain:** Embedded code-graph database (SQLite-backed), schema evolution, URI identity, manifest parsing, test-framework detection, domain config
-**Researched:** 2026-05-25
-**Confidence:** HIGH (all decisions grounded in existing codebase + verified versions)
+**Domain:** Wiring an existing SQLite code-graph store (`graph-io`) into an existing AWS-Bedrock LangChain agent (`graph-wiki-agent`)
+**Researched:** 2026-05-26
+**Confidence:** HIGH (all decisions verified against installed packages, codebase review, and PyPI)
 
 ---
 
 ## Summary Answer
 
-Six targeted questions. Six answers. No new runtime dependencies required. All v1.6 capabilities are achievable with stdlib, tree-sitter (already present), and PyYAML (already a transitive dep). The one optional addition worth considering is `pyyaml>=6.0.3` as an explicit dep in graph-io's pyproject.toml — currently it arrives only transitively via python-frontmatter.
+**No new runtime dependencies are required for v1.7's core integration work.** The five sub-questions below each resolve to "existing primitives cover it." Two dependency floor bumps are warranted (not breaking): `langchain-aws` to `>=1.4.7` (strip-invalid-tool-use-block fix is relevant to multi-tool fan-out) and optionally `typer` to `>=0.26.0` (released today; vendored Click simplifies conflict avoidance). The ANSI-strip test issue (`260521-ans`) does NOT require a new package — the existing `NO_COLOR` + `TERM=dumb` env-injection pattern already in `test_cli_help.py`, `test_cli_query.py`, and `test_trace_viewer.py` is the correct solution; the failing tests that motivated `260521-ans` are already passing with this pattern.
 
 ---
 
-## Q1 — SQLite Schema Migration Strategy
+## Q1 — Exposing graph-io as @tool Functions to the Librarian
 
-### Decision: Hand-rolled version gate + mandatory full rebuild. Do NOT adopt yoyo-migrations or sqlite-utils.
+### Decision: No new packages. `langchain-core @tool` handles it natively against the existing graph-io Python API.
 
-The existing pattern in `store.py` (`SchemaMismatchError` → "run `cg update --full`") is already the right architecture for this project. Schema v2 adds new columns (`uri TEXT UNIQUE NOT NULL`) and restructures identity semantics (URI becomes the stable identity, `path` becomes an attribute). That change is not safely forward-compatible through incremental migration — the entire import graph built on `(kind, name, path)` identity must be recomputed from scratch anyway.
+**Evidence:** `graph_io/queries.py` exposes pure Python functions (`find`, `callers`, `callees`, `imports`, `describe_package`, `describe_path`, `describe_repository`, `describe_domain`, `list_packages`, `list_domains`, `list_entry_points`, `list_test_suites`, `tests_for_package`, `domain_references`, `domain_depends_on`, `cross_cutting_packages`, etc.) that accept a `sqlite3.Connection` + keyword arguments and return frozen dataclasses (`NodeRecord`, `CallRecord`, `PackageDescription`, `PathDescription`, `DomainDescription`, etc.). These are plain Python callables.
 
-**What to change in v1.6:**
+`langchain-core`'s `@tool` decorator wraps any Python callable — it uses `inspect` to extract the signature and docstring, and `pydantic` to validate/coerce arguments from the LLM's tool call JSON. The `@tool`-decorated wrapper returns the Python function's return value directly. The librarian receives it as a `ToolMessage` string (via LangChain's message serialization).
 
-- Bump `SCHEMA_VERSION = 1` → `SCHEMA_VERSION = 2` in `schema.py`
-- Add a `uri` column to the `nodes` table DDL: `uri TEXT` (nullable initially; scanner emits URIs for new node types and leaves NULL for AST nodes where stable URI is not meaningful)
-- Add `CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)` (for fast URI lookups)
-- `store.py` `_check_schema_version` already raises `SchemaMismatchError` on mismatch → exit code `SCHEMA_MISMATCH = 4` already in `exit_codes.py` — wire it through and emit a clear message pointing at `cg update --full`
-- `UPDATE_IN_PROGRESS = 6` is already in `exit_codes.py` — no change needed
-
-**Why NOT yoyo-migrations:**
-
-yoyo-migrations 9.0.0 is designed for incremental forward-migration of long-lived production databases. This project does mandatory full rebuilds on version bump — there is nothing to migrate incrementally. Adding a migration framework just to call `DROP TABLE` and `CREATE TABLE` is pure overhead. The existing `_check_schema_version` + `apply_schema` + `store.transaction` pattern handles everything needed.
-
-**Why NOT sqlite-utils:**
-
-sqlite-utils 3.39 is an excellent general-purpose SQLite manipulation library. But graph-io already owns its schema with raw `sqlite3` and has a tight, well-understood DDL. sqlite-utils would add 1 dependency (~19k LOC) to gain column-transform helpers that would be used exactly once (at schema bump). Not worth it.
-
-**Integration point:** `schema.py` (bump constant + DDL). `store.py` (the check logic already works). No new module needed.
-
----
-
-## Q2 — URI Identity
-
-### Decision: Plain strings + two composition functions in a new `graph_io.uri` module. No URI library.
-
-The URI scheme in this project (`repo:org/foo`, `pkg:org/foo/auth-service`, `domain:billing`, `file:org/foo/auth-service/src/cli.py`) is a custom opaque identifier scheme — it is not HTTP, not standard RFC 3986, and does not need to be parsed back into components at runtime. The graph stores it in the `uri` column; callers construct it once at scan time and look it up by equality.
-
-**What is needed:**
+**Integration pattern (no new package):**
 
 ```python
-# graph_io/uri.py — total surface area
-def repo_uri(org: str, repo: str) -> str:
-    return f"repo:{org}/{repo}"
+# agents/graph-wiki-agent/src/graph_wiki_agent/tools/graph_tools.py
+from langchain_core.tools import tool
+from graph_io import queries, store
+from workspace_io import paths, resolve
 
-def pkg_uri(org: str, repo: str, pkg_name: str) -> str:
-    return f"pkg:{org}/{repo}/{pkg_name}"
+def _open_conn():
+    cfg = resolve()
+    db_path = paths.graph_dir(cfg.workspace) / "code.db"
+    return store.read_only_connect(db_path)
 
-def subpkg_uri(pkg_uri: str, subpkg_path: str) -> str:
-    return f"{pkg_uri}/{subpkg_path}"
-
-def file_uri(pkg_uri: str, rel_path: str) -> str:
-    return f"file:{pkg_uri.split(':', 1)[1]}/{rel_path}"
-
-def domain_uri(name: str) -> str:
-    return f"domain:{name}"
-
-def entry_point_uri(pkg_uri: str, ep_name: str) -> str:
-    return f"ep:{pkg_uri.split(':', 1)[1]}#{ep_name}"
-
-def test_suite_uri(parent_uri: str, suite_name: str) -> str:
-    return f"suite:{parent_uri.split(':', 1)[1]}/{suite_name}"
+@tool
+def find_symbol(name: str, kind: str | None = None) -> str:
+    """Find code graph nodes by name and optional kind (function, class, file, package, etc.)."""
+    conn = _open_conn()
+    results = queries.find(conn, name=name, kind=kind)
+    conn.close()
+    return "\n".join(f"{r.kind} {r.name} at {r.path}:{r.line}" for r in results) or "not found"
 ```
 
-**Why NOT rfc3986 / yarl / hyperlink:**
+The `sqlite3.Connection` is NOT passed through the tool signature — the tool opens and closes its own connection using `workspace_io.resolve()` (already a workspace dep). The LLM only provides `name` / `kind` — both are JSON-serializable primitive types that `@tool`'s pydantic wrapper handles natively.
 
-- `rfc3986` (last release 2022, effectively unmaintained) — parses standard HTTP-style URIs. Our scheme is custom; the parser would not understand `pkg:` or `domain:` schemes.
-- `yarl` (aio-libs, actively maintained) — an asyncio URL library. Its value prop is immutable URL objects for HTTP request construction. Completely wrong tool for opaque identifier composition.
-- `hyperlink` — similar story; HTTP URL manipulation.
+**Why not `langchain-core` `StructuredTool` or `BaseTool` subclass:** `@tool` is sufficient and idiomatic; `StructuredTool` adds nothing over `@tool` for straightforward callables. `BaseTool` subclassing is only warranted when async streaming, cancellation, or complex lifecycle management is needed.
 
-None of these libraries add value for a scheme like `pkg:org/repo/name` where the only operations are construction and equality comparison. Plain f-strings + a tiny `uri.py` module is 20 lines and zero dependencies.
-
-**Integration point:** New `graph_io/uri.py` module. `packages.py` calls `pkg_uri()` when upserting package nodes. Scanner extensions call the appropriate constructor for each new node type.
+**No new packages needed.** `langchain-core>=1.4.0` is already installed (confirmed `1.4.0`). `graph-io` is already a workspace member. `workspace-io` is already a dep of `graph-wiki-agent`.
 
 ---
 
-## Q3 — Manifest Parsing for EntryPoint Extraction
+## Q2 — New CLI Patterns for `graph-wiki-agent graph` Subcommand
 
-### Decision: `tomllib` (stdlib) + `json` (stdlib). No new dependency. Handle package.json `exports` with a flat recursive walk.
+### Decision: No new packages. Existing `typer.Typer()` + `app.add_typer()` pattern (already used for `ingest`) handles it exactly.
 
-**Python — `pyproject.toml [project.scripts]`:**
-
-`tomllib` is already imported in `packages.py` (line 8: `import tomllib`). The `[project.scripts]` section is a flat `dict[str, str]` mapping entry-point names to `module:callable` strings. Parsing it is three lines:
+**Evidence:** `cli.py` already uses the nested sub-app pattern:
 
 ```python
-scripts = data.get("project", {}).get("scripts", {})
-# {"myapp": "myapp.cli:main", "myapp-debug": "myapp.cli:debug_main"}
+ingest_app = typer.Typer(help="Ingest a source file or work item into the wiki.")
+app.add_typer(ingest_app, name="ingest")
 ```
 
-The `module:callable` format (e.g., `myapp.cli:main`) needs to be split on `:` to derive `implemented_by` pointing at a `Function` node if one exists, or falling back to `File` if not. This is plain string manipulation — no library needed.
-
-**JS/TS — `package.json bin/main/exports`:**
-
-`json` is already imported in `packages.py` (line 7: `import json`). The three cases:
-
-- `bin`: `str | dict[str, str]` — either a single path or name→path mapping. Flat, trivial.
-- `main`: `str` — single path. Trivial.
-- `exports`: complex nested conditions object.
-
-**Handling `exports` conditions:**
-
-The `exports` field can be arbitrarily nested with condition keys (`import`, `require`, `browser`, `node`, `default`, `.`, `./sub`). For v1.6, the goal is to extract *advertised entry points*, not to implement a full Node.js resolver. The correct approach is a recursive walk that collects all leaf string values under condition paths, tagged with the subpath key:
+The `graph` sub-app follows the identical pattern:
 
 ```python
-def _walk_exports(val, subpath: str = ".") -> list[tuple[str, str]]:
-    """Returns [(subpath, resolved_path)] for all leaf entries."""
-    if isinstance(val, str):
-        return [(subpath, val)]
-    if isinstance(val, list):
-        # First string wins (condition list)
-        for item in val:
-            if isinstance(item, str):
-                return [(subpath, item)]
-        return []
-    if isinstance(val, dict):
-        results = []
-        for k, v in val.items():
-            if k.startswith("."):  # subpath key
-                results.extend(_walk_exports(v, k))
-            else:  # condition key — recurse, keep subpath
-                results.extend(_walk_exports(v, subpath))
-        return results
-    return []
+graph_app = typer.Typer(help="Build, inspect, and query the code graph.")
+app.add_typer(graph_app, name="graph")
+
+@graph_app.command(name="build")
+def graph_build(...): ...
+
+@graph_app.command(name="describe")
+def graph_describe(...): ...
+
+@graph_app.command(name="query")
+def graph_query(...): ...
 ```
 
-This covers 95% of real-world `exports` fields without a Node.js resolver dependency. Edge cases (wildcard subpaths like `"./features/*"`) can be emitted as-is with `kind: library` and a note in `attrs_json` that the path is a pattern.
+Typer `0.25.1` (installed, confirmed) and `0.26.0` (released today, 2026-05-26) both support this. `0.26.0` only breaking change is vendoring Click — it removes the ability to extract the underlying Click app object. This project does not use Click internals directly, so there is no breakage risk. The `add_typer` / `@app.command` / `no_args_is_help=True` pattern is unchanged.
 
-**Integration point:** `packages.py` already has `_read_pyproject` and `_read_package_json`. Extend these two functions to also return `entry_points` lists. New `EntryPoint` node upsert logic goes in the same `packages.refresh()` call.
+**No new packages needed.** `typer>=0.25.1` is the existing floor; `graph` sub-app mirrors `ingest` sub-app exactly.
 
 ---
 
-## Q4 — Test Framework Config Detection
+## Q3 — Tool-Result Formatting Back to the LLM
 
-### Decision: Stdlib only. Roll our own thin detectors — each is 5-15 lines.
+### Decision: No new packages. Plain string formatting or `dataclasses.asdict` + `json.dumps` is the correct pattern; the existing `graph_io.cli._format` module provides a reusable `render()` for human-column output.
 
-There is no Python library that detects test framework configuration across Python and JS/TS ecosystems. The detection surface is small and well-defined:
+**Evidence:** LangChain's `@tool` decorator returns whatever the function returns; if it's a string, it becomes the `ToolMessage.content` directly. If it's a non-string, LangChain serializes it via `str()`. The correct approach for LLM-facing tool results is **compact, readable plain text** (not JSON blobs) — token-efficient and model-friendly.
 
-| Config file | Parser | What to extract |
-|-------------|--------|-----------------|
-| `pytest.ini` | `configparser` (stdlib) | `[pytest]` section: `testpaths`, `python_files`, `python_classes`, `python_functions` |
-| `pyproject.toml [tool.pytest.ini_options]` | `tomllib` (stdlib, already used) | same keys under `[tool.pytest.ini_options]` |
-| `setup.cfg [tool:pytest]` | `configparser` (stdlib) | same keys |
-| `jest.config.{js,ts,mjs,cjs}` | Content sniffing only | Detect presence → `framework: jest`; no JS eval |
-| `vitest.config.{js,ts,mjs,cjs}` | Content sniffing only | Detect presence → `framework: vitest` |
-| `mocha.config.{js,cjs}` / `.mocharc.{yml,json}` | Presence detection + `json`/`yaml` | Detect presence → `framework: mocha` |
-
-**Key insight:** For JS/TS config files (jest.config.js, vitest.config.ts, etc.), we do NOT need to parse the JavaScript. The goal is to detect *which framework* and *where tests live* — that comes from presence detection + possibly reading the `testMatch` / `include` field if it appears in a `.json` or `.yaml` variant. For `.js`/`.ts` config files, presence detection is sufficient for v1.6.
-
-**Implementation in a new `graph_io/detect_tests.py` module (~80 LOC):**
+`graph_io/cli/_format.py` already provides `render(records, fmt="human")` which produces aligned-column tabular output from any list of frozen dataclasses. This function is independent of the CLI layer (takes `records: Iterable[Any]` and `fmt: str`). The tool wrappers can import it directly:
 
 ```python
-PYTEST_CONFIGS = ("pytest.ini", "pyproject.toml", "setup.cfg")
-JEST_CONFIGS = ("jest.config.js", "jest.config.ts", "jest.config.mjs", "jest.config.cjs")
-VITEST_CONFIGS = ("vitest.config.js", "vitest.config.ts", "vitest.config.mjs")
-MOCHA_CONFIGS = ("mocha.config.js", "mocha.config.cjs", ".mocharc.json", ".mocharc.yml", ".mocharc.yaml")
+from graph_io.cli._format import render
+from graph_io import queries
+
+@tool
+def list_packages_tool() -> str:
+    """List all packages in the code graph."""
+    conn = _open_conn()
+    nodes = queries.list_packages(conn)
+    conn.close()
+    return render(nodes, fmt="human") or "no packages found"
 ```
 
-configparser is stdlib and handles both `pytest.ini` (INI style) and `setup.cfg [tool:pytest]` correctly.
+For richer results (e.g., `PackageDescription` with nested lists), a small per-tool formatter in `graph_tools.py` using `dataclasses.asdict` + selective field rendering is sufficient — no library needed.
 
-**What NOT to do:** Do not reach for `configparser` on Jest/Vitest configs — they're JavaScript modules, not INI files. Do not execute them. Presence is enough for the `TestSuite.framework` attribute.
+**What NOT to use:** Do not wrap results in `pydantic` models and return those from `@tool` — LangChain does not special-case pydantic model return types in tool messages; it calls `str()` on them, producing `PackageDescription(name='...', ...)` noise. Use explicit string formatting.
 
-**Integration point:** New `graph_io/detect_tests.py` module. Called from scanner stage 3 (test suite detection), which is a new scanner pass added additively to `update.py` or as a new `test_suites.py` module.
+**No new packages needed.** `graph_io.cli._format.render` + `dataclasses` (stdlib) + `json` (stdlib) cover all result-formatting needs.
 
 ---
 
-## Q5 — YAML for `domains.yaml`
+## Q4 — Test-Infra Additions for the Hygiene Phase (ANSI Strip)
 
-### Decision: Use PyYAML directly. Do NOT add ruamel.yaml or strictyaml.
+### Decision: No new package. The `260521-ans` ANSI-strip issue is already solved in the codebase by the `NO_COLOR=1 TERM=dumb COLUMNS=200` env-injection pattern. Extend this pattern to new `graph` subcommand tests; do NOT add `strip-ansi`, `ansi2text`, or similar packages.
 
-**PyYAML is already installed.** It arrives as a transitive dependency of `python-frontmatter` (version 6.0.3, confirmed in the workspace). The `domains.yaml` format for v1.6 is a simple, human-authored config file:
+**Evidence:** The failing tests that motivated `260521-ans` are already passing:
 
-```yaml
-domains:
-  billing:
-    packages: [auth-service, payment-processor]
-    children: [subscriptions]
-  subscriptions:
-    packages: [subscription-manager]
+```
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_exits_zero      PASSED
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_lists_bootstrap_subcommand PASSED
+agents/graph-wiki-agent/tests/unit/test_cli_help.py::test_cli_help_init_subcommand_removed    PASSED
 ```
 
-This is the exact use case PyYAML handles well: flat, read-once config parsing with `yaml.safe_load()`. The format is authored by humans and never written back by code (no round-trip requirement), which eliminates ruamel.yaml's main advantage.
-
-**Why NOT ruamel.yaml:**
-
-ruamel.yaml's value proposition is round-trip preservation of comments and formatting. `domains.yaml` is read-only from the tool's perspective — users edit it, the scanner reads it. No round-trip needed. ruamel.yaml adds ~500KB of dependency for zero gain here.
-
-**Why NOT strictyaml:**
-
-strictyaml provides schema validation and type safety. The `domains.yaml` schema is simple enough that a `dict` type check with a 10-line validator is sufficient. strictyaml's performance is also meaningfully slower than PyYAML.
-
-**Dependency action required:** Add `pyyaml>=6.0.3` as an **explicit** dependency in `packages/graph-io/pyproject.toml`. Currently it arrives only transitively via python-frontmatter. graph-io does not depend on python-frontmatter directly, so if that chain ever changes, yaml imports would break silently. Making it explicit is correct hygiene.
-
-**Integration point:** New `graph_io/domains.py` module with `load_domains(path: Path) -> DomainConfig`. Uses `yaml.safe_load()` directly.
-
----
-
-## Q6 — File Role Flag Detection: graph-io vs source-parser Boundary
-
-### Decision: Path heuristics in graph-io scanner. AST signals via source-parser. Explicit interface contract between the two.
-
-The `source-parser` package already owns tree-sitter AST parsing. The `graph-io` scanner already owns filesystem walking. The boundary should follow what each layer knows:
-
-**graph-io scanner owns (no AST needed):**
-
-| Flag | Detection method |
-|------|-----------------|
-| `is_test` | Path patterns: `tests/`, `__tests__/`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts`, `*.test.js`, `spec/` |
-| `is_config` | Filename: `conftest.py`, `jest.config.*`, `vitest.config.*`, `*.config.ts`, `tsconfig.json`, `setup.cfg`, `pyproject.toml` |
-| `is_generated` | Path patterns: `dist/`, `build/`, `.gen/`, `generated/`, `vendor/`, `node_modules/`; content markers: `# generated by`, `// @generated`, `// Code generated by` (first 3 lines) |
-| `is_type_only` | Extension: `.d.ts` |
-| `is_executable` (partial) | Shebang detection: first 2 bytes `b'#!'`; conventional paths: `bin/`, `scripts/` |
-
-**source-parser owns (requires AST):**
-
-| Flag | Detection method |
-|------|-----------------|
-| `has_main` | Python: `if __name__ == "__main__":` top-level `if_statement` node. JS/TS: not applicable |
-| `is_executable` (refined) | Python: AST confirms presence of top-level `if __name__` block; combined with shebang |
-| `is_importable` | Python: presence of top-level `def`, `class`, or `__all__` assignment; JS/TS: presence of `export` declarations |
-
-**How to wire it:**
-
-The `PythonParser.parse()` method already produces a `SourceNode` with `attrs`. Extend `_base.LanguageParser` with a contract: `parse()` populates `attrs["has_main"]`, `attrs["is_importable"]`, and `attrs["is_executable_hint"]` on the file-level `SourceNode`. The scanner reads these attrs from the returned tree and merges them with its own path-heuristic flags.
-
-Concretely, in `python.py`, add to the `SourceNode` construction:
+The fix is already in production across three test files (`test_cli_help.py`, `test_cli_query.py`, `test_trace_viewer.py`), all using the same `_PLAIN_HELP_ENV` pattern:
 
 ```python
-file_node.attrs["has_main"] = _has_main_block(root, source)
-file_node.attrs["is_importable"] = _has_importable_symbols(root, source)
+_PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 ```
 
-The `graph_io` scanner then reads `tree.attrs.get("has_main", False)` after calling `parse_bytes()`, combines it with shebang detection and path heuristics, and sets the final `File` node's `role_flags` blob in `attrs_json`.
+The `graph` subcommand help tests should follow this same established pattern. No library strip needed; the Typer/Rich rendering is suppressed at the subprocess level before any ANSI sequences are emitted.
 
-This keeps tree-sitter knowledge inside source-parser (correct) and filesystem/manifest knowledge inside graph-io (correct), with a clear attrs-based handoff. No new module or dependency needed — it's an extension of the existing `parse_bytes()` → `to_graph_records()` pipeline.
+**Why not `strip-ansi` / `ansi2text` / `rich.strip_markup`:** Post-hoc stripping of ANSI sequences from subprocess output is a symptom treatment. The env-injection approach prevents Rich from emitting ANSI in the first place. Post-hoc stripping also requires knowing which exact sequences Rich emits (SGR, hyperlinks, etc.), which is a moving target as Rich versions evolve. The env-var approach is stable and already proven in this codebase.
 
-**Integration point:** `source-parser/src/source_parser/parsers/python.py` gets two new helpers (`_has_main_block`, `_has_importable_symbols`). `graph-io/src/graph_io/scanner.py` (new module, or extension of `update.py`) reads both path heuristics and AST attrs to produce the final `File` role flags.
+**No new packages needed.** Copy the `_PLAIN_HELP_ENV` pattern into the new `test_cli_graph.py` test file.
 
 ---
 
-## Recommended Stack — New Additions Only
+## Q5 — Version Pin Verification
 
-| What | Decision | Source | Confidence |
-|------|----------|--------|------------|
-| Schema migration | Hand-rolled version gate (existing pattern) | `store.py` / `schema.py` reviewed | HIGH |
-| URI identity | Plain strings + `graph_io/uri.py` (20 LOC) | stdlib f-strings | HIGH |
-| Manifest parsing — Python | `tomllib` (stdlib, already imported) | `packages.py` line 8 | HIGH |
-| Manifest parsing — JS/TS `bin`/`main` | `json` (stdlib, already imported) | `packages.py` line 7 | HIGH |
-| Manifest parsing — JS/TS `exports` | Custom recursive walk (~30 LOC) in `packages.py` | Design verified above | HIGH |
-| Test config detection | `configparser` (stdlib) + presence detection | stdlib | HIGH |
-| YAML for `domains.yaml` | `pyyaml>=6.0.3` — **add as explicit dep** | Already transitive via python-frontmatter | HIGH |
-| File role flags — path heuristics | In-scanner logic (~50 LOC) | Existing `_ignore.py` pattern | HIGH |
-| File role flags — AST signals | Extend `source_parser.parsers.python` | Existing tree-sitter AST already parsed | HIGH |
+### Current installed vs. latest PyPI (as of 2026-05-26)
 
-**Net new runtime dependencies for graph-io: 1** — `pyyaml>=6.0.3` (explicit, was already transitive).
+| Package | Currently Pinned (pyproject.toml) | Installed | Latest on PyPI | Recommendation |
+|---------|-----------------------------------|-----------|----------------|----------------|
+| `langchain-aws` | `>=1.4.6` | 1.4.6 | **1.5.0** (2026-05-19) | Bump floor to `>=1.4.7` |
+| `langchain-core` | (transitive) | 1.4.0 | 1.4.0 | No change — already current |
+| `typer` | `>=0.25.1` | 0.25.1 | **0.26.0** (2026-05-26, today) | Optional bump to `>=0.26.0`; not blocking |
+| `mcp` | `>=1.27.1` | 1.27.1 | 1.27.1 | No change — already current |
+
+**`langchain-aws` — bump floor to `>=1.4.7`:**
+
+Release notes confirm 1.4.7 (2026-05-15) added: *"strip streaming-only fields from invalid tool_use blocks"*. This is directly relevant to the librarian grounding tools phase — when the librarian makes multi-tool calls, an invalid `tool_use` block in the streaming response can corrupt downstream parsing. This fix belongs in-scope for v1.7. 1.5.0 adds *"use resolved base model for tracing"* (tracing improvement, not functional) and bumps `langsmith` / `langchain-classic` deps. No breaking changes to `ChatBedrockConverse` were identified in either release.
+
+**Recommendation:** Set floor to `>=1.4.7` in `agents/graph-wiki-agent/pyproject.toml`. This is the minimum safe version for multi-tool fan-out work. `>=1.5.0` is also fine if you want the tracing improvement, but it is not load-bearing.
+
+**`typer` — optional bump to `>=0.26.0`:**
+
+0.26.0 (released today) vendors Click internally. The breaking change (removing Click-object extraction) does not affect this codebase — `cli.py` does not access `app.registered_groups[0].typer_instance` or any Click internals. The `add_typer`, `@app.command`, and `Typer(no_args_is_help=True)` patterns are unchanged. Vendoring Click eliminates any future Click version conflict if another package also depends on Click.
+
+**Recommendation:** Bump to `>=0.26.0` opportunistically in the hygiene phase — zero risk, eliminates a future dependency conflict vector. If hygiene phase scope is tight, leave at `>=0.25.1`; it is not a blocker.
+
+**`mcp` and `langchain-core` — no change:** Both are already at current stable versions.
+
+---
+
+## Recommended Dependency Changes for v1.7
+
+### `agents/graph-wiki-agent/pyproject.toml`
+
+```toml
+dependencies = [
+    "wiki-io",
+    "model-adapter",
+    "subagent-runtime",
+    "workspace-io",
+    "graph-io",           # ADD — v1.7 integration dep
+    "bm25s==0.3.8",
+    "mcp>=1.27.1",
+    "langchain-aws>=1.4.7",   # BUMP from >=1.4.6 — invalid tool_use block fix
+    "langchain-core>=1.4.0",  # ADD explicit pin (was transitive)
+    "typer>=0.26.0",          # BUMP from >=0.25.1 — optional, vendored Click
+    "pydantic>=2.0",
+]
+
+[tool.uv.sources]
+wiki-io          = { workspace = true }
+model-adapter    = { workspace = true }
+subagent-runtime = { workspace = true }
+workspace-io     = { workspace = true }
+graph-io         = { workspace = true }   # ADD
+```
+
+**Summary of changes:**
+
+| Change | Type | Reason |
+|--------|------|--------|
+| `graph-io` workspace dep | **Required add** | v1.7 integration — librarian tools, scanner, ingestor, `graph` subcommand all import `graph_io.*` |
+| `langchain-aws>=1.4.7` | **Required bump** | Strip invalid `tool_use` blocks; load-bearing for multi-tool librarian |
+| `langchain-core>=1.4.0` | **Explicit pin (recommended)** | Makes the floor visible and stable; was previously transitive-only |
+| `typer>=0.26.0` | **Optional bump** | Vendored Click; zero breakage risk; eliminates future conflict vector |
 
 ---
 
 ## What NOT to Add
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `yoyo-migrations` | Incremental migration tool for long-lived DBs; this project does mandatory full rebuilds — the migration is `DROP + CREATE` | Existing `SchemaMismatchError` + `cg update --full` |
-| `sqlite-utils` | General SQLite helper; graph-io owns its own thin `store.py` + `upsert.py`; would add ~19k LOC for single-use schema-bump helpers | Raw `sqlite3` (existing pattern) |
-| `rfc3986` / `yarl` / `hyperlink` | HTTP URL parsers; URI scheme is custom opaque identifiers, not HTTP | `graph_io/uri.py` (20 LOC f-strings) |
-| `ruamel.yaml` | Round-trip YAML preservation; `domains.yaml` is read-only from tool's perspective | `yaml.safe_load()` via existing PyYAML |
-| `strictyaml` | Schema-validated YAML; overkill for a shallow config dict; notably slower | Simple `yaml.safe_load()` + inline dict validation |
-| `node-interop` / JS eval for jest.config | Executing JS config files from Python is fragile | Presence detection + filename pattern matching |
-| Second TOML parser | `tomllib` (stdlib) is already used in `packages.py`; do not add `tomli`, `tomlkit`, or `toml` | `tomllib` (stdlib) |
-| Second YAML parser | PyYAML is already the transitive dep for python-frontmatter; do not add ruamel.yaml or strictyaml | `pyyaml` (explicit dep) |
+| Avoid | Why | What to Use Instead |
+|-------|-----|---------------------|
+| `langchain-openai` | Routes to direct OpenAI API; violates Bedrock-only constraint; will silently incur non-Bedrock costs if credentials happen to be present | `langchain-aws` (`ChatBedrockConverse` via `make_llm()`) |
+| `langgraph` | Heavyweight state-machine framework; deliberately not adopted in this project's stack design | In-house `SubagentPool` (asyncio.Semaphore fan-out) |
+| `deepagents` | Evaluated and rejected for v1 (see CLAUDE.md §2 stack-departure note) | In-house `SubagentPool` |
+| `langchain-anthropic` | Direct Anthropic API; excluded by Bedrock-only constraint | `langchain-aws` only |
+| `ChatBedrock` (legacy) | Deprecated; does not use Converse API; missing model support | `ChatBedrockConverse` via `make_llm(role)` |
+| `strip-ansi` / `ansi2text` | Post-hoc ANSI stripping; symptom treatment for test output; already solved by `NO_COLOR=1 TERM=dumb` env injection | Existing `_PLAIN_HELP_ENV` pattern in test files |
+| `pydantic` (new version) | Already pinned `>=2.0`; no change needed | Existing pin |
+| `sqlite-utils` | General SQLite helper; graph-io already owns `store.py` with tight, purpose-built layer | Raw `sqlite3` (existing graph-io pattern) |
+| `rich` (explicit dep) | Rich is already a transitive dep via Typer; adding it explicitly would create a version split risk | Use `typer.echo()` for output; use `NO_COLOR` in tests |
+| `structlog` / `loguru` | Structured logging libraries; the project uses JSONL trace files, not a logging framework | Existing JSONL trace writer in subagent-runtime |
 
 ---
 
-## Module Map for v1.6
+## New Module Map for v1.7 (no new packages — only new modules within existing packages)
 
-| New / Modified | What changes |
-|----------------|--------------|
-| `graph_io/schema.py` | Bump `SCHEMA_VERSION = 2`; add `uri TEXT` column + index to DDL |
-| `graph_io/uri.py` | **New.** URI composition functions (repo, pkg, subpkg, file, domain, entry_point, test_suite) |
-| `graph_io/packages.py` | Extend `_read_pyproject` + `_read_package_json` to extract entry points; upsert `EntryPoint` nodes + `declares_entry_point` / `implemented_by` edges |
-| `graph_io/domains.py` | **New.** `load_domains(path)` using `yaml.safe_load()`; domain config dataclasses |
-| `graph_io/detect_tests.py` | **New.** Framework config detection + `TestSuite` node construction |
-| `graph_io/scanner.py` | **New** (or extend `update.py`). Additive FS walk that emits `Repository`, `SubPackage`, `File`-with-role-flags, `TestSuite`, `Domain` nodes + all new edge types |
-| `source_parser/parsers/python.py` | Add `_has_main_block()` + `_has_importable_symbols()`; populate `file_node.attrs` |
-| `graph_io/upsert.py` | Minor: handle URI field in node upsert (INSERT + ON CONFLICT update on `uri`) |
-| `graph_io/queries.py` | New query functions for `Repository`, `Domain`, `EntryPoint`, `TestSuite` node types |
-| `graph_io/cli/` | Extend `cg` CLI commands for new node/edge types |
+| New Module | Package | What it does |
+|------------|---------|-------------|
+| `graph_wiki_agent/tools/graph_tools.py` | `graph-wiki-agent` | `@tool`-decorated callables wrapping `graph_io.queries.*`; opens read-only conn via `workspace_io.resolve()` |
+| `graph_wiki_agent/commands/graph.py` | `graph-wiki-agent` | `graph_build`, `graph_describe`, `graph_query` command implementations |
+| `agents/graph-wiki-agent/tests/unit/test_cli_graph.py` | `graph-wiki-agent` (tests) | `graph --help`, `graph build --help`, etc. using `_PLAIN_HELP_ENV` pattern |
 
----
-
-## Installation (graph-io pyproject.toml change)
-
-```toml
-# packages/graph-io/pyproject.toml
-[project]
-dependencies = [
-  "source-parser",
-  "workspace-io",
-  "pyyaml>=6.0.3",   # explicit: used by graph_io/domains.py; was previously only transitive
-]
-```
-
-No other dependency additions.
-
----
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Schema migration | Hand-rolled version gate | yoyo-migrations 9.0.0 | Designed for incremental migration; this project does full rebuilds; zero additive value |
-| Schema migration | Hand-rolled version gate | sqlite-utils 3.39 | General-purpose Swiss Army knife; graph-io already has a tighter, purpose-built store layer |
-| URI composition | Plain strings + `uri.py` | rfc3986 / yarl | Both are HTTP URL parsers; wrong abstraction for custom opaque identifier schemes |
-| YAML config | `pyyaml` (existing transitive) | ruamel.yaml | Round-trip preservation not needed; `domains.yaml` is read-only from tool perspective |
-| YAML config | `pyyaml` (existing transitive) | strictyaml | Slower; schema validation overkill for a shallow config dict |
-| JS config detection | Presence detection | JS eval / node interop | Brittle, security risk, requires Node.js subprocess |
-| AST role flags | Extend existing source-parser | New tree-sitter pass in graph-io | graph-io does not own tree-sitter; duplicating the AST parse violates the existing package boundary |
-
----
-
-## Version Compatibility
-
-| Package | Version in workspace | Constraint | Notes |
-|---------|---------------------|------------|-------|
-| Python | 3.14.4 (system) | >=3.11 | `tomllib` is stdlib from 3.11+ |
-| `pyyaml` | 6.0.3 (transitive) | >=6.0.3 | 6.0.x is stable; `yaml.safe_load` API unchanged since 5.x |
-| `tomllib` | stdlib | 3.11+ | Already imported in `packages.py` |
-| `configparser` | stdlib | Any | Used for `pytest.ini` / `setup.cfg [tool:pytest]` detection |
-| `tree-sitter` | 0.25.2 | >=0.23.0 (source-parser constraint) | AST node type names used in role-flag detection are stable in 0.23+ |
-| `tree-sitter-language-pack` | 1.6.2 | <=1.6.2 (source-parser upper bound) | Do not change; source-parser pins this range |
+No new packages in any `pyproject.toml` beyond the dependency table changes above.
 
 ---
 
 ## Sources
 
-- `packages/graph-io/src/graph_io/schema.py` — existing DDL, `SCHEMA_VERSION = 1`
-- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, existing version gate pattern
-- `packages/graph-io/src/graph_io/packages.py` — existing `tomllib` + `json` imports, `_read_pyproject`, `_read_package_json`
-- `packages/graph-io/src/graph_io/upsert.py` — node key pattern `(kind, name, path)`, identity model
-- `packages/graph-io/src/graph_io/exit_codes.py` — `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6` already defined
-- `packages/source-parser/src/source_parser/parsers/python.py` — tree-sitter AST walker, existing attrs pattern
-- `packages/source-parser/src/source_parser/projections/graph.py` — `GraphNode.attrs` handoff point
-- `packages/graph-io/pyproject.toml` — current deps: `source-parser`, `workspace-io` (no pyyaml explicit)
-- PyPI: `PyYAML` 6.0.3 — https://pypi.org/project/PyYAML/ — confirmed latest stable; released 2024-12-16
-- PyPI: `python-frontmatter` 1.1.0 — https://pypi.org/project/python-frontmatter/ — confirmed `pyyaml` as dependency (no version pin)
-- `uv pip list` output — confirmed PyYAML 6.0.3, tree-sitter 0.25.2 currently installed in workspace
-- `.planning/research/ONTOLOGY-SPEC.md` — canonical v1.6 ontology spec (node types, edge types, scanner pipeline, identity scheme)
-- `.planning/PROJECT.md` — v1.6 milestone scope, graph-io-only constraint, deferred items
+- `packages/graph-io/src/graph_io/queries.py` — confirmed Python API surface: `find`, `callers`, `callees`, `imports`, `describe_package`, `describe_path`, `describe_repository`, `describe_domain`, `list_packages`, `list_domains`, `list_entry_points`, `list_test_suites`, `tests_for_package`, `tests_for_domain`, `domain_references`, `domain_depends_on`, `cross_cutting_packages`, `exported_by`, `exports`, `imported_by`
+- `packages/graph-io/src/graph_io/store.py` — `read_only_connect(db_path)` confirmed
+- `packages/graph-io/src/graph_io/cli/_format.py` — `render(records, fmt)` confirmed importable independently of CLI
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — existing `ingest` sub-app pattern (`typer.Typer()` + `app.add_typer()`) confirmed
+- `agents/graph-wiki-agent/tests/unit/test_cli_help.py` — `_PLAIN_HELP_ENV` pattern confirmed; 3/3 tests PASSED on live run
+- `agents/graph-wiki-agent/pyproject.toml` — current dependency list confirmed
+- `packages/model-adapter/src/model_adapter/loader.py` — `make_llm(role)` pattern confirmed; `_GuardedChatBedrockConverse` subclass; no changes needed for v1.7
+- `.planning/STATE.md` — `260521-ans` deferred item confirmed; ANSI tests already passing with `NO_COLOR` fix
+- PyPI: `langchain-aws` — current: 1.4.6 installed, 1.5.0 latest; 1.4.7 confirmed strip-invalid-tool-use-block fix — https://pypi.org/project/langchain-aws/
+- PyPI: `langchain-core` — current: 1.4.0; latest: 1.4.0 — https://pypi.org/project/langchain-core/
+- PyPI: `typer` — current: 0.25.1 installed, 0.26.0 released 2026-05-26 (today); vendored Click breaking change confirmed to not affect this codebase — https://pypi.org/project/typer/
+- PyPI: `mcp` — current: 1.27.1; latest: 1.27.1 — no change — https://pypi.org/project/mcp/
+- GitHub API: langchain-aws releases — 1.4.7 release notes: "strip streaming-only fields from invalid tool_use blocks"; 1.5.0: "use resolved base model for Bedrock tracing"
+- Typer release notes 0.26.0: "vendors Click; removes Click-object extraction API; add_typer / @command / Typer() constructor unchanged" — https://typer.tiangolo.com/release-notes/
 
 ---
 
-*Stack research for: v1.6 graph-io ontology expansion (schema v2, URI identity, new node/edge types, additive scanner)*
-*Researched: 2026-05-25*
+*Stack research for: v1.7 graph-io Integration & Wiki Hygiene*
+*Researched: 2026-05-26*

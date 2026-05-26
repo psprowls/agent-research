@@ -1,231 +1,202 @@
 # Project Research Summary
 
-**Project:** agent-research — v1.6 Code Graph Ontology Expansion (`graph-io`)
-**Domain:** SQLite-backed code-graph store — additive ontology expansion with URI identity, new structural/conceptual node types, and derived edge computation
-**Researched:** 2026-05-25
+**Project:** agent-research — v1.7 graph-io Integration & Wiki Hygiene
+**Domain:** Wiring an existing SQLite code-graph store (graph-io) into an existing AWS Bedrock LangChain agent (graph-wiki-agent)
+**Researched:** 2026-05-26
 **Confidence:** HIGH
 
 ## Executive Summary
 
-v1.6 is a focused, additive extension to `packages/graph-io`. The milestone lands the full ontology spec (ONTOLOGY-SPEC.md) — schema v2, URI identity, new structural and conceptual node types, derived edges, and a `cg` CLI surface for querying them — without touching `graph-wiki-agent`, the plugin, or any other package. The research converged on a clear build order: seven phases (A through G) with explicit dependency gates. The architecture is strictly additive: six new emitter modules plug into the existing `update.py` transaction via flat function calls, no pipeline restructuring.
+v1.7 is an integration milestone, not a greenfield build. v1.6 delivered a full graph-io ontology (schema v2 + URI identity, 25 `cg` subcommands, structural containment tree, domains, entry points, test suites) with zero agent consumers wired. v1.7's job is to close that gap: make graph-io the agent's identity layer for librarian grounding, scanner page routing, and ingestor existence checks, while also exposing graph operations through a new `graph-wiki-agent graph` subcommand. All four research threads converged on the same top-level conclusion: **hygiene must land first**, then integration builds on the clean foundation. The file-touch overlap between hygiene tasks and integration targets (`commands/scan.py`, `wiki-io` templates) is concrete — doing them interleaved produces merge conflicts and silent reversions.
 
-The recommended approach is to build schema + URI identity first (Phase A), structural node emission second (Phase B), entry points and test suites third (Phase C), domain layer and derived edges fourth (Phase D), query layer fifth (Phase E), CLI surface sixth (Phase F), and brand sweep last (Phase G). URI identity is `TEXT` nullable in v1.6 — `UNIQUE NOT NULL` is deferred to v1.7 after URI generation is validated against real repos. The 9-stage scanner pipeline from spec §9 is also deferred to v1.7; v1.6 uses flat additive calls within the existing transaction boundary.
+The recommended approach requires no new runtime dependencies. `graph-io` is already a workspace member; adding it as an explicit dep of `graph-wiki-agent` is the only `pyproject.toml` change. The `langchain-core @tool` decorator, `workspace_io.paths.graph_dir()`, and `graph_io.store.read_only_connect()` are all already in-repo. Tool wrappers live in the agent layer (`graph_tools.py`) not in `packages/graph-io` — preserving the clean library/agent tier separation. The `graph-wiki-agent graph` subcommand follows the established `ingest_app` sub-Typer pattern exactly, limited to 3 verbs (`build`, `describe`, `query`). In-process Python imports replace any shell-out temptation.
 
-The principal risks are: (1) `resolve.sweep` silently deleting `Repository` and `Domain` nodes that have `path=NULL` and are only edge sources, not destinations; (2) the URI value landing in `attrs_json` instead of the `uri` column if `_upsert_node` is not updated in Phase A before any emitter is written; (3) test file re-parenting breaking due to call-order inversion in `update.py`; (4) convention-based domain inference producing false-positive domain nodes from `tests/` subdirectories; and (5) `SCHEMA_MISMATCH` exit code (4) remaining unwired in `cli/main.py`. All five risks have specific code-level prevention steps detailed in PITFALLS.md.
-
----
+The primary risks are: (1) overexposing graph-io queries as too many `@tool` callables, degrading librarian tool-routing quality — hard cap at 5 tools; (2) tools returning raw dataclasses or large row sets, causing Bedrock `ValidationException` or context overflow — all tools return `-> str` with a 50-row cap using `_format.render()`; (3) interleaving hygiene with integration, causing scan.py merge conflicts. One item requires a scoping action: `260521-ans` is already resolved (the `NO_COLOR=1 TERM=dumb` env-injection pattern is in place and all targeted tests pass), so it should be closed as already-done at scoping rather than executed as a phase task.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack additions for v1.6 are minimal. All required capabilities are already present in the workspace: `tomllib` (stdlib) for `pyproject.toml` parsing, `json` (stdlib) for `package.json`, `configparser` (stdlib) for pytest config detection, and `tree-sitter` (already owned by `source-parser`) for AST role flags. The one explicit addition is making `pyyaml>=6.0.3` a direct dependency in `packages/graph-io/pyproject.toml` — it currently arrives only transitively via `python-frontmatter`, and graph-io does not depend on `python-frontmatter` directly.
+No new runtime packages are required for v1.7's core work. The one required dependency change is adding `graph-io` as an explicit workspace member dep in `agents/graph-wiki-agent/pyproject.toml`. A floor bump from `langchain-aws>=1.4.6` to `>=1.4.7` is warranted because 1.4.7 added the strip-invalid-`tool_use`-block fix, which is directly relevant to the multi-tool librarian fan-out this milestone introduces. An optional bump to `typer>=0.26.0` (released 2026-05-26, vendored Click) eliminates a future dependency conflict vector with zero breakage risk.
 
-**Core technologies (new surface in v1.6):**
-- `graph_io/uri.py` (new, ~20 LOC): URI composition functions — `repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri` — plain f-strings, no URI library
-- `pyyaml>=6.0.3` (explicit dep): `yaml.safe_load()` in `graph_io/domains.py` for `domains.yaml` — no round-trip needed, ruamel.yaml/strictyaml rejected
-- `tomllib` (stdlib, already imported in `packages.py`): manifest parsing for `[project.scripts]` entry points
-- `configparser` (stdlib): pytest.ini / setup.cfg [tool:pytest] detection in `graph_io/detect_tests.py`
-- `sqlite3` (stdlib): existing pattern extended — `uri TEXT` column added, no migration library needed; hand-rolled version gate + mandatory full rebuild is the correct and existing architecture
+**Core technologies:**
+- `graph_io.queries` (in-repo): pure Python query API — consumed via in-process import, never shell-out to `cg`
+- `graph_io.store.read_only_connect()` (in-repo): the only connection factory the agent layer should use; opened once per command at entry, shared by all tool closures, closed in `finally`
+- `graph_io.cli._format.render(records, fmt="human")` (in-repo): existing human-column formatter; the correct return serializer for all `@tool` callables — avoids raw dataclass or JSON return pitfalls
+- `langchain_core.tools.@tool` (existing dep): wraps any Python callable; sufficient for all graph-io tool wrappers — no `StructuredTool` or `BaseTool` subclassing needed
+- `workspace_io.paths.graph_dir(workspace)` (existing dep): canonical DB path resolver — must be used everywhere; hardcoding DB paths is an explicit anti-pattern
+- `langchain-aws>=1.4.7` (bump): strip-invalid-`tool_use`-block fix is load-bearing for multi-tool librarian
 
-**What NOT to add:** yoyo-migrations, sqlite-utils, rfc3986/yarl/hyperlink, ruamel.yaml, strictyaml, node interop for jest.config parsing, second TOML parser.
+**New modules only (no new packages):**
+- `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py` (~120 LOC): `@tool` wrappers over `graph_io.queries.*`
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/graph.py` (~150 LOC): `graph build/describe/query` implementations
 
 ### Expected Features
 
-All features map directly to spec §10 example queries. The table stakes / differentiator split below follows that mapping.
+**Must have (table stakes for v1.7 to deliver its stated goal):**
+- Librarian grounding tools — 5 `@tool` callables wrapping `graph_io.queries.*`; librarian system prompt updated; `bind_tools()` wired in `commands/query.py`
+- Scanner consumes graph-io — URI-keyed vault page routing; fallback to path-keyed logic when graph not initialized
+- Ingestor consumes graph-io — graph as authoritative manifest with graceful `NOT_INITIALIZED` error (clear error, not silent fallback)
+- `cg find` parser ergonomics — `--name` named flag added; `cg find --name foo.py --kind file` works; single-commit break-and-fix
+- Hygiene burn-down — all 10 quick tasks + 2 bootstrap todos applied before integration phases touch overlapping files
 
-**Must have (table stakes — P1, directly from §10):**
-- Schema v2 + URI identity — foundation for all new nodes; `SCHEMA_VERSION` bump to 2, `uri TEXT` nullable column + index
-- `cg list-entry-points <pkg> [--kind executable|library]` — "What can I run from this package?" / "What does this package export?"
-- `cg list-suites` — discovery primitive
-- `cg what-tests <package>` — "What tests cover this package?" (suite-level)
-- `cg list-domains` + `cg describe-domain <name>` — domain discovery + inspection
-- `cg domain-refs <name>` — "What does the Billing domain depend on (outside of itself)?"
-- `cg domain-deps <name>` — "Does Billing depend on Auth?"
-- Derived edge computation (`references`, `depends_on`) on `cg update` — backing store for all domain queries
-- Extensions to existing commands: `cg describe-package` (+ domains, entry points, suites), `cg describe-path` (+ File role flags), `cg status` (+ repo URI), `cg find` (+ new node kinds)
-- Brand sweep: README + CLI strings (`lattice-graph-core` -> `graph-wiki`, `~/.lattice/graph/code.db` -> canonical path)
+**Should have (differentiator, v1.7 stretch):**
+- `graph-wiki-agent graph` subcommand (`build`, `describe`, `query`) with cost-tracked trace records — adds agent-awareness to graph operations; `cg` CLI continues to work for raw inspection
 
-**Should have (differentiators — P2, complete §10 coverage):**
-- `cg list-scripts` — union of `EntryPoint kind:executable` + `File is_executable:true`
-- `cg what-tests <domain>` (domain variant) — "What integration tests touch the Billing domain?"
-- `cg cross-cutting` — packages with zero `belongs_to_domain` edges, ranked by `references` count
-- `cg describe-repo`, `cg list-packages` — structural completeness
+**Defer (v1.8+):**
+- URI-keyed wiki redesign (flat-by-ID / by-domain / by-repo views)
+- Scanner 9-stage pipeline restructure (ONTOLOGY-SPEC §9)
+- URI reconciliation for orphaned pages on package rename
+- Plugin wiring to graph-io (only `kxi` docs fix touches `plugins/` in v1.7)
 
-**Defer to v1.7+:**
-- `cg domain-callers` — recursive `physically_contains` + `calls` join; HIGH complexity
-- File-level `tests` edges in `cg what-tests` — best-effort/advisory per spec §4.3
-- `cg update --domains-only` flag — requires pipeline stage decomposition (v1.7)
-- Wiki render commands, agent integration helpers, `tagged_with` mechanism, cross-repo domains
+**Already done — close at scoping, do NOT execute:**
+- `260521-ans` (ANSI strip): the `NO_COLOR=1 TERM=dumb COLUMNS=200` env-injection pattern is already in production across three test files; 3/3 targeted tests pass today. Close as already-resolved at requirements/scoping.
 
 ### Architecture Approach
 
-v1.6 plugs in additively: six new emitter modules added, `update.py` gains six flat function calls inside the existing `store.transaction` block. The call order is non-negotiable and enforced by data dependencies.
+The architecture is additive: two new files (`graph_tools.py`, `commands/graph.py`), targeted modifications to five existing command files, and a hygiene sweep across `wiki-io` templates and `workspace-io`. The key structural decision — confirmed by all four researchers independently — is that `@tool` wrappers live in the agent layer, not in `packages/graph-io`. The existing `@tool read_file` in `commands/query.py` is the precedent. `graph_tools.py` follows the same philosophy but factored out because the tool set is larger (5 tools vs 1). The `graph` subcommand mirrors the established `ingest_app` sub-Typer pattern exactly.
 
-**Enforced call order in `update.py`:**
-`_process_files` -> `packages.refresh` -> `entry_points.emit` -> `structural_nodes.emit` -> `test_suites.emit` -> `domains.emit` -> stale-node cleanup -> `resolve.sweep` -> `derived_edges.compute` -> `_set_metadata`
-
-**Major components:**
-
-1. **`schema.py` + `store.py` + `upsert.py` + `uri.py` (Phase A)** — schema v2 DDL, `SCHEMA_MISMATCH` exit code wired, `_upsert_node` pops `uri` from `node.attrs` to write to `uri` column (not `attrs_json`)
-2. **`structural_nodes.py` (Phase B)** — `Repository`, `SubPackage`, `File`-with-role-flags, `physically_contains` strict-tree; `resolve.py` guard extended to exclude `repository`, `domain`, `test_suite`, `entry_point` from placeholder cleanup
-3. **`entry_points.py` + `test_suites.py` + `detect_tests.py` (Phase C)** — `packages.refresh` returns manifest data (no double I/O); test file re-parenting from Package to TestSuite containment
-4. **`domains.py` + `derived_edges.py` (Phase D)** — `yaml.safe_load()` for `domains.yaml`; convention inference with `tests/` exclusion; cycle detection; `derived_edges.compute` after `resolve.sweep`; gated on `domains.yaml` existence
-5. **`queries.py` extensions (Phase E)** — new query functions for all new node/edge types
-6. **13 new CLI modules (Phase F)** — thin wrappers registered in `cli/main.py`
-7. **Brand sweep (Phase G)** — README + CLI description + `LATTICE_GRAPH_LOCK_TIMEOUT_MS` deprecation alias
+**Major components and their v1.7 changes:**
+1. `graph_tools.py` (NEW) — `build_graph_tools(conn)` factory returns ≤5 `@tool` callables; connection passed via closure; all return `-> str` using `_format.render()`
+2. `commands/query.py` (MODIFIED) — opens `read_only_connect()` at command entry, calls `build_graph_tools(conn)`, `.bind_tools(tools)` on librarian LLM; conn closed in `finally`
+3. `commands/scan.py` (MODIFIED) — calls `cg update` (incremental) before fan-out; derives vault page slug from graph URI; graceful degradation when `NOT_INITIALIZED`
+4. `commands/ingest.py` (MODIFIED) — checks graph for canonical entity existence; clear error on `NOT_INITIALIZED`; documents URI-drift limitation (v1.8 reconciliation)
+5. `commands/graph.py` (NEW) — thin wrappers; only additions over `cg` semantics are `--trace` and `--model`; 3 verbs maximum
+6. `wiki-io` templates (MODIFIED) — hygiene tasks `i26`, `he3`, `i35` fix `{{CONTAINER_DIR}}`, file-map format, and testing.md subpage; must land before scanner integration
+7. `workspace-io` (MODIFIED) — `gc0` (4 lint fixes) and `lj3` (sparse plugins tolerance); must land before integration calls `graph_dir()`
 
 ### Critical Pitfalls
 
-Top five from PITFALLS.md, in priority order:
+1. **Over-exposed `@tool` surface degrades librarian routing** — Bedrock Converse shows measurable quality degradation above ~10 tools. The 15+ distinct `queries.py` query shapes must be collapsed to ≤5 broader callables grouped by concern. Design the tool surface before writing any implementation. If the count exceeds 6, redesign is required before proceeding.
 
-1. **`resolve.sweep` deletes `Repository`/`Domain` nodes** (`path=NULL`, only edge sources not destinations) — extend cleanup SQL `kind NOT IN` guard to include `('repository', 'domain', 'test_suite', 'entry_point')`; add Phase B test that Repository node survives sweep (PITFALL 5)
-2. **URI lands in `attrs_json` instead of `uri` column** — `_upsert_node` must pop `uri` from `node.attrs` before serializing; `test_upsert.py` assertion must exist before Phase B begins (PITFALL 4)
-3. **`SCHEMA_MISMATCH` exit code (4) not wired** — `cli/main.py` needs `except store.SchemaMismatchError` -> `sys.exit(exit_codes.SCHEMA_MISMATCH)`; README "reserved — not yet enforced" removed in same commit (PITFALL 2)
-4. **Call-order inversion in `update.py`** — `test_suites.emit` must run after `packages.refresh`; `derived_edges.compute` must run after `resolve.sweep`; enforce with comment block above call sequence and a test asserting test files have exactly one `physically_contains` edge (PITFALL 6)
-5. **Domain inference classifies `tests/` subdirectories as domain candidates** — hardcode skip list including `tests`, `packages`, `libs`, `apps`, `shared`, `common`, `src`, `dist`, `build`; Phase D test asserts no `Domain(billing)` created from `tests/billing/` directory (PITFALL 10)
+2. **Tools returning non-string types cause Bedrock `ValidationException`** — all `@tool` callables must declare `-> str` and serialize all graph-io records before returning. Never return dataclasses, Pydantic models, or lists. Use `_format.render(records, fmt="human")`. Hard-cap list results at 50 rows with a truncation notice.
 
-Secondary watch items: `SCHEMA_VERSION` bumped but `_DDL_STATEMENTS` not updated (add `test_nodes_table_has_uri_column` as first Phase A test — PITFALL 1); `domains.yaml` package names vs. directory names (print known-packages hint in warning — PITFALL 9); `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var silently ignored after brand sweep (deprecation fallback in `update.py` — PITFALL 12).
+3. **Hygiene interleaved with integration causes `scan.py` merge conflicts** — `hfr` (wikilink prefix), `iws` (page routing), and scanner graph-io integration all touch `commands/scan.py`. `i26`/`he3` fix templates the scanner immediately uses. Hygiene must be a dedicated phase that merges before any integration work starts.
 
----
+4. **Opening a new graph-io connection per tool call** — during a single `run_query()` the librarian may invoke 3-5 tools per page across up to 10 pages (up to 50 SQLite file opens). Use `build_graph_tools(conn)` to close over a single connection opened at command entry and closed in `finally`.
+
+5. **`cg find` positional removal silently breaks internal test callers** — when converting the positional `name` to `--name`, grep all `main(["find", "foo.py"])` callsites in `packages/graph-io/tests/`. Fix callers in the same commit. Smoke test: `cg find --name SubagentPool --kind class` must exit 0 or 1, not 2.
+
+6. **Feature drift between `graph-wiki-agent graph` and `cg`** — the agent subcommand must be a thin wrapper. No new flags beyond `--trace` and `--model`. Enforce this constraint in the phase plan before implementation, not at code review.
 
 ## Implications for Roadmap
 
-Phase numbering continues from Phase 27. v1.6 starts at Phase 28.
+Phases start at Phase 35. All four researchers converged on hygiene-first ordering. The file-touch overlap evidence is concrete and documented in ARCHITECTURE.md's hygiene/integration overlap table. This is the recommended sequence:
 
-### Phase A (28): Schema + URI Foundation
+### Phase 35: Wiki & Bootstrap Hygiene Burn-Down
 
-**Rationale:** Hard prerequisite for every other phase. No emitter can write to a `uri` column that does not exist. `SCHEMA_MISMATCH` exit code wiring is a correctness fix that must land before any user-visible schema change.
-**Delivers:** `SCHEMA_VERSION = 2`, `uri TEXT` nullable column + `idx_nodes_uri` index, `_upsert_node` URI extraction, `SCHEMA_MISMATCH` exit code 4 wired, `graph_io/uri.py` with all URI composition functions, `SchemaMismatchError` message updated, `test_schema_version_is_one` sentinel renamed to `test_schema_version_is_two`
-**Addresses:** Schema v2 + URI identity (all P1 table stakes depend on this)
-**Avoids:** Pitfalls 1, 2, 3, 4, 13
-**Research flag:** None needed — existing codebase pattern is clear; STACK.md and PITFALLS.md have exact code snippets
+**Rationale:** All 10 deferred quick tasks + 2 bootstrap todos must land before integration because `hfr`/`iws` touch `commands/scan.py` (same file as scanner integration), `i26`/`he3`/`i35` fix templates the scanner immediately uses, and `gc0`/`lj3` fix `workspace-io` that graph-io integration calls. A file-touch matrix must be produced before plan wave assignment — tasks that share a file must be in the same plan or in sequentially-ordered plans. Note: `hfr` must precede `i26` (both touch `package/overview.md`); `iws` must precede scanner integration.
 
-### Phase B (29): Structural Nodes
+**Delivers:** Zero broken template wikilinks, ANSI-clean test output, sparse-plugins tolerance, self-healing uv re-exec, overview page naming fixed, file-map format correct, bootstrap stubs working. `260521-ans` closed as already-done (no execution).
+**Addresses:** `hfr`, `i26`, `he3`, `i35`, `iws`, `kxi`, `gc0`, `lj3`, `mfm`, bootstrap interactive flag, bootstrap stub category indexes; close `260521-ans` as already-resolved
+**Avoids:** Pitfall 3 (scan.py merge conflicts), Pitfall 7 (hygiene file-touch ordering regressions), Pitfall 8 (wiki-io template changes break plugin without verification)
+**Research flag:** SKIP — all tasks have pre-written PLANs; patterns are established
 
-**Rationale:** Depends on Phase A. Repository and File-with-role-flags form the physical containment tree that TestSuite re-parenting in Phase C requires.
-**Delivers:** `structural_nodes.py` with `Repository`, `SubPackage`, `File`-with-role-flags + `physically_contains` strict-tree; `resolve.py` guard extended; `source_parser/parsers/python.py` gains `_has_main_block` + `_has_importable_symbols`; `update.py` gains `structural_nodes.emit` call + `_apply_ast_role_flags` post-pass
-**Addresses:** Structural nodes (spec §3); File role flags; `physically_contains` tree
-**Avoids:** Pitfall 5 (resolve.sweep deletion guard), Pitfall 18 (longest-prefix-wins)
-**Research flag:** None needed — flag detection methods and module boundary fully specified in ARCHITECTURE.md + STACK.md
+### Phase 36: `cg find` Parser Ergonomics
 
-### Phase C (30): EntryPoint + TestSuite
+**Rationale:** Small, self-contained, touches only `packages/graph-io/cli/q_find.py`. Landing it before librarian grounding tools means `@tool` callers can use `--name` / `--kind` keyword style from the start. Single-commit break-and-fix: the old positional form `cg find foo.py` should produce a clear parse error (not silent wrong behavior) after the change.
 
-**Rationale:** Depends on Phase B. TestSuite re-parenting requires Package containment edges from structural_nodes.emit to exist first.
-**Delivers:** `detect_tests.py`, `entry_points.py`, `test_suites.py`; `packages.py` extended to return manifest data; `update.py` gains two new emit calls with documented ordering constraint
-**Addresses:** EntryPoint nodes (spec §3); TestSuite nodes (spec §3 + §7 layout patterns 1-5); entry point P1 CLI features
-**Avoids:** Pitfall 6 (call-order test), Pitfall 8 (path-qualified `implemented_by` resolution), Pitfall 16 (conftest.py not treated as framework config), Pitfall 19 (fixture isolation)
-**Research flag:** None needed — `_walk_exports` recursive walker and PYTEST_CONFIGS detection specified in STACK.md
+**Delivers:** `cg find --name foo.py --kind file` works; `cg find foo.py` produces clear parse error; all internal callers updated; smoke test passes
+**Addresses:** `cg find` ergonomics fix (target feature 5)
+**Avoids:** Pitfall 5 (silently broken internal test callers)
+**Research flag:** SKIP — fix shape fully specified in ARCHITECTURE.md; 5-10 line change with known pattern
 
-### Phase D (31): Domain Layer + Derived Edges
+### Phase 37: Librarian Grounding Tools
 
-**Rationale:** Depends on Phase A+B. Domain nodes require package nodes (B) and URI support (A). Derived edges depend on resolved imports so `derived_edges.compute` goes after `resolve.sweep`.
-**Delivers:** `domains.py` with `load_domains()`, `DomainConfig`/`DomainEntry` dataclasses, convention inference with exclusion list, cycle detection; `derived_edges.py`; `update.py` gains `domains.emit` + `derived_edges.compute` calls
-**Addresses:** Domain nodes (spec §3); `belongs_to_domain` + `domain_contains_domain` + `references` + `depends_on` edges (spec §4.4 + §4.5); `domains.yaml` format
-**Avoids:** Pitfall 10 (tests/ false-positive), Pitfall 17 (cycle detection), Pitfall 9 (package name warning), Pitfall 11 (performance gate)
-**Research flag:** None needed — DomainConfig dataclass and inference strategies fully specified in ARCHITECTURE.md
+**Rationale:** Read-only, side-effect-free, lower risk than scanner/ingestor. Validates the `build_graph_tools(conn)` / `bind_tools()` pattern before any page-writing changes. The `@tool` callable surface (count and shape) is the critical design decision for this phase — must be locked before writing any implementation. CountTokens validation of effective context budget (system prompt + tool schemas + input) is a required verification step before shipping.
 
-### Phase E (32): Query Layer Extension
+**Delivers:** `graph_tools.py` with ≤5 `@tool` callables; `commands/query.py` wired with `bind_tools()`; librarian system prompt updated; CountTokens validation; unit tests with mocked `conn`
+**Addresses:** Librarian grounding tools (target feature 1)
+**Avoids:** Pitfall 1 (over-exposed tool surface), Pitfall 2 (result payload overflow), Pitfall 3 (non-string return types), Pitfall 4 (per-tool connection open), Pitfall 14 (token budget regression from tool schemas)
+**Open question for phase scoping:** The exact grouping of the 5 librarian tools is a design choice — research caps the COUNT but not the SHAPE. Decide at scoping.
+**Research flag:** SKIP — tool wrapper pattern, `build_graph_tools(conn)` factory shape, and `_format.render()` as return serializer are all fully specified
 
-**Rationale:** All emitters must have run before query layer validation is meaningful. Phase E is entirely read-side.
-**Delivers:** New query functions in `queries.py`: `describe_repo`, `list_domains`, `describe_domain`, `list_entry_points`, `list_suites`, `describe_suite`, `what_tests`, `domain_refs`, `domain_deps`, `cross_cutting`, `list_packages`; extensions to `describe_package` and `describe_path`
-**Addresses:** All §10 example queries except `domain-callers` (deferred to v1.7)
-**Research flag:** Needs spike — `WITH RECURSIVE` SQL for domain hierarchy traversal in `describe_domain` / `what_tests --domain` needs validation against the actual SQLite schema. Confirm SQLite 3.35+ `WITH RECURSIVE` handles `domain_contains_domain` traversal combined with `belongs_to_domain` collection correctly. Also verify the UNION query shape for `list_scripts`.
+### Phase 38: `graph-wiki-agent graph` Subcommand
 
-### Phase F (33): CLI Extension
+**Rationale:** Can proceed in parallel with Phase 37 (different files). Depends only on hygiene being done. The critical constraint is thin-wrapper-only: no new flags beyond `--trace` and `--model`. The `ingest_app` sub-Typer pattern is the exact template. MCP exposure uses `graph_` prefix (parallel to existing `wiki_` prefix tools in `server.py`).
 
-**Rationale:** Depends on Phase E. CLI modules are thin wrappers around query functions.
-**Delivers:** 13 new `cli/q_*.py` modules; `cli/main.py` updated to register new subcommands
-**Addresses:** CLI surface for all P1 and P2 features
-**Research flag:** None needed — uniform thin-wrapper pattern across existing 13 CLI modules
+**Delivers:** `graph-wiki-agent graph build|describe|query` CLI; `graph_build`, `graph_describe`, `graph_query` MCP tools in `server.py`; cost-tracked trace record for `graph build`; `graph-wiki-agent graph --help` exits 0 listing 3 subcommands
+**Addresses:** `graph-wiki-agent graph` subcommand (target feature 4)
+**Avoids:** Pitfall 6 (feature drift between `graph-wiki-agent graph` and `cg`), Pitfall 13 (Typer subcommand name collision)
+**Research flag:** SKIP — Typer sub-app pattern is established; `ingest_app` is the template; 3-verb surface fully specified
 
-### Phase G (34): Brand Sweep
+### Phase 39: Scanner Consumes graph-io
 
-**Rationale:** Zero code dependencies — deferred to last to avoid merge conflicts with substantive changes. Brand grep gate validates completion.
-**Delivers:** `packages/graph-io/README.md` updated; `cli/main.py` description string updated; `LATTICE_GRAPH_LOCK_TIMEOUT_MS` deprecation alias in `update.py`; `.brand-grep-allow` updated for deprecated env var name
-**Avoids:** Pitfall 12 (silent env var breakage)
-**Research flag:** None needed — targets enumerated in ARCHITECTURE.md; existing check-brand.sh validates
+**Rationale:** Scanner integration is higher risk than librarian tools because it changes page-writing logic. Must come after hygiene (`hfr`/`iws` both touch `run_scan()`). `run_scan()` must call `cg update` (incremental) before fan-out — this is a hard requirement for URI freshness on every scan. The Phase 14 SC#4 plugin smoke transcript (carried since v1.2) must be captured at phase close as the regression baseline.
+
+**Delivers:** Scanner derives vault page slug from graph URI; graceful degradation when `NOT_INITIALIZED`; `run_scan()` calls `cg update` before fan-out; before/after live vault smoke sample committed; SC#4 transcript captured
+**Addresses:** Scanner consumes graph-io (target feature 2)
+**Avoids:** Pitfall 4 (per-command vs per-tool connection), Pitfall 11 (stale graph on first scan), Pitfall 8 (template changes break plugin)
+**Research flag:** SKIP — integration pattern and connection-lifetime contract fully specified in ARCHITECTURE.md
+
+### Phase 40: Ingestor Consumes graph-io
+
+**Rationale:** Goes last because it changes page-writing logic based on graph existence checks. Placing it after scanner ensures URI-keyed slugs are consistent. The URI-drift / orphaned-page limitation must be explicitly documented in the phase plan (v1.8 reconciliation path), not solved in v1.7.
+
+**Delivers:** `run_ingest_source()` checks graph for canonical entity existence; clear error on `NOT_INITIALIZED`; URI-drift limitation documented; unit tests with mocked `conn`
+**Addresses:** Ingestor consumes graph-io (target feature 3)
+**Avoids:** Pitfall 12 (URI identity drift on package rename — document, don't solve in v1.7)
+**Research flag:** SKIP — integration pattern mirrors scanner; authoritative-manifest-with-graceful-degradation approach specified
 
 ### Phase Ordering Rationale
 
-- URI column must exist before any emitter writes a URI (A blocks all)
-- Package containment edges must exist before test suite re-parenting (B blocks C)
-- Package nodes must exist before domain assignment (B blocks D)
-- All emitters must have run before query layer validation is meaningful (A+B+C+D block E)
-- Query functions must exist before CLI modules wrap them (E blocks F)
-- Brand sweep has no blockers (G runs last for safety)
-
-The call order inside `update.py` is non-negotiable: `_process_files` -> `packages.refresh` -> `entry_points.emit` -> `structural_nodes.emit` -> `test_suites.emit` -> `domains.emit` -> stale-node cleanup -> `resolve.sweep` -> `derived_edges.compute` -> `_set_metadata`. Enforce with a comment block above the sequence and a test asserting test files have exactly one `physically_contains` edge post-update.
+- **Hygiene first** is the unanimous conclusion across all four research files, backed by concrete file-touch overlap evidence. `commands/scan.py` is touched by `hfr`, `iws`, AND scanner graph-io integration. `wiki-io` templates are touched by `i26`/`he3`/`i35` AND consumed immediately by scanner integration output.
+- **`cg find` ergonomics second** because it is trivial, standalone, and unblocks `@tool` callers that always use keyword-style invocation.
+- **Librarian grounding tools before scanner/ingestor** because it is read-only and validates the `build_graph_tools` / `bind_tools` pattern without page-writing risk.
+- **`graph` subcommand** can be parallelized with Phase 37 — it touches different files; shown as Phase 38 for simplicity, not as a sequencing constraint.
+- **Scanner before ingestor** because URI-keyed page routing (scanner) must be established before ingestor's existence-check diff is meaningful.
 
 ### Research Flags
 
-Phases needing deeper investigation:
-- **Phase E (Query Layer):** `WITH RECURSIVE` domain traversal SQL needs a spike. Also: UNION query for `list_scripts` and multi-join for `what_tests --domain`.
-- **Phase C (TestSuite incremental re-parenting):** Interaction between incremental `cg update` and test suite re-parenting needs explicit test coverage confirming stale-node cleanup does not delete freshly re-parented `TestSuite -> File` edges.
+Phases needing deeper research during planning: **NONE.** All four researchers worked from direct codebase inspection. Patterns are fully specified, precedents exist in-repo, implementation shapes are documented.
 
-Phases with well-documented patterns (skip deeper research):
-- **Phase A:** Schema DDL, upsert extension, exit code wiring — exact code snippets in STACK.md and PITFALLS.md
-- **Phase B:** FS walk pattern established in `_ignore.py`; resolve.sweep guard SQL specified with exact SQL in PITFALLS.md
-- **Phase D:** `yaml.safe_load` trivial; DomainConfig specified; cycle detection is standard DFS
-- **Phase F:** Uniform thin-wrapper pattern across existing 13 CLI modules
-- **Phase G:** Fully enumerated targets; existing grep gate validates
-
----
+Phases with standard patterns (skip research-phase):
+- **Phase 35 (Hygiene):** Pre-written PLANs exist for all 10 quick tasks; execute as written
+- **Phase 36 (`cg find`):** Fix shape fully specified; 5-10 line change
+- **Phase 37 (Librarian tools):** `build_graph_tools(conn)` pattern, tool count cap, return format all specified; open question on tool grouping is a scoping decision, not a research gap
+- **Phase 38 (`graph` subcommand):** `ingest_app` sub-Typer is the exact template; 3-verb surface fully specified
+- **Phase 39 (Scanner):** Integration pattern and connection-lifetime contract documented
+- **Phase 40 (Ingestor):** Mirrors scanner; authoritative-manifest approach specified
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All decisions grounded in existing codebase with file:line references; pyyaml only new dep, already transitively installed |
-| Features | HIGH | Directly mapped from spec §10; anti-features justified against spec §11 and PROJECT.md deferral list |
-| Architecture | HIGH | Grounded entirely in existing graph-io source with file:line references; call order and module boundaries verified |
-| Pitfalls | HIGH | 8 of 14 pitfalls cite specific file:line locations; all prevention steps have associated test assertions |
+| Stack | HIGH | All decisions verified against installed packages, live codebase, and PyPI; no new packages needed |
+| Features | HIGH | Derived from direct codebase inspection of `queries.py`, `scan.py`, `ingest.py`, `librarian.py`, and all 10 quick-task PLANs |
+| Architecture | HIGH | Full codebase inspection; `build_graph_tools(conn)` pattern, connection lifetime, sub-Typer shape, and file-touch matrix all verified against live code |
+| Pitfalls | HIGH | Grounded in existing codebase (RETROSPECTIVE.md, live test runs, argparse source inspection); no speculative pitfalls |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-Requirement-time decisions needed before phases can be fully planned:
+- **Exact grouping of the 5 librarian tools is a design decision for phase scoping** — research establishes the count ceiling (≤5) and the return format (`_format.render()` + 50-row cap + `-> str`) but does not prescribe which specific `queries.py` functions become tools or how they are grouped. The roadmapper should flag Phase 37 scoping as requiring this decision before implementation starts.
 
-- **`packages.refresh` return type change** — cleanest double-I/O fix is returning `list[tuple[Path, dict]]` for `entry_points.emit`; confirm no current callers break before Phase C planning
-- **`pkg_uri` uses `rel_path` not `pkg_name`** — prevents URI collisions in repos with two packages named `utils`; verify exact `pkg_uri` signature in `uri.py` before Phase A closes (PITFALL 7)
-- **`derived_edges.compute` performance budget** — establish acceptance criterion (e.g., `cg update` incremental in <3s on 100-package repo) as Phase D acceptance criteria
-- **`uri TEXT` nullable documented as intentional** — add code comment in Phase A that `UNIQUE NOT NULL` is deliberately deferred to v1.7; prevents future maintainer confusion
+- **`260521-ans` scoping action** — this item appears in the deferred quick tasks list with a pre-written PLAN, but the task is already done (tests pass with the existing `NO_COLOR=1` pattern). The requirements step must close it as already-resolved. Confirm by running the 3 tests listed in the PLAN before closing.
 
----
+- **Phase 14 SC#4 plugin smoke transcript** — carried since v1.2 close; must be captured at end of Phase 39 (scanner integration) as the regression baseline for the plugin end-to-end happy path. Flag as a success criterion for Phase 39.
 
 ## Sources
 
-### Primary (HIGH confidence — directly reviewed source files)
+### Primary (HIGH confidence — direct codebase inspection)
+- `packages/graph-io/src/graph_io/queries.py` — full query API surface confirmed
+- `packages/graph-io/src/graph_io/store.py` — `read_only_connect()`, `GraphNotInitializedError` confirmed
+- `packages/graph-io/src/graph_io/cli/_format.py` — `render(records, fmt)` confirmed importable independently of CLI
+- `packages/graph-io/src/graph_io/cli/q_find.py` — positional-only `name` arg confirmed; ergonomics fix shape specified
+- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — `ingest_app` sub-Typer pattern confirmed
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — `@tool read_file` agent-local precedent confirmed
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — `run_scan()` structure; hygiene overlap surface confirmed
+- `agents/graph-wiki-agent/tests/unit/test_cli_help.py` — `_PLAIN_HELP_ENV` pattern; 3/3 ANSI tests passing confirmed on live run
+- `.planning/STATE.md` — 10 deferred quick task IDs; `260521-ans` confirmed already passing
+- `.planning/PROJECT.md` — v1.7 scope, Phase 35 numbering, plugin boundary constraints
+- `.planning/quick/260521-*/` and `.planning/quick/260523-*/` — all 10 quick task PLANs confirmed written
 
-- `packages/graph-io/src/graph_io/schema.py` — `SCHEMA_VERSION = 1`, `_DDL_STATEMENTS` DDL
-- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, connect logic
-- `packages/graph-io/src/graph_io/upsert.py` — `_upsert_node`, `NodeKey(kind, name, path)` identity pattern
-- `packages/graph-io/src/graph_io/resolve.py` — placeholder-node deletion query (line 50-56)
-- `packages/graph-io/src/graph_io/update.py` — existing orchestration flow, `LATTICE_GRAPH_LOCK_TIMEOUT_MS` line 130
-- `packages/graph-io/src/graph_io/packages.py` — `_discover_manifests`, `refresh`, existing stdlib imports
-- `packages/graph-io/src/graph_io/exit_codes.py` — `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6`
-- `packages/graph-io/README.md` — `SCHEMA_MISMATCH = 4` marked "reserved — not yet enforced"; brand sweep targets
-- `packages/graph-io/src/graph_io/cli/main.py` — 13 existing subcommands, `lattice code graph CLI` description
-- `packages/source-parser/src/source_parser/projections/graph.py` — `GraphNode.attrs` handoff point
-- `packages/graph-io/conftest.py` — bare `sqlite3.connect(":memory:")` fixture (no schema applied)
-- `packages/graph-io/tests/test_schema.py` — `test_schema_version_is_one()` sentinel
-
-### Primary (HIGH confidence — spec and planning documents)
-
-- `.planning/research/ONTOLOGY-SPEC.md` — authoritative node types, edge types, scanner pipeline, example queries
-- `.planning/PROJECT.md` — v1.6 milestone scope, deferred items, phase numbering continuation at 28
-- `.planning/research/STACK.md` — library decisions, version compatibility, code snippets
-- `.planning/research/FEATURES.md` — §10 query-to-command coverage matrix, anti-features
-- `.planning/research/ARCHITECTURE.md` — module map, build order, call sequence, data flow, anti-patterns
-- `.planning/research/PITFALLS.md` — 14 pitfalls with file:line citations, prevention steps, phase assignments
-
-### Secondary (MEDIUM confidence — version verification)
-
-- PyPI: `PyYAML` 6.0.3 — confirmed latest stable; released 2024-12-16
-- `uv pip list` — confirmed PyYAML 6.0.3, tree-sitter 0.25.2 installed in workspace
+### Primary (HIGH confidence — PyPI + release notes)
+- PyPI `langchain-aws` 1.4.7 — strip-invalid-`tool_use`-block fix confirmed; no breaking changes to `ChatBedrockConverse`
+- PyPI `typer` 0.26.0 — vendored Click; `add_typer` / `@app.command` unchanged; no breakage for this codebase
+- PyPI `langchain-core` 1.4.0, `mcp` 1.27.1 — both at current stable; no changes needed
 
 ---
-
-*Research completed: 2026-05-25*
+*Research completed: 2026-05-26*
 *Ready for roadmap: yes*

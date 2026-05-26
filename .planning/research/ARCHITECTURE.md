@@ -1,616 +1,544 @@
-# Architecture Research — v1.6 graph-io Ontology Integration
+# Architecture Research
 
-**Domain:** Code-graph SQLite package — additive ontology expansion
-**Researched:** 2026-05-25
-**Confidence:** HIGH (grounded entirely in the existing codebase + ONTOLOGY-SPEC.md + STACK.md + FEATURES.md)
-
----
+**Domain:** v1.7 graph-io Integration & Wiki Hygiene
+**Researched:** 2026-05-26
+**Confidence:** HIGH (derived entirely from direct source inspection of existing codebase)
 
 ## System Overview
 
-The existing graph-io architecture has a clean, stable shape. v1.6 plugs into it additively without restructuring the orchestration layer.
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       User Entry Points                                       │
+│  graph-wiki-agent CLI (cli.py:app, Typer)    graph-wiki-mcp (FastMCP stdio)  │
+└────────────────────────────┬────────────────────────────────┬─────────────────┘
+                             │                                │
+┌────────────────────────────▼────────────────────────────────▼─────────────────┐
+│                     Command Layer  (agents/graph-wiki-agent)                   │
+│  commands/query.py    commands/scan.py    commands/ingest.py                  │
+│  commands/init.py     commands/lint.py    commands/log.py                     │
+│  commands/graph.py  (NEW v1.7: graph build/describe/query)                    │
+└────────────┬───────────────────────────────────────┬──────────────────────────┘
+             │                                       │
+             ▼                                       ▼
+┌──────────────────────────┐           ┌────────────────────────────────────────┐
+│  SubagentPool            │           │  graph_tools.py  (NEW v1.7)            │
+│  (subagent-runtime)      │           │  @tool wrappers over graph_io.queries  │
+│  asyncio.Semaphore       │           │  find_symbol, tests_for_file,          │
+│  fan-out + trace IO      │           │  list_packages, describe_domain, etc.  │
+└──────────────────────────┘           └────────────────────┬───────────────────┘
+                                                            │ imports
+┌───────────────────────────────────────────────────────────▼───────────────────┐
+│                        Package Layer  (packages/)                              │
+│  ┌────────────────┐  ┌──────────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │  graph-io      │  │  wiki-io         │  │ workspace-io │  │model-adapter│ │
+│  │  store.py      │  │  scan_monorepo   │  │ config.py    │  │ make_llm()  │ │
+│  │  queries.py    │  │  lint_wiki.py    │  │ init.py      │  │ load_role_  │ │
+│  │  uri.py        │  │  assets/         │  │ manifest.py  │  │  config()   │ │
+│  │  cli/ (cg)     │  │  page-templates/ │  │ paths.py     │  └─────────────┘ │
+│  └────────────────┘  └──────────────────┘  └──────────────┘                  │
+└────────────────────────────────────────────────────────────────────────────────┘
+                                │
+              ┌─────────────────▼──────────────────┐
+              │           Storage                   │
+              │  code.db (SQLite WAL, graph-io)     │
+              │  search.db (embeddings, wiki)       │
+              │  bm25/ (BM25 index)                 │
+              │  traces/ (JSONL trace records)      │
+              └────────────────────────────────────┘
+```
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          cg CLI  (cli/)                             │
-│  ops_update  ops_status  ops_dump  q_describe_*  q_find  ...       │
-│  NEW: q_describe_repo  q_list_domains  q_list_entry_points          │
-│       q_describe_domain  q_describe_suite  q_what_tests             │
-│       q_list_suites  q_list_scripts  q_domain_refs  q_domain_deps   │
-│       q_cross_cutting  q_list_packages  q_domain_tree               │
-├─────────────────────────────────────────────────────────────────────┤
-│                     Orchestrator  (update.py)                       │
-│  git diff → _process_files → packages.refresh                       │
-│  NEW CALLS (additive, after packages.refresh):                      │
-│    structural_nodes.emit  →  entry_points.emit                      │
-│    test_suites.emit       →  domains.emit                           │
-│    derived_edges.compute                                            │
-│  → resolve.sweep → _set_metadata                                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                  Emitter / Scanner modules                          │
-│  packages.py (extended)   NEW: structural_nodes.py                  │
-│  NEW: entry_points.py         test_suites.py    detect_tests.py     │
-│  NEW: domains.py              derived_edges.py                      │
-│  NEW: uri.py                                                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                    Write layer  (upsert.py — extended)              │
-│  upsert_records(conn, GraphRecords)  [URI field added to upsert]    │
-├─────────────────────────────────────────────────────────────────────┤
-│               Read layer  (queries.py — extended)                   │
-│  find / callers / callees / imports / describe_package / ...        │
-│  NEW: describe_repo / list_domains / describe_domain                │
-│  NEW: list_entry_points / list_suites / describe_suite              │
-│  NEW: what_tests / domain_refs / domain_deps / cross_cutting        │
-├─────────────────────────────────────────────────────────────────────┤
-│              Store + Schema  (store.py / schema.py)                 │
-│  SCHEMA_VERSION 1 → 2                                               │
-│  nodes: +uri TEXT column + idx_nodes_uri index                      │
-│  edges / metadata: unchanged                                        │
-│  store.connect / read_only_connect: unchanged                       │
-│  SchemaMismatchError + SCHEMA_MISMATCH exit code: wire up           │
-└─────────────────────────────────────────────────────────────────────┘
-```
+### Component Responsibilities
+
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `cli.py` (Typer `app`) | CLI entry; parse args, dispatch to `run_*` coroutines | `commands/` modules |
+| `graph_wiki_mcp/server.py` | FastMCP stdio; wrap commands as MCP tools | `commands/` modules |
+| `commands/query.py` | Hybrid search + librarian fan-out + synthesis | `prompts/`, `subagent-runtime`, `wiki-io`, `graph_tools.py` (v1.7) |
+| `commands/scan.py` | Walk repo, diff vs vault, scanner fan-out, write stubs | `wiki-io.scan_monorepo`, `subagent-runtime`, `graph-io` (v1.7) |
+| `commands/ingest.py` | Route source file to vault page type, call ingestor LLM | `wiki-io.ingest_source`, `subagent-runtime`, `graph-io` (v1.7) |
+| `commands/graph.py` (NEW) | `graph build/describe/query` CLI operations | `graph-io.store`, `graph-io.queries`, `graph-io.update` |
+| `graph_tools.py` (NEW) | `@tool`-decorated wrappers over `graph_io.queries.*` | `graph-io.store`, `graph-io.queries` |
+| `packages/graph-io` | SQLite store + `cg` CLI (25 subcommands); `queries.py` public API | `workspace-io.paths` |
+| `packages/wiki-io` | Vault read/write, scan monorepo, lint, page templates | `workspace-io` |
+| `packages/workspace-io` | Workspace bootstrap, manifest IO, config resolution | (leaf library) |
+| `packages/model-adapter` | `make_llm(role)` + `_GuardedChatBedrockConverse` | `langchain-aws` |
+| `packages/subagent-runtime` | `SubagentPool` asyncio fan-out + JSONL trace IO | `langchain-core` |
+| `plugins/graph-wiki` | Claude Code plugin (Claude Code inference; NOT wired to graph-io in v1.7) | `wiki-io`, `workspace-io` via `uv run` shell-out |
 
 ---
 
-## Component Boundaries
+## Recommended Project Structure (v1.7 additions highlighted)
 
-### Existing modules and what changes
+```
+agents/graph-wiki-agent/src/graph_wiki_agent/
+  cli.py                         # MODIFIED: add graph_app sub-Typer
+  graph_tools.py                 # NEW: @tool wrappers over graph_io.queries
+  commands/
+    graph.py                     # NEW: graph build/describe/query implementations
+    query.py                     # MODIFIED: bind_tools(graph_tools) for librarian
+    scan.py                      # MODIFIED: graph-io URI keying + hfr/iws hygiene
+    ingest.py                    # MODIFIED: graph-io existence/identity check
+    init.py                      # MODIFIED: bootstrap todos (mfm, interactive, stubs)
+    lint.py                      # unchanged
+    log.py                       # unchanged
 
-| Module | v1.5 Responsibility | v1.6 Change |
-|--------|---------------------|-------------|
-| `schema.py` | DDL + `SCHEMA_VERSION = 1` | Bump to 2; add `uri TEXT` column + `idx_nodes_uri` index |
-| `store.py` | connect / read-only / transaction | Wire `SCHEMA_MISMATCH` exit code through `_check_schema_version`; no structural change |
-| `upsert.py` | `upsert_records` — inserts nodes/edges by `(kind, name, path)` key | Add `uri` field to `_upsert_node` and `_insert_node`; ON CONFLICT update includes `uri` |
-| `packages.py` | `refresh()` — discovers manifests, upserts package nodes + contains edges | Extend `_read_pyproject` / `_read_package_json` to return `entry_points`; the entry-point upsert moves to `entry_points.py` (packages.py hands off the data) |
-| `resolve.py` | Post-upsert sweep: resolve placeholder-dst edges | Unchanged; placeholder nodes for new node types resolve via the same `(kind, name, path IS NULL)` join |
-| `update.py` | Orchestrator: git diff → parse → upsert → resolve → metadata | Additive call sites only — see "Scanner additive integration" below |
-| `queries.py` | find / callers / callees / imports / describe_package / describe_path / imported_by / exports / exported_by | New query functions appended to the same module (or a second `queries_v2.py` if the file gets large) |
-| `sync_wiki.py` | Package → wiki_page documents edges | Unchanged; existing code is isolated and not affected by schema v2 |
-| `_ignore.py` | Default + .cgignore skip set | Unchanged |
-| `exit_codes.py` | `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6` already declared | Wire `SCHEMA_MISMATCH` in store.py; wire `UPDATE_IN_PROGRESS` in update.py (replace existing GENERIC fallback for locked DB) |
-| `cli/main.py` | Argparse dispatch + subcommand registry | Register new CLI modules; update description string (brand sweep) |
+agents/graph-wiki-agent/src/graph_wiki_mcp/
+  server.py                      # MODIFIED: add graph_build/graph_describe/graph_query tools
 
-### New modules to create
+packages/wiki-io/src/wiki_io/
+  assets/page-templates/
+    package/overview.md          # MODIFIED: i26 (CONTAINER_DIR), he3 (file-map format)
+    package/testing.md           # MODIFIED: i35 (testing.md subpage)
+    app/overview.md              # MODIFIED: he3 (file-map format)
+    app/testing.md               # MODIFIED: i35
 
-| New Module | Responsibility | Depends On |
-|------------|---------------|------------|
-| `uri.py` | URI composition functions — `repo_uri`, `pkg_uri`, `subpkg_uri`, `file_uri`, `domain_uri`, `entry_point_uri`, `test_suite_uri` | stdlib only |
-| `structural_nodes.py` | FS walk emitting `Repository`, `SubPackage`, `File`-with-role-flags + `physically_contains` edges | `uri.py`, `upsert.py`, `_ignore.py` |
-| `entry_points.py` | Consumes entry-point data from `packages.py`, emits `EntryPoint` nodes + `declares_entry_point` / `implemented_by` edges | `uri.py`, `upsert.py`, `packages.py` (data only) |
-| `test_suites.py` | Emits `TestSuite` nodes + `physically_contains TestSuite → File` + `tests` edges; re-parents test files from package containment | `uri.py`, `upsert.py`, `detect_tests.py`, `_ignore.py` |
-| `detect_tests.py` | Framework config detection (pytest.ini, pyproject.toml [tool.pytest], jest.config.*, vitest.config.*); pure data, no DB access | stdlib (`configparser`, `tomllib`) |
-| `domains.py` | `load_domains(path: Path)` using `yaml.safe_load()`; `DomainConfig` / `DomainEntry` dataclasses; emits `Domain` nodes + `belongs_to_domain` + `domain_contains_domain` edges | `uri.py`, `upsert.py`, PyYAML |
-| `derived_edges.py` | Computes `references` (Domain → Package) and `depends_on` (Domain → Domain) from import graph + domain membership; re-runnable | `upsert.py`, raw `sqlite3` reads |
+packages/workspace-io/src/workspace_io/
+  manifest.py  (or config.py)    # MODIFIED: lj3 (tolerate sparse plugins), gc0 (lint fixes)
 
-### New CLI modules to create (in `cli/`)
+packages/graph-io/src/graph_io/
+  cli/q_find.py                  # MODIFIED: --name named-arg ergonomics fix
 
-| New CLI Module | Command Surfaces |
-|----------------|-----------------|
-| `q_describe_repo.py` | `cg describe-repo` |
-| `q_list_packages.py` | `cg list-packages` |
-| `q_list_domains.py` | `cg list-domains` |
-| `q_describe_domain.py` | `cg describe-domain <name>` |
-| `q_domain_refs.py` | `cg domain-refs <name>` |
-| `q_domain_deps.py` | `cg domain-deps <name>` |
-| `q_domain_tree.py` | `cg domain-tree` |
-| `q_cross_cutting.py` | `cg cross-cutting` |
-| `q_list_entry_points.py` | `cg list-entry-points <package> [--kind executable\|library]` |
-| `q_list_scripts.py` | `cg list-scripts` (UNION: EntryPoint kind:executable + File is_executable:true) |
-| `q_list_suites.py` | `cg list-suites` |
-| `q_describe_suite.py` | `cg describe-suite <name>` |
-| `q_what_tests.py` | `cg what-tests <target>` (package, domain, or path variant) |
+plugins/graph-wiki/              # MODIFIED: kxi (docs only, no code changes)
+```
+
+### Structure Rationale
+
+- **`graph_tools.py` lives in `agents/` not `packages/`:** The `packages/` tier is library code with zero LangChain dependency. `@tool` decorators require `langchain-core`. Keeping `@tool` wrappers in the agent layer preserves this clean separation. Add to `packages/graph-io` only when a second consumer (e.g. plugin) needs the same tools (v1.8+).
+- **`commands/graph.py` mirrors `commands/ingest.py` pattern:** `ingest` is the established precedent for a sub-Typer with named sub-operations. `graph` follows the same shape.
+- **Hygiene changes in `packages/` only touch `wiki-io` and `workspace-io`:** No new packages needed. All changes are targeted modifications to existing files.
 
 ---
 
-## Scanner Additive Integration
+## Architectural Patterns
 
-The critical constraint: `update.py`'s orchestration flow is NOT restructured. The nine-stage pipeline from spec §9 is v1.7. v1.6 adds new emit calls at two points in the existing flow.
+### Pattern 1: Agent-Local @tool Wrappers
 
-### Existing `update.py` flow (unchanged skeleton)
+**What:** `@tool`-decorated functions in `graph_tools.py` that accept the query parameters, call `graph_io.queries.*` with a pre-opened read-only connection, serialize the result to JSON, and return a string. The connection is opened once per command invocation, not once per tool call.
+
+**When to use:** Any new `graph_io.queries.*` function that the librarian should invoke to ground its answers. Add a `@tool` function to `graph_tools.py`, add it to the list passed to `build_graph_tools(conn)`, include in `.bind_tools(tools)`.
+
+**Trade-offs:** Opening the connection at command entry (not lazily) means a connection open even when the model never calls a graph tool. Acceptable — `store.read_only_connect()` against a local SQLite file is sub-millisecond. Lazy connect adds complexity for negligible gain.
+
+**Example shape:**
+```python
+# agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py
+from graph_io import queries, store
+from langchain_core.tools import tool
+
+def build_graph_tools(conn):
+    @tool
+    def find_symbol(name: str, kind: str | None = None) -> str:
+        """Find code symbols by name and optional kind (function, class, file, package, ...)."""
+        records = queries.find(conn, name=name, kind=kind)
+        return json.dumps([...serialize(r) for r in records])
+
+    @tool
+    def tests_for_file(path: str) -> str:
+        """Return test suites and test files that cover the given source file path."""
+        # resolve package from path, then call tests_for_package
+        ...
+
+    return [find_symbol, tests_for_file, list_packages, describe_domain, what_tests]
+```
+
+### Pattern 2: Sub-Typer Registration (graph subcommand)
+
+**What:** `graph_app = typer.Typer(...)` registered with `app.add_typer(graph_app, name="graph")` in `cli.py`. Commands defined in `commands/graph.py` via `@graph_app.command(name=...)`.
+
+**When to use:** Any new top-level subcommand that groups multiple sub-operations. The existing `ingest` subcommand (`ingest_app`) is the established precedent — its shape is the template.
+
+**Trade-offs:** Consistent with established pattern. No new pattern introduced.
+
+**Example shape (cli.py additions):**
+```python
+from graph_wiki_agent.commands.graph import graph_app
+app.add_typer(graph_app, name="graph")
+```
+
+**Example shape (commands/graph.py):**
+```python
+graph_app = typer.Typer(help="Build, describe, and query the code graph.")
+
+@graph_app.command(name="build")
+def graph_build(full: bool = typer.Option(False, "--full"), workspace: str = ...) -> None:
+    ...
+
+@graph_app.command(name="describe")
+def graph_describe(target: str = typer.Argument(...), ...) -> None:
+    ...
+
+@graph_app.command(name="query")
+def graph_query(query_text: str = typer.Argument(...), ...) -> None:
+    ...
+```
+
+### Pattern 3: Workspace-Resolved DB Path
+
+**What:** All graph-io access in the agent layer resolves the DB path via `workspace_io.paths.graph_dir(workspace) / "code.db"`. This is the identical resolution the `cg` CLI uses (`q_find.py`, `q_describe_package.py`, etc.).
+
+**When to use:** Everywhere `graph_io.store.read_only_connect()` is called from the agent layer.
+
+**Trade-offs:** Requires graph-io DB to be initialized (`cg update --full` run). On `GraphNotInitializedError`, the agent commands emit a user-friendly message ("Run `cg update --full` first to initialize the code graph.") and exit with code 1.
+
+---
+
+## Where graph-io @tool wrappers live
+
+**Decision: agent-local in `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py`.**
+
+Option analysis:
+- **(a) Agent-local `graph_tools.py`** — correct. `packages/` is library tier; `@tool` is agent-tier concern. No second consumer in v1.7.
+- **(b) `graph_io.tools` submodule** — wrong for v1.7. Would add `langchain-core` to `graph-io`'s deps, polluting the library. Warranted only when `plugins/graph-wiki` also needs these tools (v1.8 wiki redesign milestone).
+- **(c) New `packages/graph-io-tools/` workspace member** — pure overhead. One consumer, one file worth of code. Creates a new workspace member for 50 LOC.
+
+Option (a) wins. The existing precedent is `commands/query.py` defining `@tool read_file` inline in the agent layer. `graph_tools.py` follows the same philosophy but factored into its own file because the tool set is larger (5-8 tools vs 1).
+
+---
+
+## Scanner / Ingestor Consumption Pattern
+
+**Decision: in-process Python import, not shell-out to `cg`.**
+
+Project philosophy (confirmed by codebase inspection): SubagentPool is asyncio fan-out, not subprocess fan-out. The `cg` shell-out in `plugins/graph-wiki` is a concession to that plugin's separate runtime (Claude Code inference process), not a preferred pattern.
+
+Concrete evidence against shell-out:
+- `commands/scan.py` calls `wiki-io` functions in-process: `discover_workspaces()`, `compute_diff()`, `attach_changed_files()` — all synchronous Python calls inside an async function.
+- Shell-out would require `asyncio.create_subprocess_exec`, JSON parsing, non-zero exit handling, and breaks the trace chain.
+
+**Implementation in `commands/scan.py`:**
+```python
+async def run_scan(...):
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+    # Open graph-io connection once; close in finally
+    db_path = graph_dir(workspace_path) / "code.db"
+    try:
+        conn = store.read_only_connect(db_path)
+    except store.GraphNotInitializedError:
+        logger.warning("graph-io DB not initialized; URI keying disabled")
+        conn = None
+    try:
+        # ... existing scan logic, using conn for URI resolution if available ...
+    finally:
+        if conn:
+            conn.close()
+```
+
+Graceful degradation (conn=None) means the scan still works on repos where `cg update` has not been run. This matches the v1.7 scope: graph-io is "source of truth for identity" but not a hard requirement for the scanner to function.
+
+---
+
+## MCP Exposure of the `graph` Subcommand
+
+**Decision: YES, expose as MCP tools in `server.py` with `graph_` prefix.**
+
+Existing MCP tool naming: `wiki_ping`, `wiki_query`, `wiki_log`, `wiki_scan`, `wiki_ingest`, `wiki_lint`. The `wiki_` prefix signals wiki-vault operations.
+
+New graph tools use `graph_` prefix, signaling code-graph operations:
+
+| MCP Tool Name | CLI Equivalent | Purpose |
+|---------------|----------------|---------|
+| `graph_build` | `graph build` | Run `cg update [--full]` equivalent |
+| `graph_describe` | `graph describe` | Describe repo/package/domain/suite by name |
+| `graph_query` | `graph query` | Structured or NL query over the code graph |
+
+These go in `server.py` as `@mcp.tool(name="graph_build", ...)` delegating to `run_graph_build()` etc. in `commands/graph.py`. Same pattern as existing `wiki_scan` → `run_scan()`.
+
+---
+
+## `cg find` Parser Ergonomics Fix
+
+**Current behavior:** `cg find scan_monorepo --kind file` (positional name + optional `--kind`).
+
+**Problem:** Users expect `cg find --name scan_monorepo --kind file` to work. The current argparse shape only accepts positional `name`.
+
+**Fix location:** `packages/graph-io/src/graph_io/cli/q_find.py`
+
+Current `add_arguments`:
+```python
+def add_arguments(parser):
+    parser.add_argument("name")          # positional, required
+    parser.add_argument("--kind", default=None)
+```
+
+Fix: make name optional positional + add `--name` as an alternative. The `run()` function resolves `name = args.name or args.name_opt`.
 
 ```python
-def run(repo_root, *, workspace, full, lock_timeout_ms):
-    head = _head(repo_root)
-    skip_dirs = _ignore.load_skip_dirs(repo_root)
-    conn = store.connect(db_path, create=True, ...)
-    with store.transaction(conn):
-        _process_files(conn, repo_root, changed, skip_dirs)  # AST parse + upsert
-        packages.refresh(conn, repo_root=repo_root)          # manifest → package nodes
-        # ... stale-node cleanup ...
-        resolve.sweep(conn)                                   # cross-file edge resolution
-        _set_metadata(conn, "last_indexed_commit", head)
+def add_arguments(parser):
+    parser.add_argument("name", nargs="?", default=None,
+                        help="symbol name (positional, for backwards compat)")
+    parser.add_argument("--name", dest="name_opt", default=None,
+                        help="symbol name (named flag alternative)")
+    parser.add_argument("--kind", default=None)
+
+def run(args):
+    name = args.name or args.name_opt
+    if name is None and args.kind is None:
+        print("error: find requires --name or a positional name argument", file=sys.stderr)
+        return exit_codes.GENERIC
+    ...
+    records = queries.find(conn, name=name, kind=args.kind)
 ```
 
-### v1.6 additive call sites in `update.py`
-
-```python
-with store.transaction(conn):
-    _process_files(conn, repo_root, changed, skip_dirs)   # UNCHANGED
-
-    packages.refresh(conn, repo_root=repo_root)           # UNCHANGED — also returns entry_point data
-    entry_points.emit(conn, repo_root=repo_root)          # NEW — reads manifests, emits EntryPoint nodes
-
-    structural_nodes.emit(conn, repo_root=repo_root,      # NEW — Repository + SubPackage + File role flags
-                          skip_dirs=skip_dirs)            #       + physically_contains tree
-
-    test_suites.emit(conn, repo_root=repo_root,           # NEW — TestSuite nodes + re-parenting
-                     skip_dirs=skip_dirs)
-
-    domains.emit(conn, repo_root=repo_root)               # NEW — Domain nodes + belongs_to_domain
-                                                          #       (reads domains.yaml; no-op if absent)
-
-    derived_edges.compute(conn)                           # NEW — references + depends_on edges
-                                                          #       (re-runnable; clears + recomputes)
-
-    # ... stale-node cleanup (existing, unchanged) ...
-    resolve.sweep(conn)                                   # UNCHANGED
-    _set_metadata(conn, "last_indexed_commit", head)      # UNCHANGED
-```
-
-**Why this position for each call:**
-
-- `entry_points.emit` immediately after `packages.refresh`: manifests are re-read (same `_discover_manifests` walk) but this is idempotent; it extends the same manifest data to emit `EntryPoint` nodes. Placed here rather than inside `packages.refresh` to preserve `packages.py` as the single-responsibility manifest reader.
-
-- `structural_nodes.emit` after `packages.refresh`: package paths must exist in the DB first so `physically_contains` edges from Repository → Package can reference real node IDs. The FS walk in `structural_nodes.py` is separate from the AST parse in `_process_files`.
-
-- `test_suites.emit` after `structural_nodes.emit`: test suite re-parenting deletes `physically_contains Package → File` edges for test files and inserts `physically_contains TestSuite → File` edges instead. File nodes must exist (created by `_process_files`) and package containment edges must exist (created by `packages.refresh`) before re-parenting can happen.
-
-- `domains.emit` after `structural_nodes.emit`: domain convention-based inference (strategy 2 from spec §9 — top-level folder names) needs the package list. Explicit config (`domains.yaml`) is path-based but needs package nodes to exist so `belongs_to_domain` edges can reference real IDs.
-
-- `derived_edges.compute` last (before `resolve.sweep`): depends on `belongs_to_domain` edges (from `domains.emit`) and `imports` edges (from `_process_files` + `resolve.sweep`). Running derived edges before `resolve.sweep` means some `imports` edges are still unresolved — this is acceptable in v1.6 since `derived_edges.compute` already filters on `resolution != 'unresolved'` when building the import set. Alternatively, move `derived_edges.compute` after `resolve.sweep` — that's the safer order and is recommended.
-
-**Revised safer order** (move derived edges after resolve):
-
-```python
-    _process_files(...)          # AST parse
-    packages.refresh(...)        # package nodes
-    entry_points.emit(...)       # EntryPoint nodes
-    structural_nodes.emit(...)   # Repository + SubPackage + File role flags
-    test_suites.emit(...)        # TestSuite nodes + re-parenting
-    domains.emit(...)            # Domain nodes + belongs_to_domain
-    # stale-node cleanup (existing)
-    resolve.sweep(conn)          # cross-file edge resolution  ← UNCHANGED position
-    derived_edges.compute(conn)  # references + depends_on  ← AFTER resolve, so imports are resolved
-    _set_metadata(...)           # UNCHANGED
-```
-
-This order is clean, additive, and preserves the existing `resolve.sweep` position.
+No change to `queries.find()` — purely a CLI parsing fix.
 
 ---
 
-## URI Identity Migration
+## Hygiene Phase Build Order and File Overlap Analysis
 
-### Schema change
+### Hygiene task file-ownership map
 
-`schema.py` adds one column and one index to the `nodes` DDL:
+| Task ID | Files Modified |
+|---------|---------------|
+| `hfr` | `commands/scan.py` (wikilink prefix emitted by scanner) |
+| `i26` | `wiki-io/assets/page-templates/package/overview.md` (add `{{CONTAINER_DIR}}` var) |
+| `he3` | `wiki-io/assets/page-templates/package/overview.md`, `app/overview.md` (file-map format) |
+| `i35` | `wiki-io/assets/page-templates/package/testing.md`, `app/testing.md`, possibly `domain/` and `plugin/` templates; wiki-io init logic for stub generation |
+| `iws` | `commands/scan.py` page routing; wiki-io scan path logic (overview page rename) |
+| `kxi` | `plugins/graph-wiki/` docs only — no Python code |
+| `ans` | `commands/*.py` output calls; possibly `cli.py` (Typer ANSI strip) |
+| `gc0` | `packages/workspace-io/` — repo discovery + 3 lint-driven fixes |
+| `lj3` | `packages/workspace-io/manifest.py` or `config.py` — tolerate sparse plugins list |
+| `mfm` | `commands/init.py` or `wiki-io/init_vault.py` — self-healing uv re-exec |
+| bootstrap interactive flag | `commands/init.py` and/or `cli.py` |
+| bootstrap stub category indexes | `commands/init.py`, `wiki-io/init_vault.py` |
 
-```sql
-CREATE TABLE IF NOT EXISTS nodes (
-    id          INTEGER PRIMARY KEY,
-    kind        TEXT NOT NULL,
-    name        TEXT NOT NULL,
-    path        TEXT,
-    line        INTEGER,
-    uri         TEXT,               -- NEW: stable URI identity; NULL for AST nodes
-    attrs_json  TEXT
-)
+### Overlap between hygiene and integration
 
-CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)
-```
+| File | Hygiene Task | Integration Task | Risk if integration-first |
+|------|-------------|-----------------|--------------------------|
+| `commands/scan.py` | `hfr` (wikilink prefix), `iws` (page routing) | Scanner consumes graph-io (URI keying, ~50 new lines) | Both touch `run_scan()` body; hygiene rebases onto a larger integration diff |
+| `wiki-io/assets/page-templates/package/overview.md` | `i26` (CONTAINER_DIR), `he3` (file-map format) | Scanner integration generates stubs from these templates | Integration immediately produces stubs in wrong format if templates not fixed first |
+| `commands/init.py` | `mfm`, interactive flag, stub indexes | `cli.py` adds `app.add_typer(graph_app, ...)` (adjacent, same file for imports) | Lower risk — cli.py change is additive; init.py changes are in different functions |
 
-`uri` is nullable. AST nodes (functions, classes, methods) do not receive URIs in v1.6 — stable URI identity is meaningful only at the structural/conceptual level (Repository, Package, SubPackage, File, EntryPoint, TestSuite, Domain). This avoids a full-graph URI backfill problem that would be expensive and provides no query benefit.
+### Verdict: Hygiene first, integration second
 
-### URI generation point
+Hygiene is a dedicated phase before any integration work. Rationale:
 
-URIs are generated at upsert time inside the emitter modules, not at scan-time in source-parser. The emitter constructs the URI before calling `upsert.upsert_records`, populating `GraphNode.attrs["uri"]`. The `_upsert_node` function in `upsert.py` reads `node.attrs.get("uri")` and writes it to the `uri` column.
+1. `hfr` + `iws` both touch `commands/scan.py`. Scanner integration adds ~50 lines to `run_scan()`. Doing hygiene after integration means rebasing two quick fixes onto a larger diff — higher merge complexity, harder to review.
+2. `i26` + `he3` fix templates that the scanner integration will start using immediately. Wrong templates produce wrong vault stubs from day one of integration.
+3. `gc0` + `lj3` fix workspace-io. The graph-io integration calls `workspace_io.paths.graph_dir(workspace)` — a workspace-io bug present during integration creates confounding failures.
+4. All hygiene tasks are narrow and independently testable. They do not block each other (except `he3` and `i26` both touch `overview.md` — combine them into a single plan).
+5. `kxi` is docs-only and has zero code deps. It can go anywhere, but keeping it in the hygiene phase reduces context switching.
 
-Specifically:
-- `structural_nodes.py` generates `file_uri(...)` for every File node, `repo_uri(...)` for the Repository node, `subpkg_uri(...)` for SubPackage nodes.
-- `packages.py` generates `pkg_uri(...)` for Package nodes (the single change inside `packages.py`).
-- `entry_points.py` generates `entry_point_uri(...)` for EntryPoint nodes.
-- `test_suites.py` generates `test_suite_uri(...)` for TestSuite nodes.
-- `domains.py` generates `domain_uri(...)` for Domain nodes.
-
-The URI for a Package node requires knowing the `(org, repo)` prefix. In v1.6 (single-repo scope), the repo origin is derived from `git remote get-url origin` at `update.run()` time, parsed into `(org, repo)` components, and passed down through the emitter call chain. If the remote is missing (local-only repo), fall back to the directory name as `org=local, repo=<dirname>`.
-
-### Uniqueness
-
-`uri` is NOT declared `UNIQUE` in v1.6. The reason: `ON CONFLICT` for URI collisions requires careful thought about which record wins, and adding a UNIQUE constraint after a full rebuild forces all existing data to be collision-free before the constraint can be applied. In v1.6, uniqueness is enforced at the emitter level (each emitter generates URIs deterministically from stable inputs; no two nodes of the same type should get the same URI). Add `UNIQUE NOT NULL` in v1.7 once the URI generation is validated against real repos.
-
-### Existing edges get URIs for their endpoints
-
-Existing AST edges (`calls`, `imports`, `contains`) reference nodes by `INTEGER id`. Those nodes do not get URIs in v1.6 for AST-level nodes (functions, classes). This is correct and expected — the `uri` column is a supplemental stable identity for the structural/conceptual layer; the INTEGER primary key remains the join key for all edge lookups. No migration of existing edges is required.
+The one task that could reasonably go after integration is `kxi` (plugin docs) — but there is no benefit to splitting it out.
 
 ---
 
-## source-parser Boundary
+## Data Flow: End-to-End Integration Example
 
-### What source-parser populates on its SourceNode
+**Scenario:** User asks "what tests cover `packages/wiki-io/src/wiki_io/scan_monorepo.py`?"
 
-The parser boundary follows what each layer knows. source-parser knows the AST; graph-io knows the filesystem and manifests.
-
-**source-parser adds to file-level `SourceNode.attrs`:**
-
-| Attr key | Detection method | Location |
-|----------|-----------------|----------|
-| `has_main` | Python: `if __name__ == "__main__":` top-level `if_statement` node | `source_parser/parsers/python.py` |
-| `is_importable` | Python: presence of top-level `def`, `class`, or `__all__`; JS/TS: presence of `export` declarations | `python.py` and the JS/TS parser |
-| `is_executable_hint` | Python: AST confirms `if __name__` block is present (same as `has_main`); combined with shebang in graph-io | `python.py` |
-
-These attrs flow through `to_graph_records()` into `GraphNode.attrs` unchanged. The scanner in graph-io reads them from `tree.attrs` after the `parse_bytes()` call and merges them with path heuristics.
-
-**graph-io scanner owns (no AST needed):**
-
-| Flag | Detection | Source |
-|------|-----------|--------|
-| `is_test` | Path patterns: `tests/`, `__tests__/`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts` | `structural_nodes.py` |
-| `is_config` | Filename: `conftest.py`, `jest.config.*`, `vitest.config.*`, `tsconfig.json`, `setup.cfg` | `structural_nodes.py` |
-| `is_generated` | Path patterns: `dist/`, `build/`, `.gen/`, `generated/`; content markers in first 3 lines (`# generated by`, `// @generated`) | `structural_nodes.py` |
-| `is_type_only` | Extension: `.d.ts` | `structural_nodes.py` |
-| `is_executable` | Shebang (`first 2 bytes == b'#!'`); conventional paths `bin/`, `scripts/`; merged with `is_executable_hint` from AST | `structural_nodes.py` |
-
-**Handoff pattern:**
-
-```python
-# in update.py _process_files (existing), attrs now include AST signals:
-tree = parse_bytes(source, path=Path(rel), package=None)
-records = to_graph_records(tree)
-# tree.attrs["has_main"], tree.attrs["is_importable"] now available
-# structural_nodes.py reads tree.attrs to merge with path heuristics
-
-# in structural_nodes.emit, per-file role flag computation:
-def _file_role_flags(rel: str, tree_attrs: dict) -> dict[str, bool]:
-    return {
-        "is_test": _path_is_test(rel),
-        "is_config": _path_is_config(rel),
-        "is_generated": _path_is_generated(rel),
-        "is_type_only": rel.endswith(".d.ts"),
-        "is_executable": _has_shebang(rel) or _in_bin_dir(rel) or tree_attrs.get("is_executable_hint", False),
-        "is_importable": tree_attrs.get("is_importable", False),
-        "has_main": tree_attrs.get("has_main", False),
-    }
+```
+User → graph-wiki-agent query "what tests cover packages/wiki-io/scan_monorepo.py"
+    │
+    ▼
+cli.py:query() → asyncio.run(run_query(query_text, workspace_path, top_k=5))
+    │
+    ▼
+commands/query.py:run_query()
+    │
+    ├─ [1] resolve wiki via resolve_wiki_and_repo(workspace_path)
+    │       wiki = ~/Personal/graph-wiki/agent-research
+    │
+    ├─ [2] Hybrid search (BM25 + embeddings) over vault
+    │       → top_pages = ["packages/wiki-io/scan_monorepo.md", ...]
+    │
+    ├─ [3] Open graph-io connection + build tools (NEW v1.7)
+    │       db_path = graph_dir(workspace) / "code.db"
+    │       conn = store.read_only_connect(db_path)
+    │       tools = build_graph_tools(conn)   # 5-8 @tool callables
+    │       librarian_llm = make_llm("librarian").bind_tools(tools)
+    │
+    ├─ [4] Librarian fan-out (SubagentPool.run_all) over top_pages
+    │
+    │   drill_page("packages/wiki-io/scan_monorepo.md"):
+    │       ├─ SystemMessage(LIBRARIAN_SYSTEM)
+    │       ├─ HumanMessage("Query: ...\n\nPage content: ...")
+    │       │
+    │       ├─ Model emits tool_call: find_symbol(name="scan_monorepo", kind="file")
+    │       │       ↓
+    │       │   graph_tools.find_symbol():
+    │       │       records = queries.find(conn, name="scan_monorepo", kind="file")
+    │       │       → NodeRecord(kind="file",
+    │       │                    path="packages/wiki-io/src/wiki_io/scan_monorepo.py",
+    │       │                    attrs={"uri": "file:pat/agent-research/packages/wiki-io/..."})
+    │       │       return json.dumps([...])
+    │       │   ToolMessage(content=json_result) → appended to msgs
+    │       │
+    │       ├─ Model emits tool_call: tests_for_file(path="packages/wiki-io/...")
+    │       │       ↓
+    │       │   graph_tools.tests_for_file():
+    │       │       # resolve package name from path → "wiki-io"
+    │       │       suites = queries.tests_for_package(conn, package_name="wiki-io")
+    │       │       → [SuiteDescription(name="wiki-io-tests",
+    │       │                           uri="test_suite:pat/agent-research/wiki-io-tests",
+    │       │                           file_count=24)]
+    │       │       return json.dumps([...])
+    │       │   ToolMessage(content=json_result) → appended to msgs
+    │       │
+    │       └─ Model emits final AIMessage:
+    │               "scan_monorepo.py is covered by the wiki-io-tests suite
+    │                (test_suite:pat/agent-research/wiki-io-tests, 24 files).
+    │                See [[wiki/packages/wiki-io/testing]] for test layout."
+    │               → TaskResult(value=content, response=resp)
+    │
+    ├─ [5] Synthesizer call with librarian excerpts → answer string
+    │
+    ├─ [6] close conn  (in finally block)
+    │
+    └─ [7] Return QueryResult(answer, citations, pages_drilled, search_scores)
 ```
 
-The challenge: `structural_nodes.emit` currently does a separate FS walk. To get AST attrs without double-parsing, `_process_files` should cache the `tree.attrs` per file path in a local dict, which `structural_nodes.emit` consumes. Alternatively (simpler for v1.6): `structural_nodes.emit` computes path-heuristic flags only (which covers 5 of 7 flags), and a post-pass in `_process_files` updates `has_main` and `is_importable` from the already-parsed tree. The simpler approach avoids cross-module state passing and is the right call for v1.6.
-
-**Recommended v1.6 implementation:** `structural_nodes.emit` sets path-heuristic flags only. A second small function in `update.py` — `_apply_ast_role_flags(conn, repo_root, changed, skip_dirs)` — runs after `_process_files` and updates `attrs_json` on file nodes that have `has_main` or `is_importable` from the AST. This is a targeted UPDATE, not a full re-parse, and keeps the modules clean.
+**Key invariant:** `conn` is opened once at the top of `run_query()`, shared by all tool closures via `build_graph_tools(conn)`, and closed in a `finally` block after the fan-out completes. This avoids per-tool connection overhead while bounding connection lifetime to the command invocation.
 
 ---
 
-## `domains.yaml` Reader
+## New vs Modified: File-Level Count
 
-### Location
+### New files
 
-`graph_io/domains.py` is the right home, not `workspace-io`. The domains.yaml config is code-graph-specific — it declares how packages in a repository map to logical domains. It is not a workspace manifest (which is `.graph-wiki.yaml` in workspace-io). `workspace-io` owns workspace bootstrapping; `graph-io` owns graph-specific config.
+| File | Approx LOC | Purpose |
+|------|-----------|---------|
+| `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py` | ~120 | `@tool` wrappers over `graph_io.queries.*` |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/graph.py` | ~150 | `graph build/describe/query` command implementations |
 
-### When read
+### Modified files (integration)
 
-`domains.emit(conn, repo_root=repo_root)` reads `domains.yaml` from `repo_root / "domains.yaml"` each time `cg update` runs. No caching is needed — the file is read once per update invocation, and updates are not frequent enough to make reading a 1KB YAML file a bottleneck.
+| File | Change Summary |
+|------|---------------|
+| `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` | +4 lines: import `graph_app`, `app.add_typer(graph_app, name="graph")` |
+| `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` | +~80 lines: `graph_build`, `graph_describe`, `graph_query` MCP tools |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` | +~30 lines: open conn, build tools, bind to librarian LLM |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` | +~50 lines: open conn, URI resolution for package identity |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` | +~30 lines: open conn, URI existence check before write |
+| `agents/graph-wiki-agent/pyproject.toml` | +1 line: add `graph-io` workspace dep |
+| `packages/graph-io/src/graph_io/cli/q_find.py` | ~10 lines: `--name` named-arg ergonomics fix |
 
-### Error handling
+### Modified files (hygiene only)
 
-| Condition | Behavior |
-|-----------|---------|
-| `domains.yaml` absent | No-op. Convention-based inference (top-level named folders) runs. No error. |
-| `domains.yaml` present but malformed YAML | `yaml.YAMLError` caught; warning printed to stderr with file path; convention-based inference runs as fallback. No exception raised to the caller. |
-| `domains.yaml` references a package name not in the DB | Warning printed to stderr per unknown name; `belongs_to_domain` edge for that name is silently skipped (package may not be indexed yet if only changed files were processed). |
-| `domains.yaml` references a non-existent sub-domain | Same treatment: warning + skip. |
+| File | Task(s) |
+|------|---------|
+| `packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md` | `i26`, `he3` |
+| `packages/wiki-io/src/wiki_io/assets/page-templates/app/overview.md` | `he3` |
+| `packages/wiki-io/src/wiki_io/assets/page-templates/package/testing.md` | `i35` |
+| `packages/wiki-io/src/wiki_io/assets/page-templates/app/testing.md` | `i35` |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` | `hfr`, `iws` |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py` | `mfm`, interactive flag, stub indexes |
+| `packages/workspace-io/src/workspace_io/manifest.py` (or `config.py`) | `lj3` |
+| `packages/workspace-io/src/workspace_io/config.py` (or related) | `gc0` |
+| `agents/graph-wiki-agent/src/graph_wiki_agent/commands/*.py` (multiple) | `ans` |
+| `plugins/graph-wiki/` docs | `kxi` (docs only) |
 
-### DomainConfig schema (in `domains.py`)
-
-```python
-@dataclass
-class DomainEntry:
-    name: str
-    description: str = ""
-    packages: list[str] = field(default_factory=list)
-    parent: str | None = None          # parent domain name for domain_contains_domain
-    subdomains: list[str] = field(default_factory=list)  # alternative to parent field
-
-@dataclass
-class DomainConfig:
-    domains: dict[str, DomainEntry]    # keyed by domain name
-
-def load_domains(path: Path) -> DomainConfig | None:
-    """Returns None if path does not exist. Raises ValueError on schema error."""
-```
-
----
-
-## Build Order (Phase Dependency Chain)
-
-The phases must respect the dependency chain below. Each item is the smallest atomic unit that can be built and tested independently.
-
-```
-Phase A: Foundation (blocking — everything else depends on this)
-  ├── schema.py: SCHEMA_VERSION 1 → 2, add uri column + index
-  ├── store.py: wire SCHEMA_MISMATCH + UPDATE_IN_PROGRESS exit codes
-  ├── upsert.py: add uri field to _upsert_node / _insert_node
-  └── uri.py: new — all URI composition functions
-      Tests: test_schema.py (extend), test_store.py (extend), test_upsert.py (extend), test_uri.py (new)
-
-Phase B: Structural Nodes (depends on A)
-  ├── structural_nodes.py: new — Repository + SubPackage + File-with-role-flags + physically_contains
-  ├── source_parser/parsers/python.py: add has_main + is_importable attrs
-  └── update.py: add structural_nodes.emit call + _apply_ast_role_flags helper
-      Tests: test_structural_nodes.py (new), test_source_parser_role_flags.py (new)
-
-Phase C: EntryPoint + TestSuite (depends on A + B)
-  ├── detect_tests.py: new — framework config detection
-  ├── entry_points.py: new — EntryPoint nodes + declares_entry_point / implemented_by edges
-  ├── test_suites.py: new — TestSuite nodes + re-parenting
-  ├── packages.py: extend _read_pyproject + _read_package_json to return entry_points
-  └── update.py: add entry_points.emit + test_suites.emit calls
-      Tests: test_detect_tests.py (new), test_entry_points.py (new), test_suites.py (new)
-
-Phase D: Domain Layer (depends on A + B + C for full derived-edge accuracy)
-  ├── domains.py: new — load_domains + Domain node emit + belongs_to_domain + domain_contains_domain
-  ├── derived_edges.py: new — references + depends_on computation
-  └── update.py: add domains.emit + derived_edges.compute calls
-      Tests: test_domains.py (new), test_derived_edges.py (new)
-
-Phase E: Query Layer Extension (depends on A + B + C + D)
-  ├── queries.py: add describe_repo / list_domains / describe_domain / list_entry_points
-  │              list_suites / describe_suite / what_tests / domain_refs / domain_deps
-  │              cross_cutting / list_packages
-  └── Extend existing: describe_package (+ domains, entry points, suites) / describe_path (+ role flags)
-      Tests: test_queries.py (extend with new query functions)
-
-Phase F: CLI Extension (depends on E)
-  ├── New CLI modules: q_describe_repo, q_list_packages, q_list_domains, q_describe_domain,
-  │   q_domain_refs, q_domain_deps, q_domain_tree, q_cross_cutting, q_list_entry_points,
-  │   q_list_scripts, q_list_suites, q_describe_suite, q_what_tests
-  └── cli/main.py: register new subcommands; update description string
-      Tests: test_cli_smoke.py (extend), new per-command smoke tests
-
-Phase G: Brand Sweep (independent — can run in parallel with any phase, no code deps)
-  ├── README.md: "lattice-graph-core" → "graph-wiki code graph", path refs updated
-  └── cli/main.py description string: "lattice code graph CLI" → "graph-wiki code graph CLI"
-      Tests: brand grep gate (existing check-brand.sh)
-```
-
-**Key dependency facts:**
-- Phase A is a hard prerequisite for all other phases. No new node can be safely upserted without URI support in the schema.
-- Phase B must precede Phase C because TestSuite re-parenting requires `physically_contains` edges from packages to files (created by structural_nodes.emit) to exist before they can be rewritten.
-- Phase D can start after Phase A + B (Domain nodes themselves don't depend on EntryPoint or TestSuite). However, `derived_edges.compute` produces more complete results if it runs after Phase C, because test-suite imports inform which packages a suite targets, and that in turn informs domain-level `tests` edges. For v1.6, running D after C is the safe order.
-- Phase E requires all emitters to have run at least once so the query layer can be validated against real data.
-- Phase F requires Phase E for query functions to exist.
-- Phase G has zero code dependencies — it can be done in a 10-minute PR anytime.
+**Total: 2 new files, ~7 modified files for integration, ~10 modified files for hygiene. Zero new packages or top-level directories.**
 
 ---
 
-## Test Architecture
+## Integration Dependency Graph (within v1.7)
 
-### Existing test modules to extend
-
-| Existing Test Module | What to Add |
-|----------------------|-------------|
-| `test_schema.py` | Assert `SCHEMA_VERSION == 2`; assert `uri` column present; assert `idx_nodes_uri` index present |
-| `test_store.py` | Test that `SchemaMismatchError` now raises exit code `SCHEMA_MISMATCH = 4` (wire-through test); test that `UPDATE_IN_PROGRESS = 6` replaces old GENERIC path |
-| `test_upsert.py` | Test that nodes upserted with a `uri` in attrs have `uri` column populated; test round-trip |
-| `test_packages.py` | Extend `test_refresh_pyproject` to verify entry-point data returned from `_read_pyproject`; `test_refresh_package_json` similarly for `bin`/`main`/`exports` |
-| `test_queries.py` | Extend with new query function tests: `describe_repo`, `list_domains`, `describe_domain`, `list_entry_points`, `list_suites`, `describe_suite`, `what_tests`, `domain_refs`, `domain_deps`, `cross_cutting` |
-| `test_cli_smoke.py` | Add smoke invocations for each new CLI subcommand (exit 0 against a seeded DB) |
-| `test_e2e.py` | Add an e2e scenario with `domains.yaml` present; verify domain nodes + derived edges appear |
-
-### New test modules to create
-
-| New Test Module | What it tests | Key Fixtures |
-|-----------------|---------------|--------------|
-| `test_uri.py` | All `uri.py` composition functions; round-trip stability; determinism | Pure unit tests, no DB fixture needed |
-| `test_structural_nodes.py` | `structural_nodes.emit` against a multi-package mini-repo; verify Repository node, SubPackage nodes, File role flags, physically_contains tree structure | `tmp_path` + `conn` fixture; git repo not required (no git diff involved) |
-| `test_detect_tests.py` | `detect_tests.py` framework detection; pytest.ini, pyproject.toml [tool.pytest], jest.config.js presence, vitest detection | Pure filesystem fixtures in `tmp_path`; no DB needed |
-| `test_entry_points.py` | `entry_points.emit` against repos with `pyproject.toml [project.scripts]` and `package.json bin/main/exports`; verify EntryPoint nodes + declares_entry_point + implemented_by edges | `tmp_path` + `conn` + seed package nodes |
-| `test_suites.py` | `test_suites.emit` against each layout pattern from spec §7 (single-package with root tests, monorepo with mirrored layout, package-local tests, mixed); verify TestSuite nodes, re-parented containment, `tests` edges | `tmp_path` + `conn` + seeded file nodes + seed package nodes |
-| `test_domains.py` | `domains.py` `load_domains` with valid/invalid/absent YAML; `domains.emit` with explicit config + convention-based inference; verify Domain nodes + belongs_to_domain + domain_contains_domain edges | `tmp_path` + `conn` + seeded package nodes |
-| `test_derived_edges.py` | `derived_edges.compute` against a DB with known imports + domain membership; verify `references` edges with correct usage_count; verify `depends_on` edges | `tmp_path` + `conn` with seeded full graph including imports + domain edges |
-| `test_source_parser_role_flags.py` | `has_main` and `is_importable` populated in `SourceNode.attrs` by the Python parser; verify via `parse_bytes` + `to_graph_records` | Small Python source fixtures as bytes |
-
-### Mini-repo fixture pattern for new tests
-
-The existing `_git_repo.py` + `write_and_commit` pattern works for update-flow tests. For tests that don't need git history (pure emitter tests), a simpler pattern is sufficient:
-
-```python
-# conftest.py addition (or per-test fixture)
-@pytest.fixture
-def multi_pkg_repo(tmp_path: Path) -> Path:
-    """A two-package Python monorepo with tests at root + package-local tests."""
-    (tmp_path / "packages" / "auth" / "src" / "auth").mkdir(parents=True)
-    (tmp_path / "packages" / "billing" / "src" / "billing").mkdir(parents=True)
-    (tmp_path / "packages" / "auth" / "pyproject.toml").write_text(
-        '[project]\nname = "auth"\nversion = "0.1.0"\n[project.scripts]\nauth-cli = "auth.cli:main"\n'
-    )
-    (tmp_path / "packages" / "billing" / "pyproject.toml").write_text(
-        '[project]\nname = "billing"\nversion = "0.1.0"\n'
-    )
-    (tmp_path / "tests" / "integration").mkdir(parents=True)
-    (tmp_path / "tests" / "integration" / "test_flow.py").write_text("import auth\nimport billing\n")
-    (tmp_path / "packages" / "auth" / "tests").mkdir()
-    (tmp_path / "packages" / "auth" / "tests" / "test_auth.py").write_text("import auth\n")
-    (tmp_path / "domains.yaml").write_text(
-        "domains:\n  payments:\n    packages: [billing]\n  identity:\n    packages: [auth]\n"
-    )
-    return tmp_path
+```
+[Phase: Hygiene]
+  hfr, i26+he3, i35, iws   ← wiki-io templates + scan.py routing
+  gc0, lj3                  ← workspace-io fixes
+  mfm + interactive + stubs ← bootstrap fixes
+  kxi                       ← plugin docs (no code deps)
+  ans                       ← Typer ANSI (cross-cutting)
+       │
+       │  hygiene merged → clean foundation
+       ▼
+[Phase: cg find ergonomics]
+  q_find.py parser fix (graph-io only, no agent deps)
+       │
+       ▼
+[Phase: Librarian Grounding Tools]
+  graph_tools.py (new)
+  commands/query.py bind_tools modification
+       │
+       ▼  (can proceed in parallel with grounding tools)
+[Phase: graph subcommand]
+  commands/graph.py (new)
+  cli.py + server.py additions
+       │
+       ▼
+[Phase: Scanner + Ingestor graph-io consumption]
+  commands/scan.py URI keying
+  commands/ingest.py identity check
+       │
+       ▼
+[Tests + Integration validation]
+  Unit tests: graph_tools.py
+  Integration: run_query with graph tools (mocked conn)
+  Integration: run_scan with graph-io connection (real DB optional)
 ```
 
-This fixture covers layout patterns 2 (mirrored), 4 (package-local), and gives a `domains.yaml` for domain tests — all in one reusable fixture.
-
----
-
-## Brand Sweep Scope
-
-The brand sweep is strictly contained to `packages/graph-io/`. The boundary is defined by what has `lattice` references that are not in the allow-list:
-
-### In scope (change these)
-
-| Location | Current text | Target text |
-|----------|-------------|-------------|
-| `packages/graph-io/README.md` line 1 | `# lattice-graph-core` | `# graph-io` (or `# graph-wiki code graph`) |
-| `packages/graph-io/README.md` line 4 | `~/.lattice/graph/code.db` | canonical graph-wiki path per `workspace_io.paths.graph_dir()` |
-| `packages/graph-io/src/graph_io/cli/main.py` line 46 | `description="lattice code graph CLI"` | `description="graph-wiki code graph CLI"` |
-| `packages/graph-io/src/graph_io/update.py` line 132 | `os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")` | `os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS")` — or add an alias that reads both |
-| `packages/graph-io/src/graph_io/packages.py` line 16 | `_SKIP_REPO_PREFIXES = ("lattice/",)` | `_SKIP_REPO_PREFIXES = ("lattice/",)` — **leave this** (it is a path skip rule for repos named `lattice/`; this is a functional behavior, not brand text; changing it would alter which directories get skipped) |
-
-### Out of scope (do NOT change these)
-
-| Location | Reason to leave alone |
-|----------|----------------------|
-| `plugins/graph-wiki/` | Plugin milestone boundary; plugin code does not reference graph-io brand text |
-| `packages/wiki-io/` | Separate package; no lattice-graph-core references in wiki-io |
-| `packages/source-parser/` | Projection module header says "aligned to lattice-graph's SQLite schema" — this is a comment, not a brand name; leave for v1.7 when source-parser gets a separate milestone |
-| `packages/graph-io/src/graph_io/packages.py` `_SKIP_REPO_PREFIXES` | Functional behavior: skips manifests under a `lattice/` directory path prefix. Changing this would break real skip behavior for repos that have a `lattice/` subdirectory. Rename only if there is a concrete reason. |
-| `.brand-grep-allow` entries for historical references | Already in the allow-list; no change needed |
-
-The `LATTICE_GRAPH_LOCK_TIMEOUT_MS` env var name (in `update.py`) is the one debatable case. Changing it is a breaking change for anyone using that env var. Safe approach: read both `GRAPH_WIKI_LOCK_TIMEOUT_MS` (new) and `LATTICE_GRAPH_LOCK_TIMEOUT_MS` (old fallback) with a deprecation warning on the old name. Add the old name to `.brand-grep-allow`.
+**Rationale for this order:**
+- Librarian grounding tools before scanner/ingestor: read-only, side-effect-free, lower risk. Validates the `build_graph_tools` / `bind_tools` pattern before scanner touches URI-keyed writes.
+- `graph` subcommand can proceed in parallel with librarian tools since both only depend on hygiene being done. They touch different files (`commands/graph.py` vs `commands/query.py`).
+- Scanner/ingestor integration goes last because it changes page-writing logic and is the highest-risk integration surface.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Restructuring update.py into pipeline stages
+### Anti-Pattern 1: Shell-out to `cg` from agent commands
 
-**What it looks like:** Splitting `update.py` into Stage1, Stage2, ..., Stage8 classes or modules with explicit inter-stage handoffs to match spec §9.
+**What people do:** `subprocess.run(["cg", "find", name], capture_output=True)` instead of `queries.find(conn, name=name)`.
 
-**Why wrong for v1.6:** This is the v1.7 work explicitly deferred in PROJECT.md. The additive call pattern (`emit_1(); emit_2(); emit_3()`) within the existing `store.transaction` block achieves the same functional result without the refactor cost. The domain-overlay re-run optimization (running only stages 7-8 without re-parsing AST) is the motivating reason to restructure, and that use case is not in v1.6 scope.
+**Why it's wrong:** Breaks the async event loop (blocking subprocess in an async function), requires JSON parsing, adds subprocess management, breaks the cost/trace accounting chain. The `cg` shell-out in `plugins/graph-wiki` is a concession to that plugin's separate runtime — not a model for agent commands.
 
-**Correct approach:** Add flat function calls in `update.py`'s `run()` function, each delegating to a focused module. Keep the existing transaction boundary.
+**Do this instead:** `from graph_io import queries, store`. Open a read-only connection in-process. Call Python functions directly.
 
-### Anti-Pattern 2: Putting URI generation in source-parser
+### Anti-Pattern 2: @tool decorators inside `packages/graph-io`
 
-**What it looks like:** Having `to_graph_records()` in `source_parser/projections/graph.py` generate URI values for GraphNode objects.
+**What people do:** Add `langchain-core` to `graph-io`'s deps and define `@tool` wrappers in `packages/graph-io/src/graph_io/tools.py`.
 
-**Why wrong:** source-parser doesn't know the repository org/name, package hierarchy, or workspace layout. Those are graph-io's context. The `uri.py` module must live in graph-io where `(org, repo, pkg)` context is available.
+**Why it's wrong:** Introduces an agent-framework dependency into a library package. The `plugins/graph-wiki` plugin also uses `wiki-io` and `workspace-io` — if `graph-io` pulls in LangChain, it adds 100+ MB to the plugin's lightweight runtime unnecessarily.
 
-**Correct approach:** Emitter modules in graph-io call `uri.py` functions with full context before calling `upsert.upsert_records`. The `GraphNode.attrs` dict carries the URI down to the upsert layer.
+**Do this instead:** Keep `@tool` wrappers in `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py`. Promote to `packages/` only when a second consumer (plugin) needs them.
 
-### Anti-Pattern 3: Putting DomainConfig in workspace-io
+### Anti-Pattern 3: Opening a new graph-io connection per tool call
 
-**What it looks like:** Moving `domains.yaml` loading into `workspace_io.config` or a new `workspace_io.domains` module.
+**What people do:** Each `@tool` function inside `graph_tools.py` calls `store.read_only_connect(db_path)` independently.
 
-**Why wrong:** `domains.yaml` is a code-graph artifact, not a workspace manifest. workspace-io owns `.graph-wiki.yaml` (workspace bootstrapping, plugin version tracking). graph-io owns domain assignment config. Mixing these creates an unwanted dependency: workspace-io would need to know about graph-io's domain ontology.
+**Why it's wrong:** During a single `run_query()` call the librarian may invoke 3-5 tools per page, across top-k pages (up to 10). That's potentially 50 SQLite file opens. Each open involves file-descriptor allocation and `PRAGMA query_only`, plus the schema version check.
 
-**Correct approach:** `graph_io/domains.py` owns `load_domains(path)`. The path is derived from `repo_root / "domains.yaml"`, passed down from `update.py`.
+**Do this instead:** One connection opened at the top of `run_query()`, passed into tool closures via `build_graph_tools(conn)`, closed in `finally` after fan-out completes.
 
-### Anti-Pattern 4: Adding UNIQUE NOT NULL to `uri` in v1.6
+### Anti-Pattern 4: Interleaving hygiene with integration changesets
 
-**What it looks like:** Declaring `uri TEXT UNIQUE NOT NULL` in the nodes DDL, requiring all existing nodes to have URIs.
+**What people do:** Fix `hfr` (scan.py wikilink prefix) in the same PR/phase as the scanner graph-io integration.
 
-**Why wrong:** AST nodes (functions, classes) don't have stable URIs in v1.6 — requiring NOT NULL would either force URI generation for every AST node (expensive, semantically questionable) or break existing `_process_files` upserts that don't populate `uri`.
+**Why it's wrong:** Both touch `commands/scan.py`. The integration adds ~50 lines to `run_scan()`. Reviewing a hygiene fix buried inside a larger integration diff is error-prone and makes rollback harder.
 
-**Correct approach:** `uri TEXT` (nullable) in v1.6. UNIQUE constraint added in v1.7 after URI coverage is complete and validated.
+**Do this instead:** Hygiene as its own dedicated phase first. Integration builds on the clean result.
 
-### Anti-Pattern 5: Calling `_discover_manifests` a third time for entry points
+### Anti-Pattern 5: Hardcoding the graph-io DB path
 
-**What it looks like:** `entry_points.py` does its own full `repo_root.rglob("pyproject.toml")` scan independent of `packages.py`.
+**What people do:** `store.read_only_connect(Path.home() / ".graph-wiki" / "code.db")`.
 
-**Why wrong:** `packages.refresh` already scans manifests. A second full scan doubles I/O for no benefit.
+**Why it's wrong:** The canonical DB path is `workspace_io.paths.graph_dir(workspace) / "code.db"`. Hardcoding bypasses per-workspace path resolution and breaks multi-workspace setups.
 
-**Correct approach:** Either (a) `packages.refresh` returns the manifest data it already parsed and `entry_points.emit` consumes that data, or (b) both `packages.py` and `entry_points.py` call a shared `_discover_manifests` function that is already cached as a module-level concern. Option (a) is cleaner — `packages.refresh` returns `list[tuple[Path, dict]]` and `entry_points.emit(conn, manifest_data)` receives it. The caller in `update.py` is then:
-
-```python
-manifest_data = packages.refresh(conn, repo_root=repo_root)
-entry_points.emit(conn, manifest_data=manifest_data)
-```
-
----
-
-## Data Flow
-
-### `cg update --full` flow with all v1.6 additions
-
-```
-cg update --full
-    │
-    ▼
-update.run(repo_root)
-    │
-    ├── _head(repo_root)                         → head commit SHA
-    ├── _ignore.load_skip_dirs(repo_root)        → skip_dirs frozenset
-    ├── store.connect(db_path, create=True)      → conn  [schema v2 applied on create]
-    │
-    └── store.transaction(conn):
-            │
-            ├── _process_files(conn, ...)        → AST nodes + calls/imports/contains edges
-            │
-            ├── manifest_data = packages.refresh(conn, repo_root)
-            │                                    → Package nodes + old contains edges
-            │
-            ├── entry_points.emit(conn, manifest_data)
-            │                                    → EntryPoint nodes + declares_entry_point
-            │                                       + implemented_by edges
-            │
-            ├── structural_nodes.emit(conn, repo_root, skip_dirs)
-            │                                    → Repository node + SubPackage nodes
-            │                                       + File nodes with role flags
-            │                                       + physically_contains tree edges
-            │
-            ├── test_suites.emit(conn, repo_root, skip_dirs)
-            │                                    → TestSuite nodes
-            │                                       + re-parented physically_contains edges
-            │                                       + tests edges (suite → package/domain/repo)
-            │
-            ├── domains.emit(conn, repo_root)
-            │     ├── load_domains(repo_root / "domains.yaml")  → DomainConfig | None
-            │     └──                                           → Domain nodes
-            │                                                      + belongs_to_domain edges
-            │                                                      + domain_contains_domain edges
-            │
-            ├── [stale-node cleanup — existing, unchanged]
-            │
-            ├── resolve.sweep(conn)              → placeholder edges resolved
-            │
-            ├── derived_edges.compute(conn)
-            │     ├── clear existing references + depends_on edges
-            │     ├── walk imports edges filtered by domain membership
-            │     └──                           → references edges (Domain → Package)
-            │                                      + depends_on edges (Domain → Domain)
-            │
-            └── _set_metadata(conn, "last_indexed_commit", head)
-```
-
-### Query flow (read-only)
-
-```
-cg describe-domain billing
-    │
-    ▼
-cli/q_describe_domain.run(args)
-    │
-    ├── store.read_only_connect(db_path)          → conn (schema v2 check)
-    │
-    ├── queries.describe_domain(conn, name="billing")
-    │     ├── SELECT uri, attrs_json FROM nodes WHERE kind='domain' AND name='billing'
-    │     ├── SELECT pkg.name FROM edges + nodes WHERE kind='belongs_to_domain' AND dst=billing.id
-    │     ├── SELECT sub.name FROM edges + nodes WHERE kind='domain_contains_domain' AND src=billing.id
-    │     ├── SELECT ref.* FROM edges WHERE kind='references' AND src=billing.id
-    │     └── SELECT dep.* FROM edges WHERE kind='depends_on' AND src=billing.id
-    │
-    └── _format.render(result) → stdout
-```
+**Do this instead:** Always call `graph_dir(workspace_path)` from `workspace_io.paths`. This is the same resolution `cg` uses — maintaining a single source of truth for path semantics.
 
 ---
 
 ## Sources
 
-- `packages/graph-io/src/graph_io/schema.py` — existing DDL, current column set
-- `packages/graph-io/src/graph_io/update.py` — existing orchestration flow, transaction boundary, call sites
-- `packages/graph-io/src/graph_io/upsert.py` — `(kind, name, path)` identity model, `_upsert_node` signature
-- `packages/graph-io/src/graph_io/packages.py` — `_discover_manifests`, `refresh`, manifest scan pattern
-- `packages/graph-io/src/graph_io/resolve.py` — sweep logic, placeholder-node cleanup
-- `packages/graph-io/src/graph_io/queries.py` — existing query functions, `NodeRecord` dataclass pattern
-- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, `read_only_connect`
-- `packages/graph-io/src/graph_io/cli/main.py` — subcommand registry, `lattice` brand text locations
-- `packages/graph-io/src/graph_io/exit_codes.py` — `SCHEMA_MISMATCH = 4`, `UPDATE_IN_PROGRESS = 6`
-- `packages/graph-io/src/graph_io/sync_wiki.py` — isolation from v1.6 changes confirmed
-- `packages/graph-io/src/graph_io/_ignore.py` — `DEFAULT_SKIP_DIRS`, `should_skip` API consumed by new scanners
-- `packages/source-parser/src/source_parser/projections/graph.py` — `GraphNode.attrs` handoff point
-- `packages/workspace-io/src/workspace_io/paths.py` — `graph_dir()` — canonical DB location
-- `.planning/research/ONTOLOGY-SPEC.md` — node types, edge types, scanner pipeline, identity scheme
-- `.planning/research/STACK.md` — library decisions, URI module design, test framework detection approach
-- `.planning/research/FEATURES.md` — CLI surface decisions, anti-features, §10 query coverage
-- `.planning/PROJECT.md` — v1.6 scope, v1.7 deferral list, pipeline restructure explicitly deferred
+- Direct inspection: `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py` — sub-Typer pattern (`ingest_app`), full command list
+- Direct inspection: `agents/graph-wiki-agent/src/graph_wiki_mcp/server.py` — MCP tool naming convention (`wiki_*`), `@mcp.tool` pattern
+- Direct inspection: `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — agent-local `@tool read_file` precedent, librarian fan-out shape, `build_graph_tools` entry point pattern
+- Direct inspection: `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py` — `run_scan()` structure, `hfr`/`iws` hygiene overlap surface
+- Direct inspection: `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py` — ingestor structure, identity check integration point
+- Direct inspection: `packages/graph-io/src/graph_io/queries.py` — full public query API (find, callers, callees, describe_package, tests_for_package, domain_references, etc.)
+- Direct inspection: `packages/graph-io/src/graph_io/store.py` — `read_only_connect()` contract, `GraphNotInitializedError`, `SchemaMismatchError`
+- Direct inspection: `packages/graph-io/src/graph_io/cli/q_find.py` — current argparse shape (positional `name`, `--kind` option)
+- Direct inspection: `packages/graph-io/src/graph_io/cli/main.py` — 25-subcommand registry, `cg` dispatch pattern
+- Direct inspection: `packages/graph-io/src/graph_io/uri.py` — URI composition functions, `RepoContext`
+- Direct inspection: `packages/wiki-io/src/wiki_io/assets/page-templates/package/overview.md` — `{{CONTAINER_DIR}}` placeholder, file-map format (hygiene targets `i26`, `he3`)
+- Direct inspection: `packages/workspace-io/src/workspace_io/config.py`, `init.py` — `gc0`, `lj3` hygiene targets
+- Direct inspection: `.planning/STATE.md` — 10 deferred quick task IDs and descriptions
+- Direct inspection: `.planning/PROJECT.md` — v1.7 scope, hygiene-before-integration rationale, plugin boundary constraints, phase numbering start (Phase 35)
+- Direct inspection: `agents/graph-wiki-agent/pyproject.toml` — current dependency list (graph-io not yet listed)
 
 ---
-*Architecture research for: graph-io v1.6 ontology expansion (schema v2, URI identity, new node/edge types, additive scanner integration)*
-*Researched: 2026-05-25*
+*Architecture research for: v1.7 graph-io Integration & Wiki Hygiene*
+*Researched: 2026-05-26*

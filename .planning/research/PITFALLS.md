@@ -1,481 +1,434 @@
-# Pitfalls Research — v1.6 graph-io Ontology Expansion
+# Domain Pitfalls — v1.7 graph-io Integration & Wiki Hygiene
 
-**Domain:** SQLite code-graph store — additive ontology expansion (schema v2, URI identity, new node/edge types)
-**Researched:** 2026-05-25
-**Confidence:** HIGH (grounded entirely in the existing codebase + research files; no speculative claims)
+**Domain:** Wiring a structured graph store into an LLM agent (graph-io → graph-wiki-agent integration) + CLI ergonomics + bulk hygiene
+**Researched:** 2026-05-26
+**Confidence:** HIGH — grounded entirely in the existing codebase (query.py, cli/main.py, queries.py, q_find.py, RETROSPECTIVE.md, quick-plan transcripts)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Schema Bump Silently Accepted on Create Path
+### Pitfall 1: Over-Exposed @tool Surface Degrades Librarian Routing
 
 **What goes wrong:**
-`store.connect(db_path, create=True)` calls `schema.apply_schema(conn)` unconditionally, which upserts `schema_version` from `SCHEMA_VERSION`. If a developer bumps `SCHEMA_VERSION = 2` in `schema.py` but the DDL still only has `id, kind, name, path, line, attrs_json` (the `uri` column is missing from `_DDL_STATEMENTS`), `create=True` succeeds and writes `schema_version = 2` but the `uri` column does not exist. Any subsequent `upsert.py` code that tries to write to the `uri` column crashes with `OperationalError: table nodes has no column named uri`. The error message does not mention the schema version — it looks like a query bug, not a migration bug.
+The graph-io `queries.py` module supports ~15 distinct query shapes (find, callers, callees, imports, imported-by, exports, exported-by, describe-package, describe-path, describe-repo, list-packages, list-entry-points, list-suites, what-tests, list-domains, describe-domain, domain-refs, domain-deps, cross-cutting). The temptation is to expose each as its own `@tool` callable. Bedrock Converse (Claude models via `ChatBedrockConverse`) exhibits measurable degradation in tool selection quality above ~10 tools in a single call. With 15+ narrow tools, the librarian wastes turns routing through the wrong tool before finding the right one, and tool descriptions bleed into each other (every "describe-X" looks similar to the model). This is a known pattern in LangChain tool-binding literature and from the existing `code_reader` pattern in `query.py`.
 
 **Why it happens:**
-The `SCHEMA_VERSION` constant and the `_DDL_STATEMENTS` tuple are separate constructs. Bumping the constant does not automatically force the DDL to be correct. The `CREATE TABLE IF NOT EXISTS` guard means the column is never added to an existing table even if the DDL is later corrected — only fresh databases get the new column.
+The natural implementation instinct is 1-to-1 mapping: one `cg` subcommand → one `@tool`. Each tool has a small, accurate docstring. But narrow tools create a routing problem: the LLM must pick from a menu that grows linearly, and with graph-io's lexicon (`domain`, `package`, `repository`, `entry_point`, `test_suite`) the discriminating words are few and close together.
 
-**How to avoid:**
-`test_schema.py` must assert the `uri` column exists in the `nodes` table. Add this test to `test_schema.py` before writing any emitter code:
+**WARNING SIGN:** The librarian makes 2+ tool calls per query where each retrieves slightly different graph data. Or the librarian calls `describe_package` when it should have called `list_packages` first. Or tool call logs show repeated `find` + `describe_package` combos on every query regardless of question type.
+
+**PREVENTION:**
+Organize graph-io tools into 4-6 "broader" callables grouped by concern, not by `cg` subcommand:
+
 ```python
-def test_nodes_table_has_uri_column(conn):
-    schema.apply_schema(conn)
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(nodes)")}
-    assert "uri" in cols
+@tool
+def graph_find_symbol(name: str, kind: str | None = None) -> str:
+    """Find nodes in the code graph by name and optional kind.
+    Returns URI, path, and key attributes. kind can be: function, class,
+    file, package, domain, entry_point, test_suite."""
+    ...
+
+@tool
+def graph_describe(uri: str) -> str:
+    """Get full details for any graph node by its URI.
+    Works for any node kind: package, domain, file, entry_point, test_suite."""
+    ...
+
+@tool
+def graph_edges(uri: str, direction: str, edge_kind: str | None = None) -> str:
+    """Traverse edges from a node. direction: 'out' or 'in'.
+    edge_kind filters to: calls, imports, physically_contains, belongs_to_domain,
+    implements, tests."""
+    ...
+
+@tool
+def graph_list(kind: str, filter: str | None = None) -> str:
+    """List all nodes of a given kind, optionally filtered by name substring.
+    kind: package | domain | entry_point | test_suite | repository."""
+    ...
 ```
-Run `schema.apply_schema` + `PRAGMA table_info` as the first test. If the DDL lacks the column the test fails immediately, before any emitter is touched.
 
-**Warning signs:**
-`OperationalError: table nodes has no column named uri` during emitter tests; `test_schema_version_is_one()` still passes after bump (because the constant changed but the column assertion is absent).
+The existing `read_file` tool in `query.py` is the right model — one tool, descriptive docstring, broad enough to subsume multiple query patterns. Keep the total librarian graph-tool count at or below 5.
 
-**Phase to address:** Phase A (Foundation — `schema.py` + `store.py` + `uri.py`). This test must exist before Phase B emitters are written.
+**WHICH PHASE:** Phase covering "Librarian grounding tools" (the first integration phase). Design the tool surface before writing any implementation. If the tool count exceeds 6, split is required before proceeding.
 
 ---
 
-### Pitfall 2: `store.connect(create=True)` Does Not Version-Check Existing Databases
+### Pitfall 2: graph-io Returns Hundreds of Rows — LLM Context Overflow and Token Cost
 
 **What goes wrong:**
-`store.connect` in `store.py` (line 57-64) calls `schema.apply_schema(conn)` only when `create=True` AND the file does not previously exist. Looking at the code: when the file *does* exist and `create=True` is passed, the existing code path falls into the `else` branch (`_check_schema_version`). This means a dev who ran `cg update --full` on v1.5, then bumps to v1.6 code, calls `cg update --full` again — and `create=True` is passed — will hit `_check_schema_version`, get `SchemaMismatchError`, and the process exits. That is the intended behavior.
+`queries.list_packages` on this monorepo (7 workspace members) returns a small result, but the same call on a user's real repo might return 40+ packages with full `NodeRecord` attributes. `queries.find("main")` with `kind=None` can return dozens of matches (every function, method, and script named `main` in the entire graph). If the `@tool` callable serializes the full `NodeRecord` list to JSON and returns it in a `ToolMessage`, the librarian's context grows unboundedly. On Bedrock Converse, `ToolMessage.content` is treated as opaque text — there is no streaming or pagination at the protocol level. A single tool call returning 400 rows × 300 bytes each = 120KB of ToolMessage content, which: (a) blows the librarian's `max_tokens` allocation, (b) costs significantly more than the query itself, and (c) produces a context window where the LLM cannot meaningfully reason over the data.
 
-However, the `SCHEMA_MISMATCH` exit code (4) is declared in `exit_codes.py` but described in `README.md` as **"reserved — not yet enforced"**. The `cli/main.py` top-level exception handler may catch `SchemaMismatchError` and exit with code `1` (GENERIC) instead of code `4` if the handler is not wired correctly. A user sees exit code 1, reads the error message (if it surfaces), and the README says exit code 4 is not enforced yet — so they have no reliable automation gate.
+The existing pattern in `query.py` already handles this for page content via the `24000` char truncation guard and `60000` excerpt cap — but those are vault page guardrails, not graph-io query guardrails.
 
 **Why it happens:**
-The wiring between `SchemaMismatchError` (raised in `store.py`) and the `SCHEMA_MISMATCH = 4` exit code (in `exit_codes.py`) does not exist yet. The README comment was written to flag this; it was never closed.
+`queries.py` returns Python dataclasses. The natural serialization path is `json.dumps([dataclasses.asdict(r) for r in records])`. This is correct for the `cg` CLI (human-readable output) but destructive in an LLM tool context because it reveals implementation details (internal IDs, raw `attrs_json` fields, `line: null` for 80% of rows) that the model does not need and cannot filter.
 
-**How to avoid:**
-In `cli/main.py`, add a handler:
+**WARNING SIGN:** Tool call response logging shows `ToolMessage.content` exceeding 8000 characters. Or librarian traces show high `tokens_in` values (>3000) for a single tool-call round-trip on a list query. Or the librarian hallucinates node attributes that were not in the summary but were in the raw data (meaning it read the raw dump and partially misremembered).
+
+**PREVENTION — four-level strategy:**
+
+1. **Return summaries by default, not full records.** For list queries, return `name: str, uri: str, kind: str` triples only. For describe queries, return only human-salient fields (name, uri, path, key attrs). Strip internal IDs, sqlite rowids, attrs_json blobs.
+
+2. **Hard cap at 50 rows.** Any `@tool` callable that calls a list query must cap the result at `MAX_ROWS = 50` and append a `"[X more results — narrow the query with a kind or name filter]"` suffix if truncated.
+
+3. **Return plain text, not JSON.** The `_format.render(records, fmt="human")` function already exists in `graph_io.cli._format`. Use it. Plain prose summaries are more LLM-friendly than JSON on Bedrock Converse. Return format example:
+   ```
+   package  auth-service  pkg:org/repo/auth-service  packages/auth/
+   package  billing       pkg:org/repo/billing         packages/billing/
+   [3 more — use graph_describe(uri) for details]
+   ```
+
+4. **Use `fmt="json"` only when the caller explicitly needs machine-parseable URIs.** The URI is the only field the librarian needs to identify a node — once it has the URI it calls `graph_describe(uri)` for details. This naturally prevents one fat tool call from returning everything.
+
+**WHICH PHASE:** Same phase as Pitfall 1. This is a co-design constraint — the tool surface and the return format must be decided together before writing any implementation.
+
+---
+
+### Pitfall 3: ToolMessage.content Format — Bedrock Converse Rejects Non-String Content
+
+**What goes wrong:**
+LangChain's `ToolMessage` accepts `content: str | list`. When a `@tool` callable returns a Python dict or list, LangChain's `ChatBedrockConverse` serializes it differently depending on the `langchain-aws` version. In `langchain-aws ≥ 1.4` (current: 1.4.6), returning a `dict` from a `@tool` callable causes the Converse API to receive `toolResult.content` as a JSON blob string — which is valid. However, returning a Pydantic model instance causes `ToolMessage.content` to serialize as the model's `__str__` representation (the human-readable form), not as structured JSON. This is inconsistent behavior that was introduced with the Converse API's `toolResult` shape.
+
+The existing `read_file` tool in `query.py` avoids this by always returning `str`. That is the safe contract.
+
+**Why it happens:**
+The `@tool` decorator in `langchain_core` infers the return type from the function annotation. If the annotation is `-> list[NodeRecord]`, LangChain tries to serialize it via its `_stringify` helper, which may call `str()` on a dataclass rather than `json.dumps(dataclasses.asdict(...))`.
+
+**WARNING SIGN:** Bedrock raises `ValidationException: Malformed input...` or `InvalidRequestException` on the tool-use response. Or the model receives garbled content like `NodeRecord(kind='package', name='auth-service', ...)` as a literal string when it expected field-value data.
+
+**PREVENTION:**
+All `@tool` callables for graph-io must have explicit `-> str` return type annotations and must convert all graph-io records to plain text before returning. The tool callable owns the serialization; it must never return a dataclass, Pydantic model, or list thereof.
+
 ```python
-except store.SchemaMismatchError as exc:
-    print(str(exc), file=sys.stderr)
-    sys.exit(exit_codes.SCHEMA_MISMATCH)
+@tool
+def graph_find_symbol(name: str, kind: str | None = None) -> str:
+    """..."""
+    records = queries.find(conn, name=name, kind=kind)
+    if not records:
+        return "No results found."
+    lines = [f"{r.kind}  {r.name}  {r.attrs.get('uri', '?')}  {r.path or '?'}"
+             for r in records[:50]]
+    if len(records) > 50:
+        lines.append(f"[{len(records) - 50} more — narrow your query]")
+    return "\n".join(lines)
 ```
-Add a test in `test_cli_exit_codes.py` that seeds a DB with `schema_version=999`, runs a `cg find` command, and asserts exit code `4`. This closes the README "reserved" comment and validates the full wiring path.
 
-**Warning signs:**
-`cg find foo` on a v1.5 DB after v1.6 upgrade exits 1 (GENERIC) instead of 4. The README still says `SCHEMA_MISMATCH` is "not yet enforced" after Phase A lands.
+This pattern mirrors `read_file`'s `return str` contract exactly and avoids the serialization ambiguity.
 
-**Phase to address:** Phase A (Foundation). Update README and wire exit-code handler together in one commit so they stay in sync.
+**WHICH PHASE:** First integration phase. Lock return type in the `@tool` wrapper layer before any tool is bound to the librarian LLM.
 
 ---
 
-### Pitfall 3: User Downgrades Back to v1.5 Branch — Their DB Has `schema_version=2`
+### Pitfall 4: URI Identity Drift — graph-io Rebuild Mid-Agent-Run Invalidates Librarian's URIs
 
 **What goes wrong:**
-A developer working on the v1.6 branch runs `cg update --full`, which writes `schema_version=2` to their `code.db`. They switch back to the `main`/v1.5 branch. Now `SCHEMA_VERSION = 1` in the v1.5 code, but the DB has `schema_version=2`. Every `cg` command fails with `SchemaMismatchError`. The user must delete `code.db` and re-run `cg update --full` on the v1.5 branch.
+The librarian fan-out in `run_query` runs `SubagentPool.run_all` over `top_pages` — this takes several seconds with 5 concurrent librarian calls. If the user (or a concurrent process) runs `cg update --full` during that window, the graph DB is rebuilt with a fresh SQLite file (write-lock during rebuild, then atomic rename). After `--full`, all `Repository` and `SubPackage` nodes get new sqlite `id` values (autoincrement resets). But the `uri` TEXT column is stable across rebuilds — `pkg:org/repo/auth-service` stays `pkg:org/repo/auth-service`. So URIs as identity strings are rebuild-safe.
 
-This is not a bug — full rebuild on version mismatch is the documented contract. But it is a sharp developer experience edge that will happen on every branch switch between v1.5 and v1.6 during development.
+**However:** the scanner consuming graph-io in v1.7 runs a separate process from the librarian. The scanner calls `cg update` (incremental) to ensure the graph is fresh before scanning. If the scanner's `cg update` runs while a librarian fan-out is in progress (both called from `run_scan` + `run_query` in rapid succession), the SQLite write lock (`GRAPH_WIKI_LOCK_TIMEOUT_MS` controls this) causes the librarian's graph queries to either block or fail with a lock timeout error.
+
+A subtler form: the librarian holds a `conn = store.read_only_connect(db)` for the duration of the tool call. If `--full` runs concurrently, the rebuild creates a new `code.db` via a temp file + atomic rename. The librarian's open connection is on the *old* inode — it continues to read stale data without error. The page the librarian just grounded via `pkg:org/repo/auth-service` may refer to nodes that no longer exist in the new DB. The librarian's tool calls succeed but are answering from pre-rebuild data.
 
 **Why it happens:**
-Mandatory full-rebuild on schema mismatch is the intentional design. The DB is disposable. But developers forget and get confused by a seemingly broken tool.
+SQLite WAL mode supports concurrent readers with one writer. But `cg update --full` uses `store.connect(create=True)` which drops and recreates tables — not a WAL write. The lock pattern is: exclusive lock for DDL operations, then release. Readers in WAL mode on the old checkpoint can continue reading the old snapshot; they are not notified that a rebuild occurred.
 
-**How to avoid:**
-Add a one-line note to the `SchemaMismatchError` message: `"run 'cg update --full' to rebuild (safe to delete code.db manually)"`. Update `README.md` exit code table to say `SCHEMA_MISMATCH` is now enforced. No code workaround needed — the design is correct. The documentation fix is the mitigation.
+**WARNING SIGN:** Librarian produces a tool call result with a URI like `pkg:org/repo/old-service` that does not exist in the current graph (the package was renamed between scan and query). Or scan + query pipeline reports a "graph last updated 2 runs ago" warning because the scanner's `cg update` call was blocked by a lock timeout mid-fan-out.
 
-**Warning signs:**
-PR review feedback: "all my cg commands broke when I switched back to main." The message is confusing because it says "expected 1, found 2" and the user does not know why their DB has version 2.
+**PREVENTION:**
 
-**Phase to address:** Phase A. When `SchemaMismatchError` message is finalized, include the delete-and-rebuild advice.
+1. **Single-writer contract:** the `graph-wiki-agent` commands must serialize graph updates. `run_scan` and `run_ingest` should be the only commands that call `cg update`. `run_query` must be read-only. The scan command acquires the graph lock, runs the update, releases it. Query commands use `store.read_only_connect()` exclusively.
+
+2. **Open graph connection once per command, not per tool call.** The `@tool` callable must close over a single read-only `conn` opened at command entry. Do not open and close the connection on each tool invocation — this creates a window where the DB can be swapped between calls. Closing over a single conn ensures the librarian reads a consistent snapshot for the duration of its fan-out.
+
+3. **URI stability is the correct identity layer.** Do not use sqlite `id` integers in any tool return value. Only return `uri` strings. Then if a full rebuild occurs between a tool call and the agent's next action, the URI-keyed data is still meaningful.
+
+**WHICH PHASE:** Integration phase for scanner + librarian. The connection-lifetime and write-lock contract must be documented as part of the integration design, not retrofitted after the fact.
 
 ---
 
-### Pitfall 4: `upsert.py` URI Field Is Never Written Because `_upsert_node` Does Not Read `node.attrs["uri"]`
+### Pitfall 5: `cg find` Positional Argument — `args.name` Is Currently `parser.add_argument("name")` (Positional)
 
 **What goes wrong:**
-The architecture plan puts URI generation in emitter modules: they set `node.attrs["uri"] = uri_fn(...)` before calling `upsert.upsert_records`. But `_upsert_node` in `upsert.py` currently writes `attrs_json = _serialize(node.attrs)` into the `attrs_json` column and `line` into the `line` column. It has no special handling for `uri`. After adding the `uri` column to the DDL, if `_upsert_node` is not updated to extract `uri` from `node.attrs` and write it to the `uri` column separately, then: (a) the `uri` column stays NULL for all emitted nodes, and (b) the `uri` value is duplicated inside `attrs_json` — wasting storage and making `SELECT WHERE uri=?` ineffective.
+The current `q_find.py` uses `parser.add_argument("name")` — a positional argument. All callers (both `cg find foo.py` and any internal test callsites) pass `name` as `argv[1]`. The v1.7 milestone's "parser ergonomics" goal is to make `cg find` support `--name foo.py --kind file` (named flags), presumably to improve shell quoting and to mirror the rest of the `cg` command surface (all other commands use named flags for their primary arguments).
+
+If a new `--name` flag is added alongside the positional, both syntaxes parse — but `argparse` will reject invocations that provide both. If the positional is removed, `cg find foo.py --kind file` (the current form) silently breaks — `foo.py` becomes an unrecognized argument.
+
+Single-user repo means there is no backwards-compat obligation beyond fixing internal callers. The risk is not user breakage — it is that internal test callsites (any test that calls `q_find.run(args)` with `args.name = "foo"` constructed by the test fixture) break silently because the test fixtures bypass the parser entirely.
 
 **Why it happens:**
-`GraphNode` is defined in `source_parser/projections/graph.py` and does not have a `uri` field — it has only `kind, name, path, line, attrs`. Adding a first-class field to `GraphNode` would require touching source-parser. The tempting shortcut is to bury `uri` in `attrs` and never wire it through to the column.
+Tests that call `run(args)` directly by constructing an `argparse.Namespace` object (`args = argparse.Namespace(name="foo.py", kind="file", workspace=..., fmt="human")`) will not break — they bypass the parser. But tests that call `main(["find", "foo.py", "--kind", "file"])` will break when the positional is removed. The break is not silent if the test asserts a specific return code, but if a test only asserts the return type and not the exit code, it may hide the failure.
 
-**How to avoid:**
-Two acceptable approaches: (a) extend `GraphNode` with an optional `uri: str | None = None` field in `source_parser/projections/graph.py` — cleanest at source; or (b) keep `uri` in `node.attrs` and make `_upsert_node` pop it out before serializing `attrs_json`:
-```python
-uri = node.attrs.pop("uri", None)
-# write uri to uri column, rest to attrs_json
-```
-Option (b) avoids touching source-parser. Use option (b) for v1.6 to preserve package boundary. Add a test in `test_upsert.py` asserting that a node with `attrs={"uri": "pkg:org/repo/name", "version": "1.0"}` produces `uri="pkg:org/repo/name"` in the column and `attrs_json` without the `uri` key.
+**WARNING SIGN:** `cg find foo.py --kind file` returns exit 2 (argparse error) after the positional is removed. Or test suite shows 0 new failures after the change (meaning no tests called `main(["find", "foo.py"])` directly — good, but it does not prove no regressions).
 
-**Warning signs:**
-`SELECT uri FROM nodes WHERE kind='package'` returns all NULLs after an update; `SELECT attrs_json FROM nodes WHERE kind='package'` contains `"uri": "pkg:..."` — the value is in the wrong column.
+**PREVENTION:**
+Single-commit break-and-fix:
+1. Change `parser.add_argument("name")` to `parser.add_argument("--name", required=True)` in `q_find.py`.
+2. Grep for all internal callers: `grep -rn '"find"' packages/graph-io/tests/`. Update any `main(["find", "foo.py"])` to `main(["find", "--name", "foo.py"])`.
+3. Add a smoke test: `main(["find", "--name", "SubagentPool", "--kind", "class"])` → exit 0 or exit 1 (not-found), not exit 2 (argparse parse error).
+4. The old positional form `cg find foo.py` must produce a clear parse error, not silent wrong behavior.
 
-**Phase to address:** Phase A (`upsert.py` extension). Test in `test_upsert.py` must fire before any emitter code is written.
+Single-user project: document the breaking change in the phase SUMMARY.md but do not create a migration alias.
+
+**WHICH PHASE:** The dedicated `cg find` ergonomics phase (or folded into hygiene). Change in one commit, test update in the same commit. Do not split across phases.
 
 ---
 
-### Pitfall 5: `resolve.sweep` Deletes New Structural Nodes Because Their `path IS NULL`
+### Pitfall 6: `graph-wiki-agent graph` Subcommand vs `cg` CLI — Feature Drift Between Two Surfaces
 
 **What goes wrong:**
-`resolve.py` (line 50-56) deletes nodes where `path IS NULL AND kind != 'package' AND id NOT IN (SELECT dst FROM edges)`. In v1.6, `Repository` nodes and `Domain` nodes will have `path=NULL` (they have no filesystem path — they are purely logical). If a `Repository` node has no incoming edges from other tables at the time `resolve.sweep` runs, it will be deleted as a "spurious placeholder."
+v1.7 adds a `graph-wiki-agent graph build|describe|query` subcommand. This surface mirrors `cg update|describe-*|find` but adds agent-aware features (cost tracking, model selection, trace output). Within 2 milestones, the two CLIs diverge: `cg describe-domain` gains a new `--with-deps` flag; `graph-wiki-agent graph describe` does not get it. Users ask "why does `cg` support X but `graph-wiki-agent graph` doesn't?" — two maintenance surfaces for the same underlying data.
 
-Currently, `physically_contains Repository → Package` edges exist with the Repository as the source (`src`), not the destination (`dst`). The cleanup query only protects nodes that appear as `dst` in some edge. A `Repository` node that is only a `src` and never a `dst` will be silently deleted.
-
-**Why it happens:**
-The existing cleanup logic was written for AST-only placeholder nodes (e.g., a function called but not yet parsed — it has `path=NULL` and will have an incoming `calls` edge as `dst`). It does not anticipate structural nodes that are sources of edges but not destinations.
-
-**How to avoid:**
-Change the cleanup query to exclude all new structural/conceptual node kinds:
-```sql
-DELETE FROM nodes WHERE path IS NULL
-  AND kind NOT IN ('package', 'repository', 'domain', 'test_suite', 'entry_point')
-  AND id NOT IN (SELECT dst FROM edges)
-```
-Add a test in `test_resolve.py` or `test_structural_nodes.py` that seeds a `Repository` node with `path=NULL` and a `physically_contains` edge from it to a `Package`, runs `resolve.sweep`, and asserts the `Repository` node still exists after the sweep.
-
-**Warning signs:**
-After `cg update --full`, `cg describe-repo` returns "not found." `SELECT COUNT(*) FROM nodes WHERE kind='repository'` returns 0 after update.
-
-**Phase to address:** Phase B (Structural Nodes). The `resolve.py` guard must be extended the moment `Repository` nodes are emitted. Add the test to Phase B's success criteria.
-
----
-
-### Pitfall 6: `test_suites.emit` Re-Parenting Deletes All `physically_contains Package → File` Edges For Test Files, Breaking Incremental Updates
-
-**What goes wrong:**
-The spec requires test files to be re-parented from `Package → physically_contains → File` to `TestSuite → physically_contains → File`. The implementation deletes the `Package → File` edge and inserts a `TestSuite → File` edge. On a full rebuild this works cleanly. On an incremental update (`cg update` without `--full`), only changed files are re-processed. If a test file is unchanged between runs, `_process_files` does not re-upsert it. `packages.refresh` re-emits `Package → contains → File` edges for all files under the package prefix (including unchanged test files — see `_file_nodes_under` in `packages.py`). If `test_suites.emit` runs after `packages.refresh` and deletes the test containment edges and creates suite-containment edges, the result is correct. But if someone adds `test_suites.emit` before `packages.refresh`, test files get re-parented to suites and then immediately re-parented back to the package by `packages.refresh`.
+The v1.2 retrospective explicitly warns about this pattern: "avoid parallel surfaces over the same helpers that drift." The `wiki_io` / `workspace_io` / `graph_io` layer should be called by both CLIs, but the agent CLI must not re-implement graph-io query logic.
 
 **Why it happens:**
-Call order in `update.py` matters. The architecture spec correctly says `test_suites.emit` runs after `packages.refresh`, but this ordering constraint is implicit and fragile under refactoring.
+`graph-wiki-agent graph` is built by an LLM following a spec that says "mirror `cg` patterns." Without an explicit constraint, the implementer adds convenience flags that seem natural at implementation time and are not in `cg`. Each addition is small; the cumulative drift is the problem.
 
-**How to avoid:**
-Document the ordering constraint with a comment in `update.py` directly above the call sequence. Add a test in `test_suites.py` that (a) runs `packages.refresh` then `test_suites.emit` and (b) asserts that after both calls, test files have exactly one `physically_contains` edge (from `TestSuite`, not from `Package`). This test will fail if the order is inverted. The stale-node cleanup block in `update.py` (which currently deletes `kind != 'package' AND path IS NOT NULL AND path NOT IN (tracked_paths)`) should also exclude `TestSuite → File` edges from deletion on incremental runs.
+**WARNING SIGN:** Phase SUMMARY for the `graph` subcommand shows more than 3 flags per subcommand that do not have a direct equivalent in `graph_io.cli`. Or `graph-wiki-agent graph query` does something `cg` does not (e.g., returns formatted markdown instead of plain text). Or a future phase touches both `cg` and `graph-wiki-agent graph` to add the same feature.
 
-**Warning signs:**
-`cg describe-package auth` shows test files in its file list (they should be excluded post-v1.6). `SELECT kind, name FROM nodes WHERE kind='test_suite'` returns suites but `SELECT * FROM edges WHERE kind='physically_contains'` shows suites have no file children.
+**PREVENTION:**
+`graph-wiki-agent graph` must be a thin wrapper: it calls `graph_io.cli.main([...])` internally or calls the same `graph_io.queries.*` functions that `cg` calls, with exactly the same argument semantics. No new flags that are not in `cg`. The only additions allowed are: `--trace` (to write a cost trace), `--model` (to specify the Bedrock model for the `query` subcommand's LLM reasoning step). Document this constraint in the phase plan as a hard constraint.
 
-**Phase to address:** Phase C (EntryPoint + TestSuite). The ordering test must be part of Phase C acceptance criteria.
+**WHICH PHASE:** `graph-wiki-agent graph` subcommand phase. Enforce at plan-writing time, not at code-review time.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 7: URI Collisions for Packages With the Same Name in Different Repos
+### Pitfall 7: Hygiene Phase — 10+ Small Touches on Overlapping Files Creates Ordering Regressions
 
 **What goes wrong:**
-`pkg_uri(org, repo, pkg_name)` produces `pkg:org/repo/name`. Two different packages named `auth` in two different repos get different URIs because `repo` differs. But within a single multi-package repo, if two packages somehow share a `name` field in their `pyproject.toml` (e.g., both declare `name = "utils"`), they collide on URI. The `uri` column is not declared `UNIQUE` in v1.6, so no constraint fires — the second package silently overwrites the first package's URI in the `nodes` row (depending on upsert behavior), or they get separate rows with the same URI value.
+The hygiene phase touches at least 10 separate items (`hfr`, `i26`, `he3`, `i35`, `iws`, `kxi`, `ans`, `gc0`, `lj3`, `mfm`, bootstrap interactive flag, bootstrap stub categories). Several of these touch the same files:
+- `hfr` (scanner wikilink prefix) + `he3` (file-map format) both touch `commands/scan.py`
+- `i26` ({{CONTAINER_DIR}} template var) + `iws` (overview page renames) both touch wiki-io templates
+- `mfm` (uv re-exec bootstrap) + bootstrap interactive flag both touch plugin scripts
+
+If the hygiene plans are executed as separate parallel worktree commits (as was done for v1.2 Phase 12 brand sweep), changes to the same file in different plans will produce merge conflicts. If executed sequentially without careful ordering, an earlier fix can be silently reverted by a later fix to the same file (the "undo" anti-pattern from v1.2 Phase 16 code review: "a code review that produces issues without a fix plan is review-as-documentation, not review-as-gate").
 
 **Why it happens:**
-Package names in Python are not enforced to be unique within a monorepo at the language level. Two packages in `packages/auth/utils/` and `packages/billing/utils/` can both declare `name = "utils"` in their pyproject.toml. The current `(kind, name, path)` identity in `upsert.py` keeps them separate (different `path`), but the URI `pkg:org/repo/utils` would be the same for both.
+The hygiene items are logically independent but physically overlapping. When a plan writer assigns items to separate plans without checking which files each item touches, merge conflicts or silent reversions are the natural outcome.
 
-**How to avoid:**
-In `uri.py`, `pkg_uri` must incorporate the package's path relative to repo root, not just its name: `f"pkg:{org}/{repo}/{rel_path}"` where `rel_path` is the relative directory of the manifest (already available in `packages.py` as `rel_prefix`). This is already implied by the architecture spec but must be explicitly verified. Add a test in `test_uri.py` with two packages in the same repo: assert their URIs differ even if their names are the same.
+**WARNING SIGN:** Phase plan for hygiene shows any two items touching the same file in different plan waves without an explicit "Plan B depends on Plan A complete" dependency edge. Or the phase verification shows test failures in scan-related tests after the `iws` plan ran — which touched the scanner's template output expectations.
 
-**Warning signs:**
-`cg list-packages` shows only one `utils` package when two exist. `SELECT uri, COUNT(*) FROM nodes WHERE kind='package' GROUP BY uri HAVING COUNT(*) > 1` returns rows.
+**PREVENTION:**
+1. Before writing any plan, produce a file-touch matrix: `item × file`. Items that share any file must be in the same plan or must be in sequentially-ordered plans with an explicit dependency.
+2. Execute hygiene plans in a single wave (one plan per logical file cluster), not as parallel worktrees. The v1.2 brand sweep worked in parallel because each sweep wave touched disjoint file sets. The hygiene items here do not have disjoint file sets.
+3. Run the full test suite after each plan — not just the tests for the affected subsystem. Hygiene items often change output formats that affect snapshot tests in other subsystems.
 
-**Phase to address:** Phase A (uri.py design). Fix in `uri.py` before any emitter generates package URIs.
+**WHICH PHASE:** Hygiene phase planning step. The file-touch matrix must be produced before any plan is assigned a wave number.
 
 ---
 
-### Pitfall 8: `EntryPoint.implemented_by` Edge Points to a Non-Existent Function Node When Module:Callable Is Used
+### Pitfall 8: Hygiene Phase — wiki-io Template Changes Break Plugin Without a Verification Path
 
 **What goes wrong:**
-Python entry points like `auth.cli:main` mean the callable `main` in module `auth.cli`. The `implemented_by` edge from `EntryPoint → Function` requires a `Function` node named `main` with `path = "src/auth/cli.py"` to exist in the DB. If `_process_files` has not yet parsed `cli.py` (e.g., in a partial update where `cli.py` did not change), the `Function` node may not exist. `entry_points.emit` would create a placeholder node for `main` with `path=None` and emit an `implemented_by` edge pointing at it.
+The hygiene items `hfr` (scanner wikilink prefix), `i26` ({{CONTAINER_DIR}} template variable), `he3` (file-map format), `i35` (testing.md subpage), and `iws` (overview page renames) all touch `wiki-io` template output that the `plugins/graph-wiki/` plugin consumes via its shim scripts. The plugin calls wiki-io via `uv run --project ...` and parses the output in its Claude Code SKILL.md prompts (which reference field names like `## File map` and `## Overview`). If a hygiene item renames or reformats these outputs without updating the plugin's SKILL.md content and prompts, the plugin silently starts producing wrong output.
 
-`resolve.sweep` then tries to resolve the placeholder by looking for a node with `kind='function', name='main', path IS NOT NULL`. If there are multiple functions named `main` across different files, the resolution is `ambiguous` — the edge ends up pointing at the wrong file.
+The constraint from v1.2 (Phase 13 CONTRACT-INDEX.md): the plugin runs on Claude Code inference and is NOT a wrapper around `graph-wiki-agent`. wiki-io changes that affect the plugin's input format are the plugin's responsibility to track — but there is no automated CI gate for this. The Phase 14 SC#4 plugin smoke transcript was never captured (carried since v1.2 close — see MILESTONES.md).
 
 **Why it happens:**
-The callable resolution problem exists for any cross-file edge (it is exactly what `resolve.sweep` is built for). But `main` is a common function name, making the ambiguity scenario likely.
+Wiki-io templates are Python string constants that produce structured markdown. The plugin's SKILL.md prompts reference these structures by section name. There is no schema contract between the two — it is a convention enforced only by manual smoke tests.
 
-**How to avoid:**
-When parsing `module:callable` in `entry_points.py`, qualify the target: use `path` directly rather than `name`-only resolution. The module `auth.cli` can be converted to a path (`src/auth/cli.py`) by looking up the package's root path and applying Python's module-to-path mapping. If the Function node is found by `(kind='function', name='main', path='src/auth/cli.py')` the edge is unambiguous. If path resolution fails, fall back to a `File`-level `implemented_by` edge (less precise but not wrong). Add a test in `test_entry_points.py` with two packages that both have a function named `main`; verify the `implemented_by` edge targets the correct file, not both.
+**WARNING SIGN:** After hygiene, running the plugin's `/graph-wiki:scan` command produces pages where the `## File map` section is missing or has changed structure. The test `test_layout_io.py` passes (because layout_io round-trips correctly), but the *contents* that layout_io preserves are wrong because the generator changed.
 
-**Warning signs:**
-`cg list-entry-points auth` shows `implemented_by: billing/cli.py:main` (wrong package). `SELECT attrs_json FROM edges WHERE kind='implemented_by'` shows `resolution: ambiguous`.
+**PREVENTION:**
+1. Before touching any wiki-io template, run a manual smoke test against the actual `~/Personal/graph-wiki/agent-research` vault: `graph-wiki-agent scan --workspace ~/Personal/graph-wiki/agent-research`. Capture a before-sample of any page that will be affected.
+2. After the hygiene item, run the same command and diff the output against the before-sample. Only accept the change if the diff is exactly the intended change.
+3. The Phase 14 SC#4 missing smoke transcript must be captured at the end of the hygiene phase. This is the regression baseline for the plugin's end-to-end happy path.
 
-**Phase to address:** Phase C (entry_points.py). Path-qualified lookup must be the default strategy.
+**WHICH PHASE:** Hygiene phase. Each wiki-io template touch must include a "before/after scan sample" verification step. Do not accept "tests pass" as sufficient — the plugin's Claude Code inference is outside CI.
 
 ---
 
-### Pitfall 9: `domains.yaml` Package Name Refers to Package `name` Field, Not Directory Name
+### Pitfall 9: `ans` ANSI Fix — `CliRunner` vs `subprocess.run` vs `NO_COLOR` Env
 
 **What goes wrong:**
-`domains.yaml` lists packages by name (e.g., `packages: [auth-service]`). In `domains.py`, `belongs_to_domain` edges are wired by looking up nodes with `kind='package', name='auth-service'`. But the directory on disk may be `packages/auth/` with `pyproject.toml` declaring `name = "auth"` — not `auth-service`. A developer writing `domains.yaml` who looks at the directory structure and types the directory name will get a silent no-match: no error is raised (by design — `domains.py` warns and skips unknown package names). The domain looks empty when queried.
+The `260521-ans` PLAN already chose a specific mitigation: `NO_COLOR=1`, `TERM=dumb`, `COLUMNS=200` passed to every `subprocess.run([..., "--help"])` call. This is the right decision (per the plan's "Why not a different fix?" section). The risk at execution time is that the implementer uses `typer.testing.CliRunner` instead of `subprocess.run`, which has a different ANSI behavior.
+
+`CliRunner` from Click/Typer invokes the app in-process. It respects `mix_stderr=False` and has its own `color` argument. However, Rich's ANSI output is driven by the TTY detection, not solely by Typer's runner. `CliRunner` with `mix_stderr=False` still allows Rich to emit ANSI codes if the `TERM` environment is not controlled. The result: using `CliRunner` without env overrides still produces ANSI-bearing output that breaks word-boundary regexes.
+
+The `NO_COLOR=1` env var approach (chosen in the plan) is the only approach that works for both subprocess and in-process invocations because Rich respects the `no-color.org` convention at its initialization stage.
 
 **Why it happens:**
-The package `name` field in `pyproject.toml` and the directory name often differ in real monorepos. `domains.yaml` requires the `name` field value, not the directory name, but this is not obvious to a new user.
+A developer fixing the 5 failing tests opens the test files, sees `subprocess.run`, thinks "I can simplify this with CliRunner" (it does not spawn a subprocess), and switches to CliRunner without setting `env={"NO_COLOR": "1"}`. The tests still fail because Rich still emits ANSI in CliRunner mode without the env override.
 
-**How to avoid:**
-`domains.emit` must print a warning to stderr for each unresolved package name, including the list of known package names as a hint:
-```
-warning: domains.yaml: package 'auth-service' not found; known packages: auth, billing, utils
-```
-Add a test in `test_domains.py` that verifies this warning fires for an unknown name. Document the convention in README (package name = `pyproject.toml [project].name`, not directory name).
+**WARNING SIGN:** After the fix, 3 of 5 tests pass but 2 still fail. Or the fix introduces `CliRunner` but does not set `color=False` and the env override.
 
-**Warning signs:**
-`cg list-domains` shows a domain with 0 packages. No error was raised. Developer checks `domains.yaml` and it looks correct.
+**PREVENTION:**
+The `260521-ans` PLAN is already written correctly. Execute it as written:
+- `NO_COLOR=1` + `TERM=dumb` + `COLUMNS=200` in `env={**os.environ, ...}` passed to every `subprocess.run` call.
+- Do NOT switch to `CliRunner` — the plan explicitly ruled this out.
+- Verify: 5 specific tests listed in the plan pass, snapshot count unchanged.
 
-**Phase to address:** Phase D (domains.py). Warning message is part of Phase D's acceptance criteria.
+**WHICH PHASE:** Hygiene phase (this is quick-task `260521-ans`). Execute as the pre-written plan specifies. No deviation.
 
 ---
 
-### Pitfall 10: Convention-Based Domain Inference Classifies `tests/` Subdirectories as Domain Candidates
+### Pitfall 10: `mfm` Bootstrap Self-Healing uv Re-Exec — Loop Prevention and env Hygiene
 
 **What goes wrong:**
-Convention-based domain inference (spec §9 strategy 2) treats top-level named folders as domain candidates and skips generic folders (`packages/`, `libs/`, `shared/`). But the skip list must also exclude `tests/` (and its immediate subdirectories). A repo with `tests/billing/` at the root would produce a spurious `Domain(billing)` node from convention inference if `tests/` is not explicitly excluded. Worse, the inference would also produce `Domain(integration)` from `tests/integration/` — a common layout pattern.
+The `260521-mfm` PLAN implements a `GRAPH_WIKI_SHIM_REEXEC` guard to prevent infinite re-exec loops. Three failure modes not covered by the plan's verification steps:
+
+1. **`uv` not on PATH for the re-exec environment.** `os.execvpe("uv", [...], new_env)` uses the env dict passed to it — which is `{**os.environ, "GRAPH_WIKI_SHIM_REEXEC": "1"}`. If the user's PATH is in `os.environ`, `uv` is findable. But if the script is called from a subprocess where PATH is stripped (e.g., from a CI runner that sets a minimal env), `os.execvpe` raises `FileNotFoundError: [Errno 2] No such file or directory: 'uv'`. The plan says "if uv is not on PATH, the OSError will surface with a clear message" — which is acceptable behavior, but the error message will say `[Errno 2] No such file or directory` without context about what failed.
+
+2. **Walk-up search finds the wrong `packages/wiki-io/pyproject.toml`.** If the script is invoked from a different repo that also happens to have a `packages/wiki-io/` directory in its parent tree (unlikely but possible in nested workspace setups), the walk-up finds the wrong project. The re-exec then uses the wrong `wiki_io` installation, and the import succeeds but produces wrong behavior without any error.
+
+3. **`sys.argv[0]` is not an absolute path.** When a shim is invoked as `python detect_containers.py` (relative path) from a different working directory, `sys.argv[0]` is `"detect_containers.py"` — a relative path. The re-exec calls `os.execvpe("uv", ["uv", "run", "--project", ..., "python", "detect_containers.py", ...], env)`. If `uv run python detect_containers.py` is invoked from a different cwd than where the script lives, Python cannot find `detect_containers.py`. The fix: use `Path(sys.argv[0]).resolve()` or `__file__` instead of `sys.argv[0]` as the script path in the re-exec.
 
 **Why it happens:**
-The spec says "generic containers (`packages/`, `libs/`, `tests/`) explicitly NOT modeled," but the implementation of convention inference must explicitly enumerate which folder names to skip. It is easy to include the exclusion logic for `packages/` and forget `tests/`.
+The plan's Task 3 end-to-end smoke test only verifies the happy path from the repo root. The `sys.argv[0]` relative-path edge case is easy to miss because local testing always runs from the repo root.
 
-**How to avoid:**
-In `domains.py` convention inference, hardcode the skip list to include at minimum: `packages`, `libs`, `apps`, `shared`, `common`, `tests`, `src`, `dist`, `build`. Add a test in `test_domains.py` that scans a repo with a `tests/billing/` directory (no `domains.yaml`) and asserts that no `Domain(billing)` node is created via convention inference.
+**WARNING SIGN:** A user reports "the plugin works when run from the repo root but fails when invoked by Claude Code from a different directory." The error is `python: can't open file 'detect_containers.py': [Errno 2] No such file or directory`.
 
-**Warning signs:**
-`cg list-domains` shows domains named `integration`, `e2e`, `unit`, `fixtures` — all derived from test directory names.
-
-**Phase to address:** Phase D (domains.py). Test for false-positive inference must be in Phase D.
-
----
-
-### Pitfall 11: Derived Edge Computation (`references`, `depends_on`) Runs on Every `cg update` — Even When No Import Graph Changed
-
-**What goes wrong:**
-`derived_edges.compute(conn)` clears all existing `references` and `depends_on` edges and recomputes them from scratch on every `cg update`. For a large repo with 200 packages and thousands of import edges, this join (`imports × belongs_to_domain`) runs on every incremental update even if only one unrelated Python file changed. The computation may be slow enough to noticeably degrade incremental update time.
-
-**Why it happens:**
-Re-running derived edges unconditionally is the simplest correct approach. The architectural alternative (stage-selective re-runs) is explicitly deferred to v1.7.
-
-**How to avoid:**
-For v1.6: add a metadata key `last_domain_config_hash` that stores a hash of `domains.yaml` content. `derived_edges.compute` compares the current hash with the stored hash; if they match AND the import graph has not changed (no new `imports` edges since last run), skip recomputation. This requires tracking whether `_process_files` produced any import-edge changes — non-trivial. A simpler v1.6 mitigation: run `derived_edges.compute` conditionally only if `domains.yaml` exists (skip entirely if no domains are configured). Add a benchmark test in `test_derived_edges.py` against a 50-package seed DB to establish a performance baseline.
-
-**Warning signs:**
-`cg update` on a 200-package repo takes >5s for incremental changes. Profiling shows `derived_edges.compute` is the bottleneck.
-
-**Phase to address:** Phase D. Add the domains.yaml existence gate as a baseline optimization. Document the v1.7 re-run optimization as a known limitation.
-
----
-
-### Pitfall 12: Brand Sweep Renames `LATTICE_GRAPH_LOCK_TIMEOUT_MS` and Breaks Existing User Automation
-
-**What goes wrong:**
-`update.py` line 130 reads `os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")`. The brand sweep in Phase G renames this to `GRAPH_WIKI_LOCK_TIMEOUT_MS`. Any user (or CI script) that currently sets `LATTICE_GRAPH_LOCK_TIMEOUT_MS` gets silent fallback to the 30-second default without knowing their configuration was ignored.
-
-**Why it happens:**
-Env var renames are silent — no `KeyError` fires when the old name is unset. The user set the variable weeks ago, brand sweep lands, their timeout configuration silently stops working.
-
-**How to avoid:**
-In `update.py`, read both names with deprecation fallback:
+**PREVENTION:**
+In `_uv_reexec.py`, use `Path(__file__).resolve()` as the script path in the `os.execvpe` call, not `sys.argv[0]`:
 ```python
-raw = os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS") or os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS")
-if os.environ.get("LATTICE_GRAPH_LOCK_TIMEOUT_MS") and not os.environ.get("GRAPH_WIKI_LOCK_TIMEOUT_MS"):
-    print("warning: LATTICE_GRAPH_LOCK_TIMEOUT_MS is deprecated; use GRAPH_WIKI_LOCK_TIMEOUT_MS", file=sys.stderr)
+script_path = str(Path(__file__).resolve().parent / Path(sys.argv[0]).name)
 ```
-Add both names to `.brand-grep-allow` (the old name is intentionally preserved as a deprecated alias). The brand grep gate will otherwise flag the old name in `update.py`.
+Or more robustly: `str(Path(sys.argv[0]).resolve())` — but only if the file exists at the resolved path. The plan already uses `Path(__file__).resolve().parent` for the walk-up search; extend that pattern to the re-exec script path. Add a test that invokes the shim with a relative path from a tmp working directory.
 
-**Warning signs:**
-Brand grep gate flags `LATTICE_GRAPH_LOCK_TIMEOUT_MS` in `update.py` after Phase G and the implementer removes it without adding the deprecation fallback.
-
-**Phase to address:** Phase G (Brand Sweep). The deprecation-fallback pattern must be part of the brand sweep commit.
+**WHICH PHASE:** Hygiene phase (quick-task `260521-mfm`). Add the `sys.argv[0]` resolution note to the plan before execution.
 
 ---
 
-### Pitfall 13: `test_schema_version_is_one()` Test Name Becomes Wrong — But CI Still Passes
+### Pitfall 11: Scanner Consuming graph-io as Source-of-Truth — Stale Graph on First Scan
 
 **What goes wrong:**
-`test_schema.py` line 57 has `def test_schema_version_is_one(): assert schema.SCHEMA_VERSION == 1`. After Phase A bumps `SCHEMA_VERSION = 2`, this test fails. This is a good, expected failure — it should be caught in Phase A. But if the test is simply deleted rather than updated to `test_schema_version_is_two()`, future engineers lose the sentinel that prevents accidental double-bumps.
+When the scanner is updated to key pages by URI (via graph-io), it calls `cg update` (or calls `graph_io.resolve.sweep` + `graph_io.packages.refresh` directly) to ensure the graph is current before scanning. For a brand-new workspace that has never been scanned (`~/.graph-wiki/code.db` does not exist yet), `store.read_only_connect` raises `GraphNotInitializedError`. The scanner must handle this by running `cg update --full` first, then proceeding.
+
+But there is a subtler issue: during a workspace's first scan, the graph is built from the current filesystem snapshot. If a file was added to the repo in the last 5 minutes and `cg update` has not yet run, the graph does not contain that file's node. The scanner's URI-keyed output will produce pages for all URIs in the graph but miss the new file. The wiki goes out of sync not because of a bug but because of a sequencing issue: file add → scan → update is wrong; the correct order is file add → update → scan.
 
 **Why it happens:**
-A failing test with the wrong name is tempting to delete rather than rename. "The version is 2 now, that test is obsolete" — but the test's purpose was to assert the exact version, not "is it one." Deleting it silently removes a guard.
+The natural UX for `graph-wiki-agent scan` is "run this and get fresh wiki pages." The user does not know that the graph must be updated before the scan. If the scan command silently calls `cg update` before scanning, it always produces correct output but adds 5-30 seconds of graph rebuild time to every scan invocation.
 
-**How to avoid:**
-Update the test to `assert schema.SCHEMA_VERSION == 2`. Update the test name to `test_schema_version_is_two`. Keep the test — it remains a meaningful sentinel.
+**WARNING SIGN:** User runs `graph-wiki-agent scan` after adding a new package; no page is generated for the new package. No error is raised. The user runs `cg update` then `graph-wiki-agent scan` — the page appears.
 
-**Warning signs:**
-Phase A commit diff shows `test_schema_version_is_one` being deleted rather than updated.
+**PREVENTION:**
+`run_scan` must call `cg update` (incremental, not `--full`) at the start of the scan command, before any scanner subagent is dispatched. This is the correct design: scan always runs on a fresh graph. Add the update call to the scan command implementation as a first step, before the SubagentPool fan-out. Document this as a design decision (scan depends on a fresh graph) in the phase SUMMARY.
 
-**Phase to address:** Phase A. Review checklist for Phase A must include "version sentinel test updated, not deleted."
+**WHICH PHASE:** Scanner integration phase.
 
 ---
 
-### Pitfall 14: `conftest.py` `conn` Fixture Uses In-Memory DB Without Schema — New Tests That Call `upsert_records` With `uri` Column Will Fail
+### Pitfall 12: Ingestor Consuming graph-io — Node Identity Conflicts When URI Changes Between Ingest and Next Update
 
 **What goes wrong:**
-`packages/graph-io/conftest.py` defines a `conn` fixture as `sqlite3.connect(":memory:")` with `PRAGMA foreign_keys = ON` but without `schema.apply_schema(conn)`. After Phase A adds the `uri` column to the DDL, any test using the root `conftest.py` `conn` fixture that tries to write a `uri` column will fail with `OperationalError: table nodes has no column named uri` — but only for code paths that explicitly write to `uri`. Tests using `GraphNode.attrs["uri"]` passing through the normal `upsert.upsert_records` call will fail silently (the `uri` key stays in `attrs_json` because the upsert code never reaches the `uri` column on a schema-less in-memory DB).
+The ingestor creates wiki pages keyed by URI. If the ingestor creates a page for `pkg:org/repo/auth-service` and then the package is renamed in `pyproject.toml`, the next `cg update` generates a new URI `pkg:org/repo/auth` (or whatever the new name is). The old page `pkg:org/repo/auth-service.md` is now orphaned — it has a URI that no longer exists in the graph. The wiki accumulates stale pages with dead URIs.
+
+The current non-URI-keyed ingestor has the same problem (pages keyed by filesystem path, which also changes on rename) but at a slower rate since package renames are rare. URI-keyed pages make the problem more visible because URIs change on any manifest rename, not just on directory moves.
 
 **Why it happens:**
-The root `conftest.py` fixture intentionally skips `apply_schema` — it is a bare SQLite connection used to test the schema module itself. Tests in `test_packages.py` and `test_upsert.py` define their own local `conn` fixtures that call `store.connect(db, create=True)` (which does apply the schema). The two fixture shapes coexist. New test modules that import the root `conn` without noticing it is schema-less will get unexpected failures.
+Page identity and node identity use different persistence domains. wiki-io pages live on the filesystem; graph-io nodes live in SQLite. There is no reconciliation mechanism between them in v1.7 (wiki redesign is v1.8 work).
 
-**How to avoid:**
-Add a docstring to `conftest.py` fixture explicitly: `"""Bare in-memory conn, NO schema applied. Use store.connect(tmp_path/'code.db', create=True) when schema is needed."""` New test modules for Phase B+ (structural_nodes, entry_points, test_suites, domains, derived_edges) must all use `store.connect(db, create=True)` fixtures, not the root `conn`. Enforce this in code review: grep for `def conn(` in new test files and verify they call `store.connect`.
+**WARNING SIGN:** `wiki-io lint` reports pages with URIs that resolve to no graph node. Or `graph-wiki-agent scan` generates a new page for `pkg:org/repo/auth` while an old page for `pkg:org/repo/auth-service` still exists in the vault.
 
-**Warning signs:**
-A new test like `test_structural_nodes.py` imports `conn` from conftest, calls `structural_nodes.emit(conn, ...)`, gets `OperationalError: no such table: nodes`.
+**PREVENTION:**
+In v1.7, document this limitation explicitly in the ingestor design: "URI-keyed pages may become stale if URIs change between ingests. The wiki redesign (v1.8) will introduce a reconciliation step that deletes pages for non-existent URIs." Do not try to solve the reconciliation problem in v1.7 — it is a v1.8 concern per `PROJECT.md` Deferred section. The ingestor should log a warning when it creates a page for a URI that was not present in the last graph update timestamp; do not block ingestion on stale URI detection.
 
-**Phase to address:** Phase B. The warning must be in the fixture as a comment before the first structural-node test is written.
+**WHICH PHASE:** Ingestor integration phase. State the limitation and the v1.8 reconciliation path in the phase plan's "known limitations" section.
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 15: `package.json exports` Wildcard Subpaths Produce Misleading `EntryPoint` Nodes
+### Pitfall 13: `graph-wiki-agent graph` Subcommand Name Collision with Typer Reserved Names
 
 **What goes wrong:**
-Some `package.json exports` fields use wildcard patterns: `"./features/*": "./dist/features/*.js"`. The custom `_walk_exports` recursive walker in `packages.py` (as designed in STACK.md) emits `EntryPoint` nodes for every leaf string it finds. Wildcard patterns are leaf strings — they produce an `EntryPoint` node with `name="./features/*"` and `source="./dist/features/*.js"`. This is a valid representation but can confuse users who see a literal `*` in entry point names.
+Typer uses `app.command()` decorators. The new subcommand will be registered as `graph`. This conflicts if any existing code uses `app.command(name="graph")` or if Typer internally reserves `graph` as a help-system keyword. More practically: adding a `graph` subcommand alongside `scan`, `ingest`, `lint`, `query` creates an ambiguity risk when a user types `graph-wiki-agent g<TAB>` — tab completion returns both `graph` and no other `g`-prefixed commands today, so this is not a real ambiguity yet, but could become one if new subcommands starting with `g` are added later.
 
-**How to avoid:**
-In `_walk_exports`, detect wildcard subpath keys (those containing `*`) and tag them in `attrs_json` with `"is_wildcard": true`. Do not suppress them — they are real declarations — but annotate them so CLI output can say "pattern" instead of a specific entry point name. Add a test with a `package.json` containing a wildcard exports pattern.
+**PREVENTION:**
+Run `graph-wiki-agent --help` after adding the `graph` subcommand; verify it appears in the list without mangling any existing commands. Check for import-time conflicts with `typer.Typer().command("graph")` registration. No action needed unless a conflict is found.
 
-**Phase to address:** Phase C (entry_points.py).
+**WHICH PHASE:** `graph-wiki-agent graph` subcommand phase. Smoke test: `graph-wiki-agent graph --help` exits 0 and lists `build`, `describe`, `query`.
 
 ---
 
-### Pitfall 16: `TestSuite` Detection Finds `conftest.py` — An `is_config: true` File — And Incorrectly Classifies It as a Test Framework Config
+### Pitfall 14: Token Budget Regression from Grounding Tools in Librarian Prompt
 
 **What goes wrong:**
-`conftest.py` is a pytest framework config file. The `detect_tests.py` module detects test framework config from filenames. `conftest.py` is not a framework config file in the sense of `pytest.ini` or `pyproject.toml [tool.pytest]` — it is a fixture-definition file that happens to influence test collection. If `detect_tests.py` treats `conftest.py` as a pytest framework config marker, it may produce incorrect `TestSuite.framework = "pytest"` attributions for directories that only contain `conftest.py` but no actual test files.
+Adding `@tool` callables to the librarian changes the effective context available per librarian call. The token budget regression test (`test_token_budget.py`) enforces a +1500 token ceiling on the system prompt. But it does not account for the tool definitions themselves — the Bedrock Converse API includes tool definitions (JSON schema for each `@tool`) in the request's `tools` array, which counts against the context window. With 5 graph-io tools, each with a 100-token description and 50-token parameter schema, that is ~750 additional tokens per librarian invocation, outside the system prompt.
 
-**How to avoid:**
-`detect_tests.py` framework detection should look for `pytest.ini`, `pyproject.toml [tool.pytest.ini_options]`, and `setup.cfg [tool:pytest]` as suite boundary markers. `conftest.py` should not be in the detection list — it is a fixture file, not a suite config. Add a test where a directory has only `conftest.py` and no `test_*.py` files; assert no `TestSuite` node is emitted for that directory.
+**Why it happens:**
+`test_token_budget.py` measures prompt token count at construction time, not at invocation time. Tool binding (`librarian_llm.bind_tools([...])`) happens at command entry, not at prompt construction. The snapshot tests do not capture the `tools` array.
 
-**Phase to address:** Phase C (detect_tests.py).
+**WARNING SIGN:** Librarian invocations on a large monorepo run out of tokens mid-fan-out and return truncated responses. Or Bedrock raises `ValidationException: max_tokens exceeds model limit` because the system prompt + tool schemas + input message exceeds the model's context window.
+
+**PREVENTION:**
+Use the Bedrock `CountTokens` API (already used in the codebase) to measure a representative librarian invocation with tools bound and the system prompt attached, before the integration phase ships. Set `max_tokens` for the librarian role conservatively to leave room for tool definitions. Update `test_token_budget.py` to mock a bound-tools invocation and assert the effective context budget stays within bounds.
+
+**WHICH PHASE:** Librarian grounding tools phase. Run CountTokens on a sample invocation before committing the tool binding.
 
 ---
 
-### Pitfall 17: `domain_contains_domain` Cycle Produces Infinite Loop in `derived_edges.compute`
+### Pitfall 15: syrupy Snapshot Drift from Hygiene Changes to Prompt Fragments
 
 **What goes wrong:**
-If `domains.yaml` declares:
-```yaml
-domains:
-  payments:
-    subdomains: [billing]
-  billing:
-    subdomains: [payments]
-```
-Then `domain_contains_domain` edges form a cycle. `derived_edges.compute`, if it uses recursive CTE to walk the domain hierarchy, will loop infinitely (SQLite does support `WITH RECURSIVE` but it does not automatically detect cycles in user data).
+The hygiene items `hfr` and `i26` change scanner template output. If any scanner prompt test uses a syrupy snapshot that includes the template output (e.g., the `render_project_context` output contains a `## File map` section sampled from a real page), the hygiene change will fail the snapshot. The failure is caught — which is correct behavior — but if the developer accepts the new snapshot without manually reviewing the diff, they silently accept a regression.
 
-**How to avoid:**
-`domains.emit` must validate the domain hierarchy for cycles before emitting `domain_contains_domain` edges. A simple DFS with a visited set is sufficient. If a cycle is detected, raise a `ValueError` with the cycle path and skip all `domain_contains_domain` edges (emit domain nodes and `belongs_to_domain` edges but not the hierarchy). Add a test in `test_domains.py` that supplies a cyclic `domains.yaml` and asserts a warning is printed and no `domain_contains_domain` edges are emitted.
+**Why it happens:**
+syrupy's `assert_match_snapshot()` does not distinguish between intended output changes (the hygiene fix) and unintended regressions (a template change that also corrupted an unrelated field). The acceptance workflow is `pytest --snapshot-update` which bulk-accepts all diffs.
 
-**Phase to address:** Phase D (domains.py). Cycle detection must be part of the `load_domains` or `domains.emit` validation.
+**WARNING SIGN:** After a hygiene item, `pytest --snapshot-update` is run without a manual diff review. The commit message says "update snapshots" without specifying which snapshots changed and why.
 
----
+**PREVENTION:**
+For each hygiene item that changes template output:
+1. Run `pytest` — observe which snapshot tests fail.
+2. Manually review the diff output (not just `pytest --snapshot-update`).
+3. Accept only the snapshots that changed because of the intended hygiene fix.
+4. Commit with a message that names which snapshots changed and why.
 
-### Pitfall 18: `physically_contains` Tree Invariant Broken When Two Packages Both Claim the Same File
-
-**What goes wrong:**
-The spec requires each node to have exactly one structural parent (strict tree). But `packages.refresh` already creates `contains` edges (note: `kind='contains'`, not `kind='physically_contains'`) from every package to every file under its directory prefix, including files under sub-packages. A file at `packages/auth/src/auth/utils/helpers.py` will get `contains` edges from the root package (`auth`) AND from any sub-package node that contains it. This is the existing behavior (the spec notes this explicitly in `packages.py` docstring: "a file inside a sub-package will have edges from BOTH the sub-package and the root package").
-
-In v1.6, `structural_nodes.emit` introduces `physically_contains` as the new strict-tree edge kind. If `physically_contains` also allows multiple parents (by following the same prefix-match logic), the strict-tree invariant is violated.
-
-**How to avoid:**
-`physically_contains` must be emitted with longest-prefix-wins semantics: a file is physically contained by its deepest structural ancestor only. In `structural_nodes.py`, when emitting `physically_contains Package → File` edges, only emit to the innermost package (the one whose `rel_prefix` is longest). The existing `contains` edge from `packages.py` (multi-parent) stays as-is for backward compatibility — it is a different edge kind. Add a test asserting that each File node has at most one incoming `physically_contains` edge.
-
-**Phase to address:** Phase B (structural_nodes.py). This invariant must be tested from day one.
+**WHICH PHASE:** Hygiene phase. Add this to the phase's verification checklist.
 
 ---
 
-### Pitfall 19: Test Fixtures Containing `pyproject.toml` Are Discovered by `packages.refresh` During Tests
+## Phase-Specific Warnings
 
-**What goes wrong:**
-Test fixtures that create mini-repos with `pyproject.toml` files inside `tmp_path` are not a problem for most tests — each test gets its own `tmp_path`. However, if any test uses the actual `packages/graph-io/` directory (e.g., running `packages.refresh(conn, repo_root=Path("."))` in a test), `_discover_manifests` will find the real `packages/graph-io/pyproject.toml` and every other workspace package, polluting the test DB.
-
-Separately: fixture mini-repos that write `pyproject.toml` directly into `tmp_path/pyproject.toml` (repo root) will be discovered as a root-package manifest. If the test is for `EntryPoint` parsing, this is intentional. But if the test is for `TestSuite` detection and the `pyproject.toml` incidentally contains `[tool.pytest]`, `detect_tests.py` will find pytest config at the root — which may be the intended behavior, but is surprising if the developer forgot to add `[tool.pytest]` to the fixture manifest.
-
-**How to avoid:**
-All fixtures that need a manifest for one purpose should explicitly write only the sections they need and nothing else. Standard fixture pattern: always use `tmp_path` (never `Path(".")`) as repo_root. Add a CI rule (ruff or custom grep) that flags any test using `repo_root=Path(".")`.
-
-**Phase to address:** Phase C onward. Establish this convention when the first entry-point/test-suite fixtures are written.
-
----
-
-## Technical Debt Patterns
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| `uri TEXT` nullable instead of `UNIQUE NOT NULL` | Avoid full URI backfill for AST nodes in v1.6 | v1.7 must enforce uniqueness; if emitters produce URI collisions they will be invisible until v1.7 constraint lands | Acceptable in v1.6 only — document the v1.7 upgrade path explicitly |
-| Convention-based domain inference without validation | No `domains.yaml` needed to start | False-positive domains (from `tests/` subdirs) pollute domain graph | Acceptable with the `tests/` exclusion list in place |
-| `derived_edges.compute` runs on every update | Simplest correct behavior | Slow on large repos; wasted CPU when domains are static | Acceptable in v1.6 since the only consumer is a single developer on a personal repo |
-| `packages.refresh` returns `None`, entry_points re-reads manifests | Avoids changing `packages.refresh` signature | Double I/O on every update — manifests read twice | Never acceptable for large repos; resolve in Phase C by having `packages.refresh` return manifest data |
-| `is_test` flag on `File` nodes not cross-referenced with TestSuite membership | Simpler path detection | File.is_test and TestSuite membership can diverge (a file marked `is_test` but not assigned to any suite) | Acceptable in v1.6 — add consistency check query in v1.7 |
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Librarian grounding tools | Tool surface too broad → routing confusion | Design ≤5 tools before writing any; use `_format.render` not raw JSON |
+| Librarian grounding tools | Return payload overflow | Hard-cap at 50 rows; `-> str` return type on all @tools |
+| Scanner consumes graph-io | Stale graph on first scan | `run_scan` calls `cg update` (incremental) before fan-out |
+| Scanner consumes graph-io | Open connection per-tool vs per-command | Close over single read-only conn at command entry, not per tool call |
+| Ingestor consumes graph-io | URI drift on package rename | Document v1.8 reconciliation; warn don't block in v1.7 |
+| `graph-wiki-agent graph` subcommand | Feature drift from `cg` | Thin wrapper only; no new flags not in `cg`; enforce in plan |
+| `cg find` parser ergonomics | Positional→named flag breaks internal callers | Single-commit break-and-fix; grep all `main(["find", "foo"])` callers |
+| Hygiene phase | File-touch overlap causes silent reversions | File-touch matrix before plan wave assignment; sequential not parallel |
+| Hygiene phase | wiki-io template changes break plugin | Before/after smoke scan on live vault; capture SC#4 transcript |
+| ANSI fix (`260521-ans`) | Developer switches to CliRunner without NO_COLOR | Execute the pre-written plan exactly; no CliRunner substitution |
+| uv re-exec (`260521-mfm`) | `sys.argv[0]` relative path breaks from non-root cwd | Use `Path(__file__).resolve()` in re-exec script path |
+| Token budget after tool binding | Tool schemas add ~750 tokens not counted by test | Run CountTokens before finalizing librarian tool binding |
+| syrupy snapshots | Bulk snapshot accept without manual diff review | Named-snapshot diff review for each hygiene item |
 
 ---
 
-## Integration Gotchas
+## "Looks Done But Isn't" Checklist for v1.7
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| `packages.refresh` → `entry_points.emit` | `entry_points.emit` calls `_discover_manifests` independently (double I/O) | `packages.refresh` returns manifest data; `entry_points.emit(conn, manifest_data=...)` consumes it |
-| `structural_nodes.emit` → `test_suites.emit` | `test_suites.emit` runs before `packages.refresh`, so Package nodes don't exist yet when re-parenting | Always: `_process_files` → `packages.refresh` → `entry_points.emit` → `structural_nodes.emit` → `test_suites.emit` → `domains.emit` → `resolve.sweep` → `derived_edges.compute` |
-| `domains.emit` → `derived_edges.compute` | `derived_edges.compute` runs before `resolve.sweep`, so some `imports` edges are still unresolved | Move `derived_edges.compute` to after `resolve.sweep` (already noted in ARCHITECTURE.md as the safer order) |
-| `source_parser` → `graph_io` | URI generation placed in `to_graph_records()` inside source-parser | URIs belong in graph-io emitters (source-parser lacks repo/org context); never generate URIs in source-parser |
-| `domains.yaml` → `workspace_io` | Moving `load_domains` into `workspace_io` for "centralized config" | `domains.yaml` is a code-graph artifact; it belongs in `graph_io/domains.py`, not workspace-io |
-
----
-
-## Performance Traps
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| `derived_edges.compute` join on every incremental update | `cg update` slow on unchanged repos | Gate on `domains.yaml` existence; skip if absent | ~50+ packages with full import graph |
-| `packages.refresh` `_file_nodes_under` uses `LIKE prefix%` on unindexed `path` column | Slow package scan on large repos | `idx_nodes_path` already exists — verify it is used in EXPLAIN QUERY PLAN | >10,000 file nodes |
-| `structural_nodes.emit` does a full FS walk independent of `_process_files` | Double filesystem walk per update | Cache walk results in `update.py` local dict; pass to both functions | Large monorepos with >5,000 files |
-| `test_suites.emit` queries `physically_contains Package → File` edges to find test files, then deletes and re-inserts them on every update | Constant edge churn for unchanged repos | Add a hash or timestamp check: skip re-parenting if test file set has not changed | Any incremental update after first full build |
-
----
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Schema v2:** `uri` column is in DDL, `SCHEMA_VERSION == 2`, `idx_nodes_uri` index exists, `SchemaMismatchError` exits with code 4 (not 1), README exit-code table updated — verify all five together
-- [ ] **URI identity:** `_upsert_node` extracts `uri` from `node.attrs` and writes to the `uri` column (not just to `attrs_json`) — verify with `SELECT uri FROM nodes WHERE kind='package'` after update
-- [ ] **Repository node persistence:** `Repository` nodes survive `resolve.sweep` (they have `path=NULL` but are only sources of edges, not destinations) — verify with `SELECT COUNT(*) FROM nodes WHERE kind='repository'` post-sweep
-- [ ] **Test file re-parenting:** After `cg update --full`, test files appear under `TestSuite` in `physically_contains` edges and do NOT appear directly under their `Package` — verify with `cg describe-package <name>` showing no test files
-- [ ] **Domain convention inference skips `tests/`:** `cg list-domains` on a repo with `tests/billing/` does not show a `billing` domain (unless `domains.yaml` explicitly declares it)
-- [ ] **Brand sweep complete:** `cg --help` shows "graph-wiki code graph CLI", not "lattice code graph CLI"; `~/.lattice/graph/code.db` path reference removed from README
-- [ ] **`LATTICE_GRAPH_LOCK_TIMEOUT_MS` deprecation alias:** Old env var still works with a deprecation warning; new env var works silently — test both
-- [ ] **Domain cycle detection:** A cyclic `domains.yaml` prints a warning and skips `domain_contains_domain` edges without crashing
-
----
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Schema column missing after bump | LOW | Delete `code.db`, run `cg update --full`. DB is disposable by design. |
-| `Repository` nodes deleted by `resolve.sweep` | LOW | Fix `resolve.py` guard, run `cg update --full` to rebuild. |
-| URI values in `attrs_json` instead of `uri` column | MEDIUM | Fix `_upsert_node`, delete `code.db`, run `cg update --full`. All URIs must be regenerated from scratch. |
-| Test re-parenting order bug (test files still under Package) | LOW | Fix call order in `update.py`, run `cg update --full`. No data migration needed. |
-| Domain convention inference created false domains | LOW | Delete false domain nodes manually or run `cg update --full` after fixing the exclusion list. |
-| Domain hierarchy cycle crashes `derived_edges.compute` | LOW | Add cycle detection in `domains.py`, fix `domains.yaml`, run `cg update`. |
-| `LATTICE_GRAPH_LOCK_TIMEOUT_MS` silently ignored after brand sweep | LOW | Add deprecation alias in `update.py`. User must re-export the new var name. |
-
----
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Schema bump without column assertion | Phase A | `test_nodes_table_has_uri_column` in `test_schema.py` — must pass before Phase B begins |
-| `SCHEMA_MISMATCH` exit code not wired | Phase A | `test_cli_exit_codes.py` seeds v999 DB, runs `cg find`, asserts exit 4 |
-| URI in `attrs_json` not in `uri` column | Phase A | `test_upsert.py` asserts `uri` column populated, `attrs_json` does not contain `"uri"` key |
-| Repository node deleted by resolve.sweep | Phase B | `test_resolve.py` asserts Repository node survives sweep |
-| Test file re-parenting order bug | Phase C | `test_suites.py` asserts test files have exactly one `physically_contains` edge post-sweep |
-| `implemented_by` ambiguous resolution | Phase C | `test_entry_points.py` two-package scenario with `main` in both |
-| Convention inference false positives | Phase D | `test_domains.py` asserts no domain created from `tests/` subdirs |
-| Domain cycle crash | Phase D | `test_domains.py` cyclic YAML produces warning, no crash |
-| Package name vs. directory name in domains.yaml | Phase D | `test_domains.py` asserts warning fires for unknown package name |
-| Brand sweep breaks `LATTICE_GRAPH_LOCK_TIMEOUT_MS` | Phase G | `test_update.py` asserts old env var still works with deprecation warning |
-| Test fixtures with `pyproject.toml` pollute real scan | Phase C+ | CI lint rule: no `repo_root=Path(".")` in test files |
+- [ ] **@tool return types:** Every graph-io `@tool` callable returns `str`, not `dict` / `list` / dataclass. Verify with `grep -n "-> " agents/.../commands/*.py | grep tool`.
+- [ ] **Row cap:** Every list-returning `@tool` has a `[:50]` or equivalent cap with a truncation notice. Verify by testing `graph_list("package")` on a large fixture.
+- [ ] **Connection lifetime:** The read-only graph connection is opened once at command entry, closed after the fan-out completes — not opened/closed per tool call.
+- [ ] **Scanner update-before-scan:** `run_scan` calls `cg update` (incremental) before dispatching the SubagentPool. Verify: scan on a repo with an uninitialized graph produces a helpful error, not a silent empty scan.
+- [ ] **`cg find` positional removed:** `cg find foo.py --kind file` (old positional form) produces argparse error. `cg find --name foo.py --kind file` succeeds.
+- [ ] **Plugin smoke transcript:** A `/graph-wiki:scan` session transcript from Claude Code against `~/Personal/graph-wiki/agent-research` is committed as a regression artifact. (Carried since v1.2 — must close in v1.7.)
+- [ ] **Hygiene snapshot review:** No `pytest --snapshot-update` commit without a named list of changed snapshots and why.
+- [ ] **`mfm` re-exec from non-root cwd:** `cd /tmp && python /path/to/detect_containers.py --help` succeeds without `ModuleNotFoundError`.
+- [ ] **`ans` ANSI fix:** All 5 tests listed in `260521-ans-PLAN.md` pass; snapshot count unchanged.
+- [ ] **Token budget:** CountTokens API confirms librarian invocation with 5 bound tools + system prompt stays within `lib_cfg["max_tokens"]` budget.
 
 ---
 
 ## Sources
 
-- `packages/graph-io/src/graph_io/schema.py` — `SCHEMA_VERSION = 1`, `_DDL_STATEMENTS` (no `uri` column yet)
-- `packages/graph-io/src/graph_io/store.py` — `SchemaMismatchError`, `_check_schema_version`, `connect` create-path logic
-- `packages/graph-io/src/graph_io/upsert.py` — `_upsert_node`, `_serialize`, `NodeKey` identity pattern
-- `packages/graph-io/src/graph_io/resolve.py` — placeholder-node deletion logic (line 50-56); `path IS NULL AND kind != 'package'` guard
-- `packages/graph-io/src/graph_io/update.py` — `LATTICE_GRAPH_LOCK_TIMEOUT_MS` (line 130), call sequence in `run()`
-- `packages/graph-io/src/graph_io/packages.py` — `_discover_manifests`, `refresh`, `_SKIP_REPO_PREFIXES`
-- `packages/graph-io/README.md` — `SCHEMA_MISMATCH = 4` marked "reserved — not yet enforced"
-- `packages/graph-io/conftest.py` — bare `sqlite3.connect(":memory:")` fixture without schema
-- `packages/graph-io/tests/test_schema.py` — `test_schema_version_is_one()` sentinel
-- `packages/graph-io/tests/test_packages.py` — fixture patterns, `store.connect(db, create=True)` vs bare conn
-- `packages/graph-io/tests/_git_repo.py` — git-backed fixture pattern
-- `packages/graph-io/tests/test_e2e.py` — end-to-end pipeline structure
-- `.planning/research/ONTOLOGY-SPEC.md` — §7 TestSuite layout, §9 scanner pipeline, §4 edge types
-- `.planning/research/ARCHITECTURE.md` — call order analysis, emitter boundary decisions, resolve.sweep concern noted
-- `.planning/research/STACK.md` — `_walk_exports` wildcard handling, `conftest.py` detection false positive
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — existing `@tool read_file` pattern; `bind_tools`, `ToolMessage`, 24000-char truncation guard, 60000-char excerpt cap
+- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py` — current librarian prompt structure; token budget context
+- `packages/graph-io/src/graph_io/cli/main.py` — 25 subcommand surface; `_SUBCOMMANDS` dict; argparse dispatch
+- `packages/graph-io/src/graph_io/cli/q_find.py` — `parser.add_argument("name")` positional form (the current state to change)
+- `packages/graph-io/src/graph_io/queries.py` — `NodeRecord` dataclass, `_VALID_KINDS`, `find()` function surface
+- `.planning/quick/260521-ans-typer-help-ansi-strip/260521-ans-PLAN.md` — chosen ANSI fix: `NO_COLOR=1` + `TERM=dumb` + `COLUMNS=200`; explicit "why not CliRunner" rationale
+- `.planning/quick/260521-mfm-add-self-healing-uv-re-exec-to-graph-wik/260521-mfm-PLAN.md` — `_uv_reexec.ensure()` design; `GRAPH_WIKI_SHIM_REEXEC` guard; `os.execvpe` with walk-up search
+- `.planning/RETROSPECTIVE.md` — v1.2 Phase 16: "code review that produces issues without a fix plan is review-as-documentation, not review-as-gate"; v1.1 Phase 8: "documented scope narrowing before implementation"; v1.2 Phase 14: "SC#4 plugin smoke transcript not captured at close"; v1.0 Phase 3: "cap phase plan count at ~6"
+- `.planning/MILESTONES.md` — v1.2 Phase 14 SC#4 deferred item (still open at v1.7 start)
+- `.planning/PROJECT.md` — v1.7 target features, plugin stays untouched constraint, cg 25-subcommand count, single-writer Bedrock-only constraint
 
 ---
-*Pitfalls research for: graph-io v1.6 ontology expansion (schema v2, URI identity, structural/conceptual nodes, derived edges)*
-*Researched: 2026-05-25*
+*Pitfalls research for: v1.7 graph-io Integration & Wiki Hygiene*
+*Researched: 2026-05-26*
