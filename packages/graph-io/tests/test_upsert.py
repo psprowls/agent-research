@@ -102,3 +102,75 @@ def test_upsert_unresolved_edge_creates_placeholder(conn: sqlite3.Connection) ->
         "SELECT attrs_json FROM edges WHERE kind='calls'"
     ).fetchone()
     assert json.loads(edge[0]) == {"resolution": "unresolved"}
+
+
+def test_upsert_uri_lands_in_column(conn: sqlite3.Connection) -> None:
+    """D-12 sentinel: PITFALL 4 lock — uri lands in column, not attrs_json."""
+    records = _records(
+        nodes=[
+            GraphNode(
+                kind="package",
+                name="auth",
+                path="packages/auth",
+                line=None,
+                attrs={"uri": "pkg:org/repo/auth", "version": "1.0", "language": "python"},
+            ),
+        ],
+    )
+    upsert.upsert_records(conn, records)
+    uri_row = conn.execute(
+        "SELECT uri FROM nodes WHERE kind='package' AND name='auth'"
+    ).fetchone()
+    assert uri_row == ("pkg:org/repo/auth",)
+    attrs_row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='package' AND name='auth'"
+    ).fetchone()
+    parsed = json.loads(attrs_row[0])
+    assert "uri" not in parsed
+    assert parsed == {"version": "1.0", "language": "python"}
+
+
+def test_upsert_node_without_uri_has_null_uri_column(conn: sqlite3.Connection) -> None:
+    """Regression guard: nodes without a uri attr leave the uri column NULL."""
+    records = _records(
+        nodes=[
+            GraphNode(
+                kind="function",
+                name="bar",
+                path="b.py",
+                line=5,
+                attrs={"is_async": False},
+            ),
+        ],
+    )
+    upsert.upsert_records(conn, records)
+    row = conn.execute(
+        "SELECT uri, attrs_json FROM nodes WHERE name='bar'"
+    ).fetchone()
+    assert row[0] is None
+    assert json.loads(row[1]) == {"is_async": False}
+
+
+def test_upsert_uri_idempotent(conn: sqlite3.Connection) -> None:
+    """Re-upserting the same uri-bearing node preserves uri without duplicating."""
+    records = _records(
+        nodes=[
+            GraphNode(
+                kind="package",
+                name="auth",
+                path="packages/auth",
+                line=None,
+                attrs={"uri": "pkg:org/repo/auth"},
+            ),
+        ],
+    )
+    upsert.upsert_records(conn, records)
+    upsert.upsert_records(conn, records)
+    count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='package' AND name='auth'"
+    ).fetchone()[0]
+    assert count == 1
+    uri_row = conn.execute(
+        "SELECT uri FROM nodes WHERE kind='package' AND name='auth'"
+    ).fetchone()
+    assert uri_row == ("pkg:org/repo/auth",)
