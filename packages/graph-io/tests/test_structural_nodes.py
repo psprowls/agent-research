@@ -198,6 +198,29 @@ def test_is_test_path_negative() -> None:
     assert not structural_nodes._is_test_path("index.js")
 
 
+def test_owning_package_is_module_level_callable() -> None:
+    """Plan 30-01 Task 1: _owning_package is hoisted out of emit() so the
+    Phase 30 entry-points and test-suites emitters can reuse it."""
+    from graph_io.structural_nodes import _owning_package
+
+    pkg_index = [
+        ("packages/foo/sub", "foo-sub", "packages/foo/sub"),
+        ("packages/foo", "foo", "packages/foo"),
+    ]
+    # Deepest-first match wins
+    assert _owning_package("packages/foo/sub/a.py", pkg_index) == (
+        "foo-sub",
+        "packages/foo/sub",
+    )
+    # Shallower package matches when deeper one doesn't apply
+    assert _owning_package("packages/foo/x.py", pkg_index) == ("foo", "packages/foo")
+    # No match
+    assert _owning_package("other/x.py", pkg_index) is None
+    # Empty prefix is the root-Package sentinel
+    root_index = [("", "root", "")]
+    assert _owning_package("anywhere/x.py", root_index) == ("root", "")
+
+
 def test_is_config_file_exact_names() -> None:
     assert structural_nodes._is_config_file("pyproject.toml")
     assert structural_nodes._is_config_file("package.json")
