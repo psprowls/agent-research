@@ -124,7 +124,7 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - [x] **Phase 38: `graph-wiki-agent graph` Subcommand** - `build`/`describe`/`query` verbs on CLI + 3 MCP tools with cost-tracked traces (completed 2026-05-26)
 - [x] **Phase 39: Scanner Consumes graph-io** - Scanner derives vault page slugs from graph URIs; `run_scan()` calls `cg update` before fan-out (completed 2026-05-26)
 - [x] **Phase 40: Ingestor Consumes graph-io** - Ingestor checks graph for entity existence; clear `NOT_INITIALIZED` error; URI-drift documented (completed 2026-05-26)
-- [ ] **Phase 41: Address v1.7 tech debt — integration_gate + traceability** - Restore canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on Phase 39 scan-end-to-end test + sync 20 stale REQUIREMENTS.md checkboxes/traceability rows (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) (planned)
+- [x] **Phase 41: Address v1.7 tech debt — integration_gate + traceability** - Restore canonical `GRAPH_WIKI_RUN_INTEGRATION` gate on Phase 39 scan-end-to-end test + sync 20 stale REQUIREMENTS.md checkboxes/traceability rows (HYGIENE-01..14, CGFIND-01..03, INGESTOR-01..03) (planned) (completed 2026-05-26)
 
 ---
 
@@ -207,10 +207,10 @@ Full detail: [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
   2. `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py` contains the canonical `INTEGRATION_GATE = pytest.mark.skipif(not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"), ...)` constant and the test function is decorated with `@INTEGRATION_GATE`
   3. `.planning/REQUIREMENTS.md` shows `- [x]` for all 14 HYGIENE-*, 3 CGFIND-*, and 3 INGESTOR-* checkboxes, and the corresponding 20 traceability rows show Status = `Satisfied`
   4. LIBTOOLS-*, GRAPHCMD-*, SCANNER-* rows and `Complete` statuses are untouched; no structural changes to REQUIREMENTS.md
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 41-01-PLAN.md — Restore canonical INTEGRATION_GATE on scan-end-to-end test + sync 20 REQUIREMENTS.md checkboxes/rows
+- [x] 41-01-PLAN.md — Restore canonical INTEGRATION_GATE on scan-end-to-end test + sync 20 REQUIREMENTS.md checkboxes/rows
 
 ---
 
@@ -258,7 +258,7 @@ Plans:
 | 38. `graph-wiki-agent graph` Subcommand | v1.7 | 2/2 | Complete   | 2026-05-26 |
 | 39. Scanner Consumes graph-io | v1.7 | 1/1 | Complete   | 2026-05-26 |
 | 40. Ingestor Consumes graph-io | v1.7 | 1/1 | Complete   | 2026-05-26 |
-| 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 0/1 | Planned   | — |
+| 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 1/1 | Complete   | 2026-05-26 |
 
 ---
 
