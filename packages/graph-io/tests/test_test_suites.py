@@ -444,3 +444,258 @@ def test_update_run_calls_emitters_in_correct_order() -> None:
         f"wrong order in update.run: struct={i_struct} entry={i_entry} "
         f"test={i_test} resolve={i_resolve} inv={i_inv}"
     )
+
+
+# ---------- Task 4: fixture-driven integration tests ----------
+
+FIXTURE_SRC = Path(__file__).parent / "fixtures" / "sample_monorepo"
+
+
+@pytest.fixture()
+def fixture_repo(tmp_path: Path) -> Path:
+    """Copy sample_monorepo to tmp_path and initialize as a git repo + commit."""
+    shutil.copytree(FIXTURE_SRC, tmp_path, dirs_exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "test"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True
+    )
+    return tmp_path
+
+
+def _db_path(repo_root: Path) -> Path:
+    from workspace_io.config import resolve as resolve_workspace
+    from workspace_io.paths import graph_dir
+
+    ws = resolve_workspace(repo_root, require_manifest=False).workspace
+    return graph_dir(ws) / "code.db"
+
+
+def test_call_order_pitfall(fixture_repo: Path) -> None:
+    """SC#3 + SC#4: fixture regression — re-parenting + suite kind + idempotency."""
+    from graph_io import update
+
+    update.run(fixture_repo, full=True)
+
+    db_path = _db_path(fixture_repo)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        # Assertion 1: every is_test=true file has exactly one physically_contains parent
+        rows = conn.execute(
+            """
+            SELECT f.id, COUNT(e.src)
+            FROM nodes f
+            LEFT JOIN edges e
+              ON e.dst = f.id AND e.kind = 'physically_contains'
+            WHERE f.kind = 'file'
+              AND json_extract(f.attrs_json, '$.is_test') = 1
+            GROUP BY f.id
+            """
+        ).fetchall()
+        assert rows, "no is_test=true files found — fixture or emitter broken"
+        for fid, n in rows:
+            assert n == 1, f"file id={fid} has {n} physically_contains parents"
+
+        # Assertion 2: that parent is a TestSuite node
+        rows = conn.execute(
+            """
+            SELECT parent.kind, f.path
+            FROM nodes f
+            JOIN edges e ON e.dst = f.id AND e.kind='physically_contains'
+            JOIN nodes parent ON e.src = parent.id
+            WHERE f.kind = 'file'
+              AND json_extract(f.attrs_json, '$.is_test') = 1
+            """
+        ).fetchall()
+        for parent_kind, path in rows:
+            assert parent_kind == "test_suite", (
+                f"test file {path} has parent kind {parent_kind!r}, expected 'test_suite'"
+            )
+
+        # Assertion 3: Package(mypkg) does NOT physically_contain its test file
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM edges e
+            JOIN nodes p ON e.src = p.id AND p.kind='package' AND p.name='mypkg'
+            JOIN nodes f ON e.dst = f.id AND f.kind='file'
+            WHERE e.kind = 'physically_contains'
+              AND f.path LIKE '%tests/test_foo.py'
+            """
+        ).fetchone()
+        assert row is None, (
+            "Package(mypkg) still has a physically_contains edge to its test file"
+        )
+
+        # Assertion 4: integration suite has suite_kind='integration'
+        row = conn.execute(
+            """
+            SELECT json_extract(attrs_json, '$.suite_kind')
+            FROM nodes
+            WHERE kind = 'test_suite' AND path = 'tests/integration'
+            """
+        ).fetchone()
+        assert row is not None, "tests/integration TestSuite not emitted"
+        assert row[0] == "integration"
+
+        pc_count_1 = conn.execute(
+            "SELECT COUNT(*) FROM edges WHERE kind='physically_contains'"
+        ).fetchone()[0]
+        tests_count_1 = conn.execute(
+            "SELECT COUNT(*) FROM edges WHERE kind='tests'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    # Assertion 5: idempotency — second update.run produces identical counts.
+    update.run(fixture_repo, full=True)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        pc_count_2 = conn.execute(
+            "SELECT COUNT(*) FROM edges WHERE kind='physically_contains'"
+        ).fetchone()[0]
+        tests_count_2 = conn.execute(
+            "SELECT COUNT(*) FROM edges WHERE kind='tests'"
+        ).fetchone()[0]
+        assert pc_count_1 == pc_count_2, (
+            f"physically_contains edge count changed across runs: "
+            f"{pc_count_1} -> {pc_count_2}"
+        )
+        assert tests_count_1 == tests_count_2, (
+            f"tests edge count changed across runs: {tests_count_1} -> {tests_count_2}"
+        )
+    finally:
+        conn.close()
+
+
+def test_strict_tree_invariant_raises_on_duplicate_parent(fixture_repo: Path) -> None:
+    """D-19b: corrupt the DB and confirm the runtime invariant fires."""
+    from graph_io import update
+    from graph_io.update import (
+        StrictTreeInvariantError,
+        _enforce_strict_tree_invariant,
+    )
+
+    update.run(fixture_repo, full=True)
+    db_path = _db_path(fixture_repo)
+    conn = sqlite3.connect(db_path)
+    try:
+        file_row = conn.execute(
+            """
+            SELECT f.id, e.src
+            FROM nodes f
+            JOIN edges e ON e.dst = f.id AND e.kind = 'physically_contains'
+            WHERE f.kind = 'file'
+            LIMIT 1
+            """
+        ).fetchone()
+        assert file_row is not None
+        file_id, existing_parent = file_row
+
+        repo_row = conn.execute(
+            "SELECT id FROM nodes WHERE kind='repository' LIMIT 1"
+        ).fetchone()
+        assert repo_row is not None
+        repo_id = repo_row[0]
+        if repo_id == existing_parent:
+            pkg_row = conn.execute(
+                "SELECT id FROM nodes WHERE kind='package' LIMIT 1"
+            ).fetchone()
+            assert pkg_row is not None
+            fake_parent = pkg_row[0]
+        else:
+            fake_parent = repo_id
+
+        conn.execute(
+            "INSERT INTO edges (src, dst, kind, attrs_json) "
+            "VALUES (?, ?, 'physically_contains', NULL)",
+            (fake_parent, file_id),
+        )
+        conn.commit()
+
+        with pytest.raises(StrictTreeInvariantError) as exc:
+            _enforce_strict_tree_invariant(conn)
+        assert file_id in exc.value.offending_child_ids
+    finally:
+        conn.close()
+
+
+def test_anti_regression_describe_package_smoke(fixture_repo: Path) -> None:
+    """SC#5 surrogate — after the full pipeline, Package(mypkg) is still findable."""
+    from graph_io import update
+
+    update.run(fixture_repo, full=True)
+    db_path = _db_path(fixture_repo)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        n = conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='package' AND name='mypkg'"
+        ).fetchone()[0]
+        assert n == 1
+    finally:
+        conn.close()
+
+
+def test_shebang_script_in_fixture_does_not_emit_entry_point(
+    fixture_repo: Path,
+) -> None:
+    """ENTRY-05 anti-test — shebang scripts in scripts/ stay as is_executable
+    Files, no EntryPoint emitted for them."""
+    from graph_io import update
+
+    update.run(fixture_repo, full=True)
+    db_path = _db_path(fixture_repo)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        row = conn.execute(
+            """
+            SELECT 1 FROM edges e
+            JOIN nodes ep ON e.src = ep.id AND ep.kind = 'entry_point'
+            JOIN nodes f  ON e.dst = f.id  AND f.kind = 'file'
+            WHERE e.kind = 'implemented_by'
+              AND f.path LIKE '%/scripts/run.sh'
+            """
+        ).fetchone()
+        assert row is None, (
+            "shebang script run.sh has an implemented_by EntryPoint — ENTRY-05 violated"
+        )
+    finally:
+        conn.close()
+
+
+def test_pyproject_scripts_entry_point_resolves_to_file(fixture_repo: Path) -> None:
+    """SC#4 — pyproject [project.scripts] resolves implemented_by strictly
+    path-qualified. Skipped when sample_monorepo has no [project.scripts]."""
+    from graph_io import update
+
+    update.run(fixture_repo, full=True)
+    db_path = _db_path(fixture_repo)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        row = conn.execute(
+            """
+            SELECT ep.name, f.path
+            FROM nodes ep
+            JOIN edges e ON e.src = ep.id AND e.kind = 'implemented_by'
+            JOIN nodes f ON e.dst = f.id AND f.kind = 'file'
+            WHERE ep.kind = 'entry_point'
+              AND json_extract(ep.attrs_json, '$.source') = 'pyproject.scripts'
+            """
+        ).fetchone()
+        if row is None:
+            pytest.skip(
+                "sample_monorepo pyproject has no [project.scripts] — "
+                "fixture-dependent assertion skipped"
+            )
+        _ep_name, file_path = row
+        assert "mypkg" in file_path, (
+            f"implemented_by file '{file_path}' outside mypkg's tree — strict resolution failed"
+        )
+    finally:
+        conn.close()

@@ -22,6 +22,13 @@ select = ["E", "F", "I"]
 addopts = "--import-mode=importlib"
 pythonpath = ["packages/eval-harness/tests"]
 asyncio_mode = "auto"
+# Don't recurse into src/ trees when running from the workspace root.
+# `packages/graph-io/src/graph_io/test_suites.py` is the TestSuite emitter
+# module (named per the ontology kind), not a pytest test module. Per-package
+# `[tool.pytest.ini_options] testpaths = ["tests"]` already scopes things
+# correctly when pytest runs inside a package; this guard catches workspace
+# invocations.
+norecursedirs = ["src", ".venv", ".git", "node_modules", "dist", "build"]
 markers = [
     "integration: requires real Bedrock or subprocess (skipped by default)",
     "eval: opt-in eval suite (skipped unless GRAPH_WIKI_RUN_EVAL=1)",
