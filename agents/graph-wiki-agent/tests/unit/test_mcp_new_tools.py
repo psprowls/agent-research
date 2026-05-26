@@ -17,7 +17,7 @@ import pytest
 
 def test_wiki_scan_tool_registered() -> None:
     """wiki_scan tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_scan
+    from graph_wiki_agent.mcp.server import wiki_scan
 
     assert callable(wiki_scan)
     assert wiki_scan.__name__ == "wiki_scan"
@@ -30,7 +30,7 @@ def test_wiki_scan_tool_registered() -> None:
 
 def test_wiki_scan_input_default_workspace_path_is_empty() -> None:
     """WikiScanInput defaults to workspace_path='' (resolves from env)."""
-    from graph_wiki_mcp.server import WikiScanInput
+    from graph_wiki_agent.mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.workspace_path == ""
@@ -38,7 +38,7 @@ def test_wiki_scan_input_default_workspace_path_is_empty() -> None:
 
 def test_wiki_scan_input_default_no_file_map_is_false() -> None:
     """WikiScanInput defaults to no_file_map=False."""
-    from graph_wiki_mcp.server import WikiScanInput
+    from graph_wiki_agent.mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.no_file_map is False
@@ -46,7 +46,7 @@ def test_wiki_scan_input_default_no_file_map_is_false() -> None:
 
 def test_wiki_scan_input_default_max_depth_is_3() -> None:
     """WikiScanInput defaults to max_depth=3."""
-    from graph_wiki_mcp.server import WikiScanInput
+    from graph_wiki_agent.mcp.server import WikiScanInput
 
     inp = WikiScanInput()
     assert inp.max_depth == 3
@@ -54,7 +54,7 @@ def test_wiki_scan_input_default_max_depth_is_3() -> None:
 
 def test_wiki_scan_input_accepts_custom_workspace_path() -> None:
     """WikiScanInput accepts a workspace_path string."""
-    from graph_wiki_mcp.server import WikiScanInput
+    from graph_wiki_agent.mcp.server import WikiScanInput
 
     inp = WikiScanInput(workspace_path="/some/path", no_file_map=True, max_depth=5)
     assert inp.workspace_path == "/some/path"
@@ -70,7 +70,7 @@ def test_wiki_scan_input_accepts_custom_workspace_path() -> None:
 async def test_wiki_scan_emits_progress_notifications() -> None:
     """wiki_scan calls ctx.report_progress at least 2 times (MCP-03)."""
     from graph_wiki_agent.commands.scan import ScanResult
-    from graph_wiki_mcp.server import WikiScanInput, wiki_scan
+    from graph_wiki_agent.mcp.server import WikiScanInput, wiki_scan
 
     mock_result = ScanResult(
         added=["new-pkg"],
@@ -84,7 +84,7 @@ async def test_wiki_scan_emits_progress_notifications() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("graph_wiki_mcp.server.run_scan", new_callable=AsyncMock) as mock_run_scan:
+    with patch("graph_wiki_agent.mcp.server.run_scan", new_callable=AsyncMock) as mock_run_scan:
         mock_run_scan.return_value = mock_result
         await wiki_scan(WikiScanInput(), mock_ctx)
 
@@ -96,7 +96,7 @@ async def test_wiki_scan_emits_progress_notifications() -> None:
 async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
     """wiki_scan calls run_scan and returns WikiScanOutput (MCP-01)."""
     from graph_wiki_agent.commands.scan import ScanResult
-    from graph_wiki_mcp.server import WikiScanInput, WikiScanOutput, wiki_scan
+    from graph_wiki_agent.mcp.server import WikiScanInput, WikiScanOutput, wiki_scan
 
     mock_result = ScanResult(
         added=["alpha", "beta"],
@@ -110,7 +110,7 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("graph_wiki_mcp.server.run_scan", new_callable=AsyncMock) as mock_run_scan:
+    with patch("graph_wiki_agent.mcp.server.run_scan", new_callable=AsyncMock) as mock_run_scan:
         mock_run_scan.return_value = mock_result
         result = await wiki_scan(WikiScanInput(), mock_ctx)
 
@@ -130,7 +130,7 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
 
 def test_wiki_ingest_tool_registered() -> None:
     """wiki_ingest tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_ingest
+    from graph_wiki_agent.mcp.server import wiki_ingest
 
     assert callable(wiki_ingest)
     assert wiki_ingest.__name__ == "wiki_ingest"
@@ -138,7 +138,7 @@ def test_wiki_ingest_tool_registered() -> None:
 
 def test_wiki_ingest_input_type_discriminator() -> None:
     """WikiIngestInput has a type field with Literal['source','work-item'] (D-04)."""
-    from graph_wiki_mcp.server import WikiIngestInput
+    from graph_wiki_agent.mcp.server import WikiIngestInput
     import typing
 
     inp_source = WikiIngestInput(type="source", source_path="/some/file.md")
@@ -151,7 +151,7 @@ def test_wiki_ingest_input_type_discriminator() -> None:
 async def test_wiki_ingest_dispatches_to_source() -> None:
     """wiki_ingest with type='source' calls run_ingest_source, not run_ingest_work_item."""
     from graph_wiki_agent.commands.ingest import IngestResult
-    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+    from graph_wiki_agent.mcp.server import WikiIngestInput, wiki_ingest
 
     mock_result = IngestResult(
         status="ok",
@@ -167,8 +167,8 @@ async def test_wiki_ingest_dispatches_to_source() -> None:
     mock_ctx.report_progress = AsyncMock()
 
     with (
-        patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
-        patch("graph_wiki_mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
+        patch("graph_wiki_agent.mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
+        patch("graph_wiki_agent.mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
     ):
         mock_source.return_value = mock_result
         await wiki_ingest(WikiIngestInput(type="source", source_path="/some/file.md"), mock_ctx)
@@ -180,7 +180,7 @@ async def test_wiki_ingest_dispatches_to_source() -> None:
 async def test_wiki_ingest_dispatches_to_work_item() -> None:
     """wiki_ingest with type='work-item' calls run_ingest_work_item, not run_ingest_source."""
     from graph_wiki_agent.commands.ingest import IngestResult
-    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+    from graph_wiki_agent.mcp.server import WikiIngestInput, wiki_ingest
 
     mock_result = IngestResult(
         status="ok",
@@ -196,8 +196,8 @@ async def test_wiki_ingest_dispatches_to_work_item() -> None:
     mock_ctx.report_progress = AsyncMock()
 
     with (
-        patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
-        patch("graph_wiki_mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
+        patch("graph_wiki_agent.mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source,
+        patch("graph_wiki_agent.mcp.server.run_ingest_work_item", new_callable=AsyncMock) as mock_work_item,
     ):
         mock_work_item.return_value = mock_result
         await wiki_ingest(
@@ -212,7 +212,7 @@ async def test_wiki_ingest_dispatches_to_work_item() -> None:
 async def test_wiki_ingest_emits_progress() -> None:
     """wiki_ingest calls ctx.report_progress at least 2 times (MCP-03)."""
     from graph_wiki_agent.commands.ingest import IngestResult
-    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+    from graph_wiki_agent.mcp.server import WikiIngestInput, wiki_ingest
 
     mock_result = IngestResult(
         status="ok",
@@ -227,7 +227,7 @@ async def test_wiki_ingest_emits_progress() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source:
+    with patch("graph_wiki_agent.mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source:
         mock_source.return_value = mock_result
         await wiki_ingest(WikiIngestInput(type="source", source_path="/path/bar.md"), mock_ctx)
 
@@ -243,7 +243,7 @@ async def test_wiki_ingest_emits_progress() -> None:
 
 def test_wiki_bootstrap_tool_registered() -> None:
     """wiki_bootstrap tool is importable and callable (CMD-02)."""
-    from graph_wiki_mcp.server import wiki_bootstrap
+    from graph_wiki_agent.mcp.server import wiki_bootstrap
 
     assert callable(wiki_bootstrap)
     assert wiki_bootstrap.__name__ == "wiki_bootstrap"
@@ -253,7 +253,7 @@ def test_wiki_bootstrap_input_rejects_missing_required_fields() -> None:
     """WikiBootstrapInput raises ValidationError when topic or tool are missing."""
     from pydantic import ValidationError
 
-    from graph_wiki_mcp.server import WikiBootstrapInput
+    from graph_wiki_agent.mcp.server import WikiBootstrapInput
 
     with pytest.raises(ValidationError):
         WikiBootstrapInput()  # type: ignore[call-arg]
@@ -265,7 +265,7 @@ async def test_wiki_bootstrap_calls_run_init() -> None:
     from pathlib import Path as _Path
 
     from graph_wiki_agent.commands.init import InitResult
-    from graph_wiki_mcp.server import WikiBootstrapInput, wiki_bootstrap
+    from graph_wiki_agent.mcp.server import WikiBootstrapInput, wiki_bootstrap
 
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
@@ -286,7 +286,7 @@ async def test_wiki_bootstrap_calls_run_init() -> None:
         work_path=str(workspace / "work"),
     )
 
-    with patch("graph_wiki_mcp.server.run_init", new_callable=AsyncMock) as mock_fn:
+    with patch("graph_wiki_agent.mcp.server.run_init", new_callable=AsyncMock) as mock_fn:
         mock_fn.return_value = mock_result
         result = await wiki_bootstrap(
             WikiBootstrapInput(topic="test", tool="claude-code"), mock_ctx
@@ -303,7 +303,7 @@ async def test_wiki_bootstrap_calls_run_init() -> None:
 
 def test_wiki_lint_tool_registered() -> None:
     """wiki_lint tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_lint
+    from graph_wiki_agent.mcp.server import wiki_lint
 
     assert callable(wiki_lint)
     assert wiki_lint.__name__ == "wiki_lint"
@@ -311,7 +311,7 @@ def test_wiki_lint_tool_registered() -> None:
 
 def test_wiki_lint_input_schema() -> None:
     """WikiLintInput has workspace_path, stale_days, log_gap_days with correct defaults."""
-    from graph_wiki_mcp.server import WikiLintInput
+    from graph_wiki_agent.mcp.server import WikiLintInput
 
     inp = WikiLintInput()
     assert inp.workspace_path == ""
@@ -322,7 +322,7 @@ def test_wiki_lint_input_schema() -> None:
 async def test_wiki_lint_emits_progress() -> None:
     """wiki_lint calls ctx.report_progress at least 2 times (MCP-03)."""
     from graph_wiki_agent.commands.lint import LintResult
-    from graph_wiki_mcp.server import WikiLintInput, wiki_lint
+    from graph_wiki_agent.mcp.server import WikiLintInput, wiki_lint
 
     mock_result = LintResult(
         wiki="/fake/wiki",
@@ -348,7 +348,7 @@ async def test_wiki_lint_emits_progress() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch("graph_wiki_mcp.server.run_lint", new_callable=AsyncMock) as mock_run_lint:
+    with patch("graph_wiki_agent.mcp.server.run_lint", new_callable=AsyncMock) as mock_run_lint:
         mock_run_lint.return_value = mock_result
         await wiki_lint(WikiLintInput(), mock_ctx)
 

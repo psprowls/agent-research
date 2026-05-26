@@ -20,7 +20,7 @@ def _restore_stdout(monkeypatch):
 
 
 def test_stdout_guard_raises_on_nonempty_write():
-    from graph_wiki_mcp.server import _StdoutGuard
+    from graph_wiki_agent.mcp.server import _StdoutGuard
 
     guard = _StdoutGuard()
     with pytest.raises(RuntimeError) as exc_info:
@@ -31,7 +31,7 @@ def test_stdout_guard_raises_on_nonempty_write():
 
 
 def test_stdout_guard_tolerates_empty_and_whitespace():
-    from graph_wiki_mcp.server import _StdoutGuard
+    from graph_wiki_agent.mcp.server import _StdoutGuard
 
     guard = _StdoutGuard()
     # All three are whitespace-only; none must raise. Each returns len(data).
@@ -41,7 +41,7 @@ def test_stdout_guard_tolerates_empty_and_whitespace():
 
 
 def test_stdout_guard_flush_is_noop():
-    from graph_wiki_mcp.server import _StdoutGuard
+    from graph_wiki_agent.mcp.server import _StdoutGuard
 
     guard = _StdoutGuard()
     # Must not raise; return value is None (no-op).
@@ -49,7 +49,7 @@ def test_stdout_guard_flush_is_noop():
 
 
 def test_server_module_exposes_mcp_and_main():
-    from graph_wiki_mcp import server
+    from graph_wiki_agent.mcp import server
 
     assert hasattr(server, "mcp")
     assert hasattr(server, "main")
@@ -59,7 +59,7 @@ def test_server_module_exposes_mcp_and_main():
 
 
 def test_wiki_ping_returns_pong():
-    from graph_wiki_mcp import server
+    from graph_wiki_agent.mcp import server
 
     result = server.wiki_ping(server.PingInput(message="hello"))
     assert result.status == "pong"

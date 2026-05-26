@@ -116,7 +116,7 @@ def test_wiki_log_input_rejects_missing_required_fields() -> None:
     """WikiLogInput raises ValidationError when op or title are missing."""
     from pydantic import ValidationError
 
-    from graph_wiki_mcp.server import WikiLogInput
+    from graph_wiki_agent.mcp.server import WikiLogInput
 
     with pytest.raises(ValidationError):
         WikiLogInput()  # type: ignore[call-arg]
@@ -130,7 +130,7 @@ def test_wiki_log_input_rejects_missing_required_fields() -> None:
 @pytest.mark.asyncio
 async def test_wiki_log_calls_run_log() -> None:
     """wiki_log MCP tool calls run_log with the args from WikiLogInput."""
-    from graph_wiki_mcp.server import WikiLogInput, wiki_log
+    from graph_wiki_agent.mcp.server import WikiLogInput, wiki_log
     from graph_wiki_agent.commands.log import LogResult
 
     mock_ctx = MagicMock()
@@ -138,7 +138,7 @@ async def test_wiki_log_calls_run_log() -> None:
 
     mock_result = _make_log_result()
 
-    with patch("graph_wiki_mcp.server.run_log", new_callable=AsyncMock) as mock_fn:
+    with patch("graph_wiki_agent.mcp.server.run_log", new_callable=AsyncMock) as mock_fn:
         mock_fn.return_value = mock_result
         result = await wiki_log(WikiLogInput(op="note", title="test"), mock_ctx)
 
