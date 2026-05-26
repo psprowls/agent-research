@@ -141,7 +141,11 @@ Full detail: [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
   3. After `cg update --full`, `SELECT COUNT(*) FROM nodes WHERE kind='repository'` returns 1 both before and after a second `resolve.sweep` call — Repository nodes are not deleted by the path-NULL cleanup
   4. `cg describe-path packages/graph-io/src/graph_io/update.py` shows role flags including `is_importable: true`; a file at `packages/graph-io/src/graph_io/cli/main.py` shows `has_main: true`; a file under `tests/` shows `is_test: true`
   5. `cg describe-package graph-io` lists no test files in its `physically_contains` subtree — each file appears under exactly one structural parent
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 29-01-PLAN.md — SPARSER-01 source-parser AST extension (_has_main_block + _has_importable_symbols on file-level SourceNode.attrs) [Wave 1]
+- [ ] 29-02-PLAN.md — resolve.sweep guard (D-16 `AND uri IS NULL` predicate + D-17 sentinel test) [Wave 1]
+- [ ] 29-03-PLAN.md — structural_nodes.py emitter (Repository + SubPackage + File role flags + SPARSER-02 read + unit tests) [Wave 2]
+- [ ] 29-04-PLAN.md — update.run wire-in (D-23) + sample_monorepo fixture (D-22) + STRUCT-04 strict-tree invariant test [Wave 3]
 
 ### Phase 30: Entry Points + Test Suites
 **Goal**: Declared entry points from manifests and test suites from filesystem layout are first-class graph nodes, test files are re-parented from package containment to suite containment, and the `update.py` call order is enforced by a test
