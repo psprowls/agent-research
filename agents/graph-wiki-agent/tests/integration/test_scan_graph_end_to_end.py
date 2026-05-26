@@ -16,6 +16,7 @@ Run with: `pytest -m integration`.
 """
 
 import asyncio
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -29,6 +30,13 @@ from graph_wiki_agent.commands import scan as scan_module
 from graph_wiki_agent.commands.scan import run_scan, ScanResult
 
 pytestmark = pytest.mark.integration
+
+# Canonical GRAPH_WIKI_RUN_INTEGRATION gate — matches conftest.py:19-22 verbatim
+# so the docs/testing.md grep gate sees this file as canonical (D-10).
+INTEGRATION_GATE = pytest.mark.skipif(
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real scan→graph integration scenarios",
+)
 
 
 def _setup_fixture_monorepo(tmp_path: Path) -> Path:
@@ -80,6 +88,7 @@ def _setup_fixture_monorepo(tmp_path: Path) -> Path:
     return workspace
 
 
+@INTEGRATION_GATE
 def test_run_scan_creates_graph_db_and_uri_derived_slug(tmp_path, monkeypatch):
     workspace = _setup_fixture_monorepo(tmp_path)
     wiki = workspace / "wiki"
