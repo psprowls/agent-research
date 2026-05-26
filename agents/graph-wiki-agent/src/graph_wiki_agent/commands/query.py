@@ -32,6 +32,7 @@ import math
 import re
 import sqlite3
 import struct
+import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ from pathlib import Path
 
 import bm25s
 from bm25s.tokenization import Tokenizer
+from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -46,6 +48,9 @@ from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.update_tokens import count_tokens
+from workspace_io.paths import graph_dir
+from graph_wiki_agent.graph_tools import build_graph_tools
 from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
 from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
@@ -376,6 +381,54 @@ def _read_file_bounded(
 # Maximum tool-call iterations per page in the code-reader loop. Prevents a
 # runaway model from chewing through tokens reading unrelated files.
 _CODE_READER_MAX_ITERS = 5
+
+# Phase 37 (LIBTOOLS-04/05, D-04..D-08): librarian grounding tools wiring
+_LIBRARIAN_MAX_ITERS = 5  # mirrors _CODE_READER_MAX_ITERS
+
+LIBRARIAN_CONTEXT_WINDOW = 200_000  # Claude Haiku 4.5 input window (37-RESEARCH.md §3)
+LIBRARIAN_BUDGET_FRACTION = 0.90    # D-05 — 10% headroom for tool-call back-and-forth
+BUDGET_EXCEEDED_EXIT_CODE = 3       # D-04
+
+_GRAPH_UNAVAILABLE_STDERR = (
+    "[graph unavailable: run 'cg update' to enable code-graph grounding tools]"
+)
+_LIBRARIAN_FALLBACK_ADDENDUM = (
+    "\nNOTE: code graph tools are unavailable in this workspace; "
+    "rely on vault excerpts only."
+)
+_BUDGET_EXCEEDED_TEMPLATE = (
+    "librarian: token budget exceeded ({measured} of {budget} tokens). "
+    "Reduce vault scope or use a larger-context model."
+)
+
+
+def _estimate_tool_schema_tokens(tools: list) -> int:
+    """Approximate the token cost of bound-tool schemas.
+
+    Serializes each tool's name + description + args_schema into a single
+    text blob and counts via Bedrock CountTokens (claude-3-5-haiku is the
+    default counting model because Claude 4.x models don't support the
+    CountTokens operation — see packages/wiki-io/src/wiki_io/update_tokens.py).
+    Returns 0 on empty input or CountTokens API failure (gate stays
+    permissive on transient API errors — 37-RESEARCH.md §2).
+    """
+    if not tools:
+        return 0
+    parts: list[str] = []
+    for t in tools:
+        parts.append(getattr(t, "name", "") or "")
+        parts.append(getattr(t, "description", "") or "")
+        schema = getattr(t, "args_schema", None)
+        if schema is not None:
+            try:
+                parts.append(schema.schema_json())
+            except Exception:
+                parts.append(str(schema))
+    blob = "\n".join(parts)
+    try:
+        return count_tokens(blob)
+    except Exception:
+        return 0
 
 
 async def _run_code_fallback(
