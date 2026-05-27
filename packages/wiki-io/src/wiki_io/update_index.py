@@ -287,19 +287,20 @@ def render_category_index(entries, category, label, vault_name, location=None):
 
 
 def update_index(wiki: Path) -> None:
-    """Regenerate wiki/index.md and category sub-indexes from vault frontmatter.
+    """Regenerate per-folder category sub-indexes from vault frontmatter.
 
     Library entry point for use by ingest_work_item and other callers.
-    Equivalent to running main() without --dry-run or --json.
+
+    Phase 45 D-02: the previous `wiki/index.md` write is removed; that file
+    is now owned by `wiki_io.index_generator.generate_index`. This function
+    continues to write the per-folder `*/index.md` sub-indexes and the
+    workspace-rooted `work/index.md`.
     """
     pages = scan_vault(wiki)
     work_entries = scan_work(wiki.parent)
     if work_entries:
         pages["work"] = work_entries
     vault = wiki
-    content = render_index(pages, wiki.name, vault.name)
-    index_path = wiki / "index.md"
-    index_path.write_text(content, encoding="utf-8")
     for cat, fname in CATEGORY_INDEX_FILES.items():
         entries = pages.get(cat, [])
         if not entries:
@@ -332,7 +333,6 @@ def main():
         if work_entries:
             pages["work"] = work_entries
         vault = wiki
-        content = render_index(pages, wiki.name, vault.name)
     except SystemExit:
         raise
     except Exception as e:
@@ -353,21 +353,12 @@ def main():
 
     if args.dry_run:
         if args.json:
-            summary["content_preview"] = content[:500]
             print(json.dumps(summary, indent=2))
         else:
-            print(content)
+            # Phase 45 D-02: main index is owned by wiki_io.index_generator;
+            # only per-folder sub-index content is rendered by this module.
+            print(f"[dry-run] would write per-folder sub-indexes for {total} pages")
         return
-
-    index_path = wiki / "index.md"
-    try:
-        index_path.write_text(content, encoding="utf-8")
-    except OSError as e:
-        if args.json:
-            print(json.dumps({"status": "error", "message": f"failed to write {index_path}: {e}"}))
-        else:
-            print(f"[error] failed to write {index_path}: {e}", file=sys.stderr)
-        sys.exit(1)
 
     # Write category sub-indexes inside the wiki.
     written_cat_indexes = []
@@ -410,12 +401,14 @@ def main():
             if not args.json:
                 print(f"[ok] wrote {work_index_path} ({len(work_entries)} pages)")
 
-    summary["index_path"] = str(index_path)
     summary["category_indexes_written"] = written_cat_indexes
     if args.json:
         print(json.dumps(summary, indent=2))
     else:
-        print(f"[ok] wrote {index_path} ({total} pages)")
+        print(
+            f"[ok] wrote {len(written_cat_indexes)} sub-index file(s) "
+            f"({total} pages); main index is now owned by wiki_io.index_generator"
+        )
 
 
 if __name__ == "__main__":
