@@ -160,3 +160,447 @@ def decode_slug(slug: str) -> str:
             f"expected one of {sorted(_ADMITTED_URI_PREFIXES)}"
         )
     return f"{prefix}:{'/'.join(path_segments)}"
+
+
+# ============================================================================
+# Phase 43 Plan 02: write_entities orchestrator + helpers
+# ============================================================================
+
+import datetime as _dt  # noqa: E402
+import fcntl  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import sqlite3  # noqa: E402
+from contextlib import contextmanager  # noqa: E402
+from dataclasses import dataclass, field  # noqa: E402
+from importlib.resources import files as _resource_files  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any, Callable, Iterator  # noqa: E402
+
+import frontmatter  # noqa: E402
+import yaml  # noqa: E402
+
+from graph_io import queries as _queries
+
+
+# v1.8 caller subset of ADMITTED_KINDS — defers `package_family` to v1.9 per D-07.
+ADMITTED_KINDS_V18: frozenset[str] = ADMITTED_KINDS - frozenset({"package_family"})
+
+
+# Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
+STRUCTURAL_KEYS: frozenset[str] = frozenset(
+    {
+        "domains",
+        "depends_on",
+        "test_suites",
+        "entry_points",
+        "parent_domain",
+        "sub_domains",
+        "packages",
+        "tested_packages",
+        "members",
+        "used_by",
+    }
+)
+
+# Defence-in-depth: enforce the STRUCTURAL_KEYS ⊂ SCANNER_OWNED_KEYS invariant at import.
+assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS), \
+    "STRUCTURAL_KEYS must be a subset of SCANNER_OWNED_KEYS (D-10)"
+
+
+class WriteLockHeldError(RuntimeError):
+    """Raised by `write_entities` when another scan holds `.graph-wiki/scan.lock`."""
+
+
+@dataclass(frozen=True)
+class EntityWriteError:
+    """A per-page failure during `write_entities` (D-09 / D-21)."""
+    uri: str
+    slug: str
+    exception: str  # repr() of the caught exception
+
+
+@dataclass(frozen=True)
+class EntityWriteResult:
+    """Bucketed URIs + per-page errors from one `write_entities` invocation (D-09).
+
+    Lists are sorted alphabetically for deterministic comparison in tests.
+    `needs_narrative` is a `set` of URIs requiring LLM prose generation
+    (new pages OR pages whose STRUCTURAL_KEYS changed since last write).
+    """
+    created: list[str] = field(default_factory=list)
+    updated: list[str] = field(default_factory=list)
+    deleted: list[str] = field(default_factory=list)
+    unchanged: list[str] = field(default_factory=list)
+    needs_narrative: set[str] = field(default_factory=set)
+    errors: list[EntityWriteError] = field(default_factory=list)
+
+
+# ----------------------------------------------------------------------------
+# merge_frontmatter (D-12, D-13, D-14)
+# ----------------------------------------------------------------------------
+
+
+def _sort_dedupe(value: Any) -> Any:
+    """Return a sorted, deduped list if value is a list; otherwise return as-is.
+
+    Mixed-type lists are sorted by (type_name, repr) to keep behavior total.
+    """
+    if isinstance(value, list):
+        try:
+            return sorted(set(value), key=lambda x: (str(type(x)), str(x)))
+        except TypeError:
+            # Unhashable items (e.g. dicts) — leave order alone but drop None? No.
+            return value
+    return value
+
+
+def _is_empty(value: Any) -> bool:
+    """Filter for D-14 step 3: scanner keys with these values are omitted."""
+    return value is None or value == "" or value == [] or value == {}
+
+
+def merge_frontmatter(existing: dict, scanner_update: dict) -> dict:
+    """Merge scanner-computed frontmatter into an existing page's frontmatter.
+
+    Semantics per CONTEXT.md D-12..D-14:
+    - Scanner-owned keys (SCANNER_OWNED_KEYS) = full replacement from
+      `scanner_update`. Empty values omitted (kept compact).
+    - Non-scanner keys (human-authored) preserved verbatim, in original
+      encountered order.
+    - Key order on output: uri, kind, then scanner keys alphabetical
+      (non-empty only), then human keys in original encountered order.
+    - Collection values inside scanner-owned keys are sorted + deduped.
+    """
+    out: dict = {}
+    # 1. uri (always present; may come from existing if scanner_update omits it)
+    if "uri" in scanner_update:
+        out["uri"] = scanner_update["uri"]
+    elif "uri" in existing:
+        out["uri"] = existing["uri"]
+    # 2. kind
+    if "kind" in scanner_update:
+        out["kind"] = scanner_update["kind"]
+    elif "kind" in existing:
+        out["kind"] = existing["kind"]
+    # 3. Scanner-owned keys, alphabetical, non-empty only
+    for key in sorted(SCANNER_OWNED_KEYS - {"uri", "kind"}):
+        if key in scanner_update:
+            val = scanner_update[key]
+            if not _is_empty(val):
+                out[key] = _sort_dedupe(val) if isinstance(val, list) else val
+    # 4. Human keys preserved in original encountered order from `existing`
+    for key, val in existing.items():
+        if key not in SCANNER_OWNED_KEYS and key not in out:
+            out[key] = val
+    return out
+
+
+# ----------------------------------------------------------------------------
+# _acquire_scan_lock (D-19, D-20, D-21)
+# ----------------------------------------------------------------------------
+
+
+@contextmanager
+def _acquire_scan_lock(workspace_root: Path) -> Iterator[None]:
+    """Acquire an exclusive non-blocking advisory lock at
+    `<workspace_root>/.graph-wiki/scan.lock` for the duration of the with-block.
+
+    Raises `WriteLockHeldError` on contention (no wait). Releases the lock
+    even on exception paths (D-19, D-21).
+
+    POSIX-only — Phase 43 RESEARCH.md notes the rest of the stack is also
+    POSIX-only; on Windows users should run inside WSL.
+    """
+    lock_path = workspace_root / ".graph-wiki" / "scan.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise WriteLockHeldError(
+                f"another scan in progress for this workspace: {workspace_root}"
+            ) from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+# ----------------------------------------------------------------------------
+# deletions.log helpers (D-17, D-18)
+# ----------------------------------------------------------------------------
+
+
+def _rotate_deletions_log(log_path: Path, max_bytes: int = 10_000_000) -> None:
+    """If `log_path` exceeds `max_bytes`, rename to `.log.1` (overwriting any
+    prior `.log.1`). Two-file scheme per D-18. No-op if file is small or
+    doesn't exist.
+    """
+    if not log_path.exists():
+        return
+    if log_path.stat().st_size < max_bytes:
+        return
+    rotated = log_path.with_suffix(".log.1")
+    if rotated.exists():
+        rotated.unlink()
+    log_path.rename(rotated)
+
+
+def _append_deletion(log_path: Path, record: dict) -> None:
+    """Append one JSONL record to `.graph-wiki/deletions.log` (D-17).
+
+    Rotates first (D-18). Creates parent dir if missing. Uses compact JSON
+    (no extra whitespace) so log lines are unambiguous.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    _rotate_deletions_log(log_path)
+    line = json.dumps(record, separators=(",", ":"), sort_keys=True)
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+# ----------------------------------------------------------------------------
+# Structural change detection + page rendering (D-10, D-11, D-14, D-15)
+# ----------------------------------------------------------------------------
+
+
+def _detect_structural_change(existing_fm: dict, new_fm: dict) -> bool:
+    """Return True iff any STRUCTURAL_KEYS value differs (sort+dedupe lists).
+
+    Used to populate `needs_narrative` per D-10: pages with structural drift
+    must re-run the LLM narrative generator.
+    """
+    for key in STRUCTURAL_KEYS:
+        old = existing_fm.get(key)
+        new = new_fm.get(key)
+        if isinstance(old, list) and isinstance(new, list):
+            if sorted(set(old), key=str) != sorted(set(new), key=str):
+                return True
+        elif old != new:
+            return True
+    return False
+
+
+def _render_entity_page(template_path: Path, frontmatter_dict: dict) -> str:
+    """Render an entity page: template body + given frontmatter dict.
+
+    Frontmatter is emitted with `sort_keys=False` because key order has
+    already been determined by `merge_frontmatter` (D-14). Output ends with
+    exactly one trailing newline for byte-stability (D-15).
+    """
+    template = frontmatter.load(template_path)
+    body = template.content
+    yaml_block = yaml.safe_dump(
+        frontmatter_dict,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+        width=10_000,
+    )
+    yaml_block = yaml_block.rstrip("\n")
+    rendered = f"---\n{yaml_block}\n---\n{body}".rstrip("\n") + "\n"
+    return rendered
+
+
+# ----------------------------------------------------------------------------
+# write_entities orchestrator (D-08, D-15, D-16, D-21, D-22)
+# ----------------------------------------------------------------------------
+
+
+# Mapping from kind to list_fn — closes over graph_io.queries module so tests
+# can monkeypatch via `setattr(_queries, "list_packages", ...)`.
+def _kind_list_fns() -> dict[str, Callable]:
+    return {
+        "repository": lambda conn: _queries.list_repositories(conn),
+        "package": lambda conn: _queries.list_packages(conn),
+        "domain": lambda conn: _queries.list_domains(conn),
+        "test_suite": lambda conn: _queries.list_test_suites(conn),
+        "dependency": lambda conn: _queries.list_dependencies(conn),
+        "plugin": lambda conn: _queries.list_plugins(conn),
+    }
+
+
+def _template_path_for_kind(kind: str) -> Path:
+    """Return the on-disk path to the entity-<kind>.md template (Phase 42 Plan 02)."""
+    fname = f"entity-{kind.replace('_', '-')}.md"
+    return Path(str(_resource_files("wiki_io.assets.page-templates").joinpath(fname)))
+
+
+def _scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
+    """Build the scanner-update frontmatter dict from a graph node + its description.
+
+    Returns a dict ready for `merge_frontmatter`. Always populates `uri`,
+    `kind`. Per-kind logic pulls relation lists from `describe_*` and
+    attrs from the node.
+    """
+    # Node URI: prefer the node's nodes.uri column (NodeRecord may carry it
+    # in attrs because describe_* surfaces use the column at projection time).
+    uri = node.attrs.get("uri", "") if isinstance(node.attrs, dict) else ""
+    fm: dict = {
+        "uri": uri,
+        "kind": kind,
+    }
+    if kind == "repository":
+        d = _queries.describe_repository(conn)
+        if d is not None:
+            fm["package_count"] = d.package_count
+    elif kind == "package":
+        d = _queries.describe_package(conn, name=node.name)
+        if d is not None:
+            fm["language"] = d.language
+            fm["version"] = d.version
+            fm["domains"] = list(d.domains)
+            fm["test_suites"] = [s.name for s in d.test_suites]
+            fm["entry_points"] = [e.name for e in d.entry_points]
+    elif kind == "domain":
+        d = _queries.describe_domain(conn, name=node.name)
+        if d is not None and d.parent:
+            fm["parent_domain"] = d.parent
+    elif kind == "test_suite":
+        d = _queries.describe_test_suite(conn, suite_name=node.name)
+        if d is not None:
+            fm["suite_kind"] = d.kind
+            fm["file_count"] = d.file_count
+    elif kind == "dependency":
+        ecosystem = node.attrs.get("ecosystem", "pypi") if isinstance(node.attrs, dict) else "pypi"
+        d = _queries.describe_dependency(conn, ecosystem=ecosystem, name=node.name)
+        if d is not None:
+            fm["ecosystem"] = d.ecosystem
+            fm["versions_in_use"] = list(d.versions_in_use)
+            fm["used_by"] = list(d.used_by)
+    elif kind == "plugin":
+        d = _queries.describe_plugin(conn, name=node.name)
+        if d is not None:
+            fm["ecosystem"] = d.ecosystem
+    return fm
+
+
+def _is_template_body_default(body: str, template_body: str) -> bool:
+    """Heuristic: True if the body equals the unmodified template body."""
+    return body.rstrip() == template_body.rstrip()
+
+
+def write_entities(
+    conn: sqlite3.Connection,
+    wiki_root: Path,
+    admitted_kinds: frozenset[str],
+) -> EntityWriteResult:
+    """Create / merge / hard-delete entity pages from the graph.
+
+    See `.planning/phases/43-entity-writer/43-CONTEXT.md` for the locked
+    decisions (D-08..D-22). Acquires `.graph-wiki/scan.lock` on entry;
+    releases in `finally` (including exception paths) (D-19, D-21).
+
+    Returns `EntityWriteResult` with per-state URI buckets + `needs_narrative`
+    for the Phase 45 LLM fan-out + per-page errors for partial-success.
+    """
+    workspace_root = wiki_root.parent  # `.graph-wiki/` sits next to `wiki/`
+    entities_dir = wiki_root / "entities"
+    entities_dir.mkdir(parents=True, exist_ok=True)
+    deletions_log = workspace_root / ".graph-wiki" / "deletions.log"
+
+    created: list[str] = []
+    updated: list[str] = []
+    deleted: list[str] = []
+    unchanged: list[str] = []
+    needs_narrative: set[str] = set()
+    errors: list[EntityWriteError] = []
+    admitted_uris: set[str] = set()
+
+    list_fns = _kind_list_fns()
+
+    with _acquire_scan_lock(workspace_root):
+        # --- Per-kind create / merge ---
+        for kind in sorted(admitted_kinds):
+            list_fn = list_fns.get(kind)
+            if list_fn is None:
+                continue  # unknown admitted kind (e.g. package_family v1.9) — skip
+            template_path = _template_path_for_kind(kind)
+            if not template_path.exists():
+                errors.append(EntityWriteError(
+                    uri=f"<missing-template:{kind}>",
+                    slug="",
+                    exception=repr(FileNotFoundError(str(template_path))),
+                ))
+                continue
+            for node in list_fn(conn):
+                uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
+                if not uri:
+                    continue
+                admitted_uris.add(uri)
+                slug = encode_slug(uri)
+                page_path = entities_dir / f"{slug}.md"
+                try:
+                    scanner_fm = _scanner_frontmatter_for_node(conn, kind, node)
+                    existing_fm: dict = {}
+                    existed = page_path.exists()
+                    if existed:
+                        post = frontmatter.load(page_path)
+                        existing_fm = dict(post.metadata)
+                    merged_fm = merge_frontmatter(existing_fm, scanner_fm)
+                    new_content = _render_entity_page(template_path, merged_fm)
+                    new_bytes = new_content.encode("utf-8")
+                    if existed:
+                        old_bytes = page_path.read_bytes()
+                        if old_bytes == new_bytes:
+                            unchanged.append(uri)
+                            continue
+                        page_path.write_text(new_content, encoding="utf-8")
+                        page_path.chmod(0o644)
+                        updated.append(uri)
+                        if _detect_structural_change(existing_fm, merged_fm):
+                            needs_narrative.add(uri)
+                    else:
+                        page_path.write_text(new_content, encoding="utf-8")
+                        page_path.chmod(0o644)
+                        created.append(uri)
+                        needs_narrative.add(uri)
+                except Exception as exc:  # noqa: BLE001 — D-21 partial-failure isolation
+                    errors.append(EntityWriteError(
+                        uri=uri, slug=slug, exception=repr(exc),
+                    ))
+
+        # --- Deletion sweep ---
+        for page_path in sorted(entities_dir.glob("*.md")):
+            if page_path.name == "_index.md":
+                continue
+            try:
+                post = frontmatter.load(page_path)
+                uri = post.metadata.get("uri")
+                if not uri or uri in admitted_uris:
+                    continue
+                kind_from_fm = post.metadata.get("kind") or uri.split(":", 1)[0]
+                template_path = _template_path_for_kind(kind_from_fm)
+                template_body = ""
+                if template_path.exists():
+                    template_body = frontmatter.load(template_path).content
+                body_was_empty = _is_template_body_default(post.content, template_body)
+                record = {
+                    "timestamp": _dt.datetime.now(_dt.timezone.utc)
+                                  .isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "uri": uri,
+                    "slug": page_path.stem,
+                    "path": str(page_path.relative_to(workspace_root)),
+                    "kind": kind_from_fm,
+                    "body_was_empty": body_was_empty,
+                }
+                _append_deletion(deletions_log, record)
+                page_path.unlink()
+                deleted.append(uri)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(EntityWriteError(
+                    uri=str(page_path.name), slug=page_path.stem, exception=repr(exc),
+                ))
+
+    return EntityWriteResult(
+        created=sorted(created),
+        updated=sorted(updated),
+        deleted=sorted(deleted),
+        unchanged=sorted(unchanged),
+        needs_narrative=needs_narrative,
+        errors=errors,
+    )
