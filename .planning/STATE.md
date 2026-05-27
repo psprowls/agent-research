@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Wiki Entity Restructure
-status: blocked
-stopped_at: Phase 44 execution halted — Phase 43 commits not on disk (missing list_dependencies / list_plugins / _VALID_KINDS extensions)
-last_updated: "2026-05-27T13:39:33.889Z"
-last_activity: 2026-05-27 -- Phase 44 execution halted (blocker logged)
+status: executing
+stopped_at: Phase 45 context gathered
+last_updated: "2026-05-27T13:53:18.565Z"
+last_activity: 2026-05-27 -- Phase 44 execution started
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State: agent-research
@@ -93,16 +93,20 @@ lacks `dependency` and `plugin`. Phase 43 (which adds these) is planned but has 
 no Phase 43 commits exist in `git log`.
 
 The orchestrator's pre-execution note acknowledged this race and named:
+
 - Plan A: hand-insert dep/plugin rows directly into fixture sqlite graphs (sidesteps Phase 43
   ingestion path).
+
 - Plan B: pause and write a blocker.
 
 Plan A is partially viable for *ingestion* but does NOT resolve the missing query functions
 referenced by `key_links` and used inside `index_generator.py`. The plan's required imports
 (`from graph_io.queries import ...`) will fail at module load. To execute Plan 44-01 cleanly,
 either:
+
   1. Phase 43 must execute first and land `list_dependencies` / `list_plugins` /
      `_VALID_KINDS` extension, OR
+
   2. Phase 44 scope is expanded to inline raw SQL inside `index_generator.py` for dependency
      and plugin enumeration (changes the `key_links` import contract — material plan change).
 
@@ -128,8 +132,8 @@ Carried forward from prior milestone closes:
 
 ## Session Continuity
 
-Last session: 2026-05-27T04:19:03.442Z
-Stopped at: Phase 42 complete (3/3 plans, all 5 success criteria met)
+Last session: 2026-05-27T13:53:18.558Z
+Stopped at: Phase 45 context gathered
 
 **Next action:** `/gsd:plan-phase 42` to plan the URI Slug Scheme + Per-Kind Templates phase.
 
