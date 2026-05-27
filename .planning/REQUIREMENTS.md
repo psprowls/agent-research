@@ -41,7 +41,7 @@
 - [ ] **SCANINT-01** — `commands/scan.py::run_scan` Step 9a calls `entity_writer.write_entities`; Step 9b fans out the LLM scanner ONLY for URIs in `needs_narrative_set` (not for every entity page on every scan)
 - [ ] **SCANINT-02** — LLM scanner role narrowed to prose-only on entity pages; the LLM does not generate frontmatter for entity pages (frontmatter is scanner-owned via `entity_writer`)
 - [ ] **SCANINT-03** — Step 11 deletion branch updated: entity pages are hard-deleted; curated-lane pages retain stale-tag behavior unchanged
-- [ ] **SCANINT-04** — Step 12 calls `index_generator.generate_index` for the entity portion of the index; curated-lane index sections continue to flow through existing `update_index.py` path
+- [ ] **SCANINT-04** — Step 12 calls `index_generator.generate_index` to produce `wiki/index.md` (graph-entity sections + full curated-lane listings, per Phase 44 D-02/D-11/D-12) AND `update_index.update_index(wiki)` to produce per-folder `*/index.md` sub-indexes only. The `update_index` module's prior `wiki/index.md` write is removed.
 - [ ] **SCANINT-05** — `scan_monorepo.py::_load_existing_pages` and `compute_diff` extended to handle `wiki/entities/` by URI rather than by directory walk; entity pages key off URI slug, not filesystem path
 - [ ] **SCANINT-06** — Existing plugin (`plugins/graph-wiki/`) smoke test still passes against the modified scanner; regression guard included as success criterion of the scanner-integration phase
 
