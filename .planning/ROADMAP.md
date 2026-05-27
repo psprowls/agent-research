@@ -238,7 +238,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
   4. Running `cg update` (or `cg list-domains`) after placing `domains.proposed.yaml` in the workspace root produces the same graph as with only `domains.yaml` present — proposed domains have zero effect on the graph
   5. Per-LLM-call cost records are written to `.graph-wiki/traces/` matching the v1.7 trace schema; `--model` flag is supported via the model-adapter role-tier mechanism
 **Plans**: 3 plans
-- [ ] 48-01-PLAN.md — Add `domain-proposer` role to models.toml (Wave 1)
+- [x] 48-01-PLAN.md — Add `domain-proposer` role to models.toml (Wave 1)
 - [ ] 48-02-PLAN.md — Implement `propose_domains.py` core module + unit tests (Wave 2, blocked on 48-01)
 - [ ] 48-03-PLAN.md — Register subcommand + e2e and isolation integration tests (Wave 3, blocked on 48-02)
 
@@ -295,7 +295,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 2/3 | In Progress|  |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
-| 48. `graph propose-domains` | v1.8 | 0/3 | Ready to execute | - |
+| 48. `graph propose-domains` | v1.8 | 1/3 | In Progress|  |
 
 ---
 
