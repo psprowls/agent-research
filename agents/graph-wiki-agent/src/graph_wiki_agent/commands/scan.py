@@ -270,6 +270,95 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | No
 
 
 # ---------------------------------------------------------------------------
+# Phase 45: build_entity_narrative_prompt — prose-only generator for entity pages
+# ---------------------------------------------------------------------------
+
+
+# Human-readable labels for each scanner-owned relation key. Used by the
+# narrator prompt to render relations as natural prose hints instead of YAML.
+_NARRATIVE_RELATION_LABELS: dict[str, str] = {
+    "depends_on":      "Depends on",
+    "test_suites":     "Test suites",
+    "entry_points":    "Entry points",
+    "domains":         "Domains",
+    "parent_domain":   "Parent domain",
+    "sub_domains":     "Sub-domains",
+    "packages":        "Packages",
+    "tested_packages": "Tested packages",
+    "used_by":         "Used by",
+    "members":         "Members",
+    "ecosystem":       "Ecosystem",
+    "language":        "Language",
+    "version":         "Version",
+    "suite_kind":      "Suite kind",
+    "file_count":      "File count",
+    "package_count":   "Package count",
+    "versions_in_use": "Versions in use",
+}
+
+
+def build_entity_narrative_prompt(
+    node, kind: str, file_map_text: str, relations: dict,
+) -> tuple[str, str]:
+    """Return (system_message, human_message) for the narrator LLM (Phase 45 D-05).
+
+    The narrator generates ONLY the prose body that lives between the
+    `## Narrative` heading and the next H2 on an entity page. Frontmatter,
+    headings, and all other page structure are scanner-owned and MUST NOT
+    appear in the model's output.
+
+    Args:
+        node:           graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
+        kind:           One of ADMITTED_KINDS_V18.
+        file_map_text:  Optional file listing (non-empty only for `package` kinds).
+        relations:      Per-kind relation dict from `scanner_frontmatter_for_node`,
+                        with `uri` and `kind` already stripped or harmlessly ignored.
+
+    Returns:
+        A `(system, human)` string pair ready to wrap in SystemMessage + HumanMessage.
+    """
+    system = (
+        "You write the narrative body of a graph-derived wiki entity page. "
+        "Output ONLY prose: no YAML frontmatter, no H1, no H2 headings, no fenced "
+        "code blocks unless the prose specifically describes code. Your output "
+        "will be injected between the page's `## Narrative` heading and the next "
+        "H2 — write only what belongs there.\n\n"
+        "Tone: factual, concise, technical. Length: 2-4 short paragraphs. Cite "
+        "the entity's relations naturally (e.g. 'It depends on `pkg:foo`...'); "
+        "do not enumerate them in a list."
+    )
+
+    uri = node.attrs.get("uri", "") if isinstance(node.attrs, dict) else ""
+    lines: list[str] = [
+        f"Entity URI: {uri}",
+        f"Kind: {kind}",
+        f"Name: {node.name}",
+    ]
+
+    for key, label in _NARRATIVE_RELATION_LABELS.items():
+        if key not in relations:
+            continue
+        val = relations[key]
+        if val is None or val == [] or val == "":
+            continue
+        if isinstance(val, list):
+            rendered = ", ".join(str(v) for v in val)
+        else:
+            rendered = str(val)
+        lines.append(f"{label}: {rendered}")
+
+    if kind == "package" and file_map_text:
+        lines.append("")
+        lines.append("File listing (for reference; do NOT include this in your output):")
+        lines.append(file_map_text[:1500])
+
+    lines.append("")
+    lines.append("Write the narrative body for this page (prose only).")
+
+    return system, "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Helper: _add_stale_tag
 # ---------------------------------------------------------------------------
 
