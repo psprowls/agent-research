@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 from pathlib import Path
 
 import pytest
 
+from graph_io import upsert
 from graph_io.queries import (
     DependencyDescription,
     DomainDescription,
@@ -14,6 +16,8 @@ from graph_io.queries import (
     RepoDescription,
     SuiteDescription,
 )
+from graph_io.schema import apply_schema
+from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 FIXTURE_VAULT = Path(__file__).parent / "fixtures" / "round-trip-vault"
 
@@ -156,3 +160,45 @@ def round_trip_vault() -> Path:
     if override:
         return Path(override)
     return FIXTURE_VAULT
+
+
+# ============================================================================
+# Phase 44 Plan 01: make_index_fixture_graph factory
+# ============================================================================
+
+
+def _make_index_fixture_graph(spec: dict) -> sqlite3.Connection:
+    """Build an in-memory sqlite graph from a declarative spec.
+
+    spec = {
+        "nodes": [(kind, name, attrs_dict), ...],
+        "edges": [(src_kind, src_name, dst_kind, dst_name, edge_kind, attrs_dict), ...],
+    }
+
+    Uses `graph_io.upsert.upsert_records` so the same schema invariants
+    that production code relies on are exercised (Phase 43's `nodes.uri`
+    column projection, attrs serialization, etc.).
+    """
+    conn = sqlite3.connect(":memory:")
+    apply_schema(conn)
+    nodes = tuple(
+        GraphNode(kind=k, name=n, path="", line=None, attrs=dict(a))
+        for (k, n, a) in spec.get("nodes", [])
+    )
+    edges = tuple(
+        GraphEdge(
+            src=(sk, sn, ""),
+            dst=(dk, dn, ""),
+            kind=ek,
+            attrs=dict(ea),
+        )
+        for (sk, sn, dk, dn, ek, ea) in spec.get("edges", [])
+    )
+    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+    return conn
+
+
+@pytest.fixture
+def make_index_fixture_graph():
+    """Factory fixture returning the in-memory graph builder."""
+    return _make_index_fixture_graph
