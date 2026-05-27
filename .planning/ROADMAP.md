@@ -295,7 +295,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
-| 48. `graph propose-domains` | v1.8 | 3/3 | Complete   | 2026-05-27 |
+| 48. `graph propose-domains` | v1.8 | 3/3 | Complete    | 2026-05-27 |
 
 ---
 

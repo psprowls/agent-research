@@ -63,12 +63,12 @@
 
 ### PROPOSE — `graph-wiki-agent graph propose-domains` (LLM Domain Inference)
 
-- [ ] **PROPOSE-01** — `graph_wiki_agent/commands/propose_domains.py` registers `graph propose-domains` Typer subcommand under existing `graph` subcommand group; runs `cg domain-clusters` internally and supplies clusters + per-package describe context as LLM input
-- [ ] **PROPOSE-02** — Grounding check: every package name in the LLM-proposed `belongs_to_domain` edges validated against `graph_io.queries.list_packages` before write; unknown packages stripped with a logged warning, never silently included
-- [ ] **PROPOSE-03** — Cycle detection: proposed `domain_contains_domain` edges checked for cycles; any cycle-introducing edge stripped with a logged warning before write
-- [ ] **PROPOSE-04** — Output schema: file is `domains.proposed.yaml` (NOT `domains.yaml`); top-level key is `proposed_domains:` (NOT `domains:`) — schema-level differentiation prevents accidental parsing by `graph_io.packages.refresh` as authoritative
-- [ ] **PROPOSE-05** — Isolation guard: `graph_io.packages.refresh` allowlist explicitly excludes `domains.proposed.yaml`; isolation test runs `graph propose-domains`, then `cg update`, asserts proposed-domain edges did NOT enter the graph
-- [ ] **PROPOSE-06** — Cost-tracked trace: per-LLM-call cost record written to `.graph-wiki/traces/` matching the v1.7 trace schema; `--model` flag supported via the `model-adapter` role-tier mechanism
+- [x] **PROPOSE-01** — `graph_wiki_agent/commands/propose_domains.py` registers `graph propose-domains` Typer subcommand under existing `graph` subcommand group; runs `cg domain-clusters` internally and supplies clusters + per-package describe context as LLM input
+- [x] **PROPOSE-02** — Grounding check: every package name in the LLM-proposed `belongs_to_domain` edges validated against `graph_io.queries.list_packages` before write; unknown packages stripped with a logged warning, never silently included
+- [x] **PROPOSE-03** — Cycle detection: proposed `domain_contains_domain` edges checked for cycles; any cycle-introducing edge stripped with a logged warning before write
+- [x] **PROPOSE-04** — Output schema: file is `domains.proposed.yaml` (NOT `domains.yaml`); top-level key is `proposed_domains:` (NOT `domains:`) — schema-level differentiation prevents accidental parsing by `graph_io.packages.refresh` as authoritative
+- [x] **PROPOSE-05** — Isolation guard: `graph_io.packages.refresh` allowlist explicitly excludes `domains.proposed.yaml`; isolation test runs `graph propose-domains`, then `cg update`, asserts proposed-domain edges did NOT enter the graph
+- [x] **PROPOSE-06** — Cost-tracked trace: per-LLM-call cost record written to `.graph-wiki/traces/` matching the v1.7 trace schema; `--model` flag supported via the `model-adapter` role-tier mechanism
 
 ---
 
@@ -129,9 +129,9 @@
 | CLUSTER-03 | Phase 47 | Complete |
 | CLUSTER-04 | Phase 47 | Complete |
 | CLUSTER-05 | Phase 47 | Complete |
-| PROPOSE-01 | Phase 48 | Pending |
-| PROPOSE-02 | Phase 48 | Pending |
-| PROPOSE-03 | Phase 48 | Pending |
-| PROPOSE-04 | Phase 48 | Pending |
-| PROPOSE-05 | Phase 48 | Pending |
-| PROPOSE-06 | Phase 48 | Pending |
+| PROPOSE-01 | Phase 48 | Complete |
+| PROPOSE-02 | Phase 48 | Complete |
+| PROPOSE-03 | Phase 48 | Complete |
+| PROPOSE-04 | Phase 48 | Complete |
+| PROPOSE-05 | Phase 48 | Complete |
+| PROPOSE-06 | Phase 48 | Complete |
