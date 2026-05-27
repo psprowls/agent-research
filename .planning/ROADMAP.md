@@ -283,7 +283,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 40. Ingestor Consumes graph-io | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 42. URI Slug Scheme + Per-Kind Templates | v1.8 | 3/3 | Complete   | 2026-05-27 |
-| 43. Entity Writer | v1.8 | 0/TBD | Not started | - |
+| 43. Entity Writer | v1.8 | 2/3 | In Progress|  |
 | 44. Scanner-Generated Index | v1.8 | 0/TBD | Not started | - |
 | 45. Scanner Integration | v1.8 | 0/TBD | Not started | - |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 0/TBD | Not started | - |
