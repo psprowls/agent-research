@@ -31,6 +31,62 @@ FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 
+def indented_code_spans(text: str) -> list[tuple[int, int]]:
+    """Return spans of CommonMark indented code blocks in ``text``.
+
+    An indented code block is a run of one or more consecutive lines starting
+    with at least 4 spaces or one tab, preceded by a blank line or the start
+    of the document. The run ends at the first non-indented non-blank line
+    (or EOF).
+
+    Returns a list of ``(start_byte, end_byte)`` half-open spans, sorted
+    ascending, non-overlapping. Empty input or text with no indented blocks
+    returns ``[]``.
+
+    Per CommonMark §4.4; used by ``wiki_io.link_rewriter.rewrite_text`` to
+    mask indented code regions from wikilink rewriting. The helper does NOT
+    look at fences — the caller is expected to union with fenced/inline
+    spans separately (double-coverage is harmless).
+    """
+    if not text:
+        return []
+    spans: list[tuple[int, int]] = []
+    # Tokenize into lines, recording absolute byte positions.
+    lines: list[tuple[int, int, str]] = []  # (start, end, line_text)
+    cursor = 0
+    for line in text.splitlines(keepends=True):
+        lines.append((cursor, cursor + len(line), line))
+        cursor += len(line)
+
+    def is_blank(s: str) -> bool:
+        return s.strip() == ""
+
+    def is_indented(s: str) -> bool:
+        if s.startswith("\t"):
+            return True
+        if is_blank(s):
+            return False
+        return s.startswith("    ")
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        start, end, ln = lines[i]
+        prev_blank_or_start = (i == 0) or is_blank(lines[i - 1][2])
+        if prev_blank_or_start and is_indented(ln):
+            block_start = start
+            block_end = end
+            j = i + 1
+            while j < n and is_indented(lines[j][2]):
+                block_end = lines[j][1]
+                j += 1
+            spans.append((block_start, block_end))
+            i = j
+            continue
+        i += 1
+    return spans
+
+
 def _is_placeholder_target(target: str) -> bool:
     """Check if a wikilink target is a placeholder/template token.
 
