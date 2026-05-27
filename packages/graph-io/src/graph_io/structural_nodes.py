@@ -326,13 +326,16 @@ def _owning_package(
 def _walk_subpackages(
     import_root: Path, skip_dirs: frozenset[str], repo_root: Path
 ) -> Iterator[Path]:
-    """Yield each __init__.py-containing subdirectory under import_root.
+    """Yield each __init__.py-containing subdirectory STRICTLY UNDER `import_root`.
 
-    Includes import_root itself. Honors skip_dirs via _ignore.should_skip.
-    Does not follow symlinks (os.walk default).
+    Excludes `import_root` itself (Phase 43 folded todo: the import root is
+    already a `package` node — yielding it again here was producing a
+    spurious self-referential `subpackage` node). Honors skip_dirs via
+    _ignore.should_skip. Does not follow symlinks (os.walk default).
     """
     if not (import_root / "__init__.py").exists():
         return
+    import_root_resolved = import_root.resolve()
     for dirpath, dirnames, filenames in os.walk(import_root, followlinks=False):
         d = Path(dirpath)
         # Skip filtered dirs in-place so os.walk doesn't descend into them
@@ -340,6 +343,9 @@ def _walk_subpackages(
             name for name in dirnames
             if not _ignore.should_skip(name, skip_dirs)
         ]
+        # Skip the import root itself, but still descend into its children.
+        if d.resolve() == import_root_resolved:
+            continue
         if "__init__.py" in filenames:
             try:
                 rel = d.relative_to(repo_root).as_posix()

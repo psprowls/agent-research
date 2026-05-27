@@ -368,7 +368,9 @@ def test_subpackage_python_src_layout(
             "SELECT name FROM nodes WHERE kind='subpackage'"
         ).fetchall()
     )
-    assert names == ["mypkg", "mypkg.sub", "mypkg.sub.deep"]
+    # Phase 43 folded-todo fix: import root (`mypkg`) is no longer yielded
+    # as a subpackage — only strictly-nested __init__.py dirs are.
+    assert names == ["mypkg.sub", "mypkg.sub.deep"]
 
 
 def test_subpackage_python_flat_layout(
@@ -391,7 +393,9 @@ def test_subpackage_python_flat_layout(
             "SELECT name FROM nodes WHERE kind='subpackage'"
         ).fetchall()
     )
-    assert names == ["mypkg"]
+    # Phase 43 folded-todo fix: flat-layout package with only the import
+    # root and no nested __init__.py emits ZERO subpackages.
+    assert names == []
 
 
 def test_subpackage_no_init_emits_none(
@@ -462,31 +466,13 @@ def test_subpackage_dotted_path_includes_importable(
 def test_subpackage_parent_is_package_for_top_level(
     conn: sqlite3.Connection, tmp_path: Path, patched_git
 ) -> None:
-    pkg_dir = tmp_path / "packages" / "mypkg"
-    src_root = pkg_dir / "src" / "mypkg"
-    src_root.mkdir(parents=True)
-    (src_root / "__init__.py").write_text("")
+    """Phase 43: the first non-import-root subpackage is parented by the package.
 
-    _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
-
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
-
-    # The mypkg subpackage's parent should be a package node
-    rows = conn.execute(
-        "SELECT n_src.kind FROM edges e "
-        "JOIN nodes n_src ON e.src = n_src.id "
-        "JOIN nodes n_dst ON e.dst = n_dst.id "
-        "WHERE e.kind='physically_contains' "
-        "AND n_dst.kind='subpackage' AND n_dst.name='mypkg'"
-    ).fetchall()
-    assert rows == [("package",)]
-
-
-def test_subpackage_parent_is_enclosing_subpackage_for_nested(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+    Previously the import root itself was emitted as a subpackage with
+    package parent; now the first emitted subpackage is its first nested
+    __init__.py-bearing child, and that child is parented by the package
+    (since the intermediate import-root subpackage no longer exists).
+    """
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
@@ -500,14 +486,45 @@ def test_subpackage_parent_is_enclosing_subpackage_for_nested(
         conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
     )
 
+    # The first nested subpackage's parent should be the package node
     rows = conn.execute(
-        "SELECT n_src.kind, n_src.name FROM edges e "
+        "SELECT n_src.kind FROM edges e "
         "JOIN nodes n_src ON e.src = n_src.id "
         "JOIN nodes n_dst ON e.dst = n_dst.id "
         "WHERE e.kind='physically_contains' "
         "AND n_dst.kind='subpackage' AND n_dst.name='mypkg.sub'"
     ).fetchall()
-    assert rows == [("subpackage", "mypkg")]
+    assert rows == [("package",)]
+
+
+def test_subpackage_parent_is_enclosing_subpackage_for_nested(
+    conn: sqlite3.Connection, tmp_path: Path, patched_git
+) -> None:
+    """A doubly-nested subpackage is parented by its enclosing (nested) subpackage."""
+    pkg_dir = tmp_path / "packages" / "mypkg"
+    src_root = pkg_dir / "src" / "mypkg"
+    src_root.mkdir(parents=True)
+    (src_root / "__init__.py").write_text("")
+    (src_root / "sub").mkdir()
+    (src_root / "sub" / "__init__.py").write_text("")
+    (src_root / "sub" / "deep").mkdir()
+    (src_root / "sub" / "deep" / "__init__.py").write_text("")
+
+    _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
+
+    structural_nodes.emit(
+        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
+    )
+
+    # mypkg.sub.deep is parented by its enclosing subpackage mypkg.sub
+    rows = conn.execute(
+        "SELECT n_src.kind, n_src.name FROM edges e "
+        "JOIN nodes n_src ON e.src = n_src.id "
+        "JOIN nodes n_dst ON e.dst = n_dst.id "
+        "WHERE e.kind='physically_contains' "
+        "AND n_dst.kind='subpackage' AND n_dst.name='mypkg.sub.deep'"
+    ).fetchall()
+    assert rows == [("subpackage", "mypkg.sub")]
 
 
 # ============================================================================
@@ -642,11 +659,20 @@ def test_test_file_parented_by_repository_not_package(
 def test_non_test_python_file_parented_by_subpackage(
     conn: sqlite3.Connection, tmp_path: Path, patched_git
 ) -> None:
+    """Phase 43: a file directly under the import root is parented by the package
+    (the import root is no longer emitted as a subpackage); a file inside a
+    nested subpackage is parented by that subpackage.
+    """
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
     (src_root / "__init__.py").write_text("")
+    # File directly in import root — parent should be package (post-Phase-43 fix)
     (src_root / "foo.py").write_text("def foo(): pass\n")
+    # File inside nested subpackage — parent should still be that subpackage
+    (src_root / "sub").mkdir()
+    (src_root / "sub" / "__init__.py").write_text("")
+    (src_root / "sub" / "bar.py").write_text("def bar(): pass\n")
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
@@ -654,7 +680,8 @@ def test_non_test_python_file_parented_by_subpackage(
         conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
     )
 
-    rows = conn.execute(
+    # foo.py is now parented by the package (import root is no longer a subpkg)
+    foo_rows = conn.execute(
         "SELECT n_src.kind, n_src.name FROM edges e "
         "JOIN nodes n_src ON e.src=n_src.id "
         "JOIN nodes n_dst ON e.dst=n_dst.id "
@@ -662,7 +689,18 @@ def test_non_test_python_file_parented_by_subpackage(
         "AND n_dst.kind='file' AND n_dst.path=?",
         ("packages/mypkg/src/mypkg/foo.py",),
     ).fetchall()
-    assert rows == [("subpackage", "mypkg")]
+    assert foo_rows == [("package", "mypkg")]
+
+    # bar.py is still parented by its enclosing nested subpackage
+    bar_rows = conn.execute(
+        "SELECT n_src.kind, n_src.name FROM edges e "
+        "JOIN nodes n_src ON e.src=n_src.id "
+        "JOIN nodes n_dst ON e.dst=n_dst.id "
+        "WHERE e.kind='physically_contains' "
+        "AND n_dst.kind='file' AND n_dst.path=?",
+        ("packages/mypkg/src/mypkg/sub/bar.py",),
+    ).fetchall()
+    assert bar_rows == [("subpackage", "mypkg.sub")]
 
 
 # ============================================================================
@@ -745,12 +783,16 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
             f"Test files have non-TestSuite parents post-Phase-30: {parent_kinds}"
         )
 
-        # Assertion 5: SubPackage walk fires for Python (mypkg) — D-04, D-05, D-07
+        # Assertion 5: SubPackage walk fires for Python — D-04, D-05, D-07
+        # Phase 43 folded-todo fix: import roots are no longer emitted as
+        # subpackages. The sample_monorepo fixture has TWO strictly-nested
+        # __init__.py dirs (mypkg.sub, mypkg.sub.deep); the four import
+        # roots (mypkg, pyutil, commonlib, webutil) are no longer counted.
         n_subpkgs = probe.execute(
             "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
         ).fetchone()[0]
-        assert n_subpkgs >= 3, (
-            f"Expected >=3 SubPackage nodes (mypkg, mypkg.sub, mypkg.sub.deep), got {n_subpkgs}"
+        assert n_subpkgs >= 2, (
+            f"Expected >=2 SubPackage nodes (mypkg.sub, mypkg.sub.deep), got {n_subpkgs}"
         )
 
         # Assertion 6: D-18 — no SubPackage for jspkg
@@ -795,3 +837,62 @@ def test_generic_container_dirs_never_emitted_as_nodes(
         "WHERE name IN ('packages', 'tests', 'libs', 'apps', 'shared', 'common')"
     ).fetchall()
     assert rows == []
+
+
+# ============================================================================
+# Phase 43 folded-todo regression tests: import root not yielded as subpackage
+# ============================================================================
+
+
+def test_no_subpackage_node_at_import_root(
+    conn: sqlite3.Connection, tmp_path: Path, patched_git
+) -> None:
+    """Phase 43 folded todo: _walk_subpackages must not yield the import root.
+
+    Build a package with one nested __init__.py-bearing directory and assert
+    exactly ONE subpackage node (the nested directory), not two (which would
+    include the import root itself).
+    """
+    pkg_dir = tmp_path / "packages" / "foo"
+    src_root = pkg_dir / "src" / "foo"
+    src_root.mkdir(parents=True)
+    (src_root / "__init__.py").write_text("")
+    (src_root / "sub").mkdir()
+    (src_root / "sub" / "__init__.py").write_text("")
+
+    _seed_package(conn, name="foo", path="packages/foo", language="python")
+
+    structural_nodes.emit(
+        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
+    )
+
+    names = sorted(
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM nodes WHERE kind='subpackage'"
+        ).fetchall()
+    )
+    assert names == ["foo.sub"]
+    # Explicit: no subpackage with name equal to the import root
+    assert "foo" not in names
+
+
+def test_no_subpackages_when_only_import_root(
+    conn: sqlite3.Connection, tmp_path: Path, patched_git
+) -> None:
+    """A package with only its import root and no nested __init__.py emits zero subpackages."""
+    pkg_dir = tmp_path / "packages" / "foo"
+    src_root = pkg_dir / "src" / "foo"
+    src_root.mkdir(parents=True)
+    (src_root / "__init__.py").write_text("")
+
+    _seed_package(conn, name="foo", path="packages/foo", language="python")
+
+    structural_nodes.emit(
+        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
+    )
+
+    n = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
+    ).fetchone()[0]
+    assert n == 0
