@@ -4,8 +4,8 @@ milestone: v1.8
 milestone_name: Wiki Entity Restructure
 status: executing
 stopped_at: Phase 48 context gathered
-last_updated: "2026-05-27T15:30:08.740Z"
-last_activity: 2026-05-27 -- Phase 48 planning complete
+last_updated: "2026-05-27T15:32:50.282Z"
+last_activity: 2026-05-27 -- Phase 48 execution started
 progress:
   total_phases: 7
   completed_phases: 5
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 46 — inbound-link-migration-cutover
+**Current Focus:** Phase 48 — graph-propose-domains
 
 ---
 
@@ -59,10 +59,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 46 (inbound-link-migration-cutover) — EXECUTING
+Phase: 48 (graph-propose-domains) — EXECUTING
 Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-05-27 -- Phase 48 planning complete
+Status: Executing Phase 48
+Last activity: 2026-05-27 -- Phase 48 execution started
 
 Progress: [████████░░] 75%
 
