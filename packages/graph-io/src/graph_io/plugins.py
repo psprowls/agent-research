@@ -35,7 +35,12 @@ def emit(
     manifest_path = workspace_root / ".graph-wiki.yaml"
     if not manifest_path.exists():
         return
-    manifest = read_manifest(manifest_path)
+    try:
+        manifest = read_manifest(manifest_path)
+    except RuntimeError:
+        # v1 manifest or parse error — skip plugin ingestion silently
+        # rather than failing the whole update pipeline.
+        return
     plugins_list = manifest.get("plugins") or []
     if not plugins_list:
         return
