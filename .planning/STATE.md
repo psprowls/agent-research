@@ -27,16 +27,30 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 44 — scanner-generated-index
+**Current Focus:** Phase 44 — scanner-generated-index (running in parallel; Phase 43 just completed)
+
+---
+
+## Phase 43 — Completed (2026-05-27)
+
+- `wiki_io.entity_writer.write_entities` shipped (Plans 43-01, 43-02, 43-03). Single public entry point; acquires `.graph-wiki/scan.lock` on entry, per-kind create/merge/hard-delete sweep, byte-stable write-if-changed, returns `EntityWriteResult` with `needs_narrative` for the Phase 45 LLM gate.
+- All ENTITY-01..05 implemented (verified by 6 integration tests under `packages/wiki-io/tests/integration/test_entity_writer_integration.py` against a real synthetic workspace).
+- **`package_family` deferred to v1.9** — `ADMITTED_KINDS_V18 = ADMITTED_KINDS - {"package_family"}`. Phase 42's `package_family_uri` builder + `entity-package-family.md` template remain in the codebase but are dormant in v1.8. Phase 46 cutover will NOT remove `wiki/package-family/` (no entity replacements exist yet).
+- **Folded todo resolved:** `2026-05-26-fix-scanner-treats-import-root-as-subpackage.md` moved to `.planning/todos/resolved/`. `structural_nodes._walk_subpackages` no longer yields the import root itself; subpackage node count rebaselined where applicable (six tests in `test_structural_nodes.py` updated; two new regression tests added).
+- **Pitfall guards activated (verified by integration tests):**
+  - Pitfall 2 (frontmatter merge collision) — `merge_frontmatter` + `status: deprecated` preservation test.
+  - Pitfall 3 (hard-delete losing edits) — `.graph-wiki/deletions.log` JSONL audit log with `body_was_empty` flag + 10MB two-file rotation policy.
+  - Pitfall 9 (concurrent scan race) — `fcntl.flock(LOCK_EX | LOCK_NB)` non-blocking lock at `.graph-wiki/scan.lock`; verified `<500ms` LOCK_NB fail-fast.
+- **graph-io side effect (unblocks Phase 44):** `_row_to_node` + `_list_by_kind` now project the `nodes.uri` column back into `NodeRecord.attrs` so downstream callers can read URI uniformly from `node.attrs["uri"]`. This also resolves the Phase 44 BLOCKER noted below (Phase 43 commits are now on disk — graph-io has `list_dependencies` / `list_plugins` / `describe_dependency` / `describe_plugin`).
 
 ---
 
 ## Current Position
 
-Phase: 44 (scanner-generated-index) — EXECUTING
+Phase: 44 (scanner-generated-index) — EXECUTING (in parallel with Phase 43)
 Plan: 1 of 2
-Status: Executing Phase 44
-Last activity: 2026-05-27 -- Phase 44 execution started
+Status: Phase 43 complete; Phase 44 unblocked
+Last activity: 2026-05-27 -- Phase 43 execution complete
 
 Progress: [██████░░░░] 63%
 

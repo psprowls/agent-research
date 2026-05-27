@@ -22,11 +22,11 @@
 
 ### ENTITY — Entity Writer (create / merge / delete)
 
-- [ ] **ENTITY-01** — `wiki_io/entity_writer.py::write_entities(conn, wiki_root, admitted_kinds)` queries graph for all admitted nodes; creates new entity pages from per-kind templates with URI-derived slug; populates whitelisted relation frontmatter from graph edges
-- [ ] **ENTITY-02** — Merge semantics preserve human-authored frontmatter keys verbatim; scanner only writes whitelisted keys; merge test: write a page with `status: deprecated`, run `write_entities`, assert `status: deprecated` is preserved
-- [ ] **ENTITY-03** — Hard-delete reconciliation: when graph node no longer present but entity page exists, delete the page; append-log every deletion to `.graph-wiki/deletions.log` (path, URI, timestamp) for forensic recovery
-- [ ] **ENTITY-04** — `write_entities` returns `EntityWriteResult(created, updated, deleted, needs_narrative)` where `needs_narrative` is the set of URIs requiring LLM prose generation (new pages + structurally-changed pages)
-- [ ] **ENTITY-05** — Workspace-scoped lock file (`.graph-wiki/scan.lock`) prevents concurrent `write_entities` calls; acquires on entry, releases on exit (including exception paths)
+- [x] **ENTITY-01** — `wiki_io/entity_writer.py::write_entities(conn, wiki_root, admitted_kinds)` queries graph for all admitted nodes; creates new entity pages from per-kind templates with URI-derived slug; populates whitelisted relation frontmatter from graph edges
+- [x] **ENTITY-02** — Merge semantics preserve human-authored frontmatter keys verbatim; scanner only writes whitelisted keys; merge test: write a page with `status: deprecated`, run `write_entities`, assert `status: deprecated` is preserved
+- [x] **ENTITY-03** — Hard-delete reconciliation: when graph node no longer present but entity page exists, delete the page; append-log every deletion to `.graph-wiki/deletions.log` (path, URI, timestamp) for forensic recovery
+- [x] **ENTITY-04** — `write_entities` returns `EntityWriteResult(created, updated, deleted, needs_narrative)` where `needs_narrative` is the set of URIs requiring LLM prose generation (new pages + structurally-changed pages)
+- [x] **ENTITY-05** — Workspace-scoped lock file (`.graph-wiki/scan.lock`) prevents concurrent `write_entities` calls; acquires on entry, releases on exit (including exception paths)
 
 ### INDEX — Domain-First + By-Kind Scanner-Generated Index
 
@@ -103,11 +103,11 @@
 | URI-04 | Phase 42 | Complete |
 | URI-05 | Phase 42 | Complete |
 | URI-06 | Phase 42 | Complete |
-| ENTITY-01 | Phase 43 | Pending |
-| ENTITY-02 | Phase 43 | Pending |
-| ENTITY-03 | Phase 43 | Pending |
-| ENTITY-04 | Phase 43 | Pending |
-| ENTITY-05 | Phase 43 | Pending |
+| ENTITY-01 | Phase 43 | Complete |
+| ENTITY-02 | Phase 43 | Complete |
+| ENTITY-03 | Phase 43 | Complete |
+| ENTITY-04 | Phase 43 | Complete |
+| ENTITY-05 | Phase 43 | Complete |
 | INDEX-01 | Phase 44 | Pending |
 | INDEX-02 | Phase 44 | Pending |
 | INDEX-03 | Phase 44 | Pending |

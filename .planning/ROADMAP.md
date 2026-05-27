@@ -136,7 +136,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 **Milestone Goal:** Collapse the wiki's parallel page-type-per-directory layout into a unified entity model driven by graph-io — `/entities/` lane, URI-keyed pages, scanner-populated relation frontmatter, domain-first scanner-generated index, hard-delete reconciliation, and one-shot inbound-link migration at cutover. Add the LLM/import-graph domain inference layer (`cg domain-clusters` + `graph-wiki-agent graph propose-domains`) so the wiki becomes the curated human-readable projection of graph-io rather than a parallel structural model.
 
 - [x] **Phase 42: URI Slug Scheme + Per-Kind Templates** — Lock slug-encoding design and provision entity lane scaffolding (design lock before any entity code runs) (completed 2026-05-27)
-- [ ] **Phase 43: Entity Writer** — Deterministic entity-page create/merge/hard-delete from graph
+- [x] **Phase 43: Entity Writer** — Deterministic entity-page create/merge/hard-delete from graph (completed 2026-05-27)
 - [ ] **Phase 44: Scanner-Generated Index** — Domain-first + by-kind index driven directly from graph queries
 - [ ] **Phase 45: Scanner Integration** — Wire entity writer into `run_scan` Steps 9a/9b/11/12
 - [ ] **Phase 46: Inbound-Link Migration + Cutover** — One-shot wikilink rewriter and atomic cutover commit
@@ -162,15 +162,19 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 
 ### Phase 43: Entity Writer
 **Goal**: `write_entities(conn, wiki_root, admitted_kinds)` creates, merges, and hard-deletes entity pages deterministically from the graph — preserving all human-authored frontmatter keys, logging every deletion, and returning a `needs_narrative` set for the LLM scanner gate — tested in isolation before scanner wiring
+**Status**: Complete (2026-05-27)
 **Depends on**: Phase 42
 **Requirements**: ENTITY-01, ENTITY-02, ENTITY-03, ENTITY-04, ENTITY-05
 **Success Criteria** (what must be TRUE):
-  1. Running `write_entities` against a fixture graph creates one `wiki/entities/<slug>.md` per admitted node, populated with correct relation frontmatter derived from graph queries
-  2. A page written with human-authored `status: deprecated` retains `status: deprecated` after a subsequent `write_entities` call (merge test passes; whitelist enforced at write time)
-  3. When a graph node disappears, its entity page is deleted on the next `write_entities` call; every deletion is appended to `.graph-wiki/deletions.log` with path, URI, and timestamp
-  4. `write_entities` returns `EntityWriteResult(created, updated, deleted, needs_narrative)` where `needs_narrative` contains URIs for new and structurally-changed pages
-  5. A second concurrent `write_entities` call on the same workspace fails immediately with a clear error (scan.lock acquired on entry, released in finally including exception paths)
-**Plans**: TBD
+  1. [x] Running `write_entities` against a fixture graph creates one `wiki/entities/<slug>.md` per admitted node, populated with correct relation frontmatter derived from graph queries
+  2. [x] A page written with human-authored `status: deprecated` retains `status: deprecated` after a subsequent `write_entities` call (merge test passes; whitelist enforced at write time)
+  3. [x] When a graph node disappears, its entity page is deleted on the next `write_entities` call; every deletion is appended to `.graph-wiki/deletions.log` with path, URI, and timestamp
+  4. [x] `write_entities` returns `EntityWriteResult(created, updated, deleted, needs_narrative)` where `needs_narrative` contains URIs for new and structurally-changed pages
+  5. [x] A second concurrent `write_entities` call on the same workspace fails immediately with a clear error (scan.lock acquired on entry, released in finally including exception paths)
+**Plans**: 3 plans
+- [x] 43-01-PLAN.md — Extend graph-io to admit dependency + plugin kinds, ingest from pyproject.toml + .graph-wiki.yaml, add read-only query helpers
+- [x] 43-02-PLAN.md — Implement write_entities orchestrator + helpers in wiki_io/entity_writer.py (mocked-graph tests)
+- [x] 43-03-PLAN.md — Integration tests against real workspace + REQUIREMENTS/STATE/ROADMAP doc updates
 
 ### Phase 44: Scanner-Generated Index
 **Goal**: `generate_index(conn, wiki_root)` produces the wiki index from graph queries directly — domain-first sections at top, global by-kind sections below, deterministic sort, write-if-changed guard — so the index never churns git history when graph state has not changed
