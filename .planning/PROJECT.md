@@ -51,13 +51,32 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 **Workspace rename history:** `cores/` → `packages/` (commit `c5a47ba`, v1.1). Brand rename `lattice` → `graph-wiki` swept in v1.2 Phase 12. Agent package rename `code-wiki-agent` → `graph-wiki-agent` swept in v1.3 Phase 21. Repo rename `deep-agents` → `agent-research` and package rename `vault-io` → `wiki-io` swept in v1.5 Phase 27.
 
-## Next Milestone: v1.8 (Planning)
+## Current Milestone: v1.8 Wiki Entity Restructure
 
-Run `/gsd:new-milestone` to scope v1.8. Candidate themes surfaced during v1.7:
-- **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI; flat-by-ID / by-domain / by-repo views (largest expected v1.8 scope).
-- **URI-drift reconciliation** (INGESTOR-03) — orphaned-page handling when entity URIs change on rename.
-- **Exit-code namespace cleanup** — disambiguate 3 between BUDGET_EXCEEDED and NOT_INITIALIZED.
-- **VERIFICATION.md coverage process** — formalize verification-artifact requirements for code-only phases.
+**Goal:** Collapse the wiki's parallel page-type-per-directory layout into a unified entity model driven by the graph, and add the LLM/import-graph domain inference layer needed to make the new domain-first index work — so the wiki becomes the curated human-readable projection of `graph-io` rather than a separate structural model.
+
+**Target features:**
+
+1. **`/entities/` lane** — flat folder, one file per graph-derived entity, `kind` discriminator in frontmatter. Admitted kinds: `repository`, `domain`, `package`, `package-family`, `plugin`, `dependency`, `test-suite`. Sub-packages and in-file nodes (class/function/method) excluded by policy; new graph kinds require explicit admit/deny.
+2. **Per-kind templates** — replace directory templates with per-kind page templates (e.g. `entity-package.template`). Package-as-folder collapses into a single `entity-package` page.
+3. **URI-keyed entity pages** — entity identity is the `graph-io` URI (Q1 = URI-as-key). Filename derives from URI; renames don't create ghost pages.
+4. **Scanner-populated relation frontmatter** — graph edges surfaced as structured frontmatter on entity pages, populated by the scanner. Prose reserved for narrative. Whitelist of scanner-owned keys coexists with human-authored frontmatter on the same page.
+5. **Domain-first + by-kind index** — fully scanner-generated (Q5). Domain sections expanded inline at top, then global by-kind sections (all packages, all plugins, all dependencies, all test-suites). Entities appear in both views.
+6. **Hard-delete reconciliation** (Q2) — when a graph node disappears, its entity page is deleted on next scan. Exploratory vaults are disposable so dangling-link risk is accepted.
+7. **One-shot inbound-link migration** (Q3) — single rewrite pass for existing `/concepts/`, `/adrs/`, `/architecture/` wikilinks at cutover.
+8. **Curated lanes preserved** — `/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/` keep current homes; not direct graph projections.
+9. **Import-graph clustering** — new `cg domain-clusters` command produces deterministic cluster candidates from the import graph. Standalone CLI surface, independently testable.
+10. **LLM-proposed domain groupings** — new `graph-wiki-agent graph propose-domains` subcommand consumes `cg domain-clusters` + graph context and emits `domains.proposed.yaml` for human review/merge into authored `domains.yaml`. Proposals never auto-apply.
+
+**Key context:**
+
+- **Supersedes aborted v1.8** (URI-Keyed Wiki & Reconciliation, aborted 2026-05-26 before research synthesis). URI-keying is folded into this restructure as Q1 rather than the headline.
+- **Format-compatibility constraint relaxed** for this milestone — existing exploratory `~/Personal/graph-wiki/agent-research` vault is disposable per user direction (2026-05-26). Wipe-and-rebuild is acceptable; no in-place migration script required.
+- **`domains.yaml` remains the authored source of truth.** LLM proposals land in `domains.proposed.yaml` for human review/merge — never auto-applied to the graph.
+- **Q4 (scanner pipeline integration point)** deferred to research/planning — depends on existing scanner stage map; expect a scoping phase to lock the design before rewrites.
+- **ONTOLOGY-SPEC §9 inference strategies** — explicit config + convention shipped in v1.6; this milestone delivers import-graph clustering + LLM-proposed groupings (strategies 3 & 4). Manual overrides remain "always win" via authored `domains.yaml`.
+- **Phase numbering continues from Phase 41 → v1.8 starts at Phase 42.**
+- **Design notes**: `.planning/notes/wiki-entity-restructure-design.md` and `.planning/research/questions.md` Q1–Q5 are the load-bearing pre-research inputs.
 
 ## Previous Milestone: v1.7 graph-io Integration & Wiki Hygiene (SHIPPED 2026-05-26)
 
@@ -106,9 +125,14 @@ Run `/gsd:new-milestone` to scope v1.8. Candidate themes surfaced during v1.7:
 - **Schema v2 forces full rebuild.** Existing `code.db` files become invalid on upgrade; users run `cg update --full`. Acceptable since the only consumers today are direct `cg` invocations.
 - Phase numbering continues from Phase 27 → v1.6 starts at Phase 28.
 
-## Deferred to v1.8+
+## Deferred to v1.9+
 
-- **Wiki redesign on top of graph-io** — render wiki content keyed by stable URI rather than filesystem location; flat-by-ID / by-domain / by-repo views from one graph. Natural follow-on to v1.7's integration work; its own milestone.
+**Now in v1.8** (formerly Deferred to v1.8+):
+- **Wiki redesign on top of graph-io** — collapsed into the Wiki Entity Restructure (target features 1-8).
+- **LLM-proposed domain groupings + import-graph clustering** — ONTOLOGY-SPEC §9 strategies 3 & 4 (target features 9-10).
+
+**Still deferred:**
+
 - **Scanner pipeline restructure** — split into the 9-stage pipeline per spec §9 (FS walk → manifest parse → test detect → AST → import resolve → test target derive → domain assign → derived edges → wiki render). Becomes a real requirement when domain-overlay re-runs need to be cheap.
 - **Open questions §11 of ONTOLOGY-SPEC** — tagging mechanism, cross-repo domain scope, domain config location in multi-repo, role-flag confidence metadata, test suite consolidation threshold, test-support file flag.
 - **check-brand.sh regex over-breadth** — `workspace_io|lattice_wiki_core` in the regex causes legitimate matches across the repo; minimal allowlist papered over it. A regex trim would let `.brand-grep-allow` shrink dramatically.
@@ -199,9 +223,9 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_Milestone v1.7 (graph-io Integration & Wiki Hygiene) — requirements live in `.planning/REQUIREMENTS.md` after `/gsd:new-milestone` scoping. See "Current Milestone" section above for the goal + target features._
+_Milestone v1.8 (Wiki Entity Restructure) — requirements live in `.planning/REQUIREMENTS.md` after `/gsd:new-milestone` scoping. See "Current Milestone" section above for the goal + target features._
 
-_See "Deferred to v1.7+" above for items explicitly out of v1.6 scope, and "Out of Scope" below for items deferred past v1.x._
+_See "Deferred to v1.8+" above for items carried forward from v1.7, and "Out of Scope" below for items deferred past v1.x._
 
 ### Out of Scope
 
@@ -285,7 +309,9 @@ _See "Deferred to v1.7+" above for items explicitly out of v1.6 scope, and "Out 
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-26 — milestone v1.7 (graph-io Integration & Wiki Hygiene) STARTED. Scope: wire `graph-io` into `graph-wiki-agent` (librarian grounding tools, scanner/ingestor consume graph-io, new `graph` subcommand), fix `cg find` parser, burn down 10 deferred quick tasks + 2 bootstrap todos as a hygiene phase. Wiki redesign deferred to v1.8. Phase numbering continues from Phase 35.
+**Last updated:** 2026-05-26 — milestone v1.8 (Wiki Entity Restructure) STARTED. Scope: collapse page-type-per-directory wiki into unified `/entities/` lane driven by graph-io, URI-keyed pages, scanner-populated relation frontmatter, domain-first scanner-generated index, hard-delete reconciliation, one-shot inbound-link migration, plus LLM-proposed domain groupings + import-graph clustering (`cg domain-clusters` + `graph-wiki-agent graph propose-domains`). Supersedes aborted v1.8 URI-Keyed Wiki & Reconciliation. Phase numbering continues from Phase 41 → starts at Phase 42.
+
+**Prior update:** 2026-05-26 — milestone v1.7 (graph-io Integration & Wiki Hygiene) STARTED. Scope: wire `graph-io` into `graph-wiki-agent` (librarian grounding tools, scanner/ingestor consume graph-io, new `graph` subcommand), fix `cg find` parser, burn down 10 deferred quick tasks + 2 bootstrap todos as a hygiene phase. Wiki redesign deferred to v1.8. Phase numbering continues from Phase 35.
 
 **Prior update:** 2026-05-25 — milestone v1.5 (Repo Rename & Foundational Package Additions) SHIPPED retroactively. 1 phase, 0 plans (single-phase doc-only milestone). 7/7 requirements satisfied; audit skipped per operator direction.
 
@@ -305,4 +331,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — milestone v1.7 SHIPPED (graph-io Integration & Wiki Hygiene). 41 phases / 150 plans shipped across v1.0-v1.7. Next: scope v1.8 via `/gsd:new-milestone`.*
+*Last updated: 2026-05-26 — milestone v1.8 STARTED (Wiki Entity Restructure). 41 phases / 150 plans shipped across v1.0-v1.7. Next: research → requirements → roadmap for v1.8 (phases 42+).*

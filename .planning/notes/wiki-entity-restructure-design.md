@@ -29,7 +29,7 @@ The index page interleaves both lanes (see "Index structure" below).
 Entities in `/entities/` are **major structural code entities only**. Concretely:
 
 - **Admitted kinds:** `repository`, `domain`, `package`, `package-family`, `plugin`, `dependency`, `test-suite`
-- **Excluded:** in-file graph nodes — `class`, `function`, `method`, `module-inside-file`. The wiki stops at the file boundary.
+- **Excluded:** `sub-package`, and in-file graph nodes — `class`, `function`, `method`, `module-inside-file`. The wiki stops at the `package` boundary; sub-packages do not get their own entity pages (they remain graph nodes and can be referenced from their parent `package` entity, but are not promoted to wiki entities).
 - **Policy for new kinds:** when a new graph node kind is added, an explicit decision must be made on whether it warrants a wiki entity page. This is not automatic.
 
 ### Per-kind templates replace directory templates
