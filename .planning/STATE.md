@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Wiki Entity Restructure
-status: executing
+status: ready_to_plan
 stopped_at: Phase 45 context gathered
-last_updated: "2026-05-27T13:58:45.244Z"
-last_activity: 2026-05-27 -- Phase 44 execution started
+last_updated: "2026-05-27T14:09:14.601Z"
+last_activity: 2026-05-27 -- Phase 43 execution complete
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 43
 ---
 
 # Project State: agent-research
@@ -47,12 +47,12 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 44 (scanner-generated-index) — EXECUTING (in parallel with Phase 43)
-Plan: 1 of 2
-Status: Phase 43 complete; Phase 44 unblocked
-Last activity: 2026-05-27 -- Phase 43 execution complete
+Phase: 44
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-27
 
-Progress: [██████░░░░] 63%
+Progress: [████████░░] 75%
 
 ---
 
