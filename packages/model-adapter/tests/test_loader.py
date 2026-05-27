@@ -95,6 +95,44 @@ def test_invoke_returns_underlying_result_on_success(monkeypatch):
 
 ALL_ROLES = ["preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
 
+# Phase 48 D-19 / PROPOSE-06: dedicated role for `graph propose-domains` so
+# per-LLM-call cost is trackable under a distinct trace tag and the model can
+# be tuned independently of `scanner`. Initial config mirrors scanner; v1.9
+# eval will refine.
+DOMAIN_PROPOSER_ROLE = "domain-proposer"
+NOVA_LITE_ARN = "us.amazon.nova-lite-v1:0"
+
+
+def test_domain_proposer_role():
+    """Phase 48 D-19 + D-21: `[roles.domain-proposer]` is present with the
+    expected config, `make_llm` instantiates successfully, and `model_override`
+    swaps the model_id while preserving the rest of the role config.
+    """
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import load_role_config, make_llm
+
+    # D-19: raw role config matches the spec.
+    cfg = load_role_config(DOMAIN_PROPOSER_ROLE)
+    assert cfg["model_id"] == HAIKU_ARN
+    assert cfg["region"] == "us-east-1"
+    assert cfg["max_tokens"] == 1024
+    assert cfg["max_concurrency"] == 5
+
+    # D-19: `make_llm("domain-proposer")` returns a working LLM handle.
+    llm = make_llm(DOMAIN_PROPOSER_ROLE)
+    assert isinstance(llm, ChatBedrockConverse)
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual == HAIKU_ARN
+
+    # D-21: `model_override` swaps the model_id while keeping the role's
+    # other config intact.
+    llm_override = make_llm(DOMAIN_PROPOSER_ROLE, model_override=NOVA_LITE_ARN)
+    assert isinstance(llm_override, ChatBedrockConverse)
+    actual_override = (
+        getattr(llm_override, "model_id", None) or getattr(llm_override, "model", None)
+    )
+    assert actual_override == NOVA_LITE_ARN
+
 
 @pytest.mark.parametrize("role", ALL_ROLES)
 def test_load_role_config_returns_dict_for_all_seven_roles(role):

@@ -98,7 +98,7 @@ class _GuardedChatBedrockConverse(ChatBedrockConverse):
             raise
 
 
-def make_llm(role: str) -> ChatBedrockConverse:
+def make_llm(role: str, *, model_override: str | None = None) -> ChatBedrockConverse:
     """Return a ChatBedrockConverse configured for the given role.
 
     Resolution order:
@@ -106,6 +106,13 @@ def make_llm(role: str) -> ChatBedrockConverse:
          `plugins[].roles[]` for plugin "graph-wiki-agent") if a role
          entry with `name == role` is present.
       2. Packaged `model_adapter/models.toml` `[roles.<role>]`.
+
+    Args:
+        role: Role name (e.g. ``"librarian"``, ``"domain-proposer"``).
+        model_override: Optional Bedrock model id (ARN or short form) that
+            replaces the resolved role's ``model_id``. Other role config
+            (region, max_tokens, etc.) is preserved. Phase 48 D-21 wires
+            the ``--model`` CLI flag through this parameter.
 
     Raises:
         KeyError: when `role` is not present in either source.
@@ -117,7 +124,7 @@ def make_llm(role: str) -> ChatBedrockConverse:
         config = _load_models_config()
         role_cfg = config["roles"][role]  # KeyError if absent
 
-    model_id = role_cfg["model_id"]
+    model_id = model_override if model_override is not None else role_cfg["model_id"]
     region = role_cfg.get("region", "us-east-1")
 
     kwargs: dict[str, Any] = dict(model=model_id, region_name=region)

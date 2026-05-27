@@ -137,6 +137,15 @@ sweep_candidates = [
   "qwen.qwen3-32b-v1:0",
 ]
 
+# Phase 48 D-19 — LLM proposal for `graph propose-domains`. Separate from
+# scanner so cost-per-role is trackable and the model can be tuned
+# independently. Initial config mirrors scanner; revisit in v1.9 eval.
+[roles.domain-proposer]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 1024
+max_concurrency = 5
+
 [roles.judge_a]
 model_id        = "us.anthropic.claude-sonnet-4-6"
 region          = "us-east-1"
