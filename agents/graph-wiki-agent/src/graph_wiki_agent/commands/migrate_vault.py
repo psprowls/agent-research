@@ -40,6 +40,7 @@ from wiki_io.link_rewriter import (
     rewrite_vault,
 )
 from wiki_io.update_index import update_index
+from workspace_io.paths import graph_dir
 
 
 MIGRATION_MARKER_VALUE = "v1.8-entity-restructure"
@@ -79,7 +80,7 @@ def _is_clean_post_migration(manifest_path: Path, wiki_root: Path) -> bool:
 
 
 def _open_graph_db(workspace_root: Path) -> sqlite3.Connection:
-    db_path = workspace_root / ".graph-wiki" / "graph.db"
+    db_path = graph_dir(workspace_root) / "code.db"
     if not db_path.exists():
         raise FileNotFoundError(f"graph DB not found at {db_path}")
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)

@@ -79,7 +79,8 @@ def vault(tmp_path, monkeypatch):
     )
 
     # Graph DB.
-    _seed_graph_db(repo / ".graph-wiki" / "graph.db")
+    (repo / ".graph").mkdir(exist_ok=True)
+    _seed_graph_db(repo / ".graph" / "code.db")
 
     # Initial commit so the cutover has something to git-rm and amend.
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
