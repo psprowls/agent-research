@@ -430,7 +430,7 @@ def _template_path_for_kind(kind: str) -> Path:
     return Path(str(_resource_files("wiki_io.assets.page-templates").joinpath(fname)))
 
 
-def _scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
+def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
     """Build the scanner-update frontmatter dict from a graph node + its description.
 
     Returns a dict ready for `merge_frontmatter`. Always populates `uri`,
@@ -535,7 +535,7 @@ def write_entities(
                 slug = encode_slug(uri)
                 page_path = entities_dir / f"{slug}.md"
                 try:
-                    scanner_fm = _scanner_frontmatter_for_node(conn, kind, node)
+                    scanner_fm = scanner_frontmatter_for_node(conn, kind, node)
                     existing_fm: dict = {}
                     existed = page_path.exists()
                     if existed:
