@@ -1,11 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: between
-milestone_name: awaiting v1.9 scoping
-status: Awaiting next milestone
-stopped_at: v1.8 closed
-last_updated: "2026-05-27T20:35:00.000Z"
-last_activity: 2026-05-27 — Milestone v1.8 completed and archived (Wiki Entity Restructure)
+milestone: v1.9
+milestone_name: Graph Refinements & Wiki Filename Slimdown
+status: planning
+last_updated: "2026-05-27T23:05:11.081Z"
+last_activity: 2026-05-27
 progress:
   total_phases: 0
   completed_phases: 0
@@ -33,10 +32,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-27)
 
 ## Current Position
 
-Phase: — (between milestones)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-27 — v1.8 archived
+Status: Defining requirements
+Last activity: 2026-05-27 — Milestone v1.9 started
 
 ## Performance Metrics
 
