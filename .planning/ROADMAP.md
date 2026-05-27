@@ -182,7 +182,9 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
   3. Running `generate_index` twice against the same graph with different node-insertion orders produces byte-identical output (determinism test passes)
   4. `generate_index` does not write the file when generated content is byte-identical to existing content (write-if-changed guard in place; no spurious git diff)
   5. Existing curated lane sections (`/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/`) are present and unchanged after `generate_index` runs
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 44-01-PLAN.md — Create `index_generator.py` skeleton + graph-read + scan + render helpers (Wave 1)
+- [ ] 44-02-PLAN.md — Determinism + write-if-changed + edge-case + snapshot acceptance tests (Wave 2, depends_on 44-01)
 
 ### Phase 45: Scanner Integration
 **Goal**: `run_scan` calls `entity_writer.write_entities` (Step 9a) and fans out the LLM scanner only for `needs_narrative` URIs (Step 9b), hard-deletes entity pages for disappeared nodes (Step 11), regenerates the entity index (Step 12), and handles `wiki/entities/` by URI in load/diff — with the existing plugin smoke test still passing
