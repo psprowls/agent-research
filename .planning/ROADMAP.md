@@ -208,7 +208,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 **Depends on**: Phase 43, Phase 44, Phase 45
 **Requirements**: MIGRATION-01, MIGRATION-02, MIGRATION-03, MIGRATION-04, MIGRATION-05
 **Success Criteria** (what must be TRUE):
-  1. Wikilinks in `/concepts/`, `/adrs/`, and `/architecture/` that reference old layout paths (e.g. `[[packages/graph-io/index]]`) are rewritten to new entity slugs (e.g. `[[entities/pkg__agent-research__graph-io]]`) with display aliases preserved
+  1. Wikilinks in `/concepts/`, `/adrs/`, `/architecture/`, `/sources/`, and `/work/` that reference old layout paths (e.g. `[[packages/graph-io/index]]`) are rewritten to new entity slugs (e.g. `[[entities/pkg__agent-research__graph-io]]`) with display aliases preserved
   2. Wikilinks inside fenced code blocks and inline code spans are not rewritten — a test page with a wikilink in a code fence is byte-identical before and after migration
   3. Running the migration twice is a no-op: no file changes on the second run; the `migrated_to: v1.8-entity-restructure` manifest marker prevents reprocessing
   4. The cutover commit: `wiki/entities/` is populated, inbound links are rewritten, old directories (`wiki/packages/`, `wiki/dependencies/`, `wiki/domain/`, `wiki/plugin/`, `wiki/package-family/`) are removed, and `wiki/index.md` reflects the new entity-first layout
@@ -237,7 +237,10 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
   3. Any `domain_contains_domain` edge that would introduce a cycle is stripped with a logged warning before the file is written
   4. Running `cg update` (or `cg list-domains`) after placing `domains.proposed.yaml` in the workspace root produces the same graph as with only `domains.yaml` present — proposed domains have zero effect on the graph
   5. Per-LLM-call cost records are written to `.graph-wiki/traces/` matching the v1.7 trace schema; `--model` flag is supported via the model-adapter role-tier mechanism
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 48-01-PLAN.md — Add `domain-proposer` role to models.toml (Wave 1)
+- [ ] 48-02-PLAN.md — Implement `propose_domains.py` core module + unit tests (Wave 2, blocked on 48-01)
+- [ ] 48-03-PLAN.md — Register subcommand + e2e and isolation integration tests (Wave 3, blocked on 48-02)
 
 ---
 
@@ -292,7 +295,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 1/3 | In Progress|  |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
-| 48. `graph propose-domains` | v1.8 | 0/TBD | Not started | - |
+| 48. `graph propose-domains` | v1.8 | 0/3 | Ready to execute | - |
 
 ---
 
