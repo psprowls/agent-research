@@ -94,7 +94,7 @@ def test_load_existing_skips_companions() -> None:
     """Companion files (by file stem) in packages/ should not appear as page entries."""
     from wiki_io.scan_monorepo import _load_existing_pages
 
-    pages = _load_existing_pages(ROUND_TRIP_VAULT)
+    pages = _load_existing_pages(ROUND_TRIP_VAULT).legacy
 
     # Companion files have stems like 'api', 'context', 'patterns', 'work'.
     # After the fix, no entry in pages should correspond to one of these files
@@ -138,7 +138,7 @@ def test_layout_pinned_package_skips_companions(tmp_path: Path) -> None:
             encoding="utf-8",
         )
 
-    pages = _load_existing_pages(wiki)
+    pages = _load_existing_pages(wiki).legacy
 
     leaked = _companion_vault_paths(pages)
     assert not leaked, (
@@ -169,7 +169,7 @@ def test_apps_not_filtered(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    pages = _load_existing_pages(wiki)
+    pages = _load_existing_pages(wiki).legacy
 
     # Apps should NOT be folded — api and context should appear in pages
     # (they have category 'app' which scan will pick up)
@@ -188,7 +188,7 @@ def test_compute_diff_no_phantom_deletes() -> None:
     """compute_diff reports 0 deleted entries for companion stems on the fixture vault."""
     from wiki_io.scan_monorepo import _load_existing_pages, compute_diff
 
-    existing = _load_existing_pages(ROUND_TRIP_VAULT)
+    existing = _load_existing_pages(ROUND_TRIP_VAULT).legacy
 
     # Build a workspaces list matching the 7 fixture packages.
     # Companion pages (api/context/patterns/work stems) must NOT appear in deleted.

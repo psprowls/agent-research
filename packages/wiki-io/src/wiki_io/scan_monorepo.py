@@ -40,6 +40,7 @@ import json
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -826,10 +827,29 @@ def _parse_frontmatter(text):
     return fm
 
 
-def _load_existing_pages(wiki):
-    """Return dict of workspace name → {wiki_relative_path, package_path, category}.
+@dataclass(frozen=True)
+class ExistingPages:
+    """Phase 45 D-11: dual view of vault pages — legacy (name-keyed) and entities (URI-keyed).
 
-    Walks every place package/app pages may live:
+    legacy:   dict mapping workspace name → existing page metadata
+              (wiki_relative_path, package_path, category, last_sync_commit).
+              Shape unchanged from pre-Phase-45 — passes through to
+              `attach_changed_files` and `compute_diff` directly.
+
+    entities: dict mapping graph URI → {"path": Path, "frontmatter": dict}.
+              Populated by walking `wiki/entities/*.md` and indexing by the
+              page's `uri` frontmatter field. Pages missing a `uri` field are
+              skipped silently. `_index.md` is skipped (Phase 43 convention).
+    """
+
+    legacy: dict[str, dict]
+    entities: dict[str, dict]
+
+
+def _load_existing_pages(wiki):
+    """Return an `ExistingPages` dataclass.
+
+    `legacy` is built by walking every place package/app pages may live:
 
       - wiki/apps/**/*.md                       (apps — default)
       - wiki/packages/**/*.md                   (cross-domain packages — default)
@@ -840,10 +860,13 @@ def _load_existing_pages(wiki):
 
     The category is read from frontmatter when present so the diff can
     distinguish apps from libraries regardless of which directory they live in.
+
+    `entities` is built by walking `wiki/entities/*.md` (excluding `_index.md`)
+    and indexing by the page's `uri` frontmatter field (Phase 45 D-11).
     """
     if not wiki:
-        return {}
-    pages = {}
+        return ExistingPages(legacy={}, entities={})
+    legacy_pages: dict[str, dict] = {}
     vault = wiki
     walked: set[Path] = set()
 
@@ -876,7 +899,7 @@ def _load_existing_pages(wiki):
             name = fm.get("title") or md.stem
             category = fm.get("category", default_category)
             path_key = fm.get("app_path") if category == "app" else fm.get("package_path")
-            pages[name] = {
+            legacy_pages[name] = {
                 "wiki_relative_path": str(md.relative_to(wiki)).replace("\\", "/"),
                 "package_path": path_key,
                 "category": category,
@@ -927,13 +950,35 @@ def _load_existing_pages(wiki):
                 continue
             name = fm.get("title") or md.stem
             path_key = fm.get("app_path") if category == "app" else fm.get("package_path")
-            pages[name] = {
+            legacy_pages[name] = {
                 "wiki_relative_path": str(md.relative_to(wiki)).replace("\\", "/"),
                 "package_path": path_key,
                 "category": category,
                 "last_sync_commit": fm.get("last_sync_commit") or None,
             }
-    return pages
+
+    # Phase 45 D-11: walk wiki/entities/ and index by URI.
+    entities_dict: dict[str, dict] = {}
+    entities_dir = wiki / "entities"
+    if entities_dir.exists():
+        import frontmatter as _frontmatter  # local import: only needed for entity walk
+
+        for page_path in sorted(entities_dir.glob("*.md")):
+            if page_path.name == "_index.md":
+                continue
+            try:
+                post = _frontmatter.load(page_path)
+            except Exception:
+                continue  # silently skip pages with un-parseable frontmatter
+            uri = post.metadata.get("uri") if isinstance(post.metadata, dict) else None
+            if not uri:
+                continue  # silently skip pages without a URI
+            entities_dict[uri] = {
+                "path": page_path,
+                "frontmatter": dict(post.metadata),
+            }
+
+    return ExistingPages(legacy=legacy_pages, entities=entities_dict)
 
 
 def compute_diff(workspaces, existing):
@@ -1394,10 +1439,11 @@ def main():
                 prod_block, test_block = fms
                 w["file_map"] = prod_block
                 w["file_map_testing"] = test_block
-    existing = _load_existing_pages(wiki) if wiki.exists() else {}
+    existing_pages = _load_existing_pages(wiki) if wiki.exists() else ExistingPages(legacy={}, entities={})
+    existing_legacy = existing_pages.legacy
     if wiki.exists():
-        attach_changed_files(workspaces, existing, repo)
-    diff = compute_diff(workspaces, existing)
+        attach_changed_files(workspaces, existing_legacy, repo)
+    diff = compute_diff(workspaces, existing_legacy)
 
     doc_candidates: list[dict] = []
     if wiki.exists() and pinned:
