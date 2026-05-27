@@ -30,11 +30,11 @@
 
 ### INDEX — Domain-First + By-Kind Scanner-Generated Index
 
-- [ ] **INDEX-01** — `wiki_io/index_generator.py::generate_index(conn, wiki_root)` produces the wiki index page from graph queries directly (not by parsing entity page frontmatter); domain-first hierarchy at top, global by-kind sections below
-- [ ] **INDEX-02** — Each domain section lists its contained packages, test-suites, and dependencies nested under it; entities appear twice in the index (once under domain, once in global by-kind list)
-- [ ] **INDEX-03** — Cross-cutting packages (zero `belongs_to_domain` edges) appear in the global by-kind sections only; deterministic sort order: domain name alphabetical, then URI alphabetical within section
-- [ ] **INDEX-04** — Write-if-changed guard: `generate_index` does not write the file if generated content is byte-identical to existing content; determinism test asserts byte-identical output across two runs from the same graph with different node-insertion orders
-- [ ] **INDEX-05** — Curated lane sections (`/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/`) preserved by index regeneration; correctness test: existing curated index sections present and unchanged after `generate_index` runs
+- [x] **INDEX-01** — `wiki_io/index_generator.py::generate_index(conn, wiki_root)` produces the wiki index page from graph queries directly (not by parsing entity page frontmatter); domain-first hierarchy at top, global by-kind sections below
+- [x] **INDEX-02** — Each domain section lists its contained packages, test-suites, and dependencies nested under it; reinterpreted by Phase 44 CONTEXT D-04 to single-placement (entities appear once — domain section iff exactly one qualifying domain, else by-kind)
+- [x] **INDEX-03** — Cross-cutting packages (zero `belongs_to_domain` edges) appear in the global by-kind sections only; deterministic sort order: domain name alphabetical, then URI alphabetical within section
+- [x] **INDEX-04** — Write-if-changed guard: `generate_index` does not write the file if generated content is byte-identical to existing content; determinism test asserts byte-identical output across two runs from the same graph with different node-insertion orders
+- [x] **INDEX-05** — Curated lane sections (`/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/`) consolidated into `wiki/index.md` as sections (Phase 44 expanded INDEX-05 from "preserve per-folder sub-index files" to "consolidate into single wiki/index.md"; Phase 46 cutover deletes the per-folder files)
 
 ### SCANINT — Scanner Integration (wire into `run_scan`)
 
@@ -108,11 +108,11 @@
 | ENTITY-03 | Phase 43 | Complete |
 | ENTITY-04 | Phase 43 | Complete |
 | ENTITY-05 | Phase 43 | Complete |
-| INDEX-01 | Phase 44 | Pending |
-| INDEX-02 | Phase 44 | Pending |
-| INDEX-03 | Phase 44 | Pending |
-| INDEX-04 | Phase 44 | Pending |
-| INDEX-05 | Phase 44 | Pending |
+| INDEX-01 | Phase 44 | Complete |
+| INDEX-02 | Phase 44 | Complete (reinterpreted by D-04 single-placement) |
+| INDEX-03 | Phase 44 | Complete |
+| INDEX-04 | Phase 44 | Complete |
+| INDEX-05 | Phase 44 | Complete (scope expanded to single-file consolidation) |
 | SCANINT-01 | Phase 45 | Pending |
 | SCANINT-02 | Phase 45 | Pending |
 | SCANINT-03 | Phase 45 | Pending |

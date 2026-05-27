@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Wiki Entity Restructure
-status: executing
+status: completed
 stopped_at: Phase 46 context gathered
-last_updated: "2026-05-27T14:32:52.698Z"
-last_activity: 2026-05-27 -- Phase 44 execution started
+last_updated: "2026-05-27T14:34:02.950Z"
+last_activity: 2026-05-27 -- Phase 44 marked complete
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 10
   completed_plans: 8
-  percent: 80
+  percent: 43
 ---
 
 # Project State: agent-research
@@ -45,12 +45,24 @@ See: `.planning/PROJECT.md`
 
 ---
 
+## Phase 44 — Completed (2026-05-27)
+
+- `wiki_io.index_generator.generate_index(conn, wiki_root)` shipped (Plans 44-01, 44-02). New 640-line module producing `wiki/index.md` from graph queries (placement under domains via D-04 single-placement rule, by-kind fallback) and curated-lane filesystem scans (architecture / adrs / concepts / sources / work). Atomic write-if-changed via `os.replace`.
+- All INDEX-01..05 implemented (49 active tests + 1 conditionally-skipped snapshot in `packages/wiki-io/tests/test_index_generator.py`). Determinism (Pitfall 5 mitigation) verified via permuted-insertion test; write-if-changed verified by mtime-unchanged assertion on second invocation.
+- **Scope expansion (INDEX-05 reinterpreted):** Single `wiki/index.md` now consolidates the four curated lane sections + Work; per-folder `wiki/<lane>/index.md` files become obsolete and will be deleted in Phase 46 cutover. The plan documents this expansion against the original "preserve per-folder sub-indexes" wording.
+- **INDEX-02 reinterpreted by D-04:** entities appear ONCE — under their single qualifying domain, OR in `## By Kind` when qualifying domains are 0 or >=2. The original "twice" wording is superseded by the single-placement decision in CONTEXT.md D-04.
+- **`CURATED_LANES` correction:** module constant uses bare lane names (`"architecture"`) rather than wiki-rooted (`"wiki/architecture"`) per the path-derivation note in 44-01-PLAN — `wiki_root` IS the wiki directory, so the bare name is the correct relative path.
+- **`update_index.py` and `packages/wiki-io/pyproject.toml` byte-identical** to pre-Phase-44 state (D-01, D-22 — Phase 46 deletes `update_index.py`, not Phase 44).
+- Full wiki-io suite green: 1288 passed, 35 skipped (snapshot deferred until live `.graph-wiki/graph.db` exists post-Phase-45).
+
+---
+
 ## Current Position
 
-Phase: 44 — EXECUTING
+Phase: 44 — COMPLETE
 Plan: 1 of ?
-Status: Executing Phase 44
-Last activity: 2026-05-27 -- Phase 44 execution started
+Status: Phase 44 complete
+Last activity: 2026-05-27 -- Phase 44 marked complete
 
 Progress: [████████░░] 75%
 

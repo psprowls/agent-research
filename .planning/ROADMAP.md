@@ -137,7 +137,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 
 - [x] **Phase 42: URI Slug Scheme + Per-Kind Templates** — Lock slug-encoding design and provision entity lane scaffolding (design lock before any entity code runs) (completed 2026-05-27)
 - [x] **Phase 43: Entity Writer** — Deterministic entity-page create/merge/hard-delete from graph (completed 2026-05-27)
-- [ ] **Phase 44: Scanner-Generated Index** — Domain-first + by-kind index driven directly from graph queries
+- [x] **Phase 44: Scanner-Generated Index** — Domain-first + by-kind index driven directly from graph queries (completed 2026-05-27)
 - [ ] **Phase 45: Scanner Integration** — Wire entity writer into `run_scan` Steps 9a/9b/11/12
 - [ ] **Phase 46: Inbound-Link Migration + Cutover** — One-shot wikilink rewriter and atomic cutover commit
 - [ ] **Phase 47: `cg domain-clusters`** — Import-graph clustering without LLM dependency (independent)
