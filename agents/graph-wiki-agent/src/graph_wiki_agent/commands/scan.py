@@ -179,12 +179,18 @@ class ScanResult:
     """Result of a run_scan() call.
 
     Fields:
-        added:      Names of packages that received newly created vault pages.
-        updated:    Names of packages whose existing vault pages were refreshed.
-        deleted:    Names of packages marked stale (vault page exists, repo package gone).
-        renamed:    Pairs [[old_name, new_name], ...] for detected renames.
-        errors:     Error strings for packages that failed during fan-out.
-        state_gate: Dict from compute_state_gate() — {allowed, reason, head_commit}.
+        added:             Names of packages that received newly created vault pages.
+        updated:           Names of packages whose existing vault pages were refreshed.
+        deleted:           Names of packages marked stale (vault page exists, repo package gone).
+        renamed:           Pairs [[old_name, new_name], ...] for detected renames.
+        errors:            Error strings for packages that failed during fan-out.
+        state_gate:        Dict from compute_state_gate() — {allowed, reason, head_commit}.
+        entities_created:  URIs of entity pages newly written this scan (Phase 45 D-15).
+        entities_updated:  URIs of entity pages whose frontmatter changed this scan.
+        entities_deleted:  URIs of entity pages hard-deleted by `write_entities` (vanished from graph).
+        entities_narrated: URIs that received a successful narrator body injection.
+        entity_errors:     repr() of EntityWriteError + narrator failure messages,
+                           accumulated for partial-success reporting.
     """
 
     added: list[str] = field(default_factory=list)
@@ -193,6 +199,12 @@ class ScanResult:
     renamed: list[list[str]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     state_gate: dict = field(default_factory=dict)
+    # Phase 45 D-15: URI-keyed entity reporting (alongside legacy name-keyed fields above).
+    entities_created: list[str] = field(default_factory=list)
+    entities_updated: list[str] = field(default_factory=list)
+    entities_deleted: list[str] = field(default_factory=list)
+    entities_narrated: list[str] = field(default_factory=list)
+    entity_errors: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
