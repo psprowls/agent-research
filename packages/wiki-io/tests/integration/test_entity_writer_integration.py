@@ -5,6 +5,13 @@ ingestion pipeline against it, then invoke wiki-io's `write_entities` and
 assert the on-disk state. Unlike the unit tests in `test_entity_writer.py`
 (which use `MockGraphConn`), these tests use a real `sqlite3.Connection`
 + real graph-io code.
+
+# integration-gate-allow
+These tests do NOT call any external network service (no Bedrock, no API)
+— they run entirely against an in-memory sqlite + real graph-io ingestion
+modules + tmp_path filesystem. They are <1s each and safe to run on every
+PR. The `# integration-gate-allow` marker above opts them out of the
+canonical `GRAPH_WIKI_RUN_INTEGRATION` gate (see docs/testing.md).
 """
 
 from __future__ import annotations
