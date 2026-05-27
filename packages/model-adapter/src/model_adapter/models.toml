@@ -68,6 +68,17 @@ sweep_candidates = [
   "qwen.qwen3-32b-v1:0",
 ]
 
+# Phase 45 D-06 — prose-only narrative generation for entity pages.
+# Initial config matches `scanner` for v1.8; eval-driven refinement deferred
+# to v1.9. `max_tokens` is lower than scanner because narrator emits prose
+# only (no frontmatter, no headings — just the body between `## Narrative`
+# and the next H2 on an entity page).
+[roles.narrator]
+model_id        = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region          = "us-east-1"
+max_tokens      = 600
+max_concurrency = 10
+
 [roles.linter]
 # Sweep candidates (run 2026-05-17): raw results — quality is structural-only
 # (no judge panel for linter findings)
