@@ -291,7 +291,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 44. Scanner-Generated Index | v1.8 | 0/TBD | Not started | - |
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 0/TBD | Not started | - |
-| 47. `cg domain-clusters` | v1.8 | 3/3 | Complete   | 2026-05-27 |
+| 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 0/TBD | Not started | - |
 
 ---

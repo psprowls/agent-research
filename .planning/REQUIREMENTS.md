@@ -38,12 +38,12 @@
 
 ### SCANINT — Scanner Integration (wire into `run_scan`)
 
-- [ ] **SCANINT-01** — `commands/scan.py::run_scan` Step 9a calls `entity_writer.write_entities`; Step 9b fans out the LLM scanner ONLY for URIs in `needs_narrative_set` (not for every entity page on every scan)
-- [ ] **SCANINT-02** — LLM scanner role narrowed to prose-only on entity pages; the LLM does not generate frontmatter for entity pages (frontmatter is scanner-owned via `entity_writer`)
-- [ ] **SCANINT-03** — Step 11 deletion branch updated: entity pages are hard-deleted; curated-lane pages retain stale-tag behavior unchanged
-- [ ] **SCANINT-04** — Step 12 calls `index_generator.generate_index` to produce `wiki/index.md` (graph-entity sections + full curated-lane listings, per Phase 44 D-02/D-11/D-12) AND `update_index.update_index(wiki)` to produce per-folder `*/index.md` sub-indexes only. The `update_index` module's prior `wiki/index.md` write is removed.
-- [ ] **SCANINT-05** — `scan_monorepo.py::_load_existing_pages` and `compute_diff` extended to handle `wiki/entities/` by URI rather than by directory walk; entity pages key off URI slug, not filesystem path
-- [ ] **SCANINT-06** — Existing plugin (`plugins/graph-wiki/`) smoke test still passes against the modified scanner; regression guard included as success criterion of the scanner-integration phase
+- [x] **SCANINT-01** — `commands/scan.py::run_scan` Step 9a calls `entity_writer.write_entities`; Step 9b fans out the LLM scanner ONLY for URIs in `needs_narrative_set` (not for every entity page on every scan)
+- [x] **SCANINT-02** — LLM scanner role narrowed to prose-only on entity pages; the LLM does not generate frontmatter for entity pages (frontmatter is scanner-owned via `entity_writer`)
+- [x] **SCANINT-03** — Step 11 deletion branch updated: entity pages are hard-deleted; curated-lane pages retain stale-tag behavior unchanged
+- [x] **SCANINT-04** — Step 12 calls `index_generator.generate_index` to produce `wiki/index.md` (graph-entity sections + full curated-lane listings, per Phase 44 D-02/D-11/D-12) AND `update_index.update_index(wiki)` to produce per-folder `*/index.md` sub-indexes only. The `update_index` module's prior `wiki/index.md` write is removed.
+- [x] **SCANINT-05** — `scan_monorepo.py::_load_existing_pages` and `compute_diff` extended to handle `wiki/entities/` by URI rather than by directory walk; entity pages key off URI slug, not filesystem path
+- [x] **SCANINT-06** — Existing plugin (`plugins/graph-wiki/`) smoke test still passes against the modified scanner; regression guard included as success criterion of the scanner-integration phase
 
 ### MIGRATION — One-Shot Inbound-Link Migration + Cutover
 
@@ -55,11 +55,11 @@
 
 ### CLUSTER — `cg domain-clusters` (Import-Graph Clustering)
 
-- [ ] **CLUSTER-01** — `graph_io/cluster.py::compute_clusters(conn, hub_threshold=0.5)` produces deterministic connected-component clusters from the import adjacency dict in `derived_edges.py`; hub-node exclusion preprocessing removes packages imported by more than `hub_threshold` proportion of others before clustering
-- [ ] **CLUSTER-02** — Degenerate-cluster warning: when output is a single cluster containing >80% of packages, or N singletons with N == package count, emit a warning to stderr explaining the likely cause (too few packages, sparse imports, or aggressive hub exclusion) and suggesting threshold adjustment
-- [ ] **CLUSTER-03** — `graph_io/cli/q_domain_clusters.py` registers a new `cg domain-clusters` subcommand with `--fmt human|json` and `--hub-threshold FLOAT` flags; runs without an LLM dependency; renders via `_format.render(records, fmt="human")`
-- [ ] **CLUSTER-04** — `cg --help` and `cg domain-clusters --help` exit 0; new command appears in the global help listing; integration test exercises the command against the `agent-research` graph itself
-- [ ] **CLUSTER-05** — Algorithm is stable: running `cg domain-clusters` twice against the same graph snapshot produces byte-identical JSON output (no nondeterministic dict ordering or set iteration)
+- [x] **CLUSTER-01** — `graph_io/cluster.py::compute_clusters(conn, hub_threshold=0.5)` produces deterministic connected-component clusters from the import adjacency dict in `derived_edges.py`; hub-node exclusion preprocessing removes packages imported by more than `hub_threshold` proportion of others before clustering
+- [x] **CLUSTER-02** — Degenerate-cluster warning: when output is a single cluster containing >80% of packages, or N singletons with N == package count, emit a warning to stderr explaining the likely cause (too few packages, sparse imports, or aggressive hub exclusion) and suggesting threshold adjustment
+- [x] **CLUSTER-03** — `graph_io/cli/q_domain_clusters.py` registers a new `cg domain-clusters` subcommand with `--fmt human|json` and `--hub-threshold FLOAT` flags; runs without an LLM dependency; renders via `_format.render(records, fmt="human")`
+- [x] **CLUSTER-04** — `cg --help` and `cg domain-clusters --help` exit 0; new command appears in the global help listing; integration test exercises the command against the `agent-research` graph itself
+- [x] **CLUSTER-05** — Algorithm is stable: running `cg domain-clusters` twice against the same graph snapshot produces byte-identical JSON output (no nondeterministic dict ordering or set iteration)
 
 ### PROPOSE — `graph-wiki-agent graph propose-domains` (LLM Domain Inference)
 
@@ -113,22 +113,22 @@
 | INDEX-03 | Phase 44 | Complete |
 | INDEX-04 | Phase 44 | Complete |
 | INDEX-05 | Phase 44 | Complete (scope expanded to single-file consolidation) |
-| SCANINT-01 | Phase 45 | Pending |
-| SCANINT-02 | Phase 45 | Pending |
-| SCANINT-03 | Phase 45 | Pending |
-| SCANINT-04 | Phase 45 | Pending |
-| SCANINT-05 | Phase 45 | Pending |
-| SCANINT-06 | Phase 45 | Pending |
+| SCANINT-01 | Phase 45 | Complete |
+| SCANINT-02 | Phase 45 | Complete |
+| SCANINT-03 | Phase 45 | Complete |
+| SCANINT-04 | Phase 45 | Complete |
+| SCANINT-05 | Phase 45 | Complete |
+| SCANINT-06 | Phase 45 | Complete |
 | MIGRATION-01 | Phase 46 | Pending |
 | MIGRATION-02 | Phase 46 | Pending |
 | MIGRATION-03 | Phase 46 | Pending |
 | MIGRATION-04 | Phase 46 | Pending |
 | MIGRATION-05 | Phase 46 | Pending |
-| CLUSTER-01 | Phase 47 | Pending |
-| CLUSTER-02 | Phase 47 | Pending |
-| CLUSTER-03 | Phase 47 | Pending |
-| CLUSTER-04 | Phase 47 | Pending |
-| CLUSTER-05 | Phase 47 | Pending |
+| CLUSTER-01 | Phase 47 | Complete |
+| CLUSTER-02 | Phase 47 | Complete |
+| CLUSTER-03 | Phase 47 | Complete |
+| CLUSTER-04 | Phase 47 | Complete |
+| CLUSTER-05 | Phase 47 | Complete |
 | PROPOSE-01 | Phase 48 | Pending |
 | PROPOSE-02 | Phase 48 | Pending |
 | PROPOSE-03 | Phase 48 | Pending |
