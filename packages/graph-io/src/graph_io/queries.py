@@ -18,6 +18,9 @@ _VALID_KINDS = frozenset(
         "entry_point",
         "test_suite",
         "domain",
+        # Phase 43 (v1.8): admitted entity kinds for the wiki entity writer.
+        "dependency",
+        "plugin",
     }
 )
 
@@ -118,6 +121,24 @@ class PathDescription:
     children: list[NodeRecord]
     imports: list[NodeRecord]
     role_flags: dict[str, bool] | None = None
+
+
+@dataclass(frozen=True)
+class DependencyDescription:
+    """Description of a `dependency` node (Phase 43 D-02 + D-05)."""
+    ecosystem: str
+    name: str
+    uri: str
+    versions_in_use: list[str] = field(default_factory=list)
+    used_by: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PluginDescription:
+    """Description of a `plugin` node (Phase 43 D-03 + D-05)."""
+    name: str
+    uri: str
+    ecosystem: str
 
 
 def _row_to_node(row) -> NodeRecord:
@@ -519,6 +540,69 @@ def describe_test_suite(
     return _load_suite_description((name, uri, attrs_json, fc))
 
 
+def describe_dependency(
+    conn: sqlite3.Connection, *, ecosystem: str, name: str
+) -> DependencyDescription | None:
+    """Return the description of a dependency node identified by (ecosystem, name).
+
+    Reads `versions_in_use` from the node's attrs, and populates `used_by`
+    from inbound `used_by` edges originating from `package` nodes (sorted
+    alphabetically by consumer package name). `conn` must be opened
+    read-only.
+    """
+    row = conn.execute(
+        "SELECT id, name, attrs_json, uri FROM nodes "
+        "WHERE kind='dependency' AND name = ? "
+        "AND json_extract(attrs_json, '$.ecosystem') = ?",
+        (name, ecosystem),
+    ).fetchone()
+    if not row:
+        return None
+    dep_id, dep_name, attrs_json, uri = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    used_by_rows = conn.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='used_by' AND e.dst = ? AND p.kind='package' "
+        "ORDER BY p.name",
+        (dep_id,),
+    ).fetchall()
+    used_by = [r[0] for r in used_by_rows]
+    versions = attrs.get("versions_in_use") or []
+    if not isinstance(versions, list):
+        versions = []
+    return DependencyDescription(
+        ecosystem=attrs.get("ecosystem", ecosystem),
+        name=dep_name,
+        uri=uri or "",
+        versions_in_use=list(versions),
+        used_by=used_by,
+    )
+
+
+def describe_plugin(
+    conn: sqlite3.Connection, *, name: str
+) -> PluginDescription | None:
+    """Return the description of a plugin node, or None.
+
+    `conn` must be opened read-only.
+    """
+    row = conn.execute(
+        "SELECT name, attrs_json, uri FROM nodes "
+        "WHERE kind='plugin' AND name = ?",
+        (name,),
+    ).fetchone()
+    if not row:
+        return None
+    plugin_name, attrs_json, uri = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    return PluginDescription(
+        name=plugin_name,
+        uri=uri or "",
+        ecosystem=attrs.get("ecosystem", ""),
+    )
+
+
 def _list_by_kind(conn: sqlite3.Connection, kind: str) -> list[NodeRecord]:
     rows = conn.execute(
         "SELECT kind, name, path, line, attrs_json FROM nodes "
@@ -551,6 +635,16 @@ def list_test_suites(conn: sqlite3.Connection) -> list[NodeRecord]:
 def list_domains(conn: sqlite3.Connection) -> list[NodeRecord]:
     """List all Domain nodes alphabetically. `conn` must be read-only."""
     return _list_by_kind(conn, "domain")
+
+
+def list_dependencies(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Dependency nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "dependency")
+
+
+def list_plugins(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Plugin nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "plugin")
 
 
 def list_scripts(conn: sqlite3.Connection) -> list[NodeRecord]:

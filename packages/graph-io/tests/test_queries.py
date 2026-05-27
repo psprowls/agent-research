@@ -1053,3 +1053,135 @@ def test_cte_cycle_safe(empty_db: sqlite3.Connection) -> None:
     finally:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
+
+
+# ============================================================================
+# Phase 43 Plan 01: dependency + plugin admitted kinds, dataclasses, helpers.
+# ============================================================================
+
+
+def test_valid_kinds_includes_dependency_plugin(conn: sqlite3.Connection) -> None:
+    """D-01: _VALID_KINDS extends from 10 to 12 — dependency + plugin added."""
+    assert "dependency" in queries._VALID_KINDS
+    assert "plugin" in queries._VALID_KINDS
+    # find(conn, kind="dependency") MUST NOT raise (it did pre-Phase 43)
+    rows = queries.find(conn, kind="dependency")
+    assert rows == []
+    rows = queries.find(conn, kind="plugin")
+    assert rows == []
+
+
+def test_describe_dependency_returns_dependency_description(conn: sqlite3.Connection) -> None:
+    """D-02 + D-05: describe_dependency populates from node attrs + inbound used_by edges."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="dependency",
+                    name="boto3",
+                    path=None,
+                    line=None,
+                    attrs={
+                        "ecosystem": "pypi",
+                        "name": "boto3",
+                        "uri": "dependency:pypi/boto3",
+                        "versions_in_use": ["boto3>=1.38", "boto3==1.39.0"],
+                    },
+                ),
+                GraphNode(
+                    kind="package",
+                    name="my-pkg",
+                    path="src/my_pkg",
+                    line=None,
+                    attrs={"uri": "pkg:local/repo/my-pkg"},
+                ),
+            ],
+            edges=[
+                GraphEdge(
+                    src=("package", "my-pkg", "src/my_pkg"),
+                    dst=("dependency", "boto3", None),
+                    kind="used_by",
+                    attrs={},
+                ),
+            ],
+        ),
+    )
+    d = queries.describe_dependency(conn, ecosystem="pypi", name="boto3")
+    assert d is not None
+    assert d.ecosystem == "pypi"
+    assert d.name == "boto3"
+    assert d.uri == "dependency:pypi/boto3"
+    assert d.versions_in_use == ["boto3>=1.38", "boto3==1.39.0"]
+    assert d.used_by == ["my-pkg"]
+
+
+def test_describe_dependency_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    assert queries.describe_dependency(conn, ecosystem="pypi", name="nonexistent") is None
+
+
+def test_describe_plugin_returns_plugin_description(conn: sqlite3.Connection) -> None:
+    """D-03 + D-05: describe_plugin returns PluginDescription from node attrs."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="plugin",
+                    name="graph-wiki",
+                    path=None,
+                    line=None,
+                    attrs={
+                        "ecosystem": "claude-code",
+                        "uri": "plugin:graph-wiki",
+                    },
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    p = queries.describe_plugin(conn, name="graph-wiki")
+    assert p is not None
+    assert p.name == "graph-wiki"
+    assert p.uri == "plugin:graph-wiki"
+    assert p.ecosystem == "claude-code"
+
+
+def test_describe_plugin_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    assert queries.describe_plugin(conn, name="nonexistent") is None
+
+
+def test_list_dependencies_alphabetical(conn: sqlite3.Connection) -> None:
+    """D-05: list_dependencies returns alphabetically-sorted dependency NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="dependency", name="zlib", path=None, line=None,
+                          attrs={"ecosystem": "pypi", "uri": "dependency:pypi/zlib"}),
+                GraphNode(kind="dependency", name="boto3", path=None, line=None,
+                          attrs={"ecosystem": "pypi", "uri": "dependency:pypi/boto3"}),
+                GraphNode(kind="dependency", name="langchain-aws", path=None, line=None,
+                          attrs={"ecosystem": "pypi", "uri": "dependency:pypi/langchain-aws"}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_dependencies(conn)] == ["boto3", "langchain-aws", "zlib"]
+
+
+def test_list_plugins_alphabetical(conn: sqlite3.Connection) -> None:
+    """D-05: list_plugins returns alphabetically-sorted plugin NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="plugin", name="zeta", path=None, line=None,
+                          attrs={"ecosystem": "claude-code", "uri": "plugin:zeta"}),
+                GraphNode(kind="plugin", name="alpha", path=None, line=None,
+                          attrs={"ecosystem": "claude-code", "uri": "plugin:alpha"}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_plugins(conn)] == ["alpha", "zeta"]
