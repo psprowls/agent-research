@@ -16,7 +16,7 @@
 - [x] **URI-01** — Slug encoder function in `wiki_io/entity_writer.py` derives entity filename from graph URI deterministically; `:` and `/` both encoded as `__`; property test over ≥1,000 synthetic URIs from all 7 admitted kinds asserts injective mapping (zero collisions)
 - [x] **URI-02** — Slug encoder round-trip stable: `decode_slug(encode_slug(uri)) == uri` for every URI in property test corpus
 - [x] **URI-03** — Per-kind templates added under `packages/wiki-io/src/wiki_io/assets/page-templates/`: `entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-package-family.md`, `entity-plugin.md`, `entity-dependency.md`, `entity-test-suite.md` (7 files); each template declares `kind:` frontmatter and reserves prose region with a `## Narrative` H2 section for LLM narrative
-- [ ] **URI-04** — `init_vault.py` adds `entities` to `FIXED_VAULT_DIRS`; freshly-bootstrapped vault contains `wiki/entities/` directory with a `_index.md` placeholder
+- [x] **URI-04** — `init_vault.py` adds `entities` to `FIXED_VAULT_DIRS`; freshly-bootstrapped vault contains `wiki/entities/` directory with a `_index.md` placeholder
 - [x] **URI-05** — Admitted-kinds taxonomy (`repository`, `domain`, `package`, `package-family`, `plugin`, `dependency`, `test-suite`) declared as a single `frozenset` constant in `entity_writer.py`; sub-packages and in-file nodes (`class`, `function`, `method`) explicitly excluded; new graph kinds require code change to admit
 - [x] **URI-06** — Scanner-owned frontmatter key whitelist declared as a single canonical `frozenset` constant in `entity_writer.py`, reconciled from ARCHITECTURE.md per-kind breakdown + FEATURES.md initial list; human-authored keys (`status`, `last_reviewed`, `owner`, `notes`) explicitly excluded from whitelist
 
@@ -100,7 +100,7 @@
 | URI-01 | Phase 42 | Complete |
 | URI-02 | Phase 42 | Complete |
 | URI-03 | Phase 42 | Complete |
-| URI-04 | Phase 42 | Pending |
+| URI-04 | Phase 42 | Complete |
 | URI-05 | Phase 42 | Complete |
 | URI-06 | Phase 42 | Complete |
 | ENTITY-01 | Phase 43 | Pending |

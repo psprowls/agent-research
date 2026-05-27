@@ -4,14 +4,14 @@ milestone: v1.8
 milestone_name: Wiki Entity Restructure
 status: executing
 stopped_at: Phase 44 context gathered
-last_updated: "2026-05-27T03:59:54.856Z"
-last_activity: 2026-05-27 -- Phase 43 planning complete
+last_updated: "2026-05-27T04:16:52.206Z"
+last_activity: 2026-05-27 -- Phase 44 planning complete
 progress:
   total_phases: 7
-  completed_phases: 0
-  total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 8
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State: agent-research
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 42 — URI Slug Scheme + Per-Kind Templates (design lock)
+**Current Focus:** Phase 42 — URI Slug Scheme + Per-Kind Templates
 
 ---
 
 ## Current Position
 
-Phase: 42 of 48 (URI Slug Scheme + Per-Kind Templates)
-Plan: — (not yet planned)
+Phase: 42 (URI Slug Scheme + Per-Kind Templates) — EXECUTING
+Plan: 1 of 3
 Status: Ready to execute
-Last activity: 2026-05-27 -- Phase 43 planning complete
+Last activity: 2026-05-27 -- Phase 44 planning complete
 
 Progress: [░░░░░░░░░░] 0% (0/7 phases complete)
 

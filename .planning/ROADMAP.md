@@ -135,7 +135,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 
 **Milestone Goal:** Collapse the wiki's parallel page-type-per-directory layout into a unified entity model driven by graph-io — `/entities/` lane, URI-keyed pages, scanner-populated relation frontmatter, domain-first scanner-generated index, hard-delete reconciliation, and one-shot inbound-link migration at cutover. Add the LLM/import-graph domain inference layer (`cg domain-clusters` + `graph-wiki-agent graph propose-domains`) so the wiki becomes the curated human-readable projection of graph-io rather than a parallel structural model.
 
-- [ ] **Phase 42: URI Slug Scheme + Per-Kind Templates** — Lock slug-encoding design and provision entity lane scaffolding (design lock before any entity code runs)
+- [x] **Phase 42: URI Slug Scheme + Per-Kind Templates** — Lock slug-encoding design and provision entity lane scaffolding (design lock before any entity code runs) (completed 2026-05-27)
 - [ ] **Phase 43: Entity Writer** — Deterministic entity-page create/merge/hard-delete from graph
 - [ ] **Phase 44: Scanner-Generated Index** — Domain-first + by-kind index driven directly from graph queries
 - [ ] **Phase 45: Scanner Integration** — Wire entity writer into `run_scan` Steps 9a/9b/11/12
@@ -158,7 +158,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 **Plans**: 3 plans
 - [x] 42-01-PLAN.md — entity_writer.py scaffold: ADMITTED_KINDS + SCANNER_OWNED_KEYS frozensets + encode_slug/decode_slug + Hypothesis property test (URI-01, URI-02, URI-05, URI-06)
 - [x] 42-02-PLAN.md — 3 new graph_io/uri.py builders (package_family_uri, plugin_uri, dependency_uri) + 7 entity-*.md templates (URI-03)
-- [ ] 42-03-PLAN.md — init_vault.py adds 'entities' to FIXED_VAULT_DIRS + _index.md sentinel + cross-cutting template validator + REQUIREMENTS/ROADMAP doc reconciliation (URI-04, URI-03)
+- [x] 42-03-PLAN.md — init_vault.py adds 'entities' to FIXED_VAULT_DIRS + _index.md sentinel + cross-cutting template validator + REQUIREMENTS/ROADMAP doc reconciliation (URI-04, URI-03)
 
 ### Phase 43: Entity Writer
 **Goal**: `write_entities(conn, wiki_root, admitted_kinds)` creates, merges, and hard-deletes entity pages deterministically from the graph — preserving all human-authored frontmatter keys, logging every deletion, and returning a `needs_narrative` set for the LLM scanner gate — tested in isolation before scanner wiring
@@ -280,7 +280,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 39. Scanner Consumes graph-io | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 40. Ingestor Consumes graph-io | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 1/1 | Complete | 2026-05-26 |
-| 42. URI Slug Scheme + Per-Kind Templates | v1.8 | 2/3 | In Progress|  |
+| 42. URI Slug Scheme + Per-Kind Templates | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 43. Entity Writer | v1.8 | 0/TBD | Not started | - |
 | 44. Scanner-Generated Index | v1.8 | 0/TBD | Not started | - |
 | 45. Scanner Integration | v1.8 | 0/TBD | Not started | - |
