@@ -296,10 +296,12 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                     derived_edges,
                     domains,
                     entry_points,
+                    plugins,
                     structural_nodes,
                     test_suites,
                 )
                 structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+                plugins.emit(conn, workspace_root=workspace, ctx=ctx)
                 entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 domains.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
