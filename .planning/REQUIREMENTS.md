@@ -66,7 +66,29 @@
 
 ## Traceability
 
-_To be filled by the roadmapper when phases are derived from these requirements._
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| BUILTIN-01 | Phase 49 | Pending |
+| BUILTIN-02 | Phase 49 | Pending |
+| BUILTIN-03 | Phase 49 | Pending |
+| BUILTIN-04 | Phase 49 | Pending |
+| BUILTIN-05 | Phase 49 | Pending |
+| BUILTIN-06 | Phase 49 | Pending |
+| APP-01 | Phase 50 | Pending |
+| APP-02 | Phase 50 | Pending |
+| APP-03 | Phase 50 | Pending |
+| APP-04 | Phase 50 | Pending |
+| APP-05 | Phase 50 | Pending |
+| APP-06 | Phase 50 | Pending |
+| PKGFAM-01 | Phase 51 | Pending |
+| PKGFAM-02 | Phase 51 | Pending |
+| PKGFAM-03 | Phase 51 | Pending |
+| PKGFAM-04 | Phase 51 | Pending |
+| PKGFAM-05 | Phase 51 | Pending |
+| CLEANUP-01 | Phase 51 | Pending |
+| WIKI-FN-01 | Phase 52 | Pending |
+| WIKI-FN-02 | Phase 52 | Pending |
+| WIKI-FN-03 | Phase 52 | Pending |
+| WIKI-FN-04 | Phase 52 | Pending |
+| WIKI-FN-05 | Phase 53 | Pending |
+| WIKI-FN-06 | Phase 53 | Pending |

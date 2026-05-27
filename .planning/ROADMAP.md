@@ -2,12 +2,13 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** between milestones (v1.8 shipped 2026-05-27)
+**Current milestone:** v1.9 — Graph Refinements & Wiki Filename Slimdown (in progress)
 
 ---
 
 ## Milestones
 
+- 🟡 **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49–53 (in progress)
 - ✅ **v1.0 — graph-wiki-agent parity** — Phases 1-5 (shipped 2026-05-15) — [archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 — Quality Improvements** — Phases 6-10 (shipped 2026-05-17) — [archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 — Graph-Wiki Port & Debt Cleanup** — Phases 11-16 (shipped 2026-05-19) — [archive](milestones/v1.2-ROADMAP.md)
@@ -146,6 +147,84 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 
 </details>
 
+<details>
+<summary>🟡 v1.9 Graph Refinements & Wiki Filename Slimdown (Phases 49-53) — IN PROGRESS</summary>
+
+- [ ] Phase 49: Builtin Kind (graph-io) — TBD plans
+- [ ] Phase 50: App Reclassification (graph-io) — TBD plans
+- [ ] Phase 51: package-family Removal + Divergence Rule Cleanup — TBD plans
+- [ ] Phase 52: Wiki Filename Slimdown — Core — TBD plans
+- [ ] Phase 53: Wiki Filename Cutover — TBD plans
+
+</details>
+
+---
+
+## Phase Details
+
+### Phase 49: Builtin Kind (graph-io)
+**Goal**: The graph cleanly represents Python and Node.js stdlib imports as `Builtin` nodes, keeping them out of the dependency/symbol pool and making them inspectable via CLI.
+**Depends on**: Phase 48 (graph-io schema patterns established)
+**Requirements**: BUILTIN-01, BUILTIN-02, BUILTIN-03, BUILTIN-04, BUILTIN-05, BUILTIN-06
+**Success Criteria** (what must be TRUE):
+  1. Running `cg update` on a Python project that imports `pathlib` and `os` produces `builtin:python/pathlib` and `builtin:python/os` nodes in the graph instead of unresolved Symbol nodes.
+  2. Running `cg update` on a Node.js project that imports `fs` and `path` produces `builtin:javascript/fs` and `builtin:javascript/path` nodes; an npm package like `express` remains classified as `dependency`.
+  3. `cg list-builtins` lists all builtin nodes in the current workspace; `cg describe-builtin builtin:python/pathlib` shows which packages use it via `used_by` edge count.
+  4. Each builtin node carries `language` and `module_name` attributes inspectable via `cg describe-builtin`.
+  5. `Builtin` is listed in `_VALID_KINDS` and in `ADMITTED_KINDS` with an exclusion annotation confirming it is not rendered to the wiki.
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 50: App Reclassification (graph-io)
+**Goal**: Packages that are really applications are classified as `App` nodes in the graph, with the signal that triggered classification recorded, so domain projections and wiki rendering can treat apps distinctly.
+**Depends on**: Phase 49
+**Requirements**: APP-01, APP-02, APP-03, APP-04, APP-05, APP-06
+**Success Criteria** (what must be TRUE):
+  1. Running `cg update` on `agents/graph-wiki-agent` (has `[project.scripts]` in pyproject.toml) reclassifies it from `Package` to `App` with `app_kind=cli`; a pure library package with no manifest signals remains `Package`.
+  2. A JS package with a `bin` field, or `next`/`expo` in dependencies, or `vite` + `index.html` at root is classified as `App` with the appropriate `app_kind`; when multiple signals match, the documented precedence order applies without error.
+  3. `cg list-apps` lists all `App` nodes; `cg describe-app <uri>` shows the same shape as `cg describe-package` plus the `app_kind` field.
+  4. An existing `pkg:org/repo/eval-harness` URI changes to `app:org/repo/eval-harness` upon reclassification; a subsequent `cg update` without reclassification signals reverts it to `pkg:` — the migration is scanner-driven and repeatable.
+  5. No `App` node appears where a package carries no manifest signals for application status (no false-positive reclassification).
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 51: package-family Removal + Divergence Rule Cleanup
+**Goal**: The `package_family` kind and its associated scaffolding are fully removed from graph-io and wiki-io; the `_SLUG_ONLY_RE` LIB-003 divergence rule is deleted; the codebase no longer references either concept.
+**Depends on**: Phase 50 (ADMITTED_KINDS is clean before wiki-io touches it in Phase 52)
+**Requirements**: PKGFAM-01, PKGFAM-02, PKGFAM-03, PKGFAM-04, PKGFAM-05, CLEANUP-01
+**Success Criteria** (what must be TRUE):
+  1. `grep -r "package_family\|package-family\|PKGFAM\|package_family_uri" packages/` returns zero hits (excluding comments in migration-log files and planning docs).
+  2. `wiki_io.entity_writer.ADMITTED_KINDS` no longer contains `package_family` and no longer applies a subtraction-narrow; the frozenset is the complete and final set.
+  3. The `entity-package-family.template` file is gone; `wiki/package-family/` does not exist in the vault after migration.
+  4. `cg describe-package-family` and `cg list-package-families` commands are gone; `cg --help` does not list them.
+  5. `grep -r "_SLUG_ONLY_RE\|_check_no_slug_only_wikilinks\|LIB-003" packages/eval-harness/` returns zero hits; the divergence eval baseline no longer expects LIB-003 to fire; all divergence tests pass.
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 52: Wiki Filename Slimdown — Core
+**Goal**: Entity pages use short, human-readable filenames (`pkg_<name>.md`, `app_<name>.md`, `dep_<name>.md`, etc.) instead of URI-fully-qualified slugs, with deterministic collision handling, and the filename derivation logic is fully tested.
+**Depends on**: Phase 51 (ADMITTED_KINDS finalized; package_family removed; app kind exists)
+**Requirements**: WIKI-FN-01, WIKI-FN-02, WIKI-FN-03, WIKI-FN-04
+**Success Criteria** (what must be TRUE):
+  1. Running `write_entities()` on a fresh vault produces entity files like `pkg_eval-harness.md`, `app_graph-wiki-agent.md`, `dep_langchain-aws.md`, `repo_agent-research.md`, `domain_observability.md` — not `pkg__org__repo__name.md`-style slugs.
+  2. Test-suite entities produce `unit_tests_<pkg>.md` and `int_tests_<pkg>.md` filenames derived from the suite's `kind` attribute, not generic URI slugs.
+  3. When two entities from different repos would map to the same short filename, both files are created with only the collider receiving a deterministic hash suffix (e.g. `pkg_utils__a3f7c1.md`); the non-colliding entity keeps the plain short name.
+  4. `wiki_io.entity_writer.short_filename(uri, collision_set)` is a pure function with a property test confirming idempotence (same URI + set always gives same result) and collision-resistance (distinct URIs never yield equal filenames within a set).
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 53: Wiki Filename Cutover
+**Goal**: The existing exploratory vault's wikilinks are rewritten to use the new short filenames, the index is regenerated, and the vault is left in a fully consistent state after a single atomic operation.
+**Depends on**: Phase 52 (short filename scheme implemented and tested)
+**Requirements**: WIKI-FN-05, WIKI-FN-06
+**Success Criteria** (what must be TRUE):
+  1. Running `graph-wiki-agent migrate-vault` (or equivalent cutover command) rewrites all `[[old-uri-slug-filename]]` wikilinks in curated lanes (`/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/`) to `[[new-short-filename]]` in a single atomic git commit on the vault repo; code-block and inline-code spans are not modified.
+  2. A second run of the cutover command is a no-op (idempotent via manifest marker), producing no new git commit.
+  3. `generate_index()` writes the new short filenames in `wiki/index.md`; all entity links in the index resolve to existing files.
+  4. The `~/Personal/graph-wiki/agent-research` vault is re-scanned after cutover and `graph-wiki-agent scan` completes without errors; `wiki/index.md` reflects the new short filenames throughout.
+**Plans**: TBD
+**UI hint**: no
+
 ---
 
 ## Progress
@@ -200,7 +279,12 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 46. Inbound-Link Migration + Cutover | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 3/3 | Complete | 2026-05-27 |
+| 49. Builtin Kind (graph-io) | v1.9 | 0/TBD | Not started | - |
+| 50. App Reclassification (graph-io) | v1.9 | 0/TBD | Not started | - |
+| 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 0/TBD | Not started | - |
+| 52. Wiki Filename Slimdown — Core | v1.9 | 0/TBD | Not started | - |
+| 53. Wiki Filename Cutover | v1.9 | 0/TBD | Not started | - |
 
 ---
 
-*Last updated: 2026-05-27 — v1.8 (Wiki Entity Restructure) shipped and archived. 48 phases / 170 plans shipped across v1.0–v1.8. Awaiting `/gsd:new-milestone` for v1.9 scoping.*
+*Last updated: 2026-05-27 — v1.9 (Graph Refinements & Wiki Filename Slimdown) roadmap created. Phases 49-53. 22 requirements mapped across BUILTIN/APP/PKGFAM/WIKI-FN/CLEANUP categories.*
