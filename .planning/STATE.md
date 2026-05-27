@@ -1,138 +1,97 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Wiki Entity Restructure
-status: milestone_complete
-stopped_at: Phase 48 context gathered
-last_updated: "2026-05-27T15:51:16.620Z"
-last_activity: 2026-05-27
+milestone: between
+milestone_name: awaiting v1.9 scoping
+status: Awaiting next milestone
+stopped_at: v1.8 closed
+last_updated: "2026-05-27T20:35:00.000Z"
+last_activity: 2026-05-27 — Milestone v1.8 completed and archived (Wiki Entity Restructure)
 progress:
-  total_phases: 7
-  completed_phases: 8
-  total_plans: 20
-  completed_plans: 20
-  percent: 114
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: agent-research
 
-**Last updated:** 2026-05-26 — v1.8 roadmap created (Phases 42-48)
-**Updated by:** gsd-roadmapper
+**Last updated:** 2026-05-27 — v1.8 (Wiki Entity Restructure) shipped and archived
+**Updated by:** gsd-complete-milestone
 
 ---
 
 ## Project Reference
 
-See: `.planning/PROJECT.md`
+See: `.planning/PROJECT.md` (updated 2026-05-27)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 48 — graph-propose-domains
-
----
-
-## Phase 43 — Completed (2026-05-27)
-
-- `wiki_io.entity_writer.write_entities` shipped (Plans 43-01, 43-02, 43-03). Single public entry point; acquires `.graph-wiki/scan.lock` on entry, per-kind create/merge/hard-delete sweep, byte-stable write-if-changed, returns `EntityWriteResult` with `needs_narrative` for the Phase 45 LLM gate.
-- All ENTITY-01..05 implemented (verified by 6 integration tests under `packages/wiki-io/tests/integration/test_entity_writer_integration.py` against a real synthetic workspace).
-- **`package_family` deferred to v1.9** — `ADMITTED_KINDS_V18 = ADMITTED_KINDS - {"package_family"}`. Phase 42's `package_family_uri` builder + `entity-package-family.md` template remain in the codebase but are dormant in v1.8. Phase 46 cutover will NOT remove `wiki/package-family/` (no entity replacements exist yet).
-- **Folded todo resolved:** `2026-05-26-fix-scanner-treats-import-root-as-subpackage.md` moved to `.planning/todos/resolved/`. `structural_nodes._walk_subpackages` no longer yields the import root itself; subpackage node count rebaselined where applicable (six tests in `test_structural_nodes.py` updated; two new regression tests added).
-- **Pitfall guards activated (verified by integration tests):**
-  - Pitfall 2 (frontmatter merge collision) — `merge_frontmatter` + `status: deprecated` preservation test.
-  - Pitfall 3 (hard-delete losing edits) — `.graph-wiki/deletions.log` JSONL audit log with `body_was_empty` flag + 10MB two-file rotation policy.
-  - Pitfall 9 (concurrent scan race) — `fcntl.flock(LOCK_EX | LOCK_NB)` non-blocking lock at `.graph-wiki/scan.lock`; verified `<500ms` LOCK_NB fail-fast.
-- **graph-io side effect (unblocks Phase 44):** `_row_to_node` + `_list_by_kind` now project the `nodes.uri` column back into `NodeRecord.attrs` so downstream callers can read URI uniformly from `node.attrs["uri"]`. This also resolves the Phase 44 BLOCKER noted below (Phase 43 commits are now on disk — graph-io has `list_dependencies` / `list_plugins` / `describe_dependency` / `describe_plugin`).
-
----
-
-## Phase 44 — Completed (2026-05-27)
-
-- `wiki_io.index_generator.generate_index(conn, wiki_root)` shipped (Plans 44-01, 44-02). New 640-line module producing `wiki/index.md` from graph queries (placement under domains via D-04 single-placement rule, by-kind fallback) and curated-lane filesystem scans (architecture / adrs / concepts / sources / work). Atomic write-if-changed via `os.replace`.
-- All INDEX-01..05 implemented (49 active tests + 1 conditionally-skipped snapshot in `packages/wiki-io/tests/test_index_generator.py`). Determinism (Pitfall 5 mitigation) verified via permuted-insertion test; write-if-changed verified by mtime-unchanged assertion on second invocation.
-- **Scope expansion (INDEX-05 reinterpreted):** Single `wiki/index.md` now consolidates the four curated lane sections + Work; per-folder `wiki/<lane>/index.md` files become obsolete and will be deleted in Phase 46 cutover. The plan documents this expansion against the original "preserve per-folder sub-indexes" wording.
-- **INDEX-02 reinterpreted by D-04:** entities appear ONCE — under their single qualifying domain, OR in `## By Kind` when qualifying domains are 0 or >=2. The original "twice" wording is superseded by the single-placement decision in CONTEXT.md D-04.
-- **`CURATED_LANES` correction:** module constant uses bare lane names (`"architecture"`) rather than wiki-rooted (`"wiki/architecture"`) per the path-derivation note in 44-01-PLAN — `wiki_root` IS the wiki directory, so the bare name is the correct relative path.
-- **`update_index.py` and `packages/wiki-io/pyproject.toml` byte-identical** to pre-Phase-44 state (D-01, D-22 — Phase 46 deletes `update_index.py`, not Phase 44).
-- Full wiki-io suite green: 1288 passed, 35 skipped (snapshot deferred until live `.graph-wiki/graph.db` exists post-Phase-45).
+**Current Focus:** Planning next milestone (v1.9). v1.8 archived under `milestones/v1.8-*`.
 
 ---
 
 ## Current Position
 
-Phase: 48
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-27
-
-Progress: [██████████] 100%
-
----
+Phase: — (between milestones)
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-27 — v1.8 archived
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phases total (v1.0–v1.7) | 41 |
-| Phases complete (v1.0–v1.7) | 41 |
-| Plans written (v1.0–v1.7) | 150 |
-| v1.8 phases planned | 7 |
-| v1.8 requirements | 32 |
+| Milestones shipped | 9 (v1.0 → v1.8) |
+| Phases shipped (cumulative) | 48 |
+| Plans shipped (cumulative) | 170 |
+| v1.8 requirements | 38/38 satisfied |
+| v1.8 cutover artifacts | 47 entity pages, 122 inbound-link rewrites, 1 atomic git commit on vault |
 
 ---
 
 ## Accumulated Context
 
-### Key Decisions (v1.8 scoping)
+### Open blockers
 
-- **D1 lock: URI slug encoding uses `__` as separator** — `pkg:agent-research/graph-io` → `pkg__agent-research__graph-io.md`; `:` and `/` both encode as `__`; encoding is injective and must be property-tested before any entity page is written
-- **D2 lock: scanner-owned whitelist is a `frozenset` constant in `entity_writer.py`** — reconcile ARCHITECTURE.md per-kind breakdown + FEATURES.md flat list at Phase 42; human-authored keys (`status`, `last_reviewed`, `owner`, `notes`) explicitly excluded
-- **Hard-delete with append-log** — entity pages for disappeared graph nodes are deleted on next scan; every deletion logged to `.graph-wiki/deletions.log`; vault is disposable per PROJECT.md
-- **Phases 47-48 are independent** — `cg domain-clusters` (Phase 47) and `graph propose-domains` (Phase 48) touch only `graph-io/` and `commands/graph.py`; can proceed in parallel with Phases 42-46 or slip to v1.9 with zero rework cost
-- **Phase 42 must complete before any entity-writing code runs** — the slug scheme and whitelist are the load-bearing contracts that cascade across all downstream phases
+None.
 
-### Active Pitfall Guards (encode in plans)
-
-- Pitfall 1 (slug collision): property test over 1,000 URIs from all 7 admitted kinds must pass before entity writer is wired into any scan path
-- Pitfall 2 (frontmatter key collision): whitelist merge enforced at write time; merge test (human `status: deprecated` survives entity update) required in Phase 43 acceptance criteria
-- Pitfall 3 (hard-delete losing human edits): deletion policy is hard-delete-with-log; policy must be stated explicitly in Phase 43 plan
-- Pitfall 4 (migration regex over-matching): Markdown-aware tokenizer required; code-block exclusion test in Phase 46 acceptance criteria
-- Pitfall 5 (index churn): determinism test + write-if-changed guard required in Phase 44
-- Pitfall 6 (degenerate clusters): hub-exclusion preprocessing + degenerate-cluster warning in Phase 47 initial implementation, not v1.9
-- Pitfalls 7-8 (LLM hallucination + auto-apply): grounding check + isolation test required in Phase 48 same commit
-- Pitfall 9 (concurrent scan race): scan.lock in Phase 43
-- Pitfall 10 (migration re-run artifacts): idempotency guard in Phase 46
-
-### Pending Todos
+### Pending todos
 
 None — fresh milestone start.
-
-### Blockers
-
-None — Phase 43 has landed (`list_dependencies`, `list_plugins`, `describe_dependency`, `describe_plugin` exist; `_VALID_KINDS` extended; `nodes.uri` projected into `NodeRecord.attrs["uri"]` uniformly across all `list_*`/`describe_*` callers). Phase 44 execution proceeding.
 
 ---
 
 ## Deferred Items
 
-Carried forward from prior milestone closes:
+Carried into v1.9:
 
 | Category | Item | Status |
 |----------|------|--------|
-| nyquist | 0/28+ v1.1-v1.6 phases produced VALIDATION.md | decision pending (retro-validate vs. disable toggle) |
-| slug_fix | `librarian.py:21` `_SLUG_ONLY_RE` parity fix | not load-bearing; deferred past v1.8 |
-| audit | v1.6-MILESTONE-AUDIT.md not produced | acknowledged at v1.6 close |
+| ontology | `package_family` re-admit + entity rendering | dormant in v1.8 (`ADMITTED_KINDS - {"package_family"}`); template + URI builder remain in source |
+| cutover | `wiki/package-family/` directory cleanup | Phase 46 cutover did not remove (no entity replacements yet); revisit when `package_family` re-admits |
+| audit | v1.6 + v1.8 milestone audits | both shipped without `/gsd:audit-milestone` — backfill or accept as process-only debt |
+| security | v1.8 phase-level security reviews (42-48) | `workflow.security_enforcement=true` but 7/7 phases shipped without `*-SECURITY.md` |
+| nyquist | 0/35+ phases produced VALIDATION.md | decision pending (retro-validate vs. disable toggle) — carried since v1.4 |
+| slug_fix | `librarian.py:21` `_SLUG_ONLY_RE` parity fix | not load-bearing; carried since v1.3 |
+| schema | SUMMARY.md `one_liner:` write-time enforcement | three milestones running with `null` or deviation-report one-liners flowing into MILESTONES.md |
 
 ---
 
 ## Session Continuity
 
-Last session: 2026-05-27T15:14:57.624Z
-Stopped at: Phase 48 context gathered
+Last session: 2026-05-27 — milestone v1.8 close
+Stopped at: v1.8 archived
 
-**Next action:** `/gsd:plan-phase 42` to plan the URI Slug Scheme + Per-Kind Templates phase.
+**Next action:** `/gsd:new-milestone` to scope v1.9 (questioning → research → requirements → roadmap).
 
 ---
 
 *State initialized: 2026-05-13*
+*v1.6 archived: 2026-05-26 — 7 phases (28-34), 30 plans*
 *v1.7 archived: 2026-05-26 — 7 phases (35-41), 10 plans, 27 requirements*
-*v1.8 roadmap created: 2026-05-26 — 7 phases (42-48), 32 requirements*
+*v1.8 archived: 2026-05-27 — 7 phases (42-48), 20 plans, 38 requirements*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd:new-milestone

@@ -1,5 +1,25 @@
 # Milestones
 
+## v1.8 Wiki Entity Restructure (Shipped: 2026-05-27)
+
+**Phases completed:** 7 phases, 20 plans, 14 tasks
+
+**Key accomplishments:**
+
+- [Rule 1 - bug] URI prefix vs. kind name asymmetry.
+- Phase 42 contracts locked; ready for Phase 43 entity-writer implementation.
+- Two new graph kinds (`dependency`, `plugin`) admitted with full ingestion + read surface; folded subpackage bug fix landed in the same pass.
+- Mocked-graph implementation of the write_entities pipeline with deterministic byte-stable output, scan-lock concurrency control, and partial-failure isolation — all verified against a MockGraphConn (no real sqlite needed for the inner loop).
+- Choice: SHIP
+- Wave 1 foundation shipped: narrator Bedrock role, idempotent `inject_narrative` helper, surgical removal of wiki/index.md from update_index, and the SCANINT-04 dual-writer rewrite — all four pieces Plan 03 depends on.
+- `_load_existing_pages` now returns an ExistingPages dataclass with legacy (name-keyed, unchanged) and entities (URI-keyed, new) sub-dicts — feeds Plan 03's run_scan without re-walking the filesystem.
+- run_scan now threads write_entities (Step 9a) + narrator fan-out (Step 9b) + inject_narrative (Step 10) + dual-writer index (Step 12) into the scan pipeline — v1.8 entity workflow shipped end-to-end with 8 integration tests verifying the call graph, gating, and frontmatter integrity.
+- [Rule 1 - missing critical] make_llm did not accept model_override
+- [Rule 2 — claude-discretion] Used 13 tests instead of exactly 10.
+- [Rule 1 — missing critical] propose_domains_cmd path resolution was wrong.
+
+---
+
 ## v1.7 graph-io Integration & Wiki Hygiene (Shipped: 2026-05-26)
 
 **Phases completed:** 7 phases, 10 plans, 25 tasks
