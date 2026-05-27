@@ -72,6 +72,7 @@ from graph_wiki_agent.commands.ingest import (
 )
 from graph_wiki_agent.commands.lint import run_lint
 from graph_wiki_agent.commands.log import run_log
+from graph_wiki_agent.commands.migrate_vault import run_migrate_vault
 from graph_wiki_agent.commands.query import run_query
 from graph_wiki_agent.commands.scan import run_scan
 
@@ -558,6 +559,45 @@ def scan(
 
     if result.errors:
         raise typer.Exit(code=3)
+
+
+# ---------------------------------------------------------------------------
+# migrate-vault command (Phase 46 — v1.8 entity-restructure atomic cutover)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="migrate-vault")
+def migrate_vault(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview the cutover without writing or committing."
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Bypass the idempotency check (use for partial-cutover recovery).",
+    ),
+    no_write_marker: bool = typer.Option(
+        False,
+        "--no-write-marker",
+        help="Testing affordance: run full cutover but skip the manifest marker write.",
+        hidden=True,
+    ),
+) -> None:
+    """Migrate the vault to v1.8 entity-first layout as one atomic commit.
+
+    Phase 46 cutover: populates wiki/entities/, rewrites inbound wikilinks
+    across the 5 curated lanes (concepts/adrs/architecture/sources/work),
+    removes old layout directories, regenerates indexes, and commits — all
+    atomically.
+
+    Use --dry-run first to preview what will change.
+    """
+    exit_code = run_migrate_vault(
+        dry_run=dry_run,
+        force=force,
+        write_marker=not no_write_marker,
+    )
+    raise typer.Exit(code=exit_code)
 
 
 # ---------------------------------------------------------------------------
