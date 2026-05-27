@@ -279,7 +279,7 @@ def test_decoration_adds_uri_and_domain(tmp_workspace_with_packages, monkeypatch
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: {})
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
     monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
     monkeypatch.setattr(
         scan_module,
@@ -334,7 +334,7 @@ def test_slug_recomputed_on_domain_change(tmp_workspace_with_packages, monkeypat
         "changed_files": None,
     }
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [pkg_a])
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: {})
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
     monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
     monkeypatch.setattr(
         scan_module,
@@ -495,11 +495,13 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     # Make list_packages return [] so decoration is a no-op (graph query phase).
     monkeypatch.setattr(scan_module.queries, "list_packages", lambda conn: [])
 
-    # Cause fan-out to raise.
-    async def _boom(self, *, items, task, role, model_id, max_concurrency):
+    # Phase 45 D-04/D-08: legacy scanner fan-out is removed. To exercise the
+    # conn-closure-on-exception path we now raise from write_entities (Step 9a),
+    # which runs inside the same `try` block as the conn lifecycle.
+    def _boom_write(*a, **kw):
         raise RuntimeError("simulated fan-out crash")
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _boom)
+    monkeypatch.setattr(scan_module, "write_entities", _boom_write)
 
     # Patch discover_workspaces so we actually reach the fan-out step.
     monkeypatch.setattr(
@@ -516,7 +518,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
             }
         ],
     )
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: {})
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
     monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
     monkeypatch.setattr(
         scan_module,

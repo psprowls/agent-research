@@ -371,20 +371,24 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
 
 
 async def test_run_scan_model_override(tmp_path: Path) -> None:
-    """run_scan(model_override=...) constructs ChatBedrockConverse with that model_id
-    and does NOT call make_llm("scanner")."""
+    """Phase 45 D-06/D-08: `run_scan(model_override=...)` constructs
+    ChatBedrockConverse with that model_id for the NARRATOR LLM and does NOT
+    call `make_llm("narrator")`. The legacy scanner fan-out is removed in v1.8
+    (D-08 hard cutover), so the override now targets the narrator role.
+    """
+    from types import SimpleNamespace
+    from wiki_io.entity_writer import EntityWriteResult
+    from wiki_io.scan_monorepo import ExistingPages
+
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
 
-    mock_fan = MagicMock()
-    mock_fan.successes = []
-    mock_fan.errors = []
-
-    mock_scan_resp = MagicMock()
-    mock_scan_resp.content = "stub content"
+    narrator_resp = MagicMock()
+    narrator_resp.content = "prose body"
+    narrator_resp.usage_metadata = None
 
     converse_instance = AsyncMock()
-    converse_instance.ainvoke = AsyncMock(return_value=mock_scan_resp)
+    converse_instance.ainvoke = AsyncMock(return_value=narrator_resp)
 
     captured_converse_calls: list[dict] = []
 
@@ -392,52 +396,113 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         captured_converse_calls.append(kwargs)
         return converse_instance
 
-    with (
-        patch(
+    # write_entities returns one URI needing narration so the narrator pool fires.
+    needy_uri = "pkg:agent-research/foo"
+    fake_write_result = EntityWriteResult(
+        created=[needy_uri],
+        updated=[],
+        deleted=[],
+        unchanged=[],
+        needs_narrative={needy_uri},
+        errors=[],
+    )
+
+    fake_node = SimpleNamespace(name="foo", attrs={"uri": needy_uri})
+    fake_list_fns = {"package": lambda conn: [fake_node]}
+
+    # Mock the SubagentPool.run_all to actually invoke the narrator task so the
+    # ChatBedrockConverse instance gets its ainvoke called (i.e. the override
+    # plumbing is exercised end-to-end).
+    async def fake_run_all(items, task, **kwargs):
+        result = MagicMock()
+        successes = []
+        for item in items:
+            tr = await task(item)
+            successes.append((item, tr.value))
+        result.successes = successes
+        result.errors = []
+        return result
+
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        stack.enter_context(patch(
             "graph_wiki_agent.commands.scan.resolve_wiki_and_repo",
             return_value=(vault, None),
-        ),
-        patch("graph_wiki_agent.commands.scan.read_layout", return_value=None),
-        patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[]),
-        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
-        patch(
+        ))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.read_layout", return_value=None))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.discover_workspaces", return_value=[]))
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan._load_existing_pages",
+            return_value=ExistingPages(legacy={}, entities={}),
+        ))
+        stack.enter_context(patch(
             "graph_wiki_agent.commands.scan.compute_diff",
             return_value={"new": [], "renamed": [], "deleted": [], "unchanged": []},
-        ),
-        patch(
+        ))
+        stack.enter_context(patch(
             "graph_wiki_agent.commands.scan.compute_state_gate",
             return_value={"allowed": True, "reason": "ok", "head_commit": "abc123"},
-        ),
-        patch("graph_wiki_agent.commands.scan.attach_changed_files"),
-        patch(
-            "graph_wiki_agent.commands.scan.SubagentPool",
-        ) as mock_pool_cls,
-        patch("graph_wiki_agent.commands.scan.make_llm") as mock_make_llm,
-        patch(
+        ))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.attach_changed_files"))
+        # cg update + read_only_connect simulate a healthy graph so Step 9a runs.
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan._capture_run",
+            return_value=(0, "", ""),
+        ))
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan.read_only_connect",
+            return_value=MagicMock(),
+        ))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.queries.list_packages", return_value=[]))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan._query_package_uris", return_value={}))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan._query_package_domains", return_value={}))
+        # Phase 45: write_entities + narrator pool + inject_narrative.
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan.write_entities",
+            return_value=fake_write_result,
+        ))
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan._kind_list_fns",
+            return_value=fake_list_fns,
+        ))
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan.scanner_frontmatter_for_node",
+            return_value={"uri": needy_uri, "kind": "package"},
+        ))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.inject_narrative"))
+        stack.enter_context(patch(
+            "graph_wiki_agent.commands.scan.generate_index",
+            return_value=MagicMock(changed=False, bytes_written=0),
+        ))
+        mock_pool_cls = stack.enter_context(patch("graph_wiki_agent.commands.scan.SubagentPool"))
+        mock_make_llm = stack.enter_context(patch("graph_wiki_agent.commands.scan.make_llm"))
+        stack.enter_context(patch(
             "graph_wiki_agent.commands.scan.ChatBedrockConverse",
             side_effect=_fake_converse,
-        ),
-        patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
-        patch("graph_wiki_agent.commands.scan.append_log"),
-        patch("graph_wiki_agent.commands.scan.update_index"),
-    ):
+        ))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.append_log"))
+        stack.enter_context(patch("graph_wiki_agent.commands.scan.update_index"))
+
         mock_pool_instance = MagicMock()
-        mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
+        mock_pool_instance.run_all = AsyncMock(side_effect=fake_run_all)
         mock_pool_cls.return_value = mock_pool_instance
 
         from graph_wiki_agent.commands.scan import run_scan
 
         await run_scan(workspace_path=vault, model_override=candidate)
 
-    scanner_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(scanner_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r}; "
-        f"got: {captured_converse_calls}"
+    # ChatBedrockConverse was called with the candidate model_id for the narrator.
+    narrator_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
+    assert len(narrator_calls) >= 1, (
+        f"Expected ChatBedrockConverse called with model_id={candidate!r} for the "
+        f"narrator override; got: {captured_converse_calls}"
     )
-    # make_llm("scanner") must NOT have been called
-    scanner_make_llm_calls = [c for c in mock_make_llm.call_args_list if c == call("scanner")]
-    assert len(scanner_make_llm_calls) == 0, (
-        f"make_llm('scanner') should not be called when model_override is set; "
+    # make_llm("narrator") must NOT have been called (override takes its place).
+    narrator_make_llm_calls = [c for c in mock_make_llm.call_args_list if c == call("narrator")]
+    assert len(narrator_make_llm_calls) == 0, (
+        f"make_llm('narrator') should not be called when model_override is set; "
         f"actual calls: {mock_make_llm.call_args_list}"
     )
 

@@ -3,12 +3,31 @@ from __future__ import annotations
 """Unit tests for the scan command (Plan 05-04).
 
 Requirements covered: CMD-02, MCP-03.
+
+Phase 45 note: Several tests in this file validated the legacy scanner
+fan-out path (SubagentPool with role='scanner', writes to
+wiki/packages/<n>/<n>.md, populating ScanResult.added/updated/errors).
+Phase 45 D-08 removes that path as a hard cutover — only entity pages
+under wiki/entities/ are written now, the narrator pool replaces the
+scanner pool, and the legacy ScanResult fields are always empty lists.
+Those tests are skipped with `_PHASE_45_LEGACY_REMOVED`; the v1.8
+equivalents live in `tests/integration/test_scan_entity_integration.py`
+(Plan 45-03 Task 4).
 """
 
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+_PHASE_45_LEGACY_REMOVED = pytest.mark.skip(
+    reason=(
+        "Phase 45 D-08: legacy scanner fan-out removed; this test validated "
+        "v1.7 behavior (role='scanner' pool, wiki/packages/<n>/<n>.md writes, "
+        "result.added/updated/errors population). v1.8 equivalents live in "
+        "tests/integration/test_scan_entity_integration.py."
+    )
+)
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +85,7 @@ def test_scan_result_dataclass_shape() -> None:
 # ---------------------------------------------------------------------------
 
 
+@_PHASE_45_LEGACY_REMOVED
 async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
     """run_scan maps compute_diff keys correctly to ScanResult fields."""
     from graph_wiki_agent.commands.scan import run_scan
@@ -136,6 +156,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@_PHASE_45_LEGACY_REMOVED
 async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
     """SubagentPool.run_all is called with role='scanner'."""
     from graph_wiki_agent.commands.scan import run_scan
@@ -194,6 +215,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@_PHASE_45_LEGACY_REMOVED
 async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
     """Final stub page contains file map text AFTER the LLM body."""
     from graph_wiki_agent.commands.scan import run_scan
@@ -277,7 +299,9 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    existing = {
+    from wiki_io.scan_monorepo import ExistingPages
+
+    existing_dict = {
         "old-pkg": {
             "wiki_relative_path": "packages/old-pkg/old-pkg.md",
             "package_path": "packages/old-pkg",
@@ -285,6 +309,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
             "last_sync_commit": None,
         }
     }
+    existing = ExistingPages(legacy=existing_dict, entities={})
     fake_diff = {
         "new": [],
         "unchanged": [],
@@ -335,6 +360,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@_PHASE_45_LEGACY_REMOVED
 async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
     """FanOutResult errors are surfaced in ScanResult.errors list."""
     from graph_wiki_agent.commands.scan import run_scan
@@ -419,11 +445,16 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     fake_repo = tmp_path / "fake-monorepo"
     fake_repo.mkdir()
 
+    from wiki_io.scan_monorepo import ExistingPages
+
     with (
         patch("graph_wiki_agent.commands.scan.resolve_wiki_and_repo") as mock_resolve,
         patch("graph_wiki_agent.commands.scan.read_layout", return_value={}),
         patch("graph_wiki_agent.commands.scan.discover_workspaces") as mock_discover,
-        patch("graph_wiki_agent.commands.scan._load_existing_pages", return_value={}),
+        patch(
+            "graph_wiki_agent.commands.scan._load_existing_pages",
+            return_value=ExistingPages(legacy={}, entities={}),
+        ),
         patch("graph_wiki_agent.commands.scan.attach_changed_files") as mock_attach,
         patch("graph_wiki_agent.commands.scan.compute_diff") as mock_diff,
         patch("graph_wiki_agent.commands.scan.compute_state_gate") as mock_gate,

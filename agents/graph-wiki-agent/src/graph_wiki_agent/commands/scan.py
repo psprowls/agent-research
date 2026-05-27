@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-"""Scan command — walk a monorepo, diff against vault, fan-out scanner subagents.
+"""Scan command — walk a monorepo, diff against vault, write graph-driven entity pages.
 
 Public API:
-    ScanResult              — dataclass: added, updated, deleted, renamed, errors, state_gate
-    build_stub_prompt(pkg)  — human message: package metadata + representative file snippets
-    run_scan(workspace_path, no_file_map, max_depth)  — end-to-end scan pipeline
-
-The scanner system prompt is constructed inline via
-`build_scanner_system(project_context=...)` where `project_context` is the
-rendered output of `render_project_context(wiki)` — see CTX-03.
+    ScanResult                          — dataclass with legacy + entity result fields
+    build_stub_prompt(pkg)              — human message used by build_entity_narrative_prompt
+                                          callers and downstream eval harnesses
+    build_entity_narrative_prompt(...)  — (system, human) for the narrator LLM (Phase 45 D-05)
+    run_scan(workspace_path, ...)       — end-to-end scan pipeline (Step 9a write_entities +
+                                          Step 9b narrator fan-out + Step 12 dual-writer indexes)
 """
 
 import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from graph_io import exit_codes, queries
 from graph_io.store import GraphNotInitializedError, read_only_connect
@@ -25,8 +25,18 @@ from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
+from wiki_io.entity_writer import (
+    ADMITTED_KINDS_V18,
+    _kind_list_fns,
+    encode_slug,
+    inject_narrative,
+    scanner_frontmatter_for_node,
+    write_entities,
+)
+from wiki_io.index_generator import generate_index
 from wiki_io.layout_io import read_layout
 from wiki_io.scan_monorepo import (
+    ExistingPages,
     _load_existing_pages,
     _wiki_relative_path_for,
     attach_changed_files,
@@ -40,8 +50,6 @@ from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
 from graph_wiki_agent.commands.graph import _build_namespace, _capture_run, ops_update
-from graph_wiki_agent.prompts.project_context import render_project_context
-from graph_wiki_agent.prompts.scanner import build_scanner_system
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +453,6 @@ async def run_scan(
     """
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
-    project_ctx = render_project_context(wiki)
     if repo_path is not None:
         repo = repo_path.resolve()
     elif resolved_repo is not None:
@@ -611,14 +618,14 @@ async def run_scan(
                 if fm is not None:
                     w["file_map"] = fm
 
-        # Step 5: load existing vault pages
-        existing = _load_existing_pages(wiki)
+        # Step 5: load existing vault pages (Phase 45 D-11 — dual view)
+        existing_pages = _load_existing_pages(wiki)
 
-        # Step 6: attach changed files since last sync
-        attach_changed_files(workspaces, existing, repo)
+        # Step 6: attach changed files since last sync (legacy view only — D-12)
+        attach_changed_files(workspaces, existing_pages.legacy, repo)
 
-        # Step 7: compute diff
-        diff = compute_diff(workspaces, existing)
+        # Step 7: compute diff (legacy view only — D-12)
+        diff = compute_diff(workspaces, existing_pages.legacy)
 
         # Step 8: compute state gate
         state_gate = compute_state_gate(repo)
@@ -627,84 +634,119 @@ async def run_scan(
         unscope = _unscope
         ws_by_name = {unscope(w["name"]): w for w in workspaces}
 
-        # Step 9: scanner fan-out
-        # Items = new packages + unchanged packages with changed files
-        fan_items: list[dict] = []
-        for name in diff["new"]:
-            if name in ws_by_name:
-                fan_items.append(ws_by_name[name])
-        for name in diff["unchanged"]:
-            if name in ws_by_name:
-                w = ws_by_name[name]
-                changed = w.get("changed_files")
-                if changed:  # non-empty list means files changed
-                    fan_items.append(w)
+        # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
+        # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
+        # REMOVED in v1.8 — D-08 hard cutover. `model_override` is kept available
+        # for future eval sweeps targeting the narrator role.
+        entity_write_result = None
+        narrator_result: FanOutResult | None = None
 
-        cfg = load_role_config("scanner")
-        pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
-        if model_override is not None:
-            scanner_llm = ChatBedrockConverse(
-                model_id=model_override,
-                region_name=cfg["region"],
-                max_tokens=cfg["max_tokens"],
+        if conn is not None:
+            # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
+            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS_V18)
+            append_log(
+                wiki,
+                "scan",
+                (
+                    f"entities: +{len(entity_write_result.created)} "
+                    f"~{len(entity_write_result.updated)} "
+                    f"-{len(entity_write_result.deleted)} "
+                    f"(needs_narrative: {len(entity_write_result.needs_narrative)})"
+                ),
+                detail=None,
+                silent=True,
+                raise_exception=True,
             )
-        else:
-            scanner_llm = make_llm("scanner")
 
-        async def generate_stub(pkg: dict) -> TaskResult:
-            prompt = build_stub_prompt(pkg, no_file_map=no_file_map, repo_root=repo)
-            msgs = [
-                SystemMessage(content=build_scanner_system(project_context=project_ctx)),
-                HumanMessage(content=prompt),
-            ]
-            resp = await scanner_llm.ainvoke(msgs)
-            # Phase 16-02 G-01: wrap in TaskResult so pool's trace record carries
-            # resp.usage_metadata; downstream still sees the string body.
-            return TaskResult(value=resp.content, response=resp)
+            # Step 9b: narrator fan-out gated on needs_narrative.
+            narrator_items: list[tuple[str, str, Any]] = []
+            if entity_write_result.needs_narrative:
+                list_fns = _kind_list_fns()
+                wanted = set(entity_write_result.needs_narrative)
+                for kind in sorted(ADMITTED_KINDS_V18):
+                    list_fn = list_fns.get(kind)
+                    if list_fn is None:
+                        continue
+                    for node in list_fn(conn):
+                        if not isinstance(node.attrs, dict):
+                            continue
+                        node_uri = node.attrs.get("uri")
+                        if node_uri and node_uri in wanted:
+                            narrator_items.append((node_uri, kind, node))
 
-        fan_result: FanOutResult = await pool.run_all(
-            items=fan_items,
-            task=generate_stub,
-            role="scanner",
-            model_id=cfg["model_id"],
-            max_concurrency=cfg["max_concurrency"],
-        )
+            if narrator_items:
+                narrator_cfg = load_role_config("narrator")
+                if model_override is not None:
+                    narrator_llm = ChatBedrockConverse(
+                        model_id=model_override,
+                        region_name=narrator_cfg["region"],
+                        max_tokens=narrator_cfg["max_tokens"],
+                    )
+                else:
+                    narrator_llm = make_llm("narrator")
+                narrator_pool = SubagentPool(
+                    trace_dir=wiki / ".graph-wiki" / "traces"
+                )
 
-        # Step 10: write successful stub pages
-        added: list[str] = []
-        updated: list[str] = []
+                # Workspace-name → file_map for `package` kinds (narrator hint only).
+                ws_file_map_by_name = {
+                    unscope(w["name"]): w.get("file_map", "") for w in workspaces
+                }
 
-        for pkg, llm_body in fan_result.successes:
-            pkg_name = unscope(pkg["name"])
-            vault_page_rel = pkg.get("wiki_relative_path", f"packages/{pkg_name}/{pkg_name}.md")
-            page_path = wiki / vault_page_rel
-            page_path.parent.mkdir(parents=True, exist_ok=True)
+                async def generate_narrative(
+                    item: tuple[str, str, Any],
+                ) -> TaskResult:
+                    uri_inner, kind_inner, node_inner = item
+                    relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
+                    relations_for_prompt = {
+                        k: v for k, v in relations.items() if k not in ("uri", "kind")
+                    }
+                    file_map = (
+                        ws_file_map_by_name.get(node_inner.name, "")
+                        if kind_inner == "package"
+                        else ""
+                    )
+                    system_msg, human_msg = build_entity_narrative_prompt(
+                        node_inner, kind_inner, file_map, relations_for_prompt,
+                    )
+                    msgs = [
+                        SystemMessage(content=system_msg),
+                        HumanMessage(content=human_msg),
+                    ]
+                    resp = await narrator_llm.ainvoke(msgs)
+                    return TaskResult(value=resp.content, response=resp)
 
-            # Deterministic file map append (RESEARCH Risk 5)
-            pkg_dir = repo / pkg["path"]
-            file_map_text = ""
-            if not no_file_map:
-                fm = build_file_map(pkg_dir, max_depth=max_depth)
-                if fm is not None:
-                    file_map_text = "\n\n" + fm
+                narrator_result = await narrator_pool.run_all(
+                    items=narrator_items,
+                    task=generate_narrative,
+                    role="narrator",
+                    model_id=narrator_cfg["model_id"],
+                    max_concurrency=narrator_cfg["max_concurrency"],
+                )
 
-            final_page = llm_body + file_map_text
-            page_path.write_text(final_page, encoding="utf-8")
+        # Phase 45 D-07/D-08: Step 10 — inject narrator prose into entity pages.
+        # The legacy `wiki/packages/<name>/<name>.md` write block is REMOVED (D-08
+        # hard cutover — only entity pages are written from Phase 45 onward).
+        entities_narrated: list[str] = []
+        narrator_errors: list[str] = []
+        if narrator_result is not None:
+            for item, prose in narrator_result.successes:
+                uri_inner, _kind_inner, _node_inner = item
+                entity_page_path = wiki / "entities" / f"{encode_slug(uri_inner)}.md"
+                try:
+                    inject_narrative(entity_page_path, prose)
+                    entities_narrated.append(uri_inner)
+                except Exception as inject_exc:  # noqa: BLE001 — partial-success
+                    narrator_errors.append(
+                        f"{uri_inner}: inject_narrative failed: {inject_exc!r}"
+                    )
+            for err in narrator_result.errors:
+                uri_inner, _kind_inner, _node_inner = err.item
+                narrator_errors.append(f"{uri_inner}: {err.exception!r}")
 
-            if pkg_name in diff["new"]:
-                added.append(pkg_name)
-            else:
-                updated.append(pkg_name)
-
-        # Collect errors
-        errors: list[str] = [
-            f"{unscope(err.item['name'])}: {err.exception}"
-            for err in fan_result.errors
-        ]
-
-        # Step 11: stale-tag deleted packages
+        # Step 11: stale-tag deleted packages (legacy-layout; D-09)
         for pkg_name in diff["deleted"]:
-            existing_rec = existing.get(pkg_name)
+            existing_rec = existing_pages.legacy.get(pkg_name)
             if existing_rec:
                 page_path = wiki / existing_rec["wiki_relative_path"]
                 _add_stale_tag(page_path)
@@ -718,10 +760,10 @@ async def run_scan(
                 )
                 logger.info("Marked stale: %s", pkg_name)
 
-        # stale-tag renamed packages (old side)
+        # stale-tag renamed packages (old side; D-10)
         for rename_pair in diff["renamed"]:
             old_name = rename_pair[0]
-            existing_rec = existing.get(old_name)
+            existing_rec = existing_pages.legacy.get(old_name)
             if existing_rec:
                 page_path = wiki / existing_rec["wiki_relative_path"]
                 _add_stale_tag(page_path)
@@ -736,33 +778,64 @@ async def run_scan(
                 )
                 logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
 
-        # Step 12: regenerate indexes
+        # Step 12: regenerate indexes (Phase 45 D-01).
+        # Order: dependencies index → graph-driven wiki/index.md → per-folder sub-indexes.
         regenerate_dependencies_index(wiki, workspaces)
+        if conn is not None:
+            # generate_index is read-only on the graph; raises on failure (Phase 44 D-19).
+            index_result = generate_index(conn, wiki)
+            append_log(
+                wiki,
+                "scan",
+                (
+                    f"index: wiki/index.md changed={index_result.changed} "
+                    f"bytes={index_result.bytes_written}"
+                ),
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
         try:
-            update_index(wiki)
+            update_index(wiki)  # per-folder */index.md sub-indexes only (Phase 45 D-02)
         except Exception as exc:
             logger.warning("update_index failed (non-fatal): %s", exc)
 
-        # Step 13: final log entry
-        n_added = len(added)
-        n_updated = len(updated)
-        n_deleted = len(diff["deleted"])
+        # Step 13: final log entry — both legacy and entity counters surface.
+        entity_create_count = len(entity_write_result.created) if entity_write_result else 0
+        entity_update_count = len(entity_write_result.updated) if entity_write_result else 0
+        entity_delete_count = len(entity_write_result.deleted) if entity_write_result else 0
+        needs_count = len(entity_write_result.needs_narrative) if entity_write_result else 0
+        narrated_count = len(entities_narrated)
+        n_deleted_legacy = len(diff["deleted"])
         append_log(
             wiki,
             "scan",
-            f"scan complete: +{n_added} ~{n_updated} -{n_deleted}",
+            (
+                f"scan complete: legacy +0 ~0 -{n_deleted_legacy}  |  "
+                f"entities +{entity_create_count} ~{entity_update_count} -{entity_delete_count}  "
+                f"(narrated: {narrated_count} of {needs_count})"
+            ),
             detail=None,
             silent=True,
             raise_exception=True,
         )
 
+        entity_write_errors: list[str] = []
+        if entity_write_result is not None:
+            entity_write_errors = [repr(e) for e in entity_write_result.errors]
+
         return ScanResult(
-            added=added,
-            updated=updated,
+            added=[],                            # legacy fan-out removed (D-08)
+            updated=[],
             deleted=diff["deleted"],
             renamed=diff["renamed"],
-            errors=errors,
+            errors=[],                           # legacy fan-out removed
             state_gate=state_gate,
+            entities_created=sorted(entity_write_result.created) if entity_write_result else [],
+            entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
+            entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
+            entities_narrated=sorted(entities_narrated),
+            entity_errors=entity_write_errors + narrator_errors,
         )
     finally:
         if conn is not None:
