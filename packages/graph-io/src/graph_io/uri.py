@@ -40,6 +40,19 @@ def domain_uri(ctx: RepoContext, name: str) -> str:
     return f"domain:{ctx.org}/{ctx.repo}/{name}"
 
 
+# v1.8 concept-level kinds (Phase 42 D-04): not repo-scoped, so no RepoContext.
+def package_family_uri(name: str) -> str:
+    return f"package_family:{name}"
+
+
+def plugin_uri(name: str) -> str:
+    return f"plugin:{name}"
+
+
+def dependency_uri(ecosystem: str, name: str) -> str:
+    return f"dependency:{ecosystem}/{name}"
+
+
 _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")
 _HTTPS_REMOTE_RE = re.compile(r"^https?://[^/]+/([^/]+)/([^/]+?)(?:\.git)?/?$")
 

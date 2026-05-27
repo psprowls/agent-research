@@ -8,11 +8,14 @@ import pytest
 
 from graph_io.uri import (
     RepoContext,
+    dependency_uri,
     domain_uri,
     entry_point_uri,
     file_uri,
+    package_family_uri,
     parse_remote_url,
     pkg_uri,
+    plugin_uri,
     repo_uri,
     subpkg_uri,
 )
@@ -65,6 +68,26 @@ def test_domain_uri_with_ctx() -> None:
     # Domain identity is repo-scoped per Phase 31 D-05.
     ctx = RepoContext(org="acme", repo="repo")
     assert domain_uri(ctx, "billing") == "domain:acme/repo/billing"
+
+
+# v1.8 concept-level URI builders (Phase 42 D-04). These take no RepoContext
+# because the entities are repo-agnostic in the graph data model.
+def test_package_family_uri() -> None:
+    assert package_family_uri("aws") == "package_family:aws"
+
+
+def test_plugin_uri() -> None:
+    assert plugin_uri("graph-wiki") == "plugin:graph-wiki"
+
+
+def test_dependency_uri() -> None:
+    assert dependency_uri("pypi", "boto3") == "dependency:pypi/boto3"
+
+
+def test_dependency_uri_npm() -> None:
+    # Multi-ecosystem coverage; ecosystem is required to avoid cross-registry
+    # collision (e.g. `react` exists in npm and on PyPI as `react-py`).
+    assert dependency_uri("npm", "react") == "dependency:npm/react"
 
 
 @pytest.mark.parametrize(
