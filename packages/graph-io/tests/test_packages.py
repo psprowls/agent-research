@@ -159,3 +159,96 @@ def test_refresh_writes_pkg_uri_on_package_nodes(
     # PITFALL 4 lock: uri must NOT leak into attrs_json.
     if attrs_json is not None:
         assert "uri" not in json.loads(attrs_json)
+
+
+# ============================================================================
+# Phase 43 Plan 01 Task 2: dependency ingestion from [project.dependencies] +
+# [dependency-groups], with used_by edges.
+# ============================================================================
+
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize(
+    "spec, expected",
+    [
+        ("boto3>=1.38", "boto3"),
+        ("langchain-aws[bedrock]>=1.4.6", "langchain-aws"),
+        ("foo; python_version >= '3.11'", "foo"),
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("", None),
+        ("git+https://example.com/x#egg=mypkg", None),
+    ],
+)
+def test_pep_508_name_extraction(spec: str, expected: str | None) -> None:
+    assert packages._extract_dep_name(spec) == expected
+
+
+def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """D-02: refresh emits dependency nodes + used_by edges across all manifests."""
+    pkg_a = tmp_path / "pkg-a"
+    pkg_a.mkdir()
+    (pkg_a / "pyproject.toml").write_text(
+        '[project]\nname = "pkg-a"\nversion = "0.1.0"\n'
+        'dependencies = ["boto3>=1.38", "langchain-aws>=1.4"]\n'
+    )
+    pkg_b = tmp_path / "pkg-b"
+    pkg_b.mkdir()
+    (pkg_b / "pyproject.toml").write_text(
+        '[project]\nname = "pkg-b"\nversion = "0.1.0"\n'
+        'dependencies = ["boto3==1.40.0"]\n'
+        '[dependency-groups]\ndev = ["pytest>=8"]\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    # 3 distinct deps emitted as nodes: boto3, langchain-aws, pytest
+    dep_rows = conn.execute(
+        "SELECT name, attrs_json, uri FROM nodes WHERE kind='dependency' ORDER BY name"
+    ).fetchall()
+    names = [r[0] for r in dep_rows]
+    assert names == ["boto3", "langchain-aws", "pytest"]
+    # boto3 attrs.versions_in_use collects both PEP 508 strings (sorted)
+    boto3_row = dep_rows[0]
+    boto3_attrs = json.loads(boto3_row[1])
+    assert boto3_attrs["ecosystem"] == "pypi"
+    assert boto3_attrs["versions_in_use"] == sorted(
+        ["boto3>=1.38", "boto3==1.40.0"]
+    )
+    assert boto3_row[2] == "dependency:pypi/boto3"
+    # used_by edges from both consumer packages to boto3
+    boto3_used_by = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes dep ON e.dst = dep.id "
+        "WHERE e.kind='used_by' AND dep.kind='dependency' AND dep.name='boto3'"
+    ).fetchone()[0]
+    assert boto3_used_by == 2
+    pytest_used_by = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes dep ON e.dst = dep.id "
+        "WHERE e.kind='used_by' AND dep.kind='dependency' AND dep.name='pytest'"
+    ).fetchone()[0]
+    assert pytest_used_by == 1
+
+
+def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """A dep listed in both [project.dependencies] and [dependency-groups] for the
+    same consumer produces exactly ONE used_by edge from that consumer to that dep.
+    """
+    pkg_c = tmp_path / "pkg-c"
+    pkg_c.mkdir()
+    (pkg_c / "pyproject.toml").write_text(
+        '[project]\nname = "pkg-c"\nversion = "0.1.0"\n'
+        'dependencies = ["boto3>=1.38"]\n'
+        '[dependency-groups]\nextra = ["boto3>=1.40"]\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    count = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='used_by' AND src.name='pkg-c' AND dst.name='boto3'"
+    ).fetchone()[0]
+    assert count == 1
