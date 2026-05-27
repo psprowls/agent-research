@@ -128,8 +128,11 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
 def encode_slug(uri: str) -> str:
     """Encode a graph URI as a vault filename stem (D-01).
 
-    Replaces `:` and `/` with `__`. Injective across all 7 admitted kinds
-    because no admitted kind contains `__` in its single-underscore form.
+    Replaces `:` and `/` with `__`. Injective and round-trip-stable across
+    all 7 admitted kinds for fragments that DO NOT contain `__` AND DO NOT
+    start or end with `_`. Real-world org / repo / package / suite names
+    follow these constraints (PEP-8 / npm / cargo naming conventions prefer
+    dashes to leading-underscore identifiers in distribution names).
     """
     return uri.replace(":", "__").replace("/", "__")
 
