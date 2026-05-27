@@ -47,11 +47,11 @@
 
 ### MIGRATION — One-Shot Inbound-Link Migration + Cutover
 
-- [ ] **MIGRATION-01** — `wiki_io/link_rewriter.py` provides a Markdown-aware wikilink rewriter; tokenizes documents into prose regions and code regions (fenced code blocks + inline code spans + indented code blocks); rewrites occur ONLY in prose regions
-- [ ] **MIGRATION-02** — Rewriter maps old layout wikilinks (e.g. `[[packages/graph-io/index]]`, `[[dependencies/click/overview]]`) to new entity slugs (e.g. `[[entities/pkg__agent-research__graph-io]]`); rewrite table derived from graph queries, not hardcoded
-- [ ] **MIGRATION-03** — Idempotency: running the migration twice on the same vault is a no-op; idempotency marker written to wiki manifest (`migrated_to: v1.8-entity-restructure` flag); test asserts second invocation makes zero file changes
-- [ ] **MIGRATION-04** — Code-block exclusion test: a curated page containing a wikilink inside a fenced code block remains byte-identical after migration
-- [ ] **MIGRATION-05** — Cutover commit consolidates: (1) `write_entities` populates `wiki/entities/`, (2) `link_rewriter.rewrite_vault` rewrites wikilinks in all 5 curated lanes (`/concepts/`, `/adrs/`, `/architecture/`, `/sources/`, `/work/`), (3) old directories (`wiki/packages/`, `wiki/dependencies/`, `wiki/domain/`, `wiki/plugin/`, `wiki/package-family/`) are removed via `git rm -r`, (4) `generate_index.generate_index` produces `wiki/index.md`, (5) `update_index.update_index` regenerates per-folder sub-indexes, (6) `.graph-wiki/manifest.json` idempotency marker is written — all in a single atomic commit. The cutover script aborts before commit if any step fails.
+- [x] **MIGRATION-01** — `wiki_io/link_rewriter.py` provides a Markdown-aware wikilink rewriter; tokenizes documents into prose regions and code regions (fenced code blocks + inline code spans + indented code blocks); rewrites occur ONLY in prose regions
+- [x] **MIGRATION-02** — Rewriter maps old layout wikilinks (e.g. `[[packages/graph-io/index]]`, `[[dependencies/click/overview]]`) to new entity slugs (e.g. `[[entities/pkg__agent-research__graph-io]]`); rewrite table derived from graph queries, not hardcoded
+- [x] **MIGRATION-03** — Idempotency: running the migration twice on the same vault is a no-op; idempotency marker written to wiki manifest (`migrated_to: v1.8-entity-restructure` flag); test asserts second invocation makes zero file changes
+- [x] **MIGRATION-04** — Code-block exclusion test: a curated page containing a wikilink inside a fenced code block remains byte-identical after migration
+- [x] **MIGRATION-05** — Cutover commit consolidates: (1) `write_entities` populates `wiki/entities/`, (2) `link_rewriter.rewrite_vault` rewrites wikilinks in all 5 curated lanes (`/concepts/`, `/adrs/`, `/architecture/`, `/sources/`, `/work/`), (3) old directories (`wiki/packages/`, `wiki/dependencies/`, `wiki/domain/`, `wiki/plugin/`, `wiki/package-family/`) are removed via `git rm -r`, (4) `generate_index.generate_index` produces `wiki/index.md`, (5) `update_index.update_index` regenerates per-folder sub-indexes, (6) `.graph-wiki/manifest.json` idempotency marker is written — all in a single atomic commit. The cutover script aborts before commit if any step fails.
 
 ### CLUSTER — `cg domain-clusters` (Import-Graph Clustering)
 
@@ -119,11 +119,11 @@
 | SCANINT-04 | Phase 45 | Complete |
 | SCANINT-05 | Phase 45 | Complete |
 | SCANINT-06 | Phase 45 | Complete |
-| MIGRATION-01 | Phase 46 | Pending |
-| MIGRATION-02 | Phase 46 | Pending |
-| MIGRATION-03 | Phase 46 | Pending |
-| MIGRATION-04 | Phase 46 | Pending |
-| MIGRATION-05 | Phase 46 | Pending |
+| MIGRATION-01 | Phase 46 | Complete |
+| MIGRATION-02 | Phase 46 | Complete |
+| MIGRATION-03 | Phase 46 | Complete |
+| MIGRATION-04 | Phase 46 | Complete |
+| MIGRATION-05 | Phase 46 | Complete |
 | CLUSTER-01 | Phase 47 | Complete |
 | CLUSTER-02 | Phase 47 | Complete |
 | CLUSTER-03 | Phase 47 | Complete |
