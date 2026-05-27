@@ -139,7 +139,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 - [x] **Phase 43: Entity Writer** — Deterministic entity-page create/merge/hard-delete from graph (completed 2026-05-27)
 - [x] **Phase 44: Scanner-Generated Index** — Domain-first + by-kind index driven directly from graph queries (completed 2026-05-27)
 - [x] **Phase 45: Scanner Integration** — Wire entity writer into `run_scan` Steps 9a/9b/11/12 (completed 2026-05-27)
-- [ ] **Phase 46: Inbound-Link Migration + Cutover** — One-shot wikilink rewriter and atomic cutover commit
+- [x] **Phase 46: Inbound-Link Migration + Cutover** — One-shot wikilink rewriter and atomic cutover commit (completed 2026-05-27)
 - [x] **Phase 47: `cg domain-clusters`** — Import-graph clustering without LLM dependency (independent) (completed 2026-05-27)
 - [ ] **Phase 48: `graph propose-domains`** — LLM-proposed domain groupings with grounding + cycle detection
 
@@ -293,7 +293,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 43. Entity Writer | v1.8 | 3/3 | Complete    | 2026-05-27 |
 | 44. Scanner-Generated Index | v1.8 | 0/TBD | Not started | - |
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
-| 46. Inbound-Link Migration + Cutover | v1.8 | 2/3 | In Progress|  |
+| 46. Inbound-Link Migration + Cutover | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 1/3 | In Progress|  |
 
