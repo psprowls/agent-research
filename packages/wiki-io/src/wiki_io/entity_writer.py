@@ -169,7 +169,9 @@ def decode_slug(slug: str) -> str:
 import datetime as _dt  # noqa: E402
 import fcntl  # noqa: E402
 import json  # noqa: E402
+import logging  # noqa: E402
 import os  # noqa: E402
+import re  # noqa: E402
 import sqlite3  # noqa: E402
 from contextlib import contextmanager  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
@@ -179,6 +181,8 @@ from typing import Any, Callable, Iterator  # noqa: E402
 
 import frontmatter  # noqa: E402
 import yaml  # noqa: E402
+
+_logger = logging.getLogger(__name__)
 
 from graph_io import queries as _queries
 
@@ -604,3 +608,58 @@ def write_entities(
         needs_narrative=needs_narrative,
         errors=errors,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 45 D-07: inject_narrative — overwrite the `## Narrative` body region
+# ---------------------------------------------------------------------------
+
+# Hard convention per Phase 42 D-16: humans must not rename this heading.
+_NARRATIVE_HEADING = "## Narrative"
+
+# Match `## Narrative` at column 0 followed only by optional trailing whitespace
+# and a newline (so `### Narrative` and `## Narrative Foo` do NOT match).
+_NARRATIVE_HEADING_RE = re.compile(r"^## Narrative[ \t]*\n", re.MULTILINE)
+
+# Match the next H2 heading at column 0 (used to locate the end of the
+# narrative body region).
+_NEXT_H2_RE = re.compile(r"^## ", re.MULTILINE)
+
+
+def inject_narrative(page_path: Path, prose: str) -> None:
+    """Replace the body of the `## Narrative` section with `prose`.
+
+    Phase 45 D-07: locates the FIRST `## Narrative` H2 heading at column 0;
+    replaces the body region from end-of-that-heading up to the next H2 (or
+    EOF) with `prose.strip()`. Writes atomically via temp-file + `os.replace`.
+
+    Idempotent: calling with the same arguments twice produces byte-identical
+    output on the second call.
+
+    Logs a WARNING and returns without writing when the page is missing the
+    `## Narrative` heading (defensive — entity templates always carry it).
+
+    Raises:
+        FileNotFoundError: when `page_path` does not exist.
+    """
+    text = page_path.read_text(encoding="utf-8")  # raises FileNotFoundError naturally
+
+    match = _NARRATIVE_HEADING_RE.search(text)
+    if match is None:
+        _logger.warning(
+            "inject_narrative: no `## Narrative` heading found at %s", page_path
+        )
+        return
+
+    body_start = match.end()  # index immediately after the heading's newline
+
+    next_h2 = _NEXT_H2_RE.search(text, body_start)
+    body_end = next_h2.start() if next_h2 is not None else len(text)
+
+    cleaned = prose.strip()
+    new_body = f"\n{cleaned}\n\n" if cleaned else "\n\n"
+    new_content = text[:body_start] + new_body + text[body_end:]
+
+    tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp_path.write_text(new_content, encoding="utf-8")
+    os.replace(tmp_path, page_path)
