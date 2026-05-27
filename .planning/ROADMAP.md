@@ -152,12 +152,12 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 **Success Criteria** (what must be TRUE):
   1. `encode_slug(uri)` in `entity_writer.py` produces collision-free filenames across a property test of 1,000 synthetic URIs from all 7 admitted kinds
   2. `decode_slug(encode_slug(uri)) == uri` holds for every URI in the property test corpus (round-trip stable)
-  3. Seven `entity-*.md` template files exist under `wiki_io/templates/entities/`, each with `kind:` frontmatter and a prose sentinel comment reserving the narrative region
+  3. Seven `entity-*.md` template files exist under `wiki_io/assets/page-templates/`, each with `kind:` frontmatter and a `## Narrative` H2 section reserving the narrative region
   4. A freshly-bootstrapped vault contains `wiki/entities/` with a `_index.md` placeholder (`init_vault.py` includes `entities` in `FIXED_VAULT_DIRS`)
   5. `ADMITTED_KINDS` and `SCANNER_OWNED_KEYS` are `frozenset` constants in `entity_writer.py`, reconciled from ARCHITECTURE.md and FEATURES.md; human-authored keys (`status`, `last_reviewed`, `owner`, `notes`) are absent from the whitelist
 **Plans**: 3 plans
-- [ ] 42-01-PLAN.md — entity_writer.py scaffold: ADMITTED_KINDS + SCANNER_OWNED_KEYS frozensets + encode_slug/decode_slug + Hypothesis property test (URI-01, URI-02, URI-05, URI-06)
-- [ ] 42-02-PLAN.md — 3 new graph_io/uri.py builders (package_family_uri, plugin_uri, dependency_uri) + 7 entity-*.md templates (URI-03)
+- [x] 42-01-PLAN.md — entity_writer.py scaffold: ADMITTED_KINDS + SCANNER_OWNED_KEYS frozensets + encode_slug/decode_slug + Hypothesis property test (URI-01, URI-02, URI-05, URI-06)
+- [x] 42-02-PLAN.md — 3 new graph_io/uri.py builders (package_family_uri, plugin_uri, dependency_uri) + 7 entity-*.md templates (URI-03)
 - [ ] 42-03-PLAN.md — init_vault.py adds 'entities' to FIXED_VAULT_DIRS + _index.md sentinel + cross-cutting template validator + REQUIREMENTS/ROADMAP doc reconciliation (URI-04, URI-03)
 
 ### Phase 43: Entity Writer
@@ -280,7 +280,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 39. Scanner Consumes graph-io | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 40. Ingestor Consumes graph-io | v1.7 | 1/1 | Complete | 2026-05-26 |
 | 41. Address v1.7 tech debt — integration_gate + traceability | v1.7 | 1/1 | Complete | 2026-05-26 |
-| 42. URI Slug Scheme + Per-Kind Templates | v1.8 | 0/3 | Planned | - |
+| 42. URI Slug Scheme + Per-Kind Templates | v1.8 | 2/3 | In Progress|  |
 | 43. Entity Writer | v1.8 | 0/TBD | Not started | - |
 | 44. Scanner-Generated Index | v1.8 | 0/TBD | Not started | - |
 | 45. Scanner Integration | v1.8 | 0/TBD | Not started | - |
