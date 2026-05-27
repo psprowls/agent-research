@@ -26,3 +26,6 @@ workspace-io = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "integration: requires the agent-research workspace graph (skipped when unavailable)",
+]
