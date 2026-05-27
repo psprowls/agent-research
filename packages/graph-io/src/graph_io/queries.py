@@ -142,8 +142,23 @@ class PluginDescription:
 
 
 def _row_to_node(row) -> NodeRecord:
-    kind, name, path, line, attrs_json = row
+    """Project a SQL row into a NodeRecord.
+
+    Accepts both 5-column shape `(kind, name, path, line, attrs_json)` and
+    6-column shape with `uri` appended. When `uri` is present, it is folded
+    back into `attrs` under the `"uri"` key so callers can read it uniformly
+    from `node.attrs["uri"]` (the upsert layer pops `uri` out of attrs and
+    into a dedicated column at write time — projecting it back keeps the
+    read surface symmetric for downstream code, e.g. wiki_io.entity_writer).
+    """
+    if len(row) == 6:
+        kind, name, path, line, attrs_json, uri = row
+    else:
+        kind, name, path, line, attrs_json = row
+        uri = None
     attrs = json.loads(attrs_json) if attrs_json else {}
+    if uri:
+        attrs["uri"] = uri
     return NodeRecord(kind=kind, name=name, path=path, line=line, attrs=attrs)
 
 
@@ -605,7 +620,7 @@ def describe_plugin(
 
 def _list_by_kind(conn: sqlite3.Connection, kind: str) -> list[NodeRecord]:
     rows = conn.execute(
-        "SELECT kind, name, path, line, attrs_json FROM nodes "
+        "SELECT kind, name, path, line, attrs_json, uri FROM nodes "
         "WHERE kind = ? ORDER BY name",
         (kind,),
     ).fetchall()
