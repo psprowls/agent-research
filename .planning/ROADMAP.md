@@ -141,7 +141,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 - [x] **Phase 45: Scanner Integration** — Wire entity writer into `run_scan` Steps 9a/9b/11/12 (completed 2026-05-27)
 - [x] **Phase 46: Inbound-Link Migration + Cutover** — One-shot wikilink rewriter and atomic cutover commit (completed 2026-05-27)
 - [x] **Phase 47: `cg domain-clusters`** — Import-graph clustering without LLM dependency (independent) (completed 2026-05-27)
-- [ ] **Phase 48: `graph propose-domains`** — LLM-proposed domain groupings with grounding + cycle detection
+- [x] **Phase 48: `graph propose-domains`** — LLM-proposed domain groupings with grounding + cycle detection (completed 2026-05-27)
 
 ## Phase Details
 
@@ -240,7 +240,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 **Plans**: 3 plans
 - [x] 48-01-PLAN.md — Add `domain-proposer` role to models.toml (Wave 1)
 - [x] 48-02-PLAN.md — Implement `propose_domains.py` core module + unit tests (Wave 2, blocked on 48-01)
-- [ ] 48-03-PLAN.md — Register subcommand + e2e and isolation integration tests (Wave 3, blocked on 48-02)
+- [x] 48-03-PLAN.md — Register subcommand + e2e and isolation integration tests (Wave 3, blocked on 48-02)
 
 ---
 
@@ -295,7 +295,7 @@ Audit: [`milestones/v1.7-MILESTONE-AUDIT.md`](milestones/v1.7-MILESTONE-AUDIT.md
 | 45. Scanner Integration | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 46. Inbound-Link Migration + Cutover | v1.8 | 3/3 | Complete   | 2026-05-27 |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete    | 2026-05-27 |
-| 48. `graph propose-domains` | v1.8 | 2/3 | In Progress|  |
+| 48. `graph propose-domains` | v1.8 | 3/3 | Complete   | 2026-05-27 |
 
 ---
 
