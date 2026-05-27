@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Wiki Entity Restructure
-status: executing
-stopped_at: Phase 42 complete (3/3 plans, all 5 success criteria met)
-last_updated: "2026-05-27T04:19:07.164Z"
-last_activity: 2026-05-27 -- Phase 44 planning complete
+status: blocked
+stopped_at: Phase 44 execution halted — Phase 43 commits not on disk (missing list_dependencies / list_plugins / _VALID_KINDS extensions)
+last_updated: "2026-05-27T13:39:33.889Z"
+last_activity: 2026-05-27 -- Phase 44 execution halted (blocker logged)
 progress:
   total_phases: 7
   completed_phases: 1
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md`
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 42 — URI Slug Scheme + Per-Kind Templates
+**Current Focus:** Phase 44 — scanner-generated-index
 
 ---
 
 ## Current Position
 
-Phase: 42 (URI Slug Scheme + Per-Kind Templates) — EXECUTING
-Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-05-27 -- Phase 44 planning complete
+Phase: 44 (scanner-generated-index) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 44
+Last activity: 2026-05-27 -- Phase 44 execution started
 
 Progress: [████░░░░░░] 38%
 
@@ -82,7 +82,35 @@ None — fresh milestone start.
 
 ### Blockers
 
-None.
+**BLOCKER (Phase 44 execution, 2026-05-27): Phase 43 commits not yet on disk.**
+
+Phase 44 plan 44-01 declares `key_links` from `packages/wiki-io/src/wiki_io/index_generator.py` →
+`graph_io.queries.list_packages, list_test_suites, list_domains, list_dependencies, list_plugins`
+(via Python import). On disk, `packages/graph-io/src/graph_io/queries.py` has only
+`list_packages`, `list_test_suites`, `list_domains` (and `list_repositories`, `list_entry_points`,
+`list_scripts`). The symbols `list_dependencies` and `list_plugins` do not exist; `_VALID_KINDS`
+lacks `dependency` and `plugin`. Phase 43 (which adds these) is planned but has not executed —
+no Phase 43 commits exist in `git log`.
+
+The orchestrator's pre-execution note acknowledged this race and named:
+- Plan A: hand-insert dep/plugin rows directly into fixture sqlite graphs (sidesteps Phase 43
+  ingestion path).
+- Plan B: pause and write a blocker.
+
+Plan A is partially viable for *ingestion* but does NOT resolve the missing query functions
+referenced by `key_links` and used inside `index_generator.py`. The plan's required imports
+(`from graph_io.queries import ...`) will fail at module load. To execute Plan 44-01 cleanly,
+either:
+  1. Phase 43 must execute first and land `list_dependencies` / `list_plugins` /
+     `_VALID_KINDS` extension, OR
+  2. Phase 44 scope is expanded to inline raw SQL inside `index_generator.py` for dependency
+     and plugin enumeration (changes the `key_links` import contract — material plan change).
+
+Writing this as a blocker rather than improvising per the orchestrator's caveat. Recommended
+unblock: wait for Phase 43 to complete (it is reportedly executing in parallel) or pause
+Phase 44 explicitly until Phase 43 lands.
+
+Phase 44 execution is HALTED at the orchestrator level; no executors were spawned.
 
 ---
 
