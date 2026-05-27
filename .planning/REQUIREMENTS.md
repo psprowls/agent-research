@@ -95,4 +95,43 @@
 
 ## Traceability
 
-_(Populated by roadmap creation — phase → requirement mapping)_
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| URI-01 | Phase 42 | Pending |
+| URI-02 | Phase 42 | Pending |
+| URI-03 | Phase 42 | Pending |
+| URI-04 | Phase 42 | Pending |
+| URI-05 | Phase 42 | Pending |
+| URI-06 | Phase 42 | Pending |
+| ENTITY-01 | Phase 43 | Pending |
+| ENTITY-02 | Phase 43 | Pending |
+| ENTITY-03 | Phase 43 | Pending |
+| ENTITY-04 | Phase 43 | Pending |
+| ENTITY-05 | Phase 43 | Pending |
+| INDEX-01 | Phase 44 | Pending |
+| INDEX-02 | Phase 44 | Pending |
+| INDEX-03 | Phase 44 | Pending |
+| INDEX-04 | Phase 44 | Pending |
+| INDEX-05 | Phase 44 | Pending |
+| SCANINT-01 | Phase 45 | Pending |
+| SCANINT-02 | Phase 45 | Pending |
+| SCANINT-03 | Phase 45 | Pending |
+| SCANINT-04 | Phase 45 | Pending |
+| SCANINT-05 | Phase 45 | Pending |
+| SCANINT-06 | Phase 45 | Pending |
+| MIGRATION-01 | Phase 46 | Pending |
+| MIGRATION-02 | Phase 46 | Pending |
+| MIGRATION-03 | Phase 46 | Pending |
+| MIGRATION-04 | Phase 46 | Pending |
+| MIGRATION-05 | Phase 46 | Pending |
+| CLUSTER-01 | Phase 47 | Pending |
+| CLUSTER-02 | Phase 47 | Pending |
+| CLUSTER-03 | Phase 47 | Pending |
+| CLUSTER-04 | Phase 47 | Pending |
+| CLUSTER-05 | Phase 47 | Pending |
+| PROPOSE-01 | Phase 48 | Pending |
+| PROPOSE-02 | Phase 48 | Pending |
+| PROPOSE-03 | Phase 48 | Pending |
+| PROPOSE-04 | Phase 48 | Pending |
+| PROPOSE-05 | Phase 48 | Pending |
+| PROPOSE-06 | Phase 48 | Pending |
