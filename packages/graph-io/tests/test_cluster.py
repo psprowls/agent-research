@@ -6,6 +6,9 @@ import dataclasses
 import json
 import random
 import sqlite3
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -346,3 +349,164 @@ def test_connects_clusters_skips_hub_to_hub_edges(empty_db: sqlite3.Connection) 
     # because the other endpoint is not in any cluster.
     for h in r.cross_cutting:
         assert h.connects_clusters == (0,), f"hub {h.name} connects {h.connects_clusters}"
+
+
+# ---------------------------------------------------------------------------
+# CLI tests (Plan 47-02): subprocess against `cg domain-clusters`.
+# Use `python -m graph_io.cli.main` to avoid PATH dependence.
+# ---------------------------------------------------------------------------
+
+
+def _cg_cmd() -> list[str]:
+    return [sys.executable, "-m", "graph_io.cli.main"]
+
+
+def _seed_workspace(
+    tmp_path: Path,
+    names: list[str],
+    edges: list[tuple[str, str]],
+) -> Path:
+    """Build a minimal workspace + initialised code.db with the given graph."""
+    from graph_io.schema import apply_schema
+    from workspace_io.config import resolve
+    from workspace_io.paths import graph_dir
+
+    ws = resolve(tmp_path, require_manifest=False).workspace
+    gd = graph_dir(ws)
+    gd.mkdir(parents=True, exist_ok=True)
+    db_path = gd / "code.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _seed_packages(conn, names)
+        _seed_references(conn, edges)
+    finally:
+        conn.close()
+    return ws
+
+
+def test_cli_subcommand_registered() -> None:
+    """CLUSTER-04: `cg --help` lists domain-clusters."""
+    result = subprocess.run(
+        [*_cg_cmd(), "--help"], capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert "domain-clusters" in result.stdout
+
+
+def test_cli_human_format(tmp_path: Path) -> None:
+    _seed_workspace(
+        tmp_path,
+        ["A", "B", "C", "D"],
+        [("A", "B"), ("B", "C")],
+    )
+    result = subprocess.run(
+        [
+            *_cg_cmd(),
+            "--mode",
+            "test",
+            "--repo",
+            str(tmp_path),
+            "--fmt",
+            "human",
+            "domain-clusters",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"stderr={result.stderr}"
+    assert "# cg domain-clusters" in result.stdout
+    assert "## Cluster 0:" in result.stdout
+
+
+def test_cli_json_format(tmp_path: Path) -> None:
+    _seed_workspace(
+        tmp_path,
+        ["A", "B", "C", "D"],
+        [("A", "B"), ("B", "C")],
+    )
+    result = subprocess.run(
+        [
+            *_cg_cmd(),
+            "--mode",
+            "test",
+            "--repo",
+            str(tmp_path),
+            "--fmt",
+            "json",
+            "domain-clusters",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"stderr={result.stderr}"
+    payload = json.loads(result.stdout)
+    # D-20: JSON key order locked.
+    assert list(payload.keys()) == [
+        "hub_threshold",
+        "n_packages_total",
+        "degenerate_warning",
+        "clusters",
+        "cross_cutting",
+    ]
+
+
+def test_cli_hub_threshold_validation(tmp_path: Path) -> None:
+    _seed_workspace(tmp_path, ["A", "B"], [("A", "B")])
+    for bad in ("0.0", "1.5"):
+        result = subprocess.run(
+            [
+                *_cg_cmd(),
+                "--mode",
+                "test",
+                "--repo",
+                str(tmp_path),
+                "domain-clusters",
+                "--hub-threshold",
+                bad,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "hub_threshold" in result.stderr
+
+
+def test_cli_not_initialized(tmp_path: Path) -> None:
+    # No DB seeded.
+    result = subprocess.run(
+        [
+            *_cg_cmd(),
+            "--mode",
+            "test",
+            "--repo",
+            str(tmp_path),
+            "domain-clusters",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 3  # exit_codes.NOT_INITIALIZED
+    assert "graph DB not found" in result.stderr
+
+
+def test_cli_emits_degenerate_warning_to_stderr(tmp_path: Path) -> None:
+    _seed_workspace(tmp_path, ["A", "B", "C", "D", "E"], [])
+    result = subprocess.run(
+        [
+            *_cg_cmd(),
+            "--mode",
+            "test",
+            "--repo",
+            str(tmp_path),
+            "--fmt",
+            "json",
+            "domain-clusters",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "every package is its own cluster" in result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["degenerate_warning"] is not None
