@@ -383,11 +383,13 @@ def _build_cross_cutting_domain(
 def _load_existing_domains(workspace_root: Path) -> dict[str, dict]:
     """Return the existing ``domains.yaml`` mapping (``{name: info_dict}``).
 
-    Missing file → ``{}`` (no error). Accepts the canonical nested shape
-    ``{"domains": {name: info}}`` and returns the inner mapping. If the
-    top-level lacks a ``domains:`` key, returns ``{}`` (the file exists but
-    is empty or shaped differently; downstream callers treat that as "no
-    existing edges to consider").
+    Missing file → ``{}`` (no error). Accepts BOTH shapes:
+      - FLAT (as `cg update` consumes; e.g.
+        `core: {packages: [foo]}\\nweb: {packages: [bar]}`)
+      - NESTED (`{"domains": {core: ..., web: ...}}`)
+
+    Returns the per-domain mapping (`{name: info_dict}`). Returns ``{}`` if
+    the file is unreadable, malformed, or empty.
     """
     path = workspace_root / "domains.yaml"
     if not path.exists():
@@ -400,10 +402,17 @@ def _load_existing_domains(workspace_root: Path) -> dict[str, dict]:
         return {}
     if not isinstance(data, dict):
         return {}
-    inner = data.get("domains", {})
-    if not isinstance(inner, dict):
-        return {}
-    return inner
+    # Prefer nested shape if the top-level has a single `domains:` key that
+    # maps to a dict-of-dicts — that's the explicit form. Otherwise treat
+    # the file as flat (matches `graph_io.domains.emit` which iterates
+    # `data.items()` directly).
+    inner = data.get("domains")
+    if isinstance(inner, dict) and all(
+        isinstance(v, dict) for v in inner.values()
+    ):
+        return inner
+    # Flat: each top-level key is a domain name mapping to its info dict.
+    return {k: v for k, v in data.items() if isinstance(v, dict)}
 
 
 def _existing_parent_edges(existing: dict[str, dict]) -> list[tuple[str, str]]:
@@ -593,11 +602,11 @@ def propose_domains_cmd(
 ) -> None:
     """Propose candidate domains from cg domain-clusters via an LLM fan-out.
 
-    Writes ``<workspace>/domains.proposed.yaml`` for human review. NEVER
-    auto-applies; the user reviews, edits, and (optionally) merges into the
-    authoritative ``domains.yaml``.
+    Writes ``<repo_root>/domains.proposed.yaml`` (next to ``domains.yaml``)
+    for human review. NEVER auto-applies; the user reviews, edits, and
+    (optionally) merges into the authoritative ``domains.yaml``.
     """
-    _, workspace_root = _resolve_paths(workspace)
+    repo_root, workspace_root = _resolve_paths(workspace)
 
     # D-23: in-process compute_clusters — NOT a subprocess to cg.
     db_path = graph_dir(workspace_root) / "code.db"
@@ -612,7 +621,9 @@ def propose_domains_cmd(
     )
 
     # Existing domains (for parent options + cycle-immune edges).
-    existing = _load_existing_domains(workspace_root)
+    # `domains.yaml` lives at the REPO root (same path `graph_io.domains.emit`
+    # reads it from); the workspace is the `.graph-wiki/` directory.
+    existing = _load_existing_domains(repo_root)
     existing_edges = _existing_parent_edges(existing)
     existing_domain_names = tuple(sorted(existing.keys()))
 
@@ -716,7 +727,10 @@ def propose_domains_cmd(
     )
 
     # D-13/D-14/D-15/D-16: write the artifact (overwrite).
-    output_path = workspace_root / "domains.proposed.yaml"
+    # Output sits next to `domains.yaml` at the repo root so reviewers can
+    # diff the two side-by-side. The workspace is reserved for derived
+    # `.graph-wiki/` state.
+    output_path = repo_root / "domains.proposed.yaml"
     _write_proposed_yaml(
         result,
         output_path,

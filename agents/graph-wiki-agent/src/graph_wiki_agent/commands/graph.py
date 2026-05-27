@@ -417,3 +417,19 @@ def graph_query_cmd(
 
     if exit_code != 0:
         raise typer.Exit(code=exit_code)
+
+
+
+# --------------------------------------------------------------------------- #
+# graph propose-domains  (Phase 48 D-22)
+# --------------------------------------------------------------------------- #
+# Registered here (instead of in propose_domains.py) so the registration runs
+# whenever this module is imported — and avoids a circular `commands/graph.py`
+# ↔ `commands/propose_domains.py` import. The function body (with all
+# orchestration logic, dataclasses, helpers) lives in `propose_domains.py`.
+
+from graph_wiki_agent.commands.propose_domains import (  # noqa: E402
+    propose_domains_cmd as _propose_domains_cmd,
+)
+
+graph_app.command(name="propose-domains")(_propose_domains_cmd)
