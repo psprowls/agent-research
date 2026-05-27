@@ -272,7 +272,7 @@ def run_migrate_vault(
 
         # Step 3: git rm old dirs.
         try:
-            _git_rm_old_dirs(repo_root, wiki_root)
+            _git_rm_old_dirs(workspace_root, wiki_root)
         except subprocess.CalledProcessError as e:
             print(f"[error] git rm failed: {e}", file=sys.stderr)
             return 2
@@ -301,7 +301,7 @@ def run_migrate_vault(
 
         # Step 7: atomic commit.
         try:
-            _git_commit_cutover(repo_root)
+            _git_commit_cutover(workspace_root)
         except subprocess.CalledProcessError as e:
             print(f"[error] git commit failed: {e}", file=sys.stderr)
             return 2
