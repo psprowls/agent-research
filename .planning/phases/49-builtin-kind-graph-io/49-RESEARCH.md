@@ -495,22 +495,13 @@ def describe_builtin(
 | A4 | The `cg describe-builtin <uri>` argument should be a single URI string parsed into language + module_name | D-13 / CLI shape | Alternative: two positional args (`describe-builtin python pathlib`). URI parsing matches the success criterion #3 example (`cg describe-builtin builtin:python/pathlib`). The planner should confirm. |
 | A5 | "Builtin is listed in `_VALID_KINDS` and in `ADMITTED_KINDS`" (ROADMAP success criterion #5) is a documentation slip; CONTEXT D-16 supersedes — `builtin` is EXCLUDED from `ADMITTED_KINDS` | success criterion #5 vs D-16 | If the ROADMAP wording is the real intent (add Builtin to ADMITTED_KINDS), Phase 49 needs to add a wiki template too. **Decision based on CONTEXT precedence (more recent, more specific):** treat success criterion #5 as "Builtin is in `_VALID_KINDS` (added) and is EXPLICITLY ABSENT from `ADMITTED_KINDS` with a code annotation explaining the exclusion." The planner should surface this as a clarification in plan must_haves. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`cg describe-builtin` argument shape — URI or two positionals?**
-   - What we know: success criterion #3 shows `cg describe-builtin builtin:python/pathlib` (URI form).
-   - What's unclear: whether `--language` flag with positional `module_name` is preferable for shell-completion (matches `--ecosystem pypi` on `cg describe-dependency`).
-   - Recommendation: positional URI string parsed via `str.split(":", 1)` then `str.split("/", 1)`; matches the success criterion verbatim.
+1. **`cg describe-builtin` argument shape — URI or two positionals?** — RESOLVED: positional URI string (`builtin:python/pathlib`) parsed via `str.split(":", 1)` then `str.split("/", 1)`. Matches success criterion #3 verbatim. Plan 03 Task 2 implements the parse with explicit error handling for malformed URIs.
 
-2. **Multi-line Python `from x import (a, b, c,)` symbol capture**
-   - What we know: existing `_PYTHON_IMPORT_RE` is single-line via `^\s*`.
-   - What's unclear: whether the planner extends the regex to handle paren-multi-line, switches the Python path to AST, or accepts partial `imported_symbols` (only first-line symbols captured).
-   - Recommendation: accept partial coverage for Phase 49; flag AST migration as a deferred-ideas successor task. The data quality of `imported_symbols` is informational (not load-bearing for `used_by` edge correctness).
+2. **Multi-line Python `from x import (a, b, c,)` symbol capture** — RESOLVED: accept partial coverage for Phase 49. The existing `_PYTHON_IMPORT_RE` only captures single-line imports; multi-line paren imports may produce incomplete `imported_symbols` lists, but the `used_by` edge itself is still correct (the module-spec match always succeeds). Plan 02 Task 1 documents this limitation in the module docstring. AST migration is flagged as a deferred successor (Assumption A2 in the table above).
 
-3. **`cg list-builtins` JSON output schema**
-   - What we know: `q_list_packages.py` prints `[ {kind, name, path, line, attrs} ]` via `dataclasses.asdict` on `NodeRecord`.
-   - What's unclear: whether `cg list-builtins` should return raw `NodeRecord` or a domain-specific dataclass that surfaces `language` + `module_name` directly.
-   - Recommendation: raw `NodeRecord` — consistent with all existing `list-*` handlers. `attrs` already contains `language` and `module_name`.
+3. **`cg list-builtins` JSON output schema** — RESOLVED: raw `NodeRecord` (kind, name, path, line, attrs) via `dataclasses.asdict`, consistent with `q_list_packages.py`. `attrs` already contains `language` and `module_name`. No new dataclass needed.
 
 ## Environment Availability
 
