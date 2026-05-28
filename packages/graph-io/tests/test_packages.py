@@ -512,3 +512,220 @@ def test_no_kind_flip_for_zero_signal_manifest(
     ).fetchall()
     assert len(rows_after) == 1, "zero-signal re-run must not duplicate the row"
     assert rows_after[0] == (pkg_id, kind_before, uri_before)
+
+
+# ============================================================================
+# Phase 50 Plan 02 Task 3: JS-signal and multi-signal integration tests.
+# ============================================================================
+
+
+def _refresh_and_fetch(
+    tmp_path: Path, conn: sqlite3.Connection, name: str
+) -> tuple[str, str, dict]:
+    """Run packages.refresh and return (kind, uri, attrs) for the named row."""
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT kind, uri, attrs_json FROM nodes WHERE name=?", (name,)
+    ).fetchone()
+    assert row is not None, f"no row named {name!r} after refresh"
+    return row[0], row[1], json.loads(row[2]) if row[2] else {}
+
+
+def test_refresh_js_bin_string_classifies_app_cli(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: package.json bin as non-empty string → app/cli."""
+    pkg_dir = tmp_path / "tool"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps({"name": "tool", "version": "1.0.0", "bin": "cli.js"})
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "tool")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_refresh_js_bin_dict_classifies_app_cli(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: package.json bin as dict with truthy value → app/cli."""
+    pkg_dir = tmp_path / "tool"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "tool",
+                "version": "1.0.0",
+                "bin": {"foo": "bin/foo.js"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "tool")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_refresh_js_next_classifies_app_nextjs(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: dependencies.next present → app/nextjs."""
+    pkg_dir = tmp_path / "site"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "site",
+                "version": "1.0.0",
+                "dependencies": {"next": "14", "react": "18"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "site")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "nextjs"
+    assert "nextjs" in attrs["app_signals"]
+
+
+def test_refresh_js_expo_classifies_app_expo(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: dependencies.expo present → app/expo."""
+    pkg_dir = tmp_path / "mobile"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "mobile",
+                "version": "1.0.0",
+                "dependencies": {"expo": "50", "react-native": "0.73"},
+            }
+        )
+    )
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "mobile")
+    assert kind == "app"
+    assert attrs["app_kind"] == "expo"
+    assert "expo" in attrs["app_signals"]
+
+
+def test_refresh_js_vite_with_index_html_classifies_app_spa(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: vite dep AND index.html on disk → app/spa."""
+    pkg_dir = tmp_path / "spa-app"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "spa-app",
+                "version": "1.0.0",
+                "dependencies": {"vite": "5", "react": "18"},
+            }
+        )
+    )
+    (pkg_dir / "index.html").write_text("<!doctype html><html></html>")
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "spa-app")
+    assert kind == "app"
+    assert attrs["app_kind"] == "spa"
+    assert "spa" in attrs["app_signals"]
+
+
+def test_refresh_js_vite_without_index_html_stays_package(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-03: vite dep WITHOUT index.html → no spa signal → stays package."""
+    pkg_dir = tmp_path / "lib"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "lib",
+                "version": "1.0.0",
+                "dependencies": {"vite": "5"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "lib")
+    assert kind == "package"
+    assert uri.startswith("pkg:")
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_refresh_js_multi_signal_nextjs_wins(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-04: multi-signal precedence — bin + next → app_kind=nextjs, sorted signals."""
+    pkg_dir = tmp_path / "site"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "site",
+                "version": "1.0.0",
+                "bin": "cli.js",
+                "dependencies": {"next": "14"},
+            }
+        )
+    )
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "site")
+    assert kind == "app"
+    assert attrs["app_kind"] == "nextjs"
+    assert attrs["app_signals"] == sorted(["cli", "nextjs"])
+
+
+def test_refresh_python_pure_library_stays_package(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-03 / APP-03: pyproject without [project.scripts] → kind=package, no app keys."""
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "purelib")
+    assert kind == "package"
+    assert uri.startswith("pkg:")
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """app rows expose app_kind/app_signals via json_extract; package rows expose NULL."""
+    # App: pyproject with scripts.
+    app_dir = tmp_path / "myapp"
+    app_dir.mkdir()
+    (app_dir / "pyproject.toml").write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    # Package: pyproject without scripts.
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    app_row = conn.execute(
+        "SELECT json_extract(attrs_json, '$.app_kind'), "
+        "       json_extract(attrs_json, '$.app_signals') "
+        "FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert app_row[0] == "cli"
+    assert app_row[1] is not None
+
+    pkg_row = conn.execute(
+        "SELECT json_extract(attrs_json, '$.app_kind'), "
+        "       json_extract(attrs_json, '$.app_signals') "
+        "FROM nodes WHERE name='purelib'"
+    ).fetchone()
+    assert pkg_row[0] is None
+    assert pkg_row[1] is None
