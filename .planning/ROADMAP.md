@@ -154,7 +154,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 - [x] Phase 50: App Reclassification (graph-io) — TBD plans (completed 2026-05-28)
 - [x] Phase 51: package-family Removal + Divergence Rule Cleanup — TBD plans (completed 2026-05-28)
 - [x] Phase 52: Wiki Filename Slimdown — Core — TBD plans (completed 2026-05-28)
-- [ ] Phase 53: Wiki Filename Cutover — TBD plans
+- [x] Phase 53: Wiki Filename Cutover — TBD plans (completed 2026-05-28)
 
 </details>
 
@@ -291,7 +291,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 50. App Reclassification (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
 | 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 4/4 | Complete    | 2026-05-28 |
 | 52. Wiki Filename Slimdown — Core | v1.9 | 3/3 | Complete    | 2026-05-28 |
-| 53. Wiki Filename Cutover | v1.9 | 1/2 | In Progress|  |
+| 53. Wiki Filename Cutover | v1.9 | 2/2 | Complete   | 2026-05-28 |
 
 ---
 
