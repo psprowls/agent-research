@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.9 Graph Refinements & Wiki Filename Slimdown (Shipped: 2026-05-28)
+
+**Phases completed:** 5 phases (49–53), 15 plans, 25 tasks
+**Delivered:** Tightened the graph-build pipeline (built-in/stdlib handling, app classification) and slimmed the wiki projection to short human-readable entity filenames, retiring the dormant `package-family` mechanism and the dead bidirectional-slug machinery.
+**Git range:** `294445a` → `63a233d` · 117 commits · merged to `main` via PR #1 (`e8df39f`)
+**Timeline:** 2026-05-27 → 2026-05-28
+
+**Key accomplishments:**
+
+- **Builtin kind (Phase 49):** stdlib/Node built-in imports classified as a first-class `Builtin` graph node (`builtin:<lang>/<module>`), with `cg list-builtins` / `cg describe-builtin` surfaces — keeps noisy stdlib calls out of the wiki.
+- **App reclassification (Phase 50):** packages that are really apps (CLI / Next.js / Expo / SPA, via manifest signals) reclassified to a distinct `App` kind with `app_kind`, preserving inbound URI references.
+- **package-family removal (Phase 51):** retired the dormant `package_family` kind end-to-end (graph-io schema, URI builder, wiki template, CLI surfaces) and deleted the LIB-003 slug-only divergence rule from the eval harness.
+- **Wiki filename slimdown — core (Phase 52):** introduced `short_filename(uri, collision_set, ...)` — entity pages move from `pkg__org__repo__name.md` to short `<kind>_<name>.md` with deterministic hash suffixes only on collision.
+- **Wiki filename cutover (Phase 53):** removed dead `encode_slug` / `decode_slug` / `_ADMITTED_URI_PREFIXES`; every consumer now derives filenames via `short_filename` and reads URIs back via `frontmatter.uri`. Verified by a from-scratch vault regen (UAT) and a 13/13 threat-secure audit.
+
+### Known Gaps (acknowledged at close)
+
+- **Phase 50 was never formally verified** — executed (3 plan summaries) and its APP-01..06 requirements marked Complete, but it has no `VERIFICATION.md` (the other four phases do). Accepted as tech debt at close.
+- **No milestone audit run** — `/gsd:audit-milestone` (cross-phase integration + E2E + requirements coverage) was skipped; close proceeded on per-phase verifications alone.
+
+---
+
 ## v1.8 Wiki Entity Restructure (Shipped: 2026-05-27)
 
 **Phases completed:** 7 phases, 20 plans, 14 tasks

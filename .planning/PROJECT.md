@@ -10,9 +10,9 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
-## Current Milestone: v1.9 Graph Refinements & Wiki Filename Slimdown
+## Previous Milestone: v1.9 Graph Refinements & Wiki Filename Slimdown (SHIPPED 2026-05-28)
 
-**Goal:** Tighten the graph-build pipeline (built-in handling, app classification) and slim the wiki projection (shorter human-readable filenames, drop dormant `package-family`) — so the graph admits noisy stdlib calls cleanly without leaking them into the wiki, packages that are really apps get classified as such, and entity pages get human-readable filenames instead of fully-qualified URI slugs.
+**Goal (achieved):** Tighten the graph-build pipeline (built-in handling, app classification) and slim the wiki projection (shorter human-readable filenames, drop dormant `package-family`) — so the graph admits noisy stdlib calls cleanly without leaking them into the wiki, packages that are really apps get classified as such, and entity pages get human-readable filenames instead of fully-qualified URI slugs. Shipped as 5 phases (49–53), 15 plans, 24/24 requirements; merged to `main` via PR #1.
 
 **Target features:**
 
@@ -28,9 +28,21 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 - **Format compatibility still relaxed** — exploratory `~/Personal/graph-wiki/agent-research` vault is disposable; wipe-and-rebuild via scanner + inbound-link migration.
 - **Lattice-wiki is dead** — no upstream parity constraint; divergence rules prunable as scaffolding outlives its purpose.
 
-## Current State: v1.8 Shipped — 2026-05-27
+## Current State: v1.9 Shipped — 2026-05-28
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27). **48 phases, 170 plans** across nine milestones. v1.8 closed without a formal milestone audit (operator-acknowledged) — UAT 8/8 passed for the Phase 46 cutover; 38/38 requirements satisfied across URI / ENTITY / INDEX / SCANINT / MIGRATION / CLUSTER / PROPOSE lanes.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27) + v1.9 (Graph Refinements & Wiki Filename Slimdown, 2026-05-28). **53 phases, 185 plans** across ten milestones.
+
+**New in v1.9 — graph refinements + short wiki filenames:**
+- **`builtin` graph kind** — Python/Node stdlib imports classified as first-class `Builtin` nodes (`builtin:<lang>/<module>`), kept out of the dependency/symbol pool and excluded from wiki rendering; `cg list-builtins` / `cg describe-builtin` surfaces.
+- **`package` → `app` reclassification** — manifest signals (`[project.scripts]`, `package.json bin`, `next`/`expo` deps, vite+`index.html`) reclassify packages to a distinct `App` kind with `app_kind`; URI form preserved so inbound references survive; `cg list-apps` / `cg describe-app`.
+- **Short entity filenames** — `pkg__org__repo__name.md` → `<kind>_<name>.md` via the pure `short_filename(uri, collision_set, ...)` helper, with deterministic hash suffix only on collision and `unit_tests_<pkg>.md` / `int_tests_<pkg>.md` for suites. Dead `encode_slug` / `decode_slug` / `_ADMITTED_URI_PREFIXES` removed; all consumers read `frontmatter.uri` or call `short_filename`.
+- **`package-family` ripped out** — kind, URI builder, template, the v1.8 `ADMITTED_KINDS` narrow, and the LIB-003 `_SLUG_ONLY_RE` divergence rule all deleted.
+
+**Process notes from v1.9 (carried as debt):**
+- **Phase 50 never formally verified** — executed with 3 plan summaries and APP-01..06 marked Complete, but no `VERIFICATION.md` (the only v1.9 phase missing one). Accepted at close.
+- **No formal milestone audit** — `/gsd:audit-milestone` skipped again; per-phase verification (4/5 phases) + Phase 53 UAT + Phase 53 security audit carried the close.
+
+**Prior state — v1.8 Shipped 2026-05-27:** **48 phases, 170 plans** across nine milestones. v1.8 closed without a formal milestone audit (operator-acknowledged) — UAT 8/8 passed for the Phase 46 cutover; 38/38 requirements satisfied across URI / ENTITY / INDEX / SCANINT / MIGRATION / CLUSTER / PROPOSE lanes.
 
 **New in v1.8 — wiki collapsed into URI-keyed entity model:**
 - **URI-keyed `/entities/` lane** — flat folder, one file per admitted graph node (`repository`, `domain`, `package`, `package-family`, `plugin`, `dependency`, `test-suite`), URI-derived filename (slug uses `__` for both `:` and `/`), per-kind page templates with `## Narrative` H2 reserving the LLM prose region. `package-family` admitted in the codebase but dormant in v1.8 (deferred to v1.9). `ADMITTED_KINDS` + `SCANNER_OWNED_KEYS` frozensets; human-authored frontmatter keys explicitly excluded from whitelist and preserved on merge.
@@ -161,13 +173,15 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 
 ## Deferred to v1.10+
 
-**Now in v1.9 (formerly Deferred to v1.9+):**
-- **`package-family` removal** — was previously framed as "re-admit when there's a real family to render"; v1.9 decision is to **rip it out entirely** (kind, URI builder, template, ADMITTED_KINDS narrow, `wiki/package-family/` directory). A future milestone may re-introduce dependency-family clustering on top of domain mechanics.
-- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — v1.9 deletes LIB-003 / `_SLUG_ONLY_RE` outright; new `pkg_<name>.md` filename scheme makes slug-only wikilinks the canonical form.
+**Done in v1.9 (shipped — see Validated):**
+- **`package-family` removal** — ripped out entirely in Phase 51 (kind, URI builder, template, ADMITTED_KINDS narrow). A future milestone may re-introduce dependency-family clustering on top of domain mechanics.
+- **`librarian.py` `_SLUG_ONLY_RE` parity fix** — LIB-003 deleted outright in Phase 51; the `pkg_<name>.md` scheme makes slug-only wikilinks canonical.
 
 **Still deferred (process / tooling debt):**
-- **Formal milestone audit (v1.6 + v1.8)** — both shipped without `/gsd:audit-milestone`; backfill or accept as process-only debt.
-- **Per-phase security review for v1.8 phases 42-48** — `workflow.security_enforcement=true` but skipped at close.
+- **Formal milestone audit (v1.6 + v1.8 + v1.9)** — all shipped without `/gsd:audit-milestone`; backfill or accept as process-only debt.
+- **Phase 50 formal verification (v1.9)** — executed + requirements marked Complete, but no `VERIFICATION.md` was produced. Backfill `/gsd:verify-work 50` (or verify-phase) or accept as debt.
+- **Per-phase security review for v1.8 phases 42-48 and v1.9 phases 49-52** — `workflow.security_enforcement=true` but only Phase 53 produced a `*-SECURITY.md`; others skipped (mostly internal package work, no external attack surface).
+- **Pre-existing `test_integration_gate.py` failure now on `main`** — `test_integration_test_files_use_canonical_gate` fails (7 integration test files don't match the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif). Predates v1.9; rode along the merge. Quick cleanup candidate.
 - **SUMMARY.md `one_liner:` write-time enforcement** — GSD-tool debt, not graph-wiki-agent code; MILESTONES.md is currently ingesting deviation-report bold headings as one-liners. File separately against the GSD SDK / executor.
 - **Nyquist compliance retroactive decision** — 0/35+ phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle. **Overdue** since v1.6 close.
 
@@ -196,6 +210,16 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 ## Requirements
 
 ### Validated
+
+#### Milestone v1.9 SHIPPED — 2026-05-28 (Graph Refinements & Wiki Filename Slimdown)
+
+24/24 requirements satisfied across Phases 49-53. Full detail: `.planning/milestones/v1.9-ROADMAP.md` and `.planning/milestones/v1.9-REQUIREMENTS.md`.
+
+- ✓ **`builtin` graph kind** — v1.9 (BUILTIN-01..06): Python + Node stdlib imports admitted as `Builtin` nodes (`builtin:<lang>/<module>`, `language` + `module_name` attrs, `used_by` edges only), excluded from wiki rendering; `cg list-builtins` / `cg describe-builtin`. (Phase 49)
+- ✓ **`package` → `app` reclassification** — v1.9 (APP-01..06): manifest-signal classifier promotes packages to a distinct `App` kind with `app_kind` (cli/nextjs/expo/spa), documented precedence on multi-match, no false positives, URI form preserved; `cg list-apps` / `cg describe-app`. (Phase 50 — *executed but not formally verified; accepted at close*)
+- ✓ **`package-family` removed** — v1.9 (PKGFAM-01..05, CLEANUP-01): kind, `package_family_uri` builder, template, `ADMITTED_KINDS` narrow, and CLI surfaces deleted from graph-io + wiki-io; LIB-003 `_SLUG_ONLY_RE` divergence rule + baseline retired. (Phase 51)
+- ✓ **Short entity filenames** — v1.9 (WIKI-FN-01..04): `short_filename(uri, collision_set, ...)` pure helper produces `<kind>_<name>.md` with deterministic collision-hash suffix and framework-aware `unit_tests_/int_tests_` suite names; property-tested for idempotence + collision-resistance. (Phase 52)
+- ✓ **Filename cutover** — v1.9 (WIKI-FN-05/06): dead `encode_slug`/`decode_slug`/`_ADMITTED_URI_PREFIXES` removed; every consumer derives filenames via `short_filename` and reads URIs via `frontmatter.uri`; verified by from-scratch vault regen UAT + 13/13 threat-secure audit. (Phase 53)
 
 #### Milestone v1.2 SHIPPED — 2026-05-19 (Graph-Wiki Port & Debt Cleanup)
 
@@ -261,9 +285,9 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_v1.9 (Graph Refinements & Wiki Filename Slimdown) scoped 2026-05-27 — requirements defined in `.planning/REQUIREMENTS.md`; phase structure in `.planning/ROADMAP.md` (continues from Phase 49)._
+_No active milestone. v1.9 shipped 2026-05-28; next milestone not yet scoped — run `/gsd:new-milestone` to define requirements + roadmap. Phase numbering continues from Phase 53._
 
-_See "Deferred to v1.9+" above for items carried forward from v1.8, and "Out of Scope" below for items deferred past v1.x._
+_See "Deferred to v1.10+" below for carried-forward items (process debt + graph/wiki backlog), and "Out of Scope" for items deferred past v1.x._
 
 ### Out of Scope
 
@@ -342,12 +366,15 @@ _See "Deferred to v1.9+" above for items carried forward from v1.8, and "Out of 
 | **MCP wire-level cancel deferral re-anchored to event trigger** (Phase 16 D-09, 2026-05-19) | Calendar re-evaluation dates generated noise without changing the gate outcome. Replaced with event-driven trigger: re-evaluate when `langchain-aws#663` merges OR aioboto3 GA/1.0 lands. Anchored signal, no scheduled toil. | ✓ Validated Phase 16 |
 | **No `lattice` symbols survive in-scope** (BRAND-04, v1.2) | `scripts/check-brand.sh` runs `grep -rE` across packages/agents/plugins/.planning/CLAUDE.md and pipes through `.brand-grep-allow` (52 intentionally-preserved historical refs). Exit non-zero on unallowlisted hit. Runs as a normal pytest gate. | ✓ Validated Phase 12 |
 | Phase 13 (M3a) — graph-wiki plugin contract surface locked (SP-05, 2026-05-18) | Foundational reframe: the ported graph-wiki plugin runs on **Claude Code inference** (P-01) — it is NOT a wrapper around `graph-wiki-agent`. `graph-wiki-agent` (Bedrock-backed CLI + MCP server) stays as the separate, headless, cost-frontier surface. The two coexist as parallel surfaces over the same underlying Python helpers in `wiki-io` / `workspace-io`. Verdicts: 6 upstream commands rename or reshape (`init`, `scan`, `ingest`, `lint`, `query`, `log`) + 3 dropped (`archive`, `regen-index`, `status` — work-layer out of v1.2 per C-01). Shell-out shape: `uv run --project "$AGENT_RESEARCH_ROOT" python3 ...` (SO-01) with the `[plugin]` backend-selector block in `.graph-wiki.yaml` (SO-03); backend defaults to `claude` everywhere, `bedrock` is the documented per-command opt-in (P-02). Phase 14 prerequisite: `lint_wiki.py` (~508 LOC) and `wiki_search.py` (~194 LOC) must be ported into `packages/wiki-io/` as Phase 14 Plans 1 and 2 respectively before the `/graph-wiki:lint` and `/graph-wiki:query` shims can shell out (VP-01). Source-of-truth spec: [`.planning/spec/13-plugin-contract/CONTRACT-INDEX.md`](.planning/spec/13-plugin-contract/CONTRACT-INDEX.md) (audit summary) and [`.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md`](.planning/spec/13-plugin-contract/SHELL-OUT-PATTERN.md) (cross-cutting decisions). | ✓ Validated Phase 13 |
+| **`App` is a distinct graph kind, not an attribute flag** (APP-02, v1.9) | App nodes participate in the same edges as packages but render distinctly; manifest-signal classifier with documented precedence; URI form preserved (`pkg:` → `app:`) so inbound references survive reclassification. | ✓ Validated Phase 50 (executed; formal VERIFICATION.md not produced — debt) |
+| **Single source of truth for entity filenames: `short_filename(uri, collision_set, ...)`** (WIKI-FN-04, v1.9) | One pure helper for write/index/rewrite paths; reverse URI lookup via `frontmatter.uri` eliminates the bidirectional-slug round-trip surface. `_ADMITTED_URI_PREFIXES` deleted — `decode_slug` was its only consumer (Phase 53 D-06). | ✓ Validated Phase 52+53 |
+| **Phase 53 scope reshape — manual single-user vault regen, no migrate-vault command** (Phase 53 D-01..D-10) | No production wikis exist; the exploratory vault is disposable. Dropped the original migration command / wikilink rewriter / atomic-cutover-commit criteria in favor of a manual delete → `cg update --full` → `scan` regen documented in `53-UAT.md`. | ✓ Validated Phase 53 (UAT pass + 13/13 threat-secure) |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-27 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) STARTED. Scope: admit Python + JS/TS stdlib as a new `builtin` graph kind (excluded from wiki); reclassify packages as apps when manifest signals indicate CLI / Next.js / Expo / SPA; switch wiki entity filenames from URI-fully-qualified to `pkg_<name>.md` style with collision-hash suffix and `unit_tests_<pkg>.md` / `int_tests_<pkg>.md` for test suites; rip out `package-family` entirely; delete LIB-003 divergence rule. Phase numbering continues from Phase 48 → v1.9 starts at Phase 49.
+**Last updated:** 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 5 phases (49-53), 15 plans, 24/24 requirements; merged to `main` via PR #1. Delivered the `builtin` graph kind, `package`→`app` reclassification, short `<kind>_<name>.md` entity filenames (dead slug machinery removed), and full `package-family` + LIB-003 removal. Known debt: Phase 50 lacks a formal VERIFICATION.md; no milestone audit run.
 
 **Prior update:** 2026-05-27 — milestone v1.8 (Wiki Entity Restructure) SHIPPED. 7 phases (42-48), 20 plans, 38/38 requirements satisfied. UAT 8/8 passed for the Phase 46 atomic cutover (47 entities, 122 inbound-link rewrites, single commit on the external vault).
 
@@ -373,4 +400,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) STARTED. v1.8 SHIPPED 2026-05-27 (Wiki Entity Restructure). 48 phases / 170 plans across v1.0-v1.8; v1.9 starts at Phase 49.*
+*Last updated: 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 53 phases / 185 plans across v1.0-v1.9 (ten milestones); next milestone starts at Phase 54.*
