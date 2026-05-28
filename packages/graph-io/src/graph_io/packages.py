@@ -166,14 +166,18 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # package/app kind so the retargeted used_by / new depends_on_package edges
     # resolve to the real node (D-07, mirroring derived_edges.py:148-153).
     workspace_names: set[str] = set()
-    workspace_kinds: dict[str, tuple[str, str | None]] = {}
+    workspace_kinds: dict[str, tuple[str, str, str | None]] = {}
     for pkg_dir, info in manifests:
         rel = pkg_dir.resolve().relative_to(repo_root).as_posix()
         rel = "" if rel == "." else rel
         ws_kind, _app_kind, _app_signals = classify(info, pkg_dir)
         norm = _normalize_name(info["name"])
         workspace_names.add(norm)
-        workspace_kinds[norm] = (ws_kind, rel or None)
+        # Store the workspace package's ACTUAL node name (info["name"]) — the
+        # consumer may declare it under a different separator/case spelling, but
+        # the edge dst must match the real node so it resolves instead of
+        # inserting a stub.
+        workspace_kinds[norm] = (ws_kind, info["name"], rel or None)
 
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
@@ -184,7 +188,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # and the new depends_on_package edge point at the real package/app nodes.
     internal_pkg_edges: list[
         tuple[str, str | None, str, str, str | None, str]
-    ] = []
+    ] = []  # (consumer_name, consumer_rel, consumer_kind, target_name, target_rel, target_kind)
     for pkg_dir, info in manifests:
         rel_prefix = pkg_dir.resolve().relative_to(repo_root).as_posix()
         if rel_prefix == ".":
@@ -274,13 +278,15 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 # Record it as an internal package→package relationship instead;
                 # skip self-dependencies.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_kind, target_rel_path = workspace_kinds[dep_norm]
+                    target_kind, target_name, target_rel_path = workspace_kinds[
+                        dep_norm
+                    ]
                     internal_pkg_edges.append(
                         (
                             consumer_name,
                             consumer_rel_path,
                             consumer_kind,
-                            dep_name,
+                            target_name,
                             target_rel_path,
                             target_kind,
                         )

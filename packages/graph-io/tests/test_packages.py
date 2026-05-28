@@ -255,6 +255,153 @@ def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connect
 
 
 # ============================================================================
+# Phase 55 Plan 01 Task 2: workspace-name suppression (CLASS-01), the
+# depends_on_package edge + retargeted used_by (CLASS-02 / D-04/D-06/D-07), and
+# the external-dep regression.
+# ============================================================================
+
+
+def test_workspace_dep_suppressed_and_depends_on_package_emitted(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """CLASS-01 + CLASS-02 / D-02/D-04/D-07.
+
+    `beta` declares workspace package `graph-io` (hyphen) whose own manifest
+    name is `graph_io` (underscore) to exercise D-02 normalization, plus a
+    genuine external dep `boto3`.
+    """
+    internal = tmp_path / "graph_io"
+    internal.mkdir()
+    (internal / "pyproject.toml").write_text(
+        '[project]\nname = "graph_io"\nversion = "0.1.0"\n'
+    )
+    consumer = tmp_path / "beta"
+    consumer.mkdir()
+    (consumer / "pyproject.toml").write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        'dependencies = ["graph-io>=0.1", "boto3>=1.38"]\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    # CLASS-01: no `dependency` node for the normalized workspace name
+    # (declared as `graph-io`, normalizes to `graph_io`).
+    for candidate in ("graph_io", "graph-io"):
+        count = conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name=?",
+            (candidate,),
+        ).fetchone()[0]
+        assert count == 0, f"workspace dep should be suppressed, found {candidate!r}"
+
+    # CLASS-01 regression: the external dep STILL has a `dependency` node + used_by.
+    boto3_node = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='boto3'"
+    ).fetchone()[0]
+    assert boto3_node == 1
+    boto3_used_by = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes dep ON e.dst = dep.id "
+        "WHERE e.kind='used_by' AND dep.kind='dependency' AND dep.name='boto3'"
+    ).fetchone()[0]
+    assert boto3_used_by == 1
+
+    # CLASS-02 / D-04: exactly one depends_on_package edge, src=beta dst=graph_io,
+    # both endpoints resolving to package/app nodes (never `dependency`).
+    dop_rows = conn.execute(
+        "SELECT src.kind, src.name, dst.kind, dst.name FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='depends_on_package'"
+    ).fetchall()
+    assert len(dop_rows) == 1
+    src_kind, src_name, dst_kind, dst_name = dop_rows[0]
+    assert src_kind in ("package", "app") and src_name == "beta"
+    assert dst_kind in ("package", "app") and dst_name == "graph_io"
+
+    # CLASS-02 / D-07: the used_by edge for the internal pair points at the
+    # package/app node, NOT a `dependency` node.
+    internal_used_by = conn.execute(
+        "SELECT dst.kind FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='used_by' AND src.name='beta' AND dst.name='graph_io'"
+    ).fetchall()
+    assert len(internal_used_by) == 1
+    assert internal_used_by[0][0] in ("package", "app")
+
+
+def test_internal_dep_edges_dedupe_per_consumer(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-07 dedupe: an internal package declared in both [project.dependencies]
+    and a [dependency-groups] group yields exactly ONE used_by and ONE
+    depends_on_package edge for that pair.
+    """
+    internal = tmp_path / "alpha"
+    internal.mkdir()
+    (internal / "pyproject.toml").write_text(
+        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+    )
+    consumer = tmp_path / "beta"
+    consumer.mkdir()
+    (consumer / "pyproject.toml").write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        'dependencies = ["alpha>=0.1"]\n'
+        '[dependency-groups]\ndev = ["alpha>=0.1"]\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    used_by_count = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='used_by' AND src.name='beta' AND dst.name='alpha'"
+    ).fetchone()[0]
+    assert used_by_count == 1
+    dop_count = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='depends_on_package' AND src.name='beta' AND dst.name='alpha'"
+    ).fetchone()[0]
+    assert dop_count == 1
+
+
+def test_internal_dep_on_app_target_resolves_app_kind(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-07 stored-kind resolution: when the internal target is classified as an
+    `app` (has [project.scripts]), both edges' dst resolve to kind='app'.
+    """
+    app_target = tmp_path / "mytool"
+    app_target.mkdir()
+    (app_target / "pyproject.toml").write_text(
+        '[project]\nname = "mytool"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmytool = "mytool.cli:main"\n'
+    )
+    consumer = tmp_path / "beta"
+    consumer.mkdir()
+    (consumer / "pyproject.toml").write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        'dependencies = ["mytool>=0.1"]\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    for kind in ("used_by", "depends_on_package"):
+        dst_kind = conn.execute(
+            "SELECT dst.kind FROM edges e "
+            "JOIN nodes src ON e.src = src.id "
+            "JOIN nodes dst ON e.dst = dst.id "
+            "WHERE e.kind=? AND src.name='beta' AND dst.name='mytool'",
+            (kind,),
+        ).fetchall()
+        assert len(dst_kind) == 1, f"expected one {kind} edge to mytool"
+        assert dst_kind[0][0] == "app", f"{kind} dst should resolve to app"
+
+
+# ============================================================================
 # Phase 50 Plan 01 Task 2: scripts_present / bin_present manifest reader fields.
 # ============================================================================
 
