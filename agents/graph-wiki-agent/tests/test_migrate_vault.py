@@ -146,7 +146,9 @@ def test_migrate_vault_full_cutover_populates_entities(vault):
     repo, wiki = vault
     run_migrate_vault(dry_run=False, force=False, write_marker=True)
     entities = list((wiki / "entities").glob("*.md"))
-    assert any("pkg__agent-research__graph-io" in p.name for p in entities)
+    # Phase 53 D-04..D-06: entity filenames go through `short_filename`
+    # (short form `pkg_<name>`), replacing the Phase 42 long-form slugs.
+    assert any(p.name == "pkg_graph-io.md" for p in entities)
 
 
 def test_migrate_vault_single_commit(vault):
