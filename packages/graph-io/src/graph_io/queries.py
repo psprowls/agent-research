@@ -122,6 +122,9 @@ class PackageDescription:
     domains: list[str] = field(default_factory=list)
     entry_points: list[EntryPointDescription] = field(default_factory=list)
     test_suites: list[SuiteDescription] = field(default_factory=list)
+    # Phase 55 D-08: both directions of the depends_on_package edge.
+    internal_dependencies: list[str] = field(default_factory=list)  # outgoing
+    internal_dependents: list[str] = field(default_factory=list)  # incoming
 
 
 @dataclass(frozen=True)
@@ -428,6 +431,34 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
     ).fetchall()
     test_suites = [_load_suite_description(r) for r in suite_rows]
 
+    # Phase 55 D-08 / SC#3: both directions of the depends_on_package edge.
+    # Internal DEPENDENCIES (outgoing): workspace packages this one depends on —
+    # dst names of edges whose src is this package.
+    internal_dep_rows = conn.execute(
+        "SELECT dst.name FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='depends_on_package' "
+        "AND src.kind IN ('package', 'app') AND src.name = ? "
+        "AND dst.kind IN ('package', 'app') "
+        "ORDER BY dst.name",
+        (name,),
+    ).fetchall()
+    internal_dependencies = [r[0] for r in internal_dep_rows]
+    # Internal DEPENDENTS (incoming): workspace packages that depend on this one —
+    # src names of edges whose dst is this package.
+    internal_dependent_rows = conn.execute(
+        "SELECT src.name FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='depends_on_package' "
+        "AND dst.kind IN ('package', 'app') AND dst.name = ? "
+        "AND src.kind IN ('package', 'app') "
+        "ORDER BY src.name",
+        (name,),
+    ).fetchall()
+    internal_dependents = [r[0] for r in internal_dependent_rows]
+
     return PackageDescription(
         name=name,
         language=attrs.get("language", ""),
@@ -437,6 +468,8 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
         domains=domain_names,
         entry_points=entry_points,
         test_suites=test_suites,
+        internal_dependencies=internal_dependencies,
+        internal_dependents=internal_dependents,
     )
 
 
