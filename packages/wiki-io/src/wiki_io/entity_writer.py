@@ -48,6 +48,8 @@ logic; do NOT add those here.
 
 from __future__ import annotations
 
+import hashlib
+
 # Admitted entity kinds — the 6 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
@@ -166,6 +168,124 @@ def decode_slug(slug: str) -> str:
             f"expected one of {sorted(_ADMITTED_URI_PREFIXES)}"
         )
     return f"{prefix}:{'/'.join(path_segments)}"
+
+
+# ----------------------------------------------------------------------------
+# Phase 52 D-03/D-04/D-05/D-07: short_filename pure helper (WIKI-FN-04)
+# ----------------------------------------------------------------------------
+
+# Filename-layer prefix per URI prefix (D-05): "dependency" is aliased to "dep"
+# at the filename layer only — the URI prefix itself remains "dependency".
+# For "test_suite", this dict entry is the suite_kind=None / unknown fallback;
+# the test_suite branch in `short_filename` overrides for known suite_kinds.
+_FILENAME_PREFIX_BY_URI_PREFIX: dict[str, str] = {
+    "repo": "repo",
+    "pkg": "pkg",
+    "app": "app",
+    "domain": "domain",
+    "plugin": "plugin",
+    "dependency": "dep",
+    "test_suite": "tests",
+}
+
+
+def short_filename(
+    uri: str,
+    collision_set: frozenset[str],
+    *,
+    suite_kind: str | None = None,
+    pkg_for_suite: str | None = None,
+) -> str:
+    """Compute the slim vault filename stem for a graph URI (D-03, D-04, D-05, D-07).
+
+    Pure function — no I/O, no SQL, no logging side effects from inside the
+    function body. Fallback warnings (e.g. for `test_suite` URIs missing
+    `suite_kind`) are logged at the call site, not here, per Phase 50 D-04.
+
+    Parameters
+    ----------
+    uri
+        Graph URI of an admitted entity (e.g. ``pkg:org/repo/utils``).
+    collision_set
+        Frozenset of URIs known to collide on the plain stem. If ``uri`` is
+        in this set, a 6-hex sha256 disambiguator suffix is appended
+        (D-03, D-04 — all colliders carry the suffix, not just N-1 of them).
+    suite_kind
+        For ``test_suite:`` URIs only — selects the prefix per D-07:
+        ``unit`` → ``unit_tests``, ``integration`` → ``int_tests``,
+        ``e2e`` → ``e2e_tests``, ``contract`` → ``contract_tests``,
+        any other value or ``None`` → ``tests``. Ignored for non-test_suite
+        URIs.
+    pkg_for_suite
+        For ``test_suite:`` URIs only — the package name to embed in the
+        stem. If omitted, derived from the URI path: the second-to-last
+        path segment if the path has ≥ 2 segments, else the last segment.
+
+    Returns
+    -------
+    str
+        The filename stem (without ``.md`` extension).
+
+    Raises
+    ------
+    ValueError
+        If ``uri`` is empty, lacks a ``:`` prefix separator, or has an
+        unknown URI prefix.
+
+    Examples
+    --------
+    >>> short_filename("pkg:org/repo/utils", frozenset())
+    'pkg_utils'
+    >>> short_filename("dependency:pypi/boto3", frozenset())
+    'dep_boto3'
+    >>> short_filename(
+    ...     "test_suite:org/repo/wiki-io/tests",
+    ...     frozenset(),
+    ...     suite_kind="unit",
+    ...     pkg_for_suite="wiki-io",
+    ... )
+    'unit_tests_wiki-io'
+    >>> stem = short_filename("pkg:org/repo/utils", frozenset({"pkg:org/repo/utils"}))
+    >>> stem.startswith("pkg_utils__")
+    True
+    >>> len(stem.rsplit("__", 1)[-1])
+    6
+    """
+    if not uri:
+        raise ValueError("short_filename: empty uri")
+    if ":" not in uri:
+        raise ValueError(
+            f"short_filename: malformed uri {uri!r}: missing `:` prefix separator"
+        )
+    uri_prefix, path = uri.split(":", 1)
+
+    if uri_prefix == "test_suite":
+        kind_prefix_by_suite = {
+            "unit": "unit_tests",
+            "integration": "int_tests",
+            "e2e": "e2e_tests",
+            "contract": "contract_tests",
+        }
+        kind_prefix = kind_prefix_by_suite.get(suite_kind, "tests")
+        if pkg_for_suite is not None:
+            pkg_part = pkg_for_suite
+        else:
+            segments = path.split("/")
+            pkg_part = segments[-2] if len(segments) >= 2 else segments[-1]
+        plain_stem = f"{kind_prefix}_{pkg_part}"
+    else:
+        kind_prefix = _FILENAME_PREFIX_BY_URI_PREFIX.get(uri_prefix)
+        if kind_prefix is None:
+            raise ValueError(
+                f"short_filename: unknown uri prefix {uri_prefix!r}"
+            )
+        name = path.split("/")[-1]
+        plain_stem = f"{kind_prefix}_{name}"
+
+    if uri in collision_set:
+        suffix = hashlib.sha256(uri.encode("utf-8")).hexdigest()[:6]
+        return f"{plain_stem}__{suffix}"
+    return plain_stem
 
 
 # ============================================================================
