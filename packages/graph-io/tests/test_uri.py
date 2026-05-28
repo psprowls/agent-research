@@ -14,7 +14,6 @@ from graph_io.uri import (
     domain_uri,
     entry_point_uri,
     file_uri,
-    package_family_uri,
     parse_remote_url,
     pkg_uri,
     plugin_uri,
@@ -82,13 +81,9 @@ def test_domain_uri_with_ctx() -> None:
 # because the entities are repo-agnostic in the graph data model.
 def test_valid_kinds_excludes_package_family() -> None:
     # Phase 51 PKGFAM-01: package_family is removed from the kind admission set.
-    # Asserted here (rather than as a pure module test) so the negative is
-    # adjacent to the deleted package_family_uri builder for future code-archaeology.
+    # Asserted here so the negative regression check lives next to the URI
+    # builder tests for future code-archaeology.
     assert "package_family" not in _VALID_KINDS
-
-
-def test_package_family_uri() -> None:
-    assert package_family_uri("aws") == "package_family:aws"
 
 
 def test_plugin_uri() -> None:
