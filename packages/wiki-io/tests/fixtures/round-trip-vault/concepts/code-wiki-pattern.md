@@ -73,7 +73,7 @@ Drop any of these and the pattern stops being self-correcting.
 - wiki-cites-graph-not-duplicates — the wiki↔graph integration principle; mechanically derivable facts get queried from `lattice-graph` rather than duplicated into vault frontmatter.
 - [[wiki/concepts/per-repo-layout]] — `<repo>/wiki/` (committed, human-visible) plus `<repo>/.lattice/` (machine state, gitignored) as the two ecosystem roots.
 - [[wiki/concepts/lattice-page-body-table-conventions]] — the body-table grammar (`## Plan`, `## Endpoints`, `## Fields`) the schema relies on.
-- [[wiki/concepts/lattice-vault-terminology]] — canonical glossary for the load-bearing terms (`raw`, `vault`, `container`, `domain`, `package-family`).
+- [[wiki/concepts/lattice-vault-terminology]] — canonical glossary for the load-bearing terms (`raw`, `vault`, `container`, `domain`).
 
 ## Sources
 

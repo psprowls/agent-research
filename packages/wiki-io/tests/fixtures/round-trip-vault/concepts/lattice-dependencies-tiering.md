@@ -1,7 +1,7 @@
 ---
 title: lattice dependencies tiering
 category: concept
-summary: "Dependencies live in a tiered layout — auto-generated `dependencies/index.md` (every dep, one row), opt-in detail pages (load-bearing or quirky only), and a `kind: package | package-family | service` discriminator. `package-family` is new vocabulary for coordinated package sets like Tailwind / TanStack / AWS SDK."
+summary: "Dependencies live in a tiered layout — auto-generated `dependencies/index.md` (every dep, one row), opt-in detail pages (load-bearing or quirky only), and a `kind: package | service` discriminator."
 tags: [schema, dependencies, scan, lint, lattice]
 sources: 1
 updated: 2026-05-09
@@ -11,7 +11,7 @@ tokens: 1513
 # lattice dependencies tiering
 
 ## Summary
-The pre-existing `dependencies/` namespace had ~40 pages in the live `mono-repo-vault`, many skeletal. The §2.1 redesign tiers them: an **auto-generated index** covers every dep across the monorepo (one row per dep); **detail pages are opt-in** when a dep is load-bearing or quirky enough to earn narrative; a **`kind:` discriminator** distinguishes packages from package-families from services with three slightly different frontmatter shapes.
+The pre-existing `dependencies/` namespace had ~40 pages in the live `mono-repo-vault`, many skeletal. The §2.1 redesign tiers them: an **auto-generated index** covers every dep across the monorepo (one row per dep); **detail pages are opt-in** when a dep is load-bearing or quirky enough to earn narrative; a **`kind:` discriminator** distinguishes packages from services with slightly different frontmatter shapes.
 
 Captured in 2026-05-lattice-ecosystem-schema-refinements §2.1 (`raw/specs/lattice-ecosystem-schema-refinements.md:343-478`).
 
@@ -41,27 +41,13 @@ Lint can *suggest* detail pages via the drift report; it never auto-creates them
 
 ### 3. The `kind:` discriminator
 
-Three values: `package | package-family | service`. Frontmatter shape diverges per kind.
+Two values: `package | service`. Frontmatter shape diverges per kind.
 
 **`kind: package`** — `ecosystem` field (`npm | pypi | cargo | go | brew | system`); `versions_in_use` list; `family` back-pointer if member of a family.
-
-**`kind: package-family`** — `family_name`; `members:` (packages shipped under the family's brand); `co_required:` (tooling that travels with it, e.g. `autoprefixer` with Tailwind).
 
 **`kind: service`** — `service_name`; `provider:` (`aws | gcp | azure | mongodb-atlas | cloudflare | github | …`); no `versions_in_use` (services aren't versioned the same way).
 
 `load_bearing: true` is explicit on every detail page — the existence of a detail page *is* the load-bearing signal; making the field explicit lets lint catch detail pages whose `load_bearing: false` got set without the page being deleted.
-
-## Why `package-family` is genuinely new vocabulary
-
-Tailwind ships `tailwindcss` + `@tailwindcss/typography` + `@tailwindcss/forms` and travels with `autoprefixer` + `postcss` in practice. Treating each as a separate detail page loses the coordination story; treating them all as one `tailwindcss` page loses the per-package version data. The `package-family` `kind:` lets the family carry brand-level prose (upstream URL, posture, version-skew rules) while individual `kind: package` members carry the per-package data.
-
-Applies to:
-- Tailwind (`tailwindcss` + `@tailwindcss/*` + `autoprefixer`/`postcss`)
-- TanStack (`@tanstack/react-query`, `@tanstack/react-table`, `@tanstack/router`)
-- AWS SDK (`@aws-sdk/client-*` — many packages, one brand)
-- Future: any `@<scope>/*` constellation worth narrating as a unit.
-
-**Service families** (AWS-as-family with Lambda/S3/DynamoDB as members) follow the same shape and are deferred — same pattern would work; one kind of family is less schema than two.
 
 ## `dependency_layer` lint rules (10)
 
@@ -70,7 +56,6 @@ Applies to:
 | `dep-kind-not-in-enum` | error | `kind:` outside the three-value set |
 | `dep-package-without-ecosystem` | error | `kind: package` and `ecosystem:` missing |
 | `dep-service-without-provider` | error | `kind: service` and `provider:` missing |
-| `dep-family-without-members` | error | `kind: package-family` and `members:` empty |
 | `dep-family-member-not-in-scan` | error | a member listed in `members:` isn't found in any manifest |
 | `dep-family-back-pointer-mismatch` | error | package has `family: X` but `X` family page doesn't list it (or vice versa) |
 | `dep-multiple-families` | error | a package is claimed by two different family pages |
