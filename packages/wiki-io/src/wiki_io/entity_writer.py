@@ -53,6 +53,11 @@ from __future__ import annotations
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
+#
+# Phase 49 D-16: `builtin` is intentionally NOT admitted here. Stdlib modules
+# are inspectable via `cg list-builtins` / `cg describe-builtin` but do not
+# warrant standalone wiki pages — rendering one page per stdlib module would
+# dilute the entity surface without meaningful documentation value.
 ADMITTED_KINDS: frozenset[str] = frozenset(
     {
         "repository",
