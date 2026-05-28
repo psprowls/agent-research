@@ -707,6 +707,8 @@ def write_entities(
     admitted_uris: set[str] = set()
 
     list_fns = _kind_list_fns()
+    # Phase 52 D-01: one-shot collision pre-pass; reads conn read-only, no lock needed
+    collision_set = _compute_collision_set(conn, admitted_kinds, list_fns)
 
     with _acquire_scan_lock(workspace_root):
         # --- Per-kind create / merge ---
@@ -727,7 +729,27 @@ def write_entities(
                 if not uri:
                     continue
                 admitted_uris.add(uri)
-                slug = encode_slug(uri)
+                # Phase 52 D-01..D-07: derive short filename, handling test_suite kind-aware naming.
+                suite_kind_for_node: str | None = None
+                pkg_for_suite_for_node: str | None = None
+                if kind == "test_suite":
+                    attrs_for_node = node.attrs if isinstance(node.attrs, dict) else {}
+                    suite_kind_for_node = attrs_for_node.get("suite_kind") or None
+                    suite_path = attrs_for_node.get("path")
+                    if suite_path:
+                        pkg_for_suite_for_node = Path(suite_path).parent.name or None
+                    if not suite_kind_for_node:
+                        _logger.warning(
+                            "test_suite node has no suite_kind attr (uri=%s); "
+                            "falling back to tests_<pkg> short filename",
+                            uri,
+                        )
+                slug = short_filename(
+                    uri,
+                    collision_set,
+                    suite_kind=suite_kind_for_node,
+                    pkg_for_suite=pkg_for_suite_for_node,
+                )
                 page_path = entities_dir / f"{slug}.md"
                 try:
                     scanner_fm = scanner_frontmatter_for_node(conn, kind, node)
