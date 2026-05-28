@@ -26,7 +26,7 @@ from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS_V18,
+    ADMITTED_KINDS,
     _kind_list_fns,
     encode_slug,
     inject_narrative,
@@ -317,7 +317,7 @@ def build_entity_narrative_prompt(
 
     Args:
         node:           graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
-        kind:           One of ADMITTED_KINDS_V18.
+        kind:           One of ADMITTED_KINDS.
         file_map_text:  Optional file listing (non-empty only for `package` kinds).
         relations:      Per-kind relation dict from `scanner_frontmatter_for_node`,
                         with `uri` and `kind` already stripped or harmlessly ignored.
@@ -643,7 +643,7 @@ async def run_scan(
 
         if conn is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
-            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS_V18)
+            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
             append_log(
                 wiki,
                 "scan",
@@ -663,7 +663,7 @@ async def run_scan(
             if entity_write_result.needs_narrative:
                 list_fns = _kind_list_fns()
                 wanted = set(entity_write_result.needs_narrative)
-                for kind in sorted(ADMITTED_KINDS_V18):
+                for kind in sorted(ADMITTED_KINDS):
                     list_fn = list_fns.get(kind)
                     if list_fn is None:
                         continue
