@@ -392,11 +392,15 @@ def refresh(
         return
 
     # Emit one Builtin node per (language, module_name).
+    # path=lang is used as the upsert key discriminator so that
+    # "python/os" and "javascript/os" can coexist in the same DB
+    # (otherwise both would have key (kind='builtin', name='os', path=None)
+    # and the second upsert would silently overwrite the first).
     builtin_nodes: list[GraphNode] = [
         GraphNode(
             kind="builtin",
             name=module_name,
-            path=None,
+            path=lang,
             line=None,
             attrs={
                 "uri": builtin_uri(lang, module_name),
@@ -411,7 +415,7 @@ def refresh(
     builtin_edges: list[GraphEdge] = [
         GraphEdge(
             src=("package", pkg_name, pkg_rel_map.get(pkg_name)),
-            dst=("builtin", module_name, None),
+            dst=("builtin", module_name, lang),
             kind="used_by",
             attrs={"imported_symbols": sorted(symbols)},
         )

@@ -136,6 +136,15 @@ class DependencyDescription:
 
 
 @dataclass(frozen=True)
+class BuiltinDescription:
+    """Description of a `builtin` node (Phase 49 D-13 / D-15 / BUILTIN-04 / BUILTIN-06)."""
+    language: str
+    module_name: str
+    uri: str
+    used_by: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class PluginDescription:
     """Description of a `plugin` node (Phase 43 D-03 + D-05)."""
     name: str
@@ -597,6 +606,43 @@ def describe_dependency(
     )
 
 
+def describe_builtin(
+    conn: sqlite3.Connection, *, language: str, module_name: str
+) -> BuiltinDescription | None:
+    """Return the description of a Builtin node identified by (language, module_name).
+
+    Populates `used_by` from inbound `used_by` edges originating from `package`
+    nodes, sorted alphabetically by consumer package name. `conn` must be opened
+    read-only.
+
+    Phase 49 D-13 / BUILTIN-06: mirrors `describe_dependency` with `language` /
+    `module_name` substituting for `ecosystem` / `name`.
+    """
+    row = conn.execute(
+        "SELECT id, name, attrs_json, uri FROM nodes "
+        "WHERE kind='builtin' AND name = ? AND path = ?",
+        (module_name, language),
+    ).fetchone()
+    if not row:
+        return None
+    builtin_id, _name, attrs_json, uri = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    used_by_rows = conn.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='used_by' AND e.dst = ? AND p.kind='package' "
+        "ORDER BY p.name",
+        (builtin_id,),
+    ).fetchall()
+    used_by = [r[0] for r in used_by_rows]
+    return BuiltinDescription(
+        language=attrs.get("language", language),
+        module_name=attrs.get("module_name", module_name),
+        uri=uri or "",
+        used_by=used_by,
+    )
+
+
 def describe_plugin(
     conn: sqlite3.Connection, *, name: str
 ) -> PluginDescription | None:
@@ -657,6 +703,11 @@ def list_domains(conn: sqlite3.Connection) -> list[NodeRecord]:
 def list_dependencies(conn: sqlite3.Connection) -> list[NodeRecord]:
     """List all Dependency nodes alphabetically. `conn` must be read-only."""
     return _list_by_kind(conn, "dependency")
+
+
+def list_builtins(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Builtin nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "builtin")
 
 
 def list_plugins(conn: sqlite3.Connection) -> list[NodeRecord]:

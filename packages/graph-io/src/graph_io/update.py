@@ -282,12 +282,12 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                     if tracked_paths:
                         placeholders = ",".join("?" for _ in tracked_paths)
                         conn.execute(
-                            f"DELETE FROM nodes WHERE kind != 'package' AND path IS NOT NULL AND path NOT IN ({placeholders})",
+                            f"DELETE FROM nodes WHERE kind NOT IN ('package', 'builtin') AND path IS NOT NULL AND path NOT IN ({placeholders})",
                             tracked_paths,
                         )
                     else:
                         conn.execute(
-                            "DELETE FROM nodes WHERE kind != 'package' AND path IS NOT NULL"
+                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'builtin') AND path IS NOT NULL"
                         )
                 # Deferred imports to avoid the structural_nodes / entry_points /
                 # test_suites -> update -> ... cycle (each reuses
