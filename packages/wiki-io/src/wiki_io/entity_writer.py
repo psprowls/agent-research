@@ -129,6 +129,9 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
         # Node-attr-derived (package)
         "language",
         "version",
+        # Node-attr-derived (app — Phase 52 D-06; mirrors package + app-specific keys)
+        "app_kind",
+        "app_signals",
         # Edge-derived (domain)
         "parent_domain",
         "sub_domains",
@@ -598,6 +601,20 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
             fm["domains"] = list(d.domains)
             fm["test_suites"] = [s.name for s in d.test_suites]
             fm["entry_points"] = [e.name for e in d.entry_points]
+    elif kind == "app":
+        d = _queries.describe_app(conn, name=node.name)
+        if d is not None:
+            # AppDescription mirrors PackageDescription field-for-field with
+            # two additions: `app_kind` (one of `_VALID_APP_KINDS`) and
+            # `app_signals` (sorted list of classification signals) — both
+            # surfaced as scanner-owned keys (D-06).
+            fm["language"] = d.language
+            fm["version"] = d.version
+            fm["domains"] = list(d.domains)
+            fm["test_suites"] = [s.name for s in d.test_suites]
+            fm["entry_points"] = [e.name for e in d.entry_points]
+            fm["app_kind"] = d.app_kind
+            fm["app_signals"] = list(d.app_signals)
     elif kind == "domain":
         d = _queries.describe_domain(conn, name=node.name)
         if d is not None and d.parent:

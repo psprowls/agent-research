@@ -41,13 +41,15 @@ from wiki_io.entity_writer import (
 
 
 def test_admitted_kinds_shape() -> None:
-    """ADMITTED_KINDS is exactly the 6 underscore-form kinds (D-02;
-    `package_family` retired in Phase 51 PKGFAM-03)."""
+    """ADMITTED_KINDS is exactly the 7 underscore-form kinds (D-02;
+    `package_family` retired in Phase 51 PKGFAM-03; `app` admitted in
+    Phase 52 D-06)."""
     expected = frozenset(
         {
             "repository",
             "domain",
             "package",
+            "app",
             "plugin",
             "dependency",
             "test_suite",
@@ -56,7 +58,7 @@ def test_admitted_kinds_shape() -> None:
     assert ADMITTED_KINDS == expected
     # Sanity check: kinds that exist in graph_io._VALID_KINDS but are NOT
     # admitted to the entity lane (per the v1.8 design notes) must stay out.
-    excluded = {"subpackage", "file", "function", "class", "method"}
+    excluded = {"subpackage", "file", "function", "class", "method", "builtin"}
     assert ADMITTED_KINDS.isdisjoint(excluded)
     # Phase 51 regression guard: package_family must never re-appear here.
     assert "package_family" not in ADMITTED_KINDS
@@ -612,6 +614,7 @@ def _wire_mock_queries(monkeypatch, q_module):
     """Bind MockGraphConn's per-kind data to graph_io.queries.list_* / describe_*."""
     monkeypatch.setattr(q_module, "list_repositories", lambda c: c.list_nodes("repository"))
     monkeypatch.setattr(q_module, "list_packages", lambda c: c.list_nodes("package"))
+    monkeypatch.setattr(q_module, "list_apps", lambda c: c.list_nodes("app"))
     monkeypatch.setattr(q_module, "list_domains", lambda c: c.list_nodes("domain"))
     monkeypatch.setattr(q_module, "list_test_suites", lambda c: c.list_nodes("test_suite"))
     monkeypatch.setattr(q_module, "list_dependencies", lambda c: c.list_nodes("dependency"))
@@ -620,6 +623,8 @@ def _wire_mock_queries(monkeypatch, q_module):
                         lambda c: c.get_description("repository", None))
     monkeypatch.setattr(q_module, "describe_package",
                         lambda c, *, name: c.get_description("package", name))
+    monkeypatch.setattr(q_module, "describe_app",
+                        lambda c, *, name: c.get_description("app", name))
     monkeypatch.setattr(q_module, "describe_domain",
                         lambda c, *, name: c.get_description("domain", name))
     monkeypatch.setattr(q_module, "describe_test_suite",
