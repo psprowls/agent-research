@@ -6,6 +6,8 @@ criterion. The five tests below cover SC #1..#5 plus the APP-06 round-trip
 flip behaviour.
 """
 
+# integration-gate-allow — subprocess + local, no LLM
+
 from __future__ import annotations
 
 import argparse

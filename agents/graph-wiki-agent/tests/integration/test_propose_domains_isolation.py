@@ -15,6 +15,8 @@ Tests:
   - test_proposed_yaml_does_not_break_normal_domain_loading — D-18 case 3
 """
 
+# integration-gate-allow — local cg update, no LLM
+
 from __future__ import annotations
 
 import shutil

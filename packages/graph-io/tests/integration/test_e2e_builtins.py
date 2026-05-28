@@ -1,5 +1,7 @@
 """End-to-end Builtin emission + CLI inspection (Phase 49)."""
 
+# integration-gate-allow — subprocess + local, no LLM
+
 from __future__ import annotations
 
 import argparse

@@ -8,6 +8,8 @@ writes, `write_entities` + `inject_narrative` + `generate_index` +
 `update_index` calls all run for real.
 """
 
+# integration-gate-allow — narrator LLM stubbed + cg update monkeypatched
+
 from __future__ import annotations
 
 import asyncio

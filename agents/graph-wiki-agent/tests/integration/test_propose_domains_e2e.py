@@ -12,6 +12,8 @@ Tests covered:
   - test_propose_domains_e2e_partial_failure        — D-01 partial-success
 """
 
+# integration-gate-allow — LLM stubbed, runs in CI
+
 from __future__ import annotations
 
 import json

@@ -1,4 +1,7 @@
 """Phase 46 Plan 02: integration tests for rewrite_vault against a fixture vault."""
+
+# integration-gate-allow — pure local fixture vault
+
 import json
 from pathlib import Path
 

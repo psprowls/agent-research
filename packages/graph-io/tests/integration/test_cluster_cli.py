@@ -5,6 +5,8 @@ agent-research code.db. Help-text tests always run; graph-dependent tests
 skip cleanly when `code.db` is missing so CI is safe before `cg update`.
 """
 
+# integration-gate-allow — local only; runtime pytest.skip when code.db missing
+
 from __future__ import annotations
 
 import json
