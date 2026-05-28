@@ -191,3 +191,133 @@ def test_find_in_package_case_insensitive(populated_repo: Path) -> None:
 def test_find_in_package_unknown_exits_1(populated_repo: Path) -> None:
     res = _cg(["find", "--in-package", "nonexistent-pkg-xyz"], populated_repo)
     assert res.returncode == 1, (res.returncode, res.stdout, res.stderr)
+
+
+# ── Phase 49 BUILTIN-06 / D-12: cg list-builtins smoke ───────────────────────
+
+
+@pytest.fixture()
+def builtin_repo(tmp_path: Path) -> Path:
+    """A git repo with a Python package importing pathlib + os; returns repo root after update."""
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "src/demo/__init__.py": "from pathlib import Path\nimport os\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_cg_list_builtins_smoke(builtin_repo: Path) -> None:
+    """list-builtins exits 0; human output includes pathlib and os line-per-line."""
+    res = _cg(["list-builtins"], builtin_repo)
+    assert res.returncode == 0, res.stderr
+    lines = res.stdout.splitlines()
+    assert "pathlib" in lines
+    assert "os" in lines
+
+
+def test_cg_list_builtins_json(builtin_repo: Path) -> None:
+    """list-builtins --fmt json exits 0; output is a JSON list with kind='builtin' entries."""
+    res = _cg(["--fmt", "json", "list-builtins"], builtin_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert all(r["kind"] == "builtin" for r in data)
+    names = {r["name"] for r in data}
+    assert "pathlib" in names
+
+
+def test_cg_list_builtins_empty(tmp_path: Path) -> None:
+    """list-builtins on a freshly initialised empty graph exits 0 (no builtins yet)."""
+    init_repo(tmp_path)
+    write_and_commit(tmp_path, {"pyproject.toml": '[project]\nname = "empty"\nversion = "0.1.0"\n'}, "init")
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+
+    # human mode: warning to stderr, no stdout
+    res_human = _cg(["list-builtins"], tmp_path)
+    assert res_human.returncode == 0, res_human.stderr
+    assert "No builtins in graph." in res_human.stderr
+    assert res_human.stdout.strip() == ""
+
+    # json mode: [] to stdout
+    res_json = _cg(["--fmt", "json", "list-builtins"], tmp_path)
+    assert res_json.returncode == 0, res_json.stderr
+    assert json.loads(res_json.stdout) == []
+
+
+# ── Phase 50 APP-05 / D-09: cg list-apps smoke ──────────────────────────────
+
+
+@pytest.fixture()
+def app_repo(tmp_path: Path) -> Path:
+    """A git repo with a Python CLI app (pyproject has [project.scripts])."""
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": (
+                '[project]\n'
+                'name = "my-cli"\n'
+                'version = "0.1.0"\n'
+                '[project.scripts]\n'
+                'my-cli = "my_cli.cli:main"\n'
+            ),
+            "src/my_cli/__init__.py": "",
+            "src/my_cli/cli.py": "def main():\n    return 0\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_cg_list_apps_smoke(app_repo: Path) -> None:
+    """list-apps exits 0; human output includes the app name line-per-line."""
+    res = _cg(["list-apps"], app_repo)
+    assert res.returncode == 0, res.stderr
+    lines = res.stdout.splitlines()
+    assert "my-cli" in lines
+
+
+def test_cg_list_apps_json(app_repo: Path) -> None:
+    """list-apps --fmt json exits 0; output is a JSON list with kind='app' entries."""
+    res = _cg(["--fmt", "json", "list-apps"], app_repo)
+    assert res.returncode == 0, res.stderr
+    data = json.loads(res.stdout)
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert all(r["kind"] == "app" for r in data)
+    names = {r["name"] for r in data}
+    assert "my-cli" in names
+
+
+def test_cg_list_apps_empty(tmp_path: Path) -> None:
+    """list-apps on a graph with no apps emits the empty-result message."""
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {"pyproject.toml": '[project]\nname = "purelib"\nversion = "0.1.0"\n'},
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+
+    # human mode: warning to stderr, no stdout
+    res_human = _cg(["list-apps"], tmp_path)
+    assert res_human.returncode == 0, res_human.stderr
+    assert "No apps in graph." in res_human.stderr
+    assert res_human.stdout.strip() == ""
+
+    # json mode: [] to stdout
+    res_json = _cg(["--fmt", "json", "list-apps"], tmp_path)
+    assert res_json.returncode == 0, res_json.stderr
+    assert json.loads(res_json.stdout) == []

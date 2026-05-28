@@ -21,8 +21,17 @@ _VALID_KINDS = frozenset(
         # Phase 43 (v1.8): admitted entity kinds for the wiki entity writer.
         "dependency",
         "plugin",
+        # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names; Node via require('module').builtinModules)
+        "builtin",
+        # Phase 50 D-12: app-classified packages (scanner-derived kind)
+        "app",
     }
 )
+
+# Phase 50 D-04: App framework kinds derived by classification.classify().
+# Write-time gate — keep in sync with _FRAMEWORK_PRECEDENCE in
+# graph_io/classification.py.
+_VALID_APP_KINDS = frozenset({"cli", "expo", "nextjs", "spa"})
 
 _RESOLVED_FILTER = (
     "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
@@ -116,6 +125,26 @@ class PackageDescription:
 
 
 @dataclass(frozen=True)
+class AppDescription:
+    """Description of an `app` node (Phase 50 APP-04 / APP-05).
+
+    Mirrors `PackageDescription` field-for-field with two additions:
+    `app_kind` (one of `_VALID_APP_KINDS`) and `app_signals` (the sorted
+    list of signals that triggered classification).
+    """
+    name: str
+    language: str
+    version: str
+    app_kind: str
+    app_signals: list[str]
+    files: list[str]
+    counts: dict[str, int]
+    domains: list[str] = field(default_factory=list)
+    entry_points: list[EntryPointDescription] = field(default_factory=list)
+    test_suites: list[SuiteDescription] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class PathDescription:
     path: str
     children: list[NodeRecord]
@@ -130,6 +159,15 @@ class DependencyDescription:
     name: str
     uri: str
     versions_in_use: list[str] = field(default_factory=list)
+    used_by: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BuiltinDescription:
+    """Description of a `builtin` node (Phase 49 D-13 / D-15 / BUILTIN-04 / BUILTIN-06)."""
+    language: str
+    module_name: str
+    uri: str
     used_by: list[str] = field(default_factory=list)
 
 
@@ -402,6 +440,98 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
     )
 
 
+def describe_app(conn: sqlite3.Connection, *, name: str) -> AppDescription | None:
+    """Return the named App's description, or None.
+
+    Phase 50 D-10 / APP-04 / APP-05: mirrors `describe_package` with
+    `kind='app'` substituted in node-side filters. Consumer-side filters
+    that mirror `describe_package`'s `used_by` JOINs broaden to
+    `p.kind IN ('package', 'app')` (RESEARCH Pitfall 7) so App consumers
+    of a dependency remain discoverable. `conn` must be opened read-only.
+    """
+    pkg = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='app' AND name = ?",
+        (name,),
+    ).fetchone()
+    if not pkg:
+        return None
+    attrs = json.loads(pkg[0]) if pkg[0] else {}
+    files = conn.execute(
+        "SELECT n.path FROM edges e "
+        "JOIN nodes p ON e.src = p.id JOIN nodes n ON e.dst = n.id "
+        "WHERE p.kind='app' AND p.name = ? AND e.kind='contains' AND n.kind='file' "
+        "ORDER BY n.path",
+        (name,),
+    ).fetchall()
+    file_paths = [row[0] for row in files]
+    counts: dict[str, int] = {}
+    if file_paths:
+        placeholders = ",".join("?" for _ in file_paths)
+        rows = conn.execute(
+            f"SELECT kind, COUNT(*) FROM nodes WHERE path IN ({placeholders}) "
+            "AND kind != 'file' GROUP BY kind",
+            file_paths,
+        ).fetchall()
+        counts = {kind: count for kind, count in rows}
+
+    # Domain memberships — App nodes belong to domains the same way packages do.
+    domain_rows = conn.execute(
+        "SELECT d.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "JOIN nodes d ON e.dst = d.id "
+        "WHERE e.kind='belongs_to_domain' "
+        "AND p.kind='app' AND p.name = ? "
+        "ORDER BY d.name",
+        (name,),
+    ).fetchall()
+    domain_names = [r[0] for r in domain_rows]
+
+    # EntryPoints declared by the App.
+    ep_rows = conn.execute(
+        "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+        "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
+        "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
+        # Pitfall 7: broaden the consumer-side filter so App nodes that
+        # are themselves consumers (via used_by-style joins) remain
+        # discoverable from the App's declares_entry_point graph.
+        "WHERE pkg.kind IN ('package', 'app') AND pkg.name = ? "
+        "ORDER BY ep.name",
+        (name,),
+    ).fetchall()
+    entry_points = [_load_entry_point_description(r) for r in ep_rows]
+
+    # TestSuites covering the App.
+    suite_rows = conn.execute(
+        "SELECT ts.name, ts.uri, ts.attrs_json, "
+        "(SELECT COUNT(*) FROM edges pc "
+        " WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc "
+        "FROM edges t "
+        "JOIN nodes ts ON t.src = ts.id "
+        "JOIN nodes p ON t.dst = p.id "
+        "WHERE t.kind='tests' AND ts.kind='test_suite' "
+        "AND p.kind='app' AND p.name = ? "
+        "ORDER BY ts.name",
+        (name,),
+    ).fetchall()
+    test_suites = [_load_suite_description(r) for r in suite_rows]
+
+    return AppDescription(
+        name=name,
+        language=attrs.get("language", ""),
+        version=attrs.get("version", ""),
+        app_kind=attrs.get("app_kind", ""),
+        app_signals=list(attrs.get("app_signals") or []),
+        files=file_paths,
+        counts=counts,
+        domains=domain_names,
+        entry_points=entry_points,
+        test_suites=test_suites,
+    )
+
+
 def describe_path(conn: sqlite3.Connection, *, path: str) -> PathDescription | None:
     file_row = conn.execute(
         "SELECT kind, name, path, line, attrs_json FROM nodes WHERE kind='file' AND path = ?",
@@ -525,7 +655,8 @@ def describe_entry_point(
         "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
         "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
         "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
-        "WHERE pkg.kind='package' AND pkg.name = ? AND ep.name = ?",
+        # Phase 50 D-04: apps declare entry points the same way packages do.
+        "WHERE pkg.kind IN ('package', 'app') AND pkg.name = ? AND ep.name = ?",
         (package_name, entry_name),
     ).fetchone()
     if not row:
@@ -595,6 +726,43 @@ def describe_dependency(
     )
 
 
+def describe_builtin(
+    conn: sqlite3.Connection, *, language: str, module_name: str
+) -> BuiltinDescription | None:
+    """Return the description of a Builtin node identified by (language, module_name).
+
+    Populates `used_by` from inbound `used_by` edges originating from `package`
+    nodes, sorted alphabetically by consumer package name. `conn` must be opened
+    read-only.
+
+    Phase 49 D-13 / BUILTIN-06: mirrors `describe_dependency` with `language` /
+    `module_name` substituting for `ecosystem` / `name`.
+    """
+    row = conn.execute(
+        "SELECT id, name, attrs_json, uri FROM nodes "
+        "WHERE kind='builtin' AND name = ? AND path = ?",
+        (module_name, language),
+    ).fetchone()
+    if not row:
+        return None
+    builtin_id, _name, attrs_json, uri = row
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    used_by_rows = conn.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='used_by' AND e.dst = ? AND p.kind='package' "
+        "ORDER BY p.name",
+        (builtin_id,),
+    ).fetchall()
+    used_by = [r[0] for r in used_by_rows]
+    return BuiltinDescription(
+        language=attrs.get("language", language),
+        module_name=attrs.get("module_name", module_name),
+        uri=uri or "",
+        used_by=used_by,
+    )
+
+
 def describe_plugin(
     conn: sqlite3.Connection, *, name: str
 ) -> PluginDescription | None:
@@ -655,6 +823,16 @@ def list_domains(conn: sqlite3.Connection) -> list[NodeRecord]:
 def list_dependencies(conn: sqlite3.Connection) -> list[NodeRecord]:
     """List all Dependency nodes alphabetically. `conn` must be read-only."""
     return _list_by_kind(conn, "dependency")
+
+
+def list_builtins(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all Builtin nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "builtin")
+
+
+def list_apps(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all App nodes alphabetically (Phase 50 D-09 / APP-05). `conn` must be read-only."""
+    return _list_by_kind(conn, "app")
 
 
 def list_plugins(conn: sqlite3.Connection) -> list[NodeRecord]:

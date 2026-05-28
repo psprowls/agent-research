@@ -22,7 +22,7 @@ def fake_graph(monkeypatch):
             _node("package", "wiki-io", "pkg:agent-research/wiki-io"),
         ],
         "dependency": [
-            _node("dependency", "click", "dep:pypi/click", ecosystem="pypi"),
+            _node("dependency", "click", "dependency:pypi/click", ecosystem="pypi"),
         ],
         "domain": [
             _node("domain", "billing", "domain:agent-research/billing"),
@@ -31,7 +31,13 @@ def fake_graph(monkeypatch):
             _node("plugin", "graph-wiki", "plugin:graph-wiki"),
         ],
         "test_suite": [
-            _node("test_suite", "unit", "suite:agent-research/unit"),
+            _node(
+                "test_suite",
+                "unit",
+                "test_suite:agent-research/wiki-io/unit",
+                suite_kind="unit",
+                path="packages/wiki-io/tests",
+            ),
         ],
     }
     for kind in nodes_by_kind:
@@ -58,32 +64,29 @@ def _make_wiki(tmp_path: Path) -> Path:
 def test_build_table_source1_packages(fake_graph, tmp_path):
     wiki = _make_wiki(tmp_path)
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
+    # Phase 53 D-05: filenames derived via short_filename (short form).
     # Both bare and wiki/-prefixed forms are present for each package.
-    assert table["packages/graph-io/index"] == "entities/pkg__agent-research__graph-io"
-    assert table["wiki/packages/graph-io/index"] == "entities/pkg__agent-research__graph-io"
-    assert table["packages/wiki-io/index"] == "entities/pkg__agent-research__wiki-io"
+    assert table["packages/graph-io/index"] == "entities/pkg_graph-io"
+    assert table["wiki/packages/graph-io/index"] == "entities/pkg_graph-io"
+    assert table["packages/wiki-io/index"] == "entities/pkg_wiki-io"
 
 
 def test_build_table_source1_dependencies_include_ecosystem(fake_graph, tmp_path):
     wiki = _make_wiki(tmp_path)
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
-    assert table["dependencies/pypi/click/overview"] == "entities/dep__pypi__click"
-    assert table["wiki/dependencies/pypi/click/overview"] == "entities/dep__pypi__click"
+    # Phase 53 D-05: dependency short form is `dep_<name>` (no ecosystem in
+    # filename); the ecosystem still appears in the bare/wiki/ source-key.
+    assert table["dependencies/pypi/click/overview"] == "entities/dep_click"
+    assert table["wiki/dependencies/pypi/click/overview"] == "entities/dep_click"
 
 
-def test_build_table_source1_all_kinds_present_no_package_family(fake_graph, tmp_path):
+def test_build_table_source1_all_kinds_present(fake_graph, tmp_path):
     wiki = _make_wiki(tmp_path)
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
     # All 5 admitted kinds represented.
     assert "domain/billing/index" in table
     assert "plugin/graph-wiki/overview" in table
     assert "test-suites/unit/index" in table
-    # package_family is NOT in CONVENTION_TEMPLATES per D-04.
-    assert "package_family" not in link_rewriter.CONVENTION_TEMPLATES
-    # No package_family entries surfaced from Source 1.
-    assert not any(
-        "package-family/" in k for k, v in table.items() if v is not None
-    )
 
 
 # --- Source 2 ---
@@ -94,7 +97,7 @@ def test_build_table_source2_scan_match_adds_unmapped(fake_graph, tmp_path):
     (wiki / "packages" / "graph-io").mkdir(parents=True)
     (wiki / "packages" / "graph-io" / "index.md").write_text("body\n", encoding="utf-8")
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
-    assert table["packages/graph-io/index"] == "entities/pkg__agent-research__graph-io"
+    assert table["packages/graph-io/index"] == "entities/pkg_graph-io"
 
 
 def test_build_table_source2_unmatched_file_left_uncovered(fake_graph, tmp_path):
@@ -104,18 +107,6 @@ def test_build_table_source2_unmatched_file_left_uncovered(fake_graph, tmp_path)
     (wiki / "packages" / "never-in-graph" / "index.md").write_text("body\n", encoding="utf-8")
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
     assert "packages/never-in-graph/index" not in table
-
-
-def test_build_table_source2_skips_package_family_dir(fake_graph, tmp_path):
-    wiki = _make_wiki(tmp_path)
-    (wiki / "package-family" / "aws").mkdir(parents=True)
-    (wiki / "package-family" / "aws" / "index.md").write_text("body\n", encoding="utf-8")
-    table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
-    # Source 2 added no package-family entries (D-04). Any package-family
-    # entries that appear must come from Source 3 (and would be None).
-    for k, v in table.items():
-        if "package-family/" in k:
-            assert v is None
 
 
 # --- Source 3 ---
@@ -139,18 +130,6 @@ def test_build_table_source3_unresolvable_logged(fake_graph, tmp_path):
         r["phase"] == "unresolved" and r["target"] == "packages/totally-fake/index"
         for r in records
     )
-
-
-def test_build_table_source3_package_family_inbound_logged(fake_graph, tmp_path):
-    wiki = _make_wiki(tmp_path)
-    (wiki / "concepts" / "bar.md").write_text(
-        "Has [[package-family/aws]] reference.\n",
-        encoding="utf-8",
-    )
-    log_path = tmp_path / ".graph-wiki" / "migration.log"
-    table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki, log_path=log_path)
-    assert table.get("package-family/aws") is None
-    assert log_path.exists()
 
 
 def test_build_table_source3_ignores_links_inside_code(fake_graph, tmp_path):

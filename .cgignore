@@ -1,0 +1,11 @@
+# Directories to exclude from graph build (component-name match).
+# Defaults already cover .git, __pycache__, .venv, dist, build, etc.
+# See packages/graph-io/src/graph_io/_ignore.py.
+
+# Test fixture payloads — synthetic source files and fake vaults/monorepos
+# that exist only as parser/scanner inputs. Includes:
+#   packages/source-parser/fixtures/        (sample .py/.ts/.js parser inputs)
+#   packages/graph-io/tests/fixtures/       (sample_monorepo: fake packages/mypkg, etc.)
+#   packages/wiki-io/tests/fixtures/        (round-trip-vault, edge-case-vault, single-package-vault)
+#   packages/eval-harness/tests/fixtures/   (post-rebrand-vault)
+fixtures

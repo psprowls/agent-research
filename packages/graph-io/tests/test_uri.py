@@ -6,13 +6,14 @@ import dataclasses
 
 import pytest
 
+from graph_io.queries import _VALID_KINDS
 from graph_io.uri import (
     RepoContext,
+    app_uri,
     dependency_uri,
     domain_uri,
     entry_point_uri,
     file_uri,
-    package_family_uri,
     parse_remote_url,
     pkg_uri,
     plugin_uri,
@@ -36,6 +37,12 @@ def test_repo_uri() -> None:
 
 def test_pkg_uri() -> None:
     assert pkg_uri(RepoContext("org", "repo"), "auth-service") == "pkg:org/repo/auth-service"
+
+
+def test_app_uri_shape() -> None:
+    """Phase 50 D-07: app_uri returns app:<org>/<repo>/<name> for any RepoContext."""
+    assert app_uri(RepoContext("org", "repo"), "graph-wiki-agent") == "app:org/repo/graph-wiki-agent"
+    assert app_uri(RepoContext("acme", "tools"), "cli") == "app:acme/tools/cli"
 
 
 def test_subpkg_uri_preserves_dotted_path() -> None:
@@ -72,8 +79,11 @@ def test_domain_uri_with_ctx() -> None:
 
 # v1.8 concept-level URI builders (Phase 42 D-04). These take no RepoContext
 # because the entities are repo-agnostic in the graph data model.
-def test_package_family_uri() -> None:
-    assert package_family_uri("aws") == "package_family:aws"
+def test_valid_kinds_excludes_package_family() -> None:
+    # Phase 51 PKGFAM-01: package_family is removed from the kind admission set.
+    # Asserted here so the negative regression check lives next to the URI
+    # builder tests for future code-archaeology.
+    assert "package_family" not in _VALID_KINDS
 
 
 def test_plugin_uri() -> None:

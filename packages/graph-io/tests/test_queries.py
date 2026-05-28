@@ -434,10 +434,12 @@ def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
     if n_dcd < 1:
         missing.append("need >= 1 domain_contains_domain edge (parent-child)")
 
+    # Phase 50 D-04: a cross-cutting manifest node may be kind='package' or
+    # 'app' — both participate in domain membership the same way.
     n_cross = _count(
         seeded_db,
         "SELECT COUNT(*) FROM nodes n "
-        "WHERE n.kind='package' AND NOT EXISTS ("
+        "WHERE n.kind IN ('package', 'app') AND NOT EXISTS ("
         "  SELECT 1 FROM edges e WHERE e.src=n.id AND e.kind='belongs_to_domain'"
         ") AND EXISTS ("
         "  SELECT 1 FROM edges r WHERE r.dst=n.id AND r.kind='references'"
@@ -476,13 +478,14 @@ def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
             "need >= 1 single-domain TestSuite (direct TestSuite->Domain edge)"
         )
 
-    # Multi-domain TestSuite: a TestSuite whose Package targets span 2+ Domains
+    # Multi-domain TestSuite: a TestSuite whose Package/App targets span 2+
+    # Domains. Phase 50 D-04: tests may target apps too.
     row = seeded_db.execute(
         "SELECT COUNT(*) FROM ("
         "  SELECT s.id, COUNT(DISTINCT bt.dst) AS doms "
         "  FROM nodes s "
         "  JOIN edges st ON st.src=s.id AND st.kind='tests' "
-        "  JOIN nodes p ON st.dst=p.id AND p.kind='package' "
+        "  JOIN nodes p ON st.dst=p.id AND p.kind IN ('package', 'app') "
         "  LEFT JOIN edges bt ON bt.src=p.id AND bt.kind='belongs_to_domain' "
         "  WHERE s.kind='test_suite' "
         "  GROUP BY s.id "
@@ -1071,6 +1074,30 @@ def test_valid_kinds_includes_dependency_plugin(conn: sqlite3.Connection) -> Non
     assert rows == []
 
 
+def test_valid_kinds_includes_builtin() -> None:
+    """Phase 49 D-14: _VALID_KINDS admits the builtin kind."""
+    assert "builtin" in queries._VALID_KINDS
+
+
+def test_valid_kinds_includes_app() -> None:
+    """Phase 50 D-12: _VALID_KINDS admits the app kind."""
+    assert "app" in queries._VALID_KINDS
+
+
+def test_valid_app_kinds_contents() -> None:
+    """Phase 50 D-04: _VALID_APP_KINDS frozenset enumerates the four framework strings."""
+    assert queries._VALID_APP_KINDS == frozenset({"cli", "expo", "nextjs", "spa"})
+
+
+def test_builtin_uri_shape() -> None:
+    """Phase 49 D-15 / BUILTIN-04: builtin_uri returns builtin:<language>/<module_name>."""
+    from graph_io.uri import builtin_uri
+
+    assert builtin_uri("python", "pathlib") == "builtin:python/pathlib"
+    assert builtin_uri("javascript", "fs") == "builtin:javascript/fs"
+    assert builtin_uri("python", "os.path") == "builtin:python/os.path"
+
+
 def test_describe_dependency_returns_dependency_description(conn: sqlite3.Connection) -> None:
     """D-02 + D-05: describe_dependency populates from node attrs + inbound used_by edges."""
     upsert.upsert_records(
@@ -1168,6 +1195,195 @@ def test_list_dependencies_alphabetical(conn: sqlite3.Connection) -> None:
         ),
     )
     assert [n.name for n in queries.list_dependencies(conn)] == ["boto3", "langchain-aws", "zlib"]
+
+
+def test_list_builtins_alphabetical(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-12 / BUILTIN-06: list_builtins returns alphabetically-sorted Builtin NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="builtin", name="sys", path="python", line=None,
+                          attrs={"language": "python", "module_name": "sys",
+                                 "uri": "builtin:python/sys"}),
+                GraphNode(kind="builtin", name="os", path="python", line=None,
+                          attrs={"language": "python", "module_name": "os",
+                                 "uri": "builtin:python/os"}),
+                GraphNode(kind="builtin", name="pathlib", path="python", line=None,
+                          attrs={"language": "python", "module_name": "pathlib",
+                                 "uri": "builtin:python/pathlib"}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_builtins(conn)] == ["os", "pathlib", "sys"]
+
+
+def test_describe_builtin_returns_description(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-13 / D-15 / BUILTIN-04 / BUILTIN-06: describe_builtin returns populated BuiltinDescription."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="builtin",
+                    name="pathlib",
+                    path="python",
+                    line=None,
+                    attrs={
+                        "language": "python",
+                        "module_name": "pathlib",
+                        "uri": "builtin:python/pathlib",
+                    },
+                ),
+                GraphNode(
+                    kind="package",
+                    name="demo",
+                    path="src/demo",
+                    line=None,
+                    attrs={"uri": "pkg:local/repo/demo"},
+                ),
+            ],
+            edges=[
+                GraphEdge(
+                    src=("package", "demo", "src/demo"),
+                    dst=("builtin", "pathlib", "python"),
+                    kind="used_by",
+                    attrs={},
+                ),
+            ],
+        ),
+    )
+    b = queries.describe_builtin(conn, language="python", module_name="pathlib")
+    assert b is not None
+    assert b.language == "python"
+    assert b.module_name == "pathlib"
+    assert b.uri == "builtin:python/pathlib"
+    assert b.used_by == ["demo"]
+
+
+def test_describe_builtin_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    assert queries.describe_builtin(conn, language="python", module_name="nonexistent") is None
+
+
+def test_describe_builtin_filters_by_language(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-15: describe_builtin filters by language — same module_name, different language.
+    path=language is used as the upsert key discriminator so both can coexist in the DB.
+    """
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="builtin", name="os", path="python", line=None,
+                          attrs={"language": "python", "module_name": "os",
+                                 "uri": "builtin:python/os"}),
+                GraphNode(kind="builtin", name="os", path="javascript", line=None,
+                          attrs={"language": "javascript", "module_name": "os",
+                                 "uri": "builtin:javascript/os"}),
+            ],
+            edges=[],
+        ),
+    )
+    result = queries.describe_builtin(conn, language="python", module_name="os")
+    assert result is not None
+    assert result.language == "python"
+    assert result.uri == "builtin:python/os"
+
+
+# ============================================================================
+# Phase 50 Plan 03 Task 1: AppDescription, list_apps, describe_app.
+# ============================================================================
+
+
+def test_list_apps_alphabetical(conn: sqlite3.Connection) -> None:
+    """Phase 50 D-09: list_apps returns alphabetically-sorted App NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="zeta-cli", path="apps/zeta", line=None,
+                          attrs={"language": "python", "uri": "app:o/r/zeta-cli",
+                                 "app_kind": "cli", "app_signals": ["cli"]}),
+                GraphNode(kind="app", name="alpha-cli", path="apps/alpha", line=None,
+                          attrs={"language": "python", "uri": "app:o/r/alpha-cli",
+                                 "app_kind": "cli", "app_signals": ["cli"]}),
+                GraphNode(kind="app", name="middle-app", path="apps/middle", line=None,
+                          attrs={"language": "javascript",
+                                 "uri": "app:o/r/middle-app",
+                                 "app_kind": "nextjs",
+                                 "app_signals": ["cli", "nextjs"]}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_apps(conn)] == [
+        "alpha-cli", "middle-app", "zeta-cli",
+    ]
+
+
+def test_describe_app_returns_app_description(conn: sqlite3.Connection) -> None:
+    """Phase 50 D-10 / APP-04: describe_app returns AppDescription with all fields populated."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="app",
+                    name="my-cli",
+                    path="apps/my-cli",
+                    line=None,
+                    attrs={
+                        "language": "python",
+                        "version": "0.1.0",
+                        "uri": "app:o/r/my-cli",
+                        "app_kind": "cli",
+                        "app_signals": ["cli"],
+                    },
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    desc = queries.describe_app(conn, name="my-cli")
+    assert desc is not None
+    assert desc.name == "my-cli"
+    assert desc.language == "python"
+    assert desc.version == "0.1.0"
+    assert desc.app_kind == "cli"
+    assert desc.app_signals == ["cli"]
+    assert desc.files == []
+    assert desc.counts == {}
+    assert desc.domains == []
+    assert desc.entry_points == []
+    assert desc.test_suites == []
+
+
+def test_describe_app_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    """describe_app returns None for an unknown app name."""
+    assert queries.describe_app(conn, name="nonexistent-app") is None
+
+
+def test_describe_app_does_not_match_package_kind(conn: sqlite3.Connection) -> None:
+    """D-10 invariant: describe_app's filter is strictly kind='app' — a name that
+    only exists under kind='package' returns None."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="package",
+                    name="shared-name",
+                    path="pkgs/shared-name",
+                    line=None,
+                    attrs={"uri": "pkg:o/r/shared-name"},
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    # No kind='app' row with this name → describe_app returns None even though
+    # a kind='package' row exists.
+    assert queries.describe_app(conn, name="shared-name") is None
 
 
 def test_list_plugins_alphabetical(conn: sqlite3.Connection) -> None:

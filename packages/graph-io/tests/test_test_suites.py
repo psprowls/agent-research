@@ -627,7 +627,12 @@ def test_strict_tree_invariant_raises_on_duplicate_parent(fixture_repo: Path) ->
 
 
 def test_anti_regression_describe_package_smoke(fixture_repo: Path) -> None:
-    """SC#5 surrogate — after the full pipeline, Package(mypkg) is still findable."""
+    """SC#5 surrogate — after the full pipeline, mypkg is still findable.
+
+    Phase 50 D-04: the fixture's mypkg/pyproject.toml carries [project.scripts]
+    which now classifies it as kind="app" — so the smoke assertion accepts
+    either kind (the row exists exactly once under one or the other).
+    """
     from graph_io import update
 
     update.run(fixture_repo, full=True)
@@ -635,7 +640,8 @@ def test_anti_regression_describe_package_smoke(fixture_repo: Path) -> None:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         n = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='package' AND name='mypkg'"
+            "SELECT COUNT(*) FROM nodes "
+            "WHERE kind IN ('package', 'app') AND name='mypkg'"
         ).fetchone()[0]
         assert n == 1
     finally:

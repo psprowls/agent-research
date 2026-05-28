@@ -10,6 +10,24 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
+## Current Milestone: v1.9 Graph Refinements & Wiki Filename Slimdown
+
+**Goal:** Tighten the graph-build pipeline (built-in handling, app classification) and slim the wiki projection (shorter human-readable filenames, drop dormant `package-family`) — so the graph admits noisy stdlib calls cleanly without leaking them into the wiki, packages that are really apps get classified as such, and entity pages get human-readable filenames instead of fully-qualified URI slugs.
+
+**Target features:**
+
+1. **Built-in / stdlib `builtin` kind** — new graph node kind admitted for Python stdlib (`builtins`, `pathlib`, etc.) and JS/TS/Node stdlib (`fs`, `path`, `crypto`, etc.); npm packages stay `dependency`; excluded from wiki rendering.
+2. **`package` → `app` reclassification** — best-effort inference from manifest signals (Python `pyproject.toml [project.scripts]`, JS `package.json bin`, `next` / `expo` deps, vite+`index.html`); fallback to `package` when ambiguous.
+3. **Shorter, human-readable entity filenames** — `pkg__org__repo__name.md` → `pkg_<name>.md`; short repo/org hash suffix on collision; test-suite special case `unit_tests_<pkg>.md` / `int_tests_<pkg>.md`.
+4. **Drop `package-family` entirely** — remove kind, URI builder, template, the v1.8 `ADMITTED_KINDS` narrow, and `wiki/package-family/`. Keep `domain_contains_domain` (unrelated).
+5. **Delete LIB-003 divergence rule** — `_SLUG_ONLY_RE` and `_check_no_slug_only_wikilinks` obsolete now that `pkg_<name>.md` makes slug-only wikilinks canonical.
+
+**Key context:**
+
+- **Phase numbering continues from 48 → v1.9 starts at Phase 49.**
+- **Format compatibility still relaxed** — exploratory `~/Personal/graph-wiki/agent-research` vault is disposable; wipe-and-rebuild via scanner + inbound-link migration.
+- **Lattice-wiki is dead** — no upstream parity constraint; divergence rules prunable as scaffolding outlives its purpose.
+
 ## Current State: v1.8 Shipped — 2026-05-27
 
 **Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27). **48 phases, 170 plans** across nine milestones. v1.8 closed without a formal milestone audit (operator-acknowledged) — UAT 8/8 passed for the Phase 46 cutover; 38/38 requirements satisfied across URI / ENTITY / INDEX / SCANINT / MIGRATION / CLUSTER / PROPOSE lanes.
@@ -141,28 +159,26 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 - **Schema v2 forces full rebuild.** Existing `code.db` files become invalid on upgrade; users run `cg update --full`. Acceptable since the only consumers today are direct `cg` invocations.
 - Phase numbering continues from Phase 27 → v1.6 starts at Phase 28.
 
-## Deferred to v1.9+
+## Deferred to v1.10+
 
-**Shipped in v1.8** (formerly Deferred to v1.8+):
-- **Wiki redesign on top of graph-io** — `/entities/` lane, URI-keyed pages, scanner-populated frontmatter, domain-first scanner-generated index, hard-delete reconciliation, one-shot inbound-link migration — all delivered.
-- **LLM-proposed domain groupings + import-graph clustering** — `cg domain-clusters` (Phase 47) + `graph-wiki-agent graph propose-domains` (Phase 48), ONTOLOGY-SPEC §9 strategies 3 & 4 delivered.
+**Now in v1.9 (formerly Deferred to v1.9+):**
+- **`package-family` removal** — was previously framed as "re-admit when there's a real family to render"; v1.9 decision is to **rip it out entirely** (kind, URI builder, template, ADMITTED_KINDS narrow, `wiki/package-family/` directory). A future milestone may re-introduce dependency-family clustering on top of domain mechanics.
+- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — v1.9 deletes LIB-003 / `_SLUG_ONLY_RE` outright; new `pkg_<name>.md` filename scheme makes slug-only wikilinks the canonical form.
 
-**New deferrals into v1.9 from v1.8 close:**
-- **`package_family` re-admit** — narrowed via `ADMITTED_KINDS - {"package_family"}` in v1.8; URI builder + template remain dormant. Re-admit when there's a real package family to render.
-- **`wiki/package-family/` cutover** — Phase 46 cutover did not remove this directory (no entity replacements exist yet).
+**Still deferred (process / tooling debt):**
 - **Formal milestone audit (v1.6 + v1.8)** — both shipped without `/gsd:audit-milestone`; backfill or accept as process-only debt.
 - **Per-phase security review for v1.8 phases 42-48** — `workflow.security_enforcement=true` but skipped at close.
+- **SUMMARY.md `one_liner:` write-time enforcement** — GSD-tool debt, not graph-wiki-agent code; MILESTONES.md is currently ingesting deviation-report bold headings as one-liners. File separately against the GSD SDK / executor.
+- **Nyquist compliance retroactive decision** — 0/35+ phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle. **Overdue** since v1.6 close.
 
-**Still deferred:**
-
+**Still deferred (graph / wiki):**
 - **Scanner pipeline restructure** — split into the 9-stage pipeline per spec §9 (FS walk → manifest parse → test detect → AST → import resolve → test target derive → domain assign → derived edges → wiki render). Becomes a real requirement when domain-overlay re-runs need to be cheap.
 - **Open questions §11 of ONTOLOGY-SPEC** — tagging mechanism, cross-repo domain scope, domain config location in multi-repo, role-flag confidence metadata, test suite consolidation threshold, test-support file flag.
+- **Dependency-family / dependency clustering** — re-introduce a "package-family"-like mechanism for grouping related dependencies (e.g., `langchain-*`), modeled on domain clustering rather than the original `package_family` kind. Defer until there's a concrete render need.
+- **Optional novel-pattern inference for app classification** — extension to v1.9 G2 if the manifest-signal rules under-classify in practice.
 - **check-brand.sh regex over-breadth** — `workspace_io|lattice_wiki_core` in the regex causes legitimate matches across the repo; minimal allowlist papered over it. A regex trim would let `.brand-grep-allow` shrink dramatically.
 - **Pre-existing test failure** — `tests/test_integration_gate.py` fails on `packages/graph-io/tests/fixtures/sample_monorepo/tests/integration/test_top.py`. Confirmed pre-v1.6 via `git stash` during Phase 34.
-- **Nyquist compliance retroactive decision** — 0/28+ v1.1-v1.6 phases produced VALIDATION.md despite the toggle being enabled. Decide: retro-validate vs. disable the toggle. **Overdue** at v1.6 close.
 - **Phase 14 SC#4 plugin smoke transcript** — manual `/graph-wiki:query` transcript still not captured (carried since v1.2 close).
-- **`librarian.py:21` `_SLUG_ONLY_RE` parity fix** — carried since v1.3 close; not load-bearing today.
-- **v1.6 milestone audit not produced** — acknowledged at close.
 
 **Now in v1.7 (formerly Deferred to v1.7+):**
 - Wire `graph-io` into `graph-wiki-agent` (target features 1-4)
@@ -245,7 +261,7 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_v1.8 shipped 2026-05-27. v1.9 not yet scoped — run `/gsd:new-milestone` to define requirements for the next milestone._
+_v1.9 (Graph Refinements & Wiki Filename Slimdown) scoped 2026-05-27 — requirements defined in `.planning/REQUIREMENTS.md`; phase structure in `.planning/ROADMAP.md` (continues from Phase 49)._
 
 _See "Deferred to v1.9+" above for items carried forward from v1.8, and "Out of Scope" below for items deferred past v1.x._
 
@@ -331,7 +347,9 @@ _See "Deferred to v1.9+" above for items carried forward from v1.8, and "Out of 
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-27 — milestone v1.8 (Wiki Entity Restructure) SHIPPED. 7 phases (42-48), 20 plans, 38/38 requirements satisfied. UAT 8/8 passed for the Phase 46 atomic cutover (47 entities, 122 inbound-link rewrites, single commit on the external vault). v1.9 not yet scoped — awaiting `/gsd:new-milestone`.
+**Last updated:** 2026-05-27 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) STARTED. Scope: admit Python + JS/TS stdlib as a new `builtin` graph kind (excluded from wiki); reclassify packages as apps when manifest signals indicate CLI / Next.js / Expo / SPA; switch wiki entity filenames from URI-fully-qualified to `pkg_<name>.md` style with collision-hash suffix and `unit_tests_<pkg>.md` / `int_tests_<pkg>.md` for test suites; rip out `package-family` entirely; delete LIB-003 divergence rule. Phase numbering continues from Phase 48 → v1.9 starts at Phase 49.
+
+**Prior update:** 2026-05-27 — milestone v1.8 (Wiki Entity Restructure) SHIPPED. 7 phases (42-48), 20 plans, 38/38 requirements satisfied. UAT 8/8 passed for the Phase 46 atomic cutover (47 entities, 122 inbound-link rewrites, single commit on the external vault).
 
 **Prior update:** 2026-05-26 — milestone v1.8 (Wiki Entity Restructure) STARTED. Scope: collapse page-type-per-directory wiki into unified `/entities/` lane driven by graph-io, URI-keyed pages, scanner-populated relation frontmatter, domain-first scanner-generated index, hard-delete reconciliation, one-shot inbound-link migration, plus LLM-proposed domain groupings + import-graph clustering (`cg domain-clusters` + `graph-wiki-agent graph propose-domains`). Supersedes aborted v1.8 URI-Keyed Wiki & Reconciliation. Phase numbering continues from Phase 41 → starts at Phase 42.
 
@@ -355,4 +373,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — milestone v1.8 SHIPPED (Wiki Entity Restructure). 48 phases / 170 plans across v1.0-v1.8. Awaiting `/gsd:new-milestone` for v1.9 scoping.*
+*Last updated: 2026-05-27 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) STARTED. v1.8 SHIPPED 2026-05-27 (Wiki Entity Restructure). 48 phases / 170 plans across v1.0-v1.8; v1.9 starts at Phase 49.*

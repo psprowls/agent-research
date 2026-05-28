@@ -44,6 +44,7 @@ def _emit_pyproject_entries(
     pkg_dir: Path,
     ctx: RepoContext,
     repo_root: Path,
+    pkg_kind: str = "package",
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Parse pyproject.toml and emit EntryPoint nodes + edges.
 
@@ -74,7 +75,9 @@ def _emit_pyproject_entries(
     importable = pkg_name.replace("-", "_")
     import_root = _resolve_import_root(pkg_dir, importable)
 
-    pkg_key = ("package", pkg_name, pkg_rel if pkg_rel else None)
+    # Phase 50 D-04: pkg_key uses the caller-supplied kind so apps emit
+    # src=("app", ...) for their declares_entry_point edges.
+    pkg_key = (pkg_kind, pkg_name, pkg_rel if pkg_rel else None)
 
     def _resolve_callable(value: str) -> tuple[str | None, str | None]:
         """Return (file_rel_to_repo, callable_name) or (None, callable_or_None)."""
@@ -234,6 +237,7 @@ def _emit_packagejson_entries(
     pkg_dir: Path,
     ctx: RepoContext,
     repo_root: Path,
+    pkg_kind: str = "package",
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Parse package.json and emit EntryPoint nodes + edges.
 
@@ -258,7 +262,9 @@ def _emit_packagejson_entries(
         )
         return [], []
 
-    pkg_key = ("package", pkg_name, pkg_rel if pkg_rel else None)
+    # Phase 50 D-04: pkg_key uses the caller-supplied kind so apps emit
+    # src=("app", ...) for their declares_entry_point edges.
+    pkg_key = (pkg_kind, pkg_name, pkg_rel if pkg_rel else None)
     pkgjson_name = data.get("name", pkg_name) if isinstance(data, dict) else pkg_name
 
     def _resolve_path(value: str) -> str | None:
@@ -405,24 +411,27 @@ def emit(
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
 
+    # Phase 50 D-04: include both Package and App nodes; apps still declare
+    # entry points via the same pyproject.toml / package.json manifest fields.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+        "SELECT name, path, attrs_json, kind FROM nodes "
+        "WHERE kind IN ('package', 'app')"
     ).fetchall()
 
-    for pkg_name, pkg_rel, pkg_attrs_json in pkg_rows:
+    for pkg_name, pkg_rel, pkg_attrs_json, pkg_kind in pkg_rows:
         pkg_attrs = json.loads(pkg_attrs_json) if pkg_attrs_json else {}
         language = pkg_attrs.get("language")
         pkg_dir = (repo_root / pkg_rel).resolve() if pkg_rel else repo_root
 
         if language == "python":
             pp_nodes, pp_edges = _emit_pyproject_entries(
-                pkg_name, pkg_rel or "", pkg_dir, ctx, repo_root
+                pkg_name, pkg_rel or "", pkg_dir, ctx, repo_root, pkg_kind=pkg_kind
             )
             nodes.extend(pp_nodes)
             edges.extend(pp_edges)
         elif language in {"javascript", "typescript"}:
             pj_nodes, pj_edges = _emit_packagejson_entries(
-                pkg_name, pkg_rel or "", pkg_dir, ctx, repo_root
+                pkg_name, pkg_rel or "", pkg_dir, ctx, repo_root, pkg_kind=pkg_kind
             )
             nodes.extend(pj_nodes)
             edges.extend(pj_edges)

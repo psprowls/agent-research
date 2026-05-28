@@ -1,7 +1,7 @@
 {
   "role": "librarian",
-  "recorded_at": "2026-05-16T22:27:21.084552+00:00",
-  "agent_commit": "cc6c67c",
+  "recorded_at": "2026-05-28T03:18:18.841160+00:00",
+  "agent_commit": "f9e0fbd",
   "checks": {
     "LIB-001-wikilink-resolves": {
       "runs": 4,
@@ -22,11 +22,6 @@
       ]
     },
     "LIB-002-citation-present": {
-      "runs": 4,
-      "failures": 0,
-      "accepted_failures": []
-    },
-    "LIB-003-no-slug-only-wikilinks": {
       "runs": 4,
       "failures": 0,
       "accepted_failures": []

@@ -39,7 +39,7 @@ Captured in 2026-05-lattice-ecosystem-schema-refinements Terminology section.
 |---|---|
 | **frontmatter** | YAML block at the top of every vault page. |
 | **category** | Frontmatter field — the kind-of-page (`work`, `package`, `dependency`, `concept`, `endpoint`, `data-model`, `source`, `architecture`, `adr`). One per page; identifies which schema applies. |
-| **kind** | Frontmatter field — sub-discriminator within a category. `category: work` has `kind: bug | tech-debt | feature | …`; `category: dependency` has `kind: package | package-family | service`. Not every category uses `kind`. |
+| **kind** | Frontmatter field — sub-discriminator within a category. `category: work` has `kind: bug | tech-debt | feature | …`; `category: dependency` has `kind: package | service`. Not every category uses `kind`. |
 | **status** | Frontmatter field — lifecycle state. Currently work-specific (7-state set per [[wiki/concepts/lattice-work-namespace-schema]]). |
 | **plan** | The committed direction for a work item. Lives in the body as a `## Plan` markdown table (not a frontmatter field). |
 | **affects** | Frontmatter field — packages or files a work item touches. |
@@ -62,7 +62,6 @@ Captured in 2026-05-lattice-ecosystem-schema-refinements Terminology section.
 |---|---|---|
 | **work** | Unified namespace replacing `issues/` + `roadmap/`. `category: work`. | [[wiki/concepts/lattice-work-namespace-schema]] |
 | **work-index** | The auto-generated `<workspace>/work-index.json` sidecar listing all work items for planner consumption. | [[wiki/concepts/lattice-work-namespace-schema]] |
-| **package-family** | A `kind` of dependency — coordinated set of packages shipped under one brand (Tailwind, TanStack, AWS SDK). | [[wiki/concepts/lattice-dependencies-tiering]] |
 | **data-model** | A first-class category for documented type/schema definitions, with bidirectional drift detection against code. | _(ADR-0009, deleted — category removed as overkill)_ |
 | **endpoint group** | An endpoint cluster (one resource, 3-6 routes) — the unit a single endpoint page describes. | _(ADR-0009, deleted — category removed as overkill)_ |
 | **exposure** | Endpoint frontmatter axis: `external | internal | partner | dev-only`. | _(ADR-0009, deleted — category removed as overkill)_ |

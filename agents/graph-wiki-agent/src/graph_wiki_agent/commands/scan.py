@@ -26,11 +26,12 @@ from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS_V18,
+    ADMITTED_KINDS,
+    _compute_collision_set,
     _kind_list_fns,
-    encode_slug,
     inject_narrative,
     scanner_frontmatter_for_node,
+    short_filename,
     write_entities,
 )
 from wiki_io.index_generator import generate_index
@@ -317,7 +318,7 @@ def build_entity_narrative_prompt(
 
     Args:
         node:           graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
-        kind:           One of ADMITTED_KINDS_V18.
+        kind:           One of ADMITTED_KINDS.
         file_map_text:  Optional file listing (non-empty only for `package` kinds).
         relations:      Per-kind relation dict from `scanner_frontmatter_for_node`,
                         with `uri` and `kind` already stripped or harmlessly ignored.
@@ -643,7 +644,7 @@ async def run_scan(
 
         if conn is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
-            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS_V18)
+            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
             append_log(
                 wiki,
                 "scan",
@@ -663,7 +664,7 @@ async def run_scan(
             if entity_write_result.needs_narrative:
                 list_fns = _kind_list_fns()
                 wanted = set(entity_write_result.needs_narrative)
-                for kind in sorted(ADMITTED_KINDS_V18):
+                for kind in sorted(ADMITTED_KINDS):
                     list_fn = list_fns.get(kind)
                     if list_fn is None:
                         continue
@@ -727,12 +728,42 @@ async def run_scan(
         # Phase 45 D-07/D-08: Step 10 — inject narrator prose into entity pages.
         # The legacy `wiki/packages/<name>/<name>.md` write block is REMOVED (D-08
         # hard cutover — only entity pages are written from Phase 45 onward).
+        # Phase 53 D-05: derive entity filenames via `short_filename` (mirroring
+        # `write_entities`) so the inject-narrative path lines up with the file
+        # that `write_entities` just produced.
         entities_narrated: list[str] = []
         narrator_errors: list[str] = []
         if narrator_result is not None:
+            inject_collision_set = _compute_collision_set(
+                conn, ADMITTED_KINDS, _kind_list_fns(),
+            )
+
+            def _entity_page_path(kind_inner: str, node_inner: Any, uri_inner: str) -> Path:
+                suite_kind_inner: str | None = None
+                pkg_for_suite_inner: str | None = None
+                if kind_inner == "test_suite":
+                    attrs_inner = (
+                        node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
+                    )
+                    suite_kind_inner = attrs_inner.get("suite_kind") or None
+                    suite_path_inner = attrs_inner.get("path")
+                    if suite_path_inner:
+                        pkg_for_suite_inner = (
+                            Path(suite_path_inner).parent.name or None
+                        )
+                stem = short_filename(
+                    uri_inner,
+                    inject_collision_set,
+                    suite_kind=suite_kind_inner,
+                    pkg_for_suite=pkg_for_suite_inner,
+                )
+                return wiki / "entities" / f"{stem}.md"
+
             for item, prose in narrator_result.successes:
-                uri_inner, _kind_inner, _node_inner = item
-                entity_page_path = wiki / "entities" / f"{encode_slug(uri_inner)}.md"
+                uri_inner, kind_inner, node_inner = item
+                entity_page_path = _entity_page_path(
+                    kind_inner, node_inner, uri_inner,
+                )
                 try:
                     inject_narrative(entity_page_path, prose)
                     entities_narrated.append(uri_inner)

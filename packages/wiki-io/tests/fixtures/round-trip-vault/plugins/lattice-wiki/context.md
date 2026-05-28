@@ -15,7 +15,7 @@ tokens: 1185
 - [[wiki/concepts/per-repo-layout]]
 - [[wiki/concepts/lattice-work-namespace-schema]] — the unified `work/` schema, frontmatter, lifecycle, sidecar contract
 - [[wiki/concepts/lattice-page-body-table-conventions]] — `## Plan` / `## Endpoints` / `## Fields` table grammar
-- [[wiki/concepts/lattice-dependencies-tiering]] — `dependencies/index.md` regen + opt-in detail + `kind` discriminator + `package-family`
+- [[wiki/concepts/lattice-dependencies-tiering]] — `dependencies/index.md` regen + opt-in detail + `kind` discriminator
 - [[wiki/concepts/lattice-vault-terminology]] — canonical glossary; pending renames (`domain`, `container` umbrella)
 - wiki-cites-graph-not-duplicates — consumer-side relationship with [[wiki/plugins/lattice-graph/lattice-graph]]: graph-aware lint with filesystem fallback; wiki cites graph rather than duplicating it
 

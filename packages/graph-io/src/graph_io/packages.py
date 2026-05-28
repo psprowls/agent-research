@@ -13,7 +13,8 @@ from typing import Any
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 from graph_io import _ignore, upsert
-from graph_io.uri import RepoContext, dependency_uri, pkg_uri
+from graph_io.classification import classify
+from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri
 
 # PEP 508 bare-name prefix: identifier characters before any version/extra/marker.
 _DEP_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+")
@@ -59,12 +60,15 @@ def _read_pyproject(path: Path) -> dict[str, Any] | None:
         for group, entries in dep_groups_raw.items():
             if isinstance(entries, list):
                 dep_groups[group] = [e for e in entries if isinstance(e, str)]
+    # Phase 50 D-03: surface [project.scripts] presence as a classify() signal.
+    scripts = project.get("scripts") or {}
     return {
         "name": name,
         "version": project.get("version", ""),
         "dependencies": list(project.get("dependencies", [])),
         "dep_groups": dep_groups,  # PEP 735 — Phase 43 D-02
         "language": "python",
+        "scripts_present": bool(scripts),  # Phase 50 D-03
     }
 
 
@@ -79,11 +83,19 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     if not name:
         return None
     deps = data.get("dependencies") or {}
+    # Phase 50 D-03: surface package.json "bin" presence as a classify() signal.
+    # Truthy when bin is a non-empty string OR a dict with at least one truthy value.
+    bin_val = data.get("bin")
+    bin_present = bool(bin_val) and (
+        (isinstance(bin_val, str) and bool(bin_val))
+        or (isinstance(bin_val, dict) and any(bin_val.values()))
+    )
     return {
         "name": name,
         "version": data.get("version", ""),
         "dependencies": sorted(deps.keys()) if isinstance(deps, dict) else list(deps),
         "language": "javascript",
+        "bin_present": bin_present,  # Phase 50 D-03
     }
 
 
@@ -131,23 +143,60 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     skip_dirs = _ignore.load_skip_dirs(repo_root)
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
-    used_by_pairs: list[tuple[str, str | None, str]] = []
+    # Phase 50 D-04: track consumer kind so used_by edges from App nodes use src=("app", ...).
+    used_by_pairs: list[tuple[str, str | None, str, str]] = []
     for pkg_dir, info in _discover_manifests(repo_root, skip_dirs):
         rel_prefix = pkg_dir.resolve().relative_to(repo_root).as_posix()
         if rel_prefix == ".":
             rel_prefix = ""
+
+        # Phase 50 D-04/D-07: derive kind, URI, and attrs in one inline pass.
+        new_kind, app_kind, app_signals = classify(info, pkg_dir)
+        new_uri = (
+            app_uri(ctx, info["name"]) if new_kind == "app"
+            else pkg_uri(ctx, info["name"])
+        )
+        attrs: dict[str, Any] = {
+            "version": info["version"],
+            "dependencies": info["dependencies"],
+            "language": info["language"],
+            "uri": new_uri,
+        }
+        if new_kind == "app":
+            # D-03 invariant: only App nodes carry app_kind / app_signals.
+            attrs["app_kind"] = app_kind
+            attrs["app_signals"] = app_signals
+
+        # Phase 50 D-06: probe the opposite-kind row from a prior run and flip
+        # it in place so the row id is preserved (every inbound edge FK stays
+        # valid). The outer store.transaction() boundary set by update.run()
+        # gives this UPDATE read-your-own-writes semantics for the subsequent
+        # upsert_records call.
+        other_kind = "package" if new_kind == "app" else "app"
+        other_id = upsert._node_id(
+            conn, (other_kind, info["name"], rel_prefix or None)
+        )
+        if other_id is not None:
+            # Mirror _upsert_node's convention: the "uri" key lives in the
+            # nodes.uri column, not attrs_json.
+            attrs_for_db = {k: v for k, v in attrs.items() if k != "uri"}
+            conn.execute(
+                "UPDATE nodes SET kind=?, uri=?, attrs_json=? WHERE id=?",
+                (
+                    new_kind,
+                    new_uri,
+                    json.dumps(attrs_for_db, sort_keys=True),
+                    other_id,
+                ),
+            )
+
         nodes = [
             GraphNode(
-                kind="package",
+                kind=new_kind,
                 name=info["name"],
                 path=rel_prefix or None,
                 line=None,
-                attrs={
-                    "version": info["version"],
-                    "dependencies": info["dependencies"],
-                    "language": info["language"],
-                    "uri": pkg_uri(ctx, info["name"]),
-                },
+                attrs=attrs,
             )
         ]
         edges = []
@@ -155,7 +204,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         for file_path in _file_nodes_under(conn, prefix):
             edges.append(
                 GraphEdge(
-                    src=("package", info["name"], rel_prefix or None),
+                    src=(new_kind, info["name"], rel_prefix or None),
                     dst=("file", file_path, file_path),
                     kind="contains",
                     attrs={},
@@ -172,6 +221,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 all_dep_strs.extend(group_entries)
             consumer_name = info["name"]
             consumer_rel_path = rel_prefix or None
+            consumer_kind = new_kind
             for s in all_dep_strs:
                 dep_name = _extract_dep_name(s)
                 if dep_name is None:
@@ -180,7 +230,9 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 bucket = dep_acc.setdefault(key, {"versions_in_use": []})
                 if s not in bucket["versions_in_use"]:
                     bucket["versions_in_use"].append(s)
-                used_by_pairs.append((consumer_name, consumer_rel_path, dep_name))
+                used_by_pairs.append(
+                    (consumer_name, consumer_rel_path, consumer_kind, dep_name)
+                )
 
     # Emit dependency nodes (one per (ecosystem, name)) + used_by edges.
     dep_nodes: list[GraphNode] = []
@@ -202,16 +254,17 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         )
     # used_by edges: dedupe per (consumer_name, dep_name) so a dep listed
     # twice in one manifest (e.g. once in [project.dependencies], once in
-    # [dependency-groups]) collapses to exactly one edge.
+    # [dependency-groups]) collapses to exactly one edge. Phase 50 D-04:
+    # src uses consumer_kind so App consumers emit src=("app", ...).
     dep_edges: list[GraphEdge] = []
     seen_edges: set[tuple[str, str]] = set()
-    for consumer_name, consumer_rel_path, dep_name in used_by_pairs:
+    for consumer_name, consumer_rel_path, consumer_kind, dep_name in used_by_pairs:
         if (consumer_name, dep_name) in seen_edges:
             continue
         seen_edges.add((consumer_name, dep_name))
         dep_edges.append(
             GraphEdge(
-                src=("package", consumer_name, consumer_rel_path),
+                src=(consumer_kind, consumer_name, consumer_rel_path),
                 dst=("dependency", dep_name, None),
                 kind="used_by",
                 attrs={},

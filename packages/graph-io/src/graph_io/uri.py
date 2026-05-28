@@ -20,6 +20,11 @@ def pkg_uri(ctx: RepoContext, name: str) -> str:
     return f"pkg:{ctx.org}/{ctx.repo}/{name}"
 
 
+def app_uri(ctx: RepoContext, name: str) -> str:
+    """Phase 50 D-07: app URI for scanner-classified application packages."""
+    return f"app:{ctx.org}/{ctx.repo}/{name}"
+
+
 def subpkg_uri(ctx: RepoContext, pkg_name: str, dotted_path: str) -> str:
     return f"subpkg:{ctx.org}/{ctx.repo}/{pkg_name}/{dotted_path}"
 
@@ -41,16 +46,17 @@ def domain_uri(ctx: RepoContext, name: str) -> str:
 
 
 # v1.8 concept-level kinds (Phase 42 D-04): not repo-scoped, so no RepoContext.
-def package_family_uri(name: str) -> str:
-    return f"package_family:{name}"
-
-
+# Phase 51 PKGFAM-02: package_family entity kind retired; builder removed.
 def plugin_uri(name: str) -> str:
     return f"plugin:{name}"
 
 
 def dependency_uri(ecosystem: str, name: str) -> str:
     return f"dependency:{ecosystem}/{name}"
+
+
+def builtin_uri(language: str, module_name: str) -> str:
+    return f"builtin:{language}/{module_name}"
 
 
 _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")

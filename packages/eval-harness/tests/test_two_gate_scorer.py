@@ -95,7 +95,6 @@ def test_two_gate_librarian_divergence_fail(fixture_wiki_path: Path) -> None:
     heavy_failures = {
         "LIB-001-wikilink-resolves": {"runs": 1, "failures": 99, "accepted_failures": []},
         "LIB-002-citation-present": {"runs": 1, "failures": 99, "accepted_failures": []},
-        "LIB-003-no-slug-only-wikilinks": {"runs": 1, "failures": 0, "accepted_failures": []},
         "LIB-004-code-path-format": {"runs": 1, "failures": 0, "accepted_failures": []},
     }
 
@@ -141,7 +140,6 @@ def test_two_gate_librarian_quality_fail(fixture_wiki_path: Path) -> None:
     clean_results = {
         "LIB-001-wikilink-resolves": {"runs": 1, "failures": 0, "accepted_failures": []},
         "LIB-002-citation-present": {"runs": 1, "failures": 0, "accepted_failures": []},
-        "LIB-003-no-slug-only-wikilinks": {"runs": 1, "failures": 0, "accepted_failures": []},
         "LIB-004-code-path-format": {"runs": 1, "failures": 0, "accepted_failures": []},
     }
 

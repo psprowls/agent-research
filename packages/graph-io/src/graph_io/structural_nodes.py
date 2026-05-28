@@ -412,18 +412,20 @@ def emit(
 
     repo_key = ("repository", ctx.repo, None)
 
-    # --- Read existing Package rows ---
-
+    # --- Read existing Package/App rows ---
+    # Phase 50 D-04: apps are physically contained by the repository the same
+    # way packages are.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+        "SELECT name, path, attrs_json, kind FROM nodes "
+        "WHERE kind IN ('package', 'app')"
     ).fetchall()
 
-    # Repository -> Package edges (D-03)
-    for pkg_name, pkg_path, _ in pkg_rows:
+    # Repository -> Package/App edges (D-03)
+    for pkg_name, pkg_path, _, pkg_kind in pkg_rows:
         edges.append(
             GraphEdge(
                 src=repo_key,
-                dst=("package", pkg_name, pkg_path),
+                dst=(pkg_kind, pkg_name, pkg_path),
                 kind="physically_contains",
                 attrs={},
             )
@@ -466,11 +468,15 @@ def emit(
     pkg_index = sorted(
         (
             (pkg_rel or "", pkg_name, pkg_rel)
-            for pkg_name, pkg_rel, _ in pkg_rows
+            for pkg_name, pkg_rel, _, _ in pkg_rows
         ),
         key=lambda t: len(t[0]),
         reverse=True,
     )
+    # Phase 50 D-04: side-table mapping pkg name -> actual stored kind so
+    # downstream src tuples (physically_contains, contains) resolve to the
+    # existing row instead of inserting a stub of the wrong kind.
+    pkg_name_to_kind: dict[str, str] = {r[0]: r[3] for r in pkg_rows}
 
     # Track which files we've already covered so we don't double-emit when
     # files sit under multiple packages (e.g. root manifest + nested manifest).
@@ -480,10 +486,12 @@ def emit(
     # used by File-parent resolution to pick the deepest enclosing SubPackage.
     pkg_to_subpkg_map: dict[str, dict[Path, tuple[str, str]]] = {}
 
-    for pkg_name, pkg_rel_path, pkg_attrs_json in pkg_rows:
+    for pkg_name, pkg_rel_path, pkg_attrs_json, pkg_kind in pkg_rows:
         pkg_attrs = json.loads(pkg_attrs_json) if pkg_attrs_json else {}
         language = pkg_attrs.get("language")
-        pkg_key = ("package", pkg_name, pkg_rel_path)
+        # Phase 50 D-04: pkg_key uses the actual stored kind so contains edges
+        # from app nodes resolve to the existing row.
+        pkg_key = (pkg_kind, pkg_name, pkg_rel_path)
 
         pkg_dir = (
             repo_root / pkg_rel_path
@@ -580,7 +588,10 @@ def emit(
 
         if owner is not None:
             owner_name, owner_rel = owner
-            pkg_key = ("package", owner_name, owner_rel)
+            # Phase 50 D-04: resolve owner kind from the side table so the
+            # pkg_key tuple matches the existing row (package OR app).
+            owner_kind = pkg_name_to_kind.get(owner_name, "package")
+            pkg_key = (owner_kind, owner_name, owner_rel)
         else:
             # Orphan test file — parent will be Repository (handled below).
             owner_name = None

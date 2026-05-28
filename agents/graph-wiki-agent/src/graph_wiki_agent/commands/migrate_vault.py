@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Optional
 
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.entity_writer import ADMITTED_KINDS_V18, write_entities
+from wiki_io.entity_writer import ADMITTED_KINDS, write_entities
 from wiki_io.index_generator import generate_index
 from wiki_io.link_rewriter import (
     OLD_LAYOUT_ROOTS,
@@ -258,7 +258,7 @@ def run_migrate_vault(
 
         # Step 1: write_entities.
         try:
-            write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+            write_entities(conn, wiki_root, ADMITTED_KINDS)
         except Exception as e:
             print(f"[error] write_entities failed: {e}", file=sys.stderr)
             return 2

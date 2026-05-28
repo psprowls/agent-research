@@ -467,7 +467,7 @@ class TestRenderDomainTree:
         text, *_ = _render(conn, wiki_root)
         assert "## Domains — agent-research" in text
         assert "## Domain: core" in text
-        assert "[[wiki/entities/pkg__agent-research__pkg-a]]" in text
+        assert "[[wiki/entities/pkg_pkg-a]]" in text
 
     def test_sub_domain_nesting(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -769,7 +769,7 @@ def test_cross_cutting_in_by_kind_only(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    cross_slug = "pkg__agent-research__pkg-cross"
+    cross_slug = "pkg_pkg-cross"
     assert text.count(f"[[wiki/entities/{cross_slug}]]") == 1
     by_kind_idx = text.find("## By Kind")
     cross_idx = text.find(f"[[wiki/entities/{cross_slug}]]")
@@ -790,7 +790,10 @@ def test_multi_domain_entity_in_by_kind(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    multi_substr = "test_suite__agent-research__cross__integration"
+    # Phase 53 D-05: short_filename for `test_suite:agent-research/cross/integration`
+    # with no `suite_kind` attr falls back to `tests_<pkg>` where `<pkg>` is the
+    # second-to-last URI segment (`cross`).
+    multi_substr = "tests_cross"
     count = text.count(multi_substr)
     assert count == 1, f"suite-multi should appear exactly once; found {count}"
     by_kind_ts_idx = text.find("### Test Suites")
@@ -847,7 +850,7 @@ def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
 
     text, *_ = _render(conn, wiki_root)
     assert "## Domain: active-domain" in text
-    assert "[[wiki/entities/pkg__agent-research__pkg-solo]]" in text
+    assert "[[wiki/entities/pkg_pkg-solo]]" in text
     active_start = text.find("## Domain: active-domain")
     next_section = text.find("##", active_start + len("## Domain: active-domain"))
     active_section = text[active_start:next_section if next_section > -1 else None]
@@ -874,7 +877,7 @@ def test_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    plugin_slug = "plugin__graph-wiki"
+    plugin_slug = "plugin_graph-wiki"
     assert text.count(plugin_slug) == 1
     by_kind_idx = text.find("## By Kind")
     plugins_idx = text.find("### Plugins")

@@ -1,28 +1,19 @@
-"""Entity writer scaffold — locks the Phase 42 design contracts (D-10).
+"""Entity writer — graph-driven entity page rendering for the wiki.
 
-This module is the single source of truth for THREE contracts that every
-downstream entity-writing phase (43-46) depends on:
+This module owns THREE contracts every downstream entity-writing phase
+(43-46) depends on:
 
-1. **URI-to-filename slug encoding (D-01..D-05).**
-   `encode_slug` maps a graph URI to a vault filename stem by replacing
-   both `:` and `/` with `__` (double-underscore). The kind segment uses
-   single-underscore (`test_suite`, `entry_point`, `package_family`) so it
-   cannot collide with the separator. Injectivity holds because no admitted
-   URI prefix contains `__`. Round-trip via `decode_slug` requires splitting
-   on `__` and asserting the first segment is an admitted URI prefix
-   (e.g. `pkg`, `repo`, `domain`). Note that URI prefixes are short aliases
-   of the admitted kind names (`pkg` <-> `package`, `repo` <-> `repository`).
-   See `_URI_PREFIX_BY_KIND` below for the full mapping.
-
-   Worked examples (from `agent-research` itself):
-
-     pkg:agent-research/graph-io           -> pkg__agent-research__graph-io
-     domain:agent-research/billing         -> domain__agent-research__billing
-     test_suite:agent-research/eval/unit   -> test_suite__agent-research__eval__unit
-     package_family:aws                    -> package_family__aws
-     plugin:graph-wiki                     -> plugin__graph-wiki
-     dependency:pypi/boto3                 -> dependency__pypi__boto3
-     repo:agent-research/agent-research    -> repo__agent-research__agent-research
+1. **URI-to-filename derivation (Phase 52 D-03..D-07; cleanup Phase 53 D-04..D-06).**
+   `short_filename(uri, collision_set, ...)` is the pure function that maps a
+   graph URI to a short, human-readable vault filename stem (e.g.
+   `pkg_graph-io`, `dep_boto3`, `unit_tests_wiki-io`). Colliders across
+   different URIs receive a deterministic `__<6hex>` sha256 disambiguator
+   suffix. `_compute_collision_set` precomputes the colliding-URI set in a
+   single graph pass; both `write_entities` and the index/link consumers
+   thread that same set so every filename consumer agrees byte-for-byte on
+   each entity's stem. The legacy bidirectional slug helpers were removed
+   in Phase 53 — reverse lookups go through
+   `frontmatter.load(entity_path).metadata["uri"]`.
 
 2. **Scanner-owned frontmatter whitelist (D-06..D-09).**
    `SCANNER_OWNED_KEYS` is a flat frozenset enumerating every frontmatter
@@ -37,28 +28,41 @@ downstream entity-writing phase (43-46) depends on:
 3. **Narrative region marker (D-16).**
    Per-kind templates carry a `## Narrative` H2 section that the LLM
    scanner targets and overwrites; everything outside that H2 (including
-   other human-authored H2 sections) is preserved. Phase 42 does NOT
-   implement the narrative-write path; it locks the contract. The H2
-   string is a hard convention — humans must not rename the heading.
-
-The Phase 42 scaffold is intentionally narrow: only the four exports below
-plus this module docstring. Phase 43 expands the module with
-`EntityWriteResult`, `merge_frontmatter`, `write_entities`, and hard-delete
-logic; do NOT add those here.
+   other human-authored H2 sections) is preserved. The H2 string is a hard
+   convention — humans must not rename the heading.
 """
 
 from __future__ import annotations
 
-# v1.8 admitted entity kinds — the 7 graph-derived kinds the wiki materializes
+import hashlib
+
+# Admitted entity kinds — the 7 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
+#
+# Phase 51 PKGFAM-03 / D-04: the retired family-grouping kind is gone;
+# this frozenset is complete and final (no subtraction-narrow). Re-
+# introducing a family-like grouping is deferred (REQUIREMENTS.md
+# "Future Requirements") and would build on domain-clustering primitives,
+# not a separate kind.
+#
+# Phase 49 D-16: `builtin` is intentionally NOT admitted here. Stdlib modules
+# are inspectable via `cg list-builtins` / `cg describe-builtin` but do not
+# warrant standalone wiki pages — rendering one page per stdlib module would
+# dilute the entity surface without meaningful documentation value.
+#
+# Phase 52 D-06: `app` is admitted alongside `package`. Apps are classified
+# by Phase 50's pipeline (a package-like node that has an entry point /
+# distribution / app-shape signal). The wiki renders apps as standalone
+# entity pages so SC#1's literal `app_graph-wiki-agent.md` output can be
+# produced from a real scan.
 ADMITTED_KINDS: frozenset[str] = frozenset(
     {
         "repository",
         "domain",
         "package",
-        "package_family",
+        "app",
         "plugin",
         "dependency",
         "test_suite",
@@ -67,19 +71,26 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
 
 # Map admitted kind names to their URI prefix as produced by `graph_io.uri`
 # builders. Two prefixes are shortened aliases of the kind name (`repository`
-# -> `repo`, `package` -> `pkg`); the remaining five are identical. This is
-# the surface `decode_slug` validates against, since slugs start with the
-# URI-prefix, not the kind name.
+# -> `repo`, `package` -> `pkg`); the remaining four are identical.
+#
+# Phase 53 D-06: `_ADMITTED_URI_PREFIXES` was removed alongside the legacy
+# bidirectional-slug machinery (its only consumer). The forward
+# `short_filename` helper consumes `_FILENAME_PREFIX_BY_URI_PREFIX` directly,
+# which is the only filename-layer prefix surface that remains.
 _URI_PREFIX_BY_KIND: dict[str, str] = {
     "repository": "repo",
     "domain": "domain",
     "package": "pkg",
-    "package_family": "package_family",
+    "app": "app",
     "plugin": "plugin",
-    "dependency": "dependency",
+    # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
+    # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
+    # the short-form filename for dependency entities is `dep_<name>` and is
+    # produced by `short_filename` via
+    # `_FILENAME_PREFIX_BY_URI_PREFIX["dependency"] = "dep"`.
+    "dependency": "dep",
     "test_suite": "test_suite",
 }
-_ADMITTED_URI_PREFIXES: frozenset[str] = frozenset(_URI_PREFIX_BY_KIND.values())
 
 # Frontmatter keys the scanner owns and may overwrite on every scan.
 # Anything outside this set is human-authored and MUST be preserved by
@@ -105,6 +116,9 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
         # Node-attr-derived (package)
         "language",
         "version",
+        # Node-attr-derived (app — Phase 52 D-06; mirrors package + app-specific keys)
+        "app_kind",
+        "app_signals",
         # Edge-derived (domain)
         "parent_domain",
         "sub_domains",
@@ -117,49 +131,128 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
         "ecosystem",
         "used_by",
         "versions_in_use",
-        # Edge-derived (package_family)
-        "members",
         # Edge-derived (repository)
         "package_count",
     }
 )
 
 
-def encode_slug(uri: str) -> str:
-    """Encode a graph URI as a vault filename stem (D-01).
+# ----------------------------------------------------------------------------
+# Phase 52 D-03/D-04/D-05/D-07: short_filename pure helper (WIKI-FN-04)
+# ----------------------------------------------------------------------------
 
-    Replaces `:` and `/` with `__`. Injective and round-trip-stable across
-    all 7 admitted kinds for fragments that DO NOT contain `__` AND DO NOT
-    start or end with `_`. Real-world org / repo / package / suite names
-    follow these constraints (PEP-8 / npm / cargo naming conventions prefer
-    dashes to leading-underscore identifiers in distribution names).
+# Filename-layer prefix per URI prefix (D-05): "dependency" is aliased to "dep"
+# at the filename layer only — the URI prefix itself remains "dependency".
+# For "test_suite", this dict entry is the suite_kind=None / unknown fallback;
+# the test_suite branch in `short_filename` overrides for known suite_kinds.
+_FILENAME_PREFIX_BY_URI_PREFIX: dict[str, str] = {
+    "repo": "repo",
+    "pkg": "pkg",
+    "app": "app",
+    "domain": "domain",
+    "plugin": "plugin",
+    "dependency": "dep",
+    "test_suite": "tests",
+}
+
+
+def short_filename(
+    uri: str,
+    collision_set: frozenset[str],
+    *,
+    suite_kind: str | None = None,
+    pkg_for_suite: str | None = None,
+) -> str:
+    """Compute the slim vault filename stem for a graph URI (D-03, D-04, D-05, D-07).
+
+    Pure function — no I/O, no SQL, no logging side effects from inside the
+    function body. Fallback warnings (e.g. for `test_suite` URIs missing
+    `suite_kind`) are logged at the call site, not here, per Phase 50 D-04.
+
+    Parameters
+    ----------
+    uri
+        Graph URI of an admitted entity (e.g. ``pkg:org/repo/utils``).
+    collision_set
+        Frozenset of URIs known to collide on the plain stem. If ``uri`` is
+        in this set, a 6-hex sha256 disambiguator suffix is appended
+        (D-03, D-04 — all colliders carry the suffix, not just N-1 of them).
+    suite_kind
+        For ``test_suite:`` URIs only — selects the prefix per D-07:
+        ``unit`` → ``unit_tests``, ``integration`` → ``int_tests``,
+        ``e2e`` → ``e2e_tests``, ``contract`` → ``contract_tests``,
+        any other value or ``None`` → ``tests``. Ignored for non-test_suite
+        URIs.
+    pkg_for_suite
+        For ``test_suite:`` URIs only — the package name to embed in the
+        stem. If omitted, derived from the URI path: the second-to-last
+        path segment if the path has ≥ 2 segments, else the last segment.
+
+    Returns
+    -------
+    str
+        The filename stem (without ``.md`` extension).
+
+    Raises
+    ------
+    ValueError
+        If ``uri`` is empty, lacks a ``:`` prefix separator, or has an
+        unknown URI prefix.
+
+    Examples
+    --------
+    >>> short_filename("pkg:org/repo/utils", frozenset())
+    'pkg_utils'
+    >>> short_filename("dependency:pypi/boto3", frozenset())
+    'dep_boto3'
+    >>> short_filename(
+    ...     "test_suite:org/repo/wiki-io/tests",
+    ...     frozenset(),
+    ...     suite_kind="unit",
+    ...     pkg_for_suite="wiki-io",
+    ... )
+    'unit_tests_wiki-io'
+    >>> stem = short_filename("pkg:org/repo/utils", frozenset({"pkg:org/repo/utils"}))
+    >>> stem.startswith("pkg_utils__")
+    True
+    >>> len(stem.rsplit("__", 1)[-1])
+    6
     """
-    return uri.replace(":", "__").replace("/", "__")
-
-
-def decode_slug(slug: str) -> str:
-    """Decode a vault filename stem back to its graph URI (D-03).
-
-    Splits on `__`, asserts the first segment is in `ADMITTED_KINDS`, and
-    reconstructs the URI as `<kind>:<remaining_segments_joined_by_/>`.
-
-    Raises:
-        ValueError: if `slug` has fewer than 2 `__`-separated segments,
-            or if the first segment is not a recognized admitted kind.
-    """
-    segments = slug.split("__")
-    if len(segments) < 2:
+    if not uri:
+        raise ValueError("short_filename: empty uri")
+    if ":" not in uri:
         raise ValueError(
-            f"decode_slug: malformed slug {slug!r}: expected at least 2 "
-            f"`__`-separated segments (kind + path), got {len(segments)}"
+            f"short_filename: malformed uri {uri!r}: missing `:` prefix separator"
         )
-    prefix, *path_segments = segments
-    if prefix not in _ADMITTED_URI_PREFIXES:
-        raise ValueError(
-            f"decode_slug: unknown URI prefix {prefix!r} in slug {slug!r}: "
-            f"expected one of {sorted(_ADMITTED_URI_PREFIXES)}"
-        )
-    return f"{prefix}:{'/'.join(path_segments)}"
+    uri_prefix, path = uri.split(":", 1)
+
+    if uri_prefix == "test_suite":
+        kind_prefix_by_suite = {
+            "unit": "unit_tests",
+            "integration": "int_tests",
+            "e2e": "e2e_tests",
+            "contract": "contract_tests",
+        }
+        kind_prefix = kind_prefix_by_suite.get(suite_kind, "tests")
+        if pkg_for_suite is not None:
+            pkg_part = pkg_for_suite
+        else:
+            segments = path.split("/")
+            pkg_part = segments[-2] if len(segments) >= 2 else segments[-1]
+        plain_stem = f"{kind_prefix}_{pkg_part}"
+    else:
+        kind_prefix = _FILENAME_PREFIX_BY_URI_PREFIX.get(uri_prefix)
+        if kind_prefix is None:
+            raise ValueError(
+                f"short_filename: unknown uri prefix {uri_prefix!r}"
+            )
+        name = path.split("/")[-1]
+        plain_stem = f"{kind_prefix}_{name}"
+
+    if uri in collision_set:
+        suffix = hashlib.sha256(uri.encode("utf-8")).hexdigest()[:6]
+        return f"{plain_stem}__{suffix}"
+    return plain_stem
 
 
 # ============================================================================
@@ -187,11 +280,9 @@ _logger = logging.getLogger(__name__)
 from graph_io import queries as _queries
 
 
-# v1.8 caller subset of ADMITTED_KINDS — defers `package_family` to v1.9 per D-07.
-ADMITTED_KINDS_V18: frozenset[str] = ADMITTED_KINDS - frozenset({"package_family"})
-
-
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
+# Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
+# retired family-grouping kind).
 STRUCTURAL_KEYS: frozenset[str] = frozenset(
     {
         "domains",
@@ -202,7 +293,6 @@ STRUCTURAL_KEYS: frozenset[str] = frozenset(
         "sub_domains",
         "packages",
         "tested_packages",
-        "members",
         "used_by",
     }
 )
@@ -421,6 +511,7 @@ def _kind_list_fns() -> dict[str, Callable]:
     return {
         "repository": lambda conn: _queries.list_repositories(conn),
         "package": lambda conn: _queries.list_packages(conn),
+        "app": lambda conn: _queries.list_apps(conn),
         "domain": lambda conn: _queries.list_domains(conn),
         "test_suite": lambda conn: _queries.list_test_suites(conn),
         "dependency": lambda conn: _queries.list_dependencies(conn),
@@ -460,6 +551,20 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
             fm["domains"] = list(d.domains)
             fm["test_suites"] = [s.name for s in d.test_suites]
             fm["entry_points"] = [e.name for e in d.entry_points]
+    elif kind == "app":
+        d = _queries.describe_app(conn, name=node.name)
+        if d is not None:
+            # AppDescription mirrors PackageDescription field-for-field with
+            # two additions: `app_kind` (one of `_VALID_APP_KINDS`) and
+            # `app_signals` (sorted list of classification signals) — both
+            # surfaced as scanner-owned keys (D-06).
+            fm["language"] = d.language
+            fm["version"] = d.version
+            fm["domains"] = list(d.domains)
+            fm["test_suites"] = [s.name for s in d.test_suites]
+            fm["entry_points"] = [e.name for e in d.entry_points]
+            fm["app_kind"] = d.app_kind
+            fm["app_signals"] = list(d.app_signals)
     elif kind == "domain":
         d = _queries.describe_domain(conn, name=node.name)
         if d is not None and d.parent:
@@ -486,6 +591,68 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
 def _is_template_body_default(body: str, template_body: str) -> bool:
     """Heuristic: True if the body equals the unmodified template body."""
     return body.rstrip() == template_body.rstrip()
+
+
+def _compute_collision_set(
+    conn: sqlite3.Connection,
+    admitted_kinds: frozenset[str],
+    list_fns: dict[str, Callable],
+) -> frozenset[str]:
+    """Pre-pass that returns the set of URIs whose plain short stem collides.
+
+    Iterates every admitted-kind node once, computes each node's *plain*
+    short filename via ``short_filename(uri, collision_set=frozenset(), ...)``
+    (i.e. with an empty collision set so no suffix is added), groups by stem,
+    and returns the set of URIs whose stem appears more than once across the
+    whole admitted-kind enumeration.
+
+    D-01 + D-02: extends to TestSuite kind-aware names by reading
+    ``suite_kind`` from ``node.attrs["suite_kind"]`` and ``pkg_for_suite``
+    from ``Path(node.attrs["path"]).parent.name`` (or last segment fallback)
+    when ``kind == "test_suite"``. This means two test_suites with the same
+    kind + same package name (e.g. two ``unit`` suites for the same package
+    name) will be flagged as colliding and both receive a ``__<6hex>``
+    disambiguator — matching the all-colliders D-04 semantics for the rest
+    of the entity surface.
+
+    Internal helper (single-leading-underscore): exists to keep
+    ``write_entities`` readable + unit-testable in isolation. Reads the
+    SQLite connection in a read-only fashion; does not write or mutate
+    global state.
+    """
+    stem_to_uris: dict[str, list[str]] = {}
+    for kind in sorted(admitted_kinds):
+        list_fn = list_fns.get(kind)
+        if list_fn is None:
+            continue
+        for node in list_fn(conn):
+            uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
+            if not uri:
+                continue
+            if kind == "test_suite":
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                suite_kind = attrs.get("suite_kind") or None
+                suite_path = attrs.get("path")
+                pkg_for_suite: str | None = None
+                if suite_path:
+                    pkg_for_suite = Path(suite_path).parent.name or None
+                if not pkg_for_suite:
+                    pkg_for_suite = None
+                stem = short_filename(
+                    uri,
+                    frozenset(),
+                    suite_kind=suite_kind,
+                    pkg_for_suite=pkg_for_suite,
+                )
+            else:
+                stem = short_filename(uri, frozenset())
+            stem_to_uris.setdefault(stem, []).append(uri)
+    return frozenset(
+        uri
+        for uris in stem_to_uris.values()
+        if len(uris) > 1
+        for uri in uris
+    )
 
 
 def write_entities(
@@ -516,13 +683,15 @@ def write_entities(
     admitted_uris: set[str] = set()
 
     list_fns = _kind_list_fns()
+    # Phase 52 D-01: one-shot collision pre-pass; reads conn read-only, no lock needed
+    collision_set = _compute_collision_set(conn, admitted_kinds, list_fns)
 
     with _acquire_scan_lock(workspace_root):
         # --- Per-kind create / merge ---
         for kind in sorted(admitted_kinds):
             list_fn = list_fns.get(kind)
             if list_fn is None:
-                continue  # unknown admitted kind (e.g. package_family v1.9) — skip
+                continue  # unknown admitted kind without a list_fn — skip
             template_path = _template_path_for_kind(kind)
             if not template_path.exists():
                 errors.append(EntityWriteError(
@@ -536,7 +705,27 @@ def write_entities(
                 if not uri:
                     continue
                 admitted_uris.add(uri)
-                slug = encode_slug(uri)
+                # Phase 52 D-01..D-07: derive short filename, handling test_suite kind-aware naming.
+                suite_kind_for_node: str | None = None
+                pkg_for_suite_for_node: str | None = None
+                if kind == "test_suite":
+                    attrs_for_node = node.attrs if isinstance(node.attrs, dict) else {}
+                    suite_kind_for_node = attrs_for_node.get("suite_kind") or None
+                    suite_path = attrs_for_node.get("path")
+                    if suite_path:
+                        pkg_for_suite_for_node = Path(suite_path).parent.name or None
+                    if not suite_kind_for_node:
+                        _logger.warning(
+                            "test_suite node has no suite_kind attr (uri=%s); "
+                            "falling back to tests_<pkg> short filename",
+                            uri,
+                        )
+                slug = short_filename(
+                    uri,
+                    collision_set,
+                    suite_kind=suite_kind_for_node,
+                    pkg_for_suite=pkg_for_suite_for_node,
+                )
                 page_path = entities_dir / f"{slug}.md"
                 try:
                     scanner_fm = scanner_frontmatter_for_node(conn, kind, node)

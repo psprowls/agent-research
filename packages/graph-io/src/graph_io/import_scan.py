@@ -164,11 +164,13 @@ def scan_package_imports(
     (Phase 31 D-11). include_test_files=True returns all imports —
     needed by Phase 30 test_suites.emit when scanning test-file imports.
     """
-    # Collect all Package rows once for the maps/index
+    # Collect all Package/App rows once for the maps/index.
+    # Phase 50 D-04: apps participate in import resolution the same way.
     pkg_rows: list[PkgRow] = [
         (row[0], row[1], row[2])
         for row in conn.execute(
-            "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+            "SELECT name, path, attrs_json FROM nodes "
+            "WHERE kind IN ('package', 'app')"
         ).fetchall()
     ]
 

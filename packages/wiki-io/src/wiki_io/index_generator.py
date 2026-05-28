@@ -3,6 +3,11 @@
 Phase 44 — Scanner-Generated Index. New module (D-01); `update_index.py`
 remains untouched in this phase (Phase 46 cutover deletes it).
 
+Filename derivation per Phase 53 D-04..D-06: entity links go through
+``wiki_io.entity_writer.short_filename`` (with a precomputed
+``collision_set`` from ``_compute_collision_set``); the old bidirectional
+slug machinery has been removed.
+
 Decisions encoded here (see `.planning/phases/44-scanner-generated-index/44-CONTEXT.md`):
 
 - D-01: This is a new module — `index_generator.py` — owning the
@@ -48,7 +53,12 @@ from graph_io.queries import (
     list_test_suites,
 )
 
-from wiki_io.entity_writer import encode_slug
+from wiki_io.entity_writer import (
+    ADMITTED_KINDS as _ADMITTED_KINDS,
+    _compute_collision_set,
+    _kind_list_fns,
+    short_filename as _short_filename,
+)
 
 # ============================================================================
 # Module constants (D-09, D-12)
@@ -108,12 +118,18 @@ class PlacedEntity:
     `parent_pkg_names` is populated for dependencies/test_suites under a
     single-domain placement so `_render_domain_section` can nest them under
     consumer/tested-package bullets (D-06).
+
+    `suite_kind` / `pkg_for_suite` are populated for test_suite entities so
+    Phase 53's `short_filename` can derive kind-aware names like
+    `unit_tests_<pkg>`; they are `None` for non-test_suite kinds.
     """
 
     kind: str
     name: str
     uri: str
     parent_pkg_names: tuple[str, ...] = ()
+    suite_kind: str | None = None
+    pkg_for_suite: str | None = None
 
 
 # ============================================================================
@@ -244,8 +260,23 @@ def _place_entities(
                 parent_pkgs = _consumer_pkgs_in_domain(
                     conn, kind=kind, entity_name=node.name, domain_name=the_domain
                 )
+            suite_kind: str | None = None
+            pkg_for_suite: str | None = None
+            if kind == "test_suite":
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                suite_kind = attrs.get("suite_kind") or None
+                suite_path = attrs.get("path")
+                if suite_path:
+                    pkg_for_suite = Path(suite_path).parent.name or None
+                if not pkg_for_suite:
+                    pkg_for_suite = None
             entity = PlacedEntity(
-                kind=kind, name=node.name, uri=uri, parent_pkg_names=parent_pkgs
+                kind=kind,
+                name=node.name,
+                uri=uri,
+                parent_pkg_names=parent_pkgs,
+                suite_kind=suite_kind,
+                pkg_for_suite=pkg_for_suite,
             )
             if len(qualifying) == 1:
                 the_domain = next(iter(qualifying))
@@ -385,12 +416,29 @@ def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
     return row is None
 
 
+def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str:
+    """Forward-derive the `[[wiki/entities/<stem>]]` wikilink for an index entry.
+
+    Phase 53 D-05: uses `short_filename` from Phase 52 with the precomputed
+    collision_set so the index agrees with `write_entities` on filenames
+    (including the `__<6hex>` disambiguator for colliders).
+    """
+    stem = _short_filename(
+        entity.uri,
+        collision_set,
+        suite_kind=entity.suite_kind,
+        pkg_for_suite=entity.pkg_for_suite,
+    )
+    return f"[[wiki/entities/{stem}]]"
+
+
 def _render_domain_section(
     conn: sqlite3.Connection,
     domain_buckets: dict[str, list[PlacedEntity]],
     *,
     domain_name: str,
     depth: int,
+    collision_set: frozenset[str],
 ) -> list[str]:
     """Recursively render one domain section.
 
@@ -414,7 +462,7 @@ def _render_domain_section(
 
     lines_pkg: list[str] = []
     for pkg in packages:
-        pkg_link = f"[[wiki/entities/{encode_slug(pkg.uri)}]]"
+        pkg_link = _entity_wikilink(pkg, collision_set)
         lines_pkg.append(f"- {pkg_link}")
         sub = sub_for_pkg.get(pkg.name, {})
         suites = sub.get("test_suite", [])
@@ -422,19 +470,20 @@ def _render_domain_section(
         if suites:
             lines_pkg.append("  - Test Suites")
             for ts in sorted(suites, key=lambda x: x.uri):
-                ts_link = f"[[wiki/entities/{encode_slug(ts.uri)}]]"
+                ts_link = _entity_wikilink(ts, collision_set)
                 lines_pkg.append(f"    - {ts_link}")
         if deps:
             lines_pkg.append("  - Dependencies")
             for d in sorted(deps, key=lambda x: x.uri):
-                d_link = f"[[wiki/entities/{encode_slug(d.uri)}]]"
+                d_link = _entity_wikilink(d, collision_set)
                 lines_pkg.append(f"    - {d_link}")
 
     # Sub-domain recursion (D-07)
     sub_domain_blocks: list[str] = []
     for sub_name in _list_subdomains(conn, domain_name):
         sub_lines = _render_domain_section(
-            conn, domain_buckets, domain_name=sub_name, depth=depth + 1
+            conn, domain_buckets, domain_name=sub_name, depth=depth + 1,
+            collision_set=collision_set,
         )
         if sub_lines:
             sub_domain_blocks.extend(sub_lines)
@@ -455,6 +504,7 @@ def _render_domains(
     conn: sqlite3.Connection,
     domain_buckets: dict[str, list[PlacedEntity]],
     wiki_root: Path,
+    collision_set: frozenset[str],
 ) -> tuple[list[str], int]:
     """Render the full `## Domains` block. Returns (lines, domain_count)."""
     all_domains = sorted(
@@ -465,7 +515,8 @@ def _render_domains(
     rendered_count = 0
     for d in top_level_domains:
         section = _render_domain_section(
-            conn, domain_buckets, domain_name=d, depth=0
+            conn, domain_buckets, domain_name=d, depth=0,
+            collision_set=collision_set,
         )
         if section:
             lines.extend(section)
@@ -480,7 +531,10 @@ def _render_domains(
     return header + lines, rendered_count
 
 
-def _render_by_kind(by_kind_entities: list[PlacedEntity]) -> tuple[list[str], int]:
+def _render_by_kind(
+    by_kind_entities: list[PlacedEntity],
+    collision_set: frozenset[str],
+) -> tuple[list[str], int]:
     """Render the full `## By Kind` block. Returns (lines, by_kind_count)."""
     if not by_kind_entities:
         return [], 0
@@ -496,7 +550,7 @@ def _render_by_kind(by_kind_entities: list[PlacedEntity]) -> tuple[list[str], in
         lines.append(f"### {KIND_LABELS[kind]}")
         lines.append("")
         for e in group:
-            link = f"[[wiki/entities/{encode_slug(e.uri)}]]"
+            link = _entity_wikilink(e, collision_set)
             lines.append(f"- {link}")
             total += 1
         lines.append("")
@@ -530,6 +584,10 @@ def _render(
 
     Returns (text, entity_count, curated_count, domain_count, by_kind_count).
     """
+    # Phase 53 D-05: one-shot collision pre-pass, threaded through every
+    # entity-link derivation so the index agrees with `write_entities`.
+    collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
+
     domain_buckets, by_kind = _place_entities(conn)
     entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
 
@@ -552,10 +610,12 @@ def _render(
         "",
     ]
 
-    domains_lines, domain_count = _render_domains(conn, domain_buckets, wiki_root)
+    domains_lines, domain_count = _render_domains(
+        conn, domain_buckets, wiki_root, collision_set,
+    )
     lines.extend(domains_lines)
 
-    by_kind_lines, by_kind_count = _render_by_kind(by_kind)
+    by_kind_lines, by_kind_count = _render_by_kind(by_kind, collision_set)
     lines.extend(by_kind_lines)
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:

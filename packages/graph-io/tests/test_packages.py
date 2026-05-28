@@ -1,4 +1,4 @@
-"""Manifest scanning: pyproject.toml + package.json → kind:package nodes."""
+"""Manifest scanning: pyproject.toml + package.json → kind:package / kind:app nodes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pytest
 
 from graph_io import packages, store, upsert
 from graph_io.uri import RepoContext
-from source_parser.projections.graph import GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 
 _CTX = RepoContext(org="test", repo="repo")
@@ -252,3 +252,480 @@ def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connect
         "WHERE e.kind='used_by' AND src.name='pkg-c' AND dst.name='boto3'"
     ).fetchone()[0]
     assert count == 1
+
+
+# ============================================================================
+# Phase 50 Plan 01 Task 2: scripts_present / bin_present manifest reader fields.
+# ============================================================================
+
+
+def test_read_pyproject_scripts_present_true_when_section_nonempty(tmp_path: Path) -> None:
+    """Phase 50 D-03: [project.scripts] with at least one entry → scripts_present=True."""
+    manifest = tmp_path / "pyproject.toml"
+    manifest.write_text(
+        '[project]\n'
+        'name = "alpha"\n'
+        'version = "0.1.0"\n'
+        '[project.scripts]\n'
+        'alpha-cli = "alpha.cli:main"\n'
+    )
+    info = packages._read_pyproject(manifest)
+    assert info is not None
+    assert info["scripts_present"] is True
+    # Legacy keys preserved.
+    assert info["name"] == "alpha"
+    assert info["version"] == "0.1.0"
+    assert info["language"] == "python"
+    assert info["dependencies"] == []
+    assert info["dep_groups"] == {}
+
+
+def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Path) -> None:
+    """Phase 50 D-03: missing or empty [project.scripts] → scripts_present=False."""
+    # Missing section.
+    missing = tmp_path / "missing" / "pyproject.toml"
+    missing.parent.mkdir()
+    missing.write_text('[project]\nname = "alpha"\nversion = "0.1.0"\n')
+    info_missing = packages._read_pyproject(missing)
+    assert info_missing is not None
+    assert info_missing["scripts_present"] is False
+
+    # Empty table.
+    empty = tmp_path / "empty" / "pyproject.toml"
+    empty.parent.mkdir()
+    empty.write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n[project.scripts]\n'
+    )
+    info_empty = packages._read_pyproject(empty)
+    assert info_empty is not None
+    assert info_empty["scripts_present"] is False
+
+
+def test_read_package_json_bin_present_for_string(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as non-empty string → bin_present=True."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0", "bin": "cli.js"})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is True
+    assert info["name"] == "myapp"
+    assert info["language"] == "javascript"
+
+
+def test_read_package_json_bin_present_for_dict(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as dict with at least one truthy value → bin_present=True."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps(
+            {"name": "myapp", "version": "1.0.0", "bin": {"foo": "bin/foo.js"}}
+        )
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is True
+
+
+def test_read_package_json_bin_present_false_for_empty_dict(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as empty dict → bin_present=False."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0", "bin": {}})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is False
+
+
+def test_read_package_json_bin_present_false_when_missing(tmp_path: Path) -> None:
+    """Phase 50 D-03: no bin key → bin_present=False."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0"})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is False
+    # Legacy keys preserved.
+    assert info["name"] == "myapp"
+    assert info["version"] == "1.0.0"
+    assert info["language"] == "javascript"
+    assert info["dependencies"] == []
+
+
+# ============================================================================
+# Phase 50 Plan 02 Task 2: D-06 in-place UPDATE for cross-run kind flips.
+# ============================================================================
+
+
+def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """D-06: package gaining [project.scripts] on re-run flips to app with id preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    # First refresh: no scripts → kind="package".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert row is not None, "first refresh did not create the row"
+    pkg_id, pkg_kind, pkg_uri_val = row
+    assert pkg_kind == "package"
+    assert pkg_uri_val.startswith("pkg:")
+
+    # Second refresh after adding [project.scripts] → expect kind flip to "app".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    rows = conn.execute(
+        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
+    ).fetchall()
+    assert len(rows) == 1, f"expected exactly one row after flip; got {rows!r}"
+    app_id, app_kind_db, app_uri_val, attrs_json = rows[0]
+    assert app_id == pkg_id, "D-06: row id must be preserved across kind flip"
+    assert app_kind_db == "app"
+    assert app_uri_val.startswith("app:")
+    attrs = json.loads(attrs_json)
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_kind_flip_app_to_pkg_reverts(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: app losing [project.scripts] on re-run reverts to package with id preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    # First refresh with scripts → kind="app".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT id, kind FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert row is not None
+    app_id, app_kind_db = row
+    assert app_kind_db == "app"
+
+    # Remove [project.scripts] → expect revert to kind="package".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    rows = conn.execute(
+        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
+    ).fetchall()
+    assert len(rows) == 1, f"expected exactly one row after revert; got {rows!r}"
+    pkg_id, pkg_kind_db, pkg_uri_val, attrs_json = rows[0]
+    assert pkg_id == app_id, "D-06: row id must be preserved across kind revert"
+    assert pkg_kind_db == "package"
+    assert pkg_uri_val.startswith("pkg:")
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    # D-03: Package rows MUST NOT carry app_kind / app_signals.
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_kind_flip_preserves_inbound_edge_fk(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: inbound edges against the flipped row survive because dst id is preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.0"\n')
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    pkg_row = conn.execute(
+        "SELECT id FROM nodes WHERE name='myapp' AND kind='package'"
+    ).fetchone()
+    assert pkg_row is not None
+    pkg_id = pkg_row[0]
+
+    # Manually insert an inbound edge against the pkg row from a synthetic
+    # domain node (use _upsert_edge to also create the src domain node).
+    upsert._upsert_edge(
+        conn,
+        GraphEdge(
+            src=("domain", "billing", None),
+            dst=("package", "myapp", "myapp"),
+            kind="belongs_to_domain",
+            attrs={},
+        ),
+    )
+    inbound_before = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
+    ).fetchone()[0]
+    assert inbound_before >= 1
+
+    # Flip pkg → app.
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    app_row = conn.execute(
+        "SELECT id FROM nodes WHERE name='myapp' AND kind='app'"
+    ).fetchone()
+    assert app_row is not None
+    assert app_row[0] == pkg_id, "row id must survive the flip"
+    inbound_after = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
+    ).fetchone()[0]
+    assert inbound_after == inbound_before, (
+        "D-06: inbound edges must survive the kind flip because dst FK is preserved"
+    )
+
+
+def test_no_kind_flip_for_zero_signal_manifest(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: zero-signal pure library re-run does not duplicate or flip the row."""
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    rows_before = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
+    ).fetchall()
+    assert len(rows_before) == 1
+    pkg_id, kind_before, uri_before = rows_before[0]
+    assert kind_before == "package"
+
+    # Re-run with identical manifest — no flip should occur.
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    rows_after = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
+    ).fetchall()
+    assert len(rows_after) == 1, "zero-signal re-run must not duplicate the row"
+    assert rows_after[0] == (pkg_id, kind_before, uri_before)
+
+
+# ============================================================================
+# Phase 50 Plan 02 Task 3: JS-signal and multi-signal integration tests.
+# ============================================================================
+
+
+def _refresh_and_fetch(
+    tmp_path: Path, conn: sqlite3.Connection, name: str
+) -> tuple[str, str, dict]:
+    """Run packages.refresh and return (kind, uri, attrs) for the named row."""
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT kind, uri, attrs_json FROM nodes WHERE name=?", (name,)
+    ).fetchone()
+    assert row is not None, f"no row named {name!r} after refresh"
+    return row[0], row[1], json.loads(row[2]) if row[2] else {}
+
+
+def test_refresh_js_bin_string_classifies_app_cli(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: package.json bin as non-empty string → app/cli."""
+    pkg_dir = tmp_path / "tool"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps({"name": "tool", "version": "1.0.0", "bin": "cli.js"})
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "tool")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_refresh_js_bin_dict_classifies_app_cli(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: package.json bin as dict with truthy value → app/cli."""
+    pkg_dir = tmp_path / "tool"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "tool",
+                "version": "1.0.0",
+                "bin": {"foo": "bin/foo.js"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "tool")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_refresh_js_next_classifies_app_nextjs(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: dependencies.next present → app/nextjs."""
+    pkg_dir = tmp_path / "site"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "site",
+                "version": "1.0.0",
+                "dependencies": {"next": "14", "react": "18"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "site")
+    assert kind == "app"
+    assert uri.startswith("app:")
+    assert attrs["app_kind"] == "nextjs"
+    assert "nextjs" in attrs["app_signals"]
+
+
+def test_refresh_js_expo_classifies_app_expo(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: dependencies.expo present → app/expo."""
+    pkg_dir = tmp_path / "mobile"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "mobile",
+                "version": "1.0.0",
+                "dependencies": {"expo": "50", "react-native": "0.73"},
+            }
+        )
+    )
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "mobile")
+    assert kind == "app"
+    assert attrs["app_kind"] == "expo"
+    assert "expo" in attrs["app_signals"]
+
+
+def test_refresh_js_vite_with_index_html_classifies_app_spa(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-02: vite dep AND index.html on disk → app/spa."""
+    pkg_dir = tmp_path / "spa-app"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "spa-app",
+                "version": "1.0.0",
+                "dependencies": {"vite": "5", "react": "18"},
+            }
+        )
+    )
+    (pkg_dir / "index.html").write_text("<!doctype html><html></html>")
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "spa-app")
+    assert kind == "app"
+    assert attrs["app_kind"] == "spa"
+    assert "spa" in attrs["app_signals"]
+
+
+def test_refresh_js_vite_without_index_html_stays_package(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-03: vite dep WITHOUT index.html → no spa signal → stays package."""
+    pkg_dir = tmp_path / "lib"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "lib",
+                "version": "1.0.0",
+                "dependencies": {"vite": "5"},
+            }
+        )
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "lib")
+    assert kind == "package"
+    assert uri.startswith("pkg:")
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_refresh_js_multi_signal_nextjs_wins(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-04: multi-signal precedence — bin + next → app_kind=nextjs, sorted signals."""
+    pkg_dir = tmp_path / "site"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "site",
+                "version": "1.0.0",
+                "bin": "cli.js",
+                "dependencies": {"next": "14"},
+            }
+        )
+    )
+    kind, _uri, attrs = _refresh_and_fetch(tmp_path, conn, "site")
+    assert kind == "app"
+    assert attrs["app_kind"] == "nextjs"
+    assert attrs["app_signals"] == sorted(["cli", "nextjs"])
+
+
+def test_refresh_python_pure_library_stays_package(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-03 / APP-03: pyproject without [project.scripts] → kind=package, no app keys."""
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+    kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "purelib")
+    assert kind == "package"
+    assert uri.startswith("pkg:")
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """app rows expose app_kind/app_signals via json_extract; package rows expose NULL."""
+    # App: pyproject with scripts.
+    app_dir = tmp_path / "myapp"
+    app_dir.mkdir()
+    (app_dir / "pyproject.toml").write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    # Package: pyproject without scripts.
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    app_row = conn.execute(
+        "SELECT json_extract(attrs_json, '$.app_kind'), "
+        "       json_extract(attrs_json, '$.app_signals') "
+        "FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert app_row[0] == "cli"
+    assert app_row[1] is not None
+
+    pkg_row = conn.execute(
+        "SELECT json_extract(attrs_json, '$.app_kind'), "
+        "       json_extract(attrs_json, '$.app_signals') "
+        "FROM nodes WHERE name='purelib'"
+    ).fetchone()
+    assert pkg_row[0] is None
+    assert pkg_row[1] is None

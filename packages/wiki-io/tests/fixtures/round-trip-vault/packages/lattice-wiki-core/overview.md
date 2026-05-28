@@ -42,7 +42,7 @@ Schema and page templates copied into a freshly-initialized wiki by `init_vault.
 #### lattice-wiki-core/src/assets/page-templates/
 Per-category page skeletons copied into `<vault>/.templates/` and consumed by `ensure_subpage` / `ensure_domain_page`.
 
-- `adr.md`, `app.md`, `architecture.md`, `concept.md`, `concept-pattern.md`, `dependency.md`, `domain.md`, `index.md` (new in v0.3.1; updated in v0.3.2 with YAML frontmatter block), `package.md`, `package-family.md`, `source.md`, `work.md` — one skeleton per page category
+- `adr.md`, `app.md`, `architecture.md`, `concept.md`, `concept-pattern.md`, `dependency.md`, `domain.md`, `index.md` (new in v0.3.1; updated in v0.3.2 with YAML frontmatter block), `package.md`, `source.md`, `work.md` — one skeleton per page category
 
 #### lattice-wiki-core/src/assets/page-templates/domain/
 Two-file domain layout used by `ensure_domain_page` / `ensure_domain_details`.

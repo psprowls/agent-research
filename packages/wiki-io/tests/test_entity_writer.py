@@ -1,37 +1,23 @@
 """Unit + property tests for wiki_io.entity_writer (Phase 42 / Plan 01).
 
-Validates the THREE Phase 42 contracts (D-10):
+Validates the surviving Phase 42 contracts (D-10):
 
-1. ADMITTED_KINDS is the 7 underscore-form kinds (D-02).
+1. ADMITTED_KINDS is the 7 underscore-form kinds (D-02; `package_family`
+   retired in Phase 51 PKGFAM-03; `app` admitted in Phase 52 D-06).
 2. SCANNER_OWNED_KEYS is disjoint from the human-only keys (D-09).
-3. encode_slug + decode_slug round-trip on every admitted-kind URI (D-03)
-   and the encoder is injective on a sample batch (D-05).
 
-Property tests use Hypothesis (D-11, D-12). The 3 new URI builders
-(`package_family_uri`, `plugin_uri`, `dependency_uri`) from Plan 02 are
-NOT imported here — Plan 01 + Plan 02 are Wave-1 parallel, so this test
-constructs their URIs inline (`f"package_family:{name}"`, etc.) per
-Plan 01's <interfaces> note.
+The bidirectional-slug machinery was removed in Phase 53 D-04..D-06;
+its property tests are gone. The Phase 52 short_filename contract is
+covered by `test_short_filename.py`.
 """
 
 from __future__ import annotations
 
 import pytest
-from hypothesis import HealthCheck, assume, given, settings
-from hypothesis import strategies as st
 
-from graph_io.uri import (
-    RepoContext,
-    domain_uri,
-    pkg_uri,
-    repo_uri,
-)
-from graph_io.uri import test_suite_uri as _test_suite_uri  # alias: avoid pytest collection
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     SCANNER_OWNED_KEYS,
-    decode_slug,
-    encode_slug,
 )
 
 
@@ -41,13 +27,15 @@ from wiki_io.entity_writer import (
 
 
 def test_admitted_kinds_shape() -> None:
-    """ADMITTED_KINDS is exactly the 7 underscore-form v1.8 kinds (D-02)."""
+    """ADMITTED_KINDS is exactly the 7 underscore-form kinds (D-02;
+    `package_family` retired in Phase 51 PKGFAM-03; `app` admitted in
+    Phase 52 D-06)."""
     expected = frozenset(
         {
             "repository",
             "domain",
             "package",
-            "package_family",
+            "app",
             "plugin",
             "dependency",
             "test_suite",
@@ -56,8 +44,10 @@ def test_admitted_kinds_shape() -> None:
     assert ADMITTED_KINDS == expected
     # Sanity check: kinds that exist in graph_io._VALID_KINDS but are NOT
     # admitted to the entity lane (per the v1.8 design notes) must stay out.
-    excluded = {"subpackage", "file", "function", "class", "method"}
+    excluded = {"subpackage", "file", "function", "class", "method", "builtin"}
     assert ADMITTED_KINDS.isdisjoint(excluded)
+    # Phase 51 regression guard: package_family must never re-appear here.
+    assert "package_family" not in ADMITTED_KINDS
 
 
 def test_scanner_owned_keys_disjoint_from_human() -> None:
@@ -67,169 +57,6 @@ def test_scanner_owned_keys_disjoint_from_human() -> None:
     # Spot-check a baseline of D-07 keys ARE present.
     for key in ("uri", "kind", "domains", "depends_on", "ecosystem"):
         assert key in SCANNER_OWNED_KEYS, f"missing baseline key: {key!r}"
-
-
-@pytest.mark.parametrize(
-    "uri,expected_slug",
-    [
-        ("pkg:agent-research/graph-io", "pkg__agent-research__graph-io"),
-        ("domain:agent-research/billing", "domain__agent-research__billing"),
-        (
-            "test_suite:agent-research/eval-harness/unit",
-            "test_suite__agent-research__eval-harness__unit",
-        ),
-        (
-            "repo:agent-research/agent-research",
-            "repo__agent-research__agent-research",
-        ),
-        ("package_family:aws", "package_family__aws"),
-        ("plugin:graph-wiki", "plugin__graph-wiki"),
-        ("dependency:pypi/boto3", "dependency__pypi__boto3"),
-    ],
-)
-def test_slug_encode_examples(uri: str, expected_slug: str) -> None:
-    """Parametrized examples from CONTEXT.md D-01."""
-    assert encode_slug(uri) == expected_slug
-
-
-def test_decode_slug_rejects_unknown_kind() -> None:
-    """decode_slug raises ValueError on unrecognized URI prefix."""
-    with pytest.raises(ValueError, match="unknown URI prefix"):
-        decode_slug("notakind__x")
-
-
-def test_decode_slug_rejects_too_few_segments() -> None:
-    """decode_slug raises ValueError when the slug has no `__` separator."""
-    with pytest.raises(ValueError, match="malformed slug"):
-        decode_slug("pkg")
-
-
-# ----------------------------------------------------------------------------
-# Hypothesis strategies — one composite per admitted kind (D-12)
-# ----------------------------------------------------------------------------
-
-# Real-world package / org / suite names use ASCII alphanumerics plus dashes
-# and dots. Underscores are EXCLUDED from the fragment alphabet because the
-# slug encoding uses `__` as the separator: a fragment starting or ending
-# with `_` produces 3+ consecutive underscores in the slug, which splits
-# ambiguously and breaks round-trip. This restriction matches real-world
-# PEP-8 / npm-package / cargo-crate naming conventions (dashes preferred to
-# underscores in distribution names). See Pitfall 1 in PITFALLS.md.
-_fragment_alphabet = st.characters(
-    whitelist_categories=("Ll", "Nd"),
-    whitelist_characters="-.",
-)
-_fragment = st.text(alphabet=_fragment_alphabet, min_size=1, max_size=20)
-
-
-@st.composite
-def _pkg_uri_strategy(draw: st.DrawFn) -> str:
-    org = draw(_fragment)
-    repo = draw(_fragment)
-    name = draw(_fragment)
-    for f in (org, repo, name):
-        assume("__" not in f)
-    return pkg_uri(RepoContext(org, repo), name)
-
-
-@st.composite
-def _domain_uri_strategy(draw: st.DrawFn) -> str:
-    org = draw(_fragment)
-    repo = draw(_fragment)
-    name = draw(_fragment)
-    for f in (org, repo, name):
-        assume("__" not in f)
-    return domain_uri(RepoContext(org, repo), name)
-
-
-@st.composite
-def _repository_uri_strategy(draw: st.DrawFn) -> str:
-    org = draw(_fragment)
-    repo = draw(_fragment)
-    for f in (org, repo):
-        assume("__" not in f)
-    return repo_uri(RepoContext(org, repo))
-
-
-@st.composite
-def _test_suite_uri_strategy(draw: st.DrawFn) -> str:
-    org = draw(_fragment)
-    repo = draw(_fragment)
-    suite = draw(_fragment)
-    for f in (org, repo, suite):
-        assume("__" not in f)
-    return _test_suite_uri(RepoContext(org, repo), suite)
-
-
-@st.composite
-def _package_family_uri_strategy(draw: st.DrawFn) -> str:
-    # Inline construction — Plan 02 adds the builder; Wave-1 parallelism means
-    # we cannot import it yet.
-    name = draw(_fragment)
-    assume("__" not in name)
-    return f"package_family:{name}"
-
-
-@st.composite
-def _plugin_uri_strategy(draw: st.DrawFn) -> str:
-    name = draw(_fragment)
-    assume("__" not in name)
-    return f"plugin:{name}"
-
-
-@st.composite
-def _dependency_uri_strategy(draw: st.DrawFn) -> str:
-    ecosystem = draw(_fragment)
-    name = draw(_fragment)
-    for f in (ecosystem, name):
-        assume("__" not in f)
-    return f"dependency:{ecosystem}/{name}"
-
-
-_admitted_uri_strategy = st.one_of(
-    _pkg_uri_strategy(),
-    _domain_uri_strategy(),
-    _repository_uri_strategy(),
-    _test_suite_uri_strategy(),
-    _package_family_uri_strategy(),
-    _plugin_uri_strategy(),
-    _dependency_uri_strategy(),
-)
-
-
-# ----------------------------------------------------------------------------
-# Property tests
-# ----------------------------------------------------------------------------
-
-
-@given(uri=_admitted_uri_strategy)
-@settings(
-    max_examples=1000,
-    deadline=None,
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
-)
-def test_slug_round_trip(uri: str) -> None:
-    """decode_slug(encode_slug(uri)) == uri for every admitted-kind URI (D-03)."""
-    assert decode_slug(encode_slug(uri)) == uri
-
-
-@given(
-    uris=st.lists(
-        _admitted_uri_strategy,
-        min_size=50,
-        max_size=200,
-        unique=True,
-    )
-)
-@settings(
-    max_examples=100,
-    deadline=None,
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
-)
-def test_slug_batch_injective(uris: list[str]) -> None:
-    """Distinct URIs encode to distinct slugs — no collisions (D-05)."""
-    slugs = {encode_slug(u) for u in uris}
-    assert len(slugs) == len(uris)
 
 
 # ============================================================================
@@ -242,7 +69,6 @@ import time
 from hypothesis import given, strategies as st, settings
 
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS_V18,
     EntityWriteError,
     EntityWriteResult,
     STRUCTURAL_KEYS,
@@ -262,16 +88,11 @@ from wiki_io.entity_writer import (
 # ----------------------------------------------------------------------------
 
 
-def test_admitted_kinds_v18_derived_from_admitted_kinds() -> None:
-    from wiki_io.entity_writer import ADMITTED_KINDS
-    assert ADMITTED_KINDS_V18 == ADMITTED_KINDS - {"package_family"}
-    assert len(ADMITTED_KINDS_V18) == 6
-
-
 def test_structural_keys_subset_invariant() -> None:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
     assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS)
-    assert len(STRUCTURAL_KEYS) == 10
+    # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
+    assert len(STRUCTURAL_KEYS) == 9
 
 
 def test_write_lock_held_error_is_runtime_error() -> None:
@@ -606,6 +427,7 @@ def _wire_mock_queries(monkeypatch, q_module):
     """Bind MockGraphConn's per-kind data to graph_io.queries.list_* / describe_*."""
     monkeypatch.setattr(q_module, "list_repositories", lambda c: c.list_nodes("repository"))
     monkeypatch.setattr(q_module, "list_packages", lambda c: c.list_nodes("package"))
+    monkeypatch.setattr(q_module, "list_apps", lambda c: c.list_nodes("app"))
     monkeypatch.setattr(q_module, "list_domains", lambda c: c.list_nodes("domain"))
     monkeypatch.setattr(q_module, "list_test_suites", lambda c: c.list_nodes("test_suite"))
     monkeypatch.setattr(q_module, "list_dependencies", lambda c: c.list_nodes("dependency"))
@@ -614,6 +436,8 @@ def _wire_mock_queries(monkeypatch, q_module):
                         lambda c: c.get_description("repository", None))
     monkeypatch.setattr(q_module, "describe_package",
                         lambda c, *, name: c.get_description("package", name))
+    monkeypatch.setattr(q_module, "describe_app",
+                        lambda c, *, name: c.get_description("app", name))
     monkeypatch.setattr(q_module, "describe_domain",
                         lambda c, *, name: c.get_description("domain", name))
     monkeypatch.setattr(q_module, "describe_test_suite",
@@ -631,17 +455,17 @@ def test_write_entities_creates_pages_per_admitted_kind(
     _wire_mock_queries(monkeypatch, q)
 
     wiki_root = tmp_path / "wiki"
-    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # 1 repo + 2 packages + 1 domain + 1 test_suite + 1 dep + 1 plugin = 7 created
     assert len(result.created) == 7, f"expected 7 created, got {len(result.created)}: {result.created}"
     assert len(result.updated) == 0
     assert len(result.deleted) == 0
     assert result.needs_narrative == set(result.created)
     assert result.errors == []
-    # Specific filenames
+    # Specific filenames (Phase 52: short-form via `short_filename`)
     entities = wiki_root / "entities"
-    assert (entities / "pkg__local__agent-research__graph-io.md").exists()
-    assert (entities / "plugin__graph-wiki.md").exists()
+    assert (entities / "pkg_graph-io.md").exists()
+    assert (entities / "plugin_graph-wiki.md").exists()
 
 
 def test_write_entities_second_run_all_unchanged(
@@ -650,8 +474,8 @@ def test_write_entities_second_run_all_unchanged(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert r2.created == []
     assert r2.updated == []
     assert len(r2.unchanged) == len(r1.created)
@@ -663,13 +487,13 @@ def test_write_entities_deletes_pages_for_disappeared_nodes(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # Remove wiki-io package from mock
     remaining = [n for n in mock_graph_conn.list_nodes("package") if n.name != "wiki-io"]
     mock_graph_conn.set_nodes("package", remaining)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("wiki-io" in uri for uri in r2.deleted), f"expected wiki-io in deleted, got {r2.deleted}"
-    assert not (wiki_root / "entities" / "pkg__local__agent-research__wiki-io.md").exists()
+    assert not (wiki_root / "entities" / "pkg_wiki-io.md").exists()
     log_path = tmp_path / ".graph-wiki" / "deletions.log"
     assert log_path.exists()
     lines = log_path.read_text().strip().splitlines()
@@ -682,12 +506,12 @@ def test_write_entities_preserves_human_authored_status(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
-    page_path = wiki_root / "entities" / "pkg__local__agent-research__graph-io.md"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    page_path = wiki_root / "entities" / "pkg_graph-io.md"
     raw = page_path.read_text()
     raw_new = raw.replace("kind: package\n", "kind: package\nstatus: deprecated\n", 1)
     page_path.write_text(raw_new)
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     final = page_path.read_text()
     assert "status: deprecated" in final
 
@@ -699,7 +523,7 @@ def test_write_entities_needs_narrative_on_structural_change(
     from graph_io.queries import PackageDescription
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # Mutate package description so domains list changes — should trigger needs_narrative
     new_desc = PackageDescription(
         name="graph-io", language="python", version="0.2.1",
@@ -707,6 +531,224 @@ def test_write_entities_needs_narrative_on_structural_change(
         entry_points=[], test_suites=[],
     )
     mock_graph_conn.set_description("package", "graph-io", new_desc)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("graph-io" in uri for uri in r2.updated)
     assert any("graph-io" in uri for uri in r2.needs_narrative)
+
+
+# ============================================================================
+# Phase 52 Plan 02: short_filename integration in write_entities
+# ============================================================================
+
+import hashlib as _hashlib_phase52
+
+from graph_io.queries import NodeRecord as _NodeRecord_phase52
+
+
+def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-01/D-02/D-05/D-07: write_entities emits short-form filenames.
+
+    Builds a graph with one node per admitted kind (test_suite carries
+    suite_kind=unit so the kind-aware naming kicks in) and asserts each
+    file lands at the expected short stem.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    # Override the default fixture's test_suite node to set suite_kind="unit"
+    # and a path whose parent.name is the package name. Also overwrite the
+    # default packages to predictable single-pkg shape for this test.
+    mock_graph_conn.set_nodes("repository", [
+        _NodeRecord_phase52(
+            kind="repository", name="test-repo", path=None, line=None,
+            attrs={"uri": "repo:test-org/test-repo", "owner": "test-org"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("package", [
+        _NodeRecord_phase52(
+            kind="package", name="widget", path="packages/widget", line=None,
+            attrs={"uri": "pkg:test-org/test-repo/widget",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("domain", [
+        _NodeRecord_phase52(
+            kind="domain", name="observability", path=None, line=None,
+            attrs={"uri": "domain:test-org/test-repo/observability"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("plugin", [
+        _NodeRecord_phase52(
+            kind="plugin", name="demo-plugin", path=None, line=None,
+            attrs={"uri": "plugin:demo-plugin", "ecosystem": "claude-code"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("dependency", [
+        _NodeRecord_phase52(
+            kind="dependency", name="example-lib", path=None, line=None,
+            attrs={"uri": "dependency:pypi/example-lib",
+                   "ecosystem": "pypi",
+                   "versions_in_use": ["example-lib>=1.0"]},
+        ),
+    ])
+    mock_graph_conn.set_nodes("test_suite", [
+        _NodeRecord_phase52(
+            kind="test_suite", name="widget-tests",
+            path="packages/widget/tests", line=None,
+            attrs={"uri": "test_suite:test-org/test-repo/packages/widget/tests",
+                   "suite_kind": "unit", "file_count": 5},
+        ),
+    ])
+    # Descriptions: only the package one is strictly required (existing
+    # `_wire_mock_queries` wires describe_* to read from set_description).
+    # Without it, scanner_frontmatter_for_node sees `d is None` and skips
+    # the kind-specific fields — the URI + kind frontmatter is still set,
+    # which is enough for short_filename to resolve a filename.
+
+    wiki_root = tmp_path / "wiki"
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    entities = wiki_root / "entities"
+    expected_files = [
+        "repo_test-repo.md",
+        "pkg_widget.md",
+        "domain_observability.md",
+        "plugin_demo-plugin.md",
+        "dep_example-lib.md",
+        "unit_tests_widget.md",
+    ]
+    for fname in expected_files:
+        assert (entities / fname).exists(), (
+            f"expected {fname} on disk; "
+            f"got: {sorted(p.name for p in entities.iterdir())}"
+        )
+    assert result.errors == [], f"unexpected errors: {result.errors}"
+
+
+def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-04: ALL colliders get a `__<6hex>` suffix, not just N-1.
+
+    NOTE: This diverges from the literal Roadmap §52 SC#3 wording (which
+    implies one plain-stem winner) per the Phase 52 discussion-log
+    acceptance — D-04's referentially-transparent semantics requires
+    symmetric suffixes.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("dependency", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("package", [
+        _NodeRecord_phase52(
+            kind="package", name="utils", path="org-a/repo/utils", line=None,
+            attrs={"uri": "pkg:org-a/repo/utils",
+                   "language": "python", "version": "0.1.0"},
+        ),
+        _NodeRecord_phase52(
+            kind="package", name="utils", path="org-b/repo/utils", line=None,
+            attrs={"uri": "pkg:org-b/repo/utils",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    h_a = _hashlib_phase52.sha256(b"pkg:org-a/repo/utils").hexdigest()[:6]
+    h_b = _hashlib_phase52.sha256(b"pkg:org-b/repo/utils").hexdigest()[:6]
+    entities = wiki_root / "entities"
+    assert (entities / f"pkg_utils__{h_a}.md").exists()
+    assert (entities / f"pkg_utils__{h_b}.md").exists()
+    # D-04 symmetric: no plain-stem winner.
+    assert not (entities / "pkg_utils.md").exists()
+
+
+def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-05: `dependency:` URIs produce `dep_<name>.md`, not `dependency_<name>.md`."""
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("package", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("dependency", [
+        _NodeRecord_phase52(
+            kind="dependency", name="sample-pkg", path=None, line=None,
+            attrs={"uri": "dependency:pypi/sample-pkg",
+                   "ecosystem": "pypi",
+                   "versions_in_use": ["sample-pkg>=1.0"]},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    entities = wiki_root / "entities"
+    assert (entities / "dep_sample-pkg.md").exists()
+    assert not (entities / "dependency_sample-pkg.md").exists()
+
+
+# ============================================================================
+# Phase 52 Plan 03: app kind admission in wiki_io
+# ============================================================================
+
+
+def test_entity_app_template_exists() -> None:
+    """Phase 52 D-06: entity-app.md template exists and is loadable as `kind: app`."""
+    import frontmatter as _fm
+
+    from wiki_io.entity_writer import _template_path_for_kind
+
+    path = _template_path_for_kind("app")
+    assert path.exists(), f"entity-app.md template missing at {path}"
+    post = _fm.load(path)
+    assert post.metadata.get("kind") == "app"
+
+
+def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-06: an `app:` node materializes as `app_<name>.md` on disk.
+
+    Uses a minimal app node fixture: `describe_app` returns None for this
+    name (no description registered), which exercises the graceful
+    fallback path in `scanner_frontmatter_for_node` — only `uri` + `kind`
+    frontmatter is written, but the short filename + template wiring is
+    fully verified.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    # Override fixture: only an app node, plus the default required template kinds.
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("package", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("dependency", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("app", [
+        _NodeRecord_phase52(
+            kind="app", name="demo-app",
+            path="apps/demo-app", line=None,
+            attrs={"uri": "app:test-org/test-repo/demo-app",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    assert result.errors == [], f"unexpected errors: {result.errors}"
+
+    page_path = wiki_root / "entities" / "app_demo-app.md"
+    assert page_path.exists(), (
+        f"expected app_demo-app.md at {page_path}; "
+        f"got: {sorted(p.name for p in (wiki_root / 'entities').iterdir())}"
+    )
+
+    import frontmatter as _fm
+    post = _fm.load(page_path)
+    assert post.metadata.get("kind") == "app"
+    assert post.metadata.get("uri") == "app:test-org/test-repo/demo-app"

@@ -39,6 +39,7 @@ class MockGraphConn:
             "repository": [],
             "domain": [],
             "package": [],
+            "app": [],
             "plugin": [],
             "dependency": [],
             "test_suite": [],

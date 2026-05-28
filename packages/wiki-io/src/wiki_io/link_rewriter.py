@@ -4,11 +4,19 @@ Pure-function core (``rewrite_text``), plus mapping derivation
 (``build_rewrite_table``) and the vault walker (``rewrite_vault``).
 Plan 03 wires this into the ``cg migrate-vault`` CLI subcommand.
 
+Filename derivation per Phase 53 D-04..D-06: forward filename derivation goes
+through ``wiki_io.entity_writer.short_filename`` (with a precomputed
+``collision_set`` from ``_compute_collision_set``); the old bidirectional
+slug machinery has been removed.
+
 CONTEXT.md decisions (see .planning/phases/46-inbound-link-migration-cutover/46-CONTEXT.md):
     D-01 regex with position-aware code-region masking (no markdown-it-py)
     D-02 explicit fixture suite for edge cases
     D-03 three-source rewrite mapping pipeline (convention + scan + grep)
-    D-04 package_family deferred — not in CONVENTION_TEMPLATES
+    D-04 (Phase 46) family-grouping deferred — Phase 51 retired the kind
+         outright; strict-deletion of the former deferral branches per
+         Phase 51 RESEARCH.md Pitfall 4. Any live-vault leftovers are
+         handled atomically by Phase 53's migrate-vault cutover.
     D-13 5 curated lanes (concepts, adrs, architecture, sources, work) — applied by rewrite_vault
     D-14 wiki/ root files NOT rewritten — enforced by rewrite_vault's lane scope
     D-16 JSONL migration.log helper private to this module
@@ -26,7 +34,10 @@ from typing import Callable, Iterable
 
 from graph_io import queries as _queries
 
-from wiki_io.entity_writer import encode_slug as _encode_slug
+from wiki_io.entity_writer import (
+    _compute_collision_set,
+    short_filename as _short_filename,
+)
 from wiki_io.lint.common import (
     FENCED_CODE_RE,
     INLINE_CODE_RE,
@@ -47,10 +58,9 @@ CONVENTION_TEMPLATES: dict[str, str] = {
     "plugin":     "plugin/{name}/overview",
     "test_suite": "test-suites/{name}/index",
 }
-# package_family deferred to v1.9 per CONTEXT D-04 — intentionally absent.
 
 OLD_LAYOUT_ROOTS: tuple[str, ...] = (
-    "packages", "dependencies", "domain", "plugin", "package-family",
+    "packages", "dependencies", "domain", "plugin",
 )
 
 # All target prefixes the rewriter recognizes as "old layout" candidates.
@@ -240,12 +250,42 @@ _LIST_FNS: dict[str, Callable[[sqlite3.Connection], Iterable]] = {
 }
 
 
-def _new_slug(uri: str) -> str:
-    return f"entities/{_encode_slug(uri)}"
+def _new_slug_for_node(
+    uri: str,
+    *,
+    kind: str,
+    attrs: dict,
+    collision_set: frozenset[str],
+) -> str:
+    """Forward-derive the new entity filename for a graph node (Phase 53 D-05).
+
+    Uses ``short_filename`` from Phase 52. For ``test_suite`` nodes, reads
+    ``suite_kind`` and ``path`` from ``attrs`` to compute the kind-aware
+    short name (e.g. ``unit_tests_<pkg>``); for other kinds the helper
+    ignores those parameters.
+    """
+    suite_kind: str | None = None
+    pkg_for_suite: str | None = None
+    if kind == "test_suite":
+        suite_kind = attrs.get("suite_kind") or None
+        suite_path = attrs.get("path")
+        if suite_path:
+            from pathlib import Path as _P
+            pkg_for_suite = _P(suite_path).parent.name or None
+        if not pkg_for_suite:
+            pkg_for_suite = None
+    stem = _short_filename(
+        uri,
+        collision_set,
+        suite_kind=suite_kind,
+        pkg_for_suite=pkg_for_suite,
+    )
+    return f"entities/{stem}"
 
 
 def _build_source1_and_index(
     conn: sqlite3.Connection,
+    collision_set: frozenset[str],
 ) -> tuple[dict[str, str | None], dict[str, dict[str, str]]]:
     """Source 1 + (kind, name[, ecosystem]) index for Source 2/3 lookups.
 
@@ -263,7 +303,9 @@ def _build_source1_and_index(
             uri = attrs.get("uri")
             if not uri:
                 continue
-            new_slug = _new_slug(uri)
+            new_slug = _new_slug_for_node(
+                uri, kind=kind, attrs=attrs, collision_set=collision_set,
+            )
             name = node.name
             if kind == "dependency":
                 ecosystem = attrs.get("ecosystem", "")
@@ -284,16 +326,12 @@ def _source2_scan_old_layout(
     table: dict[str, str | None],
     index: dict[str, dict[str, str]],
 ) -> None:
-    """Source 2: scan-and-match over old layout dirs. Mutates ``table`` in place.
-
-    Skips ``wiki/package-family/`` files (no graph entity) per CONTEXT D-04.
-    """
+    """Source 2: scan-and-match over old layout dirs. Mutates ``table`` in place."""
     kind_for_root = {
         "packages": "package",
         "dependencies": "dependency",
         "domain": "domain",
         "plugin": "plugin",
-        "package-family": None,  # deferred per D-04
     }
     for root_name in OLD_LAYOUT_ROOTS:
         root = wiki_root / root_name
@@ -301,7 +339,7 @@ def _source2_scan_old_layout(
             continue
         kind = kind_for_root.get(root_name)
         if kind is None:
-            continue  # package-family — leave unmatched per D-04
+            continue  # defensive — unknown root in OLD_LAYOUT_ROOTS
         for md in root.rglob("*.md"):
             try:
                 old_target = str(
@@ -341,8 +379,6 @@ _KIND_FOR_PREFIX: dict[str, str | None] = {
     "wiki/plugin/": "plugin",
     "test-suites/": "test_suite",
     "wiki/test-suites/": "test_suite",
-    "package-family/": None,
-    "wiki/package-family/": None,
 }
 
 
@@ -410,7 +446,8 @@ def _source3_grep_curated_lanes(
                     continue  # already covered (possibly with None)
                 kind = _KIND_FOR_PREFIX.get(matched_prefix)
                 if kind is None:
-                    # package-family — log unresolvable per D-04.
+                    # Defensive: prefix matched OLD_LAYOUT_PREFIXES but is
+                    # missing from _KIND_FOR_PREFIX — treat as unresolvable.
                     _record_unresolvable(table, log_path, md, workspace_root, target)
                     continue
                 tail = target[len(matched_prefix):]
@@ -440,8 +477,8 @@ def build_rewrite_table(
 ) -> dict[str, str | None]:
     """Build the old-target -> new-slug rewrite table from three sources (CONTEXT D-03).
 
-    Source 1: convention templates per kind (5 kinds; ``package_family`` deferred).
-    Source 2: scan-and-match over ``wiki/{packages,dependencies,domain,plugin,package-family}/``.
+    Source 1: convention templates per kind (5 kinds).
+    Source 2: scan-and-match over ``wiki/{packages,dependencies,domain,plugin}/``.
     Source 3: grep the 5 curated lanes for inbound old-layout wikilinks; log unresolvables.
 
     Args:
@@ -455,7 +492,20 @@ def build_rewrite_table(
         ``dict`` mapping old-target string to new-slug string OR ``None``
         (unresolvable).
     """
-    table, index = _build_source1_and_index(conn)
+    # Phase 53 D-05: one-shot collision pre-pass; reads conn read-only.
+    # Mirrors `write_entities` semantics so the rewriter and the writer
+    # agree on which URIs receive the `__<6hex>` collision suffix.
+    # Builds collision-set `list_fns` from the rewriter's own `_LIST_FNS`
+    # (which covers the 5 admitted kinds the rewriter cares about) so that
+    # test monkeypatches of `_LIST_FNS` propagate into the collision pass —
+    # otherwise tests with `conn=None` hit the live `graph_io.queries`
+    # functions through `_kind_list_fns()` and crash.
+    _collision_list_fns = {kind: list_fn for kind, list_fn in _LIST_FNS.items()}
+    _collision_admitted_kinds = frozenset(_LIST_FNS.keys())
+    collision_set = _compute_collision_set(
+        conn, _collision_admitted_kinds, _collision_list_fns,
+    )
+    table, index = _build_source1_and_index(conn, collision_set)
     _source2_scan_old_layout(wiki_root, table, index)
     _source3_grep_curated_lanes(wiki_root, table, index, log_path)
     return table

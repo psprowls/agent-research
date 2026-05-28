@@ -94,24 +94,6 @@ def test_lib002_fails_on_no_citation(fixture_wiki_path: Path) -> None:
     assert "No citation" in verdict.excerpt
 
 
-def test_lib003_passes_with_path_wikilink(fixture_wiki_path: Path) -> None:
-    """LIB-003 passes when wikilinks include a slash path prefix."""
-    check = _get_check(LIBRARIAN_CHECKS, "LIB-003-no-slug-only-wikilinks")
-    output = AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for the API.")
-    verdict = check.check(output, fixture_wiki_path)
-    assert verdict.passed is True
-
-
-def test_lib003_fails_on_slug_only_wikilink(fixture_wiki_path: Path) -> None:
-    """LIB-003 fails when a wikilink is a bare CamelCase slug with no path."""
-    check = _get_check(LIBRARIAN_CHECKS, "LIB-003-no-slug-only-wikilinks")
-    output = AgentOutputProxy(answer="See [[LatticeWikiCore]] for details.")
-    verdict = check.check(output, fixture_wiki_path)
-    assert verdict.passed is False
-    assert "Slug-only" in verdict.excerpt
-    assert "LatticeWikiCore" in verdict.excerpt
-
-
 def test_lib004_passes_when_no_bare_paths(fixture_wiki_path: Path) -> None:
     """LIB-004 passes when code paths appear only inside backticks."""
     check = _get_check(LIBRARIAN_CHECKS, "LIB-004-code-path-format")
