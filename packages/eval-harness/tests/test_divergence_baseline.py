@@ -32,7 +32,6 @@ def _make_results(**overrides: dict) -> dict:
     base = {
         "LIB-001-wikilink-resolves": {"runs": 5, "failures": 0, "accepted_failures": []},
         "LIB-002-citation-present": {"runs": 5, "failures": 0, "accepted_failures": []},
-        "LIB-003-no-slug-only-wikilinks": {"runs": 5, "failures": 0, "accepted_failures": []},
         "LIB-004-code-path-format": {"runs": 5, "failures": 0, "accepted_failures": []},
         "LIB-JUDGE": {"runs": 5, "failures": 0, "accepted_failures": []},
     }
