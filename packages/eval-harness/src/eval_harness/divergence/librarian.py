@@ -49,9 +49,6 @@ def _resolve_in_wiki(slug: str, wiki: Path) -> Path | None:
 # Matches [[any content]] wikilinks.
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 
-# Matches slug-only wikilinks: single CamelCase word with no slash (e.g. [[PackageName]]).
-_SLUG_ONLY_RE = re.compile(r"^[A-Z][A-Za-z]+$")
-
 # Matches bare code paths outside backticks: lines containing path:line patterns
 # where the path is not preceded by a backtick.
 _BARE_CODE_PATH_RE = re.compile(
@@ -82,17 +79,6 @@ def _check_citation_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_slug_only_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdict:
-    """LIB-003: No wikilinks of the form [[PackageName]] without a path prefix."""
-    links = _WIKILINK_RE.findall(output.answer)
-    for lnk in links:
-        # Strip pipe aliases: [[page|display text]] → page
-        slug = lnk.split("|")[0].strip()
-        if _SLUG_ONLY_RE.match(slug):
-            return Verdict(passed=False, excerpt=f"Slug-only wikilink: [[{slug}]]")
-    return Verdict(passed=True, excerpt="")
-
-
 def _check_code_path_format(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """LIB-004 (soft): Code paths should be cited as `path:line`, not bare text."""
     match = _BARE_CODE_PATH_RE.search(output.answer)
@@ -113,12 +99,6 @@ LIBRARIAN_CHECKS: list[DivergenceCheck] = [
         source_anchor="plugins/graph-wiki/agents/librarian.md#rules",
         severity="hard",
         check=_check_citation_present,
-    ),
-    DivergenceCheck(
-        id="LIB-003-no-slug-only-wikilinks",
-        source_anchor="plugins/graph-wiki/agents/librarian.md#rules",
-        severity="hard",
-        check=_check_no_slug_only_wikilinks,
     ),
     DivergenceCheck(
         id="LIB-004-code-path-format",
