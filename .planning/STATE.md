@@ -1,23 +1,22 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Graph Refinements & Wiki Filename Slimdown
-status: Awaiting next milestone
-stopped_at: v1.9 shipped & archived (Phases 49-53 merged to main)
-last_updated: "2026-05-28T21:09:11.957Z"
-last_activity: 2026-05-28 — Milestone v1.9 completed and archived
+milestone: v1.10
+milestone_name: Wiki Index & Entity Page Enrichment
+status: planning
+last_updated: "2026-05-28T21:47:44.830Z"
+last_activity: 2026-05-28
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: agent-research
 
-**Last updated:** 2026-05-28 — v1.9 shipped & archived (Phases 49-53)
-**Updated by:** gsd-complete-milestone
+**Last updated:** 2026-05-28 — v1.10 started (Wiki Index & Entity Page Enrichment)
+**Updated by:** gsd-new-milestone
 
 ---
 
@@ -27,27 +26,27 @@ See: `.planning/PROJECT.md` (updated 2026-05-28)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Planning next milestone (v1.9 shipped 2026-05-28; run `/gsd:new-milestone`)
+**Current Focus:** v1.10 Wiki Index & Entity Page Enrichment — defining requirements (Phase 54+)
 
 ---
 
 ## Current Position
 
-Phase: Milestone v1.9 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-28 — Milestone v1.9 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-28 — Milestone v1.10 started
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Milestones shipped | 9 (v1.0 → v1.8) |
-| Phases shipped (cumulative) | 48 |
-| Plans shipped (cumulative) | 170 |
-| v1.8 requirements | 38/38 satisfied |
-| v1.9 requirements | 0/22 satisfied |
-| v1.9 phases | 5 (49-53) |
+| Milestones shipped | 10 (v1.0 → v1.9) |
+| Phases shipped (cumulative) | 53 |
+| Plans shipped (cumulative) | 185 |
+| v1.9 requirements | 24/24 satisfied |
+| v1.10 requirements | TBD (defining) |
+| v1.10 phases | TBD (starts at 54) |
 
 ---
 

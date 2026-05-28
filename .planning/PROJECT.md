@@ -10,6 +10,29 @@ A Python monorepo (managed with `uv`) of LangChain/deepagents-based AI tooling. 
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as today's upstream lattice-wiki librarian, on cheaper models, faster.
 
+## Current Milestone: v1.10 Wiki Index & Entity Page Enrichment
+
+**Goal:** Make the generated wiki a genuinely readable, complete projection of the graph — a human-readable index with per-entity summaries, entity pages fleshed out with real content, and the dependency / test-suite / app classification gaps closed — plus two debt fixes.
+
+**Target features:**
+
+1. **Index generation polish** (`wiki-io/index_generator.py`):
+   - Add an `app` section to the By-Kind ordering.
+   - Human-readable entity links (`[[wiki/entities/pkg_source-parser|source-parser]]`) plus a 1-line summary per entity, matching the concepts/adrs/architecture style.
+   - Test-suites rendered nested under the package(s) they test (duplicated across multiple); flat By-Kind Test Suites section dropped.
+   - Dependencies rendered nested under the package(s) that use them (duplicated); flat By-Kind Dependencies section dropped.
+2. **Dependency-vs-package classification fix** (`graph-io/packages.py`): a workspace package no longer emits a `dependency` node (`dep_graph-io` gone); the internal usage becomes a package→package `depends_on` edge.
+3. **Entity page content + template cleanup** (`wiki-io` assets + scanner): migrate the content sections from the old `overview.md`/subpages into the `entity-<type>.md` templates (except `package/testing.md`, now covered by `entity-test-suite`); flesh out each entity type with ontology-relevant sections using `TODO: <instructions>` placeholders; fix dead links; then remove the dead `domain/` / `package/` / `plugin/` / `app/` template dirs.
+4. **Scan-time template-variable population**: substitute entity-page placeholders (e.g. `# <Package Name>` → `# wiki-io`) when the scan runs, including a per-entity `summary:` frontmatter field (from the graph node description) that feeds feature 1's index summaries.
+5. **Debt**: fix the `test_integration_gate.py` failure (7 integration files onto the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif or allowlist); fix PROJECT.md drift ("What This Is"/Constraints still reference `deepagents` + `lattice-wiki`).
+
+**Key context:**
+
+- **Bug-fix / enhancement milestone.** Phase numbering continues from Phase 53 → v1.10 starts at Phase 54.
+- **All work is internal** — `wiki-io` (index_generator, entity_writer, page templates), `graph-io` (packages.py dependency filtering + `depends_on` edge), and the agent scanner. No new external dependencies expected.
+- **Decisions locked at scoping:** per-entity summaries come from a scanner-written `summary:` frontmatter field (index reads it uniformly, like curated lanes); deps/test-suites nest under packages only (flat By-Kind lists for those two kinds dropped); internal package-as-dependency becomes a `depends_on` package→package edge.
+- **Deferred (not in v1.10):** per-phase security reviews (v1.8/v1.9), formal milestone audits (v1.6/v1.8/v1.9), Nyquist retro-validation, Phase 50 verification backfill, dependency-family clustering, scanner 9-stage restructure.
+
 ## Previous Milestone: v1.9 Graph Refinements & Wiki Filename Slimdown (SHIPPED 2026-05-28)
 
 **Goal (achieved):** Tighten the graph-build pipeline (built-in handling, app classification) and slim the wiki projection (shorter human-readable filenames, drop dormant `package-family`) — so the graph admits noisy stdlib calls cleanly without leaking them into the wiki, packages that are really apps get classified as such, and entity pages get human-readable filenames instead of fully-qualified URI slugs. Shipped as 5 phases (49–53), 15 plans, 24/24 requirements; merged to `main` via PR #1.
@@ -285,7 +308,7 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_No active milestone. v1.9 shipped 2026-05-28; next milestone not yet scoped — run `/gsd:new-milestone` to define requirements + roadmap. Phase numbering continues from Phase 53._
+_v1.10 (Wiki Index & Entity Page Enrichment) scoped 2026-05-28 — requirements defined in `.planning/REQUIREMENTS.md`; phase structure in `.planning/ROADMAP.md` (continues from Phase 54)._
 
 _See "Deferred to v1.10+" below for carried-forward items (process debt + graph/wiki backlog), and "Out of Scope" for items deferred past v1.x._
 
@@ -374,7 +397,9 @@ _See "Deferred to v1.10+" below for carried-forward items (process debt + graph/
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 5 phases (49-53), 15 plans, 24/24 requirements; merged to `main` via PR #1. Delivered the `builtin` graph kind, `package`→`app` reclassification, short `<kind>_<name>.md` entity filenames (dead slug machinery removed), and full `package-family` + LIB-003 removal. Known debt: Phase 50 lacks a formal VERIFICATION.md; no milestone audit run.
+**Last updated:** 2026-05-28 — milestone v1.10 (Wiki Index & Entity Page Enrichment) STARTED. Scope: human-readable index with per-entity summaries + an app section; nest test-suites/dependencies under their packages; stop emitting `dependency` nodes for workspace packages (use a `depends_on` edge); migrate old overview/subpage content into `entity-<type>` templates + flesh out ontology sections with TODO placeholders + scan-time variable population; debt fixes (`test_integration_gate.py`, PROJECT.md drift). Phase numbering continues from Phase 53 → v1.10 starts at Phase 54.
+
+**Prior update:** 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 5 phases (49-53), 15 plans, 24/24 requirements; merged to `main` via PR #1. Delivered the `builtin` graph kind, `package`→`app` reclassification, short `<kind>_<name>.md` entity filenames (dead slug machinery removed), and full `package-family` + LIB-003 removal. Known debt: Phase 50 lacks a formal VERIFICATION.md; no milestone audit run.
 
 **Prior update:** 2026-05-27 — milestone v1.8 (Wiki Entity Restructure) SHIPPED. 7 phases (42-48), 20 plans, 38/38 requirements satisfied. UAT 8/8 passed for the Phase 46 atomic cutover (47 entities, 122 inbound-link rewrites, single commit on the external vault).
 
@@ -400,4 +425,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 53 phases / 185 plans across v1.0-v1.9 (ten milestones); next milestone starts at Phase 54.*
+*Last updated: 2026-05-28 — milestone v1.10 (Wiki Index & Entity Page Enrichment) STARTED. v1.9 SHIPPED 2026-05-28. 53 phases / 185 plans across v1.0-v1.9 (ten milestones); v1.10 starts at Phase 54.*
