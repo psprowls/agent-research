@@ -1,27 +1,19 @@
-"""Entity writer scaffold — locks the Phase 42 design contracts (D-10).
+"""Entity writer — graph-driven entity page rendering for the wiki.
 
-This module is the single source of truth for THREE contracts that every
-downstream entity-writing phase (43-46) depends on:
+This module owns THREE contracts every downstream entity-writing phase
+(43-46) depends on:
 
-1. **URI-to-filename slug encoding (D-01..D-05).**
-   `encode_slug` maps a graph URI to a vault filename stem by replacing
-   both `:` and `/` with `__` (double-underscore). The kind segment uses
-   single-underscore (`test_suite`, `entry_point`) so it cannot collide
-   with the separator. Injectivity holds because no admitted URI prefix
-   contains `__`. Round-trip via `decode_slug` requires splitting on `__`
-   and asserting the first segment is an admitted URI prefix (e.g. `pkg`,
-   `repo`, `domain`). Note that URI prefixes are short aliases of the
-   admitted kind names (`pkg` <-> `package`, `repo` <-> `repository`).
-   See `_URI_PREFIX_BY_KIND` below for the full mapping.
-
-   Worked examples (from `agent-research` itself):
-
-     pkg:agent-research/graph-io           -> pkg__agent-research__graph-io
-     domain:agent-research/billing         -> domain__agent-research__billing
-     test_suite:agent-research/eval/unit   -> test_suite__agent-research__eval__unit
-     plugin:graph-wiki                     -> plugin__graph-wiki
-     dependency:pypi/boto3                 -> dependency__pypi__boto3
-     repo:agent-research/agent-research    -> repo__agent-research__agent-research
+1. **URI-to-filename derivation (Phase 52 D-03..D-07; cleanup Phase 53 D-04..D-06).**
+   `short_filename(uri, collision_set, ...)` is the pure function that maps a
+   graph URI to a short, human-readable vault filename stem (e.g.
+   `pkg_graph-io`, `dep_boto3`, `unit_tests_wiki-io`). Colliders across
+   different URIs receive a deterministic `__<6hex>` sha256 disambiguator
+   suffix. `_compute_collision_set` precomputes the colliding-URI set in a
+   single graph pass; both `write_entities` and the index/link consumers
+   thread that same set so every filename consumer agrees byte-for-byte on
+   each entity's stem. The legacy bidirectional slug helpers
+   (`encode_slug` / `decode_slug`) were removed in Phase 53 — reverse
+   lookups go through `frontmatter.load(entity_path).metadata["uri"]`.
 
 2. **Scanner-owned frontmatter whitelist (D-06..D-09).**
    `SCANNER_OWNED_KEYS` is a flat frozenset enumerating every frontmatter
@@ -36,14 +28,8 @@ downstream entity-writing phase (43-46) depends on:
 3. **Narrative region marker (D-16).**
    Per-kind templates carry a `## Narrative` H2 section that the LLM
    scanner targets and overwrites; everything outside that H2 (including
-   other human-authored H2 sections) is preserved. Phase 42 does NOT
-   implement the narrative-write path; it locks the contract. The H2
-   string is a hard convention — humans must not rename the heading.
-
-The Phase 42 scaffold is intentionally narrow: only the four exports below
-plus this module docstring. Phase 43 expands the module with
-`EntityWriteResult`, `merge_frontmatter`, `write_entities`, and hard-delete
-logic; do NOT add those here.
+   other human-authored H2 sections) is preserved. The H2 string is a hard
+   convention — humans must not rename the heading.
 """
 
 from __future__ import annotations
@@ -85,9 +71,12 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
 
 # Map admitted kind names to their URI prefix as produced by `graph_io.uri`
 # builders. Two prefixes are shortened aliases of the kind name (`repository`
-# -> `repo`, `package` -> `pkg`); the remaining four are identical. This is
-# the surface `decode_slug` validates against, since slugs start with the
-# URI-prefix, not the kind name.
+# -> `repo`, `package` -> `pkg`); the remaining four are identical.
+#
+# Phase 53 D-06: `_ADMITTED_URI_PREFIXES` was removed (it only had `decode_slug`
+# as a consumer, and Phase 53 D-04 deleted that function). The forward
+# `short_filename` helper consumes `_FILENAME_PREFIX_BY_URI_PREFIX` directly,
+# which is the only filename-layer prefix surface that remains.
 _URI_PREFIX_BY_KIND: dict[str, str] = {
     "repository": "repo",
     "domain": "domain",
@@ -96,14 +85,12 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "plugin": "plugin",
     # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
     # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
-    # this dict is consumed by `decode_slug` to map legacy long-form filename
-    # slugs back to URIs. The new short-form filename for dependency entities
-    # is `dep_<name>` and is produced by `short_filename` via
+    # the short-form filename for dependency entities is `dep_<name>` and is
+    # produced by `short_filename` via
     # `_FILENAME_PREFIX_BY_URI_PREFIX["dependency"] = "dep"`.
     "dependency": "dep",
     "test_suite": "test_suite",
 }
-_ADMITTED_URI_PREFIXES: frozenset[str] = frozenset(_URI_PREFIX_BY_KIND.values())
 
 # Frontmatter keys the scanner owns and may overwrite on every scan.
 # Anything outside this set is human-authored and MUST be preserved by
@@ -148,43 +135,6 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
         "package_count",
     }
 )
-
-
-def encode_slug(uri: str) -> str:
-    """Encode a graph URI as a vault filename stem (D-01).
-
-    Replaces `:` and `/` with `__`. Injective and round-trip-stable across
-    all 7 admitted kinds for fragments that DO NOT contain `__` AND DO NOT
-    start or end with `_`. Real-world org / repo / package / suite names
-    follow these constraints (PEP-8 / npm / cargo naming conventions prefer
-    dashes to leading-underscore identifiers in distribution names).
-    """
-    return uri.replace(":", "__").replace("/", "__")
-
-
-def decode_slug(slug: str) -> str:
-    """Decode a vault filename stem back to its graph URI (D-03).
-
-    Splits on `__`, asserts the first segment is in `ADMITTED_KINDS`, and
-    reconstructs the URI as `<kind>:<remaining_segments_joined_by_/>`.
-
-    Raises:
-        ValueError: if `slug` has fewer than 2 `__`-separated segments,
-            or if the first segment is not a recognized admitted kind.
-    """
-    segments = slug.split("__")
-    if len(segments) < 2:
-        raise ValueError(
-            f"decode_slug: malformed slug {slug!r}: expected at least 2 "
-            f"`__`-separated segments (kind + path), got {len(segments)}"
-        )
-    prefix, *path_segments = segments
-    if prefix not in _ADMITTED_URI_PREFIXES:
-        raise ValueError(
-            f"decode_slug: unknown URI prefix {prefix!r} in slug {slug!r}: "
-            f"expected one of {sorted(_ADMITTED_URI_PREFIXES)}"
-        )
-    return f"{prefix}:{'/'.join(path_segments)}"
 
 
 # ----------------------------------------------------------------------------
