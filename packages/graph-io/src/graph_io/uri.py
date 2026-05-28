@@ -46,10 +46,7 @@ def domain_uri(ctx: RepoContext, name: str) -> str:
 
 
 # v1.8 concept-level kinds (Phase 42 D-04): not repo-scoped, so no RepoContext.
-def package_family_uri(name: str) -> str:
-    return f"package_family:{name}"
-
-
+# Phase 51 PKGFAM-02: package_family entity kind retired; builder removed.
 def plugin_uri(name: str) -> str:
     return f"plugin:{name}"
 
