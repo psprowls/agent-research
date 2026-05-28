@@ -29,7 +29,7 @@ from graph_io import packages, plugins, structural_nodes
 from graph_io.schema import apply_schema
 from graph_io.uri import RepoContext
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS_V18,
+    ADMITTED_KINDS,
     WriteLockHeldError,
     _acquire_scan_lock,
     write_entities,
@@ -104,7 +104,7 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     _init_git_repo(tmp_path)
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
-    result = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    result = write_entities(conn, wiki_root, ADMITTED_KINDS)
 
     # Expected pages: 1 repo + 2 packages + 3 unique deps (boto3, pyyaml, click) + 1 plugin = 7
     assert len(result.created) >= 7, (
@@ -126,12 +126,12 @@ def test_status_deprecated_preserved_after_rewrite(tmp_path):
     _init_git_repo(tmp_path)
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
-    write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(conn, wiki_root, ADMITTED_KINDS)
     pkg_a_path = wiki_root / "entities" / "pkg__local__fixture__pkg-a.md"
     raw = pkg_a_path.read_text()
     raw_new = raw.replace("kind: package\n", "kind: package\nstatus: deprecated\n", 1)
     pkg_a_path.write_text(raw_new)
-    write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(conn, wiki_root, ADMITTED_KINDS)
     final = pkg_a_path.read_text()
     assert "status: deprecated" in final
 
@@ -141,7 +141,7 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
     _init_git_repo(tmp_path)
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
-    write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(conn, wiki_root, ADMITTED_KINDS)
     pkg_a_path = wiki_root / "entities" / "pkg__local__fixture__pkg-a.md"
     assert pkg_a_path.exists()
 
@@ -157,7 +157,7 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
         "DELETE FROM nodes WHERE kind='package' AND name='pkg-a'"
     )
 
-    result = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    result = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert any("pkg-a" in uri for uri in result.deleted)
     assert not pkg_a_path.exists()
     log_path = tmp_path / ".graph-wiki" / "deletions.log"
@@ -195,7 +195,7 @@ def test_scan_lock_blocks_concurrent_writes(tmp_path):
         assert holder_ready.wait(timeout=2.0)
         start = time.time()
         with pytest.raises(WriteLockHeldError):
-            write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+            write_entities(conn, wiki_root, ADMITTED_KINDS)
         elapsed = time.time() - start
         assert elapsed < 0.5, f"LOCK_NB should fail fast; took {elapsed:.3f}s"
     finally:
@@ -208,8 +208,8 @@ def test_determinism_second_run_all_unchanged(tmp_path):
     _init_git_repo(tmp_path)
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
-    r1 = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
-    r2 = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    r1 = write_entities(conn, wiki_root, ADMITTED_KINDS)
+    r2 = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert r2.created == []
     assert r2.updated == []
     assert r2.deleted == []
@@ -222,7 +222,7 @@ def test_needs_narrative_round_trip(tmp_path):
     _init_git_repo(tmp_path)
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
-    r1 = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    r1 = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert len(r1.needs_narrative) >= 7
-    r2 = write_entities(conn, wiki_root, ADMITTED_KINDS_V18)
+    r2 = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert r2.needs_narrative == set()

@@ -6,12 +6,12 @@ downstream entity-writing phase (43-46) depends on:
 1. **URI-to-filename slug encoding (D-01..D-05).**
    `encode_slug` maps a graph URI to a vault filename stem by replacing
    both `:` and `/` with `__` (double-underscore). The kind segment uses
-   single-underscore (`test_suite`, `entry_point`, `package_family`) so it
-   cannot collide with the separator. Injectivity holds because no admitted
-   URI prefix contains `__`. Round-trip via `decode_slug` requires splitting
-   on `__` and asserting the first segment is an admitted URI prefix
-   (e.g. `pkg`, `repo`, `domain`). Note that URI prefixes are short aliases
-   of the admitted kind names (`pkg` <-> `package`, `repo` <-> `repository`).
+   single-underscore (`test_suite`, `entry_point`) so it cannot collide
+   with the separator. Injectivity holds because no admitted URI prefix
+   contains `__`. Round-trip via `decode_slug` requires splitting on `__`
+   and asserting the first segment is an admitted URI prefix (e.g. `pkg`,
+   `repo`, `domain`). Note that URI prefixes are short aliases of the
+   admitted kind names (`pkg` <-> `package`, `repo` <-> `repository`).
    See `_URI_PREFIX_BY_KIND` below for the full mapping.
 
    Worked examples (from `agent-research` itself):
@@ -19,7 +19,6 @@ downstream entity-writing phase (43-46) depends on:
      pkg:agent-research/graph-io           -> pkg__agent-research__graph-io
      domain:agent-research/billing         -> domain__agent-research__billing
      test_suite:agent-research/eval/unit   -> test_suite__agent-research__eval__unit
-     package_family:aws                    -> package_family__aws
      plugin:graph-wiki                     -> plugin__graph-wiki
      dependency:pypi/boto3                 -> dependency__pypi__boto3
      repo:agent-research/agent-research    -> repo__agent-research__agent-research
@@ -49,10 +48,16 @@ logic; do NOT add those here.
 
 from __future__ import annotations
 
-# v1.8 admitted entity kinds — the 7 graph-derived kinds the wiki materializes
+# Admitted entity kinds — the 6 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
+#
+# Phase 51 PKGFAM-03 / D-04: the retired family-grouping kind is gone;
+# this frozenset is complete and final (no subtraction-narrow). Re-
+# introducing a family-like grouping is deferred (REQUIREMENTS.md
+# "Future Requirements") and would build on domain-clustering primitives,
+# not a separate kind.
 #
 # Phase 49 D-16: `builtin` is intentionally NOT admitted here. Stdlib modules
 # are inspectable via `cg list-builtins` / `cg describe-builtin` but do not
@@ -63,7 +68,6 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
         "repository",
         "domain",
         "package",
-        "package_family",
         "plugin",
         "dependency",
         "test_suite",
@@ -72,14 +76,13 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
 
 # Map admitted kind names to their URI prefix as produced by `graph_io.uri`
 # builders. Two prefixes are shortened aliases of the kind name (`repository`
-# -> `repo`, `package` -> `pkg`); the remaining five are identical. This is
+# -> `repo`, `package` -> `pkg`); the remaining four are identical. This is
 # the surface `decode_slug` validates against, since slugs start with the
 # URI-prefix, not the kind name.
 _URI_PREFIX_BY_KIND: dict[str, str] = {
     "repository": "repo",
     "domain": "domain",
     "package": "pkg",
-    "package_family": "package_family",
     "plugin": "plugin",
     "dependency": "dependency",
     "test_suite": "test_suite",
@@ -122,8 +125,6 @@ SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
         "ecosystem",
         "used_by",
         "versions_in_use",
-        # Edge-derived (package_family)
-        "members",
         # Edge-derived (repository)
         "package_count",
     }
@@ -192,11 +193,9 @@ _logger = logging.getLogger(__name__)
 from graph_io import queries as _queries
 
 
-# v1.8 caller subset of ADMITTED_KINDS — defers `package_family` to v1.9 per D-07.
-ADMITTED_KINDS_V18: frozenset[str] = ADMITTED_KINDS - frozenset({"package_family"})
-
-
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
+# Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
+# retired family-grouping kind).
 STRUCTURAL_KEYS: frozenset[str] = frozenset(
     {
         "domains",
@@ -207,7 +206,6 @@ STRUCTURAL_KEYS: frozenset[str] = frozenset(
         "sub_domains",
         "packages",
         "tested_packages",
-        "members",
         "used_by",
     }
 )
@@ -527,7 +525,7 @@ def write_entities(
         for kind in sorted(admitted_kinds):
             list_fn = list_fns.get(kind)
             if list_fn is None:
-                continue  # unknown admitted kind (e.g. package_family v1.9) — skip
+                continue  # unknown admitted kind without a list_fn — skip
             template_path = _template_path_for_kind(kind)
             if not template_path.exists():
                 errors.append(EntityWriteError(
