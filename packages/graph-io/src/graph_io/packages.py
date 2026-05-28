@@ -59,12 +59,15 @@ def _read_pyproject(path: Path) -> dict[str, Any] | None:
         for group, entries in dep_groups_raw.items():
             if isinstance(entries, list):
                 dep_groups[group] = [e for e in entries if isinstance(e, str)]
+    # Phase 50 D-03: surface [project.scripts] presence as a classify() signal.
+    scripts = project.get("scripts") or {}
     return {
         "name": name,
         "version": project.get("version", ""),
         "dependencies": list(project.get("dependencies", [])),
         "dep_groups": dep_groups,  # PEP 735 — Phase 43 D-02
         "language": "python",
+        "scripts_present": bool(scripts),  # Phase 50 D-03
     }
 
 
@@ -79,11 +82,19 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     if not name:
         return None
     deps = data.get("dependencies") or {}
+    # Phase 50 D-03: surface package.json "bin" presence as a classify() signal.
+    # Truthy when bin is a non-empty string OR a dict with at least one truthy value.
+    bin_val = data.get("bin")
+    bin_present = bool(bin_val) and (
+        (isinstance(bin_val, str) and bool(bin_val))
+        or (isinstance(bin_val, dict) and any(bin_val.values()))
+    )
     return {
         "name": name,
         "version": data.get("version", ""),
         "dependencies": sorted(deps.keys()) if isinstance(deps, dict) else list(deps),
         "language": "javascript",
+        "bin_present": bin_present,  # Phase 50 D-03
     }
 
 
