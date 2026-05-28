@@ -41,4 +41,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"version:  {desc.version}")
         print(f"files:    {len(desc.files)}")
         print(f"counts:   {desc.counts}")
+        # Phase 55 D-08: both directions of the depends_on_package edge.
+        print(f"internal deps:       {', '.join(desc.internal_dependencies) or '-'}")
+        print(f"internal dependents: {', '.join(desc.internal_dependents) or '-'}")
     return exit_codes.SUCCESS
