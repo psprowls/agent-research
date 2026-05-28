@@ -24,7 +24,7 @@
 
 - [x] **ENTITY-01**: Content sections from the legacy per-kind `overview.md` pages (under the old `package/`, `domain/`, `plugin/`, `app/` template directories — the subpages have already been consolidated into each `overview.md`) are migrated into the corresponding `entity-<type>.md` templates — except the package `testing.md`-derived content, which moves to the `entity-test-suite.md` template (not `entity-package`).
 - [x] **ENTITY-02**: Each `entity-<type>.md` template carries ontology-relevant sections for its kind; sections that need human/LLM content show a `TODO: <instructions>` placeholder rather than dead links or empty headings.
-- [ ] **ENTITY-03**: The legacy directory-style template assets (`package/`, `domain/`, `plugin/`, `app/`) are removed once their content is migrated, and no dead links remain in generated entity pages.
+- [x] **ENTITY-03**: The legacy directory-style template assets (`package/`, `domain/`, `plugin/`, `app/`) are removed once their content is migrated, and no dead links remain in generated entity pages.
 
 ### Scan-time population (scanner + `entity_writer`)
 
@@ -68,7 +68,7 @@
 | CLASS-02 | 55 | Complete |
 | ENTITY-01 | 56 | Complete |
 | ENTITY-02 | 56 | Complete |
-| ENTITY-03 | 56 | Pending |
+| ENTITY-03 | 56 | Complete |
 | SCAN-01 | 56 | Complete |
 | SCAN-02 | 56 | Complete |
 | DEBT-01 | 54 | Complete |
