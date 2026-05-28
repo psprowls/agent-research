@@ -617,6 +617,68 @@ def _is_template_body_default(body: str, template_body: str) -> bool:
     return body.rstrip() == template_body.rstrip()
 
 
+def _compute_collision_set(
+    conn: sqlite3.Connection,
+    admitted_kinds: frozenset[str],
+    list_fns: dict[str, Callable],
+) -> frozenset[str]:
+    """Pre-pass that returns the set of URIs whose plain short stem collides.
+
+    Iterates every admitted-kind node once, computes each node's *plain*
+    short filename via ``short_filename(uri, collision_set=frozenset(), ...)``
+    (i.e. with an empty collision set so no suffix is added), groups by stem,
+    and returns the set of URIs whose stem appears more than once across the
+    whole admitted-kind enumeration.
+
+    D-01 + D-02: extends to TestSuite kind-aware names by reading
+    ``suite_kind`` from ``node.attrs["suite_kind"]`` and ``pkg_for_suite``
+    from ``Path(node.attrs["path"]).parent.name`` (or last segment fallback)
+    when ``kind == "test_suite"``. This means two test_suites with the same
+    kind + same package name (e.g. two ``unit`` suites for the same package
+    name) will be flagged as colliding and both receive a ``__<6hex>``
+    disambiguator — matching the all-colliders D-04 semantics for the rest
+    of the entity surface.
+
+    Internal helper (single-leading-underscore): exists to keep
+    ``write_entities`` readable + unit-testable in isolation. Reads the
+    SQLite connection in a read-only fashion; does not write or mutate
+    global state.
+    """
+    stem_to_uris: dict[str, list[str]] = {}
+    for kind in sorted(admitted_kinds):
+        list_fn = list_fns.get(kind)
+        if list_fn is None:
+            continue
+        for node in list_fn(conn):
+            uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
+            if not uri:
+                continue
+            if kind == "test_suite":
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                suite_kind = attrs.get("suite_kind") or None
+                suite_path = attrs.get("path")
+                pkg_for_suite: str | None = None
+                if suite_path:
+                    pkg_for_suite = Path(suite_path).parent.name or None
+                if not pkg_for_suite:
+                    pkg_for_suite = None
+                stem = short_filename(
+                    uri,
+                    frozenset(),
+                    suite_kind=suite_kind,
+                    pkg_for_suite=pkg_for_suite,
+                )
+            else:
+                stem = short_filename(uri, frozenset())
+            stem_to_uris.setdefault(stem, []).append(uri)
+    return frozenset(
+        uri
+        for uris in stem_to_uris.values()
+        if len(uris) > 1
+        for uri in uris
+    )
+
+
 def write_entities(
     conn: sqlite3.Connection,
     wiki_root: Path,
