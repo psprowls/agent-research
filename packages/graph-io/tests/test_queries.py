@@ -1290,6 +1290,102 @@ def test_describe_builtin_filters_by_language(conn: sqlite3.Connection) -> None:
     assert result.uri == "builtin:python/os"
 
 
+# ============================================================================
+# Phase 50 Plan 03 Task 1: AppDescription, list_apps, describe_app.
+# ============================================================================
+
+
+def test_list_apps_alphabetical(conn: sqlite3.Connection) -> None:
+    """Phase 50 D-09: list_apps returns alphabetically-sorted App NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="zeta-cli", path="apps/zeta", line=None,
+                          attrs={"language": "python", "uri": "app:o/r/zeta-cli",
+                                 "app_kind": "cli", "app_signals": ["cli"]}),
+                GraphNode(kind="app", name="alpha-cli", path="apps/alpha", line=None,
+                          attrs={"language": "python", "uri": "app:o/r/alpha-cli",
+                                 "app_kind": "cli", "app_signals": ["cli"]}),
+                GraphNode(kind="app", name="middle-app", path="apps/middle", line=None,
+                          attrs={"language": "javascript",
+                                 "uri": "app:o/r/middle-app",
+                                 "app_kind": "nextjs",
+                                 "app_signals": ["cli", "nextjs"]}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_apps(conn)] == [
+        "alpha-cli", "middle-app", "zeta-cli",
+    ]
+
+
+def test_describe_app_returns_app_description(conn: sqlite3.Connection) -> None:
+    """Phase 50 D-10 / APP-04: describe_app returns AppDescription with all fields populated."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="app",
+                    name="my-cli",
+                    path="apps/my-cli",
+                    line=None,
+                    attrs={
+                        "language": "python",
+                        "version": "0.1.0",
+                        "uri": "app:o/r/my-cli",
+                        "app_kind": "cli",
+                        "app_signals": ["cli"],
+                    },
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    desc = queries.describe_app(conn, name="my-cli")
+    assert desc is not None
+    assert desc.name == "my-cli"
+    assert desc.language == "python"
+    assert desc.version == "0.1.0"
+    assert desc.app_kind == "cli"
+    assert desc.app_signals == ["cli"]
+    assert desc.files == []
+    assert desc.counts == {}
+    assert desc.domains == []
+    assert desc.entry_points == []
+    assert desc.test_suites == []
+
+
+def test_describe_app_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    """describe_app returns None for an unknown app name."""
+    assert queries.describe_app(conn, name="nonexistent-app") is None
+
+
+def test_describe_app_does_not_match_package_kind(conn: sqlite3.Connection) -> None:
+    """D-10 invariant: describe_app's filter is strictly kind='app' — a name that
+    only exists under kind='package' returns None."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="package",
+                    name="shared-name",
+                    path="pkgs/shared-name",
+                    line=None,
+                    attrs={"uri": "pkg:o/r/shared-name"},
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    # No kind='app' row with this name → describe_app returns None even though
+    # a kind='package' row exists.
+    assert queries.describe_app(conn, name="shared-name") is None
+
+
 def test_list_plugins_alphabetical(conn: sqlite3.Connection) -> None:
     """D-05: list_plugins returns alphabetically-sorted plugin NodeRecords."""
     upsert.upsert_records(
