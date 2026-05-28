@@ -479,15 +479,39 @@ def _detect_structural_change(existing_fm: dict, new_fm: dict) -> bool:
     return False
 
 
-def _render_entity_page(template_path: Path, frontmatter_dict: dict) -> str:
+# Phase 56 D-03: any template `{{...}}` data token left unsubstituted (no
+# node-derived value) is rewritten to this visible TODO marker rather than
+# surviving raw — keeps SCAN-01 satisfied (no `{{...}}` survives) and surfaces
+# the gap (D-12 blockquote style).
+_RESIDUAL_TOKEN_RE = re.compile(r"\{\{[^}]+\}\}")
+
+
+def _render_entity_page(
+    template_path: Path, frontmatter_dict: dict, variables: dict[str, str]
+) -> str:
     """Render an entity page: template body + given frontmatter dict.
 
     Frontmatter is emitted with `sort_keys=False` because key order has
     already been determined by `merge_frontmatter` (D-14). Output ends with
     exactly one trailing newline for byte-stability (D-15).
+
+    Phase 56 SCAN-01 (D-01/D-02): the body's `{{...}}` *data* tokens are
+    substituted from `variables` using the same literal `str.replace` mechanism
+    as `init_vault.render_template` — NO Jinja. Only `{{...}}` is substituted;
+    instruction-style `<...>` placeholders (authoring guidance inside
+    `> TODO:` blockquotes etc.) are left untouched (the two-token rule). Any
+    `{{...}}` token with no mapped value is rewritten to a visible TODO marker
+    (D-03) so no raw `{{...}}` survives. Frontmatter is built from the dict, so
+    only the body needs substituting.
     """
     template = frontmatter.load(template_path)
     body = template.content
+    for k, v in variables.items():
+        body = body.replace("{{" + k + "}}", v)
+    # D-03: rewrite any residual (unmapped) data token to a visible TODO marker.
+    body = _RESIDUAL_TOKEN_RE.sub(
+        lambda m: f"> TODO: <add value for {m.group(0)}>", body
+    )
     yaml_block = yaml.safe_dump(
         frontmatter_dict,
         sort_keys=False,
@@ -735,7 +759,23 @@ def write_entities(
                         post = frontmatter.load(page_path)
                         existing_fm = dict(post.metadata)
                     merged_fm = merge_frontmatter(existing_fm, scanner_fm)
-                    new_content = _render_entity_page(template_path, merged_fm)
+                    # Phase 56 SCAN-01 (D-04): build the {{...}} data-token map
+                    # from node-available data. Keys here are DATA tokens only;
+                    # instruction `<...>` placeholders are never in this map and
+                    # are never substituted (the two-token rule, D-01). Any token
+                    # a template references but that is absent here is rewritten
+                    # to a TODO marker by _render_entity_page (D-03).
+                    variables: dict[str, str] = {
+                        # Per-kind H1 name token, e.g. {{package_name}} -> node.name
+                        f"{kind}_name": node.name,
+                        # entity-test-suite.md uses {{PACKAGE_SLUG}} (and the
+                        # lowercase form is accepted for symmetry); both map to slug.
+                        "package_slug": slug,
+                        "PACKAGE_SLUG": slug,
+                    }
+                    new_content = _render_entity_page(
+                        template_path, merged_fm, variables
+                    )
                     new_bytes = new_content.encode("utf-8")
                     if existed:
                         old_bytes = page_path.read_bytes()

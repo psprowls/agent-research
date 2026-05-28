@@ -400,7 +400,7 @@ def test_render_entity_page_deterministic_key_order(tmp_path):
     template_path = tmp_path / "tpl.md"
     template_path.write_text("---\nkind: package\n---\n# Test\n\n## Narrative\n")
     fm = {"uri": "pkg:x/y/z", "kind": "package", "domains": ["a"], "status": "live"}
-    out = _render_entity_page(template_path, fm)
+    out = _render_entity_page(template_path, fm, {})
     lines = out.split("\n")
     assert lines[0] == "---"
     assert lines[1].startswith("uri:")
@@ -411,8 +411,8 @@ def test_render_entity_page_byte_stable_across_runs(tmp_path):
     template_path = tmp_path / "tpl.md"
     template_path.write_text("---\nkind: package\n---\n# Test\n")
     fm = {"uri": "pkg:x", "kind": "package", "domains": ["a"]}
-    out1 = _render_entity_page(template_path, fm)
-    out2 = _render_entity_page(template_path, fm)
+    out1 = _render_entity_page(template_path, fm, {})
+    out2 = _render_entity_page(template_path, fm, {})
     assert out1 == out2
     assert out1.endswith("\n")
     assert not out1.endswith("\n\n")
