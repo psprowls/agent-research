@@ -281,6 +281,47 @@
 
 ---
 
+## Milestone: v1.9 — Graph Refinements & Wiki Filename Slimdown
+
+**Shipped:** 2026-05-28
+**Phases:** 5 (49-53) | **Plans:** 15 | **Tasks:** 25
+
+### What Was Built
+- **`builtin` graph kind (Phase 49).** Python + Node stdlib imports admitted as first-class `Builtin` nodes (`builtin:<lang>/<module>`, `language` + `module_name` attrs, `used_by` edges only, no `requires`/`imports`), kept out of the dependency/symbol pool and excluded from wiki rendering. `cg list-builtins` / `cg describe-builtin` surfaces.
+- **`package` → `app` reclassification (Phase 50).** Manifest-signal classifier (`[project.scripts]`, `package.json bin`, `next`/`expo` deps, vite+`index.html`) promotes packages to a distinct `App` graph kind with `app_kind` (cli/nextjs/expo/spa); documented precedence on multi-match, no false-positive reclassification, URI form preserved (`pkg:` → `app:`) so inbound references survive. `cg list-apps` / `cg describe-app`.
+- **`package-family` ripped out (Phase 51).** Kind removed from `_VALID_KINDS`, `package_family_uri` builder deleted, template + `wiki/package-family/` gone, the v1.8 `ADMITTED_KINDS - {"package_family"}` narrow simplified to the final frozenset, CLI subcommands removed. LIB-003 `_SLUG_ONLY_RE` / `_check_no_slug_only_wikilinks` divergence rule + eval baseline retired.
+- **Short entity filenames — core (Phase 52).** `short_filename(uri, collision_set, ...)` pure helper: `<kind>_<name>.md` with a deterministic hash suffix only on the collider, plus framework-aware `unit_tests_<pkg>.md` / `int_tests_<pkg>.md`. Property-tested for idempotence + collision-resistance. Left a deliberate transitional state (5 long-form call sites in `index_generator.py` + 1 in `link_rewriter.py`).
+- **Filename cutover (Phase 53).** Dead `encode_slug` / `decode_slug` / `_ADMITTED_URI_PREFIXES` removed; every consumer (`link_rewriter.py`, `index_generator.py`, `commands/scan.py`) derives filenames via `short_filename` and reads URIs back via `frontmatter.uri`. Verified by a from-scratch exploratory-vault regen (UAT, short-form filenames only) and a 13/13 threat-secure audit.
+
+### What Worked
+- **Transitional-state-then-cutover across two phases.** Phase 52 landed `short_filename` and switched `write_entities` to short form while *leaving the 6 long-form call sites in place* — the suite stayed green the whole time. Phase 53 then closed those call sites and deleted the dead machinery as a clean, isolated breaking change. Introducing the new path before removing the old one kept every intermediate commit shippable.
+- **Pure function + property test before consumers (again).** `short_filename(uri, collision_set)` shipped with idempotence + collision-resistance property tests before the index/rewrite/scan consumers were rewritten — same design-lock pattern that worked for v1.8's `frozenset` contracts. Reverse lookup via `frontmatter.uri` eliminated the entire bidirectional-slug round-trip surface rather than maintaining a `decode_slug`.
+- **Hard dependency ordering held.** 49 (builtin) → 50 (app) → 51 (package-family removal, so `ADMITTED_KINDS` is clean) → 52 (short filenames on the clean kind set) → 53 (cutover). Each phase depended on the prior's graph-kind surface being final; sequencing prevented churn.
+- **Phase 53 got the full quality gate.** UAT (3/3, manual vault regen) + security audit (13/13 threats closed) + verification (20/20 must-haves) — the cutover phase, the one with real breaking-change risk, was the most thoroughly verified.
+
+### What Was Inefficient
+- **Phase 50 shipped with no `VERIFICATION.md`.** It was executed (3 plan summaries) and its APP-01..06 requirements were marked Complete, but the verification gate never ran — the only v1.9 phase missing a verification artifact, and ironically the phase the working branch was named for. Caught only at milestone close. The per-phase verification step is not enforced; a phase can complete execution and have requirements flipped without producing the artifact.
+- **MILESTONES.md one-liner extraction pulled deviation-report headings AGAIN.** `summary-extract --fields one_liner` handed `"1. [Rule 3 - Circular Import] Broke import_scan dependency..."` and `` "`BuiltinDescription` dataclass" `` straight into the v1.9 archive as "Key accomplishments" — same root cause flagged in v1.0/v1.1/v1.2/v1.6/v1.8. Hand-rewritten at close. **Sixth-plus milestone with this exact issue.** The `one_liner:` write-time schema check (`accomplishment:` distinct from `deviation:`, both required) is now badly overdue.
+- **Traceability table never flipped by phase verification.** 14 of 24 requirement rows (BUILTIN, PKGFAM, CLEANUP, WIKI-FN-05/06) read `Pending` at milestone close despite their phases verifying `passed` — one SUMMARY explicitly noted "table left untouched... until phase verification flips it," and nothing ever flipped it. Same schema-gate gap as the one_liner issue, different field. Hand-corrected at close.
+- **No `/gsd:audit-milestone`.** Skipped again — now the established pattern for v1.6 / v1.8 / v1.9. Either institutionalize "no formal audit for ≤8-phase milestones" or build a lighter audit shape; pretending it's a one-off is no longer honest.
+
+### Patterns Established
+- **Introduce-then-cutover for breaking refactors.** Land the new code path and switch the primary producer to it while leaving consumers on the old path (suite green); close the consumers + delete the dead code in a separate, isolated phase. Keeps every intermediate commit shippable and makes the breaking diff reviewable on its own.
+- **Reverse-lookup via stored identity beats a decode function.** Reading `frontmatter.uri` off the entity page eliminated `decode_slug` and the whole bidirectional round-trip surface. When forward derivation is a pure function and the identity is persisted, you never need the inverse.
+- **Reserve the heaviest quality gate for the cutover phase.** The phase that removes/breaks (53), not the phase that adds (52), is where UAT + security + verification concentrate.
+
+### Key Lessons
+- **A phase can "complete" without verifying — the gate isn't enforced.** Phase 50 reached Complete with requirements flipped and no `VERIFICATION.md`. Until `/gsd:execute-phase` (or transition) hard-requires the verification artifact before marking a phase done, milestone close is the catch-net — too late and reliant on the operator noticing.
+- **Schema-field staleness (one_liner + traceability) is one problem with two faces.** Both the deviation-report one-liners and the never-flipped `Pending` rows are write-time-enforcement gaps that surface as manual cleanup at close. The fix is the same: a per-phase gate that validates/updates the field before the SUMMARY commit. Flagged for six milestones running.
+- **Shipping the whole milestone as one fast-forward PR works when the branch is linear.** v1.9's entire 117-commit line lived on a single branch (`phase/50-...`) ahead of a stale `main`; the close merged it as a clean FF via PR #1. Fine here, but it means "ship a phase" and "ship the milestone" collapsed into one merge — there was no per-phase PR cadence.
+
+### Cost Observations
+- **Model mix:** Opus for orchestrator / planner / research; Sonnet for executor / verifier / code-review / security-auditor / plan-checker. No new `models.toml` roles this milestone.
+- **Sessions:** execution clustered over ~2 calendar days (2026-05-27 → 2026-05-28); 5 phases / 15 plans / 25 tasks.
+- **Notable:** first milestone to ship through an actual GitHub PR + merge to `main` (PR #1) rather than living on a working branch — `main` had been 121 commits / 5 phases behind. The Phase 53 vault-regen UAT was idempotent (`+0 ~0 -1`), confirming Phase 52's `write_entities` had already produced short-form on-disk entities.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -290,6 +331,8 @@
 | v1.0 | ~12 | 5 | Established `cores/` + `agents/` workspace pattern; SubagentPool as shared infra; eval harness with two-judge Bedrock panel |
 | v1.1 | dense ~3 days | 5 | Prompt-as-Python-module with provenance comments; two-gate sweep scoring; schema-versioned trace JSONL with lenient consumer; render-once context injection; gap-closure plan pattern |
 | v1.2 | dense ~3 days | 6 | Spec-only phase pattern (M3a → M3b); body-diff-then-verdict pattern for cross-codebase merge; grep-gate enforcement for brand/style rules; 2-line delegation shim across package boundaries; `TaskResult` wrapper for usage_metadata in fan-out callbacks; event-driven deferrals over calendar-driven |
+| … | | | _(v1.3–v1.8 rows not back-filled — see each milestone's section above)_ |
+| v1.9 | dense ~2 days | 5 | Introduce-then-cutover for breaking refactors (Phase 52 lands new path, 53 removes old); pure-function-+-property-test-before-consumers (again); reverse-lookup via stored `frontmatter.uri` instead of a decode function; first milestone shipped via real GitHub PR + FF merge to `main` (PR #1). Recurring debt re-confirmed: one_liner extraction + traceability flips still not write-time-enforced; milestone audit skipped; a phase (50) reached Complete with no VERIFICATION.md |
 
 ### Cumulative Quality
 
