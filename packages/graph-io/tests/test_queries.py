@@ -114,6 +114,43 @@ def test_describe_package(conn: sqlite3.Connection) -> None:
     assert desc.counts["function"] == 1
 
 
+def test_describe_package_internal_deps_and_dependents(
+    conn: sqlite3.Connection,
+) -> None:
+    """Phase 55 D-08 / SC#3: describe_package surfaces both directions of the
+    depends_on_package edge — incoming dependents and outgoing dependencies.
+    """
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="package", name="gamma", path="gamma", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            ],
+            edges=[
+                # beta depends on alpha (src=consumer, dst=internal package)
+                GraphEdge(src=("package", "beta", "beta"), dst=("package", "alpha", "alpha"), kind="depends_on_package", attrs={}),
+            ],
+        ),
+    )
+    # Incoming (SC#3): alpha's dependents include beta.
+    alpha = queries.describe_package(conn, name="alpha")
+    assert alpha is not None
+    assert alpha.internal_dependents == ["beta"]
+    assert alpha.internal_dependencies == []
+    # Outgoing (D-08): beta's dependencies include alpha.
+    beta = queries.describe_package(conn, name="beta")
+    assert beta is not None
+    assert beta.internal_dependencies == ["alpha"]
+    assert beta.internal_dependents == []
+    # Edgeless package: both empty.
+    gamma = queries.describe_package(conn, name="gamma")
+    assert gamma is not None
+    assert gamma.internal_dependencies == []
+    assert gamma.internal_dependents == []
+
+
 def test_describe_path(conn: sqlite3.Connection) -> None:
     upsert.upsert_records(conn, GraphRecords(
         nodes=[

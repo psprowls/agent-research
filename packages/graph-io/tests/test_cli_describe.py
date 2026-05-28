@@ -18,6 +18,7 @@ from graph_io.cli import (
     q_describe_app,
     q_describe_builtin,
     q_describe_dependency,
+    q_describe_package,
     q_describe_plugin,
 )
 
@@ -130,6 +131,93 @@ def test_cg_describe_plugin_not_found(workspace_with_deps_and_plugin, capsys):
     captured = capsys.readouterr()
     assert exit_code == exit_codes.GENERIC
     assert "error: plugin not found:" in captured.err
+
+
+# ---------------------------------------------------------------------------
+# Phase 55 CLASS-02 / D-08 / SC#3: cg describe-package internal deps/dependents
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def workspace_with_internal_dep(tmp_path: Path) -> Path:
+    """Build a fixture workspace where package `beta` declares workspace package
+    `alpha` as a dependency, run cg update --full, return the workspace path.
+    """
+    from graph_io import update
+    from workspace_io.config import resolve as resolve_workspace
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    # Internal target package.
+    (repo_root / "alpha").mkdir()
+    (repo_root / "alpha" / "pyproject.toml").write_text(
+        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+    )
+    # Consumer declares alpha (separator mismatch exercises normalization too).
+    (repo_root / "beta").mkdir()
+    (repo_root / "beta" / "pyproject.toml").write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        'dependencies = ["alpha>=0.1"]\n'
+    )
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
+
+    update.run(repo_root, full=True)
+    return resolve_workspace(repo_root, require_manifest=False).workspace
+
+
+def _ns_package(workspace: Path, *, name: str, fmt: str = "human"):
+    return argparse.Namespace(
+        workspace=workspace,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        name=name,
+    )
+
+
+def test_cg_describe_package_internal_deps_json(workspace_with_internal_dep, capsys):
+    """JSON output exposes internal_dependencies (outgoing) on the consumer."""
+    args = _ns_package(workspace_with_internal_dep, name="beta", fmt="json")
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    parsed = json.loads(captured.out)
+    assert parsed["name"] == "beta"
+    assert "internal_dependencies" in parsed
+    assert "internal_dependents" in parsed
+    assert parsed["internal_dependencies"] == ["alpha"]
+    assert parsed["internal_dependents"] == []
+
+
+def test_cg_describe_package_internal_dependents_json(
+    workspace_with_internal_dep, capsys
+):
+    """JSON output exposes internal_dependents (incoming) on the target — SC#3."""
+    args = _ns_package(workspace_with_internal_dep, name="alpha", fmt="json")
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    parsed = json.loads(captured.out)
+    assert parsed["name"] == "alpha"
+    assert parsed["internal_dependents"] == ["beta"]
+    assert parsed["internal_dependencies"] == []
+
+
+def test_cg_describe_package_internal_deps_human(workspace_with_internal_dep, capsys):
+    """Human output renders the internal dependency on the consumer."""
+    args = _ns_package(workspace_with_internal_dep, name="beta")
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "internal deps:" in captured.out
+    assert "alpha" in captured.out
 
 
 # ---------------------------------------------------------------------------
