@@ -289,7 +289,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 49. Builtin Kind (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
 | 50. App Reclassification (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
 | 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 4/4 | Complete    | 2026-05-28 |
-| 52. Wiki Filename Slimdown — Core | v1.9 | 0/TBD | Not started | - |
+| 52. Wiki Filename Slimdown — Core | v1.9 | 1/3 | In Progress|  |
 | 53. Wiki Filename Cutover | v1.9 | 0/TBD | Not started | - |
 
 ---

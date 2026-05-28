@@ -28,9 +28,9 @@
 ### Wiki entity filename slimdown (`wiki-io`)
 
 - [ ] **WIKI-FN-01**: Entity filenames switch from URI-fully-qualified (`pkg__org__repo__name.md`) to a short human-readable form: `<kind-prefix>_<name>.md` for the common case (e.g. `pkg_eval-harness.md`, `app_graph-wiki-agent.md`, `dep_langchain-aws.md`, `plugin_graph-wiki.md`, `repo_agent-research.md`, `domain_observability.md`, `builtin_pathlib.md` — though `builtin` pages are not rendered per BUILTIN below).
-- [ ] **WIKI-FN-02**: Test-suite filenames use a framework-aware prefix: `unit_tests_<pkg>.md` for unit suites and `int_tests_<pkg>.md` for integration suites, derived from the suite's `kind` attribute on the `TestSuite` graph node. Disambiguates the common case where multiple suites are literally named `tests`.
+- [x] **WIKI-FN-02**: Test-suite filenames use a framework-aware prefix: `unit_tests_<pkg>.md` for unit suites and `int_tests_<pkg>.md` for integration suites, derived from the suite's `kind` attribute on the `TestSuite` graph node. Disambiguates the common case where multiple suites are literally named `tests`.
 - [ ] **WIKI-FN-03**: When two entities would produce the same short filename (cross-repo, cross-org), append a short repo/org hash suffix only to the collider (e.g., `pkg_utils__a3f7c1.md`). Hash derived deterministically from the full URI; length tuned to keep collision-prevention while staying readable.
-- [ ] **WIKI-FN-04**: Filename derivation is a pure function of the entity URI + collision set, exposed in `wiki_io.entity_writer` as a testable helper. Property test confirms idempotence and collision-resistance.
+- [x] **WIKI-FN-04**: Filename derivation is a pure function of the entity URI + collision set, exposed in `wiki_io.entity_writer` as a testable helper. Property test confirms idempotence and collision-resistance.
 - [ ] **WIKI-FN-05**: `migrate-vault` (or equivalent one-shot cutover command) rewrites existing inbound `[[…]]` wikilinks in curated lanes (`/concepts/`, `/adrs/`, `/architecture/`, `/work/`, `/sources/`) from the old URI-fully-qualified filenames to the new short filenames, in a single atomic commit on the vault repo. CommonMark-aware tokenizer (code-block / inline-code excluded) per v1.8 precedent.
 - [ ] **WIKI-FN-06**: `generate_index()` writes the new short filenames in `wiki/index.md`. Existing exploratory `~/Personal/graph-wiki/agent-research` vault is re-scanned + migrated as part of milestone close.
 
@@ -87,8 +87,8 @@
 | PKGFAM-05 | Phase 51 | Pending |
 | CLEANUP-01 | Phase 51 | Pending |
 | WIKI-FN-01 | Phase 52 | Pending |
-| WIKI-FN-02 | Phase 52 | Pending |
+| WIKI-FN-02 | Phase 52 | Complete |
 | WIKI-FN-03 | Phase 52 | Pending |
-| WIKI-FN-04 | Phase 52 | Pending |
+| WIKI-FN-04 | Phase 52 | Complete |
 | WIKI-FN-05 | Phase 53 | Pending |
 | WIKI-FN-06 | Phase 53 | Pending |
