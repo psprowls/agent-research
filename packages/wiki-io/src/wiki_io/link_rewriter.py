@@ -8,7 +8,10 @@ CONTEXT.md decisions (see .planning/phases/46-inbound-link-migration-cutover/46-
     D-01 regex with position-aware code-region masking (no markdown-it-py)
     D-02 explicit fixture suite for edge cases
     D-03 three-source rewrite mapping pipeline (convention + scan + grep)
-    D-04 package_family deferred — not in CONVENTION_TEMPLATES
+    D-04 (Phase 46) family-grouping deferred — Phase 51 retired the kind
+         outright; strict-deletion of the former deferral branches per
+         Phase 51 RESEARCH.md Pitfall 4. Any live-vault leftovers are
+         handled atomically by Phase 53's migrate-vault cutover.
     D-13 5 curated lanes (concepts, adrs, architecture, sources, work) — applied by rewrite_vault
     D-14 wiki/ root files NOT rewritten — enforced by rewrite_vault's lane scope
     D-16 JSONL migration.log helper private to this module
@@ -47,10 +50,9 @@ CONVENTION_TEMPLATES: dict[str, str] = {
     "plugin":     "plugin/{name}/overview",
     "test_suite": "test-suites/{name}/index",
 }
-# package_family deferred to v1.9 per CONTEXT D-04 — intentionally absent.
 
 OLD_LAYOUT_ROOTS: tuple[str, ...] = (
-    "packages", "dependencies", "domain", "plugin", "package-family",
+    "packages", "dependencies", "domain", "plugin",
 )
 
 # All target prefixes the rewriter recognizes as "old layout" candidates.
@@ -284,16 +286,12 @@ def _source2_scan_old_layout(
     table: dict[str, str | None],
     index: dict[str, dict[str, str]],
 ) -> None:
-    """Source 2: scan-and-match over old layout dirs. Mutates ``table`` in place.
-
-    Skips ``wiki/package-family/`` files (no graph entity) per CONTEXT D-04.
-    """
+    """Source 2: scan-and-match over old layout dirs. Mutates ``table`` in place."""
     kind_for_root = {
         "packages": "package",
         "dependencies": "dependency",
         "domain": "domain",
         "plugin": "plugin",
-        "package-family": None,  # deferred per D-04
     }
     for root_name in OLD_LAYOUT_ROOTS:
         root = wiki_root / root_name
@@ -301,7 +299,7 @@ def _source2_scan_old_layout(
             continue
         kind = kind_for_root.get(root_name)
         if kind is None:
-            continue  # package-family — leave unmatched per D-04
+            continue  # defensive — unknown root in OLD_LAYOUT_ROOTS
         for md in root.rglob("*.md"):
             try:
                 old_target = str(
@@ -341,8 +339,6 @@ _KIND_FOR_PREFIX: dict[str, str | None] = {
     "wiki/plugin/": "plugin",
     "test-suites/": "test_suite",
     "wiki/test-suites/": "test_suite",
-    "package-family/": None,
-    "wiki/package-family/": None,
 }
 
 
@@ -410,7 +406,8 @@ def _source3_grep_curated_lanes(
                     continue  # already covered (possibly with None)
                 kind = _KIND_FOR_PREFIX.get(matched_prefix)
                 if kind is None:
-                    # package-family — log unresolvable per D-04.
+                    # Defensive: prefix matched OLD_LAYOUT_PREFIXES but is
+                    # missing from _KIND_FOR_PREFIX — treat as unresolvable.
                     _record_unresolvable(table, log_path, md, workspace_root, target)
                     continue
                 tail = target[len(matched_prefix):]
@@ -440,8 +437,8 @@ def build_rewrite_table(
 ) -> dict[str, str | None]:
     """Build the old-target -> new-slug rewrite table from three sources (CONTEXT D-03).
 
-    Source 1: convention templates per kind (5 kinds; ``package_family`` deferred).
-    Source 2: scan-and-match over ``wiki/{packages,dependencies,domain,plugin,package-family}/``.
+    Source 1: convention templates per kind (5 kinds).
+    Source 2: scan-and-match over ``wiki/{packages,dependencies,domain,plugin}/``.
     Source 3: grep the 5 curated lanes for inbound old-layout wikilinks; log unresolvables.
 
     Args:
