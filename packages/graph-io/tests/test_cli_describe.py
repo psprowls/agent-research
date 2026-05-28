@@ -14,7 +14,12 @@ from pathlib import Path
 import pytest
 
 from graph_io import exit_codes
-from graph_io.cli import q_describe_builtin, q_describe_dependency, q_describe_plugin
+from graph_io.cli import (
+    q_describe_app,
+    q_describe_builtin,
+    q_describe_dependency,
+    q_describe_plugin,
+)
 
 
 @pytest.fixture
@@ -224,3 +229,95 @@ def test_cg_describe_builtin_malformed_uri(workspace_with_builtins, capsys):
     captured2 = capsys.readouterr()
     assert exit_code2 == exit_codes.GENERIC
     assert "malformed builtin URI" in captured2.err
+
+
+# ---------------------------------------------------------------------------
+# Phase 50 APP-05 / D-10 / D-11: cg describe-app tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def workspace_with_app(tmp_path: Path) -> Path:
+    """Build a fixture workspace with a Python CLI app (pyproject has [project.scripts]).
+
+    Returns the resolved workspace path after `cg update --full`.
+    """
+    from graph_io import update
+    from workspace_io.config import resolve as resolve_workspace
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "pyproject.toml").write_text(
+        '[project]\nname = "my-cli"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
+    )
+    (repo_root / "src" / "my_cli").mkdir(parents=True)
+    (repo_root / "src" / "my_cli" / "__init__.py").write_text("")
+    (repo_root / "src" / "my_cli" / "cli.py").write_text(
+        "def main():\n    return 0\n"
+    )
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
+
+    update.run(repo_root, full=True)
+    return resolve_workspace(repo_root, require_manifest=False).workspace
+
+
+def _ns_app(workspace: Path, *, name: str, fmt: str = "human"):
+    return argparse.Namespace(
+        workspace=workspace,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        name=name,
+    )
+
+
+def test_cg_describe_app_smoke(workspace_with_app, capsys):
+    """Happy path: describe my-cli; verifies human output fields including app_kind."""
+    args = _ns_app(workspace_with_app, name="my-cli")
+    exit_code = q_describe_app.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "app:" in captured.out
+    assert "my-cli" in captured.out
+    assert "language:" in captured.out
+    assert "python" in captured.out
+    assert "app_kind:" in captured.out
+    assert "cli" in captured.out
+    assert "signals:" in captured.out
+
+
+def test_cg_describe_app_not_found(workspace_with_app, capsys):
+    """Not-found: describe an app that does not exist → GENERIC with stderr message."""
+    args = _ns_app(workspace_with_app, name="nonexistent-app")
+    exit_code = q_describe_app.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.GENERIC
+    assert "error: app not found:" in captured.err
+
+
+def test_cg_describe_app_json(workspace_with_app, capsys):
+    """JSON mode: verify all AppDescription fields present and typed correctly."""
+    args = _ns_app(workspace_with_app, name="my-cli", fmt="json")
+    exit_code = q_describe_app.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    parsed = json.loads(captured.out)
+    assert parsed["name"] == "my-cli"
+    assert parsed["language"] == "python"
+    assert parsed["app_kind"] == "cli"
+    assert isinstance(parsed["app_signals"], list)
+    assert "cli" in parsed["app_signals"]
+    # Ensure full AppDescription field set is present.
+    expected_keys = {
+        "name", "language", "version", "app_kind", "app_signals",
+        "files", "counts", "domains", "entry_points", "test_suites",
+    }
+    assert expected_keys.issubset(set(parsed.keys()))
