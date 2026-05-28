@@ -213,7 +213,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
   3. Each entity entry in the index shows a one-line summary inline, sourced from the entity page's `summary:` frontmatter field
   4. Test-suite entries appear nested under the package(s) they test (duplicated across multiple packages where appropriate); no standalone flat By-Kind "Test Suites" section exists
   5. Dependency entries appear nested under the package(s) that use them (duplicated across packages where appropriate); no standalone flat By-Kind "Dependencies" section exists
-**Plans**: TBD
+**Plans**: 1 (57-01)
 **UI hint**: yes
 
 ---
@@ -278,7 +278,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 54. Debt Clearance | v1.10 | 1/1 | Complete   | 2026-05-28 |
 | 55. Dependency Classification Fix | v1.10 | 2/2 | Complete    | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 2/4 | In Progress|  |
-| 57. Index Generation Polish | v1.10 | 0/TBD | Not started | - |
+| 57. Index Generation Polish | v1.10 | 0/1 | Planned | - |
 
 ---
 
