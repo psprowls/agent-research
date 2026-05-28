@@ -1,0 +1,75 @@
+# Requirements: Milestone v1.10 — Wiki Index & Entity Page Enrichment
+
+**Created:** 2026-05-28
+**Milestone goal:** Make the generated wiki a genuinely readable, complete projection of the graph — a human-readable index with per-entity summaries and an app section, dependencies/test-suites nested under their packages, entity pages fleshed out from migrated template content, and the internal-package-as-dependency classification bug fixed — plus two debt fixes.
+
+---
+
+## v1.10 Requirements
+
+### Index generation (`wiki-io/index_generator.py`)
+
+- [ ] **IDX-01**: The generated `wiki/index.md` includes a distinct `app` section in the By-Kind ordering, so reclassified apps are listed separately from packages.
+- [ ] **IDX-02**: Entity links in the By-Kind and Domain sections render human-readable as `[[wiki/entities/<stem>|<name>]]` — link text is the entity's name (e.g. `source-parser`), target is the entity file (`wiki/entities/pkg_source-parser.md`) — not the bare file stem.
+- [ ] **IDX-03**: Each entity entry in the index shows a one-line summary inline (sourced from the entity page's `summary:` frontmatter), matching how `concepts` / `adrs` / `architecture` entries render today.
+- [ ] **IDX-04**: Test-suites render nested under the package(s) they test, duplicated when a suite tests multiple packages; the standalone By-Kind "Test Suites" section is removed.
+- [ ] **IDX-05**: Dependencies render nested under the package(s) that use them, duplicated across packages; the standalone By-Kind "Dependencies" section is removed.
+
+### Dependency-vs-package classification (`graph-io`)
+
+- [ ] **CLASS-01**: The scanner no longer emits a `dependency` node for a name that is also a workspace `package`/`app` in the repo — e.g. no `dep_graph-io.md` is generated when `graph-io` is a workspace package.
+- [ ] **CLASS-02**: An internal package→package usage (one workspace package depending on another) is represented as a `depends_on` edge between the two package/app nodes, so the relationship still surfaces in the wiki and under IDX-05 nesting.
+
+### Entity pages & templates (`wiki-io` assets)
+
+- [ ] **ENTITY-01**: Content sections from the legacy per-kind `overview.md` pages (under the old `package/`, `domain/`, `plugin/`, `app/` template directories — the subpages have already been consolidated into each `overview.md`) are migrated into the corresponding `entity-<type>.md` templates — except the package `testing.md`-derived content, which moves to the `entity-test-suite.md` template (not `entity-package`).
+- [ ] **ENTITY-02**: Each `entity-<type>.md` template carries ontology-relevant sections for its kind; sections that need human/LLM content show a `TODO: <instructions>` placeholder rather than dead links or empty headings.
+- [ ] **ENTITY-03**: The legacy directory-style template assets (`package/`, `domain/`, `plugin/`, `app/`) are removed once their content is migrated, and no dead links remain in generated entity pages.
+
+### Scan-time population (scanner + `entity_writer`)
+
+- [ ] **SCAN-01**: When the scan runs, entity-page template variables are substituted with real values (e.g. `# <Package Name>` → `# wiki-io`); no literal `<...>` placeholder text survives in generated entity pages.
+- [ ] **SCAN-02**: The scanner writes a `summary:` frontmatter field on each entity page, derived from the graph node's description, consumed by IDX-03.
+
+### Debt
+
+- [ ] **DEBT-01**: `tests/test_integration_gate.py::test_integration_test_files_use_canonical_gate` passes — the 7 flagged integration test files adopt the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif (or the `# integration-gate-allow` marker where genuinely appropriate).
+- [ ] **DEBT-02**: PROJECT.md "What This Is" and Constraints are corrected to reflect the actual stack — in-house `subagent-runtime` + `langchain-aws` + `langchain-core` and the `graph-wiki` naming — rather than the stale `deepagents` / `lattice-wiki` wording.
+
+---
+
+## Future Requirements (Deferred)
+
+- **Dependency-family / dependency clustering** — group related external dependencies (e.g. the `langchain-*` family) modeled on domain clustering. Defer until a concrete render need surfaces (now that internal packages are deduped from deps, external-dep grouping is the next natural step).
+- **Scanner pipeline 9-stage restructure** (ONTOLOGY-SPEC §9) — for cheap domain-overlay re-runs.
+- **Open questions §11 of ONTOLOGY-SPEC** — tagging mechanism, cross-repo domain scope, role-flag confidence metadata.
+- **Novel-pattern inference for app classification** — LLM step if manifest-signal rules under-classify in practice.
+
+## Out of Scope (this milestone)
+
+- **Per-phase security reviews + formal milestone audits (v1.6/v1.8/v1.9 backfill)** — process debt; separate decision, not v1.10 feature work.
+- **Phase 50 verification backfill** — acknowledged debt from v1.9 close; not blocking v1.10.
+- **Nyquist retro-validation** — long-standing process decision, orthogonal to this milestone.
+- **SUMMARY.md `one_liner:` write-time enforcement** — GSD-tool debt, not graph-wiki-agent code; filed against the GSD SDK separately.
+- **New entity kinds or graph-schema expansion** — v1.10 enriches the projection of existing kinds; no new node/edge kinds beyond the `depends_on` edge reuse in CLASS-02.
+
+---
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| IDX-01 | TBD | Pending |
+| IDX-02 | TBD | Pending |
+| IDX-03 | TBD | Pending |
+| IDX-04 | TBD | Pending |
+| IDX-05 | TBD | Pending |
+| CLASS-01 | TBD | Pending |
+| CLASS-02 | TBD | Pending |
+| ENTITY-01 | TBD | Pending |
+| ENTITY-02 | TBD | Pending |
+| ENTITY-03 | TBD | Pending |
+| SCAN-01 | TBD | Pending |
+| SCAN-02 | TBD | Pending |
+| DEBT-01 | TBD | Pending |
+| DEBT-02 | TBD | Pending |
