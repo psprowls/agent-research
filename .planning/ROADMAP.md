@@ -164,7 +164,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 ### v1.10 Wiki Index & Entity Page Enrichment (Phases 54-57) — IN PROGRESS
 
 - [x] **Phase 54: Debt Clearance** — Fix the integration-gate test failure and correct PROJECT.md stack references (completed 2026-05-28)
-- [ ] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges
+- [x] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges (completed 2026-05-28)
 - [ ] **Phase 56: Entity Templates & Scan-Time Population** — Migrate legacy template content into `entity-<type>.md` templates; add scan-time variable substitution and `summary:` frontmatter field
 - [ ] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md`
 
@@ -276,7 +276,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 52. Wiki Filename Slimdown — Core | v1.9 | 3/3 | Complete    | 2026-05-28 |
 | 53. Wiki Filename Cutover | v1.9 | 2/2 | Complete   | 2026-05-28 |
 | 54. Debt Clearance | v1.10 | 1/1 | Complete   | 2026-05-28 |
-| 55. Dependency Classification Fix | v1.10 | 1/2 | In Progress|  |
+| 55. Dependency Classification Fix | v1.10 | 2/2 | Complete   | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 0/TBD | Not started | - |
 | 57. Index Generation Polish | v1.10 | 0/TBD | Not started | - |
 

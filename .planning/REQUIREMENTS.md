@@ -18,7 +18,7 @@
 ### Dependency-vs-package classification (`graph-io`)
 
 - [x] **CLASS-01**: The scanner no longer emits a `dependency` node for a name that is also a workspace `package`/`app` in the repo — e.g. no `dep_graph-io.md` is generated when `graph-io` is a workspace package.
-- [ ] **CLASS-02**: An internal package→package usage (one workspace package depending on another) is represented as a dedicated `depends_on_package` edge (src=consumer, dst=internal package) between the two package/app nodes, so the relationship still surfaces in the wiki and under IDX-05 nesting. *(Amended during Phase 55 discussion: a new distinct edge kind `depends_on_package` is used rather than reusing the Domain→Domain `depends_on` kind — chosen for query ergonomics; see `phases/55-dependency-classification-fix/55-CONTEXT.md` D-04/D-05.)*
+- [x] **CLASS-02**: An internal package→package usage (one workspace package depending on another) is represented as a dedicated `depends_on_package` edge (src=consumer, dst=internal package) between the two package/app nodes, so the relationship still surfaces in the wiki and under IDX-05 nesting. *(Amended during Phase 55 discussion: a new distinct edge kind `depends_on_package` is used rather than reusing the Domain→Domain `depends_on` kind — chosen for query ergonomics; see `phases/55-dependency-classification-fix/55-CONTEXT.md` D-04/D-05.)*
 
 ### Entity pages & templates (`wiki-io` assets)
 
@@ -65,7 +65,7 @@
 | IDX-04 | 57 | Pending |
 | IDX-05 | 57 | Pending |
 | CLASS-01 | 55 | Complete |
-| CLASS-02 | 55 | Pending |
+| CLASS-02 | 55 | Complete |
 | ENTITY-01 | 56 | Pending |
 | ENTITY-02 | 56 | Pending |
 | ENTITY-03 | 56 | Pending |
