@@ -150,7 +150,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 <details>
 <summary>🟡 v1.9 Graph Refinements & Wiki Filename Slimdown (Phases 49-53) — IN PROGRESS</summary>
 
-- [ ] Phase 49: Builtin Kind (graph-io) — TBD plans
+- [x] Phase 49: Builtin Kind (graph-io) — TBD plans (completed 2026-05-28)
 - [ ] Phase 50: App Reclassification (graph-io) — TBD plans
 - [ ] Phase 51: package-family Removal + Divergence Rule Cleanup — TBD plans
 - [ ] Phase 52: Wiki Filename Slimdown — Core — TBD plans
@@ -279,7 +279,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 46. Inbound-Link Migration + Cutover | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 3/3 | Complete | 2026-05-27 |
-| 49. Builtin Kind (graph-io) | v1.9 | 2/3 | In Progress|  |
+| 49. Builtin Kind (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
 | 50. App Reclassification (graph-io) | v1.9 | 0/TBD | Not started | - |
 | 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 0/TBD | Not started | - |
 | 52. Wiki Filename Slimdown — Core | v1.9 | 0/TBD | Not started | - |
