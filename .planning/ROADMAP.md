@@ -200,7 +200,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
   2. Every generated entity page has a populated `summary:` frontmatter field derived from the graph node's description
   3. Each `entity-<type>.md` template contains ontology-relevant sections for its kind; sections requiring human or LLM authorship show `TODO: <instructions>` rather than empty headings or dead links
   4. The legacy `package/`, `domain/`, `plugin/`, and `app/` template directories no longer exist in the repository; no dead links remain in any generated entity pages
-**Plans**: TBD
+**Plans**: 56-01 (SCAN-01 substitution + SCAN-02 summary, wiki-io), 56-02 (ENTITY-01/02 template migration, wiki-io assets), 56-03 (ENTITY-03 legacy deletion), 56-04 (SCAN-02 D-06 description population, graph-io)
 **UI hint**: yes
 
 ### Phase 57: Index Generation Polish

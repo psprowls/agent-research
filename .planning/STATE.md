@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Wiki Index & Entity Page Enrichment
-status: ready_to_plan
-stopped_at: Phase 55 complete (2/2) — ready to discuss Phase 56
-last_updated: 2026-05-28T23:38:54.622Z
-last_activity: 2026-05-28
+status: executing
+stopped_at: Phase 57 context gathered
+last_updated: "2026-05-28T23:39:11.573Z"
+last_activity: 2026-05-28 -- Phase 56 execution started
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 6
+  total_plans: 7
   completed_plans: 3
-  percent: 50
+  percent: 43
 ---
 
 # Project State: agent-research
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-28)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 56 — entity templates scan time population
+**Current Focus:** Phase 56 — entity-templates-scan-time-population
 
 ---
 
 ## Current Position
 
-Phase: 56
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-28
+Phase: 56 (entity-templates-scan-time-population) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 56
+Last activity: 2026-05-28 -- Phase 56 execution started
 
 ## Progress Bar
 
@@ -71,7 +71,7 @@ None.
 
 - Phase 54: plan and execute debt clearance (DEBT-01 integration gate, DEBT-02 PROJECT.md docs)
 - Phase 55: plan and execute dependency classification fix (CLASS-01/02 in graph-io packages.py)
-- Phase 56: plan and execute entity templates + scan-time population (ENTITY-01/02/03, SCAN-01/02)
+- Phase 56: PLANNED (4 plans: 56-01..56-04). Execute when ready. **Execution ordering note:** plan 56-04 (graph-io `packages.py` D-06 description population) edits the SAME function (`refresh()`) as Phase 55's 55-01-PLAN.md — disjoint regions (56 touches manifest-parse 46-72 + attrs-build 159-164; 55 touches dep-loop 218-235 + edge-emission 259-272), but 56-04 must run AFTER Phase 55 has landed to avoid an edit race on the file.
 - Phase 57: plan and execute index generation polish (IDX-01/02/03/04/05 in wiki-io index_generator.py)
 
 ### Key decisions (locked at scoping)
@@ -81,6 +81,7 @@ None.
 - Internal package-as-dependency becomes a `depends_on` package→package edge (not a `dependency` node)
 - Phase 55 (graph-io classification fix) must land before Phase 57 (index polish) — IDX-05 nesting depends on correct `depends_on` data
 - Phase 56 (SCAN-02 `summary:` write) must land before Phase 57 — IDX-03 inline summaries depend on it
+- Phase 56 planning: the GSD UI-design-contract gate false-positives on this phase (the word "page"/"view" in the success criteria matches the frontend grep), but Phase 56 produces generated MARKDOWN wiki pages, not a frontend UI surface. Planned without a UI-SPEC (skip-ui semantics) — no visual contract is warranted.
 
 ---
 
