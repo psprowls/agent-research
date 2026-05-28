@@ -151,7 +151,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 <summary>🟡 v1.9 Graph Refinements & Wiki Filename Slimdown (Phases 49-53) — IN PROGRESS</summary>
 
 - [x] Phase 49: Builtin Kind (graph-io) — TBD plans (completed 2026-05-28)
-- [ ] Phase 50: App Reclassification (graph-io) — TBD plans
+- [x] Phase 50: App Reclassification (graph-io) — TBD plans (completed 2026-05-28)
 - [ ] Phase 51: package-family Removal + Divergence Rule Cleanup — TBD plans
 - [ ] Phase 52: Wiki Filename Slimdown — Core — TBD plans
 - [ ] Phase 53: Wiki Filename Cutover — TBD plans
@@ -188,7 +188,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 **Plans**: 3 plans
   - [x] 50-01-PLAN.md — Schema foundation: _VALID_KINDS admission, _VALID_APP_KINDS gate, app_uri builder, manifest reader extensions, classification.py pure module
   - [x] 50-02-PLAN.md — Wire classify() into packages.refresh emit loop + D-06 in-place UPDATE for cross-run kind flips
-  - [ ] 50-03-PLAN.md — Query layer (AppDescription, list_apps, describe_app), CLI handlers (cg list-apps, cg describe-app), end-to-end integration tests
+  - [x] 50-03-PLAN.md — Query layer (AppDescription, list_apps, describe_app), CLI handlers (cg list-apps, cg describe-app), end-to-end integration tests
 **UI hint**: no
 
 ### Phase 51: package-family Removal + Divergence Rule Cleanup
@@ -201,7 +201,11 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
   3. The `entity-package-family.template` file is gone; `wiki/package-family/` does not exist in the vault after migration.
   4. `cg describe-package-family` and `cg list-package-families` commands are gone; `cg --help` does not list them.
   5. `grep -r "_SLUG_ONLY_RE\|_check_no_slug_only_wikilinks\|LIB-003" packages/eval-harness/` returns zero hits; the divergence eval baseline no longer expects LIB-003 to fire; all divergence tests pass.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 51-01-PLAN.md — graph-io removal: _VALID_KINDS edit, package_family_uri delete, PKGFAM-04 CLI subcommand absence verification
+  - [ ] 51-02-PLAN.md — wiki-io removal: ADMITTED_KINDS finalize + V18 alias delete, template assets delete, link_rewriter D-04 deferral cleanup, lint/dependency.py package-family removal
+  - [ ] 51-03-PLAN.md — eval-harness CLEANUP-01: delete LIB-003 (_SLUG_ONLY_RE, _check_no_slug_only_wikilinks, registry entry) + baseline regen
+  - [ ] 51-04-PLAN.md — round-trip fixture surgical edits + BM25-only vocab regen + phase exit gates G1/G2
 **UI hint**: no
 
 ### Phase 52: Wiki Filename Slimdown — Core
@@ -283,8 +287,8 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 49. Builtin Kind (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
-| 50. App Reclassification (graph-io) | v1.9 | 2/3 | In Progress|  |
-| 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 0/TBD | Not started | - |
+| 50. App Reclassification (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
+| 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 0/4 | Not started | - |
 | 52. Wiki Filename Slimdown — Core | v1.9 | 0/TBD | Not started | - |
 | 53. Wiki Filename Cutover | v1.9 | 0/TBD | Not started | - |
 
