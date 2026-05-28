@@ -21,6 +21,8 @@ _VALID_KINDS = frozenset(
         # Phase 43 (v1.8): admitted entity kinds for the wiki entity writer.
         "dependency",
         "plugin",
+        # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names; Node via require('module').builtinModules)
+        "builtin",
     }
 )
 

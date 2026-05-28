@@ -53,6 +53,10 @@ def dependency_uri(ecosystem: str, name: str) -> str:
     return f"dependency:{ecosystem}/{name}"
 
 
+def builtin_uri(language: str, module_name: str) -> str:
+    return f"builtin:{language}/{module_name}"
+
+
 _SSH_REMOTE_RE = re.compile(r"^git@[^:]+:([^/]+)/([^/]+?)(?:\.git)?$")
 _HTTPS_REMOTE_RE = re.compile(r"^https?://[^/]+/([^/]+)/([^/]+?)(?:\.git)?/?$")
 
