@@ -1,8 +1,10 @@
 """Cross-cutting validation: entity templates align with ADMITTED_KINDS (URI-03 / D-18 / Pitfall 5).
 
 Closes the loop between Plan 01's `ADMITTED_KINDS` constant and Plan 02's
-seven `entity-*.md` templates. Catches drift if a future change adds a
+six `entity-*.md` templates. Catches drift if a future change adds a
 template without updating ADMITTED_KINDS, or vice versa.
+
+Phase 51 PKGFAM-03: count is now 6 (`entity-package-family.md` retired).
 """
 
 from __future__ import annotations
@@ -21,10 +23,13 @@ TEMPLATE_DIR = (
 ENTITY_TEMPLATES = sorted(TEMPLATE_DIR.glob("entity-*.md"))
 
 
-def test_seven_entity_templates_exist() -> None:
-    """Exactly 7 entity-*.md files exist (one per admitted kind)."""
-    assert len(ENTITY_TEMPLATES) == 7, (
-        f"expected 7 entity templates, got {len(ENTITY_TEMPLATES)}: "
+def test_six_entity_templates_exist() -> None:
+    """Exactly 6 entity-*.md files exist (one per admitted kind).
+
+    Phase 51 PKGFAM-03: down from 7 (`entity-package-family.md` retired).
+    """
+    assert len(ENTITY_TEMPLATES) == 6, (
+        f"expected 6 entity templates, got {len(ENTITY_TEMPLATES)}: "
         f"{[p.name for p in ENTITY_TEMPLATES]}"
     )
 
@@ -58,7 +63,7 @@ def test_each_template_has_narrative_h2(template_path: Path) -> None:
 
 
 def test_templates_cover_all_admitted_kinds() -> None:
-    """The 7 templates' kind values exactly equal ADMITTED_KINDS (bijection)."""
+    """The 6 templates' kind values exactly equal ADMITTED_KINDS (bijection)."""
     kinds_in_templates: set[str] = set()
     for tpl in ENTITY_TEMPLATES:
         fm = frontmatter.load(tpl)

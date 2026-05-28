@@ -2,16 +2,16 @@
 
 Validates the THREE Phase 42 contracts (D-10):
 
-1. ADMITTED_KINDS is the 7 underscore-form kinds (D-02).
+1. ADMITTED_KINDS is the 6 underscore-form kinds (D-02; `package_family`
+   retired in Phase 51 PKGFAM-03).
 2. SCANNER_OWNED_KEYS is disjoint from the human-only keys (D-09).
 3. encode_slug + decode_slug round-trip on every admitted-kind URI (D-03)
    and the encoder is injective on a sample batch (D-05).
 
-Property tests use Hypothesis (D-11, D-12). The 3 new URI builders
-(`package_family_uri`, `plugin_uri`, `dependency_uri`) from Plan 02 are
-NOT imported here — Plan 01 + Plan 02 are Wave-1 parallel, so this test
-constructs their URIs inline (`f"package_family:{name}"`, etc.) per
-Plan 01's <interfaces> note.
+Property tests use Hypothesis (D-11, D-12). The 2 new URI builders
+(`plugin_uri`, `dependency_uri`) from Plan 02 are NOT imported here —
+Plan 01 + Plan 02 are Wave-1 parallel, so this test constructs their
+URIs inline per Plan 01's <interfaces> note.
 """
 
 from __future__ import annotations
@@ -41,13 +41,13 @@ from wiki_io.entity_writer import (
 
 
 def test_admitted_kinds_shape() -> None:
-    """ADMITTED_KINDS is exactly the 7 underscore-form v1.8 kinds (D-02)."""
+    """ADMITTED_KINDS is exactly the 6 underscore-form kinds (D-02;
+    `package_family` retired in Phase 51 PKGFAM-03)."""
     expected = frozenset(
         {
             "repository",
             "domain",
             "package",
-            "package_family",
             "plugin",
             "dependency",
             "test_suite",
@@ -58,6 +58,8 @@ def test_admitted_kinds_shape() -> None:
     # admitted to the entity lane (per the v1.8 design notes) must stay out.
     excluded = {"subpackage", "file", "function", "class", "method"}
     assert ADMITTED_KINDS.isdisjoint(excluded)
+    # Phase 51 regression guard: package_family must never re-appear here.
+    assert "package_family" not in ADMITTED_KINDS
 
 
 def test_scanner_owned_keys_disjoint_from_human() -> None:
@@ -82,7 +84,6 @@ def test_scanner_owned_keys_disjoint_from_human() -> None:
             "repo:agent-research/agent-research",
             "repo__agent-research__agent-research",
         ),
-        ("package_family:aws", "package_family__aws"),
         ("plugin:graph-wiki", "plugin__graph-wiki"),
         ("dependency:pypi/boto3", "dependency__pypi__boto3"),
     ],
@@ -162,15 +163,6 @@ def _test_suite_uri_strategy(draw: st.DrawFn) -> str:
 
 
 @st.composite
-def _package_family_uri_strategy(draw: st.DrawFn) -> str:
-    # Inline construction — Plan 02 adds the builder; Wave-1 parallelism means
-    # we cannot import it yet.
-    name = draw(_fragment)
-    assume("__" not in name)
-    return f"package_family:{name}"
-
-
-@st.composite
 def _plugin_uri_strategy(draw: st.DrawFn) -> str:
     name = draw(_fragment)
     assume("__" not in name)
@@ -191,7 +183,6 @@ _admitted_uri_strategy = st.one_of(
     _domain_uri_strategy(),
     _repository_uri_strategy(),
     _test_suite_uri_strategy(),
-    _package_family_uri_strategy(),
     _plugin_uri_strategy(),
     _dependency_uri_strategy(),
 )
@@ -242,7 +233,6 @@ import time
 from hypothesis import given, strategies as st, settings
 
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS_V18,
     EntityWriteError,
     EntityWriteResult,
     STRUCTURAL_KEYS,
@@ -262,16 +252,11 @@ from wiki_io.entity_writer import (
 # ----------------------------------------------------------------------------
 
 
-def test_admitted_kinds_v18_derived_from_admitted_kinds() -> None:
-    from wiki_io.entity_writer import ADMITTED_KINDS
-    assert ADMITTED_KINDS_V18 == ADMITTED_KINDS - {"package_family"}
-    assert len(ADMITTED_KINDS_V18) == 6
-
-
 def test_structural_keys_subset_invariant() -> None:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
     assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS)
-    assert len(STRUCTURAL_KEYS) == 10
+    # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
+    assert len(STRUCTURAL_KEYS) == 9
 
 
 def test_write_lock_held_error_is_runtime_error() -> None:
@@ -631,7 +616,7 @@ def test_write_entities_creates_pages_per_admitted_kind(
     _wire_mock_queries(monkeypatch, q)
 
     wiki_root = tmp_path / "wiki"
-    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # 1 repo + 2 packages + 1 domain + 1 test_suite + 1 dep + 1 plugin = 7 created
     assert len(result.created) == 7, f"expected 7 created, got {len(result.created)}: {result.created}"
     assert len(result.updated) == 0
@@ -650,8 +635,8 @@ def test_write_entities_second_run_all_unchanged(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert r2.created == []
     assert r2.updated == []
     assert len(r2.unchanged) == len(r1.created)
@@ -663,11 +648,11 @@ def test_write_entities_deletes_pages_for_disappeared_nodes(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # Remove wiki-io package from mock
     remaining = [n for n in mock_graph_conn.list_nodes("package") if n.name != "wiki-io"]
     mock_graph_conn.set_nodes("package", remaining)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("wiki-io" in uri for uri in r2.deleted), f"expected wiki-io in deleted, got {r2.deleted}"
     assert not (wiki_root / "entities" / "pkg__local__agent-research__wiki-io.md").exists()
     log_path = tmp_path / ".graph-wiki" / "deletions.log"
@@ -682,12 +667,12 @@ def test_write_entities_preserves_human_authored_status(
     from graph_io import queries as q
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     page_path = wiki_root / "entities" / "pkg__local__agent-research__graph-io.md"
     raw = page_path.read_text()
     raw_new = raw.replace("kind: package\n", "kind: package\nstatus: deprecated\n", 1)
     page_path.write_text(raw_new)
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     final = page_path.read_text()
     assert "status: deprecated" in final
 
@@ -699,7 +684,7 @@ def test_write_entities_needs_narrative_on_structural_change(
     from graph_io.queries import PackageDescription
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
-    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # Mutate package description so domains list changes — should trigger needs_narrative
     new_desc = PackageDescription(
         name="graph-io", language="python", version="0.2.1",
@@ -707,6 +692,6 @@ def test_write_entities_needs_narrative_on_structural_change(
         entry_points=[], test_suites=[],
     )
     mock_graph_conn.set_description("package", "graph-io", new_desc)
-    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS_V18)
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("graph-io" in uri for uri in r2.updated)
     assert any("graph-io" in uri for uri in r2.needs_narrative)
