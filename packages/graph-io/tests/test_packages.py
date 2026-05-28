@@ -72,6 +72,45 @@ def test_refresh_package_json(tmp_path: Path, conn: sqlite3.Connection) -> None:
     assert attrs["dependencies"] == ["x"]
 
 
+def test_refresh_pyproject_stores_description(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """Phase 56 D-06/SCAN-02: pyproject [project].description lands in attrs_json."""
+    pkg_dir = tmp_path / "packages" / "alpha"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+        'description = "A test package."\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("alpha",)
+    ).fetchone()
+    attrs = json.loads(row[0])
+    assert attrs["description"] == "A test package."
+
+
+def test_refresh_pyproject_absent_description_is_empty(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """Phase 56 D-06: no [project].description -> empty string, not a placeholder."""
+    pkg_dir = tmp_path / "packages" / "beta"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("beta",)
+    ).fetchone()
+    attrs = json.loads(row[0])
+    assert attrs["description"] == ""
+
+
 def test_refresh_creates_contains_edges(tmp_path: Path, conn: sqlite3.Connection) -> None:
     pkg_dir = tmp_path / "alpha"
     pkg_dir.mkdir(parents=True)
