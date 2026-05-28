@@ -86,7 +86,13 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "domain": "domain",
     "package": "pkg",
     "plugin": "plugin",
-    "dependency": "dependency",
+    # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
+    # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
+    # this dict is consumed by `decode_slug` to map legacy long-form filename
+    # slugs back to URIs. The new short-form filename for dependency entities
+    # is `dep_<name>` and is produced by `short_filename` via
+    # `_FILENAME_PREFIX_BY_URI_PREFIX["dependency"] = "dep"`.
+    "dependency": "dep",
     "test_suite": "test_suite",
 }
 _ADMITTED_URI_PREFIXES: frozenset[str] = frozenset(_URI_PREFIX_BY_KIND.values())
