@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Wiki Index & Entity Page Enrichment
-status: verifying
-stopped_at: Phase 57 context gathered
-last_updated: "2026-05-28T23:37:45.119Z"
+status: ready_to_plan
+stopped_at: Phase 55 complete (2/2) — ready to discuss Phase 56
+last_updated: 2026-05-28T23:38:54.622Z
 last_activity: 2026-05-28
 progress:
   total_phases: 4
@@ -27,15 +27,15 @@ See: `.planning/PROJECT.md` (updated 2026-05-28)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 55 — dependency-classification-fix
+**Current Focus:** Phase 56 — entity templates scan time population
 
 ---
 
 ## Current Position
 
-Phase: 55 (dependency-classification-fix) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
+Phase: 56
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-05-28
 
 ## Progress Bar

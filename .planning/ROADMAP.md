@@ -276,7 +276,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 52. Wiki Filename Slimdown — Core | v1.9 | 3/3 | Complete    | 2026-05-28 |
 | 53. Wiki Filename Cutover | v1.9 | 2/2 | Complete   | 2026-05-28 |
 | 54. Debt Clearance | v1.10 | 1/1 | Complete   | 2026-05-28 |
-| 55. Dependency Classification Fix | v1.10 | 2/2 | Complete   | 2026-05-28 |
+| 55. Dependency Classification Fix | v1.10 | 2/2 | Complete    | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 0/TBD | Not started | - |
 | 57. Index Generation Polish | v1.10 | 0/TBD | Not started | - |
 
