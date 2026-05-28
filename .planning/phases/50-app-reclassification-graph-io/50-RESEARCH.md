@@ -604,7 +604,7 @@ The only input validation concern: `app_kind` values written to `attrs_json`. Th
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`describe_app` lookup key: name vs URI**
    - What we know: `describe_package` uses name; the CONTEXT says `cg describe-app <uri>` with the URI form in the CLI description, but D-10 says "mirrors describe-package exactly."
