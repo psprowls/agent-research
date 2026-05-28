@@ -1,0 +1,110 @@
+"""Unit tests for graph_io.classification — pure classify() function.
+
+Phase 50 D-01/D-02/D-03/D-04: signal extraction, framework precedence, and
+the package/app discriminator. classify() must remain pure — no SQLite,
+no subprocess, no logging side effects. The 8 tests below pin every
+documented behavior in Plan 01 Task 3.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from graph_io.classification import classify
+
+
+def test_classify_no_signals_stays_package(tmp_path: Path) -> None:
+    """D-02: zero signals → ('package', None, [])."""
+    info = {"language": "python", "scripts_present": False}
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "package"
+    assert app_kind is None
+    assert signals == []
+
+
+def test_classify_python_scripts_cli(tmp_path: Path) -> None:
+    """D-01: Python scripts_present=True → ('app', 'cli', ['cli'])."""
+    info = {"language": "python", "scripts_present": True}
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "cli"
+    assert signals == ["cli"]
+
+
+def test_classify_js_bin_cli(tmp_path: Path) -> None:
+    """D-01: JS bin_present=True with no framework deps → ('app', 'cli', ['cli'])."""
+    info = {
+        "language": "javascript",
+        "bin_present": True,
+        "dependencies": ["lodash"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "cli"
+    assert signals == ["cli"]
+
+
+def test_classify_js_next(tmp_path: Path) -> None:
+    """D-01: JS dependencies containing 'next' → ('app', 'nextjs', [...])."""
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["next", "react"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "nextjs"
+    assert signals == ["nextjs"]
+
+
+def test_classify_js_expo(tmp_path: Path) -> None:
+    """D-01: JS dependencies containing 'expo' → ('app', 'expo', [...])."""
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["expo", "react-native"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "expo"
+    assert signals == ["expo"]
+
+
+def test_classify_js_vite_spa_with_index_html(tmp_path: Path) -> None:
+    """D-01: vite dep AND index.html present → spa signal."""
+    (tmp_path / "index.html").write_text("<!doctype html><html></html>")
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["vite", "react"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "spa"
+    assert signals == ["spa"]
+
+
+def test_classify_js_vite_without_index_html_no_spa(tmp_path: Path) -> None:
+    """D-01: vite dep WITHOUT index.html → no spa signal → stays package."""
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["vite", "react"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "package"
+    assert app_kind is None
+    assert signals == []
+
+
+def test_classify_multi_signal_precedence_nextjs_over_cli(tmp_path: Path) -> None:
+    """D-04: nextjs + cli signals → app_kind='nextjs'; signals sorted alphabetically."""
+    info = {
+        "language": "javascript",
+        "bin_present": True,
+        "dependencies": ["next", "react"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "nextjs"
+    assert signals == ["cli", "nextjs"]
