@@ -50,7 +50,7 @@ from __future__ import annotations
 
 import hashlib
 
-# Admitted entity kinds — the 6 graph-derived kinds the wiki materializes
+# Admitted entity kinds — the 7 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
@@ -65,11 +65,18 @@ import hashlib
 # are inspectable via `cg list-builtins` / `cg describe-builtin` but do not
 # warrant standalone wiki pages — rendering one page per stdlib module would
 # dilute the entity surface without meaningful documentation value.
+#
+# Phase 52 D-06: `app` is admitted alongside `package`. Apps are classified
+# by Phase 50's pipeline (a package-like node that has an entry point /
+# distribution / app-shape signal). The wiki renders apps as standalone
+# entity pages so SC#1's literal `app_graph-wiki-agent.md` output can be
+# produced from a real scan.
 ADMITTED_KINDS: frozenset[str] = frozenset(
     {
         "repository",
         "domain",
         "package",
+        "app",
         "plugin",
         "dependency",
         "test_suite",
@@ -85,6 +92,7 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "repository": "repo",
     "domain": "domain",
     "package": "pkg",
+    "app": "app",
     "plugin": "plugin",
     # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
     # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
@@ -550,6 +558,7 @@ def _kind_list_fns() -> dict[str, Callable]:
     return {
         "repository": lambda conn: _queries.list_repositories(conn),
         "package": lambda conn: _queries.list_packages(conn),
+        "app": lambda conn: _queries.list_apps(conn),
         "domain": lambda conn: _queries.list_domains(conn),
         "test_suite": lambda conn: _queries.list_test_suites(conn),
         "dependency": lambda conn: _queries.list_dependencies(conn),
