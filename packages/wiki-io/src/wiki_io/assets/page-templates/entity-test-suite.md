@@ -10,7 +10,7 @@ file_count: 0
 updated: <YYYY-MM-DD>
 ---
 
-# <Test Suite Name>
+# {{test_suite_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

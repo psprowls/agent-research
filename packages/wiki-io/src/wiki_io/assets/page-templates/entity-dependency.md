@@ -10,7 +10,7 @@ versions_in_use: []
 updated: <YYYY-MM-DD>
 ---
 
-# <Dependency Name>
+# {{dependency_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

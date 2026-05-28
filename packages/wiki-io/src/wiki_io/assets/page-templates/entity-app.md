@@ -13,7 +13,7 @@ version: ""
 updated: <YYYY-MM-DD>
 ---
 
-# <App Name>
+# {{app_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

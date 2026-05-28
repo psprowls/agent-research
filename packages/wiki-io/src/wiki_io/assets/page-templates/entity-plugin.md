@@ -7,7 +7,7 @@ last_scan_at: <YYYY-MM-DD>
 updated: <YYYY-MM-DD>
 ---
 
-# <Plugin Name>
+# {{plugin_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

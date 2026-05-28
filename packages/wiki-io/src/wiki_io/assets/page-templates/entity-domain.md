@@ -10,7 +10,7 @@ packages: []
 updated: <YYYY-MM-DD>
 ---
 
-# <Domain Name>
+# {{domain_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

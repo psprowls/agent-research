@@ -8,7 +8,7 @@ package_count: 0
 updated: <YYYY-MM-DD>
 ---
 
-# <Repository Name>
+# {{repository_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_

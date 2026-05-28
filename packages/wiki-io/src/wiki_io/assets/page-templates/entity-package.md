@@ -13,7 +13,7 @@ version: ""
 updated: <YYYY-MM-DD>
 ---
 
-# <Package Name>
+# {{package_name}}
 
 ## Narrative
 _(scanner will populate on next scan)_
