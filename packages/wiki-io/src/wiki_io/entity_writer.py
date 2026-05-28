@@ -11,9 +11,9 @@ This module owns THREE contracts every downstream entity-writing phase
    suffix. `_compute_collision_set` precomputes the colliding-URI set in a
    single graph pass; both `write_entities` and the index/link consumers
    thread that same set so every filename consumer agrees byte-for-byte on
-   each entity's stem. The legacy bidirectional slug helpers
-   (`encode_slug` / `decode_slug`) were removed in Phase 53 — reverse
-   lookups go through `frontmatter.load(entity_path).metadata["uri"]`.
+   each entity's stem. The legacy bidirectional slug helpers were removed
+   in Phase 53 — reverse lookups go through
+   `frontmatter.load(entity_path).metadata["uri"]`.
 
 2. **Scanner-owned frontmatter whitelist (D-06..D-09).**
    `SCANNER_OWNED_KEYS` is a flat frozenset enumerating every frontmatter
@@ -73,8 +73,8 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
 # builders. Two prefixes are shortened aliases of the kind name (`repository`
 # -> `repo`, `package` -> `pkg`); the remaining four are identical.
 #
-# Phase 53 D-06: `_ADMITTED_URI_PREFIXES` was removed (it only had `decode_slug`
-# as a consumer, and Phase 53 D-04 deleted that function). The forward
+# Phase 53 D-06: `_ADMITTED_URI_PREFIXES` was removed alongside the legacy
+# bidirectional-slug machinery (its only consumer). The forward
 # `short_filename` helper consumes `_FILENAME_PREFIX_BY_URI_PREFIX` directly,
 # which is the only filename-layer prefix surface that remains.
 _URI_PREFIX_BY_KIND: dict[str, str] = {

@@ -35,9 +35,7 @@ from typing import Callable, Iterable
 from graph_io import queries as _queries
 
 from wiki_io.entity_writer import (
-    ADMITTED_KINDS as _ADMITTED_KINDS,
     _compute_collision_set,
-    _kind_list_fns,
     short_filename as _short_filename,
 )
 from wiki_io.lint.common import (
@@ -497,7 +495,16 @@ def build_rewrite_table(
     # Phase 53 D-05: one-shot collision pre-pass; reads conn read-only.
     # Mirrors `write_entities` semantics so the rewriter and the writer
     # agree on which URIs receive the `__<6hex>` collision suffix.
-    collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
+    # Builds collision-set `list_fns` from the rewriter's own `_LIST_FNS`
+    # (which covers the 5 admitted kinds the rewriter cares about) so that
+    # test monkeypatches of `_LIST_FNS` propagate into the collision pass —
+    # otherwise tests with `conn=None` hit the live `graph_io.queries`
+    # functions through `_kind_list_fns()` and crash.
+    _collision_list_fns = {kind: list_fn for kind, list_fn in _LIST_FNS.items()}
+    _collision_admitted_kinds = frozenset(_LIST_FNS.keys())
+    collision_set = _compute_collision_set(
+        conn, _collision_admitted_kinds, _collision_list_fns,
+    )
     table, index = _build_source1_and_index(conn, collision_set)
     _source2_scan_old_layout(wiki_root, table, index)
     _source3_grep_curated_lanes(wiki_root, table, index, log_path)
