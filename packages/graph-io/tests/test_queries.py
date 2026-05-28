@@ -1184,6 +1184,99 @@ def test_list_dependencies_alphabetical(conn: sqlite3.Connection) -> None:
     assert [n.name for n in queries.list_dependencies(conn)] == ["boto3", "langchain-aws", "zlib"]
 
 
+def test_list_builtins_alphabetical(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-12 / BUILTIN-06: list_builtins returns alphabetically-sorted Builtin NodeRecords."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="builtin", name="sys", path="python", line=None,
+                          attrs={"language": "python", "module_name": "sys",
+                                 "uri": "builtin:python/sys"}),
+                GraphNode(kind="builtin", name="os", path="python", line=None,
+                          attrs={"language": "python", "module_name": "os",
+                                 "uri": "builtin:python/os"}),
+                GraphNode(kind="builtin", name="pathlib", path="python", line=None,
+                          attrs={"language": "python", "module_name": "pathlib",
+                                 "uri": "builtin:python/pathlib"}),
+            ],
+            edges=[],
+        ),
+    )
+    assert [n.name for n in queries.list_builtins(conn)] == ["os", "pathlib", "sys"]
+
+
+def test_describe_builtin_returns_description(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-13 / D-15 / BUILTIN-04 / BUILTIN-06: describe_builtin returns populated BuiltinDescription."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="builtin",
+                    name="pathlib",
+                    path="python",
+                    line=None,
+                    attrs={
+                        "language": "python",
+                        "module_name": "pathlib",
+                        "uri": "builtin:python/pathlib",
+                    },
+                ),
+                GraphNode(
+                    kind="package",
+                    name="demo",
+                    path="src/demo",
+                    line=None,
+                    attrs={"uri": "pkg:local/repo/demo"},
+                ),
+            ],
+            edges=[
+                GraphEdge(
+                    src=("package", "demo", "src/demo"),
+                    dst=("builtin", "pathlib", "python"),
+                    kind="used_by",
+                    attrs={},
+                ),
+            ],
+        ),
+    )
+    b = queries.describe_builtin(conn, language="python", module_name="pathlib")
+    assert b is not None
+    assert b.language == "python"
+    assert b.module_name == "pathlib"
+    assert b.uri == "builtin:python/pathlib"
+    assert b.used_by == ["demo"]
+
+
+def test_describe_builtin_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    assert queries.describe_builtin(conn, language="python", module_name="nonexistent") is None
+
+
+def test_describe_builtin_filters_by_language(conn: sqlite3.Connection) -> None:
+    """Phase 49 D-15: describe_builtin filters by language — same module_name, different language.
+    path=language is used as the upsert key discriminator so both can coexist in the DB.
+    """
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="builtin", name="os", path="python", line=None,
+                          attrs={"language": "python", "module_name": "os",
+                                 "uri": "builtin:python/os"}),
+                GraphNode(kind="builtin", name="os", path="javascript", line=None,
+                          attrs={"language": "javascript", "module_name": "os",
+                                 "uri": "builtin:javascript/os"}),
+            ],
+            edges=[],
+        ),
+    )
+    result = queries.describe_builtin(conn, language="python", module_name="os")
+    assert result is not None
+    assert result.language == "python"
+    assert result.uri == "builtin:python/os"
+
+
 def test_list_plugins_alphabetical(conn: sqlite3.Connection) -> None:
     """D-05: list_plugins returns alphabetically-sorted plugin NodeRecords."""
     upsert.upsert_records(
