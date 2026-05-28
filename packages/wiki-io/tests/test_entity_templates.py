@@ -10,6 +10,7 @@ Phase 52 D-06: count is now 7 (`entity-app.md` added).
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import frontmatter
@@ -75,4 +76,67 @@ def test_templates_cover_all_admitted_kinds() -> None:
     assert kinds_in_templates == ADMITTED_KINDS, (
         f"template kinds {sorted(kinds_in_templates)} != ADMITTED_KINDS "
         f"{sorted(ADMITTED_KINDS)}"
+    )
+
+
+# --- Phase 56 (ENTITY-01/02, D-01/D-08/D-09) -------------------------------
+# D-01 two-token rule: a template's data-bearing body H1 is a {{...}} data
+# token (scanner-substituted), NOT a `# <...>` angle placeholder. Instruction
+# angles inside guidance are left as `<...>` and are out of scope here.
+
+_BODY_H1_TOKEN_RE = re.compile(r"^# \{\{[a-z_]+\}\}$", re.MULTILINE)
+
+
+@pytest.mark.parametrize(
+    "template_path",
+    ENTITY_TEMPLATES,
+    ids=[p.name for p in ENTITY_TEMPLATES],
+)
+def test_each_template_body_h1_is_data_token(template_path: Path) -> None:
+    """Each template body H1 is a `# {{..._name}}` data token (D-01, SCAN-01 anchor)."""
+    body = frontmatter.load(template_path).content
+    assert _BODY_H1_TOKEN_RE.search(body), (
+        f"{template_path.name}: body H1 is not a `# {{{{..._name}}}}` data token"
+    )
+    # No data-bearing `# <...>` angle H1 may survive in the body.
+    assert not re.search(r"^# <", body, re.MULTILINE), (
+        f"{template_path.name}: a data-bearing `# <...>` angle H1 still survives"
+    )
+
+
+def _body(name: str) -> str:
+    return frontmatter.load(TEMPLATE_DIR / name).content
+
+
+def test_entity_package_migrated_sections() -> None:
+    """entity-package.md carries the migrated Purpose and Conventions sections (D-08)."""
+    body = _body("entity-package.md")
+    assert "\n## Purpose\n" in body, "entity-package.md: missing migrated `## Purpose`"
+    assert "\n## Conventions\n" in body, (
+        "entity-package.md: missing migrated `## Conventions`"
+    )
+
+
+def test_entity_app_migrated_sections() -> None:
+    """entity-app.md carries the migrated Platform & runtime section (D-08)."""
+    body = _body("entity-app.md")
+    assert "## Platform & runtime" in body, (
+        "entity-app.md: missing migrated `## Platform & runtime`"
+    )
+
+
+def test_entity_test_suite_owns_testing_prose() -> None:
+    """entity-test-suite.md owns the testing-derived sections (D-09)."""
+    body = _body("entity-test-suite.md")
+    for heading in ("## How to run", "## Test conventions", "## Fixtures", "## Coverage"):
+        assert heading in body, f"entity-test-suite.md: missing `{heading}`"
+
+
+@pytest.mark.parametrize("name", ["entity-package.md", "entity-app.md"])
+def test_no_testing_section_leaked_into_package_or_app(name: str) -> None:
+    """Testing prose stays in entity-test-suite.md, not entity-package/app (D-09)."""
+    body = _body(name).lower()
+    assert "## how to run" not in body, f"{name}: testing `## How to run` leaked in"
+    assert "## test conventions" not in body, (
+        f"{name}: testing `## Test conventions` leaked in"
     )
