@@ -63,6 +63,10 @@ v1.10: [█░░░] 1/4 phases complete
 
 None.
 
+### Known pre-existing test failures (not phase-54 regressions)
+
+- `packages/wiki-io/tests/test_overview_template_wikilinks.py` — 4 failures (FileNotFoundError on overview/context templates). Pre-date Phase 54 (confirmed against commit 086cda7); these templates are slated for removal/migration in Phase 56 (ENTITY/template cleanup). Phase 54's integration-gate fix and the rest of the suite (1523 passed) are green.
+
 ### Pending todos
 
 - Phase 54: plan and execute debt clearance (DEBT-01 integration gate, DEBT-02 PROJECT.md docs)
