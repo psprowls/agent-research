@@ -33,8 +33,8 @@
 
 ### Debt
 
-- [ ] **DEBT-01**: `tests/test_integration_gate.py::test_integration_test_files_use_canonical_gate` passes — the 7 flagged integration test files adopt the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif (or the `# integration-gate-allow` marker where genuinely appropriate).
-- [ ] **DEBT-02**: PROJECT.md "What This Is" and Constraints are corrected to reflect the actual stack — in-house `subagent-runtime` + `langchain-aws` + `langchain-core` and the `graph-wiki` naming — rather than the stale `deepagents` / `lattice-wiki` wording.
+- [x] **DEBT-01**: `tests/test_integration_gate.py::test_integration_test_files_use_canonical_gate` passes — the 7 flagged integration test files adopt the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif (or the `# integration-gate-allow` marker where genuinely appropriate).
+- [x] **DEBT-02**: PROJECT.md "What This Is" and Constraints are corrected to reflect the actual stack — in-house `subagent-runtime` + `langchain-aws` + `langchain-core` and the `graph-wiki` naming — rather than the stale `deepagents` / `lattice-wiki` wording.
 
 ---
 
@@ -71,5 +71,5 @@
 | ENTITY-03 | 56 | Pending |
 | SCAN-01 | 56 | Pending |
 | SCAN-02 | 56 | Pending |
-| DEBT-01 | 54 | Pending |
-| DEBT-02 | 54 | Pending |
+| DEBT-01 | 54 | Complete |
+| DEBT-02 | 54 | Complete |
