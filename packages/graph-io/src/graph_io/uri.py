@@ -20,6 +20,11 @@ def pkg_uri(ctx: RepoContext, name: str) -> str:
     return f"pkg:{ctx.org}/{ctx.repo}/{name}"
 
 
+def app_uri(ctx: RepoContext, name: str) -> str:
+    """Phase 50 D-07: app URI for scanner-classified application packages."""
+    return f"app:{ctx.org}/{ctx.repo}/{name}"
+
+
 def subpkg_uri(ctx: RepoContext, pkg_name: str, dotted_path: str) -> str:
     return f"subpkg:{ctx.org}/{ctx.repo}/{pkg_name}/{dotted_path}"
 

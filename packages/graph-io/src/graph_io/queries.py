@@ -23,8 +23,15 @@ _VALID_KINDS = frozenset(
         "plugin",
         # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names; Node via require('module').builtinModules)
         "builtin",
+        # Phase 50 D-12: app-classified packages (scanner-derived kind)
+        "app",
     }
 )
+
+# Phase 50 D-04: App framework kinds derived by classification.classify().
+# Write-time gate — keep in sync with _FRAMEWORK_PRECEDENCE in
+# graph_io/classification.py.
+_VALID_APP_KINDS = frozenset({"cli", "expo", "nextjs", "spa"})
 
 _RESOLVED_FILTER = (
     "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
