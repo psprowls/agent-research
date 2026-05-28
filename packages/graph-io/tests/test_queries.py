@@ -434,10 +434,12 @@ def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
     if n_dcd < 1:
         missing.append("need >= 1 domain_contains_domain edge (parent-child)")
 
+    # Phase 50 D-04: a cross-cutting manifest node may be kind='package' or
+    # 'app' — both participate in domain membership the same way.
     n_cross = _count(
         seeded_db,
         "SELECT COUNT(*) FROM nodes n "
-        "WHERE n.kind='package' AND NOT EXISTS ("
+        "WHERE n.kind IN ('package', 'app') AND NOT EXISTS ("
         "  SELECT 1 FROM edges e WHERE e.src=n.id AND e.kind='belongs_to_domain'"
         ") AND EXISTS ("
         "  SELECT 1 FROM edges r WHERE r.dst=n.id AND r.kind='references'"
@@ -476,13 +478,14 @@ def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
             "need >= 1 single-domain TestSuite (direct TestSuite->Domain edge)"
         )
 
-    # Multi-domain TestSuite: a TestSuite whose Package targets span 2+ Domains
+    # Multi-domain TestSuite: a TestSuite whose Package/App targets span 2+
+    # Domains. Phase 50 D-04: tests may target apps too.
     row = seeded_db.execute(
         "SELECT COUNT(*) FROM ("
         "  SELECT s.id, COUNT(DISTINCT bt.dst) AS doms "
         "  FROM nodes s "
         "  JOIN edges st ON st.src=s.id AND st.kind='tests' "
-        "  JOIN nodes p ON st.dst=p.id AND p.kind='package' "
+        "  JOIN nodes p ON st.dst=p.id AND p.kind IN ('package', 'app') "
         "  LEFT JOIN edges bt ON bt.src=p.id AND bt.kind='belongs_to_domain' "
         "  WHERE s.kind='test_suite' "
         "  GROUP BY s.id "

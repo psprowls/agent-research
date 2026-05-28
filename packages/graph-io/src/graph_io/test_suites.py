@@ -264,12 +264,18 @@ def emit(
     """Emit TestSuite nodes + physically_contains re-parenting + tests edges."""
     repo_root = Path(repo_root).resolve()
 
+    # Phase 50 D-04: include both package and app nodes — apps are tested
+    # the same way packages are.
     pkg_rows_raw = conn.execute(
-        "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+        "SELECT name, path, attrs_json, kind FROM nodes "
+        "WHERE kind IN ('package', 'app')"
     ).fetchall()
     pkg_rows: list[tuple[str, str | None, str | None]] = [
         (r[0], r[1], r[2]) for r in pkg_rows_raw
     ]
+    # Side-table mapping pkg name -> kind so the tests-edge dst tuple uses
+    # the right kind.
+    pkg_kind_map: dict[str, str] = {r[0]: r[3] for r in pkg_rows_raw}
 
     roots = _discover_test_roots(repo_root, skip_dirs, pkg_rows)
 
@@ -355,7 +361,10 @@ def emit(
         if r.owner_kind == "repository":
             parent_src = repo_key
         else:
-            parent_src = ("package", r.owner_name, r.owner_pkg_rel)
+            # Phase 50 D-04: owner may be a Package OR App; resolve kind from
+            # the side-table built earlier.
+            owner_kind_str = pkg_kind_map.get(r.owner_name, "package")
+            parent_src = (owner_kind_str, r.owner_name, r.owner_pkg_rel)
         edges.append(
             GraphEdge(
                 src=parent_src,
@@ -403,7 +412,8 @@ def emit(
 
     # tests-edge derivation (TestSuite -> Package, TestSuite -> Repository).
     _emit_tests_edges(
-        conn, repo_root, ctx, pkg_rows, roots, root_files, repo_key
+        conn, repo_root, ctx, pkg_rows, roots, root_files, repo_key,
+        pkg_kind_map=pkg_kind_map,
     )
 
 
@@ -415,6 +425,8 @@ def _emit_tests_edges(
     roots: list[_TestRoot],
     root_files: dict[str, list[str]],
     repo_key: tuple[str, str, str | None],
+    *,
+    pkg_kind_map: dict[str, str] | None = None,
 ) -> None:
     """Scan every test file in each TestSuite for imports and emit
     TestSuite -> Package edges for matched first-party packages.
@@ -438,10 +450,15 @@ def _emit_tests_edges(
         matched_pkgs = scan_files_imports(repo_root, file_rel_paths, pkg_rows)
 
         for pkg_name, pkg_rel in matched_pkgs:
+            # Phase 50 D-04: use the actual kind so tests-edges from a suite
+            # to an App node resolve correctly.
+            pkg_kind_value = (
+                pkg_kind_map.get(pkg_name, "package") if pkg_kind_map else "package"
+            )
             edges_out.append(
                 GraphEdge(
                     src=suite_key,
-                    dst=("package", pkg_name, pkg_rel),
+                    dst=(pkg_kind_value, pkg_name, pkg_rel),
                     kind="tests",
                     attrs={},
                 )

@@ -543,7 +543,8 @@ def describe_entry_point(
         "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
         "LEFT JOIN edges ib ON ib.src = ep.id AND ib.kind='implemented_by' "
         "LEFT JOIN nodes f ON f.id = ib.dst AND f.kind='file' "
-        "WHERE pkg.kind='package' AND pkg.name = ? AND ep.name = ?",
+        # Phase 50 D-04: apps declare entry points the same way packages do.
+        "WHERE pkg.kind IN ('package', 'app') AND pkg.name = ? AND ep.name = ?",
         (package_name, entry_name),
     ).fetchone()
     if not row:

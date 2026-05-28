@@ -61,12 +61,18 @@ def _load_domains_yaml(repo_root: Path) -> dict | None:
     return data
 
 
-def _known_packages(conn: sqlite3.Connection) -> list[tuple[str, str | None]]:
-    """Return sorted [(pkg_name, pkg_rel)] from the Package nodes."""
+def _known_packages(conn: sqlite3.Connection) -> list[tuple[str, str | None, str]]:
+    """Return sorted [(pkg_name, pkg_rel, pkg_kind)] from manifest-defined nodes.
+
+    Phase 50 D-04: includes both `kind='package'` and `kind='app'` nodes —
+    apps are semantically packages that also satisfy app-classification
+    signals, so they participate in domain membership identically.
+    """
     rows = conn.execute(
-        "SELECT name, path FROM nodes WHERE kind='package' ORDER BY name"
+        "SELECT name, path, kind FROM nodes "
+        "WHERE kind IN ('package', 'app') ORDER BY name"
     ).fetchall()
-    return [(name, path) for name, path in rows]
+    return [(name, path, kind) for name, path, kind in rows]
 
 
 def _detect_cycles(
@@ -206,8 +212,11 @@ def emit(
         return
 
     known_pkgs = _known_packages(conn)
-    known_names = {name for name, _rel in known_pkgs}
-    known_name_to_rel = {name: rel for name, rel in known_pkgs}
+    known_names = {name for name, _rel, _kind in known_pkgs}
+    known_name_to_rel = {name: rel for name, rel, _kind in known_pkgs}
+    # Phase 50 D-04: track each known package's actual kind so the
+    # belongs_to_domain edge src tuple uses the right ('package' or 'app').
+    known_name_to_kind = {name: kind for name, _rel, kind in known_pkgs}
     known_sorted_csv = ", ".join(sorted(known_names))
 
     nodes_out: list[GraphNode] = []
@@ -273,8 +282,9 @@ def emit(
                 )
                 continue
             pkg_rel = known_name_to_rel.get(pkg_name)
+            pkg_kind = known_name_to_kind.get(pkg_name, "package")
             edges_out.append(GraphEdge(
-                src=("package", pkg_name, pkg_rel),
+                src=(pkg_kind, pkg_name, pkg_rel),
                 dst=(_DOMAIN_KIND, dom_name, None),
                 kind=_BELONGS_TO_DOMAIN_KIND,
                 attrs={},

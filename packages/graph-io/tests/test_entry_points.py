@@ -97,10 +97,12 @@ def _impl_target(conn: sqlite3.Connection, ep_name: str) -> str | None:
 
 
 def _declares_edge_exists(conn: sqlite3.Connection, pkg_name: str, ep_name: str) -> bool:
+    # Phase 50 D-04: declares_entry_point edges originate from package OR app
+    # nodes — apps declare entry points the same way packages do.
     row = conn.execute(
         """
         SELECT 1 FROM edges e
-        JOIN nodes p ON e.src = p.id AND p.kind='package' AND p.name=?
+        JOIN nodes p ON e.src = p.id AND p.kind IN ('package', 'app') AND p.name=?
         JOIN nodes ep ON e.dst = ep.id AND ep.kind='entry_point' AND ep.name=?
         WHERE e.kind = 'declares_entry_point'
         """,

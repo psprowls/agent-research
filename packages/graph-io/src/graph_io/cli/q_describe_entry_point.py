@@ -55,7 +55,9 @@ def run(args: argparse.Namespace) -> int:
                 "FROM nodes pkg "
                 "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
                 "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
-                "WHERE pkg.kind='package' AND ep.name = ?",
+                # Phase 50 D-04: include apps too — apps declare entry points
+                # via the same manifest fields as packages.
+                "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
                 (raw,),
             ).fetchall()
             if not rows:

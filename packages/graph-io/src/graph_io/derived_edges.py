@@ -31,6 +31,10 @@ _DEPENDS_ON_KIND = "depends_on"
 _TESTS_KIND = "tests"
 _DOMAIN_KIND = "domain"
 _PACKAGE_KIND = "package"
+# Phase 50 D-04: apps participate in domain membership and test coverage the
+# same way packages do. Use this tuple in `kind IN (...)` filters when the
+# query is "any manifest-defined node," not "strictly a Package."
+_MANIFEST_KINDS = ("package", "app")
 _TEST_SUITE_KIND = "test_suite"
 _BELONGS_TO_DOMAIN_KIND = "belongs_to_domain"
 
@@ -76,13 +80,18 @@ def _compute_references_and_depends_on(
     if not domain_names:
         return   # zero-domain mode — nothing to derive
 
-    # Load all Package rows (name, path)
+    # Load all Package/App rows (name, path, kind). Phase 50 D-04: apps count too.
     pkg_rows = conn.execute(
-        "SELECT name, path FROM nodes WHERE kind=?", (_PACKAGE_KIND,),
+        "SELECT name, path, kind FROM nodes WHERE kind IN ('package', 'app')"
     ).fetchall()
     all_pkg_keys: list[tuple[str, str | None]] = [
-        (name, path) for name, path in pkg_rows
+        (name, path) for name, path, _kind in pkg_rows
     ]
+    # Phase 50 D-04: (name, path) -> actual kind so dst tuples of derived edges
+    # (e.g. references) resolve to the existing row instead of inserting a stub.
+    pkg_key_to_kind: dict[tuple[str, str | None], str] = {
+        (name, path): kind for name, path, kind in pkg_rows
+    }
 
     # domain_pkgs: Domain.name -> set of Package keys directly in it
     domain_pkgs: dict[str, set[tuple[str, str | None]]] = defaultdict(set)
@@ -93,8 +102,8 @@ def _compute_references_and_depends_on(
         "SELECT pkg.name, pkg.path, dom.name FROM edges e "
         "JOIN nodes pkg ON e.src=pkg.id "
         "JOIN nodes dom ON e.dst=dom.id "
-        "WHERE e.kind=? AND pkg.kind=? AND dom.kind=?",
-        (_BELONGS_TO_DOMAIN_KIND, _PACKAGE_KIND, _DOMAIN_KIND),
+        "WHERE e.kind=? AND pkg.kind IN ('package', 'app') AND dom.kind=?",
+        (_BELONGS_TO_DOMAIN_KIND, _DOMAIN_KIND),
     ).fetchall()
     for pkg_name, pkg_path, dom_name in membership_rows:
         pkg_key = (pkg_name, pkg_path)
@@ -136,9 +145,12 @@ def _compute_references_and_depends_on(
     edges_out: list[GraphEdge] = []
     for (d_name, tgt_key), src_set in ref_buckets.items():
         tgt_name, tgt_path = tgt_key
+        # Phase 50 D-04: use actual stored kind so the references-edge dst
+        # resolves to the existing Package or App row.
+        tgt_kind = pkg_key_to_kind.get(tgt_key, _PACKAGE_KIND)
         edges_out.append(GraphEdge(
             src=(_DOMAIN_KIND, d_name, None),
-            dst=(_PACKAGE_KIND, tgt_name, tgt_path),
+            dst=(tgt_kind, tgt_name, tgt_path),
             kind=_REFERENCES_KIND,
             attrs={"usage_count": len(src_set)},
         ))
@@ -165,8 +177,8 @@ def _compute_testsuite_domain(
         "SELECT ts.id, ts.name, ts.path, pkg.name, pkg.path FROM edges e "
         "JOIN nodes ts ON e.src=ts.id "
         "JOIN nodes pkg ON e.dst=pkg.id "
-        "WHERE e.kind=? AND ts.kind=? AND pkg.kind=?",
-        (_TESTS_KIND, _TEST_SUITE_KIND, _PACKAGE_KIND),
+        "WHERE e.kind=? AND ts.kind=? AND pkg.kind IN ('package', 'app')",
+        (_TESTS_KIND, _TEST_SUITE_KIND),
     ).fetchall()
     suite_pkgs: dict[
         tuple[int, str, str | None],
@@ -181,8 +193,8 @@ def _compute_testsuite_domain(
         "SELECT pkg.name, pkg.path, dom.name FROM edges e "
         "JOIN nodes pkg ON e.src=pkg.id "
         "JOIN nodes dom ON e.dst=dom.id "
-        "WHERE e.kind=? AND pkg.kind=? AND dom.kind=?",
-        (_BELONGS_TO_DOMAIN_KIND, _PACKAGE_KIND, _DOMAIN_KIND),
+        "WHERE e.kind=? AND pkg.kind IN ('package', 'app') AND dom.kind=?",
+        (_BELONGS_TO_DOMAIN_KIND, _DOMAIN_KIND),
     ).fetchall()
     for pkg_name, pkg_path, dom_name in membership_rows:
         pkg_domains[(pkg_name, pkg_path)].add(dom_name)

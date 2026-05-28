@@ -330,9 +330,11 @@ def refresh(
     workspace = Path(workspace).resolve()
     skip_dirs = _ignore.load_skip_dirs(repo_root)
 
-    # Load all Package rows from the graph (written by packages.refresh before us).
+    # Load all Package/App rows from the graph (written by packages.refresh before us).
+    # Phase 50 D-04: apps also import builtins; include them.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
+        "SELECT name, path, attrs_json, kind FROM nodes "
+        "WHERE kind IN ('package', 'app')"
     ).fetchall()
     if not pkg_rows:
         return
@@ -344,11 +346,13 @@ def refresh(
     edge_acc: dict[tuple[str, str, str], set[str]] = {}
     # Track unique (language, module_name) pairs for node emission.
     node_keys: set[tuple[str, str]] = set()
-    # Map pkg_name -> pkg_rel for edge src construction.
+    # Map pkg_name -> (pkg_rel, pkg_kind) for edge src construction.
     pkg_rel_map: dict[str, str | None] = {}
+    pkg_kind_map: dict[str, str] = {}
 
-    for pkg_name, pkg_rel, attrs_json in pkg_rows:
+    for pkg_name, pkg_rel, attrs_json, pkg_kind in pkg_rows:
         pkg_rel_map[pkg_name] = pkg_rel
+        pkg_kind_map[pkg_name] = pkg_kind
 
         # Collect file paths under this package's directory prefix.
         if pkg_rel:
@@ -411,10 +415,16 @@ def refresh(
         for (lang, module_name) in sorted(node_keys)
     ]
 
-    # Emit one `used_by` edge per (package, builtin) with the symbol union.
+    # Emit one `used_by` edge per (package/app, builtin) with the symbol union.
+    # Phase 50 D-04: src uses the consumer's actual kind so App consumers
+    # resolve correctly.
     builtin_edges: list[GraphEdge] = [
         GraphEdge(
-            src=("package", pkg_name, pkg_rel_map.get(pkg_name)),
+            src=(
+                pkg_kind_map.get(pkg_name, "package"),
+                pkg_name,
+                pkg_rel_map.get(pkg_name),
+            ),
             dst=("builtin", module_name, lang),
             kind="used_by",
             attrs={"imported_symbols": sorted(symbols)},
