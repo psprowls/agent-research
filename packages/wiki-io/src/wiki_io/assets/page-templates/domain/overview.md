@@ -30,5 +30,18 @@ full detail.
 ## Key flows
 - **<Flow name>** — `<path/to/entry>:<line>` → describe
 
-## Sub-pages
-- [[wiki/domains/{{DOMAIN_SLUG}}/details|details]] — concepts, dependencies, decisions, sources, contrasts
+## Concepts
+- [[concepts/<concept>]]
+
+## Dependencies
+- [[dependencies/<lib>]]
+
+## Decisions
+- [[adrs/<id>-<slug>]]
+
+## Sources
+- [[sources/<source>]]
+
+## Contrasts / alternatives
+- [[concepts/<a>-vs-<b>]]
+

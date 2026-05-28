@@ -35,10 +35,35 @@ TODO — describe what this directory contains.
 |---|---|---|
 | `<file>` | file | — TODO |
 
-## Sub-pages
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/api|api]]           — public API, exports, CLI subcommands
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/patterns|patterns]] — key patterns and conventions
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/testing|testing]]   — test suite, fixtures, coverage
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
+## Public API
+Main exports and when to use them. Link code with backticked `path:line` references.
+
+- `exportName(args)` — `src/path/to/file.ts:line` — short description
+
+## CLI
+CLI subcommands if applicable. Otherwise remove this section.
+
+## Concepts
+- [[wiki/concepts/<slug>]]
+
+## Decisions
+- [[wiki/adrs/<id>-<slug>]]
+
+## Sources
+- [[wiki/sources/<YYYY-MM>-<slug>]]
+
+## Belongs to domain
+- [[wiki/domains/<domain>]]
+
+## Used by
+- [[wiki/packages/<other-package>]]
+
+## Related dependencies
+- [[wiki/dependencies/<lib>]]
+
+## Key patterns
+- Pattern 1 — `src/path/to/file.ts:line`
+
+## Conventions
+- Convention 1
 

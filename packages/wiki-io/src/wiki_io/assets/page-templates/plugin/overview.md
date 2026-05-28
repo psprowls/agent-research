@@ -35,9 +35,32 @@ TODO — describe what this directory contains.
 |---|---|---|
 | `<file>` | file | — TODO |
 
-## Sub-pages
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/api|api]]           — public API, exports, CLI subcommands
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/patterns|patterns]] — key patterns and conventions
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/work|work]]         — bugs, tech debt, features, open questions
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/testing|testing]]   — test suite, fixtures, coverage
-- [[wiki/{{CONTAINER_DIR}}/{{PACKAGE_SLUG}}/context|context]]   — concepts, decisions, ADRs, sources
+## Purpose
+One paragraph: what this plugin's test suite covers, what frameworks it uses, and how to run it.
+
+## How to run
+- `<command>` — describe the primary test command
+- `<command>` — describe any secondary commands (smoke, integration, e2e)
+
+## File map - {{PACKAGE_SLUG}}
+TODO — overview of this plugin's test tree.
+
+### {{PACKAGE_SLUG}}/
+TODO — describe what this directory contains.
+
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
+
+## Test conventions
+- Naming, structure, mocks, fixtures — anything specific to how tests are organized here.
+
+## Fixtures
+- `<path>` — describe what fixture data this represents and how it's used.
+
+## Coverage
+- Target coverage threshold (if any), how it's measured, where the report lives.
+
+## Open questions
+- …
+
