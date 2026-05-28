@@ -234,6 +234,10 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Validated
 
+#### Milestone v1.10 IN PROGRESS (Wiki Index & Entity Page Enrichment)
+
+- ✓ **Dependency classification fix** — v1.10 (CLASS-01/02): `graph-io`'s `refresh()` no longer emits a `dependency` node for a name that is also a workspace `package`/`app` (normalized, name-scoped, cross-ecosystem); the internal package→package relationship is a distinct `depends_on_package` edge (src=consumer, dst=internal package, D-04/D-05 amendment) plus a retargeted `used_by` edge resolved to the real node; `cg describe-package` surfaces both internal dependents (incoming) and dependencies (outgoing). Verified end-to-end via `cg update --full`. (Phase 55)
+
 #### Milestone v1.9 SHIPPED — 2026-05-28 (Graph Refinements & Wiki Filename Slimdown)
 
 24/24 requirements satisfied across Phases 49-53. Full detail: `.planning/milestones/v1.9-ROADMAP.md` and `.planning/milestones/v1.9-REQUIREMENTS.md`.
@@ -397,7 +401,9 @@ _See "Deferred to v1.10+" below for carried-forward items (process debt + graph/
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-28 — milestone v1.10 (Wiki Index & Entity Page Enrichment) STARTED. Scope: human-readable index with per-entity summaries + an app section; nest test-suites/dependencies under their packages; stop emitting `dependency` nodes for workspace packages (use a `depends_on` edge); migrate old overview/subpage content into `entity-<type>` templates + flesh out ontology sections with TODO placeholders + scan-time variable population; debt fixes (`test_integration_gate.py`, PROJECT.md drift). Phase numbering continues from Phase 53 → v1.10 starts at Phase 54.
+**Last updated:** 2026-05-28 — Phase 55 (Dependency Classification Fix) COMPLETE. CLASS-01/02 validated: workspace packages are no longer double-classified as `dependency` nodes; internal package→package deps are a distinct `depends_on_package` edge (D-04/D-05 amendment) surfaced both directions in `cg describe-package`. Verified end-to-end via `cg update --full`; graph-io suite green (462 passed). v1.10 now 2/4 phases complete.
+
+**Prior update:** 2026-05-28 — milestone v1.10 (Wiki Index & Entity Page Enrichment) STARTED. Scope: human-readable index with per-entity summaries + an app section; nest test-suites/dependencies under their packages; stop emitting `dependency` nodes for workspace packages (use a `depends_on` edge); migrate old overview/subpage content into `entity-<type>` templates + flesh out ontology sections with TODO placeholders + scan-time variable population; debt fixes (`test_integration_gate.py`, PROJECT.md drift). Phase numbering continues from Phase 53 → v1.10 starts at Phase 54.
 
 **Prior update:** 2026-05-28 — milestone v1.9 (Graph Refinements & Wiki Filename Slimdown) SHIPPED. 5 phases (49-53), 15 plans, 24/24 requirements; merged to `main` via PR #1. Delivered the `builtin` graph kind, `package`→`app` reclassification, short `<kind>_<name>.md` entity filenames (dead slug machinery removed), and full `package-family` + LIB-003 removal. Known debt: Phase 50 lacks a formal VERIFICATION.md; no milestone audit run.
 
