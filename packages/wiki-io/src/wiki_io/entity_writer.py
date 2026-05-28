@@ -520,8 +520,10 @@ def _render_entity_page(
     for k, v in variables.items():
         body = body.replace("{{" + k + "}}", v)
     # D-03: rewrite any residual (unmapped) data token to a visible TODO marker.
+    # Strip the braces from the token name so the marker itself carries NO `{{`
+    # (else SCAN-01's "no {{ survives" guarantee would be defeated).
     body = _RESIDUAL_TOKEN_RE.sub(
-        lambda m: f"> TODO: <add value for {m.group(0)}>", body
+        lambda m: f"> TODO: <add value for {m.group(0).strip('{}')}>", body
     )
     yaml_block = yaml.safe_dump(
         frontmatter_dict,

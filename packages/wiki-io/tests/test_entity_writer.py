@@ -419,6 +419,79 @@ def test_render_entity_page_byte_stable_across_runs(tmp_path):
 
 
 # ----------------------------------------------------------------------------
+# Phase 56 SCAN-01: {{...}} substitution + D-03 TODO fallback
+# ----------------------------------------------------------------------------
+
+
+def test_render_substitutes_data_token_keeps_instruction_angle(tmp_path) -> None:
+    """SCAN-01/D-01: {{...}} data tokens are substituted; <...> instruction left intact."""
+    template_path = tmp_path / "tpl.md"
+    template_path.write_text(
+        "---\nkind: package\n---\n# {{package_name}}\n\n"
+        "> TODO: <add the package purpose>\n"
+    )
+    fm = {"uri": "pkg:x", "kind": "package"}
+    out = _render_entity_page(template_path, fm, {"package_name": "wiki-io"})
+    assert "# wiki-io" in out
+    # Instruction angle survives untouched (never substituted).
+    assert "> TODO: <add the package purpose>" in out
+    assert "{{" not in out
+
+
+def test_render_unmapped_token_becomes_todo_marker(tmp_path) -> None:
+    """D-03: an unmapped {{...}} token resolves to a TODO marker, never raw {{...}}."""
+    template_path = tmp_path / "tpl.md"
+    template_path.write_text(
+        "---\nkind: package\n---\n# {{package_name}}\n\nVersion: {{version}}\n"
+    )
+    fm = {"uri": "pkg:x", "kind": "package"}
+    # version is intentionally NOT in the variable map.
+    out = _render_entity_page(template_path, fm, {"package_name": "wiki-io"})
+    assert "{{" not in out  # no raw token survives (SCAN-01)
+    assert "TODO" in out  # the residual token became a visible TODO marker
+
+
+# ----------------------------------------------------------------------------
+# Phase 56 SCAN-02 / D-07: summary fill-when-empty in merge_frontmatter
+# ----------------------------------------------------------------------------
+
+
+def test_merge_preserves_human_summary() -> None:
+    """D-07: a non-empty existing summary survives a re-scan (human edit wins)."""
+    existing = {"uri": "pkg:x", "kind": "package", "summary": "hand written"}
+    scanner_update = {"uri": "pkg:x", "kind": "package", "summary": "scanner derived"}
+    out = merge_frontmatter(existing, scanner_update)
+    assert out["summary"] == "hand written"
+
+
+def test_merge_fills_empty_summary_from_scanner() -> None:
+    """D-07: an absent/empty existing summary is filled from the scanner value."""
+    existing = {"uri": "pkg:x", "kind": "package"}
+    scanner_update = {"uri": "pkg:x", "kind": "package", "summary": "scanner derived"}
+    out = merge_frontmatter(existing, scanner_update)
+    assert out["summary"] == "scanner derived"
+
+    existing_empty = {"uri": "pkg:x", "kind": "package", "summary": ""}
+    out2 = merge_frontmatter(existing_empty, scanner_update)
+    assert out2["summary"] == "scanner derived"
+
+
+def test_merge_summary_todo_marker_when_description_empty() -> None:
+    """D-03/D-12: scanner-provided TODO-marker summary fills an empty page summary."""
+    existing = {"uri": "pkg:x", "kind": "package"}
+    todo = "> TODO: <add a one-line summary for x>"
+    scanner_update = {"uri": "pkg:x", "kind": "package", "summary": todo}
+    out = merge_frontmatter(existing, scanner_update)
+    assert out["summary"] == todo
+
+
+def test_summary_not_in_scanner_owned_keys() -> None:
+    """D-07: summary must NOT be a scanner-owned key (else it clobbers human edits)."""
+    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    assert "summary" not in SCANNER_OWNED_KEYS
+
+
+# ----------------------------------------------------------------------------
 # Task 7: write_entities orchestrator (mocked graph)
 # ----------------------------------------------------------------------------
 

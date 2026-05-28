@@ -23,6 +23,7 @@ import threading
 import time
 from pathlib import Path
 
+import frontmatter
 import pytest
 
 from graph_io import packages, plugins, structural_nodes
@@ -227,3 +228,48 @@ def test_needs_narrative_round_trip(tmp_path):
     assert len(r1.needs_narrative) >= 7
     r2 = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert r2.needs_narrative == set()
+
+
+def test_no_unsubstituted_token_and_summary_populated(tmp_path):
+    """Phase 56 SCAN-01 + SCAN-02 end-to-end on a real synthetic workspace.
+
+    After write_entities: (1) no generated entity page body contains a raw
+    `{{...}}` data token (SCAN-01); (2) every generated page carries a
+    non-empty `summary:` frontmatter key (SCAN-02). pkg-a is given a real
+    `[project].description` to exercise the description-derived summary path;
+    pages without a description get the D-03 TODO-marker summary (still
+    non-empty).
+    """
+    _build_fixture_workspace(tmp_path)
+    # Give pkg-a a real description so its summary is description-derived (D-06/D-05).
+    (tmp_path / "pkg-a" / "pyproject.toml").write_text(
+        '[project]\n'
+        'name = "pkg-a"\n'
+        'version = "0.1.0"\n'
+        'description = "Package A does useful things."\n'
+        'dependencies = ["boto3>=1.38", "pyyaml>=6"]\n'
+    )
+    _init_git_repo(tmp_path)
+    conn = _ingest(tmp_path)
+    wiki_root = tmp_path / "wiki"
+    result = write_entities(conn, wiki_root, ADMITTED_KINDS)
+    assert result.errors == [], f"unexpected errors: {result.errors}"
+
+    entities = wiki_root / "entities"
+    pages = [p for p in entities.glob("*.md") if p.name != "_index.md"]
+    assert pages, "no entity pages were generated"
+    for page in pages:
+        post = frontmatter.load(page)
+        # SCAN-01: no raw {{...}} data token survives in the body.
+        assert "{{" not in post.content, (
+            f"{page.name}: unsubstituted token survives in body"
+        )
+        # SCAN-02: every page has a non-empty summary.
+        summary = post.metadata.get("summary")
+        assert summary not in (None, "", []), (
+            f"{page.name}: missing/empty summary: {summary!r}"
+        )
+
+    # pkg-a's summary is the real description (description-derived path).
+    pkg_a = frontmatter.load(entities / "pkg_pkg-a.md")
+    assert pkg_a.metadata.get("summary") == "Package A does useful things."
