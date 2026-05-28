@@ -82,6 +82,9 @@ def _read_pyproject(path: Path) -> dict[str, Any] | None:
     return {
         "name": name,
         "version": project.get("version", ""),
+        # Phase 56 D-06: SCAN-02 description source — consumed cross-package by
+        # wiki-io's scanner_frontmatter_for_node to derive the entity `summary:`.
+        "description": project.get("description", ""),
         "dependencies": list(project.get("dependencies", [])),
         "dep_groups": dep_groups,  # PEP 735 — Phase 43 D-02
         "language": "python",
@@ -110,6 +113,8 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     return {
         "name": name,
         "version": data.get("version", ""),
+        # Phase 56 D-06: SCAN-02 description source (parity with pyproject).
+        "description": data.get("description", ""),
         "dependencies": sorted(deps.keys()) if isinstance(deps, dict) else list(deps),
         "language": "javascript",
         "bin_present": bin_present,  # Phase 50 D-03
@@ -202,6 +207,11 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         )
         attrs: dict[str, Any] = {
             "version": info["version"],
+            # Phase 56 D-06: SCAN-02 source — stored in attrs_json so wiki-io can
+            # read node.attrs["description"] uniformly across kinds (like domains).
+            # Empty when pyproject has no [project].description; the TODO fallback
+            # is wiki-io's job (Plan 01), not synthesized here.
+            "description": info.get("description", ""),
             "dependencies": info["dependencies"],
             "language": info["language"],
             "uri": new_uri,
