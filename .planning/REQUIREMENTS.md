@@ -59,17 +59,17 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IDX-01 | TBD | Pending |
-| IDX-02 | TBD | Pending |
-| IDX-03 | TBD | Pending |
-| IDX-04 | TBD | Pending |
-| IDX-05 | TBD | Pending |
-| CLASS-01 | TBD | Pending |
-| CLASS-02 | TBD | Pending |
-| ENTITY-01 | TBD | Pending |
-| ENTITY-02 | TBD | Pending |
-| ENTITY-03 | TBD | Pending |
-| SCAN-01 | TBD | Pending |
-| SCAN-02 | TBD | Pending |
-| DEBT-01 | TBD | Pending |
-| DEBT-02 | TBD | Pending |
+| IDX-01 | 57 | Pending |
+| IDX-02 | 57 | Pending |
+| IDX-03 | 57 | Pending |
+| IDX-04 | 57 | Pending |
+| IDX-05 | 57 | Pending |
+| CLASS-01 | 55 | Pending |
+| CLASS-02 | 55 | Pending |
+| ENTITY-01 | 56 | Pending |
+| ENTITY-02 | 56 | Pending |
+| ENTITY-03 | 56 | Pending |
+| SCAN-01 | 56 | Pending |
+| SCAN-02 | 56 | Pending |
+| DEBT-01 | 54 | Pending |
+| DEBT-02 | 54 | Pending |

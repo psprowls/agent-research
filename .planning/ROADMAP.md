@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** none — v1.9 shipped 2026-05-28; awaiting `/gsd:new-milestone`
+**Current milestone:** v1.10 — Wiki Index & Entity Page Enrichment (in progress, Phase 54+)
 
 ---
 
@@ -18,6 +18,7 @@
 - ✅ **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-41 (shipped 2026-05-26) — [archive](milestones/v1.7-ROADMAP.md) · [audit](milestones/v1.7-MILESTONE-AUDIT.md)
 - ✅ **v1.8 — Wiki Entity Restructure** — Phases 42-48 (shipped 2026-05-27) — [archive](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49-53 (shipped 2026-05-28) — [archive](milestones/v1.9-ROADMAP.md)
+- 🔄 **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-57 (in progress)
 
 ---
 
@@ -160,6 +161,61 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 
 </details>
 
+### v1.10 Wiki Index & Entity Page Enrichment (Phases 54-57) — IN PROGRESS
+
+- [ ] **Phase 54: Debt Clearance** — Fix the integration-gate test failure and correct PROJECT.md stack references
+- [ ] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges
+- [ ] **Phase 56: Entity Templates & Scan-Time Population** — Migrate legacy template content into `entity-<type>.md` templates; add scan-time variable substitution and `summary:` frontmatter field
+- [ ] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md`
+
+---
+
+## Phase Details
+
+### Phase 54: Debt Clearance
+**Goal**: The test suite is clean and the project documentation accurately describes the current stack
+**Depends on**: Nothing (independent cleanup)
+**Requirements**: DEBT-01, DEBT-02
+**Success Criteria** (what must be TRUE):
+  1. `pytest tests/test_integration_gate.py` passes with no failures — every integration test file uses the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif guard
+  2. PROJECT.md "What This Is" and Constraints sections reference `subagent-runtime`, `langchain-aws`, `langchain-core`, and `graph-wiki` naming — no `deepagents` or `lattice-wiki` references remain in those sections
+**Plans**: TBD
+
+### Phase 55: Dependency Classification Fix
+**Goal**: Workspace packages are never double-classified as both a `package`/`app` node and a `dependency` node in the same repo
+**Depends on**: Phase 54
+**Requirements**: CLASS-01, CLASS-02
+**Success Criteria** (what must be TRUE):
+  1. After a full `cg update`, no `dep_graph-io.md` (or equivalent) entity page exists for any name that is also a workspace package — the dependency node is suppressed entirely
+  2. An internal package→package import relationship appears as a `depends_on` edge between the two package/app nodes in the graph database
+  3. The `depends_on` edge between internal packages surfaces correctly in graph queries (e.g. `cg describe-package <name>` shows internal dependents)
+**Plans**: TBD
+
+### Phase 56: Entity Templates & Scan-Time Population
+**Goal**: Generated entity pages contain real content from migrated templates with all placeholder variables substituted, each page carries a `summary:` field, and legacy template directories are gone
+**Depends on**: Phase 55
+**Requirements**: ENTITY-01, ENTITY-02, ENTITY-03, SCAN-01, SCAN-02
+**Success Criteria** (what must be TRUE):
+  1. Running `graph-wiki-agent scan` produces entity pages where heading placeholders like `# <Package Name>` are replaced with real values (e.g. `# wiki-io`) — no literal `<...>` text survives in any generated page
+  2. Every generated entity page has a populated `summary:` frontmatter field derived from the graph node's description
+  3. Each `entity-<type>.md` template contains ontology-relevant sections for its kind; sections requiring human or LLM authorship show `TODO: <instructions>` rather than empty headings or dead links
+  4. The legacy `package/`, `domain/`, `plugin/`, and `app/` template directories no longer exist in the repository; no dead links remain in any generated entity pages
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 57: Index Generation Polish
+**Goal**: The generated `wiki/index.md` is a genuinely readable projection of the graph — apps listed separately, entity links are human-readable with inline summaries, and test-suites and dependencies nest under their packages
+**Depends on**: Phase 55 (for correct dependency/`depends_on` data), Phase 56 (for `summary:` frontmatter field)
+**Requirements**: IDX-01, IDX-02, IDX-03, IDX-04, IDX-05
+**Success Criteria** (what must be TRUE):
+  1. The generated index contains a distinct `app` section in the By-Kind ordering, separate from the `packages` section
+  2. Entity links in the By-Kind and Domain sections render as `[[wiki/entities/<stem>|<name>]]` — the display text is the human-readable entity name, not the raw file stem
+  3. Each entity entry in the index shows a one-line summary inline, sourced from the entity page's `summary:` frontmatter field
+  4. Test-suite entries appear nested under the package(s) they test (duplicated across multiple packages where appropriate); no standalone flat By-Kind "Test Suites" section exists
+  5. Dependency entries appear nested under the package(s) that use them (duplicated across packages where appropriate); no standalone flat By-Kind "Dependencies" section exists
+**Plans**: TBD
+**UI hint**: yes
+
 ---
 
 ## Progress
@@ -219,7 +275,11 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 4/4 | Complete    | 2026-05-28 |
 | 52. Wiki Filename Slimdown — Core | v1.9 | 3/3 | Complete    | 2026-05-28 |
 | 53. Wiki Filename Cutover | v1.9 | 2/2 | Complete   | 2026-05-28 |
+| 54. Debt Clearance | v1.10 | 0/TBD | Not started | - |
+| 55. Dependency Classification Fix | v1.10 | 0/TBD | Not started | - |
+| 56. Entity Templates & Scan-Time Population | v1.10 | 0/TBD | Not started | - |
+| 57. Index Generation Polish | v1.10 | 0/TBD | Not started | - |
 
 ---
 
-*Last updated: 2026-05-28 — v1.9 (Graph Refinements & Wiki Filename Slimdown) shipped & archived. Phases 49-53, 15 plans, 24 requirements complete. Merged to main via PR #1.*
+*Last updated: 2026-05-28 — v1.10 (Wiki Index & Entity Page Enrichment) roadmap created. Phases 54-57, 14 requirements.*
