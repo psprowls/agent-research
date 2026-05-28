@@ -19,11 +19,11 @@
 ### Package → App classification (`graph-io`)
 
 - [x] **APP-01**: Scanner reclassifies a `Package` node as an `App` node when manifest signals indicate it is an application rather than a library: Python `pyproject.toml [project.scripts]` non-empty → CLI app; JS/TS `package.json bin` field present → CLI app; `next` in `package.json` dependencies → Next.js app; `expo` in `package.json` dependencies → Expo app; `vite` in dependencies + `index.html` at package root → SPA.
-- [ ] **APP-02**: `App` is a graph kind separate from `Package` (not just an attribute flag), so domain projections and wiki rendering can treat apps distinctly. App nodes participate in the same edges packages do (`belongs_to_domain`, `depends_on`, `physically_contains`, etc.).
+- [x] **APP-02**: `App` is a graph kind separate from `Package` (not just an attribute flag), so domain projections and wiki rendering can treat apps distinctly. App nodes participate in the same edges packages do (`belongs_to_domain`, `depends_on`, `physically_contains`, etc.).
 - [x] **APP-03**: When no manifest signal matches, the node remains a `Package` (no false-positive reclassification). When multiple signals match (e.g., a CLI built on Next.js), the most-specific signal wins via documented precedence order.
 - [x] **APP-04**: `App` nodes carry an `app_kind` attribute (`cli`, `nextjs`, `expo`, `spa`) recording which signal matched, for downstream rendering decisions.
 - [ ] **APP-05**: `cg list-apps` CLI surface; `cg describe-app <uri>` mirrors the existing `cg describe-package` shape with `app_kind` surfaced.
-- [ ] **APP-06**: URI scheme for apps preserves the package URI form so existing inbound references survive reclassification (e.g., `pkg:org/repo/eval-harness` becomes `app:org/repo/eval-harness` only when reclassified; the migration is a one-time scanner-driven rewrite).
+- [x] **APP-06**: URI scheme for apps preserves the package URI form so existing inbound references survive reclassification (e.g., `pkg:org/repo/eval-harness` becomes `app:org/repo/eval-harness` only when reclassified; the migration is a one-time scanner-driven rewrite).
 
 ### Wiki entity filename slimdown (`wiki-io`)
 
@@ -75,11 +75,11 @@
 | BUILTIN-05 | Phase 49 | Pending |
 | BUILTIN-06 | Phase 49 | Pending |
 | APP-01 | Phase 50 | Complete |
-| APP-02 | Phase 50 | Pending |
+| APP-02 | Phase 50 | Complete |
 | APP-03 | Phase 50 | Complete |
 | APP-04 | Phase 50 | Complete |
 | APP-05 | Phase 50 | Pending |
-| APP-06 | Phase 50 | Pending |
+| APP-06 | Phase 50 | Complete |
 | PKGFAM-01 | Phase 51 | Pending |
 | PKGFAM-02 | Phase 51 | Pending |
 | PKGFAM-03 | Phase 51 | Pending |

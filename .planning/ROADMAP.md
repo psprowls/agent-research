@@ -187,7 +187,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
   5. No `App` node appears where a package carries no manifest signals for application status (no false-positive reclassification).
 **Plans**: 3 plans
   - [x] 50-01-PLAN.md — Schema foundation: _VALID_KINDS admission, _VALID_APP_KINDS gate, app_uri builder, manifest reader extensions, classification.py pure module
-  - [ ] 50-02-PLAN.md — Wire classify() into packages.refresh emit loop + D-06 in-place UPDATE for cross-run kind flips
+  - [x] 50-02-PLAN.md — Wire classify() into packages.refresh emit loop + D-06 in-place UPDATE for cross-run kind flips
   - [ ] 50-03-PLAN.md — Query layer (AppDescription, list_apps, describe_app), CLI handlers (cg list-apps, cg describe-app), end-to-end integration tests
 **UI hint**: no
 
@@ -283,7 +283,7 @@ Full detail: [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 | 47. `cg domain-clusters` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 48. `graph propose-domains` | v1.8 | 3/3 | Complete | 2026-05-27 |
 | 49. Builtin Kind (graph-io) | v1.9 | 3/3 | Complete   | 2026-05-28 |
-| 50. App Reclassification (graph-io) | v1.9 | 1/3 | In Progress|  |
+| 50. App Reclassification (graph-io) | v1.9 | 2/3 | In Progress|  |
 | 51. package-family Removal + Divergence Rule Cleanup | v1.9 | 0/TBD | Not started | - |
 | 52. Wiki Filename Slimdown — Core | v1.9 | 0/TBD | Not started | - |
 | 53. Wiki Filename Cutover | v1.9 | 0/TBD | Not started | - |
