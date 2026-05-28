@@ -878,3 +878,64 @@ def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
     entities = wiki_root / "entities"
     assert (entities / "dep_sample-pkg.md").exists()
     assert not (entities / "dependency_sample-pkg.md").exists()
+
+
+# ============================================================================
+# Phase 52 Plan 03: app kind admission in wiki_io
+# ============================================================================
+
+
+def test_entity_app_template_exists() -> None:
+    """Phase 52 D-06: entity-app.md template exists and is loadable as `kind: app`."""
+    import frontmatter as _fm
+
+    from wiki_io.entity_writer import _template_path_for_kind
+
+    path = _template_path_for_kind("app")
+    assert path.exists(), f"entity-app.md template missing at {path}"
+    post = _fm.load(path)
+    assert post.metadata.get("kind") == "app"
+
+
+def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-06: an `app:` node materializes as `app_<name>.md` on disk.
+
+    Uses a minimal app node fixture: `describe_app` returns None for this
+    name (no description registered), which exercises the graceful
+    fallback path in `scanner_frontmatter_for_node` — only `uri` + `kind`
+    frontmatter is written, but the short filename + template wiring is
+    fully verified.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    # Override fixture: only an app node, plus the default required template kinds.
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("package", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("dependency", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("app", [
+        _NodeRecord_phase52(
+            kind="app", name="demo-app",
+            path="apps/demo-app", line=None,
+            attrs={"uri": "app:test-org/test-repo/demo-app",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    assert result.errors == [], f"unexpected errors: {result.errors}"
+
+    page_path = wiki_root / "entities" / "app_demo-app.md"
+    assert page_path.exists(), (
+        f"expected app_demo-app.md at {page_path}; "
+        f"got: {sorted(p.name for p in (wiki_root / 'entities').iterdir())}"
+    )
+
+    import frontmatter as _fm
+    post = _fm.load(page_path)
+    assert post.metadata.get("kind") == "app"
+    assert post.metadata.get("uri") == "app:test-org/test-repo/demo-app"
