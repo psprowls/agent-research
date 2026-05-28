@@ -6,6 +6,7 @@ import dataclasses
 
 import pytest
 
+from graph_io.queries import _VALID_KINDS
 from graph_io.uri import (
     RepoContext,
     app_uri,
@@ -79,6 +80,13 @@ def test_domain_uri_with_ctx() -> None:
 
 # v1.8 concept-level URI builders (Phase 42 D-04). These take no RepoContext
 # because the entities are repo-agnostic in the graph data model.
+def test_valid_kinds_excludes_package_family() -> None:
+    # Phase 51 PKGFAM-01: package_family is removed from the kind admission set.
+    # Asserted here (rather than as a pure module test) so the negative is
+    # adjacent to the deleted package_family_uri builder for future code-archaeology.
+    assert "package_family" not in _VALID_KINDS
+
+
 def test_package_family_uri() -> None:
     assert package_family_uri("aws") == "package_family:aws"
 
