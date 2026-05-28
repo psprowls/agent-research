@@ -9,12 +9,12 @@
 
 ### Built-in / stdlib handling (`graph-io`)
 
-- [ ] **BUILTIN-01**: Scanner classifies imports of Python stdlib modules (`builtins`, `pathlib`, `os`, `sys`, `re`, `json`, `typing`, etc. — full stdlib list) as a new `Builtin` node kind in the graph instead of as unresolved `Symbol` / `Function` nodes.
-- [ ] **BUILTIN-02**: Scanner classifies imports of Node.js / browser standard-library modules (`fs`, `path`, `crypto`, `http`, `os`, `util`, `stream`, etc. — full Node built-ins list) as the same `Builtin` node kind.
-- [ ] **BUILTIN-03**: npm packages remain classified as `dependency` (no change). Bare-name resolution distinguishes Node built-ins from npm packages via Node's documented built-in module list.
-- [ ] **BUILTIN-04**: `Builtin` nodes carry a `language` attribute (`python` or `javascript`) and a `module_name` attribute; URI scheme `builtin:<language>/<module_name>` (e.g. `builtin:python/pathlib`, `builtin:javascript/fs`).
-- [ ] **BUILTIN-05**: Edges into `Builtin` nodes use the existing `used_by` relation; usage count derivable from edge multiplicity. No `requires` / `imports` edges are added for `Builtin`.
-- [ ] **BUILTIN-06**: `cg list-builtins` CLI surface for inspection (mirrors `cg list-dependencies`); `cg describe-builtin <uri>` shows packages that use it.
+- [x] **BUILTIN-01**: Scanner classifies imports of Python stdlib modules (`builtins`, `pathlib`, `os`, `sys`, `re`, `json`, `typing`, etc. — full stdlib list) as a new `Builtin` node kind in the graph instead of as unresolved `Symbol` / `Function` nodes.
+- [x] **BUILTIN-02**: Scanner classifies imports of Node.js / browser standard-library modules (`fs`, `path`, `crypto`, `http`, `os`, `util`, `stream`, etc. — full Node built-ins list) as the same `Builtin` node kind.
+- [x] **BUILTIN-03**: npm packages remain classified as `dependency` (no change). Bare-name resolution distinguishes Node built-ins from npm packages via Node's documented built-in module list.
+- [x] **BUILTIN-04**: `Builtin` nodes carry a `language` attribute (`python` or `javascript`) and a `module_name` attribute; URI scheme `builtin:<language>/<module_name>` (e.g. `builtin:python/pathlib`, `builtin:javascript/fs`).
+- [x] **BUILTIN-05**: Edges into `Builtin` nodes use the existing `used_by` relation; usage count derivable from edge multiplicity. No `requires` / `imports` edges are added for `Builtin`.
+- [x] **BUILTIN-06**: `cg list-builtins` CLI surface for inspection (mirrors `cg list-dependencies`); `cg describe-builtin <uri>` shows packages that use it.
 
 ### Package → App classification (`graph-io`)
 
@@ -31,20 +31,20 @@
 - [x] **WIKI-FN-02**: Test-suite filenames use a framework-aware prefix: `unit_tests_<pkg>.md` for unit suites and `int_tests_<pkg>.md` for integration suites, derived from the suite's `kind` attribute on the `TestSuite` graph node. Disambiguates the common case where multiple suites are literally named `tests`.
 - [x] **WIKI-FN-03**: When two entities would produce the same short filename (cross-repo, cross-org), append a short repo/org hash suffix only to the collider (e.g., `pkg_utils__a3f7c1.md`). Hash derived deterministically from the full URI; length tuned to keep collision-prevention while staying readable.
 - [x] **WIKI-FN-04**: Filename derivation is a pure function of the entity URI + collision set, exposed in `wiki_io.entity_writer` as a testable helper. Property test confirms idempotence and collision-resistance.
-- [ ] **WIKI-FN-05**: `encode_slug` / `decode_slug` and the orphaned `_ADMITTED_URI_PREFIXES` scaffolding are removed from `wiki_io.entity_writer`. All consumer call sites (`link_rewriter.py`, `index_generator.py`, scanner) are rewritten to read entity `frontmatter.uri` directly or to call `short_filename(uri, collision_set, ...)` from Phase 52. Verified: `grep -rn 'encode_slug\|decode_slug' packages/ agents/ --include="*.py"` returns zero hits (excluding `.planning/` and archived milestones); full test suite passes. (Phase 53 reshape — superseded the original migrate-vault wording per `53-CONTEXT.md` D-01..D-10.)
-- [ ] **WIKI-FN-06**: `generate_index()` and the rest of the write path emit the new short filenames per Phase 52's `write_entities` correctness. The exploratory `~/Personal/graph-wiki/agent-research` vault is regenerated from scratch by deleting `wiki/{packages,dependencies,domain,plugin,test-suites,app}/` then running `cg update --full` + `graph-wiki-agent scan`. Verified manually in `.planning/phases/53-wiki-filename-cutover/53-UAT.md`: short-form filename entries present in `wiki/index.md`; 2-3 entity files spot-checked; no `pkg__org__repo__name`-style files remain.
+- [x] **WIKI-FN-05**: `encode_slug` / `decode_slug` and the orphaned `_ADMITTED_URI_PREFIXES` scaffolding are removed from `wiki_io.entity_writer`. All consumer call sites (`link_rewriter.py`, `index_generator.py`, scanner) are rewritten to read entity `frontmatter.uri` directly or to call `short_filename(uri, collision_set, ...)` from Phase 52. Verified: `grep -rn 'encode_slug\|decode_slug' packages/ agents/ --include="*.py"` returns zero hits (excluding `.planning/` and archived milestones); full test suite passes. (Phase 53 reshape — superseded the original migrate-vault wording per `53-CONTEXT.md` D-01..D-10.)
+- [x] **WIKI-FN-06**: `generate_index()` and the rest of the write path emit the new short filenames per Phase 52's `write_entities` correctness. The exploratory `~/Personal/graph-wiki/agent-research` vault is regenerated from scratch by deleting `wiki/{packages,dependencies,domain,plugin,test-suites,app}/` then running `cg update --full` + `graph-wiki-agent scan`. Verified manually in `.planning/phases/53-wiki-filename-cutover/53-UAT.md`: short-form filename entries present in `wiki/index.md`; 2-3 entity files spot-checked; no `pkg__org__repo__name`-style files remain.
 
 ### `package-family` removal
 
-- [ ] **PKGFAM-01**: `package_family` kind removed from `_VALID_KINDS` in `graph-io`. Scanner no longer ingests `[tool.graph-wiki.package-family]` (or equivalent) sections. Reads against pre-v1.9 graphs error with `SCHEMA_MISMATCH` until rebuilt.
-- [ ] **PKGFAM-02**: `package_family_uri` builder removed from `graph_io.uri`. Any code that imported it deleted or rewritten.
-- [ ] **PKGFAM-03**: `entity-package-family.template` deleted from `wiki-io`. `ADMITTED_KINDS - {"package_family"}` narrow in `wiki_io.entity_writer` simplifies to just `ADMITTED_KINDS` (no exclusion). `wiki/package-family/` directory removed from the existing vault during migration.
-- [ ] **PKGFAM-04**: `cg describe-package-family` / `cg list-package-families` subcommands removed (if they exist).
-- [ ] **PKGFAM-05**: `domain_contains_domain` edges and the domain layer in general are **not** affected by this removal (orthogonal mechanism).
+- [x] **PKGFAM-01**: `package_family` kind removed from `_VALID_KINDS` in `graph-io`. Scanner no longer ingests `[tool.graph-wiki.package-family]` (or equivalent) sections. Reads against pre-v1.9 graphs error with `SCHEMA_MISMATCH` until rebuilt.
+- [x] **PKGFAM-02**: `package_family_uri` builder removed from `graph_io.uri`. Any code that imported it deleted or rewritten.
+- [x] **PKGFAM-03**: `entity-package-family.template` deleted from `wiki-io`. `ADMITTED_KINDS - {"package_family"}` narrow in `wiki_io.entity_writer` simplifies to just `ADMITTED_KINDS` (no exclusion). `wiki/package-family/` directory removed from the existing vault during migration.
+- [x] **PKGFAM-04**: `cg describe-package-family` / `cg list-package-families` subcommands removed (if they exist).
+- [x] **PKGFAM-05**: `domain_contains_domain` edges and the domain layer in general are **not** affected by this removal (orthogonal mechanism).
 
 ### Cleanup
 
-- [ ] **CLEANUP-01**: Delete `_SLUG_ONLY_RE` and `_check_no_slug_only_wikilinks` (LIB-003) from `packages/eval-harness/src/eval_harness/divergence/librarian.py`. Update divergence rule registry, fixture expectations, and divergence eval baseline so LIB-003 is no longer expected to fire. LIB-001 (`_check_wikilink_resolves`) remains as the real safety net.
+- [x] **CLEANUP-01**: Delete `_SLUG_ONLY_RE` and `_check_no_slug_only_wikilinks` (LIB-003) from `packages/eval-harness/src/eval_harness/divergence/librarian.py`. Update divergence rule registry, fixture expectations, and divergence eval baseline so LIB-003 is no longer expected to fire. LIB-001 (`_check_wikilink_resolves`) remains as the real safety net.
 
 ---
 
@@ -68,27 +68,27 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILTIN-01 | Phase 49 | Pending |
-| BUILTIN-02 | Phase 49 | Pending |
-| BUILTIN-03 | Phase 49 | Pending |
-| BUILTIN-04 | Phase 49 | Pending |
-| BUILTIN-05 | Phase 49 | Pending |
-| BUILTIN-06 | Phase 49 | Pending |
+| BUILTIN-01 | Phase 49 | Complete |
+| BUILTIN-02 | Phase 49 | Complete |
+| BUILTIN-03 | Phase 49 | Complete |
+| BUILTIN-04 | Phase 49 | Complete |
+| BUILTIN-05 | Phase 49 | Complete |
+| BUILTIN-06 | Phase 49 | Complete |
 | APP-01 | Phase 50 | Complete |
 | APP-02 | Phase 50 | Complete |
 | APP-03 | Phase 50 | Complete |
 | APP-04 | Phase 50 | Complete |
 | APP-05 | Phase 50 | Complete |
 | APP-06 | Phase 50 | Complete |
-| PKGFAM-01 | Phase 51 | Pending |
-| PKGFAM-02 | Phase 51 | Pending |
-| PKGFAM-03 | Phase 51 | Pending |
-| PKGFAM-04 | Phase 51 | Pending |
-| PKGFAM-05 | Phase 51 | Pending |
-| CLEANUP-01 | Phase 51 | Pending |
+| PKGFAM-01 | Phase 51 | Complete |
+| PKGFAM-02 | Phase 51 | Complete |
+| PKGFAM-03 | Phase 51 | Complete |
+| PKGFAM-04 | Phase 51 | Complete |
+| PKGFAM-05 | Phase 51 | Complete |
+| CLEANUP-01 | Phase 51 | Complete |
 | WIKI-FN-01 | Phase 52 | Complete |
 | WIKI-FN-02 | Phase 52 | Complete |
 | WIKI-FN-03 | Phase 52 | Complete |
 | WIKI-FN-04 | Phase 52 | Complete |
-| WIKI-FN-05 | Phase 53 | Pending |
-| WIKI-FN-06 | Phase 53 | Pending |
+| WIKI-FN-05 | Phase 53 | Complete |
+| WIKI-FN-06 | Phase 53 | Complete |
