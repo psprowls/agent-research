@@ -67,8 +67,10 @@ _JS_NAMED_IMPORT_RE = re.compile(
     r"""import\s*\{([^}]+)\}\s+from\s*['"][^'"]+['"]"""
 )
 
-# JS file extensions mirrored from import_scan._SCAN_EXTENSIONS_JS.
-from graph_io.import_scan import _SCAN_EXTENSIONS_JS  # noqa: E402
+# JS file extensions — mirrors import_scan._SCAN_EXTENSIONS_JS.
+# Defined inline to avoid the circular import chain:
+#   update → builtins → import_scan → structural_nodes → update
+_SCAN_EXTENSIONS_JS: frozenset[str] = frozenset((".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs"))
 
 
 # ---------------------------------------------------------------------------
