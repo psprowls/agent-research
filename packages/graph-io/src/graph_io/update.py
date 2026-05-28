@@ -16,7 +16,7 @@ from source_parser.projections.graph import to_graph_records
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
 
-from graph_io import _ignore, packages, resolve, schema, store, upsert
+from graph_io import _ignore, builtins, packages, resolve, schema, store, upsert
 from graph_io.uri import RepoContext, parse_remote_url
 
 _GITIGNORE_BODY = "code.db\ncode.db-wal\ncode.db-shm\n"
@@ -273,6 +273,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
             with store.transaction(conn):
                 _process_files(conn, repo_root, changed, skip_dirs)
                 packages.refresh(conn, repo_root=repo_root, ctx=ctx)
+                builtins.refresh(conn, repo_root=repo_root, workspace=workspace, ctx=ctx)
                 if full:
                     tracked_paths = [
                         rel for _, rel in changed
