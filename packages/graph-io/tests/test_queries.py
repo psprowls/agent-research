@@ -1071,6 +1071,20 @@ def test_valid_kinds_includes_dependency_plugin(conn: sqlite3.Connection) -> Non
     assert rows == []
 
 
+def test_valid_kinds_includes_builtin() -> None:
+    """Phase 49 D-14: _VALID_KINDS admits the builtin kind."""
+    assert "builtin" in queries._VALID_KINDS
+
+
+def test_builtin_uri_shape() -> None:
+    """Phase 49 D-15 / BUILTIN-04: builtin_uri returns builtin:<language>/<module_name>."""
+    from graph_io.uri import builtin_uri
+
+    assert builtin_uri("python", "pathlib") == "builtin:python/pathlib"
+    assert builtin_uri("javascript", "fs") == "builtin:javascript/fs"
+    assert builtin_uri("python", "os.path") == "builtin:python/os.path"
+
+
 def test_describe_dependency_returns_dependency_description(conn: sqlite3.Connection) -> None:
     """D-02 + D-05: describe_dependency populates from node attrs + inbound used_by edges."""
     upsert.upsert_records(
