@@ -252,3 +252,103 @@ def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connect
         "WHERE e.kind='used_by' AND src.name='pkg-c' AND dst.name='boto3'"
     ).fetchone()[0]
     assert count == 1
+
+
+# ============================================================================
+# Phase 50 Plan 01 Task 2: scripts_present / bin_present manifest reader fields.
+# ============================================================================
+
+
+def test_read_pyproject_scripts_present_true_when_section_nonempty(tmp_path: Path) -> None:
+    """Phase 50 D-03: [project.scripts] with at least one entry → scripts_present=True."""
+    manifest = tmp_path / "pyproject.toml"
+    manifest.write_text(
+        '[project]\n'
+        'name = "alpha"\n'
+        'version = "0.1.0"\n'
+        '[project.scripts]\n'
+        'alpha-cli = "alpha.cli:main"\n'
+    )
+    info = packages._read_pyproject(manifest)
+    assert info is not None
+    assert info["scripts_present"] is True
+    # Legacy keys preserved.
+    assert info["name"] == "alpha"
+    assert info["version"] == "0.1.0"
+    assert info["language"] == "python"
+    assert info["dependencies"] == []
+    assert info["dep_groups"] == {}
+
+
+def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Path) -> None:
+    """Phase 50 D-03: missing or empty [project.scripts] → scripts_present=False."""
+    # Missing section.
+    missing = tmp_path / "missing" / "pyproject.toml"
+    missing.parent.mkdir()
+    missing.write_text('[project]\nname = "alpha"\nversion = "0.1.0"\n')
+    info_missing = packages._read_pyproject(missing)
+    assert info_missing is not None
+    assert info_missing["scripts_present"] is False
+
+    # Empty table.
+    empty = tmp_path / "empty" / "pyproject.toml"
+    empty.parent.mkdir()
+    empty.write_text(
+        '[project]\nname = "beta"\nversion = "0.1.0"\n[project.scripts]\n'
+    )
+    info_empty = packages._read_pyproject(empty)
+    assert info_empty is not None
+    assert info_empty["scripts_present"] is False
+
+
+def test_read_package_json_bin_present_for_string(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as non-empty string → bin_present=True."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0", "bin": "cli.js"})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is True
+    assert info["name"] == "myapp"
+    assert info["language"] == "javascript"
+
+
+def test_read_package_json_bin_present_for_dict(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as dict with at least one truthy value → bin_present=True."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps(
+            {"name": "myapp", "version": "1.0.0", "bin": {"foo": "bin/foo.js"}}
+        )
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is True
+
+
+def test_read_package_json_bin_present_false_for_empty_dict(tmp_path: Path) -> None:
+    """Phase 50 D-03: bin as empty dict → bin_present=False."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0", "bin": {}})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is False
+
+
+def test_read_package_json_bin_present_false_when_missing(tmp_path: Path) -> None:
+    """Phase 50 D-03: no bin key → bin_present=False."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({"name": "myapp", "version": "1.0.0"})
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["bin_present"] is False
+    # Legacy keys preserved.
+    assert info["name"] == "myapp"
+    assert info["version"] == "1.0.0"
+    assert info["language"] == "javascript"
+    assert info["dependencies"] == []
