@@ -8,6 +8,7 @@ import pytest
 
 from graph_io.uri import (
     RepoContext,
+    app_uri,
     dependency_uri,
     domain_uri,
     entry_point_uri,
@@ -36,6 +37,12 @@ def test_repo_uri() -> None:
 
 def test_pkg_uri() -> None:
     assert pkg_uri(RepoContext("org", "repo"), "auth-service") == "pkg:org/repo/auth-service"
+
+
+def test_app_uri_shape() -> None:
+    """Phase 50 D-07: app_uri returns app:<org>/<repo>/<name> for any RepoContext."""
+    assert app_uri(RepoContext("org", "repo"), "graph-wiki-agent") == "app:org/repo/graph-wiki-agent"
+    assert app_uri(RepoContext("acme", "tools"), "cli") == "app:acme/tools/cli"
 
 
 def test_subpkg_uri_preserves_dotted_path() -> None:

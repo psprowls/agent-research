@@ -1076,6 +1076,16 @@ def test_valid_kinds_includes_builtin() -> None:
     assert "builtin" in queries._VALID_KINDS
 
 
+def test_valid_kinds_includes_app() -> None:
+    """Phase 50 D-12: _VALID_KINDS admits the app kind."""
+    assert "app" in queries._VALID_KINDS
+
+
+def test_valid_app_kinds_contents() -> None:
+    """Phase 50 D-04: _VALID_APP_KINDS frozenset enumerates the four framework strings."""
+    assert queries._VALID_APP_KINDS == frozenset({"cli", "expo", "nextjs", "spa"})
+
+
 def test_builtin_uri_shape() -> None:
     """Phase 49 D-15 / BUILTIN-04: builtin_uri returns builtin:<language>/<module_name>."""
     from graph_io.uri import builtin_uri
