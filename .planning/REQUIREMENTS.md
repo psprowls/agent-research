@@ -29,7 +29,7 @@
 ### Scan-time population (scanner + `entity_writer`)
 
 - [ ] **SCAN-01**: When the scan runs, entity-page template variables are substituted with real values (e.g. `# <Package Name>` → `# wiki-io`); no literal `<...>` placeholder text survives in generated entity pages.
-- [ ] **SCAN-02**: The scanner writes a `summary:` frontmatter field on each entity page, derived from the graph node's description, consumed by IDX-03.
+- [x] **SCAN-02**: The scanner writes a `summary:` frontmatter field on each entity page, derived from the graph node's description, consumed by IDX-03.
 
 ### Debt
 
@@ -70,6 +70,6 @@
 | ENTITY-02 | 56 | Complete |
 | ENTITY-03 | 56 | Pending |
 | SCAN-01 | 56 | Pending |
-| SCAN-02 | 56 | Pending |
+| SCAN-02 | 56 | Complete |
 | DEBT-01 | 54 | Complete |
 | DEBT-02 | 54 | Complete |
