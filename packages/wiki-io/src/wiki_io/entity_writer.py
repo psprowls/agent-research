@@ -377,6 +377,17 @@ def merge_frontmatter(existing: dict, scanner_update: dict) -> dict:
         out["kind"] = scanner_update["kind"]
     elif "kind" in existing:
         out["kind"] = existing["kind"]
+    # 2b. summary — Phase 56 D-07 THIRD category: fill-when-empty. `summary` is
+    # deliberately NOT in SCANNER_OWNED_KEYS (adding it there would clobber a
+    # human-edited summary on every re-scan). Instead: a non-empty existing
+    # summary is preserved verbatim (human edit survives); an absent/empty one
+    # is filled from the scanner-derived value. Placed here for a stable slot
+    # right after `kind`.
+    existing_summary = existing.get("summary")
+    if not _is_empty(existing_summary):
+        out["summary"] = existing_summary
+    elif not _is_empty(scanner_update.get("summary")):
+        out["summary"] = scanner_update["summary"]
     # 3. Scanner-owned keys, alphabetical, non-empty only
     for key in sorted(SCANNER_OWNED_KEYS - {"uri", "kind"}):
         if key in scanner_update:
@@ -563,6 +574,15 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
         "uri": uri,
         "kind": kind,
     }
+    # Phase 56 SCAN-02 (D-05): derive `summary` UNIFORMLY across kinds from the
+    # node's description (domains already carry one; packages/apps are populated
+    # by graph-io's Plan 04 change). Read defensively so this works even before
+    # that lands. D-03/D-12: an empty/absent description yields a visible TODO
+    # marker, never an empty string — so every page ends with a non-empty
+    # summary. NOTE: `summary` is intentionally a fill-when-empty key, NOT a
+    # SCANNER_OWNED_KEYS member — see the special-case in merge_frontmatter (D-07).
+    description = node.attrs.get("description") if isinstance(node.attrs, dict) else None
+    fm["summary"] = description or f"> TODO: <add a one-line summary for {node.name}>"
     if kind == "repository":
         d = _queries.describe_repository(conn)
         if d is not None:
