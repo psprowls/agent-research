@@ -18,7 +18,7 @@
 ### Dependency-vs-package classification (`graph-io`)
 
 - [ ] **CLASS-01**: The scanner no longer emits a `dependency` node for a name that is also a workspace `package`/`app` in the repo — e.g. no `dep_graph-io.md` is generated when `graph-io` is a workspace package.
-- [ ] **CLASS-02**: An internal package→package usage (one workspace package depending on another) is represented as a `depends_on` edge between the two package/app nodes, so the relationship still surfaces in the wiki and under IDX-05 nesting.
+- [ ] **CLASS-02**: An internal package→package usage (one workspace package depending on another) is represented as a dedicated `depends_on_package` edge (src=consumer, dst=internal package) between the two package/app nodes, so the relationship still surfaces in the wiki and under IDX-05 nesting. *(Amended during Phase 55 discussion: a new distinct edge kind `depends_on_package` is used rather than reusing the Domain→Domain `depends_on` kind — chosen for query ergonomics; see `phases/55-dependency-classification-fix/55-CONTEXT.md` D-04/D-05.)*
 
 ### Entity pages & templates (`wiki-io` assets)
 
@@ -51,7 +51,7 @@
 - **Phase 50 verification backfill** — acknowledged debt from v1.9 close; not blocking v1.10.
 - **Nyquist retro-validation** — long-standing process decision, orthogonal to this milestone.
 - **SUMMARY.md `one_liner:` write-time enforcement** — GSD-tool debt, not graph-wiki-agent code; filed against the GSD SDK separately.
-- **New entity kinds or graph-schema expansion** — v1.10 enriches the projection of existing kinds; no new node/edge kinds beyond the `depends_on` edge reuse in CLASS-02.
+- **New entity kinds or graph-schema expansion** — v1.10 enriches the projection of existing kinds; the only new edge kind is `depends_on_package` (CLASS-02), and no new *node* kinds are added. (Edge kinds are free-text in the `edges.kind` column, so this needs no schema migration.)
 
 ---
 
