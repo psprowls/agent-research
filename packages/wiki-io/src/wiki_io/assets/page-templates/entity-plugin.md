@@ -12,8 +12,15 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
-## What it is
-- One paragraph: which plugin this is, what host it integrates with.
+## Purpose
+> TODO: <One paragraph: what this plugin does, which host consumes it, what feature surface it adds.>
 
 ## How we use it
-- Notable workflows, configurations, or extension points used in this repo.
+> TODO: <Notable workflows, configurations, or extension points used in this repo.>
+
+## Gotchas
+> TODO: <Edge cases, surprises, or quirks future readers should know about.>
+
+## Related
+- [[concepts/<concept>]]
+- [[packages/<other-pkg>]]
