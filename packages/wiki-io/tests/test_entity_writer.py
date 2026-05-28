@@ -187,20 +187,41 @@ _admitted_uri_strategy = st.one_of(
     _dependency_uri_strategy(),
 )
 
+# Phase 52 D-05: `dependency:` no longer round-trips through decode_slug
+# because `_URI_PREFIX_BY_KIND["dependency"]` was flipped from `"dependency"`
+# to `"dep"` at the filename layer. The legacy long-form slug
+# `dependency__pypi__boto3` is no longer decodable; the new short-form
+# filename (`dep_boto3`) is produced by `short_filename`, not by
+# `encode_slug`. The round-trip property still holds for the other 5
+# kinds, which is the strategy below.
+_round_trippable_uri_strategy = st.one_of(
+    _pkg_uri_strategy(),
+    _domain_uri_strategy(),
+    _repository_uri_strategy(),
+    _test_suite_uri_strategy(),
+    _plugin_uri_strategy(),
+)
+
 
 # ----------------------------------------------------------------------------
 # Property tests
 # ----------------------------------------------------------------------------
 
 
-@given(uri=_admitted_uri_strategy)
+@given(uri=_round_trippable_uri_strategy)
 @settings(
     max_examples=1000,
     deadline=None,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
 )
 def test_slug_round_trip(uri: str) -> None:
-    """decode_slug(encode_slug(uri)) == uri for every admitted-kind URI (D-03)."""
+    """decode_slug(encode_slug(uri)) == uri for every round-trippable kind (D-03).
+
+    Phase 52 D-05 narrowed the strategy: `dependency:` URIs no longer
+    round-trip because `_URI_PREFIX_BY_KIND["dependency"]` is now `"dep"`,
+    so the legacy `dependency__*` slug is no longer decodable. The new
+    short-form filename is produced by `short_filename`, not by this pair.
+    """
     assert decode_slug(encode_slug(uri)) == uri
 
 
@@ -623,10 +644,10 @@ def test_write_entities_creates_pages_per_admitted_kind(
     assert len(result.deleted) == 0
     assert result.needs_narrative == set(result.created)
     assert result.errors == []
-    # Specific filenames
+    # Specific filenames (Phase 52: short-form via `short_filename`)
     entities = wiki_root / "entities"
-    assert (entities / "pkg__local__agent-research__graph-io.md").exists()
-    assert (entities / "plugin__graph-wiki.md").exists()
+    assert (entities / "pkg_graph-io.md").exists()
+    assert (entities / "plugin_graph-wiki.md").exists()
 
 
 def test_write_entities_second_run_all_unchanged(
@@ -654,7 +675,7 @@ def test_write_entities_deletes_pages_for_disappeared_nodes(
     mock_graph_conn.set_nodes("package", remaining)
     r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("wiki-io" in uri for uri in r2.deleted), f"expected wiki-io in deleted, got {r2.deleted}"
-    assert not (wiki_root / "entities" / "pkg__local__agent-research__wiki-io.md").exists()
+    assert not (wiki_root / "entities" / "pkg_wiki-io.md").exists()
     log_path = tmp_path / ".graph-wiki" / "deletions.log"
     assert log_path.exists()
     lines = log_path.read_text().strip().splitlines()
@@ -668,7 +689,7 @@ def test_write_entities_preserves_human_authored_status(
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
-    page_path = wiki_root / "entities" / "pkg__local__agent-research__graph-io.md"
+    page_path = wiki_root / "entities" / "pkg_graph-io.md"
     raw = page_path.read_text()
     raw_new = raw.replace("kind: package\n", "kind: package\nstatus: deprecated\n", 1)
     page_path.write_text(raw_new)
@@ -695,3 +716,160 @@ def test_write_entities_needs_narrative_on_structural_change(
     r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     assert any("graph-io" in uri for uri in r2.updated)
     assert any("graph-io" in uri for uri in r2.needs_narrative)
+
+
+# ============================================================================
+# Phase 52 Plan 02: short_filename integration in write_entities
+# ============================================================================
+
+import hashlib as _hashlib_phase52
+
+from graph_io.queries import NodeRecord as _NodeRecord_phase52
+
+
+def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-01/D-02/D-05/D-07: write_entities emits short-form filenames.
+
+    Builds a graph with one node per admitted kind (test_suite carries
+    suite_kind=unit so the kind-aware naming kicks in) and asserts each
+    file lands at the expected short stem.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    # Override the default fixture's test_suite node to set suite_kind="unit"
+    # and a path whose parent.name is the package name. Also overwrite the
+    # default packages to predictable single-pkg shape for this test.
+    mock_graph_conn.set_nodes("repository", [
+        _NodeRecord_phase52(
+            kind="repository", name="test-repo", path=None, line=None,
+            attrs={"uri": "repo:test-org/test-repo", "owner": "test-org"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("package", [
+        _NodeRecord_phase52(
+            kind="package", name="widget", path="packages/widget", line=None,
+            attrs={"uri": "pkg:test-org/test-repo/widget",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("domain", [
+        _NodeRecord_phase52(
+            kind="domain", name="observability", path=None, line=None,
+            attrs={"uri": "domain:test-org/test-repo/observability"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("plugin", [
+        _NodeRecord_phase52(
+            kind="plugin", name="demo-plugin", path=None, line=None,
+            attrs={"uri": "plugin:demo-plugin", "ecosystem": "claude-code"},
+        ),
+    ])
+    mock_graph_conn.set_nodes("dependency", [
+        _NodeRecord_phase52(
+            kind="dependency", name="example-lib", path=None, line=None,
+            attrs={"uri": "dependency:pypi/example-lib",
+                   "ecosystem": "pypi",
+                   "versions_in_use": ["example-lib>=1.0"]},
+        ),
+    ])
+    mock_graph_conn.set_nodes("test_suite", [
+        _NodeRecord_phase52(
+            kind="test_suite", name="widget-tests",
+            path="packages/widget/tests", line=None,
+            attrs={"uri": "test_suite:test-org/test-repo/packages/widget/tests",
+                   "suite_kind": "unit", "file_count": 5},
+        ),
+    ])
+    # Descriptions: only the package one is strictly required (existing
+    # `_wire_mock_queries` wires describe_* to read from set_description).
+    # Without it, scanner_frontmatter_for_node sees `d is None` and skips
+    # the kind-specific fields — the URI + kind frontmatter is still set,
+    # which is enough for short_filename to resolve a filename.
+
+    wiki_root = tmp_path / "wiki"
+    result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    entities = wiki_root / "entities"
+    expected_files = [
+        "repo_test-repo.md",
+        "pkg_widget.md",
+        "domain_observability.md",
+        "plugin_demo-plugin.md",
+        "dep_example-lib.md",
+        "unit_tests_widget.md",
+    ]
+    for fname in expected_files:
+        assert (entities / fname).exists(), (
+            f"expected {fname} on disk; "
+            f"got: {sorted(p.name for p in entities.iterdir())}"
+        )
+    assert result.errors == [], f"unexpected errors: {result.errors}"
+
+
+def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-04: ALL colliders get a `__<6hex>` suffix, not just N-1.
+
+    NOTE: This diverges from the literal Roadmap §52 SC#3 wording (which
+    implies one plain-stem winner) per the Phase 52 discussion-log
+    acceptance — D-04's referentially-transparent semantics requires
+    symmetric suffixes.
+    """
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("dependency", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("package", [
+        _NodeRecord_phase52(
+            kind="package", name="utils", path="org-a/repo/utils", line=None,
+            attrs={"uri": "pkg:org-a/repo/utils",
+                   "language": "python", "version": "0.1.0"},
+        ),
+        _NodeRecord_phase52(
+            kind="package", name="utils", path="org-b/repo/utils", line=None,
+            attrs={"uri": "pkg:org-b/repo/utils",
+                   "language": "python", "version": "0.1.0"},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    h_a = _hashlib_phase52.sha256(b"pkg:org-a/repo/utils").hexdigest()[:6]
+    h_b = _hashlib_phase52.sha256(b"pkg:org-b/repo/utils").hexdigest()[:6]
+    entities = wiki_root / "entities"
+    assert (entities / f"pkg_utils__{h_a}.md").exists()
+    assert (entities / f"pkg_utils__{h_b}.md").exists()
+    # D-04 symmetric: no plain-stem winner.
+    assert not (entities / "pkg_utils.md").exists()
+
+
+def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
+    """Phase 52 D-05: `dependency:` URIs produce `dep_<name>.md`, not `dependency_<name>.md`."""
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+
+    mock_graph_conn.set_nodes("repository", [])
+    mock_graph_conn.set_nodes("package", [])
+    mock_graph_conn.set_nodes("domain", [])
+    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("test_suite", [])
+    mock_graph_conn.set_nodes("dependency", [
+        _NodeRecord_phase52(
+            kind="dependency", name="sample-pkg", path=None, line=None,
+            attrs={"uri": "dependency:pypi/sample-pkg",
+                   "ecosystem": "pypi",
+                   "versions_in_use": ["sample-pkg>=1.0"]},
+        ),
+    ])
+
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    entities = wiki_root / "entities"
+    assert (entities / "dep_sample-pkg.md").exists()
+    assert not (entities / "dependency_sample-pkg.md").exists()

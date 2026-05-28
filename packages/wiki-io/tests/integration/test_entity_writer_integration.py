@@ -114,11 +114,12 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     assert result.needs_narrative == set(result.created)
 
     entities = wiki_root / "entities"
-    assert (entities / "pkg__local__fixture__pkg-a.md").exists()
-    assert (entities / "pkg__local__fixture__pkg-b.md").exists()
-    assert (entities / "dependency__pypi__boto3.md").exists()
-    assert (entities / "plugin__graph-wiki.md").exists()
-    assert (entities / "repo__local__fixture.md").exists()
+    # Phase 52: short-form filenames via `short_filename`.
+    assert (entities / "pkg_pkg-a.md").exists()
+    assert (entities / "pkg_pkg-b.md").exists()
+    assert (entities / "dep_boto3.md").exists()
+    assert (entities / "plugin_graph-wiki.md").exists()
+    assert (entities / "repo_fixture.md").exists()
 
 
 def test_status_deprecated_preserved_after_rewrite(tmp_path):
@@ -127,7 +128,7 @@ def test_status_deprecated_preserved_after_rewrite(tmp_path):
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
     write_entities(conn, wiki_root, ADMITTED_KINDS)
-    pkg_a_path = wiki_root / "entities" / "pkg__local__fixture__pkg-a.md"
+    pkg_a_path = wiki_root / "entities" / "pkg_pkg-a.md"
     raw = pkg_a_path.read_text()
     raw_new = raw.replace("kind: package\n", "kind: package\nstatus: deprecated\n", 1)
     pkg_a_path.write_text(raw_new)
@@ -142,7 +143,7 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
     conn = _ingest(tmp_path)
     wiki_root = tmp_path / "wiki"
     write_entities(conn, wiki_root, ADMITTED_KINDS)
-    pkg_a_path = wiki_root / "entities" / "pkg__local__fixture__pkg-a.md"
+    pkg_a_path = wiki_root / "entities" / "pkg_pkg-a.md"
     assert pkg_a_path.exists()
 
     # Remove pkg-a from the graph: delete its edges, then its node.
@@ -169,8 +170,8 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
     for field in ("timestamp", "uri", "slug", "path", "kind", "body_was_empty"):
         assert field in entry, f"missing field {field} in {entry}"
     assert entry["kind"] == "package"
-    assert entry["slug"] == "pkg__local__fixture__pkg-a"
-    assert entry["path"].endswith("pkg__local__fixture__pkg-a.md")
+    assert entry["slug"] == "pkg_pkg-a"
+    assert entry["path"].endswith("pkg_pkg-a.md")
     assert entry["timestamp"].endswith("Z")
     assert "T" in entry["timestamp"]
 
