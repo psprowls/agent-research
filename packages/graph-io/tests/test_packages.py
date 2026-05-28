@@ -1,4 +1,4 @@
-"""Manifest scanning: pyproject.toml + package.json → kind:package nodes."""
+"""Manifest scanning: pyproject.toml + package.json → kind:package / kind:app nodes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pytest
 
 from graph_io import packages, store, upsert
 from graph_io.uri import RepoContext
-from source_parser.projections.graph import GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 
 _CTX = RepoContext(org="test", repo="repo")
@@ -352,3 +352,163 @@ def test_read_package_json_bin_present_false_when_missing(tmp_path: Path) -> Non
     assert info["version"] == "1.0.0"
     assert info["language"] == "javascript"
     assert info["dependencies"] == []
+
+
+# ============================================================================
+# Phase 50 Plan 02 Task 2: D-06 in-place UPDATE for cross-run kind flips.
+# ============================================================================
+
+
+def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """D-06: package gaining [project.scripts] on re-run flips to app with id preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    # First refresh: no scripts → kind="package".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert row is not None, "first refresh did not create the row"
+    pkg_id, pkg_kind, pkg_uri_val = row
+    assert pkg_kind == "package"
+    assert pkg_uri_val.startswith("pkg:")
+
+    # Second refresh after adding [project.scripts] → expect kind flip to "app".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    rows = conn.execute(
+        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
+    ).fetchall()
+    assert len(rows) == 1, f"expected exactly one row after flip; got {rows!r}"
+    app_id, app_kind_db, app_uri_val, attrs_json = rows[0]
+    assert app_id == pkg_id, "D-06: row id must be preserved across kind flip"
+    assert app_kind_db == "app"
+    assert app_uri_val.startswith("app:")
+    attrs = json.loads(attrs_json)
+    assert attrs["app_kind"] == "cli"
+    assert attrs["app_signals"] == ["cli"]
+
+
+def test_kind_flip_app_to_pkg_reverts(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: app losing [project.scripts] on re-run reverts to package with id preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    # First refresh with scripts → kind="app".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    row = conn.execute(
+        "SELECT id, kind FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert row is not None
+    app_id, app_kind_db = row
+    assert app_kind_db == "app"
+
+    # Remove [project.scripts] → expect revert to kind="package".
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    rows = conn.execute(
+        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
+    ).fetchall()
+    assert len(rows) == 1, f"expected exactly one row after revert; got {rows!r}"
+    pkg_id, pkg_kind_db, pkg_uri_val, attrs_json = rows[0]
+    assert pkg_id == app_id, "D-06: row id must be preserved across kind revert"
+    assert pkg_kind_db == "package"
+    assert pkg_uri_val.startswith("pkg:")
+    attrs = json.loads(attrs_json) if attrs_json else {}
+    # D-03: Package rows MUST NOT carry app_kind / app_signals.
+    assert "app_kind" not in attrs
+    assert "app_signals" not in attrs
+
+
+def test_kind_flip_preserves_inbound_edge_fk(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: inbound edges against the flipped row survive because dst id is preserved."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir(parents=True)
+    manifest = pkg_dir / "pyproject.toml"
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.0"\n')
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    pkg_row = conn.execute(
+        "SELECT id FROM nodes WHERE name='myapp' AND kind='package'"
+    ).fetchone()
+    assert pkg_row is not None
+    pkg_id = pkg_row[0]
+
+    # Manually insert an inbound edge against the pkg row from a synthetic
+    # domain node (use _upsert_edge to also create the src domain node).
+    upsert._upsert_edge(
+        conn,
+        GraphEdge(
+            src=("domain", "billing", None),
+            dst=("package", "myapp", "myapp"),
+            kind="belongs_to_domain",
+            attrs={},
+        ),
+    )
+    inbound_before = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
+    ).fetchone()[0]
+    assert inbound_before >= 1
+
+    # Flip pkg → app.
+    manifest.write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    app_row = conn.execute(
+        "SELECT id FROM nodes WHERE name='myapp' AND kind='app'"
+    ).fetchone()
+    assert app_row is not None
+    assert app_row[0] == pkg_id, "row id must survive the flip"
+    inbound_after = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
+    ).fetchone()[0]
+    assert inbound_after == inbound_before, (
+        "D-06: inbound edges must survive the kind flip because dst FK is preserved"
+    )
+
+
+def test_no_kind_flip_for_zero_signal_manifest(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """D-06: zero-signal pure library re-run does not duplicate or flip the row."""
+    pkg_dir = tmp_path / "purelib"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+    )
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    rows_before = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
+    ).fetchall()
+    assert len(rows_before) == 1
+    pkg_id, kind_before, uri_before = rows_before[0]
+    assert kind_before == "package"
+
+    # Re-run with identical manifest — no flip should occur.
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    rows_after = conn.execute(
+        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
+    ).fetchall()
+    assert len(rows_after) == 1, "zero-signal re-run must not duplicate the row"
+    assert rows_after[0] == (pkg_id, kind_before, uri_before)
