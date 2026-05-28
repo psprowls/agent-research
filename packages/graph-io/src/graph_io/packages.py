@@ -167,6 +167,29 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             attrs["app_kind"] = app_kind
             attrs["app_signals"] = app_signals
 
+        # Phase 50 D-06: probe the opposite-kind row from a prior run and flip
+        # it in place so the row id is preserved (every inbound edge FK stays
+        # valid). The outer store.transaction() boundary set by update.run()
+        # gives this UPDATE read-your-own-writes semantics for the subsequent
+        # upsert_records call.
+        other_kind = "package" if new_kind == "app" else "app"
+        other_id = upsert._node_id(
+            conn, (other_kind, info["name"], rel_prefix or None)
+        )
+        if other_id is not None:
+            # Mirror _upsert_node's convention: the "uri" key lives in the
+            # nodes.uri column, not attrs_json.
+            attrs_for_db = {k: v for k, v in attrs.items() if k != "uri"}
+            conn.execute(
+                "UPDATE nodes SET kind=?, uri=?, attrs_json=? WHERE id=?",
+                (
+                    new_kind,
+                    new_uri,
+                    json.dumps(attrs_for_db, sort_keys=True),
+                    other_id,
+                ),
+            )
+
         nodes = [
             GraphNode(
                 kind=new_kind,
