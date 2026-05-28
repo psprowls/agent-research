@@ -19,6 +19,23 @@ from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri
 # PEP 508 bare-name prefix: identifier characters before any version/extra/marker.
 _DEP_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+")
 
+# Phase 55 D-04: edge kind for an internal workspace package→package dependency.
+# Free-text in edges.kind (schema.py), so no migration — a Domain→Domain
+# "depends_on" and this Package→Package "depends_on_package" are distinct rows.
+_DEPENDS_ON_PACKAGE_KIND = "depends_on_package"
+
+
+def _normalize_name(name: str) -> str:
+    """Canonicalize a package/dependency name for cross-form comparison.
+
+    Phase 55 D-02: lowercase and collapse ``-`` to ``_`` so a declared
+    dependency string (``graph-io``) matches a workspace package name
+    (``graph_io`` / ``graph-io``) regardless of separator or case. Mirrors the
+    ``.replace("-", "_")`` normalization already used in
+    ``import_scan._build_importable_maps``.
+    """
+    return name.lower().replace("-", "_")
+
 
 def _extract_dep_name(pep508_str: str) -> str | None:
     """Extract the bare package name from a PEP 508 specifier.
@@ -141,11 +158,34 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     """
     repo_root = Path(repo_root).resolve()
     skip_dirs = _ignore.load_skip_dirs(repo_root)
+    manifests = _discover_manifests(repo_root, skip_dirs)
+
+    # Phase 55 D-01: build the workspace-package-name set + a normalized-name ->
+    # (stored_kind, rel_path) map ONCE, before any dep accumulation, from the
+    # already-materialized manifest list. The stored kind is the classify()-derived
+    # package/app kind so the retargeted used_by / new depends_on_package edges
+    # resolve to the real node (D-07, mirroring derived_edges.py:148-153).
+    workspace_names: set[str] = set()
+    workspace_kinds: dict[str, tuple[str, str | None]] = {}
+    for pkg_dir, info in manifests:
+        rel = pkg_dir.resolve().relative_to(repo_root).as_posix()
+        rel = "" if rel == "." else rel
+        ws_kind, _app_kind, _app_signals = classify(info, pkg_dir)
+        norm = _normalize_name(info["name"])
+        workspace_names.add(norm)
+        workspace_kinds[norm] = (ws_kind, rel or None)
+
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
     # Phase 50 D-04: track consumer kind so used_by edges from App nodes use src=("app", ...).
     used_by_pairs: list[tuple[str, str | None, str, str]] = []
-    for pkg_dir, info in _discover_manifests(repo_root, skip_dirs):
+    # Phase 55 D-04/D-06/D-07: internal package→package relationships, carrying
+    # both endpoints' resolved (kind, name, rel_path) so the retargeted used_by
+    # and the new depends_on_package edge point at the real package/app nodes.
+    internal_pkg_edges: list[
+        tuple[str, str | None, str, str, str | None, str]
+    ] = []
+    for pkg_dir, info in manifests:
         rel_prefix = pkg_dir.resolve().relative_to(repo_root).as_posix()
         if rel_prefix == ".":
             rel_prefix = ""
@@ -222,9 +262,29 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             consumer_name = info["name"]
             consumer_rel_path = rel_prefix or None
             consumer_kind = new_kind
+            consumer_norm = _normalize_name(consumer_name)
             for s in all_dep_strs:
                 dep_name = _extract_dep_name(s)
                 if dep_name is None:
+                    continue
+                dep_norm = _normalize_name(dep_name)
+                # Phase 55 D-01/D-02/D-03: a dependency naming a workspace
+                # package/app must NOT become a `dependency` node (CLASS-01).
+                # Cross-ecosystem: matched purely on the normalized name (D-03).
+                # Record it as an internal package→package relationship instead;
+                # skip self-dependencies.
+                if dep_norm in workspace_names and dep_norm != consumer_norm:
+                    target_kind, target_rel_path = workspace_kinds[dep_norm]
+                    internal_pkg_edges.append(
+                        (
+                            consumer_name,
+                            consumer_rel_path,
+                            consumer_kind,
+                            dep_name,
+                            target_rel_path,
+                            target_kind,
+                        )
+                    )
                     continue
                 key = ("pypi", dep_name)
                 bucket = dep_acc.setdefault(key, {"versions_in_use": []})
@@ -269,6 +329,32 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 kind="used_by",
                 attrs={},
             )
+        )
+    # Phase 55 D-07: for each internal package→package dependency, emit TWO
+    # same-direction (consumer → internal package) edges, INTENTIONALLY redundant:
+    #   - `used_by` stays the universal "consumer uses X" relationship (uniform
+    #     across external deps and internal packages), here retargeted to the real
+    #     package/app node instead of a (now-suppressed) `dependency` node;
+    #   - `depends_on_package` carries the package-level semantic that IDX-05
+    #     nesting and `cg describe-package` consume.
+    # Do NOT collapse these into one edge — both surfaces depend on it.
+    # Same per-(consumer, target) dedupe as the external used_by edges above.
+    for (
+        consumer_name,
+        consumer_rel_path,
+        consumer_kind,
+        target_name,
+        target_rel_path,
+        target_kind,
+    ) in internal_pkg_edges:
+        if (consumer_name, target_name) in seen_edges:
+            continue
+        seen_edges.add((consumer_name, target_name))
+        src = (consumer_kind, consumer_name, consumer_rel_path)
+        dst = (target_kind, target_name, target_rel_path)
+        dep_edges.append(GraphEdge(src=src, dst=dst, kind="used_by", attrs={}))
+        dep_edges.append(
+            GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={})
         )
     if dep_nodes or dep_edges:
         upsert.upsert_records(conn, GraphRecords(nodes=dep_nodes, edges=dep_edges))
