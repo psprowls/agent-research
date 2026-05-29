@@ -166,7 +166,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 - [x] **Phase 54: Debt Clearance** — Fix the integration-gate test failure and correct PROJECT.md stack references (completed 2026-05-28)
 - [x] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges (completed 2026-05-28)
 - [x] **Phase 56: Entity Templates & Scan-Time Population** — Migrate legacy template content into `entity-<type>.md` templates; add scan-time variable substitution and `summary:` frontmatter field (completed 2026-05-28)
-- [ ] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md`
+- [x] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md` (completed 2026-05-29)
 
 ---
 
@@ -278,7 +278,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 54. Debt Clearance | v1.10 | 1/1 | Complete   | 2026-05-28 |
 | 55. Dependency Classification Fix | v1.10 | 2/2 | Complete    | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 4/4 | Complete    | 2026-05-28 |
-| 57. Index Generation Polish | v1.10 | 0/1 | Planned | - |
+| 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
 
 ---
 

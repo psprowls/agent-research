@@ -595,6 +595,26 @@ def _render_pkg_nested(
     return lines
 
 
+def _build_sub_for_pkg(
+    entities: list[PlacedEntity],
+) -> dict[str, dict[str, list[PlacedEntity]]]:
+    """Group dependencies/test_suites under each consumer/tested package name
+    via their (domain-agnostic) `parent_pkg_names` (Phase 57 D-01/D-10).
+
+    Built ONCE over ALL placed entities (domain buckets + by_kind) in `_render`
+    and shared by `_render_domain_section` and `_render_by_kind`, so a by-kind
+    dep/suite still nests under a package that renders in a domain section, and
+    vice-versa — duplication across packages is expected (D-10)."""
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
+    for e in entities:
+        if e.kind not in ("test_suite", "dependency"):
+            continue
+        for parent in e.parent_pkg_names:
+            sub_for_pkg.setdefault(parent, {"test_suite": [], "dependency": []})
+            sub_for_pkg[parent][e.kind].append(e)
+    return sub_for_pkg
+
+
 def _render_domain_section(
     conn: sqlite3.Connection,
     domain_buckets: dict[str, list[PlacedEntity]],
@@ -603,6 +623,7 @@ def _render_domain_section(
     depth: int,
     collision_set: frozenset[str],
     name_to_entity: dict[str, PlacedEntity],
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
 ) -> list[str]:
     """Recursively render one domain section.
 
@@ -616,14 +637,6 @@ def _render_domain_section(
     entities = domain_buckets.get(domain_name, [])
     # Apps render identically to packages within a domain (Phase 57 D-02/D-04).
     packages = [e for e in entities if e.kind in ("package", "app")]
-    deps_and_suites = [e for e in entities if e.kind in ("test_suite", "dependency")]
-
-    # Group deps and suites by their parent_pkg_names (D-06)
-    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
-    for e in deps_and_suites:
-        for parent in e.parent_pkg_names:
-            sub_for_pkg.setdefault(parent, {"test_suite": [], "dependency": []})
-            sub_for_pkg[parent][e.kind].append(e)
 
     lines_pkg: list[str] = []
     for pkg in packages:
@@ -638,6 +651,7 @@ def _render_domain_section(
         sub_lines = _render_domain_section(
             conn, domain_buckets, domain_name=sub_name, depth=depth + 1,
             collision_set=collision_set, name_to_entity=name_to_entity,
+            sub_for_pkg=sub_for_pkg,
         )
         if sub_lines:
             sub_domain_blocks.extend(sub_lines)
@@ -660,6 +674,7 @@ def _render_domains(
     wiki_root: Path,
     collision_set: frozenset[str],
     name_to_entity: dict[str, PlacedEntity],
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
 ) -> tuple[list[str], int]:
     """Render the full `## Domains` block. Returns (lines, domain_count)."""
     all_domains = sorted(
@@ -672,6 +687,7 @@ def _render_domains(
         section = _render_domain_section(
             conn, domain_buckets, domain_name=d, depth=0,
             collision_set=collision_set, name_to_entity=name_to_entity,
+            sub_for_pkg=sub_for_pkg,
         )
         if section:
             lines.extend(section)
@@ -691,6 +707,7 @@ def _render_by_kind(
     by_kind_entities: list[PlacedEntity],
     collision_set: frozenset[str],
     name_to_entity: dict[str, PlacedEntity],
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
 ) -> tuple[list[str], int]:
     """Render the full `## By Kind` block. Returns (lines, by_kind_count).
 
@@ -699,20 +716,11 @@ def _render_by_kind(
     the package/app that uses them via `_render_pkg_nested`, exactly like the
     domain sections. This is the cross-cutting fix: a multi/zero-domain
     package placed here still shows its Test Suites / Dependencies / Internal
-    dependencies, so removing the flat sections never loses them.
+    dependencies, so removing the flat sections never loses them. `sub_for_pkg`
+    is the SAME global grouping the domain sections use (built in `_render`).
     """
     if not by_kind_entities:
         return [], 0
-
-    # Group by-kind deps/suites under their consumer packages (domain-agnostic
-    # parent_pkg_names from _place_entities) — same shape _render_domain_section
-    # builds, so the shared _render_pkg_nested renders both identically (D-01).
-    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
-    for e in by_kind_entities:
-        if e.kind in ("test_suite", "dependency"):
-            for parent in e.parent_pkg_names:
-                sub_for_pkg.setdefault(parent, {"test_suite": [], "dependency": []})
-                sub_for_pkg[parent][e.kind].append(e)
 
     lines: list[str] = ["## By Kind", ""]
     total = 0
@@ -774,6 +782,12 @@ def _render(
     )
     entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
 
+    # D-01/D-10: one global dep/suite-under-package grouping over ALL placed
+    # entities, so a by-kind dep/suite nests under a package that renders in a
+    # domain section (and vice-versa). Shared by both render contexts.
+    all_placed = [e for v in domain_buckets.values() for e in v] + by_kind
+    sub_for_pkg = _build_sub_for_pkg(all_placed)
+
     workspace_root = wiki_root.parent
 
     curated_entries_by_lane: dict[str, list[dict]] = {}
@@ -795,11 +809,12 @@ def _render(
 
     domains_lines, domain_count = _render_domains(
         conn, domain_buckets, wiki_root, collision_set, name_to_entity,
+        sub_for_pkg,
     )
     lines.extend(domains_lines)
 
     by_kind_lines, by_kind_count = _render_by_kind(
-        conn, by_kind, collision_set, name_to_entity,
+        conn, by_kind, collision_set, name_to_entity, sub_for_pkg,
     )
     lines.extend(by_kind_lines)
 
@@ -868,6 +883,7 @@ __all__ = [
     "KIND_LABELS",
     "PlacedEntity",
     "_PLACEABLE_KINDS",
+    "_build_sub_for_pkg",
     "_compute_qualifying_domains",
     "_consumer_pkgs",
     "_consumer_pkgs_in_domain",
