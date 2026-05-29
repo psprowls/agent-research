@@ -2,7 +2,7 @@
 
 These tests exercise the rewired scan pipeline against a real on-disk sqlite
 graph + a real wiki tree. They monkeypatch the pre-scan `cg update`
-(`_capture_run`) so the test doesn't need a real `git`/`cg` toolchain and
+(`_cg_run_build`) so the test doesn't need a real `git`/`cg` toolchain and
 stub the narrator LLM so they don't call Bedrock. The graph queries, file
 writes, `write_entities` + `inject_narrative` + `generate_index` +
 `update_index` calls all run for real.
@@ -58,7 +58,7 @@ def _seed_graph(db_path: Path) -> None:
 def fixture_wiki_with_graph(tmp_path: Path, monkeypatch):
     """Real workspace + wiki + on-disk sqlite graph. Returns (wiki_path, workspace).
 
-    Patches `_capture_run` so the pre-scan cg update step reports SUCCESS
+    Patches `_cg_run_build` so the pre-scan cg update step reports SUCCESS
     without executing real git/cg work.
     """
     workspace = tmp_path / "workspace"
@@ -75,7 +75,7 @@ def fixture_wiki_with_graph(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     monkeypatch.setattr(
         scan_module,
-        "_capture_run",
+        "_cg_run_build",
         lambda *a, **k: (exit_codes.SUCCESS, "", ""),
     )
 

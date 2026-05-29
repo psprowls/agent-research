@@ -166,23 +166,27 @@ def stub_make_llm(monkeypatch):
 
 
 def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeypatch):
-    """SC#1 / D-01 / D-02: scan calls _capture_run(ops_update, ...) once
-    BEFORE any SubagentPool.run_all invocation, with full=False / module=ops_update.
+    """SC#1 / D-01 / D-02: scan calls run_build(...) once BEFORE any
+    SubagentPool.run_all invocation, with full=False.
+
+    Phase 59-02b: migrated off the deleted _capture_run(ops_update, ...) shim
+    onto the typed run_build core (scan binds it as `_cg_run_build`).
     """
     workspace = tmp_workspace_with_packages
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
     order: list[str] = []
-    captured_args: dict = {}
+    captured_call: dict = {}
 
-    def _recorder_capture_run(module, args):
+    def _recorder_run_build(repo_arg, workspace_arg, *, full):
         order.append("cg_update")
-        captured_args["module"] = module
-        captured_args["args"] = args
+        captured_call["repo"] = repo_arg
+        captured_call["workspace"] = workspace_arg
+        captured_call["full"] = full
         return (exit_codes.SUCCESS, "", "")
 
-    monkeypatch.setattr(scan_module, "_capture_run", _recorder_capture_run)
+    monkeypatch.setattr(scan_module, "_cg_run_build", _recorder_run_build)
 
     from subagent_runtime.pool import FanOutResult
 
@@ -198,18 +202,14 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
 
     assert order, "expected at least the cg_update step to run"
     assert order[0] == "cg_update", f"cg update must run first; got order={order}"
-    # Verify the args shape — full=False, module=ops_update.
-    # `workspace` is the workspace ROOT (wiki.parent) — ops_update writes
-    # `.graph/code.db` under workspace, not under the wiki directory. This
-    # mirrors Phase 38 commands/graph.py and the librarian's read path
-    # (commands/query.py uses `graph_dir(wiki.parent)`).
-    args = captured_args["args"]
-    assert args.full is False, f"expected full=False; got {args.full}"
-    assert captured_args["module"] is scan_module.ops_update
-    assert args.workspace == workspace, (
-        f"expected workspace root; got {args.workspace}"
+    # Verify the call shape — full=False, workspace is the ROOT (wiki.parent),
+    # which run_build writes `.graph/code.db` under. Mirrors commands/graph.py
+    # and the librarian's read path (commands/query.py uses graph_dir(wiki.parent)).
+    assert captured_call["full"] is False, f"expected full=False; got {captured_call['full']}"
+    assert captured_call["workspace"] == workspace, (
+        f"expected workspace root; got {captured_call['workspace']}"
     )
-    assert args.repo == repo
+    assert captured_call["repo"] == repo
 
 
 def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
@@ -219,7 +219,7 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
     repo = workspace / "repo"
 
     monkeypatch.setattr(
-        scan_module, "_capture_run", lambda mod, args: (exit_codes.SUCCESS, "", "")
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
     )
 
     asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
@@ -244,7 +244,7 @@ def test_decoration_adds_uri_and_domain(tmp_workspace_with_packages, monkeypatch
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
-        scan_module, "_capture_run", lambda mod, args: (exit_codes.SUCCESS, "", "")
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
     )
 
     # Capture the decorated workspaces by patching the fan-out to inspect items.
@@ -319,7 +319,7 @@ def test_slug_recomputed_on_domain_change(tmp_workspace_with_packages, monkeypat
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
-        scan_module, "_capture_run", lambda mod, args: (exit_codes.SUCCESS, "", "")
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
     )
 
     # pkg-a starts at packages/pkg-a/overview.md; after graph decoration
@@ -376,7 +376,7 @@ def test_hard_abort_on_runtime_failure(
     repo = workspace / "repo"
 
     monkeypatch.setattr(
-        scan_module, "_capture_run", lambda mod, args: (exit_code, "", stderr)
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_code, "", stderr)
     )
 
     # Stub the pool with a recorder that proves it was NEVER called.
@@ -410,8 +410,12 @@ def test_hard_abort_on_generic_runtime_failure(tmp_workspace_with_packages, monk
 
     monkeypatch.setattr(
         scan_module,
-        "_capture_run",
-        lambda mod, args: (exit_codes.GENERIC, "", "sqlite3.OperationalError: database is locked"),
+        "_cg_run_build",
+        lambda repo, workspace, *, full: (
+            exit_codes.GENERIC,
+            "",
+            "sqlite3.OperationalError: database is locked",
+        ),
     )
 
     with pytest.raises(scan_module.ScanAbortedError):
@@ -442,8 +446,8 @@ def test_graceful_fallback_on_init_failure(
 
     monkeypatch.setattr(
         scan_module,
-        "_capture_run",
-        lambda mod, args: (exit_codes.GENERIC, "", init_stderr),
+        "_cg_run_build",
+        lambda repo, workspace, *, full: (exit_codes.GENERIC, "", init_stderr),
     )
 
     # read_only_connect should NEVER be called when init fallback fired.
@@ -483,7 +487,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
-        scan_module, "_capture_run", lambda mod, args: (exit_codes.SUCCESS, "", "")
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
     )
 
     # Substitute read_only_connect with a MagicMock so we can assert close().

@@ -1,10 +1,11 @@
-"""Unit tests for the 3 graph_* MCP tools (Phase 38-02 Task 2).
+"""Unit tests for the 3 graph_* MCP tools.
 
 Covers GRAPHCMD-04, D-04, D-09:
   * Three tools registered (graph_build, graph_describe, graph_query)
   * Pydantic Input shape: extra='forbid', Literal kind enum
-  * MCP dispatch reuses Plan 01's _DESCRIBE_DISPATCH and _capture_run
-  * _StdoutGuard never tripped (cg's print() is absorbed by _capture_run)
+  * MCP dispatch delegates to the typed core funcs run_build/run_describe/run_query
+    (Phase 59-02b: replaced the deleted _DESCRIBE_DISPATCH/_capture_run shim)
+  * _StdoutGuard never tripped (core funcs return strings, never print)
   * Errors returned as GraphCommandOutput(status='error', ...) — no raises
   * Existing wiki_* tools remain registered (regression guard)
   * Trace files written and trace_path returned in output
@@ -73,7 +74,7 @@ def test_three_graph_tools_registered():
 
 
 def test_wiki_tools_still_registered():
-    """Regression guard: Phase 38 did not break existing wiki_* tools."""
+    """Regression guard: existing wiki_* tools remain wired."""
     from graph_wiki_agent.mcp.server import (
         wiki_bootstrap,
         wiki_ingest,
@@ -109,31 +110,35 @@ def test_graph_describe_input_kind_enum():
 
 
 # --------------------------------------------------------------------------- #
-# MCP dispatch
+# MCP dispatch — delegates to typed core funcs
 # --------------------------------------------------------------------------- #
 
 
 async def test_graph_describe_mcp_dispatch(tmp_workspace, fake_ctx):
-    recorder_pkg = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_describe_package, "run", recorder_pkg):
+    recorder = MagicMock(return_value=(exit_codes.SUCCESS, "rendered package foo", ""))
+    with patch.object(graph_module, "run_describe", recorder):
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="foo"), fake_ctx)
     assert out.status == "success"
     assert out.exit_code == 0
-    assert recorder_pkg.call_count == 1
-    args_ns = recorder_pkg.call_args.args[0]
-    assert args_ns.name == "foo"
+    assert out.stdout == "rendered package foo"
+    assert recorder.call_count == 1
+    # run_describe(kind, identifier, repo, workspace)
+    assert recorder.call_args.args[0] == "package"
+    assert recorder.call_args.args[1] == "foo"
 
-    recorder_repo = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_describe_repo, "run", recorder_repo):
+    recorder_repo = MagicMock(return_value=(exit_codes.SUCCESS, "rendered repo", ""))
+    with patch.object(graph_module, "run_describe", recorder_repo):
         out = await graph_describe(GraphDescribeInput(kind="repository"), fake_ctx)
     assert out.status == "success"
     assert recorder_repo.call_count == 1
+    assert recorder_repo.call_args.args[0] == "repository"
+    assert recorder_repo.call_args.args[1] is None
 
 
 async def test_describe_missing_identifier_returns_error(tmp_workspace, fake_ctx):
     """Adapter-layer check: kind='package' with identifier=None returns exit_code=2."""
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_describe_package, "run", recorder):
+    recorder = MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
+    with patch.object(graph_module, "run_describe", recorder):
         out = await graph_describe(GraphDescribeInput(kind="package"), fake_ctx)
     assert out.status == "error"
     assert out.exit_code == 2
@@ -142,23 +147,19 @@ async def test_describe_missing_identifier_returns_error(tmp_workspace, fake_ctx
 
 
 # --------------------------------------------------------------------------- #
-# _StdoutGuard safety
+# _StdoutGuard safety — core funcs return strings, never print to stdout
 # --------------------------------------------------------------------------- #
 
 
 async def test_stdout_guard_not_tripped(tmp_workspace, fake_ctx):
-    """cg's print() output is captured by _capture_run, never reaches _StdoutGuard."""
-
-    def fake_print_then_succeed(args):
-        print("hello from cg")  # must be captured
-        return exit_codes.SUCCESS
-
-    with patch.object(graph_module.q_describe_package, "run", side_effect=fake_print_then_succeed):
+    """run_describe returns its rendered output as a string; no stray stdout write."""
+    recorder = MagicMock(return_value=(exit_codes.SUCCESS, "hello from describe", ""))
+    with patch.object(graph_module, "run_describe", recorder):
         # If _StdoutGuard fires, RuntimeError("Illegal stdout write") propagates.
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="foo"), fake_ctx)
 
     assert out.status == "success"
-    assert "hello from cg" in out.stdout
+    assert "hello from describe" in out.stdout
 
 
 # --------------------------------------------------------------------------- #
@@ -167,27 +168,30 @@ async def test_stdout_guard_not_tripped(tmp_workspace, fake_ctx):
 
 
 async def test_output_shape_per_tool(tmp_workspace, fake_ctx):
-    def succeed_with_output(args):
-        print("captured")
-        return exit_codes.SUCCESS
-
-    with patch.object(graph_module.ops_update, "run", side_effect=succeed_with_output):
+    # update.run is silent on success → run_build returns ("", ...) stdout.
+    with patch.object(
+        graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
+    ):
         out = await graph_build(GraphBuildInput(), fake_ctx)
     assert out.status == "success"
     assert out.exit_code == 0
-    assert "captured" in out.stdout
+    assert out.stdout == ""  # D-06: typed update.run is silent
     assert out.stderr == ""
     assert out.trace_path is None
 
-    with patch.object(graph_module.q_describe_package, "run", side_effect=succeed_with_output):
+    with patch.object(
+        graph_module, "run_describe", MagicMock(return_value=(exit_codes.SUCCESS, "rendered", ""))
+    ):
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="foo"), fake_ctx)
     assert out.status == "success"
-    assert "captured" in out.stdout
+    assert "rendered" in out.stdout
 
-    with patch.object(graph_module.q_find, "run", side_effect=succeed_with_output):
+    with patch.object(
+        graph_module, "run_query", MagicMock(return_value=(exit_codes.SUCCESS, "rows", ""))
+    ):
         out = await graph_query(GraphQueryInput(name="x"), fake_ctx)
     assert out.status == "success"
-    assert "captured" in out.stdout
+    assert "rows" in out.stdout
 
 
 # --------------------------------------------------------------------------- #
@@ -196,13 +200,10 @@ async def test_output_shape_per_tool(tmp_workspace, fake_ctx):
 
 
 async def test_describe_missing_entity(tmp_workspace, fake_ctx):
-    import sys as _sys
-
-    def not_found(args):
-        print("error: package not found: nonexistent", file=_sys.stderr)
-        return exit_codes.GENERIC
-
-    with patch.object(graph_module.q_describe_package, "run", side_effect=not_found):
+    recorder = MagicMock(
+        return_value=(exit_codes.GENERIC, "", "error: package not found: nonexistent")
+    )
+    with patch.object(graph_module, "run_describe", recorder):
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="nonexistent"), fake_ctx)
 
     assert out.status == "error"
@@ -211,15 +212,19 @@ async def test_describe_missing_entity(tmp_workspace, fake_ctx):
 
 
 async def test_graph_build_uninitialized_returns_error(tmp_workspace, fake_ctx):
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.NOT_IN_GIT_REPO):
+    with patch.object(
+        graph_module,
+        "run_build",
+        MagicMock(return_value=(exit_codes.NOT_IN_GIT_REPO, "", "error: not a git repo")),
+    ):
         out = await graph_build(GraphBuildInput(), fake_ctx)
     assert out.status == "error"
     assert out.exit_code == exit_codes.NOT_IN_GIT_REPO
 
 
 async def test_graph_query_no_filters_returns_error(tmp_workspace, fake_ctx):
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_find, "run", recorder):
+    recorder = MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
+    with patch.object(graph_module, "run_query", recorder):
         out = await graph_query(GraphQueryInput(), fake_ctx)
     assert out.status == "error"
     assert out.exit_code == 2
@@ -233,7 +238,9 @@ async def test_graph_query_no_filters_returns_error(tmp_workspace, fake_ctx):
 
 
 async def test_graph_build_trace_writes_file(tmp_workspace, fake_ctx):
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.SUCCESS):
+    with patch.object(
+        graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
+    ):
         out = await graph_build(GraphBuildInput(trace=True), fake_ctx)
     assert out.trace_path is not None
     p = Path(out.trace_path)

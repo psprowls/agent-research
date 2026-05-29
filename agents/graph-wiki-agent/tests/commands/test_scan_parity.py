@@ -78,7 +78,7 @@ def _scan_patches(wiki: Path, repo: Path):
     pool_patch.return_value = pool_mock
     stack.enter_context(patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"))
     stack.enter_context(patch("graph_wiki_agent.commands.scan.update_index"))
-    stack.enter_context(patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")))
+    stack.enter_context(patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")))
     stack.enter_context(patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")))
     stack.enter_context(patch("graph_wiki_agent.commands.scan.append_log"))
     stack.enter_context(patch("graph_wiki_agent.commands.scan.attach_changed_files"))

@@ -133,7 +133,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log"),
     ):
@@ -194,7 +194,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log"),
     ):
@@ -256,7 +256,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log"),
     ):
@@ -338,7 +338,7 @@ async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log", side_effect=_mock_append_log),
     ):
@@ -415,7 +415,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
         patch("graph_wiki_agent.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log"),
     ):
@@ -468,7 +468,7 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
         ),
         patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"),
         patch("graph_wiki_agent.commands.scan.update_index"),
-        patch("graph_wiki_agent.commands.scan._capture_run", return_value=(0, "", "")),
+        patch("graph_wiki_agent.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch("graph_wiki_agent.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_agent.commands.scan.append_log"),
     ):

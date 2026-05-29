@@ -447,7 +447,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         stack.enter_context(patch("graph_wiki_agent.commands.scan.attach_changed_files"))
         # cg update + read_only_connect simulate a healthy graph so Step 9a runs.
         stack.enter_context(patch(
-            "graph_wiki_agent.commands.scan._capture_run",
+            "graph_wiki_agent.commands.scan._cg_run_build",
             return_value=(0, "", ""),
         ))
         stack.enter_context(patch(
