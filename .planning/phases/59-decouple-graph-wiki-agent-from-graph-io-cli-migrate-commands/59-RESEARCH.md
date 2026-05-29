@@ -643,17 +643,17 @@ def graph_build_cmd(...) -> None:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`_format.py` — delete or shim?**
+   - RESOLVED: keep `_format.py` as a thin re-export shim (`from graph_io.render import render, _to_dict, ...`) — 7 cli modules still import it (`q_find` + the 6 call-graph query modules `q_imported_by`/`q_exported_by`/`q_exports`/`q_imports`/`q_callers`/`q_callees`), so deletion would break them. Plan 01 implements the shim.
    - What we know: `_format.py` is imported by `q_find.py` (inside `graph_io.cli`). After promotion, `q_find.py` will import from `graph_io.render` instead.
-   - What's unclear: Whether any external consumer imports `graph_io.cli._format` directly (outside cg and the agent).
-   - Recommendation: Delete `_format.py` after updating `q_find.py`. The project is a personal monorepo with no public API consumers yet.
+   - What's unclear (now answered): an audit found six additional `graph_io.cli` importers of `_format.render` (`q_imported_by`/`q_exported_by`/`q_exports`/`q_imports`/`q_callers`/`q_callees`); deleting `_format.py` would break them, so the shim is required.
 
 2. **`format_domain` extra SQL queries — keep inline or add a `query_domain_members` helper to `queries.py`?**
+   - RESOLVED: keep the two extra SQL queries (packages, subdomains) inline in the agent's domain command for this phase; no new `queries.py` helper. Plan 02 implements this.
    - What we know: The two SQL queries (packages, subdomains) are currently inline in `q_describe_domain.py`. They are domain-traversal queries, not complex.
-   - What's unclear: Whether future code (e.g. wiki-io entity writer) would benefit from a reusable `queries.domain_packages()` helper.
-   - Recommendation: Keep the queries inline in the agent's `commands/graph.py` for this phase (scope control). The promoted `format_domain()` accepts `packages` and `subdomains` as parameters. Adding query helpers to `queries.py` is deferred.
+   - What's unclear (now answered/deferred): a reusable `queries.domain_packages()` helper is deferred to a future phase; for scope control these stay inline. The promoted `format_domain()` accepts `packages` and `subdomains` as parameters.
 
 ---
 
