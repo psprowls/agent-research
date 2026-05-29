@@ -5,7 +5,7 @@ milestone_name: Wiki Index & Entity Page Enrichment
 status: Awaiting next milestone
 stopped_at: Milestone v1.10 complete (Phase 59 was final phase)
 last_updated: "2026-05-29T21:56:02.870Z"
-last_activity: 2026-05-29 — Milestone v1.10 completed and archived
+last_activity: 2026-05-29 — Completed quick task 260529-na9: refresh models.toml sweep candidates and judge panel
 progress:
   total_phases: 6
   completed_phases: 6
@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 Phase: Milestone v1.10 complete (Phases 54-59)
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-29 — Milestone v1.10 completed and archived
+Last activity: 2026-05-29 — Completed quick task 260529-na9: refresh models.toml sweep candidates and judge panel
 
 ## Progress Bar
 
@@ -61,6 +61,12 @@ v1.10: [████] 6/6 phases complete — SHIPPED
 ### Open blockers
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260529-na9 | Refresh models.toml sweep candidates and judge panel for new cost-frontier sweep | 2026-05-29 | 60c8d77 | [260529-na9-refresh-models-toml-sweep-candidates-and](./quick/260529-na9-refresh-models-toml-sweep-candidates-and/) |
 
 ### Key decisions (v1.10 — locked, now shipped)
 
