@@ -329,15 +329,17 @@ def emit(
     edges: list[GraphEdge] = []
 
     for r in roots:
-        # D-16 naming: repository-owned suites use the full rel_path as the
-        # display name; package-owned suites use the basename ('tests' or
-        # '__tests__') with the path slot as the discriminator.
+        # Compute kind_attr first — suite_name depends on it for package-owned suites.
+        kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
+
+        # SC#3b / D-08 naming: repository-owned suites use the full rel_path as the
+        # display name (already unique). Package-owned suites use a qualified name
+        # <owner_name>-<kind>-tests so every node has a unique name even when multiple
+        # packages have a tests/ directory (previously all resolved to basename 'tests').
         if r.owner_kind == "repository":
             suite_name = r.rel_path
         else:
-            suite_name = Path(r.rel_path).name
-
-        kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
+            suite_name = f"{r.owner_name}-{kind_attr}-tests"
 
         attrs: dict = {
             "uri": test_suite_uri(ctx, r.rel_path),
@@ -383,7 +385,10 @@ def emit(
         if r.owner_kind == "repository":
             suite_key_name = r.rel_path
         else:
-            suite_key_name = Path(r.rel_path).name
+            # Must use the same qualified name as the node creation above so the
+            # DB lookup finds the newly-upserted node, not the old 'tests'-named one.
+            _rp_kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
+            suite_key_name = f"{r.owner_name}-{_rp_kind_attr}-tests"
         suite_row = conn.execute(
             "SELECT id FROM nodes WHERE kind='test_suite' AND name=? AND path=?",
             (suite_key_name, r.rel_path),
@@ -443,7 +448,10 @@ def _emit_tests_edges(
         if r.owner_kind == "repository":
             suite_key_name = r.rel_path
         else:
-            suite_key_name = Path(r.rel_path).name
+            # Same qualified-name formula as the node-creation loop so tests-edges
+            # reference the correct suite node.
+            _te_kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
+            suite_key_name = f"{r.owner_name}-{_te_kind_attr}-tests"
         suite_key = ("test_suite", suite_key_name, r.rel_path)
 
         file_rel_paths = list(root_files[r.rel_path])
