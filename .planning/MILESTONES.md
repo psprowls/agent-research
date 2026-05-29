@@ -1,5 +1,28 @@
 # Milestones
 
+## v1.10 Wiki Index & Entity Page Enrichment (Shipped: 2026-05-29)
+
+**Phases completed:** 6 phases (54–59), 14 plans, 32 tasks
+**Delivered:** Turned the generated wiki into a genuinely readable projection of the graph — a human-readable index with an app section, per-entity inline summaries, and dependencies/test-suites nested under their packages — backed by fleshed-out entity templates and a fixed internal-package-as-dependency classification; then decoupled the agent from `graph_io.cli` onto the typed library API.
+**Git range:** `4c54c46` → `c7daeb8` · 116 commits (20 `feat`) · 135 files, +14,982 / −1,203
+**Timeline:** 2026-05-28 → 2026-05-29
+
+**Key accomplishments:**
+
+- **Debt clearance (Phase 54):** adopted the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif across the 7 flagged integration test files (integration-gate green) and corrected PROJECT.md's "What This Is" / Constraints to the real stack — `subagent-runtime` + `langchain-aws` + `langchain-core` and `graph-wiki` naming, dropping stale `deepagents` / `lattice-wiki` wording.
+- **Dependency classification fix (Phase 55):** `graph-io`'s `refresh()` no longer emits a `dependency` node for any name that is also a workspace package/app; an internal package→package usage becomes a dedicated `depends_on_package` edge (with a retargeted `used_by`), and `cg describe-package` now surfaces both directions of that edge in JSON and human output.
+- **Entity templates & scan-time population (Phase 56):** migrated legacy per-kind `overview.md` content into `entity-<type>.md` templates, added scan-time `{{var}}` substitution (no literal `<...>` survives) and a `summary:` frontmatter field on every entity page; removed the legacy `package/` `domain/` `plugin/` `app/` template directories.
+- **Index generation polish (Phase 57):** `wiki/index.md` gained a distinct `app` By-Kind section, human-readable `[[wiki/entities/<stem>|<name>]]` links with inline summaries, and test-suites/dependencies nested under the packages they belong to — the flat By-Kind lists for those two kinds were dropped.
+- **Entity page & index UAT follow-ups (Phase 58):** replaced dead `<...>` placeholder wikilinks in entity `## Related` blocks with a clean Obsidian-safe fill-me marker, fixed the Obsidian-blockquote-breaking `summary:` placeholder in `entity_writer.py`, and fixed test-suite fan-out by keying renderer resolution on test_suite node uri rather than the shared `name`.
+- **Decouple agent from `graph_io.cli` (Phase 59):** promoted the formatter to a public `graph_io.render`, rewrote `commands/graph.py` + `graph_tools.py` off the `argparse.Namespace`/stdout-capture shim onto typed `graph_io.queries`/`update`/`store`, preserving the exact exit-code contract (incl. `AMBIGUOUS(7)`) — proven byte-identical via 7 real-DB syrupy snapshots with the full suite green.
+
+### Known Gaps (acknowledged at close)
+
+- **No milestone audit run** — `/gsd:audit-milestone` (cross-phase integration + E2E + requirements coverage) was skipped; close proceeded on per-phase verifications alone. Consistent with the v1.6 / v1.8 / v1.9 close pattern; tracked as process debt.
+- **Deferred: entity `## Related` dynamic population** — Phase 58 shipped a clean Obsidian-safe marker but deliberately deferred populating `## Related` from graph edges (CONTEXT D-01). Carried as a future-phase candidate in `.planning/todos/deferred/2026-05-28-populate-entity-related-section-from-graph-edges.md`.
+
+---
+
 ## v1.9 Graph Refinements & Wiki Filename Slimdown (Shipped: 2026-05-28)
 
 **Phases completed:** 5 phases (49–53), 15 plans, 25 tasks

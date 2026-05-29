@@ -10,9 +10,9 @@ A Python monorepo (managed with `uv`) of LangChain-primitives-based AI tooling r
 
 If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or the equivalent MCP tool call) must return answers as good as the current graph-wiki librarian, on cheaper models, faster.
 
-## Current Milestone: v1.10 Wiki Index & Entity Page Enrichment
+## Previous Milestone: v1.10 Wiki Index & Entity Page Enrichment (SHIPPED 2026-05-29)
 
-**Goal:** Make the generated wiki a genuinely readable, complete projection of the graph — a human-readable index with per-entity summaries, entity pages fleshed out with real content, and the dependency / test-suite / app classification gaps closed — plus two debt fixes.
+**Goal (achieved):** Make the generated wiki a genuinely readable, complete projection of the graph — a human-readable index with per-entity summaries, entity pages fleshed out with real content, and the dependency / test-suite / app classification gaps closed — plus two debt fixes. Shipped as 6 phases (54–59), 14 plans, 14/14 requirements; closed without a formal milestone audit (process debt, per the v1.6/v1.8/v1.9 pattern). Phase 59 additionally decoupled `graph-wiki-agent` from `graph_io.cli` onto the typed library API.
 
 **Target features:**
 
@@ -51,9 +51,22 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 - **Format compatibility still relaxed** — exploratory `~/Personal/graph-wiki/agent-research` vault is disposable; wipe-and-rebuild via scanner + inbound-link migration.
 - **Lattice-wiki is dead** — no upstream parity constraint; divergence rules prunable as scaffolding outlives its purpose.
 
-## Current State: v1.9 Shipped — 2026-05-28
+## Current State: v1.10 Shipped — 2026-05-29
 
-**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27) + v1.9 (Graph Refinements & Wiki Filename Slimdown, 2026-05-28). **53 phases, 185 plans** across ten milestones.
+**Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27) + v1.9 (Graph Refinements & Wiki Filename Slimdown, 2026-05-28) + v1.10 (Wiki Index & Entity Page Enrichment, 2026-05-29). **59 phases, 199 plans** across eleven milestones.
+
+**New in v1.10 — readable wiki projection + typed-API decoupling:**
+- **Dependency classification fix** — `graph-io`'s `refresh()` no longer double-classifies a workspace package/app as a `dependency` node; the internal usage is a distinct `depends_on_package` edge (+ retargeted `used_by`), and `cg describe-package` surfaces both directions. (Phase 55)
+- **Entity templates + scan-time population** — legacy per-kind `overview.md` content migrated into `entity-<type>.md` templates; scan-time `{{var}}` substitution (no literal `<...>` survives) and a per-entity `summary:` frontmatter field; legacy `package/`/`domain/`/`plugin/`/`app/` template dirs removed. (Phase 56)
+- **Index generation polish** — `wiki/index.md` gained a distinct `app` section, human-readable `[[…|name]]` links with inline summaries, and test-suites/dependencies nested under their packages (flat By-Kind lists for those two dropped). (Phase 57)
+- **UAT follow-ups** — clean Obsidian-safe `## Related` marker (no dead `<...>` links), fixed Obsidian-breaking `summary:` placeholder, and uri-keyed test-suite resolution so each package nests only the suites that test it. (Phase 58)
+- **Decoupled from `graph_io.cli`** — formatter promoted to a public `graph_io.render`; agent `commands/graph.py` + `graph_tools.py` (and, mid-flight, `scan.py` + the 3 MCP graph tools) rewritten off the `argparse.Namespace`/stdout-capture shim onto typed `graph_io.queries`/`update`/`store`, exit-code contract (incl. `AMBIGUOUS(7)`) preserved byte-identical. (Phase 59)
+
+**Process notes from v1.10 (carried as debt):**
+- **No formal milestone audit** — `/gsd:audit-milestone` skipped again; close proceeded on per-phase verifications + Phase 59 full-suite gate (agent 359 / workspace 1578 passing).
+- **Deferred: entity `## Related` dynamic population** — Phase 58 shipped a clean marker but deferred populating `## Related` from graph edges (CONTEXT D-01); tracked in `.planning/todos/deferred/`.
+
+**Prior state — v1.9 Shipped 2026-05-28:** **53 phases, 185 plans** across ten milestones. v1.9 closed without a formal milestone audit (operator-acknowledged); Phase 50 was executed but never formally verified (accepted at close).
 
 **New in v1.9 — graph refinements + short wiki filenames:**
 - **`builtin` graph kind** — Python/Node stdlib imports classified as first-class `Builtin` nodes (`builtin:<lang>/<module>`), kept out of the dependency/symbol pool and excluded from wiki rendering; `cg list-builtins` / `cg describe-builtin` surfaces.
@@ -234,9 +247,16 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Validated
 
-#### Milestone v1.10 IN PROGRESS (Wiki Index & Entity Page Enrichment)
+#### Milestone v1.10 SHIPPED — 2026-05-29 (Wiki Index & Entity Page Enrichment)
 
+14/14 requirements satisfied across Phases 54-59. Full detail: `.planning/milestones/v1.10-ROADMAP.md` and `.planning/milestones/v1.10-REQUIREMENTS.md`.
+
+- ✓ **Debt clearance** — v1.10 (DEBT-01/02): the 7 flagged integration test files adopt the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif (integration-gate green); PROJECT.md "What This Is"/Constraints corrected to the real stack (`subagent-runtime` + `langchain-aws` + `langchain-core`, `graph-wiki` naming) — no `deepagents`/`lattice-wiki` wording. (Phase 54)
 - ✓ **Dependency classification fix** — v1.10 (CLASS-01/02): `graph-io`'s `refresh()` no longer emits a `dependency` node for a name that is also a workspace `package`/`app` (normalized, name-scoped, cross-ecosystem); the internal package→package relationship is a distinct `depends_on_package` edge (src=consumer, dst=internal package, D-04/D-05 amendment) plus a retargeted `used_by` edge resolved to the real node; `cg describe-package` surfaces both internal dependents (incoming) and dependencies (outgoing). Verified end-to-end via `cg update --full`. (Phase 55)
+- ✓ **Entity templates + scan-time population** — v1.10 (ENTITY-01..03, SCAN-01/02): legacy per-kind `overview.md` content migrated into `entity-<type>.md` templates with ontology-relevant sections; scan-time `{{var}}` substitution leaves no literal `<...>`; per-entity `summary:` frontmatter written from the graph node description; legacy `package/`/`domain/`/`plugin/`/`app/` template dirs removed with no dead links. (Phase 56)
+- ✓ **Index generation polish** — v1.10 (IDX-01..05): `wiki/index.md` has a distinct `app` By-Kind section, human-readable `[[wiki/entities/<stem>|<name>]]` links with inline summaries, and test-suites/dependencies nested under the package(s) they belong to; the flat By-Kind lists for those two kinds are gone. (Phase 57)
+- ✓ **Entity page & index UAT follow-ups** — v1.10: dead `<...>` `## Related` links replaced with a clean Obsidian-safe fill-me marker (dynamic population from edges deferred, CONTEXT D-01); Obsidian-breaking `summary:` placeholder fixed; test-suite fan-out fixed by keying renderer resolution on test_suite uri rather than the shared `name`. (Phase 58)
+- ✓ **Decouple agent from `graph_io.cli`** — v1.10: no module under `agents/graph-wiki-agent/` imports `graph_io.cli`; the `argparse.Namespace`/stdout-capture shim is gone, replaced by typed `graph_io.queries`/`update`/`store` + a promoted public `graph_io.render`; exit-code contract (incl. `AMBIGUOUS(7)`) preserved byte-identical, verified by real-DB syrupy snapshots; full suite green (agent 359 / workspace 1578). (Phase 59)
 
 #### Milestone v1.9 SHIPPED — 2026-05-28 (Graph Refinements & Wiki Filename Slimdown)
 
@@ -312,7 +332,7 @@ Full v1.3 retrospective in `.planning/RETROSPECTIVE.md`; v1.3 archive in `.plann
 
 ### Active
 
-_v1.10 (Wiki Index & Entity Page Enrichment) scoped 2026-05-28 — requirements defined in `.planning/REQUIREMENTS.md`; phase structure in `.planning/ROADMAP.md` (continues from Phase 54)._
+_No active milestone — v1.10 shipped 2026-05-29. Next milestone TBD via `/gsd:new-milestone` (requirements defined fresh at that point)._
 
 _See "Deferred to v1.10+" below for carried-forward items (process debt + graph/wiki backlog), and "Out of Scope" for items deferred past v1.x._
 
@@ -401,7 +421,9 @@ _See "Deferred to v1.10+" below for carried-forward items (process debt + graph/
 
 This document evolves at phase transitions and milestone boundaries.
 
-**Last updated:** 2026-05-29 — Phase 59 (Decouple graph-wiki-agent from `graph_io.cli`) COMPLETE — last phase of v1.10. SC#1–4 verified: no module under `agents/graph-wiki-agent/` imports `graph_io.cli` (grep-clean); the `_build_namespace`/`_capture_run`/argparse stdout-capture shim is gone from `commands/graph.py`, replaced by typed `graph_io.queries.*` / `update.run` / `store.read_only_connect` plus a promoted public `graph_io.render` formatter (single source of truth — `_format.py` is now a re-export shim for its 6 remaining cli callers). Scope expanded mid-flight to also migrate the two undocumented shim consumers the plan missed — `commands/scan.py` (pre-scan build) and the MCP server's 3 graph tools (`graph_build`/`describe`/`query`) — onto shared printing-free `run_build`/`run_describe`/`run_query` cores. Output held byte-identical (cg suite 55–57 passed; agent real-DB syrupy snapshots + not-found-stderr assertions, exit-code contract incl. AMBIGUOUS(7) and the `--in-package` GENERIC quirk; trace schema_version=1 unchanged). Full agent suite 359 passed; full workspace 1578 passed; code review 0 critical (4 warnings + 1 info fixed). v1.10 phases 54–59 all complete — milestone ready for audit/ship.
+**Last updated:** 2026-05-29 — milestone v1.10 (Wiki Index & Entity Page Enrichment) SHIPPED & archived. 6 phases (54-59), 14 plans, 14/14 requirements. Delivered a readable wiki index (app section, inline per-entity summaries, nested test-suites/dependencies), fleshed-out entity templates with scan-time population, the internal-package-as-dependency classification fix, and decoupled the agent from `graph_io.cli` onto the typed library API. Closed without a formal milestone audit (process debt, per the v1.6/v1.8/v1.9 pattern); entity `## Related` dynamic-population deferred (CONTEXT D-01). Archives: `.planning/milestones/v1.10-{ROADMAP,REQUIREMENTS}.md`.
+
+**Prior update:** 2026-05-29 — Phase 59 (Decouple graph-wiki-agent from `graph_io.cli`) COMPLETE — last phase of v1.10. SC#1–4 verified: no module under `agents/graph-wiki-agent/` imports `graph_io.cli` (grep-clean); the `_build_namespace`/`_capture_run`/argparse stdout-capture shim is gone from `commands/graph.py`, replaced by typed `graph_io.queries.*` / `update.run` / `store.read_only_connect` plus a promoted public `graph_io.render` formatter (single source of truth — `_format.py` is now a re-export shim for its 6 remaining cli callers). Scope expanded mid-flight to also migrate the two undocumented shim consumers the plan missed — `commands/scan.py` (pre-scan build) and the MCP server's 3 graph tools (`graph_build`/`describe`/`query`) — onto shared printing-free `run_build`/`run_describe`/`run_query` cores. Output held byte-identical (cg suite 55–57 passed; agent real-DB syrupy snapshots + not-found-stderr assertions, exit-code contract incl. AMBIGUOUS(7) and the `--in-package` GENERIC quirk; trace schema_version=1 unchanged). Full agent suite 359 passed; full workspace 1578 passed; code review 0 critical (4 warnings + 1 info fixed). v1.10 phases 54–59 all complete — milestone ready for audit/ship.
 
 **Prior update:** 2026-05-28 — Phase 56 (Entity Templates & Scan-Time Population) COMPLETE. ENTITY-01/02/03 + SCAN-01/02 validated: the 7 `entity-<kind>.md` templates now carry migrated per-kind prose with `{{...}}` data-token H1s and `> TODO: <instructions>` blockquotes (two-token rule D-01); the scanner substitutes `{{...}}` at render time (no Jinja) with a TODO fallback so no raw `{{...}}` survives; every entity page gets a fill-when-empty `summary:` derived from `node.attrs["description"]` (graph-io `packages.refresh()` now populates description from pyproject); the legacy `package/domain/plugin/app/` template dirs and the 4 obsolete `test_overview_template_wikilinks.py` tests are deleted. wiki-io suite now fully green (371 passed); graph-io 464 passed. v1.10 now 3/4 phases complete.
 
@@ -433,4 +455,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-29 — milestone v1.10 (Wiki Index & Entity Page Enrichment) all phases 54–59 COMPLETE (Phase 59 last; milestone ready for audit/ship). v1.9 SHIPPED 2026-05-28. 53 phases / 185 plans across v1.0-v1.9 (ten milestones); v1.10 ran Phases 54–59.*
+*Last updated: 2026-05-29 — milestone v1.10 (Wiki Index & Entity Page Enrichment) SHIPPED & archived (6 phases 54–59, 14 plans, 14/14 requirements). 59 phases / 199 plans across v1.0–v1.10 (eleven milestones). Awaiting next milestone (`/gsd:new-milestone`).*

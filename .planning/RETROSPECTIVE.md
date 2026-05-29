@@ -322,6 +322,48 @@
 
 ---
 
+## Milestone: v1.10 — Wiki Index & Entity Page Enrichment
+
+**Shipped:** 2026-05-29
+**Phases:** 6 (54-59) | **Plans:** 14 | **Tasks:** 32
+
+### What Was Built
+- **Debt clearance (Phase 54).** The 7 flagged integration test files adopted the canonical `GRAPH_WIKI_RUN_INTEGRATION` skipif (integration-gate green); PROJECT.md "What This Is"/Constraints corrected to the real stack (`subagent-runtime` + `langchain-aws` + `langchain-core`, `graph-wiki` naming) — the stale `deepagents`/`lattice-wiki` wording finally gone.
+- **Dependency classification fix (Phase 55).** `graph-io`'s `refresh()` stopped emitting a `dependency` node for any name that is also a workspace package/app; the internal package→package usage became a dedicated `depends_on_package` edge (D-04/D-05 amendment chose a new edge kind over reusing Domain→Domain `depends_on`) plus a retargeted `used_by`. `cg describe-package` surfaces both directions.
+- **Entity templates + scan-time population (Phase 56).** Legacy per-kind `overview.md` content migrated into the `entity-<type>.md` templates with a two-token rule (`{{var}}` = scanner-substituted, `<...>` = authoring instruction); scan-time substitution leaves no literal `<...>`; every page gets a fill-when-empty `summary:` from the node description (graph-io `refresh()` now populates description from pyproject); legacy template dirs deleted.
+- **Index generation polish (Phase 57).** `wiki/index.md` gained a distinct `app` By-Kind section, human-readable `[[wiki/entities/<stem>|<name>]]` links with inline summaries, and test-suites/dependencies nested under their packages — flat By-Kind lists for those two kinds dropped.
+- **Entity page & index UAT follow-ups (Phase 58).** A follow-up phase spawned from Phase 56/57 UAT: dead `<...>` `## Related` links replaced with a clean Obsidian-safe marker (dynamic population from edges reinterpreted and deferred, CONTEXT D-01); Obsidian-breaking `summary:` placeholder fixed; test-suite fan-out fixed by keying renderer resolution on test_suite uri rather than the shared `name`.
+- **Decouple agent from `graph_io.cli` (Phase 59).** Formatter promoted to a public `graph_io.render`; `commands/graph.py` + `graph_tools.py` (plus, mid-flight, `scan.py` and the 3 MCP graph tools) rewritten off the `argparse.Namespace`/stdout-capture shim onto typed `graph_io.queries`/`update`/`store`. Exit-code contract (incl. `AMBIGUOUS(7)`) preserved byte-identical, proven by 7 real-DB syrupy snapshots; full suite green (agent 359 / workspace 1578).
+
+### What Worked
+- **UAT defects became their own phase instead of inline patches.** Phases 56/57 surfaced three real wiki-io defects during verification; rather than hot-patching, they were captured as todos and planned as Phase 58 with explicit success criteria. The deferral decision (Related-from-edges → CONTEXT D-01) was made deliberately in that phase's context rather than silently dropped.
+- **Byte-identical snapshot guard for a risky refactor.** Phase 59 moved the agent off an in-process CLI shim — exactly the kind of change that silently drifts behavior. Rebuilding `test_commands_graph.py` with real-DB syrupy snapshots + full exit-code branch coverage (incl. the `AMBIGUOUS(7)` and `--in-package` GENERIC quirk) made "behavior unchanged" a verified claim, not a hope.
+- **Hard dependency ordering held again.** 54 (debt) → 55 (classification, so `depends_on_package` data is correct) → 56 (`summary:` write) → 57 (index polish consuming both) → 58 (UAT fixes) → 59 (decouple). The two cross-file edit races (56-04 vs 55-01 on `refresh()`) were called out at scoping and sequenced around.
+- **Promote-internal-to-public for decoupling.** The `_format.py` formatter became public `graph_io.render` (single source of truth), with `_format.py` left as a re-export shim for its remaining cli callers — the consumer migration didn't require a flag day.
+
+### What Was Inefficient
+- **`one_liner:` extraction produced junk AGAIN — seventh-plus milestone.** `milestone.complete` handed `"One-liner:"`, `"1. [Rule 3 - structural] _describe_cli shared wrapper introduced"`, and several `null`s straight into the v1.10 archive as "Key accomplishments." Hand-rewritten at close, same as v1.0/v1.1/v1.2/v1.6/v1.8/v1.9. The write-time schema check is now absurdly overdue.
+- **Traceability table left stale at close AGAIN.** IDX-01..05 read `Pending` in REQUIREMENTS.md even though Phase 57 (which delivers them) had shipped and verified — identical to v1.9's 14 never-flipped rows. Hand-corrected at close. Same write-time-enforcement gap, different milestone.
+- **No `/gsd:audit-milestone` — fourth in a row (v1.6/v1.8/v1.9/v1.10).** This is no longer a skip; it's the de facto policy for ≤8-phase milestones. Either institutionalize it explicitly or build a lighter audit shape.
+- **STATE.md body drifted from its own frontmatter.** At close the frontmatter correctly read `milestone_complete` while the body still said "Next action: plan-phase 54" with a `1/4` progress bar. The CLI updates frontmatter but not the prose body; the stale body is a foot-gun for anyone reading STATE.md directly.
+
+### Patterns Established
+- **UAT-surfaced defects → a scoped follow-up phase, not inline fixes.** When verification of a feature phase turns up real defects, capture them as todos and plan them as their own phase with success criteria and explicit defer/do decisions (Phase 58). Keeps the original phase's verification honest and the fixes reviewable.
+- **Byte-identical snapshot guard is the contract for behavior-preserving refactors.** Real-DB snapshots + exhaustive exit-code branch coverage turn "I didn't change behavior" into a test. Use it whenever migrating off a shim/adapter where output is the contract.
+- **Public-API promotion + re-export shim for decoupling.** Promote the shared internal to a public module, leave the old path as a thin re-export, migrate consumers incrementally — no flag day, suite green throughout.
+
+### Key Lessons
+- **Two schema-staleness faces (one_liner + traceability) are now a seven-milestone tax.** Every close pays the same manual-cleanup cost. The fix is unchanged and unbuilt: a per-phase gate that validates `one_liner:` and flips REQ-IDs before the SUMMARY commit. Until it ships, budget cleanup time into every milestone close.
+- **"Audit skipped" has become "audit not in the process."** Four consecutive milestones without `/gsd:audit-milestone`. Honesty requires either writing the policy down (no formal audit for small milestones) or making a lighter audit cheap enough to actually run.
+- **Frontmatter and prose drift independently — reconcile the body at close.** Tooling that updates structured state should not be trusted to fix the human-readable body; the close workflow has to rewrite it explicitly (done this milestone).
+
+### Cost Observations
+- **Model mix:** Opus for orchestrator / planner / research; Sonnet for executor / verifier / code-review. No new `models.toml` roles this milestone.
+- **Sessions:** execution clustered over ~2 calendar days (2026-05-28 → 2026-05-29); 6 phases / 14 plans / 32 tasks; 116 commits (20 `feat`), 135 files, +14,982 / −1,203.
+- **Notable:** Phase 59 expanded scope mid-flight (two undocumented shim consumers — `scan.py` + 3 MCP graph tools — the plan missed) yet stayed byte-identical; the formatter promotion to `graph_io.render` is the kind of internal-cleanup that pays back across every future graph consumer.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -333,6 +375,7 @@
 | v1.2 | dense ~3 days | 6 | Spec-only phase pattern (M3a → M3b); body-diff-then-verdict pattern for cross-codebase merge; grep-gate enforcement for brand/style rules; 2-line delegation shim across package boundaries; `TaskResult` wrapper for usage_metadata in fan-out callbacks; event-driven deferrals over calendar-driven |
 | … | | | _(v1.3–v1.8 rows not back-filled — see each milestone's section above)_ |
 | v1.9 | dense ~2 days | 5 | Introduce-then-cutover for breaking refactors (Phase 52 lands new path, 53 removes old); pure-function-+-property-test-before-consumers (again); reverse-lookup via stored `frontmatter.uri` instead of a decode function; first milestone shipped via real GitHub PR + FF merge to `main` (PR #1). Recurring debt re-confirmed: one_liner extraction + traceability flips still not write-time-enforced; milestone audit skipped; a phase (50) reached Complete with no VERIFICATION.md |
+| v1.10 | dense ~2 days | 6 | UAT-surfaced defects promoted to their own scoped follow-up phase (58) with explicit defer/do decisions; byte-identical real-DB snapshot guard for a behavior-preserving shim migration (59); public-API-promotion + re-export shim for incremental consumer decoupling. Recurring debt re-confirmed for the 7th time: one_liner extraction junk + traceability rows (IDX-01..05) left `Pending` at close; `/gsd:audit-milestone` skipped (4th consecutive); STATE.md prose body drifted from its own frontmatter |
 
 ### Cumulative Quality
 
