@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Wiki Index & Entity Page Enrichment
 status: executing
-stopped_at: Phase 58 context gathered
-last_updated: "2026-05-29T02:45:40.817Z"
+stopped_at: Phase 59 context gathered
+last_updated: "2026-05-29T17:11:55.972Z"
 last_activity: 2026-05-29 -- Phase 58 execution started
 progress:
-  total_phases: 5
-  completed_phases: 4
+  total_phases: 6
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_plans: 11
+  percent: 83
 ---
 
 # Project State: agent-research
@@ -62,6 +62,7 @@ v1.10: [█░░░] 1/4 phases complete
 ### Roadmap Evolution
 
 - Phase 58 added (v1.10): Entity Page & Index UAT Follow-Ups — derive entity `## Related` from graph edges; fix Obsidian-breaking `summary:` placeholder; fix test suites fanning out under every package in the index (from pending UAT todos)
+- Phase 59 added (v1.10): Decouple graph-wiki-agent from `graph_io.cli` — migrate `commands/graph.py` off the in-process `graph_io.cli.*.run(args)` modules onto the typed library API (`graph_io.queries.*`, `graph_io.update.run`); goal is no agent module importing `graph_io.cli`. `scan.py`/`propose_domains.py` already use the typed API. Keeping the `cg` CLI as a human debug surface deferred to a later decision.
 
 ### Open blockers
 
@@ -105,8 +106,8 @@ Carried forward from v1.9:
 
 ## Session Continuity
 
-Last session: 2026-05-29T02:17:13.304Z
-Stopped at: Phase 58 context gathered
+Last session: 2026-05-29T17:11:55.965Z
+Stopped at: Phase 59 context gathered
 
 **Next action:** `/gsd:plan-phase 54` to plan the Debt Clearance phase.
 
