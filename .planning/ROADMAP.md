@@ -330,7 +330,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 Plans:
 **Wave 1**
 
-- [ ] 59-01-PLAN.md — Promote formatter to public `graph_io.render` + refactor 6 q_describe_* + q_find (cg byte-identical guard) [D-01/D-02/D-03]
+- [x] 59-01-PLAN.md — Promote formatter to public `graph_io.render` + refactor 6 q_describe_* + q_find (cg byte-identical guard) [D-01/D-02/D-03]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
