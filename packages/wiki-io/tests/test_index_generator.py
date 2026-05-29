@@ -27,6 +27,8 @@ from wiki_io.index_generator import (
     IndexWriteResult,
     PlacedEntity,
     _compute_qualifying_domains,
+    _consumer_pkgs,
+    _consumer_pkgs_in_domain,
     _entry_link,
     _place_entities,
     _render,
@@ -168,7 +170,7 @@ class TestQualifyingDomains:
         }
         conn = make_index_fixture_graph(spec)
         assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite-a"
+            conn, kind="test_suite", name="suite-a", uri="test_suite:suite-a"
         ) == {"core"}
 
     def test_test_suite_multi_package_multi_domain(self, make_index_fixture_graph):
@@ -189,7 +191,7 @@ class TestQualifyingDomains:
         }
         conn = make_index_fixture_graph(spec)
         assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite"
+            conn, kind="test_suite", name="suite", uri="test_suite:suite"
         ) == {"d1", "d2"}
 
     def test_dependency_one_hop(self, make_index_fixture_graph):
@@ -1121,6 +1123,135 @@ def test_inline_summary_from_entity_page_frontmatter(
     # pkg-b (no entity page) renders the link with NO ` — ` suffix.
     assert "[[wiki/entities/pkg_pkg-b|pkg-b]]\n" in text
     assert "[[wiki/entities/pkg_pkg-b|pkg-b]] —" not in text
+
+
+# --- Fan-out regression guard (SC#3 / D-07/D-08) ---
+
+
+def _make_fanout_fixture() -> sqlite3.Connection:
+    """Build a fan-out test graph directly (bypasses upsert path collapsing).
+
+    Two suites share the legacy name 'tests' but have DISTINCT paths and URIs,
+    mirroring the pre-Plan-02 state in production. We insert nodes directly so
+    both suite rows exist in the DB (upsert_records collapses same-(kind,name,path)
+    tuples, which would silently merge them).
+
+    Each suite is connected via a 'tests' edge to only its own package.
+    """
+    from graph_io.schema import apply_schema
+
+    conn = sqlite3.connect(":memory:")
+    apply_schema(conn)
+
+    # Insert nodes directly to allow two 'tests'-named suite rows
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("domain", "d1", "", None, "{}", "domain:d1"),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("package", "pkg-alpha", "", None, '{"uri":"pkg:pkg-alpha"}', "pkg:pkg-alpha"),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("package", "pkg-beta", "", None, '{"uri":"pkg:pkg-beta"}', "pkg:pkg-beta"),
+    )
+    # Both suites named 'tests' but with different paths and URIs
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        (
+            "test_suite",
+            "tests",
+            "packages/alpha/tests",
+            None,
+            "{}",
+            "test_suite:org/repo/packages/alpha/tests",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        (
+            "test_suite",
+            "tests",
+            "packages/beta/tests",
+            None,
+            "{}",
+            "test_suite:org/repo/packages/beta/tests",
+        ),
+    )
+    conn.commit()
+
+    # Fetch IDs for edge wiring
+    def nid(kind, name, path=""):
+        return conn.execute(
+            "SELECT id FROM nodes WHERE kind=? AND name=? AND path=?",
+            (kind, name, path),
+        ).fetchone()[0]
+
+    d1 = nid("domain", "d1")
+    pkg_a = nid("package", "pkg-alpha")
+    pkg_b = nid("package", "pkg-beta")
+    ts_a = nid("test_suite", "tests", "packages/alpha/tests")
+    ts_b = nid("test_suite", "tests", "packages/beta/tests")
+
+    conn.executemany(
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?,?,?,?)",
+        [
+            (pkg_a, d1, "belongs_to_domain", "{}"),
+            (pkg_b, d1, "belongs_to_domain", "{}"),
+            (ts_a, pkg_a, "tests", "{}"),  # alpha-suite tests only alpha-pkg
+            (ts_b, pkg_b, "tests", "{}"),  # beta-suite tests only beta-pkg
+        ],
+    )
+    conn.commit()
+    return conn
+
+
+def test_consumer_pkgs_fanout_regression_guard():
+    """Regression guard: two suites with the SAME name but DISTINCT URIs must
+    each resolve to only their own consumer package via _consumer_pkgs.
+
+    Before the fix, _consumer_pkgs joined on ts.name=? — both suites shared
+    name='tests', so each returned BOTH packages (fan-out). After the fix,
+    _consumer_pkgs joins on ts.uri=?, giving exactly one consumer per suite.
+
+    The guard also covers _consumer_pkgs_in_domain with a domain variant, and
+    confirms that a URI matching no suite returns empty (no name-fallback).
+    """
+    conn = _make_fanout_fixture()
+
+    uri_alpha = "test_suite:org/repo/packages/alpha/tests"
+    uri_beta = "test_suite:org/repo/packages/beta/tests"
+
+    # _consumer_pkgs: each suite resolves to exactly its own consumer package
+    pkgs_for_alpha = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_alpha)
+    pkgs_for_beta = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_beta)
+    assert pkgs_for_alpha == ("pkg-alpha",), (
+        f"expected ('pkg-alpha',), got {pkgs_for_alpha!r} — fan-out detected"
+    )
+    assert pkgs_for_beta == ("pkg-beta",), (
+        f"expected ('pkg-beta',), got {pkgs_for_beta!r} — fan-out detected"
+    )
+
+    # _consumer_pkgs_in_domain: same correctness within a domain
+    pkgs_alpha_d1 = _consumer_pkgs_in_domain(
+        conn, kind="test_suite", entity_uri=uri_alpha, domain_name="d1"
+    )
+    pkgs_beta_d1 = _consumer_pkgs_in_domain(
+        conn, kind="test_suite", entity_uri=uri_beta, domain_name="d1"
+    )
+    assert pkgs_alpha_d1 == ("pkg-alpha",), (
+        f"expected ('pkg-alpha',), got {pkgs_alpha_d1!r} — domain fan-out detected"
+    )
+    assert pkgs_beta_d1 == ("pkg-beta",), (
+        f"expected ('pkg-beta',), got {pkgs_beta_d1!r} — domain fan-out detected"
+    )
+
+    # A URI matching no suite returns empty (no name-fallback)
+    no_match = _consumer_pkgs(
+        conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite"
+    )
+    assert no_match == (), f"expected () for unmatched URI, got {no_match!r}"
 
 
 # --- Snapshot test against the live agent-research graph (skip when absent) ---
