@@ -287,7 +287,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 **Depends on**: Phase 57
 **Requirements**: TBD
 **Success Criteria** (what must be TRUE):
-  1. Generated entity pages populate `## Related` from the node's graph edges (e.g. `depends_on` → packages, domain membership → domains, dependency edges → dependencies) instead of static `<...>` placeholder links; nodes with no related edges fall back to a clean fill-me-in marker, not `<...>` (todo: `2026-05-28-populate-entity-related-section-from-graph-edges`)
+  1. Generated entity pages no longer ship `<...>` placeholder links in `## Related`; the section shows a clean, Obsidian-safe fill-me-in marker (no `<...>`, no leading `>`) naming the curated page types it will eventually reference (concepts, ADRs, architecture). Dynamic population from those curated backlinks is deferred to a future phase — see Phase 58 CONTEXT.md D-01 (reinterprets the original "populate from graph edges" intent) (todo: `2026-05-28-populate-entity-related-section-from-graph-edges`)
   2. The empty-description `summary:` placeholder renders cleanly inline in Obsidian — no leading `>` blockquote and no unclosed `<...>` HTML tag — so list items following a placeholder bullet still render (`entity_writer.py:587`; todo: `2026-05-29-fix-entity-summary-placeholder-breaks-obsidian-rendering`)
   3. In the generated index `## By Kind` section, each package/app nests only the test suite(s) that actually test it — not the same nine `tests`-named suites under every package; resolution keys on test_suite node id/uri rather than the shared `name` (`index_generator.py:282`; todo: `2026-05-29-test-suites-fan-out-under-every-package-in-index`)
 **Plans**: TBD (run `/gsd-plan-phase 58` to break down)
