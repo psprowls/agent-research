@@ -50,7 +50,7 @@ from wiki_io.scan_monorepo import (
 from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
-from graph_wiki_agent.commands.graph import _build_namespace, _capture_run, ops_update
+from graph_wiki_agent.commands.graph import run_build as _cg_run_build
 
 logger = logging.getLogger(__name__)
 
@@ -474,23 +474,26 @@ async def run_scan(
             silent=True,
             raise_exception=True,
         )
-        # NOTE: ops_update interprets `workspace` as the workspace ROOT (where
-        # `.graph/code.db` is written), not the wiki directory. Phase 38's
-        # commands/graph.py (`_resolve_paths` → `cfg.workspace`) and the
-        # librarian (`graph_dir(wiki.parent)` in commands/query.py) both use
-        # the workspace root. We follow that convention here so the post-update
+        # NOTE: run_build interprets `workspace` as the workspace ROOT (where
+        # `.graph/code.db` is written), not the wiki directory. commands/graph.py
+        # (`_resolve_paths` → `cfg.workspace`) and the librarian
+        # (`graph_dir(wiki.parent)` in commands/query.py) both use the workspace
+        # root. We follow that convention here so the post-update
         # `read_only_connect(graph_dir(wiki.parent) / "code.db")` finds the
-        # DB cg just created. (The plan's must_have says `workspace=wiki`;
-        # that is a plan-spec drift — passing `wiki` makes cg write to
-        # `<wiki>/.graph/code.db` while the read path looks under
+        # DB the graph build just created. (The plan's must_have says
+        # `workspace=wiki`; that is a plan-spec drift — passing `wiki` makes the
+        # build write to `<wiki>/.graph/code.db` while the read path looks under
         # `<workspace>/.graph/code.db`, so the conn open would fall through
         # to the post-update NOT_INITIALIZED fallback every time. See Phase
         # 39 SUMMARY's deviations section.)
+        #
+        # Phase 59 (59-02b): migrated off the deleted _build_namespace/_capture_run
+        # shim onto the typed run_build core. update.run is silent on success, so
+        # _cg_stdout is always "" here (sanctioned by D-06).
         _workspace_root = wiki.parent
-        _cg_args = _build_namespace(
-            ops_update, repo=repo, workspace=_workspace_root, full=False
+        _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(
+            repo, _workspace_root, full=False
         )
-        _cg_exit, _cg_stdout, _cg_stderr = _capture_run(ops_update, _cg_args)
         _graph_ready = False
         if _cg_exit == exit_codes.SUCCESS:
             append_log(
