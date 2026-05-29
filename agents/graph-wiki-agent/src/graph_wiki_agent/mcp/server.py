@@ -531,14 +531,8 @@ async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutpu
             model_id=input.model,
         )
 
-    args = graph_module._build_namespace(
-        graph_module.ops_update,
-        repo=repo,
-        workspace=workspace,
-        full=input.full,
-    )
     t0 = time.monotonic()
-    exit_code, stdout, stderr = graph_module._capture_run(graph_module.ops_update, args)
+    exit_code, stdout, stderr = graph_module.run_build(repo, workspace, full=input.full)
     dur_ms = int((time.monotonic() - t0) * 1000)
 
     if trace_file is not None:
@@ -560,8 +554,10 @@ async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutpu
     description="Describe a graph entity by kind and identifier. Mirrors `graph-wiki-agent graph describe <kind>`.",
 )
 async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphCommandOutput:
-    module, id_attr = graph_module._DESCRIBE_DISPATCH[input.kind]
-    if id_attr is not None and input.identifier is None:
+    # Validate kind + identifier-required semantics against the public mapping
+    # (replaces the old _DESCRIBE_DISPATCH[kind] -> (module, id_attr) lookup).
+    requires_identifier = graph_module.DESCRIBE_REQUIRES_IDENTIFIER[input.kind]
+    if requires_identifier and input.identifier is None:
         return _pack_output(
             exit_code=2,
             stdout="",
@@ -570,7 +566,6 @@ async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphComman
         )
 
     repo, workspace = graph_module._resolve_paths(input.workspace_path)
-    extras: dict = {} if id_attr is None else {id_attr: input.identifier}
 
     trace_file = None
     trace_path_str: str | None = None
@@ -579,9 +574,10 @@ async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphComman
         trace_file = graph_module._trace_path(workspace, "graph-describe", shared_stamp)
         trace_path_str = str(trace_file.resolve())
 
-    args = graph_module._build_namespace(module, repo=repo, workspace=workspace, **extras)
     t0 = time.monotonic()
-    exit_code, stdout, stderr = graph_module._capture_run(module, args)
+    exit_code, stdout, stderr = graph_module.run_describe(
+        input.kind, input.identifier, repo, workspace
+    )
     dur_ms = int((time.monotonic() - t0) * 1000)
 
     if trace_file is not None:
@@ -620,16 +616,14 @@ async def graph_query(input: GraphQueryInput, ctx: Context) -> GraphCommandOutpu
         trace_file = graph_module._trace_path(workspace, "graph-query", shared_stamp)
         trace_path_str = str(trace_file.resolve())
 
-    args = graph_module._build_namespace(
-        graph_module.q_find,
-        repo=repo,
-        workspace=workspace,
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = graph_module.run_query(
+        repo,
+        workspace,
         name=input.name,
         kind=input.kind,
         in_package=input.in_package,
     )
-    t0 = time.monotonic()
-    exit_code, stdout, stderr = graph_module._capture_run(graph_module.q_find, args)
     dur_ms = int((time.monotonic() - t0) * 1000)
 
     if trace_file is not None:
