@@ -1,8 +1,8 @@
 """graph-wiki-agent graph subcommands — typed graph_io API.
 
-Phase 59 (Plan 02): migrated off `graph_io.cli` onto the typed library API.
-Replaces the Phase 38 `_build_namespace`/`_capture_run`/argparse shim with
-direct calls to `graph_io.queries.*`, `graph_io.update.run`, and
+Phase 59 (Plan 02): migrated off the legacy cli wrappers onto the typed
+library API. Replaces the Phase 38 namespace-construction + stdout-capture
+shim with direct calls to `graph_io.queries.*`, `graph_io.update.run`, and
 `graph_io.store.read_only_connect` (D-04..D-07).
 
 Trace records (when `--trace` is passed) reuse the Phase 9 OBS-04 schema
