@@ -584,7 +584,7 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
     # summary. NOTE: `summary` is intentionally a fill-when-empty key, NOT a
     # SCANNER_OWNED_KEYS member — see the special-case in merge_frontmatter (D-07).
     description = node.attrs.get("description") if isinstance(node.attrs, dict) else None
-    fm["summary"] = description or f"> TODO: <add a one-line summary for {node.name}>"
+    fm["summary"] = description or f"TODO add a one-line summary for {node.name}"
     if kind == "repository":
         d = _queries.describe_repository(conn)
         if d is not None:
