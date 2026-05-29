@@ -167,7 +167,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 - [x] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges (completed 2026-05-28)
 - [x] **Phase 56: Entity Templates & Scan-Time Population** — Migrate legacy template content into `entity-<type>.md` templates; add scan-time variable substitution and `summary:` frontmatter field (completed 2026-05-28)
 - [x] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md` (completed 2026-05-29)
-- [ ] **Phase 58: Entity Page & Index UAT Follow-Ups** — Derive entity `## Related` from graph edges; fix the Obsidian-breaking `summary:` placeholder; fix test suites fanning out under every package in the index
+- [x] **Phase 58: Entity Page & Index UAT Follow-Ups** — Derive entity `## Related` from graph edges; fix the Obsidian-breaking `summary:` placeholder; fix test suites fanning out under every package in the index (completed 2026-05-29)
 
 ---
 
@@ -280,7 +280,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 55. Dependency Classification Fix | v1.10 | 2/2 | Complete    | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 4/4 | Complete    | 2026-05-28 |
 | 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
-| 58. Entity Page & Index UAT Follow-Ups | v1.10 | 2/3 | In Progress|  |
+| 58. Entity Page & Index UAT Follow-Ups | v1.10 | 3/3 | Complete   | 2026-05-29 |
 
 ### Phase 58: Entity Page & Index UAT Follow-Ups
 **Goal**: The three wiki-io defects/enhancements surfaced during v1.10 UAT (Phases 56–57) are resolved — entity `## Related` sections show a clean Obsidian-safe marker (dynamic population deferred per CONTEXT D-01), summary placeholders render cleanly in Obsidian, and each package nests only the test suites that actually test it
@@ -293,7 +293,7 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 **Plans**: 3 plans
   - [x] 58-01-PLAN.md — Related marker + summary placeholder (wiki-io templates + entity_writer) [Items #1, #2]
   - [x] 58-02-PLAN.md — Test-suite scan-side rename + SC#3b uniqueness + stale-node `--full` resolution (graph-io) [Item #3 scan-side]
-  - [ ] 58-03-PLAN.md — Renderer uri-keyed consumer resolution + fan-out guard + snapshot rebaseline (wiki-io index_generator) [Item #3 renderer]
+  - [x] 58-03-PLAN.md — Renderer uri-keyed consumer resolution + fan-out guard + snapshot rebaseline (wiki-io index_generator) [Item #3 renderer]
 
 ---
 
