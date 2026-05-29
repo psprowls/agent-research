@@ -338,7 +338,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 59-03-PLAN.md — Rebuild `test_commands_graph.py` with real-DB syrupy snapshots + `seeded_graph_workspace` fixture; full-suite gate [D-08/D-09, SC#3/SC#4]
+- [x] 59-03-PLAN.md — Rebuild `test_commands_graph.py` with real-DB syrupy snapshots + `seeded_graph_workspace` fixture; full-suite gate [D-08/D-09, SC#3/SC#4]
 
 ---
 
