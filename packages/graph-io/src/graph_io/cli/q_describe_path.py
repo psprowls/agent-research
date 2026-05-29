@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json as _json
 import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
+from graph_io import exit_codes, queries, render as _render, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -33,14 +31,5 @@ def run(args: argparse.Namespace) -> int:
     if desc is None:
         print(f"error: path not found in graph: {args.path}", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        print(f"path: {desc.path}")
-        print("children:")
-        for c in desc.children:
-            print(f"  {c.kind}  {c.name}  line {c.line}")
-        print("imports:")
-        for i in desc.imports:
-            print(f"  {i.path}")
+    print(_render.format_path(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

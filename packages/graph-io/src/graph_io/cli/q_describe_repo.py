@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json as _json
 import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
+from graph_io import exit_codes, queries, render as _render, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -33,14 +31,5 @@ def run(args: argparse.Namespace) -> int:
     if desc is None:
         print("error: not found: repository", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        url = desc.url if desc.url else "(none)"
-        default_branch = desc.default_branch if desc.default_branch else "(none)"
-        print(f"repository:     {desc.name}")
-        print(f"uri:            {desc.uri}")
-        print(f"url:            {url}")
-        print(f"default_branch: {default_branch}")
-        print(f"package_count:  {desc.package_count}")
+    print(_render.format_repo(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

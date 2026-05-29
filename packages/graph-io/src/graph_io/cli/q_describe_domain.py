@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json as _json
 import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
+from graph_io import exit_codes, queries, render as _render, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -52,30 +50,5 @@ def run(args: argparse.Namespace) -> int:
     finally:
         conn.close()
 
-    if args.fmt == "json":
-        payload = {
-            **dataclasses.asdict(desc),
-            "packages": packages,
-            "subdomains": subdomains,
-        }
-        print(_json.dumps(payload, default=str))
-    else:
-        parent = desc.parent if desc.parent else "(none)"
-        description = desc.description if desc.description else "(none)"
-        print(f"domain:        {desc.name}")
-        print(f"uri:           {desc.uri}")
-        print(f"parent:        {parent}")
-        print(f"description:   {description}")
-        print("packages:")
-        if packages:
-            for name in packages:
-                print(f"  - {name}")
-        else:
-            print("  (none)")
-        print("subdomains:")
-        if subdomains:
-            for name in subdomains:
-                print(f"  - {name}")
-        else:
-            print("  (none)")
+    print(_render.format_domain(desc, packages, subdomains, fmt=args.fmt))
     return exit_codes.SUCCESS

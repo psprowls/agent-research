@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json as _json
 import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
+from graph_io import exit_codes, queries, render as _render, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -33,15 +31,5 @@ def run(args: argparse.Namespace) -> int:
     if desc is None:
         print(f"error: package not found: {args.name}", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        print(f"package: {desc.name}")
-        print(f"language: {desc.language}")
-        print(f"version:  {desc.version}")
-        print(f"files:    {len(desc.files)}")
-        print(f"counts:   {desc.counts}")
-        # Phase 55 D-08: both directions of the depends_on_package edge.
-        print(f"internal deps:       {', '.join(desc.internal_dependencies) or '-'}")
-        print(f"internal dependents: {', '.join(desc.internal_dependents) or '-'}")
+    print(_render.format_package(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

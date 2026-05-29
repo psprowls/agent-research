@@ -7,8 +7,7 @@ import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
-from graph_io.cli import _format
+from graph_io import exit_codes, queries, render as _render, store
 from graph_io.queries import _VALID_KINDS
 
 
@@ -70,5 +69,5 @@ def run(args: argparse.Namespace) -> int:
     def _notice(shown: int, total: int) -> None:
         print(f"... showing {shown} of {total} (truncated)", file=sys.stderr)
 
-    print(_format.render(records, fmt=args.fmt, cap=50, on_truncate=_notice))
+    print(_render.render(records, fmt=args.fmt, cap=50, on_truncate=_notice))
     return exit_codes.SUCCESS

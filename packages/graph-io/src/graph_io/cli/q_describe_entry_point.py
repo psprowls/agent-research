@@ -15,13 +15,11 @@ underlying query still receives both fields it needs.
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json as _json
 import sys
 
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
+from graph_io import exit_codes, queries, render as _render, store
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -78,16 +76,5 @@ def run(args: argparse.Namespace) -> int:
     if desc is None:
         print(f"error: entry point not found: {args.name}", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        callable_value = desc.callable if desc.callable else "(none)"
-        impl_path = desc.implemented_by_path if desc.implemented_by_path else "(none)"
-        source = desc.source if desc.source else "(none)"
-        print(f"entry-point: {desc.name}")
-        print(f"uri:         {desc.uri}")
-        print(f"kind:        {desc.kind}")
-        print(f"callable:    {callable_value}")
-        print(f"path:        {impl_path}")
-        print(f"source:      {source}")
+    print(_render.format_entry_point(desc, fmt=args.fmt))
     return exit_codes.SUCCESS
