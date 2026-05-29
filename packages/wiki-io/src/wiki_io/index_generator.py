@@ -46,6 +46,8 @@ from pathlib import Path
 
 from graph_io.queries import (
     NodeRecord,
+    internal_dependencies_of,
+    list_apps,
     list_dependencies,
     list_domains,
     list_packages,
@@ -64,9 +66,23 @@ from wiki_io.entity_writer import (
 # Module constants (D-09, D-12)
 # ============================================================================
 
-BY_KIND_ORDER: tuple[str, ...] = ("package", "test_suite", "dependency", "plugin")
+# Phase 57 D-01 (the crux): placement kinds are DECOUPLED from render order.
+# `_PLACEABLE_KINDS` drives `_place_entities` iteration AND the by-kind sort key;
+# it MUST include test_suite/dependency or those entities would never be
+# discovered/placed and could not nest under their packages (breaking IDX-04/05).
+# `BY_KIND_ORDER` (D-03/D-08) drives ONLY the flat `## By Kind` render groups —
+# apps first, then packages, then plugins. test_suites/dependencies are no longer
+# flat groups; they appear exclusively nested under the package/app that uses them
+# (in both domain and By-Kind contexts per D-01), so removing them from the flat
+# render order is safe precisely because every package/app now nests its own items.
+_PLACEABLE_KINDS: tuple[str, ...] = (
+    "app", "package", "test_suite", "dependency", "plugin",
+)
+
+BY_KIND_ORDER: tuple[str, ...] = ("app", "package", "plugin")
 
 KIND_LABELS: dict[str, str] = {
+    "app": "Apps",
     "package": "Packages",
     "test_suite": "Test Suites",
     "dependency": "Dependencies",
@@ -122,6 +138,12 @@ class PlacedEntity:
     `suite_kind` / `pkg_for_suite` are populated for test_suite entities so
     Phase 53's `short_filename` can derive kind-aware names like
     `unit_tests_<pkg>`; they are `None` for non-test_suite kinds.
+
+    `summary` (Phase 57 D-06/D-07) is the entity page's own frontmatter
+    `summary:` value — NOT the graph node attr. Phase 56 makes `summary:`
+    fill-when-empty so a human can edit it; reading the page file (like the
+    curated-lane scan) keeps the index in sync with the editable source.
+    Empty when the entity page / frontmatter is missing.
     """
 
     kind: str
@@ -130,6 +152,7 @@ class PlacedEntity:
     parent_pkg_names: tuple[str, ...] = ()
     suite_kind: str | None = None
     pkg_for_suite: str | None = None
+    summary: str = ""
 
 
 # ============================================================================
@@ -143,21 +166,24 @@ def _compute_qualifying_domains(
     """Return the set of domain names that qualify for this entity (D-04).
 
     - package:    direct `belongs_to_domain` edges.
+    - app:        direct `belongs_to_domain` edges (Phase 57 D-03/D-04 —
+                  apps route identically to packages: single qualifying
+                  domain → that domain section; zero/multi → By-Kind).
     - test_suite: one-hop transitive via `tests -> package -> belongs_to_domain`.
     - dependency: one-hop transitive via `used_by` -> `package` -> `belongs_to_domain`.
                   Edge direction: package -[used_by]-> dependency.
     - plugin:     always empty (D-04 — plugins have no domain edges in v1.8).
     """
-    if kind == "package":
+    if kind in ("package", "app"):
         rows = conn.execute(
             "SELECT d.name FROM edges e "
             "JOIN nodes p ON e.src = p.id "
             "JOIN nodes d ON e.dst = d.id "
             "WHERE e.kind='belongs_to_domain' "
-            "AND p.kind='package' AND p.name = ? "
+            "AND p.kind = ? AND p.name = ? "
             "AND d.kind='domain' "
             "ORDER BY d.name",
-            (name,),
+            (kind, name),
         ).fetchall()
         return {r[0] for r in rows}
     if kind == "test_suite":
@@ -191,7 +217,7 @@ def _compute_qualifying_domains(
     if kind == "plugin":
         return set()
     raise ValueError(
-        f"Only package/test_suite/dependency/plugin are placeable; got {kind!r}"
+        f"Only app/package/test_suite/dependency/plugin are placeable; got {kind!r}"
     )
 
 
@@ -231,35 +257,107 @@ def _consumer_pkgs_in_domain(
     return ()
 
 
+def _consumer_pkgs(
+    conn: sqlite3.Connection, *, kind: str, entity_name: str
+) -> tuple[str, ...]:
+    """DOMAIN-AGNOSTIC consumer/tested package (and app) names (Phase 57 D-01).
+
+    The superset of `_consumer_pkgs_in_domain` across all domains: every
+    package/app that uses this dependency (`used_by`) or is tested by this
+    test_suite (`tests`), regardless of domain. `_render_by_kind` uses these
+    names so a by-kind-placed (multi/zero-domain) dependency or test_suite
+    still nests under every package/app that consumes it — the fix that makes
+    flat-section removal safe. Sorted alphabetically for determinism."""
+    if kind == "dependency":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges u "
+            "JOIN nodes p ON u.src = p.id "
+            "JOIN nodes dep ON u.dst = dep.id "
+            "WHERE u.kind='used_by' AND p.kind IN ('package', 'app') "
+            "AND dep.kind='dependency' AND dep.name = ? "
+            "ORDER BY p.name",
+            (entity_name,),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    if kind == "test_suite":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges t "
+            "JOIN nodes ts ON t.src = ts.id "
+            "JOIN nodes p ON t.dst = p.id "
+            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.name = ? "
+            "AND p.kind IN ('package', 'app') "
+            "ORDER BY p.name",
+            (entity_name,),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    return ()
+
+
+def _read_entity_summary(
+    wiki_root: Path, entity: PlacedEntity, collision_set: frozenset[str]
+) -> str:
+    """Read the `summary:` frontmatter from the entity's own page (D-06).
+
+    The stem is derived with the SAME `_short_filename` call `_entity_wikilink`
+    makes, so the file looked up agrees with the rendered link. Tolerant like
+    `_scan_curated_lane`: missing entities dir / file / frontmatter → "" (no
+    crash). Reads the page file (not the graph attr) because Phase 56 makes
+    `summary:` fill-when-empty / human-editable."""
+    if not entity.uri:
+        return ""
+    stem = _short_filename(
+        entity.uri,
+        collision_set,
+        suite_kind=entity.suite_kind,
+        pkg_for_suite=entity.pkg_for_suite,
+    )
+    page = wiki_root / "entities" / (stem + ".md")
+    if not page.exists():
+        return ""
+    text = page.read_text(encoding="utf-8", errors="replace")
+    return _parse_frontmatter(text).get("summary", "")
+
+
 def _place_entities(
     conn: sqlite3.Connection,
-) -> tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]:
-    """Walk all admitted kinds. Return (domain_buckets, by_kind_fallback).
+    wiki_root: Path,
+    collision_set: frozenset[str],
+) -> tuple[dict[str, list[PlacedEntity]], list[PlacedEntity], dict[str, PlacedEntity]]:
+    """Walk all placeable kinds. Return (domain_buckets, by_kind, name_to_entity).
 
     D-04 single-placement rule:
       qualifying_count == 1 -> domain_buckets[that_domain]
       qualifying_count != 1 -> by_kind_fallback (covers 0 and >=2 cases)
+
+    `name_to_entity` maps package/app names → their PlacedEntity so internal
+    dependencies (resolved by name via `internal_dependencies_of`) can be
+    turned into wikilinks to the internal package/app entity page (D-09/D-11).
+
+    Iterates `_PLACEABLE_KINDS` (NOT `BY_KIND_ORDER`) so test_suites and
+    dependencies are discovered and can nest (D-01 crux).
     """
     domain_buckets: dict[str, list[PlacedEntity]] = {}
     by_kind: list[PlacedEntity] = []
+    name_to_entity: dict[str, PlacedEntity] = {}
 
     kind_to_list_fn = {
+        "app":        list_apps,
         "package":    list_packages,
         "test_suite": list_test_suites,
         "dependency": list_dependencies,
         "plugin":     list_plugins,
     }
-    for kind in BY_KIND_ORDER:
+    for kind in _PLACEABLE_KINDS:
         list_fn = kind_to_list_fn[kind]
         for node in list_fn(conn):
             uri = node.attrs.get("uri") or ""
             qualifying = _compute_qualifying_domains(conn, kind=kind, name=node.name)
+            # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
+            # set for every dep/test_suite (not only single-domain ones), so a
+            # by-kind-placed dep/suite still nests under its consumer packages.
             parent_pkgs: tuple[str, ...] = ()
-            if len(qualifying) == 1 and kind in ("dependency", "test_suite"):
-                the_domain = next(iter(qualifying))
-                parent_pkgs = _consumer_pkgs_in_domain(
-                    conn, kind=kind, entity_name=node.name, domain_name=the_domain
-                )
+            if kind in ("dependency", "test_suite"):
+                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_name=node.name)
             suite_kind: str | None = None
             pkg_for_suite: str | None = None
             if kind == "test_suite":
@@ -278,6 +376,12 @@ def _place_entities(
                 suite_kind=suite_kind,
                 pkg_for_suite=pkg_for_suite,
             )
+            entity = dataclasses.replace(
+                entity,
+                summary=_read_entity_summary(wiki_root, entity, collision_set),
+            )
+            if kind in ("package", "app"):
+                name_to_entity[entity.name] = entity
             if len(qualifying) == 1:
                 the_domain = next(iter(qualifying))
                 domain_buckets.setdefault(the_domain, []).append(entity)
@@ -286,8 +390,8 @@ def _place_entities(
 
     for d in domain_buckets:
         domain_buckets[d].sort(key=lambda e: e.uri)
-    by_kind.sort(key=lambda e: (BY_KIND_ORDER.index(e.kind), e.uri))
-    return domain_buckets, by_kind
+    by_kind.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
+    return domain_buckets, by_kind, name_to_entity
 
 
 # ============================================================================
@@ -417,11 +521,14 @@ def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
 
 
 def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str:
-    """Forward-derive the `[[wiki/entities/<stem>]]` wikilink for an index entry.
+    """Forward-derive the piped `[[wiki/entities/<stem>|<name>]]` wikilink.
 
     Phase 53 D-05: uses `short_filename` from Phase 52 with the precomputed
     collision_set so the index agrees with `write_entities` on filenames
     (including the `__<6hex>` disambiguator for colliders).
+
+    Phase 57 IDX-02/D-05: the link is PIPED with display text = `entity.name`
+    (human-readable) — the bare stem is the link target, not the visible text.
     """
     stem = _short_filename(
         entity.uri,
@@ -429,7 +536,63 @@ def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str
         suite_kind=entity.suite_kind,
         pkg_for_suite=entity.pkg_for_suite,
     )
-    return f"[[wiki/entities/{stem}]]"
+    return f"[[wiki/entities/{stem}|{entity.name}]]"
+
+
+def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: str) -> str:
+    """Render one entity bullet `{indent}- {link} — {summary}` (D-03/D-07).
+
+    The ` — {summary}` suffix is omitted when the entity has no summary,
+    matching `_render_curated_section`'s inline shape."""
+    link = _entity_wikilink(entity, collision_set)
+    summary = f" — {entity.summary}" if entity.summary else ""
+    return f"{indent}- {link}{summary}"
+
+
+def _render_pkg_nested(
+    conn: sqlite3.Connection,
+    pkg: PlacedEntity,
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
+    name_to_entity: dict[str, PlacedEntity],
+    collision_set: frozenset[str],
+) -> list[str]:
+    """Render the THREE nested sub-lists under one package/app bullet (D-09).
+
+    Shared by `_render_domain_section` and `_render_by_kind` so both contexts
+    stay byte-identical (D-01 — by-kind packages now nest, making flat-section
+    removal safe). Each sub-list is omitted when empty (D-08):
+
+      1. Test Suites          — test_suites that test this package (`tests`)
+      2. Dependencies         — external deps this package uses (`used_by`)
+      3. Internal dependencies — workspace packages/apps this one depends on
+                                 (`depends_on_package` via graph-io's
+                                 `internal_dependencies_of` — D-11 reuse, NOT
+                                 parallel SQL); links to the internal entity
+                                 page, kept SEPARATE from external Dependencies.
+    """
+    lines: list[str] = []
+    sub = sub_for_pkg.get(pkg.name, {})
+    suites = sub.get("test_suite", [])
+    deps = sub.get("dependency", [])
+    if suites:
+        lines.append("  - Test Suites")
+        for ts in sorted(suites, key=lambda x: x.uri):
+            lines.append(_entity_bullet(ts, collision_set, "    "))
+    if deps:
+        lines.append("  - Dependencies")
+        for d in sorted(deps, key=lambda x: x.uri):
+            lines.append(_entity_bullet(d, collision_set, "    "))
+    # Internal dependencies (D-09/D-11): resolve names → internal package/app
+    # entities; skip any name with no matching placed entity (defensive).
+    internal_names = internal_dependencies_of(conn, name=pkg.name)
+    internal_entities = [
+        name_to_entity[n] for n in internal_names if n in name_to_entity
+    ]
+    if internal_entities:
+        lines.append("  - Internal dependencies")
+        for ie in sorted(internal_entities, key=lambda x: x.name):
+            lines.append(_entity_bullet(ie, collision_set, "    "))
+    return lines
 
 
 def _render_domain_section(
@@ -439,6 +602,7 @@ def _render_domain_section(
     domain_name: str,
     depth: int,
     collision_set: frozenset[str],
+    name_to_entity: dict[str, PlacedEntity],
 ) -> list[str]:
     """Recursively render one domain section.
 
@@ -450,7 +614,8 @@ def _render_domain_section(
     label = f"Domain: {domain_name}" if depth == 0 else f"Sub-Domain: {domain_name}"
 
     entities = domain_buckets.get(domain_name, [])
-    packages = [e for e in entities if e.kind == "package"]
+    # Apps render identically to packages within a domain (Phase 57 D-02/D-04).
+    packages = [e for e in entities if e.kind in ("package", "app")]
     deps_and_suites = [e for e in entities if e.kind in ("test_suite", "dependency")]
 
     # Group deps and suites by their parent_pkg_names (D-06)
@@ -462,28 +627,17 @@ def _render_domain_section(
 
     lines_pkg: list[str] = []
     for pkg in packages:
-        pkg_link = _entity_wikilink(pkg, collision_set)
-        lines_pkg.append(f"- {pkg_link}")
-        sub = sub_for_pkg.get(pkg.name, {})
-        suites = sub.get("test_suite", [])
-        deps = sub.get("dependency", [])
-        if suites:
-            lines_pkg.append("  - Test Suites")
-            for ts in sorted(suites, key=lambda x: x.uri):
-                ts_link = _entity_wikilink(ts, collision_set)
-                lines_pkg.append(f"    - {ts_link}")
-        if deps:
-            lines_pkg.append("  - Dependencies")
-            for d in sorted(deps, key=lambda x: x.uri):
-                d_link = _entity_wikilink(d, collision_set)
-                lines_pkg.append(f"    - {d_link}")
+        lines_pkg.append(_entity_bullet(pkg, collision_set, ""))
+        lines_pkg.extend(
+            _render_pkg_nested(conn, pkg, sub_for_pkg, name_to_entity, collision_set)
+        )
 
     # Sub-domain recursion (D-07)
     sub_domain_blocks: list[str] = []
     for sub_name in _list_subdomains(conn, domain_name):
         sub_lines = _render_domain_section(
             conn, domain_buckets, domain_name=sub_name, depth=depth + 1,
-            collision_set=collision_set,
+            collision_set=collision_set, name_to_entity=name_to_entity,
         )
         if sub_lines:
             sub_domain_blocks.extend(sub_lines)
@@ -505,6 +659,7 @@ def _render_domains(
     domain_buckets: dict[str, list[PlacedEntity]],
     wiki_root: Path,
     collision_set: frozenset[str],
+    name_to_entity: dict[str, PlacedEntity],
 ) -> tuple[list[str], int]:
     """Render the full `## Domains` block. Returns (lines, domain_count)."""
     all_domains = sorted(
@@ -516,7 +671,7 @@ def _render_domains(
     for d in top_level_domains:
         section = _render_domain_section(
             conn, domain_buckets, domain_name=d, depth=0,
-            collision_set=collision_set,
+            collision_set=collision_set, name_to_entity=name_to_entity,
         )
         if section:
             lines.extend(section)
@@ -532,12 +687,33 @@ def _render_domains(
 
 
 def _render_by_kind(
+    conn: sqlite3.Connection,
     by_kind_entities: list[PlacedEntity],
     collision_set: frozenset[str],
+    name_to_entity: dict[str, PlacedEntity],
 ) -> tuple[list[str], int]:
-    """Render the full `## By Kind` block. Returns (lines, by_kind_count)."""
+    """Render the full `## By Kind` block. Returns (lines, by_kind_count).
+
+    Phase 57 D-01/D-08: flat groups are ONLY app/package/plugin (apps first).
+    test_suites and dependencies are no longer flat groups — they nest under
+    the package/app that uses them via `_render_pkg_nested`, exactly like the
+    domain sections. This is the cross-cutting fix: a multi/zero-domain
+    package placed here still shows its Test Suites / Dependencies / Internal
+    dependencies, so removing the flat sections never loses them.
+    """
     if not by_kind_entities:
         return [], 0
+
+    # Group by-kind deps/suites under their consumer packages (domain-agnostic
+    # parent_pkg_names from _place_entities) — same shape _render_domain_section
+    # builds, so the shared _render_pkg_nested renders both identically (D-01).
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
+    for e in by_kind_entities:
+        if e.kind in ("test_suite", "dependency"):
+            for parent in e.parent_pkg_names:
+                sub_for_pkg.setdefault(parent, {"test_suite": [], "dependency": []})
+                sub_for_pkg[parent][e.kind].append(e)
+
     lines: list[str] = ["## By Kind", ""]
     total = 0
     for kind in BY_KIND_ORDER:
@@ -550,9 +726,14 @@ def _render_by_kind(
         lines.append(f"### {KIND_LABELS[kind]}")
         lines.append("")
         for e in group:
-            link = _entity_wikilink(e, collision_set)
-            lines.append(f"- {link}")
+            lines.append(_entity_bullet(e, collision_set, ""))
             total += 1
+            if e.kind in ("package", "app"):
+                lines.extend(
+                    _render_pkg_nested(
+                        conn, e, sub_for_pkg, name_to_entity, collision_set
+                    )
+                )
         lines.append("")
     if total == 0:
         return [], 0
@@ -588,7 +769,9 @@ def _render(
     # entity-link derivation so the index agrees with `write_entities`.
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
 
-    domain_buckets, by_kind = _place_entities(conn)
+    domain_buckets, by_kind, name_to_entity = _place_entities(
+        conn, wiki_root, collision_set
+    )
     entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
 
     workspace_root = wiki_root.parent
@@ -611,11 +794,13 @@ def _render(
     ]
 
     domains_lines, domain_count = _render_domains(
-        conn, domain_buckets, wiki_root, collision_set,
+        conn, domain_buckets, wiki_root, collision_set, name_to_entity,
     )
     lines.extend(domains_lines)
 
-    by_kind_lines, by_kind_count = _render_by_kind(by_kind, collision_set)
+    by_kind_lines, by_kind_count = _render_by_kind(
+        conn, by_kind, collision_set, name_to_entity,
+    )
     lines.extend(by_kind_lines)
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
@@ -682,17 +867,22 @@ __all__ = [
     "IndexWriteResult",
     "KIND_LABELS",
     "PlacedEntity",
+    "_PLACEABLE_KINDS",
     "_compute_qualifying_domains",
+    "_consumer_pkgs",
     "_consumer_pkgs_in_domain",
+    "_entity_bullet",
     "_entry_link",
     "_infer_title",
     "_parse_frontmatter",
     "_place_entities",
+    "_read_entity_summary",
     "_render",
     "_render_by_kind",
     "_render_curated_section",
     "_render_domain_section",
     "_render_domains",
+    "_render_pkg_nested",
     "_scan_curated_lane",
     "_scan_work",
     "generate_index",
