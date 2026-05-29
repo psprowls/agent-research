@@ -60,10 +60,8 @@ PRICES: dict[str, dict[str, float]] = {
     },
     # Qwen3 via Bedrock (no prompt caching)
     "qwen.qwen3-32b-v1:0": {
-        # TODO(2026-05-29): bedrock-models-considering.json now lists 0.15/0.60 for this
-        # id; left at 0.40/1.60 (existing pin) — reconcile separately.
-        "input": 0.40,
-        "output": 1.60,
+        "input": 0.15,
+        "output": 0.60,
     },
     # --- 2026-05-29 additions from bedrock-models-considering.json ---
     # Anthropic Haiku via global inference profile (replaces us. prefix in sweep)
