@@ -151,6 +151,36 @@ def test_describe_package_internal_deps_and_dependents(
     assert gamma.internal_dependents == []
 
 
+def test_internal_dependencies_of_package_and_app(
+    conn: sqlite3.Connection,
+) -> None:
+    """Phase 57 D-11: internal_dependencies_of returns outgoing
+    depends_on_package dst-names for BOTH package and app source nodes
+    (describe_package is package-only), sorted, [] when none."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="app", name="myapp", path="apps/myapp", line=None, attrs={"language": "python"}),
+            ],
+            edges=[
+                # beta (package) depends on alpha
+                GraphEdge(src=("package", "beta", "beta"), dst=("package", "alpha", "alpha"), kind="depends_on_package", attrs={}),
+                # myapp (app) depends on alpha — describe_package can't surface this
+                GraphEdge(src=("app", "myapp", "apps/myapp"), dst=("package", "alpha", "alpha"), kind="depends_on_package", attrs={}),
+            ],
+        ),
+    )
+    # Package source.
+    assert queries.internal_dependencies_of(conn, name="beta") == ["alpha"]
+    # App source works (unlike describe_package, which returns None for apps).
+    assert queries.internal_dependencies_of(conn, name="myapp") == ["alpha"]
+    # No outgoing edges → empty.
+    assert queries.internal_dependencies_of(conn, name="alpha") == []
+
+
 def test_describe_path(conn: sqlite3.Connection) -> None:
     upsert.upsert_records(conn, GraphRecords(
         nodes=[

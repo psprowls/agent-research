@@ -473,6 +473,33 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
     )
 
 
+def internal_dependencies_of(conn: sqlite3.Connection, *, name: str) -> list[str]:
+    """Outgoing `depends_on_package` dst-names for the node named `name`.
+
+    Returns the workspace packages/apps that `name` depends on, sorted
+    alphabetically. Unlike `describe_package` (which gates on `kind='package'`
+    and returns None for apps), this works for a `name` of kind `package` OR
+    `app` because it does not filter on the source node's own kind beyond
+    `src.kind IN ('package', 'app')`. This is the single source of
+    internal-dependency truth reused by wiki-io's index generator for both
+    packages and apps (Phase 57 D-11) — wiki-io must NOT write parallel SQL.
+
+    A node with no outgoing `depends_on_package` edges (or a non-existent
+    name) returns `[]`. `?` placeholder only; read-only.
+    """
+    rows = conn.execute(
+        "SELECT dst.name FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='depends_on_package' "
+        "AND src.kind IN ('package', 'app') AND src.name = ? "
+        "AND dst.kind IN ('package', 'app') "
+        "ORDER BY dst.name",
+        (name,),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def describe_app(conn: sqlite3.Connection, *, name: str) -> AppDescription | None:
     """Return the named App's description, or None.
 
