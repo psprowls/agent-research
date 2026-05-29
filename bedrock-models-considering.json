@@ -1,0 +1,1567 @@
+[
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+    "modelId": "amazon.nova-micro-v1:0",
+    "modelName": "Nova Micro",
+    "providerName": "Amazon",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND",
+      "INFERENCE_PROFILE"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-03 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.035,
+      "output_per_1m": 0.14,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0",
+    "modelId": "amazon.nova-pro-v1:0",
+    "modelName": "Nova Pro",
+    "providerName": "Amazon",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE",
+      "VIDEO"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND",
+      "INFERENCE_PROFILE"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-03 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.8,
+      "output_per_1m": 3.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Amazon Nova 2 Lite",
+    "description": "Routes requests to Amazon Nova 2 Lite in us-west-2, us-east-1 and us-east-2.",
+    "createdAt": "2025-10-31 16:18:38.525689+00:00",
+    "updatedAt": "2026-03-24 17:41:31.599820+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-2-lite-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-2-lite-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.33,
+      "output_per_1m": 2.5,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Nova Lite",
+    "description": "Routes requests to Nova Lite in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2024-11-29 13:23:00+00:00",
+    "updatedAt": "2026-05-19 14:56:51.315847+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-lite-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-lite-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-lite-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-lite-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ModelErrorException",
+    "pricing": {
+      "input_per_1m": 0.06,
+      "output_per_1m": 0.24,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Nova Micro",
+    "description": "Routes requests to Nova Micro in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2024-11-29 13:23:00+00:00",
+    "updatedAt": "2026-04-23 17:30:58.007384+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-micro-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-micro-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.035,
+      "output_per_1m": 0.14,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Nova Premier",
+    "description": "Routes requests to Nova Premier in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2025-03-23 00:00:00+00:00",
+    "updatedAt": "2025-04-30 22:29:14.461563+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-premier-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-premier-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-premier-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-premier-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-premier-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 2.5,
+      "output_per_1m": 12.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Nova Pro",
+    "description": "Routes requests to Nova Pro in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2024-11-29 13:23:00+00:00",
+    "updatedAt": "2026-05-19 18:43:11.982009+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-pro-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-pro-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-pro-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-pro-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.8,
+      "output_per_1m": 3.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Anthropic Claude Haiku 4.5",
+    "description": "Routes requests to Anthropic Claude Haiku 4.5 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-10-13 19:47:28.632080+00:00",
+    "updatedAt": "2026-04-22 20:53:18.694466+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Anthropic",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 5,
+      "currency": "USD",
+      "source": "aws-bedrock-pricing-page"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/deepseek.v3.2",
+    "modelId": "deepseek.v3.2",
+    "modelName": "DeepSeek V3.2",
+    "providerName": "DeepSeek",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.62,
+      "output_per_1m": 1.85,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US DeepSeek-R1",
+    "description": "Routes requests to DeepSeek-R1 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-03-07 00:00:00+00:00",
+    "updatedAt": "2025-03-10 22:08:43.461730+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.deepseek.r1-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/deepseek.r1-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/deepseek.r1-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/deepseek.r1-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.deepseek.r1-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "DeepSeek",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1.35,
+      "output_per_1m": 5.4,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Llama 4 Maverick 17B Instruct",
+    "description": "Routes requests to Llama 4 Maverick 17B Instruct in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2025-04-25 00:00:00+00:00",
+    "updatedAt": "2026-05-01 20:42:55.254637+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.meta.llama4-maverick-17b-instruct-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/meta.llama4-maverick-17b-instruct-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/meta.llama4-maverick-17b-instruct-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/meta.llama4-maverick-17b-instruct-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.meta.llama4-maverick-17b-instruct-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Meta",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.24,
+      "output_per_1m": 0.97,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Llama 4 Scout 17B Instruct",
+    "description": "Routes requests to Llama 4 Scout 17B Instruct in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-04-25 00:00:00+00:00",
+    "updatedAt": "2026-05-01 20:46:55.637821+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.meta.llama4-scout-17b-instruct-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/meta.llama4-scout-17b-instruct-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.meta.llama4-scout-17b-instruct-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Meta",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.17,
+      "output_per_1m": 0.66,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2",
+    "modelId": "minimax.minimax-m2",
+    "modelName": "MiniMax M2",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2.1",
+    "modelId": "minimax.minimax-m2.1",
+    "modelName": "MiniMax M2.1",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2.5",
+    "modelId": "minimax.minimax-m2.5",
+    "modelName": "MiniMax M2.5",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-03-18 17:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.devstral-2-123b",
+    "modelId": "mistral.devstral-2-123b",
+    "modelName": "Devstral 2 123B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-17 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.4,
+      "output_per_1m": 2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.magistral-small-2509",
+    "modelId": "mistral.magistral-small-2509",
+    "modelName": "Magistral Small 2509",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.5,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-14b-instruct",
+    "modelId": "mistral.ministral-3-14b-instruct",
+    "modelName": "Ministral 14B 3.0",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.2,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-3b-instruct",
+    "modelId": "mistral.ministral-3-3b-instruct",
+    "modelName": "Ministral 3B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.1,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-8b-instruct",
+    "modelId": "mistral.ministral-3-8b-instruct",
+    "modelName": "Ministral 3 8B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.15,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-7b-instruct-v0:2",
+    "modelId": "mistral.mistral-7b-instruct-v0:2",
+    "modelName": "Mistral 7B Instruct",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-03-01 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-large-2402-v1:0",
+    "modelId": "mistral.mistral-large-2402-v1:0",
+    "modelName": "Mistral Large (24.02)",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-04-03 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 4,
+      "output_per_1m": 12,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-large-3-675b-instruct",
+    "modelId": "mistral.mistral-large-3-675b-instruct",
+    "modelName": "Mistral Large 3",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-small-2402-v1:0",
+    "modelId": "mistral.mistral-small-2402-v1:0",
+    "modelName": "Mistral Small (24.02)",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-05-24 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mixtral-8x7b-instruct-v0:1",
+    "modelId": "mistral.mixtral-8x7b-instruct-v0:1",
+    "modelName": "Mixtral 8x7B Instruct",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-03-01 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.45,
+      "output_per_1m": 0.7,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.voxtral-mini-3b-2507",
+    "modelId": "mistral.voxtral-mini-3b-2507",
+    "modelName": "Voxtral Mini 3B 2507",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "SPEECH",
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.04,
+      "output_per_1m": 0.04,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.voxtral-small-24b-2507",
+    "modelId": "mistral.voxtral-small-24b-2507",
+    "modelName": "Voxtral Small 24B 2507",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "SPEECH",
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.3,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "inferenceProfileName": "US Mistral Pixtral Large 25.02",
+    "description": "Routes requests to Mistral Pixtral Large 25.02 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-04-04 00:00:00+00:00",
+    "updatedAt": "2025-04-07 20:46:41.272192+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.mistral.pixtral-large-2502-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.pixtral-large-2502-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/mistral.pixtral-large-2502-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/mistral.pixtral-large-2502-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.mistral.pixtral-large-2502-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Mistral AI",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 2,
+      "output_per_1m": 6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/moonshot.kimi-k2-thinking",
+    "modelId": "moonshot.kimi-k2-thinking",
+    "modelName": "Kimi K2 Thinking",
+    "providerName": "Moonshot AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.6,
+      "output_per_1m": 2.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/moonshotai.kimi-k2.5",
+    "modelId": "moonshotai.kimi-k2.5",
+    "modelName": "Kimi K2.5",
+    "providerName": "Moonshot AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.6,
+      "output_per_1m": 3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/nvidia.nemotron-nano-12b-v2",
+    "modelId": "nvidia.nemotron-nano-12b-v2",
+    "modelName": "NVIDIA Nemotron Nano 12B v2 VL BF16",
+    "providerName": "NVIDIA",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "InternalServerException",
+    "pricing": {
+      "input_per_1m": 0.06,
+      "output_per_1m": 0.23,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/nvidia.nemotron-nano-3-30b",
+    "modelId": "nvidia.nemotron-nano-3-30b",
+    "modelName": "Nemotron Nano 3 30B",
+    "providerName": "NVIDIA",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-23 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.06,
+      "output_per_1m": 0.24,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/nvidia.nemotron-nano-9b-v2",
+    "modelId": "nvidia.nemotron-nano-9b-v2",
+    "modelName": "NVIDIA Nemotron Nano 9B v2",
+    "providerName": "NVIDIA",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "InternalServerException",
+    "pricing": {
+      "input_per_1m": 0.06,
+      "output_per_1m": 0.23,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/nvidia.nemotron-super-3-120b",
+    "modelId": "nvidia.nemotron-super-3-120b",
+    "modelName": "NVIDIA Nemotron 3 Super 120B A12B",
+    "providerName": "NVIDIA",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-03-18 17:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.65,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-120b-1:0",
+    "modelId": "openai.gpt-oss-120b-1:0",
+    "modelName": "gpt-oss-120b",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-08-06 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-20b-1:0",
+    "modelId": "openai.gpt-oss-20b-1:0",
+    "modelName": "gpt-oss-20b",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-08-06 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-safeguard-120b",
+    "modelId": "openai.gpt-oss-safeguard-120b",
+    "modelName": "GPT OSS Safeguard 120B",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-safeguard-20b",
+    "modelId": "openai.gpt-oss-safeguard-20b",
+    "modelName": "GPT OSS Safeguard 20B",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-32b-v1:0",
+    "modelId": "qwen.qwen3-32b-v1:0",
+    "modelName": "Qwen3 32B (dense)",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-09-15 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-coder-30b-a3b-v1:0",
+    "modelId": "qwen.qwen3-coder-30b-a3b-v1:0",
+    "modelName": "Qwen3-Coder-30B-A3B-Instruct",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-09-15 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-coder-next",
+    "modelId": "qwen.qwen3-coder-next",
+    "modelName": "Qwen3 Coder Next",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-next-80b-a3b",
+    "modelId": "qwen.qwen3-next-80b-a3b",
+    "modelName": "Qwen3 Next 80B A3B",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.14,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-vl-235b-a22b",
+    "modelId": "qwen.qwen3-vl-235b-a22b",
+    "modelName": "Qwen3 VL 235B A22B",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.53,
+      "output_per_1m": 2.66,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/zai.glm-4.7-flash",
+    "modelId": "zai.glm-4.7-flash",
+    "modelName": "GLM 4.7 Flash",
+    "providerName": "Z.AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.4,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/zai.glm-5",
+    "modelId": "zai.glm-5",
+    "modelName": "GLM 5",
+    "providerName": "Z.AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-03-18 17:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 3.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0",
+    "modelId": "cohere.rerank-v3-5:0",
+    "modelName": "Rerank 3.5",
+    "providerName": "Cohere",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": false,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-01 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "rerank",
+    "toolCallingSupported": null,
+    "toolProbeError": "ValidationException",
+    "pricing": {
+      "input_per_1m": null,
+      "output_per_1m": null,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": "NotFoundInPricingAPI"
+  },
+  {
+    "inferenceProfileName": "US Cohere Embed v4",
+    "description": "Routes requests to Embed v4 in us-east-1, us-east-2, us-west-2.",
+    "createdAt": "2025-10-01 01:03:32.799560+00:00",
+    "updatedAt": "2025-10-01 01:12:17.985890+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.cohere.embed-v4:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-v4:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/cohere.embed-v4:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/cohere.embed-v4:0"
+      }
+    ],
+    "inferenceProfileId": "us.cohere.embed-v4:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Cohere",
+    "pricingKind": "embedding",
+    "toolCallingSupported": null,
+    "toolProbeError": "ValidationException",
+    "pricing": {
+      "input_per_1m": null,
+      "output_per_1m": null,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": "NotFoundInPricingAPI"
+  },
+  {
+    "inferenceProfileName": "US Pegasus v1.2",
+    "description": "Routes requests to Pegasus v1.2 in us-east-1, us-east-2, us-west-1, us-west-2.",
+    "createdAt": "2025-08-12 16:04:50.820720+00:00",
+    "updatedAt": "2025-08-15 21:36:50.107561+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.twelvelabs.pegasus-1-2-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/twelvelabs.pegasus-1-2-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/twelvelabs.pegasus-1-2-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-1::foundation-model/twelvelabs.pegasus-1-2-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/twelvelabs.pegasus-1-2-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.twelvelabs.pegasus-1-2-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "TwelveLabs",
+    "pricingKind": "video",
+    "toolCallingSupported": null,
+    "toolProbeError": "ValidationException",
+    "pricing": {
+      "input_per_1m": null,
+      "output_per_1m": null,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": "NotFoundInPricingAPI"
+  }
+]
