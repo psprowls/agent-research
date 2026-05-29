@@ -565,10 +565,10 @@ def _render_pkg_nested(
       1. Test Suites          — test_suites that test this package (`tests`)
       2. Dependencies         — external deps this package uses (`used_by`)
       3. Internal dependencies — workspace packages/apps this one depends on
-                                 (`depends_on_package` via graph-io's
-                                 `internal_dependencies_of` — D-11 reuse, NOT
-                                 parallel SQL); links to the internal entity
-                                 page, kept SEPARATE from external Dependencies.
+                                 (the internal-dependency edge, resolved via
+                                 graph-io's `internal_dependencies_of` — D-11
+                                 reuse, NOT parallel SQL); links to the internal
+                                 entity page, kept SEPARATE from external deps.
     """
     lines: list[str] = []
     sub = sub_for_pkg.get(pkg.name, {})
