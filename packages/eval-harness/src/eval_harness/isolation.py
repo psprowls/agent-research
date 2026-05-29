@@ -7,7 +7,9 @@ removes the tmpdir on exit. This matches the post-Phase-22 API contract
 ``workspace_path=wt.path`` directly.
 
 The copy includes .graph-wiki/ (BM25 index + SQLite embedding DB) so indexes
-travel with the wiki. No index rebuild is needed at sweep time.
+travel with the wiki. No index rebuild is needed at sweep time. An empty,
+schema-valid graph DB is also provisioned at ``<tmp>/.graph/code.db`` so the
+ingestor can open it without raising IngestorGraphNotInitializedError.
 
 Threat mitigation T-4-01: source_wiki is anchored to caller-supplied
 Path; no user input is interpolated into the copy operation.
@@ -18,6 +20,9 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
+
+from graph_io import store
+from workspace_io.paths import graph_dir
 
 
 class EvalWorktree:
@@ -42,6 +47,9 @@ class EvalWorktree:
         self._tmp = tempfile.mkdtemp(prefix="eval-wt-")
         self.path = Path(self._tmp)
         shutil.copytree(self._source, self.path / "wiki", dirs_exist_ok=False)
+        db_path = graph_dir(self.path) / "code.db"
+        conn = store.connect(db_path, create=True)
+        conn.close()
         return self
 
     async def __aexit__(self, *exc: object) -> None:
