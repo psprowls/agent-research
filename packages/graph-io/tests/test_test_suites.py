@@ -709,3 +709,58 @@ def test_pyproject_scripts_entry_point_resolves_to_file(fixture_repo: Path) -> N
         )
     finally:
         conn.close()
+
+
+# ============================================================================
+# Phase 58 Plan 02: SC#3b uniqueness guard + OQ#3 stale-node resolution
+# ============================================================================
+
+
+def test_suite_names_unique_after_multi_package_emit(tmp_path: Path) -> None:
+    """SC#3b: no two test_suite nodes share a name after emit on a multi-package repo.
+
+    Regression guard: before the Phase 58-02 rename fix, all package-owned suites
+    were named Path(rel_path).name == 'tests', causing them all to share the same
+    name and making any name-keyed query (e.g. _consumer_pkgs) return all packages
+    as consumers of every suite.
+
+    OQ#3 stale-node resolution: the stale-'tests'-named nodes from a prior
+    incremental `cg update` run are swept by `cg update --full`. The full-scan
+    DELETE at update.py:285 removes non-package/app/builtin path-bearing nodes
+    before re-emitting, so running `cg update --full` on a live workspace after
+    upgrading to Phase 58-02 is the correct and sufficient remediation.
+    Incremental `cg update` does NOT clean up stale suite nodes — always use
+    `cg update --full` when upgrading suite naming.
+    """
+    # Build a two-package monorepo, each with its own tests/ dir.
+    for pkg_name in ("foo", "bar"):
+        pkg_dir = tmp_path / "packages" / pkg_name
+        _write_pyproject(pkg_dir, name=pkg_name)
+        _write_python_pkg(pkg_dir, pkg_name)
+        (pkg_dir / "tests").mkdir()
+        (pkg_dir / "tests" / "test_something.py").write_text(
+            f"import {pkg_name}\n"
+        )
+
+    conn = _setup(tmp_path)
+    _run_emit_pipeline(conn, tmp_path)
+
+    # SC#3b uniqueness check: no two test_suite nodes may share a name.
+    duplicates = conn.execute(
+        """
+        SELECT name, COUNT(*) AS cnt
+        FROM nodes
+        WHERE kind = 'test_suite'
+        GROUP BY name
+        HAVING COUNT(*) > 1
+        """
+    ).fetchall()
+    assert duplicates == [], (
+        f"SC#3b violated: test_suite nodes share names after emit: {duplicates}"
+    )
+
+    # Confirm both suites exist under their qualified names.
+    rows = _suite_rows(conn)
+    names = {r[0] for r in rows}
+    assert "foo-unit-tests" in names, f"foo-unit-tests not found in {names}"
+    assert "bar-unit-tests" in names, f"bar-unit-tests not found in {names}"
