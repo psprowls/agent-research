@@ -1,8 +1,9 @@
 """Re-export shim — formatting logic lives in graph_io.render.
 
-This module is preserved (not deleted) because 7 existing cli modules import
-from it: q_find, q_imported_by, q_exported_by, q_exports, q_imports,
-q_callers, q_callees. Deleting it would break those callers.
+This module is preserved (not deleted) because 6 existing cli modules import
+from it: q_imported_by, q_exported_by, q_exports, q_imports, q_callers,
+q_callees. (q_find was migrated to import graph_io.render directly in Phase 59.)
+Deleting it would break those callers.
 
 New code should import from graph_io.render directly.
 """

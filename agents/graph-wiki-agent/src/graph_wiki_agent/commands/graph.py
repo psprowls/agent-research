@@ -207,6 +207,14 @@ def run_describe(
         return exit_code, "", stderr
 
     try:
+        # Defensive guard: every kind except repository requires an identifier.
+        # Real callers (the Typer Argument and the MCP identifier-required check)
+        # already prevent None reaching here; this stops a latent TypeError if the
+        # public core is called directly with identifier=None (e.g. entry_point's
+        # `":" in raw`).
+        if identifier is None and kind != "repository":
+            return exit_codes.GENERIC, "", "error: identifier required"
+
         if kind == "package":
             desc = queries.describe_package(conn, name=identifier)
             if desc is None:
@@ -216,13 +224,13 @@ def run_describe(
         if kind == "path":
             desc = queries.describe_path(conn, path=identifier)
             if desc is None:
-                return exit_codes.GENERIC, "", f"error: path not found: {identifier}"
+                return exit_codes.GENERIC, "", f"error: path not found in graph: {identifier}"
             return exit_codes.SUCCESS, _render.format_path(desc, fmt="human"), ""
 
         if kind == "repository":
             desc = queries.describe_repository(conn)
             if desc is None:
-                return exit_codes.GENERIC, "", "error: repository not found"
+                return exit_codes.GENERIC, "", "error: not found: repository"
             return exit_codes.SUCCESS, _render.format_repo(desc, fmt="human"), ""
 
         if kind == "domain":
@@ -293,7 +301,7 @@ def run_describe(
         if kind == "test_suite":
             desc = queries.describe_test_suite(conn, suite_name=identifier)
             if desc is None:
-                return exit_codes.GENERIC, "", f"error: test-suite not found: {identifier}"
+                return exit_codes.GENERIC, "", f"error: not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_suite(desc, fmt="human"), ""
 
         # Unknown kind — caller should have validated; treat defensively.
