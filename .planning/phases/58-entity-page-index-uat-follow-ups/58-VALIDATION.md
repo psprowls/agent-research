@@ -1,10 +1,11 @@
 ---
 phase: 58
 slug: entity-page-index-uat-follow-ups
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-28
+validated: 2026-05-29
 ---
 
 # Phase 58 — Validation Strategy
@@ -41,10 +42,10 @@ created: 2026-05-28
 
 | Criterion | Behavior | Test Type | Automated Command | File Exists | Status |
 |-----------|----------|-----------|-------------------|-------------|--------|
-| SC#1 — Related marker | Generated entity pages contain a clean Obsidian-safe Related marker; no `<...>` survives | unit (template render) | `uv run --package wiki-io pytest packages/wiki-io/tests/ -k related -x` | ⚠️ assertion to add | ⬜ pending |
-| SC#2 — Summary placeholder | Empty-description `summary:` placeholder has no leading `>`, no `<...>`, no `:` | unit | `uv run --package wiki-io pytest packages/wiki-io/tests/test_entity_writer.py -x` | ✅ (needs update, `test_entity_writer.py:482`) | ⬜ pending |
-| SC#3 — Per-package suite nesting | In index `## By Kind`, each package nests only its own suite(s); resolution keys on `test_suite` uri | unit + snapshot | `uv run --package wiki-io pytest packages/wiki-io/tests/test_index_generator.py -x` | ⚠️ fan-out regression guard to add | ⬜ pending |
-| SC#3b — Unique suite names | No two `test_suite` nodes share a name: `SELECT name,COUNT(*) FROM nodes WHERE kind='test_suite' GROUP BY name HAVING COUNT(*)>1` → 0 rows | integration | `uv run --package graph-io pytest packages/graph-io/tests/test_test_suites.py -x` | ✅ (assertions need update, `test_test_suites.py:126`) | ⬜ pending |
+| SC#1 — Related marker | Generated entity pages contain a clean Obsidian-safe Related marker; no `<...>` survives | unit (template render) | `uv run --package wiki-io pytest packages/wiki-io/tests/test_entity_templates.py -k related -x` | ✅ `test_entity_templates.py::test_related_block_is_obsidian_safe:172` | ✅ green |
+| SC#2 — Summary placeholder | Empty-description `summary:` placeholder has no leading `>`, no `<...>`, no `:` | unit | `uv run --package wiki-io pytest packages/wiki-io/tests/test_entity_writer.py::test_merge_summary_todo_marker_when_description_empty -x` | ✅ `test_entity_writer.py::test_merge_summary_todo_marker_when_description_empty:478` | ✅ green |
+| SC#3 — Per-package suite nesting | In index `## By Kind`, each package nests only its own suite(s); resolution keys on `test_suite` uri | unit + snapshot | `uv run --package wiki-io pytest packages/wiki-io/tests/test_index_generator.py::test_consumer_pkgs_fanout_regression_guard -x` | ✅ `test_index_generator.py::test_consumer_pkgs_fanout_regression_guard:1210` | ✅ green |
+| SC#3b — Unique suite names | No two `test_suite` nodes share a name: `SELECT name,COUNT(*) FROM nodes WHERE kind='test_suite' GROUP BY name HAVING COUNT(*)>1` → 0 rows | integration | `uv run --package graph-io pytest packages/graph-io/tests/test_test_suites.py::test_suite_names_unique_after_multi_package_emit -x` | ✅ `test_test_suites.py::test_suite_names_unique_after_multi_package_emit:719` | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,9 +53,10 @@ created: 2026-05-28
 
 ## Wave 0 Requirements
 
-- [ ] `packages/wiki-io/tests/test_index_generator.py` — add a fan-out regression guard: when multiple suites share a name but have distinct URIs, `_consumer_pkgs` / `_consumer_pkgs_in_domain` return distinct per-suite results (proves the uri-keyed fix)
-- [ ] `packages/graph-io/tests/test_test_suites.py` — update name-based assertions (`:126`) to the new package-qualified names; confirm the repository-owned suite case (`:111`, `("tests","tests")`) stays unchanged
-- [ ] `packages/wiki-io/tests/test_entity_writer.py` — update the exact-string assertion at `:482` for the new summary placeholder (D-06)
+- [x] `packages/wiki-io/tests/test_index_generator.py` — fan-out regression guard added: `test_consumer_pkgs_fanout_regression_guard:1210` proves `_consumer_pkgs` / `_consumer_pkgs_in_domain` return distinct per-suite results (uri-keyed fix) — Plan 03
+- [x] `packages/graph-io/tests/test_test_suites.py` — name-based assertions updated to package-qualified names (`:126`); repository-owned suite case (`:111`, `("tests","tests")`) unchanged; uniqueness guard `test_suite_names_unique_after_multi_package_emit:719` added — Plan 02
+- [x] `packages/wiki-io/tests/test_entity_writer.py` — exact-string assertion updated for new summary placeholder (`test_merge_summary_todo_marker_when_description_empty:478`, D-06) — Plan 01
+- [x] `packages/wiki-io/tests/test_entity_templates.py` — SC#1 regression guard added: `test_related_block_is_obsidian_safe:172` asserts the three entity templates' `## Related` block has no `<`, no leading `>`, no `:` — added during validation audit (was a grep-only exec gate)
 
 *Framework is already installed — no install task needed.*
 
@@ -72,11 +74,25 @@ created: 2026-05-28
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-05-29 — all 4 success criteria have green automated tests
+
+---
+
+## Validation Audit 2026-05-29
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 1 |
+| Resolved | 1 |
+| Escalated | 0 |
+
+**Gap:** SC#1 (`## Related` block Obsidian-safety) was enforced only by a one-time `grep` gate at execution (58-01-PLAN Task 1), with no committed pytest regression test. SC#2 / SC#3 / SC#3b were already covered green by tests written during Plans 01–03.
+
+**Resolution:** Added `test_related_block_is_obsidian_safe` (parametrized over entity templates, skips those with no `## Related`) to `packages/wiki-io/tests/test_entity_templates.py`. Asserts no `<`, no leading `>`, no `:` on any Related-block body line — catches the v1.10 defect class without hardcoding the marker wording. 3 passed, 4 skipped. Phase is now Nyquist-compliant.
