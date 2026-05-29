@@ -161,7 +161,7 @@ class PlacedEntity:
 
 
 def _compute_qualifying_domains(
-    conn: sqlite3.Connection, *, kind: str, name: str
+    conn: sqlite3.Connection, *, kind: str, name: str, uri: str = ""
 ) -> set[str]:
     """Return the set of domain names that qualify for this entity (D-04).
 
@@ -170,6 +170,7 @@ def _compute_qualifying_domains(
                   apps route identically to packages: single qualifying
                   domain → that domain section; zero/multi → By-Kind).
     - test_suite: one-hop transitive via `tests -> package -> belongs_to_domain`.
+                  Resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
     - dependency: one-hop transitive via `used_by` -> `package` -> `belongs_to_domain`.
                   Edge direction: package -[used_by]-> dependency.
     - plugin:     always empty (D-04 — plugins have no domain edges in v1.8).
@@ -194,10 +195,10 @@ def _compute_qualifying_domains(
             "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
             "JOIN nodes d ON d.id = bt.dst "
             "WHERE t.kind='tests' "
-            "AND ts.kind='test_suite' AND ts.name = ? "
+            "AND ts.kind='test_suite' AND ts.uri = ? "
             "AND p.kind='package' AND d.kind='domain' "
             "ORDER BY d.name",
-            (name,),
+            (uri,),
         ).fetchall()
         return {r[0] for r in rows}
     if kind == "dependency":
@@ -222,11 +223,19 @@ def _compute_qualifying_domains(
 
 
 def _consumer_pkgs_in_domain(
-    conn: sqlite3.Connection, *, kind: str, entity_name: str, domain_name: str
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    entity_uri: str = "",
+    entity_name: str = "",
+    domain_name: str,
 ) -> tuple[str, ...]:
     """Return the package names (in `domain_name`) that consume or are tested by
     this dependency / test_suite. Used by `_place_entities` to populate
-    `PlacedEntity.parent_pkg_names` for intra-domain nesting (D-06)."""
+    `PlacedEntity.parent_pkg_names` for intra-domain nesting (D-06).
+
+    For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
+    For dependency: resolved by `dep.name` (dependencies are name-unique)."""
     if kind == "dependency":
         rows = conn.execute(
             "SELECT DISTINCT p.name FROM edges u "
@@ -248,17 +257,21 @@ def _consumer_pkgs_in_domain(
             "JOIN nodes p ON t.dst = p.id "
             "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
             "JOIN nodes d ON d.id = bt.dst "
-            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.name = ? "
+            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
             "AND p.kind='package' AND d.kind='domain' AND d.name = ? "
             "ORDER BY p.name",
-            (entity_name, domain_name),
+            (entity_uri, domain_name),
         ).fetchall()
         return tuple(r[0] for r in rows)
     return ()
 
 
 def _consumer_pkgs(
-    conn: sqlite3.Connection, *, kind: str, entity_name: str
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    entity_uri: str = "",
+    entity_name: str = "",
 ) -> tuple[str, ...]:
     """DOMAIN-AGNOSTIC consumer/tested package (and app) names (Phase 57 D-01).
 
@@ -267,7 +280,10 @@ def _consumer_pkgs(
     test_suite (`tests`), regardless of domain. `_render_by_kind` uses these
     names so a by-kind-placed (multi/zero-domain) dependency or test_suite
     still nests under every package/app that consumes it — the fix that makes
-    flat-section removal safe. Sorted alphabetically for determinism."""
+    flat-section removal safe. Sorted alphabetically for determinism.
+
+    For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
+    For dependency: resolved by `dep.name` (dependencies are name-unique)."""
     if kind == "dependency":
         rows = conn.execute(
             "SELECT DISTINCT p.name FROM edges u "
@@ -284,10 +300,10 @@ def _consumer_pkgs(
             "SELECT DISTINCT p.name FROM edges t "
             "JOIN nodes ts ON t.src = ts.id "
             "JOIN nodes p ON t.dst = p.id "
-            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.name = ? "
+            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
             "AND p.kind IN ('package', 'app') "
             "ORDER BY p.name",
-            (entity_name,),
+            (entity_uri,),
         ).fetchall()
         return tuple(r[0] for r in rows)
     return ()
@@ -351,13 +367,23 @@ def _place_entities(
         list_fn = kind_to_list_fn[kind]
         for node in list_fn(conn):
             uri = node.attrs.get("uri") or ""
-            qualifying = _compute_qualifying_domains(conn, kind=kind, name=node.name)
+            qualifying = _compute_qualifying_domains(
+                conn, kind=kind, name=node.name, uri=uri
+            )
             # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
             # set for every dep/test_suite (not only single-domain ones), so a
             # by-kind-placed dep/suite still nests under its consumer packages.
+            # For test_suite: pass entity_uri (unique, stable); for dependency:
+            # pass entity_name (D-08).
             parent_pkgs: tuple[str, ...] = ()
-            if kind in ("dependency", "test_suite"):
-                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_name=node.name)
+            if kind == "test_suite":
+                parent_pkgs = _consumer_pkgs(
+                    conn, kind=kind, entity_uri=uri
+                )
+            elif kind == "dependency":
+                parent_pkgs = _consumer_pkgs(
+                    conn, kind=kind, entity_name=node.name
+                )
             suite_kind: str | None = None
             pkg_for_suite: str | None = None
             if kind == "test_suite":

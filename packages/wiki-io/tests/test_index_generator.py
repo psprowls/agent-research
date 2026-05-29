@@ -170,7 +170,7 @@ class TestQualifyingDomains:
         }
         conn = make_index_fixture_graph(spec)
         assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite-a"
+            conn, kind="test_suite", name="suite-a", uri="test_suite:suite-a"
         ) == {"core"}
 
     def test_test_suite_multi_package_multi_domain(self, make_index_fixture_graph):
@@ -191,7 +191,7 @@ class TestQualifyingDomains:
         }
         conn = make_index_fixture_graph(spec)
         assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite"
+            conn, kind="test_suite", name="suite", uri="test_suite:suite"
         ) == {"d1", "d2"}
 
     def test_dependency_one_hop(self, make_index_fixture_graph):
@@ -1128,7 +1128,86 @@ def test_inline_summary_from_entity_page_frontmatter(
 # --- Fan-out regression guard (SC#3 / D-07/D-08) ---
 
 
-def test_consumer_pkgs_fanout_regression_guard(make_index_fixture_graph):
+def _make_fanout_fixture() -> sqlite3.Connection:
+    """Build a fan-out test graph directly (bypasses upsert path collapsing).
+
+    Two suites share the legacy name 'tests' but have DISTINCT paths and URIs,
+    mirroring the pre-Plan-02 state in production. We insert nodes directly so
+    both suite rows exist in the DB (upsert_records collapses same-(kind,name,path)
+    tuples, which would silently merge them).
+
+    Each suite is connected via a 'tests' edge to only its own package.
+    """
+    from graph_io.schema import apply_schema
+
+    conn = sqlite3.connect(":memory:")
+    apply_schema(conn)
+
+    # Insert nodes directly to allow two 'tests'-named suite rows
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("domain", "d1", "", None, "{}", "domain:d1"),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("package", "pkg-alpha", "", None, '{"uri":"pkg:pkg-alpha"}', "pkg:pkg-alpha"),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        ("package", "pkg-beta", "", None, '{"uri":"pkg:pkg-beta"}', "pkg:pkg-beta"),
+    )
+    # Both suites named 'tests' but with different paths and URIs
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        (
+            "test_suite",
+            "tests",
+            "packages/alpha/tests",
+            None,
+            "{}",
+            "test_suite:org/repo/packages/alpha/tests",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+        (
+            "test_suite",
+            "tests",
+            "packages/beta/tests",
+            None,
+            "{}",
+            "test_suite:org/repo/packages/beta/tests",
+        ),
+    )
+    conn.commit()
+
+    # Fetch IDs for edge wiring
+    def nid(kind, name, path=""):
+        return conn.execute(
+            "SELECT id FROM nodes WHERE kind=? AND name=? AND path=?",
+            (kind, name, path),
+        ).fetchone()[0]
+
+    d1 = nid("domain", "d1")
+    pkg_a = nid("package", "pkg-alpha")
+    pkg_b = nid("package", "pkg-beta")
+    ts_a = nid("test_suite", "tests", "packages/alpha/tests")
+    ts_b = nid("test_suite", "tests", "packages/beta/tests")
+
+    conn.executemany(
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?,?,?,?)",
+        [
+            (pkg_a, d1, "belongs_to_domain", "{}"),
+            (pkg_b, d1, "belongs_to_domain", "{}"),
+            (ts_a, pkg_a, "tests", "{}"),  # alpha-suite tests only alpha-pkg
+            (ts_b, pkg_b, "tests", "{}"),  # beta-suite tests only beta-pkg
+        ],
+    )
+    conn.commit()
+    return conn
+
+
+def test_consumer_pkgs_fanout_regression_guard():
     """Regression guard: two suites with the SAME name but DISTINCT URIs must
     each resolve to only their own consumer package via _consumer_pkgs.
 
@@ -1139,24 +1218,7 @@ def test_consumer_pkgs_fanout_regression_guard(make_index_fixture_graph):
     The guard also covers _consumer_pkgs_in_domain with a domain variant, and
     confirms that a URI matching no suite returns empty (no name-fallback).
     """
-    spec = {
-        "nodes": [
-            ("domain", "d1", {"uri": "domain:d1"}),
-            ("package", "pkg-alpha", {"uri": "pkg:pkg-alpha"}),
-            ("package", "pkg-beta", {"uri": "pkg:pkg-beta"}),
-            # Two suites with the SAME name but DISTINCT URIs
-            ("test_suite", "tests", {"uri": "test_suite:org/repo/packages/alpha/tests"}),
-            ("test_suite", "tests", {"uri": "test_suite:org/repo/packages/beta/tests"}),
-        ],
-        "edges": [
-            ("package", "pkg-alpha", "domain", "d1", "belongs_to_domain", {}),
-            ("package", "pkg-beta", "domain", "d1", "belongs_to_domain", {}),
-            # Each suite tests only its own package
-            ("test_suite", "tests", "package", "pkg-alpha", "tests", {}),
-            ("test_suite", "tests", "package", "pkg-beta", "tests", {}),
-        ],
-    }
-    conn = make_index_fixture_graph(spec)
+    conn = _make_fanout_fixture()
 
     uri_alpha = "test_suite:org/repo/packages/alpha/tests"
     uri_beta = "test_suite:org/repo/packages/beta/tests"
