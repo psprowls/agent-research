@@ -4,8 +4,8 @@ milestone: v1.10
 milestone_name: Wiki Index & Entity Page Enrichment
 status: executing
 stopped_at: Phase 58 context gathered
-last_updated: "2026-05-29T02:44:20.682Z"
-last_activity: 2026-05-29 -- Phase 58 planning complete
+last_updated: "2026-05-29T02:45:40.817Z"
+last_activity: 2026-05-29 -- Phase 58 execution started
 progress:
   total_phases: 5
   completed_phases: 4
@@ -27,16 +27,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-28)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 57 — index generation polish
+**Current Focus:** Phase 58 — entity-page-index-uat-follow-ups
 
 ---
 
 ## Current Position
 
-Phase: 57
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-29 -- Phase 58 planning complete
+Phase: 58 (entity-page-index-uat-follow-ups) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 58
+Last activity: 2026-05-29 -- Phase 58 execution started
 
 ## Progress Bar
 
