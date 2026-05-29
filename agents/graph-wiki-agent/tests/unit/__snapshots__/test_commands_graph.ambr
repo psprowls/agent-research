@@ -1,0 +1,75 @@
+# serializer version: 1
+# name: test_describe_domain_output
+  '''
+  domain:        core
+  uri:           domain:local/repo/core
+  parent:        (none)
+  description:   Core utilities domain
+  packages:
+    - mypkg
+    - pyutil
+  subdomains:
+    (none)
+  
+  '''
+# ---
+# name: test_describe_entry_point_output
+  '''
+  entry-point: mypkg-run
+  uri:         entry_point:local/repo/mypkg/mypkg-run
+  kind:        executable
+  callable:    foo
+  path:        packages/mypkg/src/mypkg/foo.py
+  source:      pyproject.scripts
+  
+  '''
+# ---
+# name: test_describe_package_output
+  '''
+  package: commonlib
+  language: python
+  version:  0.0.0
+  files:    1
+  counts:   {'function': 1}
+  internal deps:       -
+  internal dependents: -
+  
+  '''
+# ---
+# name: test_describe_path_output
+  '''
+  path: packages/commonlib/src/commonlib/__init__.py
+  children:
+    function  common  line 1
+  imports:
+  
+  '''
+# ---
+# name: test_describe_repository_output
+  '''
+  repository:     repo
+  uri:            repo:local/repo
+  url:            <normalized>
+  default_branch: main
+  package_count:  4
+  
+  '''
+# ---
+# name: test_describe_test_suite_output
+  '''
+  suite:  mypkg-unit-tests
+  uri:    test_suite:local/repo/packages/mypkg/tests
+  kind:   unit
+  files:  1
+  
+  '''
+# ---
+# name: test_graph_query_output
+  '''
+  package  commonlib  packages/commonlib  None  {'dependencies': [], 'description': '', 'language': 'python', 'version': '0.0.0'}    
+  package  jspkg      packages/jspkg      None  {'dependencies': [], 'description': '', 'language': 'javascript', 'version': '0.0.0'}
+  package  pyutil     packages/pyutil     None  {'dependencies': [], 'description': '', 'language': 'python', 'version': '0.0.0'}    
+  package  webutil    packages/webutil    None  {'dependencies': [], 'description': '', 'language': 'python', 'version': '0.0.0'}    
+  
+  '''
+# ---

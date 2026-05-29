@@ -1,24 +1,30 @@
-"""Unit tests for the graph subapp (Phase 38-01 Task 5).
+"""Unit tests for the graph subapp (Phase 38-01 Task 5, rebuilt Phase 59 Wave 3).
 
 Covers GRAPHCMD-01..GRAPHCMD-03 and D-01..D-09:
   * CLI shape (3 top-level subcommands, 6 describe sub-sub-commands)
-  * graph build dispatches to ops_update; --full toggles correctly
+  * graph build dispatches to update.run; --full toggles correctly
   * --trace writes JSONL files with schema_version=1 and correct event names
   * --model is recorded but not invoked (v1.7); stderr note emitted
   * Proxy commands (describe/query) omit cost fields (D-03)
-  * graph query pre-validates at Typer layer (no AttributeError on _parser=None)
-  * cg exit codes propagate as typer.Exit codes
+  * graph query pre-validates at Typer layer (no-filter → exit 2)
+  * Real-DB syrupy snapshots verify byte-identical output for all 6 describe kinds + query
+  * Exit-code branches (NOT_INITIALIZED, SCHEMA_MISMATCH, --in-package no-match,
+    ambiguous entry-point, NOT_IN_GIT_REPO) covered
 """
 
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 from typer.testing import CliRunner
 
-from graph_io import exit_codes
+from graph_io import exit_codes, update
+from graph_io.store import GraphNotInitializedError, SchemaMismatchError
 from graph_wiki_agent.cli import app
 from graph_wiki_agent.commands import graph as graph_module
 
@@ -29,20 +35,15 @@ def runner():
 
 
 @pytest.fixture
-def tmp_workspace(tmp_path, monkeypatch):
-    """A tmp workspace + GRAPH_WIKI_WORKSPACE env var.
-
-    The cg modules are mocked, so we don't need a real .graph-wiki.yaml or DB —
-    workspace_io.config.resolve(None, require_manifest=False) accepts any path.
-    """
+def tmp_workspace(tmp_path):
+    """A minimal tmp workspace dir (no DB) for mock-based tests."""
     ws = tmp_path / "workspace"
     ws.mkdir()
-    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(ws))
     return ws
 
 
 # --------------------------------------------------------------------------- #
-# CLI shape
+# CLI shape (kept verbatim from pre-refactor — do not depend on deleted mech)
 # --------------------------------------------------------------------------- #
 
 
@@ -71,30 +72,51 @@ def test_graph_describe_help_lists_six_kinds(runner):
         assert kind in result.output, f"missing kind {kind} in:\n{result.output}"
 
 
+def test_graph_query_no_filters_fails_fast(runner, tmp_workspace):
+    result = runner.invoke(
+        app,
+        ["graph", "query"],
+        env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+    )
+    assert result.exit_code == 2, result.output
+    assert "at least one of --name, --kind, --in-package is required" in result.stderr
+
+
 # --------------------------------------------------------------------------- #
-# graph build
+# graph build — monkeypatched update.run (D-06)
 # --------------------------------------------------------------------------- #
 
 
-def test_graph_build_dispatches_to_ops_update(runner, tmp_workspace):
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.ops_update, "run", recorder):
-        result = runner.invoke(app, ["graph", "build"])
+def test_graph_build_invokes_update_run(runner, tmp_workspace):
+    """graph build calls update.run; --full propagates."""
+    with patch.object(update, "run", return_value=None) as mock_run:
+        result = runner.invoke(
+            app, ["graph", "build"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
         assert result.exit_code == 0, result.output
-        assert recorder.call_count == 1
-        args = recorder.call_args.args[0]
-        assert args.full is False
-        assert args._module is graph_module.ops_update
+        assert mock_run.call_count == 1
+        # Verify full=False default
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("full") is False
 
-        result_full = runner.invoke(app, ["graph", "build", "--full"])
-        assert result_full.exit_code == 0, result_full.output
-        assert recorder.call_count == 2
-        assert recorder.call_args.args[0].full is True
+    with patch.object(update, "run", return_value=None) as mock_run:
+        result = runner.invoke(
+            app, ["graph", "build", "--full"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("full") is True
 
 
 def test_graph_build_writes_trace(runner, tmp_workspace):
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.SUCCESS):
-        result = runner.invoke(app, ["graph", "build", "--trace"])
+    """--trace writes JSONL with start+complete events, schema_version=1, exit_code=0."""
+    with patch.object(update, "run", return_value=None):
+        result = runner.invoke(
+            app, ["graph", "build", "--trace"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
         assert result.exit_code == 0, result.output
 
     trace_files = list((tmp_workspace / ".graph-wiki" / "traces").glob("*-graph-build.jsonl"))
@@ -116,8 +138,12 @@ def test_graph_build_writes_trace(runner, tmp_workspace):
 
 
 def test_graph_build_model_recorded_not_invoked(runner, tmp_workspace):
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.SUCCESS):
-        result = runner.invoke(app, ["graph", "build", "--trace", "--model", "my-model-id"])
+    """--model is recorded in trace; stderr note 'not invoked in v1.7' is emitted."""
+    with patch.object(update, "run", return_value=None):
+        result = runner.invoke(
+            app, ["graph", "build", "--trace", "--model", "my-model-id"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
         assert result.exit_code == 0, result.output
         assert "not invoked in v1.7" in result.stderr
 
@@ -131,50 +157,159 @@ def test_graph_build_model_recorded_not_invoked(runner, tmp_workspace):
     assert complete.get("model_id") == "my-model-id"
 
 
+def test_graph_build_not_in_git_repo(runner, tmp_workspace):
+    """update.run raising NotInGitRepoError → exit NOT_IN_GIT_REPO."""
+    with patch.object(update, "run", side_effect=update.NotInGitRepoError("not a repo")):
+        result = runner.invoke(
+            app, ["graph", "build"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
+    assert result.exit_code == exit_codes.NOT_IN_GIT_REPO
+
+
 # --------------------------------------------------------------------------- #
-# graph describe (dispatch parametrized over 6 kinds)
+# graph describe — real-DB syrupy snapshots (6 kinds, D-08/D-09)
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    "kind_kebab, kind_snake, cg_attr, identifier, id_attr",
-    [
-        ("package", "package", "q_describe_package", "my-pkg", "name"),
-        ("path", "path", "q_describe_path", "src/foo.py", "path"),
-        ("repository", "repository", "q_describe_repo", None, None),
-        ("domain", "domain", "q_describe_domain", "my-domain", "name"),
-        ("entry-point", "entry_point", "q_describe_entry_point", "my-ep", "name"),
-        ("test-suite", "test_suite", "q_describe_suite", "my-suite", "name"),
-    ],
-)
-def test_graph_describe_dispatch_all_six_kinds(
-    runner, tmp_workspace, kind_kebab, kind_snake, cg_attr, identifier, id_attr
-):
-    cg_module = getattr(graph_module, cg_attr)
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    argv = ["graph", "describe", kind_kebab]
-    if identifier is not None:
-        argv.append(identifier)
-    with patch.object(cg_module, "run", recorder):
-        result = runner.invoke(app, argv)
+def test_describe_package_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe package commonlib → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "package", "commonlib"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
     assert result.exit_code == 0, result.output
-    assert recorder.call_count == 1
-    args = recorder.call_args.args[0]
-    if id_attr is not None:
-        assert getattr(args, id_attr) == identifier
-    assert args._module is cg_module
+    assert result.output == snapshot
 
 
-def test_graph_describe_trace_omits_cost_fields(runner, tmp_workspace):
-    with patch.object(graph_module.q_describe_package, "run", return_value=exit_codes.SUCCESS):
-        result = runner.invoke(app, ["graph", "describe", "package", "my-pkg", "--trace"])
-        assert result.exit_code == 0, result.output
+def test_describe_path_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe path packages/commonlib/src/commonlib/__init__.py → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "path", "packages/commonlib/src/commonlib/__init__.py"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
 
-    trace_files = list((tmp_workspace / ".graph-wiki" / "traces").glob("*-graph-describe.jsonl"))
-    assert len(trace_files) == 1, [p.name for p in trace_files]
+
+def test_describe_repository_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe repository (no identifier) → snapshot (url: line normalized — path is tmp)."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "repository"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    # Normalize the `url:` line — it contains the tmp_path_factory path which
+    # differs between test sessions. Replace everything after "url:" up to the
+    # next newline with a stable placeholder.
+    normalized = re.sub(r"(url:\s+).*", r"\1<normalized>", result.output)
+    assert normalized == snapshot
+
+
+def test_describe_domain_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe domain core → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "domain", "core"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+def test_describe_entry_point_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe entry-point mypkg-run → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "entry-point", "mypkg-run"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+def test_describe_test_suite_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """describe test-suite mypkg-unit-tests → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "test-suite", "mypkg-unit-tests"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+# --------------------------------------------------------------------------- #
+# graph query — real-DB syrupy snapshot (D-08/D-09)
+# --------------------------------------------------------------------------- #
+
+
+def test_graph_query_output(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """graph query --kind package → byte-identical snapshot."""
+    result = runner.invoke(
+        app,
+        ["graph", "query", "--kind", "package"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+# --------------------------------------------------------------------------- #
+# describe trace omits cost fields (D-03)
+# --------------------------------------------------------------------------- #
+
+
+def test_graph_describe_trace_omits_cost_fields(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+) -> None:
+    """describe package with --trace: trace record omits model/cost fields (D-03)."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "package", "commonlib", "--trace"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == 0, result.output
+
+    trace_files = list(
+        (seeded_graph_workspace / ".graph-wiki" / "traces").glob("*-graph-describe.jsonl")
+    )
+    assert len(trace_files) >= 1, "no trace file found"
     records = [
         json.loads(line)
-        for line in trace_files[0].read_text().splitlines()
+        for line in trace_files[-1].read_text().splitlines()
         if line.strip()
     ]
     assert len(records) == 1
@@ -195,43 +330,86 @@ def test_graph_describe_trace_omits_cost_fields(runner, tmp_workspace):
 
 
 # --------------------------------------------------------------------------- #
-# graph query
+# Exit-code branches
 # --------------------------------------------------------------------------- #
 
 
-def test_graph_query_dispatch(runner, tmp_workspace):
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_find, "run", recorder):
+def test_describe_package_not_found_exits_generic(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+) -> None:
+    """describe package with non-existent name → GENERIC(1)."""
+    result = runner.invoke(
+        app,
+        ["graph", "describe", "package", "nonexistent-pkg-xyz"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == exit_codes.GENERIC
+
+
+def test_query_in_package_no_match_exits_generic(
+    runner: CliRunner,
+    seeded_graph_workspace: Path,
+) -> None:
+    """graph query --kind package --in-package nonexistent → GENERIC(1) (D-07 quirk)."""
+    result = runner.invoke(
+        app,
+        ["graph", "query", "--kind", "function", "--in-package", "nonexistent-pkg-xyz"],
+        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
+    )
+    assert result.exit_code == exit_codes.GENERIC
+
+
+def test_describe_entry_point_ambiguous_exits_ambiguous(
+    runner: CliRunner,
+    tmp_workspace: Path,
+) -> None:
+    """Ambiguous bare entry-point name → AMBIGUOUS(7). Mock conn.execute to return >1 row."""
+    import sqlite3
+
+    fake_conn = MagicMock(spec=sqlite3.Connection)
+    fake_conn.execute.return_value.fetchall.return_value = [("pkg1",), ("pkg2",)]
+
+    with patch.object(graph_module, "_connect_or_error", return_value=(fake_conn, exit_codes.SUCCESS, "")):
         result = runner.invoke(
             app,
-            ["graph", "query", "--name", "foo", "--kind", "class", "--in-package", "pkg"],
+            ["graph", "describe", "entry-point", "ambiguous-ep"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
-    assert result.exit_code == 0, result.output
-    args = recorder.call_args.args[0]
-    assert args.name == "foo"
-    assert args.kind == "class"
-    assert args.in_package == "pkg"
+    assert result.exit_code == exit_codes.AMBIGUOUS
 
 
-def test_graph_query_no_filters_fails_fast(runner, tmp_workspace):
-    recorder = MagicMock(return_value=exit_codes.SUCCESS)
-    with patch.object(graph_module.q_find, "run", recorder):
-        result = runner.invoke(app, ["graph", "query"])
-    assert result.exit_code == 2, result.output
-    assert "at least one of --name, --kind, --in-package is required" in result.stderr
-    assert recorder.call_count == 0, "q_find.run must NOT be called when Typer-layer pre-validation fails"
+def test_describe_not_initialized_exits_not_initialized(
+    runner: CliRunner,
+    tmp_workspace: Path,
+) -> None:
+    """Graph DB not initialized → NOT_INITIALIZED(3)."""
+    with patch.object(
+        graph_module,
+        "_connect_or_error",
+        return_value=(None, exit_codes.NOT_INITIALIZED, "error: not initialized"),
+    ):
+        result = runner.invoke(
+            app,
+            ["graph", "describe", "package", "mypkg"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
+    assert result.exit_code == exit_codes.NOT_INITIALIZED
 
 
-# --------------------------------------------------------------------------- #
-# exit code propagation
-# --------------------------------------------------------------------------- #
-
-
-def test_cg_exit_codes_propagate(runner, tmp_workspace):
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.NOT_IN_GIT_REPO):
-        result = runner.invoke(app, ["graph", "build"])
-    assert result.exit_code == exit_codes.NOT_IN_GIT_REPO
-
-    with patch.object(graph_module.ops_update, "run", return_value=exit_codes.SUCCESS):
-        result = runner.invoke(app, ["graph", "build"])
-    assert result.exit_code == 0
+def test_describe_schema_mismatch_exits_schema_mismatch(
+    runner: CliRunner,
+    tmp_workspace: Path,
+) -> None:
+    """Schema mismatch → SCHEMA_MISMATCH(4)."""
+    with patch.object(
+        graph_module,
+        "_connect_or_error",
+        return_value=(None, exit_codes.SCHEMA_MISMATCH, "error: schema mismatch"),
+    ):
+        result = runner.invoke(
+            app,
+            ["graph", "describe", "package", "mypkg"],
+            env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
+        )
+    assert result.exit_code == exit_codes.SCHEMA_MISMATCH
