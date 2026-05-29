@@ -18,13 +18,20 @@ from deepeval.metrics import GEval
 from deepeval.models import AmazonBedrockModel
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 
-# Two-judge panel per D-07 (cost-frontier design): Sonnet for quality ceiling,
-# Nova Pro for cost diversity. Both use temperature=0 for deterministic scoring.
+# Two-judge panel per D-07 (cost-frontier design).
+# Sonnet was dropped to remove Claude-family self-preference bias — Haiku is a
+# candidate in every sweep role, so a Claude judge would favour the Claude candidate.
+# judge_a = Mistral Large 3 (independent of all candidate families)
+# judge_b = Nova Pro      (independent of all candidate families)
+# Both use temperature=0 for deterministic scoring.
+# Drift caveat: the ideal is a dated revision ARN, but neither model ID exposes one
+# in the Bedrock catalog; we pin the alias and accept the risk of silent model drift.
+# Mirror these IDs in models.toml [roles.judge_a] / [roles.judge_b] for reference.
 JUDGE_PANEL_CONFIG: list[dict] = [
     {
-        "model_id": "us.anthropic.claude-sonnet-4-6",
-        "input_price_per_m": 3.0,
-        "output_price_per_m": 15.0,
+        "model_id": "mistral.mistral-large-3-675b-instruct",
+        "input_price_per_m": 0.50,
+        "output_price_per_m": 1.50,
     },
     {
         "model_id": "us.amazon.nova-pro-v1:0",
