@@ -334,7 +334,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 59-02-PLAN.md — Migrate agent `graph.py` + `graph_tools.py` onto typed API; reproduce exit-code contract incl. AMBIGUOUS(7) [D-04..D-07, SC#1/SC#2]
+- [x] 59-02-PLAN.md — Migrate agent `graph.py` + `graph_tools.py` onto typed API; reproduce exit-code contract incl. AMBIGUOUS(7) [D-04..D-07, SC#1/SC#2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
