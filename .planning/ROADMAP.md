@@ -18,7 +18,7 @@
 - ✅ **v1.7 — graph-io Integration & Wiki Hygiene** — Phases 35-41 (shipped 2026-05-26) — [archive](milestones/v1.7-ROADMAP.md) · [audit](milestones/v1.7-MILESTONE-AUDIT.md)
 - ✅ **v1.8 — Wiki Entity Restructure** — Phases 42-48 (shipped 2026-05-27) — [archive](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49-53 (shipped 2026-05-28) — [archive](milestones/v1.9-ROADMAP.md)
-- 🔄 **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-57 (in progress)
+- 🔄 **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-58 (in progress)
 
 ---
 
@@ -161,12 +161,13 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 
 </details>
 
-### v1.10 Wiki Index & Entity Page Enrichment (Phases 54-57) — IN PROGRESS
+### v1.10 Wiki Index & Entity Page Enrichment (Phases 54-58) — IN PROGRESS
 
 - [x] **Phase 54: Debt Clearance** — Fix the integration-gate test failure and correct PROJECT.md stack references (completed 2026-05-28)
 - [x] **Phase 55: Dependency Classification Fix** — Stop emitting `dependency` nodes for workspace packages; add package→package `depends_on` edges (completed 2026-05-28)
 - [x] **Phase 56: Entity Templates & Scan-Time Population** — Migrate legacy template content into `entity-<type>.md` templates; add scan-time variable substitution and `summary:` frontmatter field (completed 2026-05-28)
 - [x] **Phase 57: Index Generation Polish** — Add `app` section, human-readable links with summaries, and nested test-suite/dependency rendering to `index.md` (completed 2026-05-29)
+- [ ] **Phase 58: Entity Page & Index UAT Follow-Ups** — Derive entity `## Related` from graph edges; fix the Obsidian-breaking `summary:` placeholder; fix test suites fanning out under every package in the index
 
 ---
 
@@ -279,6 +280,17 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 | 55. Dependency Classification Fix | v1.10 | 2/2 | Complete    | 2026-05-28 |
 | 56. Entity Templates & Scan-Time Population | v1.10 | 4/4 | Complete    | 2026-05-28 |
 | 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
+| 58. Entity Page & Index UAT Follow-Ups | v1.10 | 0/0 | Not planned | — |
+
+### Phase 58: Entity Page & Index UAT Follow-Ups
+**Goal**: The three wiki-io defects/enhancements surfaced during v1.10 UAT (Phases 56–57) are resolved — entity `## Related` sections are derived from graph edges, summary placeholders render cleanly in Obsidian, and each package nests only the test suites that actually test it
+**Depends on**: Phase 57
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. Generated entity pages populate `## Related` from the node's graph edges (e.g. `depends_on` → packages, domain membership → domains, dependency edges → dependencies) instead of static `<...>` placeholder links; nodes with no related edges fall back to a clean fill-me-in marker, not `<...>` (todo: `2026-05-28-populate-entity-related-section-from-graph-edges`)
+  2. The empty-description `summary:` placeholder renders cleanly inline in Obsidian — no leading `>` blockquote and no unclosed `<...>` HTML tag — so list items following a placeholder bullet still render (`entity_writer.py:587`; todo: `2026-05-29-fix-entity-summary-placeholder-breaks-obsidian-rendering`)
+  3. In the generated index `## By Kind` section, each package/app nests only the test suite(s) that actually test it — not the same nine `tests`-named suites under every package; resolution keys on test_suite node id/uri rather than the shared `name` (`index_generator.py:282`; todo: `2026-05-29-test-suites-fan-out-under-every-package-in-index`)
+**Plans**: TBD (run `/gsd-plan-phase 58` to break down)
 
 ---
 

@@ -59,6 +59,10 @@ v1.10: [█░░░] 1/4 phases complete
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 58 added (v1.10): Entity Page & Index UAT Follow-Ups — derive entity `## Related` from graph edges; fix Obsidian-breaking `summary:` placeholder; fix test suites fanning out under every package in the index (from pending UAT todos)
+
 ### Open blockers
 
 None.
