@@ -297,4 +297,22 @@ Full detail: [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 
 ---
 
+### Phase 59: Decouple graph-wiki-agent from `graph_io.cli`
+**Goal**: `graph-wiki-agent` consumes only the typed `graph_io` library API — nothing in the agent imports `graph_io.cli`. Migrate `commands/graph.py` off the in-process `graph_io.cli.*.run(args)` modules (the hand-built `argparse.Namespace` + captured-stdout pattern, `D-06`) onto the typed functions (`graph_io.queries.*`, `graph_io.update.run`, `graph_io.store.read_only_connect`). `scan.py` and `propose_domains.py` already use the typed API; `graph.py` plus `graph_tools.py` (the planning grep found a second `_format` importer) are the consumers needing migration. **Out of scope**: deciding whether to keep the `cg` CLI as a human-facing debug surface — deferred to a later decision.
+**Depends on**: Phase 58
+**Requirements**: TBD (drive coverage from SC#1–4 + CONTEXT D-01..D-09)
+**Success Criteria** (what must be TRUE):
+  1. No module under `agents/graph-wiki-agent/` imports `graph_io.cli` (verified by grep); `commands/graph.py` calls only typed `graph_io` library functions
+  2. The hand-built `argparse.Namespace` construction and stdout-capture shim in `graph.py` are removed in favor of direct typed-function calls returning structured records
+  3. The agent's `graph` command behavior is unchanged for all subcommands it currently supports (describe-repo/package/path/domain/entry-point/suite, find, update) — verified against real-DB snapshots + exit-code tests
+  4. Full test suite passes (`uv run --package graph-wiki-agent pytest`)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 59-01-PLAN.md — Promote formatter to public `graph_io.render` + refactor 6 q_describe_* + q_find (cg byte-identical guard) [D-01/D-02/D-03]
+- [ ] 59-02-PLAN.md — Migrate agent `graph.py` + `graph_tools.py` onto typed API; reproduce exit-code contract incl. AMBIGUOUS(7) [D-04..D-07, SC#1/SC#2]
+- [ ] 59-03-PLAN.md — Rebuild `test_commands_graph.py` with real-DB syrupy snapshots + `seeded_graph_workspace` fixture; full-suite gate [D-08/D-09, SC#3/SC#4]
+
+---
+
 *Last updated: 2026-05-28 — v1.10 (Wiki Index & Entity Page Enrichment) roadmap created. Phases 54-57, 14 requirements.*
