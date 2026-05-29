@@ -27,6 +27,8 @@ from wiki_io.index_generator import (
     IndexWriteResult,
     PlacedEntity,
     _compute_qualifying_domains,
+    _consumer_pkgs,
+    _consumer_pkgs_in_domain,
     _entry_link,
     _place_entities,
     _render,
@@ -1121,6 +1123,73 @@ def test_inline_summary_from_entity_page_frontmatter(
     # pkg-b (no entity page) renders the link with NO ` — ` suffix.
     assert "[[wiki/entities/pkg_pkg-b|pkg-b]]\n" in text
     assert "[[wiki/entities/pkg_pkg-b|pkg-b]] —" not in text
+
+
+# --- Fan-out regression guard (SC#3 / D-07/D-08) ---
+
+
+def test_consumer_pkgs_fanout_regression_guard(make_index_fixture_graph):
+    """Regression guard: two suites with the SAME name but DISTINCT URIs must
+    each resolve to only their own consumer package via _consumer_pkgs.
+
+    Before the fix, _consumer_pkgs joined on ts.name=? — both suites shared
+    name='tests', so each returned BOTH packages (fan-out). After the fix,
+    _consumer_pkgs joins on ts.uri=?, giving exactly one consumer per suite.
+
+    The guard also covers _consumer_pkgs_in_domain with a domain variant, and
+    confirms that a URI matching no suite returns empty (no name-fallback).
+    """
+    spec = {
+        "nodes": [
+            ("domain", "d1", {"uri": "domain:d1"}),
+            ("package", "pkg-alpha", {"uri": "pkg:pkg-alpha"}),
+            ("package", "pkg-beta", {"uri": "pkg:pkg-beta"}),
+            # Two suites with the SAME name but DISTINCT URIs
+            ("test_suite", "tests", {"uri": "test_suite:org/repo/packages/alpha/tests"}),
+            ("test_suite", "tests", {"uri": "test_suite:org/repo/packages/beta/tests"}),
+        ],
+        "edges": [
+            ("package", "pkg-alpha", "domain", "d1", "belongs_to_domain", {}),
+            ("package", "pkg-beta", "domain", "d1", "belongs_to_domain", {}),
+            # Each suite tests only its own package
+            ("test_suite", "tests", "package", "pkg-alpha", "tests", {}),
+            ("test_suite", "tests", "package", "pkg-beta", "tests", {}),
+        ],
+    }
+    conn = make_index_fixture_graph(spec)
+
+    uri_alpha = "test_suite:org/repo/packages/alpha/tests"
+    uri_beta = "test_suite:org/repo/packages/beta/tests"
+
+    # _consumer_pkgs: each suite resolves to exactly its own consumer package
+    pkgs_for_alpha = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_alpha)
+    pkgs_for_beta = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_beta)
+    assert pkgs_for_alpha == ("pkg-alpha",), (
+        f"expected ('pkg-alpha',), got {pkgs_for_alpha!r} — fan-out detected"
+    )
+    assert pkgs_for_beta == ("pkg-beta",), (
+        f"expected ('pkg-beta',), got {pkgs_for_beta!r} — fan-out detected"
+    )
+
+    # _consumer_pkgs_in_domain: same correctness within a domain
+    pkgs_alpha_d1 = _consumer_pkgs_in_domain(
+        conn, kind="test_suite", entity_uri=uri_alpha, domain_name="d1"
+    )
+    pkgs_beta_d1 = _consumer_pkgs_in_domain(
+        conn, kind="test_suite", entity_uri=uri_beta, domain_name="d1"
+    )
+    assert pkgs_alpha_d1 == ("pkg-alpha",), (
+        f"expected ('pkg-alpha',), got {pkgs_alpha_d1!r} — domain fan-out detected"
+    )
+    assert pkgs_beta_d1 == ("pkg-beta",), (
+        f"expected ('pkg-beta',), got {pkgs_beta_d1!r} — domain fan-out detected"
+    )
+
+    # A URI matching no suite returns empty (no name-fallback)
+    no_match = _consumer_pkgs(
+        conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite"
+    )
+    assert no_match == (), f"expected () for unmatched URI, got {no_match!r}"
 
 
 # --- Snapshot test against the live agent-research graph (skip when absent) ---
