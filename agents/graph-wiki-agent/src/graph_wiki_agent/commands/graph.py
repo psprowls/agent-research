@@ -67,21 +67,40 @@ def _resolve_paths(workspace_arg: str) -> tuple[Path, Path]:
     return cfg.repo_root, cfg.workspace
 
 
-def _open_graph_conn(workspace: Path) -> sqlite3.Connection:
-    """Open a read-only graph connection, raising typer.Exit on store errors.
+def _connect_or_error(
+    workspace: Path,
+) -> tuple[sqlite3.Connection | None, int, str]:
+    """Open a read-only graph connection, returning (conn, exit_code, stderr).
+
+    No printing, no typer.Exit. On success returns (conn, SUCCESS, ""). On a
+    store error returns (None, NOT_INITIALIZED|SCHEMA_MISMATCH, "error: ...").
+    Used by the printing-free core functions (run_describe/run_query). The
+    Typer-facing `_open_graph_conn` wraps this and raises typer.Exit.
 
     Source pattern: scan.py:540-558 (read_only_connect + except GraphNotInitializedError).
-    Does NOT close the connection — callers use try/finally: conn.close().
+    Does NOT close the connection on success — callers use try/finally: conn.close().
     """
     db = graph_dir(workspace) / "code.db"
     try:
-        return read_only_connect(db)
+        return read_only_connect(db), exit_codes.SUCCESS, ""
     except GraphNotInitializedError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=exit_codes.NOT_INITIALIZED)
+        return None, exit_codes.NOT_INITIALIZED, f"error: {exc}"
     except SchemaMismatchError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(code=exit_codes.SCHEMA_MISMATCH)
+        return None, exit_codes.SCHEMA_MISMATCH, f"error: {exc}"
+
+
+def _open_graph_conn(workspace: Path) -> sqlite3.Connection:
+    """Open a read-only graph connection, raising typer.Exit on store errors.
+
+    Thin Typer-facing wrapper over `_connect_or_error` (preserves the original
+    CLI behavior: echo to stderr + raise typer.Exit with the mapped code).
+    Does NOT close the connection — callers use try/finally: conn.close().
+    """
+    conn, exit_code, stderr = _connect_or_error(workspace)
+    if conn is None:
+        typer.echo(stderr, err=True)
+        raise typer.Exit(code=exit_code)
+    return conn
 
 
 def _trace_path(workspace: Path, command: str, shared_stamp: str) -> Path:
@@ -132,6 +151,198 @@ def _write_trace_record(
 
 
 # --------------------------------------------------------------------------- #
+# Core functions — printing-free, exit-code-returning (D-02 single source of
+# truth). Shared by the Typer commands below AND the MCP server / scan.py.
+# Each returns (exit_code, stdout, stderr); NO printing, NO typer.Exit, NO
+# trace writes (trace + printing stay the caller's job).
+# --------------------------------------------------------------------------- #
+
+
+# kind -> requires-identifier. repository needs none; all others require one.
+# Exposed publicly so the MCP server can enforce identifier-required semantics
+# (replaces the old _DESCRIBE_DISPATCH[kind] -> (module, id_attr) lookup).
+DESCRIBE_REQUIRES_IDENTIFIER: dict[str, bool] = {
+    "package": True,
+    "path": True,
+    "repository": False,
+    "domain": True,
+    "entry_point": True,
+    "test_suite": True,
+}
+
+
+def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str]:
+    """Build/refresh the code graph via the typed `update.run` (D-06).
+
+    Returns (exit_code, stdout, stderr). `update.run` is silent on success
+    (sanctioned by D-06), so stdout is always "". On error, stderr carries
+    `error: <exc>` and the exit code mirrors `graph_build_cmd`'s mapping.
+    Does NOT emit the CLI-only `--model` note.
+    """
+    try:
+        update.run(repo, workspace=workspace, full=full)
+    except update.NotInGitRepoError as exc:
+        return exit_codes.NOT_IN_GIT_REPO, "", f"error: {exc}"
+    except update.UpdateInProgressError as exc:
+        return exit_codes.UPDATE_IN_PROGRESS, "", f"error: {exc}"
+    except SchemaMismatchError as exc:
+        return exit_codes.SCHEMA_MISMATCH, "", f"error: {exc}"
+    except Exception as exc:  # noqa: BLE001 — mirror CLI's catch-all → GENERIC
+        return exit_codes.GENERIC, "", f"error: {exc}"
+    return exit_codes.SUCCESS, "", ""
+
+
+def run_describe(
+    kind: str, identifier: str | None, repo: Path, workspace: Path
+) -> tuple[int, str, str]:
+    """Describe a graph entity (all 6 kinds), printing-free (D-04).
+
+    Returns (exit_code, stdout, stderr). On success stdout is exactly the
+    `_render.format_<kind>(...)` human string (byte-identical). not-found →
+    GENERIC; ambiguous bare entry-point → AMBIGUOUS(7); store errors →
+    NOT_INITIALIZED|SCHEMA_MISMATCH (via `_connect_or_error`).
+    """
+    conn, exit_code, stderr = _connect_or_error(workspace)
+    if conn is None:
+        return exit_code, "", stderr
+
+    try:
+        if kind == "package":
+            desc = queries.describe_package(conn, name=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: package not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_package(desc, fmt="human"), ""
+
+        if kind == "path":
+            desc = queries.describe_path(conn, path=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: path not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_path(desc, fmt="human"), ""
+
+        if kind == "repository":
+            desc = queries.describe_repository(conn)
+            if desc is None:
+                return exit_codes.GENERIC, "", "error: repository not found"
+            return exit_codes.SUCCESS, _render.format_repo(desc, fmt="human"), ""
+
+        if kind == "domain":
+            desc = queries.describe_domain(conn, name=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: not found: {identifier}"
+            pkg_rows = conn.execute(
+                "SELECT p.name FROM edges e "
+                "JOIN nodes p ON e.src = p.id "
+                "JOIN nodes d ON e.dst = d.id "
+                "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
+                "ORDER BY p.name",
+                (identifier,),
+            ).fetchall()
+            packages = [r[0] for r in pkg_rows]
+            sub_rows = conn.execute(
+                "SELECT c.name FROM edges e "
+                "JOIN nodes c ON e.dst = c.id "
+                "JOIN nodes p ON e.src = p.id "
+                "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
+                "ORDER BY c.name",
+                (identifier,),
+            ).fetchall()
+            subdomains = [r[0] for r in sub_rows]
+            return (
+                exit_codes.SUCCESS,
+                _render.format_domain(desc, packages, subdomains, fmt="human"),
+                "",
+            )
+
+        if kind == "entry_point":
+            raw = identifier
+            if ":" in raw:
+                package_name, entry_name = raw.split(":", 1)
+                desc = queries.describe_entry_point(
+                    conn, package_name=package_name, entry_name=entry_name
+                )
+            else:
+                # Bare entry name: scan all packages that declare an EntryPoint by this name.
+                rows = conn.execute(
+                    "SELECT pkg.name "
+                    "FROM nodes pkg "
+                    "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+                    "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+                    # Phase 50 D-04: include apps too — apps declare entry points
+                    # via the same manifest fields as packages.
+                    "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
+                    (raw,),
+                ).fetchall()
+                if not rows:
+                    desc = None
+                elif len(rows) > 1:
+                    packages = ", ".join(r[0] for r in rows)
+                    return (
+                        exit_codes.AMBIGUOUS,
+                        "",
+                        f"error: entry point not found: {raw} "
+                        f"(ambiguous across packages: {packages}; use 'package:entry')",
+                    )
+                else:
+                    desc = queries.describe_entry_point(
+                        conn, package_name=rows[0][0], entry_name=raw
+                    )
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: entry point not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_entry_point(desc, fmt="human"), ""
+
+        if kind == "test_suite":
+            desc = queries.describe_test_suite(conn, suite_name=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: test-suite not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_suite(desc, fmt="human"), ""
+
+        # Unknown kind — caller should have validated; treat defensively.
+        raise KeyError(kind)
+    finally:
+        conn.close()
+
+
+def run_query(
+    repo: Path,
+    workspace: Path,
+    *,
+    name: str | None,
+    kind: str | None,
+    in_package: str | None,
+) -> tuple[int, str, str]:
+    """Query the code graph, printing-free (D-04/D-05/D-07).
+
+    Returns (exit_code, stdout, stderr). stdout is the rendered human table;
+    stderr carries the truncation notice "... showing N of M (truncated)" (if
+    any) — matching where the CLI's `_notice` writes it. Preserves the D-07
+    `--in-package` no-match → GENERIC(1) quirk (distinct from name/kind
+    zero-result = SUCCESS). Does NOT enforce the missing-filter exit-2 guard
+    (that is a CLI-arg concern handled by the caller).
+    """
+    conn, exit_code, stderr = _connect_or_error(workspace)
+    if conn is None:
+        return exit_code, "", stderr
+
+    try:
+        records = queries.find(conn, name=name, kind=kind, in_package=in_package)
+    finally:
+        conn.close()
+
+    # D-07 quirk: --in-package non-match → exit 1 (distinct from name/kind
+    # zero-result which stays SUCCESS). Source: q_find.py:66-68.
+    if in_package is not None and not records:
+        return exit_codes.GENERIC, "", ""
+
+    truncation: dict[str, str] = {}
+
+    def _capture_notice(shown: int, total: int) -> None:
+        truncation["msg"] = f"... showing {shown} of {total} (truncated)"
+
+    rendered = _render.render(records, fmt="human", cap=50, on_truncate=_capture_notice)
+    return exit_codes.SUCCESS, rendered, truncation.get("msg", "")
+
+
+# --------------------------------------------------------------------------- #
 # Typer apps
 # --------------------------------------------------------------------------- #
 
@@ -146,6 +357,52 @@ graph_describe_app = typer.Typer(
     no_args_is_help=True,
 )
 graph_app.add_typer(graph_describe_app, name="describe")
+
+
+# --------------------------------------------------------------------------- #
+# Shared Typer-facing describe wrapper: calls run_describe(), echoes stdout/
+# stderr, writes the trace record with the mapped exit code, raises on nonzero.
+# CLI output stays byte-identical (Wave 3 snapshots verify).
+# --------------------------------------------------------------------------- #
+
+
+def _describe_cli(
+    *,
+    kind: str,
+    identifier: Optional[str],
+    command: str,
+    trace: bool,
+    workspace: str,
+) -> None:
+    repo, workspace_path = _resolve_paths(workspace)
+
+    trace_file = None
+    if trace:
+        shared_stamp = _iso_utc_timestamp()
+        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
+
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = run_describe(kind, identifier, repo, workspace_path)
+    dur_ms = int((time.monotonic() - t0) * 1000)
+
+    if stdout:
+        typer.echo(stdout)
+    if stderr:
+        typer.echo(stderr, err=True)
+
+    if trace_file is not None:
+        _write_trace_record(
+            trace_file,
+            event="graph_describe",
+            command=command,
+            args_dict={"kind": kind, "identifier": identifier},
+            exit_code=exit_code,
+            duration_ms=dur_ms,
+            model_id=None,
+        )
+
+    if exit_code != exit_codes.SUCCESS:
+        raise typer.Exit(code=exit_code)
 
 
 # --------------------------------------------------------------------------- #
@@ -191,23 +448,14 @@ def graph_build_cmd(
             model_id=model,
         )
 
-    exit_code = exit_codes.SUCCESS
     t0 = time.monotonic()
-    try:
-        update.run(repo, workspace=workspace_path, full=full)
-    except update.NotInGitRepoError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        exit_code = exit_codes.NOT_IN_GIT_REPO
-    except update.UpdateInProgressError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        exit_code = exit_codes.UPDATE_IN_PROGRESS
-    except SchemaMismatchError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        exit_code = exit_codes.SCHEMA_MISMATCH
-    except Exception as exc:
-        typer.echo(f"error: {exc}", err=True)
-        exit_code = exit_codes.GENERIC
+    exit_code, stdout, stderr = run_build(repo, workspace_path, full=full)
     dur_ms = int((time.monotonic() - t0) * 1000)
+
+    if stdout:
+        typer.echo(stdout)
+    if stderr:
+        typer.echo(stderr, err=True)
 
     if trace_file is not None:
         _write_trace_record(
@@ -236,47 +484,13 @@ def describe_package_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe a package."""
-    repo, workspace_path = _resolve_paths(workspace)
-    conn = _open_graph_conn(workspace_path)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    t0 = time.monotonic()
-    try:
-        desc = queries.describe_package(conn, name=name)
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    if desc is None:
-        typer.echo(f"error: package not found: {name}", err=True)
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_describe",
-                command="graph describe package",
-                args_dict={"kind": "package", "identifier": name},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    typer.echo(_render.format_package(desc, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe package",
-            args_dict={"kind": "package", "identifier": name},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="package",
+        identifier=name,
+        command="graph describe package",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 @graph_describe_app.command(name="path")
@@ -286,47 +500,13 @@ def describe_path_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe a path (file or directory)."""
-    repo, workspace_path = _resolve_paths(workspace)
-    conn = _open_graph_conn(workspace_path)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    t0 = time.monotonic()
-    try:
-        desc = queries.describe_path(conn, path=path)
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    if desc is None:
-        typer.echo(f"error: path not found: {path}", err=True)
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_describe",
-                command="graph describe path",
-                args_dict={"kind": "path", "identifier": path},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    typer.echo(_render.format_path(desc, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe path",
-            args_dict={"kind": "path", "identifier": path},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="path",
+        identifier=path,
+        command="graph describe path",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 @graph_describe_app.command(name="repository")
@@ -335,47 +515,13 @@ def describe_repository_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe the repository (no identifier required)."""
-    repo, workspace_path = _resolve_paths(workspace)
-    conn = _open_graph_conn(workspace_path)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    t0 = time.monotonic()
-    try:
-        desc = queries.describe_repository(conn)
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    if desc is None:
-        typer.echo("error: repository not found", err=True)
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_describe",
-                command="graph describe repository",
-                args_dict={"kind": "repository", "identifier": None},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    typer.echo(_render.format_repo(desc, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe repository",
-            args_dict={"kind": "repository", "identifier": None},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="repository",
+        identifier=None,
+        command="graph describe repository",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 @graph_describe_app.command(name="domain")
@@ -385,65 +531,13 @@ def describe_domain_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe a domain."""
-    repo, workspace_path = _resolve_paths(workspace)
-    conn = _open_graph_conn(workspace_path)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    t0 = time.monotonic()
-    try:
-        desc = queries.describe_domain(conn, name=name)
-        if desc is None:
-            dur_ms = int((time.monotonic() - t0) * 1000)
-            typer.echo(f"error: not found: {name}", err=True)
-            if trace_file is not None:
-                _write_trace_record(
-                    trace_file,
-                    event="graph_describe",
-                    command="graph describe domain",
-                    args_dict={"kind": "domain", "identifier": name},
-                    exit_code=exit_codes.GENERIC,
-                    duration_ms=dur_ms,
-                    model_id=None,
-                )
-            raise typer.Exit(code=exit_codes.GENERIC)
-        pkg_rows = conn.execute(
-            "SELECT p.name FROM edges e "
-            "JOIN nodes p ON e.src = p.id "
-            "JOIN nodes d ON e.dst = d.id "
-            "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (name,),
-        ).fetchall()
-        packages = [r[0] for r in pkg_rows]
-        sub_rows = conn.execute(
-            "SELECT c.name FROM edges e "
-            "JOIN nodes c ON e.dst = c.id "
-            "JOIN nodes p ON e.src = p.id "
-            "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
-            "ORDER BY c.name",
-            (name,),
-        ).fetchall()
-        subdomains = [r[0] for r in sub_rows]
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    typer.echo(_render.format_domain(desc, packages, subdomains, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe domain",
-            args_dict={"kind": "domain", "identifier": name},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="domain",
+        identifier=name,
+        command="graph describe domain",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 @graph_describe_app.command(name="entry-point")
@@ -453,85 +547,13 @@ def describe_entry_point_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe an entry-point."""
-    repo, workspace_path = _resolve_paths(workspace)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    conn = _open_graph_conn(workspace_path)
-    t0 = time.monotonic()
-    try:
-        raw = name
-        if ":" in raw:
-            package_name, entry_name = raw.split(":", 1)
-            desc = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
-        else:
-            # Bare entry name: scan all packages that declare an EntryPoint by this name.
-            rows = conn.execute(
-                "SELECT pkg.name "
-                "FROM nodes pkg "
-                "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
-                "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
-                # Phase 50 D-04: include apps too — apps declare entry points
-                # via the same manifest fields as packages.
-                "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
-                (raw,),
-            ).fetchall()
-            if not rows:
-                desc = None
-            elif len(rows) > 1:
-                packages = ", ".join(r[0] for r in rows)
-                typer.echo(
-                    f"error: entry point not found: {raw} "
-                    f"(ambiguous across packages: {packages}; use 'package:entry')",
-                    err=True,
-                )
-                dur_ms = int((time.monotonic() - t0) * 1000)
-                if trace_file is not None:
-                    _write_trace_record(
-                        trace_file,
-                        event="graph_describe",
-                        command="graph describe entry-point",
-                        args_dict={"kind": "entry_point", "identifier": name},
-                        exit_code=exit_codes.AMBIGUOUS,
-                        duration_ms=dur_ms,
-                        model_id=None,
-                    )
-                raise typer.Exit(code=exit_codes.AMBIGUOUS)
-            else:
-                desc = queries.describe_entry_point(conn, package_name=rows[0][0], entry_name=raw)
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    if desc is None:
-        typer.echo(f"error: entry point not found: {name}", err=True)
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_describe",
-                command="graph describe entry-point",
-                args_dict={"kind": "entry_point", "identifier": name},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    typer.echo(_render.format_entry_point(desc, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe entry-point",
-            args_dict={"kind": "entry_point", "identifier": name},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="entry_point",
+        identifier=name,
+        command="graph describe entry-point",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 @graph_describe_app.command(name="test-suite")
@@ -541,47 +563,13 @@ def describe_test_suite_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
 ) -> None:
     """Describe a test-suite."""
-    repo, workspace_path = _resolve_paths(workspace)
-    conn = _open_graph_conn(workspace_path)
-
-    trace_file = None
-    if trace:
-        shared_stamp = _iso_utc_timestamp()
-        trace_file = _trace_path(workspace_path, "graph-describe", shared_stamp)
-
-    t0 = time.monotonic()
-    try:
-        desc = queries.describe_test_suite(conn, suite_name=name)
-    finally:
-        conn.close()
-    dur_ms = int((time.monotonic() - t0) * 1000)
-
-    if desc is None:
-        typer.echo(f"error: test-suite not found: {name}", err=True)
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_describe",
-                command="graph describe test-suite",
-                args_dict={"kind": "test_suite", "identifier": name},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    typer.echo(_render.format_suite(desc, fmt="human"))
-
-    if trace_file is not None:
-        _write_trace_record(
-            trace_file,
-            event="graph_describe",
-            command="graph describe test-suite",
-            args_dict={"kind": "test_suite", "identifier": name},
-            exit_code=exit_codes.SUCCESS,
-            duration_ms=dur_ms,
-            model_id=None,
-        )
+    _describe_cli(
+        kind="test_suite",
+        identifier=name,
+        command="graph describe test-suite",
+        trace=trace,
+        workspace=workspace,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -612,33 +600,22 @@ def graph_query_cmd(
         shared_stamp = _iso_utc_timestamp()
         trace_file = _trace_path(workspace_path, "graph-query", shared_stamp)
 
-    conn = _open_graph_conn(workspace_path)
     t0 = time.monotonic()
-    try:
-        records = queries.find(conn, name=name, kind=kind, in_package=in_package)
-    finally:
-        conn.close()
+    exit_code, stdout, stderr = run_query(
+        repo, workspace_path, name=name, kind=kind, in_package=in_package
+    )
     dur_ms = int((time.monotonic() - t0) * 1000)
 
-    # D-07 quirk: --in-package non-match → exit 1 (distinct from name/kind
-    # zero-result which stays SUCCESS). Source: q_find.py:66-68.
-    if in_package is not None and not records:
-        if trace_file is not None:
-            _write_trace_record(
-                trace_file,
-                event="graph_query",
-                command="graph query",
-                args_dict={"name": name, "kind": kind, "in_package": in_package},
-                exit_code=exit_codes.GENERIC,
-                duration_ms=dur_ms,
-                model_id=None,
-            )
-        raise typer.Exit(code=exit_codes.GENERIC)
-
-    def _notice(shown: int, total: int) -> None:
-        typer.echo(f"... showing {shown} of {total} (truncated)", err=True)
-
-    typer.echo(_render.render(records, fmt="human", cap=50, on_truncate=_notice))
+    # Echo render output (stdout) on success; truncation notice / store-error
+    # message goes to stderr. The D-07 --in-package no-match path returns
+    # GENERIC with empty stdout/stderr (nothing to echo) — matching the old
+    # CLI which printed nothing before raising typer.Exit(GENERIC).
+    if exit_code == exit_codes.SUCCESS:
+        typer.echo(stdout)
+        if stderr:
+            typer.echo(stderr, err=True)
+    elif stderr:
+        typer.echo(stderr, err=True)
 
     if trace_file is not None:
         _write_trace_record(
@@ -646,10 +623,13 @@ def graph_query_cmd(
             event="graph_query",
             command="graph query",
             args_dict={"name": name, "kind": kind, "in_package": in_package},
-            exit_code=exit_codes.SUCCESS,
+            exit_code=exit_code,
             duration_ms=dur_ms,
             model_id=None,
         )
+
+    if exit_code != exit_codes.SUCCESS:
+        raise typer.Exit(code=exit_code)
 
 
 # --------------------------------------------------------------------------- #
