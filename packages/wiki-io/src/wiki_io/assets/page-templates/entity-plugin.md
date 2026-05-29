@@ -22,5 +22,4 @@ _(scanner will populate on next scan)_
 > TODO: <Edge cases, surprises, or quirks future readers should know about.>
 
 ## Related
-- [[concepts/<concept>]]
-- [[packages/<other-pkg>]]
+No related concept, ADR, or architecture pages yet.

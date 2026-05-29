@@ -479,7 +479,7 @@ def test_merge_fills_empty_summary_from_scanner() -> None:
 def test_merge_summary_todo_marker_when_description_empty() -> None:
     """D-03/D-12: scanner-provided TODO-marker summary fills an empty page summary."""
     existing = {"uri": "pkg:x", "kind": "package"}
-    todo = "> TODO: <add a one-line summary for x>"
+    todo = "TODO add a one-line summary for x"
     scanner_update = {"uri": "pkg:x", "kind": "package", "summary": todo}
     out = merge_frontmatter(existing, scanner_update)
     assert out["summary"] == todo

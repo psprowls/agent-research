@@ -40,7 +40,4 @@ _(scanner will populate on next scan)_
 - Edge cases, surprises, or quirks future readers should know about.
 
 ## Related
-- [[concepts/<concept>]]
-- [[apps/<other-app>]]
-- [[domains/<domain>]]
-- [[packages/<pkg>]]
+No related concept, ADR, or architecture pages yet.
