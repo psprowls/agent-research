@@ -1,21 +1,23 @@
 ---
 phase: 58-entity-page-index-uat-follow-ups
-verified: 2026-05-28T00:00:00Z
-status: human_needed
+verified: 2026-05-29T00:00:00Z
+status: passed
 score: 3/3 must-haves verified
 overrides_applied: 0
+human_verification_completed: "2026-05-29 — UAT (58-UAT.md): user confirmed Obsidian renders the summary bullet inline (no blockquote) and ## Related as plain prose; index By Kind nests only each package's own suites"
 human_verification:
   - test: "Open a regenerated entity page in Obsidian and confirm the summary: bullet renders inline (not as a blockquote) and the ## Related section shows as plain prose text"
     expected: "Both items render as ordinary Markdown prose — no blockquote, no broken angle-bracket fragments"
     why_human: "True Obsidian rendering fidelity is a runtime concern; automated tests assert the string constraints (no >/</: characters) that are the root cause, not visual pixels"
+    result: "passed (user-confirmed via 58-UAT.md, 2026-05-29)"
 ---
 
 # Phase 58: Entity Page & Index UAT Follow-Ups Verification Report
 
 **Phase Goal:** The three wiki-io defects/enhancements surfaced during v1.10 UAT (Phases 56-57) are resolved — entity `## Related` sections show a clean Obsidian-safe fill-me-in marker (dynamic population from curated backlinks deferred per CONTEXT D-01), summary placeholders render cleanly in Obsidian, and each package nests only the test suites that actually test it (resolution keys on test_suite node id/uri rather than the shared `name`).
-**Verified:** 2026-05-28
-**Status:** human_needed (all automated checks pass; one Obsidian visual render check deferred to human)
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-29
+**Status:** passed (all automated checks pass; Obsidian visual render check user-confirmed via 58-UAT.md on 2026-05-29)
+**Re-verification:** Yes — human verification item resolved via UAT
 
 ---
 
