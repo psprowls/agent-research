@@ -2,7 +2,7 @@
 
 Built via `build_graph_tools(conn)` factory that captures the connection in
 closure scope (LIBTOOLS-03). All tools return strings (LIBTOOLS-02) and route
-results through `graph_io.cli._format.render(...)` with a 50-row cap.
+results through `graph_io.render.render(...)` with a 50-row cap.
 
 Decision references: D-01..D-12 in .planning/phases/37-librarian-grounding-tools/37-CONTEXT.md.
 """
@@ -13,7 +13,7 @@ import sqlite3
 from typing import Callable
 
 from graph_io import queries
-from graph_io.cli._format import render
+from graph_io.render import render
 from langchain_core.tools import BaseTool, tool
 
 _DESCRIBE_KINDS = (
