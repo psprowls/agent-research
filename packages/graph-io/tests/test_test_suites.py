@@ -123,7 +123,9 @@ def test_package_local_tests_dir_is_package_contained(tmp_path: Path) -> None:
     _run_emit_pipeline(conn, tmp_path)
 
     rows = _suite_rows(conn)
-    assert ("tests", "packages/foo/tests") in rows
+    # SC#3b: package-owned suite gets unique qualified name <owner>-<kind>-tests
+    assert ("foo-unit-tests", "packages/foo/tests") in rows
+    assert ("tests", "packages/foo/tests") not in rows
     # Parent edge: Package(foo) -> TestSuite
     parent = conn.execute(
         """
@@ -149,7 +151,9 @@ def test_jsts_underscores_tests_dir_same_as_c(tmp_path: Path) -> None:
     _run_emit_pipeline(conn, tmp_path)
 
     rows = _suite_rows(conn)
-    assert ("__tests__", "packages/jspkg/__tests__") in rows
+    # SC#3b: package-owned JS suite gets qualified name <owner>-<kind>-tests
+    assert ("jspkg-unit-tests", "packages/jspkg/__tests__") in rows
+    assert ("__tests__", "packages/jspkg/__tests__") not in rows
 
 
 # ---------- Task 3: tests edges ----------
