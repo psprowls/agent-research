@@ -140,3 +140,52 @@ def test_no_testing_section_leaked_into_package_or_app(name: str) -> None:
     assert "## test conventions" not in body, (
         f"{name}: testing `## Test conventions` leaked in"
     )
+
+
+# --- Phase 58 (SC#1, D-01/D-02/D-03) ----------------------------------------
+# Regression guard: the ## Related block in entity templates must be
+# Obsidian-safe — no `<...>` placeholder text, no leading `>` (blockquote),
+# no `:` character on any body line.
+
+_RELATED_BLOCK_RE = re.compile(
+    r"^## Related\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL
+)
+
+
+def _related_block_body(template_name: str) -> str | None:
+    """Return the body text after `## Related` up to the next H2 or EOF.
+
+    Returns None if the template has no `## Related` section.
+    """
+    body = _body(template_name)
+    m = _RELATED_BLOCK_RE.search(body)
+    if m is None:
+        return None
+    return m.group(1)
+
+
+@pytest.mark.parametrize(
+    "template_path",
+    ENTITY_TEMPLATES,
+    ids=[p.name for p in ENTITY_TEMPLATES],
+)
+def test_related_block_is_obsidian_safe(template_path: Path) -> None:
+    """## Related block body has no `<` placeholder, no leading `>`, no `:` (SC#1 D-02).
+
+    Templates with no ## Related section are skipped — they are not required
+    to carry one (entity-test-suite.md, entity-dependency.md).
+    """
+    related_body = _related_block_body(template_path.name)
+    if related_body is None:
+        pytest.skip(f"{template_path.name}: no ## Related section — skip")
+
+    for line in related_body.splitlines():
+        assert "<" not in line, (
+            f"{template_path.name}: ## Related body contains `<` placeholder text: {line!r}"
+        )
+        assert not line.startswith(">"), (
+            f"{template_path.name}: ## Related body line starts with `>` (Obsidian blockquote): {line!r}"
+        )
+        assert ":" not in line, (
+            f"{template_path.name}: ## Related body line contains `:`: {line!r}"
+        )
