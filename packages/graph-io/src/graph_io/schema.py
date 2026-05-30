@@ -11,6 +11,10 @@ import sqlite3
 
 SCHEMA_VERSION = 2
 
+# Bumped whenever any node/edge/attr DERIVATION logic changes (e.g. classification.classify,
+# app_kind precedence, derived-edge rules) so existing graphs auto-rebuild without --full.
+DERIVER_VERSION = 1
+
 _DDL_STATEMENTS = (
     """
     CREATE TABLE IF NOT EXISTS nodes (
