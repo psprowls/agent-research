@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 Phase: Milestone v1.10 complete (Phases 54-59)
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-29 — Completed quick task 260529-q8r: Fix C sweep Gate-1 divergence wiring (run_full_matrix now passes real metric + baselines_dir; 1585 passed). Fixes B + C both landed; ready for Step 3 clean live re-run.
+Last activity: 2026-05-29 — Completed quick task 260529-sot: Fix D+E+F sweep harness (override-bypass, Gate-1 scale, quality scoring; 1593 passed). $7.02 diagnostic run (8cf091a) exposed D/E; B/C/D/E/F all landed. NEXT: pared-down verification run, then full re-run if verified.
 
 ## Progress Bar
 
@@ -71,6 +71,7 @@ None.
 | 260529-pf8 | Update stale config-pinning tests after na9 sweep refresh (Haiku global, qwen3 price, retire D-03 tier map) | 2026-05-29 | 07c81ea | [260529-pf8-update-stale-config-pinning-tests-after-](./quick/260529-pf8-update-stale-config-pinning-tests-after-/) |
 | 260529-pzd | Fix B — model-adapter normalizes list-shaped ("thinking"/multi-block) response content to str (preserves reasoning), covers invoke + ainvoke | 2026-05-29 | 02ee3fe | [260529-pzd-fix-b-model-adapter-content-normalizer](./quick/260529-pzd-fix-b-model-adapter-content-normalizer/) |
 | 260529-q8r | Fix C — wire per-role DivergenceMetric + baselines_dir into run_full_matrix (Gate 1 was hardcoded None → auto-FAIL for every candidate) | 2026-05-29 | 43c9dd6 | [260529-q8r-fix-c-sweep-gate-1-divergence-wiring](./quick/260529-q8r-fix-c-sweep-gate-1-divergence-wiring/) |
+| 260529-sot | Fix D+E+F — route 6 model-override branches through make_llm (D); rate-based Gate 1 + empty-output disqualification (E); populate SweepResult.judge_scores w/ real quality signal (F) | 2026-05-29 | e9cd8b1 | [260529-sot-fix-d-e-f-sweep-harness-override-bypass-](./quick/260529-sot-fix-d-e-f-sweep-harness-override-bypass-/) |
 
 ### Key decisions (v1.10 — locked, now shipped)
 
