@@ -999,3 +999,61 @@ def test_refresh_python_package_dev_dependencies_empty(
     assert row is not None
     attrs = json.loads(row[0])
     assert attrs["dev_dependencies"] == []
+
+
+# ============================================================================
+# Quick 260530-k5y Task 1: _read_package_json returns dep_specs name->spec map
+# ============================================================================
+
+
+def test_read_package_json_dep_specs_runtime_and_dev(tmp_path: Path) -> None:
+    """k5y T1: dep_specs covers runtime + dev deps; runtime version wins on name collision."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({
+            "name": "mypkg",
+            "version": "1.0.0",
+            "dependencies": {"react": "^18.2.0", "lodash": "^4.17.21"},
+            "devDependencies": {"vitest": "^1.0.0", "react": "^17.0.0"},  # react in both — runtime wins
+        })
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    dep_specs = info["dep_specs"]
+    # All four names present
+    assert set(dep_specs.keys()) == {"react", "lodash", "vitest"}
+    # runtime version wins for react (not the dev ^17.0.0)
+    assert dep_specs["react"] == "^18.2.0"
+    assert dep_specs["lodash"] == "^4.17.21"
+    assert dep_specs["vitest"] == "^1.0.0"
+    # Existing fields unchanged
+    assert info["dependencies"] == sorted(["react", "lodash", "vitest"])
+    assert info["dev_dependencies"] == ["vitest"]
+
+
+def test_read_package_json_dep_specs_empty_when_no_deps(tmp_path: Path) -> None:
+    """k5y T1: dep_specs is empty dict when no dependencies declared."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(json.dumps({"name": "bare", "version": "1.0.0"}))
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    assert info["dep_specs"] == {}
+
+
+def test_read_package_json_dep_specs_coerces_non_string_spec(tmp_path: Path) -> None:
+    """k5y T1: non-string spec values are coerced to '' rather than raising."""
+    manifest = tmp_path / "package.json"
+    manifest.write_text(
+        json.dumps({
+            "name": "mypkg",
+            "version": "1.0.0",
+            "dependencies": {"react": 18, "lodash": None},
+        })
+    )
+    info = packages._read_package_json(manifest)
+    assert info is not None
+    # Should not raise; non-string specs become ""
+    assert "react" in info["dep_specs"]
+    assert "lodash" in info["dep_specs"]
+    assert isinstance(info["dep_specs"]["react"], str)
+    assert isinstance(info["dep_specs"]["lodash"], str)
