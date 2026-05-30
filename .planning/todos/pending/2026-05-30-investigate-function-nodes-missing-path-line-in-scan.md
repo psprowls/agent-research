@@ -53,3 +53,46 @@ Confirm and decide — not necessarily a code change:
 
 Defer active work until the JS-dependency-injection effort is merged — this may be
 a no-op afterward. Keep as an understand-then-decide task.
+
+## Update 2026-05-30 — related finding: missing URIs are build artifacts
+
+While investigating a sibling question ("why do files/classes/functions/methods
+lack URIs?") we ran `SELECT kind, count(*) n, count(uri) with_uri FROM nodes
+GROUP BY kind` against the `mono-repo` `code.db`. Two distinct outcomes:
+
+- **class (319), function (3336), method (949) → `with_uri = 0`: by design.**
+  `uri.py` defines URI constructors only for entity/structural kinds (repo, pkg,
+  app, subpkg, file, entry_point, test_suite, domain, plugin, dependency, builtin).
+  There is no class/function/method URI scheme; code symbols are identified by
+  `(name, path, line)`. Not a bug.
+- **file: 1629 total, 1463 with URI → 166 files have NULL `uri`.** All 166 have a
+  non-null `path` (`no_path = 0`), and every path is a **compiled build artifact**:
+  `dist/**` bundles, `*.d.ts` declarations, `apps/*/.vite/build/main.js`. Examples:
+  `domains/device/device-data-node-ts/dist/index.js`,
+  `domains/financial/financial-domain-ts/dist/index.d.ts`.
+
+### Why this happens (hypothesis)
+
+`structural_nodes.emit` only stamps a `file:` URI on **tracked, package-owned**
+source files it walks (`structural_nodes.py:560-640`); it never reaches these
+`dist/` artifacts. They still appear as file nodes because cross-package imports
+resolve to the built entry point (JS/TS `package.json main`/`exports` point at
+`dist/index.js`), so the import resolver creates a path-bearing file node for the
+compiled output rather than the `src/` source. → path set, no URI, never enriched.
+
+This is the **same JS-dependency root cause** as the path/line-less functions above,
+seen from the file angle — and it likely inflates the function/class counts too
+(each `dist/` bundle re-declares the `src/` symbols).
+
+### Add to the scope above
+
+4. **Confirm the 166 are import/edge targets** (not strays):
+   `SELECT count(*) FROM nodes n WHERE n.kind='file' AND n.uri IS NULL
+   AND EXISTS (SELECT 1 FROM edges e WHERE e.dst = n.id);` — expect ~166.
+5. **Exclude build output from the scan.** Add `dist/`, `.vite/`, and `*.d.ts`
+   (build artifacts) to the scan ignore set (`.cgignore` / `skip_dirs`). These are
+   generated; they shouldn't be first-class graph nodes regardless of the dep work.
+6. **Re-check after JS-dependency injection lands** — verify workspace imports
+   resolve to `src/` (or to clean `dependency:` nodes) instead of `dist/` entry
+   points, which should drop most of the 166 `dist/` file nodes and the duplicate
+   symbol inflation.
