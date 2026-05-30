@@ -166,6 +166,61 @@ def test_entities_in_fixed_vault_dirs() -> None:
     assert "entities" in FIXED_VAULT_DIRS
 
 
+def test_dependencies_not_in_fixed_vault_dirs() -> None:
+    """IQP: 'dependencies' legacy container must NOT be in FIXED_VAULT_DIRS."""
+    from wiki_io.init_vault import FIXED_VAULT_DIRS
+
+    assert "dependencies" not in FIXED_VAULT_DIRS
+
+
+def test_legacy_container_folders_not_created_by_bootstrap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IQP: init_wiki must NOT materialize legacy container folders (apps/packages/domains/dependencies)
+    even when _resolve_pinned_containers returns non-empty vault_dir entries for them.
+    Canonical FIXED_VAULT_DIRS (entities, concepts, architecture, adrs, sources, .templates)
+    must still be created.
+    """
+    from wiki_io import init_vault
+
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname="solo"\nversion="0.0.1"\n', encoding="utf-8"
+    )
+
+    pinned_stub = [
+        {"source": "apps", "vault_dir": "apps", "classification": "app", "children_count": 3},
+        {"source": "packages", "vault_dir": "packages", "classification": "package", "children_count": 5},
+        {"source": "domains", "vault_dir": "domains", "classification": "package", "children_count": 2},
+    ]
+
+    monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
+    monkeypatch.setattr(
+        init_vault, "_resolve_pinned_containers", lambda *a, **k: pinned_stub
+    )
+
+    init_vault.init_wiki(
+        wiki, repo, topic="test", tool="claude-code", force=False, non_interactive=True
+    )
+
+    # Legacy container folders must NOT exist
+    assert not (wiki / "dependencies").exists(), "dependencies/ must not be created"
+    assert not (wiki / "apps").exists(), "apps/ must not be created (container vault_dirs not materialized)"
+    assert not (wiki / "packages").exists(), "packages/ must not be created (container vault_dirs not materialized)"
+    assert not (wiki / "domains").exists(), "domains/ must not be created (container vault_dirs not materialized)"
+
+    # Canonical dirs must still exist
+    assert (wiki / "entities").is_dir(), "entities/ must be created"
+    assert (wiki / "concepts").is_dir(), "concepts/ must be created"
+    assert (wiki / "architecture").is_dir(), "architecture/ must be created"
+    assert (wiki / "adrs").is_dir(), "adrs/ must be created"
+    assert (wiki / "sources").is_dir(), "sources/ must be created"
+    assert (wiki / ".templates").is_dir(), ".templates/ must be created"
+
+
 def test_entities_dir_bootstrapped_after_init_wiki(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
