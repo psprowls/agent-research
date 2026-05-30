@@ -117,6 +117,16 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     runtime_names: set[str] = set(deps.keys()) if isinstance(deps, dict) else set()
     dev_names: set[str] = set(dev_deps.keys()) if isinstance(dev_deps, dict) else set()
     merged = sorted(runtime_names | dev_names)
+    # k5y T1: build name->spec map covering all declared deps (runtime + dev).
+    # Runtime entries take precedence when a name appears in both maps.
+    # Non-string spec values are coerced to "" defensively.
+    dep_specs: dict[str, str] = {}
+    if isinstance(dev_deps, dict):
+        for dep_name, spec in dev_deps.items():
+            dep_specs[dep_name] = spec if isinstance(spec, str) else ""
+    if isinstance(deps, dict):
+        for dep_name, spec in deps.items():
+            dep_specs[dep_name] = spec if isinstance(spec, str) else ""
     return {
         "name": name,
         "version": data.get("version", ""),
@@ -124,6 +134,7 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
         "description": data.get("description", ""),
         "dependencies": merged,  # runtime + dev, sorted + deduped
         "dev_dependencies": sorted(dev_names),  # GQP-01: dev-origin marker
+        "dep_specs": dep_specs,  # k5y T1: name->raw-spec for all deps (runtime wins)
         "language": "javascript",
         "bin_present": bin_present,  # Phase 50 D-03
     }

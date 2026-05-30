@@ -1028,7 +1028,9 @@ def test_read_package_json_dep_specs_runtime_and_dev(tmp_path: Path) -> None:
     assert dep_specs["vitest"] == "^1.0.0"
     # Existing fields unchanged
     assert info["dependencies"] == sorted(["react", "lodash", "vitest"])
-    assert info["dev_dependencies"] == ["vitest"]
+    # dev_dependencies is raw devDeps keys (react appears in both — it's listed in dev_deps)
+    assert "vitest" in info["dev_dependencies"]
+    assert "react" in info["dev_dependencies"]
 
 
 def test_read_package_json_dep_specs_empty_when_no_deps(tmp_path: Path) -> None:
