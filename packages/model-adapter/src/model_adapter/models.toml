@@ -63,7 +63,7 @@ sweep_candidates = [
 # only (no frontmatter, no headings — just the body between `## Narrative`
 # and the next H2 on an entity page).
 [roles.narrator]
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 600
 max_concurrency = 10
@@ -122,7 +122,7 @@ sweep_candidates = [
 # scanner so cost-per-role is trackable and the model can be tuned
 # independently. Initial config mirrors scanner; revisit in v1.9 eval.
 [roles.domain-proposer]
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 1024
 max_concurrency = 5
