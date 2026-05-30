@@ -51,9 +51,19 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
     from graph_io import import_scan  # noqa: PLC0415 — lazy to break import cycle
 
     repo_root = Path(repo_root)
-    # Specifier-stub imports edges: dst is a file node with a non-null path
-    # (the raw specifier) and uri IS NULL. Join the src file node for its path.
-    # dst.name is the imported symbol — preserve it in edge attrs so per-symbol
+    # Specifier-stub imports edges: dst is a file node materialised from the
+    # edge dst-key ('file', symbol, raw_specifier) — so dst.name is the imported
+    # symbol and dst.path is the raw specifier. Real file nodes always have
+    # name == path (set by the projection / structural_nodes), so `dst.name !=
+    # dst.path` cleanly distinguishes a specifier stub from a real file node.
+    #
+    # The name!=path guard is essential: _process_files re-upserts file nodes
+    # with uri=NULL (uri is re-attached later by structural_nodes.emit), so on a
+    # repeat build real file nodes transiently have uri IS NULL too — without the
+    # name!=path guard this pass would mistake an already-resolved real file node
+    # for a stub and flip its resolved edges back to unresolved (idempotency bug).
+    #
+    # dst.name (the imported symbol) is preserved in edge attrs so per-symbol
     # information is not lost once the edge points at the (multi-symbol) file.
     rows = conn.execute(
         "SELECT e.src, e.dst, e.attrs_json, src.path AS importing_path, "
@@ -63,6 +73,7 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
         "JOIN nodes dst ON e.dst = dst.id "
         "WHERE e.kind = 'imports' "
         "AND dst.kind = 'file' AND dst.uri IS NULL AND dst.path IS NOT NULL "
+        "AND dst.name != dst.path "
         "AND src.path IS NOT NULL"
     ).fetchall()
 

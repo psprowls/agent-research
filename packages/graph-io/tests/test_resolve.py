@@ -370,8 +370,9 @@ def _seed_file_import(
     optionally a real target file node.
 
     Mirrors the materialised graph after _process_files: the imports edge dst
-    is a ('file', target_name, specifier) stub whose path == specifier and
-    uri IS NULL.
+    is a ('file', target_symbol, specifier) stub whose name is the imported
+    symbol, path == specifier, and uri IS NULL (name != path — the
+    discriminator resolve_file_imports relies on).
     """
     nodes = [
         GraphNode(kind="file", name=importing_path, path=importing_path, line=None,
@@ -386,10 +387,11 @@ def _seed_file_import(
     src_id = conn.execute(
         "SELECT id FROM nodes WHERE kind='file' AND path=?", (importing_path,)
     ).fetchone()[0]
+    # Stub: name = imported symbol ("imported_sym"), path = raw specifier.
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
-        "VALUES ('file', ?, ?, NULL, '{}', NULL)",
-        (specifier, specifier),
+        "VALUES ('file', 'imported_sym', ?, NULL, '{}', NULL)",
+        (specifier,),
     )
     stub_id = conn.execute(
         "SELECT id FROM nodes WHERE kind='file' AND path=? AND uri IS NULL",
@@ -475,9 +477,10 @@ def test_resolve_file_imports_ambiguous(
             "VALUES ('file', 'packages/jspkg-b/foo.js', 'packages/jspkg-b/foo.js', NULL, '{}', ?)",
             (f"repo:org/x/blob/abc/dup{i}",),
         )
+    # Stub: name = imported symbol, path = raw specifier (name != path).
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
-        "VALUES ('file', '../../jspkg-b/foo', '../../jspkg-b/foo', NULL, '{}', NULL)"
+        "VALUES ('file', 'imported_sym', '../../jspkg-b/foo', NULL, '{}', NULL)"
     )
     stub_id = conn.execute(
         "SELECT id FROM nodes WHERE path='../../jspkg-b/foo'"
