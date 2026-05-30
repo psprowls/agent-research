@@ -5,8 +5,21 @@ area: model-adapter
 origin: 2026-05-29 live cost-frontier sweep — surfaced by Pat while watching the sweep log
 files:
   - packages/model-adapter/src/model_adapter/loader.py            # _GuardedChatBedrockConverse (line 78); guard currently wraps invoke only (line 92)
-  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py # str-assuming consumers: _extract_wikilinks (279-281), _compute_unresolved_wikilinks (606/1122), synth_resp.content (1117), citations (1151)
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py # synthesizer consumers: _extract_wikilinks (279-281), _compute_unresolved_wikilinks (606/1122), synth_resp.content (1117), citations (1151)
+  - agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py # ingestor consumer: resp.content (660) -> _parse_ingestor_response -> text.strip() (410)
 ---
+
+> **Update 2026-05-29 (ingestor sweep re-run):** This is broader than "thinking"
+> models. After the graph-io fix unblocked the ingestor sweep cells, the ingestor
+> ALSO failed for **`openai.gpt-oss-120b-1:0`** and **`minimax.minimax-m2.5`** with
+> `'list' object has no attribute 'strip'` — `ingest.py:660` assigns `resp.content`
+> (a list) and `_parse_ingestor_response` calls `.strip()` on it (`ingest.py:410`).
+> Neither model is a reasoning/"thinking" model, so the trigger is the response
+> SHAPE (block-list content), not the model class. This confirms the fix belongs
+> at the model-adapter boundary (one normalizer fixes synthesizer + ingestor +
+> any future role/model) and strengthens the "key off shape, never model ID"
+> requirement below. Affected so far: synthesizer = {deepseek-r1, kimi-k2-thinking};
+> ingestor = {gpt-oss-120b, minimax-m2.5}.
 
 ## Problem
 
