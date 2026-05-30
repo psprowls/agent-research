@@ -202,3 +202,134 @@ def test_sweep_is_idempotent(conn: sqlite3.Connection) -> None:
 
     count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='calls'").fetchone()[0]
     assert count == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests for sweep_skip_dir_files
+# ---------------------------------------------------------------------------
+
+_SKIP_DIRS: frozenset[str] = frozenset({"dist", "build", "node_modules"})
+
+
+def test_sweep_skip_dir_files_deletes_target_and_edge(conn: sqlite3.Connection) -> None:
+    """Test A: dist file node (uri=NULL) and its inbound imports edge are deleted."""
+    # Insert a real src file node with uri set
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'src/index.ts', 'pkg/src/index.ts', 1, '{}', 'repo:org/pkg/blob/abc/pkg/src/index.ts')"
+    )
+    src_id = conn.execute(
+        "SELECT id FROM nodes WHERE path='pkg/src/index.ts'"
+    ).fetchone()[0]
+
+    # Insert a dist file node with uri=NULL (the skip-dir target)
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pkg/dist/index.js', 'pkg/dist/index.js', NULL, '{}', NULL)"
+    )
+    dst_id = conn.execute(
+        "SELECT id FROM nodes WHERE path='pkg/dist/index.js'"
+    ).fetchone()[0]
+
+    # Insert an imports edge from src -> dist
+    conn.execute(
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'imports', '{}')",
+        (src_id, dst_id),
+    )
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+
+    # dist node is gone
+    dist_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='pkg/dist/index.js'"
+    ).fetchone()[0]
+    assert dist_count == 0, "dist file node should have been deleted"
+
+    # imports edge is gone (orphaned)
+    edge_count = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE src=? OR dst=?", (dst_id, dst_id)
+    ).fetchone()[0]
+    assert edge_count == 0, "imports edge targeting dist node should have been deleted"
+
+    # src node still there
+    src_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'"
+    ).fetchone()[0]
+    assert src_count == 1, "real src file node should survive"
+
+
+def test_sweep_skip_dir_files_spares_uri_bearing_src_file(conn: sqlite3.Connection) -> None:
+    """Test B: A file node with a non-null uri is not touched."""
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pkg/src/index.ts', 'pkg/src/index.ts', 1, '{}', 'repo:org/pkg/blob/abc/pkg/src/index.ts')"
+    )
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+
+    count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'"
+    ).fetchone()[0]
+    assert count == 1, "uri-bearing src file should survive sweep"
+
+
+def test_sweep_skip_dir_files_spares_non_file_nodes(conn: sqlite3.Connection) -> None:
+    """Test C: package node (uri=NULL) and function placeholder (path=NULL) survive."""
+    # package node with uri=NULL
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('package', 'my-pkg', NULL, NULL, '{}', NULL)"
+    )
+    # function placeholder (path=NULL) — path is NULL so skip-dir match is N/A
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('function', 'someFn', NULL, NULL, '{}', NULL)"
+    )
+    # Edge referencing the function placeholder so it stays alive
+    pkg_id = conn.execute("SELECT id FROM nodes WHERE kind='package'").fetchone()[0]
+    fn_id = conn.execute("SELECT id FROM nodes WHERE kind='function'").fetchone()[0]
+    conn.execute(
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'calls', '{}')",
+        (pkg_id, fn_id),
+    )
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+
+    kinds = {row[0] for row in conn.execute("SELECT kind FROM nodes").fetchall()}
+    assert "package" in kinds, "package node should survive sweep_skip_dir_files"
+    assert "function" in kinds, "function placeholder should survive sweep_skip_dir_files"
+
+
+def test_sweep_skip_dir_files_idempotent(conn: sqlite3.Connection) -> None:
+    """Test D: running sweep twice produces stable counts."""
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pkg/dist/index.js', 'pkg/dist/index.js', NULL, '{}', NULL)"
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pkg/src/index.ts', 'pkg/src/index.ts', 1, '{}', 'repo:x')"
+    )
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+    count_after_first = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+    count_after_second = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+
+    assert count_after_first == count_after_second, "sweep should be idempotent"
+
+
+def test_sweep_skip_dir_files_spares_non_skip_dir_null_uri_file(conn: sqlite3.Connection) -> None:
+    """Test E: a file node with uri=NULL but NO skip-dir component is untouched."""
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pkg/src/generated.ts', 'pkg/src/generated.ts', NULL, '{}', NULL)"
+    )
+
+    resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
+
+    count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/generated.ts'"
+    ).fetchone()[0]
+    assert count == 1, "non-skip-dir NULL-uri file should survive sweep"
