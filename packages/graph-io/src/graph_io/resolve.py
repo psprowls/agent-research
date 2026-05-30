@@ -6,10 +6,14 @@ import json
 import sqlite3
 from pathlib import Path
 
-from graph_io import import_scan
 from graph_io._ignore import should_skip
 
-_JS_EXTENSIONS = import_scan._JS_EXTENSIONS
+# JS/TS extensions used to pick the JS vs python resolver in
+# resolve_file_imports. Mirrors import_scan._JS_EXTENSIONS; kept as a local
+# tuple so this module avoids a top-level import_scan import (import_scan ->
+# structural_nodes -> update -> resolve would be a cycle). import_scan itself
+# is imported lazily inside resolve_file_imports.
+_JS_EXTENSIONS = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
 
 # Placeholder kinds eligible for the conservative single-candidate cross-kind
 # fallback (D-3). Restricted to the code-symbol placeholders emitted by the
@@ -44,12 +48,16 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
     deleted. Runs inside update's open transaction — does not open a new
     connection.
     """
+    from graph_io import import_scan  # noqa: PLC0415 — lazy to break import cycle
+
     repo_root = Path(repo_root)
     # Specifier-stub imports edges: dst is a file node with a non-null path
     # (the raw specifier) and uri IS NULL. Join the src file node for its path.
+    # dst.name is the imported symbol — preserve it in edge attrs so per-symbol
+    # information is not lost once the edge points at the (multi-symbol) file.
     rows = conn.execute(
         "SELECT e.src, e.dst, e.attrs_json, src.path AS importing_path, "
-        "dst.path AS specifier "
+        "dst.path AS specifier, dst.name AS symbol "
         "FROM edges e "
         "JOIN nodes src ON e.src = src.id "
         "JOIN nodes dst ON e.dst = dst.id "
@@ -70,7 +78,7 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
     ]
 
     stub_ids: set[int] = set()
-    for src_id, stub_id, attrs_json, importing_path, specifier in rows:
+    for src_id, stub_id, attrs_json, importing_path, specifier, symbol in rows:
         stub_ids.add(stub_id)
         importing_file = repo_root / importing_path
         if Path(importing_path).suffix in _JS_EXTENSIONS:
@@ -106,12 +114,21 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
             (src_id, stub_id),
         )
         resolution = "exact" if len(real) == 1 else "ambiguous"
+        # Preserve the imported symbol (the old stub's name) on the edge — the
+        # real file node carries no per-symbol info.
+        repoint_attrs: dict[str, object] = (
+            json.loads(attrs_json) if attrs_json else {}
+        )
+        repoint_attrs["resolution"] = resolution
+        if symbol is not None:
+            repoint_attrs.setdefault("symbol", symbol)
+        repoint_json = json.dumps(repoint_attrs, sort_keys=True)
         for (real_dst,) in real:
             conn.execute(
                 "INSERT INTO edges(src, dst, kind, attrs_json) "
                 "VALUES (?, ?, 'imports', ?) "
                 "ON CONFLICT(src, dst, kind) DO UPDATE SET attrs_json=excluded.attrs_json",
-                (src_id, real_dst, _set_resolution(attrs_json, resolution)),
+                (src_id, real_dst, repoint_json),
             )
 
     # Delete specifier stubs now orphaned (no inbound edge). Scope strictly to

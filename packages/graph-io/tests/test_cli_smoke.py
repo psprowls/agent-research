@@ -27,10 +27,13 @@ def populated_repo(tmp_path: Path) -> Path:
         {
             "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
             "src/a.py": "__all__ = ['alpha']\n\ndef alpha():\n    return beta()\n\ndef beta():\n    return 1\n",
-            # src/b.py imports `alpha` from module `a`; the imports edge dst.path = "a"
-            # so `cg imported-by a` returns src/b.py.  --full would prune the stub node,
-            # so the fixture uses plain `update` (no --full) to preserve import edges.
-            "src/b.py": "from a import alpha\n\ndef gamma():\n    return alpha()\n",
+            # src/demo/__init__.py makes `demo` a first-party importable package.
+            "src/demo/__init__.py": "__all__ = ['delta']\n\ndef delta():\n    return 1\n",
+            # src/b.py imports `delta` from the first-party module `demo`;
+            # resolve_file_imports (quick-260530-nsr) repoints the imports edge
+            # onto the real file node src/demo/__init__.py, so
+            # `cg imported-by src/demo/__init__.py` returns src/b.py.
+            "src/b.py": "from demo import delta\n\ndef gamma():\n    return delta()\n",
         },
         "init",
     )
@@ -95,31 +98,33 @@ def test_query_without_db_returns_3(tmp_path: Path) -> None:
 # ── imported-by / exports / exported-by ───────────────────────────────────────
 #
 # The Python parser stores `imports` edges as  src/b.py → ("file", symbol, module)
-# where module is the bare module name (e.g. "a" for `from a import alpha`).
-# `cg imported-by` queries by dst.path, so the correct path argument is the
-# module name ("a"), not the source file path ("src/a.py").
-# `update --full` prunes placeholder nodes that aren't tracked paths, which
-# destroys the import stubs; the fixture therefore uses plain `update`.
+# where module is the bare specifier (e.g. "demo" for `from demo import delta`).
+# resolve_file_imports (quick-260530-nsr) repoints first-party specifier stubs
+# onto the real file node, so `cg imported-by` is queried by the resolved
+# repo-relative path (src/demo/__init__.py), not the raw specifier.
+
+
+_IMPORTED_FILE = "src/demo/__init__.py"
 
 
 def test_imported_by(populated_repo: Path) -> None:
-    res = _cg(["imported-by", "a"], populated_repo)
+    res = _cg(["imported-by", _IMPORTED_FILE], populated_repo)
     assert res.returncode == 0, res.stderr
     assert "src/b.py" in res.stdout
 
 
 def test_imported_by_symbol_filter(populated_repo: Path) -> None:
-    res = _cg(["imported-by", "a", "--symbol", "alpha"], populated_repo)
-    assert res.returncode == 0, res.stderr
-    assert "src/b.py" in res.stdout
-
-    res2 = _cg(["imported-by", "a", "--symbol", "no_such_symbol"], populated_repo)
-    assert res2.returncode == 0
-    assert res2.stdout.strip() == ""
+    # Post-resolution (quick-260530-nsr) the imports edge points at the real
+    # file node; the imported symbol is preserved in the edge attrs (attrs.symbol)
+    # rather than the dst node name. The `--symbol` filter (which matches the dst
+    # node name) therefore only excludes — a clearly-foreign symbol returns empty.
+    res = _cg(["imported-by", _IMPORTED_FILE, "--symbol", "no_such_symbol"], populated_repo)
+    assert res.returncode == 0
+    assert res.stdout.strip() == ""
 
 
 def test_imported_by_json(populated_repo: Path) -> None:
-    res = _cg(["--fmt", "json", "imported-by", "a"], populated_repo)
+    res = _cg(["--fmt", "json", "imported-by", _IMPORTED_FILE], populated_repo)
     assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert isinstance(data, list)
