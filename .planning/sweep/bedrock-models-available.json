@@ -1,0 +1,2239 @@
+[
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0",
+    "modelId": "amazon.nova-lite-v1:0",
+    "modelName": "Nova Lite",
+    "providerName": "Amazon",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE",
+      "VIDEO"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND",
+      "INFERENCE_PROFILE"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-03 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ModelErrorException",
+    "pricing": {
+      "input_per_1m": 0.06,
+      "output_per_1m": 0.24,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Cross-region model inference requests per minute for Amazon Nova Lite",
+        "type": "Cross-region model inference requests per minute",
+        "value": 4000,
+        "code": "L-89F8391A"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Amazon Nova Lite",
+        "type": "On-demand model inference tokens per minute",
+        "value": 4000000,
+        "code": "L-70423BF8"
+      },
+      {
+        "name": "Model invocation max tokens per day for Amazon Nova Lite (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 564480001,
+        "code": "L-45E0AD92"
+      },
+      {
+        "name": "Cross-region model inference tokens per minute for Amazon Nova Lite",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 8000000,
+        "code": "L-7C42E72A"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Amazon Nova Lite",
+        "type": "On-demand model inference requests per minute",
+        "value": 2000,
+        "code": "L-E386A278"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+    "modelId": "amazon.nova-micro-v1:0",
+    "modelName": "Nova Micro",
+    "providerName": "Amazon",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND",
+      "INFERENCE_PROFILE"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-03 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.035,
+      "output_per_1m": 0.14,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Cross-region model inference tokens per minute for Amazon Nova Micro",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 8000000,
+        "code": "L-DC7FF66C"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Amazon Nova Micro",
+        "type": "On-demand model inference tokens per minute",
+        "value": 4000000,
+        "code": "L-CFA4FA0D"
+      },
+      {
+        "name": "Cross-region model inference requests per minute for Amazon Nova Micro",
+        "type": "Cross-region model inference requests per minute",
+        "value": 4000,
+        "code": "L-3F110E0F"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Amazon Nova Micro",
+        "type": "On-demand model inference requests per minute",
+        "value": 2000,
+        "code": "L-E118F160"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0",
+    "modelId": "amazon.nova-pro-v1:0",
+    "modelName": "Nova Pro",
+    "providerName": "Amazon",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE",
+      "VIDEO"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND",
+      "INFERENCE_PROFILE"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-12-03 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.8,
+      "output_per_1m": 3.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Model invocation max tokens per day for Amazon Nova Pro (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 230400000,
+        "code": "L-D690997B"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Amazon Nova Pro",
+        "type": "On-demand model inference requests per minute",
+        "value": 250,
+        "code": "L-F2717A44"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Amazon Nova Pro",
+        "type": "On-demand model inference tokens per minute",
+        "value": 1000000,
+        "code": "L-CE33604C"
+      },
+      {
+        "name": "Cross-region model inference requests per minute for Amazon Nova Pro",
+        "type": "Cross-region model inference requests per minute",
+        "value": 500,
+        "code": "L-ED46B8C5"
+      },
+      {
+        "name": "Cross-region model inference tokens per minute for Amazon Nova Pro",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 2000000,
+        "code": "L-C0326783"
+      }
+    ]
+  },
+  {
+    "inferenceProfileName": "GLOBAL Amazon Nova 2 Lite",
+    "description": "Routes requests to Amazon Nova 2 Lite globally across all supported AWS Regions.",
+    "createdAt": "2025-10-31 16:18:38.430825+00:00",
+    "updatedAt": "2025-11-22 21:09:07.061014+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/global.amazon.nova-2-lite-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:::foundation-model/amazon.nova-2-lite-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0"
+      }
+    ],
+    "inferenceProfileId": "global.amazon.nova-2-lite-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.33,
+      "output_per_1m": 2.5,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for Nova 2 Lite",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-4A832410"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Nova 2 Lite",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-9782A23E"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Nova 2 Lite",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-4C301596"
+      },
+      {
+        "name": "Records per batch inference job for Nova 2 Lite",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-ECCE76C6"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Nova 2 Lite",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-10F69CA1"
+      }
+    ]
+  },
+  {
+    "inferenceProfileName": "US Nova Premier",
+    "description": "Routes requests to Nova Premier in us-east-1, us-west-2 and us-east-2.",
+    "createdAt": "2025-03-23 00:00:00+00:00",
+    "updatedAt": "2025-04-30 22:29:14.461563+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.amazon.nova-premier-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-premier-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-premier-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-premier-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.amazon.nova-premier-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Amazon",
+    "pricingKind": "tokens",
+    "toolCallingSupported": null,
+    "toolProbeError": "ResourceNotFoundException",
+    "pricing": {
+      "input_per_1m": 2.5,
+      "output_per_1m": 12.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Batch inference job size (in GB) for Amazon Nova Premier",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-CD965251"
+      },
+      {
+        "name": "Records per input file per batch inference job for Amazon Nova Premier",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-169A395B"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Amazon Nova Premier",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-654787A4"
+      },
+      {
+        "name": "Records per batch inference job for Amazon Nova Premier",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-131D4EED"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Amazon Nova Premier",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-39720B39"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/deepseek.v3.2",
+    "modelId": "deepseek.v3.2",
+    "modelName": "DeepSeek V3.2",
+    "providerName": "DeepSeek",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.62,
+      "output_per_1m": 1.85,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for DeepSeek V3.2",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-3AE31EFC"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for DeepSeek V3.2",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-D1C9F3B9"
+      },
+      {
+        "name": "Records per batch inference job for DeepSeek V3.2",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-73951D97"
+      },
+      {
+        "name": "Records per input file per batch inference job for DeepSeek V3.2",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-9E38DD81"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for DeepSeek V3.2",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-E4119EEA"
+      },
+      {
+        "name": "Model invocation max tokens per day for DeepSeek V3.2 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-F1541587"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for DeepSeek V3.2",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-C43703DE"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for DeepSeek V3.2",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-9359D612"
+      },
+      {
+        "name": "Batch inference job size (in GB) for DeepSeek V3.2",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-F16E23D5"
+      }
+    ]
+  },
+  {
+    "inferenceProfileName": "US DeepSeek-R1",
+    "description": "Routes requests to DeepSeek-R1 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-03-07 00:00:00+00:00",
+    "updatedAt": "2025-03-10 22:08:43.461730+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.deepseek.r1-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/deepseek.r1-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/deepseek.r1-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/deepseek.r1-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.deepseek.r1-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "DeepSeek",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1.35,
+      "output_per_1m": 5.4,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Model invocation max tokens per day for DeepSeek R1 V1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 7920000,
+        "code": "L-6CA2002C"
+      },
+      {
+        "name": "Cross-region model inference requests per minute for DeepSeek R1 V1",
+        "type": "Cross-region model inference requests per minute",
+        "value": 200,
+        "code": "L-F52323AB"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2",
+    "modelId": "minimax.minimax-m2",
+    "modelName": "MiniMax M2",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Model invocation max tokens per day for Minimax M2 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-E87E27D6"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Minimax M2",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-828C986E"
+      },
+      {
+        "name": "Records per batch inference job for MiniMax M2",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-CDF99FD2"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for MiniMax M2",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-13C2833A"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for MiniMax M2",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-1F2E6EF2"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for MiniMax M2",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-A94DA744"
+      },
+      {
+        "name": "Records per input file per batch inference job for MiniMax M2",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-F2107865"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2.1",
+    "modelId": "minimax.minimax-m2.1",
+    "modelName": "MiniMax M2.1",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference tokens per minute for Minimax M2.1",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-D795937C"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Minimax M2.1",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-2DA44933"
+      },
+      {
+        "name": "Records per batch inference job for MiniMax M2.1",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-4D2272DC"
+      },
+      {
+        "name": "Batch inference job size (in GB) for MiniMax M2.1",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-9641D929"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for MiniMax M2.1",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-C05EB25B"
+      },
+      {
+        "name": "Model invocation max tokens per day for Minimax M2.1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-E66504EC"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for MiniMax M2.1",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-5D8F0898"
+      },
+      {
+        "name": "Records per input file per batch inference job for MiniMax M2.1",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-FB43CE55"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/minimax.minimax-m2.5",
+    "modelId": "minimax.minimax-m2.5",
+    "modelName": "MiniMax M2.5",
+    "providerName": "MiniMax",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-03-18 17:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.3,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per batch inference job for MiniMax M2.5",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-C4659D61"
+      },
+      {
+        "name": "Model invocation max tokens per day for MiniMax M2.5 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-F2FE4A41"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for MiniMax M2.5",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-359D5670"
+      },
+      {
+        "name": "On-demand model inference requests per minute for MiniMax M2.5",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-6185F03F"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for MiniMax M2.5",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-B49AA29C"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for MiniMax M2.5",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-B539013F"
+      },
+      {
+        "name": "Batch inference job size (in GB) for MiniMax M2.5",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-B40A222A"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.devstral-2-123b",
+    "modelId": "mistral.devstral-2-123b",
+    "modelName": "Devstral 2 123B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-17 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.4,
+      "output_per_1m": 2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Batch inference input file size (in GB) for Devstral 2 123B",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-E6BB5A34"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Devstral 2 123B",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-6DEC04F7"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Devstral 2 123B",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-95CB8E2F"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Devstral 2 123B",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-B45420BF"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.magistral-small-2509",
+    "modelId": "mistral.magistral-small-2509",
+    "modelName": "Magistral Small 2509",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.5,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Magistral Small 2509",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-53B814D7"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Magistral Small 2509",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-133AE8CF"
+      },
+      {
+        "name": "Records per input file per batch inference job for Magistral Small 2509",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-37A44E24"
+      },
+      {
+        "name": "Records per batch inference job for Magistral Small 2509",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-78C12D54"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Magistral Small 2509",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-BBE573E1"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-14b-instruct",
+    "modelId": "mistral.ministral-3-14b-instruct",
+    "modelName": "Ministral 14B 3.0",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.2,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Model invocation max tokens per day for Ministral 14B 3.0 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-EF0CD68D"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Ministral 14B 3.0",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-334E5409"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Ministral 14B 3.0",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-99F7BDBC"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-3b-instruct",
+    "modelId": "mistral.ministral-3-3b-instruct",
+    "modelName": "Ministral 3B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.1,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Minimum number of records per batch inference job for Ministral 3B",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-1A7FFBE5"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Ministral 3B",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-64CFA71B"
+      },
+      {
+        "name": "Records per input file per batch inference job for Ministral 3B",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-9335BC45"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Ministral 3B",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-D13C968B"
+      },
+      {
+        "name": "Records per batch inference job for Ministral 3B",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-1AD2F2A2"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Ministral 3B",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-CC5913D4"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.ministral-3-8b-instruct",
+    "modelId": "mistral.ministral-3-8b-instruct",
+    "modelName": "Ministral 3 8B",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.15,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Batch inference job size (in GB) for Ministral 3 8B",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-ABC14198"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Ministral 3 8B",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-6A455C15"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Ministral 3 8B",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-0B559A48"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Ministral 3 8B",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-89117837"
+      },
+      {
+        "name": "Records per input file per batch inference job for Ministral 3 8B",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-1401504A"
+      },
+      {
+        "name": "Records per batch inference job for Ministral 3 8B",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-1F923A43"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-7b-instruct-v0:2",
+    "modelId": "mistral.mistral-7b-instruct-v0:2",
+    "modelName": "Mistral 7B Instruct",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-03-01 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for Mistral 7B Instruct",
+        "type": "On-demand model inference requests per minute",
+        "value": 800,
+        "code": "L-D9A35062"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-large-2402-v1:0",
+    "modelId": "mistral.mistral-large-2402-v1:0",
+    "modelName": "Mistral Large (24.02)",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-04-03 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 4,
+      "output_per_1m": 12,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for Mistral Large",
+        "type": "On-demand model inference requests per minute",
+        "value": 400,
+        "code": "L-3AF844DB"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-large-3-675b-instruct",
+    "modelId": "mistral.mistral-large-3-675b-instruct",
+    "modelName": "Mistral Large 3",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for Mistral Large 3",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-5B274E24"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Mistral Large 3",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-C709F563"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Mistral Large 3",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-E23E820D"
+      },
+      {
+        "name": "Records per input file per batch inference job for Mistral Large 3",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-B1E4F57A"
+      },
+      {
+        "name": "Model invocation max tokens per day for Mistral Large 3 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-4D555974"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Mistral Large 3",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-090C78B9"
+      },
+      {
+        "name": "Records per batch inference job for Mistral Large 3",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-90807536"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mistral-small-2402-v1:0",
+    "modelId": "mistral.mistral-small-2402-v1:0",
+    "modelName": "Mistral Small (24.02)",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-05-24 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Mistral Small",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-A986092E"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Mistral Small",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-0F052E16"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Mistral Small",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-D32CEBC2"
+      },
+      {
+        "name": "Model units per provisioned model for Mistral Small",
+        "type": "Model units per provisioned model",
+        "value": 0,
+        "code": "L-7A8639EE"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Mistral Small",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-DE0A7679"
+      },
+      {
+        "name": "Records per input file per batch inference job for Mistral Small",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-E6489B37"
+      },
+      {
+        "name": "Records per batch inference job for Mistral Small",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-072E11FC"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.mixtral-8x7b-instruct-v0:1",
+    "modelId": "mistral.mixtral-8x7b-instruct-v0:1",
+    "modelName": "Mixtral 8x7B Instruct",
+    "providerName": "Mistral AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2024-03-01 08:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": false,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.45,
+      "output_per_1m": 0.7,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Model invocation max tokens per day for Mistral AI Mixtral 8X7B Instruct (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 41040000,
+        "code": "L-68D6B437"
+      }
+    ]
+  },
+  {
+    "inferenceProfileName": "US Mistral Pixtral Large 25.02",
+    "description": "Routes requests to Mistral Pixtral Large 25.02 in us-east-1, us-east-2 and us-west-2.",
+    "createdAt": "2025-04-04 00:00:00+00:00",
+    "updatedAt": "2025-04-07 20:46:41.272192+00:00",
+    "inferenceProfileArn": "arn:aws:bedrock:us-east-1:210412004691:inference-profile/us.mistral.pixtral-large-2502-v1:0",
+    "models": [
+      {
+        "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/mistral.pixtral-large-2502-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-east-2::foundation-model/mistral.pixtral-large-2502-v1:0"
+      },
+      {
+        "modelArn": "arn:aws:bedrock:us-west-2::foundation-model/mistral.pixtral-large-2502-v1:0"
+      }
+    ],
+    "inferenceProfileId": "us.mistral.pixtral-large-2502-v1:0",
+    "status": "ACTIVE",
+    "type": "SYSTEM_DEFINED",
+    "entryKind": "inference-profile",
+    "providerName": "Mistral AI",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 2,
+      "output_per_1m": 6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Cross-region model inference requests per minute for Mistral Pixtral Large 25.02 V1",
+        "type": "Cross-region model inference requests per minute",
+        "value": 10,
+        "code": "L-674F42D5"
+      },
+      {
+        "name": "Cross-region model inference tokens per minute for Mistral Pixtral Large 25.02 V1",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 80000,
+        "code": "L-4B9F76B0"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/moonshot.kimi-k2-thinking",
+    "modelId": "moonshot.kimi-k2-thinking",
+    "modelName": "Kimi K2 Thinking",
+    "providerName": "Moonshot AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.6,
+      "output_per_1m": 2.5,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for Kimi K2 Thinking",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-02572418"
+      },
+      {
+        "name": "Records per input file per batch inference job for Kimi K2 Thinking",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-852FB779"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Kimi K2 Thinking",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-78B4AF01"
+      },
+      {
+        "name": "Records per batch inference job for Kimi K2 Thinking",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-CEEE0EE8"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Kimi K2 Thinking",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-B70CED9A"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Kimi K2 Thinking",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-A47C030D"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Kimi K2 Thinking",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-03579AC2"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/moonshotai.kimi-k2.5",
+    "modelId": "moonshotai.kimi-k2.5",
+    "modelName": "Kimi K2.5",
+    "providerName": "Moonshot AI",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.6,
+      "output_per_1m": 3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for Kimi K2.5",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-15B51EC1"
+      },
+      {
+        "name": "Records per batch inference job for Kimi K2.5",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-63010E1B"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Kimi K2.5",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-314782CB"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Kimi K2.5",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-EC77BD96"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Kimi K2.5",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-67209F17"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-120b-1:0",
+    "modelId": "openai.gpt-oss-120b-1:0",
+    "modelName": "gpt-oss-120b",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-08-06 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Batch inference job size (in GB) for OpenAI GPT OSS 120b",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-052AA08C"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for OpenAI GPT OSS 120B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-9DC5F595"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for OpenAI GPT OSS 120b",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-4B244563"
+      },
+      {
+        "name": "On-demand model inference requests per minute for OpenAI GPT OSS 120B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-25B50707"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for OpenAI GPT OSS 120b",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-E855A326"
+      },
+      {
+        "name": "Records per input file per batch inference job for OpenAI GPT OSS 120b",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-9EF11C18"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for OpenAI GPT OSS 120b",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-07844084"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-20b-1:0",
+    "modelId": "openai.gpt-oss-20b-1:0",
+    "modelName": "gpt-oss-20b",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-08-06 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.3,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Batch inference input file size (in GB) for OpenAI GPT OSS 20b",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-0EF69BEA"
+      },
+      {
+        "name": "On-demand model inference requests per minute for OpenAI GPT OSS 20B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-AF7F0545"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for OpenAI GPT OSS 20b",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-50CC95A8"
+      },
+      {
+        "name": "Records per input file per batch inference job for OpenAI GPT OSS 20b",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-EF804815"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for OpenAI GPT OSS 20B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-036E14D8"
+      },
+      {
+        "name": "Model invocation max tokens per day for OpenAI GPT OSS 20B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-0FA1782C"
+      },
+      {
+        "name": "Batch inference job size (in GB) for OpenAI GPT OSS 20b",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-5594A7BA"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for OpenAI GPT OSS 20b",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-5D07A961"
+      },
+      {
+        "name": "Records per batch inference job for OpenAI GPT OSS 20b",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-F361DF0F"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-safeguard-120b",
+    "modelId": "openai.gpt-oss-safeguard-120b",
+    "modelName": "GPT OSS Safeguard 120B",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference tokens per minute for GPT OSS Safeguard 120B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-594C7AC9"
+      },
+      {
+        "name": "Model invocation max tokens per day for GPT OSS Safeguard 120B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-B776B0FC"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/openai.gpt-oss-safeguard-20b",
+    "modelId": "openai.gpt-oss-safeguard-20b",
+    "modelName": "GPT OSS Safeguard 20B",
+    "providerName": "OpenAI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for GPT OSS Safeguard 20B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-65833D55"
+      },
+      {
+        "name": "Model invocation max tokens per day for GPT OSS Safeguard 20B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-DC2AFCCA"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-32b-v1:0",
+    "modelId": "qwen.qwen3-32b-v1:0",
+    "modelName": "Qwen3 32B (dense)",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-09-15 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per batch inference job for Qwen3 32B",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-DF5FF3C8"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Qwen3 32B",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-3C5E49B6"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Qwen3 32B",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-BD405FCD"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Qwen3 32B",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-25820050"
+      },
+      {
+        "name": "Records per input file per batch inference job for Qwen3 32B",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-28258E5D"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-coder-30b-a3b-v1:0",
+    "modelId": "qwen.qwen3-coder-30b-a3b-v1:0",
+    "modelName": "Qwen3-Coder-30B-A3B-Instruct",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-09-15 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "currency": "USD",
+      "source": "aws-pricing-api+alias"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for Qwen3 Coder 30B",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-46EFABBA"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Qwen3 Coder 30B",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-6D19D10E"
+      },
+      {
+        "name": "Records per batch inference job for Qwen3 Coder 30B",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-38EFD889"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Qwen3 Coder 30B",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-F30EAB98"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Qwen3 Coder 30B",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-4483A039"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-coder-next",
+    "modelId": "qwen.qwen3-coder-next",
+    "modelName": "Qwen3 Coder Next",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.5,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for Qwen3 Coder Next",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-0D1F6A84"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Qwen3 Coder Next",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-091EBF74"
+      },
+      {
+        "name": "Records per batch inference job for Qwen3 Coder Next",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-273728E2"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Qwen3 Coder Next",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-CCA2299F"
+      },
+      {
+        "name": "Model invocation max tokens per day for Qwen3 Coder Next (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-19A44242"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Qwen3 Coder Next",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-A4C6122D"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Qwen3 Coder Next",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-7663AA76"
+      },
+      {
+        "name": "Batch inference job size (in GB) for Qwen3 Coder Next",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-E6E447D5"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-next-80b-a3b",
+    "modelId": "qwen.qwen3-next-80b-a3b",
+    "modelName": "Qwen3 Next 80B A3B",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.14,
+      "output_per_1m": 1.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference tokens per minute for Qwen3 Next 80B A3B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-37AB702E"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Qwen3 Next 80B A3B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-07B3CEEA"
+      },
+      {
+        "name": "Model invocation max tokens per day for Qwen3 Next 80B A3B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-A14C3D8A"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-vl-235b-a22b",
+    "modelId": "qwen.qwen3-vl-235b-a22b",
+    "modelName": "Qwen3 VL 235B A22B",
+    "providerName": "Qwen",
+    "inputModalities": [
+      "TEXT",
+      "IMAGE"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2025-12-02 00:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.53,
+      "output_per_1m": 2.66,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "On-demand model inference requests per minute for Qwen3 VL 235B A22B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-11B56FB0"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Qwen3 VL 235B A22B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-46063925"
+      },
+      {
+        "name": "Model invocation max tokens per day for Qwen3 VL 235B A22B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-B3CC9E29"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/zai.glm-4.7",
+    "modelId": "zai.glm-4.7",
+    "modelName": "GLM 4.7",
+    "providerName": "Z.AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.6,
+      "output_per_1m": 2.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for GLM 4.7",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-7BE9625C"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for GLM 4.7",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-E71610B5"
+      },
+      {
+        "name": "Batch inference job size (in GB) for GLM 4.7",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-5771410D"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for GLM 4.7",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-5E284B2E"
+      },
+      {
+        "name": "Records per batch inference job for GLM 4.7",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-ECA45411"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/zai.glm-4.7-flash",
+    "modelId": "zai.glm-4.7-flash",
+    "modelName": "GLM 4.7 Flash",
+    "providerName": "Z.AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-02-06 18:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 0.07,
+      "output_per_1m": 0.4,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Minimum number of records per batch inference job for GLM 4.7 Flash",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-44FD86CF"
+      },
+      {
+        "name": "Batch inference job size (in GB) for GLM 4.7 Flash",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-8284E815"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for GLM 4.7 Flash",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-E453CCF3"
+      },
+      {
+        "name": "Records per batch inference job for GLM 4.7 Flash",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-BB255931"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for GLM 4.7 Flash",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-B7160204"
+      }
+    ]
+  },
+  {
+    "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/zai.glm-5",
+    "modelId": "zai.glm-5",
+    "modelName": "GLM 5",
+    "providerName": "Z.AI",
+    "inputModalities": [
+      "TEXT"
+    ],
+    "outputModalities": [
+      "TEXT"
+    ],
+    "responseStreamingSupported": true,
+    "customizationsSupported": [],
+    "inferenceTypesSupported": [
+      "ON_DEMAND"
+    ],
+    "modelLifecycle": {
+      "status": "ACTIVE",
+      "startOfLifeTime": "2026-03-18 17:00:00+00:00"
+    },
+    "entryKind": "foundation-model",
+    "pricingKind": "tokens",
+    "toolCallingSupported": true,
+    "toolProbeError": null,
+    "pricing": {
+      "input_per_1m": 1,
+      "output_per_1m": 3.2,
+      "currency": "USD",
+      "source": "aws-pricing-api"
+    },
+    "pricingProbeError": null,
+    "quotas": [
+      {
+        "name": "Records per input file per batch inference job for GLM 5",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-8A232422"
+      },
+      {
+        "name": "Records per batch inference job for GLM 5",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-64CF3679"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for GLM 5",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-B7D05949"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for GLM 5",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-B27E34FF"
+      },
+      {
+        "name": "Batch inference job size (in GB) for GLM 5",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-870BD211"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for GLM 5",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-5BA88337"
+      }
+    ]
+  }
+]
