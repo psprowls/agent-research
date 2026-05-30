@@ -35,8 +35,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 Phase: 60 — Cost-Frontier Sweep Harness (v1.11) — in progress
 Plan: — (retroactive scaffold; sub-work landed as quick tasks)
-Status: In progress — round-3 debug pending
-Last activity: 2026-05-30 — Opened v1.11; committed Fix D follow-up (`aaa3d63`, code-fallback synthesizer) + round-3 handoff (`b65ad7e`). Verified Fixes D/E/F against the `$3.46` run; root-caused the judge-able quality collapse to answer degradation (Fix B normalizer suspected). NEXT: debug per `.planning/CONTINUE-sweep-harness-fixes-3.md`, then clean re-run.
+Status: In progress — round-3 debug RESOLVED; clean full re-run pending
+Last activity: 2026-05-30 — Debugged + fixed the judge-signal collapse (`/gsd-debug` → `/gsd-quick` 260530-jc1, commit `f3a9c2e`). Root cause was NOT Fix B: commit `e42ae87` (ox1) provisions an empty-but-schema-valid `code.db`, so `run_query`'s `read_only_connect` succeeded on a zero-node DB and bound graph tools → librarian iter-cap → code-fallback disclaimer → judges scored ~0.10 (232 fallbacks vs 18 baseline; `run-260529-verify.log` proved judges fine). Fix: guard `SELECT COUNT(*) FROM nodes == 0` → fallback addendum, no tools (mirrors `GraphNotInitializedError` branch). 14 tests green. Debug session resolved. NEXT: clean full sweep re-run (CONFIRM with Pat + check Bedrock daily-token quota first), then winner selection.
 
 ## Progress Bar
 
@@ -73,6 +73,7 @@ None.
 | 260529-q8r | Fix C — wire per-role DivergenceMetric + baselines_dir into run_full_matrix (Gate 1 was hardcoded None → auto-FAIL for every candidate) | 2026-05-29 | 43c9dd6 | [260529-q8r-fix-c-sweep-gate-1-divergence-wiring](./quick/260529-q8r-fix-c-sweep-gate-1-divergence-wiring/) |
 | 260529-sot | Fix D+E+F — route 6 model-override branches through make_llm (D); rate-based Gate 1 + empty-output disqualification (E); populate SweepResult.judge_scores w/ real quality signal (F) | 2026-05-29 | e9cd8b1 | [260529-sot-fix-d-e-f-sweep-harness-override-bypass-](./quick/260529-sot-fix-d-e-f-sweep-harness-override-bypass-/) |
 | 260529-sot (follow-up) | Fix D 7th branch — route the code-fallback synthesizer through make_llm(model_override) | 2026-05-30 | aaa3d63 | (committed on main) |
+| 260530-jc1 | Fix judge-signal collapse — guard empty-but-valid graph DB in run_query (e42ae87 made read_only_connect succeed on zero-node code.db → graph tools bound → librarian iter-cap → code-fallback disclaimer → judge 0.10); SELECT COUNT(*) FROM nodes == 0 → fallback addendum, no tools | 2026-05-30 | f3a9c2e | [260530-jc1-fix-empty-db-graph-tool-binding](./quick/260530-jc1-fix-empty-db-graph-tool-binding/) |
 
 > **Note (2026-05-30):** the cost-frontier-sweep quick tasks above (na9/ox1/pf8/pzd/q8r/sot) are now organized under **v1.11 / Phase 60** — see `.planning/phases/60-cost-frontier-sweep-harness/60-CONTEXT.md`.
 
@@ -105,9 +106,9 @@ Carried forward (process debt + one v1.10 feature deferral):
 ## Session Continuity
 
 Last session: 2026-05-30 — opened v1.11, scaffolded Phase 60
-Stopped at: Phase 60 (Cost-Frontier Sweep Harness) in progress — harness fixes B–F landed; round-3 answer-degradation debug pending
+Stopped at: Phase 60 (Cost-Frontier Sweep Harness) in progress — harness fixes B–F landed; round-3 judge-signal collapse debugged + fixed (260530-jc1, `f3a9c2e`); clean full re-run pending
 
-**Next action:** Debug the judge-able quality collapse per `.planning/CONTINUE-sweep-harness-fixes-3.md` (Fix B `_normalize_content` suspected of emptying thinking-model answers), then run the clean full sweep and pick per-role winners. Route code changes through `/gsd-quick` (or `/gsd-debug` for the investigation).
+**Next action:** Run the clean full sweep (`/tmp/sweep_driver.py` spec in `.planning/CONTINUE-sweep-harness-fixes-3.md` Step 2 / CONTINUE-2 Step B; repeats=3, `output_dir=.planning/sweep`, `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1`; pre-approved ~$7, hard cap $25). CONFIRM with Pat before launching AND verify the Bedrock daily-token quota has reset (ingestor-Haiku ThrottlingException last run). Verify judge-able quality now discriminates (not all ~0.10), then overwrite-commit `.planning/sweep/*.md` + `INDEX.md` as authoritative (replacing `8cf091a`) and help Pat pick per-role winners. Stash `stash@{0}` holds stray bedrock-models JSON snapshots — decide keep/discard with Pat. Known follow-up G (cost=N/A for many models) still open.
 
 ---
 
