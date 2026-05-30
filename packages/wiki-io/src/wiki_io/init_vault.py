@@ -49,7 +49,6 @@ FIXED_VAULT_DIRS = [
     "adrs",
     "entities",
     "sources",
-    "dependencies",
     ".templates",
 ]
 
@@ -188,11 +187,10 @@ def init_wiki(
     )
 
     pinned = _resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)
-    structural_dirs = [c["vault_dir"] for c in pinned if c["vault_dir"]]
 
     try:
         wiki_path.mkdir(parents=True, exist_ok=True)
-        for d in structural_dirs + FIXED_VAULT_DIRS:
+        for d in FIXED_VAULT_DIRS:
             (wiki_path / d).mkdir(parents=True, exist_ok=True)
     except OSError as e:
         _error(f"failed to create wiki structure: {e}", as_json)
