@@ -19,7 +19,9 @@ from pathlib import Path
 from graph_io.queries import _VALID_APP_KINDS
 
 # Priority order — first match wins for app_kind selection (D-04).
-_FRAMEWORK_PRECEDENCE = ("nextjs", "expo", "spa")
+# GQP-01: electron placed before spa so Electron+Vite apps resolve to
+# 'electron' not 'spa'. Keep in sync with _VALID_APP_KINDS in queries.py.
+_FRAMEWORK_PRECEDENCE = ("nextjs", "expo", "electron", "spa")
 
 
 def classify(
@@ -58,6 +60,8 @@ def classify(
             signals.append("nextjs")
         if "expo" in deps:
             signals.append("expo")
+        if "electron" in deps:
+            signals.append("electron")  # GQP-01
         if "vite" in deps and (pkg_dir / "index.html").exists():
             signals.append("spa")
 
