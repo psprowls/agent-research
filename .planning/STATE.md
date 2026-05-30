@@ -35,8 +35,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 Phase: 60 — Cost-Frontier Sweep Harness (v1.11) — in progress
 Plan: — (retroactive scaffold; sub-work landed as quick tasks)
-Status: In progress — round-3 debug RESOLVED; clean full re-run pending
-Last activity: 2026-05-30 — Debugged + fixed the judge-signal collapse (`/gsd-debug` → `/gsd-quick` 260530-jc1, commit `f3a9c2e`). Root cause was NOT Fix B: commit `e42ae87` (ox1) provisions an empty-but-schema-valid `code.db`, so `run_query`'s `read_only_connect` succeeded on a zero-node DB and bound graph tools → librarian iter-cap → code-fallback disclaimer → judges scored ~0.10 (232 fallbacks vs 18 baseline; `run-260529-verify.log` proved judges fine). Fix: guard `SELECT COUNT(*) FROM nodes == 0` → fallback addendum, no tools (mirrors `GraphNotInitializedError` branch). 14 tests green. Debug session resolved. NEXT: clean full sweep re-run (CONFIRM with Pat + check Bedrock daily-token quota first), then winner selection.
+Status: In progress — round-3 debug RESOLVED; sweep model-set refreshed (Haiku purged); clean full re-run pending
+Last activity: 2026-05-30 — Swept roles + preflight refreshed (Haiku purged for quota exhaustion): librarian→kimi-k2.5, code_reader→minimax-m2.5, scanner→gpt-oss-20b, linter→nova-lite (now also a candidate), ingestor→glm-4.7-flash, synthesizer→qwen3-32b (unchanged), preflight→qwen3-32b. narrator + domain-proposer still on Haiku (deferred). Config-pinning tests updated (29/29 green). Judge-independence finding deferred — see `.planning/notes/sweep-judge-independence-deferred.md`. (quick task 260530-ehv)
 
 ## Progress Bar
 
@@ -74,6 +74,7 @@ None.
 | 260529-sot | Fix D+E+F — route 6 model-override branches through make_llm (D); rate-based Gate 1 + empty-output disqualification (E); populate SweepResult.judge_scores w/ real quality signal (F) | 2026-05-29 | e9cd8b1 | [260529-sot-fix-d-e-f-sweep-harness-override-bypass-](./quick/260529-sot-fix-d-e-f-sweep-harness-override-bypass-/) |
 | 260529-sot (follow-up) | Fix D 7th branch — route the code-fallback synthesizer through make_llm(model_override) | 2026-05-30 | aaa3d63 | (committed on main) |
 | 260530-jc1 | Fix judge-signal collapse — guard empty-but-valid graph DB in run_query (e42ae87 made read_only_connect succeed on zero-node code.db → graph tools bound → librarian iter-cap → code-fallback disclaimer → judge 0.10); SELECT COUNT(*) FROM nodes == 0 → fallback addendum, no tools | 2026-05-30 | f3a9c2e | [260530-jc1-fix-empty-db-graph-tool-binding](./quick/260530-jc1-fix-empty-db-graph-tool-binding/) |
+| 260530-ehv | Refresh sweep model set — purge Haiku from all 6 swept roles + preflight (quota exhaustion); new defaults librarian→kimi-k2.5, code_reader→minimax-m2.5, scanner→gpt-oss-20b, linter→nova-lite (now also a candidate), ingestor→glm-4.7-flash, synthesizer→qwen3-32b (unchanged), preflight→qwen3-32b; config-pinning tests synced (29/29 green); judge-independence finding deferred (note) | 2026-05-30 | 949adc7 | [260530-ehv-refresh-sweep-model-set-in-models-toml-r](./quick/260530-ehv-refresh-sweep-model-set-in-models-toml-r/) |
 
 > **Note (2026-05-30):** the cost-frontier-sweep quick tasks above (na9/ox1/pf8/pzd/q8r/sot) are now organized under **v1.11 / Phase 60** — see `.planning/phases/60-cost-frontier-sweep-harness/60-CONTEXT.md`.
 
@@ -108,7 +109,7 @@ Carried forward (process debt + one v1.10 feature deferral):
 Last session: 2026-05-30 — opened v1.11, scaffolded Phase 60
 Stopped at: Phase 60 (Cost-Frontier Sweep Harness) in progress — harness fixes B–F landed; round-3 judge-signal collapse debugged + fixed (260530-jc1, `f3a9c2e`); clean full re-run pending
 
-**Next action:** Run the clean full sweep (`/tmp/sweep_driver.py` spec in `.planning/CONTINUE-sweep-harness-fixes-3.md` Step 2 / CONTINUE-2 Step B; repeats=3, `output_dir=.planning/sweep`, `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1`; pre-approved ~$7, hard cap $25). CONFIRM with Pat before launching AND verify the Bedrock daily-token quota has reset (ingestor-Haiku ThrottlingException last run). Verify judge-able quality now discriminates (not all ~0.10), then overwrite-commit `.planning/sweep/*.md` + `INDEX.md` as authoritative (replacing `8cf091a`) and help Pat pick per-role winners. Stash `stash@{0}` holds stray bedrock-models JSON snapshots — decide keep/discard with Pat. Known follow-up G (cost=N/A for many models) still open.
+**Next action:** Run the clean full sweep (Haiku-free set now in models.toml — the daily-token quota throttle that blocked the prior re-run no longer applies). Sweep spec: `/tmp/sweep_driver.py` (`.planning/CONTINUE-sweep-harness-fixes-3.md` Step 2 / CONTINUE-2 Step B; repeats=3, `output_dir=.planning/sweep`, `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1`; pre-approved ~$7, hard cap $25). Per-role defaults: librarian→kimi-k2.5, code_reader→minimax-m2.5, scanner→gpt-oss-20b, linter→nova-lite, ingestor→glm-4.7-flash, synthesizer→qwen3-32b, preflight→qwen3-32b. Judges intentionally held (Mistral/Nova; see `.planning/notes/sweep-judge-independence-deferred.md`). narrator + domain-proposer still on Haiku (deferred). Verify judge-able quality discriminates (not all ~0.10), then overwrite-commit `.planning/sweep/*.md` + `INDEX.md` as authoritative and help Pat pick per-role winners. Stash `stash@{0}` holds stray bedrock-models JSON snapshots — decide keep/discard with Pat. Known follow-up G (cost=N/A for many models) still open.
 
 ---
 
