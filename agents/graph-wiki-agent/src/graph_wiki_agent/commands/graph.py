@@ -42,7 +42,7 @@ import typer
 
 from graph_io import exit_codes, queries, render as _render, update
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
-from workspace_io.config import resolve as resolve_config
+from wiki_io._workspace import resolve_wiki_and_repo
 from workspace_io.paths import graph_dir
 
 _SCHEMA_VERSION = 1  # Phase 9 OBS-04 — D-02: do NOT bump
@@ -59,12 +59,23 @@ def _iso_utc_record_timestamp() -> str:
 
 
 def _resolve_paths(workspace_arg: str) -> tuple[Path, Path]:
-    """Resolve (repo_root, workspace) from --workspace arg or GRAPH_WIKI_WORKSPACE env."""
+    """Resolve (repo_root, workspace_root) from --workspace arg or GRAPH_WIKI_WORKSPACE env.
+
+    Delegates to resolve_wiki_and_repo — the same helper scan uses — so repo_root
+    is always resolved from cwd (the source repo), not from the workspace dir.
+    This fixes the repo≠workspace layout where the workspace is its own git repo:
+    previously resolve_config(workspace_arg) walked up from the workspace and bound
+    repo_root to the workspace's .git, causing `git rev-parse HEAD` to die on a fresh
+    wiki vault. (todo 260530-hxy)
+    """
     if workspace_arg:
-        cfg = resolve_config(Path(workspace_arg).resolve(), require_manifest=False)
+        wiki, repo = resolve_wiki_and_repo(Path(workspace_arg).resolve())
     else:
-        cfg = resolve_config(None, require_manifest=False)
-    return cfg.repo_root, cfg.workspace
+        wiki, repo = resolve_wiki_and_repo()
+    # workspace_root is wiki.parent (resolve_wiki_and_repo returns wiki_dir == workspace/wiki).
+    # Mirror scan.py's `_workspace_root = wiki.parent` convention.
+    # If repo is None (no .git found anywhere), fall back to cwd — same as scan.py:455-461.
+    return repo if repo is not None else Path.cwd(), wiki.parent
 
 
 def _connect_or_error(
