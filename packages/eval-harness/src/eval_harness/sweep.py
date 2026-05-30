@@ -720,6 +720,77 @@ def _panel_mean_for_candidate(
     return sum(scores) / len(scores)
 
 
+def _score_and_writeback_judgeable(
+    role: str,
+    candidate_results: list[SweepResult],
+    cases_path: Path,
+) -> float | None:
+    """Score each ok run ONCE via panel_score, write the full panel dict onto
+    ``r.judge_scores``, and return the mean of per-run panel means.
+
+    Replaces _panel_mean_for_candidate on the writeback path so panel_score is
+    not called twice. Mirrors _panel_mean_for_candidate's guards exactly: only
+    when GRAPH_WIKI_RUN_JUDGES is set; skips non-ok/empty answers and cases with
+    no expected_answer. Returns None when judges are off or no run was scored.
+    """
+    import os
+
+    if not os.environ.get("GRAPH_WIKI_RUN_JUDGES"):
+        return None
+
+    cases_by_query: dict[str, dict] = {}
+    try:
+        for case in _load_and_validate_cases(cases_path):
+            cases_by_query[case["query"]] = case
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    from eval_harness.judge import panel_score  # noqa: PLC0415
+
+    scores: list[float] = []
+    for r in candidate_results:
+        if r.status != "ok" or not r.answer:
+            continue
+        case = cases_by_query.get(r.query)
+        if not case:
+            continue
+        expected = case.get("expected_answer", "")
+        if not expected:
+            continue
+        try:
+            panel = panel_score(r.query, r.answer, expected)
+        except Exception as exc:
+            logger.warning("panel_score failed for %s/%s: %s", role, r.model_id, exc)
+            continue
+        r.judge_scores = panel
+        scores.append(float(panel["mean"]))
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
+
+
+def _writeback_structural_quality(
+    divergence_metric: DivergenceMetric,
+    candidate_results: list[SweepResult],
+) -> None:
+    """Set ``r.judge_scores = {"mean": <divergence pass-rate>}`` on each ok run
+    for a structural (non-judge) role.
+
+    Quality for structural roles is the divergence-rubric pass-rate: 1 minus the
+    fraction of rule checks that failed on that single output. Reuses the
+    already-constructed ``divergence_metric`` (no rebuild).
+    """
+    for r in candidate_results:
+        if r.status != "ok" or not r.answer:
+            continue
+        proxy_pair = (r.query, type("AgentOutputProxy", (), {"answer": r.answer})())
+        results = divergence_metric.run_programmatic([proxy_pair])
+        total_failures = sum(d["failures"] for d in results.values())
+        total_runs = sum(d["runs"] for d in results.values())
+        pass_rate = 1 - total_failures / total_runs if total_runs else 0.0
+        r.judge_scores = {"mean": pass_rate}
+
+
 async def run_full_matrix(
     role_candidates: dict[str, list[str]],
     workspace_path: Path,
@@ -853,16 +924,6 @@ async def run_full_matrix(
             for r in role_results:
                 results_by_candidate.setdefault(r.model_id, []).append(r)
 
-            panel_means: dict[str, float | None] = {}
-            for candidate in candidates:
-                panel_means[candidate] = _panel_mean_for_candidate(
-                    role, results_by_candidate.get(candidate, []), cases_path
-                )
-
-            default_panel_mean = (
-                panel_means.get(default_model_id) if default_model_id else None
-            )
-
             threshold = (
                 threshold_quality if role in _QUALITY_ROLES else threshold_other
             )
@@ -884,6 +945,34 @@ async def run_full_matrix(
             else:
                 divergence_metric = None
                 baselines_dir_for_role = None
+
+            # Fix F: populate SweepResult.judge_scores with a real quality signal
+            # per ok result, and derive the Gate-2 panel means in the same pass.
+            #  - Judge-able roles (librarian/synthesizer): score each ok run once
+            #    via panel_score, write the panel dict back, mean the per-run means.
+            #  - Structural roles (scanner/linter/ingestor/code_reader): no judge —
+            #    quality is the divergence-rubric pass-rate (reuses divergence_metric).
+            #  - Other roles: leave judge_scores=None.
+            panel_means: dict[str, float | None] = {}
+            for candidate in candidates:
+                candidate_results = results_by_candidate.get(candidate, [])
+                if role in _QUALITY_ROLES:
+                    panel_means[candidate] = _score_and_writeback_judgeable(
+                        role, candidate_results, cases_path
+                    )
+                else:
+                    panel_means[candidate] = None
+                    if (
+                        role in ROLES_WITH_DIVERGENCE
+                        and divergence_metric is not None
+                    ):
+                        _writeback_structural_quality(
+                            divergence_metric, candidate_results
+                        )
+
+            default_panel_mean = (
+                panel_means.get(default_model_id) if default_model_id else None
+            )
 
             two_gate_outcomes: dict[str, TwoGateOutcome] = {}
             for candidate in candidates:

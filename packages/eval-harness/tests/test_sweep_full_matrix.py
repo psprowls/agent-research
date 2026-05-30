@@ -105,3 +105,87 @@ async def test_run_full_matrix_wires_divergence_metric_and_baselines(
     assert call["baselines_dir"].is_dir(), (
         f"baselines_dir {call['baselines_dir']} must be an existing directory"
     )
+
+
+# ---------------------------------------------------------------------------
+# Fix F (quick-260529-sot): SweepResult.judge_scores writeback helpers
+# ---------------------------------------------------------------------------
+
+
+def _mk_result(query: str, answer: str = "an answer", status: str = "ok") -> sweep_mod.SweepResult:
+    """Minimal SweepResult fixture for writeback-helper tests."""
+    return sweep_mod.SweepResult(
+        model_id="model-x",
+        safe_model_id="model-x",
+        query=query,
+        answer=answer,
+        citations=[],
+        pages_drilled=0,
+        tokens_in=None,
+        tokens_out=None,
+        cost_usd=None,
+        wall_seconds=0.0,
+        structural={},
+        status=status,
+    )
+
+
+def test_judgeable_writeback_sets_panel_mean(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With GRAPH_WIKI_RUN_JUDGES set and panel_score patched to {"mean": 0.8, ...},
+    a librarian ok SweepResult ends with judge_scores["mean"] == 0.8, and the
+    helper returns that mean."""
+    monkeypatch.setenv("GRAPH_WIKI_RUN_JUDGES", "1")
+
+    cases_path = tmp_path / "cases.json"
+    cases_path.write_text(
+        json.dumps([{"query": "q1", "expected_answer": "exp", "case_id": "c1"}]),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "eval_harness.judge.panel_score",
+        lambda query, actual, expected: {"mean": 0.8, "judge_a": 0.8, "judge_b": 0.8},
+    )
+
+    r = _mk_result("q1")
+    mean = sweep_mod._score_and_writeback_judgeable("librarian", [r], cases_path)
+
+    assert r.judge_scores is not None
+    assert r.judge_scores["mean"] == 0.8
+    assert mean == 0.8
+
+
+def test_judgeable_writeback_judges_off_leaves_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With GRAPH_WIKI_RUN_JUDGES unset, judge_scores stays None and helper returns None."""
+    monkeypatch.delenv("GRAPH_WIKI_RUN_JUDGES", raising=False)
+
+    cases_path = tmp_path / "cases.json"
+    cases_path.write_text(
+        json.dumps([{"query": "q1", "expected_answer": "exp", "case_id": "c1"}]),
+        encoding="utf-8",
+    )
+
+    r = _mk_result("q1")
+    mean = sweep_mod._score_and_writeback_judgeable("librarian", [r], cases_path)
+
+    assert r.judge_scores is None
+    assert mean is None
+
+
+def test_structural_writeback_sets_divergence_pass_rate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With run_programmatic patched to {"R1":{runs:1,fail:0},"R2":{runs:1,fail:1}},
+    a scanner ok SweepResult ends with judge_scores["mean"] == 0.5 (pass-rate)."""
+    metric = DivergenceMetric.__new__(DivergenceMetric)  # no __init__ — only run_programmatic used
+    monkeypatch.setattr(
+        metric,
+        "run_programmatic",
+        lambda outputs: {"R1": {"runs": 1, "failures": 0}, "R2": {"runs": 1, "failures": 1}},
+    )
+
+    r = _mk_result("scan q")
+    sweep_mod._writeback_structural_quality(metric, [r])
+
+    assert r.judge_scores is not None
+    assert r.judge_scores["mean"] == 0.5
