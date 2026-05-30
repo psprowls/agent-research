@@ -266,6 +266,14 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
             conn = store.connect(db_path, create=True, busy_timeout_ms=lock_timeout_ms)
             _ensure_gitignore(workspace)
             prev = _get_metadata(conn, "last_indexed_commit")
+            stored_deriver = _get_metadata(conn, "deriver_version")
+            if prev is not None and stored_deriver != str(schema.DERIVER_VERSION):
+                print(
+                    f"Deriver logic changed (deriver_version {stored_deriver} → {schema.DERIVER_VERSION})"
+                    " — forcing full rebuild.",
+                    file=sys.stderr,
+                )
+                full = True
             changed = _changed_files(repo_root, full=full, prev=prev)
             if not changed and prev == head and not full:
                 return
@@ -311,6 +319,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
                 _set_metadata(conn, "last_indexed_commit", head)
                 _set_metadata(conn, "last_indexed_at", _dt.datetime.now(_dt.UTC).isoformat())
+                _set_metadata(conn, "deriver_version", str(schema.DERIVER_VERSION))
         except sqlite3.OperationalError as exc:
             if "locked" in str(exc).lower():
                 raise UpdateInProgressError(
