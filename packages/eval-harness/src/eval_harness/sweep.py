@@ -42,11 +42,17 @@ from graph_wiki_agent.commands.scan import run_scan
 
 from workspace_io.paths import wiki_dir
 
+from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
+from eval_harness.divergence.metric import DivergenceMetric
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
 from eval_harness.pricing import UnknownModelError, cost_for_usage
 from eval_harness.structural import check_structural
 from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate  # noqa: F401
+
+# Package baselines dir: packages/eval-harness/baselines (recorded divergence floors).
+# sweep.py is at packages/eval-harness/src/eval_harness/sweep.py -> parents[2] = packages/eval-harness.
+_BASELINES_DIR = Path(__file__).resolve().parents[2] / "baselines"
 
 logger = logging.getLogger(__name__)
 
@@ -861,6 +867,24 @@ async def run_full_matrix(
                 threshold_quality if role in _QUALITY_ROLES else threshold_other
             )
 
+            # Wire Gate 1 per role: a divergence-eligible role gets a real
+            # DivergenceMetric + the package baselines dir; any role NOT in
+            # ROLES_WITH_DIVERGENCE keeps both None (preserves the D-08 contract).
+            # Note: synthesizer + code_reader have no recorded baseline JSON yet, so
+            # metric.load_baseline() returns {} (0-failure floor) — no crash. Recording
+            # those baselines via --accept-divergence-baseline is an explicit non-goal here.
+            if role in ROLES_WITH_DIVERGENCE:
+                divergence_metric: DivergenceMetric | None = DivergenceMetric(
+                    role=role,
+                    checks=ROLE_CHECKS[role],
+                    rubric_path=ROLE_RUBRICS[role],
+                    wiki=wiki_dir(workspace_path),
+                )
+                baselines_dir_for_role: Path | None = _BASELINES_DIR
+            else:
+                divergence_metric = None
+                baselines_dir_for_role = None
+
             two_gate_outcomes: dict[str, TwoGateOutcome] = {}
             for candidate in candidates:
                 outputs_by_case: list[tuple[str, object]] = [
@@ -870,9 +894,9 @@ async def run_full_matrix(
                 ]
                 outcome = score_two_gate(
                     role=role,
-                    divergence_metric_or_none=None,
+                    divergence_metric_or_none=divergence_metric,
                     agent_outputs_by_case=outputs_by_case,
-                    baselines_dir=None,
+                    baselines_dir=baselines_dir_for_role,
                     panel_mean=panel_means.get(candidate),
                     default_panel_mean=default_panel_mean,
                     threshold=threshold,
