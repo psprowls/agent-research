@@ -25,7 +25,7 @@ import os
 import botocore.exceptions
 import pytest
 
-HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+HAIKU_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Canonical GRAPH_WIKI_RUN_INTEGRATION gate — matches conftest.py:19-22 verbatim
 # so the docs/testing.md grep gate sees this file as canonical (D-10).

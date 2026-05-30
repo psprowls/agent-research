@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+HAIKU_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 def test_narrator_role_in_models_toml():

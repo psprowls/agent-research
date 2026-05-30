@@ -9,7 +9,7 @@ from __future__ import annotations
 import botocore.exceptions
 import pytest
 
-HAIKU_ARN = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+HAIKU_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 # Phase 16 D-13 / MODEL-FU-01: synthesizer default after the Sweep-01 swap
 # (sonnet-4-6 -> qwen3-32b for 11x cheaper at parity). Sourced from
 # packages/model-adapter/src/model_adapter/models.toml [roles.synthesizer].

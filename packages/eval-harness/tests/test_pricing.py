@@ -28,12 +28,12 @@ def test_nova_lite_cost() -> None:
 
 
 def test_qwen3_cost() -> None:
-    """Qwen3-32B: $0.40/M input + $1.60/M output -> $2.00 for 1M each."""
+    """Qwen3-32B: $0.15/M input + $0.60/M output -> $0.75 for 1M each."""
     result = cost_for_usage(
         "qwen.qwen3-32b-v1:0",
         {"input": 1_000_000, "output": 1_000_000},
     )
-    assert result == pytest.approx(2.0)
+    assert result == pytest.approx(0.75)
 
 
 def test_unknown_model_raises() -> None:
