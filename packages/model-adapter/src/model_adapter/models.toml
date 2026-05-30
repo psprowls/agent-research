@@ -1,21 +1,22 @@
 # Dedicated handle for the BED-01 connectivity ping in eval_harness.preflight.
 # Pin a cheap, fast model here — this role is invoked once per sweep purely to
 # confirm AWS credentials and bedrock:InvokeModel permission before spending.
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; qwen3-32b is the new cheap/fast ping model.
 [roles.preflight]
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+model_id        = "qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
 max_tokens      = 64
 max_concurrency = 1
 
 [roles.librarian]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "qwen.qwen3-32b-v1:0",
   "qwen.qwen3-next-80b-a3b",
   "deepseek.v3.2",
@@ -24,17 +25,16 @@ sweep_candidates = [
 ]
 
 [roles.code_reader]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
 # Plan 03-09: vault-thin code-fallback role. Reads source files directly when
 # the librarian fan-out returns no useful excerpts. Conservative defaults —
 # the fallback is opt-in and bounded (max 5 tool-call iterations per page).
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+model_id        = "minimax.minimax-m2.5"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 3
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "qwen.qwen3-coder-30b-a3b-v1:0",
   "qwen.qwen3-coder-next",
   "mistral.devstral-2-123b",
@@ -43,14 +43,13 @@ sweep_candidates = [
 ]
 
 [roles.scanner]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-model_id        = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+model_id        = "openai.gpt-oss-20b-1:0"
 region          = "us-east-1"
 max_tokens      = 500
 max_concurrency = 10
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "openai.gpt-oss-20b-1:0",
   "zai.glm-4.7-flash",
   "mistral.ministral-3-14b-instruct",
@@ -70,55 +69,52 @@ max_tokens      = 600
 max_concurrency = 10
 
 [roles.linter]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.amazon.nova-lite-v1:0
-# NOTE: incumbent default us.amazon.nova-lite-v1:0 is NOT in the 2026-05-29 candidate
-# set — default left as-is; needs a decision after the sweep runs.
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# Default us.amazon.nova-lite-v1:0 is now also included as a candidate
+# (nova-lite stays default AND is a sweep candidate — decision made 2026-05-30).
 model_id        = "us.amazon.nova-lite-v1:0"
 region          = "us-east-1"
 max_tokens      = 3000
 max_concurrency = 10
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "us.amazon.nova-lite-v1:0",
   "qwen.qwen3-32b-v1:0",
   "openai.gpt-oss-120b-1:0",
-  "deepseek.v3.2",
   "minimax.minimax-m2.5",
   "zai.glm-4.7-flash",
 ]
 
 [roles.ingestor]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-model_id        = "qwen.qwen3-32b-v1:0"
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# qwen.qwen3-vl-235b-a22b removed (vision model, overkill for text ingestion).
+model_id        = "zai.glm-4.7-flash"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "qwen.qwen3-32b-v1:0",
   "openai.gpt-oss-120b-1:0",
   "minimax.minimax-m2.5",
   "qwen.qwen3-next-80b-a3b",
   "zai.glm-4.7-flash",
-  "qwen.qwen3-vl-235b-a22b",
 ]
 
 [roles.synthesizer]
-# Sweep candidates queued 2026-05-29 (candidate set below; sweep not yet run — no scores).
-# Previous default: us.anthropic.claude-sonnet-4-6
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# us.deepseek.r1-v1:0 removed (reasoning model, 7.9M tokens/day cap + toolCalling unsupported).
 model_id        = "qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
 sweep_candidates = [
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "qwen.qwen3-32b-v1:0",
   "zai.glm-5",
   "moonshotai.kimi-k2.5",
   "deepseek.v3.2",
   "qwen.qwen3-next-80b-a3b",
-  "us.deepseek.r1-v1:0",
   "moonshot.kimi-k2-thinking",
 ]
 
