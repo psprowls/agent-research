@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED 2026-05-29** by `CONTINUE-sweep-harness-fixes-2.md`. Fixes B + C
+> here are DONE; the "Step 3" run was executed ($7.02) and surfaced Fixes D/E/F
+> (all now landed). Resume from the round-2 note.
+
 # CONTINUE: sweep harness fixes + clean re-run (handoff 2026-05-29)
 
 Self-contained continuation note so a fresh context can finish the cost-frontier
