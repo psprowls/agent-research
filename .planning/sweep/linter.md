@@ -2,37 +2,41 @@
 
 ## Candidates
 
-- `us.anthropic.claude-haiku-4-5-20251001-v1:0`
-- `us.amazon.nova-pro-v1:0`
-- `us.amazon.nova-lite-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 - `qwen.qwen3-32b-v1:0`
+- `openai.gpt-oss-120b-1:0`
+- `deepseek.v3.2`
+- `minimax.minimax-m2.5`
+- `zai.glm-4.7-flash`
 
 ## Raw Scores
 
 | model_id | quality_mean | quality_std | cost_per_run_usd | n_cases | divergence_failures | gate1 | gate2 | qualified |
 |---|---|---|---|---|---|---|---|---|
-| `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 0.000 | 0.000 | $0.0220 | 12 | n/a | FAIL | PASS | NO |
-| `us.amazon.nova-pro-v1:0` | 0.000 | 0.000 | $0.0118 | 12 | n/a | FAIL | PASS | NO |
-| `us.amazon.nova-lite-v1:0` | 0.000 | 0.000 | $0.0048 | 12 | n/a | FAIL | PASS | NO |
-| `qwen.qwen3-32b-v1:0` | 0.000 | 0.000 | $0.0060 | 12 | n/a | FAIL | PASS | NO |
+| `global.anthropic.claude-haiku-4-5-20251001-v1:0` | 0.000 | 0.000 | $0.0210 | 12 | n/a | PASS | n/a | YES |
+| `qwen.qwen3-32b-v1:0` | 0.000 | 0.000 | $0.0024 | 12 | n/a | PASS | n/a | YES |
+| `openai.gpt-oss-120b-1:0` | 0.000 | 0.000 | $0.0037 | 12 | n/a | PASS | n/a | YES |
+| `deepseek.v3.2` | 0.000 | 0.000 | $0.0102 | 12 | n/a | PASS | n/a | YES |
+| `minimax.minimax-m2.5` | 0.000 | 0.000 | $0.0069 | 12 | n/a | PASS | n/a | YES |
+| `zai.glm-4.7-flash` | 0.000 | 0.000 | $0.0012 | 12 | n/a | PASS | n/a | YES |
 
 ## Pareto frontier
 
-- `us.amazon.nova-lite-v1:0` (quality=0.00, cost=$0.0046)
+- `zai.glm-4.7-flash` (quality=0.00, cost=$0.0011)
 
-**Cheapest on frontier:** `us.amazon.nova-lite-v1:0`
+**Cheapest on frontier:** `zai.glm-4.7-flash`
 
 ## Recommendation
 
 ```toml
-# Sweep candidates (run 2026-05-17): pareto-frontier members
-#   - us.amazon.nova-lite-v1:0                           (cost=$0.0046, quality=0.00)
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+# Sweep candidates (run 2026-05-29): pareto-frontier members
+#   - zai.glm-4.7-flash                                  (cost=$0.0011, quality=0.00)
+# Previous default: global.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
 ## Run Metadata
 
-- **Date:** 2026-05-17
-- **Commit SHA:** `2c7bb0a`
-- **Total cost:** $0.5350
-- **Cases:** 48
+- **Date:** 2026-05-29
+- **Commit SHA:** `21be485`
+- **Total cost:** $0.5462
+- **Cases:** 72

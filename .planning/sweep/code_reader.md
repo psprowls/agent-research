@@ -2,43 +2,51 @@
 
 ## Candidates
 
-- `us.anthropic.claude-haiku-4-5-20251001-v1:0`
-- `us.amazon.nova-micro-v1:0`
-- `us.amazon.nova-lite-v1:0`
-- `qwen.qwen3-32b-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `qwen.qwen3-coder-30b-a3b-v1:0`
+- `qwen.qwen3-coder-next`
+- `mistral.devstral-2-123b`
+- `openai.gpt-oss-120b-1:0`
+- `minimax.minimax-m2.5`
 
 ## Raw Scores
 
 | model_id | quality_mean | quality_std | cost_per_run_usd | n_cases | divergence_failures | gate1 | gate2 | qualified |
 |---|---|---|---|---|---|---|---|---|
-| `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 0.889 | 0.314 | $0.0167 | 9 | n/a | n/a | PASS | YES |
-| `us.amazon.nova-micro-v1:0` | 0.778 | 0.416 | n/a | 9 | n/a | n/a | PASS | YES |
-| `us.amazon.nova-lite-v1:0` | 0.778 | 0.416 | n/a | 9 | n/a | n/a | PASS | YES |
-| `qwen.qwen3-32b-v1:0` | 0.778 | 0.416 | n/a | 9 | n/a | n/a | PASS | YES |
+| `global.anthropic.claude-haiku-4-5-20251001-v1:0` | 0.889 | 0.314 | $0.1180 | 18 | n/a | FAIL | PASS | NO |
+| `qwen.qwen3-coder-30b-a3b-v1:0` | 0.944 | 0.229 | n/a | 18 | n/a | FAIL | PASS | NO |
+| `qwen.qwen3-coder-next` | 0.944 | 0.229 | n/a | 18 | n/a | FAIL | PASS | NO |
+| `mistral.devstral-2-123b` | 0.944 | 0.229 | n/a | 18 | n/a | FAIL | PASS | NO |
+| `openai.gpt-oss-120b-1:0` | 1.000 | 0.000 | n/a | 18 | n/a | FAIL | PASS | NO |
+| `minimax.minimax-m2.5` | 0.944 | 0.229 | n/a | 18 | n/a | FAIL | PASS | NO |
 
 ## Pareto frontier
 
-- `us.anthropic.claude-haiku-4-5-20251001-v1:0` (quality=0.00, cost=$0.0174)
-- `us.amazon.nova-micro-v1:0` (quality=0.00, cost=N/A)
-- `us.amazon.nova-lite-v1:0` (quality=0.00, cost=N/A)
-- `qwen.qwen3-32b-v1:0` (quality=0.00, cost=N/A)
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0` (quality=0.00, cost=$0.1103)
+- `qwen.qwen3-coder-30b-a3b-v1:0` (quality=0.00, cost=N/A)
+- `qwen.qwen3-coder-next` (quality=0.00, cost=N/A)
+- `mistral.devstral-2-123b` (quality=0.00, cost=N/A)
+- `openai.gpt-oss-120b-1:0` (quality=1.00, cost=N/A)
+- `minimax.minimax-m2.5` (quality=0.00, cost=N/A)
 
-**Cheapest on frontier:** `us.anthropic.claude-haiku-4-5-20251001-v1:0`
+**Cheapest on frontier:** `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 
 ## Recommendation
 
 ```toml
-# Sweep candidates (run 2026-05-17): pareto-frontier members
-#   - us.anthropic.claude-haiku-4-5-20251001-v1:0        (cost=$0.0174, quality=0.00)
-#   - us.amazon.nova-micro-v1:0                          (cost=N/A, quality=0.00)
-#   - us.amazon.nova-lite-v1:0                           (cost=N/A, quality=0.00)
-#   - qwen.qwen3-32b-v1:0                                (cost=N/A, quality=0.00)
-# Previous default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+# Sweep candidates (run 2026-05-29): pareto-frontier members
+#   - global.anthropic.claude-haiku-4-5-20251001-v1:0    (cost=$0.1103, quality=0.00)
+#   - qwen.qwen3-coder-30b-a3b-v1:0                      (cost=N/A, quality=0.00)
+#   - qwen.qwen3-coder-next                              (cost=N/A, quality=0.00)
+#   - mistral.devstral-2-123b                            (cost=N/A, quality=0.00)
+#   - openai.gpt-oss-120b-1:0                            (cost=N/A, quality=1.00)
+#   - minimax.minimax-m2.5                               (cost=N/A, quality=0.00)
+# Previous default: global.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
 ## Run Metadata
 
-- **Date:** 2026-05-17
-- **Commit SHA:** `2c7bb0a`
-- **Total cost:** $0.1502
-- **Cases:** 36
+- **Date:** 2026-05-29
+- **Commit SHA:** `21be485`
+- **Total cost:** $2.1241
+- **Cases:** 108

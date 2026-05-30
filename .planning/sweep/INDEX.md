@@ -1,7 +1,7 @@
 # Cost-Frontier Sweep: Index
 
-**Run date:** 2026-05-17  
-**Total cost:** $3.5516
+**Run date:** 2026-05-29  
+**Total cost:** $7.0160
 
 ## Per-Role Results
 
@@ -12,6 +12,4 @@
 - [linter](linter.md)
 - [ingestor](ingestor.md)
 
-## Cost Story
-
-See **[STORY.md](STORY.md)** for the v1.0-promise-vs-v1.1-measured narrative, the per-role swap decisions and rationale, total spend, and caveats / followup requirements.
+See also: [Cost story](STORY.md)
