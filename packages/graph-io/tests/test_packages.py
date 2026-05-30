@@ -915,3 +915,87 @@ def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(
     ).fetchone()
     assert pkg_row[0] is None
     assert pkg_row[1] is None
+
+
+# ============================================================================
+# GQP-01: devDependencies merge + electron classification + dev_dependencies attr
+# ============================================================================
+
+
+def test_refresh_electron_app_from_dev_deps(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """GQP-01: package.json with electron+vite under devDependencies + index.html →
+    kind='app', app_kind='electron', merged deps list + dev_dependencies attr."""
+    app_dir = tmp_path / "apps" / "app-electron-ts"
+    app_dir.mkdir(parents=True)
+    (app_dir / "package.json").write_text(
+        json.dumps({
+            "name": "app-electron-ts",
+            "version": "1.0.0",
+            "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
+        })
+    )
+    (app_dir / "index.html").write_text("<!doctype html><html></html>")
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute(
+        "SELECT kind, attrs_json FROM nodes WHERE name='app-electron-ts'"
+    ).fetchone()
+    assert row is not None
+    kind, attrs_json = row
+    assert kind == "app"
+    attrs = json.loads(attrs_json)
+    assert attrs["app_kind"] == "electron"
+    # merged deps list contains both dev deps (sorted)
+    assert attrs["dependencies"] == ["electron", "vite"]
+    # dev_dependencies marker surfaces the dev-origin names
+    assert attrs["dev_dependencies"] == ["electron", "vite"]
+
+
+def test_refresh_js_dev_dep_marker_splits_runtime_vs_dev(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """GQP-01: runtime dep + dev-only dep → merged list contains both,
+    dev_dependencies contains only the dev one."""
+    pkg_dir = tmp_path / "myapp"
+    pkg_dir.mkdir()
+    (pkg_dir / "package.json").write_text(
+        json.dumps({
+            "name": "myapp",
+            "version": "1.0.0",
+            "dependencies": {"react": "^18"},
+            "devDependencies": {"vite": "^5.0.0"},
+        })
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE name='myapp'"
+    ).fetchone()
+    assert row is not None
+    attrs = json.loads(row[0])
+    # merged: both react (runtime) and vite (dev), sorted
+    assert attrs["dependencies"] == ["react", "vite"]
+    # dev marker: only vite came from devDependencies
+    assert attrs["dev_dependencies"] == ["vite"]
+
+
+def test_refresh_python_package_dev_dependencies_empty(
+    tmp_path: Path, conn: sqlite3.Connection
+) -> None:
+    """GQP-01: Python manifests have no devDependencies → dev_dependencies attr is []."""
+    pkg_dir = tmp_path / "pypkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "pypkg"\nversion = "0.1.0"\ndependencies = ["boto3"]\n'
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute(
+        "SELECT attrs_json FROM nodes WHERE name='pypkg'"
+    ).fetchone()
+    assert row is not None
+    attrs = json.loads(row[0])
+    assert attrs["dev_dependencies"] == []

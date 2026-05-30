@@ -221,6 +221,9 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             # is wiki-io's job (Plan 01), not synthesized here.
             "description": info.get("description", ""),
             "dependencies": info["dependencies"],
+            # GQP-01: dev-origin marker for JS packages (empty list for Python
+            # manifests which have no devDependencies field).
+            "dev_dependencies": info.get("dev_dependencies", []),
             "language": info["language"],
             "uri": new_uri,
         }
