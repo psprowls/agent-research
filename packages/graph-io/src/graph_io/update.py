@@ -282,6 +282,14 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 _process_files(conn, repo_root, changed, skip_dirs)
                 packages.refresh(conn, repo_root=repo_root, ctx=ctx)
                 builtins.refresh(conn, repo_root=repo_root, workspace=workspace, ctx=ctx)
+                # Resolve file-import edges to real file nodes BEFORE the
+                # full-mode cleanup DELETE (below). The cleanup purges
+                # specifier-path stub file nodes (not in tracked_paths),
+                # cascade-deleting every imports edge still pointing at them.
+                # Running resolution first repoints edges onto the real
+                # (tracked) file nodes that survive the DELETE; the orphaned
+                # stubs are then cleaned up safely. (quick-260530-nsr D-2)
+                resolve.resolve_file_imports(conn, repo_root)
                 if full:
                     tracked_paths = [
                         rel for _, rel in changed
