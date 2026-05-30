@@ -1152,8 +1152,8 @@ def test_valid_kinds_includes_app() -> None:
 
 
 def test_valid_app_kinds_contents() -> None:
-    """Phase 50 D-04: _VALID_APP_KINDS frozenset enumerates the four framework strings."""
-    assert queries._VALID_APP_KINDS == frozenset({"cli", "expo", "nextjs", "spa"})
+    """Phase 50 D-04 / GQP-01: _VALID_APP_KINDS frozenset enumerates the framework strings."""
+    assert queries._VALID_APP_KINDS == frozenset({"cli", "electron", "expo", "nextjs", "spa"})
 
 
 def test_builtin_uri_shape() -> None:
