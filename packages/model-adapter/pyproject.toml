@@ -18,3 +18,7 @@ include = ["src/model_adapter/models.toml"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+# Mirror the workspace-root convention (CLAUDE.md §8): this local config
+# overrides the root when pytest's rootdir resolves to this package, so the
+# async-mode setting must be repeated here for `async def test_*` collection.
+asyncio_mode = "auto"

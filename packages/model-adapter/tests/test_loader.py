@@ -93,6 +93,97 @@ def test_invoke_returns_underlying_result_on_success(monkeypatch):
     assert llm.invoke("ping") is sentinel
 
 
+# ---------------------------------------------------------------------------
+# FIX-B: content-shape normalization at the model-adapter boundary.
+#
+# Bedrock's Converse API returns `response.content` as a list of content blocks
+# (reasoning + text) for "thinking" models. `_normalize_content` collapses that
+# to a plain `str` on `.content` and preserves the dropped reasoning blocks on
+# `additional_kwargs["reasoning"]`. The trigger is content SHAPE, not model id.
+# ---------------------------------------------------------------------------
+
+_REASONING_BLOCK = {
+    "type": "reasoning_content",
+    "reasoning_content": {"type": "text", "text": "thinking...", "signature": "sig"},
+}
+
+
+def _list_shaped_message():
+    """A real AIMessage whose `.content` is a list of [reasoning, text, text]."""
+    from langchain_core.messages import AIMessage
+
+    return AIMessage(
+        content=[
+            _REASONING_BLOCK,
+            {"type": "text", "text": "Hello"},
+            {"type": "text", "text": " world"},
+        ]
+    )
+
+
+def test_invoke_normalizes_list_content_and_preserves_reasoning(monkeypatch):
+    """Sync path: list-shaped content collapses to a concatenated str and the
+    reasoning block is preserved on additional_kwargs['reasoning']."""
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("preflight")
+    monkeypatch.setattr(llm, "_original_invoke", lambda *a, **kw: _list_shaped_message())
+
+    result = llm.invoke("ping")
+    assert result.content == "Hello world"
+    assert result.additional_kwargs["reasoning"] == [_REASONING_BLOCK]
+
+
+async def test_ainvoke_normalizes_list_content_and_preserves_reasoning(monkeypatch):
+    """Async path: ainvoke normalizes the same list-shaped content."""
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("preflight")
+
+    async def _fake_ainvoke(*a, **kw):
+        return _list_shaped_message()
+
+    monkeypatch.setattr(llm, "_original_ainvoke", _fake_ainvoke)
+
+    result = await llm.ainvoke("ping")
+    assert result.content == "Hello world"
+    assert result.additional_kwargs["reasoning"] == [_REASONING_BLOCK]
+
+
+def test_invoke_passes_through_string_content_unchanged(monkeypatch):
+    """A string-content AIMessage stays a str and gains no 'reasoning' key."""
+    from langchain_core.messages import AIMessage
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("preflight")
+    monkeypatch.setattr(
+        llm, "_original_invoke", lambda *a, **kw: AIMessage("plain text")
+    )
+
+    result = llm.invoke("ping")
+    assert result.content == "plain text"
+    assert isinstance(result.content, str)
+    assert "reasoning" not in result.additional_kwargs
+
+
+async def test_ainvoke_wraps_access_denied_with_arn(monkeypatch):
+    """Async path: an AccessDeniedException ClientError becomes a
+    BedrockAccessDenied whose message names the attempted ARN."""
+    from model_adapter.exceptions import BedrockAccessDenied
+    from model_adapter.loader import make_llm
+
+    llm = make_llm("preflight")
+
+    async def _raise_access_denied(*a, **kw):
+        raise _build_client_error("AccessDeniedException")
+
+    monkeypatch.setattr(llm, "_original_ainvoke", _raise_access_denied)
+
+    with pytest.raises(BedrockAccessDenied) as exc_info:
+        await llm.ainvoke("ping")
+    assert HAIKU_ARN in str(exc_info.value)
+
+
 ALL_ROLES = ["preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
 
 # Phase 48 D-19 / PROPOSE-06: dedicated role for `graph propose-domains` so
