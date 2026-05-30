@@ -438,6 +438,7 @@ async def _run_code_fallback(
     pool: SubagentPool,
     query_id: str,
     code_reader_override: str | None = None,
+    synthesizer_override: str | None = None,
 ) -> tuple[str, int | None, int | None]:
     """Vault-thin fallback: fan out to a code-reader that uses a bounded
     `read_file` tool to read source code, then synthesize an answer prefixed
@@ -450,6 +451,9 @@ async def _run_code_fallback(
 
     Args:
         code_reader_override: Bedrock model ID to use for the code_reader role
+            instead of the default from models.toml. Used by the sweep runner
+            for single-role-swap evaluation (D-06).
+        synthesizer_override: Bedrock model ID to use for the synthesizer role
             instead of the default from models.toml. Used by the sweep runner
             for single-role-swap evaluation (D-06).
     """
@@ -558,7 +562,7 @@ async def _run_code_fallback(
     if len(code_excerpts_text) > 60000:
         code_excerpts_text = code_excerpts_text[:60000]
 
-    synth_llm = make_llm("synthesizer")
+    synth_llm = make_llm("synthesizer", model_override=synthesizer_override)
     synth_cfg = load_role_config("synthesizer")
     synth_msgs = [
         SystemMessage(content=SYNTHESIZER_SYSTEM),
@@ -1122,6 +1126,7 @@ async def run_query(
                 pool=pool,
                 query_id=query_id,
                 code_reader_override=(role_model_overrides or {}).get("code_reader"),
+                synthesizer_override=(role_model_overrides or {}).get("synthesizer"),
             )
 
         # Step 8: Build QueryResult with search_scores
