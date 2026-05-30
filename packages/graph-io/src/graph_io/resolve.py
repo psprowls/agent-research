@@ -11,6 +11,12 @@ from graph_io._ignore import should_skip
 
 _JS_EXTENSIONS = import_scan._JS_EXTENSIONS
 
+# Placeholder kinds eligible for the conservative single-candidate cross-kind
+# fallback (D-3). Restricted to the code-symbol placeholders emitted by the
+# graph projection for unresolved call/export refs — NOT file-import stubs
+# (those are handled by resolve_file_imports).
+_CROSS_KIND_RESOLVABLE = frozenset({"function", "method", "class"})
+
 
 def _set_resolution(attrs_json: str | None, resolution: str) -> str:
     attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
@@ -135,12 +141,27 @@ def sweep(conn: sqlite3.Connection) -> None:
         ).fetchall()
 
         if not matches:
-            new_attrs = _set_resolution(attrs_json, "unresolved")
-            conn.execute(
-                "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind=?",
-                (new_attrs, src, old_dst, edge_kind),
-            )
-            continue
+            # D-3 conservative cross-kind fallback: a same-kind match found
+            # nothing. For code-kind placeholders (the ('function', name, None)
+            # call/export placeholders), look up ALL code-kind nodes graph-wide
+            # with this name and resolve ONLY when EXACTLY ONE exists. 0 → stay
+            # unresolved; 2+ (any kinds) → stay unresolved, never fabricate an
+            # ambiguous cross-kind edge (bare names like get/render collide).
+            if node_kind in _CROSS_KIND_RESOLVABLE:
+                cross = conn.execute(
+                    "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class') "
+                    "AND name=? AND path IS NOT NULL",
+                    (node_name,),
+                ).fetchall()
+                if len(cross) == 1:
+                    matches = cross
+            if not matches:
+                new_attrs = _set_resolution(attrs_json, "unresolved")
+                conn.execute(
+                    "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind=?",
+                    (new_attrs, src, old_dst, edge_kind),
+                )
+                continue
 
         conn.execute(
             "DELETE FROM edges WHERE src=? AND dst=? AND kind=?",

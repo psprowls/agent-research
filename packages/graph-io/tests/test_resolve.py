@@ -496,3 +496,100 @@ def test_resolve_file_imports_ambiguous(
     assert len(rows) == 2
     for (attrs_json,) in rows:
         assert json.loads(attrs_json)["resolution"] == "ambiguous"
+
+
+# ---------------------------------------------------------------------------
+# Tests for conservative single-candidate cross-kind sweep (FIX #2 — D-3)
+# ---------------------------------------------------------------------------
+
+
+def test_sweep_cross_kind_single_candidate(conn: sqlite3.Connection) -> None:
+    """A path-less ('function', name, None) placeholder resolves to the single
+    graph-wide node with that name, even when its kind differs (e.g. method)."""
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={}),
+            GraphNode(kind="method", name="handle", path="b.py", line=5, attrs={}),
+        ],
+        edges=[
+            GraphEdge(
+                src=("function", "caller", "a.py"),
+                dst=("function", "handle", None),
+                kind="calls",
+                attrs={},
+            ),
+        ],
+    )
+
+    resolve.sweep(conn)
+
+    rows = conn.execute(
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
+        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+    ).fetchall()
+    assert len(rows) == 1
+    path, kind, attrs_json = rows[0]
+    assert path == "b.py"
+    assert kind == "method"
+    assert json.loads(attrs_json)["resolution"] == "exact"
+
+
+def test_sweep_cross_kind_zero_candidates(conn: sqlite3.Connection) -> None:
+    """A placeholder matching no real code node stays unresolved."""
+    _seed(
+        conn,
+        nodes=[GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={})],
+        edges=[
+            GraphEdge(
+                src=("function", "caller", "a.py"),
+                dst=("function", "nonexistent", None),
+                kind="calls",
+                attrs={},
+            ),
+        ],
+    )
+
+    resolve.sweep(conn)
+
+    rows = conn.execute(
+        "SELECT n2.path, e.attrs_json FROM edges e "
+        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+    ).fetchall()
+    assert len(rows) == 1
+    path, attrs_json = rows[0]
+    assert path is None
+    assert json.loads(attrs_json)["resolution"] == "unresolved"
+
+
+def test_sweep_cross_kind_collision_stays_unresolved(conn: sqlite3.Connection) -> None:
+    """A placeholder name matching 2+ real code nodes (any kinds) stays
+    unresolved — NO ambiguous cross-kind edges fabricated."""
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={}),
+            GraphNode(kind="method", name="render", path="b.py", line=5, attrs={}),
+            GraphNode(kind="class", name="render", path="c.py", line=7, attrs={}),
+        ],
+        edges=[
+            GraphEdge(
+                src=("function", "caller", "a.py"),
+                dst=("function", "render", None),
+                kind="calls",
+                attrs={},
+            ),
+        ],
+    )
+
+    resolve.sweep(conn)
+
+    rows = conn.execute(
+        "SELECT n2.path, e.attrs_json FROM edges e "
+        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+    ).fetchall()
+    # the placeholder stays (no real-kind match), edge unresolved
+    assert len(rows) == 1
+    path, attrs_json = rows[0]
+    assert path is None
+    assert json.loads(attrs_json)["resolution"] == "unresolved"
