@@ -10,15 +10,17 @@ import botocore.exceptions
 import pytest
 
 HAIKU_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# 2026-05-30: preflight moved from Haiku to qwen3-32b (Haiku quota exhausted).
+PREFLIGHT_ARN = "qwen.qwen3-32b-v1:0"
 # Phase 16 D-13 / MODEL-FU-01: synthesizer default after the Sweep-01 swap
 # (sonnet-4-6 -> qwen3-32b for 11x cheaper at parity). Sourced from
 # packages/model-adapter/src/model_adapter/models.toml [roles.synthesizer].
 QWEN_SYNTHESIZER_ARN = "qwen.qwen3-32b-v1:0"
 
 
-def test_make_llm_preflight_returns_chatbedrockconverse_with_haiku_arn():
-    """The preflight role is the dedicated BED-01 ping handle; it currently
-    points at the haiku-4.5 ARN as a cheap, fast smoke-test model."""
+def test_make_llm_preflight_returns_chatbedrockconverse_with_qwen3_arn():
+    """The preflight role is the dedicated BED-01 ping handle; after the
+    2026-05-30 Haiku-purge it points at qwen3-32b as a cheap, fast smoke-test model."""
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm
 
@@ -27,7 +29,7 @@ def test_make_llm_preflight_returns_chatbedrockconverse_with_haiku_arn():
     # ChatBedrockConverse (langchain-aws 1.4.6) stores the constructor `model`
     # argument as `model_id`. Tests must accept either to remain robust.
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == HAIKU_ARN
+    assert actual == PREFLIGHT_ARN
 
 
 def test_make_llm_unknown_role_raises_keyerror():
@@ -62,7 +64,7 @@ def test_invoke_wraps_access_denied_with_arn_and_iam_action(monkeypatch):
         llm.invoke("ping")
 
     msg = str(exc_info.value)
-    assert HAIKU_ARN in msg
+    assert PREFLIGHT_ARN in msg
     assert "bedrock:InvokeModel" in msg
     assert "arn:aws:bedrock:*::foundation-model/*" in msg
 
@@ -181,7 +183,7 @@ async def test_ainvoke_wraps_access_denied_with_arn(monkeypatch):
 
     with pytest.raises(BedrockAccessDenied) as exc_info:
         await llm.ainvoke("ping")
-    assert HAIKU_ARN in str(exc_info.value)
+    assert PREFLIGHT_ARN in str(exc_info.value)
 
 
 ALL_ROLES = ["preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
@@ -240,8 +242,9 @@ def test_load_role_config_returns_dict_for_all_seven_roles(role):
 def test_load_role_config_librarian_values():
     from model_adapter.loader import load_role_config
 
+    # 2026-05-30: librarian default changed to kimi-k2.5 (Haiku purged for quota exhaustion).
     cfg = load_role_config("librarian")
-    assert cfg["model_id"] == HAIKU_ARN
+    assert cfg["model_id"] == "moonshotai.kimi-k2.5"
     assert cfg["max_tokens"] == 2048
     assert cfg["max_concurrency"] == 5
 
@@ -368,8 +371,8 @@ def test_make_llm_falls_back_to_packaged_when_role_absent_in_workspace(
     llm = make_llm("scanner")
     assert isinstance(llm, ChatBedrockConverse)
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    # Scanner default per models.toml [roles.scanner]
-    assert actual == HAIKU_ARN
+    # Scanner default per models.toml [roles.scanner] (2026-05-30: gpt-oss-20b after Haiku purge)
+    assert actual == "openai.gpt-oss-20b-1:0"
 
 
 def test_make_llm_falls_back_to_packaged_when_resolve_raises(
@@ -397,8 +400,8 @@ def test_make_llm_falls_back_to_packaged_when_resolve_raises(
 
     llm = make_llm("preflight")
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    # Preflight default per models.toml [roles.preflight]
-    assert actual == HAIKU_ARN
+    # Preflight default per models.toml [roles.preflight] (2026-05-30: qwen3-32b after Haiku purge)
+    assert actual == PREFLIGHT_ARN
 
 
 def test_make_llm_falls_back_when_helper_returns_none(monkeypatch):
@@ -416,5 +419,6 @@ def test_make_llm_falls_back_when_helper_returns_none(monkeypatch):
     # behavior of `make_llm` under that stub.
     llm = make_llm("preflight")
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == HAIKU_ARN
+    # Preflight default per models.toml [roles.preflight] (2026-05-30: qwen3-32b after Haiku purge)
+    assert actual == PREFLIGHT_ARN
 
