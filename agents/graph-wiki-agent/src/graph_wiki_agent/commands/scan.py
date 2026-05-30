@@ -19,7 +19,6 @@ from typing import Any
 
 from graph_io import exit_codes, queries
 from graph_io.store import GraphNotInitializedError, read_only_connect
-from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
@@ -680,14 +679,7 @@ async def run_scan(
 
             if narrator_items:
                 narrator_cfg = load_role_config("narrator")
-                if model_override is not None:
-                    narrator_llm = ChatBedrockConverse(
-                        model_id=model_override,
-                        region_name=narrator_cfg["region"],
-                        max_tokens=narrator_cfg["max_tokens"],
-                    )
-                else:
-                    narrator_llm = make_llm("narrator")
+                narrator_llm = make_llm("narrator", model_override=model_override)
                 narrator_pool = SubagentPool(
                     trace_dir=wiki / ".graph-wiki" / "traces"
                 )

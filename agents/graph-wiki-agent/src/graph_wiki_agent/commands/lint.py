@@ -31,7 +31,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
@@ -454,14 +453,7 @@ async def _semantic_pass(
             # usage_metadata exists; wrap empty findings list for contract
             # consistency.
             return TaskResult(value=[], response=None)
-        if model_override is not None:
-            linter_llm = ChatBedrockConverse(
-                model_id=model_override,
-                region_name=cfg["region"],
-                max_tokens=cfg["max_tokens"],
-            )
-        else:
-            linter_llm = make_llm("linter")
+        linter_llm = make_llm("linter", model_override=model_override)
         msgs = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=_build_linter_input(pages_input)),

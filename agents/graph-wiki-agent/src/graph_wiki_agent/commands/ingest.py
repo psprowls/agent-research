@@ -28,7 +28,6 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.trace_io import write_trace_record
@@ -617,14 +616,7 @@ async def run_ingest_source(
 
         # Step 5: single ingestor LLM call
         ingestor_cfg = load_role_config("ingestor")
-        if model_override is not None:
-            llm = ChatBedrockConverse(
-                model_id=model_override,
-                region_name=ingestor_cfg["region"],
-                max_tokens=ingestor_cfg["max_tokens"],
-            )
-        else:
-            llm = make_llm("ingestor")
+        llm = make_llm("ingestor", model_override=model_override)
         resolved_model_id = model_override or ingestor_cfg["model_id"]
         # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
         # to disk for every production ingest invocation, not just pool-driven calls.

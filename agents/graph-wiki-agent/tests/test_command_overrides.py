@@ -5,6 +5,12 @@ from __future__ import annotations
 Proves D-06 single-role-swap protocol: when exactly one role is overridden,
 all other roles still use their models.toml defaults (make_llm path).
 
+Fix D contract (quick-260529-sot): the override role's LLM is now built via
+`make_llm(role, model_override=<candidate>)` — a `_GuardedChatBedrockConverse`
+that applies the content normalizer + AccessDenied guard — NOT a raw
+`ChatBedrockConverse`. Other roles still go through `make_llm(role)` with no
+model_override.
+
 All tests use unittest.mock.patch and AsyncMock — no real Bedrock calls.
 """
 
@@ -39,40 +45,41 @@ def _make_vault(tmp_path: Path) -> Path:
     return vault
 
 
+def _make_llm_factory(default_resp):
+    """Return (fake_make_llm, calls) where calls records (role, model_override)
+    for every make_llm invocation, and each call yields an AsyncMock LLM."""
+    calls: list[tuple[str, str | None]] = []
+
+    def _fake_make_llm(role: str, *, model_override: str | None = None):
+        calls.append((role, model_override))
+        inst = AsyncMock()
+        inst.ainvoke = AsyncMock(return_value=default_resp)
+        # code_reader path calls .bind_tools(...) then ainvoke on the result.
+        inst.bind_tools = MagicMock(return_value=inst)
+        return inst
+
+    return _fake_make_llm, calls
+
+
 # ---------------------------------------------------------------------------
 # Task 1: run_query overrides (synthesizer, code_reader, librarian back-compat)
 # ---------------------------------------------------------------------------
 
 
 async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
-    """role_model_overrides={"synthesizer": "..."} routes synthesizer LLM to ChatBedrockConverse
-    with the specified model_id, not to the make_llm("synthesizer") default."""
+    """role_model_overrides={"synthesizer": "..."} routes the synthesizer LLM
+    through make_llm("synthesizer", model_override=candidate)."""
     candidate = "us.amazon.nova-pro-v1:0"
     vault = _make_vault(tmp_path)
 
-    mock_synth_resp = MagicMock()
-    mock_synth_resp.content = "The answer [[page]]"
-
-    mock_lib_resp = MagicMock()
-    mock_lib_resp.content = "relevant excerpt"
+    mock_resp = MagicMock()
+    mock_resp.content = "The answer [[page]]"
 
     mock_fan = MagicMock()
     mock_fan.successes = [("page.md", "relevant excerpt")]
     mock_fan.errors = []
 
-    synth_converse_instance = AsyncMock()
-    synth_converse_instance.ainvoke = AsyncMock(return_value=mock_synth_resp)
-
-    lib_converse_instance = AsyncMock()
-    lib_converse_instance.ainvoke = AsyncMock(return_value=mock_lib_resp)
-
-    captured_converse_calls: list[dict] = []
-
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        if kwargs.get("model_id") == candidate:
-            return synth_converse_instance
-        return lib_converse_instance
+    fake_make_llm, make_llm_calls = _make_llm_factory(mock_resp)
 
     with (
         patch(
@@ -96,10 +103,7 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
         ) as mock_pool_cls,
         patch(
             "graph_wiki_agent.commands.query.make_llm",
-        ) as mock_make_llm,
-        patch(
-            "graph_wiki_agent.commands.query.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            side_effect=fake_make_llm,
         ),
         patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
@@ -107,7 +111,6 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
         mock_pool_instance = MagicMock()
         mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
         mock_pool_cls.return_value = mock_pool_instance
-        mock_make_llm.return_value = lib_converse_instance
 
         from graph_wiki_agent.commands.query import run_query
 
@@ -118,17 +121,22 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
             role_model_overrides={"synthesizer": candidate},
         )
 
-    # ChatBedrockConverse was called with the candidate model_id for the synthesizer
-    synthesizer_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(synthesizer_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r}; "
-        f"got calls: {captured_converse_calls}"
+    # synthesizer went through make_llm with the candidate override.
+    assert ("synthesizer", candidate) in make_llm_calls, (
+        f"Expected make_llm('synthesizer', model_override={candidate!r}); "
+        f"got calls: {make_llm_calls}"
+    )
+    # librarian was NOT overridden (no model_override).
+    assert ("librarian", None) in make_llm_calls, (
+        f"Expected librarian to use make_llm('librarian') with no override; "
+        f"got calls: {make_llm_calls}"
     )
 
 
 async def test_run_query_code_reader_override(tmp_path: Path) -> None:
-    """role_model_overrides={"code_reader": "..."} routes code_reader LLM to ChatBedrockConverse
-    with the specified model_id when the vault-thin code fallback fires."""
+    """role_model_overrides={"code_reader": "..."} routes the code_reader LLM
+    through make_llm("code_reader", model_override=candidate) when the
+    vault-thin code fallback fires."""
     candidate = "us.amazon.nova-micro-v1:0"
     vault = _make_vault(tmp_path)
 
@@ -141,13 +149,10 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
     mock_code_fan.successes = []
     mock_code_fan.errors = []
 
-    captured_converse_calls: list[dict] = []
+    mock_resp = MagicMock()
+    mock_resp.content = "code answer"
 
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        inst = MagicMock()
-        inst.bind_tools = MagicMock(return_value=AsyncMock())
-        return inst
+    fake_make_llm, make_llm_calls = _make_llm_factory(mock_resp)
 
     with (
         patch(
@@ -171,10 +176,7 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
         ) as mock_pool_cls,
         patch(
             "graph_wiki_agent.commands.query.make_llm",
-        ),
-        patch(
-            "graph_wiki_agent.commands.query.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            side_effect=fake_make_llm,
         ),
         patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
         patch("graph_wiki_agent.commands.query._resolve_repo_root", return_value=tmp_path),
@@ -194,32 +196,26 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
             role_model_overrides={"code_reader": candidate},
         )
 
-    code_reader_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(code_reader_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r}; "
-        f"got calls: {captured_converse_calls}"
+    assert ("code_reader", candidate) in make_llm_calls, (
+        f"Expected make_llm('code_reader', model_override={candidate!r}); "
+        f"got calls: {make_llm_calls}"
     )
 
 
 async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
-    """Legacy librarian_model_override=... still works when role_model_overrides is absent."""
+    """Legacy librarian_model_override=... still works when role_model_overrides
+    is absent — routed through make_llm('librarian', model_override=candidate)."""
     candidate = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     vault = _make_vault(tmp_path)
 
-    mock_synth_resp = MagicMock()
-    mock_synth_resp.content = "The answer [[page]]"
+    mock_resp = MagicMock()
+    mock_resp.content = "The answer [[page]]"
 
     mock_fan = MagicMock()
     mock_fan.successes = [("page.md", "relevant")]
     mock_fan.errors = []
 
-    captured_converse_calls: list[dict] = []
-
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        inst = AsyncMock()
-        inst.ainvoke = AsyncMock(return_value=mock_synth_resp)
-        return inst
+    fake_make_llm, make_llm_calls = _make_llm_factory(mock_resp)
 
     with (
         patch(
@@ -243,10 +239,7 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
         ) as mock_pool_cls,
         patch(
             "graph_wiki_agent.commands.query.make_llm",
-        ) as mock_make_llm,
-        patch(
-            "graph_wiki_agent.commands.query.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            side_effect=fake_make_llm,
         ),
         patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
@@ -254,9 +247,6 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
         mock_pool_instance = MagicMock()
         mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
         mock_pool_cls.return_value = mock_pool_instance
-        synth_inst = AsyncMock()
-        synth_inst.ainvoke = AsyncMock(return_value=mock_synth_resp)
-        mock_make_llm.return_value = synth_inst
 
         from graph_wiki_agent.commands.query import run_query
 
@@ -267,17 +257,17 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
             librarian_model_override=candidate,
         )
 
-    librarian_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(librarian_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with librarian model_id={candidate!r}; "
-        f"got calls: {captured_converse_calls}"
+    assert ("librarian", candidate) in make_llm_calls, (
+        f"Expected make_llm('librarian', model_override={candidate!r}); "
+        f"got calls: {make_llm_calls}"
     )
 
 
 async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
     """Single-role-swap: role_model_overrides={"librarian": X} must NOT override synthesizer.
 
-    Confirms D-06 protocol: only the named role gets the candidate; all others use make_llm.
+    Confirms D-06 protocol: only the named role gets model_override=candidate;
+    all others go through make_llm(role) with model_override=None.
     """
     librarian_candidate = "us.amazon.nova-pro-v1:0"
     vault = _make_vault(tmp_path)
@@ -289,21 +279,7 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
     mock_fan.successes = [("page.md", "relevant excerpt")]
     mock_fan.errors = []
 
-    captured_converse_model_ids: list[str] = []
-
-    def _fake_converse(**kwargs):
-        captured_converse_model_ids.append(kwargs.get("model_id", ""))
-        inst = AsyncMock()
-        inst.ainvoke = AsyncMock(return_value=mock_resp)
-        return inst
-
-    make_llm_roles: list[str] = []
-
-    def _fake_make_llm(role: str):
-        make_llm_roles.append(role)
-        inst = AsyncMock()
-        inst.ainvoke = AsyncMock(return_value=mock_resp)
-        return inst
+    fake_make_llm, make_llm_calls = _make_llm_factory(mock_resp)
 
     with (
         patch(
@@ -327,11 +303,7 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
         ) as mock_pool_cls,
         patch(
             "graph_wiki_agent.commands.query.make_llm",
-            side_effect=_fake_make_llm,
-        ),
-        patch(
-            "graph_wiki_agent.commands.query.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            side_effect=fake_make_llm,
         ),
         patch("graph_wiki_agent.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
     ):
@@ -349,19 +321,21 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
             role_model_overrides={"librarian": librarian_candidate},
         )
 
-    # The librarian candidate was used via ChatBedrockConverse
-    assert librarian_candidate in captured_converse_model_ids, (
-        f"Librarian candidate {librarian_candidate!r} not found in ChatBedrockConverse calls: "
-        f"{captured_converse_model_ids}"
+    # librarian got the candidate.
+    assert ("librarian", librarian_candidate) in make_llm_calls, (
+        f"Expected make_llm('librarian', model_override={librarian_candidate!r}); "
+        f"got calls: {make_llm_calls}"
     )
-    # synthesizer must have gone through make_llm, not ChatBedrockConverse with the candidate
-    assert "synthesizer" in make_llm_roles, (
-        f"Expected synthesizer to use make_llm path; make_llm was called for: {make_llm_roles}"
+    # synthesizer went through make_llm WITHOUT the candidate (no override bleed).
+    assert ("synthesizer", None) in make_llm_calls, (
+        f"Expected synthesizer to use make_llm('synthesizer') with no override; "
+        f"got calls: {make_llm_calls}"
     )
-    # synthesizer must NOT appear in ChatBedrockConverse calls with the librarian candidate
-    assert captured_converse_model_ids.count(librarian_candidate) == 1, (
-        "Librarian candidate bled into synthesizer ChatBedrockConverse call (D-06 violation); "
-        f"all captured model_ids: {captured_converse_model_ids}"
+    # The candidate appears exactly once — only for librarian.
+    candidate_overrides = [c for c in make_llm_calls if c[1] == librarian_candidate]
+    assert candidate_overrides == [("librarian", librarian_candidate)], (
+        "Librarian candidate bled into another role (D-06 violation); "
+        f"all make_llm calls: {make_llm_calls}"
     )
 
 
@@ -371,10 +345,9 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
 
 
 async def test_run_scan_model_override(tmp_path: Path) -> None:
-    """Phase 45 D-06/D-08: `run_scan(model_override=...)` constructs
-    ChatBedrockConverse with that model_id for the NARRATOR LLM and does NOT
-    call `make_llm("narrator")`. The legacy scanner fan-out is removed in v1.8
-    (D-08 hard cutover), so the override now targets the narrator role.
+    """Phase 45 D-06/D-08: `run_scan(model_override=...)` builds the NARRATOR LLM
+    via make_llm("narrator", model_override=candidate) — NOT make_llm("narrator")
+    with no override.
     """
     from types import SimpleNamespace
     from wiki_io.entity_writer import EntityWriteResult
@@ -387,14 +360,14 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     narrator_resp.content = "prose body"
     narrator_resp.usage_metadata = None
 
-    converse_instance = AsyncMock()
-    converse_instance.ainvoke = AsyncMock(return_value=narrator_resp)
+    narrator_instance = AsyncMock()
+    narrator_instance.ainvoke = AsyncMock(return_value=narrator_resp)
 
-    captured_converse_calls: list[dict] = []
+    make_llm_calls: list[tuple[str, str | None]] = []
 
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        return converse_instance
+    def _fake_make_llm(role: str, *, model_override: str | None = None):
+        make_llm_calls.append((role, model_override))
+        return narrator_instance
 
     # write_entities returns one URI needing narration so the narrator pool fires.
     needy_uri = "pkg:agent-research/foo"
@@ -410,9 +383,6 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     fake_node = SimpleNamespace(name="foo", attrs={"uri": needy_uri})
     fake_list_fns = {"package": lambda conn: [fake_node]}
 
-    # Mock the SubagentPool.run_all to actually invoke the narrator task so the
-    # ChatBedrockConverse instance gets its ainvoke called (i.e. the override
-    # plumbing is exercised end-to-end).
     async def fake_run_all(items, task, **kwargs):
         result = MagicMock()
         successes = []
@@ -476,10 +446,9 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
             return_value=MagicMock(changed=False, bytes_written=0),
         ))
         mock_pool_cls = stack.enter_context(patch("graph_wiki_agent.commands.scan.SubagentPool"))
-        mock_make_llm = stack.enter_context(patch("graph_wiki_agent.commands.scan.make_llm"))
         stack.enter_context(patch(
-            "graph_wiki_agent.commands.scan.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            "graph_wiki_agent.commands.scan.make_llm",
+            side_effect=_fake_make_llm,
         ))
         stack.enter_context(patch("graph_wiki_agent.commands.scan.regenerate_dependencies_index"))
         stack.enter_context(patch("graph_wiki_agent.commands.scan.append_log"))
@@ -493,26 +462,25 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
         await run_scan(workspace_path=vault, model_override=candidate)
 
-    # ChatBedrockConverse was called with the candidate model_id for the narrator.
-    narrator_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(narrator_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r} for the "
-        f"narrator override; got: {captured_converse_calls}"
+    # narrator built via make_llm with the candidate override.
+    assert ("narrator", candidate) in make_llm_calls, (
+        f"Expected make_llm('narrator', model_override={candidate!r}); "
+        f"got: {make_llm_calls}"
     )
-    # make_llm("narrator") must NOT have been called (override takes its place).
-    narrator_make_llm_calls = [c for c in mock_make_llm.call_args_list if c == call("narrator")]
-    assert len(narrator_make_llm_calls) == 0, (
-        f"make_llm('narrator') should not be called when model_override is set; "
-        f"actual calls: {mock_make_llm.call_args_list}"
+    # make_llm('narrator') with NO override must NOT have happened.
+    assert ("narrator", None) not in make_llm_calls, (
+        f"make_llm('narrator') with no override should not be called when "
+        f"model_override is set; got: {make_llm_calls}"
     )
 
 
 async def test_run_lint_model_override(tmp_path: Path) -> None:
-    """run_lint(model_override=...) constructs ChatBedrockConverse with that model_id
-    inside run_linter_group and does NOT call make_llm("linter").
+    """run_lint(model_override=...) builds the linter LLM via
+    make_llm("linter", model_override=candidate) inside run_linter_group, NOT
+    make_llm("linter") with no override.
 
     The pool.run_all mock invokes the provided task function so that
-    run_linter_group actually executes and the ChatBedrockConverse call can be captured.
+    run_linter_group actually executes and the make_llm call can be captured.
     """
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
@@ -520,14 +488,14 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
     linter_resp = MagicMock()
     linter_resp.content = ""
 
-    converse_instance = AsyncMock()
-    converse_instance.ainvoke = AsyncMock(return_value=linter_resp)
+    linter_instance = AsyncMock()
+    linter_instance.ainvoke = AsyncMock(return_value=linter_resp)
 
-    captured_converse_calls: list[dict] = []
+    make_llm_calls: list[tuple[str, str | None]] = []
 
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        return converse_instance
+    def _fake_make_llm(role: str, *, model_override: str | None = None):
+        make_llm_calls.append((role, model_override))
+        return linter_instance
 
     # One non-empty page so run_linter_group actually runs (pages_sample > 0)
     non_empty_pages = {
@@ -588,10 +556,9 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         patch(
             "graph_wiki_agent.commands.lint.SubagentPool",
         ) as mock_pool_cls,
-        patch("graph_wiki_agent.commands.lint.make_llm") as mock_make_llm,
         patch(
-            "graph_wiki_agent.commands.lint.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            "graph_wiki_agent.commands.lint.make_llm",
+            side_effect=_fake_make_llm,
         ),
     ):
         mock_pool_instance = MagicMock()
@@ -602,21 +569,20 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
 
         await run_lint(workspace_path=vault, model_override=candidate)
 
-    linter_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(linter_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r}; "
-        f"got: {captured_converse_calls}"
+    assert ("linter", candidate) in make_llm_calls, (
+        f"Expected make_llm('linter', model_override={candidate!r}); "
+        f"got: {make_llm_calls}"
     )
-    linter_make_llm_calls = [c for c in mock_make_llm.call_args_list if c == call("linter")]
-    assert len(linter_make_llm_calls) == 0, (
-        f"make_llm('linter') should not be called when model_override is set; "
-        f"actual calls: {mock_make_llm.call_args_list}"
+    assert ("linter", None) not in make_llm_calls, (
+        f"make_llm('linter') with no override should not be called when "
+        f"model_override is set; got: {make_llm_calls}"
     )
 
 
 async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
-    """run_ingest_source(source_path, model_override=...) constructs ChatBedrockConverse
-    with that model_id and does NOT call make_llm("ingestor")."""
+    """run_ingest_source(source_path, model_override=...) builds the ingestor LLM
+    via make_llm("ingestor", model_override=candidate), NOT make_llm("ingestor")
+    with no override."""
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
     source = tmp_path / "test_source.py"
@@ -627,14 +593,14 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
         "---\npage_type: concept\ntarget_slug: hello-func\n---\n# Hello\n"
     )
 
-    converse_instance = AsyncMock()
-    converse_instance.ainvoke = AsyncMock(return_value=ingestor_resp)
+    ingestor_instance = AsyncMock()
+    ingestor_instance.ainvoke = AsyncMock(return_value=ingestor_resp)
 
-    captured_converse_calls: list[dict] = []
+    make_llm_calls: list[tuple[str, str | None]] = []
 
-    def _fake_converse(**kwargs):
-        captured_converse_calls.append(kwargs)
-        return converse_instance
+    def _fake_make_llm(role: str, *, model_override: str | None = None):
+        make_llm_calls.append((role, model_override))
+        return ingestor_instance
 
     # Phase 40: run_ingest_source opens a read-only graph DB at workspace start.
     # Seed an empty graph so the test exercises the model_override path.
@@ -650,10 +616,9 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
             "graph_wiki_agent.commands.ingest.resolve_wiki_and_repo",
             return_value=(vault, None),
         ),
-        patch("graph_wiki_agent.commands.ingest.make_llm") as mock_make_llm,
         patch(
-            "graph_wiki_agent.commands.ingest.ChatBedrockConverse",
-            side_effect=_fake_converse,
+            "graph_wiki_agent.commands.ingest.make_llm",
+            side_effect=_fake_make_llm,
         ),
         patch("graph_wiki_agent.commands.ingest.update_index"),
         patch("graph_wiki_agent.commands.ingest.append_log"),
@@ -662,13 +627,11 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
 
         await run_ingest_source(source_path=source, workspace_path=vault, model_override=candidate)
 
-    ingestor_calls = [c for c in captured_converse_calls if c.get("model_id") == candidate]
-    assert len(ingestor_calls) >= 1, (
-        f"Expected ChatBedrockConverse called with model_id={candidate!r}; "
-        f"got: {captured_converse_calls}"
+    assert ("ingestor", candidate) in make_llm_calls, (
+        f"Expected make_llm('ingestor', model_override={candidate!r}); "
+        f"got: {make_llm_calls}"
     )
-    ingestor_make_llm_calls = [c for c in mock_make_llm.call_args_list if c == call("ingestor")]
-    assert len(ingestor_make_llm_calls) == 0, (
-        f"make_llm('ingestor') should not be called when model_override is set; "
-        f"actual calls: {mock_make_llm.call_args_list}"
+    assert ("ingestor", None) not in make_llm_calls, (
+        f"make_llm('ingestor') with no override should not be called when "
+        f"model_override is set; got: {make_llm_calls}"
     )

@@ -455,14 +455,7 @@ async def _run_code_fallback(
     """
     repo_root = _resolve_repo_root(wiki)
     code_cfg = load_role_config("code_reader")
-    if code_reader_override is not None:
-        code_llm_raw = ChatBedrockConverse(
-            model_id=code_reader_override,
-            region_name=code_cfg["region"],
-            max_tokens=code_cfg["max_tokens"],
-        )
-    else:
-        code_llm_raw = make_llm("code_reader")
+    code_llm_raw = make_llm("code_reader", model_override=code_reader_override)
 
     # Bound the read_file tool to the resolved repo_root and bind it to the LLM.
     @tool
@@ -936,14 +929,7 @@ async def run_query(
     # deprecated librarian_model_override parameter (D-06 single-role-swap protocol).
     _lib_override = (role_model_overrides or {}).get("librarian") or librarian_model_override
     lib_cfg = load_role_config("librarian")
-    if _lib_override is not None:
-        librarian_llm = ChatBedrockConverse(
-            model_id=_lib_override,
-            region_name=lib_cfg["region"],
-            max_tokens=lib_cfg["max_tokens"],
-        )
-    else:
-        librarian_llm = make_llm("librarian")
+    librarian_llm = make_llm("librarian", model_override=_lib_override)
 
     # ---- Phase 37: open read-only graph conn (LIBTOOLS-04, D-07/D-08) ----
     # wiki is workspace/wiki under the standard layout; .graph lives next to it.
@@ -1081,14 +1067,7 @@ async def run_query(
 
             synth_override = (role_model_overrides or {}).get("synthesizer")
             synth_cfg = load_role_config("synthesizer")
-            if synth_override is not None:
-                synth_llm = ChatBedrockConverse(
-                    model_id=synth_override,
-                    region_name=synth_cfg["region"],
-                    max_tokens=synth_cfg["max_tokens"],
-                )
-            else:
-                synth_llm = make_llm("synthesizer")
+            synth_llm = make_llm("synthesizer", model_override=synth_override)
             resolved_synth_model_id = synth_override or synth_cfg["model_id"]
             synth_msgs = [
                 SystemMessage(content=SYNTHESIZER_SYSTEM),
