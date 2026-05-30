@@ -75,6 +75,11 @@ def seeded_workspace(tmp_path, monkeypatch):
     # Pin GRAPH_WIKI_WORKSPACE so any nested resolve() calls find this
     # workspace deterministically regardless of cwd.
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    # propose-domains resolves the source repo from cwd (the shared _resolve_paths
+    # contract — see 260530-hxy/iqr); chdir into the seeded repo so repo_root is the
+    # tmp fixture repo, not the real working-directory repo. Mirrors real usage
+    # (propose-domains is run from within the source repo).
+    monkeypatch.chdir(repo_root)
     return repo_root, workspace
 
 
