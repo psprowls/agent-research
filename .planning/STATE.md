@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 Phase: Milestone v1.10 complete (Phases 54-59)
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-29 — Completed quick task 260529-na9: refresh models.toml sweep candidates and judge panel
+Last activity: 2026-05-29 — Completed quick task 260529-ox1: EvalWorktree provisions graph-io DB for ingestor sweep cells
 
 ## Progress Bar
 
@@ -67,6 +67,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260529-na9 | Refresh models.toml sweep candidates and judge panel for new cost-frontier sweep | 2026-05-29 | 60c8d77 | [260529-na9-refresh-models-toml-sweep-candidates-and](./quick/260529-na9-refresh-models-toml-sweep-candidates-and/) |
+| 260529-ox1 | EvalWorktree provisions initialized graph-io DB so ingestor sweep cells can run | 2026-05-29 | e42ae87 | [260529-ox1-evalworktree-provisions-initialized-grap](./quick/260529-ox1-evalworktree-provisions-initialized-grap/) |
 
 ### Key decisions (v1.10 — locked, now shipped)
 
