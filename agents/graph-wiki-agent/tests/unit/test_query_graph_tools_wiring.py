@@ -73,7 +73,7 @@ def _patches(
 
 
 def _mock_llm_for(librarian_llm, synth_llm):
-    def _llm_for(role: str):
+    def _llm_for(role: str, *, model_override: str | None = None):
         if role == "librarian":
             return librarian_llm
         return synth_llm

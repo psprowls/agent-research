@@ -90,7 +90,9 @@ def _patch_narrator_llm(monkeypatch, content: str = "NARRATIVE BODY"):
     fake_llm = MagicMock()
     fake_llm.ainvoke = AsyncMock(return_value=fake_resp)
     monkeypatch.setattr(
-        scan_module, "make_llm", lambda role: fake_llm if role == "narrator" else fake_llm
+        scan_module,
+        "make_llm",
+        lambda role, *, model_override=None: fake_llm if role == "narrator" else fake_llm,
     )
     return fake_llm
 
@@ -149,7 +151,7 @@ def test_run_scan_narrator_gates_on_needs_narrative(fixture_wiki_with_graph, mon
         return fake_resp
 
     fake_llm.ainvoke = _ainvoke
-    monkeypatch.setattr(scan_module, "make_llm", lambda role: fake_llm)
+    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: fake_llm)
 
     # First scan — narrator should fire for every admitted URI.
     r1 = asyncio.run(scan_module.run_scan(workspace_path=workspace, no_file_map=True))

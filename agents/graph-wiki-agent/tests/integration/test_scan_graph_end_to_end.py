@@ -107,7 +107,7 @@ def test_run_scan_creates_graph_db_and_uri_derived_slug(tmp_path, monkeypatch):
             }
             return resp
 
-    monkeypatch.setattr(scan_module, "make_llm", lambda role: _StubLLM())
+    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: _StubLLM())
     monkeypatch.setattr(
         scan_module,
         "load_role_config",

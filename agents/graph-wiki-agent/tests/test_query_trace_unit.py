@@ -77,7 +77,7 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        mock_make_llm.side_effect = lambda role: mock_synth
+        mock_make_llm.side_effect = lambda role, *, model_override=None: mock_synth
 
         mock_pool_inst = MagicMock()
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
@@ -121,7 +121,7 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        mock_make_llm.side_effect = lambda role: mock_synth
+        mock_make_llm.side_effect = lambda role, *, model_override=None: mock_synth
 
         mock_pool_inst = MagicMock()
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
@@ -173,7 +173,7 @@ async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Pa
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        def _llm_for(role: str):
+        def _llm_for(role: str, *, model_override=None):
             if role == "code_reader":
                 return mock_code
             return mock_synth

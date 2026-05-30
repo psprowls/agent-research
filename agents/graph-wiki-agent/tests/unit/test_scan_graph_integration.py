@@ -147,7 +147,7 @@ def stub_pool_run_all(monkeypatch):
 @pytest.fixture(autouse=True)
 def stub_make_llm(monkeypatch):
     """Replace make_llm so no Bedrock-credential lookup happens during run_scan."""
-    monkeypatch.setattr(scan_module, "make_llm", lambda role: MagicMock())
+    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_module,
         "load_role_config",
