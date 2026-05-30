@@ -1,6 +1,6 @@
 ---
 slug: sweep-judge-signal-collapse
-status: root_cause_found
+status: resolved
 trigger: "judgeability — judge-able quality (librarian/synthesizer) collapsed in the $3.46 cost-frontier sweep re-run; debug per CONTINUE-sweep-harness-fixes-3.md"
 created: 2026-05-30
 updated: 2026-05-30
@@ -166,3 +166,34 @@ Both are caused by the code-fallback chain from empty graph tools, not a separat
 The qwen3-next quality 1.000→0.10 is because:
 - $7.02 run: structural scoring (has_citation=True on good answers) → quality=1.00
 - $3.46 run: judges run on CODE_FALLBACK_DISCLAIMER answers → quality=0.10
+
+---
+
+## Resolution (APPLIED 2026-05-30, quick task jc1)
+
+**root_cause:** `EvalWorktree.isolation.py` provisions an empty schema-valid `code.db`
+(commit `e42ae87`, feat(quick-260529-ox1-01)). `read_only_connect()` succeeds on an empty
+DB, causing `build_graph_tools()` to return real callables. The librarian loops to the
+5-iteration cap returning `NO_RELEVANT_CONTENT` (all queries hit empty tables), triggering
+the code-fallback chain, which produces `CODE_FALLBACK_DISCLAIMER` answers scored 0.10 by
+judges. Both the synthesizer "near-zero cost" and librarian "real answers, low scores"
+signatures reduce to this single root cause.
+
+**fix:** Added an empty-DB guard in `run_query` immediately after `read_only_connect()`
+succeeds. A `SELECT COUNT(*) FROM nodes` check with result == 0 triggers the same
+`GraphNotInitializedError` handling path: close conn, set `conn = None`, emit
+`_GRAPH_UNAVAILABLE_STDERR` to stderr, set `addendum = _LIBRARIAN_FALLBACK_ADDENDUM`,
+and leave `graph_tools = []`. The pre-`e42ae87` behavior is restored for eval worktrees
+without reverting the EvalWorktree provisioning.
+
+**verification:** Two new tests in `agents/graph-wiki-agent/tests/test_query_graph_tools.py`:
+- `test_run_query_binds_graph_tools_when_initialized` — non-empty DB (node_count=42):
+  `build_graph_tools` called, `bind_tools` called. Baseline / happy-path guard.
+- `test_run_query_skips_graph_tools_when_db_empty` — empty DB (node_count=0):
+  `build_graph_tools` NOT called, `bind_tools` NOT called, `_GRAPH_UNAVAILABLE_STDERR`
+  in stderr, `_LIBRARIAN_FALLBACK_ADDENDUM` in librarian system prompt, conn closed.
+Both passed. All 7 existing `test_query_graph_tools_wiring.py` tests continue to pass.
+
+**files_changed:**
+- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py` — empty-DB guard in `run_query`
+- `agents/graph-wiki-agent/tests/test_query_graph_tools.py` — new regression tests (created)

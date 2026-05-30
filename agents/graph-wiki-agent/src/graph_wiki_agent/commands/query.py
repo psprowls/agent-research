@@ -944,7 +944,19 @@ async def run_query(
     addendum = ""
     try:
         conn = read_only_connect(db_path)
-        graph_tools = build_graph_tools(conn)
+        # Empty-DB guard: an EvalWorktree provisions schema-valid but empty DBs.
+        # A zero-node graph is effectively uninitialized — binding graph tools
+        # against it causes librarians to loop to the iteration cap returning
+        # NO_RELEVANT_CONTENT, triggering the code-fallback chain and collapsing
+        # eval quality scores (root-cause confirmed 2026-05-30, jc1 fix).
+        node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        if node_count == 0:
+            conn.close()
+            conn = None
+            sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
+            addendum = _LIBRARIAN_FALLBACK_ADDENDUM
+        else:
+            graph_tools = build_graph_tools(conn)
     except GraphNotInitializedError:
         # D-08: emit-once stderr signal; D-07: prompt addendum, no tools.
         sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
