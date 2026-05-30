@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from eval_harness.isolation import EvalWorktree
+from graph_io import store
+from workspace_io.paths import graph_dir
 
 
 async def test_evalworktree_creates_copy(fixture_wiki_path: Path) -> None:
@@ -46,3 +48,12 @@ async def test_evalworktree_isolation(fixture_wiki_path: Path) -> None:
         path2 = wt2.path
 
     assert path1 != path2
+
+
+async def test_evalworktree_provisions_graph_db(fixture_wiki_path: Path) -> None:
+    """EvalWorktree provisions an empty schema-valid graph DB at .graph/code.db."""
+    async with EvalWorktree(fixture_wiki_path) as wt:
+        db_path = graph_dir(wt.path) / "code.db"
+        assert db_path.exists()
+        conn = store.read_only_connect(db_path)
+        conn.close()
