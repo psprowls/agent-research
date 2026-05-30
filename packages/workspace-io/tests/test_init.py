@@ -80,25 +80,43 @@ def test_external_workspace_inside_existing_git_skips_git_init(tmp_path):
     assert not (workspace / ".git").exists()
 
 
-def test_appends_local_yaml_to_gitignore(tmp_path):
+def test_gitignore_entry_in_workspace_when_contained(tmp_path):
     repo = tmp_path
+    _git_init(repo)
     init(repo, plugin="graph-wiki-agent", version="1.0.0")
-    text = (repo / ".gitignore").read_text()
-    assert ".graph-wiki.local.yaml" in text
+    workspace_gitignore = repo / "graph-wiki" / ".gitignore"
+    assert workspace_gitignore.exists()
+    assert ".graph-wiki.local.yaml" in workspace_gitignore.read_text()
 
 
-def test_gitignore_append_is_idempotent(tmp_path):
+def test_repo_root_gitignore_untouched(tmp_path):
     repo = tmp_path
-    (repo / ".gitignore").write_text(".graph-wiki.local.yaml\n")
+    _git_init(repo)
     init(repo, plugin="graph-wiki-agent", version="1.0.0")
-    text = (repo / ".gitignore").read_text()
+    repo_root_gitignore = repo / ".gitignore"
+    # Bootstrap must not create or modify the repo-root .gitignore.
+    if repo_root_gitignore.exists():
+        assert ".graph-wiki.local.yaml" not in repo_root_gitignore.read_text()
+
+
+def test_gitignore_entry_idempotent_in_workspace(tmp_path):
+    repo = tmp_path
+    _git_init(repo)
+    init(repo, plugin="graph-wiki-agent", version="1.0.0")
+    init(repo, plugin="graph-wiki-agent", version="1.0.0")
+    text = (repo / "graph-wiki" / ".gitignore").read_text()
     assert text.count(".graph-wiki.local.yaml") == 1
 
 
-def test_gitignore_created_if_absent(tmp_path):
-    repo = tmp_path
-    init(repo, plugin="graph-wiki-agent", version="1.0.0")
-    assert (repo / ".gitignore").exists()
+def test_no_gitignore_entry_when_workspace_outside_repo(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git_init(repo)
+    workspace = tmp_path / "external"
+    init(repo, plugin="graph-wiki-agent", version="1.0.0", workspace=workspace)
+    workspace_gitignore = workspace / ".gitignore"
+    if workspace_gitignore.exists():
+        assert ".graph-wiki.local.yaml" not in workspace_gitignore.read_text()
 
 
 def test_init_writes_workspace_claude_md(tmp_path):

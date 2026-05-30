@@ -1,9 +1,12 @@
 """Idempotent workspace bootstrapping.
 
 Creates the workspace directory (default `<repo_root>/graph-wiki`, override
-via `workspace=`), writes `.graph-wiki.yaml`, ensures `.graph-wiki.local.yaml`
-is gitignored. If the workspace is outside any git repo, runs `git init`
-before writing the manifest.
+via `workspace=`), writes `.graph-wiki.yaml`. When the workspace is contained
+within the source repo (i.e. a subdirectory of `repo_root`), writes the
+`.graph-wiki.local.yaml` ignore entry into `<workspace>/.gitignore`; skips
+the entry entirely when the workspace is outside the source repo. Never
+mutates the host repo-root `.gitignore`. If the workspace is outside any git
+repo, runs `git init` before writing the manifest.
 """
 from __future__ import annotations
 
@@ -69,7 +72,9 @@ def init(
     render_workspace_claude_md(workspace)   # render <workspace>/CLAUDE.md
 
     # NOTE: D-06 — work-layer schema bootstrap intentionally not ported.
-    _ensure_gitignore_entry(repo_root)
+    # Write .graph-wiki.local.yaml into <workspace>/.gitignore when workspace
+    # is a subdirectory of the source repo; skip entirely for standalone/external workspaces.
+    _ensure_gitignore_entry(workspace, repo_root)
 
 
 def _is_inside_git_repo(path: Path) -> bool:
@@ -91,9 +96,25 @@ def _git_init(path: Path) -> None:
         raise RuntimeError(f"git init failed at {path}: {result.stderr.strip()}")
 
 
-def _ensure_gitignore_entry(repo_root: Path) -> None:
-    """Append `.graph-wiki.local.yaml` to `<repo_root>/.gitignore` if not present."""
-    gitignore = repo_root / ".gitignore"
+def _ensure_gitignore_entry(workspace: Path, repo_root: Path) -> None:
+    """Append `.graph-wiki.local.yaml` to `<workspace>/.gitignore` when contained.
+
+    Contained means: `workspace` is a subdirectory of `repo_root` AND `repo_root`
+    has a `.git` directory (i.e. is a real git repo). Returns early without writing
+    anything when the workspace is outside the repo (standalone case).
+    """
+    # Only write when the workspace is strictly inside the source repo.
+    repo_git = repo_root / ".git"
+    if not repo_git.exists():
+        return
+    try:
+        workspace.relative_to(repo_root)
+    except ValueError:
+        return
+    if workspace == repo_root:
+        return
+
+    gitignore = workspace / ".gitignore"
     if gitignore.exists():
         text = gitignore.read_text(encoding="utf-8")
         existing_lines = {line.strip() for line in text.splitlines()}
