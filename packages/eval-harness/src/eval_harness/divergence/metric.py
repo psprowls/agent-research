@@ -253,7 +253,12 @@ def write_baseline(role: str, baselines_dir: Path, results: dict, agent_commit: 
 
 
 def check_regression(role: str, current: dict, baseline: dict) -> None:
-    """Gate regression: raise AssertionError if any hard-severity rule's failures exceed baseline.
+    """Gate regression: raise AssertionError if any hard-severity rule's failure RATE exceeds baseline.
+
+    Compares failure rates (failures / runs), not absolute counts, so a baseline
+    recorded at a smaller run scale (e.g. runs=4) does not auto-fail a candidate
+    swept at a larger scale (e.g. runs=12). Rules with current runs==0 carry no
+    data and are skipped. A missing baseline keeps the 0.0-rate floor.
 
     Soft-severity differences (including all *-JUDGE entries) are not raised —
     judge non-determinism per RESEARCH §Pitfall 2 makes hard-gating judges inappropriate.
@@ -282,13 +287,28 @@ def check_regression(role: str, current: dict, baseline: dict) -> None:
             # Defensive default: unknown rule_id treated as soft
             severity = severity_lookup.get(rule_id, "soft")
 
-        baseline_failures: int = baseline_checks.get(rule_id, {}).get("failures", 0)
+        current_runs: int = rule_data["runs"]
         current_failures: int = rule_data["failures"]
 
-        if severity == "hard" and current_failures > baseline_failures:
+        # No data for this rule this run — nothing to compare.
+        if current_runs == 0:
+            continue
+
+        current_rate = current_failures / current_runs
+
+        baseline_entry = baseline_checks.get(rule_id, {})
+        baseline_failures: int = baseline_entry.get("failures", 0)
+        baseline_runs: int = baseline_entry.get("runs", 0)
+        # Missing baseline (no runs recorded) keeps the 0.0-rate floor — any
+        # current failure on a hard rule then exceeds it.
+        baseline_rate = baseline_failures / baseline_runs if baseline_runs else 0.0
+
+        if severity == "hard" and current_rate > baseline_rate + 1e-9:
             raise AssertionError(
-                f"[{role}] {rule_id}: {current_failures} failures > baseline "
-                f"{baseline_failures}. Run with --accept-divergence-baseline to accept."
+                f"[{role}] {rule_id}: failure rate {current_rate:.3f} "
+                f"({current_failures}/{current_runs}) > baseline {baseline_rate:.3f} "
+                f"({baseline_failures}/{baseline_runs}). "
+                f"Run with --accept-divergence-baseline to accept."
             )
 
 

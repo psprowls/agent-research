@@ -100,7 +100,13 @@ def score_two_gate(
     # Gate 1: divergence programmatic regression check (D-07 roles only)
     # ------------------------------------------------------------------
     if role in ROLES_WITH_DIVERGENCE:
-        if divergence_metric_or_none is None:
+        if not agent_outputs_by_case:
+            # No ok outputs to evaluate — Gate 1 has no signal. Leave gate1=None
+            # and divergence_failures=None so the candidate cannot falsely qualify.
+            gate1_passed = None
+            divergence_failures = None
+            logger.debug("[%s] Gate 1: no outputs — not evaluated", role)
+        elif divergence_metric_or_none is None:
             # Caller omitted the metric for a D-07 role — treat as failure
             gate1_passed = False
             divergence_failures = {}

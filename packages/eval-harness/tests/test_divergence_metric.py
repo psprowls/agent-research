@@ -264,3 +264,63 @@ def test_metric_imports_judge_panel_config() -> None:
     assert metric_mod.make_judge is judge_mod.make_judge, (
         "make_judge in metric.py must be imported from eval_harness.judge, not redefined"
     )
+
+
+# ---------------------------------------------------------------------------
+# check_regression — rate-based Gate 1 (Fix E, quick-260529-sot)
+# ---------------------------------------------------------------------------
+
+
+def _hard_rule_id() -> str:
+    """A real hard-severity rule_id from the librarian rubric."""
+    return next(c.id for c in ROLE_CHECKS["librarian"] if c.severity == "hard")
+
+
+def test_check_regression_equal_rate_at_higher_scale_passes() -> None:
+    """runs=12/failures=9 (rate 0.75) vs baseline runs=4/failures=3 (rate 0.75)
+    must NOT raise — Gate 1 compares RATES, not absolute counts."""
+    from eval_harness.divergence.metric import check_regression
+
+    rule = _hard_rule_id()
+    baseline = {"checks": {rule: {"failures": 3, "runs": 4}}}
+    current = {rule: {"runs": 12, "failures": 9}}
+
+    # Does not raise.
+    check_regression("librarian", current, baseline)
+
+
+def test_check_regression_higher_rate_raises() -> None:
+    """runs=12/failures=12 (rate 1.0) > baseline rate 0.75 DOES raise."""
+    from eval_harness.divergence.metric import check_regression
+
+    rule = _hard_rule_id()
+    baseline = {"checks": {rule: {"failures": 3, "runs": 4}}}
+    current = {rule: {"runs": 12, "failures": 12}}
+
+    with pytest.raises(AssertionError):
+        check_regression("librarian", current, baseline)
+
+
+def test_check_regression_zero_current_runs_skipped() -> None:
+    """A rule whose current runs==0 carries no data — must be skipped (no raise)."""
+    from eval_harness.divergence.metric import check_regression
+
+    rule = _hard_rule_id()
+    baseline = {"checks": {rule: {"failures": 0, "runs": 4}}}
+    current = {rule: {"runs": 0, "failures": 0}}
+
+    # Does not raise — no data for this rule.
+    check_regression("librarian", current, baseline)
+
+
+def test_check_regression_missing_baseline_zero_floor() -> None:
+    """Missing baseline (no runs field) keeps the 0.0-rate floor: any failure on
+    a hard rule still raises."""
+    from eval_harness.divergence.metric import check_regression
+
+    rule = _hard_rule_id()
+    baseline = {"checks": {}}  # no entry for this rule
+    current = {rule: {"runs": 4, "failures": 1}}
+
+    with pytest.raises(AssertionError):
+        check_regression("librarian", current, baseline)

@@ -210,6 +210,29 @@ def test_no_quality_signal_is_unqualified(fixture_wiki_path: Path) -> None:
     assert "no quality signal" in outcome.notes
 
 
+def test_empty_outputs_divergence_role_is_unqualified(tmp_path: Path) -> None:
+    """A divergence role with NO ok outputs must not run the metric: gate1=None,
+    divergence_failures=None, qualified=False (Fix E, quick-260529-sot)."""
+    mock_metric = MagicMock()
+
+    outcome = score_two_gate(
+        role="librarian",
+        divergence_metric_or_none=mock_metric,
+        agent_outputs_by_case=[],
+        baselines_dir=tmp_path,
+        panel_mean=None,
+        default_panel_mean=None,
+        threshold=0.95,
+    )
+
+    assert outcome.gate1_passed is None
+    assert outcome.divergence_failures is None
+    assert outcome.gate2_passed is None
+    assert outcome.qualified is False
+    # The metric must NOT have been evaluated against zero outputs.
+    mock_metric.run_programmatic.assert_not_called()
+
+
 def test_roles_with_divergence_constant() -> None:
     """ROLES_WITH_DIVERGENCE covers all 6 in-scope roles (Phase 16 D-06)."""
     assert isinstance(ROLES_WITH_DIVERGENCE, frozenset)
