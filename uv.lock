@@ -606,22 +606,26 @@ source = { editable = "packages/eval-harness" }
 dependencies = [
     { name = "aiobotocore" },
     { name = "deepeval" },
+    { name = "graph-io" },
     { name = "graph-wiki-agent" },
     { name = "model-adapter" },
     { name = "pytest-evals" },
     { name = "python-frontmatter" },
     { name = "subagent-runtime" },
+    { name = "workspace-io" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", specifier = ">=2.13" },
     { name = "deepeval", specifier = ">=4.0.0" },
+    { name = "graph-io", editable = "packages/graph-io" },
     { name = "graph-wiki-agent", editable = "agents/graph-wiki-agent" },
     { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
+    { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
 [[package]]
