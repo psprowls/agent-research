@@ -31,7 +31,7 @@ _VALID_KINDS = frozenset(
 # Phase 50 D-04: App framework kinds derived by classification.classify().
 # Write-time gate — keep in sync with _FRAMEWORK_PRECEDENCE in
 # graph_io/classification.py.
-_VALID_APP_KINDS = frozenset({"cli", "expo", "nextjs", "spa"})
+_VALID_APP_KINDS = frozenset({"cli", "electron", "expo", "nextjs", "spa"})
 
 _RESOLVED_FILTER = (
     "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"

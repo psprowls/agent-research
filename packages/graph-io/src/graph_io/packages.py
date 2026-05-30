@@ -103,6 +103,7 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     if not name:
         return None
     deps = data.get("dependencies") or {}
+    dev_deps = data.get("devDependencies") or {}
     # Phase 50 D-03: surface package.json "bin" presence as a classify() signal.
     # Truthy when bin is a non-empty string OR a dict with at least one truthy value.
     bin_val = data.get("bin")
@@ -110,12 +111,19 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
         (isinstance(bin_val, str) and bool(bin_val))
         or (isinstance(bin_val, dict) and any(bin_val.values()))
     )
+    # GQP-01: merge devDependencies into the classify() input list so tools like
+    # electron/vite declared as dev-only are visible to signal detection.
+    # The dev-origin names are preserved in a separate marker for node attrs.
+    runtime_names: set[str] = set(deps.keys()) if isinstance(deps, dict) else set()
+    dev_names: set[str] = set(dev_deps.keys()) if isinstance(dev_deps, dict) else set()
+    merged = sorted(runtime_names | dev_names)
     return {
         "name": name,
         "version": data.get("version", ""),
         # Phase 56 D-06: SCAN-02 description source (parity with pyproject).
         "description": data.get("description", ""),
-        "dependencies": sorted(deps.keys()) if isinstance(deps, dict) else list(deps),
+        "dependencies": merged,  # runtime + dev, sorted + deduped
+        "dev_dependencies": sorted(dev_names),  # GQP-01: dev-origin marker
         "language": "javascript",
         "bin_present": bin_present,  # Phase 50 D-03
     }
@@ -213,6 +221,9 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             # is wiki-io's job (Plan 01), not synthesized here.
             "description": info.get("description", ""),
             "dependencies": info["dependencies"],
+            # GQP-01: dev-origin marker for JS packages (empty list for Python
+            # manifests which have no devDependencies field).
+            "dev_dependencies": info.get("dev_dependencies", []),
             "language": info["language"],
             "uri": new_uri,
         }

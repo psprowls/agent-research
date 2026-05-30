@@ -251,3 +251,27 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     assert parsed["name"] == "graph-wiki-agent"
     assert parsed["app_kind"] == "cli"
     assert "cli" in parsed["app_signals"]
+
+
+def test_e2e_electron_app_from_dev_deps(tmp_path: Path, capsys) -> None:
+    """GQP-01: electron+vite under devDependencies + index.html → app_kind='electron'."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "package.json").write_text(
+        json.dumps({
+            "name": "my-electron-app",
+            "version": "1.0.0",
+            "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
+        })
+    )
+    (repo / "index.html").write_text("<!doctype html><html></html>")
+    _git_init(repo)
+    _git_commit_all(repo, "seed")
+
+    update.run(repo, full=True)
+    workspace = resolve_workspace(repo, require_manifest=False).workspace
+
+    rc = q_describe_app.run(_ns_describe(workspace, name="my-electron-app", fmt="json"))
+    assert rc == exit_codes.SUCCESS, capsys.readouterr().err
+    parsed = json.loads(capsys.readouterr().out)
+    assert parsed["app_kind"] == "electron"
