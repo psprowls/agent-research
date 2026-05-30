@@ -1,5 +1,25 @@
 # Milestones
 
+## v1.11 Cost-Frontier Sweep Harness (In Progress — opened 2026-05-30)
+
+**Phases:** 1 phase (60) — in progress
+**Goal:** Repair the cost-frontier per-role model sweep so a clean, trustworthy run can execute on AWS Bedrock and produce a defensible per-role winner table, then pick winners. Hardens the original v1.1 Phase 7 "Cost-Frontier Sweep".
+**Scope:** Captures all cost-frontier-sweep work since v1.10 (executed as `/gsd-quick` tasks `na9`/`ox1`/`pf8`/`pzd`/`q8r`/`sot` + harness fixes B–F) plus the remaining round-3 debug, clean re-run, and winner selection.
+**Git range (so far):** `846459a` → `b65ad7e` · 37 commits
+
+**Landed so far (harness fixes):**
+
+- **Fix B** (`260529-pzd`) — `model-adapter` normalizes list-shaped ("thinking") `response.content` → `str`, preserving reasoning blocks.
+- **Fix C** (`260529-q8r`) — wired per-role `DivergenceMetric` + `baselines_dir` into `run_full_matrix` (Gate 1 was hardcoded `None`).
+- **Fix D** (`260529-sot` + `aaa3d63`) — routed all 7 model-override branches through `make_llm` (raw `ChatBedrockConverse` bypassed the guard/normalizer).
+- **Fix E** (`260529-sot`) — rate-based Gate 1 + zero-output disqualification.
+- **Fix F** (`260529-sot`) — populated `SweepResult.judge_scores` with a real quality signal.
+- Plus `na9` (candidate/judge refresh), `ox1` (EvalWorktree graph-io DB), `pf8` (config-test hygiene).
+
+**Open (round 3):** The `$3.46` full re-run verified D/E/F mechanically but is NOT authoritative — judge-able quality collapsed (Fix B suspected of emptying thinking-model answers). Debug → clean re-run → authoritative docs → winners. See `.planning/CONTINUE-sweep-harness-fixes-3.md`.
+
+---
+
 ## v1.10 Wiki Index & Entity Page Enrichment (Shipped: 2026-05-29)
 
 **Phases completed:** 6 phases (54–59), 14 plans, 32 tasks

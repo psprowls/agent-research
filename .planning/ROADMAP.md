@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** none — v1.10 shipped 2026-05-29; awaiting next milestone (`/gsd:new-milestone`)
+**Current milestone:** v1.11 — Cost-Frontier Sweep Harness (in progress; Phase 60)
 
 ---
 
@@ -19,6 +19,7 @@
 - ✅ **v1.8 — Wiki Entity Restructure** — Phases 42-48 (shipped 2026-05-27) — [archive](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49-53 (shipped 2026-05-28) — [archive](milestones/v1.9-ROADMAP.md)
 - ✅ **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-59 (shipped 2026-05-29) — [archive](milestones/v1.10-ROADMAP.md)
+- 🔄 **v1.11 — Cost-Frontier Sweep Harness** — Phase 60 (in progress)
 
 ---
 
@@ -175,6 +176,13 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 
 </details>
 
+<details open>
+<summary>🔄 v1.11 Cost-Frontier Sweep Harness (Phase 60) — IN PROGRESS</summary>
+
+- [ ] Phase 60: Cost-Frontier Sweep Harness — repair the per-role Bedrock model sweep (harness fixes B–F landed as quick tasks) and produce a clean, trustworthy winner table. Remaining: round-3 answer-degradation debug → clean re-run → winner selection. See [`phases/60-cost-frontier-sweep-harness/60-CONTEXT.md`](phases/60-cost-frontier-sweep-harness/60-CONTEXT.md) and [`CONTINUE-sweep-harness-fixes-3.md`](CONTINUE-sweep-harness-fixes-3.md).
+
+</details>
+
 ---
 
 ## Progress
@@ -240,7 +248,8 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 | 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
 | 58. Entity Page & Index UAT Follow-Ups | v1.10 | 3/3 | Complete   | 2026-05-29 |
 | 59. Decouple graph-wiki-agent from `graph_io.cli` | v1.10 | 3/3 | Complete   | 2026-05-29 |
+| 60. Cost-Frontier Sweep Harness | v1.11 | –/– | In progress | — |
 
 ---
 
-*Last updated: 2026-05-29 — v1.10 (Wiki Index & Entity Page Enrichment) shipped and archived. Phases 54-59, 14 requirements. Awaiting next milestone.*
+*Last updated: 2026-05-30 — v1.11 (Cost-Frontier Sweep Harness) opened; Phase 60 in progress (harness fixes B–F landed as quick tasks since v1.10; round-3 debug + clean re-run + winner selection remaining). v1.10 shipped & archived (Phases 54-59).*
