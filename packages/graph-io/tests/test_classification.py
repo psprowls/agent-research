@@ -108,3 +108,31 @@ def test_classify_multi_signal_precedence_nextjs_over_cli(tmp_path: Path) -> Non
     assert kind == "app"
     assert app_kind == "nextjs"
     assert signals == ["cli", "nextjs"]
+
+
+def test_classify_js_electron(tmp_path: Path) -> None:
+    """GQP-01: 'electron' in deps → ('app', 'electron', ['electron'])."""
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["electron"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "electron"
+    assert signals == ["electron"]
+
+
+def test_classify_js_electron_before_spa(tmp_path: Path) -> None:
+    """GQP-01: electron + vite + index.html → app_kind='electron', not 'spa' (precedence)."""
+    (tmp_path / "index.html").write_text("<!doctype html><html></html>")
+    info = {
+        "language": "javascript",
+        "bin_present": False,
+        "dependencies": ["electron", "vite"],
+    }
+    kind, app_kind, signals = classify(info, tmp_path)
+    assert kind == "app"
+    assert app_kind == "electron"
+    assert "electron" in signals
+    assert "spa" in signals  # spa signal fires, but electron wins precedence
