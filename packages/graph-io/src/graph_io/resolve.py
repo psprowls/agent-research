@@ -4,14 +4,120 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
+from graph_io import import_scan
 from graph_io._ignore import should_skip
+
+_JS_EXTENSIONS = import_scan._JS_EXTENSIONS
 
 
 def _set_resolution(attrs_json: str | None, resolution: str) -> str:
     attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
     attrs["resolution"] = resolution
     return json.dumps(attrs, sort_keys=True)
+
+
+def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
+    """Repoint `imports` edges from raw-specifier stub nodes to real file nodes.
+
+    The graph projection emits each import ref as dst=('file', target_name,
+    raw_specifier), which materialises a `file` node with path=raw_specifier and
+    uri IS NULL — a "specifier stub". `sweep` only reconciles path-IS-NULL
+    placeholders, so these stubs (non-null path) survive untouched. This pass
+    resolves the raw specifier to the real repo-relative file node:
+
+      - exactly one real file node at the resolved path  -> repoint edge,
+        resolution="exact"
+      - multiple real file nodes at the resolved path     -> fan out,
+        resolution="ambiguous"
+      - no in-repo match (external/third-party specifier) -> leave edge on the
+        stub, resolution="unresolved" (never fabricated)
+
+    After processing, specifier stubs left unreferenced (no inbound edge) are
+    deleted. Runs inside update's open transaction — does not open a new
+    connection.
+    """
+    repo_root = Path(repo_root)
+    # Specifier-stub imports edges: dst is a file node with a non-null path
+    # (the raw specifier) and uri IS NULL. Join the src file node for its path.
+    rows = conn.execute(
+        "SELECT e.src, e.dst, e.attrs_json, src.path AS importing_path, "
+        "dst.path AS specifier "
+        "FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind = 'imports' "
+        "AND dst.kind = 'file' AND dst.uri IS NULL AND dst.path IS NOT NULL "
+        "AND src.path IS NOT NULL"
+    ).fetchall()
+
+    if not rows:
+        return
+
+    pkg_rows: list[import_scan.PkgRow] = [
+        (r[0], r[1], r[2])
+        for r in conn.execute(
+            "SELECT name, path, attrs_json FROM nodes "
+            "WHERE kind IN ('package', 'app')"
+        ).fetchall()
+    ]
+
+    stub_ids: set[int] = set()
+    for src_id, stub_id, attrs_json, importing_path, specifier in rows:
+        stub_ids.add(stub_id)
+        importing_file = repo_root / importing_path
+        if Path(importing_path).suffix in _JS_EXTENSIONS:
+            rel = import_scan.resolve_js_import_file(
+                specifier, importing_file, repo_root
+            )
+        else:
+            rel = import_scan.resolve_python_import_file(
+                specifier, repo_root, pkg_rows
+            )
+
+        if rel is None:
+            # External/third-party — do NOT fabricate; mark unresolved.
+            conn.execute(
+                "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind='imports'",
+                (_set_resolution(attrs_json, "unresolved"), src_id, stub_id),
+            )
+            continue
+
+        real = conn.execute(
+            "SELECT id FROM nodes WHERE kind='file' AND path=? AND path IS NOT NULL",
+            (rel,),
+        ).fetchall()
+        if not real:
+            conn.execute(
+                "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind='imports'",
+                (_set_resolution(attrs_json, "unresolved"), src_id, stub_id),
+            )
+            continue
+
+        conn.execute(
+            "DELETE FROM edges WHERE src=? AND dst=? AND kind='imports'",
+            (src_id, stub_id),
+        )
+        resolution = "exact" if len(real) == 1 else "ambiguous"
+        for (real_dst,) in real:
+            conn.execute(
+                "INSERT INTO edges(src, dst, kind, attrs_json) "
+                "VALUES (?, ?, 'imports', ?) "
+                "ON CONFLICT(src, dst, kind) DO UPDATE SET attrs_json=excluded.attrs_json",
+                (src_id, real_dst, _set_resolution(attrs_json, resolution)),
+            )
+
+    # Delete specifier stubs now orphaned (no inbound edge). Scope strictly to
+    # the stub ids collected above — never broaden to all NULL-uri files
+    # (T-nsr-03), which would delete legitimate placeholders.
+    if stub_ids:
+        placeholders = ",".join("?" for _ in stub_ids)
+        conn.execute(
+            f"DELETE FROM nodes WHERE id IN ({placeholders}) "
+            "AND uri IS NULL AND id NOT IN (SELECT dst FROM edges)",
+            list(stub_ids),
+        )
 
 
 def sweep(conn: sqlite3.Connection) -> None:
