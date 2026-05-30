@@ -58,7 +58,7 @@ from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
-from workspace_io.config import resolve as resolve_config
+from graph_wiki_agent.commands._paths import _resolve_paths
 from workspace_io.paths import graph_dir
 
 # --------------------------------------------------------------------------- #
@@ -560,14 +560,6 @@ def _make_cluster_task(
 # Typer command body (D-21, D-23, D-24)
 # --------------------------------------------------------------------------- #
 
-
-def _resolve_paths(workspace_arg: str) -> tuple[Path, Path]:
-    """Resolve (repo_root, workspace) from --workspace arg or GRAPH_WIKI_WORKSPACE."""
-    if workspace_arg:
-        cfg = resolve_config(Path(workspace_arg).resolve(), require_manifest=False)
-    else:
-        cfg = resolve_config(None, require_manifest=False)
-    return cfg.repo_root, cfg.workspace
 
 
 def _aggregate_fan_out(

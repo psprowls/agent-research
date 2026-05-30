@@ -42,7 +42,7 @@ import typer
 
 from graph_io import exit_codes, queries, render as _render, update
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
-from workspace_io.config import resolve as resolve_config
+from graph_wiki_agent.commands._paths import _resolve_paths
 from workspace_io.paths import graph_dir
 
 _SCHEMA_VERSION = 1  # Phase 9 OBS-04 — D-02: do NOT bump
@@ -57,14 +57,6 @@ def _iso_utc_record_timestamp() -> str:
     """ISO-Z timestamp for the trace record `timestamp` field (colons KEPT)."""
     return datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def _resolve_paths(workspace_arg: str) -> tuple[Path, Path]:
-    """Resolve (repo_root, workspace) from --workspace arg or GRAPH_WIKI_WORKSPACE env."""
-    if workspace_arg:
-        cfg = resolve_config(Path(workspace_arg).resolve(), require_manifest=False)
-    else:
-        cfg = resolve_config(None, require_manifest=False)
-    return cfg.repo_root, cfg.workspace
 
 
 def _connect_or_error(
