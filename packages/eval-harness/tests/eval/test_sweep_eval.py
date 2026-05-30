@@ -268,7 +268,11 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
     from eval_harness import sweep as sweep_mod
     from eval_harness.preflight import HARD_CAP_USD
     from eval_harness.sweep import SweepResult, run_full_matrix
-    from eval_harness.two_gate import TwoGateOutcome, score_two_gate as original_score_two_gate
+    from eval_harness.two_gate import (
+        ROLES_WITH_DIVERGENCE,
+        TwoGateOutcome,
+        score_two_gate as original_score_two_gate,
+    )
     from model_adapter.loader import load_role_config
 
     roles = ["librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor"]
@@ -339,6 +343,13 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
     for call in captured_calls:
         for key in ("role", "panel_mean", "default_panel_mean", "threshold"):
             assert key in call, f"score_two_gate call missing kwarg {key}: {call}"
+        if call["role"] in ROLES_WITH_DIVERGENCE:
+            assert call["divergence_metric_or_none"] is not None, (
+                f"divergence-eligible role {call['role']!r} got None divergence_metric_or_none"
+            )
+            assert call["baselines_dir"] is not None, (
+                f"divergence-eligible role {call['role']!r} got None baselines_dir"
+            )
 
 
 def test_eval_mark_skip() -> None:
