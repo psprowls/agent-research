@@ -4,8 +4,8 @@ milestone: v1.11
 milestone_name: Cost-Frontier Sweep Harness
 status: In progress
 stopped_at: Phase 60 in progress — harness fixes B–F landed; round-3 answer-degradation debug pending
-last_updated: "2026-05-30T14:00:00.000Z"
-last_activity: 2026-05-30 — Opened v1.11 (Cost-Frontier Sweep Harness); scaffolded Phase 60 to capture the post-v1.10 sweep quick-task work + remaining round-3 debug
+last_updated: "2026-05-30T20:25:00.000Z"
+last_activity: 2026-05-30 — Resolved the function-nodes-missing-path/line investigation todo (full rebuild before/after; path-less functions confirmed EXPECTED out-of-tree targets; NULL-uri file cruft cleared by jap's sweep)
 progress:
   total_phases: 1
   completed_phases: 0
@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 Phase: 60 — Cost-Frontier Sweep Harness (v1.11) — in progress
 Plan: — (retroactive scaffold; sub-work landed as quick tasks)
 Status: In progress — round-3 debug RESOLVED; sweep model-set refreshed (Haiku purged); clean full re-run pending
-Last activity: 2026-05-30 — Completed a parallel batch of 4 graph/bootstrap quick tasks (concurrent isolated worktrees): 260530-iqo (deriver-version-stamp → auto full rebuild on logic change), 260530-iqp (remove legacy apps/packages/domains/dependencies bootstrap folders), 260530-iqq (scope gitignore entry to workspace dir), 260530-iqr (converge propose_domains onto shared _resolve_paths). All merged to main; affected suites green (graph-io/wiki-io/workspace-io 954 passed; graph-wiki-agent green modulo 2 pre-existing unrelated fails). Then 260530-jap (dist/build import-target node sweep — `resolve.sweep_skip_dir_files`, DERIVER_VERSION 1→2, full graph-io suite 487 passed). Earlier: 260530-hxy (graph build repo resolution). Phase 60 (cost-frontier sweep) still parked until the graph is trustworthy + a clean baseline can be established. Remaining: #3 functions missing path/line (gated on JS-dep work — the deeper root cause that jap's sweep backstops).
+Last activity: 2026-05-30 — Completed a parallel batch of 4 graph/bootstrap quick tasks (concurrent isolated worktrees): 260530-iqo (deriver-version-stamp → auto full rebuild on logic change), 260530-iqp (remove legacy apps/packages/domains/dependencies bootstrap folders), 260530-iqq (scope gitignore entry to workspace dir), 260530-iqr (converge propose_domains onto shared _resolve_paths). All merged to main; affected suites green (graph-io/wiki-io/workspace-io 954 passed; graph-wiki-agent green modulo 2 pre-existing unrelated fails). Then 260530-jap (dist/build import-target node sweep — `resolve.sweep_skip_dir_files`, DERIVER_VERSION 1→2, full graph-io suite 487 passed). Earlier: 260530-hxy (graph build repo resolution). Phase 60 (cost-frontier sweep) still parked until the graph is trustworthy + a clean baseline can be established. Then RESOLVED the "functions missing path/line" investigation todo: full-rebuilt mono-repo's graph against the post-sweep deriver (v2) and captured before/after — file nodes 4633→1463, NULL-uri files 3170→0 (dist/build + unresolved-specifier cruft all cleared by jap's sweep), but the 2455 path-less functions are UNCHANGED and all are unresolved call-edge targets → confirmed EXPECTED (out-of-tree symbols, no in-tree location), not a bug. No code change; JS-dep injection is now an enhancement, not a fix.
 
 ## Progress Bar
 

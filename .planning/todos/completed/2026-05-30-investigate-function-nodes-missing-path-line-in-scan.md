@@ -98,3 +98,46 @@ seen from the file angle — and it likely inflates the function/class counts to
    resolve to `src/` (or to clean `dependency:` nodes) instead of `dist/` entry
    points, which should drop most of the 166 `dist/` file nodes and the duplicate
    symbol inflation.
+
+## RESOLVED 2026-05-30 — full rebuild against post-sweep deriver (v2)
+
+Ran step 5 properly: backed up `mono-repo-live/.graph/code.db`, then full-rebuilt
+against the real source repo `/Users/pat/Personal/mono-repo` via
+`update.run(repo, workspace=mono-repo-live, full=True)` — bypassing the broken
+workspace→repo resolver (the manifest has no `repo-directory:` pin, so `cg update`
+mis-resolves repo_root to the wiki workspace and dies with "ambiguous argument
+HEAD"). Deriver bump `None→2` forced the full rebuild as designed.
+
+**Before (stale incremental db) → After (clean rebuild):**
+
+| metric | before | after |
+|--------|-------:|------:|
+| `file` nodes | 4633 | **1463** |
+| file nodes, NULL `uri` | 3170 | **0** |
+| dist/build file nodes | 166 | **0** |
+| node_modules file nodes | — | **0** |
+| **functions w/o path/line** | **2455** | **2455 (unchanged)** |
+| path-less funcs that are edge `dst` | 2455/2455 | 2455/2455 |
+
+### Decision — EXPECTED, no code change
+
+1. **Path-less functions (2455): expected, not a bug.** They survive a clean full
+   rebuild unchanged, and every one is a call-edge *destination* — referenced but
+   never defined in the scanned first-party source (out-of-tree/dependency symbols).
+   No in-tree source location exists, so missing `path`/`line` is correct. Queries
+   already filter unresolved edges (`queries.py:37`, `:1076`), so they never surface
+   in results. The original hypothesis (Pat) is confirmed.
+
+2. **The 3170 NULL-uri *file* nodes were incremental-update cruft, not a defect.**
+   The stale db had accumulated junk file nodes under the old deriver (3004 raw
+   unresolved import specifiers like `../../../src/config/api` + 166 dist/build).
+   The dist/build sweep (todo #2, `resolve.sweep_skip_dir_files`) + the forced full
+   rebuild cleared **all** of them → 0. End-to-end validation that the sweep fix and
+   the deriver-version-bump→auto-rebuild mechanism both work.
+
+3. **JS-dependency injection (separate session) is now an enhancement, not a fix.**
+   It would convert some of the 2455 out-of-tree function targets into proper
+   `dependency:` nodes, but they are benign as-is. No action gated on it here.
+
+Closing as understand-then-decide complete. Workspace db left in the improved
+clean-rebuilt state; backup at `/tmp/graph_db_backup/code.db.bak` if needed.
