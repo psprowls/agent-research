@@ -135,6 +135,7 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
         "dependencies": merged,  # runtime + dev, sorted + deduped
         "dev_dependencies": sorted(dev_names),  # GQP-01: dev-origin marker
         "dep_specs": dep_specs,  # k5y T1: name->raw-spec for all deps (runtime wins)
+        "_runtime_dep_names": runtime_names,  # k5y T2: for is_dev computation in refresh()
         "language": "javascript",
         "bin_present": bin_present,  # Phase 50 D-03
     }
@@ -206,7 +207,8 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
     # Phase 50 D-04: track consumer kind so used_by edges from App nodes use src=("app", ...).
-    used_by_pairs: list[tuple[str, str | None, str, str]] = []
+    # k5y T2: extended with is_dev bool so dev-origin JS edges carry attrs={"dev": True}.
+    used_by_pairs: list[tuple[str, str | None, str, str, bool]] = []
     # Phase 55 D-04/D-06/D-07: internal package→package relationships, carrying
     # both endpoints' resolved (kind, name, rel_path) so the retargeted used_by
     # and the new depends_on_package edge point at the real package/app nodes.
@@ -288,17 +290,18 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             )
         upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
 
-        # Phase 43 D-02: collect Python deps from project.dependencies + dependency-groups.
-        # Only python manifests have dep_groups; package.json deps live under different keys
-        # and we treat them as already-flat name strings (no PEP 508 specifier syntax).
+        # Phase 43 D-02 / k5y T2: collect deps from manifests and feed the shared
+        # dep_acc / used_by_pairs / internal_pkg_edges accumulators.
+        # Python: project.dependencies + dependency-groups (PEP 508 specifiers).
+        # JavaScript: dep_specs dict from _read_package_json (raw version strings).
+        consumer_name = info["name"]
+        consumer_rel_path = rel_prefix or None
+        consumer_kind = new_kind
+        consumer_norm = _normalize_name(consumer_name)
         if info["language"] == "python":
             all_dep_strs: list[str] = list(info["dependencies"])
             for group_entries in info.get("dep_groups", {}).values():
                 all_dep_strs.extend(group_entries)
-            consumer_name = info["name"]
-            consumer_rel_path = rel_prefix or None
-            consumer_kind = new_kind
-            consumer_norm = _normalize_name(consumer_name)
             for s in all_dep_strs:
                 dep_name = _extract_dep_name(s)
                 if dep_name is None:
@@ -328,8 +331,41 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 bucket = dep_acc.setdefault(key, {"versions_in_use": []})
                 if s not in bucket["versions_in_use"]:
                     bucket["versions_in_use"].append(s)
+                # Python deps are never dev in this model (dep_groups treated as runtime).
                 used_by_pairs.append(
-                    (consumer_name, consumer_rel_path, consumer_kind, dep_name)
+                    (consumer_name, consumer_rel_path, consumer_kind, dep_name, False)
+                )
+        elif info["language"] == "javascript":
+            # k5y T2: iterate dep_specs (name->spec, runtime wins on collision).
+            # is_dev = name came ONLY from devDependencies (not in runtime set).
+            runtime_set: set[str] = info.get("_runtime_dep_names", set())
+            dev_set = set(info.get("dev_dependencies", []))
+            for dep_name, raw_spec in info.get("dep_specs", {}).items():
+                dep_norm = _normalize_name(dep_name)
+                # Internal workspace package → depends_on_package; skip self-deps.
+                if dep_norm in workspace_names and dep_norm != consumer_norm:
+                    target_kind, target_name, target_rel_path = workspace_kinds[
+                        dep_norm
+                    ]
+                    internal_pkg_edges.append(
+                        (
+                            consumer_name,
+                            consumer_rel_path,
+                            consumer_kind,
+                            target_name,
+                            target_rel_path,
+                            target_kind,
+                        )
+                    )
+                    continue
+                key = ("npm", dep_name)
+                bucket = dep_acc.setdefault(key, {"versions_in_use": []})
+                if raw_spec and raw_spec not in bucket["versions_in_use"]:
+                    bucket["versions_in_use"].append(raw_spec)
+                # is_dev: name is in devDependencies AND NOT in runtime dependencies.
+                is_dev = dep_name in dev_set and dep_name not in runtime_set
+                used_by_pairs.append(
+                    (consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev)
                 )
 
     # Emit dependency nodes (one per (ecosystem, name)) + used_by edges.
@@ -354,18 +390,20 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # twice in one manifest (e.g. once in [project.dependencies], once in
     # [dependency-groups]) collapses to exactly one edge. Phase 50 D-04:
     # src uses consumer_kind so App consumers emit src=("app", ...).
+    # k5y T2: is_dev=True → attrs={"dev": True}; False/omitted → attrs={}.
     dep_edges: list[GraphEdge] = []
     seen_edges: set[tuple[str, str]] = set()
-    for consumer_name, consumer_rel_path, consumer_kind, dep_name in used_by_pairs:
+    for consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev in used_by_pairs:
         if (consumer_name, dep_name) in seen_edges:
             continue
         seen_edges.add((consumer_name, dep_name))
+        edge_attrs: dict[str, Any] = {"dev": True} if is_dev else {}
         dep_edges.append(
             GraphEdge(
                 src=(consumer_kind, consumer_name, consumer_rel_path),
                 dst=("dependency", dep_name, None),
                 kind="used_by",
-                attrs={},
+                attrs=edge_attrs,
             )
         )
     # Phase 55 D-07: for each internal package→package dependency, emit TWO
