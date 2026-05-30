@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 Phase: Milestone v1.10 complete (Phases 54-59)
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-05-29 — Completed quick task 260529-pf8: greened the test suite after the sweep-config refresh (1580 passed)
+Last activity: 2026-05-29 — Completed quick task 260529-pzd: Fix B model-adapter content normalizer (list→str, preserve reasoning; invoke + ainvoke; 1584 passed)
 
 ## Progress Bar
 
@@ -69,6 +69,7 @@ None.
 | 260529-na9 | Refresh models.toml sweep candidates and judge panel for new cost-frontier sweep | 2026-05-29 | 60c8d77 | [260529-na9-refresh-models-toml-sweep-candidates-and](./quick/260529-na9-refresh-models-toml-sweep-candidates-and/) |
 | 260529-ox1 | EvalWorktree provisions initialized graph-io DB so ingestor sweep cells can run | 2026-05-29 | e42ae87 | [260529-ox1-evalworktree-provisions-initialized-grap](./quick/260529-ox1-evalworktree-provisions-initialized-grap/) |
 | 260529-pf8 | Update stale config-pinning tests after na9 sweep refresh (Haiku global, qwen3 price, retire D-03 tier map) | 2026-05-29 | 07c81ea | [260529-pf8-update-stale-config-pinning-tests-after-](./quick/260529-pf8-update-stale-config-pinning-tests-after-/) |
+| 260529-pzd | Fix B — model-adapter normalizes list-shaped ("thinking"/multi-block) response content to str (preserves reasoning), covers invoke + ainvoke | 2026-05-29 | 02ee3fe | [260529-pzd-fix-b-model-adapter-content-normalizer](./quick/260529-pzd-fix-b-model-adapter-content-normalizer/) |
 
 ### Key decisions (v1.10 — locked, now shipped)
 
