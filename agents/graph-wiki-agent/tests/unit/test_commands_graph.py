@@ -462,3 +462,107 @@ def test_describe_schema_mismatch_exits_schema_mismatch(
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
     assert result.exit_code == exit_codes.SCHEMA_MISMATCH
+
+
+# ---------------------------------------------------------------------------
+# _resolve_paths — repo≠workspace layout fix (todo 260530-hxy)
+#
+# Previously: _resolve_paths called resolve_config(Path(workspace_arg).resolve()),
+# which walked up from the WORKSPACE dir for .git → bound repo_root to the workspace's
+# own .git. On a repo≠workspace layout (workspace is its own git repo, source repo
+# lives elsewhere and is the cwd), this means repo_root == workspace → `git rev-parse HEAD`
+# dies with "fatal: ambiguous argument 'HEAD'" on a fresh workspace (no commits).
+#
+# Fix: delegate to resolve_wiki_and_repo (same path scan uses), which calls
+# _find_repo_root(Path.cwd()) so repo_root comes from the SOURCE repo, not the workspace.
+# ---------------------------------------------------------------------------
+
+
+def _make_fake_repo(path: Path) -> Path:
+    """Create a minimal fake git repo (just needs .git dir for _find_repo_root)."""
+    path.mkdir(parents=True, exist_ok=True)
+    (path / ".git").mkdir()
+    return path
+
+
+def _seed_graph_manifest(workspace: Path) -> None:
+    """Write a minimal .graph-wiki.yaml so workspace is recognized."""
+    workspace.mkdir(parents=True, exist_ok=True)
+    (workspace / ".graph-wiki.yaml").write_text(
+        "version: 2\ninitialized_at: 2026-05-30\nplugins: []\n",
+        encoding="utf-8",
+    )
+
+
+def test_resolve_paths_uses_cwd_repo_not_workspace(tmp_path, monkeypatch):
+    """Reproduces the repo≠workspace failure from todo 260530-hxy.
+
+    Scenario: cwd is the source repo; workspace is a separate git repo.
+    Previously: _resolve_paths returned workspace as repo_root (WRONG).
+    Fixed:      _resolve_paths returns source_repo (cwd) as repo_root.
+    """
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+
+    # Source repo: the developer's cwd (where graph-wiki-agent is invoked from)
+    source_repo = tmp_path / "source-code"
+    _make_fake_repo(source_repo)
+    monkeypatch.chdir(source_repo)
+
+    # Workspace: a SEPARATE git repo (no source commits — would die on git rev-parse HEAD)
+    workspace = tmp_path / "wiki-vault"
+    _make_fake_repo(workspace)
+    _seed_graph_manifest(workspace)
+    # wiki subdir expected by resolve_wiki_and_repo
+    (workspace / "wiki").mkdir()
+
+    repo_root, workspace_root = graph_module._resolve_paths(str(workspace))
+
+    # (a) repo_root must be the SOURCE repo (cwd), NOT the workspace
+    assert repo_root == source_repo.resolve(), (
+        f"Expected repo_root={source_repo.resolve()!r}, got {repo_root!r} — "
+        "this is the repo≠workspace bug: workspace was returned as repo_root"
+    )
+    # (b) workspace_root must be the workspace (where code.db lives)
+    assert workspace_root == workspace.resolve()
+
+
+def test_resolve_paths_repo_directory_pin_honored(tmp_path, monkeypatch):
+    """When workspace manifest has repo-directory: pin, _resolve_paths uses the pin."""
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+
+    source_repo = tmp_path / "source-code"
+    _make_fake_repo(source_repo)
+    monkeypatch.chdir(source_repo)
+
+    workspace = tmp_path / "wiki-vault"
+    _make_fake_repo(workspace)
+    workspace.mkdir(parents=True, exist_ok=True)
+    (workspace / ".graph-wiki.yaml").write_text(
+        f"version: 2\ninitialized_at: 2026-05-30\nplugins: []\nrepo-directory: {source_repo}\n",
+        encoding="utf-8",
+    )
+    (workspace / "wiki").mkdir()
+
+    repo_root, workspace_root = graph_module._resolve_paths(str(workspace))
+
+    assert repo_root == source_repo.resolve()
+    assert workspace_root == workspace.resolve()
+
+
+def test_resolve_paths_no_workspace_arg_falls_back_to_env(tmp_path, monkeypatch):
+    """With no workspace_arg, _resolve_paths falls back via resolve_wiki_and_repo()."""
+    workspace = tmp_path / "wiki-vault"
+    _make_fake_repo(workspace)
+    _seed_graph_manifest(workspace)
+    (workspace / "wiki").mkdir()
+
+    source_repo = tmp_path / "source-code"
+    _make_fake_repo(source_repo)
+    monkeypatch.chdir(source_repo)
+
+    # Simulate the env-var path (resolve_wiki_and_repo() reads GRAPH_WIKI_WORKSPACE)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    repo_root, workspace_root = graph_module._resolve_paths("")
+
+    assert workspace_root == workspace.resolve()

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from workspace_io import config as _ws_config
 from workspace_io import paths as _ws_paths
-from workspace_io.config import _find_repo_root
+from workspace_io.config import _find_repo_root, _repo_directory_override
 
 
 def resolve_wiki_and_repo(
@@ -28,7 +28,8 @@ def resolve_wiki_and_repo(
 
     Priority:
     1. ``workspace_path`` argument if provided — short-circuit. When ``repo_path``
-       is not supplied, walk up from ``Path.cwd()`` to find the repo root.
+       is not supplied, walk up from ``Path.cwd()`` to find the repo root, then
+       apply any ``repo-directory:`` pin from ``<workspace>/.graph-wiki.yaml``.
     2. ``GRAPH_WIKI_WORKSPACE`` env var (via ``workspace_io.config.resolve``).
     3. ``.graph-wiki.yaml`` walk-up from cwd (via ``workspace_io.config.resolve``).
     4. Raises ``RuntimeError`` — names ``graph-wiki-agent bootstrap <path>`` as fix.
@@ -39,6 +40,17 @@ def resolve_wiki_and_repo(
     is never silently dropped.
     """
     if workspace_path is not None:
-        return _ws_paths.wiki_dir(workspace_path), repo_path or _find_repo_root(Path.cwd())
+        if repo_path is not None:
+            # Explicit override always wins — do not apply pin over it.
+            return _ws_paths.wiki_dir(workspace_path), repo_path
+        cwd_repo = _find_repo_root(Path.cwd())
+        # Honor repo-directory: pin in <workspace>/.graph-wiki.yaml.
+        # _repo_directory_override requires a non-None default; use workspace itself
+        # as a sentinel when cwd repo discovery returned None, then check afterwards.
+        sentinel = workspace_path if cwd_repo is None else cwd_repo
+        resolved = _repo_directory_override(workspace_path, sentinel)
+        # If both cwd_repo and pin are absent (resolved == sentinel == workspace), treat as None.
+        repo = None if (cwd_repo is None and resolved == workspace_path) else resolved
+        return _ws_paths.wiki_dir(workspace_path), repo
     cfg = _ws_config.resolve()
     return _ws_paths.wiki_dir(cfg.workspace), repo_path or cfg.repo_root
