@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sqlite3
 
+from graph_io._ignore import should_skip
+
 
 def _set_resolution(attrs_json: str | None, resolution: str) -> str:
     attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
@@ -55,4 +57,40 @@ def sweep(conn: sqlite3.Connection) -> None:
     conn.execute(
         "DELETE FROM nodes WHERE path IS NULL AND uri IS NULL AND kind != 'package' "
         "AND id NOT IN (SELECT dst FROM edges)"
+    )
+
+
+def sweep_skip_dir_files(conn: sqlite3.Connection, skip_dirs: frozenset[str]) -> None:
+    """Delete file nodes that are skip-dir build artifacts (uri IS NULL, path in skip-dir).
+
+    Targets nodes with kind='file', uri IS NULL, path IS NOT NULL whose path has a
+    component in skip_dirs (e.g. dist/, build/, node_modules/).  These are import-edge
+    endpoints materialised by _ensure_node/_upsert_edge that bypassed the walk's skip-dir
+    filter.  After deleting the file nodes, any edges left orphaned (src or dst no longer
+    present) are removed.
+
+    Scope is intentionally narrow: only kind='file' AND uri IS NULL AND skip-dir component.
+    URI-bearing nodes, non-file nodes, and NULL-uri files outside skip-dirs are untouched.
+    """
+    candidates = conn.execute(
+        "SELECT id, path FROM nodes WHERE kind = 'file' AND uri IS NULL AND path IS NOT NULL"
+    ).fetchall()
+
+    to_delete = [
+        node_id
+        for node_id, path in candidates
+        if should_skip(path, skip_dirs)
+    ]
+
+    if not to_delete:
+        return
+
+    placeholders = ",".join("?" for _ in to_delete)
+    conn.execute(f"DELETE FROM nodes WHERE id IN ({placeholders})", to_delete)
+
+    # Remove edges orphaned by the node deletions (ON DELETE CASCADE is not
+    # guaranteed to fire for all SQLite builds, so we do this explicitly).
+    conn.execute(
+        "DELETE FROM edges "
+        "WHERE src NOT IN (SELECT id FROM nodes) OR dst NOT IN (SELECT id FROM nodes)"
     )

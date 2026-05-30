@@ -315,6 +315,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 domains.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 resolve.sweep(conn)
+                resolve.sweep_skip_dir_files(conn, skip_dirs)
                 _enforce_strict_tree_invariant(conn)
                 derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
                 _set_metadata(conn, "last_indexed_commit", head)
