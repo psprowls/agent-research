@@ -1,12 +1,15 @@
-"""Unit tests asserting models.toml loader tolerance and tier-to-role sweep candidate spec.
+"""Unit tests asserting models.toml loader tolerance and sweep-candidate structural invariants.
 
 Verifies:
-- All six in-scope agent roles have sweep_candidates arrays of length 4 (D-05)
-- Candidate lists match the D-03 tier-to-role mapping exactly
+- All six in-scope agent roles have non-empty sweep_candidates arrays (bespoke per-role lengths)
+- global.anthropic.claude-haiku-4-5-20251001-v1:0 is present in every in-scope role's list
 - Judges (judge_a, judge_b) do NOT have sweep_candidates (D-01)
 - Every candidate model_id is priced in eval_harness.pricing (key_links constraint)
 - make_llm() still works for all six roles after the new key is added
 - code_reader_cases.json has 5–6 vault-thin fixture cases (Phase 16 D-07 expansion from the original 3)
+
+Note: the D-03 tier-to-role mapping (uniform 4-entry lists) was retired with the
+2026-05-29 na9 sweep-config refresh; lists are now bespoke per role (6/8/6/7/6/6).
 """
 
 from __future__ import annotations
@@ -21,30 +24,8 @@ from model_adapter.loader import load_role_config, make_llm
 # D-01: six in-scope agent roles only
 IN_SCOPE_ROLES = ("librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor")
 
-# D-03 tier-to-role candidate maps (locked)
-QUALITY_ROLES = ("librarian", "synthesizer")
-QUALITY_CANDIDATES = frozenset([
-    "us.anthropic.claude-sonnet-4-6",
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "us.amazon.nova-pro-v1:0",
-    "qwen.qwen3-32b-v1:0",
-])
-
-MID_ROLES = ("linter", "ingestor")
-MID_CANDIDATES = frozenset([
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "us.amazon.nova-pro-v1:0",
-    "us.amazon.nova-lite-v1:0",
-    "qwen.qwen3-32b-v1:0",
-])
-
-CHEAP_FAST_ROLES = ("scanner", "code_reader")
-CHEAP_FAST_CANDIDATES = frozenset([
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "us.amazon.nova-micro-v1:0",
-    "us.amazon.nova-lite-v1:0",
-    "qwen.qwen3-32b-v1:0",
-])
+# Haiku global inference profile — must appear in every in-scope role's sweep_candidates
+HAIKU_GLOBAL_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Path to code_reader_cases.json (relative to workspace root)
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent
@@ -52,62 +33,28 @@ CODE_READER_CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "code_reader_cases
 
 
 def test_sweep_candidates_present_for_all_six_roles():
-    """Each of the six in-scope roles has sweep_candidates as a list of length 4."""
+    """Each of the six in-scope roles has a non-empty sweep_candidates list.
+
+    Lengths are bespoke per role (6/8/6/7/6/6 after the na9 refresh); a
+    fixed-length assertion would be wrong here.
+    """
     for role in IN_SCOPE_ROLES:
         cfg = load_role_config(role)
         candidates = cfg.get("sweep_candidates")
         assert candidates is not None, f"[{role}] missing sweep_candidates key"
         assert isinstance(candidates, list), f"[{role}] sweep_candidates must be a list"
-        assert len(candidates) == 4, (
-            f"[{role}] expected 4 sweep_candidates, got {len(candidates)}: {candidates}"
+        assert len(candidates) >= 1, (
+            f"[{role}] sweep_candidates must not be empty; got: {candidates}"
         )
 
 
-def test_tier_to_role_candidate_map():
-    """Candidate sets match D-03 tier assignments exactly."""
-    # Quality tier: librarian, synthesizer
-    for role in QUALITY_ROLES:
-        candidates = set(load_role_config(role)["sweep_candidates"])
-        assert candidates == QUALITY_CANDIDATES, (
-            f"[{role}] quality-tier candidates mismatch.\n"
-            f"  expected: {sorted(QUALITY_CANDIDATES)}\n"
-            f"  actual:   {sorted(candidates)}"
-        )
-
-    # Mid tier: linter, ingestor
-    for role in MID_ROLES:
-        candidates = set(load_role_config(role)["sweep_candidates"])
-        assert candidates == MID_CANDIDATES, (
-            f"[{role}] mid-tier candidates mismatch.\n"
-            f"  expected: {sorted(MID_CANDIDATES)}\n"
-            f"  actual:   {sorted(candidates)}"
-        )
-
-    # Cheap-fast tier: scanner, code_reader
-    for role in CHEAP_FAST_ROLES:
-        candidates = set(load_role_config(role)["sweep_candidates"])
-        assert candidates == CHEAP_FAST_CANDIDATES, (
-            f"[{role}] cheap-fast-tier candidates mismatch.\n"
-            f"  expected: {sorted(CHEAP_FAST_CANDIDATES)}\n"
-            f"  actual:   {sorted(candidates)}"
-        )
-
-    # Spot-check: librarian and synthesizer contain sonnet-4-6
-    for role in QUALITY_ROLES:
-        assert "us.anthropic.claude-sonnet-4-6" in load_role_config(role)["sweep_candidates"], (
-            f"[{role}] missing us.anthropic.claude-sonnet-4-6"
-        )
-
-    # Spot-check: linter and ingestor contain nova-pro
-    for role in MID_ROLES:
-        assert "us.amazon.nova-pro-v1:0" in load_role_config(role)["sweep_candidates"], (
-            f"[{role}] missing us.amazon.nova-pro-v1:0"
-        )
-
-    # Spot-check: scanner and code_reader contain nova-micro
-    for role in CHEAP_FAST_ROLES:
-        assert "us.amazon.nova-micro-v1:0" in load_role_config(role)["sweep_candidates"], (
-            f"[{role}] missing us.amazon.nova-micro-v1:0"
+def test_haiku_present_in_every_in_scope_role():
+    """global.anthropic.claude-haiku-4-5-20251001-v1:0 must appear in every
+    in-scope role's sweep_candidates (Pat's 'always include Haiku' rule)."""
+    for role in IN_SCOPE_ROLES:
+        candidates = load_role_config(role)["sweep_candidates"]
+        assert HAIKU_GLOBAL_ARN in candidates, (
+            f"[{role}] missing {HAIKU_GLOBAL_ARN!r} in sweep_candidates: {candidates}"
         )
 
 
