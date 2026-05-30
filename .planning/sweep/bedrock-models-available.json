@@ -122,6 +122,12 @@
         "type": "On-demand model inference requests per minute",
         "value": 2000,
         "code": "L-E118F160"
+      },
+      {
+        "name": "Model invocation max tokens per day for Amazon Nova Micro (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 207360000,
+        "code": "L-D2912E70"
       }
     ]
   },
@@ -223,34 +229,40 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "Records per input file per batch inference job for Nova 2 Lite",
-        "type": "Records per input file per batch inference job",
-        "value": 100000,
-        "code": "L-4A832410"
+        "name": "Global cross-region model inference requests per minute for Amazon Nova 2 Lite",
+        "type": "Global cross-region model inference requests per minute",
+        "value": 2000,
+        "code": "L-D5F39C2F"
       },
       {
-        "name": "Minimum number of records per batch inference job for Nova 2 Lite",
-        "type": "Minimum number of records per batch inference job",
-        "value": 100,
-        "code": "L-9782A23E"
+        "name": "Model invocation max tokens per day for Amazon Nova 2 Lite (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 216000000,
+        "code": "L-210172B5"
       },
       {
-        "name": "Batch inference input file size (in GB) for Nova 2 Lite",
-        "type": "Batch inference input file size (in GB)",
-        "value": 1,
-        "code": "L-4C301596"
+        "name": "Global cross-region model inference tokens per minute for Amazon Nova 2 Lite",
+        "type": "Global cross-region model inference tokens per minute",
+        "value": 8000000,
+        "code": "L-71C69B70"
       },
       {
-        "name": "Records per batch inference job for Nova 2 Lite",
-        "type": "Records per batch inference job",
-        "value": 100000,
-        "code": "L-ECCE76C6"
+        "name": "Cross-region model inference requests per minute for Amazon Nova 2 Lite",
+        "type": "Cross-region model inference requests per minute",
+        "value": 2000,
+        "code": "L-F06F1187"
       },
       {
-        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Nova 2 Lite",
-        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
-        "value": 100,
-        "code": "L-10F69CA1"
+        "name": "Cross-region model inference tokens per minute for Amazon Nova 2 Lite",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 8000000,
+        "code": "L-C6F5908D"
+      },
+      {
+        "name": "Global cross-region model inference tokens per day for Amazon Nova 2 Lite",
+        "type": "Global cross-region model inference tokens per day",
+        "value": 432000000,
+        "code": "L-AD940EDE"
       }
     ]
   },
@@ -288,34 +300,22 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "Batch inference job size (in GB) for Amazon Nova Premier",
-        "type": "Batch inference job size (in GB)",
-        "value": 5,
-        "code": "L-CD965251"
+        "name": "Cross-region model inference tokens per minute for Amazon Nova Premier V1",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 2000000,
+        "code": "L-AA7FE948"
       },
       {
-        "name": "Records per input file per batch inference job for Amazon Nova Premier",
-        "type": "Records per input file per batch inference job",
-        "value": 100000,
-        "code": "L-169A395B"
+        "name": "Cross-region model inference requests per minute for Amazon Nova Premier V1",
+        "type": "Cross-region model inference requests per minute",
+        "value": 500,
+        "code": "L-9AD981E7"
       },
       {
-        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Amazon Nova Premier",
-        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
-        "value": 100,
-        "code": "L-654787A4"
-      },
-      {
-        "name": "Records per batch inference job for Amazon Nova Premier",
-        "type": "Records per batch inference job",
-        "value": 100000,
-        "code": "L-131D4EED"
-      },
-      {
-        "name": "Batch inference input file size (in GB) for Amazon Nova Premier",
-        "type": "Batch inference input file size (in GB)",
-        "value": 1,
-        "code": "L-39720B39"
+        "name": "Model invocation max tokens per day for Amazon Nova Premier V1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 54000000,
+        "code": "L-B1D7F4B9"
       }
     ]
   },
@@ -451,6 +451,12 @@
         "type": "Cross-region model inference requests per minute",
         "value": 200,
         "code": "L-F52323AB"
+      },
+      {
+        "name": "Cross-region model inference tokens per minute for DeepSeek R1 V1",
+        "type": "Cross-region model inference tokens per minute",
+        "value": 200000,
+        "code": "L-06B03968"
       }
     ]
   },
@@ -527,6 +533,18 @@
         "type": "Records per input file per batch inference job",
         "value": 100000,
         "code": "L-F2107865"
+      },
+      {
+        "name": "Batch inference job size (in GB) for MiniMax M2",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-F681BD6F"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Minimax M2",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-A81B7C40"
       }
     ]
   },
@@ -609,6 +627,12 @@
         "type": "Records per input file per batch inference job",
         "value": 100000,
         "code": "L-FB43CE55"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for MiniMax M2.1",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-0FB5A5E5"
       }
     ]
   },
@@ -685,6 +709,18 @@
         "type": "Batch inference job size (in GB)",
         "value": 5,
         "code": "L-B40A222A"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for MiniMax M2.5",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-2B04F45D"
+      },
+      {
+        "name": "Records per input file per batch inference job for MiniMax M2.5",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-BC9ED53F"
       }
     ]
   },
@@ -743,6 +779,36 @@
         "type": "Batch inference job size (in GB)",
         "value": 5,
         "code": "L-B45420BF"
+      },
+      {
+        "name": "Records per batch inference job for Devstral 2 123B",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-11C1CE94"
+      },
+      {
+        "name": "Records per input file per batch inference job for Devstral 2 123B",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-92349F9F"
+      },
+      {
+        "name": "Model invocation max tokens per day for Mistral Devstral 2 123b (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-71AB4FBD"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Mistral Devstral 2 123b",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-904A6762"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Mistral Devstral 2 123b",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-0197660A"
       }
     ]
   },
@@ -808,6 +874,30 @@
         "type": "Batch inference job size (in GB)",
         "value": 5,
         "code": "L-BBE573E1"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Magistral Small 2509",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-D96CB6BD"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Magistral Small 1.2",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-B14A9603"
+      },
+      {
+        "name": "Model invocation max tokens per day for Magistral Small 1.2 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-E802C648"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Magistral Small 1.2",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-D18AC5F7"
       }
     ]
   },
@@ -932,6 +1022,24 @@
         "type": "Batch inference input file size (in GB)",
         "value": 1,
         "code": "L-CC5913D4"
+      },
+      {
+        "name": "Model invocation max tokens per day for Ministral 3B 3.0 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-44949E31"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Ministral 3B 3.0",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-DCA37E91"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Ministral 3B 3.0",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-8A4BEE90"
       }
     ]
   },
@@ -1003,6 +1111,24 @@
         "type": "Records per batch inference job",
         "value": 100000,
         "code": "L-1F923A43"
+      },
+      {
+        "name": "Model invocation max tokens per day for Ministral 8B 3.0 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-0E9E2B3A"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Ministral 8B 3.0",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-3B98F300"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Ministral 8B 3.0",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-2BDF9A55"
       }
     ]
   },
@@ -1043,6 +1169,18 @@
         "type": "On-demand model inference requests per minute",
         "value": 800,
         "code": "L-D9A35062"
+      },
+      {
+        "name": "Model invocation max tokens per day for Mistral AI Mistral 7B Instruct (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 129600000,
+        "code": "L-12056022"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Mistral AI Mistral 7B Instruct",
+        "type": "On-demand model inference tokens per minute",
+        "value": 300000,
+        "code": "L-02D831F1"
       }
     ]
   },
@@ -1079,10 +1217,16 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "On-demand model inference requests per minute for Mistral Large",
-        "type": "On-demand model inference requests per minute",
-        "value": 400,
-        "code": "L-3AF844DB"
+        "name": "On-demand model inference tokens per minute for Mistral AI Mistral Large",
+        "type": "On-demand model inference tokens per minute",
+        "value": 300000,
+        "code": "L-01447289"
+      },
+      {
+        "name": "Model invocation max tokens per day for Mistral AI Mistral Large (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 4320000,
+        "code": "L-7A3C4C1E"
       }
     ]
   },
@@ -1160,6 +1304,18 @@
         "type": "Records per batch inference job",
         "value": 100000,
         "code": "L-90807536"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Mistral Large 3",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-FD4AF5A9"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Mistral Large 3",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-23DD8730"
       }
     ]
   },
@@ -1196,46 +1352,22 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Mistral Small",
-        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
-        "value": 100,
-        "code": "L-A986092E"
+        "name": "Model invocation max tokens per day for Mistral AI Mistral Small (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 14688000,
+        "code": "L-163043A1"
       },
       {
-        "name": "Batch inference job size (in GB) for Mistral Small",
-        "type": "Batch inference job size (in GB)",
-        "value": 5,
-        "code": "L-0F052E16"
+        "name": "On-demand model inference requests per minute for Mistral AI Mistral Small",
+        "type": "On-demand model inference requests per minute",
+        "value": 400,
+        "code": "L-1CBB0490"
       },
       {
-        "name": "Batch inference input file size (in GB) for Mistral Small",
-        "type": "Batch inference input file size (in GB)",
-        "value": 1,
-        "code": "L-D32CEBC2"
-      },
-      {
-        "name": "Model units per provisioned model for Mistral Small",
-        "type": "Model units per provisioned model",
-        "value": 0,
-        "code": "L-7A8639EE"
-      },
-      {
-        "name": "Minimum number of records per batch inference job for Mistral Small",
-        "type": "Minimum number of records per batch inference job",
-        "value": 100,
-        "code": "L-DE0A7679"
-      },
-      {
-        "name": "Records per input file per batch inference job for Mistral Small",
-        "type": "Records per input file per batch inference job",
-        "value": 100000,
-        "code": "L-E6489B37"
-      },
-      {
-        "name": "Records per batch inference job for Mistral Small",
-        "type": "Records per batch inference job",
-        "value": 100000,
-        "code": "L-072E11FC"
+        "name": "On-demand model inference tokens per minute for Mistral AI Mistral Small",
+        "type": "On-demand model inference tokens per minute",
+        "value": 300000,
+        "code": "L-82C15FA8"
       }
     ]
   },
@@ -1323,6 +1455,12 @@
         "type": "Cross-region model inference tokens per minute",
         "value": 80000,
         "code": "L-4B9F76B0"
+      },
+      {
+        "name": "Model invocation max tokens per day for Mistral Pixtral Large 25.02 V1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 4320000,
+        "code": "L-58280E37"
       }
     ]
   },
@@ -1399,6 +1537,18 @@
         "type": "On-demand model inference tokens per minute",
         "value": 100000000,
         "code": "L-03579AC2"
+      },
+      {
+        "name": "Model invocation max tokens per day for Kimi K2 Thinking (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-E239925C"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for Kimi K2 Thinking",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-1CD4424B"
       }
     ]
   },
@@ -1464,6 +1614,30 @@
         "type": "Batch inference job size (in GB)",
         "value": 5,
         "code": "L-67209F17"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for Kimi K2.5",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-42678C12"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Moonshot AI Kimi K2.5",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-C1711F26"
+      },
+      {
+        "name": "Model invocation max tokens per day for Moonshot AI Kimi K2.5 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-3587C5E5"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Moonshot AI Kimi K2.5",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-B8D04761"
       }
     ]
   },
@@ -1540,6 +1714,18 @@
         "type": "Sum of in-progress and submitted batch inference jobs using a base model",
         "value": 100,
         "code": "L-07844084"
+      },
+      {
+        "name": "Records per batch inference job for OpenAI GPT OSS 120b",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-3C5D1B25"
+      },
+      {
+        "name": "Model invocation max tokens per day for OpenAI GPT OSS 120B (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-41FDDA6B"
       }
     ]
   },
@@ -1674,6 +1860,48 @@
         "type": "Model invocation max tokens per day",
         "value": 5400000000,
         "code": "L-B776B0FC"
+      },
+      {
+        "name": "On-demand model inference requests per minute for GPT OSS Safeguard 120B",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-C4E013EF"
+      },
+      {
+        "name": "Records per input file per batch inference job for OpenAI GPT OSS Safeguard 120b",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-EDE20AF1"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for OpenAI GPT OSS Safeguard 120b",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-3D9113FB"
+      },
+      {
+        "name": "Records per batch inference job for OpenAI GPT OSS Safeguard 120b",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-1D2360E7"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for OpenAI GPT OSS Safeguard 120b",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-1AE32120"
+      },
+      {
+        "name": "Batch inference job size (in GB) for OpenAI GPT OSS Safeguard 120b",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-8BC31886"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for OpenAI GPT OSS Safeguard 120b",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-D9E467C0"
       }
     ]
   },
@@ -1720,6 +1948,48 @@
         "type": "Model invocation max tokens per day",
         "value": 5400000000,
         "code": "L-DC2AFCCA"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for GPT OSS Safeguard 20B",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-5D8F2F54"
+      },
+      {
+        "name": "Batch inference job size (in GB) for OpenAI GPT OSS Safeguard 20b",
+        "type": "Batch inference job size (in GB)",
+        "value": 5,
+        "code": "L-5827E752"
+      },
+      {
+        "name": "Records per input file per batch inference job for OpenAI GPT OSS Safeguard 20b",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-135AE4B7"
+      },
+      {
+        "name": "Batch inference input file size (in GB) for OpenAI GPT OSS Safeguard 20b",
+        "type": "Batch inference input file size (in GB)",
+        "value": 1,
+        "code": "L-B0A954A0"
+      },
+      {
+        "name": "Records per batch inference job for OpenAI GPT OSS Safeguard 20b",
+        "type": "Records per batch inference job",
+        "value": 100000,
+        "code": "L-142AED8F"
+      },
+      {
+        "name": "Minimum number of records per batch inference job for OpenAI GPT OSS Safeguard 20b",
+        "type": "Minimum number of records per batch inference job",
+        "value": 100,
+        "code": "L-2563B29E"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for OpenAI GPT OSS Safeguard 20b",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-811E997F"
       }
     ]
   },
@@ -1756,34 +2026,22 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "Records per batch inference job for Qwen3 32B",
-        "type": "Records per batch inference job",
-        "value": 100000,
-        "code": "L-DF5FF3C8"
+        "name": "On-demand model inference requests per minute for Qwen3 32B V1",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-E880C759"
       },
       {
-        "name": "Minimum number of records per batch inference job for Qwen3 32B",
-        "type": "Minimum number of records per batch inference job",
-        "value": 100,
-        "code": "L-3C5E49B6"
+        "name": "On-demand model inference tokens per minute for Qwen3 32B V1",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-B7C52139"
       },
       {
-        "name": "Batch inference job size (in GB) for Qwen3 32B",
-        "type": "Batch inference job size (in GB)",
-        "value": 5,
-        "code": "L-BD405FCD"
-      },
-      {
-        "name": "Batch inference input file size (in GB) for Qwen3 32B",
-        "type": "Batch inference input file size (in GB)",
-        "value": 1,
-        "code": "L-25820050"
-      },
-      {
-        "name": "Records per input file per batch inference job for Qwen3 32B",
-        "type": "Records per input file per batch inference job",
-        "value": 100000,
-        "code": "L-28258E5D"
+        "name": "Model invocation max tokens per day for Qwen3 32B V1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-A115DE95"
       }
     ]
   },
@@ -1820,34 +2078,22 @@
     "pricingProbeError": null,
     "quotas": [
       {
-        "name": "Records per input file per batch inference job for Qwen3 Coder 30B",
-        "type": "Records per input file per batch inference job",
-        "value": 100000,
-        "code": "L-46EFABBA"
+        "name": "On-demand model inference tokens per minute for Qwen3 Coder 30B a3b V1",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-92F81E14"
       },
       {
-        "name": "Batch inference input file size (in GB) for Qwen3 Coder 30B",
-        "type": "Batch inference input file size (in GB)",
-        "value": 1,
-        "code": "L-6D19D10E"
+        "name": "On-demand model inference requests per minute for Qwen3 Coder 30B a3b V1",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-66EE6E0B"
       },
       {
-        "name": "Records per batch inference job for Qwen3 Coder 30B",
-        "type": "Records per batch inference job",
-        "value": 100000,
-        "code": "L-38EFD889"
-      },
-      {
-        "name": "Sum of in-progress and submitted batch inference jobs using a base model for Qwen3 Coder 30B",
-        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
-        "value": 100,
-        "code": "L-F30EAB98"
-      },
-      {
-        "name": "Minimum number of records per batch inference job for Qwen3 Coder 30B",
-        "type": "Minimum number of records per batch inference job",
-        "value": 100,
-        "code": "L-4483A039"
+        "name": "Model invocation max tokens per day for Qwen3 Coder 30B a3b V1 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-ADCC1A3F"
       }
     ]
   },
@@ -1930,6 +2176,12 @@
         "type": "Batch inference job size (in GB)",
         "value": 5,
         "code": "L-E6E447D5"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Qwen3 Coder Next",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-4153B066"
       }
     ]
   },
@@ -2099,6 +2351,30 @@
         "type": "Records per batch inference job",
         "value": 100000,
         "code": "L-ECA45411"
+      },
+      {
+        "name": "Sum of in-progress and submitted batch inference jobs using a base model for GLM 4.7",
+        "type": "Sum of in-progress and submitted batch inference jobs using a base model",
+        "value": 100,
+        "code": "L-EA873E18"
+      },
+      {
+        "name": "Model invocation max tokens per day for Z.ai GLM-4.7 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-3D2279FC"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Z.ai GLM-4.7",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-12454D86"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Z.ai GLM-4.7",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-497DDDD7"
       }
     ]
   },
@@ -2163,6 +2439,30 @@
         "type": "Batch inference input file size (in GB)",
         "value": 1,
         "code": "L-B7160204"
+      },
+      {
+        "name": "Records per input file per batch inference job for GLM 4.7 Flash",
+        "type": "Records per input file per batch inference job",
+        "value": 100000,
+        "code": "L-8CE8B022"
+      },
+      {
+        "name": "Model invocation max tokens per day for Z.ai GLM-4.7 Flash (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-66D33CAB"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Z.ai GLM-4.7 Flash",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-B40F2E56"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Z.ai GLM-4.7 Flash",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-5E856AD9"
       }
     ]
   },
@@ -2233,6 +2533,24 @@
         "type": "Sum of in-progress and submitted batch inference jobs using a base model",
         "value": 100,
         "code": "L-5BA88337"
+      },
+      {
+        "name": "On-demand model inference tokens per minute for Z.ai GLM 5",
+        "type": "On-demand model inference tokens per minute",
+        "value": 100000000,
+        "code": "L-99316427"
+      },
+      {
+        "name": "Model invocation max tokens per day for Z.ai GLM 5 (doubled for cross-region calls)",
+        "type": "Model invocation max tokens per day",
+        "value": 5400000000,
+        "code": "L-973A6166"
+      },
+      {
+        "name": "On-demand model inference requests per minute for Z.ai GLM 5",
+        "type": "On-demand model inference requests per minute",
+        "value": 10000,
+        "code": "L-7BF266A9"
       }
     ]
   }
