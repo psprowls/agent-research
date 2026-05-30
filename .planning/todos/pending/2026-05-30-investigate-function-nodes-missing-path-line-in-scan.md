@@ -89,9 +89,11 @@ seen from the file angle — and it likely inflates the function/class counts to
 4. **Confirm the 166 are import/edge targets** (not strays):
    `SELECT count(*) FROM nodes n WHERE n.kind='file' AND n.uri IS NULL
    AND EXISTS (SELECT 1 FROM edges e WHERE e.dst = n.id);` — expect ~166.
-5. **Exclude build output from the scan.** Add `dist/`, `.vite/`, and `*.d.ts`
-   (build artifacts) to the scan ignore set (`.cgignore` / `skip_dirs`). These are
-   generated; they shouldn't be first-class graph nodes regardless of the dep work.
+5. **Fix the dist/build leak** — NOTE: `dist`/`build` are *already* in
+   `DEFAULT_SKIP_DIRS`; the walk honors them. The leak is `_ensure_node`
+   materializing import-edge targets (built `dist/` entry points) without checking
+   `skip_dirs`. Tracked as its own actionable todo:
+   `2026-05-30-stop-materializing-dist-build-import-targets-as-graph-nodes.md`.
 6. **Re-check after JS-dependency injection lands** — verify workspace imports
    resolve to `src/` (or to clean `dependency:` nodes) instead of `dist/` entry
    points, which should drop most of the 166 `dist/` file nodes and the duplicate
