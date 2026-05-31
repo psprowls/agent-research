@@ -2,6 +2,8 @@ from pathlib import Path
 
 from source_parser.parsers._config import LanguageConfig
 from source_parser.parsers._generic import generic_walk
+from source_parser.parsers.javascript import JavaScriptParser
+from source_parser.parsers.typescript import TypeScriptParser
 from source_parser.tree import SourceNode
 
 _JS_CONFIG = LanguageConfig(
@@ -82,3 +84,53 @@ def test_parse_errors_non_fatal():
     assert isinstance(root, SourceNode)
     assert "parse_errors" in root.attrs
     assert len(root.attrs["parse_errors"]) > 0
+
+
+# --- Arrow-const / function-expression tests (RED-first; fixed in _generic.py) ---
+
+_js = JavaScriptParser()
+_ts = TypeScriptParser()
+
+
+def test_top_level_arrow_const_is_function():
+    source = "const isContains = (a, b) => a + b;\n"
+    root = _js.parse(Path("sample.js"), source.encode("utf-8"), package="my-pkg")
+    fn = next((c for c in root.children if c.name == "isContains"), None)
+    assert fn is not None, "expected a child named 'isContains'"
+    assert fn.kind == "function"
+    assert fn.span.start_line == 1
+    assert fn.path == Path("sample.js")
+
+
+def test_exported_async_arrow_const_is_function():
+    source = "export const isAtLocation = async (context, currentBatch, lastBatch) => {};\n"
+    root = _js.parse(Path("sample.js"), source.encode("utf-8"), package="my-pkg")
+    fn = next((c for c in root.children if c.name == "isAtLocation"), None)
+    assert fn is not None, "expected a child named 'isAtLocation'"
+    assert fn.kind == "function"
+    assert fn.span.start_line == 1
+
+
+def test_arrow_const_in_typescript():
+    source = "const App = (): void => {};\n"
+    root = _ts.parse(Path("sample.ts"), source.encode("utf-8"), package="my-pkg")
+    fn = next((c for c in root.children if c.name == "App"), None)
+    assert fn is not None, "expected a child named 'App'"
+    assert fn.kind == "function"
+
+
+def test_function_expression_const_is_function():
+    source = "const f = function () {};\n"
+    root = _js.parse(Path("sample.js"), source.encode("utf-8"), package="my-pkg")
+    fn = next((c for c in root.children if c.name == "f"), None)
+    assert fn is not None, "expected a child named 'f'"
+    assert fn.kind == "function"
+
+
+def test_export_arrow_does_not_leak_params():
+    source = "export const isAtLocation = (context, currentBatch, lastBatch) => foo();\n"
+    root = _js.parse(Path("sample.js"), source.encode("utf-8"), package="my-pkg")
+    export_names = [r.target_name for r in root.refs if r.kind == "export"]
+    assert "isAtLocation" in export_names
+    for leaked in ("context", "currentBatch", "lastBatch", "foo"):
+        assert leaked not in export_names, f"param/body identifier '{leaked}' leaked as export ref"
