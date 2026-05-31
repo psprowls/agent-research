@@ -23,6 +23,13 @@ This package does NOT own:
 
 Those live in `plugins/lattice-graph/`.
 
+## Parser note
+
+`.tsx` files must use the `tsx` tree-sitter grammar, not `typescript`, because
+the plain TypeScript grammar cannot parse JSX and will drop component
+bodies into error-laden trees. The emitted logical language remains
+`typescript`; only the grammar changes for `.tsx` input.
+
 ## Tests
 
 `pytest`. Install with the `test` extra and run from this package's root:

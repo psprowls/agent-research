@@ -7,6 +7,8 @@ intermediate `SourceTree`, with a graph projection aligned to the
 ## Status
 
 v1 covers Python, JavaScript, and TypeScript with a single graph projection.
+`.tsx` files are parsed with the `tsx` tree-sitter grammar so JSX-bearing React
+components are preserved; plain `.ts` files continue to use `typescript`.
 See `docs/lattice-graph/specs/2026-05-05-source-parser-design.md`
 in the parent monorepo for the full design.
 
