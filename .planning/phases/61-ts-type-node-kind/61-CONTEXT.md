@@ -95,22 +95,44 @@ through, so `ts_kind` flows automatically once `_build_type_node` sets it.
 | Schema/version constants | `packages/graph-io/src/graph_io/schema.py` (`DERIVER_VERSION`, `SCHEMA_VERSION`) |
 | Verification workspace | `~/Personal/graph-wiki/mono-repo-live` |
 
-### Render / queries kind-allowlist investigation (resolved)
+### Render / queries kind-allowlist investigation (resolved — allowlist task IS needed)
 
 The locked brief asked the planner to confirm whether `graph-io/render.py` or
 `queries.py` carry a kind-based labeling or valid-kinds allowlist needing a `type` entry.
-**Finding: neither file exists** in this checkout. The current `graph-io` package is a
-minimal stub (`__init__.py`, `classify.py`, `resolve.py`, `schema.py` only) — there is no
-`render.py`, `queries.py`, or `cli/` directory anywhere under `packages/`. `schema.py`
-explicitly documents `kind` as an unconstrained TEXT column with no CHECK constraint.
-**No render/queries allowlist task is needed.** Should `render.py`/`queries.py` be
-introduced later, re-check for a kind allowlist at that time.
+**Correction to the brief's assumption: both files exist** (the brief speculated they
+might not). `graph-io` is a mature package (~30 modules + a full `cli/` directory).
 
-> **Scaffold note:** Several paths described in the project CLAUDE.md (richer `graph-io`
-> with `cli/`, `render.py`, `queries.py`; source-parser `fixtures/<lang>/` + tests) do
-> NOT yet exist on disk — the packages are early stubs. The fixtures and test files this
-> phase calls for will be **created**, and the test/fixture conventions are followed as
-> documented (paired `*.expected.json` + `*.graph.expected.json`, parametrized).
+**Finding (queries.py — a task IS required):** `queries.py` defines a module-level
+`_VALID_KINDS = frozenset(...)` allowlist (line 9) and enforces it in the `find` query
+path: `if kind is not None and kind not in _VALID_KINDS: raise ValueError("unknown kind
+...")` (lines 264-266). A `type` node would therefore be UN-FILTERABLE — `cg find --kind
+type` (and any `find(kind="type")` call) would raise `ValueError` until `"type"` is added
+to `_VALID_KINDS`. **A task to add `"type"` to `_VALID_KINDS` is included in 61-02.**
+(`_VALID_APP_KINDS` at line 34 is the app-subtype allowlist — NOT relevant to `type`;
+leave it unchanged.)
+
+**Finding (render.py — no task needed):** `render.py` is a generic dataclass→JSON/human
+formatter (`render()` + `format_<kind>()` for package/path/repo/domain/entry_point/suite).
+It has NO kind allowlist and NO per-kind branch that would reject or mislabel a `type`
+node — `find` results render through the generic `render()` path. No render.py change is
+required for `type` nodes to list/render. (A dedicated `cg describe-type` command is NOT
+in scope this phase — graph value is search/traversal + `cg find --kind type`.)
+
+**Schema:** `schema.py` keeps `kind` as an unconstrained TEXT column (no CHECK), so no
+schema migration is needed for the new kind value — consistent with the locked decision
+to bump `DERIVER_VERSION` only.
+
+> **Brief correction (DERIVER_VERSION baseline):** the brief said "bump 4 → 5". Confirmed
+> on disk: `schema.py` currently has `DERIVER_VERSION = 4`, so the 4 → 5 bump is correct
+> as written.
+
+> **Convention note:** source-parser is genuinely fixture-driven and already has a
+> `fixtures/typescript/` directory with paired `*.expected.json` +
+> `*.graph.expected.json` and a parametrized loader (`tests/_fixture_loader.py`,
+> `tests/test_parser_typescript.py`, `tests/test_projection_graph.py`). New TS fixtures
+> slot into the EXISTING harness — they are added, not invented. (There is already an
+> `interface_call.ts` fixture that exercises interface usage in a call; the new fixtures
+> add interface/type-alias/enum *declaration* coverage.)
 
 ---
 
