@@ -13,7 +13,7 @@ SCHEMA_VERSION = 2
 
 # Bumped whenever any node/edge/attr DERIVATION logic changes (e.g. classification.classify,
 # app_kind precedence, derived-edge rules) so existing graphs auto-rebuild without --full.
-DERIVER_VERSION = 4
+DERIVER_VERSION = 5
 
 _DDL_STATEMENTS = (
     """
