@@ -1,0 +1,29 @@
+[project]
+name = "graph-wiki-cli"
+version = "0.1.0"
+description = "Focused gw Typer CLI for graph-wiki workflows"
+requires-python = ">=3.11"
+dependencies = [
+    "graph-wiki-core",
+    "graph-io",
+    "wiki-io",
+    "typer>=0.25.1",
+]
+
+[project.scripts]
+gw = "graph_wiki_cli.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+graph-wiki-core = { workspace = true }
+graph-io = { workspace = true }
+wiki-io = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]
