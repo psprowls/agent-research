@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plugin shim for lint_wiki — dispatches to wiki_io (claude) or graph-wiki-agent (bedrock)."""
+"""Plugin shim for lint_wiki — dispatches to wiki_io (claude) or gw (bedrock)."""
 import subprocess
 import sys
 
@@ -21,7 +21,7 @@ def main() -> None:
 
     if backend == "bedrock":
         result = subprocess.run(
-            ["graph-wiki-agent", "lint"] + sys.argv[1:],
+            ["gw", "lint"] + sys.argv[1:],
             check=True,
         )
         sys.exit(result.returncode)
