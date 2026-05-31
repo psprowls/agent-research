@@ -1,4 +1,0 @@
-PAT *.db
-PAT **/*.db
-PAT *REQ*
-PAT **/*REQ*

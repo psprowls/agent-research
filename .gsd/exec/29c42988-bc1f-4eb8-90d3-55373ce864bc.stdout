@@ -1,3 +1,0 @@
-.gsd/PROJECT.md:68: - wholesale conversion of `.planning/` into `.gsd/`;
-.gsd/PROJECT.md:69: - reusable migration tooling for future repositories;
-.gsd/PROJECT.md:70: - an active M001 cost-frontier sweep or winner-selection run;

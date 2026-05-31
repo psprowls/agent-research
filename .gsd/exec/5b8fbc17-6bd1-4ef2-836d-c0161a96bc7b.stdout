@@ -1,4 +1,0 @@
-PASS|test -s .gsd/PROJECT.md
-PASS|test -s .gsd/PROJECT.md && rg "active source of truth" .gsd/PROJECT.md && rg "archive/reference" .gsd/PROJECT.md && rg "v1.11" .gsd/PROJECT.md && rg "graph-wiki-agent" .gsd/PROJECT.md && rg "subagent-runtime" .gsd/PROJECT.md && rg "model-adapter" .gsd/PROJECT.md && rg "source-parser" .gsd/PROJECT.md && rg "graph-io" .gsd/PROJECT.md
-PASS|required package/boundary assertions
-DURATION_MS|82

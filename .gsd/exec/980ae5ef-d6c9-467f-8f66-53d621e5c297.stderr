@@ -1,9 +1,0 @@
-file:///Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/[eval1]:5
-for (const row of adapter.prepare('SELECT id, class, status, description, source, primary_owner, validation, notes FROM requirements ORDER BY id').all()) {
-                          ^
-
-TypeError: Cannot read properties of null (reading 'prepare')
-    at file:///Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/[eval1]:5:27
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-
-Node.js v24.12.0

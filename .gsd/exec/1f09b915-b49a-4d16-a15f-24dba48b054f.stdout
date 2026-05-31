@@ -1,4 +1,0 @@
-RUN .gsd/milestones/M001/slices/S03/verify_s03_requirements.py
-S03 requirements verifier passed: /Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/REQUIREMENTS.md
-RUN .gsd/milestones/M001/slices/S04/verify_s04_readiness.py
-S04 readiness verifier passed: initialized GSD artifacts are coherent and traceable

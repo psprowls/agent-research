@@ -1,7 +1,0 @@
-root=/Users/pat/.nvm/versions/node/v24.12.0/lib/node_modules/@opengsd/gsd-pi/pkg
-root=.gsd
-.gsd/state-manifest.json
-.gsd/milestones/M001/slices/S03/tasks/T03-SUMMARY.md
-.gsd/milestones/M001/slices/S03/tasks/T01-SUMMARY.md
-.gsd/milestones/M001/slices/S03/tasks/T02-SUMMARY.md
-.gsd/milestones/M001/slices/S02/tasks/T02-SUMMARY.md
