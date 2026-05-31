@@ -231,3 +231,6 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# GSD runtime notifications
+.gsd/notifications.jsonl
