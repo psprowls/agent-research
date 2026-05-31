@@ -60,7 +60,8 @@ def test_integration_test_files_use_canonical_gate() -> None:
     files = _find_integration_test_files()
     assert files, (
         "no integration test files discovered — repo layout drift suspected; "
-        "expected at least the agents/graph-wiki-agent/tests/integration/* files"
+        "expected package-local packages/*/tests/integration/* files or the "
+        "intentional repo-level integration-gate meta-test"
     )
 
     divergent: list[str] = []

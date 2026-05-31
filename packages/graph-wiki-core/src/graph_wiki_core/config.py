@@ -3,7 +3,7 @@ from __future__ import annotations
 """WikiConfig — shared configuration module for graph-wiki-core.
 
 Provides:
-- WikiConfig dataclass with fields for vault_path and state_gate_enabled
+- WikiConfig dataclass with fields for workspace_path and state_gate_enabled
 - load_config(path) — reads a TOML file and returns a WikiConfig
   (unknown keys silently dropped for forward-compatibility)
 - get_config() — returns the module-level active config singleton
@@ -24,11 +24,11 @@ class WikiConfig:
     """Runtime configuration for graph-wiki-core.
 
     Fields:
-        vault_path: Default vault path (overrides GRAPH_WIKI_WORKSPACE env var).
+        workspace_path: Default workspace path (overrides GRAPH_WIKI_WORKSPACE env var).
         state_gate_enabled: Whether git state-gate checks are enforced (default: True).
     """
 
-    vault_path: str | None = None
+    workspace_path: str | None = None
     state_gate_enabled: bool = True
 
 

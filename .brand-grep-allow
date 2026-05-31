@@ -14,7 +14,35 @@ packages/wiki-io/
 # check-brand.sh's regex also catches `workspace_io` literal references)
 packages/graph-io/
 packages/model-adapter/
-agents/graph-wiki-agent/
+
+# Canonical package-era workspace_io imports/provenance in split packages.
+# Keep file-scoped so stale executable command guidance or old workspace paths
+# elsewhere still fail loudly.
+packages/graph-wiki-cli/tests/conftest.py
+packages/graph-wiki-cli/tests/unit/test_seeded_graph_workspace_smoke.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/graph.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/ingest.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/init.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/migrate_vault.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/propose_domains.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/query.py
+packages/graph-wiki-core/src/graph_wiki_core/commands/scan.py
+packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/log_format.py
+packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/style_rules.py
+packages/graph-wiki-core/tests/conftest.py
+packages/graph-wiki-core/tests/commands/test_lint_parity.py
+packages/graph-wiki-core/tests/prompts/test_provenance.py
+packages/graph-wiki-core/tests/test_command_overrides.py
+packages/graph-wiki-core/tests/test_ingest_trace_unit.py
+packages/graph-wiki-core/tests/unit/test_commands_ingest.py
+packages/graph-wiki-core/tests/unit/test_seeded_graph_workspace_smoke.py
+
+# Negative test proving legacy MCP `vault_path` payloads are rejected; this is
+# intentionally a banned string fixture, not runtime API guidance.
+packages/graph-wiki-mcp/tests/unit/test_mcp_schema_forbid_extra.py
+
+# Plugin identity/provenance strings remain intentional; this does not allow
+# executable command guidance like `graph-wiki-agent bootstrap`.
 plugins/graph-wiki/
 
 # Historical milestone documentation references the original lattice provenance
