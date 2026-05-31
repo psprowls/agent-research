@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 members = [
     "eval-harness",
     "graph-io",
-    "graph-wiki-agent",
     "graph-wiki-cli",
     "graph-wiki-core",
     "graph-wiki-mcp",
@@ -768,39 +767,6 @@ dependencies = [
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "source-parser", editable = "packages/source-parser" },
-    { name = "workspace-io", editable = "packages/workspace-io" },
-]
-
-[[package]]
-name = "graph-wiki-agent"
-version = "0.1.0"
-source = { editable = "agents/graph-wiki-agent" }
-dependencies = [
-    { name = "bm25s" },
-    { name = "graph-io" },
-    { name = "graph-wiki-core" },
-    { name = "langchain-aws" },
-    { name = "mcp" },
-    { name = "model-adapter" },
-    { name = "pydantic" },
-    { name = "subagent-runtime" },
-    { name = "typer" },
-    { name = "wiki-io" },
-    { name = "workspace-io" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bm25s", specifier = "==0.3.8" },
-    { name = "graph-io", editable = "packages/graph-io" },
-    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
-    { name = "langchain-aws", specifier = ">=1.4.7" },
-    { name = "mcp", specifier = ">=1.27.1" },
-    { name = "model-adapter", editable = "packages/model-adapter" },
-    { name = "pydantic", specifier = ">=2.0" },
-    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
-    { name = "typer", specifier = ">=0.25.1" },
-    { name = "wiki-io", editable = "packages/wiki-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
