@@ -51,7 +51,9 @@ If everything else fails, a Bedrock-driven `graph-wiki-agent query "..."` (or th
 - **Format compatibility still relaxed** — exploratory `~/Personal/graph-wiki/agent-research` vault is disposable; wipe-and-rebuild via scanner + inbound-link migration.
 - **Lattice-wiki is dead** — no upstream parity constraint; divergence rules prunable as scaffolding outlives its purpose.
 
-## Current State: v1.10 Shipped — 2026-05-29
+## Current State: v1.11 Phase 61 Complete — 2026-05-31
+
+**v1.11 — TypeScript Type Node Kind:** Phase 61 complete (3/3 plans, verified 8/8 must-haves). TS `interface` / `type alias` / `enum` now surface as a single new `type` node kind (sub-kind in the `ts_kind` attr) across source-parser + graph-io, fixing the projection bug that mislabeled exported types as `function`. `symbol_kind` now flows through export References → projection `exports` edge dst; `type` is cross-kind resolvable in graph-io (`DERIVER_VERSION` 4→5) and valid in `cg find --kind type`. Milestone holds only Phase 61 (Phase 60 cost-frontier sweep was dropped/deferred); ready to close via `/gsd:complete-milestone`.
 
 **Shipped:** v1.0 (graph-wiki-agent parity, 2026-05-15) + v1.1 (Quality Improvements, 2026-05-17) + v1.2 (Graph-Wiki Port & Debt Cleanup, 2026-05-19) + v1.3 (Tooling Cleanup, 2026-05-20) + v1.4 (Workspace Path Resolution Cleanup, 2026-05-25) + v1.5 (Repo Rename & Foundational Package Additions, 2026-05-25 retroactive) + v1.6 (Code Graph Ontology Expansion, 2026-05-26) + v1.7 (graph-io Integration & Wiki Hygiene, 2026-05-26) + v1.8 (Wiki Entity Restructure, 2026-05-27) + v1.9 (Graph Refinements & Wiki Filename Slimdown, 2026-05-28) + v1.10 (Wiki Index & Entity Page Enrichment, 2026-05-29). **59 phases, 199 plans** across eleven milestones.
 
@@ -455,4 +457,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-29 — milestone v1.10 (Wiki Index & Entity Page Enrichment) SHIPPED & archived (6 phases 54–59, 14 plans, 14/14 requirements). 59 phases / 199 plans across v1.0–v1.10 (eleven milestones). Awaiting next milestone (`/gsd:new-milestone`).*
+*Last updated: 2026-05-31 — v1.11 (TypeScript Type Node Kind) Phase 61 complete (source-parser + graph-io `type` node kind; verified 8/8 must-haves; package suites green, no cross-phase regressions). Milestone v1.11 holds only Phase 61 (Phase 60 cost-frontier sweep dropped/deferred), ready to close via `/gsd:complete-milestone`. Prior: v1.10 SHIPPED & archived 2026-05-29 (6 phases 54–59, 14 plans). 60 phases / 202 plans across v1.0–v1.11.*
