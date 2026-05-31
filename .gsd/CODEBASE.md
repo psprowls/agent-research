@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-05-31T22:23:19Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T22:23:19Z","fingerprint":"3bcd98590f5821d5a10eed821c35c8e9e52be348","fileCount":500,"truncated":true} -->
+Generated: 2026-05-31T23:11:34Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T23:11:34Z","fingerprint":"2f6609726c2e028c029dad51869f901673d7dd09","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -20,103 +20,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### .github/workflows/
 - `.github/workflows/ci.yml`
 - `.github/workflows/eval.yml`
-
-### agents/graph-wiki-agent/
-- `agents/graph-wiki-agent/pyproject.toml`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/__init__.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/config.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/uri_slug.py`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/commands/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/__init__.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/_paths.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/graph.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/migrate_vault.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/propose_domains.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/mcp/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/mcp/__init__.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/mcp/server.py`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/prompts/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/__init__.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/code_reader.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/synthesizer.py`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/__init__.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/claude_md_disambiguation.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/frontmatter_rules.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/log_format.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/style_rules.py`
-
-### agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md`
-- `agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md`
-
-### agents/graph-wiki-agent/tests/
-- `agents/graph-wiki-agent/tests/conftest.py`
-- `agents/graph-wiki-agent/tests/test_command_overrides.py`
-- `agents/graph-wiki-agent/tests/test_ingest_trace_unit.py`
-- `agents/graph-wiki-agent/tests/test_migrate_vault.py`
-- `agents/graph-wiki-agent/tests/test_propose_domains.py`
-- `agents/graph-wiki-agent/tests/test_query_graph_tools.py`
-- `agents/graph-wiki-agent/tests/test_query_trace_unit.py`
-
-### agents/graph-wiki-agent/tests/commands/
-- `agents/graph-wiki-agent/tests/commands/__init__.py`
-- `agents/graph-wiki-agent/tests/commands/test_lint_parity.py`
-- `agents/graph-wiki-agent/tests/commands/test_scan_parity.py`
-
-### agents/graph-wiki-agent/tests/integration/
-- `agents/graph-wiki-agent/tests/integration/__init__.py`
-- `agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py`
-- `agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py`
-- `agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py`
-- `agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py`
-- `agents/graph-wiki-agent/tests/integration/test_propose_domains_e2e.py`
-- `agents/graph-wiki-agent/tests/integration/test_propose_domains_isolation.py`
-- `agents/graph-wiki-agent/tests/integration/test_query_e2e.py`
-- `agents/graph-wiki-agent/tests/integration/test_scan_entity_integration.py`
-- `agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py`
-- `agents/graph-wiki-agent/tests/integration/test_trace_coverage.py`
-
-### agents/graph-wiki-agent/tests/prompts/
-- `agents/graph-wiki-agent/tests/prompts/__init__.py`
-- `agents/graph-wiki-agent/tests/prompts/test_project_context.py`
-- `agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py`
-- `agents/graph-wiki-agent/tests/prompts/test_provenance.py`
-- `agents/graph-wiki-agent/tests/prompts/test_token_budget.py`
-
-### agents/graph-wiki-agent/tests/prompts/__snapshots__/
-- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_project_context.ambr`
-- `agents/graph-wiki-agent/tests/prompts/__snapshots__/test_prompt_snapshots.ambr`
-
-### agents/graph-wiki-agent/tests/unit/
-- *(29 files: 29 .py)*
-
-### agents/graph-wiki-agent/tests/unit/__snapshots__/
-- `agents/graph-wiki-agent/tests/unit/__snapshots__/test_commands_graph.ambr`
-- `agents/graph-wiki-agent/tests/unit/__snapshots__/test_trace_viewer.ambr`
 
 ### docs/notes/
 - `docs/notes/cancellation.md`
@@ -462,6 +365,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### packages/source-parser/
 - `packages/source-parser/CLAUDE.md`
 - `packages/source-parser/conftest.py`
+- `packages/source-parser/pyproject.toml`
 - `packages/source-parser/README.md`
 
 ### packages/source-parser/fixtures/javascript/
@@ -488,4 +392,112 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - *(22 files: 12 .json, 10 .py)*
 
 ### packages/source-parser/fixtures/typescript/
-- *(29 files: 17 .json, 12 .ts)*
+- *(43 files: 25 .json, 18 .ts)*
+
+### packages/source-parser/src/source_parser/
+- `packages/source-parser/src/source_parser/__init__.py`
+- `packages/source-parser/src/source_parser/errors.py`
+- `packages/source-parser/src/source_parser/grammars.py`
+- `packages/source-parser/src/source_parser/parse.py`
+- `packages/source-parser/src/source_parser/tree.py`
+
+### packages/source-parser/src/source_parser/parsers/
+- `packages/source-parser/src/source_parser/parsers/__init__.py`
+- `packages/source-parser/src/source_parser/parsers/_base.py`
+- `packages/source-parser/src/source_parser/parsers/_config.py`
+- `packages/source-parser/src/source_parser/parsers/_generic.py`
+- `packages/source-parser/src/source_parser/parsers/javascript.py`
+- `packages/source-parser/src/source_parser/parsers/python.py`
+- `packages/source-parser/src/source_parser/parsers/typescript.py`
+
+### packages/source-parser/src/source_parser/projections/
+- `packages/source-parser/src/source_parser/projections/__init__.py`
+- `packages/source-parser/src/source_parser/projections/graph.py`
+
+### packages/source-parser/tests/
+- `packages/source-parser/tests/_fixture_loader.py`
+- `packages/source-parser/tests/test_generic_walker.py`
+- `packages/source-parser/tests/test_grammars.py`
+- `packages/source-parser/tests/test_parse_dispatch.py`
+- `packages/source-parser/tests/test_parse_errors.py`
+- `packages/source-parser/tests/test_parser_javascript.py`
+- `packages/source-parser/tests/test_parser_python.py`
+- `packages/source-parser/tests/test_parser_typescript.py`
+- `packages/source-parser/tests/test_projection_graph.py`
+- `packages/source-parser/tests/test_smoke.py`
+- `packages/source-parser/tests/test_tree_model.py`
+- `packages/source-parser/tests/test_unsupported_language.py`
+
+### packages/subagent-runtime/
+- `packages/subagent-runtime/pyproject.toml`
+
+### packages/subagent-runtime/src/subagent_runtime/
+- `packages/subagent-runtime/src/subagent_runtime/__init__.py`
+- `packages/subagent-runtime/src/subagent_runtime/pool.py`
+- `packages/subagent-runtime/src/subagent_runtime/trace_io.py`
+
+### packages/subagent-runtime/tests/
+- `packages/subagent-runtime/tests/conftest.py`
+- `packages/subagent-runtime/tests/test_pool.py`
+- `packages/subagent-runtime/tests/test_trace_io.py`
+
+### packages/subagent-runtime/tests/integration/
+- `packages/subagent-runtime/tests/integration/__init__.py`
+- `packages/subagent-runtime/tests/integration/test_pool_bedrock.py`
+
+### packages/wiki-io/
+- `packages/wiki-io/pyproject.toml`
+
+### packages/wiki-io/src/wiki_io/
+- `packages/wiki-io/src/wiki_io/__init__.py`
+- `packages/wiki-io/src/wiki_io/_workspace.py`
+- `packages/wiki-io/src/wiki_io/append_log.py`
+- `packages/wiki-io/src/wiki_io/detect_containers.py`
+- `packages/wiki-io/src/wiki_io/entity_writer.py`
+- `packages/wiki-io/src/wiki_io/git_state.py`
+- `packages/wiki-io/src/wiki_io/graph_analyzer.py`
+- `packages/wiki-io/src/wiki_io/index_generator.py`
+- `packages/wiki-io/src/wiki_io/ingest_source.py`
+- `packages/wiki-io/src/wiki_io/ingest_work_item.py`
+- `packages/wiki-io/src/wiki_io/init_vault.py`
+- `packages/wiki-io/src/wiki_io/layout_io.py`
+- `packages/wiki-io/src/wiki_io/link_rewriter.py`
+- `packages/wiki-io/src/wiki_io/lint_wiki.py`
+- `packages/wiki-io/src/wiki_io/scan_monorepo.py`
+- `packages/wiki-io/src/wiki_io/update_index.py`
+- `packages/wiki-io/src/wiki_io/update_tokens.py`
+
+### packages/wiki-io/src/wiki_io/assets/
+- `packages/wiki-io/src/wiki_io/assets/AGENTS.md.template`
+- `packages/wiki-io/src/wiki_io/assets/CLAUDE.md.template`
+- `packages/wiki-io/src/wiki_io/assets/cursorrules.template`
+- `packages/wiki-io/src/wiki_io/assets/index.md.template`
+- `packages/wiki-io/src/wiki_io/assets/log.md.template`
+
+### packages/wiki-io/src/wiki_io/assets/page-templates/
+- `packages/wiki-io/src/wiki_io/assets/page-templates/adr.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/architecture.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/concept-pattern.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/concept.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/dependency.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-app.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-dependency.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-package.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-plugin.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-repository.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-test-suite.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/index.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/source.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/work.md`
+
+### packages/wiki-io/src/wiki_io/lint/
+- `packages/wiki-io/src/wiki_io/lint/__init__.py`
+- `packages/wiki-io/src/wiki_io/lint/common.py`
+- `packages/wiki-io/src/wiki_io/lint/container.py`
+- `packages/wiki-io/src/wiki_io/lint/dependency.py`
+- `packages/wiki-io/src/wiki_io/lint/domain.py`
+- `packages/wiki-io/src/wiki_io/lint/file_map.py`
+- `packages/wiki-io/src/wiki_io/lint/package_sync.py`
+- `packages/wiki-io/src/wiki_io/lint/source_sync.py`
+- `packages/wiki-io/src/wiki_io/lint/workflow_hints.py`
