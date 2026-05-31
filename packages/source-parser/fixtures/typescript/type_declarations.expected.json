@@ -8,7 +8,7 @@
   "children": [
     {
       "kind": "type",
-      "name": "IFoo",
+      "name": "IUser",
       "language": "typescript",
       "package": "fixtures",
       "attrs": {"ts_kind": "interface"},
@@ -16,14 +16,21 @@
       "children": []
     },
     {
-      "kind": "function",
-      "name": "callIt",
+      "kind": "type",
+      "name": "UserId",
       "language": "typescript",
       "package": "fixtures",
-      "attrs": {},
-      "refs": [
-        {"kind": "call", "target_name": "bar", "target_module": null, "attrs": {"is_member": true}}
-      ],
+      "attrs": {"ts_kind": "type_alias"},
+      "refs": [],
+      "children": []
+    },
+    {
+      "kind": "type",
+      "name": "Color",
+      "language": "typescript",
+      "package": "fixtures",
+      "attrs": {"ts_kind": "enum"},
+      "refs": [],
       "children": []
     }
   ]

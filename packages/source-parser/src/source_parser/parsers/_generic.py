@@ -140,6 +140,37 @@ def _build_function_node(
     return fn
 
 
+_TS_KIND_MAP: dict[str, str] = {
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type_alias",
+    "enum_declaration": "enum",
+}
+
+
+def _ts_kind_for(node_type: str) -> str:
+    return _TS_KIND_MAP.get(node_type, node_type)
+
+
+def _build_type_node(
+    node: tree_sitter.Node,
+    source: bytes,
+    path: Path,
+    language: str,
+    package: str | None,
+    config: LanguageConfig,
+) -> SourceNode:
+    name = _resolve_name(node, source, config) or "<anonymous>"
+    return SourceNode(
+        kind="type",
+        name=name,
+        span=_span(node),
+        path=path,
+        language=language,
+        package=package,
+        attrs={"ts_kind": _ts_kind_for(node.type)},
+    )
+
+
 def _build_class_node(
     node: tree_sitter.Node,
     source: bytes,
@@ -255,11 +286,13 @@ def _walk_container(
             out.append(_build_class_node(child, source, path, language, package, config))
         elif child.type in config.function_types:
             out.append(_build_function_node(child, source, path, language, package, config, kind="function"))
+        elif child.type in config.type_types:
+            out.append(_build_type_node(child, source, path, language, package, config))
         elif child.type in ("lexical_declaration", "variable_declaration"):
             out.extend(_arrow_consts_in(child, source, path, language, package, config))
         elif child.type in config.export_types:
             # Peek inside: `export function foo(){}` or `export class Foo{}`
-            # or `export const NAME = () => {}`
+            # or `export const NAME = () => {}` or `export interface Foo {}`
             for inner in child.children:
                 if inner.type in config.class_types:
                     out.append(_build_class_node(inner, source, path, language, package, config))
@@ -275,6 +308,8 @@ def _walk_container(
                             kind="function",
                         )
                     )
+                elif inner.type in config.type_types:
+                    out.append(_build_type_node(inner, source, path, language, package, config))
                 elif inner.type in ("lexical_declaration", "variable_declaration"):
                     out.extend(_arrow_consts_in(inner, source, path, language, package, config))
     return out
