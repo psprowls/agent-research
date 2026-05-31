@@ -2,7 +2,7 @@
 
 Schema is intentionally minimal: two tables (nodes, edges) plus metadata.
 Per-language detail lives in `attrs_json` blobs. Bumping SCHEMA_VERSION
-forces a full rebuild via `cg update --full`.
+forces a full rebuild via `gwgraph update --full`.
 """
 
 from __future__ import annotations

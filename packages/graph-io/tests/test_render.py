@@ -1,7 +1,5 @@
-"""Tests for the public graph_io.render module (promoted from graph_io.cli._format).
+"""Tests for the public graph_io.render module."""
 
-RED phase: these tests will fail until render.py is created.
-"""
 
 from __future__ import annotations
 
@@ -10,7 +8,6 @@ from dataclasses import dataclass
 
 import pytest
 from graph_io import render
-from graph_io.cli import _format
 from graph_io.queries import ImporterRecord
 
 
@@ -20,13 +17,6 @@ class Row:
     name: str
     path: str
     line: int
-
-
-# ── Shim identity ──────────────────────────────────────────────────────────────
-
-def test_format_shim_render_is_render_module_render() -> None:
-    """_format.render must be the same object as render.render (shim identity, D-02)."""
-    assert _format.render is render.render
 
 
 # ── Public module existence ────────────────────────────────────────────────────

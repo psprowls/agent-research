@@ -112,7 +112,7 @@ def _seed_v1_db(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_update_full_rebuilds_v1_db_to_v2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`cg update --full` on a schema-v1 DB unlinks + rebuilds at v2 (D-01)."""
+    """`gwgraph update --full` on a schema-v1 DB unlinks + rebuilds at v2 (D-01)."""
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
 

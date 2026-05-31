@@ -412,7 +412,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     #     across external deps and internal packages), here retargeted to the real
     #     package/app node instead of a (now-suppressed) `dependency` node;
     #   - `depends_on_package` carries the package-level semantic that IDX-05
-    #     nesting and `cg describe-package` consume.
+    #     nesting and `gwgraph describe-package` consume.
     # Do NOT collapse these into one edge — both surfaces depend on it.
     # Same per-(consumer, target) dedupe as the external used_by edges above.
     for (

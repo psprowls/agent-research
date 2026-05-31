@@ -776,7 +776,7 @@ def ingest_work_item(
         typer.echo(f"     slug: {result.slug}")
 
 
-# graph subapp (Phase 38 — code graph operations via in-process cg dispatch)
+# graph subapp (Phase 38 — code graph operations via in-process gwgraph dispatch)
 app.add_typer(graph_app, name="graph")
 
 

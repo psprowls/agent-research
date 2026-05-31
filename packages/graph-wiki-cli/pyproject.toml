@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 gw = "graph_wiki_cli.cli:app"
+gwgraph = "graph_wiki_cli.graph_cli.main:main"
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]

@@ -47,10 +47,10 @@ def test_app_uri_shape() -> None:
 
 def test_subpkg_uri_preserves_dotted_path() -> None:
     # D-07 lock: dotted Python import path, NOT slash-separated FS path
-    result = subpkg_uri(RepoContext("local", "agent-research"), "graph-io", "graph_io.cli")
-    assert result == "subpkg:local/agent-research/graph-io/graph_io.cli"
-    assert "graph_io.cli" in result
-    assert "graph_io/cli" not in result
+    result = subpkg_uri(RepoContext("local", "agent-research"), "graph-wiki-cli", "graph_wiki_cli.graph_cli")
+    assert result == "subpkg:local/agent-research/graph-wiki-cli/graph_wiki_cli.graph_cli"
+    assert "graph_wiki_cli.graph_cli" in result
+    assert "graph_wiki_cli/graph_cli" not in result
 
 
 def test_file_uri_preserves_forward_slashes() -> None:

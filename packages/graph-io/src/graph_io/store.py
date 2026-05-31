@@ -21,7 +21,7 @@ class SchemaMismatchError(Exception):
         self.found = found
         self.expected = expected
         super().__init__(
-            f"graph schema version mismatch: found {found!r}, expected {expected}; run `cg update --full` to rebuild"
+            f"graph schema version mismatch: found {found!r}, expected {expected}; run `gwgraph update --full` to rebuild"
         )
 
 
@@ -48,7 +48,7 @@ def connect(db_path: Path, *, create: bool = False, busy_timeout_ms: int | None 
     db_path = Path(db_path)
     if not db_path.exists():
         if not create:
-            raise GraphNotInitializedError(f"graph DB not found at {db_path}; run `cg update --full` to initialize")
+            raise GraphNotInitializedError(f"graph DB not found at {db_path}; run `gwgraph update --full` to initialize")
         db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, isolation_level=None)
     if busy_timeout_ms is not None:
@@ -69,7 +69,7 @@ def read_only_connect(db_path: Path) -> sqlite3.Connection:
     """Open a read-only connection. Writes raise sqlite3.OperationalError."""
     db_path = Path(db_path)
     if not db_path.exists():
-        raise GraphNotInitializedError(f"graph DB not found at {db_path}; run `cg update --full` to initialize")
+        raise GraphNotInitializedError(f"graph DB not found at {db_path}; run `gwgraph update --full` to initialize")
     uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA query_only = ON")

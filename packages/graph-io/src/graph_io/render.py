@@ -1,8 +1,7 @@
 """Render lists of dataclass records as JSON or aligned-column human output.
 
-Public formatter module for graph_io. Promoted from graph_io.cli._format so
-both cg CLI modules and the graph-wiki-agent can share a single renderer
-without the agent importing graph_io.cli (SC#1).
+Public formatter module for graph_io. Shared by graph-wiki-cli's gwgraph
+modules and other graph-wiki surfaces without pulling CLI code back into graph-io.
 
 Per-kind formatters (format_package, format_path, format_repo, format_domain,
 format_entry_point, format_suite) extracted from the corresponding q_describe_*.py

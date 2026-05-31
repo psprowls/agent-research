@@ -74,7 +74,7 @@ def test_idle_rerun_is_noop(tmp_path: Path) -> None:
 
 
 def test_update_full_twice_produces_byte_identical_db(tmp_path: Path) -> None:
-    """SCHEMA-05 / SC#4: two `cg update --full` runs on the same git state yield
+    """SCHEMA-05 / SC#4: two `gwgraph update --full` runs on the same git state yield
     structurally-identical content.
 
     Pure byte-identity is precluded by `update.run` writing a fresh

@@ -148,8 +148,8 @@ def test_refresh_skips_venv_manifests(tmp_path: Path, conn: sqlite3.Connection) 
     assert "foo" not in names
 
 
-def test_refresh_skips_cgignore_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
-    (tmp_path / ".cgignore").write_text("generated\n")
+def test_refresh_skips_gwgraphignore_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    (tmp_path / ".gwgraphignore").write_text("generated\n")
 
     generated_pkg = tmp_path / "packages" / "generated" / "fake"
     generated_pkg.mkdir(parents=True)

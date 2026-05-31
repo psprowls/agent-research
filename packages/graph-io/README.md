@@ -18,11 +18,11 @@ Stable from v1 forward — script consumers can rely on these:
 |---|---|---|
 | 0 | `SUCCESS` | command succeeded |
 | 1 | `GENERIC` | unhandled error or "not found" for `describe-*` |
-| 2 | `STALE` | `cg status` only — `last_indexed_commit != HEAD` |
-| 3 | `NOT_INITIALIZED` | no `code.db` yet — run `cg update --full` |
+| 2 | `STALE` | `gwgraph status` only — `last_indexed_commit != HEAD` |
+| 3 | `NOT_INITIALIZED` | no `code.db` yet — run `gwgraph update --full` |
 | 4 | `SCHEMA_MISMATCH` | **reserved** — declared in `exit_codes.py`, not yet enforced. Wires up when v2 schema lands. |
-| 5 | `NOT_IN_GIT_REPO` | `cg update`/`status` outside a git repo |
-| 6 | `UPDATE_IN_PROGRESS` | **reserved** — declared in `exit_codes.py`, not yet enforced. Concurrent `cg update` invocations currently surface as `GENERIC` (1) due to SQLite write-lock contention. |
+| 5 | `NOT_IN_GIT_REPO` | `gwgraph update`/`status` outside a git repo |
+| 6 | `UPDATE_IN_PROGRESS` | **reserved** — declared in `exit_codes.py`, not yet enforced. Concurrent `gwgraph update` invocations currently surface as `GENERIC` (1) due to SQLite write-lock contention. |
 
 ## Ignoring directories
 
@@ -30,10 +30,10 @@ The scanner skips a built-in set of directories by default:
 
 `.git`, `node_modules`, `.worktrees`, `.venv`, `venv`, `dist`, `build`, `__pycache__`, `.tox`, `.nox`
 
-To skip additional directories, create a `.cgignore` file at the repo root:
+To skip additional directories, create a `.gwgraphignore` file at the repo root:
 
 ```
-# example .cgignore
+# example .gwgraphignore
 generated
 vendor
 fixtures

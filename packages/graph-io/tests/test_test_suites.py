@@ -725,12 +725,12 @@ def test_suite_names_unique_after_multi_package_emit(tmp_path: Path) -> None:
     as consumers of every suite.
 
     OQ#3 stale-node resolution: the stale-'tests'-named nodes from a prior
-    incremental `cg update` run are swept by `cg update --full`. The full-scan
+    incremental `gwgraph update` run are swept by `gwgraph update --full`. The full-scan
     DELETE at update.py:285 removes non-package/app/builtin path-bearing nodes
-    before re-emitting, so running `cg update --full` on a live workspace after
+    before re-emitting, so running `gwgraph update --full` on a live workspace after
     upgrading to Phase 58-02 is the correct and sufficient remediation.
-    Incremental `cg update` does NOT clean up stale suite nodes — always use
-    `cg update --full` when upgrading suite naming.
+    Incremental `gwgraph update` does NOT clean up stale suite nodes — always use
+    `gwgraph update --full` when upgrading suite naming.
     """
     # Build a two-package monorepo, each with its own tests/ dir.
     for pkg_name in ("foo", "bar"):

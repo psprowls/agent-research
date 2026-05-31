@@ -1,9 +1,9 @@
-"""Directory-skip set + .cgignore loading for graph scanning.
+"""Directory-skip set + .gwgraphignore loading for graph scanning.
 
 Single source of truth for which directories the file scanner and the
 manifest scanner skip. The default set covers VCS metadata, build
 output, dependency caches, and virtualenvs. Repos can extend the set
-with a `.cgignore` file at the repo root — one directory name per
+with a `.gwgraphignore` file at the repo root — one directory name per
 line, `#` comments and blank lines ignored.
 
 Match semantics mirror the original `packages._should_skip`: any file
@@ -21,11 +21,11 @@ DEFAULT_SKIP_DIRS: frozenset[str] = frozenset({
     ".tox", ".nox",
 })
 
-CGIGNORE_FILENAME = ".cgignore"
+GWGRAPHIGNORE_FILENAME = ".gwgraphignore"
 
 
 def load_skip_dirs(repo_root: Path) -> frozenset[str]:
-    extras = _read_cgignore(Path(repo_root) / CGIGNORE_FILENAME)
+    extras = _read_gwgraphignore(Path(repo_root) / GWGRAPHIGNORE_FILENAME)
     return DEFAULT_SKIP_DIRS | extras
 
 
@@ -33,7 +33,7 @@ def should_skip(rel_path: str, skip_dirs: frozenset[str]) -> bool:
     return any(part in skip_dirs for part in Path(rel_path).parts)
 
 
-def _read_cgignore(path: Path) -> frozenset[str]:
+def _read_gwgraphignore(path: Path) -> frozenset[str]:
     if not path.exists():
         return frozenset()
     out: set[str] = set()

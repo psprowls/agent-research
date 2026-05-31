@@ -1,4 +1,4 @@
-"""Unit tests for cg sync-wiki logic."""
+"""Unit tests for gwgraph sync-wiki logic."""
 
 from __future__ import annotations
 

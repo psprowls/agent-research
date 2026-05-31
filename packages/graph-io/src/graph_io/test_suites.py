@@ -380,7 +380,7 @@ def emit(
 
     # Re-parent test files: DELETE-then-INSERT atomic per D-14. The outer
     # update.run already wraps emit() in a transaction (Plan 30-04 wiring),
-    # so the per-file DELETE+INSERT is atomic with the rest of cg update.
+    # so the per-file DELETE+INSERT is atomic with the rest of gwgraph update.
     for r in roots:
         if r.owner_kind == "repository":
             suite_key_name = r.rel_path

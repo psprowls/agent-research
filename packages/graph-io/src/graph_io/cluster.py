@@ -237,14 +237,14 @@ def _detect_degenerate(
                 f"contains {pct:.0%} of packages.\n"
                 f"Likely cause: hub threshold too high (currently {threshold:g}), "
                 f"too few packages, or sparse imports.\n"
-                f"Try: cg domain-clusters --hub-threshold 0.3"
+                f"Try: gwgraph domain-clusters --hub-threshold 0.3"
             )
     if clusters and len(clusters) == n_packages_total:
         return (
             f"warning: domain clustering degenerate — every package is its own cluster.\n"
             f"Likely cause: hub threshold too aggressive (currently {threshold:g}) "
             f"or no inter-package imports.\n"
-            f"Try: cg domain-clusters --hub-threshold 0.7"
+            f"Try: gwgraph domain-clusters --hub-threshold 0.7"
         )
     return None
 

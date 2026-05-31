@@ -60,7 +60,7 @@ def test_graph_build_help_flags(runner):
     assert result.exit_code == 0, result.output
     for flag in ["--full", "--trace", "--model", "--workspace"]:
         assert flag in result.output, f"missing flag {flag} in:\n{result.output}"
-    # cg flags should NOT be advertised on graph build
+    # legacy graph CLI flags should NOT be advertised on graph build
     assert "--repo" not in result.output
     assert "--fmt" not in result.output
 
@@ -345,7 +345,7 @@ def test_describe_package_not_found_exits_generic(
         env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
     )
     assert result.exit_code == exit_codes.GENERIC
-    # SC#3 byte-identical: not-found stderr must match the cg message exactly.
+    # SC#3 byte-identical: not-found stderr must match the gwgraph message exactly.
     assert "error: package not found: nonexistent-pkg-xyz" in result.stderr
 
 
@@ -353,7 +353,7 @@ def test_describe_path_not_found_stderr_byte_identical(
     runner: CliRunner,
     seeded_graph_workspace: Path,
 ) -> None:
-    """describe path not-found stderr matches cg's `path not found in graph` (SC#3)."""
+    """describe path not-found stderr matches gwgraph's `path not found in graph` (SC#3)."""
     result = runner.invoke(
         app,
         ["graph", "describe", "path", "no/such/path.xyz"],
@@ -367,7 +367,7 @@ def test_describe_test_suite_not_found_stderr_byte_identical(
     runner: CliRunner,
     seeded_graph_workspace: Path,
 ) -> None:
-    """describe test-suite not-found stderr matches cg's `not found: <name>` (SC#3)."""
+    """describe test-suite not-found stderr matches gwgraph's `not found: <name>` (SC#3)."""
     result = runner.invoke(
         app,
         ["graph", "describe", "test-suite", "no-such-suite-xyz"],
@@ -381,7 +381,7 @@ def test_describe_repository_not_found_stderr_byte_identical(
     runner: CliRunner,
     seeded_graph_workspace: Path,
 ) -> None:
-    """describe repository not-found stderr matches cg's `not found: repository` (SC#3).
+    """describe repository not-found stderr matches gwgraph's `not found: repository` (SC#3).
 
     A seeded graph always has a repository node, so force the None branch by
     patching the typed query.

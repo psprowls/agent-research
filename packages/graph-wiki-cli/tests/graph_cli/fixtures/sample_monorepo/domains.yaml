@@ -1,0 +1,9 @@
+core:
+  packages: [mypkg, pyutil]
+  description: "Core utilities domain"
+web:
+  packages: [jspkg, webutil]
+  parent: presentation
+presentation:
+  packages: []
+  description: "Top-level UI layer"

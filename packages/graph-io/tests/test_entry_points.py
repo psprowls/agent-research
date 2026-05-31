@@ -181,7 +181,7 @@ def test_pyproject_entry_points_library_group(tmp_path: Path) -> None:
 
 def test_implemented_by_null_on_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """D-06: declared entry whose target file is missing -> no implemented_by edge +
-    stderr warning. cg update still succeeds."""
+    stderr warning. gwgraph update still succeeds."""
     pkg_dir = tmp_path / "packages" / "ghost"
     _write_pyproject(pkg_dir, scripts={"ghost-cli": "ghost.cli:main"})
     # NOTE: do not write the source — leave the target missing.
