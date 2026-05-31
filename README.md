@@ -1,47 +1,54 @@
 # agent-research
 
-A Python monorepo of LangChain/deepagents-based AI tooling, managed with `uv`.
+A Python monorepo of AWS Bedrock-focused AI tooling, managed with `uv` workspaces.
 
-**Graph Wiki:** wiki-maintenance workflows running in Claude Code, or
-while running entirely on AWS Bedrock with parallel subagents, so the same
-outcomes can be achieved at meaningfully lower cost than the current
-Claude-Code-hosted plugin.
+**Graph Wiki:** wiki-maintenance workflows that can run either inside the Claude Code `graph-wiki` plugin or through package-scoped Bedrock entry points with parallel subagents, so the same vault outcomes can be achieved at lower cost than a Claude-Code-hosted run.
 
-The first agent, **`graph-wiki-agent`**, is a reimplementation of the existing
-`graph-wiki` Claude Code plugin — packaged as both an MCP server (consumed
-by the DeepAgents CLI) and a headless CLI that runs the full agent loop.
+The current Graph Wiki implementation is split into package-only targets:
+
+- `packages/graph-wiki-core/` — workflow orchestration and command implementations shared by all delivery surfaces.
+- `packages/graph-wiki-cli/` — the Bedrock-capable `gw` Typer CLI for headless runtime use and plugin Bedrock shims.
+- `packages/graph-wiki-mcp/` — the MCP server surface for hosts that consume Graph Wiki as tools.
 
 ## Quickstart
 
 ```bash
 uv sync
-uv run graph-wiki-agent --help
+uv run --package graph-wiki-cli gw --help
+```
+
+Run a scoped command through the CLI package:
+
+```bash
+uv run --package graph-wiki-cli gw scan --workspace /path/to/repo/graph-wiki
+uv run --package graph-wiki-cli gw ingest source docs/example.md --workspace /path/to/repo/graph-wiki
+uv run --package graph-wiki-cli gw query "Where is auth documented?" --top-k 5
 ```
 
 ## Workspace Layout
 
 ```
 packages/
-  wiki-io/         # vault read/write primitives (frontmatter, layout, tokens)
+  graph-wiki-core/  # shared Graph Wiki workflow logic
+  graph-wiki-cli/   # gw CLI, including Bedrock runtime entry point
+  graph-wiki-mcp/   # MCP server surface
+  wiki-io/          # vault read/write primitives and Claude-hosted shims
   model-adapter/    # AWS Bedrock model loader + role registry
-agents/
-  graph-wiki-agent/  # MCP server + Typer CLI (the user-facing surface)
 ```
 
-Each workspace member has its own `pyproject.toml` with per-member `testpaths`.
-Run scoped tests with:
+Each workspace member has its own `pyproject.toml` with per-member `testpaths`. Run scoped tests with:
 
 ```bash
 uv run --package wiki-io pytest
 uv run --package model-adapter pytest
-uv run --package graph-wiki-agent pytest -m "not integration"
+uv run --package graph-wiki-cli pytest -m "not integration"
 ```
 
 ## Requirements
 
 - Python 3.11+
 - [`uv`](https://github.com/astral-sh/uv) 0.11.14+
-- AWS account with Bedrock access (for runtime; not required for `--help`)
+- AWS account with Bedrock access (for runtime; not required for `gw --help`)
 
 ## License
 

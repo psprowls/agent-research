@@ -8,21 +8,33 @@ This file scopes guidance to the `graph-wiki` plugin tree. The marketplace-level
 plugins/graph-wiki/
 ├── .claude-plugin/           # plugin.json — name, version, keywords, env
 ├── skills/
-│   ├── graph-wiki/      # maintainer skill: SKILL.md + references/ + scripts/
+│   ├── graph-wiki/           # maintainer skill: SKILL.md + references/ + scripts/
 │   └── obsidian-markdown/    # formatting reference invoked when writing vault pages
 ├── agents/                   # ingestor, librarian, linter, scanner
-└── commands/                 # init, scan, ingest, query, lint, log
+└── commands/                 # bootstrap, scan, ingest, query, lint, log
 ```
 
-## Source-of-truth split with `packages/wiki-io/`
+## Source-of-truth split with `packages/wiki-io/` and `packages/graph-wiki-cli/`
 
-Real implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests.
+Real Claude-hosted implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests. Bedrock-facing runtime commands are exposed by `packages/graph-wiki-cli/` as the `gw` Typer CLI, backed by `packages/graph-wiki-core/`.
 
-The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` (claude branch) or shells out to `graph-wiki-agent <cmd>` (bedrock branch, opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional `graph-wiki-agent` Bedrock CLI.
+The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` for the Claude branch or shells out to `gw` for the Bedrock branch (opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional Bedrock CLI path.
 
-Distribution: shims reference `wiki_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required.
+Current Bedrock shim mapping:
 
-**When changing behavior:** edit `packages/wiki-io/` and write tests there. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
+| Plugin shim | Backend selector key | Bedrock argv prefix |
+|---|---:|---|
+| `scan_monorepo.py` | `scan` | `gw scan` |
+| `init_vault.py` | `init` | `gw bootstrap` |
+| `ingest_source.py` | `ingest` | `gw ingest source` |
+| `lint_wiki.py` | `lint` | `gw lint` |
+| `wiki_search.py` | `query` | `gw query` |
+
+Each shim preserves the user's original trailing arguments after the mapped prefix. Package-local regression coverage for this contract lives in `packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py`.
+
+Distribution: shims reference `wiki_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required. Bedrock users also need the `gw` console script available from `graph-wiki-cli` (for example via `uv run --package graph-wiki-cli gw ...` in this workspace).
+
+**When changing behavior:** edit `packages/wiki-io/` and write tests there for Claude-hosted behavior; edit `packages/graph-wiki-cli/` / `packages/graph-wiki-core/` and their tests for Bedrock CLI behavior. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
 
 ## Tests
 
@@ -34,6 +46,9 @@ uv run pytest packages/wiki-io/
 
 # Single test
 uv run pytest packages/wiki-io/tests/test_layout_io.py::TestX::test_y
+
+# Bedrock shim argv contract
+uv run --package graph-wiki-cli python -m pytest packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py
 ```
 
 `packages/wiki-io/tests/helpers.py` provides `tmp_repo`, `write_pkg`, `write_file`, `write_claude_plugin` for inline throwaway repos. Larger shared shapes live in the repo-root `fixtures/` directory (`single-package/`, `mono-shaped/`, `non-standard/`); tests resolve them via `Path(__file__).resolve().parents[N] / "fixtures"`.

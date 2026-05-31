@@ -6,12 +6,12 @@ A Claude Code plugin that builds and maintains a persistent, cross-referenced kn
 
 `graph-wiki` gives your repo a compounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
-By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories.  You can override the default wiki locaiton with either.  The workspace directory can be overriden either by creating a `.graph-wiki.local.yaml` file in the repository root (and setting `workspace-directory: <workspace>`), or by setting the `GRAPH_WIKI_WORKSPACE` environment variable.
+By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories. You can override the default wiki location by creating a `.graph-wiki.local.yaml` file in the repository root (and setting `workspace-directory: <workspace>`), or by setting the `GRAPH_WIKI_WORKSPACE` environment variable.
 
 The plugin has two delivery surfaces that share the same wiki format:
 
 - **Claude (default)** — Claude Code runs the wiki workflows directly via the bundled `wiki_io` Python package (this plugin).
-- **Bedrock (opt-in)** — `graph-wiki-agent` runs the same workflows on AWS Bedrock with parallel subagents, for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
+- **Bedrock (opt-in)** — the plugin shims route the same workflows to the `gw` command from `packages/graph-wiki-cli`, running on AWS Bedrock with parallel subagents for cost savings on large vaults. Opt in per-command via the `[plugin]` block in `.graph-wiki.yaml`.
 
 ## Setup
 
@@ -42,15 +42,22 @@ The plugin has two delivery surfaces that share the same wiki format:
    /graph-wiki:scan
    ```
 
+For direct Bedrock CLI use outside Claude Code, run the package-scoped `gw` entry point:
+
+```bash
+uv run --package graph-wiki-cli gw --help
+uv run --package graph-wiki-cli gw scan --workspace <repo>/graph-wiki
+```
+
 ## [plugin] block syntax
 
-The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `graph-wiki-agent` on Bedrock.
+The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `gw` from `graph-wiki-cli` on Bedrock.
 
 ```yaml
 plugin:
   backend_default: claude          # claude | bedrock — applies to any command not listed below
   backend_overrides:
-    query: bedrock                 # route /graph-wiki:query to graph-wiki-agent
+    query: bedrock                 # route /graph-wiki:query to gw query
     lint: claude                   # explicit — same as the default
 ```
 
@@ -77,5 +84,5 @@ Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `g
 - `skills/graph-wiki/references/wiki-schema.md` — frontmatter schema and naming conventions
 - `skills/graph-wiki/references/obsidian-setup.md` — recommended Obsidian configuration
 - `skills/graph-wiki/references/monorepo-principles.md` — why this pattern works for monorepos
-- `packages/wiki_io/` — the Python implementation behind the claude-branch shims
-- `agents/graph-wiki-agent/` — the Bedrock CLI that powers the bedrock branch
+- `packages/wiki-io/` — the Python implementation behind the Claude-branch shims
+- `packages/graph-wiki-cli/` — the Bedrock `gw` CLI that powers the Bedrock branch
