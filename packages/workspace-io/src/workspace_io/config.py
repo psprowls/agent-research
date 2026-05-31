@@ -103,7 +103,7 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
             if require_manifest is True:
                 raise RuntimeError(
                     f"No .graph-wiki.yaml found in {workspace}. "
-                    f"Run: graph-wiki-agent bootstrap <path>"
+                    f"Run: gw bootstrap <path>"
                 )
     # Workspace manifest may pin a different repo_root explicitly.
     repo_root = _repo_directory_override(workspace, repo_root)

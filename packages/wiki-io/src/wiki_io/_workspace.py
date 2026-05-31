@@ -8,7 +8,7 @@ Thin delegation shim over ``workspace_io.config.resolve()``. Resolution priority
 2. ``workspace_io.config.resolve()`` — honors the ``GRAPH_WIKI_WORKSPACE`` env
    var, otherwise walks up from cwd looking for ``.graph-wiki.yaml``.
 3. On failure, ``workspace_io.config.resolve()`` raises ``RuntimeError`` with a
-   message naming ``graph-wiki-agent bootstrap <path>`` as the bootstrap command.
+   message naming ``gw bootstrap <path>`` as the bootstrap command.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def resolve_wiki_and_repo(
        apply any ``repo-directory:`` pin from ``<workspace>/.graph-wiki.yaml``.
     2. ``GRAPH_WIKI_WORKSPACE`` env var (via ``workspace_io.config.resolve``).
     3. ``.graph-wiki.yaml`` walk-up from cwd (via ``workspace_io.config.resolve``).
-    4. Raises ``RuntimeError`` — names ``graph-wiki-agent bootstrap <path>`` as fix.
+    4. Raises ``RuntimeError`` — names ``gw bootstrap <path>`` as fix.
 
     ``repo_path`` always overrides the discovered repo root when provided,
     regardless of which branch resolved the workspace. Callers that pass

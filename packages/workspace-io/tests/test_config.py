@@ -117,14 +117,14 @@ def test_cli_prints_workspace_to_stdout(tmp_path):
 
 
 def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
-    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent bootstrap."""
+    """D-03: strict — resolve() raises RuntimeError naming gw bootstrap."""
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="graph-wiki-agent bootstrap"):
+    with pytest.raises(RuntimeError, match="gw bootstrap"):
         resolve(repo, True)
 
 def test_resolve_doesnt_raise_when_no_manifest_found(tmp_path, monkeypatch):
-    """D-03: strict — resolve() raises RuntimeError naming graph-wiki-agent bootstrap."""
+    """D-03: non-strict — resolve() returns workspace when manifest is missing."""
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
     workspace = resolve(repo, False).workspace
