@@ -248,7 +248,7 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 | 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
 | 58. Entity Page & Index UAT Follow-Ups | v1.10 | 3/3 | Complete   | 2026-05-29 |
 | 59. Decouple graph-wiki-agent from `graph_io.cli` | v1.10 | 3/3 | Complete   | 2026-05-29 |
-| 61. TypeScript `type` Node Kind | v1.11 | 2/3 | In Progress|  |
+| 61. TypeScript `type` Node Kind | v1.11 | 3/3 | Complete   | 2026-05-31 |
 
 ---
 
