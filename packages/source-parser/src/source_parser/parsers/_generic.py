@@ -198,6 +198,42 @@ def _build_class_node(
     return cls
 
 
+def _arrow_consts_in(
+    decl_node: tree_sitter.Node,
+    source: bytes,
+    path: Path,
+    language: str,
+    package: str | None,
+    config: LanguageConfig,
+) -> list[SourceNode]:
+    """Build function nodes for `const NAME = <arrow|fn_expr>` declarators.
+
+    Accepts a `lexical_declaration` or `variable_declaration` node and returns
+    one SourceNode per variable_declarator whose value is an arrow_function or
+    function_expression.  The emitted node's name comes from the declarator's
+    `name` field; its span covers the full declaration so start_line lands on
+    the `const` line.
+    """
+    out: list[SourceNode] = []
+    for child in decl_node.children:
+        if child.type != "variable_declarator":
+            continue
+        value = child.child_by_field_name("value")
+        if value is None or value.type not in config.function_types:
+            continue
+        name_node = child.child_by_field_name("name")
+        if name_node is None:
+            continue
+        name = _text(name_node, source)
+        # Build via the arrow/fn-expr node so body/calls/nested containers are
+        # extracted correctly, then patch the name and span.
+        fn = _build_function_node(value, source, path, language, package, config, kind="function")
+        fn.name = name
+        fn.span = _span(decl_node)
+        out.append(fn)
+    return out
+
+
 def _walk_container(
     node: tree_sitter.Node,
     source: bytes,
@@ -210,7 +246,8 @@ def _walk_container(
 
     Also looks one level inside export_statement nodes so that
     `export function foo(){}` produces a function child (plus an export ref
-    from _extract_exports).
+    from _extract_exports).  Handles `const NAME = () => {}` and
+    `export const NAME = () => {}` via _arrow_consts_in.
     """
     out: list[SourceNode] = []
     for child in node.children:
@@ -218,8 +255,11 @@ def _walk_container(
             out.append(_build_class_node(child, source, path, language, package, config))
         elif child.type in config.function_types:
             out.append(_build_function_node(child, source, path, language, package, config, kind="function"))
+        elif child.type in ("lexical_declaration", "variable_declaration"):
+            out.extend(_arrow_consts_in(child, source, path, language, package, config))
         elif child.type in config.export_types:
             # Peek inside: `export function foo(){}` or `export class Foo{}`
+            # or `export const NAME = () => {}`
             for inner in child.children:
                 if inner.type in config.class_types:
                     out.append(_build_class_node(inner, source, path, language, package, config))
@@ -235,6 +275,8 @@ def _walk_container(
                             kind="function",
                         )
                     )
+                elif inner.type in ("lexical_declaration", "variable_declaration"):
+                    out.extend(_arrow_consts_in(inner, source, path, language, package, config))
     return out
 
 
@@ -285,14 +327,26 @@ def _extract_exports(file_root: tree_sitter.Node, source: bytes, config: Languag
             continue
         # Identifier-name on the export.
         names: list[str] = []
+        has_lexical_decl = False
         for desc in child.children:
-            if desc.type == "identifier":
+            if desc.type in ("lexical_declaration", "variable_declaration"):
+                # `export const NAME = <anything>` — emit only the declarator
+                # name(s); do NOT fall through to the broad walk() which leaks
+                # param/body identifiers for arrow/fn_expr values.
+                has_lexical_decl = True
+                for decl in desc.children:
+                    if decl.type != "variable_declarator":
+                        continue
+                    name_node = decl.child_by_field_name("name")
+                    if name_node is not None:
+                        names.append(_text(name_node, source))
+            elif desc.type == "identifier":
                 names.append(_text(desc, source))
             elif desc.type in config.function_types or desc.type in config.class_types:
                 n = _resolve_name(desc, source, config)
                 if n:
                     names.append(n)
-        if not names:
+        if not names and not has_lexical_decl:
             # Look for export-clause -> { name, name, ... }
             def walk(n: tree_sitter.Node) -> None:
                 if n.type == "identifier":
