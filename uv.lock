@@ -9,6 +9,7 @@ members = [
     "graph-wiki-agent",
     "graph-wiki-cli",
     "graph-wiki-core",
+    "graph-wiki-mcp",
     "model-adapter",
     "source-parser",
     "subagent-runtime",
@@ -855,6 +856,23 @@ requires-dist = [
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
+]
+
+[[package]]
+name = "graph-wiki-mcp"
+version = "0.1.0"
+source = { editable = "packages/graph-wiki-mcp" }
+dependencies = [
+    { name = "graph-wiki-core" },
+    { name = "mcp" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "mcp", specifier = ">=1.27.1" },
+    { name = "pydantic", specifier = ">=2.0" },
 ]
 
 [[package]]
