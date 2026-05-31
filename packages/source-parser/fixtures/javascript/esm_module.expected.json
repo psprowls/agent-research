@@ -6,7 +6,7 @@
   "attrs": {},
   "refs": [
     {"kind": "import", "target_name": "foo", "target_module": "./foo.mjs", "attrs": {}},
-    {"kind": "export", "target_name": "callsFoo", "target_module": null, "attrs": {}}
+    {"kind": "export", "target_name": "callsFoo", "target_module": null, "attrs": {"symbol_kind": "function"}}
   ],
   "children": [
     {

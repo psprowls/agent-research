@@ -5,7 +5,9 @@
   "package": "fixtures",
   "attrs": {},
   "refs": [
-    {"kind": "export", "target_name": "Status", "target_module": null, "attrs": {}}
+    {"kind": "export", "target_name": "IResponse", "target_module": null, "attrs": {"symbol_kind": "type"}},
+    {"kind": "export", "target_name": "ResponseId", "target_module": null, "attrs": {"symbol_kind": "type"}},
+    {"kind": "export", "target_name": "Status", "target_module": null, "attrs": {"symbol_kind": "type"}}
   ],
   "children": [
     {

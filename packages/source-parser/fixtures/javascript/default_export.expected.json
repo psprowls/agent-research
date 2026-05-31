@@ -5,7 +5,7 @@
   "package": "fixtures",
   "attrs": {},
   "refs": [
-    {"kind": "export", "target_name": "makeGreeter", "target_module": null, "attrs": {}}
+    {"kind": "export", "target_name": "makeGreeter", "target_module": null, "attrs": {"symbol_kind": "function"}}
   ],
   "children": [
     {

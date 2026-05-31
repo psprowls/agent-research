@@ -360,44 +360,67 @@ def _extract_exports(file_root: tree_sitter.Node, source: bytes, config: Languag
     for child in file_root.children:
         if child.type not in config.export_types:
             continue
-        # Identifier-name on the export.
-        names: list[str] = []
-        has_lexical_decl = False
+        # Identifier-name(s) and optional symbol_kind on the export.
+        # Each entry is (name, symbol_kind_or_None).
+        named: list[tuple[str, str | None]] = []
+        has_declaration = False
         for desc in child.children:
             if desc.type in ("lexical_declaration", "variable_declaration"):
                 # `export const NAME = <anything>` — emit only the declarator
                 # name(s); do NOT fall through to the broad walk() which leaks
                 # param/body identifiers for arrow/fn_expr values.
-                has_lexical_decl = True
+                has_declaration = True
                 for decl in desc.children:
                     if decl.type != "variable_declarator":
                         continue
                     name_node = decl.child_by_field_name("name")
-                    if name_node is not None:
-                        names.append(_text(name_node, source))
+                    if name_node is None:
+                        continue
+                    value = decl.child_by_field_name("value")
+                    # Only stamp symbol_kind=function when the value is actually
+                    # a function/arrow; leave plain const exports without a kind.
+                    if value is not None and value.type in config.function_types:
+                        named.append((_text(name_node, source), "function"))
+                    else:
+                        named.append((_text(name_node, source), None))
             elif desc.type == "identifier":
-                names.append(_text(desc, source))
-            elif desc.type in config.function_types or desc.type in config.class_types:
+                named.append((_text(desc, source), None))
+            elif desc.type in config.class_types:
                 n = _resolve_name(desc, source, config)
                 if n:
-                    names.append(n)
-        if not names and not has_lexical_decl:
+                    has_declaration = True
+                    named.append((n, "class"))
+            elif desc.type in config.function_types:
+                n = _resolve_name(desc, source, config)
+                if n:
+                    has_declaration = True
+                    named.append((n, "function"))
+            elif desc.type in config.type_types:
+                n = _resolve_name(desc, source, config)
+                if n:
+                    has_declaration = True
+                    named.append((n, "type"))
+        if not named and not has_declaration:
             # Look for export-clause -> { name, name, ... }
+            # Bare re-exports cannot know the symbol kind at parse time.
             def walk(n: tree_sitter.Node) -> None:
                 if n.type == "identifier":
-                    names.append(_text(n, source))
+                    named.append((_text(n, source), None))
                 for c in n.children:
                     walk(c)
 
             walk(child)
-        for name in names:
+        for name, symbol_kind in named:
+            attrs: dict = {}
+            if symbol_kind is not None:
+                attrs["symbol_kind"] = symbol_kind
             refs.append(
                 Reference(
                     kind="export",
                     target_name=name,
                     target_module=None,
                     site=_span(child),
-                    attrs={},
+                    attrs=attrs,
                 )
             )
     return refs
