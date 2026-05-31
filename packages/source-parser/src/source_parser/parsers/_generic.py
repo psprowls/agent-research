@@ -360,6 +360,12 @@ def _extract_exports(file_root: tree_sitter.Node, source: bytes, config: Languag
     for child in file_root.children:
         if child.type not in config.export_types:
             continue
+        # Detect `export type { ... }` — the `type` keyword is a direct child of
+        # the export_statement and indicates that ALL re-exported names are types.
+        # (TypeScript-only; JS config has no type_types so this flag is never set.)
+        is_type_reexport = bool(config.type_types) and any(
+            c.type == "type" and c.text == b"type" for c in child.children
+        )
         # Identifier-name(s) and optional symbol_kind on the export.
         # Each entry is (name, symbol_kind_or_None).
         named: list[tuple[str, str | None]] = []
@@ -402,10 +408,14 @@ def _extract_exports(file_root: tree_sitter.Node, source: bytes, config: Languag
                     named.append((n, "type"))
         if not named and not has_declaration:
             # Look for export-clause -> { name, name, ... }
-            # Bare re-exports cannot know the symbol kind at parse time.
+            # For `export type { X }`, stamp symbol_kind="type" on each name since
+            # the `type` keyword explicitly identifies these as type re-exports.
+            # For plain `export { x }`, symbol kind is unknown at parse time (None).
+            reexport_kind: str | None = "type" if is_type_reexport else None
+
             def walk(n: tree_sitter.Node) -> None:
                 if n.type == "identifier":
-                    named.append((_text(n, source), None))
+                    named.append((_text(n, source), reexport_kind))
                 for c in n.children:
                     walk(c)
 
