@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: TypeScript Type Node Kind
-status: verifying
-stopped_at: Phase 61 (TypeScript `type` Node Kind) complete — all 3 plans executed (61-01, 61-02, 61-03).
-last_updated: "2026-05-31T01:43:39.662Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 61 was final phase)
+last_updated: 2026-05-31T01:55:52.986Z
 last_activity: 2026-05-31
 progress:
   total_phases: 7
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Phase 61 — ts-type-node-kind
+**Current Focus:** Milestone complete
 
 **Deferred:** The cost-frontier per-role sweep (formerly Phase 60) is parked until the evals are reworked. No code lost — harness fixes B–F are on `main`; the remaining debug → clean re-run → winner-selection work lives in `.planning/CONTINUE-sweep-harness-fixes-3.md` and is a candidate for its own future milestone.
 
@@ -35,9 +35,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 61 (ts-type-node-kind) — COMPLETE
-Plan: 3 of 3
-Status: All plans executed and verified
+Phase: 61
+Plan: Not started
+Status: Milestone complete
 Last activity: 2026-05-31
 
 ## Progress Bar
