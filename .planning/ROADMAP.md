@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.11 — TypeScript Type Node Kind (in progress; Phase 61)
+**Current milestone:** v1.11 — TypeScript Type Node Kind (shipped 2026-05-31); awaiting next milestone
 
 ---
 
@@ -19,7 +19,7 @@
 - ✅ **v1.8 — Wiki Entity Restructure** — Phases 42-48 (shipped 2026-05-27) — [archive](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49-53 (shipped 2026-05-28) — [archive](milestones/v1.9-ROADMAP.md)
 - ✅ **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-59 (shipped 2026-05-29) — [archive](milestones/v1.10-ROADMAP.md)
-- 🔄 **v1.11 — TypeScript Type Node Kind** — Phase 61 (in progress)
+- ✅ **v1.11 — TypeScript Type Node Kind** — Phase 61 (shipped 2026-05-31) — [archive](milestones/v1.11-ROADMAP.md)
 
 ---
 
@@ -176,10 +176,10 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 
 </details>
 
-<details open>
-<summary>🔄 v1.11 TypeScript Type Node Kind (Phase 61) — IN PROGRESS</summary>
+<details>
+<summary>✅ v1.11 TypeScript Type Node Kind (Phase 61) — SHIPPED 2026-05-31</summary>
 
-- [ ] Phase 61: TypeScript `type` Node Kind — surface TS `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in `ts_kind` attr) in source-parser + graph-io, fixing the projection bug that mislabels exported types as `function`. See [`phases/61-ts-type-node-kind/61-CONTEXT.md`](phases/61-ts-type-node-kind/61-CONTEXT.md).
+- [x] Phase 61: TypeScript `type` Node Kind (3/3 plans) — completed 2026-05-31 — surfaced TS `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in `ts_kind` attr) in source-parser + graph-io, fixing the projection bug that mislabeled exported types as `function`. See [archive](milestones/v1.11-ROADMAP.md).
 
 </details>
 
@@ -252,4 +252,4 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 
 ---
 
-*Last updated: 2026-05-30 — Milestone v1.11 renamed "Cost-Frontier Sweep Harness" → "TypeScript Type Node Kind" and Phase 60 (cost-frontier-sweep-harness) dropped: the cost-role sweep is deferred until the evals are reworked. No code lost — sweep harness fixes B–F are already on `main`; remaining debug → clean re-run → winner-selection work is parked in [`CONTINUE-sweep-harness-fixes-3.md`](CONTINUE-sweep-harness-fixes-3.md) for a future milestone. v1.11 now holds only Phase 61 (TypeScript `type` node kind — source-parser + graph-io), planned & ready to execute. v1.10 shipped & archived (Phases 54-59).*
+*Last updated: 2026-05-31 — Milestone v1.11 (TypeScript Type Node Kind) SHIPPED & archived: Phase 61 (3/3 plans) delivered the new `type` node kind across source-parser + graph-io, fixing the projection bug that mislabeled exported types as `function` (verified 8/8 must-haves, package suites green, no cross-phase regressions). Archive: [`milestones/v1.11-ROADMAP.md`](milestones/v1.11-ROADMAP.md). Phase 60 (cost-frontier-sweep-harness) was dropped/deferred — sweep harness fixes B–F are on `main`; remaining debug → clean re-run → winner-selection work is parked in [`CONTINUE-sweep-harness-fixes-3.md`](CONTINUE-sweep-harness-fixes-3.md) for a future milestone. v1.10 shipped & archived (Phases 54-59).*

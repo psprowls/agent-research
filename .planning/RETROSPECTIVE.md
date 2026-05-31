@@ -364,6 +364,35 @@
 
 ---
 
+## Milestone: v1.11 — TypeScript Type Node Kind
+
+**Shipped:** 2026-05-31
+**Phases:** 1 (Phase 61) | **Plans:** 3
+
+### What Was Built
+A new `type` node kind (interface / type alias / enum, with a `ts_kind` sub-kind) surfaced across source-parser and graph-io, fixing the long-standing projection bug that mislabeled exported TS types as `function`. `symbol_kind` now flows from parsed exports through the projection's `exports` edge dst; `type` is cross-kind resolvable in graph-io (`DERIVER_VERSION` 4→5) and valid in `cg find --kind type`.
+
+### What Worked
+- Tight 3-plan vertical slice (parser → graph-io → tests+live-verify) with a clean sequential dependency chain — each plan was small, atomically committed, and independently green.
+- Live mono-repo-live rebuild as the final acceptance gate caught a real gap (`export type { X }` re-exports) that unit fixtures alone missed; the executor auto-fixed it in-flight.
+- Verifier read the actual source (not just summaries) and correctly accepted the `APIGatewayProxyEvent`-has-no-`ts_kind` deviation against goal intent rather than failing on a literal criterion.
+
+### What Was Inefficient
+- The `phase-plan-index` SDK query mis-grouped all 3 plans as a flat parallel Wave 1 (unfenced PLAN frontmatter); the orchestrator had to read the plan files directly to recover the real wave chain. Trusting the index would have run dependent plans in parallel.
+- Milestone close hit two GSD tooling misfires: (a) the pre-close audit flagged 20 completed quick-tasks as "missing" because the `/gsd-quick` SUMMARY template regressed (≥260529 stopped writing a bare `SUMMARY.md` + dropped the `status:` field that `gsd-sdk audit-open` requires); (b) `milestone.complete` mis-scoped v1.11 as 7 phases/17 plans and dumped the whole roadmap as the "archive" — both required manual reconciliation.
+
+### Patterns Established
+- New code-graph node kinds: single kind + `attrs` sub-kind (not N kinds); bump `DERIVER_VERSION` (no schema migration) when `kind` is unconstrained TEXT; thread a `symbol_kind` hint through the projection with a safe default + cross-kind sweep fallback.
+
+### Key Lessons
+- Don't trust GSD SDK summaries/indexes blind — `phase-plan-index` wave grouping and `milestone.complete` stats both lied here; verify against the actual PLAN/SUMMARY files. (Captured as durable memories.)
+- A live full-rebuild verification step is worth more than any number of synthetic fixtures for a parser/projection change.
+
+### Cost Observations
+- Model mix: orchestrator Opus; executors + verifier + reviewer on Sonnet (per config). No LLM cost in the graph rebuild (pure-parser). Single session.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

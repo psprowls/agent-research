@@ -1,12 +1,21 @@
 # Milestones
 
-## v1.11 TypeScript Type Node Kind (In Progress — opened 2026-05-30)
+## v1.11 TypeScript Type Node Kind (Shipped: 2026-05-31)
 
-**Phases:** 1 phase (61) — planned, ready to execute
+**Phases completed:** 1 phase (61), 3 plans, 11 tasks
 **Goal:** Surface TypeScript `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in the `ts_kind` attr) across source-parser and graph-io, fixing the projection bug that mislabels exported types as `function`.
-**Scope:** `source-parser` (`type_types` config field, `SourceNode(kind='type')` emission, export-kind projection fix) + graph-io consumption of the new kind.
 
-> **Note:** This milestone was originally opened as **"Cost-Frontier Sweep Harness"** (Phase 60). On 2026-05-30 the cost-role sweep was **deferred** — the sweep run/winner-selection is parked until the evals are reworked — and the milestone was repurposed around the TypeScript type-node work (its only remaining phase). The deferred sweep is a candidate for its own future milestone.
+**Key accomplishments:**
+
+- source-parser emits a new `kind="type"` node for TS interface / type-alias / enum (bare AND exported) with a `ts_kind` sub-kind, via `LanguageConfig.type_types` + `_build_type_node`.
+- `symbol_kind` (`class`/`function`/`type`) threaded through export References; the graph projection `exports` edge dst now uses it instead of a hardcoded `function` — the root-cause fix for exported types mislabeled as `function`. (`calls` edge unchanged.)
+- graph-io made `type` cross-kind resolvable (Python set + SQL), bumped `DERIVER_VERSION` 4→5 (auto-forces full rebuild), and added `type` to `queries._VALID_KINDS` so `cg find --kind type` works.
+- Fixture-driven TS tests (7 parser fixtures + 4 graph-projection) and 2 graph-io cross-kind resolve tests; full mono-repo-live rebuild confirmed `APIGatewayProxyEvent` now resolves to `kind=type` (was `function`).
+- Mid-flight Rule-1 fix: detected `export type { X }` re-export syntax and stamped `symbol_kind=type`.
+
+**Verification:** 8/8 must-haves. Code review 0 blockers (3 warnings / 3 info, advisory). Suites green: source-parser 92, graph-io 511; regression wiki-io 385, workspace-io 87.
+
+**Note:** This milestone was originally opened as **"Cost-Frontier Sweep Harness"** (Phase 60). On 2026-05-30 the cost-role sweep was **deferred** — the sweep run/winner-selection is parked until the evals are reworked — and the milestone was repurposed around the TypeScript type-node work (its only phase). The deferred sweep is a candidate for its own future milestone.
 
 **Deferred — Cost-Frontier Sweep Harness (landed code preserved on `main`):** The harness fixes below shipped as `/gsd-quick` tasks and remain on `main`; only the sweep *run* + winner selection are deferred. Full remaining-work record: `.planning/CONTINUE-sweep-harness-fixes-3.md`.
 

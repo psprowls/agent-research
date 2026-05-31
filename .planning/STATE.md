@@ -4,20 +4,20 @@ milestone: v1.11
 milestone_name: TypeScript Type Node Kind
 status: milestone_complete
 stopped_at: Milestone complete (Phase 61 was final phase)
-last_updated: 2026-05-31T01:55:52.986Z
-last_activity: 2026-05-31
+last_updated: 2026-05-31T02:30:00.000Z
+last_activity: 2026-05-31 — v1.11 (TypeScript Type Node Kind) shipped & archived
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 17
-  completed_plans: 18
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
   percent: 100
 ---
 
 # Project State: agent-research
 
-**Last updated:** 2026-05-30 — v1.11 renamed to "TypeScript Type Node Kind"; Phase 60 (cost-frontier sweep) dropped/deferred
-**Updated by:** /gsd-progress → phase drop + milestone rename
+**Last updated:** 2026-05-31 — v1.11 (TypeScript Type Node Kind) SHIPPED & archived; Phase 61 final phase complete (8/8 verified)
+**Updated by:** /gsd-complete-milestone v1.11
 
 ---
 
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** Milestone complete
+**Current Focus:** v1.11 shipped & archived — awaiting next milestone (`/gsd-new-milestone`)
 
 **Deferred:** The cost-frontier per-role sweep (formerly Phase 60) is parked until the evals are reworked. No code lost — harness fixes B–F are on `main`; the remaining debug → clean re-run → winner-selection work lives in `.planning/CONTINUE-sweep-harness-fixes-3.md` and is a candidate for its own future milestone.
 
