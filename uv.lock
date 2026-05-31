@@ -7,6 +7,7 @@ members = [
     "eval-harness",
     "graph-io",
     "graph-wiki-agent",
+    "graph-wiki-cli",
     "graph-wiki-core",
     "model-adapter",
     "source-parser",
@@ -800,6 +801,25 @@ requires-dist = [
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
+]
+
+[[package]]
+name = "graph-wiki-cli"
+version = "0.1.0"
+source = { editable = "packages/graph-wiki-cli" }
+dependencies = [
+    { name = "graph-io" },
+    { name = "graph-wiki-core" },
+    { name = "typer" },
+    { name = "wiki-io" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "graph-io", editable = "packages/graph-io" },
+    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "typer", specifier = ">=0.25.1" },
+    { name = "wiki-io", editable = "packages/wiki-io" },
 ]
 
 [[package]]
