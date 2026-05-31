@@ -13,20 +13,23 @@
 
 ## Slices
 
-- [ ] **S01: Core package move and rename** `risk:high` `depends:[]`
+- [x] **S01: Core package move and rename** `risk:high` `depends:[]`
   > After this: `packages/graph-wiki-core` exists as a library-only workspace member, imports use `graph_wiki_core`, and shared command tests prove core still works.
 
-- [ ] **S02: CLI package extraction** `risk:high` `depends:[S01]`
+- [x] **S02: CLI package extraction** `risk:high` `depends:[S01]`
   > After this: `packages/graph-wiki-cli` exposes `gw`, CLI tests import `graph_wiki_cli`, and representative `gw --help` and command help checks pass.
 
-- [ ] **S03: MCP package extraction** `risk:high` `depends:[S01]`
+- [x] **S03: MCP package extraction** `risk:high` `depends:[S01]`
   > After this: `packages/graph-wiki-mcp` exposes `graph-wiki-mcp`, MCP tests import `graph_wiki_mcp`, and stdio/schema tests prove the server still works.
 
-- [ ] **S04: Runtime docs and graph-wiki workflow rewiring** `risk:medium` `depends:[S02]`
+- [x] **S04: Runtime docs and graph-wiki workflow rewiring** `risk:medium` `depends:[S02]`
   > After this: Plugin Bedrock shims and current user-facing docs invoke `gw`; runtime-facing help and bootstrap messages no longer point users at `graph-wiki-agent`.
 
-- [ ] **S05: Workspace integration and full verification** `risk:high` `depends:[S02,S03,S04]`
+- [x] **S05: Workspace integration and full verification** `risk:high` `depends:[S02,S03,S04]`
   > After this: Root workspace syncs as packages-only, `agents/` is gone, stale active references are cleaned up, and full tests including integration pass.
+
+- [x] **S06: Requirement coverage remediation** `risk:medium` `depends:[S05]`
+  > After this: After this: validation evidence covers R009 by implementation or explicit requirement deferral, R013 has explicit non-regression evidence, and milestone validation can rerun without missing or partial requirement rows.
 
 ## Boundary Map
 

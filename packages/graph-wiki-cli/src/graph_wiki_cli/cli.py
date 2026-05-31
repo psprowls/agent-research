@@ -10,6 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+import click
 import typer
 
 
@@ -88,6 +89,113 @@ app = typer.Typer(
 # newer schema; producers in packages/subagent-runtime and commands/query.py stamp
 # the integer at write time.
 KNOWN_SCHEMA_VERSION = 1
+
+
+def _command_to_help_entry(command: click.Command, *, name: str) -> dict:
+    """Return a stable, JSON-serializable help entry for a Click command."""
+    options: list[dict] = []
+    arguments: list[dict] = []
+    for param in command.params:
+        if isinstance(param, click.Option):
+            options.append(
+                {
+                    "name": param.name,
+                    "opts": list(param.opts),
+                    "secondary_opts": list(param.secondary_opts),
+                    "help": param.help or "",
+                    "required": param.required,
+                    "default": param.default,
+                    "is_flag": param.is_flag,
+                }
+            )
+        elif isinstance(param, click.Argument):
+            arguments.append(
+                {
+                    "name": param.name,
+                    "required": param.required,
+                    "nargs": param.nargs,
+                }
+            )
+
+    subcommands: list[dict] = []
+    if isinstance(command, click.Group):
+        for sub_name, sub_command in command.commands.items():
+            if sub_command.hidden:
+                continue
+            subcommands.append(
+                {
+                    "name": sub_name,
+                    "help": sub_command.get_short_help_str(limit=10_000),
+                }
+            )
+
+    return {
+        "name": name,
+        "help": command.help or "",
+        "short_help": command.get_short_help_str(limit=10_000),
+        "usage": command.collect_usage_pieces(click.Context(command)),
+        "arguments": arguments,
+        "options": options,
+        "commands": subcommands,
+    }
+
+
+def _json_help_payload(command_path: tuple[str, ...] = ()) -> dict:
+    """Build machine-readable CLI help for the root app or a nested command."""
+    root_command = typer.main.get_command(app)
+    current = root_command
+    resolved_path: list[str] = []
+
+    for part in command_path:
+        if not isinstance(current, click.Group) or part not in current.commands:
+            available = sorted(current.commands) if isinstance(current, click.Group) else []
+            raise click.ClickException(
+                f"unknown command path: {' '.join(command_path)}"
+                + (f" (available: {', '.join(available)})" if available else "")
+            )
+        current = current.commands[part]
+        resolved_path.append(part)
+
+    command_name = " ".join([root_command.name or "gw", *resolved_path])
+    payload = _command_to_help_entry(current, name=command_name)
+    payload["schema_version"] = 1
+    payload["path"] = resolved_path
+    return payload
+
+
+@app.command(name="help")
+def help_command(
+    command: list[str] = typer.Argument(
+        None,
+        help="Optional command path to describe, for example: graph describe package.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable help as JSON."),
+) -> None:
+    """Show gw help, optionally as machine-readable JSON."""
+    command_path = tuple(command or ())
+    if json_output:
+        try:
+            typer.echo(json.dumps(_json_help_payload(command_path), indent=2))
+        except click.ClickException as exc:
+            typer.echo(json.dumps({"status": "error", "message": exc.message}, indent=2), err=True)
+            raise typer.Exit(code=2)
+        return
+
+    ctx = click.Context(typer.main.get_command(app), info_name="gw")
+    if not command_path:
+        typer.echo(ctx.get_help())
+        return
+
+    try:
+        payload = _json_help_payload(command_path)
+    except click.ClickException as exc:
+        typer.echo(f"Error: {exc.message}", err=True)
+        raise typer.Exit(code=2)
+
+    typer.echo(f"Usage: {payload['name']} {' '.join(payload['usage'])}".rstrip())
+    if payload["help"]:
+        typer.echo("")
+        typer.echo(payload["help"])
 
 
 @app.command()

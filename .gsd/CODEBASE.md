@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-05-31T16:06:34Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T16:06:34Z","fingerprint":"abbae61556d4c52847d2f8af0286d3fb20b3ee4e","fileCount":500,"truncated":true} -->
+Generated: 2026-05-31T22:23:19Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T22:23:19Z","fingerprint":"3bcd98590f5821d5a10eed821c35c8e9e52be348","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -297,6 +297,34 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/graph-io/tests/integration/test_e2e_apps.py`
 - `packages/graph-io/tests/integration/test_e2e_builtins.py`
 
+### packages/graph-wiki-cli/
+- `packages/graph-wiki-cli/pyproject.toml`
+
+### packages/graph-wiki-cli/src/graph_wiki_cli/
+- `packages/graph-wiki-cli/src/graph_wiki_cli/__init__.py`
+- `packages/graph-wiki-cli/src/graph_wiki_cli/cli.py`
+
+### packages/graph-wiki-cli/tests/
+- `packages/graph-wiki-cli/tests/conftest.py`
+- `packages/graph-wiki-cli/tests/test_cli_package.py`
+
+### packages/graph-wiki-cli/tests/unit/
+- `packages/graph-wiki-cli/tests/unit/test_cli_bootstrap.py`
+- `packages/graph-wiki-cli/tests/unit/test_cli_boundary.py`
+- `packages/graph-wiki-cli/tests/unit/test_cli_help.py`
+- `packages/graph-wiki-cli/tests/unit/test_cli_query.py`
+- `packages/graph-wiki-cli/tests/unit/test_commands_bootstrap.py`
+- `packages/graph-wiki-cli/tests/unit/test_commands_graph.py`
+- `packages/graph-wiki-cli/tests/unit/test_commands_log.py`
+- `packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py`
+- `packages/graph-wiki-cli/tests/unit/test_runtime_docs.py`
+- `packages/graph-wiki-cli/tests/unit/test_seeded_graph_workspace_smoke.py`
+- `packages/graph-wiki-cli/tests/unit/test_trace_viewer.py`
+
+### packages/graph-wiki-cli/tests/unit/__snapshots__/
+- `packages/graph-wiki-cli/tests/unit/__snapshots__/test_commands_graph.ambr`
+- `packages/graph-wiki-cli/tests/unit/__snapshots__/test_trace_viewer.ambr`
+
 ### packages/graph-wiki-core/
 - `packages/graph-wiki-core/pyproject.toml`
 
@@ -345,7 +373,76 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/graph-wiki-core/src/graph_wiki_core/prompts/sources/synthesizer.md`
 
 ### packages/graph-wiki-core/tests/
+- `packages/graph-wiki-core/tests/conftest.py`
+- `packages/graph-wiki-core/tests/test_command_overrides.py`
+- `packages/graph-wiki-core/tests/test_ingest_trace_unit.py`
+- `packages/graph-wiki-core/tests/test_migrate_vault.py`
 - `packages/graph-wiki-core/tests/test_package_boundary.py`
+- `packages/graph-wiki-core/tests/test_propose_domains.py`
+- `packages/graph-wiki-core/tests/test_query_graph_tools.py`
+- `packages/graph-wiki-core/tests/test_query_trace_unit.py`
+
+### packages/graph-wiki-core/tests/commands/
+- `packages/graph-wiki-core/tests/commands/__init__.py`
+- `packages/graph-wiki-core/tests/commands/test_lint_parity.py`
+- `packages/graph-wiki-core/tests/commands/test_scan_parity.py`
+
+### packages/graph-wiki-core/tests/prompts/
+- `packages/graph-wiki-core/tests/prompts/__init__.py`
+- `packages/graph-wiki-core/tests/prompts/test_project_context.py`
+- `packages/graph-wiki-core/tests/prompts/test_prompt_snapshots.py`
+- `packages/graph-wiki-core/tests/prompts/test_provenance.py`
+- `packages/graph-wiki-core/tests/prompts/test_token_budget.py`
+
+### packages/graph-wiki-core/tests/prompts/__snapshots__/
+- `packages/graph-wiki-core/tests/prompts/__snapshots__/test_project_context.ambr`
+- `packages/graph-wiki-core/tests/prompts/__snapshots__/test_prompt_snapshots.ambr`
+
+### packages/graph-wiki-core/tests/unit/
+- `packages/graph-wiki-core/tests/unit/__init__.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_bootstrap.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_graph.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_ingest.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_lint.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_log.py`
+- `packages/graph-wiki-core/tests/unit/test_commands_scan.py`
+- `packages/graph-wiki-core/tests/unit/test_config.py`
+- `packages/graph-wiki-core/tests/unit/test_entity_narrative_prompt.py`
+- `packages/graph-wiki-core/tests/unit/test_graph_tools.py`
+- `packages/graph-wiki-core/tests/unit/test_query_code_fallback.py`
+- `packages/graph-wiki-core/tests/unit/test_query_graph_tools_wiring.py`
+- `packages/graph-wiki-core/tests/unit/test_query_result.py`
+- `packages/graph-wiki-core/tests/unit/test_query_search.py`
+- `packages/graph-wiki-core/tests/unit/test_query_summary_schema_version.py`
+- `packages/graph-wiki-core/tests/unit/test_scan_graph_integration.py`
+- `packages/graph-wiki-core/tests/unit/test_scan_result_shape.py`
+- `packages/graph-wiki-core/tests/unit/test_seeded_graph_workspace_smoke.py`
+- `packages/graph-wiki-core/tests/unit/test_uri_slug.py`
+
+### packages/graph-wiki-core/tests/unit/__snapshots__/
+- `packages/graph-wiki-core/tests/unit/__snapshots__/test_commands_graph.ambr`
+
+### packages/graph-wiki-mcp/
+- `packages/graph-wiki-mcp/pyproject.toml`
+
+### packages/graph-wiki-mcp/src/graph_wiki_mcp/
+- `packages/graph-wiki-mcp/src/graph_wiki_mcp/__init__.py`
+- `packages/graph-wiki-mcp/src/graph_wiki_mcp/server.py`
+
+### packages/graph-wiki-mcp/tests/integration/
+- `packages/graph-wiki-mcp/tests/integration/test_mcp_cancel.py`
+- `packages/graph-wiki-mcp/tests/integration/test_mcp_e2e.py`
+- `packages/graph-wiki-mcp/tests/integration/test_mcp_stdio.py`
+
+### packages/graph-wiki-mcp/tests/unit/
+- `packages/graph-wiki-mcp/tests/unit/test_commands_log.py`
+- `packages/graph-wiki-mcp/tests/unit/test_mcp_graph_tools.py`
+- `packages/graph-wiki-mcp/tests/unit/test_mcp_new_tools.py`
+- `packages/graph-wiki-mcp/tests/unit/test_mcp_package_boundary.py`
+- `packages/graph-wiki-mcp/tests/unit/test_mcp_query_schema.py`
+- `packages/graph-wiki-mcp/tests/unit/test_mcp_schema_forbid_extra.py`
+- `packages/graph-wiki-mcp/tests/unit/test_stdout_guard.py`
+- `packages/graph-wiki-mcp/tests/unit/test_wiki_scan_input.py`
 
 ### packages/model-adapter/
 - `packages/model-adapter/models.toml`
@@ -365,7 +462,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### packages/source-parser/
 - `packages/source-parser/CLAUDE.md`
 - `packages/source-parser/conftest.py`
-- `packages/source-parser/pyproject.toml`
 - `packages/source-parser/README.md`
 
 ### packages/source-parser/fixtures/javascript/
@@ -392,82 +488,4 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - *(22 files: 12 .json, 10 .py)*
 
 ### packages/source-parser/fixtures/typescript/
-- *(43 files: 25 .json, 18 .ts)*
-
-### packages/source-parser/src/source_parser/
-- `packages/source-parser/src/source_parser/__init__.py`
-- `packages/source-parser/src/source_parser/errors.py`
-- `packages/source-parser/src/source_parser/grammars.py`
-- `packages/source-parser/src/source_parser/parse.py`
-- `packages/source-parser/src/source_parser/tree.py`
-
-### packages/source-parser/src/source_parser/parsers/
-- `packages/source-parser/src/source_parser/parsers/__init__.py`
-- `packages/source-parser/src/source_parser/parsers/_base.py`
-- `packages/source-parser/src/source_parser/parsers/_config.py`
-- `packages/source-parser/src/source_parser/parsers/_generic.py`
-- `packages/source-parser/src/source_parser/parsers/javascript.py`
-- `packages/source-parser/src/source_parser/parsers/python.py`
-- `packages/source-parser/src/source_parser/parsers/typescript.py`
-
-### packages/source-parser/src/source_parser/projections/
-- `packages/source-parser/src/source_parser/projections/__init__.py`
-- `packages/source-parser/src/source_parser/projections/graph.py`
-
-### packages/source-parser/tests/
-- `packages/source-parser/tests/_fixture_loader.py`
-- `packages/source-parser/tests/test_generic_walker.py`
-- `packages/source-parser/tests/test_grammars.py`
-- `packages/source-parser/tests/test_parse_dispatch.py`
-- `packages/source-parser/tests/test_parse_errors.py`
-- `packages/source-parser/tests/test_parser_javascript.py`
-- `packages/source-parser/tests/test_parser_python.py`
-- `packages/source-parser/tests/test_parser_typescript.py`
-- `packages/source-parser/tests/test_projection_graph.py`
-- `packages/source-parser/tests/test_smoke.py`
-- `packages/source-parser/tests/test_tree_model.py`
-- `packages/source-parser/tests/test_unsupported_language.py`
-
-### packages/subagent-runtime/
-- `packages/subagent-runtime/pyproject.toml`
-
-### packages/subagent-runtime/src/subagent_runtime/
-- `packages/subagent-runtime/src/subagent_runtime/__init__.py`
-- `packages/subagent-runtime/src/subagent_runtime/pool.py`
-- `packages/subagent-runtime/src/subagent_runtime/trace_io.py`
-
-### packages/subagent-runtime/tests/
-- `packages/subagent-runtime/tests/conftest.py`
-- `packages/subagent-runtime/tests/test_pool.py`
-- `packages/subagent-runtime/tests/test_trace_io.py`
-
-### packages/subagent-runtime/tests/integration/
-- `packages/subagent-runtime/tests/integration/__init__.py`
-- `packages/subagent-runtime/tests/integration/test_pool_bedrock.py`
-
-### packages/wiki-io/
-- `packages/wiki-io/pyproject.toml`
-
-### packages/wiki-io/src/wiki_io/
-- `packages/wiki-io/src/wiki_io/__init__.py`
-- `packages/wiki-io/src/wiki_io/_workspace.py`
-- `packages/wiki-io/src/wiki_io/append_log.py`
-
-### packages/wiki-io/src/wiki_io/assets/
-- `packages/wiki-io/src/wiki_io/assets/AGENTS.md.template`
-- `packages/wiki-io/src/wiki_io/assets/CLAUDE.md.template`
-- `packages/wiki-io/src/wiki_io/assets/cursorrules.template`
-- `packages/wiki-io/src/wiki_io/assets/index.md.template`
-- `packages/wiki-io/src/wiki_io/assets/log.md.template`
-
-### packages/wiki-io/src/wiki_io/assets/page-templates/
-- `packages/wiki-io/src/wiki_io/assets/page-templates/adr.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/architecture.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/concept-pattern.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/concept.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/dependency.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-app.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-dependency.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-package.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-plugin.md`
+- *(29 files: 17 .json, 12 .ts)*

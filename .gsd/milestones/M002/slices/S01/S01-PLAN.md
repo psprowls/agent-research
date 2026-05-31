@@ -42,12 +42,12 @@ Upstream surfaces consumed: existing monolith source under `agents/graph-wiki-ag
   - Files: `packages/eval-harness/pyproject.toml`, `packages/eval-harness/src/eval_harness/structural.py`, `packages/eval-harness/src/eval_harness/sweep.py`, `packages/eval-harness/src/eval_harness/divergence/synthesizer.py`, `packages/eval-harness/src/eval_harness/divergence/code_reader.py`, `packages/eval-harness/tests/eval_helpers.py`, `packages/eval-harness/tests/test_structural.py`, `packages/eval-harness/tests/test_sweep.py`, `packages/eval-harness/tests/test_role_sweep.py`
   - Verify: uv run --package eval-harness python -m pytest packages/eval-harness/tests/test_structural.py packages/eval-harness/tests/test_sweep.py
 
-- [ ] **T04: Relocate core-facing tests and add package boundary assertions** `est:2h 30m`
+- [x] **T04: Relocate core-facing tests and add package boundary assertions** `est:2h 30m`
   Expected executor skills: `python-testing-patterns`.
   - Files: `packages/graph-wiki-core/tests`, `packages/graph-wiki-core/pyproject.toml`, `agents/graph-wiki-agent/tests/commands`, `agents/graph-wiki-agent/tests/prompts`, `agents/graph-wiki-agent/tests/conftest.py`, `agents/graph-wiki-agent/tests/test_command_overrides.py`, `agents/graph-wiki-agent/tests/test_ingest_trace_unit.py`, `agents/graph-wiki-agent/tests/test_migrate_vault.py`, `agents/graph-wiki-agent/tests/test_propose_domains.py`, `agents/graph-wiki-agent/tests/test_query_graph_tools.py`, `agents/graph-wiki-agent/tests/test_query_trace_unit.py`, `agents/graph-wiki-agent/tests/unit`
   - Verify: uv run --package graph-wiki-core python -m pytest packages/graph-wiki-core/tests
 
-- [ ] **T05: Run S01 workspace verification and clean missed active references** `est:1h`
+- [x] **T05: Run S01 workspace verification and clean missed active references** `est:1h`
   Expected executor skills: `verify-before-complete`, `uv-package-manager`, and `python-testing-patterns`.
   - Files: `uv.lock`, `packages/graph-wiki-core`, `packages/eval-harness`, `agents/graph-wiki-agent/pyproject.toml`, `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/mcp/server.py`
   - Verify: uv sync && uv run --package graph-wiki-core python -c "import graph_wiki_core.commands.query" && uv run --package graph-wiki-core python -c "import graph_wiki_core.commands.scan" && uv run --package graph-wiki-core python -c "import graph_wiki_core.prompts.scanner" && uv run --package graph-wiki-core python -m pytest packages/graph-wiki-core/tests && uv run --package eval-harness python -m pytest packages/eval-harness/tests/test_structural.py packages/eval-harness/tests/test_sweep.py && uv run --package graph-wiki-agent graph-wiki-agent --help

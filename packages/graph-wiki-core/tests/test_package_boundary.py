@@ -33,12 +33,20 @@ def test_core_source_and_tests_do_not_contain_copied_bytecode_files() -> None:
 
 def test_migrated_core_python_source_uses_core_namespace() -> None:
     stale_references = []
+    allowed_plugin_identity_paths = {
+        Path("src/graph_wiki_core/commands/init.py"),
+    }
     for path in SOURCE_ROOT.rglob("*.py"):
         text = path.read_text()
         old_import_namespace = "graph_wiki" + "_agent"
         old_distribution_name = "graph-wiki" + "-agent"
-        if old_import_namespace in text or old_distribution_name in text:
-            stale_references.append(path.relative_to(PACKAGE_ROOT))
+        rel_path = path.relative_to(PACKAGE_ROOT)
+        has_old_namespace = old_import_namespace in text
+        has_old_distribution_name = old_distribution_name in text
+        if has_old_namespace or (
+            has_old_distribution_name and rel_path not in allowed_plugin_identity_paths
+        ):
+            stale_references.append(rel_path)
 
     assert stale_references == []
 
