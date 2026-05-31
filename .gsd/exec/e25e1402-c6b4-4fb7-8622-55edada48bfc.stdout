@@ -1,0 +1,106 @@
+main-only changes relative to merge-base (first 80):
+A	.agents/skills/async-python-patterns/SKILL.md
+A	.agents/skills/async-python-patterns/references/details.md
+A	.agents/skills/code-review-excellence/SKILL.md
+A	.agents/skills/deployment-pipeline-design/SKILL.md
+A	.agents/skills/deployment-pipeline-design/references/advanced-strategies.md
+A	.agents/skills/deployment-pipeline-design/references/details.md
+A	.agents/skills/docx/LICENSE.txt
+A	.agents/skills/docx/SKILL.md
+A	.agents/skills/docx/scripts/__init__.py
+A	.agents/skills/docx/scripts/accept_changes.py
+A	.agents/skills/docx/scripts/comment.py
+A	.agents/skills/docx/scripts/office/helpers/__init__.py
+A	.agents/skills/docx/scripts/office/helpers/merge_runs.py
+A	.agents/skills/docx/scripts/office/helpers/simplify_redlines.py
+A	.agents/skills/docx/scripts/office/pack.py
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd
+A	.agents/skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd
+A	.agents/skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd
+A	.agents/skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd
+A	.agents/skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd
+A	.agents/skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd
+A	.agents/skills/docx/scripts/office/schemas/mce/mc.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-2010.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-2012.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-2018.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-cex-2018.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-cid-2016.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd
+A	.agents/skills/docx/scripts/office/schemas/microsoft/wml-symex-2015.xsd
+A	.agents/skills/docx/scripts/office/soffice.py
+A	.agents/skills/docx/scripts/office/unpack.py
+A	.agents/skills/docx/scripts/office/validate.py
+A	.agents/skills/docx/scripts/office/validators/__init__.py
+A	.agents/skills/docx/scripts/office/validators/base.py
+A	.agents/skills/docx/scripts/office/validators/docx.py
+A	.agents/skills/docx/scripts/office/validators/pptx.py
+A	.agents/skills/docx/scripts/office/validators/redlining.py
+A	.agents/skills/docx/scripts/templates/comments.xml
+A	.agents/skills/docx/scripts/templates/commentsExtended.xml
+A	.agents/skills/docx/scripts/templates/commentsExtensible.xml
+A	.agents/skills/docx/scripts/templates/commentsIds.xml
+A	.agents/skills/docx/scripts/templates/people.xml
+A	.agents/skills/error-handling-patterns/SKILL.md
+A	.agents/skills/error-handling-patterns/references/details.md
+A	.agents/skills/find-skills/SKILL.md
+A	.agents/skills/git-advanced-workflows/SKILL.md
+A	.agents/skills/git-advanced-workflows/references/details.md
+A	.agents/skills/github-actions-templates/SKILL.md
+A	.agents/skills/pdf/LICENSE.txt
+A	.agents/skills/pdf/SKILL.md
+A	.agents/skills/pdf/forms.md
+A	.agents/skills/pdf/reference.md
+A	.agents/skills/pdf/scripts/check_bounding_boxes.py
+A	.agents/skills/pdf/scripts/check_fillable_fields.py
+A	.agents/skills/pdf/scripts/convert_pdf_to_images.py
+
+main-only shortstat:
+ 661 files changed, 186477 insertions(+), 1549 deletions(-)
+
+milestone-only non-gsd files:
+.bg-shell/manifest.json
+.gitignore
+
+main-only top-level counts:
+ 309 .claude/get-shit-done
+ 207 .agents/skills
+  67 .claude/commands
+  33 .claude/agents
+  15 .claude/skills
+  15 .claude/hooks
+   6 .planning/intel
+   1 skills-lock.json/
+   1 .planning/threads
+   1 .gitignore/
+   1 .claude/settings.json
+   1 .claude/package.json
+   1 .claude/gsd-migration-journal
+   1 .claude/gsd-install-state.json
+   1 .claude/gsd-file-manifest.json
+   1 .claude/.gsd-profile

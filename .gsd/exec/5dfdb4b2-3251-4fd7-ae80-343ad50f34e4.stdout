@@ -1,0 +1,21 @@
+372
+372: export function gsdRoot(basePath) {
+373:     const cacheKey = normCacheKey(basePath);
+374:     const cached = gsdRootCache.get(cacheKey);
+375:     if (cached)
+376:         return cached;
+377:     // Canonicalize result via realpath before asserting and caching so that
+378:     // callers always receive a canonical path regardless of whether probeGsdRoot
+379:     // returned a path through a symlink. Without this, the cached value can
+380:     // diverge from other realpath-normalized paths (e.g. workspace.identityKey).
+381:     const result = normalizeRealPath(probeGsdRoot(basePath));
+382:     // Defense-in-depth: if basePath resolves to the user's home directory and
+383:     // the result equals gsdHome(), refuse — project-scoped writes must never
+384:     // land in the global ~/.gsd. Paths under ~/.gsd/projects/<hash>/ are still
+385:     // valid (their basePath does not equal homedir).
+386:     assertNotGlobalGsdHome(basePath, result);
+387:     gsdRootCache.set(cacheKey, result);
+388:     return result;
+389: }
+390: function assertNotGlobalGsdHome(basePath, result) {
+391:     const norm = (p) => {

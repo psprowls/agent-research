@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S04/verify_s04_readiness.py", line 338, in <module>
+    main()
+    ~~~~^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S04/verify_s04_readiness.py", line 332, in main
+    run_negative_self_checks(requirements_text, roadmap_text, decisions_text, assembled_text)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S04/verify_s04_readiness.py", line 305, in run_negative_self_checks
+    expect_failure(
+    ~~~~~~~~~~~~~~^
+        lambda: verify_decisions(decisions_text.replace("Manual curation", "Hand-written notes", 1)),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "manual curation",
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S04/verify_s04_readiness.py", line 291, in expect_failure
+    fail(f"negative self-check unexpectedly passed: {expected_message_part}")
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S04/verify_s04_readiness.py", line 64, in fail
+    raise AssertionError(message)
+AssertionError: negative self-check unexpectedly passed: manual curation

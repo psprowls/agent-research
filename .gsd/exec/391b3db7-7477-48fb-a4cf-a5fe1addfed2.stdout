@@ -1,0 +1,12 @@
+### R004 — Initialized GSD artifacts must be internally consistent, traceable to sampled legacy sources, and honest about omissions.
+- Class: quality-attribute
+- Status: active
+- Description: Initialized GSD artifacts must be internally consistent, traceable to sampled legacy sources, and honest about omissions.
+- Why it matters: The initialized project state will guide downstream automated execution; contradictions, missing ownership, or overclaims would cause wasted work.
+- Source: .gsd/PROJECT.md; .gsd/milestones/M001/M001-CONTEXT.md; .gsd/milestones/M001/M001-ROADMAP.md; .planning/CONTINUE-sweep-harness-fixes-3.md; .planning/deferred-items.md; .planning/PROJECT.md; .planning/MILESTONES.md
+- Primary owning slice: M001/S03
+- Supporting slices: M001/S04
+- Validation: Mapped for S03 verification: REQUIREMENTS must separate active, deferred, and out-of-scope records; active records must have M001 slice ownership; source references and prohibited-overclaim checks remain to be verified by the S03 requirements verifier.
+- Notes: Do not mark validated until S03 executable requirements verification passes.
+
+

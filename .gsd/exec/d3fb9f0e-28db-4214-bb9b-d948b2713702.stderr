@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S03/verify_s03_requirements.py", line 241, in <module>
+    main()
+    ~~~~^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S03/verify_s03_requirements.py", line 236, in main
+    run_negative_self_checks(text)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S03/verify_s03_requirements.py", line 223, in run_negative_self_checks
+    expect_failure(text.replace("Deferred/future-only", "Reference-only", 1), "deferred/future label")
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S03/verify_s03_requirements.py", line 216, in expect_failure
+    fail(f"negative self-check unexpectedly passed: {expected_message_part}")
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/slices/S03/verify_s03_requirements.py", line 35, in fail
+    raise AssertionError(message)
+AssertionError: negative self-check unexpectedly passed: deferred/future label
+
+real	0m0.073s
+user	0m0.031s
+sys	0m0.013s

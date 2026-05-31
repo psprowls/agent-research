@@ -1,0 +1,65 @@
+--- .planning/milestones/v1.11-ROADMAP.md ---
+# Milestone v1.11: TypeScript Type Node Kind
+**Status:** ✅ SHIPPED 2026-05-31
+## Overview
+Surfaced TypeScript `interface`, `type alias`, and `enum` declarations as a single
+new `type` node kind (with a `ts_kind` sub-kind attribute) across `source-parser` and
+`graph-io`, fixing the projection bug that previously mislabeled exported types as
+(Phase 60); that work was deferred and the milestone was repurposed around the
+TypeScript type-node work as its only phase.
+## Phases
+### Phase 61: TypeScript `type` Node Kind
+**Goal**: Surface TS `interface` / `type alias` / `enum` declarations as a single new
+`type` node kind (sub-kind in the `ts_kind` attr) in source-parser + graph-io, fixing
+the projection bug that mislabels exported types as `function`.
+- [x] 61-01: source-parser — TS `type` extraction + projection export-kind fix
+- [x] 61-02: graph-io — cross-kind resolution for `type` + DERIVER_VERSION bump
+- **61-01** — Added `LanguageConfig.type_types` (TS config: `{interface_declaration, type_alias_declaration, enum_declaration}`; JS empty). `_build_type_node` emits `SourceNode(kind="type", attrs={"ts_kind": ...})` for all three constructs, bare and exported. `_extract_exports` stamps `symbol_kind` (`class`/`function`/`type`) on declaration exports; the graph projection `exports` edge dst now uses `ref.attrs.get("symbol_kind", "function")` instead of a hardcoded `"function"` (the `calls` edge is unchanged).
+- **61-02** — Added `type` to graph-io cross-kind resolution (`_CROSS_KIND_RESOLVABLE` set + the inline `kind IN (...)` SQL), bumped `DERIVER_VERSION` 4→5 (auto-forces a full rebuild on existing graphs; `SCHEMA_VERSION` unchanged at 2 — `kind` is unconstrained TEXT), and added `type` to `queries._VALID_KINDS` so `cg find --kind type` no longer raises.
+- **61-03** — Added 7 source-parser TS fixtures (bare/exported interface, type alias, enum) with paired expected JSON, 2 graph-io cross-kind resolve tests, and a `_VALID_KINDS` assertion. Full mono-repo-live rebuild (DERIVER 5) confirmed `APIGatewayProxyEvent` resolves to `kind=type` (was `function`). Mid-flight Rule-1 fix: detected `export type { X }` re-export syntax and stamped `symbol_kind=type`.
+## Milestone Summary
+- Single `type` node kind with a `ts_kind` sub-kind attribute (interface / type_alias / enum), rather than three distinct kinds — keeps the graph ontology compact while preserving the distinction in `attrs`.
+- Exported TS types were projected as `function` nodes (root cause: hardcoded export-edge dst kind in `source-parser/projections/graph.py`).
+- `export type { X }` re-exports were not stamping `symbol_kind` (fixed during 61-03 live verification).
+**Issues Deferred:**
+- WR-01 (code review): inline per-specifier `type` modifiers (`export { type Foo, bar }`) are not detected; `Foo` is mis-kinded as `function` (partially self-corrected by the cross-kind sweep). Documented v1 gap.
+- `APIGatewayProxyEvent` and other out-of-tree (`node_modules/@types/...`) types resolve to `kind=type` but carry no `ts_kind` (no in-tree declaration to parse) — acceptable: the core goal (not mislabeled as `function`) is met; in-tree types carry `ts_kind` correctly.
+--- pyproject.toml ---
+[tool.uv.workspace]
+members = ["packages/*", "agents/*"]
+--- agents/graph-wiki-agent/pyproject.toml ---
+[project]
+name = "graph-wiki-agent"
+description = "AWS Bedrock-powered wiki maintenance agent (MCP server + CLI)"
+[project.scripts]
+graph-wiki-agent = "graph_wiki_agent.cli:app"
+graph-wiki-mcp   = "graph_wiki_agent.mcp.server:main"
+--- packages/eval-harness/pyproject.toml ---
+[project]
+name = "eval-harness"
+description = "Deterministic eval checks, pricing, and sweep runner for graph-wiki-agent"
+--- packages/graph-io/pyproject.toml ---
+[project]
+name = "graph-io"
+description = "Code-graph core for the graph-wiki ecosystem — SQLite store, manifest scanning, queries, and the cg CLI."
+[project.scripts]
+--- packages/model-adapter/pyproject.toml ---
+[project]
+name = "model-adapter"
+description = "AWS Bedrock model loader for graph-wiki-agent"
+--- packages/source-parser/pyproject.toml ---
+[project]
+name = "source-parser"
+description = "Tree-sitter-backed Python package that turns source files into a span-bearing SourceTree, with a graph projection aligned to lattice-graph."
+--- packages/subagent-runtime/pyproject.toml ---
+[project]
+name = "subagent-runtime"
+description = "Async fan-out primitive for graph-wiki-agent subagent dispatch"
+--- packages/wiki-io/pyproject.toml ---
+[project]
+name = "wiki-io"
+description = "Vault IO for graph-wiki-agent"
+--- packages/workspace-io/pyproject.toml ---
+[project]
+name = "workspace-io"
+description = "Workspace bootstrap, manifest IO, and config resolution for the graph-wiki ecosystem."

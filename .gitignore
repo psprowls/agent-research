@@ -197,7 +197,6 @@ test-out/
 .graph-wiki.local.yaml
 
 # ── GSD baseline (auto-generated) ──
-.gsd
 .gsd-id
 .mcp.json
 .bg-shell/

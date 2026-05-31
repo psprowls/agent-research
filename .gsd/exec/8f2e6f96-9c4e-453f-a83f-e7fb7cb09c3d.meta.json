@@ -1,0 +1,18 @@
+{
+  "id": "8f2e6f96-9c4e-453f-a83f-e7fb7cb09c3d",
+  "runtime": "bash",
+  "purpose": "post-completion artifact contract check for S04",
+  "script_chars": 471,
+  "started_at": "2026-05-31T04:50:00.048Z",
+  "finished_at": "2026-05-31T04:50:00.125Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 77,
+  "stdout_bytes": 0,
+  "stderr_bytes": 88,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/8f2e6f96-9c4e-453f-a83f-e7fb7cb09c3d.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/8f2e6f96-9c4e-453f-a83f-e7fb7cb09c3d.stderr"
+}

@@ -1,0 +1,123 @@
+M001 files:
+- .gsd/milestones/M001/anchors/plan-slice.json
+- .gsd/milestones/M001/anchors/research-slice.json
+- .gsd/milestones/M001/M001-CONTEXT.md
+- .gsd/milestones/M001/M001-DISCUSSION.md
+- .gsd/milestones/M001/M001-META.json
+- .gsd/milestones/M001/M001-ROADMAP.md
+- .gsd/milestones/M001/M001-SUMMARY.md
+- .gsd/milestones/M001/M001-VALIDATION.md
+- .gsd/milestones/M001/slices/S01/S01-ASSESSMENT.md
+- .gsd/milestones/M001/slices/S01/S01-PLAN.md
+- .gsd/milestones/M001/slices/S01/S01-PRE-EXEC-VERIFY.json
+- .gsd/milestones/M001/slices/S01/S01-RESEARCH.md
+- .gsd/milestones/M001/slices/S01/S01-SUMMARY.md
+- .gsd/milestones/M001/slices/S01/S01-UAT.md
+- .gsd/milestones/M001/slices/S01/tasks/T01-PLAN.md
+- .gsd/milestones/M001/slices/S01/tasks/T01-SUMMARY.md
+- .gsd/milestones/M001/slices/S01/tasks/T01-VERIFY.json
+- .gsd/milestones/M001/slices/S01/tasks/T02-PLAN.md
+- .gsd/milestones/M001/slices/S01/tasks/T02-SUMMARY.md
+- .gsd/milestones/M001/slices/S01/tasks/T02-VERIFY.json
+- .gsd/milestones/M001/slices/S02/S02-ASSESSMENT.md
+- .gsd/milestones/M001/slices/S02/S02-PLAN.md
+- .gsd/milestones/M001/slices/S02/S02-PRE-EXEC-VERIFY.json
+- .gsd/milestones/M001/slices/S02/S02-RESEARCH.md
+- .gsd/milestones/M001/slices/S02/S02-SUMMARY.md
+- .gsd/milestones/M001/slices/S02/S02-UAT.md
+- .gsd/milestones/M001/slices/S02/tasks/T01-PLAN.md
+- .gsd/milestones/M001/slices/S02/tasks/T01-SUMMARY.md
+- .gsd/milestones/M001/slices/S02/tasks/T01-VERIFY.json
+- .gsd/milestones/M001/slices/S02/tasks/T02-PLAN.md
+- .gsd/milestones/M001/slices/S02/tasks/T02-SUMMARY.md
+- .gsd/milestones/M001/slices/S02/tasks/T02-VERIFY.json
+- .gsd/milestones/M001/slices/S02/verify_s02_context.py
+- .gsd/milestones/M001/slices/S03/S03-ASSESSMENT.md
+- .gsd/milestones/M001/slices/S03/S03-PLAN.md
+- .gsd/milestones/M001/slices/S03/S03-PRE-EXEC-VERIFY.json
+- .gsd/milestones/M001/slices/S03/S03-RESEARCH.md
+- .gsd/milestones/M001/slices/S03/S03-SUMMARY.md
+- .gsd/milestones/M001/slices/S03/S03-UAT.md
+- .gsd/milestones/M001/slices/S03/tasks/T01-PLAN.md
+- .gsd/milestones/M001/slices/S03/tasks/T01-SUMMARY.md
+- .gsd/milestones/M001/slices/S03/tasks/T01-VERIFY.json
+- .gsd/milestones/M001/slices/S03/tasks/T02-PLAN.md
+- .gsd/milestones/M001/slices/S03/tasks/T02-SUMMARY.md
+- .gsd/milestones/M001/slices/S03/tasks/T02-VERIFY.json
+- .gsd/milestones/M001/slices/S03/tasks/T03-PLAN.md
+- .gsd/milestones/M001/slices/S03/tasks/T03-SUMMARY.md
+- .gsd/milestones/M001/slices/S03/tasks/T03-VERIFY.json
+- .gsd/milestones/M001/slices/S03/verify_s03_requirements.py
+- .gsd/milestones/M001/slices/S04/S04-ASSESSMENT.md
+- .gsd/milestones/M001/slices/S04/S04-PLAN.md
+- .gsd/milestones/M001/slices/S04/S04-PRE-EXEC-VERIFY.json
+- .gsd/milestones/M001/slices/S04/S04-RESEARCH.md
+- .gsd/milestones/M001/slices/S04/S04-SUMMARY.md
+- .gsd/milestones/M001/slices/S04/S04-UAT.md
+- .gsd/milestones/M001/slices/S04/tasks/T01-PLAN.md
+- .gsd/milestones/M001/slices/S04/tasks/T01-SUMMARY.md
+- .gsd/milestones/M001/slices/S04/tasks/T01-VERIFY.json
+- .gsd/milestones/M001/slices/S04/tasks/T02-PLAN.md
+- .gsd/milestones/M001/slices/S04/tasks/T02-SUMMARY.md
+- .gsd/milestones/M001/slices/S04/tasks/T02-VERIFY.json
+- .gsd/milestones/M001/slices/S04/verify_s04_readiness.py
+
+Slice summaries/verifiers quick inventory:
+.gsd/milestones/M001/slices/S01
+  - S01-ASSESSMENT.md
+  - S01-PLAN.md
+  - S01-PRE-EXEC-VERIFY.json
+  - S01-RESEARCH.md
+  - S01-SUMMARY.md
+  - S01-UAT.md
+  - tasks/T01-PLAN.md
+  - tasks/T01-SUMMARY.md
+  - tasks/T01-VERIFY.json
+  - tasks/T02-PLAN.md
+  - tasks/T02-SUMMARY.md
+  - tasks/T02-VERIFY.json
+.gsd/milestones/M001/slices/S02
+  - S02-ASSESSMENT.md
+  - S02-PLAN.md
+  - S02-PRE-EXEC-VERIFY.json
+  - S02-RESEARCH.md
+  - S02-SUMMARY.md
+  - S02-UAT.md
+  - tasks/T01-PLAN.md
+  - tasks/T01-SUMMARY.md
+  - tasks/T01-VERIFY.json
+  - tasks/T02-PLAN.md
+  - tasks/T02-SUMMARY.md
+  - tasks/T02-VERIFY.json
+  - verify_s02_context.py
+.gsd/milestones/M001/slices/S03
+  - S03-ASSESSMENT.md
+  - S03-PLAN.md
+  - S03-PRE-EXEC-VERIFY.json
+  - S03-RESEARCH.md
+  - S03-SUMMARY.md
+  - S03-UAT.md
+  - tasks/T01-PLAN.md
+  - tasks/T01-SUMMARY.md
+  - tasks/T01-VERIFY.json
+  - tasks/T02-PLAN.md
+  - tasks/T02-SUMMARY.md
+  - tasks/T02-VERIFY.json
+  - tasks/T03-PLAN.md
+  - tasks/T03-SUMMARY.md
+  - tasks/T03-VERIFY.json
+  - verify_s03_requirements.py
+.gsd/milestones/M001/slices/S04
+  - S04-ASSESSMENT.md
+  - S04-PLAN.md
+  - S04-PRE-EXEC-VERIFY.json
+  - S04-RESEARCH.md
+  - S04-SUMMARY.md
+  - S04-UAT.md
+  - tasks/T01-PLAN.md
+  - tasks/T01-SUMMARY.md
+  - tasks/T01-VERIFY.json
+  - tasks/T02-PLAN.md
+  - tasks/T02-SUMMARY.md
+  - tasks/T02-VERIFY.json
+  - verify_s04_readiness.py

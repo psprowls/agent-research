@@ -1,0 +1,18 @@
+{
+  "id": "9179492f-46a3-4d1d-b1d6-bccbbf88161c",
+  "runtime": "bash",
+  "purpose": "Check sampled legacy and package source paths cited by M001 artifacts",
+  "script_chars": 630,
+  "started_at": "2026-05-31T04:36:22.807Z",
+  "finished_at": "2026-05-31T04:36:22.864Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 57,
+  "stdout_bytes": 576,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/9179492f-46a3-4d1d-b1d6-bccbbf88161c.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/9179492f-46a3-4d1d-b1d6-bccbbf88161c.stderr"
+}

@@ -1,0 +1,36 @@
+S02 directory:
+
+Root GSD artifacts:
+.gsd/PROJECT.md
+.gsd/ROADMAP.md
+
+Existing M001 context caveat/high-note terms:
+.gsd/PROJECT.md:17:`.planning/` is archive/reference evidence only. It remains valuable as historical context for shipped v1.0 through v1.11 work, decisions, and verification records, but old phases and deferred items in `.planning/` are not automatically active M001 scope.
+.gsd/PROJECT.md:45:## Shipped Trajectory Through v1.11
+.gsd/PROJECT.md:47:The legacy `.planning/` archive records a shipped v1 line from v1.0 through v1.11:
+.gsd/PROJECT.md:60:- **v1.11 TypeScript Type Node Kind** shipped TS `interface` / `type alias` / `enum` projection as a compact `type` node kind with `ts_kind`, fixed exported TS types previously mislabeled as `function`, and added graph-io cross-kind resolution for `type`.
+.gsd/PROJECT.md:68:- wholesale conversion of `.planning/` into `.gsd/`;
+.gsd/PROJECT.md:71:- reactivation of dropped/deferred Phase 60 sweep execution;
+.gsd/PROJECT.md:72:- completion of old process debt such as missing historical audits or retroactive validation.
+.gsd/milestones/M001/M001-CONTEXT.md:10:This milestone initializes the new `.gsd/` project state from the old pre-fork `getting-shit-done` archive in `.planning/`. The user wants **current truth**, not a full archive conversion. `.planning/` has been backed up and can be consulted later if needed.
+.gsd/milestones/M001/M001-CONTEXT.md:22:- Open `.gsd/milestones/M001/M001-CONTEXT.md` and see why `.planning/` is archive/reference, what high notes were preserved, and what caveats remain.
+.gsd/milestones/M001/M001-CONTEXT.md:43:- M001 context preserves the user's exact intent: **current truth**, **manual curation**, **high notes**, and `.planning` as backed-up archive/reference.
+.gsd/milestones/M001/M001-CONTEXT.md:44:- The roadmap slices are artifact-focused and do not claim code changes or wholesale `.planning` conversion.
+.gsd/milestones/M001/M001-CONTEXT.md:50:**Decision:** Initialize GSD with lean current truth and high-value archive notes, not a full `.planning` conversion.
+.gsd/milestones/M001/M001-CONTEXT.md:52:**Rationale:** The legacy archive is large: sampled evidence found versioned roadmaps/requirements, 42 phase contexts, 148 phase summaries, quick tasks, sketches, spikes, and deferred records. Copying it wholesale would create noisy active artifacts and increase the chance that stale plans are treated as current commitments.
+.gsd/milestones/M001/M001-CONTEXT.md:55:- Full archive import — rejected because the user asked for current truth and already backed up `.planning`.
+.gsd/milestones/M001/M001-CONTEXT.md:71:**Rationale:** The deferred cost-frontier sweep and stale snapshot item matter, but neither is part of initialization execution. Capturing them prevents loss without derailing M001.
+.gsd/milestones/M001/M001-CONTEXT.md:74:- Make deferred sweep work active in M001 — rejected because it is debugging/eval work with possible Bedrock cost and separate technical risk.
+.gsd/milestones/M001/M001-CONTEXT.md:81:- Keep deferred sweep work clearly labeled as deferred future work.
+.gsd/milestones/M001/M001-CONTEXT.md:93:- `.planning/PROJECT.md` — current legacy project description and shipped state through v1.11.
+.gsd/milestones/M001/M001-CONTEXT.md:94:- `.planning/ROADMAP.md` — shipped milestone sequence v1.0 through v1.11.
+.gsd/milestones/M001/M001-CONTEXT.md:96:- `.planning/milestones/v1.11-ROADMAP.md` — latest shipped milestone details for TypeScript `type` node kind.
+.gsd/milestones/M001/M001-CONTEXT.md:106:- R002 — M001/S02 preserves legacy high notes without wholesale archive conversion.
+.gsd/milestones/M001/M001-CONTEXT.md:118:- Curate current truth into GSD artifacts.
+.gsd/milestones/M001/M001-CONTEXT.md:119:- Preserve shipped trajectory high notes through v1.11.
+.gsd/milestones/M001/M001-CONTEXT.md:120:- Preserve deferred/caveat context for the cost-frontier sweep, stale snapshot, and process-debt notes.
+.gsd/milestones/M001/M001-CONTEXT.md:121:- Treat `.planning/` as a backed-up archive/reference.
+.gsd/milestones/M001/M001-CONTEXT.md:126:- Wholesale `.planning` conversion.
+.gsd/milestones/M001/M001-CONTEXT.md:143:- Legacy archive `.planning/` — read-only evidence source for high notes and caveats.
+.gsd/milestones/M001/M001-CONTEXT.md:153:- Honesty checks: artifacts must not claim wholesale conversion or exhaustive archive audit.
+.gsd/milestones/M001/M001-CONTEXT.md:158:- S02: M001 context captures high-value `.planning` notes, deferred sweep handoff, stale snapshot caveat, and process-debt caveats without over-importing.

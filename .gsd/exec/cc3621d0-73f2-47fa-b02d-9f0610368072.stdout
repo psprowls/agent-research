@@ -1,0 +1,11 @@
+.gsd/milestones/M001/M001-CONTEXT.md: exists
+.gsd/PROJECT.md: exists
+.gsd/REQUIREMENTS.md: MISSING
+.gsd/DECISIONS.md: MISSING
+.gsd/milestones/M001/M001-ROADMAP.md: exists
+.gsd/milestones/M001/slices/S02/S02-RESEARCH.md: MISSING
+.planning/MILESTONES.md: exists
+.planning/CONTINUE-sweep-harness-fixes-3.md: exists
+.planning/deferred-items.md: exists
+.planning/PROJECT.md: exists
+.planning/milestones/v1.11-ROADMAP.md: exists

@@ -1,0 +1,11 @@
+.gsd/PROJECT.md: exists=True size=7257
+.gsd/REQUIREMENTS.md: exists=True size=13095
+.gsd/DECISIONS.md: exists=False size=0
+.gsd/milestones/M001/M001-ROADMAP.md: exists=True size=2579
+.gsd/milestones/M001/M001-CONTEXT.md: exists=True size=16218
+.gsd/milestones/M001/slices/S01/S01-SUMMARY.md: exists=True size=5165
+.gsd/milestones/M001/slices/S02/S02-SUMMARY.md: exists=True size=4867
+.gsd/milestones/M001/slices/S03/S03-SUMMARY.md: exists=True size=6315
+.gsd/milestones/M001/slices/S02/verify_s02_context.py: exists=True size=5154
+.gsd/milestones/M001/slices/S03/verify_s03_requirements.py: exists=True size=10317
+S04 files: []

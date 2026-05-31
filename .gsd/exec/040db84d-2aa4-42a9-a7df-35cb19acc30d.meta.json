@@ -1,0 +1,18 @@
+{
+  "id": "040db84d-2aa4-42a9-a7df-35cb19acc30d",
+  "runtime": "bash",
+  "purpose": "summarize requirement references in artifacts",
+  "script_chars": 513,
+  "started_at": "2026-05-31T04:19:26.730Z",
+  "finished_at": "2026-05-31T04:19:26.775Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 45,
+  "stdout_bytes": 6513,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stderr"
+}

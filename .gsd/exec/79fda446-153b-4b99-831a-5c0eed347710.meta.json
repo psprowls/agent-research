@@ -1,0 +1,18 @@
+{
+  "id": "79fda446-153b-4b99-831a-5c0eed347710",
+  "runtime": "bash",
+  "purpose": "inspect project-cache requirement rows",
+  "script_chars": 428,
+  "started_at": "2026-05-31T04:24:28.060Z",
+  "finished_at": "2026-05-31T04:24:28.116Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 56,
+  "stdout_bytes": 5307,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/79fda446-153b-4b99-831a-5c0eed347710.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/79fda446-153b-4b99-831a-5c0eed347710.stderr"
+}

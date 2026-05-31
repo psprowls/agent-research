@@ -1,0 +1,80 @@
+372: export function gsdRoot(basePath) {
+373:     const cacheKey = normCacheKey(basePath);
+374:     const cached = gsdRootCache.get(cacheKey);
+375:     if (cached)
+376:         return cached;
+377:     // Canonicalize result via realpath before asserting and caching so that
+378:     // callers always receive a canonical path regardless of whether probeGsdRoot
+379:     // returned a path through a symlink. Without this, the cached value can
+380:     // diverge from other realpath-normalized paths (e.g. workspace.identityKey).
+381:     const result = normalizeRealPath(probeGsdRoot(basePath));
+382:     // Defense-in-depth: if basePath resolves to the user's home directory and
+383:     // the result equals gsdHome(), refuse — project-scoped writes must never
+384:     // land in the global ~/.gsd. Paths under ~/.gsd/projects/<hash>/ are still
+385:     // valid (their basePath does not equal homedir).
+386:     assertNotGlobalGsdHome(basePath, result);
+387:     gsdRootCache.set(cacheKey, result);
+388:     return result;
+389: }
+390: function assertNotGlobalGsdHome(basePath, result) {
+391:     const norm = (p) => {
+392:         let r;
+393:         try {
+394:             r = realpathSync.native(p);
+395:         }
+396:         catch {
+397:             r = p;
+398:         }
+399:         const s = r.replaceAll("\\", "/").replace(/\/+$/, "");
+400:         return process.platform === "win32" ? s.toLowerCase() : s;
+401:     };
+402:     let baseNorm;
+403:     let homeNorm;
+404:     let resultNorm;
+405:     let gsdHomeNorm;
+406:     try {
+407:         baseNorm = norm(basePath);
+408:         homeNorm = norm(homedir());
+409:         resultNorm = norm(result);
+410:         gsdHomeNorm = norm(gsdHome());
+411:     }
+412:     catch {
+413:         return;
+414:     }
+415:     if (baseNorm === homeNorm && resultNorm === gsdHomeNorm) {
+416:         throw new Error(`Refusing to use ${result} as a project .gsd directory — that is the global GSD home. ` +
+417:             `Run GSD from inside a project directory.`);
+418:     }
+419: }
+420: /**
+421:  * Detect if a path is inside a .gsd/worktrees/<name>/ structure.
+422:  *
+423:  * GSD auto-worktrees live at <project>/.gsd/worktrees/<milestoneId>/.
+424:  * When gsdRoot() is called with such a path, we must NOT walk up to the
+425:  * project root's .gsd — each worktree manages its own .gsd state (#2594).
+426:  *
+427:  * Matches both forward-slash and platform-native separators to handle
+428:  * Windows paths (path.sep = '\\') and normalized Unix paths.
+429:  */
+430: function isInsideGsdWorktree(p) {
+431:     // Match /.gsd/worktrees/<name> where <name> is the final segment or
+432:     // followed by a separator. The <name> segment must be non-empty.
+433:     const sepFwd = "/";
+434:     const sepNative = "\\";
+435:     const markers = [
+436:         `${sepFwd}.gsd${sepFwd}worktrees${sepFwd}`,
+437:         `${sepNative}.gsd${sepNative}worktrees${sepNative}`,
+438:     ];
+439:     for (const marker of markers) {
+440:         const idx = p.indexOf(marker);
+441:         if (idx === -1)
+442:             continue;
+443:         // Verify there's a non-empty worktree name after the marker
+444:         const afterMarker = p.slice(idx + marker.length);
+445:         // The name is everything up to the next separator (or end of string)
+446:         const nameEnd = afterMarker.search(/[/\\]/);
+447:         const name = nameEnd === -1 ? afterMarker : afterMarker.slice(0, nameEnd);
+448:         if (name.length > 0)
+449:             return true;
+450:     }
+451:     return false;

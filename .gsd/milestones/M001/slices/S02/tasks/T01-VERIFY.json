@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T01",
+  "unitId": "M001/S02/T01",
+  "timestamp": 1780200327084,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "test -s .gsd/milestones/M001/M001-CONTEXT.md",
+      "exitCode": 0,
+      "durationMs": 6,
+      "verdict": "pass"
+    }
+  ]
+}

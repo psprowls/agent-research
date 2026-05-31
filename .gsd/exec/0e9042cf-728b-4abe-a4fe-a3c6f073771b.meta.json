@@ -1,0 +1,18 @@
+{
+  "id": "0e9042cf-728b-4abe-a4fe-a3c6f073771b",
+  "runtime": "bash",
+  "purpose": "discover available gsd requirement command surface",
+  "script_chars": 257,
+  "started_at": "2026-05-31T04:19:44.566Z",
+  "finished_at": "2026-05-31T04:19:44.688Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 122,
+  "stdout_bytes": 1617,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stderr"
+}

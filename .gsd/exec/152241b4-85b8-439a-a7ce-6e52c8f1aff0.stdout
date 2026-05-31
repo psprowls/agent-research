@@ -1,0 +1,29 @@
+Root files relevant:
+./.planning/MILESTONES.md
+./.planning/PROJECT.md
+./.planning/ROADMAP.md
+./pyproject.toml
+
+Workspace packages:
+agents/graph-wiki-agent/pyproject.toml
+packages/eval-harness/pyproject.toml
+packages/graph-io/pyproject.toml
+packages/model-adapter/pyproject.toml
+packages/source-parser/pyproject.toml
+packages/subagent-runtime/pyproject.toml
+packages/wiki-io/pyproject.toml
+packages/workspace-io/pyproject.toml
+
+Planning top-level sample:
+.planning/CONTINUE-sweep-harness-fixes-3.md
+.planning/deferred-items.md
+.planning/MILESTONES.md
+.planning/milestones/v1.11-ROADMAP.md
+.planning/PROJECT.md
+.planning/ROADMAP.md
+
+Root pyproject summary:
+project: None
+requires-python: None
+workspace members: ['packages/*', 'agents/*']
+dev groups: ['dev']

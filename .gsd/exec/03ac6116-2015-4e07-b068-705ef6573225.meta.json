@@ -1,0 +1,18 @@
+{
+  "id": "03ac6116-2015-4e07-b068-705ef6573225",
+  "runtime": "bash",
+  "purpose": "scan S02 legacy planning evidence files",
+  "script_chars": 1091,
+  "started_at": "2026-05-31T03:59:41.283Z",
+  "finished_at": "2026-05-31T03:59:41.371Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 88,
+  "stdout_bytes": 31225,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stderr"
+}

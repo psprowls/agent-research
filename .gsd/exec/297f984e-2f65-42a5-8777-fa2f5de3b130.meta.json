@@ -1,0 +1,18 @@
+{
+  "id": "297f984e-2f65-42a5-8777-fa2f5de3b130",
+  "runtime": "python",
+  "purpose": "Resolve S03 worktree cwd and roots for plan path validation",
+  "script_chars": 252,
+  "started_at": "2026-05-31T04:16:32.688Z",
+  "finished_at": "2026-05-31T04:16:32.741Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 53,
+  "stdout_bytes": 535,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stderr"
+}

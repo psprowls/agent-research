@@ -1,0 +1,64 @@
+
+--- .gsd/PROJECT.md ---
+15: `.gsd/` is the active source of truth for current planning, requirements, task execution, and milestone state. New project truth should be recorded in GSD artifacts first.
+50: - **v1.1 Quality Improvements** ported graph-wiki prompt content, added divergence evals, validated an early cost-frontier sweep, improved MCP cancellation behavior, and added structured trace/cost rendering.
+78: Future planning agents should start with `.gsd/PROJECT.md`, `.gsd/ROADMAP.md`, `.gsd/REQUIREMENTS.md`, and active milestone artifacts under `.gsd/milestones/`. Use `.planning/` only as reference evidence when current GSD
+
+--- .gsd/milestones/M001/M001-CONTEXT.md ---
+21: - Open `.gsd/REQUIREMENTS.md` and see which initialization capabilities are active, deferred, and explicitly out of scope.
+33: - Contract complete means: PROJECT, REQUIREMENTS, CONTEXT, DECISIONS, and ROADMAP artifacts exist with internally consistent current-state claims and requirement coverage.
+42: - `.gsd/REQUIREMENTS.md` separates active initialization requirements, deferred future work, and out-of-scope archive conversion.
+52: **Rationale:** The legacy archive is large: sampled evidence found versioned roadmaps/requirements, 42 phase contexts, 148 phase summaries, quick tasks, sketches, spikes, and deferred records. Copying it wholesale would 
+80: - Preserve uncertainty explicitly instead of silently converting it into requirements.
+109: - **v1.1 cost-frontier, eval, and observability foundation** — v1.1 ported lattice-wiki prompt content, added divergence detection and LLM-judge rubrics, validated a Bedrock cost-frontier sweep, proved MCP host cancellat
+146: - Any future milestone that resumes a legacy item should first verify the claim against current source and then create fresh `.gsd/` requirements and roadmap slices.
+148: ## Relevant Requirements
+150: - R001 — M001/S01 establishes `.gsd` as the active current source of truth.
+151: - R002 — M001/S02 preserves legacy high notes without wholesale archive conversion.
+152: - R003 — M001/S02 captures deferred work and caveats as labeled future context.
+153: - R004 — M001/S03 verifies artifact consistency and traceability.
+154: - R005 — M001/S04 produces an execution-ready roadmap.
+155: - R006 — Deferred future milestone for cost-frontier sweep debug and authoritative rerun.
+156: - R007 — Deferred optional archive index.
+157: - R008, R009, R010 — Explicit out-of-scope boundaries.
+174: - Exhaustive audit of every legacy phase, quick task, sketch, spike, or archived requirement.
+181: - Requirements must be capability-oriented and mapped to slices where active.
+187: - GSD artifact database/tools — `gsd_summary_save`, `gsd_requirement_save`, `gsd_plan_milestone`, and `gsd_decision_save` own rendered planning artifacts.
+191: ## Testing Requirements
+195: - Static artifact checks: PROJECT, REQUIREMENTS, CONTEXT, ROADMAP, and DECISIONS exist and render.
+196: - Traceability checks: active requirements map to M001 slices; deferred/out-of-scope requirements are not mapped as active execution.
+204: - S03: REQUIREMENTS separates active, deferred, and out-of-scope requirements with owners and traceability.
+
+--- .gsd/milestones/M001/M001-ROADMAP.md ---
+10: - Active requirements are mapped to demoable slices and no active requirement is orphaned.
+22:   > After this: REQUIREMENTS separates active initialization requirements, deferred future work, and explicit out-of-scope archive conversion.
+48: - Normalized active/deferred/out-of-scope requirement contract with slice ownership and traceability.
+59: - PROJECT, REQUIREMENTS, M001-CONTEXT, ROADMAP, and DECISIONS artifacts.
+
+--- .gsd/milestones/M001/slices/S01/S01-SUMMARY.md ---
+15:   - .gsd/REQUIREMENTS.md
+42: S01 produced and verified the root PROJECT artifact that future planning agents should treat as current truth. T01 corrected an earlier erroneous task-completion state and confirmed `.gsd/PROJECT.md` describes the reposi
+48: ## Requirements Advanced
+50: - R001 — Established and verified `.gsd/PROJECT.md` as the active current-truth artifact for future planning and execution.
+52: ## Requirements Validated
+54: - R001 — Closeout verification `fe713db8-1038-4cfb-b176-82eeef6657d7` proved the PROJECT artifact contains active-source-of-truth language, archive/reference boundary language, current live package names, and shipped tra
+56: ## New Requirements Surfaced
+60: ## Requirements Invalidated or Re-scoped
+74: S01 does not preserve detailed legacy high notes, normalize the full requirements contract, or perform final cross-artifact readiness validation; those remain assigned to S02, S03, and S04. No product runtime behavior wa
+83: - `.gsd/REQUIREMENTS.md` — R001 marked validated through the DB-backed requirement update path.
+
+--- .gsd/milestones/M001/slices/S02/S02-SUMMARY.md ---
+16:   - .gsd/REQUIREMENTS.md
+38: S02 extended `.gsd/milestones/M001/M001-CONTEXT.md` as a selective bridge from the archived pre-fork `.planning` material into active GSD context. T01 preserved the high-value shipped trajectory from v1.1 through v1.11 w
+44: ## Requirements Advanced
+46: - R002 — Added selective `.planning` high-note preservation to M001 context with source-path references and non-wholesale boundary language.
+47: - R003 — Labeled deferred sweep work, stale snapshot caveats, process-debt notes, and archive/reference boundaries in M001 context.
+49: ## Requirements Validated
+51: - R002 — `python .gsd/milestones/M001/slices/S02/verify_s02_context.py` exited 0 at closeout and verified the selective preserved high-note context.
+52: - R003 — `python .gsd/milestones/M001/slices/S02/verify_s02_context.py` exited 0 at closeout and verified deferred/caveat/archive-boundary labeling.
+54: ## New Requirements Surfaced
+58: ## Requirements Invalidated or Re-scoped
+68: T02 added a slice-level verifier and relaxed one brittle regex in that verifier after the context content proved correct. T02 could not update requirement metadata in its task session because the requirement-update tool 
+72: S02 intentionally preserves selected legacy high notes and caveats only; it does not convert or validate the full `.planning` archive. S03 still needs to consume this context to normalize active, deferred, and out-of-sco
+76: S03 should use the S02 context boundary and caveat set when mapping active/deferred/out-of-scope requirements.
+82: - `.gsd/REQUIREMENTS.md` — Regenerated by DB-backed requirement updates validating R002 and R003.

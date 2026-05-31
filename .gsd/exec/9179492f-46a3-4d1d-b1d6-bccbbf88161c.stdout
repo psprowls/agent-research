@@ -1,0 +1,15 @@
+.planning/PROJECT.md: True
+.planning/ROADMAP.md: True
+.planning/MILESTONES.md: True
+.planning/milestones/v1.11-ROADMAP.md: True
+.planning/CONTINUE-sweep-harness-fixes-3.md: True
+.planning/deferred-items.md: True
+pyproject.toml: True
+agents/graph-wiki-agent/pyproject.toml: True
+packages/eval-harness/pyproject.toml: True
+packages/graph-io/pyproject.toml: True
+packages/model-adapter/pyproject.toml: True
+packages/source-parser/pyproject.toml: True
+packages/subagent-runtime/pyproject.toml: True
+packages/wiki-io/pyproject.toml: True
+packages/workspace-io/pyproject.toml: True

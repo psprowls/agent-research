@@ -1,0 +1,18 @@
+{
+  "id": "5dfdb4b2-3251-4fd7-ae80-343ad50f34e4",
+  "runtime": "bash",
+  "purpose": "Find gsdRoot export wrapper",
+  "script_chars": 286,
+  "started_at": "2026-05-31T04:29:19.966Z",
+  "finished_at": "2026-05-31T04:29:20.001Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 35,
+  "stdout_bytes": 1129,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/5dfdb4b2-3251-4fd7-ae80-343ad50f34e4.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/5dfdb4b2-3251-4fd7-ae80-343ad50f34e4.stderr"
+}

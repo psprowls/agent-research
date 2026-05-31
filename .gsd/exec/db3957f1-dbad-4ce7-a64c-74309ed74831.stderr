@@ -1,0 +1,14 @@
+[gsd:manifest] ERROR: updateRequirementInDb failed {"fn":"updateRequirementInDb","error":"gsd-db: No database open"}
+file:///Users/pat/.gsd/agent/extensions/gsd/gsd-db.js:822
+        throw new GSDError(GSD_STALE_STATE, "gsd-db: No database open");
+              ^
+
+GSDError: gsd-db: No database open
+    at Module.upsertRequirement (file:///Users/pat/.gsd/agent/extensions/gsd/gsd-db.js:822:15)
+    at updateRequirementInDb (file:///Users/pat/.gsd/agent/extensions/gsd/db-writer.js:640:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/[eval1]:3:1 {
+  code: 'GSD_STALE_STATE'
+}
+
+Node.js v24.12.0

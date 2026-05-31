@@ -1,0 +1,18 @@
+{
+  "id": "30e0d86e-5aea-4128-9e78-573b5d8ed182",
+  "runtime": "bash",
+  "purpose": "Find legacy v1.6 trajectory references without dumping archive",
+  "script_chars": 427,
+  "started_at": "2026-05-31T04:04:08.459Z",
+  "finished_at": "2026-05-31T04:04:08.488Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 29,
+  "stdout_bytes": 6876,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "81a2890f-4c0c-4b50-8af0-17263ad1a9e8",
+  "runtime": "python",
+  "purpose": "Run S02 UAT artifact/runtime checks",
+  "script_chars": 1911,
+  "started_at": "2026-05-31T04:11:34.375Z",
+  "finished_at": "2026-05-31T04:11:34.469Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 94,
+  "stdout_bytes": 547,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/81a2890f-4c0c-4b50-8af0-17263ad1a9e8.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/81a2890f-4c0c-4b50-8af0-17263ad1a9e8.stderr"
+}

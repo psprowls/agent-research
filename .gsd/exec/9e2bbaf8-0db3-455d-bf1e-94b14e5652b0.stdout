@@ -1,0 +1,39 @@
+## pyproject.toml
+name: <root/no project>
+workspace members: packages/*, agents/*
+dependency-groups: dev
+
+## packages/eval-harness/pyproject.toml
+name: eval-harness
+deps: deepeval>=4.0.0; pytest-evals>=0.3.4; python-frontmatter>=1.1.0; aiobotocore>=2.13; graph-wiki-agent; subagent-runtime; model-adapter; graph-io; workspace-io
+
+## packages/graph-io/pyproject.toml
+name: graph-io
+deps: source-parser; workspace-io; pyyaml>=6.0
+scripts: {'cg': 'graph_io.cli.main:main'}
+
+## packages/model-adapter/pyproject.toml
+name: model-adapter
+deps: langchain-aws>=1.4.6; boto3>=1.38
+
+## packages/source-parser/pyproject.toml
+name: source-parser
+deps: tree-sitter>=0.23.0; tree-sitter-language-pack>=0.8.0,<=1.6.2
+
+## packages/subagent-runtime/pyproject.toml
+name: subagent-runtime
+deps: langchain-aws>=1.4.6; langchain-core>=1.4.0; model-adapter
+
+## packages/wiki-io/pyproject.toml
+name: wiki-io
+deps: python-frontmatter>=1.1; boto3>=1.38; workspace-io
+
+## packages/workspace-io/pyproject.toml
+name: workspace-io
+deps: pyyaml>=6.0
+
+## agents/graph-wiki-agent/pyproject.toml
+name: graph-wiki-agent
+deps: wiki-io; model-adapter; subagent-runtime; workspace-io; graph-io; bm25s==0.3.8; mcp>=1.27.1; langchain-aws>=1.4.7; typer>=0.25.1; pydantic>=2.0
+scripts: {'graph-wiki-agent': 'graph_wiki_agent.cli:app', 'graph-wiki-mcp': 'graph_wiki_agent.mcp.server:main'}
+

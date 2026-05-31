@@ -1,0 +1,5 @@
+.gsd/milestones/M001/M001-ROADMAP.md exists= True size= 2579
+.gsd/milestones/M001/slices/S03/S03-SUMMARY.md exists= True size= 6315
+.gsd/milestones/M001/slices/S03/S03-UAT.md exists= True size= 4076
+roadmap: - [ ] **S03: Normalize capability contract** `risk:medium` `depends:[S01,S02]`
+uat_head: ['# S03: Normalize capability contract — UAT', '', '**Milestone:** M001']

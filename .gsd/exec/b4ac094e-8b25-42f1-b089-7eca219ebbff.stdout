@@ -1,0 +1,23 @@
+.planning/PROJECT.md: exists=True size=71626
+.planning/MILESTONES.md: exists=True size=35040
+.planning/ROADMAP.md: exists=True size=15044
+.planning/CONTINUE-sweep-harness-fixes-3.md: exists=True size=6402
+.planning/deferred-items.md: exists=True size=769
+pyproject.toml: exists=True size=1101
+agents/graph-wiki-agent/pyproject.toml: exists=True size=999
+-- .planning/PROJECT.md
+  skipped: 6
+  Phase 50: 7
+  security: 8
+  Nyquist: 3
+-- .planning/CONTINUE-sweep-harness-fixes-3.md
+  sweep: 11
+  winner: 1
+  Fixes B through F: 0
+-- .planning/deferred-items.md
+  dev_dependencies: 1
+  test_graph_query_output: 3
+-- .planning/MILESTONES.md
+  v1.11: 1
+  v1.6: 4
+  v1.5: 4

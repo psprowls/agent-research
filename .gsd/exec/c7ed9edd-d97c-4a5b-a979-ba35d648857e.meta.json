@@ -1,0 +1,18 @@
+{
+  "id": "c7ed9edd-d97c-4a5b-a979-ba35d648857e",
+  "runtime": "bash",
+  "purpose": "inspect gsd directory for requirement stores",
+  "script_chars": 146,
+  "started_at": "2026-05-31T04:19:35.709Z",
+  "finished_at": "2026-05-31T04:19:35.757Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 48,
+  "stdout_bytes": 235,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/c7ed9edd-d97c-4a5b-a979-ba35d648857e.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/c7ed9edd-d97c-4a5b-a979-ba35d648857e.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "fb96677e-de4f-4b45-8ec0-c3021dd055f6",
+  "runtime": "bash",
+  "purpose": "T02 PROJECT artifact exact positive verification",
+  "script_chars": 536,
+  "started_at": "2026-05-31T03:54:29.177Z",
+  "finished_at": "2026-05-31T03:54:29.211Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 34,
+  "stdout_bytes": 0,
+  "stderr_bytes": 85,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/fb96677e-de4f-4b45-8ec0-c3021dd055f6.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/fb96677e-de4f-4b45-8ec0-c3021dd055f6.stderr"
+}

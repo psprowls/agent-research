@@ -1,0 +1,18 @@
+{
+  "id": "f8751cf7-3757-4f72-95f6-edbde4be6327",
+  "runtime": "bash",
+  "purpose": "find gsd db open API",
+  "script_chars": 335,
+  "started_at": "2026-05-31T04:24:03.040Z",
+  "finished_at": "2026-05-31T04:24:03.076Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 36,
+  "stdout_bytes": 1974,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f8751cf7-3757-4f72-95f6-edbde4be6327.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f8751cf7-3757-4f72-95f6-edbde4be6327.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "acd6bb4f-807d-42c5-961b-cf177a928855",
+  "runtime": "bash",
+  "purpose": "Run S04 readiness verifier after negative mutation fix",
+  "script_chars": 63,
+  "started_at": "2026-05-31T04:43:54.421Z",
+  "finished_at": "2026-05-31T04:43:54.554Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 133,
+  "stdout_bytes": 84,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/acd6bb4f-807d-42c5-961b-cf177a928855.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/acd6bb4f-807d-42c5-961b-cf177a928855.stderr"
+}

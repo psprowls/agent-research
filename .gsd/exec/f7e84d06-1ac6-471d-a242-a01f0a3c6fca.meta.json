@@ -1,0 +1,18 @@
+{
+  "id": "f7e84d06-1ac6-471d-a242-a01f0a3c6fca",
+  "runtime": "bash",
+  "purpose": "verify S01 planning paths exist and PROJECT target status",
+  "script_chars": 849,
+  "started_at": "2026-05-31T03:40:41.978Z",
+  "finished_at": "2026-05-31T03:40:42.036Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 58,
+  "stdout_bytes": 805,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f7e84d06-1ac6-471d-a242-a01f0a3c6fca.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f7e84d06-1ac6-471d-a242-a01f0a3c6fca.stderr"
+}

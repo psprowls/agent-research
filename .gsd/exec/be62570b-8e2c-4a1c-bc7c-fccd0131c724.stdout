@@ -1,0 +1,118 @@
+CWD=/Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001
+
+GSD files:
+- .gsd/DECISIONS.md
+- .gsd/event-log.jsonl
+- .gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.meta.json
+- .gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stderr
+- .gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stdout
+- .gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.meta.json
+- .gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stderr
+- .gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stdout
+- .gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.meta.json
+- .gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.stderr
+- .gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.stdout
+- .gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.meta.json
+- .gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stderr
+- .gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stdout
+- .gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.meta.json
+- .gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.stderr
+- .gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.stdout
+- .gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.meta.json
+- .gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.stderr
+- .gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.stdout
+- .gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.meta.json
+- .gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.stderr
+- .gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.stdout
+- .gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.meta.json
+- .gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.stderr
+- .gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.stdout
+- .gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.meta.json
+- .gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.stderr
+- .gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.stdout
+- .gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.meta.json
+- .gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.stderr
+- .gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.stdout
+- .gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.meta.json
+- .gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.stderr
+- .gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.stdout
+- .gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.meta.json
+- .gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.stderr
+- .gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.stdout
+- .gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.meta.json
+- .gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.stderr
+- .gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.stdout
+- .gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.meta.json
+- .gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.stderr
+- .gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.stdout
+- .gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.meta.json
+- .gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.stderr
+- .gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.stdout
+- .gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.meta.json
+- .gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stderr
+- .gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stdout
+- .gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.meta.json
+- .gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.stderr
+- .gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.stdout
+- .gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.meta.json
+- .gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.stderr
+- .gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.stdout
+- .gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.meta.json
+- .gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.stderr
+- .gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.stdout
+- .gsd/exec/2e029747-b530-453b-b065-285f570519ec.meta.json
+- .gsd/exec/2e029747-b530-453b-b065-285f570519ec.stderr
+- .gsd/exec/2e029747-b530-453b-b065-285f570519ec.stdout
+- .gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.meta.json
+- .gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.stderr
+- .gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.stdout
+- .gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.meta.json
+- .gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.stderr
+- .gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.stdout
+- .gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.meta.json
+- .gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stderr
+- .gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stdout
+- .gsd/exec/32340a70-a86b-4800-b149-e7429c803288.meta.json
+- .gsd/exec/32340a70-a86b-4800-b149-e7429c803288.stderr
+- .gsd/exec/32340a70-a86b-4800-b149-e7429c803288.stdout
+- .gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.meta.json
+- .gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.stderr
+- .gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.stdout
+- .gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.meta.json
+- .gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.stderr
+- .gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.stdout
+
+Workspace manifests:
+- ./agents/graph-wiki-agent/pyproject.toml
+- ./packages/eval-harness/pyproject.toml
+- ./packages/graph-io/pyproject.toml
+- ./packages/graph-io/tests/fixtures/sample_monorepo/packages/commonlib/pyproject.toml
+- ./packages/graph-io/tests/fixtures/sample_monorepo/packages/mypkg/pyproject.toml
+- ./packages/graph-io/tests/fixtures/sample_monorepo/packages/pyutil/pyproject.toml
+- ./packages/graph-io/tests/fixtures/sample_monorepo/packages/webutil/pyproject.toml
+- ./packages/graph-io/tests/fixtures/sample_monorepo/pyproject.toml
+- ./packages/model-adapter/pyproject.toml
+- ./packages/source-parser/pyproject.toml
+- ./packages/subagent-runtime/pyproject.toml
+- ./packages/wiki-io/pyproject.toml
+- ./packages/workspace-io/pyproject.toml
+- ./pyproject.toml
+
+Legacy planning high-value files existence:
+OK .planning/PROJECT.md
+OK .planning/ROADMAP.md
+OK .planning/MILESTONES.md
+OK .planning/milestones/v1.11-ROADMAP.md
+OK .planning/CONTINUE-sweep-harness-fixes-3.md
+OK .planning/deferred-items.md
+
+Current root pyproject relevant lines:
+pyproject.toml: ?
+packages/eval-harness/pyproject.toml: name = "eval-harness"
+packages/graph-io/pyproject.toml: name = "graph-io"
+packages/model-adapter/pyproject.toml: name = "model-adapter"
+packages/source-parser/pyproject.toml: name = "source-parser"
+packages/subagent-runtime/pyproject.toml: name = "subagent-runtime"
+packages/wiki-io/pyproject.toml: name = "wiki-io"
+packages/workspace-io/pyproject.toml: name = "workspace-io"
+agents/graph-wiki-agent/pyproject.toml: name = "graph-wiki-agent"

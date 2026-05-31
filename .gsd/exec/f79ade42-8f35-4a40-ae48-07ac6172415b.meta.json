@@ -1,0 +1,18 @@
+{
+  "id": "f79ade42-8f35-4a40-ae48-07ac6172415b",
+  "runtime": "bash",
+  "purpose": "Check cited source path existence concise",
+  "script_chars": 681,
+  "started_at": "2026-05-31T04:36:33.605Z",
+  "finished_at": "2026-05-31T04:36:33.660Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 55,
+  "stdout_bytes": 30,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f79ade42-8f35-4a40-ae48-07ac6172415b.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/f79ade42-8f35-4a40-ae48-07ac6172415b.stderr"
+}

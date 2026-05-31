@@ -1,0 +1,7 @@
+S02 final UAT evidence
+- PASS: Smoke test verifier exits 0 and reports pass: S02 context verifier passed: /Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/M001-CONTEXT.md
+- PASS: Selective high notes preserve legacy trajectory/source paths: section present; v1.1/v1.11 and .planning paths found
+- PASS: Deferred/caveat notes labeled and deferred sweep handoff present: deferred sweep handoff found
+- PASS: Stale sweep snapshots caveated with $7.02: stale $7.02 sweep caveat found
+- PASS: Historical process-debt caveats present: historical process-debt section found
+- PASS: No wholesale/exhaustive archive-conversion overclaim: no prohibited overclaims found; explicit boundary language found

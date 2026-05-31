@@ -1,0 +1,18 @@
+{
+  "id": "973624e7-234c-43b0-9952-9f68f19bdaaf",
+  "runtime": "python",
+  "purpose": "Locate D001-D003 decision context without dumping large files",
+  "script_chars": 1031,
+  "started_at": "2026-05-31T04:41:37.757Z",
+  "finished_at": "2026-05-31T04:41:38.395Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 638,
+  "stdout_bytes": 277539,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/973624e7-234c-43b0-9952-9f68f19bdaaf.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/973624e7-234c-43b0-9952-9f68f19bdaaf.stderr"
+}

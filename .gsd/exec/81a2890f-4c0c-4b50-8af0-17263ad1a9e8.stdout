@@ -1,0 +1,10 @@
+S02 UAT evidence summary
+- PASS: smoke verifier: S02 context verifier passed: /Users/pat/.gsd/projects/a9290fa6210b/worktrees/M001/.gsd/milestones/M001/M001-CONTEXT.md
+- PASS: context exists: ok
+- PASS: preserved legacy high-notes section present: ok
+- PASS: legacy source paths referenced: ok
+- PASS: deferred sweep handoff referenced: ok
+- PASS: stale sweep snapshots caveated with $7.02: ok
+- FAIL: process debt framed historically: missing/false
+- PASS: archive boundary / selected high notes: ok
+- PASS: no wholesale/exhaustive overclaim: ok

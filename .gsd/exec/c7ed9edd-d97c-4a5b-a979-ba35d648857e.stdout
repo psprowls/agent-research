@@ -1,0 +1,11 @@
+f .gsd/PROJECT.md 7257
+f .gsd/QUEUE.md 70
+f .gsd/ROADMAP.md 105
+f .gsd/STATE.md 971
+f .gsd/event-log.jsonl 2534
+d .gsd/exec 4672
+d .gsd/graphs 96
+d .gsd/milestones 96
+d .gsd/runtime 64
+d .gsd/safety 96
+f .gsd/state-manifest.json 74943

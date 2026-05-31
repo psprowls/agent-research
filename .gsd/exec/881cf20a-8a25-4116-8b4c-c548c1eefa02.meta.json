@@ -1,0 +1,18 @@
+{
+  "id": "881cf20a-8a25-4116-8b4c-c548c1eefa02",
+  "runtime": "python",
+  "purpose": "verify S03 completion contract after retry",
+  "script_chars": 887,
+  "started_at": "2026-05-31T04:34:17.261Z",
+  "finished_at": "2026-05-31T04:34:17.318Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 57,
+  "stdout_bytes": 82,
+  "stderr_bytes": 28,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/881cf20a-8a25-4116-8b4c-c548c1eefa02.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/881cf20a-8a25-4116-8b4c-c548c1eefa02.stderr"
+}

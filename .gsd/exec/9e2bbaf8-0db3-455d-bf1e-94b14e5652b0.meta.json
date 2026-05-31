@@ -1,0 +1,18 @@
+{
+  "id": "9e2bbaf8-0db3-455d-bf1e-94b14e5652b0",
+  "runtime": "bash",
+  "purpose": "extract workspace package dependency and entry point summary",
+  "script_chars": 810,
+  "started_at": "2026-05-31T14:01:21.296Z",
+  "finished_at": "2026-05-31T14:01:21.373Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 77,
+  "stdout_bytes": 1349,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/9e2bbaf8-0db3-455d-bf1e-94b14e5652b0.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/9e2bbaf8-0db3-455d-bf1e-94b14e5652b0.stderr"
+}

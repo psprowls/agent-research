@@ -1,0 +1,18 @@
+{
+  "id": "c60da9c0-0d23-4919-96ea-7e65c6b45257",
+  "runtime": "bash",
+  "purpose": "S04 canonical verifier for slice completion",
+  "script_chars": 63,
+  "started_at": "2026-05-31T04:49:07.142Z",
+  "finished_at": "2026-05-31T04:49:07.279Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 137,
+  "stdout_bytes": 84,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/c60da9c0-0d23-4919-96ea-7e65c6b45257.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/c60da9c0-0d23-4919-96ea-7e65c6b45257.stderr"
+}

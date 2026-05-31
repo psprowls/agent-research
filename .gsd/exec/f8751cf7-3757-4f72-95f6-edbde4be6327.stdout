@@ -1,0 +1,37 @@
+104 export function _isLikelyWslDrvFsPathForTest(dbPath) {
+146     backupDatabaseBeforeMigration(db, currentPath, currentVersion, {
+289 let currentPath = null;
+308  * NOTE: Only one connection is "active" at a time (currentDb/currentPath).
+369 export function openDatabaseByWorkspace(workspace) {
+376         currentPath = cached.dbPath;
+396         oldPath = currentPath;
+401             dbPath: currentPath,
+406         currentPath = null;
+422             currentPath = oldPath;
+436         currentPath = oldPath;
+446 export function openDatabaseByScope(scope) {
+483 export function wasDbOpenAttempted() {
+497 export function openDatabase(path) {
+499     if (currentDb && currentPath !== path)
+501     if (currentDb && currentPath === path)
+563     currentPath = path;
+605         currentPath = null;
+620 export function refreshOpenDatabaseFromDisk() {
+621     if (!currentDb || !currentPath)
+623     if (currentPath === ":memory:")
+625     const dbPath = currentPath;
+781 export function getDbPath() {
+782     return currentPath;
+787 export function _resetProvider() {
+1018 export function setSliceSketchFlag(milestoneId, sliceId, isSketch) {
+1140 export function setTaskBlockerDiscovered(milestoneId, sliceId, taskId, discovered) {
+1194 export function setTaskSummaryMd(milestoneId, sliceId, taskId, md) {
+1199 export function setSliceSummaryMd(milestoneId, sliceId, summaryMd, uatMd) {
+1261 export function setTaskEscalationPending(milestoneId, sliceId, taskId, artifactPath) {
+1271 export function setTaskEscalationAwaitingReview(milestoneId, sliceId, taskId, artifactPath) {
+1330 export function setTaskBlockerSource(milestoneId, sliceId, taskId, source) {
+1383 export function setMilestoneQueueOrder(order) {
+1514 export function copyWorktreeDb(srcDbPath, destDbPath) {
+1528 export function reconcileWorktreeDb(mainDbPath, worktreeDbPath) {
+2214 export function deleteArtifactByPath(path) {
+2277 export function setSliceReplanTriggeredAt(milestoneId, sliceId, ts) {

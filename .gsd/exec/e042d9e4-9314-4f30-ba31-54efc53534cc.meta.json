@@ -1,0 +1,18 @@
+{
+  "id": "e042d9e4-9314-4f30-ba31-54efc53534cc",
+  "runtime": "bash",
+  "purpose": "Check local GSD DB path exists",
+  "script_chars": 196,
+  "started_at": "2026-05-31T04:30:00.073Z",
+  "finished_at": "2026-05-31T04:30:00.107Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 34,
+  "stdout_bytes": 82,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/e042d9e4-9314-4f30-ba31-54efc53534cc.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/e042d9e4-9314-4f30-ba31-54efc53534cc.stderr"
+}

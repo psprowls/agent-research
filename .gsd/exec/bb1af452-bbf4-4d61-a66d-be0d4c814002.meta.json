@@ -1,0 +1,18 @@
+{
+  "id": "bb1af452-bbf4-4d61-a66d-be0d4c814002",
+  "runtime": "bash",
+  "purpose": "Inspect S02 context process/stale/caveat evidence snippets",
+  "script_chars": 322,
+  "started_at": "2026-05-31T04:11:45.009Z",
+  "finished_at": "2026-05-31T04:11:45.051Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 42,
+  "stdout_bytes": 6034,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/bb1af452-bbf4-4d61-a66d-be0d4c814002.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/bb1af452-bbf4-4d61-a66d-be0d4c814002.stderr"
+}

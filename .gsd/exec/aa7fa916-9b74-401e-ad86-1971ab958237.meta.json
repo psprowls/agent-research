@@ -1,0 +1,18 @@
+{
+  "id": "aa7fa916-9b74-401e-ad86-1971ab958237",
+  "runtime": "bash",
+  "purpose": "Summarize workspace member manifests for S01 package layout",
+  "script_chars": 583,
+  "started_at": "2026-05-31T03:38:43.878Z",
+  "finished_at": "2026-05-31T03:38:43.920Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 42,
+  "stdout_bytes": 1859,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/aa7fa916-9b74-401e-ad86-1971ab958237.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/aa7fa916-9b74-401e-ad86-1971ab958237.stderr"
+}

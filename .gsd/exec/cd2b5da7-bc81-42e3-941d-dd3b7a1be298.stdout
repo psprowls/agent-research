@@ -1,0 +1,153 @@
+branch: milestone/M001
+merge-base: 898b3b4a931f987436757d4f1b8e5261e8f4615a
+diff stat summary:
+ 440 files changed, 10380 insertions(+)
+
+top-level changed file counts:
+ 387 .gsd/exec
+  44 .gsd/milestones
+   1 .gsd/ROADMAP.md
+   1 .gsd/REQUIREMENTS.md
+   1 .gsd/QUEUE.md
+   1 .gsd/PROJECT.md
+   1 .gsd/gsd.db
+   1 .gsd/graphs
+   1 .gsd/DECISIONS.md
+   1 .gitignore/
+   1 .bg-shell/manifest.json
+
+name-status first 120:
+A	.bg-shell/manifest.json
+M	.gitignore
+A	.gsd/DECISIONS.md
+A	.gsd/PROJECT.md
+A	.gsd/QUEUE.md
+A	.gsd/REQUIREMENTS.md
+A	.gsd/ROADMAP.md
+A	.gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.meta.json
+A	.gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stderr
+A	.gsd/exec/03ac6116-2015-4e07-b068-705ef6573225.stdout
+A	.gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.meta.json
+A	.gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stderr
+A	.gsd/exec/040db84d-2aa4-42a9-a7df-35cb19acc30d.stdout
+A	.gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.meta.json
+A	.gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.stderr
+A	.gsd/exec/046236f2-fbdc-4897-b399-0d9c8a79f24a.stdout
+A	.gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.meta.json
+A	.gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stderr
+A	.gsd/exec/0e9042cf-728b-4abe-a4fe-a3c6f073771b.stdout
+A	.gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.meta.json
+A	.gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.stderr
+A	.gsd/exec/10ca921a-d554-4d6f-834f-c1ec10a64922.stdout
+A	.gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.meta.json
+A	.gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.stderr
+A	.gsd/exec/124b2a8d-d81d-4d76-955c-df180a9ffd9e.stdout
+A	.gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.meta.json
+A	.gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.stderr
+A	.gsd/exec/146cdc51-0f17-4ed6-80de-f14bd8053ee2.stdout
+A	.gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.meta.json
+A	.gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.stderr
+A	.gsd/exec/152241b4-85b8-439a-a7ce-6e52c8f1aff0.stdout
+A	.gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.meta.json
+A	.gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.stderr
+A	.gsd/exec/15fea962-b79f-4b23-abbb-01e214163c19.stdout
+A	.gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.meta.json
+A	.gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.stderr
+A	.gsd/exec/1a3b7408-cf2e-4bd4-b1ce-62653ddb80d0.stdout
+A	.gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.meta.json
+A	.gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.stderr
+A	.gsd/exec/1b94a53e-6bbb-4cae-b402-9cc8ee0c9463.stdout
+A	.gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.meta.json
+A	.gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.stderr
+A	.gsd/exec/1d8b0ffd-9d89-4d46-ae94-663d4d11cc65.stdout
+A	.gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.meta.json
+A	.gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.stderr
+A	.gsd/exec/1e6df2ff-5702-41d8-a3e0-cce76e6ec636.stdout
+A	.gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.meta.json
+A	.gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.stderr
+A	.gsd/exec/1f953f27-755e-43a0-8394-7bcc455043fd.stdout
+A	.gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.meta.json
+A	.gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.stderr
+A	.gsd/exec/2620cb4b-28ef-4869-bd35-6591a3811289.stdout
+A	.gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.meta.json
+A	.gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stderr
+A	.gsd/exec/297f984e-2f65-42a5-8777-fa2f5de3b130.stdout
+A	.gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.meta.json
+A	.gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.stderr
+A	.gsd/exec/29c42988-bc1f-4eb8-90d3-55373ce864bc.stdout
+A	.gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.meta.json
+A	.gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.stderr
+A	.gsd/exec/2b293431-ef76-4c50-a0c0-bd4ff38417b3.stdout
+A	.gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.meta.json
+A	.gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.stderr
+A	.gsd/exec/2df074eb-5ad5-415c-81e5-a6938f486355.stdout
+A	.gsd/exec/2e029747-b530-453b-b065-285f570519ec.meta.json
+A	.gsd/exec/2e029747-b530-453b-b065-285f570519ec.stderr
+A	.gsd/exec/2e029747-b530-453b-b065-285f570519ec.stdout
+A	.gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.meta.json
+A	.gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.stderr
+A	.gsd/exec/2e401c42-b032-419b-843b-66fe1bed4e6f.stdout
+A	.gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.meta.json
+A	.gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.stderr
+A	.gsd/exec/2e76dbca-9769-48e8-b3aa-6e056bd76ad4.stdout
+A	.gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.meta.json
+A	.gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stderr
+A	.gsd/exec/30e0d86e-5aea-4128-9e78-573b5d8ed182.stdout
+A	.gsd/exec/32340a70-a86b-4800-b149-e7429c803288.meta.json
+A	.gsd/exec/32340a70-a86b-4800-b149-e7429c803288.stderr
+A	.gsd/exec/32340a70-a86b-4800-b149-e7429c803288.stdout
+A	.gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.meta.json
+A	.gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.stderr
+A	.gsd/exec/386e8f8a-8358-4bce-9188-d9cc758f8c25.stdout
+A	.gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.meta.json
+A	.gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.stderr
+A	.gsd/exec/391b3db7-7477-48fb-a4cf-a5fe1addfed2.stdout
+A	.gsd/exec/3b379315-fe73-45e8-9d18-e08ef4442804.meta.json
+A	.gsd/exec/3b379315-fe73-45e8-9d18-e08ef4442804.stderr
+A	.gsd/exec/3b379315-fe73-45e8-9d18-e08ef4442804.stdout
+A	.gsd/exec/3ce32f02-c1d5-48b3-b3d9-d1ec960c15be.meta.json
+A	.gsd/exec/3ce32f02-c1d5-48b3-b3d9-d1ec960c15be.stderr
+A	.gsd/exec/3ce32f02-c1d5-48b3-b3d9-d1ec960c15be.stdout
+A	.gsd/exec/451a1c23-fa6d-42b0-938a-5886594e90a1.meta.json
+A	.gsd/exec/451a1c23-fa6d-42b0-938a-5886594e90a1.stderr
+A	.gsd/exec/451a1c23-fa6d-42b0-938a-5886594e90a1.stdout
+A	.gsd/exec/45484d1f-6487-441c-b279-932ffa831661.meta.json
+A	.gsd/exec/45484d1f-6487-441c-b279-932ffa831661.stderr
+A	.gsd/exec/45484d1f-6487-441c-b279-932ffa831661.stdout
+A	.gsd/exec/46699371-7623-444d-a56b-d4b2ea64d026.meta.json
+A	.gsd/exec/46699371-7623-444d-a56b-d4b2ea64d026.stderr
+A	.gsd/exec/46699371-7623-444d-a56b-d4b2ea64d026.stdout
+A	.gsd/exec/48cf244a-887e-4abd-83d9-d75d35438f48.meta.json
+A	.gsd/exec/48cf244a-887e-4abd-83d9-d75d35438f48.stderr
+A	.gsd/exec/48cf244a-887e-4abd-83d9-d75d35438f48.stdout
+A	.gsd/exec/4a5299b2-889c-4fe8-88c1-dfcde8a6d898.meta.json
+A	.gsd/exec/4a5299b2-889c-4fe8-88c1-dfcde8a6d898.stderr
+A	.gsd/exec/4a5299b2-889c-4fe8-88c1-dfcde8a6d898.stdout
+A	.gsd/exec/4d2fdfb8-b78d-42bc-9076-28a27ae3b351.meta.json
+A	.gsd/exec/4d2fdfb8-b78d-42bc-9076-28a27ae3b351.stderr
+A	.gsd/exec/4d2fdfb8-b78d-42bc-9076-28a27ae3b351.stdout
+A	.gsd/exec/4eae76c9-058f-4e6e-b305-9fa52a8f8cc6.meta.json
+A	.gsd/exec/4eae76c9-058f-4e6e-b305-9fa52a8f8cc6.stderr
+A	.gsd/exec/4eae76c9-058f-4e6e-b305-9fa52a8f8cc6.stdout
+A	.gsd/exec/4f9a183b-eba9-49f0-9fe6-a41b1f2f4b04.meta.json
+A	.gsd/exec/4f9a183b-eba9-49f0-9fe6-a41b1f2f4b04.stderr
+A	.gsd/exec/4f9a183b-eba9-49f0-9fe6-a41b1f2f4b04.stdout
+A	.gsd/exec/50157da1-3806-463a-b746-14b0bcf64875.meta.json
+A	.gsd/exec/50157da1-3806-463a-b746-14b0bcf64875.stderr
+A	.gsd/exec/50157da1-3806-463a-b746-14b0bcf64875.stdout
+A	.gsd/exec/51b544c6-1ca6-4a6f-a65b-0cbbc642f3b4.meta.json
+A	.gsd/exec/51b544c6-1ca6-4a6f-a65b-0cbbc642f3b4.stderr
+
+commits since main:
+6223931 (HEAD -> milestone/M001) Complete M001 GSD initialization
+206b878 chore: auto-commit after complete-milestone-preflight
+e4145e1 feat: Validated R005 in the requirements projection after fresh S02,...
+83e1473 feat: Restored the M001 decisions projection and added the composed S...
+fa76f49 feat: Added an executable S03 requirements verifier and validated R00...
+746a445 feat: Hardened deferred and out-of-scope requirement records, adding...
+38be5f2 feat: Rendered the DB-backed requirements contract and normalized act...
+74fca5a chore: Labeled deferred sweep, stale snapshot, historical process-deb...
+fa9358a feat: Added a selective preserved high-notes section to M001 context...
+3f5cafb chore: Verified the PROJECT artifact’s current-truth claims and arc...
+4606eb4 chore: auto-commit after stop
+6702d10 feat: Placeholder attempt to discover available GSD tools

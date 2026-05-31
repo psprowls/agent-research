@@ -1,0 +1,18 @@
+{
+  "id": "fd089203-a87c-40bb-9f7b-53a7088746bd",
+  "runtime": "bash",
+  "purpose": "mirror regenerated requirements projection into worktree",
+  "script_chars": 521,
+  "started_at": "2026-05-31T04:25:35.313Z",
+  "finished_at": "2026-05-31T04:25:35.350Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 37,
+  "stdout_bytes": 69,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/fd089203-a87c-40bb-9f7b-53a7088746bd.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/fd089203-a87c-40bb-9f7b-53a7088746bd.stderr"
+}

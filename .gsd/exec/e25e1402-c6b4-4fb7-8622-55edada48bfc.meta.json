@@ -1,0 +1,18 @@
+{
+  "id": "e25e1402-c6b4-4fb7-8622-55edada48bfc",
+  "runtime": "bash",
+  "purpose": "Compare main-only and milestone-only changes for M001 merge blocker",
+  "script_chars": 448,
+  "started_at": "2026-05-31T13:58:02.683Z",
+  "finished_at": "2026-05-31T13:58:02.917Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 234,
+  "stdout_bytes": 6011,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/e25e1402-c6b4-4fb7-8622-55edada48bfc.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/e25e1402-c6b4-4fb7-8622-55edada48bfc.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "6830b439-b3a3-4969-aee8-d2befd3ab52e",
+  "runtime": "bash",
+  "purpose": "S04 cross-artifact readiness gap scan",
+  "script_chars": 1325,
+  "started_at": "2026-05-31T04:35:50.623Z",
+  "finished_at": "2026-05-31T04:35:50.655Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 32,
+  "stdout_bytes": 1257,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/6830b439-b3a3-4969-aee8-d2befd3ab52e.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/6830b439-b3a3-4969-aee8-d2befd3ab52e.stderr"
+}

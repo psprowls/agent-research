@@ -1,0 +1,18 @@
+{
+  "id": "980ae5ef-d6c9-467f-8f66-53d621e5c297",
+  "runtime": "bash",
+  "purpose": "inspect requirement DB schema and current rows",
+  "script_chars": 425,
+  "started_at": "2026-05-31T04:23:53.120Z",
+  "finished_at": "2026-05-31T04:23:53.165Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 45,
+  "stdout_bytes": 14,
+  "stderr_bytes": 498,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/980ae5ef-d6c9-467f-8f66-53d621e5c297.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/worktrees/M001/.gsd/exec/980ae5ef-d6c9-467f-8f66-53d621e5c297.stderr"
+}
