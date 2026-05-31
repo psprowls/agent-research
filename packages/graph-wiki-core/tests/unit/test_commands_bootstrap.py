@@ -15,6 +15,9 @@ from unittest.mock import patch
 
 import pytest
 
+from workspace_io.manifest import read as read_manifest
+from workspace_io.paths import manifest_path
+
 
 # ---------------------------------------------------------------------------
 # Helper
@@ -92,3 +95,52 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
     assert Path(result.work_path).name == "work"
     assert Path(result.raw_path).is_dir()
     assert Path(result.work_path).is_dir()
+
+
+@pytest.mark.asyncio
+async def test_run_init_registers_agent_plugin_identity_with_core_version(
+    tmp_path: Path,
+) -> None:
+    """run_init() writes stable graph-wiki-agent identity using core dist version."""
+    workspace = tmp_path / "workspace"
+    repo = tmp_path / "repo"
+    workspace.mkdir()
+    repo.mkdir()
+    wiki = workspace / "wiki"
+
+    from graph_wiki_core.commands.init import run_init
+
+    with (
+        patch("graph_wiki_core.commands.init.importlib.metadata.version", return_value="9.8.7"),
+        patch(
+            "graph_wiki_core.commands.init.init_wiki",
+            return_value={
+                "status": "ok",
+                "wiki_path": str(wiki),
+                "repo_path": str(repo),
+                "topic": "test-topic",
+                "tool": "claude-code",
+                "date": "2026-05-14",
+                "installed_files": [],
+                "page_templates_copied": 0,
+                "layers": {},
+                "raw_path": str(workspace / "raw"),
+                "work_path": str(workspace / "work"),
+            },
+        ),
+    ):
+        await run_init(
+            topic="test-topic",
+            tool="claude-code",
+            force=True,
+            workspace_path=workspace,
+            repo_path=repo,
+        )
+
+    plugins = read_manifest(manifest_path(workspace))["plugins"]
+    assert {
+        "name": "graph-wiki-agent",
+        "installed_version": "9.8.7",
+        "applied_version": "9.8.7",
+    } in plugins
+    assert all(p["name"] != "graph-wiki-core" for p in plugins)

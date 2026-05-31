@@ -66,14 +66,16 @@ async def run_init(
     """
     # Phase 1 (D-07): bootstrap the workspace shell — creates the workspace
     # directory, writes `.graph-wiki.yaml`, ensures `.graph-wiki.local.yaml`
-    # is gitignored, and registers `graph-wiki-core` as a plugin entry
+    # is gitignored, and registers the stable plugin identity. The manifest
+    # plugin name remains `graph-wiki-agent` (D004/R012), even though the
+    # current Python distribution that supplies the version is `graph-wiki-core`
     # (D-12: installed_version == applied_version, sourced from
     # importlib.metadata per D-13).
     repo_root = repo_path if repo_path is not None else Path.cwd()
     _ws_init(
         repo_root,
         workspace=workspace_path,
-        plugin="graph-wiki-core",
+        plugin="graph-wiki-agent",
         version=importlib.metadata.version("graph-wiki-core"),
     )
 

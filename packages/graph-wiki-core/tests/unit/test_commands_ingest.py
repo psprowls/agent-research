@@ -682,7 +682,8 @@ async def test_run_ingest_source_not_initialized_raises_typed_exception(
 
     msg = str(exc_info.value)
     assert "graph-io not initialized for this workspace" in msg
-    assert "graph-wiki-core graph build" in msg
+    assert "Run 'gw graph build'" in msg
+    assert "graph-wiki-core graph build" not in msg
     assert mock_make_llm.call_count == 0, (
         f"LLM must NOT be invoked on NOT_INITIALIZED path; was called {mock_make_llm.call_count}x"
     )

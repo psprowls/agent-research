@@ -72,7 +72,7 @@ class IngestorGraphNotInitializedError(RuntimeError):
         self.workspace = workspace
         super().__init__(
             "error: graph-io not initialized for this workspace. "
-            "Run 'graph-wiki-core graph build' (or 'cg update') to initialize, then retry."
+            "Run 'gw graph build' (or 'cg update') to initialize, then retry."
         )
 
 # Matches YAML list items with any indentation (2-space, 4-space, tab)
