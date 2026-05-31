@@ -2,7 +2,7 @@
 
 **Project:** agent-research (v1 = graph-wiki-agent)
 **Created:** 2026-05-13
-**Current milestone:** v1.11 — Cost-Frontier Sweep Harness (in progress; Phase 60)
+**Current milestone:** v1.11 — TypeScript Type Node Kind (in progress; Phase 61)
 
 ---
 
@@ -19,7 +19,7 @@
 - ✅ **v1.8 — Wiki Entity Restructure** — Phases 42-48 (shipped 2026-05-27) — [archive](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 — Graph Refinements & Wiki Filename Slimdown** — Phases 49-53 (shipped 2026-05-28) — [archive](milestones/v1.9-ROADMAP.md)
 - ✅ **v1.10 — Wiki Index & Entity Page Enrichment** — Phases 54-59 (shipped 2026-05-29) — [archive](milestones/v1.10-ROADMAP.md)
-- 🔄 **v1.11 — Cost-Frontier Sweep Harness** — Phases 60-61 (in progress)
+- 🔄 **v1.11 — TypeScript Type Node Kind** — Phase 61 (in progress)
 
 ---
 
@@ -177,9 +177,8 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 </details>
 
 <details open>
-<summary>🔄 v1.11 Cost-Frontier Sweep Harness (Phase 60) — IN PROGRESS</summary>
+<summary>🔄 v1.11 TypeScript Type Node Kind (Phase 61) — IN PROGRESS</summary>
 
-- [ ] Phase 60: Cost-Frontier Sweep Harness — repair the per-role Bedrock model sweep (harness fixes B–F landed as quick tasks) and produce a clean, trustworthy winner table. Remaining: round-3 answer-degradation debug → clean re-run → winner selection. See [`phases/60-cost-frontier-sweep-harness/60-CONTEXT.md`](phases/60-cost-frontier-sweep-harness/60-CONTEXT.md) and [`CONTINUE-sweep-harness-fixes-3.md`](CONTINUE-sweep-harness-fixes-3.md).
 - [ ] Phase 61: TypeScript `type` Node Kind — surface TS `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in `ts_kind` attr) in source-parser + graph-io, fixing the projection bug that mislabels exported types as `function`. See [`phases/61-ts-type-node-kind/61-CONTEXT.md`](phases/61-ts-type-node-kind/61-CONTEXT.md).
 
 </details>
@@ -249,9 +248,8 @@ Full detail: [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 | 57. Index Generation Polish | v1.10 | 1/1 | Complete   | 2026-05-29 |
 | 58. Entity Page & Index UAT Follow-Ups | v1.10 | 3/3 | Complete   | 2026-05-29 |
 | 59. Decouple graph-wiki-agent from `graph_io.cli` | v1.10 | 3/3 | Complete   | 2026-05-29 |
-| 60. Cost-Frontier Sweep Harness | v1.11 | –/– | In progress | — |
 | 61. TypeScript `type` Node Kind | v1.11 | 0/3 | Planned | — |
 
 ---
 
-*Last updated: 2026-05-30 — Phase 61 (TypeScript `type` node kind — source-parser + graph-io) added & planned under v1.11 (note: thematically distinct from the Cost-Frontier Sweep milestone; candidate to re-home to its own milestone). v1.11 (Cost-Frontier Sweep Harness) opened; Phase 60 in progress (harness fixes B–F landed as quick tasks since v1.10; round-3 debug + clean re-run + winner selection remaining). v1.10 shipped & archived (Phases 54-59).*
+*Last updated: 2026-05-30 — Milestone v1.11 renamed "Cost-Frontier Sweep Harness" → "TypeScript Type Node Kind" and Phase 60 (cost-frontier-sweep-harness) dropped: the cost-role sweep is deferred until the evals are reworked. No code lost — sweep harness fixes B–F are already on `main`; remaining debug → clean re-run → winner-selection work is parked in [`CONTINUE-sweep-harness-fixes-3.md`](CONTINUE-sweep-harness-fixes-3.md) for a future milestone. v1.11 now holds only Phase 61 (TypeScript `type` node kind — source-parser + graph-io), planned & ready to execute. v1.10 shipped & archived (Phases 54-59).*

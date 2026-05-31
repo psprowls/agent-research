@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.11
-milestone_name: Cost-Frontier Sweep Harness
+milestone_name: TypeScript Type Node Kind
 status: In progress
-stopped_at: Phase 60 in progress — harness fixes B–F landed; round-3 answer-degradation debug pending
+stopped_at: Phase 61 planned (3 plans, 0 summaries) — ready to execute. Phase 60 (cost-frontier sweep) dropped/deferred.
 last_updated: "2026-05-30T20:25:00.000Z"
 last_activity: 2026-05-30 — Fix JS/npm dependency population in graph_io (260530-k5y): dep nodes (ecosystem=npm), used_by edges, dev marker, internal-workspace routing, versions_in_use; DERIVER_VERSION=3; 495 graph-io tests green
 progress:
@@ -16,8 +16,8 @@ progress:
 
 # Project State: agent-research
 
-**Last updated:** 2026-05-30 — v1.11 (Cost-Frontier Sweep Harness) opened; Phase 60 scaffolded
-**Updated by:** manual scaffold (lightweight new-milestone)
+**Last updated:** 2026-05-30 — v1.11 renamed to "TypeScript Type Node Kind"; Phase 60 (cost-frontier sweep) dropped/deferred
+**Updated by:** /gsd-progress → phase drop + milestone rename
 
 ---
 
@@ -27,21 +27,23 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.11 / Phase 60 — Cost-Frontier Sweep Harness. Harness fixes B–F have landed (as quick tasks since v1.10); the `$3.46` full re-run verified D/E/F mechanically but is NOT authoritative (judge-able quality collapsed). Remaining: round-3 answer-degradation debug → clean re-run → winner selection.
+**Current Focus:** v1.11 / Phase 61 — TypeScript `type` Node Kind. Surface TS `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in `ts_kind` attr) in source-parser + graph-io, fixing the projection bug that mislabels exported types as `function`. Planned (3 plans), ready to execute.
+
+**Deferred:** The cost-frontier per-role sweep (formerly Phase 60) is parked until the evals are reworked. No code lost — harness fixes B–F are on `main`; the remaining debug → clean re-run → winner-selection work lives in `.planning/CONTINUE-sweep-harness-fixes-3.md` and is a candidate for its own future milestone.
 
 ---
 
 ## Current Position
 
-Phase: 60 — Cost-Frontier Sweep Harness (v1.11) — in progress
-Plan: — (retroactive scaffold; sub-work landed as quick tasks)
-Status: In progress — round-3 debug RESOLVED; sweep model-set refreshed (Haiku purged); clean full re-run pending
+Phase: 61 — TypeScript `type` Node Kind (v1.11) — planned, ready to execute
+Plan: 0/3 summaries (61-01, 61-02, 61-03 planned; 61-CONTEXT.md present)
+Status: Ready to execute — `/gsd-execute-phase 61`
 Last activity: 2026-05-30 — Completed a parallel batch of 4 graph/bootstrap quick tasks (concurrent isolated worktrees): 260530-iqo (deriver-version-stamp → auto full rebuild on logic change), 260530-iqp (remove legacy apps/packages/domains/dependencies bootstrap folders), 260530-iqq (scope gitignore entry to workspace dir), 260530-iqr (converge propose_domains onto shared _resolve_paths). All merged to main; affected suites green (graph-io/wiki-io/workspace-io 954 passed; graph-wiki-agent green modulo 2 pre-existing unrelated fails). Then 260530-jap (dist/build import-target node sweep — `resolve.sweep_skip_dir_files`, DERIVER_VERSION 1→2, full graph-io suite 487 passed). Earlier: 260530-hxy (graph build repo resolution). Phase 60 (cost-frontier sweep) still parked until the graph is trustworthy + a clean baseline can be established. Then RESOLVED the "functions missing path/line" investigation todo: full-rebuilt mono-repo's graph against the post-sweep deriver (v2) and captured before/after — file nodes 4633→1463, the 2455 path-less functions are UNCHANGED and all are unresolved call-edge targets → confirmed EXPECTED (out-of-tree symbols, no in-tree location), not a bug. No code change; JS-dep injection is now an enhancement, not a fix. Then 260530-nfj: added `scripts/graph_health.py` (read-only code.db auditor) for future diagnostics. **CORRECTION (quick-260530-nsr, 2026-05-30):** the earlier "NULL-uri files 3170→0" claim was MISREAD as a health win — pre-fix a `--full` rebuild zeroed NULL-uri files by DELETING the specifier-path import stubs (cleanup at update.py:285-299), which cascade-deleted ALL import edges, leaving the file-to-file import graph EMPTY (imports edges 0). The `scan`/incremental path conversely kept 3003 NULL-uri stubs + ~5600 all-unresolved import edges; the two results did not actually contradict — both reflected the same unresolved-specifier bug, one via deletion, one via accumulation. nsr fixed it: a new `resolve.resolve_file_imports` pass repoints in-repo import specifiers to real file nodes BEFORE the full-mode cleanup (DERIVER_VERSION 3→4), plus a conservative single-candidate cross-kind call/export fallback (resolves only on EXACTLY ONE graph-wide name match — bare-name collisions stay unresolved, so the false-positive risk flagged above is avoided). Post-fix live re-audit of mono-repo-live: **full** build → imports edges 822 ALL exact-resolved, NULL-uri files 0 (idempotent across repeat full + incremental); **fresh scan (full=False)** → 822 in-repo specifiers exact-resolved, 4168 genuinely-external (react/@electron-forge/bare scoped pkgs) correctly unresolved, 2176 NULL-uri stubs retained (still referenced by their unresolved edges — not orphans). Both prior open questions (scan-vs-full reconciliation; cross-kind safety) are now resolved. Then 260530-pk3: fixed source-parser dropping arrow-function consts — `_generic.py` now captures `const x = () =>`/`export const x = async () =>` (and `function_expression` consts) as named definition nodes via `_arrow_consts_in()`, and `_extract_exports` no longer leaks arrow param names as bogus exports; TS covered via config inheritance; full source-parser suite 78 passed, live probe confirms isAtLocation/isContains/App resolve with correct lines. (NOTE: this is a distinct, real bug from the path-less-function investigation above — that one was unresolved out-of-tree CALL targets; this one is in-tree arrow DEFINITIONS never emitted. A mono-repo-live graph rebuild will now resolve many previously-pathless arrow-const symbols.)
 
 ## Progress Bar
 
 ```
-v1.11: [░░░░] Phase 60 in progress — harness fixes B–F landed; debug → re-run → winners remaining
+v1.11: [░░░░] Phase 61 planned (0/3) — ready to execute; Phase 60 (cost-frontier sweep) deferred
 ```
 
 ## Performance Metrics
@@ -87,7 +89,7 @@ None.
 | 260530-nsr | Fix graph-io file-import resolution (root cause behind nfj's 3003 NULL-uri `file` stubs). `projections/graph.py` emits `imports` edges as dst=("file", name, raw_specifier) and nothing maps the specifier to the real file — so `scan`/incremental left ~5600 all-unresolved import edges + stub nodes, while `--full` let update.py's cleanup DELETE purge the stubs and cascade-delete EVERY import edge (file-import graph → 0; corrects the earlier "3170→0 healthy" misread). FIX: new `resolve.resolve_file_imports` repoints specifier stubs to real file nodes (exact/ambiguous; external left unresolved, never fabricated), wired BEFORE the full-mode cleanup so resolved edges survive; generalized `import_scan` JS-relative + python-dotted resolvers to return a FILE; `dst.name!=dst.path` idempotency guard. PLUS conservative cross-kind call/export fallback (resolves only on EXACTLY ONE graph-wide name match — bare-name collisions stay unresolved). DERIVER_VERSION 3→4. TDD; full graph-io suite 508 passed (3 skip, 1 xfail), +13 tests. Live re-audit mono-repo-live: full → 822 imports ALL exact-resolved, 0 NULL-uri files (idempotent); scan → 822 in-repo resolved + 4168 genuinely-external unresolved. Validated (plan-check PASS + verify 7/7). | 2026-05-30 | 7db81a0 | [260530-nsr-fix-graph-io-file-import-resolution-so-i](./quick/260530-nsr-fix-graph-io-file-import-resolution-so-i/) |
 | 260530-pk3 | Fix source-parser arrow-function const resolution — `const x = () => {}` and `export const x = async () => {}` were never captured as definition nodes (only `function_declaration` resolved), so call sites left pathless `function` stubs (70% of `function` nodes in mono-repo-live's graph: 2048/2929). Root cause in `_generic.py`: (1) `_walk_container` only descended one level into `export_statement` and had no branch for `lexical_declaration`/`variable_declaration` → arrow/fn-expr declarator values skipped; (2) `_resolve_name` can't name an `arrow_function` (name lives on the sibling `variable_declarator.name`). Collateral: `_extract_exports`' descendant-identifier `walk()` leaked arrow PARAM names (`context`/`currentBatch`/...) as bogus export refs → junk stub nodes. FIX: new `_arrow_consts_in()` builds named function nodes from arrow/`function_expression` declarator values (name from declarator, line from the `const`), wired at top level + inside `export_statement`; `_extract_exports` tightened to emit only the declared NAME for `export const NAME = ...` (all value kinds, fixing a `re_export_source` regression). TS inherits via `replace()` so `.ts`/`.tsx` covered. TDD: 5 RED tests (top-level arrow, exported async arrow, TS arrow, fn-expr const, export-param-leakage guard) via real `JavaScriptParser`/`TypeScriptParser`. Full source-parser suite 78 passed on merged main; live probe confirms isAtLocation/isContains/App now resolve with correct lines and exports no longer leak params. Ran in isolated worktree. | 2026-05-30 | 57201ae | [260530-pk3-fix-source-parser-arrow-function-const-r](./quick/260530-pk3-fix-source-parser-arrow-function-const-r/) |
 
-> **Note (2026-05-30):** the cost-frontier-sweep quick tasks above (na9/ox1/pf8/pzd/q8r/sot) are now organized under **v1.11 / Phase 60** — see `.planning/phases/60-cost-frontier-sweep-harness/60-CONTEXT.md`.
+> **Note (2026-05-30):** the cost-frontier-sweep quick tasks above (na9/ox1/pf8/pzd/q8r/sot) landed on `main`. The sweep itself (run + winner selection) was **deferred** out of v1.11 on 2026-05-30 (Phase 60 dropped, milestone renamed to "TypeScript Type Node Kind"). Remaining-work record: `.planning/CONTINUE-sweep-harness-fixes-3.md` — candidate for its own future milestone.
 
 ### Key decisions (v1.10 — locked, now shipped)
 
@@ -117,10 +119,12 @@ Carried forward (process debt + one v1.10 feature deferral):
 
 ## Session Continuity
 
-Last session: 2026-05-30 — quick task 260530-k5y: JS npm dependency emission in graph_io
-Stopped at: Phase 60 (Cost-Frontier Sweep Harness) in progress — harness fixes B–F landed; round-3 judge-signal collapse debugged + fixed (260530-jc1, `f3a9c2e`); JS dep population fixed (k5y); clean full re-run pending
+Last session: 2026-05-30 — dropped Phase 60 (cost-frontier sweep), renamed v1.11 to "TypeScript Type Node Kind"
+Stopped at: Phase 61 (TypeScript `type` Node Kind) planned (3 plans, 0 summaries) — ready to execute.
 
-**Next action:** Run the clean full sweep (Haiku-free set now in models.toml — the daily-token quota throttle that blocked the prior re-run no longer applies). Sweep spec: `/tmp/sweep_driver.py` (`.planning/CONTINUE-sweep-harness-fixes-3.md` Step 2 / CONTINUE-2 Step B; repeats=3, `output_dir=.planning/sweep`, `GRAPH_WIKI_RUN_EVAL=1 GRAPH_WIKI_RUN_JUDGES=1`; pre-approved ~$7, hard cap $25). Per-role defaults: librarian→kimi-k2.5, code_reader→minimax-m2.5, scanner→gpt-oss-20b, linter→nova-lite, ingestor→glm-4.7-flash, synthesizer→qwen3-32b, preflight→qwen3-32b. Judges intentionally held (Mistral/Nova; see `.planning/notes/sweep-judge-independence-deferred.md`). narrator + domain-proposer still on Haiku (deferred). Verify judge-able quality discriminates (not all ~0.10), then overwrite-commit `.planning/sweep/*.md` + `INDEX.md` as authoritative and help Pat pick per-role winners. Stash `stash@{0}` holds stray bedrock-models JSON snapshots — decide keep/discard with Pat. Known follow-up G (cost=N/A for many models) still open.
+**Next action:** `/gsd-execute-phase 61` — execute the TypeScript type-node-kind plans (61-01/02/03).
+
+**Deferred (cost-frontier sweep):** Parked until the evals are reworked. The clean-re-run details (sweep driver, per-role candidate set, judge config, follow-up G cost=N/A, `stash@{0}` bedrock-models snapshots) are preserved in `.planning/CONTINUE-sweep-harness-fixes-3.md` for when a future milestone picks this up.
 
 ---
 
@@ -130,8 +134,9 @@ Stopped at: Phase 60 (Cost-Frontier Sweep Harness) in progress — harness fixes
 *v1.8 archived: 2026-05-27 — 7 phases (42-48), 20 plans, 38 requirements*
 *v1.9 archived: 2026-05-28 — 5 phases (49-53), 15 plans, 24 requirements*
 *v1.10 archived: 2026-05-29 — 6 phases (54-59), 14 plans, 14 requirements*
-*v1.11 opened: 2026-05-30 — Phase 60 (Cost-Frontier Sweep Harness), in progress*
+*v1.11 opened: 2026-05-30 — as "Cost-Frontier Sweep Harness" (Phase 60); renamed 2026-05-30 to "TypeScript Type Node Kind" (Phase 61) after the sweep was deferred*
 
 ## Operator Next Steps
 
-- Continue Phase 60: debug per `.planning/CONTINUE-sweep-harness-fixes-3.md`, then clean re-run + winner selection
+- Execute Phase 61 (TypeScript `type` Node Kind): `/gsd-execute-phase 61`
+- Deferred: cost-frontier sweep clean re-run + winner selection — see `.planning/CONTINUE-sweep-harness-fixes-3.md` (parked until evals reworked; candidate for its own milestone)

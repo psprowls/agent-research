@@ -1,13 +1,14 @@
 # Milestones
 
-## v1.11 Cost-Frontier Sweep Harness (In Progress — opened 2026-05-30)
+## v1.11 TypeScript Type Node Kind (In Progress — opened 2026-05-30)
 
-**Phases:** 1 phase (60) — in progress
-**Goal:** Repair the cost-frontier per-role model sweep so a clean, trustworthy run can execute on AWS Bedrock and produce a defensible per-role winner table, then pick winners. Hardens the original v1.1 Phase 7 "Cost-Frontier Sweep".
-**Scope:** Captures all cost-frontier-sweep work since v1.10 (executed as `/gsd-quick` tasks `na9`/`ox1`/`pf8`/`pzd`/`q8r`/`sot` + harness fixes B–F) plus the remaining round-3 debug, clean re-run, and winner selection.
-**Git range (so far):** `846459a` → `b65ad7e` · 37 commits
+**Phases:** 1 phase (61) — planned, ready to execute
+**Goal:** Surface TypeScript `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in the `ts_kind` attr) across source-parser and graph-io, fixing the projection bug that mislabels exported types as `function`.
+**Scope:** `source-parser` (`type_types` config field, `SourceNode(kind='type')` emission, export-kind projection fix) + graph-io consumption of the new kind.
 
-**Landed so far (harness fixes):**
+> **Note:** This milestone was originally opened as **"Cost-Frontier Sweep Harness"** (Phase 60). On 2026-05-30 the cost-role sweep was **deferred** — the sweep run/winner-selection is parked until the evals are reworked — and the milestone was repurposed around the TypeScript type-node work (its only remaining phase). The deferred sweep is a candidate for its own future milestone.
+
+**Deferred — Cost-Frontier Sweep Harness (landed code preserved on `main`):** The harness fixes below shipped as `/gsd-quick` tasks and remain on `main`; only the sweep *run* + winner selection are deferred. Full remaining-work record: `.planning/CONTINUE-sweep-harness-fixes-3.md`.
 
 - **Fix B** (`260529-pzd`) — `model-adapter` normalizes list-shaped ("thinking") `response.content` → `str`, preserving reasoning blocks.
 - **Fix C** (`260529-q8r`) — wired per-role `DivergenceMetric` + `baselines_dir` into `run_full_matrix` (Gate 1 was hardcoded `None`).
@@ -15,8 +16,7 @@
 - **Fix E** (`260529-sot`) — rate-based Gate 1 + zero-output disqualification.
 - **Fix F** (`260529-sot`) — populated `SweepResult.judge_scores` with a real quality signal.
 - Plus `na9` (candidate/judge refresh), `ox1` (EvalWorktree graph-io DB), `pf8` (config-test hygiene).
-
-**Open (round 3):** The `$3.46` full re-run verified D/E/F mechanically but is NOT authoritative — judge-able quality collapsed (Fix B suspected of emptying thinking-model answers). Debug → clean re-run → authoritative docs → winners. See `.planning/CONTINUE-sweep-harness-fixes-3.md`.
+- Open (deferred): the `$3.46` re-run verified D/E/F mechanically but was NOT authoritative — judge-able quality collapsed (Fix B suspected of emptying thinking-model answers). Needs debug → clean re-run → authoritative docs → winners.
 
 ---
 
