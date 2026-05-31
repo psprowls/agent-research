@@ -18,6 +18,7 @@ TYPESCRIPT_CONFIG = replace(
     class_types=JAVASCRIPT_CONFIG.class_types | {"abstract_class_declaration"},
     function_types=JAVASCRIPT_CONFIG.function_types | {"function_signature"},
     method_types=JAVASCRIPT_CONFIG.method_types | {"method_signature", "abstract_method_signature"},
+    type_types=frozenset({"interface_declaration", "type_alias_declaration", "enum_declaration"}),
 )
 
 

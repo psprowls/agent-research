@@ -21,6 +21,8 @@ class LanguageConfig:
     class_types: frozenset[str] = frozenset()
     function_types: frozenset[str] = frozenset()
     method_types: frozenset[str] = frozenset()
+    type_types: frozenset[str] = frozenset()
+    """Node types that declare a type-like symbol (interface / type alias / enum)."""
     import_types: frozenset[str] = frozenset()
     export_types: frozenset[str] = frozenset()
     call_types: frozenset[str] = frozenset()
