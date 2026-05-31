@@ -9,7 +9,9 @@ from tree_sitter_language_pack import get_language as _pack_get_language
 
 from source_parser.errors import UnsupportedLanguageError
 
-_KNOWN: frozenset[str] = frozenset({"python", "javascript", "typescript"})
+# `tsx` is the TypeScript-with-JSX grammar. The plain `typescript` grammar
+# cannot parse JSX, so `.tsx` files must be routed here (see TypeScriptParser).
+_KNOWN: frozenset[str] = frozenset({"python", "javascript", "typescript", "tsx"})
 
 
 @lru_cache(maxsize=None)

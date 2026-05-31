@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import tree_sitter
 
@@ -21,6 +22,13 @@ TYPESCRIPT_CONFIG = replace(
     type_types=frozenset({"interface_declaration", "type_alias_declaration", "enum_declaration"}),
 )
 
+# `.tsx` carries JSX, which the plain `typescript` grammar cannot parse (it
+# produces an error-laden tree that drops most component definitions). The
+# `tsx` grammar handles JSX; node types are otherwise identical, so the only
+# difference is which grammar performs the parse. The logical `language` stays
+# "typescript" so emitted nodes are unchanged for downstream consumers.
+TSX_CONFIG = replace(TYPESCRIPT_CONFIG, grammar_name="tsx")
+
 
 class TypeScriptParser(LanguageParser):
     name = "typescript"
@@ -31,8 +39,9 @@ class TypeScriptParser(LanguageParser):
         return get_language("typescript")
 
     def parse(self, path, source, *, package=None):
+        config = TSX_CONFIG if Path(path).suffix == ".tsx" else TYPESCRIPT_CONFIG
         return generic_walk(
-            TYPESCRIPT_CONFIG,
+            config,
             path,
             source,
             package=package,
