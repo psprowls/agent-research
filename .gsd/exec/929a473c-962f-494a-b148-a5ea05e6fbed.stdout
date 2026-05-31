@@ -1,0 +1,49 @@
+packages/eval-harness/pyproject.toml:4:description = "Deterministic eval checks, pricing, and sweep runner for graph-wiki-agent"
+packages/eval-harness/pyproject.toml:11:    "graph-wiki-agent",
+packages/eval-harness/pyproject.toml:23:graph-wiki-agent = { workspace = true }
+packages/eval-harness/src/eval_harness/__init__.py:1:"""eval-harness: deterministic checks, pricing, and sweep infrastructure for graph-wiki-agent evals."""
+packages/eval-harness/src/eval_harness/structural.py:17:from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/src/eval_harness/sweep.py:38:from graph_wiki_agent.commands.ingest import run_ingest_source
+packages/eval-harness/src/eval_harness/sweep.py:39:from graph_wiki_agent.commands.lint import run_lint
+packages/eval-harness/src/eval_harness/sweep.py:40:from graph_wiki_agent.commands.query import QueryResult, run_query
+packages/eval-harness/src/eval_harness/sweep.py:41:from graph_wiki_agent.commands.scan import run_scan
+packages/eval-harness/src/eval_harness/sweep.py:414:    from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
+packages/eval-harness/tests/test_structural.py:13:from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:20:# Vault-thinness acknowledgement phrasing per agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:36:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules (rule 1 + 3).
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:49:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules (rule 2).
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:66:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#red-flags (code-fallback fidelity).
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:89:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules (rule 4).
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:108:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules",
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:114:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules",
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:120:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#red-flags",
+packages/eval-harness/src/eval_harness/divergence/synthesizer.py:126:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#rules",
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:15:# (agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules — rule 6).
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:44:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs (rule 6 + output format).
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:61:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs.
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:76:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules (rule 4).
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:91:    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#red-flags.
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:107:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs",
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:113:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs",
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:119:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#rules",
+packages/eval-harness/src/eval_harness/divergence/code_reader.py:125:        source_anchor="agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#red-flags",
+packages/eval-harness/tests/eval_helpers.py:123:    from graph_wiki_agent.commands.query import run_query  # noqa: PLC0415
+packages/eval-harness/tests/eval_helpers.py:164:    from graph_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
+packages/eval-harness/tests/eval_helpers.py:196:    from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
+packages/eval-harness/tests/eval_helpers.py:235:    from graph_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
+packages/eval-harness/src/eval_harness/divergence/rubrics/synthesizer.md:1:<!-- Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md §Rules, §Red flags -->
+packages/eval-harness/src/eval_harness/divergence/rubrics/synthesizer.md:7:`agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md`. The judge complements the
+packages/eval-harness/tests/test_role_sweep.py:19:from graph_wiki_agent.commands.ingest import IngestResult
+packages/eval-harness/tests/test_role_sweep.py:20:from graph_wiki_agent.commands.lint import LintResult
+packages/eval-harness/tests/test_role_sweep.py:21:from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/tests/test_role_sweep.py:22:from graph_wiki_agent.commands.scan import ScanResult
+packages/eval-harness/src/eval_harness/divergence/rubrics/code_reader.md:1:<!-- Source: agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md §Rules, §Red flags -->
+packages/eval-harness/src/eval_harness/divergence/rubrics/code_reader.md:7:`agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md`. The judge complements the
+packages/eval-harness/tests/test_sweep.py:16:from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/tests/test_sweep.py:67:    from graph_wiki_agent.commands.query import run_query
+packages/eval-harness/tests/fixtures/post-rebrand-vault/index.md:24:- [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] — Bedrock-driven CLI + MCP server (query, scan, ingest, lint)
+packages/eval-harness/tests/fixtures/post-rebrand-vault/packages/wiki-io/wiki-io.md:32:- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] for every vault-mutating command
+packages/eval-harness/tests/fixtures/post-rebrand-vault/packages/prompt-sources/prompt-sources.md:34:- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] command prompts
+packages/eval-harness/tests/fixtures/post-rebrand-vault/packages/subagent-runtime/subagent-runtime.md:30:- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] commands.query for librarian + code-reader fan-outs
+packages/eval-harness/tests/fixtures/post-rebrand-vault/packages/model-adapter/model-adapter.md:30:- Consumed everywhere: [[wiki/packages/subagent-runtime/subagent-runtime]], [[wiki/agents/graph-wiki-agent/graph-wiki-agent]]
+packages/eval-harness/tests/fixtures/post-rebrand-vault/packages/workspace-io/workspace-io.md:30:- Used by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] for vault resolution

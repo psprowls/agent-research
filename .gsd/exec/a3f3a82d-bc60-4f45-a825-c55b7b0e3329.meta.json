@@ -1,0 +1,18 @@
+{
+  "id": "a3f3a82d-bc60-4f45-a825-c55b7b0e3329",
+  "runtime": "bash",
+  "purpose": "Map graph-wiki source files to external imports for core dependency boundary",
+  "script_chars": 840,
+  "started_at": "2026-05-31T15:55:34.952Z",
+  "finished_at": "2026-05-31T15:55:35.043Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 91,
+  "stdout_bytes": 1543,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/a3f3a82d-bc60-4f45-a825-c55b7b0e3329.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/a3f3a82d-bc60-4f45-a825-c55b7b0e3329.stderr"
+}

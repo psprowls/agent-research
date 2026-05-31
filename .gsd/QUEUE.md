@@ -1,3 +1,3 @@
 # Queue
 
-- No queued milestones.
+- 🔄 **M002: v1.12 Package Split**

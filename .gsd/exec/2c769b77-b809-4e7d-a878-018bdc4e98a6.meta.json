@@ -1,0 +1,18 @@
+{
+  "id": "2c769b77-b809-4e7d-a878-018bdc4e98a6",
+  "runtime": "bash",
+  "purpose": "T01 graph-wiki-core boundary tests after narrowing pycache assertion",
+  "script_chars": 70,
+  "started_at": "2026-05-31T16:05:06.598Z",
+  "finished_at": "2026-05-31T16:05:07.275Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 677,
+  "stdout_bytes": 628,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/2c769b77-b809-4e7d-a878-018bdc4e98a6.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/2c769b77-b809-4e7d-a878-018bdc4e98a6.stderr"
+}

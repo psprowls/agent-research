@@ -4,152 +4,176 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Active
 
-## Validated
+### R001 — Split graph-wiki into core, CLI, and MCP packages.
+- Class: core-capability
+- Status: active
+- Description: Split graph-wiki into core, CLI, and MCP packages.
+- Why it matters: The package layout should reflect the actual architecture so shared command logic, CLI presentation, and MCP presentation can evolve independently without keeping an agent-shaped monolith.
+- Source: user
+- Primary owning slice: M002/S05
+- Supporting slices: M002/S01, M002/S02, M002/S03
+- Validation: mapped
+- Notes: Final proof comes from the integrated workspace after all three packages exist and depend on each other correctly.
 
-### R005 — M001 must produce an execution-ready roadmap for completing GSD initialization as demoable planning and curation slices.
-- Class: launchability
-- Status: validated
-- Description: M001 must produce an execution-ready roadmap for completing GSD initialization as demoable planning and curation slices.
-- Why it matters: After initialization, future `/gsd auto` work needs concrete, artifact-focused units with dependencies and verification expectations.
-- Source: .gsd/milestones/M001/M001-ROADMAP.md; .gsd/milestones/M001/M001-CONTEXT.md
-- Primary owning slice: M001/S04
-- Supporting slices: M001/S01, M001/S02, M001/S03
-- Validation: Validated by S04 verifier: `python3 .gsd/milestones/M001/slices/S04/verify_s04_readiness.py` passes, confirming roadmap dependencies, required artifacts, D001-D003 decision concepts, source traceability, and prohibited-overclaim checks across the initialized GSD state.
-- Notes: Roadmap work is artifact-focused and does not imply product runtime code changes in M001.
+### R002 — Core package is library-only and renamed to graph-wiki-core.
+- Class: core-capability
+- Status: active
+- Description: Core package is library-only and renamed to graph-wiki-core.
+- Why it matters: A library-only core makes the package boundary honest: shared command/runtime implementation is reusable by both CLI and MCP without owning executable entrypoints.
+- Source: user
+- Primary owning slice: M002/S01
+- Supporting slices: M002/S05
+- Validation: mapped
+- Notes: Core distribution/import names are graph-wiki-core and graph_wiki_core. The graph-wiki-agent plugin identity remains unchanged for vault manifest semantics.
 
-### R001 — Current GSD artifacts must be the active source of truth for future planning and execution in this repo.
-- Class: continuity
-- Status: validated
-- Description: Current GSD artifacts must be the active source of truth for future planning and execution in this repo.
-- Why it matters: Future agents need one current planning state instead of rediscovering or accidentally activating archived pre-fork planning records every session.
-- Source: .gsd/PROJECT.md; .gsd/milestones/M001/M001-CONTEXT.md; .gsd/milestones/M001/slices/S01/S01-SUMMARY.md
-- Primary owning slice: M001/S01
-- Supporting slices: M001/S02, M001/S03, M001/S04
-- Validation: Validated by S01: `.gsd/PROJECT.md` exists, names `.gsd/` as the active source of truth, keeps `.planning/` as archive/reference evidence, reflects current package layout and shipped trajectory, and avoids legacy conversion overclaims.
-- Notes: Active truth belongs in `.gsd/`; `.planning/` remains historical evidence only.
+### R003 — CLI package exposes only the gw entrypoint.
+- Class: primary-user-loop
+- Status: active
+- Description: CLI package exposes only the gw entrypoint.
+- Why it matters: Users and graph-wiki workflow shims need one current command name that reflects the new CLI package surface.
+- Source: user
+- Primary owning slice: M002/S02
+- Supporting slices: M002/S04, M002/S05
+- Validation: mapped
+- Notes: No graph-wiki-agent console alias should be kept in v1.12.
 
-### R002 — Selected legacy `.planning` high notes must be preserved in current GSD context without copying the archive wholesale.
-- Class: continuity
-- Status: validated
-- Description: Selected legacy `.planning` high notes must be preserved in current GSD context without copying the archive wholesale.
-- Why it matters: The old archive contains important project memory, but wholesale import would make active GSD artifacts noisy, stale, and misleading.
-- Source: .gsd/PROJECT.md; .gsd/milestones/M001/M001-CONTEXT.md; .planning/PROJECT.md; .planning/MILESTONES.md; .gsd/milestones/M001/slices/S02/S02-SUMMARY.md
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S01, M001/S03, M001/S04
-- Validation: Validated by S02 verifier: `.gsd/milestones/M001/M001-CONTEXT.md` preserves selected v1.1 through v1.11 high notes with source-path references and explicit selective/non-wholesale boundary language.
-- Notes: Preservation is selective and contextual; it is not a wholesale `.planning` conversion.
+### R004 — MCP package owns the MCP server entrypoint and schemas.
+- Class: integration
+- Status: active
+- Description: MCP package owns the MCP server entrypoint and schemas.
+- Why it matters: MCP hosts should depend on a focused server package rather than an all-in-one agent package.
+- Source: user
+- Primary owning slice: M002/S03
+- Supporting slices: M002/S05
+- Validation: mapped
+- Notes: The MCP server remains exposed as graph-wiki-mcp and must preserve its stdout protocol guard.
 
-### R003 — Deferred work and caveats from the legacy archive must be explicitly labeled so future agents do not mistake them for completed or active commitments.
-- Class: failure-visibility
-- Status: validated
-- Description: Deferred work and caveats from the legacy archive must be explicitly labeled so future agents do not mistake them for completed or active commitments.
-- Why it matters: The main migration risk is flattening archived state into current truth and causing future agents to resume or rely on stale claims.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/CONTINUE-sweep-harness-fixes-3.md; .planning/deferred-items.md; .gsd/milestones/M001/slices/S02/S02-SUMMARY.md
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S03, M001/S04
-- Validation: Validated by S02 verifier: deferred sweep handoff, stale snapshot caveat, process-debt notes, and archive/reference boundary are labeled in `.gsd/milestones/M001/M001-CONTEXT.md` without treating them as active or completed M001 commitments.
-- Notes: Includes cost-frontier rerun/winner-selection handoff and stale snapshot/process-debt caveats as future context only.
+### R005 — Runtime-facing graph-wiki workflows use gw after the rename.
+- Class: integration
+- Status: active
+- Description: Runtime-facing graph-wiki workflows use gw after the rename.
+- Why it matters: The package split must not break real graph-wiki Bedrock workflow execution just because the CLI command changed.
+- Source: user
+- Primary owning slice: M002/S04
+- Supporting slices: M002/S02, M002/S05
+- Validation: mapped
+- Notes: Includes plugin Bedrock shims and current user-facing command instructions where stale graph-wiki-agent invocation would break behavior.
 
-### R004 — Initialized GSD artifacts must be internally consistent, traceable to sampled legacy sources, and honest about omissions.
+### R006 — Tests are colocated with the packages they validate.
 - Class: quality-attribute
-- Status: validated
-- Description: Initialized GSD artifacts must be internally consistent, traceable to sampled legacy sources, and honest about omissions.
-- Why it matters: The initialized project state will guide downstream automated execution; contradictions, missing ownership, or overclaims would cause wasted work.
-- Source: .gsd/PROJECT.md; .gsd/milestones/M001/M001-CONTEXT.md; .gsd/milestones/M001/M001-ROADMAP.md; .planning/CONTINUE-sweep-harness-fixes-3.md; .planning/deferred-items.md; .planning/PROJECT.md; .planning/MILESTONES.md
-- Primary owning slice: M001/S03
-- Supporting slices: M001/S04
-- Validation: Validated by S03 verifier: `python3 .gsd/milestones/M001/slices/S03/verify_s03_requirements.py` passes, confirming requirements buckets, M001 owner mappings, deferred future labels, out-of-scope anti-feature exclusions, required source references, and inline negative checks for missing mappings/labels/sources plus prohibited overclaims.
-- Notes: S03 executable requirements verification passed; keep `.gsd/milestones/M001/slices/S03/verify_s03_requirements.py` as the diagnostic surface for future contract drift.
+- Status: active
+- Description: Tests are colocated with the packages they validate.
+- Why it matters: Future maintainers should be able to run and understand each package's verification boundary without a monolithic old agent test tree.
+- Source: user
+- Primary owning slice: M002/S05
+- Supporting slices: M002/S01, M002/S02, M002/S03
+- Validation: mapped
+- Notes: Core tests move to graph-wiki-core, CLI tests to graph-wiki-cli, and MCP tests to graph-wiki-mcp.
+
+### R007 — Full workspace verification including integration tests passes.
+- Class: launchability
+- Status: active
+- Description: Full workspace verification including integration tests passes.
+- Why it matters: A packaging migration can appear correct while still breaking subprocess entrypoints, MCP stdio behavior, or workspace dependency resolution.
+- Source: user
+- Primary owning slice: M002/S05
+- Supporting slices: M002/S01, M002/S02, M002/S03, M002/S04
+- Validation: mapped
+- Notes: Completion requires root uv sync and full test suite including integration tests, not only unit tests or import checks.
+
+### R008 — Current user-facing docs describe the new package layout and gw usage.
+- Class: launchability
+- Status: active
+- Description: Current user-facing docs describe the new package layout and gw usage.
+- Why it matters: Users should not be instructed to run removed console scripts after v1.12.
+- Source: user
+- Primary owning slice: M002/S04
+- Supporting slices: M002/S05
+- Validation: mapped
+- Notes: Historical docs/fixtures may remain unchanged when they are not current user-facing instructions and do not affect tests/runtime behavior.
+
+## Validated
 
 ## Deferred
 
-### R006 — Cost-frontier sweep debug, authoritative rerun, and per-role winner selection should be handled in a future milestone, not this initialization milestone.
-- Class: differentiator
-- Status: deferred
-- Description: Cost-frontier sweep debug, authoritative rerun, and per-role winner selection should be handled in a future milestone, not this initialization milestone.
-- Why it matters: The work matters to the project’s cost/value promise, but it requires debugging and likely paid Bedrock eval runs outside the bootstrap scope.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/CONTINUE-sweep-harness-fixes-3.md; .planning/MILESTONES.md
-- Primary owning slice: none
-- Supporting slices: none
-- Validation: Deferred/future-only: reference-only context for a future debug/eval milestone; no active M001 execution owner.
-- Notes: Future/deferred. The `$3.46` sweep rerun and stale `.planning/sweep/*.md` diagnostics are not authoritative; future work must debug answer degradation, run a clean sweep, and ask the human to select per-role winners before changing model defaults.
-
-### R007 — A broader structured index of legacy `.planning` artifacts may be created later if archive archaeology becomes frequent.
+### R009 — Public PyPI metadata polish for the split packages.
 - Class: admin/support
 - Status: deferred
-- Description: A broader structured index of legacy `.planning` artifacts may be created later if archive archaeology becomes frequent.
-- Why it matters: It could make future archaeology easier, but it is not necessary to initialize current GSD state.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/PROJECT.md; .planning/MILESTONES.md
+- Description: Public PyPI metadata polish for the split packages.
+- Why it matters: Release-ready metadata will matter before publishing, but it is not necessary to prove the local workspace package split.
+- Source: user
 - Primary owning slice: none
 - Supporting slices: none
-- Validation: Deferred/future-only: optional archive-navigation support if archive archaeology becomes frequent; no active M001 execution owner.
-- Notes: Future/deferred. M001 intentionally preserves selected high notes only; a structured archive index/backlog can be scoped later if repeated `.planning` archaeology proves valuable.
+- Validation: unmapped
+- Notes: Deferred because the user is not planning a public release soon; package metadata can remain minimal for now.
 
 ## Out of Scope
 
-### R008 — Do not wholesale-convert every `.planning` artifact into `.gsd`.
+### R010 — Backward-compatible graph_wiki_agent import shims are not provided.
 - Class: anti-feature
 - Status: out-of-scope
-- Description: Do not wholesale-convert every `.planning` artifact into `.gsd`.
-- Why it matters: Wholesale conversion would create noisy active artifacts and increase the chance that stale archived plans are treated as current commitments.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/PROJECT.md; .planning/MILESTONES.md
+- Description: Backward-compatible graph_wiki_agent import shims are not provided.
+- Why it matters: No-shim behavior keeps the breaking migration clean and prevents old import paths from hiding incomplete package-boundary updates.
+- Source: user
 - Primary owning slice: none
 - Supporting slices: none
 - Validation: n/a
-- Notes: Explicit exclusion. The legacy archive includes many phase contexts, summaries, quick tasks, sketches, spikes, and archived requirements; M001 curates high notes and caveats only, not a comprehensive conversion.
+- Notes: Explicit exclusion for v1.12; active code/tests should use graph_wiki_core, graph_wiki_cli, or graph_wiki_mcp directly.
 
-### R009 — Do not build reusable `.planning` migration/backfill tooling or perform legacy audit/verification backfill as part of M001.
+### R011 — Temporary graph-wiki-agent console-script alias is not provided.
 - Class: anti-feature
 - Status: out-of-scope
-- Description: Do not build reusable `.planning` migration/backfill tooling or perform legacy audit/verification backfill as part of M001.
-- Why it matters: Automation would add implementation work without clear future reuse, and the archive is already backed up.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/PROJECT.md; .planning/MILESTONES.md
+- Description: Temporary graph-wiki-agent console-script alias is not provided.
+- Why it matters: Keeping the old executable would undermine the entrypoint rename and let runtime-facing references stay stale.
+- Source: user
 - Primary owning slice: none
 - Supporting slices: none
 - Validation: n/a
-- Notes: Explicit exclusion. Manual curation is sufficient for initialization; skipped historical audits, missing validation artifacts, and legacy verification gaps remain process-debt context unless freshly scoped later.
+- Notes: Explicit exclusion for v1.12; gw is the CLI command users should run.
 
-### R010 — Do not blindly resume archived plans or perform exhaustive archive audits as active GSD work without fresh scoping and current-source verification.
-- Class: anti-feature
+### R012 — Do not rename graph-wiki-agent plugin identity in vault manifests during this milestone.
+- Class: constraint
 - Status: out-of-scope
-- Description: Do not blindly resume archived plans or perform exhaustive archive audits as active GSD work without fresh scoping and current-source verification.
-- Why it matters: Archived plans are historical evidence, not proof that the next action remains valid.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/PROJECT.md; .planning/MILESTONES.md
+- Description: Do not rename graph-wiki-agent plugin identity in vault manifests during this milestone.
+- Why it matters: Changing plugin identity would expand scope into vault config compatibility and migration, which is not required for the package split.
+- Source: user
 - Primary owning slice: none
 - Supporting slices: none
 - Validation: n/a
-- Notes: Explicit exclusion. Old plans may reflect shipped, superseded, or partially deferred work; future milestones should verify against current source and create fresh `.gsd/` requirements before execution.
+- Notes: The Python package/distribution is renamed, but .graph-wiki.yaml and workspace manifest plugin identity remain graph-wiki-agent for now.
 
-### R011 — Do not execute the cost-frontier sweep, spend Bedrock eval budget, select authoritative winners, or update model defaults as part of M001.
+### R013 — Do not redesign graph-wiki product workflows unrelated to the package split.
 - Class: anti-feature
 - Status: out-of-scope
-- Description: Do not execute the cost-frontier sweep, spend Bedrock eval budget, select authoritative winners, or update model defaults as part of M001.
-- Why it matters: The sweep handoff documents a non-authoritative run and unresolved answer-quality regression; treating it as initialization work would create cost, risk, and misleading model-selection claims.
-- Source: .gsd/milestones/M001/M001-CONTEXT.md; .planning/CONTINUE-sweep-harness-fixes-3.md; .planning/MILESTONES.md
+- Description: Do not redesign graph-wiki product workflows unrelated to the package split.
+- Why it matters: This milestone is about packaging and entrypoint migration; unrelated workflow redesign would dilute verification and increase risk.
+- Source: user
 - Primary owning slice: none
 - Supporting slices: none
 - Validation: n/a
-- Notes: Explicit exclusion. M001 records the deferred handoff only; future work must debug answer degradation, run a clean sweep with approval, and have the human choose per-role winners.
+- Notes: Workflow-facing code must be updated when needed to avoid breakage from gw/package rename, but unrelated product behavior redesign is excluded.
 
 ## Traceability
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | continuity | validated | M001/S01 | M001/S02, M001/S03, M001/S04 | Validated by S01: `.gsd/PROJECT.md` exists, names `.gsd/` as the active source of truth, keeps `.planning/` as archive/reference evidence, reflects current package layout and shipped trajectory, and avoids legacy conversion overclaims. |
-| R002 | continuity | validated | M001/S02 | M001/S01, M001/S03, M001/S04 | Validated by S02 verifier: `.gsd/milestones/M001/M001-CONTEXT.md` preserves selected v1.1 through v1.11 high notes with source-path references and explicit selective/non-wholesale boundary language. |
-| R003 | failure-visibility | validated | M001/S02 | M001/S03, M001/S04 | Validated by S02 verifier: deferred sweep handoff, stale snapshot caveat, process-debt notes, and archive/reference boundary are labeled in `.gsd/milestones/M001/M001-CONTEXT.md` without treating them as active or completed M001 commitments. |
-| R004 | quality-attribute | validated | M001/S03 | M001/S04 | Validated by S03 verifier: `python3 .gsd/milestones/M001/slices/S03/verify_s03_requirements.py` passes, confirming requirements buckets, M001 owner mappings, deferred future labels, out-of-scope anti-feature exclusions, required source references, and inline negative checks for missing mappings/labels/sources plus prohibited overclaims. |
-| R005 | launchability | validated | M001/S04 | M001/S01, M001/S02, M001/S03 | Validated by S04 verifier: `python3 .gsd/milestones/M001/slices/S04/verify_s04_readiness.py` passes, confirming roadmap dependencies, required artifacts, D001-D003 decision concepts, source traceability, and prohibited-overclaim checks across the initialized GSD state. |
-| R006 | differentiator | deferred | none | none | Deferred/future-only: reference-only context for a future debug/eval milestone; no active M001 execution owner. |
-| R007 | admin/support | deferred | none | none | Deferred/future-only: optional archive-navigation support if archive archaeology becomes frequent; no active M001 execution owner. |
-| R008 | anti-feature | out-of-scope | none | none | n/a |
-| R009 | anti-feature | out-of-scope | none | none | n/a |
+| R001 | core-capability | active | M002/S05 | M002/S01, M002/S02, M002/S03 | mapped |
+| R002 | core-capability | active | M002/S01 | M002/S05 | mapped |
+| R003 | primary-user-loop | active | M002/S02 | M002/S04, M002/S05 | mapped |
+| R004 | integration | active | M002/S03 | M002/S05 | mapped |
+| R005 | integration | active | M002/S04 | M002/S02, M002/S05 | mapped |
+| R006 | quality-attribute | active | M002/S05 | M002/S01, M002/S02, M002/S03 | mapped |
+| R007 | launchability | active | M002/S05 | M002/S01, M002/S02, M002/S03, M002/S04 | mapped |
+| R008 | launchability | active | M002/S04 | M002/S05 | mapped |
+| R009 | admin/support | deferred | none | none | unmapped |
 | R010 | anti-feature | out-of-scope | none | none | n/a |
 | R011 | anti-feature | out-of-scope | none | none | n/a |
+| R012 | constraint | out-of-scope | none | none | n/a |
+| R013 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 0
-- Mapped to slices: 0
-- Validated: 5 (R001, R002, R003, R004, R005)
+- Active requirements: 8
+- Mapped to slices: 8
+- Validated: 0
 - Unmapped active requirements: 0

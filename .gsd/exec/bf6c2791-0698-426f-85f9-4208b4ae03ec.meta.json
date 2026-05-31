@@ -1,0 +1,18 @@
+{
+  "id": "bf6c2791-0698-426f-85f9-4208b4ae03ec",
+  "runtime": "bash",
+  "purpose": "summarize migration source python files imports and sizes",
+  "script_chars": 583,
+  "started_at": "2026-05-31T16:03:47.126Z",
+  "finished_at": "2026-05-31T16:03:47.195Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 69,
+  "stdout_bytes": 11871,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/bf6c2791-0698-426f-85f9-4208b4ae03ec.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/bf6c2791-0698-426f-85f9-4208b4ae03ec.stderr"
+}

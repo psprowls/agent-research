@@ -1,0 +1,18 @@
+{
+  "id": "0e03d0eb-a2a9-42ca-a6a9-8c22d80ed61e",
+  "runtime": "bash",
+  "purpose": "T01 required import smoke for graph-wiki-core",
+  "script_chars": 82,
+  "started_at": "2026-05-31T16:04:40.566Z",
+  "finished_at": "2026-05-31T16:04:44.770Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4204,
+  "stdout_bytes": 0,
+  "stderr_bytes": 225,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/0e03d0eb-a2a9-42ca-a6a9-8c22d80ed61e.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/0e03d0eb-a2a9-42ca-a6a9-8c22d80ed61e.stderr"
+}

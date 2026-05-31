@@ -1,0 +1,18 @@
+{
+  "id": "9f50c936-7c83-4b01-8dc1-e61bfd31e28a",
+  "runtime": "bash",
+  "purpose": "Summarize graph-wiki-agent source/test layout and import dependency seams",
+  "script_chars": 892,
+  "started_at": "2026-05-31T15:55:14.821Z",
+  "finished_at": "2026-05-31T15:55:14.898Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 77,
+  "stdout_bytes": 49638,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/9f50c936-7c83-4b01-8dc1-e61bfd31e28a.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/9f50c936-7c83-4b01-8dc1-e61bfd31e28a.stderr"
+}

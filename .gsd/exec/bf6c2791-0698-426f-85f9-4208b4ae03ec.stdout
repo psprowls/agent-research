@@ -1,0 +1,261 @@
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/__init__.py lines=1
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/_paths.py lines=33
+  from __future__ import annotations
+  from pathlib import Path
+  from wiki_io._workspace import resolve_wiki_and_repo
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/graph.py lines=647
+  from __future__ import annotations
+  import datetime
+  import json
+  import sqlite3
+  import time
+  from pathlib import Path
+  from typing import Any, Optional
+  import typer
+  from graph_io import exit_codes, queries, render as _render, update
+  from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
+  from graph_wiki_agent.commands._paths import _resolve_paths
+  from workspace_io.paths import graph_dir
+  from graph_wiki_agent.commands.propose_domains import (  # noqa: E402
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/ingest.py lines=797
+  from __future__ import annotations
+  import logging
+  import re
+  import sys
+  import time
+  import uuid
+  from dataclasses import dataclass
+  from pathlib import Path
+  from langchain_core.messages import HumanMessage, SystemMessage
+  from model_adapter.loader import load_role_config, make_llm
+  from subagent_runtime.trace_io import write_trace_record
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.append_log import append_log
+  from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
+  from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
+  from wiki_io.update_index import update_index
+  from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
+  from graph_io.store import GraphNotInitializedError, read_only_connect
+  from workspace_io.paths import graph_dir
+  from graph_wiki_agent.prompts.ingestor import build_ingestor_system
+  from graph_wiki_agent.prompts.project_context import render_project_context
+  from graph_wiki_agent.uri_slug import slug_from_uri
+  from entity-backed ones (D-05).
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/init.py lines=107
+  from __future__ import annotations
+  import importlib.metadata
+  import logging
+  from dataclasses import dataclass, field
+  from pathlib import Path
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.init_vault import init_wiki
+  from workspace_io import init as _ws_init
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/lint.py lines=563
+  from __future__ import annotations
+  import datetime as dt
+  import logging
+  from collections import defaultdict
+  from dataclasses import dataclass, field
+  from pathlib import Path
+  from langchain_core.messages import HumanMessage, SystemMessage
+  from model_adapter.loader import load_role_config, make_llm
+  from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.layout_io import read_layout
+  from wiki_io.lint.common import (
+  from wiki_io.lint.container import check as check_container_drift
+  from wiki_io.lint.dependency import check as check_dependency_layer
+  from wiki_io.lint.domain import check as check_domain_placement
+  from wiki_io.lint.file_map import check as check_file_map_drift
+  from wiki_io.lint.package_sync import check as check_package_sync_drift
+  from wiki_io.lint.source_sync import check as check_source_sync_drift
+  from wiki_io.lint.workflow_hints import check as check_workflow_hints
+  from graph_wiki_agent.prompts.linter import (
+  from graph_wiki_agent.prompts.project_context import render_project_context
+  from wiki_io.scan_monorepo import discover_workspaces, unscope
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/log.py lines=71
+  from __future__ import annotations
+  import logging
+  from dataclasses import dataclass
+  from pathlib import Path
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.append_log import append_log
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/migrate_vault.py lines=320
+  from __future__ import annotations
+  import datetime as _dt
+  import json
+  import sqlite3
+  import subprocess
+  import sys
+  from pathlib import Path
+  from typing import Optional
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.entity_writer import ADMITTED_KINDS, write_entities
+  from wiki_io.index_generator import generate_index
+  from wiki_io.link_rewriter import (
+  from wiki_io.update_index import update_index
+  from workspace_io.paths import graph_dir
+  import frontmatter  # noqa: WPS433 — lazy import; not used in hot paths.
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/propose_domains.py lines=740
+  from __future__ import annotations
+  import asyncio
+  import datetime
+  from dataclasses import dataclass
+  from pathlib import Path
+  from typing import Any, Awaitable, Callable, Optional
+  import typer
+  import yaml
+  from graph_io.cluster import (
+  from graph_io.queries import list_packages
+  from graph_io.store import GraphNotInitializedError, read_only_connect
+  from langchain_core.messages import HumanMessage
+  from model_adapter.loader import load_role_config, make_llm
+  from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+  from graph_wiki_agent.commands._paths import _resolve_paths
+  from workspace_io.paths import graph_dir
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/query.py lines=1197
+  from __future__ import annotations
+  import datetime
+  import hashlib
+  import json
+  import logging
+  import math
+  import re
+  import sqlite3
+  import struct
+  import sys
+  import time
+  import uuid
+  from dataclasses import dataclass
+  from pathlib import Path
+  import bm25s
+  from bm25s.tokenization import Tokenizer
+  from graph_io.store import GraphNotInitializedError, read_only_connect
+  from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
+  from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+  from langchain_core.tools import tool
+  from model_adapter.loader import load_role_config, make_llm
+  from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+  from subagent_runtime.trace_io import write_trace_record
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.update_tokens import count_tokens
+  from workspace_io.paths import graph_dir
+  from graph_wiki_agent.graph_tools import build_graph_tools
+  from graph_wiki_agent.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
+  from graph_wiki_agent.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
+  from graph_wiki_agent.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py lines=872
+  from __future__ import annotations
+  import logging
+  import sys
+  from dataclasses import dataclass, field
+  from pathlib import Path
+  from typing import Any
+  from graph_io import exit_codes, queries
+  from graph_io.store import GraphNotInitializedError, read_only_connect
+  from langchain_core.messages import HumanMessage, SystemMessage
+  from model_adapter.loader import load_role_config, make_llm
+  from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+  from wiki_io._workspace import resolve_wiki_and_repo
+  from wiki_io.append_log import append_log
+  from wiki_io.entity_writer import (
+  from wiki_io.index_generator import generate_index
+  from wiki_io.layout_io import read_layout
+  from wiki_io.scan_monorepo import (
+  from wiki_io.update_index import update_index
+  from workspace_io.paths import graph_dir
+  from graph_wiki_agent.commands.graph import run_build as _cg_run_build
+  from wiki_io.scan_monorepo import unscope as _unscope
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/__init__.py lines=16
+  import role files here — that creates import-order coupling that breaks if any
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/__init__.py lines=9
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/architecture_overview.py lines=32
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/citation_rules.py lines=12
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/claude_md_disambiguation.py lines=6
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/frontmatter_rules.py lines=27
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/iron_rules.py lines=14
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/log_format.py lines=15
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/page_categories.py lines=18
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/_fragments/style_rules.py lines=12
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/code_reader.py lines=22
+  from __future__ import annotations
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/ingestor.py lines=129
+  from __future__ import annotations
+  from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+  from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+  from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+  from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+  from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+  from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+  from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+  from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/librarian.py lines=82
+  from __future__ import annotations
+  from graph_wiki_agent.prompts._fragments.citation_rules import CITATION_RULES
+  from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+  from graph_wiki_agent.prompts._fragments.page_categories import PAGE_CATEGORIES
+  from graph_wiki_agent.prompts._fragments.style_rules import STYLE_RULES
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/linter.py lines=151
+  from __future__ import annotations
+  from graph_wiki_agent.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
+  from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+  from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/project_context.py lines=147
+  from __future__ import annotations
+  from pathlib import Path
+  from wiki_io.layout_io import read_layout
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/scanner.py lines=92
+  from __future__ import annotations
+  from graph_wiki_agent.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
+  from graph_wiki_agent.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
+  from graph_wiki_agent.prompts._fragments.iron_rules import IRON_RULES
+  from graph_wiki_agent.prompts._fragments.log_format import LOG_FORMAT
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/prompts/synthesizer.py lines=21
+  from __future__ import annotations
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py lines=136
+  from __future__ import annotations
+  import sqlite3
+  from typing import Callable
+  from graph_io import queries
+  from graph_io.render import render
+  from langchain_core.tools import BaseTool, tool
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/config.py lines=65
+  from __future__ import annotations
+  import tomllib
+  from dataclasses import dataclass
+  from pathlib import Path
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/uri_slug.py lines=38
+  from __future__ import annotations
+
+## agents/graph-wiki-agent/src/graph_wiki_agent/__init__.py lines=1
+

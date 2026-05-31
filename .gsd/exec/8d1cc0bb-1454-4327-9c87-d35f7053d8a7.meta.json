@@ -1,0 +1,18 @@
+{
+  "id": "8d1cc0bb-1454-4327-9c87-d35f7053d8a7",
+  "runtime": "bash",
+  "purpose": "check target package existence and source import references",
+  "script_chars": 729,
+  "started_at": "2026-05-31T16:03:33.705Z",
+  "finished_at": "2026-05-31T16:03:33.799Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 94,
+  "stdout_bytes": 4100,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/8d1cc0bb-1454-4327-9c87-d35f7053d8a7.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/8d1cc0bb-1454-4327-9c87-d35f7053d8a7.stderr"
+}

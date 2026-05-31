@@ -1,0 +1,18 @@
+{
+  "id": "4f927c36-57f3-4a3f-a455-92c4d63e813d",
+  "runtime": "bash",
+  "purpose": "verify new core tree excludes presentation code and stale namespace refs",
+  "script_chars": 508,
+  "started_at": "2026-05-31T16:05:26.958Z",
+  "finished_at": "2026-05-31T16:05:27.022Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 64,
+  "stdout_bytes": 65,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/4f927c36-57f3-4a3f-a455-92c4d63e813d.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/4f927c36-57f3-4a3f-a455-92c4d63e813d.stderr"
+}

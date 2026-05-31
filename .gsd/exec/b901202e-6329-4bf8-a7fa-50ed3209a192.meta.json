@@ -1,0 +1,18 @@
+{
+  "id": "b901202e-6329-4bf8-a7fa-50ed3209a192",
+  "runtime": "bash",
+  "purpose": "Inventory current graph-wiki-agent package files and references for M002 S01",
+  "script_chars": 520,
+  "started_at": "2026-05-31T15:54:54.620Z",
+  "finished_at": "2026-05-31T15:54:54.713Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 93,
+  "stdout_bytes": 42774,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/b901202e-6329-4bf8-a7fa-50ed3209a192.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/b901202e-6329-4bf8-a7fa-50ed3209a192.stderr"
+}

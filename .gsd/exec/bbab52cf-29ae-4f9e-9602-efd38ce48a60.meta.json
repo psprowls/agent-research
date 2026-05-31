@@ -1,0 +1,18 @@
+{
+  "id": "bbab52cf-29ae-4f9e-9602-efd38ce48a60",
+  "runtime": "bash",
+  "purpose": "Inventory graph-wiki-agent tests for S01 partition planning",
+  "script_chars": 523,
+  "started_at": "2026-05-31T15:58:03.522Z",
+  "finished_at": "2026-05-31T15:58:03.560Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 38,
+  "stdout_bytes": 3337,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/bbab52cf-29ae-4f9e-9602-efd38ce48a60.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/bbab52cf-29ae-4f9e-9602-efd38ce48a60.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "10b9b7d0-48d7-4b1b-97e7-218eae313174",
+  "runtime": "bash",
+  "purpose": "Count active references to graph_wiki_agent/graph-wiki-agent by area",
+  "script_chars": 668,
+  "started_at": "2026-05-31T15:56:05.953Z",
+  "finished_at": "2026-05-31T15:56:06.161Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 208,
+  "stdout_bytes": 1502,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/10b9b7d0-48d7-4b1b-97e7-218eae313174.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/10b9b7d0-48d7-4b1b-97e7-218eae313174.stderr"
+}

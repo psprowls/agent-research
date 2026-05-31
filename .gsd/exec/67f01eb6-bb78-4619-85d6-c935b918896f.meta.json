@@ -1,0 +1,18 @@
+{
+  "id": "67f01eb6-bb78-4619-85d6-c935b918896f",
+  "runtime": "bash",
+  "purpose": "Validate S01 package/source/test paths for planning",
+  "script_chars": 1747,
+  "started_at": "2026-05-31T15:57:51.794Z",
+  "finished_at": "2026-05-31T15:57:51.866Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 72,
+  "stdout_bytes": 5857,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/67f01eb6-bb78-4619-85d6-c935b918896f.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/67f01eb6-bb78-4619-85d6-c935b918896f.stderr"
+}

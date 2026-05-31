@@ -1,0 +1,60 @@
+
+agents/graph-wiki-agent/tests/commands: exists=True
+  agents/graph-wiki-agent/tests/commands/test_lint_parity.py
+  agents/graph-wiki-agent/tests/commands/test_scan_parity.py
+
+agents/graph-wiki-agent/tests/prompts: exists=True
+  agents/graph-wiki-agent/tests/prompts/test_project_context.py
+  agents/graph-wiki-agent/tests/prompts/test_prompt_snapshots.py
+  agents/graph-wiki-agent/tests/prompts/test_provenance.py
+  agents/graph-wiki-agent/tests/prompts/test_token_budget.py
+
+agents/graph-wiki-agent/tests/unit: exists=True
+  agents/graph-wiki-agent/tests/unit/test_cli_bootstrap.py
+  agents/graph-wiki-agent/tests/unit/test_cli_help.py
+  agents/graph-wiki-agent/tests/unit/test_cli_query.py
+  agents/graph-wiki-agent/tests/unit/test_commands_bootstrap.py
+  agents/graph-wiki-agent/tests/unit/test_commands_graph.py
+  agents/graph-wiki-agent/tests/unit/test_commands_ingest.py
+  agents/graph-wiki-agent/tests/unit/test_commands_lint.py
+  agents/graph-wiki-agent/tests/unit/test_commands_log.py
+  agents/graph-wiki-agent/tests/unit/test_commands_scan.py
+  agents/graph-wiki-agent/tests/unit/test_config.py
+  agents/graph-wiki-agent/tests/unit/test_entity_narrative_prompt.py
+  agents/graph-wiki-agent/tests/unit/test_graph_tools.py
+  agents/graph-wiki-agent/tests/unit/test_mcp_graph_tools.py
+  agents/graph-wiki-agent/tests/unit/test_mcp_new_tools.py
+  agents/graph-wiki-agent/tests/unit/test_mcp_query_schema.py
+  agents/graph-wiki-agent/tests/unit/test_mcp_schema_forbid_extra.py
+  agents/graph-wiki-agent/tests/unit/test_query_code_fallback.py
+  agents/graph-wiki-agent/tests/unit/test_query_graph_tools_wiring.py
+  agents/graph-wiki-agent/tests/unit/test_query_result.py
+  agents/graph-wiki-agent/tests/unit/test_query_search.py
+  agents/graph-wiki-agent/tests/unit/test_query_summary_schema_version.py
+  agents/graph-wiki-agent/tests/unit/test_scan_graph_integration.py
+  agents/graph-wiki-agent/tests/unit/test_scan_result_shape.py
+  agents/graph-wiki-agent/tests/unit/test_seeded_graph_workspace_smoke.py
+  agents/graph-wiki-agent/tests/unit/test_stdout_guard.py
+  agents/graph-wiki-agent/tests/unit/test_trace_viewer.py
+  agents/graph-wiki-agent/tests/unit/test_uri_slug.py
+  agents/graph-wiki-agent/tests/unit/test_wiki_scan_input.py
+
+agents/graph-wiki-agent/tests/integration: exists=True
+  agents/graph-wiki-agent/tests/integration/test_bedrock_iam.py
+  agents/graph-wiki-agent/tests/integration/test_mcp_cancel.py
+  agents/graph-wiki-agent/tests/integration/test_mcp_e2e.py
+  agents/graph-wiki-agent/tests/integration/test_mcp_stdio.py
+  agents/graph-wiki-agent/tests/integration/test_propose_domains_e2e.py
+  agents/graph-wiki-agent/tests/integration/test_propose_domains_isolation.py
+  agents/graph-wiki-agent/tests/integration/test_query_e2e.py
+  agents/graph-wiki-agent/tests/integration/test_scan_entity_integration.py
+  agents/graph-wiki-agent/tests/integration/test_scan_graph_end_to_end.py
+  agents/graph-wiki-agent/tests/integration/test_trace_coverage.py
+
+top-level tests:
+  agents/graph-wiki-agent/tests/test_command_overrides.py
+  agents/graph-wiki-agent/tests/test_ingest_trace_unit.py
+  agents/graph-wiki-agent/tests/test_migrate_vault.py
+  agents/graph-wiki-agent/tests/test_propose_domains.py
+  agents/graph-wiki-agent/tests/test_query_graph_tools.py
+  agents/graph-wiki-agent/tests/test_query_trace_unit.py

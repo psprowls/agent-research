@@ -1,0 +1,30 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/pat/Personal/agent-research/packages/graph-wiki-core
+configfile: pyproject.toml
+plugins: syrupy-5.1.0, hypothesis-6.153.2, asyncio-1.3.0, langsmith-0.8.3, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 4 items
+
+packages/graph-wiki-core/tests/test_package_boundary.py .F..             [100%]
+
+=================================== FAILURES ===================================
+______________ test_core_source_does_not_contain_copied_bytecode _______________
+
+    def test_core_source_does_not_contain_copied_bytecode() -> None:
+        stale_artifacts = [
+            path.relative_to(PACKAGE_ROOT)
+            for path in SOURCE_ROOT.rglob("*")
+            if path.suffix == ".pyc"
+        ]
+    
+>       assert stale_artifacts == []
+E       AssertionError: assert [PosixPath('s...11.pyc'), ...] == []
+E         
+E         Left contains 13 more items, first extra item: PosixPath('src/graph_wiki_core/__pycache__/graph_tools.cpython-311.pyc')
+E         Use -v to get more diff
+
+packages/graph-wiki-core/tests/test_package_boundary.py:24: AssertionError
+=========================== short test summary info ============================
+FAILED packages/graph-wiki-core/tests/test_package_boundary.py::test_core_source_does_not_contain_copied_bytecode
+========================= 1 failed, 3 passed in 0.25s ==========================

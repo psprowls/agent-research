@@ -1,0 +1,18 @@
+{
+  "id": "bddbf3c3-959e-401a-9db6-8871455f5728",
+  "runtime": "bash",
+  "purpose": "inspect uv lock for graph-wiki-core entry",
+  "script_chars": 149,
+  "started_at": "2026-05-31T16:06:09.431Z",
+  "finished_at": "2026-05-31T16:06:09.468Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 37,
+  "stdout_bytes": 33,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/bddbf3c3-959e-401a-9db6-8871455f5728.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/bddbf3c3-959e-401a-9db6-8871455f5728.stderr"
+}

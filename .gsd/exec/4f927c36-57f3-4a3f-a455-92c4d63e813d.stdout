@@ -1,0 +1,4 @@
+cli_exists= False
+mcp_exists= False
+stale_refs= []
+pyc_count= 14

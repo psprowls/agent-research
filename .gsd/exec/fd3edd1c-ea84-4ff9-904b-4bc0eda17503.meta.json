@@ -1,0 +1,18 @@
+{
+  "id": "fd3edd1c-ea84-4ff9-904b-4bc0eda17503",
+  "runtime": "bash",
+  "purpose": "T01 graph-wiki-core boundary tests",
+  "script_chars": 70,
+  "started_at": "2026-05-31T16:04:46.934Z",
+  "finished_at": "2026-05-31T16:04:48.413Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 1479,
+  "stdout_bytes": 1570,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/fd3edd1c-ea84-4ff9-904b-4bc0eda17503.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/fd3edd1c-ea84-4ff9-904b-4bc0eda17503.stderr"
+}
