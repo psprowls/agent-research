@@ -1,7 +1,7 @@
 [project]
 name = "graph-io"
 version = "0.2.1"
-description = "Code-graph core for the graph-wiki ecosystem — SQLite store, manifest scanning, queries, and the cg CLI."
+description = "Code-graph core for the graph-wiki ecosystem — SQLite store, manifest scanning, and read-only queries."
 authors = [
   { name = "Patrick Sprowls", email = "psprowls@gmail.com" },
 ]

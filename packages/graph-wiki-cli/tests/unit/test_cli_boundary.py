@@ -37,3 +37,14 @@ def test_cli_module_imports_core_commands_not_agent_cli_shim() -> None:
     assert "from graph_wiki_core.commands" in source
     assert "graph_wiki_agent.cli" not in source
     assert "from graph_wiki_agent" not in source
+
+
+def test_graph_io_no_longer_exposes_cg_console_script() -> None:
+    distribution = importlib.metadata.distribution("graph-io")
+    console_scripts = {
+        entry_point.name: entry_point.value
+        for entry_point in distribution.entry_points
+        if entry_point.group == "console_scripts"
+    }
+
+    assert "cg" not in console_scripts

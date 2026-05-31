@@ -7,7 +7,6 @@ Code-graph backend for graph-wiki. Owns:
 - Manifest scanning (`pyproject.toml`, `package.json`) → `kind:package` nodes
 - Cross-file edge resolution sweep
 - Read-only query layer (`find`, `callers`, `callees`, `imports`, `describe_package`, `describe_path`)
-- The `cg` CLI
 
 The Claude Code plugin shell lives separately at `plugins/graph-wiki/`.
 
