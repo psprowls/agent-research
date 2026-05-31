@@ -36,6 +36,7 @@ packages/graph-wiki-core/tests/test_command_overrides.py
 packages/graph-wiki-core/tests/test_ingest_trace_unit.py
 packages/graph-wiki-core/tests/unit/test_commands_ingest.py
 packages/graph-wiki-core/tests/unit/test_seeded_graph_workspace_smoke.py
+packages/graph-wiki-core/tests/unit/test_commands_bootstrap.py
 
 # Negative test proving legacy MCP `vault_path` payloads are rejected; this is
 # intentionally a banned string fixture, not runtime API guidance.
