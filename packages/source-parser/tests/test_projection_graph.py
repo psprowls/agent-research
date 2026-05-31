@@ -40,6 +40,7 @@ GRAPH_FIXTURES = [
     ("javascript", "esm_module.mjs"),
     ("typescript", "basic_function.ts"),
     ("typescript", "interface_call.ts"),
+    ("typescript", "type_exports.ts"),
 ]
 
 

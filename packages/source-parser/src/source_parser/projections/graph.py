@@ -84,7 +84,7 @@ def _walk(node: SourceNode, nodes: list[GraphNode], edges: list[GraphEdge]) -> N
             edges.append(
                 GraphEdge(
                     src=parent_key,
-                    dst=("function", ref.target_name, None),
+                    dst=(ref.attrs.get("symbol_kind", "function"), ref.target_name, None),
                     kind="exports",
                     attrs=dict(ref.attrs),
                 )
