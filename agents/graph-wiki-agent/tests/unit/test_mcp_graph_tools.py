@@ -35,7 +35,7 @@ from graph_wiki_agent.mcp.server import (  # noqa: F401  (mcp imported for tool 
     graph_query,
     mcp,
 )
-from graph_wiki_agent.commands import graph as graph_module
+from graph_wiki_core.commands import graph as graph_module
 from graph_io import exit_codes
 
 

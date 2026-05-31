@@ -8,8 +8,6 @@ Provides:
   duplicate data.
 - seeded_graph_conn: session-scoped read-only sqlite3.Connection over the
   sample_monorepo fixture in packages/graph-io after `graph_io.update.run`.
-  Mirrors packages/graph-io/tests/conftest.py::seeded_db so Phase 37 tests
-  exercise build_graph_tools(conn) without standing up the librarian fan-out.
 """
 
 import os
@@ -90,40 +88,6 @@ def _resolve_sample_monorepo_fixture() -> Path:
 
 
 _GRAPH_IO_FIXTURE = _resolve_sample_monorepo_fixture()
-
-
-@pytest.fixture(scope="session")
-def seeded_graph_workspace(tmp_path_factory):
-    """Session-scoped workspace Path for graph command CliRunner tests.
-
-    Seeds the same sample_monorepo as seeded_graph_conn but yields the
-    workspace Path (not a conn) so CliRunner tests can set GRAPH_WIKI_WORKSPACE.
-
-    Source pattern: seeded_graph_conn (conftest.py:95-128) + seeded_db
-    (packages/graph-io/tests/conftest.py:17-58).
-    Do NOT modify seeded_graph_conn — it yields conn, and test_graph_tools.py
-    depends on that shape.
-    """
-    from graph_io import update
-    from workspace_io.config import resolve as resolve_workspace
-
-    if not _GRAPH_IO_FIXTURE.exists():
-        pytest.skip(f"sample_monorepo fixture not found at {_GRAPH_IO_FIXTURE}")
-
-    repo_root = tmp_path_factory.mktemp("gwa_graph_cmd_ws") / "repo"
-    shutil.copytree(_GRAPH_IO_FIXTURE, repo_root)
-    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=repo_root,
-        check=True,
-    )
-    subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
-    subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "seeded init"], cwd=repo_root, check=True)
-    update.run(repo_root, full=True)
-    ws = resolve_workspace(repo_root, require_manifest=False).workspace
-    return ws  # not a generator — session-scoped, no teardown needed
 
 
 @pytest.fixture(scope="session")
