@@ -1151,6 +1151,13 @@ def test_valid_kinds_includes_app() -> None:
     assert "app" in queries._VALID_KINDS
 
 
+def test_valid_kinds_includes_type(conn: sqlite3.Connection) -> None:
+    """Phase 61: _VALID_KINDS admits the type kind; find(kind='type') does not raise."""
+    assert "type" in queries._VALID_KINDS
+    rows = queries.find(conn, kind="type")
+    assert rows == []
+
+
 def test_valid_app_kinds_contents() -> None:
     """Phase 50 D-04 / GQP-01: _VALID_APP_KINDS frozenset enumerates the framework strings."""
     assert queries._VALID_APP_KINDS == frozenset({"cli", "electron", "expo", "nextjs", "spa"})

@@ -596,3 +596,96 @@ def test_sweep_cross_kind_collision_stays_unresolved(conn: sqlite3.Connection) -
     path, attrs_json = rows[0]
     assert path is None
     assert json.loads(attrs_json)["resolution"] == "unresolved"
+
+
+# ---------------------------------------------------------------------------
+# Tests for cross-kind resolution of `type` nodes (Phase 61)
+# ---------------------------------------------------------------------------
+
+
+def test_sweep_type_placeholder_resolves_to_real_type_node(conn: sqlite3.Connection) -> None:
+    """A `type` placeholder export-edge dst resolves to the lone real `type` node
+    via the cross-kind fallback (REQ-07).
+
+    Scenario: source file exports 'APIGatewayProxyEvent'; the projection emits a
+    (type, 'APIGatewayProxyEvent', None) placeholder export edge dst because
+    symbol_kind='type' was threaded through the export ref.  A real type node for
+    that name exists graph-wide.  After sweep, the edge repoints to the real node.
+    """
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="file", name="handler.ts", path="handler.ts", line=None, attrs={}),
+            GraphNode(
+                kind="type",
+                name="APIGatewayProxyEvent",
+                path="node_modules/@types/aws-lambda/index.d.ts",
+                line=10,
+                attrs={"ts_kind": "interface"},
+            ),
+        ],
+        edges=[
+            GraphEdge(
+                src=("file", "handler.ts", "handler.ts"),
+                dst=("type", "APIGatewayProxyEvent", None),
+                kind="exports",
+                attrs={},
+            ),
+        ],
+    )
+
+    resolve.sweep(conn)
+
+    rows = conn.execute(
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
+        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
+    ).fetchall()
+    assert len(rows) == 1
+    path, kind, attrs_json = rows[0]
+    assert path == "node_modules/@types/aws-lambda/index.d.ts"
+    assert kind == "type"
+    assert json.loads(attrs_json)["resolution"] == "exact"
+
+
+def test_sweep_function_placeholder_resolves_to_type_node_cross_kind(conn: sqlite3.Connection) -> None:
+    """A bare re-export placeholder defaulted to `function` kind resolves to the lone
+    real `type` node via the cross-kind fallback.
+
+    Scenario: bare re-export (`export { APIGatewayProxyEvent }`) emits a
+    (function, name, None) placeholder (no symbol_kind at parse time).  Only one
+    real node of that name exists graph-wide and its kind is `type`.  After sweep,
+    the edge repoints to the real type node (single-candidate cross-kind match).
+    """
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="file", name="index.ts", path="index.ts", line=None, attrs={}),
+            GraphNode(
+                kind="type",
+                name="APIGatewayProxyEvent",
+                path="types/aws.d.ts",
+                line=5,
+                attrs={"ts_kind": "interface"},
+            ),
+        ],
+        edges=[
+            GraphEdge(
+                src=("file", "index.ts", "index.ts"),
+                dst=("function", "APIGatewayProxyEvent", None),
+                kind="exports",
+                attrs={},
+            ),
+        ],
+    )
+
+    resolve.sweep(conn)
+
+    rows = conn.execute(
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
+        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
+    ).fetchall()
+    assert len(rows) == 1
+    path, kind, attrs_json = rows[0]
+    assert path == "types/aws.d.ts"
+    assert kind == "type"
+    assert json.loads(attrs_json)["resolution"] == "exact"
