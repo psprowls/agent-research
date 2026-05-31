@@ -19,8 +19,14 @@ def test_core_package_has_no_console_scripts() -> None:
 def test_core_source_and_tests_do_not_contain_copied_bytecode_files() -> None:
     stale_artifacts = []
     for root in (SOURCE_ROOT, TEST_ROOT):
-        stale_artifacts.extend(path.relative_to(PACKAGE_ROOT) for path in root.rglob("*.pyc"))
-        stale_artifacts.extend(path.relative_to(PACKAGE_ROOT) for path in root.rglob("__pycache__"))
+        # Pytest may create normal __pycache__ directories while this suite is
+        # running. The package-split boundary only forbids copied/checked-in
+        # bytecode artifacts that sit outside Python's runtime cache dirs.
+        stale_artifacts.extend(
+            path.relative_to(PACKAGE_ROOT)
+            for path in root.rglob("*.pyc")
+            if "__pycache__" not in path.parts
+        )
 
     assert sorted(stale_artifacts) == []
 

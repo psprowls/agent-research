@@ -2,7 +2,7 @@
 
 Verifies:
 - All six in-scope agent roles have non-empty sweep_candidates arrays (bespoke per-role lengths)
-- global.anthropic.claude-haiku-4-5-20251001-v1:0 is present in every in-scope role's list
+- global.anthropic.claude-haiku-4-5-20251001-v1:0 is absent from every in-scope role's list after the 2026-05-30 Haiku quota purge
 - Judges (judge_a, judge_b) do NOT have sweep_candidates (D-01)
 - Every candidate model_id is priced in eval_harness.pricing (key_links constraint)
 - make_llm() still works for all six roles after the new key is added
@@ -24,7 +24,8 @@ from model_adapter.loader import load_role_config, make_llm
 # D-01: six in-scope agent roles only
 IN_SCOPE_ROLES = ("librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor")
 
-# Haiku global inference profile — must appear in every in-scope role's sweep_candidates
+# Haiku global inference profile — deliberately absent from in-scope sweep candidates
+# after the 2026-05-30 quota-exhaustion purge documented in models.toml.
 HAIKU_GLOBAL_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Path to code_reader_cases.json (relative to workspace root)
@@ -48,13 +49,13 @@ def test_sweep_candidates_present_for_all_six_roles():
         )
 
 
-def test_haiku_present_in_every_in_scope_role():
-    """global.anthropic.claude-haiku-4-5-20251001-v1:0 must appear in every
-    in-scope role's sweep_candidates (Pat's 'always include Haiku' rule)."""
+def test_haiku_absent_from_every_in_scope_role_after_quota_purge():
+    """Haiku must stay out of in-scope sweep_candidates after the
+    2026-05-30 quota-exhaustion purge documented in models.toml."""
     for role in IN_SCOPE_ROLES:
         candidates = load_role_config(role)["sweep_candidates"]
-        assert HAIKU_GLOBAL_ARN in candidates, (
-            f"[{role}] missing {HAIKU_GLOBAL_ARN!r} in sweep_candidates: {candidates}"
+        assert HAIKU_GLOBAL_ARN not in candidates, (
+            f"[{role}] unexpectedly contains purged {HAIKU_GLOBAL_ARN!r}: {candidates}"
         )
 
 

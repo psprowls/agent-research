@@ -10,6 +10,7 @@ import botocore.exceptions
 import pytest
 
 HAIKU_ARN = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+KIMI_MODEL_ID = "moonshotai.kimi-k2.5"
 # 2026-05-30: preflight moved from Haiku to qwen3-32b (Haiku quota exhausted).
 PREFLIGHT_ARN = "qwen.qwen3-32b-v1:0"
 # Phase 16 D-13 / MODEL-FU-01: synthesizer default after the Sweep-01 swap
@@ -204,9 +205,9 @@ def test_domain_proposer_role():
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import load_role_config, make_llm
 
-    # D-19: raw role config matches the spec.
+    # D-19: raw role config matches the post-Haiku-purge spec.
     cfg = load_role_config(DOMAIN_PROPOSER_ROLE)
-    assert cfg["model_id"] == HAIKU_ARN
+    assert cfg["model_id"] == KIMI_MODEL_ID
     assert cfg["region"] == "us-east-1"
     assert cfg["max_tokens"] == 1024
     assert cfg["max_concurrency"] == 5
@@ -215,7 +216,7 @@ def test_domain_proposer_role():
     llm = make_llm(DOMAIN_PROPOSER_ROLE)
     assert isinstance(llm, ChatBedrockConverse)
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
-    assert actual == HAIKU_ARN
+    assert actual == KIMI_MODEL_ID
 
     # D-21: `model_override` swaps the model_id while keeping the role's
     # other config intact.
