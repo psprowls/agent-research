@@ -19,7 +19,7 @@ _JS_EXTENSIONS = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
 # fallback (D-3). Restricted to the code-symbol placeholders emitted by the
 # graph projection for unresolved call/export refs — NOT file-import stubs
 # (those are handled by resolve_file_imports).
-_CROSS_KIND_RESOLVABLE = frozenset({"function", "method", "class"})
+_CROSS_KIND_RESOLVABLE = frozenset({"function", "method", "class", "type"})
 
 
 def _set_resolution(attrs_json: str | None, resolution: str) -> str:
@@ -177,7 +177,7 @@ def sweep(conn: sqlite3.Connection) -> None:
             # ambiguous cross-kind edge (bare names like get/render collide).
             if node_kind in _CROSS_KIND_RESOLVABLE:
                 cross = conn.execute(
-                    "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class') "
+                    "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class', 'type') "
                     "AND name=? AND path IS NOT NULL",
                     (node_name,),
                 ).fetchall()
