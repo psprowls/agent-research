@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: TypeScript Type Node Kind
-status: In progress
-stopped_at: Phase 61 planned (3 plans, 0 summaries) — ready to execute. Phase 60 (cost-frontier sweep) dropped/deferred.
-last_updated: "2026-05-30T20:25:00.000Z"
-last_activity: 2026-05-30 — Fix JS/npm dependency population in graph_io (260530-k5y): dep nodes (ecosystem=npm), used_by edges, dev marker, internal-workspace routing, versions_in_use; DERIVER_VERSION=3; 495 graph-io tests green
+status: executing
+stopped_at: Phase 61 (TypeScript `type` Node Kind) planned (3 plans, 0 summaries) — ready to execute.
+last_updated: "2026-05-31T01:10:34.685Z"
+last_activity: 2026-05-31
 progress:
-  total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 7
+  completed_phases: 6
+  total_plans: 17
+  completed_plans: 16
+  percent: 86
 ---
 
 # Project State: agent-research
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 **Core Value:** Faithfully reproduce the graph-wiki plugin's wiki-maintenance workflows while running entirely on AWS Bedrock with parallel subagents, at meaningfully lower cost than the current Claude-Code-hosted plugin.
 
-**Current Focus:** v1.11 / Phase 61 — TypeScript `type` Node Kind. Surface TS `interface` / `type alias` / `enum` declarations as a single new `type` node kind (sub-kind in `ts_kind` attr) in source-parser + graph-io, fixing the projection bug that mislabels exported types as `function`. Planned (3 plans), ready to execute.
+**Current Focus:** Phase 61 — ts-type-node-kind
 
 **Deferred:** The cost-frontier per-role sweep (formerly Phase 60) is parked until the evals are reworked. No code lost — harness fixes B–F are on `main`; the remaining debug → clean re-run → winner-selection work lives in `.planning/CONTINUE-sweep-harness-fixes-3.md` and is a candidate for its own future milestone.
 
@@ -35,10 +35,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-29)
 
 ## Current Position
 
-Phase: 61 — TypeScript `type` Node Kind (v1.11) — planned, ready to execute
-Plan: 0/3 summaries (61-01, 61-02, 61-03 planned; 61-CONTEXT.md present)
-Status: Ready to execute — `/gsd-execute-phase 61`
-Last activity: 2026-05-30 — Completed a parallel batch of 4 graph/bootstrap quick tasks (concurrent isolated worktrees): 260530-iqo (deriver-version-stamp → auto full rebuild on logic change), 260530-iqp (remove legacy apps/packages/domains/dependencies bootstrap folders), 260530-iqq (scope gitignore entry to workspace dir), 260530-iqr (converge propose_domains onto shared _resolve_paths). All merged to main; affected suites green (graph-io/wiki-io/workspace-io 954 passed; graph-wiki-agent green modulo 2 pre-existing unrelated fails). Then 260530-jap (dist/build import-target node sweep — `resolve.sweep_skip_dir_files`, DERIVER_VERSION 1→2, full graph-io suite 487 passed). Earlier: 260530-hxy (graph build repo resolution). Phase 60 (cost-frontier sweep) still parked until the graph is trustworthy + a clean baseline can be established. Then RESOLVED the "functions missing path/line" investigation todo: full-rebuilt mono-repo's graph against the post-sweep deriver (v2) and captured before/after — file nodes 4633→1463, the 2455 path-less functions are UNCHANGED and all are unresolved call-edge targets → confirmed EXPECTED (out-of-tree symbols, no in-tree location), not a bug. No code change; JS-dep injection is now an enhancement, not a fix. Then 260530-nfj: added `scripts/graph_health.py` (read-only code.db auditor) for future diagnostics. **CORRECTION (quick-260530-nsr, 2026-05-30):** the earlier "NULL-uri files 3170→0" claim was MISREAD as a health win — pre-fix a `--full` rebuild zeroed NULL-uri files by DELETING the specifier-path import stubs (cleanup at update.py:285-299), which cascade-deleted ALL import edges, leaving the file-to-file import graph EMPTY (imports edges 0). The `scan`/incremental path conversely kept 3003 NULL-uri stubs + ~5600 all-unresolved import edges; the two results did not actually contradict — both reflected the same unresolved-specifier bug, one via deletion, one via accumulation. nsr fixed it: a new `resolve.resolve_file_imports` pass repoints in-repo import specifiers to real file nodes BEFORE the full-mode cleanup (DERIVER_VERSION 3→4), plus a conservative single-candidate cross-kind call/export fallback (resolves only on EXACTLY ONE graph-wide name match — bare-name collisions stay unresolved, so the false-positive risk flagged above is avoided). Post-fix live re-audit of mono-repo-live: **full** build → imports edges 822 ALL exact-resolved, NULL-uri files 0 (idempotent across repeat full + incremental); **fresh scan (full=False)** → 822 in-repo specifiers exact-resolved, 4168 genuinely-external (react/@electron-forge/bare scoped pkgs) correctly unresolved, 2176 NULL-uri stubs retained (still referenced by their unresolved edges — not orphans). Both prior open questions (scan-vs-full reconciliation; cross-kind safety) are now resolved. Then 260530-pk3: fixed source-parser dropping arrow-function consts — `_generic.py` now captures `const x = () =>`/`export const x = async () =>` (and `function_expression` consts) as named definition nodes via `_arrow_consts_in()`, and `_extract_exports` no longer leaks arrow param names as bogus exports; TS covered via config inheritance; full source-parser suite 78 passed, live probe confirms isAtLocation/isContains/App resolve with correct lines. (NOTE: this is a distinct, real bug from the path-less-function investigation above — that one was unresolved out-of-tree CALL targets; this one is in-tree arrow DEFINITIONS never emitted. A mono-repo-live graph rebuild will now resolve many previously-pathless arrow-const symbols.)
+Phase: 61 (ts-type-node-kind) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-05-31
 
 ## Progress Bar
 
@@ -119,7 +119,7 @@ Carried forward (process debt + one v1.10 feature deferral):
 
 ## Session Continuity
 
-Last session: 2026-05-30 — dropped Phase 60 (cost-frontier sweep), renamed v1.11 to "TypeScript Type Node Kind"
+Last session: 2026-05-31T01:10:34.679Z
 Stopped at: Phase 61 (TypeScript `type` Node Kind) planned (3 plans, 0 summaries) — ready to execute.
 
 **Next action:** `/gsd-execute-phase 61` — execute the TypeScript type-node-kind plans (61-01/02/03).
