@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-05-31T16:03:16Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T16:03:16Z","fingerprint":"ef6a2549f6afcfe212edfda589766608a2d083e2","fileCount":500,"truncated":true} -->
+Generated: 2026-05-31T16:06:34Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T16:06:34Z","fingerprint":"abbae61556d4c52847d2f8af0286d3fb20b3ee4e","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -297,6 +297,56 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/graph-io/tests/integration/test_e2e_apps.py`
 - `packages/graph-io/tests/integration/test_e2e_builtins.py`
 
+### packages/graph-wiki-core/
+- `packages/graph-wiki-core/pyproject.toml`
+
+### packages/graph-wiki-core/src/graph_wiki_core/
+- `packages/graph-wiki-core/src/graph_wiki_core/__init__.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/config.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/graph_tools.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/uri_slug.py`
+
+### packages/graph-wiki-core/src/graph_wiki_core/commands/
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/__init__.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/_paths.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/graph.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/ingest.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/init.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/lint.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/log.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/migrate_vault.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/propose_domains.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/query.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/commands/scan.py`
+
+### packages/graph-wiki-core/src/graph_wiki_core/prompts/
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/__init__.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/code_reader.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/ingestor.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/librarian.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/linter.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/project_context.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/scanner.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/synthesizer.py`
+
+### packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/__init__.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/architecture_overview.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/citation_rules.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/claude_md_disambiguation.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/frontmatter_rules.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/iron_rules.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/log_format.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/page_categories.py`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/style_rules.py`
+
+### packages/graph-wiki-core/src/graph_wiki_core/prompts/sources/
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/sources/code_reader.md`
+- `packages/graph-wiki-core/src/graph_wiki_core/prompts/sources/synthesizer.md`
+
+### packages/graph-wiki-core/tests/
+- `packages/graph-wiki-core/tests/test_package_boundary.py`
+
 ### packages/model-adapter/
 - `packages/model-adapter/models.toml`
 - `packages/model-adapter/pyproject.toml`
@@ -402,21 +452,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/__init__.py`
 - `packages/wiki-io/src/wiki_io/_workspace.py`
 - `packages/wiki-io/src/wiki_io/append_log.py`
-- `packages/wiki-io/src/wiki_io/detect_containers.py`
-- `packages/wiki-io/src/wiki_io/entity_writer.py`
-- `packages/wiki-io/src/wiki_io/git_state.py`
-- `packages/wiki-io/src/wiki_io/graph_analyzer.py`
-- `packages/wiki-io/src/wiki_io/index_generator.py`
-- `packages/wiki-io/src/wiki_io/ingest_source.py`
-- `packages/wiki-io/src/wiki_io/ingest_work_item.py`
-- `packages/wiki-io/src/wiki_io/init_vault.py`
-- `packages/wiki-io/src/wiki_io/layout_io.py`
-- `packages/wiki-io/src/wiki_io/link_rewriter.py`
-- `packages/wiki-io/src/wiki_io/lint_wiki.py`
-- `packages/wiki-io/src/wiki_io/scan_monorepo.py`
-- `packages/wiki-io/src/wiki_io/update_index.py`
-- `packages/wiki-io/src/wiki_io/update_tokens.py`
-- `packages/wiki-io/src/wiki_io/wiki_search.py`
 
 ### packages/wiki-io/src/wiki_io/assets/
 - `packages/wiki-io/src/wiki_io/assets/AGENTS.md.template`
@@ -436,32 +471,3 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-package.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-plugin.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-repository.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-test-suite.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/index.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/source.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/work.md`
-
-### packages/wiki-io/src/wiki_io/lint/
-- `packages/wiki-io/src/wiki_io/lint/__init__.py`
-- `packages/wiki-io/src/wiki_io/lint/common.py`
-- `packages/wiki-io/src/wiki_io/lint/container.py`
-- `packages/wiki-io/src/wiki_io/lint/dependency.py`
-- `packages/wiki-io/src/wiki_io/lint/domain.py`
-- `packages/wiki-io/src/wiki_io/lint/file_map.py`
-- `packages/wiki-io/src/wiki_io/lint/package_sync.py`
-- `packages/wiki-io/src/wiki_io/lint/source_sync.py`
-- `packages/wiki-io/src/wiki_io/lint/workflow_hints.py`
-
-### packages/wiki-io/tests/
-- `packages/wiki-io/tests/conftest.py`
-
-### packages/wiki-io/tests/fixtures/edge-case-vault/
-- `packages/wiki-io/tests/fixtures/edge-case-vault/CLAUDE.md`
-- `packages/wiki-io/tests/fixtures/edge-case-vault/index.md`
-
-### packages/wiki-io/tests/fixtures/edge-case-vault/concepts/
-- `packages/wiki-io/tests/fixtures/edge-case-vault/concepts/broken-wikilinks.md`
-- `packages/wiki-io/tests/fixtures/edge-case-vault/concepts/index.md`
-- `packages/wiki-io/tests/fixtures/edge-case-vault/concepts/missing-title.md`
-- `packages/wiki-io/tests/fixtures/edge-case-vault/concepts/truncated-frontmatter.md`

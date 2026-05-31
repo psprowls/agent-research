@@ -35,10 +35,10 @@ from pathlib import Path
 
 from langchain_aws import ChatBedrockConverse
 
-from graph_wiki_agent.commands.ingest import run_ingest_source
-from graph_wiki_agent.commands.lint import run_lint
-from graph_wiki_agent.commands.query import QueryResult, run_query
-from graph_wiki_agent.commands.scan import run_scan
+from graph_wiki_core.commands.ingest import run_ingest_source
+from graph_wiki_core.commands.lint import run_lint
+from graph_wiki_core.commands.query import QueryResult, run_query
+from graph_wiki_core.commands.scan import run_scan
 
 from workspace_io.paths import wiki_dir
 
@@ -411,7 +411,7 @@ async def _sweep_scan_role(
     Returns:
         (ScanResult, summary_string) tuple.
     """
-    from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415
+    from graph_wiki_core.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
         workspace_path=workspace_path,

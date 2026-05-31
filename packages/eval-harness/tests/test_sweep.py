@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from graph_wiki_agent.commands.query import QueryResult
+from graph_wiki_core.commands.query import QueryResult
 from eval_harness.sweep import SweepResult, run_sweep
 
 # ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ async def test_run_query_accepts_tmpdir_workspace(
 
     Requires: GRAPH_WIKI_RUN_EVAL=1 (integration marker), real Bedrock credentials.
     """
-    from graph_wiki_agent.commands.query import run_query
+    from graph_wiki_core.commands.query import run_query
     from eval_harness.isolation import EvalWorktree
 
     async with EvalWorktree(fixture_wiki_path) as wt:

@@ -608,7 +608,7 @@ dependencies = [
     { name = "aiobotocore" },
     { name = "deepeval" },
     { name = "graph-io" },
-    { name = "graph-wiki-agent" },
+    { name = "graph-wiki-core" },
     { name = "model-adapter" },
     { name = "pytest-evals" },
     { name = "python-frontmatter" },
@@ -621,7 +621,7 @@ requires-dist = [
     { name = "aiobotocore", specifier = ">=2.13" },
     { name = "deepeval", specifier = ">=4.0.0" },
     { name = "graph-io", editable = "packages/graph-io" },
-    { name = "graph-wiki-agent", editable = "agents/graph-wiki-agent" },
+    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
     { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
@@ -776,6 +776,7 @@ source = { editable = "agents/graph-wiki-agent" }
 dependencies = [
     { name = "bm25s" },
     { name = "graph-io" },
+    { name = "graph-wiki-core" },
     { name = "langchain-aws" },
     { name = "mcp" },
     { name = "model-adapter" },
@@ -790,6 +791,7 @@ dependencies = [
 requires-dist = [
     { name = "bm25s", specifier = "==0.3.8" },
     { name = "graph-io", editable = "packages/graph-io" },
+    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
     { name = "langchain-aws", specifier = ">=1.4.7" },
     { name = "mcp", specifier = ">=1.27.1" },
     { name = "model-adapter", editable = "packages/model-adapter" },

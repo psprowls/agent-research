@@ -1,0 +1,18 @@
+{
+  "id": "02871af5-ed8f-4d1d-9ccb-e07c835c808b",
+  "runtime": "bash",
+  "purpose": "T03 verification eval-harness tests",
+  "script_chars": 135,
+  "started_at": "2026-05-31T16:07:47.019Z",
+  "finished_at": "2026-05-31T16:08:12.263Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 25244,
+  "stdout_bytes": 844,
+  "stderr_bytes": 212,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/02871af5-ed8f-4d1d-9ccb-e07c835c808b.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/02871af5-ed8f-4d1d-9ccb-e07c835c808b.stderr"
+}

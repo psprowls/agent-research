@@ -63,18 +63,18 @@ _ensure_uv_workspace()
 
 from graph_io import exit_codes as _gio_exit_codes
 
-from graph_wiki_agent.commands.graph import graph_app
-from graph_wiki_agent.commands.init import run_init
-from graph_wiki_agent.commands.ingest import (
+from graph_wiki_core.commands.graph import graph_app
+from graph_wiki_core.commands.init import run_init
+from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
     run_ingest_source,
     run_ingest_work_item,
 )
-from graph_wiki_agent.commands.lint import run_lint
-from graph_wiki_agent.commands.log import run_log
-from graph_wiki_agent.commands.migrate_vault import run_migrate_vault
-from graph_wiki_agent.commands.query import run_query
-from graph_wiki_agent.commands.scan import run_scan
+from graph_wiki_core.commands.lint import run_lint
+from graph_wiki_core.commands.log import run_log
+from graph_wiki_core.commands.migrate_vault import run_migrate_vault
+from graph_wiki_core.commands.query import run_query
+from graph_wiki_core.commands.scan import run_scan
 
 app = typer.Typer(
     name="graph-wiki-agent",

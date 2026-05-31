@@ -10,7 +10,7 @@ Uses fixture_wiki_path + fixture_workspace_path from conftest.py
 from pathlib import Path
 
 import pytest
-from graph_wiki_agent.commands.query import QueryResult
+from graph_wiki_core.commands.query import QueryResult
 from eval_harness.structural import check_structural
 
 # The 7 keys that check_structural must always return.

@@ -1,0 +1,29 @@
+                                                                                
+ Usage: graph-wiki-agent [OPTIONS] COMMAND [ARGS]...                            
+                                                                                
+ graph-wiki-agent: AWS Bedrock-powered wiki maintenance CLI.                    
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.      │
+│ --show-completion             Show completion for the current shell, to copy │
+│                               it or customize the installation.              │
+│ --help                        Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ version        Print version and exit.                                       │
+│ trace          Render a JSONL trace file as a human-readable timeline.       │
+│ query          Query the wiki using hybrid BM25+embedding search with        │
+│                librarian fan-out.                                            │
+│ log            Append a timestamped event to the wiki log.md.                │
+│ bootstrap      Bootstrap a wiki vault structure (creates raw/ and work/      │
+│                siblings).                                                    │
+│ scan           Walk repo, diff packages vs vault, create/update stubs via    │
+│                scanner fan-out.                                              │
+│ migrate-vault  Migrate the vault to v1.8 entity-first layout as one atomic   │
+│                commit.                                                       │
+│ lint           Run mechanical + semantic lint pass over the wiki and report  │
+│                findings.                                                     │
+│ ingest         Ingest a source file or work item into the wiki.              │
+│ graph          Code graph operations (build/describe/query).                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

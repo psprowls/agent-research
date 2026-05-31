@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
-from graph_wiki_agent.commands.query import QueryResult
+from graph_wiki_core.commands.query import QueryResult
 from workspace_io.paths import wiki_dir
 
 # Pattern for code path detection in answer text.

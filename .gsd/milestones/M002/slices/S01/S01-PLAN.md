@@ -32,12 +32,12 @@ Upstream surfaces consumed: existing monolith source under `agents/graph-wiki-ag
   - Files: `packages/graph-wiki-core/pyproject.toml`, `packages/graph-wiki-core/src/graph_wiki_core`, `packages/graph-wiki-core/src/graph_wiki_core/__init__.py`, `packages/graph-wiki-core/src/graph_wiki_core/commands`, `packages/graph-wiki-core/src/graph_wiki_core/prompts`, `packages/graph-wiki-core/src/graph_wiki_core/graph_tools.py`, `packages/graph-wiki-core/src/graph_wiki_core/config.py`, `packages/graph-wiki-core/src/graph_wiki_core/uri_slug.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands`, `agents/graph-wiki-agent/src/graph_wiki_agent/prompts`, `agents/graph-wiki-agent/src/graph_wiki_agent/graph_tools.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/config.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/uri_slug.py`
   - Verify: uv run --package graph-wiki-core python -c "import graph_wiki_core.commands.query"
 
-- [ ] **T02: Rewire temporary graph-wiki-agent presentation consumers** `est:1h 30m`
+- [x] **T02: Rewire temporary graph-wiki-agent presentation consumers** `est:1h 30m`
   Expected executor skills: `uv-package-manager`.
   - Files: `agents/graph-wiki-agent/pyproject.toml`, `agents/graph-wiki-agent/src/graph_wiki_agent/cli.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/mcp/server.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/__init__.py`, `agents/graph-wiki-agent/src/graph_wiki_agent/commands`, `agents/graph-wiki-agent/src/graph_wiki_agent/prompts`
   - Verify: uv run --package graph-wiki-agent graph-wiki-agent --help
 
-- [ ] **T03: Point eval-harness at graph-wiki-core** `est:1h`
+- [x] **T03: Point eval-harness at graph-wiki-core** `est:1h`
   Expected executor skills: `uv-package-manager` and `python-testing-patterns`.
   - Files: `packages/eval-harness/pyproject.toml`, `packages/eval-harness/src/eval_harness/structural.py`, `packages/eval-harness/src/eval_harness/sweep.py`, `packages/eval-harness/src/eval_harness/divergence/synthesizer.py`, `packages/eval-harness/src/eval_harness/divergence/code_reader.py`, `packages/eval-harness/tests/eval_helpers.py`, `packages/eval-harness/tests/test_structural.py`, `packages/eval-harness/tests/test_sweep.py`, `packages/eval-harness/tests/test_role_sweep.py`
   - Verify: uv run --package eval-harness python -m pytest packages/eval-harness/tests/test_structural.py packages/eval-harness/tests/test_sweep.py

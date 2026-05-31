@@ -59,7 +59,7 @@ from pathlib import Path  # noqa: E402
 from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
 from pydantic import BaseModel, ConfigDict, Field  # noqa: E402
 
-from graph_wiki_agent.commands.query import QueryResult, run_query  # noqa: E402
+from graph_wiki_core.commands.query import QueryResult, run_query  # noqa: E402
 
 # --- Redirect all logging to stderr ---
 logging.basicConfig(
@@ -145,7 +145,7 @@ async def wiki_query(input: WikiQueryInput, ctx: Context) -> WikiQueryOutput:
 
 # --- wiki_log tool ---
 
-from graph_wiki_agent.commands.log import LogResult, run_log  # noqa: E402
+from graph_wiki_core.commands.log import LogResult, run_log  # noqa: E402
 
 
 class WikiLogInput(BaseModel):
@@ -188,7 +188,7 @@ async def wiki_log(input: WikiLogInput, ctx: Context) -> WikiLogOutput:
 
 # --- wiki_bootstrap tool ---
 
-from graph_wiki_agent.commands.init import InitResult, run_init  # noqa: E402
+from graph_wiki_core.commands.init import InitResult, run_init  # noqa: E402
 
 
 class WikiBootstrapInput(BaseModel):
@@ -239,7 +239,7 @@ async def wiki_bootstrap(input: WikiBootstrapInput, ctx: Context) -> WikiBootstr
 
 # --- wiki_scan tool ---
 
-from graph_wiki_agent.commands.scan import ScanResult, run_scan  # noqa: E402
+from graph_wiki_core.commands.scan import ScanResult, run_scan  # noqa: E402
 
 
 class WikiScanInput(BaseModel):
@@ -297,7 +297,7 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
 
 from typing import Literal  # noqa: E402
 
-from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_source, run_ingest_work_item  # noqa: E402
+from graph_wiki_core.commands.ingest import IngestResult, run_ingest_source, run_ingest_work_item  # noqa: E402
 
 
 class WikiIngestInput(BaseModel):
@@ -375,7 +375,7 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
 
 # --- wiki_lint tool ---
 
-from graph_wiki_agent.commands.lint import LintResult, run_lint  # noqa: E402
+from graph_wiki_core.commands.lint import LintResult, run_lint  # noqa: E402
 
 
 class WikiLintInput(BaseModel):
@@ -453,7 +453,7 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
 
 import time  # noqa: E402
 
-from graph_wiki_agent.commands import graph as graph_module  # noqa: E402
+from graph_wiki_core.commands import graph as graph_module  # noqa: E402
 
 
 class GraphBuildInput(BaseModel):

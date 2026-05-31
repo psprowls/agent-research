@@ -8,7 +8,7 @@ dependencies = [
     "pytest-evals>=0.3.4",
     "python-frontmatter>=1.1.0",
     "aiobotocore>=2.13",
-    "graph-wiki-agent",
+    "graph-wiki-core",
     "subagent-runtime",
     "model-adapter",
     "graph-io",
@@ -20,7 +20,7 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-graph-wiki-agent = { workspace = true }
+graph-wiki-core = { workspace = true }
 subagent-runtime = { workspace = true }
 model-adapter = { workspace = true }
 graph-io = { workspace = true }

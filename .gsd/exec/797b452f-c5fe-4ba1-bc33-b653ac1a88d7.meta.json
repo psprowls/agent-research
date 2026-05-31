@@ -1,0 +1,18 @@
+{
+  "id": "797b452f-c5fe-4ba1-bc33-b653ac1a88d7",
+  "runtime": "bash",
+  "purpose": "find graph_wiki_agent imports inside graph_wiki_core",
+  "script_chars": 318,
+  "started_at": "2026-05-31T16:07:05.572Z",
+  "finished_at": "2026-05-31T16:07:05.617Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 45,
+  "stdout_bytes": 0,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/Users/pat/Personal/agent-research/.gsd/exec/797b452f-c5fe-4ba1-bc33-b653ac1a88d7.stdout",
+  "stderr_path": "/Users/pat/Personal/agent-research/.gsd/exec/797b452f-c5fe-4ba1-bc33-b653ac1a88d7.stderr"
+}

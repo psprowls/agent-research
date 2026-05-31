@@ -1,0 +1,49 @@
+ROOT agents/graph-wiki-agent/src/graph_wiki_agent
+agents/graph-wiki-agent/src/graph_wiki_agent/cli.py
+  66: from graph_wiki_agent.commands.graph import graph_app
+  67: from graph_wiki_agent.commands.init import run_init
+  68: from graph_wiki_agent.commands.ingest import (
+  73: from graph_wiki_agent.commands.lint import run_lint
+  74: from graph_wiki_agent.commands.log import run_log
+  75: from graph_wiki_agent.commands.migrate_vault import run_migrate_vault
+  76: from graph_wiki_agent.commands.query import run_query
+  77: from graph_wiki_agent.commands.scan import run_scan
+agents/graph-wiki-agent/src/graph_wiki_agent/mcp/server.py
+  62: from graph_wiki_agent.commands.query import QueryResult, run_query  # noqa: E402
+  148: from graph_wiki_agent.commands.log import LogResult, run_log  # noqa: E402
+  191: from graph_wiki_agent.commands.init import InitResult, run_init  # noqa: E402
+  242: from graph_wiki_agent.commands.scan import ScanResult, run_scan  # noqa: E402
+  300: from graph_wiki_agent.commands.ingest import IngestResult, run_ingest_source, run_ingest_work_item  # noqa: E402
+  378: from graph_wiki_agent.commands.lint import LintResult, run_lint  # noqa: E402
+  456: from graph_wiki_agent.commands import graph as graph_module  # noqa: E402
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/graph.py
+  45: from graph_wiki_agent.commands._paths import _resolve_paths
+  642: from graph_wiki_agent.commands.propose_domains import (  # noqa: E402
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/propose_domains.py
+  61: from graph_wiki_agent.commands._paths import _resolve_paths
+agents/graph-wiki-agent/src/graph_wiki_agent/commands/scan.py
+  52: from graph_wiki_agent.commands.graph import run_build as _cg_run_build
+ROOT packages/eval-harness
+packages/eval-harness/tests/test_sweep.py
+  16: from graph_wiki_agent.commands.query import QueryResult
+  67:     from graph_wiki_agent.commands.query import run_query
+packages/eval-harness/tests/test_role_sweep.py
+  19: from graph_wiki_agent.commands.ingest import IngestResult
+  20: from graph_wiki_agent.commands.lint import LintResult
+  21: from graph_wiki_agent.commands.query import QueryResult
+  22: from graph_wiki_agent.commands.scan import ScanResult
+packages/eval-harness/tests/eval_helpers.py
+  123:     from graph_wiki_agent.commands.query import run_query  # noqa: PLC0415
+  164:     from graph_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
+  196:     from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
+  235:     from graph_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
+packages/eval-harness/tests/test_structural.py
+  13: from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/src/eval_harness/structural.py
+  17: from graph_wiki_agent.commands.query import QueryResult
+packages/eval-harness/src/eval_harness/sweep.py
+  38: from graph_wiki_agent.commands.ingest import run_ingest_source
+  39: from graph_wiki_agent.commands.lint import run_lint
+  40: from graph_wiki_agent.commands.query import QueryResult, run_query
+  41: from graph_wiki_agent.commands.scan import run_scan
+  414:     from graph_wiki_agent.commands.scan import ScanResult  # noqa: PLC0415

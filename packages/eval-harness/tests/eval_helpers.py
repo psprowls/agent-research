@@ -120,7 +120,7 @@ def _produce_librarian_outputs(workspace: Path) -> "list[tuple[str, AgentOutputP
     if not valid:
         pytest.skip(f"No valid query cases in {_QUERY_CASES_PATH}")
 
-    from graph_wiki_agent.commands.query import run_query  # noqa: PLC0415
+    from graph_wiki_core.commands.query import run_query  # noqa: PLC0415
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for case in valid:
@@ -161,7 +161,7 @@ def _produce_ingestor_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPr
             f"{wiki}/concepts/; add source documents for ingest eval."
         )
 
-    from graph_wiki_agent.commands.ingest import run_ingest_source  # noqa: PLC0415
+    from graph_wiki_core.commands.ingest import run_ingest_source  # noqa: PLC0415
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for source_path in candidates[:2]:
@@ -193,7 +193,7 @@ def _produce_linter_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProx
     The "query" slot is the group name.
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
-    from graph_wiki_agent.commands.lint import run_lint  # noqa: PLC0415
+    from graph_wiki_core.commands.lint import run_lint  # noqa: PLC0415
 
     result = asyncio.run(run_lint(workspace_path=workspace))
 
@@ -232,7 +232,7 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
     the round-trip-vault fixture.)
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
-    from graph_wiki_agent.commands.scan import run_scan  # noqa: PLC0415
+    from graph_wiki_core.commands.scan import run_scan  # noqa: PLC0415
 
     eval_harness_dir = _WORKSPACE_ROOT / "packages" / "eval-harness"
     if not eval_harness_dir.exists():
