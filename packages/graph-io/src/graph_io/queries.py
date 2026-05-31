@@ -25,6 +25,8 @@ _VALID_KINDS = frozenset(
         "builtin",
         # Phase 50 D-12: app-classified packages (scanner-derived kind)
         "app",
+        # Phase 61: TypeScript interface/type-alias/enum nodes
+        "type",
     }
 )
 
