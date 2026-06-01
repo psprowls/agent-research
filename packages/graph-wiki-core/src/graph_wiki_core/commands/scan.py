@@ -923,7 +923,7 @@ async def run_scan(
                 narrator_errors.append(f"{uri_inner}: {err.exception!r}")
 
         # Step 10b: deterministic File-map injection (faithful port of the
-        # plugin scanner-agent step). For every `package` entity page that
+        # plugin scanner-agent step). For every `package`/`app` entity page that
         # write_entities (re)wrote this scan — created or updated, i.e. whose
         # `## File map` section was just reset to the empty template — replace
         # that section with the deterministic `build_file_map` block (path +
@@ -935,22 +935,24 @@ async def run_scan(
         file_map_errors: list[str] = []
         describer_filled: list[str] = []
         describer_errors: list[str] = []
-        # (uri, node, page_path) for each package whose File map was injected
+        # (uri, node, page_path) for each package/app whose File map was injected
         # this scan — Step 10c uses these to fill remaining `— TODO` rows.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
         if entity_write_result is not None and conn is not None:
             refreshed = set(entity_write_result.created) | set(
                 entity_write_result.updated
             )
-            pkg_list_fn = _kind_list_fns().get("package")
-            if refreshed and pkg_list_fn is not None:
+            list_fns = _kind_list_fns()
+            fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
+            if refreshed and any(fm_list_fns):
                 fm_collision_set = _compute_collision_set(
                     conn, ADMITTED_KINDS, _kind_list_fns(),
                 )
                 ws_fm_by_name = {
                     unscope(w["name"]): w.get("file_map", "") for w in workspaces
                 }
-                for node in pkg_list_fn(conn):
+                fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
+                for node in fm_nodes:
                     if not isinstance(node.attrs, dict):
                         continue
                     node_uri = node.attrs.get("uri")

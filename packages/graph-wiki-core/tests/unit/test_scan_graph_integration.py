@@ -90,6 +90,31 @@ def _seed_minimal_graph(db_path: Path) -> None:
         conn.close()
 
 
+def _seed_app_graph(db_path: Path) -> None:
+    """Create a minimal sqlite DB with one `app` kind node.
+
+    Layout:
+      app node: app-x  (uri app:org/repo/app-x, path apps/app-x)
+
+    Mirrors _seed_minimal_graph but seeds an app instead of packages. The
+    `app:` uri scheme matches graph_io/uri.py:app_uri. No domain/repo nodes
+    are needed — write_entities renders any admitted kind that has nodes.
+    """
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('app', 'app-x', 'apps/app-x', NULL, '{\"language\": \"python\"}', 'app:org/repo/app-x')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -637,6 +662,96 @@ def test_file_map_injected_into_package_entity_page(
     # Neighboring sections preserved.
     assert "## Purpose" in text
     assert "## Public API" in text
+
+
+@pytest.mark.asyncio
+async def test_file_map_injected_into_app_entity_page(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """File-map injection (apps): after write_entities creates an app entity
+    page, run_scan replaces its `## File map` section with the deterministic
+    `w["file_map"]` block (path + kind rows). Verified end-to-end against the
+    real write_entities + packaged entity-app.md template. App parity with
+    test_file_map_injected_into_package_entity_page.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_app_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    # Deterministic file-map block as build_file_map would emit it for app-x.
+    app_x_block = (
+        "## File map - app-x\n"
+        "TODO — overview of this app's tree.\n"
+        "\n"
+        "### app-x/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+        "| `src/app_x/__init__.py` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "app-x",
+            "path": "apps/app-x",
+            "wiki_relative_path": "apps/app-x/overview.md",
+            "type": "app",
+            "language": "python",
+            "changed_files": None,
+            # Preset file_map survives because build_file_map is stubbed to None.
+            "file_map": app_x_block,
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    # Keep the preset file_map values (do not overwrite via real build_file_map).
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    result = await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    # app-x was created this scan → its file map should be injected.
+    assert "app:org/repo/app-x" in result.entities_created
+
+    # Find the entity page for app-x by its frontmatter uri.
+    import frontmatter
+
+    entities = sorted((wiki / "entities").glob("*.md"))
+    assert entities, "no entity pages written"
+    app_x_page = next(
+        p for p in entities if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
+    )
+    text = app_x_page.read_text(encoding="utf-8")
+
+    # Deterministic rows landed; the empty template placeholder rows are gone.
+    assert "| `pyproject.toml` | file | — TODO |" in text
+    assert "| `src/app_x/__init__.py` | file | — TODO |" in text
+    assert "<Short description of file contents.>" not in text
+    assert text.count("## File map - app-x") == 1
+    # Neighboring sections survive injection (only the File map block is replaced).
+    assert "## Provider chain" in text
+    assert "## Concepts" in text
 
 
 def test_file_map_descriptions_survive_rescan(
