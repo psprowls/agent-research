@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-06-01T17:01:56Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-06-01T17:01:56Z","fingerprint":"97646f3bfcd59aded4a7b56473459b08403f0740","fileCount":500,"truncated":true} -->
+Generated: 2026-06-01T17:16:29Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-06-01T17:16:29Z","fingerprint":"057a6767c5773a0b3b0b9e7f71c148d22c55c51a","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -24,6 +24,9 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `docs/notes/cancellation.md`
 - `docs/notes/testing.md`
 - `docs/notes/trace-schema.md`
+
+### docs/superpowers/plans/
+- `docs/superpowers/plans/2026-06-01-drop-external-import-stubs.md`
 
 ### eval/
 - `eval/README.md`
@@ -550,4 +553,3 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/assets/page-templates/dependency.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-app.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-dependency.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`
