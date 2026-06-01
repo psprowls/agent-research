@@ -1,13 +1,13 @@
 # Codebase Map
 
-Generated: 2026-05-31T23:11:34Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-05-31T23:11:34Z","fingerprint":"2f6609726c2e028c029dad51869f901673d7dd09","fileCount":500,"truncated":true} -->
+Generated: 2026-06-01T00:25:13Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-06-01T00:25:13Z","fingerprint":"23dc9b69e34924a6004c8aa68b6f44276f88f9e0","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
 - `.brand-grep-allow`
-- `.cgignore`
 - `.gitignore`
+- `.graphignore`
 - `.pre-commit-config.yaml`
 - `.python-version`
 - `CLAUDE.md`
@@ -20,6 +20,9 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### .github/workflows/
 - `.github/workflows/ci.yml`
 - `.github/workflows/eval.yml`
+
+### docs/
+- `docs/gw-cli.md`
 
 ### docs/notes/
 - `docs/notes/cancellation.md`
@@ -121,11 +124,8 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### packages/graph-io/src/graph_io/
 - *(23 files: 23 .py)*
 
-### packages/graph-io/src/graph_io/cli/
-- *(36 files: 36 .py)*
-
 ### packages/graph-io/tests/
-- *(37 files: 37 .py)*
+- *(27 files: 27 .py)*
 
 ### packages/graph-io/tests/fixtures/
 - `packages/graph-io/tests/fixtures/conftest.py`
@@ -196,9 +196,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### packages/graph-io/tests/integration/
 - `packages/graph-io/tests/integration/__init__.py`
-- `packages/graph-io/tests/integration/test_cluster_cli.py`
-- `packages/graph-io/tests/integration/test_e2e_apps.py`
-- `packages/graph-io/tests/integration/test_e2e_builtins.py`
 
 ### packages/graph-wiki-cli/
 - `packages/graph-wiki-cli/pyproject.toml`
@@ -207,9 +204,99 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/graph-wiki-cli/src/graph_wiki_cli/__init__.py`
 - `packages/graph-wiki-cli/src/graph_wiki_cli/cli.py`
 
+### packages/graph-wiki-cli/src/graph_wiki_cli/graph_cli/
+- *(36 files: 36 .py)*
+
 ### packages/graph-wiki-cli/tests/
 - `packages/graph-wiki-cli/tests/conftest.py`
 - `packages/graph-wiki-cli/tests/test_cli_package.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/
+- `packages/graph-wiki-cli/tests/graph_cli/__init__.py`
+- `packages/graph-wiki-cli/tests/graph_cli/_git_repo.py`
+- `packages/graph-wiki-cli/tests/graph_cli/conftest.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_anti_regression.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_describe_entry_point.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_describe.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_exit_codes.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_format.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_main.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_smoke.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_status_staleness.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cli_sync_wiki.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_cluster.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_e2e.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_integration_test_cluster_cli.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_integration_test_e2e_apps.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_integration_test_e2e_builtins.py`
+- `packages/graph-wiki-cli/tests/graph_cli/test_smoke.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/conftest.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/domains.yaml`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/pyproject.toml`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/commonlib/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/commonlib/pyproject.toml`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/commonlib/src/commonlib/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/commonlib/src/commonlib/__init__.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/index.js`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/package.json`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/types.d.ts`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/__tests__/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/__tests__/__init__placeholder`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/__tests__/index.test.js`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/gen/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/jspkg/gen/data.gen.ts`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/pyproject.toml`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/scripts/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/scripts/run.sh`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/__init__.py`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/foo.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/proto/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/proto/data_pb2.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/__init__.py`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/bar.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/deep/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/deep/__init__.py`
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/src/mypkg/sub/deep/baz.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/tests/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/mypkg/tests/test_foo.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/pyutil/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/pyutil/pyproject.toml`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/pyutil/src/pyutil/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/pyutil/src/pyutil/__init__.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/webutil/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/webutil/pyproject.toml`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/webutil/src/webutil/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/packages/webutil/src/webutil/__init__.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/tests/integration/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/tests/integration/test_top.py`
+
+### packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/tests/unit/
+- `packages/graph-wiki-cli/tests/graph_cli/fixtures/sample_monorepo/tests/unit/test_core.py`
 
 ### packages/graph-wiki-cli/tests/unit/
 - `packages/graph-wiki-cli/tests/unit/test_cli_bootstrap.py`
@@ -225,7 +312,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/graph-wiki-cli/tests/unit/test_trace_viewer.py`
 
 ### packages/graph-wiki-cli/tests/unit/__snapshots__/
-- `packages/graph-wiki-cli/tests/unit/__snapshots__/test_commands_graph.ambr`
 - `packages/graph-wiki-cli/tests/unit/__snapshots__/test_trace_viewer.ambr`
 
 ### packages/graph-wiki-core/
@@ -452,20 +538,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/__init__.py`
 - `packages/wiki-io/src/wiki_io/_workspace.py`
 - `packages/wiki-io/src/wiki_io/append_log.py`
-- `packages/wiki-io/src/wiki_io/detect_containers.py`
-- `packages/wiki-io/src/wiki_io/entity_writer.py`
-- `packages/wiki-io/src/wiki_io/git_state.py`
-- `packages/wiki-io/src/wiki_io/graph_analyzer.py`
-- `packages/wiki-io/src/wiki_io/index_generator.py`
-- `packages/wiki-io/src/wiki_io/ingest_source.py`
-- `packages/wiki-io/src/wiki_io/ingest_work_item.py`
-- `packages/wiki-io/src/wiki_io/init_vault.py`
-- `packages/wiki-io/src/wiki_io/layout_io.py`
-- `packages/wiki-io/src/wiki_io/link_rewriter.py`
-- `packages/wiki-io/src/wiki_io/lint_wiki.py`
-- `packages/wiki-io/src/wiki_io/scan_monorepo.py`
-- `packages/wiki-io/src/wiki_io/update_index.py`
-- `packages/wiki-io/src/wiki_io/update_tokens.py`
 
 ### packages/wiki-io/src/wiki_io/assets/
 - `packages/wiki-io/src/wiki_io/assets/AGENTS.md.template`
@@ -481,23 +553,3 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/assets/page-templates/concept.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/dependency.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-app.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-dependency.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-package.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-plugin.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-repository.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-test-suite.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/index.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/source.md`
-- `packages/wiki-io/src/wiki_io/assets/page-templates/work.md`
-
-### packages/wiki-io/src/wiki_io/lint/
-- `packages/wiki-io/src/wiki_io/lint/__init__.py`
-- `packages/wiki-io/src/wiki_io/lint/common.py`
-- `packages/wiki-io/src/wiki_io/lint/container.py`
-- `packages/wiki-io/src/wiki_io/lint/dependency.py`
-- `packages/wiki-io/src/wiki_io/lint/domain.py`
-- `packages/wiki-io/src/wiki_io/lint/file_map.py`
-- `packages/wiki-io/src/wiki_io/lint/package_sync.py`
-- `packages/wiki-io/src/wiki_io/lint/source_sync.py`
-- `packages/wiki-io/src/wiki_io/lint/workflow_hints.py`
