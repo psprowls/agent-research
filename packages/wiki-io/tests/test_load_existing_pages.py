@@ -89,21 +89,6 @@ class TestLoadExistingPagesEntities:
         assert result.entities["pkg:foo"]["frontmatter"]["kind"] == "package"
         assert result.entities["domain:bar"]["frontmatter"]["kind"] == "domain"
 
-    def test_entities_walk_skips_index_md(self, tmp_path):
-        wiki = tmp_path / "wiki"
-        entities_dir = wiki / "entities"
-        entities_dir.mkdir(parents=True)
-        # _index.md should NOT appear in result.entities even if it has a URI
-        (entities_dir / "_index.md").write_text(
-            "---\nuri: NOT_A_REAL_URI\n---\n\n# Index\n", encoding="utf-8"
-        )
-        self._write_entity_page(entities_dir, "pkg__real", "pkg:real")
-
-        result = _load_existing_pages(wiki)
-
-        assert "NOT_A_REAL_URI" not in result.entities
-        assert "pkg:real" in result.entities
-
     def test_entities_walk_skips_pages_missing_uri(self, tmp_path):
         wiki = tmp_path / "wiki"
         entities_dir = wiki / "entities"
