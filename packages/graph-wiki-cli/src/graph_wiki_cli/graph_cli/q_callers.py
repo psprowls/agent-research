@@ -1,4 +1,4 @@
-"""gwgraph callers <name> [--depth N]"""
+"""gw graph callers <name> [--depth N]"""
 
 from __future__ import annotations
 

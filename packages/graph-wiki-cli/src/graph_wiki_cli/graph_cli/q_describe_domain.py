@@ -1,4 +1,4 @@
-"""gwgraph describe-domain <name> — D-11 extended human format with nested sub-blocks."""
+"""gw graph describe-domain <name> — D-11 extended human format with nested sub-blocks."""
 
 from __future__ import annotations
 

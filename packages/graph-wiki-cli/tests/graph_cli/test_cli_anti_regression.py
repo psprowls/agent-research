@@ -1,7 +1,7 @@
-"""SC#5 anti-regression: existing gwgraph subcommands still exit 0 after Phase 33.
+"""SC#5 anti-regression: existing gw graph subcommands still exit 0 after Phase 33.
 
 Seeds a minimal repo with a Python package + pyproject + domains.yaml +
-executable script, then runs `gwgraph update --full` once. Each parametrized
+executable script, then runs `gw graph update --full` once. Each parametrized
 test then runs one of the 13 pre-existing subcommands with reasonable
 args resolved from the seeded DB and asserts a 0 exit code.
 
@@ -127,12 +127,12 @@ def test_pre_existing_subcommand_exits_zero(
     }
     result = _run_cli(args_by_cmd[kind], refs.repo_dir)
     assert result.returncode == 0, (
-        f"gwgraph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
+        f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
     )
 
 
 def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
-    """D-11: `gwgraph find <name>` positional form must produce a parse error.
+    """D-11: `gw graph find <name>` positional form must produce a parse error.
 
     Guards against silent regression — without this, a future refactor that
     re-added `parser.add_argument("name")` would pass every other test
@@ -141,7 +141,7 @@ def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
     refs = post_phase33_fixture
     result = _run_cli(["find", "foo.py"], refs.repo_dir)
     assert result.returncode != 0, (
-        f"positional `gwgraph find foo.py` should error, got rc=0: {result.stdout}"
+        f"positional `gw graph find foo.py` should error, got rc=0: {result.stdout}"
     )
     assert "unrecognized arguments" in result.stderr.lower(), result.stderr
 
@@ -169,5 +169,5 @@ def test_unlisted_pre_existing_subcommand_exits_zero(
     }
     result = _run_cli(args_by_cmd[kind], refs.repo_dir)
     assert result.returncode == 0, (
-        f"gwgraph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
+        f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
     )

@@ -7,8 +7,8 @@ import inspect
 import typer
 
 
-def test_graph_wiki_cli_distribution_exposes_gw_and_gwgraph_console_scripts() -> None:
-    """The graph-wiki-cli package owns the gw and gwgraph executables."""
+def test_graph_wiki_cli_distribution_exposes_only_gw_console_script() -> None:
+    """The graph-wiki-cli package owns gw; graph commands live under `gw graph`."""
     distribution = importlib.metadata.distribution("graph-wiki-cli")
     console_scripts = {
         entry_point.name: entry_point.value
@@ -17,7 +17,8 @@ def test_graph_wiki_cli_distribution_exposes_gw_and_gwgraph_console_scripts() ->
     }
 
     assert console_scripts["gw"] == "graph_wiki_cli.cli:app"
-    assert console_scripts["gwgraph"] == "graph_wiki_cli.graph_cli.main:main"
+    assert "gwgraph" not in console_scripts
+    assert "gw graph" not in console_scripts
     assert "graph-wiki-agent" not in console_scripts
 
 
@@ -51,7 +52,7 @@ def test_graph_io_no_longer_exposes_cg_console_script() -> None:
     assert "cg" not in console_scripts
 
 
-def test_gwgraph_package_exposes_moved_cli_module() -> None:
+def test_graph_package_exposes_moved_cli_module_for_gw_graph_namespace() -> None:
     cli_module = importlib.import_module("graph_wiki_cli.graph_cli.main")
     assert hasattr(cli_module, "main")
-    assert "gwgraph" in inspect.getsource(cli_module)
+    assert "gw graph" in inspect.getsource(cli_module)

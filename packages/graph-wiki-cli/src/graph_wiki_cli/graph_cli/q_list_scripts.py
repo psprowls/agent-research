@@ -1,4 +1,4 @@
-"""gwgraph list-scripts — union of executable files + executable entry points.
+"""gw graph list-scripts — union of executable files + executable entry points.
 
 Output is deduped by file path with annotations indicating signal source(s):
 declared (via EntryPoint declares_entry_point) and/or conventional

@@ -1,4 +1,4 @@
-"""gwgraph CLI entry point — argparse dispatch over 9 subcommands."""
+"""gw graph CLI entry point — argparse dispatch over 9 subcommands."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ _SUBCOMMANDS = {
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="gwgraph", description="graph-wiki code graph CLI")
+    parser = argparse.ArgumentParser(prog="gw graph", description="graph-wiki code graph CLI")
     parser.add_argument(
         "--repo",
         type=Path,

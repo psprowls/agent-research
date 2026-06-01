@@ -1,4 +1,4 @@
-"""gwgraph domain-deps <name> — D-14 2-column bubble-up of outgoing domain dependencies."""
+"""gw graph domain-deps <name> — D-14 2-column bubble-up of outgoing domain dependencies."""
 
 from __future__ import annotations
 

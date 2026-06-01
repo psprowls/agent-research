@@ -166,7 +166,7 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
 def test_cg_update_on_v1_db_exits_schema_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`gwgraph update` (no --full) on a v1 DB exits 4 with `gwgraph update --full` in stderr.
+    """`gw graph update` (no --full) on a v1 DB exits 4 with `gw graph update --full` in stderr.
 
     The handler is wired defensively in Plan 28-04. Plan 28-05 will add the actual
     probe inside update.run that raises SchemaMismatchError on the non-`--full`
@@ -189,14 +189,14 @@ def test_cg_update_on_v1_db_exits_schema_mismatch(
     stderr = buf.getvalue()
 
     assert rc == 4, (rc, stderr)
-    assert "gwgraph update --full" in stderr, stderr
+    assert "gw graph update --full" in stderr, stderr
     assert "Traceback" not in stderr, stderr
 
 
 def test_cg_find_on_v1_db_exits_schema_mismatch(tmp_path: Path) -> None:
     """Regression guard for the existing q_find.py SchemaMismatchError wiring.
 
-    `gwgraph find foo` on a v1 DB must continue to exit 4 with the `gwgraph update --full`
+    `gw graph find foo` on a v1 DB must continue to exit 4 with the `gw graph update --full`
     directive in stderr — Plan 28-04 must not regress this pre-existing behavior.
     """
     _make_v1_db(tmp_path)
@@ -204,14 +204,14 @@ def test_cg_find_on_v1_db_exits_schema_mismatch(tmp_path: Path) -> None:
     res = _cg(["find", "--name", "foo"], tmp_path)
 
     assert res.returncode == 4, (res.stdout, res.stderr)
-    assert "gwgraph update --full" in res.stderr, res.stderr
+    assert "gw graph update --full" in res.stderr, res.stderr
     assert "Traceback" not in res.stderr, res.stderr
 
 
 def test_cg_update_full_on_v1_db_does_not_exit_4_from_ops_update_handler(
     tmp_path: Path,
 ) -> None:
-    """`gwgraph update --full` on a v1 DB now exits 0 — the unlink+rebuild path
+    """`gw graph update --full` on a v1 DB now exits 0 — the unlink+rebuild path
     in update.run (Plan 28-05) takes over before any SchemaMismatchError
     can surface, so the CLI handler is correctly bypassed for --full.
     """

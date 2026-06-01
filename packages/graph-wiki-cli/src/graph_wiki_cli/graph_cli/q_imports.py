@@ -1,4 +1,4 @@
-"""gwgraph imports <path>"""
+"""gw graph imports <path>"""
 
 from __future__ import annotations
 

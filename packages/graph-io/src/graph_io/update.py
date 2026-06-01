@@ -332,7 +332,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
         except sqlite3.OperationalError as exc:
             if "locked" in str(exc).lower():
                 raise UpdateInProgressError(
-                    "another `gwgraph update` appears to be in progress "
+                    "another `gw graph update` appears to be in progress "
                     f"(SQLite write lock held longer than {lock_timeout_ms}ms)"
                 ) from exc
             raise

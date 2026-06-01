@@ -1,4 +1,4 @@
-"""gwgraph describe-repo — describe the single Repository node in the graph."""
+"""gw graph describe-repo — describe the single Repository node in the graph."""
 
 from __future__ import annotations
 

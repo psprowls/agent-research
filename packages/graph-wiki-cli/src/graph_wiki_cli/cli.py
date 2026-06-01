@@ -64,7 +64,7 @@ _ensure_uv_workspace()
 
 from graph_io import exit_codes as _gio_exit_codes
 
-from graph_wiki_core.commands.graph import graph_app
+from graph_wiki_cli.graph_cli.main import main as graph_cli_main
 from graph_wiki_core.commands.init import run_init
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
@@ -776,8 +776,28 @@ def ingest_work_item(
         typer.echo(f"     slug: {result.slug}")
 
 
-# graph subapp (Phase 38 — code graph operations via in-process gwgraph dispatch)
-app.add_typer(graph_app, name="graph")
+# graph command namespace: dispatches relocated code-graph CLI commands as `gw graph ...`.
+@app.command(
+    name="graph",
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+        "help_option_names": [],
+    },
+)
+def graph(ctx: typer.Context) -> None:
+    """Code graph operations."""
+    argv = list(ctx.args)
+    if not argv:
+        argv = ["--help"]
+    if argv and argv[0] in {"--help", "-h", "help"}:
+        argv = ["--help"]
+    try:
+        exit_code = graph_cli_main(argv)
+    except SystemExit as exc:
+        code = exc.code
+        exit_code = code if isinstance(code, int) else 1
+    raise typer.Exit(code=exit_code)
 
 
 # ---------------------------------------------------------------------------

@@ -15,12 +15,12 @@ def test_default_skip_dirs_contents() -> None:
     })
 
 
-def test_load_returns_defaults_when_no_gwgraphignore(tmp_path: Path) -> None:
+def test_load_returns_defaults_when_no_graphignore(tmp_path: Path) -> None:
     assert _ignore.load_skip_dirs(tmp_path) == _ignore.DEFAULT_SKIP_DIRS
 
 
-def test_load_merges_gwgraphignore_entries(tmp_path: Path) -> None:
-    (tmp_path / ".gwgraphignore").write_text("generated\nvendor\n")
+def test_load_merges_graphignore_entries(tmp_path: Path) -> None:
+    (tmp_path / ".graphignore").write_text("generated\nvendor\n")
     result = _ignore.load_skip_dirs(tmp_path)
     assert "generated" in result
     assert "vendor" in result
@@ -28,7 +28,7 @@ def test_load_merges_gwgraphignore_entries(tmp_path: Path) -> None:
 
 
 def test_load_ignores_blanks_and_comments(tmp_path: Path) -> None:
-    (tmp_path / ".gwgraphignore").write_text(
+    (tmp_path / ".graphignore").write_text(
         "# a comment\n\ngenerated\n   \n# another\nvendor\n"
     )
     result = _ignore.load_skip_dirs(tmp_path)
@@ -39,7 +39,7 @@ def test_load_ignores_blanks_and_comments(tmp_path: Path) -> None:
 
 
 def test_load_tolerates_trailing_slash(tmp_path: Path) -> None:
-    (tmp_path / ".gwgraphignore").write_text("generated/\n")
+    (tmp_path / ".graphignore").write_text("generated/\n")
     result = _ignore.load_skip_dirs(tmp_path)
     assert "generated" in result
     assert "generated/" not in result

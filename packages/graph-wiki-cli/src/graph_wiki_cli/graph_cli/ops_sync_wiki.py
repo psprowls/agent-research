@@ -1,4 +1,4 @@
-"""gwgraph sync-wiki — link package nodes to wiki overview pages."""
+"""gw graph sync-wiki — link package nodes to wiki overview pages."""
 
 from __future__ import annotations
 

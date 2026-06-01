@@ -1,4 +1,4 @@
-"""gwgraph describe-entry-point <name>
+"""gw graph describe-entry-point <name>
 
 Looks up an EntryPoint by name. Accepts either a bare entry-point name
 (unique across all packages) or a qualified ``package:entry`` form. The bare

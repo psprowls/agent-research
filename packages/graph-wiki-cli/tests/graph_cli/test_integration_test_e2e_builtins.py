@@ -102,7 +102,7 @@ def test_e2e_express_remains_dependency_not_builtin(mixed_workspace, capsys):
 
 
 def test_e2e_idempotency(mixed_workspace, capsys):
-    """Second gwgraph update (incremental) does not add extra Builtin nodes."""
+    """Second gw graph update (incremental) does not add extra Builtin nodes."""
     # mixed_workspace = tmp_path/repo/graph-wiki; parent = tmp_path/repo (repo root)
     repo = mixed_workspace.parent
     update.run(repo)  # incremental

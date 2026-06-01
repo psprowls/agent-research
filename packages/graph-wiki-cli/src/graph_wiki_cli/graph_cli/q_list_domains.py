@@ -1,4 +1,4 @@
-"""gwgraph list-domains — list all Domain nodes alphabetically."""
+"""gw graph list-domains — list all Domain nodes alphabetically."""
 
 from __future__ import annotations
 

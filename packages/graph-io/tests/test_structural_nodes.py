@@ -712,7 +712,7 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
     """STRUCT-04 / D-22: every node has exactly one physically_contains parent.
 
     Copies the sample_monorepo fixture into tmp_path, init-repos it, commits,
-    runs gwgraph update --full, then asserts the strict-tree invariant via SQL.
+    runs gw graph update --full, then asserts the strict-tree invariant via SQL.
     """
     import shutil
     import subprocess

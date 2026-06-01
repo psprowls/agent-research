@@ -1,4 +1,4 @@
-"""gwgraph list-apps — list all App nodes alphabetically (Phase 50 APP-05 / D-09)."""
+"""gw graph list-apps — list all App nodes alphabetically (Phase 50 APP-05 / D-09)."""
 
 from __future__ import annotations
 

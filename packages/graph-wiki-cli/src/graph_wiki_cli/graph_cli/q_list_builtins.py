@@ -1,4 +1,4 @@
-"""gwgraph list-builtins — list all Builtin nodes alphabetically (Phase 49 BUILTIN-06 / D-12)."""
+"""gw graph list-builtins — list all Builtin nodes alphabetically (Phase 49 BUILTIN-06 / D-12)."""
 
 from __future__ import annotations
 

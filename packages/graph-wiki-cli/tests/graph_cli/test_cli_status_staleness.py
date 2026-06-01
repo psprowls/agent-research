@@ -1,4 +1,4 @@
-"""gwgraph status: fresh → 0; after new commit → 2; broken/no-init → 3/5."""
+"""gw graph status: fresh → 0; after new commit → 2; broken/no-init → 3/5."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def test_status_outside_git_returns_5(tmp_path: Path) -> None:
 
 
 def test_status_repository_line_prepended_human(tmp_path: Path) -> None:
-    """gwgraph status (human) emits 'repository: repo:<uri>' as the first line (CLI-14 / D-15)."""
+    """gw graph status (human) emits 'repository: repo:<uri>' as the first line (CLI-14 / D-15)."""
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
     assert _cg(["update", "--full"], tmp_path).returncode == 0
@@ -75,7 +75,7 @@ def test_status_repository_line_prepended_human(tmp_path: Path) -> None:
 
 
 def test_status_repository_field_in_json(tmp_path: Path) -> None:
-    """gwgraph status --fmt json includes top-level 'repository' field (CLI-14 / D-15)."""
+    """gw graph status --fmt json includes top-level 'repository' field (CLI-14 / D-15)."""
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
     assert _cg(["update", "--full"], tmp_path).returncode == 0

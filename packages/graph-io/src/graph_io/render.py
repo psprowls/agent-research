@@ -1,6 +1,6 @@
 """Render lists of dataclass records as JSON or aligned-column human output.
 
-Public formatter module for graph_io. Shared by graph-wiki-cli's gwgraph
+Public formatter module for graph_io. Shared by graph-wiki-cli's gw graph
 modules and other graph-wiki surfaces without pulling CLI code back into graph-io.
 
 Per-kind formatters (format_package, format_path, format_repo, format_domain,

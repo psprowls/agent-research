@@ -1,4 +1,4 @@
-"""gwgraph callees <name> [--depth N]"""
+"""gw graph callees <name> [--depth N]"""
 
 from __future__ import annotations
 

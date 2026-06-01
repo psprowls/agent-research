@@ -1,4 +1,4 @@
-"""gwgraph list-entry-points <package> [--kind {executable,library}]"""
+"""gw graph list-entry-points <package> [--kind {executable,library}]"""
 
 from __future__ import annotations
 

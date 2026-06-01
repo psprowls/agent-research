@@ -1,4 +1,4 @@
-"""gwgraph imported-by <path> [--symbol NAME] [--depth N]"""
+"""gw graph imported-by <path> [--symbol NAME] [--depth N]"""
 
 from __future__ import annotations
 

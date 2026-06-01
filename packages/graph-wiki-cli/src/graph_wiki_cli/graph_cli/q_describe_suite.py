@@ -1,4 +1,4 @@
-"""gwgraph describe-suite <name> — compact key-value for a TestSuite.
+"""gw graph describe-suite <name> — compact key-value for a TestSuite.
 
 SuiteDescription lacks a `framework` field as of Phase 32 — re-add when
 the helper grows it.

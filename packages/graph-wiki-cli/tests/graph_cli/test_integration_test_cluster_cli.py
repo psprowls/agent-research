@@ -1,8 +1,8 @@
-"""Integration tests for `gwgraph domain-clusters` against the agent-research repo.
+"""Integration tests for `gw graph domain-clusters` against the agent-research repo.
 
-These tests subprocess-invoke `gwgraph domain-clusters` against the actual
+These tests subprocess-invoke `gw graph domain-clusters` against the actual
 agent-research code.db. Help-text tests always run; graph-dependent tests
-skip cleanly when `code.db` is missing so CI is safe before `gwgraph update`.
+skip cleanly when `code.db` is missing so CI is safe before `gw graph update`.
 """
 
 # integration-gate-allow — local only; runtime pytest.skip when code.db missing
@@ -45,7 +45,7 @@ def _agent_research_graph_available() -> bool:
 
 @pytest.mark.integration
 def test_cg_help_lists_command() -> None:
-    """CLUSTER-04: `gwgraph --help` lists domain-clusters."""
+    """CLUSTER-04: `gw graph --help` lists domain-clusters."""
     result = subprocess.run(
         [*_cg_cmd(), "--help"],
         capture_output=True,
@@ -57,7 +57,7 @@ def test_cg_help_lists_command() -> None:
 
 @pytest.mark.integration
 def test_subcommand_help_exit_zero() -> None:
-    """CLUSTER-04: `gwgraph domain-clusters --help` exits 0 and shows --hub-threshold."""
+    """CLUSTER-04: `gw graph domain-clusters --help` exits 0 and shows --hub-threshold."""
     result = subprocess.run(
         [*_cg_cmd(), "domain-clusters", "--help"],
         capture_output=True,
@@ -72,7 +72,7 @@ def test_run_against_agent_research_graph() -> None:
     """CLUSTER-04: command runs against the actual agent-research graph."""
     if not _agent_research_graph_available():
         pytest.skip(
-            "agent-research code.db not initialised; run `gwgraph update` from repo root"
+            "agent-research code.db not initialised; run `gw graph update` from repo root"
         )
     repo = _repo_root()
     result = subprocess.run(
@@ -102,10 +102,10 @@ def test_byte_identical_repeated_invocation() -> None:
     """CLUSTER-05: two invocations produce byte-identical stdout."""
     if not _agent_research_graph_available():
         pytest.skip(
-            "agent-research code.db not initialised; run `gwgraph update` from repo root"
+            "agent-research code.db not initialised; run `gw graph update` from repo root"
         )
     repo = _repo_root()
     cmd = [*_cg_cmd(), "--repo", str(repo), "--fmt", "json", "domain-clusters"]
     out1 = subprocess.check_output(cmd)
     out2 = subprocess.check_output(cmd)
-    assert out1 == out2, "Successive `gwgraph domain-clusters` invocations produced different stdout"
+    assert out1 == out2, "Successive `gw graph domain-clusters` invocations produced different stdout"

@@ -1,8 +1,8 @@
-"""gwgraph describe-app <name> (Phase 50 APP-05 / D-10 / D-11).
+"""gw graph describe-app <name> (Phase 50 APP-05 / D-10 / D-11).
 
 Looks up an App node by name and prints its attributes plus joined
 counts/files/domains/entry_points/test_suites. Mirrors
-`gwgraph describe-package` with two added lines for `app_kind` and `signals`.
+`gw graph describe-package` with two added lines for `app_kind` and `signals`.
 """
 
 from __future__ import annotations

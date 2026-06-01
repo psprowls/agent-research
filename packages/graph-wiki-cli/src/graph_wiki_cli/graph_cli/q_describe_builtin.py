@@ -1,4 +1,4 @@
-"""gwgraph describe-builtin <uri> — describe a Builtin node by URI (Phase 49 BUILTIN-06)."""
+"""gw graph describe-builtin <uri> — describe a Builtin node by URI (Phase 49 BUILTIN-06)."""
 
 from __future__ import annotations
 

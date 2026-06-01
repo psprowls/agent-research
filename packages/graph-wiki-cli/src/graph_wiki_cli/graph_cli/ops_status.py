@@ -1,4 +1,4 @@
-"""gwgraph status — print schema version, indexed commit vs HEAD, counts."""
+"""gw graph status — print schema version, indexed commit vs HEAD, counts."""
 
 from __future__ import annotations
 

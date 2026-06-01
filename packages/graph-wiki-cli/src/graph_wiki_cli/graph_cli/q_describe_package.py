@@ -1,4 +1,4 @@
-"""gwgraph describe-package <name>"""
+"""gw graph describe-package <name>"""
 
 from __future__ import annotations
 

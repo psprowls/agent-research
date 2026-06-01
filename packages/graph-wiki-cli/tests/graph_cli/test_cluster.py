@@ -352,7 +352,7 @@ def test_connects_clusters_skips_hub_to_hub_edges(empty_db: sqlite3.Connection) 
 
 
 # ---------------------------------------------------------------------------
-# CLI tests (Plan 47-02): subprocess against `gwgraph domain-clusters`.
+# CLI tests (Plan 47-02): subprocess against `gw graph domain-clusters`.
 # Use `python -m graph_wiki_cli.graph_cli.main` to avoid PATH dependence.
 # ---------------------------------------------------------------------------
 
@@ -386,7 +386,7 @@ def _seed_workspace(
 
 
 def test_cli_subcommand_registered() -> None:
-    """CLUSTER-04: `gwgraph --help` lists domain-clusters."""
+    """CLUSTER-04: `gw graph --help` lists domain-clusters."""
     result = subprocess.run(
         [*_cg_cmd(), "--help"], capture_output=True, text=True
     )
@@ -415,7 +415,7 @@ def test_cli_human_format(tmp_path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0, f"stderr={result.stderr}"
-    assert "# gwgraph domain-clusters" in result.stdout
+    assert "# gw graph domain-clusters" in result.stdout
     assert "## Cluster 0:" in result.stdout
 
 

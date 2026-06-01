@@ -1,4 +1,4 @@
-"""gwgraph what-tests <name> [--kind {package,domain}] — probe-both dispatch (D-01/D-02)."""
+"""gw graph what-tests <name> [--kind {package,domain}] — probe-both dispatch (D-01/D-02)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Parity tests for gwgraph describe-entry-point CLI module (Phase 38-01 Task 2)."""
+"""Parity tests for gw graph describe-entry-point CLI module (Phase 38-01 Task 2)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def _build_namespace(workspace, name, fmt="human"):
     # the same fixture path the conftest uses.
     return argparse.Namespace(
         workspace=workspace,
-        repo=None,  # gwgraph modules read DB via workspace, not repo
+        repo=None,  # gw graph modules read DB via workspace, not repo
         fmt=fmt,
         mode="workspace",
         name=name,

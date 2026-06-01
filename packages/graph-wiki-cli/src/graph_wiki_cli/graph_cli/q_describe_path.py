@@ -1,4 +1,4 @@
-"""gwgraph describe-path <path>"""
+"""gw graph describe-path <path>"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""gwgraph describe-dependency <name> [--ecosystem pypi]"""
+"""gw graph describe-dependency <name> [--ecosystem pypi]"""
 
 from __future__ import annotations
 

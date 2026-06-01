@@ -1,4 +1,4 @@
-"""gwgraph dump — raw SQL dump for debugging."""
+"""gw graph dump — raw SQL dump for debugging."""
 
 from __future__ import annotations
 

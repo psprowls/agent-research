@@ -1,4 +1,4 @@
-"""gwgraph cross-cutting — D-12 cross-cutting packages ranked by SUM(usage_count)."""
+"""gw graph cross-cutting — D-12 cross-cutting packages ranked by SUM(usage_count)."""
 
 from __future__ import annotations
 

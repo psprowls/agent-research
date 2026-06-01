@@ -1,4 +1,4 @@
-"""gwgraph sync-wiki — end-to-end smoke against a tiny repo with a fake wiki layout."""
+"""gw graph sync-wiki — end-to-end smoke against a tiny repo with a fake wiki layout."""
 
 from __future__ import annotations
 

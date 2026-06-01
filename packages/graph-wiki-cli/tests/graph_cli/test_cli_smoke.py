@@ -1,4 +1,4 @@
-"""gwgraph query commands — end-to-end smoke against a tiny repo."""
+"""gw graph query commands — end-to-end smoke against a tiny repo."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def populated_repo(tmp_path: Path) -> Path:
             # src/b.py imports `delta` from the first-party module `demo`;
             # resolve_file_imports (quick-260530-nsr) repoints the imports edge
             # onto the real file node src/demo/__init__.py, so
-            # `gwgraph imported-by src/demo/__init__.py` returns src/b.py.
+            # `gw graph imported-by src/demo/__init__.py` returns src/b.py.
             "src/b.py": "from demo import delta\n\ndef gamma():\n    return delta()\n",
         },
         "init",
@@ -100,7 +100,7 @@ def test_query_without_db_returns_3(tmp_path: Path) -> None:
 # The Python parser stores `imports` edges as  src/b.py → ("file", symbol, module)
 # where module is the bare specifier (e.g. "demo" for `from demo import delta`).
 # resolve_file_imports (quick-260530-nsr) repoints first-party specifier stubs
-# onto the real file node, so `gwgraph imported-by` is queried by the resolved
+# onto the real file node, so `gw graph imported-by` is queried by the resolved
 # repo-relative path (src/demo/__init__.py), not the raw specifier.
 
 
@@ -154,7 +154,7 @@ def test_imported_by_without_db_returns_3(tmp_path: Path) -> None:
     assert res.returncode == 3
 
 
-# ── Phase 36: gwgraph find named-flag UX (CGFIND-01/02/03) ────────────────────────
+# ── Phase 36: gw graph find named-flag UX (CGFIND-01/02/03) ────────────────────────
 
 
 def test_find_with_named_flags(populated_repo: Path) -> None:
@@ -198,7 +198,7 @@ def test_find_in_package_unknown_exits_1(populated_repo: Path) -> None:
     assert res.returncode == 1, (res.returncode, res.stdout, res.stderr)
 
 
-# ── Phase 49 BUILTIN-06 / D-12: gwgraph list-builtins smoke ───────────────────────
+# ── Phase 49 BUILTIN-06 / D-12: gw graph list-builtins smoke ───────────────────────
 
 
 @pytest.fixture()
@@ -258,7 +258,7 @@ def test_cg_list_builtins_empty(tmp_path: Path) -> None:
     assert json.loads(res_json.stdout) == []
 
 
-# ── Phase 50 APP-05 / D-09: gwgraph list-apps smoke ──────────────────────────────
+# ── Phase 50 APP-05 / D-09: gw graph list-apps smoke ──────────────────────────────
 
 
 @pytest.fixture()

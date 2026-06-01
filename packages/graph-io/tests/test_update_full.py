@@ -205,12 +205,12 @@ def test_unchanged_deriver_version_still_short_circuits(tmp_path: Path) -> None:
         conn.close()
 
 
-def test_update_honors_gwgraphignore(tmp_path: Path) -> None:
+def test_update_honors_graphignore(tmp_path: Path) -> None:
     init_repo(tmp_path)
     write_and_commit(
         tmp_path,
         {
-            ".gwgraphignore": "generated\n",
+            ".graphignore": "generated\n",
             "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
             "src/a.py": "def keep_me():\n    return 1\n",
             "generated/auto.py": "def skip_me():\n    return 2\n",

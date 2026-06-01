@@ -8,7 +8,7 @@ Runs AFTER resolve.sweep and AFTER _enforce_strict_tree_invariant
   3. Recompute references and depends_on in one shared traversal
   4. Recompute TestSuite -> Domain 'tests' edges
 
-Trivially idempotent — second gwgraph update produces identical edge set.
+Trivially idempotent — second gw graph update produces identical edge set.
 Test files are EXCLUDED from references / depends_on derivation
 (Phase 31 D-11); their imports flow through Phase 30's TestSuite->Package
 edges and (here) TestSuite->Domain edges.

@@ -1,4 +1,4 @@
-"""gwgraph domain-clusters — connected-component clusters over package references."""
+"""gw graph domain-clusters — connected-component clusters over package references."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def _render_human(result: cluster.ClusterResult) -> None:
         print("No packages with import edges found.", file=sys.stderr)
         return
 
-    print("# gwgraph domain-clusters")
+    print("# gw graph domain-clusters")
     print()
     print(
         f"Hub threshold: {result.hub_threshold:g}  ·  "

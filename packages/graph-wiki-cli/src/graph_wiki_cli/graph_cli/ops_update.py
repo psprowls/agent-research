@@ -1,4 +1,4 @@
-"""gwgraph update [--full] — refresh the code graph from git."""
+"""gw graph update [--full] — refresh the code graph from git."""
 
 from __future__ import annotations
 

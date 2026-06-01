@@ -1,4 +1,4 @@
-"""gwgraph find --name X [--kind KIND] [--in-package PKG]"""
+"""gw graph find --name X [--kind KIND] [--in-package PKG]"""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def run(args: argparse.Namespace) -> int:
     # D-01: at least one filter required.
     if args.name is None and args.kind is None and args.in_package is None:
         args._parser.error(
-            "gwgraph find requires at least one of --name, --kind, --in-package"
+            "gw graph find requires at least one of --name, --kind, --in-package"
         )
         # parser.error() raises SystemExit(2); the next line is unreachable.
 

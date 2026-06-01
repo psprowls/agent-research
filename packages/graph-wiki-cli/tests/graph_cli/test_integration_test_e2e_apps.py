@@ -139,7 +139,7 @@ def test_e2e_js_multi_signal_precedence(tmp_path: Path, capsys) -> None:
 
 
 def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
-    """ROADMAP SC #4 / APP-06: gwgraph update on the same repo with manifest mutations flips
+    """ROADMAP SC #4 / APP-06: gw graph update on the same repo with manifest mutations flips
     kind in place. Verifies the D-06 in-place UPDATE preserves row id end-to-end."""
     import sqlite3
     from workspace_io.paths import graph_dir
@@ -151,7 +151,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     _git_init(repo)
     _git_commit_all(repo, "seed")
 
-    # First gwgraph update: no scripts → kind='package'.
+    # First gw graph update: no scripts → kind='package'.
     update.run(repo, full=True)
     workspace = resolve_workspace(repo, require_manifest=False).workspace
     db = graph_dir(workspace) / "code.db"
@@ -204,7 +204,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
 
 
 def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
-    """ROADMAP SC #3: gwgraph list-apps --fmt json + gwgraph describe-app --fmt json carry the
+    """ROADMAP SC #3: gw graph list-apps --fmt json + gw graph describe-app --fmt json carry the
     expected shape (NodeRecord list with kind='app' for list-apps; full AppDescription
     field set for describe-app)."""
     repo = tmp_path / "repo"

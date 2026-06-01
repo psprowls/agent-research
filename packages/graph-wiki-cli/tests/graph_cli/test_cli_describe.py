@@ -1,6 +1,6 @@
-"""Parity tests for `gwgraph describe-dependency` and `gwgraph describe-plugin` (Phase 43-03 Task 6).
+"""Parity tests for `gw graph describe-dependency` and `gw graph describe-plugin` (Phase 43-03 Task 6).
 
-Also covers `gwgraph describe-builtin` (Phase 49 BUILTIN-06).
+Also covers `gw graph describe-builtin` (Phase 49 BUILTIN-06).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from graph_wiki_cli.graph_cli import (
 
 @pytest.fixture
 def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
-    """Build a fixture workspace with a dep + a plugin, run gwgraph update --full,
+    """Build a fixture workspace with a dep + a plugin, run gw graph update --full,
     return the resolved workspace path.
     """
     from graph_io import update
@@ -134,14 +134,14 @@ def test_cg_describe_plugin_not_found(workspace_with_deps_and_plugin, capsys):
 
 
 # ---------------------------------------------------------------------------
-# Phase 55 CLASS-02 / D-08 / SC#3: gwgraph describe-package internal deps/dependents
+# Phase 55 CLASS-02 / D-08 / SC#3: gw graph describe-package internal deps/dependents
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def workspace_with_internal_dep(tmp_path: Path) -> Path:
     """Build a fixture workspace where package `beta` declares workspace package
-    `alpha` as a dependency, run gwgraph update --full, return the workspace path.
+    `alpha` as a dependency, run gw graph update --full, return the workspace path.
     """
     from graph_io import update
     from workspace_io.config import resolve as resolve_workspace
@@ -221,7 +221,7 @@ def test_cg_describe_package_internal_deps_human(workspace_with_internal_dep, ca
 
 
 # ---------------------------------------------------------------------------
-# Phase 49 BUILTIN-06 / D-12 / D-13: gwgraph describe-builtin tests
+# Phase 49 BUILTIN-06 / D-12 / D-13: gw graph describe-builtin tests
 # ---------------------------------------------------------------------------
 
 
@@ -229,7 +229,7 @@ def test_cg_describe_package_internal_deps_human(workspace_with_internal_dep, ca
 def workspace_with_builtins(tmp_path: Path) -> Path:
     """Build a fixture workspace with a Python pkg importing pathlib + os.
 
-    Returns the resolved workspace path after `gwgraph update --full`.
+    Returns the resolved workspace path after `gw graph update --full`.
     """
     from graph_io import update
     from workspace_io.config import resolve as resolve_workspace
@@ -320,7 +320,7 @@ def test_cg_describe_builtin_malformed_uri(workspace_with_builtins, capsys):
 
 
 # ---------------------------------------------------------------------------
-# Phase 50 APP-05 / D-10 / D-11: gwgraph describe-app tests
+# Phase 50 APP-05 / D-10 / D-11: gw graph describe-app tests
 # ---------------------------------------------------------------------------
 
 
@@ -328,7 +328,7 @@ def test_cg_describe_builtin_malformed_uri(workspace_with_builtins, capsys):
 def workspace_with_app(tmp_path: Path) -> Path:
     """Build a fixture workspace with a Python CLI app (pyproject has [project.scripts]).
 
-    Returns the resolved workspace path after `gwgraph update --full`.
+    Returns the resolved workspace path after `gw graph update --full`.
     """
     from graph_io import update
     from workspace_io.config import resolve as resolve_workspace

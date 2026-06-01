@@ -1,4 +1,4 @@
-"""gwgraph domain-refs <name> — D-13 3-column bubble-up of package references."""
+"""gw graph domain-refs <name> — D-13 3-column bubble-up of package references."""
 
 from __future__ import annotations
 

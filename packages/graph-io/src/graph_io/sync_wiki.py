@@ -1,4 +1,4 @@
-"""gwgraph sync-wiki — link package nodes to wiki overview pages via `documents` edges.
+"""gw graph sync-wiki — link package nodes to wiki overview pages via `documents` edges.
 
 Resolves each `kind='package'` node to its wiki overview page by trying three
 filesystem conventions in order. Upserts `kind='wiki_page'` nodes and

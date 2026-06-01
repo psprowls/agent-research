@@ -32,7 +32,7 @@ def seeded_db(tmp_path_factory):
     repo_root = tmp_path_factory.mktemp("queries_seed") / "repo"
     shutil.copytree(fixture_src, repo_root)
 
-    # `gwgraph update` requires the workspace to be a git repository.
+    # `gw graph update` requires the workspace to be a git repository.
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],

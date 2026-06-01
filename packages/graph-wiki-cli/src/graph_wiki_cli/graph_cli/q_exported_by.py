@@ -1,4 +1,4 @@
-"""gwgraph exported-by <name>"""
+"""gw graph exported-by <name>"""
 
 from __future__ import annotations
 

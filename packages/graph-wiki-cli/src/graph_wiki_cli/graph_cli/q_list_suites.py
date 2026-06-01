@@ -1,4 +1,4 @@
-"""gwgraph list-suites — list all TestSuite nodes alphabetically."""
+"""gw graph list-suites — list all TestSuite nodes alphabetically."""
 
 from __future__ import annotations
 

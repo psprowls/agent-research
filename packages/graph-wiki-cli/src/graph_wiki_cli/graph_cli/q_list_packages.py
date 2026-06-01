@@ -1,4 +1,4 @@
-"""gwgraph list-packages — list all Package nodes alphabetically."""
+"""gw graph list-packages — list all Package nodes alphabetically."""
 
 from __future__ import annotations
 
