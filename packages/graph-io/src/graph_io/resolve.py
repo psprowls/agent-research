@@ -102,10 +102,15 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
             )
 
         if rel is None:
-            # External/third-party — do NOT fabricate; mark unresolved.
+            # External / third-party / stdlib specifier with no in-repo file.
+            # Option A: drop the edge entirely instead of parking it on the stub
+            # as resolution="unresolved". The orphaned stub is removed by the
+            # cleanup at the end of this function, so external imports never leave
+            # a kind='file' node behind. (stdlib usage is still recorded by
+            # builtins.refresh as kind='builtin' + used_by edges.)
             conn.execute(
-                "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind='imports'",
-                (_set_resolution(attrs_json, "unresolved"), src_id, stub_id),
+                "DELETE FROM edges WHERE src=? AND dst=? AND kind='imports'",
+                (src_id, stub_id),
             )
             continue
 
@@ -114,9 +119,12 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
             (rel,),
         ).fetchall()
         if not real:
+            # Specifier resolved to a repo-relative path but no file node exists
+            # there (untracked / ignored target). Same as external — drop the
+            # edge so no stub survives.
             conn.execute(
-                "UPDATE edges SET attrs_json=? WHERE src=? AND dst=? AND kind='imports'",
-                (_set_resolution(attrs_json, "unresolved"), src_id, stub_id),
+                "DELETE FROM edges WHERE src=? AND dst=? AND kind='imports'",
+                (src_id, stub_id),
             )
             continue
 

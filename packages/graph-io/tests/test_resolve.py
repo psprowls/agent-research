@@ -431,9 +431,11 @@ def test_resolve_file_imports_exact(conn: sqlite3.Connection, tmp_path: Path) ->
     assert stub_count == 0
 
 
-def test_resolve_file_imports_external_unresolved(
+def test_resolve_file_imports_external_dropped(
     conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
+    """Option A: an external (third-party) import edge and its specifier stub are
+    DELETED, not parked on the stub as resolution='unresolved'."""
     repo = _make_js_repo(tmp_path)
     _seed_file_import(
         conn,
@@ -444,14 +446,17 @@ def test_resolve_file_imports_external_unresolved(
 
     resolve.resolve_file_imports(conn, repo)
 
-    rows = conn.execute(
-        "SELECT n2.path, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='imports'"
-    ).fetchall()
-    assert len(rows) == 1
-    path, attrs_json = rows[0]
-    assert path == "react"
-    assert json.loads(attrs_json)["resolution"] == "unresolved"
+    # The unresolvable edge is gone entirely.
+    edge_count = conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE kind='imports'"
+    ).fetchone()[0]
+    assert edge_count == 0
+
+    # The orphaned specifier stub is gone too.
+    stub_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='react'"
+    ).fetchone()[0]
+    assert stub_count == 0
 
 
 def test_resolve_file_imports_ambiguous(
