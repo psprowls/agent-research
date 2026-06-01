@@ -1,19 +1,5 @@
 {
   "enabledPlugins": {
     "graph-wiki@agent-research": true
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gsd-graphify-update.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
   }
 }
