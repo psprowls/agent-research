@@ -79,3 +79,59 @@ def test_incremental_handles_rename(tmp_path: Path) -> None:
         assert rows == [("b.py",)]
     finally:
         conn.close()
+
+
+def test_incremental_scan_leaves_no_external_import_stubs(tmp_path: Path) -> None:
+    """End-to-end: `gw scan` == update.run(full=False). An incremental scan must
+    not leave NULL-uri kind='file' stubs for stdlib/third-party imports, and a
+    first-party submodule import must resolve to the real file node.
+
+    full=False is essential and intentional: it is the actual `gw scan` path, and
+    unlike full=True it does NOT run the blanket node cleanup in update.run that
+    would delete these stubs regardless of resolve_file_imports. So this exercises
+    resolve_file_imports as the sole stub remover. (Pre-fix, the os/json/contextlib
+    stubs survived this exact path.) Do not "simplify" this to full=True — that
+    would mask the regression.
+    """
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "mypkg/pyproject.toml": '[project]\nname = "mypkg"\n',
+            "mypkg/src/mypkg/__init__.py": "",
+            "mypkg/src/mypkg/app.py": (
+                "import os\n"
+                "import json\n"
+                "from contextlib import contextmanager\n"
+                "from mypkg.helper import helper_fn\n"
+            ),
+            "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 1\n",
+        },
+        "init",
+    )
+
+    update.run(tmp_path, full=False)
+
+    conn = _ro(tmp_path)
+    try:
+        # No external/stdlib import stub file nodes survive.
+        stubs = conn.execute(
+            "SELECT name, path FROM nodes "
+            "WHERE kind='file' AND uri IS NULL "
+            "AND path IN ('os', 'json', 'contextlib')"
+        ).fetchall()
+        assert stubs == [], f"external import stubs survived: {stubs}"
+
+        # src-layout: `from mypkg.helper import helper_fn` resolves via the
+        # pyproject-discovered import root to mypkg/src/mypkg/helper.py.
+        resolved = conn.execute(
+            "SELECT COUNT(*) FROM edges e "
+            "JOIN nodes s ON e.src=s.id JOIN nodes d ON e.dst=d.id "
+            "WHERE e.kind='imports' "
+            "AND s.path='mypkg/src/mypkg/app.py' "
+            "AND d.path='mypkg/src/mypkg/helper.py' "
+            "AND d.uri IS NOT NULL"
+        ).fetchone()[0]
+        assert resolved == 1, "first-party import did not resolve to helper.py"
+    finally:
+        conn.close()
