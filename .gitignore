@@ -234,3 +234,6 @@ tmp/
 
 # GSD runtime notifications
 .gsd/notifications.jsonl
+
+# GSD auto-generated codebase map cache
+.gsd/CODEBASE.md
