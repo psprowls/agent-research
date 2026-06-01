@@ -2,6 +2,54 @@
 
 `graph-wiki-cli` exposes one unified Typer entry point: `gw`.
 
+## Installation
+
+Install command
+
+```bash
+  cd /Users/pat/Personal/agent-research
+  uv tool install --force --editable ./packages/graph-wiki-cli --with click
+```
+
+  That's it. gw now lives at ~/.local/bin/gw (already on your PATH) and you can run it from any directory:
+
+```bash
+  gw version          # gw 0.1.0
+  gw --help
+  gw scan --workspace /path/to/repo/graph-wiki
+  gw version          # gw 0.1.0
+  gw --help
+  gw scan --workspace /path/to/repo/graph-wiki
+  gw graph status --repo /path/to/repo --mode test
+
+  What each flag does / why
+  gw version          # gw 0.1.0
+  gw --help
+  gw scan --workspace /path/to/repo/graph-wiki
+  gw --help
+  gw scan --workspace /path/to/repo/graph-wiki
+  gw graph status --repo /path/to/repo --mode test
+```
+
+### What each flag does / why
+
+  - --editable — installs the CLI pointing at your repo source (packages/graph-wiki-cli/src/...). Code edits to gw take effect immediately, no
+  reinstall. uv automatically resolved all seven local workspace members (graph-wiki-core, graph-io, wiki-io, workspace-io, model-adapter,
+  subagent-runtime, source-parser) from local paths — none are on PyPI.
+  - --with click — required workaround. uv tool install ignores uv.lock and resolves fresh, so it pulled typer 0.26.5; click didn't get installed
+  into the isolated tool env, and cli.py imports click directly. Without this flag gw crashes with ModuleNotFoundError: No module named 'click'.
+  - --force — only needed because my first attempt (without --with click) already created the tool; it overwrites it. On a clean machine you can
+  drop --force.
+
+### Two real caveats
+
+  1. Editable + global means the repo path is load-bearing. If you move or delete /Users/pat/Personal/agent-research, gw will break. To uninstall:
+  uv tool uninstall graph-wiki-cli.
+  2. The --with click is a band-aid for a packaging bug. cli.py:13 imports click directly but no pyproject.toml in the workspace declares it as a
+  dependency — it's been riding on typer's transitive click, which the lockfile happens to pin but a fresh resolve dropped. The proper fix is adding
+  click to packages/graph-wiki-cli/pyproject.toml dependencies. That's a one-line repo change — want me to do it (via your GSD workflow, per
+  CLAUDE.md), so future installs don't need the workaround?
+
 ```bash
 uv run --package graph-wiki-cli gw --help
 ```
