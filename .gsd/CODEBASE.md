@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-06-01T00:25:13Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-06-01T00:25:13Z","fingerprint":"23dc9b69e34924a6004c8aa68b6f44276f88f9e0","fileCount":500,"truncated":true} -->
+Generated: 2026-06-01T17:01:56Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-06-01T17:01:56Z","fingerprint":"97646f3bfcd59aded4a7b56473459b08403f0740","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -16,10 +16,6 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### .claude-plugin/
 - `.claude-plugin/marketplace.json`
-
-### .github/workflows/
-- `.github/workflows/ci.yml`
-- `.github/workflows/eval.yml`
 
 ### docs/
 - `docs/gw-cli.md`
@@ -553,3 +549,5 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `packages/wiki-io/src/wiki_io/assets/page-templates/concept.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/dependency.md`
 - `packages/wiki-io/src/wiki_io/assets/page-templates/entity-app.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-dependency.md`
+- `packages/wiki-io/src/wiki_io/assets/page-templates/entity-domain.md`

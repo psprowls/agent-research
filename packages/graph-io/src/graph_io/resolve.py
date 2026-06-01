@@ -29,20 +29,26 @@ def _set_resolution(attrs_json: str | None, resolution: str) -> str:
 
 
 def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
-    """Repoint `imports` edges from raw-specifier stub nodes to real file nodes.
+    """Resolve `imports` edges from raw-specifier stub nodes; drop unresolvable ones.
 
     The graph projection emits each import ref as dst=('file', target_name,
     raw_specifier), which materialises a `file` node with path=raw_specifier and
-    uri IS NULL — a "specifier stub". `sweep` only reconciles path-IS-NULL
-    placeholders, so these stubs (non-null path) survive untouched. This pass
-    resolves the raw specifier to the real repo-relative file node:
+    uri IS NULL — a "specifier stub" (both `from X import y` and plain `import X`).
+    `sweep` only reconciles path-IS-NULL placeholders, so these stubs (non-null
+    path) survive untouched. This pass handles them:
 
       - exactly one real file node at the resolved path  -> repoint edge,
         resolution="exact"
       - multiple real file nodes at the resolved path     -> fan out,
         resolution="ambiguous"
-      - no in-repo match (external/third-party specifier) -> leave edge on the
-        stub, resolution="unresolved" (never fabricated)
+      - no in-repo file (external / third-party / stdlib) -> DELETE the edge:
+        the stub is then orphaned and removed by the cleanup below. stdlib usage
+        is still recorded by builtins.refresh as kind='builtin' + used_by edges,
+        so no information is lost.
+
+    Real files are identified by (repo_root / specifier).is_file() and skipped —
+    NOT by name != path or uri IS NULL, both of which a real file can match at
+    this stage of update.run (uri is attached later by structural_nodes.emit).
 
     After processing, specifier stubs left unreferenced (no inbound edge) are
     deleted. Runs inside update's open transaction — does not open a new
@@ -52,16 +58,18 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
 
     repo_root = Path(repo_root)
     # Specifier-stub imports edges: dst is a file node materialised from the
-    # edge dst-key ('file', symbol, raw_specifier) — so dst.name is the imported
-    # symbol and dst.path is the raw specifier. Real file nodes always have
-    # name == path (set by the projection / structural_nodes), so `dst.name !=
-    # dst.path` cleanly distinguishes a specifier stub from a real file node.
+    # edge dst-key ('file', symbol, raw_specifier) — dst.name is the imported
+    # symbol and dst.path is the raw specifier. This includes BOTH from-imports
+    # (name != path, e.g. ('file','contextmanager','contextlib')) AND plain
+    # imports (name == path, e.g. ('file','os','os')).
     #
-    # The name!=path guard is essential: _process_files re-upserts file nodes
-    # with uri=NULL (uri is re-attached later by structural_nodes.emit), so on a
-    # repeat build real file nodes transiently have uri IS NULL too — without the
-    # name!=path guard this pass would mistake an already-resolved real file node
-    # for a stub and flip its resolved edges back to unresolved (idempotency bug).
+    # We cannot key on uri IS NULL alone, nor on name != path: at this point in
+    # update.run, structural_nodes.emit has not yet attached file: URIs, so every
+    # REAL file node also transiently has uri IS NULL, and plain-import stubs have
+    # name == path just like real files. The reliable discriminator is the
+    # working tree — a stub's path is a bare module specifier ("os", "contextlib")
+    # with no corresponding file, whereas a real file's path is an on-disk file.
+    # The loop below skips any dst whose path is a real file (see is_file() check).
     #
     # dst.name (the imported symbol) is preserved in edge attrs so per-symbol
     # information is not lost once the edge points at the (multi-symbol) file.
@@ -73,7 +81,6 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
         "JOIN nodes dst ON e.dst = dst.id "
         "WHERE e.kind = 'imports' "
         "AND dst.kind = 'file' AND dst.uri IS NULL AND dst.path IS NOT NULL "
-        "AND dst.name != dst.path "
         "AND src.path IS NOT NULL"
     ).fetchall()
 
@@ -90,6 +97,13 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
 
     stub_ids: set[int] = set()
     for src_id, stub_id, attrs_json, importing_path, specifier, symbol in rows:
+        # Spare real files. A real source file transiently has uri IS NULL here
+        # (structural_nodes.emit attaches the uri later), and plain-import stubs
+        # share the name == path shape of real files — so probe the working tree.
+        # If `specifier` is an actual file under repo_root it is NOT a stub: leave
+        # its node and edges untouched (and out of stub_ids, so cleanup spares it).
+        if (repo_root / specifier).is_file():
+            continue
         stub_ids.add(stub_id)
         importing_file = repo_root / importing_path
         if Path(importing_path).suffix in _JS_EXTENSIONS:
@@ -103,8 +117,8 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
 
         if rel is None:
             # External / third-party / stdlib specifier with no in-repo file.
-            # Option A: drop the edge entirely instead of parking it on the stub
-            # as resolution="unresolved". The orphaned stub is removed by the
+            # Drop the edge entirely instead of parking it on the stub as
+            # resolution="unresolved". The orphaned stub is removed by the
             # cleanup at the end of this function, so external imports never leave
             # a kind='file' node behind. (stdlib usage is still recorded by
             # builtins.refresh as kind='builtin' + used_by edges.)

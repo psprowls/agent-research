@@ -359,6 +359,26 @@ def _make_js_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _make_py_repo(tmp_path: Path) -> Path:
+    """Build a tiny Python package on disk so resolve_file_imports can probe the
+    working tree for first-party resolution and is_file() discrimination.
+
+    pypkg/src/pypkg/{__init__.py, app.py, helper.py, orphan.py} all exist.
+    """
+    pkg = tmp_path / "pypkg" / "src" / "pypkg"
+    pkg.mkdir(parents=True, exist_ok=True)
+    (pkg / "__init__.py").write_text("")
+    (pkg / "app.py").write_text(
+        "import os\nfrom pypkg.helper import helper_fn\n"
+    )
+    (pkg / "helper.py").write_text("def helper_fn():\n    return 1\n")
+    (pkg / "orphan.py").write_text("x = 1\n")
+    (tmp_path / "pypkg" / "pyproject.toml").write_text(
+        '[project]\nname = "pypkg"\n'
+    )
+    return tmp_path
+
+
 def _seed_file_import(
     conn: sqlite3.Connection,
     *,
@@ -370,9 +390,8 @@ def _seed_file_import(
     optionally a real target file node.
 
     Mirrors the materialised graph after _process_files: the imports edge dst
-    is a ('file', target_symbol, specifier) stub whose name is the imported
-    symbol, path == specifier, and uri IS NULL (name != path — the
-    discriminator resolve_file_imports relies on).
+    is a ('file', target_symbol, specifier) from-import stub whose name is the
+    imported symbol, path == specifier, and uri IS NULL.
     """
     nodes = [
         GraphNode(kind="file", name=importing_path, path=importing_path, line=None,
@@ -457,6 +476,98 @@ def test_resolve_file_imports_external_dropped(
         "SELECT COUNT(*) FROM nodes WHERE path='react'"
     ).fetchone()[0]
     assert stub_count == 0
+
+
+def test_resolve_file_imports_drops_plain_import_stubs(
+    conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """Plain `import X` stubs (name == path) are processed too:
+      - external plain import (os)        -> edge + stub deleted
+      - first-party plain import (pypkg)  -> edge repointed to the real __init__.py
+      - a real file with uri IS NULL      -> SPARED (is_file() discriminator)
+    """
+    repo = _make_py_repo(tmp_path)
+
+    # Package node so resolve_python_import_file can map 'pypkg' -> its import root.
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('package', 'pypkg', 'pypkg', NULL, ?, 'repo:org/x/pkg/pypkg')",
+        (json.dumps({"language": "python"}),),
+    )
+    # Real importer file (uri set).
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pypkg/src/pypkg/app.py', 'pypkg/src/pypkg/app.py', "
+        "NULL, '{}', 'repo:org/x/app')"
+    )
+    # Real first-party target that `import pypkg` resolves to (uri set).
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pypkg/src/pypkg/__init__.py', "
+        "'pypkg/src/pypkg/__init__.py', NULL, '{}', 'repo:org/x/init')"
+    )
+    # Real file that is currently a NULL-uri node (orphan parser node). It is an
+    # imports-edge dst and MUST survive — is_file() is True for it.
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pypkg/src/pypkg/orphan.py', "
+        "'pypkg/src/pypkg/orphan.py', NULL, '{}', NULL)"
+    )
+    app_id = conn.execute(
+        "SELECT id FROM nodes WHERE path='pypkg/src/pypkg/app.py'"
+    ).fetchone()[0]
+
+    # Plain external stub: ('file','os','os')  (name == path)
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'os', 'os', NULL, '{}', NULL)"
+    )
+    os_id = conn.execute(
+        "SELECT id FROM nodes WHERE kind='file' AND path='os'"
+    ).fetchone()[0]
+    # Plain first-party stub: ('file','pypkg','pypkg')  (name == path)
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'pypkg', 'pypkg', NULL, '{}', NULL)"
+    )
+    fp_id = conn.execute(
+        "SELECT id FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL"
+    ).fetchone()[0]
+    orphan_id = conn.execute(
+        "SELECT id FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'"
+    ).fetchone()[0]
+    for dst in (os_id, fp_id, orphan_id):
+        conn.execute(
+            "INSERT INTO edges(src, dst, kind, attrs_json) "
+            "VALUES (?, ?, 'imports', NULL)",
+            (app_id, dst),
+        )
+
+    resolve.resolve_file_imports(conn, repo)
+
+    # External plain stub deleted.
+    assert conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='os'"
+    ).fetchone()[0] == 0
+    # First-party plain stub deleted...
+    assert conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL"
+    ).fetchone()[0] == 0
+    # ...and its edge repointed to the real __init__.py file node (exact).
+    repointed = conn.execute(
+        "SELECT e.attrs_json FROM edges e JOIN nodes d ON e.dst=d.id "
+        "WHERE e.kind='imports' AND d.path='pypkg/src/pypkg/__init__.py'"
+    ).fetchall()
+    assert len(repointed) == 1
+    assert json.loads(repointed[0][0])["resolution"] == "exact"
+    # Real NULL-uri orphan file is SPARED, and its edge is untouched.
+    assert conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'"
+    ).fetchone()[0] == 1
+    assert conn.execute(
+        "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
+        "WHERE e.kind='imports' AND d.path='pypkg/src/pypkg/orphan.py'"
+    ).fetchone()[0] == 1
 
 
 def test_resolve_file_imports_ambiguous(
