@@ -33,11 +33,24 @@ _(scanner will populate on next scan)_
 ## Provider chain
 > TODO: <Describe the top-level provider nesting. Reference the file that defines it.>
 
-## Key patterns
-- Notable patterns, conventions, or invariants this app owns.
+## File map - {{app_name}}
+> TODO — <Overview of this package's source tree.>
 
-## Gotchas
-- Edge cases, surprises, or quirks future readers should know about.
+### {{app_name}}/
+> TODO — <describe what this directory contains.>
 
-## Related
-No related concept, ADR, or architecture pages yet.
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — > TODO — <Short description of file contents.> |
+
+## Concepts
+- [[concepts/<concept>]]
+
+## Dependencies
+- [[dependencies/<lib>]]
+
+## Decisions
+- [[adrs/<id>-<slug>]]
+
+## Contrasts / alternatives
+- [[concepts/<a>-vs-<b>]]

@@ -18,8 +18,14 @@ _(scanner will populate on next scan)_
 ## How we use it
 > TODO: <Notable workflows, configurations, or extension points used in this repo.>
 
-## Gotchas
-> TODO: <Edge cases, surprises, or quirks future readers should know about.>
+## Concepts
+- [[concepts/<concept>]]
 
-## Related
-No related concept, ADR, or architecture pages yet.
+## Dependencies
+- [[dependencies/<lib>]]
+
+## Decisions
+- [[adrs/<id>-<slug>]]
+
+## Contrasts / alternatives
+- [[concepts/<a>-vs-<b>]]

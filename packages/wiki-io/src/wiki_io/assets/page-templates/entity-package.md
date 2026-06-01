@@ -34,14 +34,14 @@ _(scanner will populate on next scan)_
 ## Public API
 > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
 
-## Key patterns
-> TODO: <Notable patterns, conventions, or invariants this package owns — e.g. Pattern 1 — `src/path/to/file.py:line`.>
+## Concepts
+- [[concepts/<concept>]]
 
-## Conventions
-> TODO: <Coding/naming/structural conventions specific to this package.>
+## Dependencies
+- [[dependencies/<lib>]]
 
-## Gotchas
-> TODO: <Edge cases, surprises, or quirks future readers should know about.>
+## Decisions
+- [[adrs/<id>-<slug>]]
 
-## Related
-No related concept, ADR, or architecture pages yet.
+## Contrasts / alternatives
+- [[concepts/<a>-vs-<b>]]
