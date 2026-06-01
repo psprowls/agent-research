@@ -822,8 +822,6 @@ def write_entities(
 
         # --- Deletion sweep ---
         for page_path in sorted(entities_dir.glob("*.md")):
-            if page_path.name == "_index.md":
-                continue
             try:
                 post = frontmatter.load(page_path)
                 uri = post.metadata.get("uri")
@@ -851,6 +849,15 @@ def write_entities(
                 errors.append(EntityWriteError(
                     uri=str(page_path.name), slug=page_path.stem, exception=repr(exc),
                 ))
+
+        # --- Placeholder self-heal (runs after create/merge + deletion sweep,
+        # so it reflects post-sweep state). Keep entities/ committable when
+        # empty; drop the placeholder once real pages exist. ---
+        gitkeep = entities_dir / ".gitkeep"
+        if any(entities_dir.glob("*.md")):
+            gitkeep.unlink(missing_ok=True)
+        elif not gitkeep.exists():
+            gitkeep.write_text("", encoding="utf-8")
 
     return EntityWriteResult(
         created=sorted(created),

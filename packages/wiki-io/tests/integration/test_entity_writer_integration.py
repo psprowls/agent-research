@@ -123,6 +123,45 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     assert (entities / "repo_fixture.md").exists()
 
 
+def test_write_entities_removes_gitkeep_when_pages_created(tmp_path):
+    """A scan that creates >=1 entity page deletes the entities/.gitkeep placeholder."""
+    _build_fixture_workspace(tmp_path)
+    _init_git_repo(tmp_path)
+    conn = _ingest(tmp_path)
+    wiki_root = tmp_path / "wiki"
+
+    # Simulate a freshly-bootstrapped vault: entities/ exists with only .gitkeep.
+    entities = wiki_root / "entities"
+    entities.mkdir(parents=True)
+    (entities / ".gitkeep").write_text("", encoding="utf-8")
+
+    result = write_entities(conn, wiki_root, ADMITTED_KINDS)
+
+    assert result.created, "fixture should create at least one entity page"
+    assert not (entities / ".gitkeep").exists(), (
+        ".gitkeep must be removed once real entity pages exist"
+    )
+    assert any(entities.glob("*.md")), "expected entity *.md pages on disk"
+
+
+def test_write_entities_restores_gitkeep_when_dir_empty(tmp_path):
+    """A scan that leaves entities/ empty (re)creates the .gitkeep placeholder."""
+    _build_fixture_workspace(tmp_path)
+    _init_git_repo(tmp_path)
+    conn = _ingest(tmp_path)
+    wiki_root = tmp_path / "wiki"
+
+    # Empty admitted set => no kinds processed, nothing created; dir stays empty.
+    result = write_entities(conn, wiki_root, frozenset())
+
+    assert result.created == []
+    entities = wiki_root / "entities"
+    assert list(entities.glob("*.md")) == [], "no entity pages expected"
+    assert (entities / ".gitkeep").is_file(), (
+        ".gitkeep must be restored when entities/ is empty"
+    )
+
+
 def test_status_deprecated_preserved_after_rewrite(tmp_path):
     _build_fixture_workspace(tmp_path)
     _init_git_repo(tmp_path)
@@ -256,7 +295,7 @@ def test_no_unsubstituted_token_and_summary_populated(tmp_path):
     assert result.errors == [], f"unexpected errors: {result.errors}"
 
     entities = wiki_root / "entities"
-    pages = [p for p in entities.glob("*.md") if p.name != "_index.md"]
+    pages = sorted(entities.glob("*.md"))
     assert pages, "no entity pages were generated"
     for page in pages:
         post = frontmatter.load(page)
