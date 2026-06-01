@@ -66,7 +66,10 @@ def _walk(node: SourceNode, nodes: list[GraphNode], edges: list[GraphEdge]) -> N
             edges.append(
                 GraphEdge(
                     src=parent_key,
-                    dst=("function", ref.target_name, None),  # path unresolved at v1
+                    # Upsert stores this pathless code-symbol target as
+                    # kind='unresolved_symbol' while preserving symbol_kind on
+                    # the edge for resolve.sweep().
+                    dst=("function", ref.target_name, None),
                     kind="calls",
                     attrs=dict(ref.attrs),
                 )

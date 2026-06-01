@@ -27,6 +27,8 @@ _VALID_KINDS = frozenset(
         "app",
         # Phase 61: TypeScript interface/type-alias/enum nodes
         "type",
+        # Explicit unresolved call/export target placeholders.
+        "unresolved_symbol",
     }
 )
 

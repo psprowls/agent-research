@@ -97,11 +97,14 @@ def test_upsert_unresolved_edge_creates_placeholder(conn: sqlite3.Connection) ->
     placeholder = conn.execute(
         "SELECT kind, name, path FROM nodes WHERE name='missing'"
     ).fetchone()
-    assert placeholder == ("function", "missing", None)
+    assert placeholder == ("unresolved_symbol", "missing", None)
     edge = conn.execute(
         "SELECT attrs_json FROM edges WHERE kind='calls'"
     ).fetchone()
-    assert json.loads(edge[0]) == {"resolution": "unresolved"}
+    assert json.loads(edge[0]) == {
+        "resolution": "unresolved",
+        "symbol_kind": "function",
+    }
 
 
 def test_upsert_uri_lands_in_column(conn: sqlite3.Connection) -> None:

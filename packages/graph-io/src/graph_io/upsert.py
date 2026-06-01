@@ -9,6 +9,9 @@ from typing import Any
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 NodeKey = tuple[str, str, str | None]
+_UNRESOLVED_SYMBOL_KIND = "unresolved_symbol"
+_SYMBOL_PLACEHOLDER_KINDS = frozenset({"function", "method", "class", "type"})
+_SYMBOL_PLACEHOLDER_EDGE_KINDS = frozenset({"calls", "exports"})
 
 
 def _serialize(attrs: dict[str, Any]) -> str | None:
@@ -66,11 +69,32 @@ def _ensure_node(conn: sqlite3.Connection, key: NodeKey) -> int:
     return _insert_node(conn, key, None, None, None)
 
 
+def _symbol_placeholder_key(edge: GraphEdge, attrs: dict[str, Any]) -> NodeKey:
+    """Return the persisted dst key for unresolved code-symbol edge targets.
+
+    Parser projections intentionally emit call/export destinations without a
+    path because the concrete definition may be external or ambiguous. Store
+    those materialized nodes under an explicit kind so DB readers can tell they
+    are unresolved references, while keeping the intended symbol kind on the
+    edge for the later resolver sweep.
+    """
+    dst_kind, dst_name, dst_path = edge.dst
+    if (
+        dst_path is None
+        and dst_kind in _SYMBOL_PLACEHOLDER_KINDS
+        and edge.kind in _SYMBOL_PLACEHOLDER_EDGE_KINDS
+    ):
+        attrs.setdefault("symbol_kind", dst_kind)
+        return (_UNRESOLVED_SYMBOL_KIND, dst_name, None)
+    return edge.dst
+
+
 def _upsert_edge(conn: sqlite3.Connection, edge: GraphEdge) -> None:
     src_id = _ensure_node(conn, edge.src)
-    dst_id = _ensure_node(conn, edge.dst)
     attrs = dict(edge.attrs)
-    if edge.dst[2] is None:
+    dst_key = _symbol_placeholder_key(edge, attrs)
+    dst_id = _ensure_node(conn, dst_key)
+    if dst_key[2] is None:
         attrs.setdefault("resolution", "unresolved")
     attrs_json = _serialize(attrs)
     conn.execute(

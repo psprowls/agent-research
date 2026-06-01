@@ -55,24 +55,23 @@ def main() -> None:
     for kind, unr, ex, amb, total in rows:
         print(f"  {kind:22}{unr or 0:>8}{ex or 0:>8}{amb or 0:>8}{total:>8}")
 
-    hr("FUNCTION call/export placeholders (path IS NULL) — where do they really live?")
-    print("  Distinct placeholder names whose target exists under ANOTHER kind")
-    print("  (these FAIL to resolve only because resolve.sweep matches kind exactly):")
+    hr("UNRESOLVED call/export placeholders (kind='unresolved_symbol') — where do they really live?")
+    print("  Distinct placeholder names whose target exists under a concrete code kind:")
     rows = q(conn, """
-        WITH stub AS (SELECT DISTINCT name FROM nodes WHERE kind='function' AND path IS NULL)
+        WITH stub AS (SELECT DISTINCT name FROM nodes WHERE kind='unresolved_symbol' AND path IS NULL)
         SELECT n.kind, COUNT(DISTINCT n.name)
         FROM nodes n JOIN stub ON n.name=stub.name
         WHERE n.path IS NOT NULL GROUP BY n.kind ORDER BY 2 DESC""")
     for kind, c in rows:
         print(f"    target defined as {kind:10} {c}")
     (resolvable, external), = q(conn, """
-        WITH stub AS (SELECT DISTINCT name FROM nodes WHERE kind='function' AND path IS NULL)
+        WITH stub AS (SELECT DISTINCT name FROM nodes WHERE kind='unresolved_symbol' AND path IS NULL)
         SELECT
           SUM(EXISTS(SELECT 1 FROM nodes r WHERE r.name=stub.name AND r.path IS NOT NULL)),
           SUM(NOT EXISTS(SELECT 1 FROM nodes r WHERE r.name=stub.name AND r.path IS NOT NULL))
         FROM stub""")
-    print(f"\n    distinct names resolvable if kind ignored : {resolvable}")
-    print(f"    distinct names truly external (no def)    : {external}")
+    print(f"\n    distinct names with any concrete definition : {resolvable}")
+    print(f"    distinct names external/unknown            : {external}")
 
     hr("FILE import placeholders (uri IS NULL) — shape of the unresolved specifiers")
     rows = q(conn, """

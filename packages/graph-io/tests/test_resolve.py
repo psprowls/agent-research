@@ -103,13 +103,14 @@ def test_sweep_leaves_unresolved_alone(conn: sqlite3.Connection) -> None:
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, e.attrs_json FROM edges e "
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
         "JOIN nodes n1 ON e.src=n1.id JOIN nodes n2 ON e.dst=n2.id "
         "WHERE e.kind='calls'"
     ).fetchall()
     assert len(rows) == 1
-    path, attrs_json = rows[0]
+    path, kind, attrs_json = rows[0]
     assert path is None
+    assert kind == "unresolved_symbol"
     assert json.loads(attrs_json)["resolution"] == "unresolved"
 
 
@@ -136,7 +137,7 @@ def test_sweep_deletes_resolved_placeholders(conn: sqlite3.Connection) -> None:
     assert null_nodes == 0
 
 
-def test_sweep_keeps_unresolved_placeholders(conn: sqlite3.Connection) -> None:
+def test_sweep_keeps_unresolved_symbol_placeholders(conn: sqlite3.Connection) -> None:
     _seed(
         conn,
         nodes=[GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={})],
@@ -152,8 +153,10 @@ def test_sweep_keeps_unresolved_placeholders(conn: sqlite3.Connection) -> None:
 
     resolve.sweep(conn)
 
-    null_nodes = conn.execute("SELECT COUNT(*) FROM nodes WHERE path IS NULL").fetchone()[0]
-    assert null_nodes == 1
+    row = conn.execute(
+        "SELECT kind, COUNT(*) FROM nodes WHERE path IS NULL GROUP BY kind"
+    ).fetchone()
+    assert row == ("unresolved_symbol", 1)
 
 
 def test_sweep_preserves_uri_bearing_structural_nodes(conn: sqlite3.Connection) -> None:
@@ -699,12 +702,13 @@ def test_sweep_cross_kind_zero_candidates(conn: sqlite3.Connection) -> None:
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, e.attrs_json FROM edges e "
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
         "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
     ).fetchall()
     assert len(rows) == 1
-    path, attrs_json = rows[0]
+    path, kind, attrs_json = rows[0]
     assert path is None
+    assert kind == "unresolved_symbol"
     assert json.loads(attrs_json)["resolution"] == "unresolved"
 
 
@@ -731,13 +735,14 @@ def test_sweep_cross_kind_collision_stays_unresolved(conn: sqlite3.Connection) -
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, e.attrs_json FROM edges e "
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
         "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
     ).fetchall()
-    # the placeholder stays (no real-kind match), edge unresolved
+    # the unresolved_symbol placeholder stays (no real-kind match), edge unresolved
     assert len(rows) == 1
-    path, attrs_json = rows[0]
+    path, kind, attrs_json = rows[0]
     assert path is None
+    assert kind == "unresolved_symbol"
     assert json.loads(attrs_json)["resolution"] == "unresolved"
 
 

@@ -1158,6 +1158,13 @@ def test_valid_kinds_includes_type(conn: sqlite3.Connection) -> None:
     assert rows == []
 
 
+def test_valid_kinds_includes_unresolved_symbol(conn: sqlite3.Connection) -> None:
+    """find() admits explicit unresolved call/export target placeholders."""
+    assert "unresolved_symbol" in queries._VALID_KINDS
+    rows = queries.find(conn, kind="unresolved_symbol")
+    assert rows == []
+
+
 def test_valid_app_kinds_contents() -> None:
     """Phase 50 D-04 / GQP-01: _VALID_APP_KINDS frozenset enumerates the framework strings."""
     assert queries._VALID_APP_KINDS == frozenset({"cli", "electron", "expo", "nextjs", "spa"})
