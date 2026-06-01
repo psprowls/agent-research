@@ -839,7 +839,7 @@ class ExistingPages:
     entities: dict mapping graph URI → {"path": Path, "frontmatter": dict}.
               Populated by walking `wiki/entities/*.md` and indexing by the
               page's `uri` frontmatter field. Pages missing a `uri` field are
-              skipped silently. `_index.md` is skipped (Phase 43 convention).
+              skipped silently. `.gitkeep` is never matched by the `*.md` walk.
     """
 
     legacy: dict[str, dict]
@@ -861,7 +861,7 @@ def _load_existing_pages(wiki):
     The category is read from frontmatter when present so the diff can
     distinguish apps from libraries regardless of which directory they live in.
 
-    `entities` is built by walking `wiki/entities/*.md` (excluding `_index.md`)
+    `entities` is built by walking `wiki/entities/*.md` (`.gitkeep` never matches)
     and indexing by the page's `uri` frontmatter field (Phase 45 D-11).
     """
     if not wiki:
@@ -964,8 +964,6 @@ def _load_existing_pages(wiki):
         import frontmatter as _frontmatter  # local import: only needed for entity walk
 
         for page_path in sorted(entities_dir.glob("*.md")):
-            if page_path.name == "_index.md":
-                continue
             try:
                 post = _frontmatter.load(page_path)
             except Exception:
