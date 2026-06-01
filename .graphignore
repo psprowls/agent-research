@@ -9,3 +9,5 @@
 #   packages/wiki-io/tests/fixtures/        (round-trip-vault, edge-case-vault, single-package-vault)
 #   packages/eval-harness/tests/fixtures/   (post-rebrand-vault)
 fixtures
+.claude
+.gsd
