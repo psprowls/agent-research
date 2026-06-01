@@ -511,7 +511,7 @@ def _pack_output(
 
 @mcp.tool(
     name="graph_build",
-    description="Build the code graph (cg update) for the workspace. Mirrors `gw graph build`.",
+    description="Build or refresh the code graph for the workspace. Mirrors `gw graph update`.",
 )
 async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutput:
     repo, workspace = graph_module._resolve_paths(input.workspace_path)
@@ -551,7 +551,7 @@ async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutpu
 
 @mcp.tool(
     name="graph_describe",
-    description="Describe a graph entity by kind and identifier. Mirrors `gw graph describe <kind>`.",
+    description="Describe a graph entity. Mirrors `gw graph describe-package`, `gw graph describe-path`, and related describe commands.",
 )
 async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphCommandOutput:
     # Validate kind + identifier-required semantics against the public mapping
@@ -596,7 +596,7 @@ async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphComman
 
 @mcp.tool(
     name="graph_query",
-    description="Find graph nodes by name/kind/in-package. Mirrors `gw graph query` (= `cg find`).",
+    description="Find graph nodes by name/kind/in-package. Mirrors `gw graph find`.",
 )
 async def graph_query(input: GraphQueryInput, ctx: Context) -> GraphCommandOutput:
     if input.name is None and input.kind is None and input.in_package is None:
