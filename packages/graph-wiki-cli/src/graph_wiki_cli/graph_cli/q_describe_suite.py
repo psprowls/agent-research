@@ -6,7 +6,6 @@ the helper grows it.
 
 from __future__ import annotations
 
-import argparse
 import sys
 
 from workspace_io.paths import graph_dir
@@ -14,11 +13,7 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, render as _render, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("name")
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

@@ -7,7 +7,6 @@ declared (via EntryPoint declares_entry_point) and/or conventional
 
 from __future__ import annotations
 
-import argparse
 import json as _json
 import sys
 from collections import defaultdict
@@ -17,11 +16,7 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    pass
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

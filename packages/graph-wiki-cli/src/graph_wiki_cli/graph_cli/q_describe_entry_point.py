@@ -14,7 +14,6 @@ underlying query still receives both fields it needs.
 
 from __future__ import annotations
 
-import argparse
 import sys
 
 from workspace_io.paths import graph_dir
@@ -22,14 +21,7 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, render as _render, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "name",
-        help="Entry-point name. Use 'package:entry' to disambiguate when bare name is shared across packages.",
-    )
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import argparse
+from types import SimpleNamespace
 import json
 import subprocess
 from pathlib import Path
@@ -49,15 +49,15 @@ def mixed_workspace(tmp_path: Path) -> Path:
 
 
 def _ns_list(ws, fmt="human"):
-    return argparse.Namespace(workspace=ws, repo=None, fmt=fmt, mode="workspace")
+    return SimpleNamespace(workspace=ws, repo=None, fmt=fmt, mode="workspace")
 
 
 def _ns_describe_builtin(ws, uri, fmt="human"):
-    return argparse.Namespace(workspace=ws, repo=None, fmt=fmt, mode="workspace", uri=uri)
+    return SimpleNamespace(workspace=ws, repo=None, fmt=fmt, mode="workspace", uri=uri)
 
 
 def _ns_describe_dep(ws, name, ecosystem="pypi", fmt="human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=ws, repo=None, fmt=fmt, mode="workspace",
         name=name, ecosystem=ecosystem,
     )

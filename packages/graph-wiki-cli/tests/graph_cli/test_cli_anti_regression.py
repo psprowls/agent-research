@@ -143,7 +143,7 @@ def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
     assert result.returncode != 0, (
         f"positional `gw graph find foo.py` should error, got rc=0: {result.stdout}"
     )
-    assert "unrecognized arguments" in result.stderr.lower(), result.stderr
+    assert "unexpected extra argument" in result.stderr.lower(), result.stderr
 
 
 # Bonus assertion (D-16) — covers the 6 pre-existing subcommands not

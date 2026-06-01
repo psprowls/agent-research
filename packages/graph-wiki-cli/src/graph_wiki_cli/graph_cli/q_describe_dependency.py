@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import dataclasses
 import json as _json
 import sys
@@ -12,16 +11,7 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("name")
-    parser.add_argument(
-        "--ecosystem",
-        default="pypi",
-        help="package ecosystem (default: pypi)",
-    )
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

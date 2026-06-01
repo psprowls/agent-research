@@ -5,7 +5,7 @@ Also covers `gw graph describe-builtin` (Phase 49 BUILTIN-06).
 
 from __future__ import annotations
 
-import argparse
+from types import SimpleNamespace
 import json
 import shutil
 import subprocess
@@ -67,7 +67,7 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
 
 
 def _ns(workspace: Path, *, name: str, ecosystem: str = "pypi", fmt: str = "human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,
         fmt=fmt,
@@ -78,7 +78,7 @@ def _ns(workspace: Path, *, name: str, ecosystem: str = "pypi", fmt: str = "huma
 
 
 def _ns_plugin(workspace: Path, *, name: str, fmt: str = "human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,
         fmt=fmt,
@@ -173,7 +173,7 @@ def workspace_with_internal_dep(tmp_path: Path) -> Path:
 
 
 def _ns_package(workspace: Path, *, name: str, fmt: str = "human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,
         fmt=fmt,
@@ -257,7 +257,7 @@ def workspace_with_builtins(tmp_path: Path) -> Path:
 
 
 def _ns_builtin(workspace: Path, *, uri: str, fmt: str = "human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,
         fmt=fmt,
@@ -358,7 +358,7 @@ def workspace_with_app(tmp_path: Path) -> Path:
 
 
 def _ns_app(workspace: Path, *, name: str, fmt: str = "human"):
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,
         fmt=fmt,

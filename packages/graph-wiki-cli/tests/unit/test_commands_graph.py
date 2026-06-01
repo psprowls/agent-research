@@ -1,4 +1,4 @@
-"""Unit tests for the `gw graph` command namespace."""
+"""Unit tests for the native `gw graph` Typer namespace."""
 
 from __future__ import annotations
 
@@ -13,40 +13,43 @@ from graph_wiki_cli.cli import app
 runner = CliRunner()
 
 
-def test_graph_help_lists_relocated_code_graph_subcommands() -> None:
+def test_graph_help_lists_native_code_graph_subcommands() -> None:
     result = runner.invoke(app, ["graph", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "usage: gw graph" in result.output
+    assert "Code graph operations" in result.output
     assert "update" in result.output
     assert "find" in result.output
     assert "describe-package" in result.output
     assert "domain-clusters" in result.output
 
 
-def test_graph_find_help_routes_to_relocated_parser() -> None:
+def test_graph_find_help_is_typer_help() -> None:
     result = runner.invoke(app, ["graph", "find", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "usage: gw graph find" in result.output
+    assert "Find graph nodes" in result.output
     assert "--name" in result.output
     assert "--kind" in result.output
     assert "--in-package" in result.output
 
 
-def test_graph_dispatch_calls_relocated_main() -> None:
-    with patch("graph_wiki_cli.cli.graph_cli_main", return_value=0) as graph_main:
+def test_graph_status_invokes_relocated_command_module() -> None:
+    with patch("graph_wiki_cli.graph_cli.main.ops_status.run", return_value=0) as status_run:
         result = runner.invoke(app, ["graph", "--repo", ".", "--mode", "test", "status"])
 
     assert result.exit_code == 0, result.output
-    graph_main.assert_called_once_with(["--repo", ".", "--mode", "test", "status"])
+    args = status_run.call_args.args[0]
+    assert args.repo == Path(".")
+    assert args.mode == "test"
+    assert args.fmt == "human"
 
 
-def test_graph_dispatch_maps_argparse_system_exit() -> None:
-    with patch("graph_wiki_cli.cli.graph_cli_main", side_effect=SystemExit(2)):
-        result = runner.invoke(app, ["graph", "find"])
+def test_graph_find_no_filters_fails_in_typer_layer() -> None:
+    result = runner.invoke(app, ["graph", "find"])
 
     assert result.exit_code == 2
+    assert "at least one of --name, --kind, --in-package is required" in result.stderr
 
 
 def test_graph_actual_find_missing_db_uses_gw_graph_guidance(tmp_path: Path) -> None:

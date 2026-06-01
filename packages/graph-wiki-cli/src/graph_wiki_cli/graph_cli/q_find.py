@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import sys
 
 from workspace_io.paths import graph_dir
@@ -11,36 +10,10 @@ from graph_io import exit_codes, queries, render as _render, store
 from graph_io.queries import _VALID_KINDS
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--name",
-        default=None,
-        help="Filter by node name (exact match). Combines with other filters via AND.",
-    )
-    parser.add_argument(
-        "--kind",
-        default=None,
-        choices=sorted(_VALID_KINDS),
-        help="Filter by node kind. Combines with other filters via AND.",
-    )
-    parser.add_argument(
-        "--in-package",
-        dest="in_package",
-        default=None,
-        help=(
-            "Filter results to nodes contained in the named package "
-            "(case-insensitive exact match). Combines with other filters via AND."
-        ),
-    )
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     # D-01: at least one filter required.
     if args.name is None and args.kind is None and args.in_package is None:
-        args._parser.error(
-            "gw graph find requires at least one of --name, --kind, --in-package"
-        )
-        # parser.error() raises SystemExit(2); the next line is unreachable.
+        return exit_codes.GENERIC
 
     db = graph_dir(args.workspace) / "code.db"
     try:

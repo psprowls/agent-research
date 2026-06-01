@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import argparse
 import sys
 
 from graph_io import exit_codes, store, update
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--full", action="store_true", help="full rebuild from scratch")
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     try:
         update.run(args.repo, workspace=args.workspace, full=args.full)
     except update.NotInGitRepoError as exc:

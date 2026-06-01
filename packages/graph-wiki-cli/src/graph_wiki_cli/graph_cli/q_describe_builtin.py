@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import dataclasses
 import json as _json
 import sys
@@ -12,11 +11,7 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("uri", help="builtin URI, e.g. builtin:python/pathlib")
-
-
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     # URI parse — fail fast on malformed input with exit_codes.GENERIC.
     if not args.uri.startswith("builtin:"):
         print(f"error: not a builtin URI: {args.uri}", file=sys.stderr)

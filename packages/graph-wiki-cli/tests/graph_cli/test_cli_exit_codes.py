@@ -175,20 +175,20 @@ def test_cg_update_on_v1_db_exits_schema_mismatch(
     """
     _make_v1_db(tmp_path)
 
+    from typer.testing import CliRunner
+
     from graph_io import store, update
-    from graph_wiki_cli.graph_cli.main import main
+    from graph_wiki_cli.graph_cli.main import graph_app
 
     def _raise_schema_mismatch(*args, **kwargs):
         raise store.SchemaMismatchError(found="1", expected=2)
 
     monkeypatch.setattr(update, "run", _raise_schema_mismatch)
 
-    buf = io.StringIO()
-    with redirect_stderr(buf):
-        rc = main(["--repo", str(tmp_path), "--mode", "test", "update"])
-    stderr = buf.getvalue()
+    result = CliRunner().invoke(graph_app, ["--repo", str(tmp_path), "--mode", "test", "update"])
+    stderr = result.stderr
 
-    assert rc == 4, (rc, stderr)
+    assert result.exit_code == 4, (result.exit_code, stderr)
     assert "gw graph update --full" in stderr, stderr
     assert "Traceback" not in stderr, stderr
 

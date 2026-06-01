@@ -59,7 +59,7 @@ def test_cli_rejects_invalid_fmt() -> None:
         capture_output=True, text=True,
     )
     assert result.returncode == 2
-    assert "invalid choice" in result.stderr
+    assert "invalid value" in result.stderr.lower()
 
 
 def test_render_importer_human_collapses_symbols() -> None:

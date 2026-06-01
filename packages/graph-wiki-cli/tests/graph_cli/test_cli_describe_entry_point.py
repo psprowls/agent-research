@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import argparse
+from types import SimpleNamespace
 
 import pytest
 
@@ -14,7 +14,7 @@ def _build_namespace(workspace, name, fmt="human"):
     # seeded_db yields a sqlite3.Connection directly; we need to derive the
     # workspace path. Call sites pass the workspace path determined by walking
     # the same fixture path the conftest uses.
-    return argparse.Namespace(
+    return SimpleNamespace(
         workspace=workspace,
         repo=None,  # gw graph modules read DB via workspace, not repo
         fmt=fmt,

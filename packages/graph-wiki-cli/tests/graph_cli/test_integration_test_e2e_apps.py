@@ -10,7 +10,7 @@ flip behaviour.
 
 from __future__ import annotations
 
-import argparse
+from types import SimpleNamespace
 import json
 import subprocess
 from pathlib import Path
@@ -22,14 +22,14 @@ from graph_wiki_cli.graph_cli import q_describe_app, q_list_apps, q_list_package
 from workspace_io.config import resolve as resolve_workspace
 
 
-def _ns_list(workspace: Path, fmt: str = "human") -> argparse.Namespace:
-    return argparse.Namespace(
+def _ns_list(workspace: Path, fmt: str = "human") -> SimpleNamespace:
+    return SimpleNamespace(
         workspace=workspace, repo=None, fmt=fmt, mode="workspace"
     )
 
 
-def _ns_describe(workspace: Path, name: str, fmt: str = "human") -> argparse.Namespace:
-    return argparse.Namespace(
+def _ns_describe(workspace: Path, name: str, fmt: str = "human") -> SimpleNamespace:
+    return SimpleNamespace(
         workspace=workspace, repo=None, fmt=fmt, mode="workspace", name=name
     )
 

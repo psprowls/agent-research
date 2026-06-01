@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json as _json
 import sqlite3
 import subprocess
@@ -14,14 +13,13 @@ from workspace_io.paths import graph_dir
 from graph_io import exit_codes, queries, schema, store
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    pass
-
-
 def _git_head(repo: Path) -> str | None:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
-        cwd=repo, capture_output=True, text=True, check=False,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         return None
@@ -56,7 +54,7 @@ def _collect(conn: sqlite3.Connection) -> dict:
     }
 
 
-def run(args: argparse.Namespace) -> int:
+def run(args: object) -> int:
     head = _git_head(args.repo)
     if head is None:
         print("error: not in a git repo", file=sys.stderr)
