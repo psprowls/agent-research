@@ -28,7 +28,15 @@ def _seed_file_node(conn: sqlite3.Connection, path: str) -> None:
     upsert.upsert_records(
         conn,
         GraphRecords(
-            nodes=[GraphNode(kind="file", name=path, path=path, line=None, attrs={})],
+            nodes=[
+                GraphNode(
+                    kind="file",
+                    name=path,
+                    path=path,
+                    line=None,
+                    attrs={"language": "python"},
+                )
+            ],
             edges=[],
         ),
     )
@@ -129,6 +137,35 @@ def test_refresh_creates_contains_edges(tmp_path: Path, conn: sqlite3.Connection
     ).fetchall()
     file_names = {row[0] for row in rows}
     assert file_names == {"alpha/src/a.py", "alpha/src/b.py"}
+
+
+def test_refresh_does_not_contain_import_specifier_stubs(
+    tmp_path: Path,
+    conn: sqlite3.Connection,
+) -> None:
+    pkg_dir = tmp_path / "alpha"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+    )
+    _seed_file_node(conn, "alpha/src/real.ts")
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('file', 'ImportedSymbol', './real.js', NULL, NULL, NULL)"
+    )
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    contained = {
+        row[0]
+        for row in conn.execute(
+            "SELECT n2.path FROM edges e "
+            "JOIN nodes n1 ON e.src=n1.id "
+            "JOIN nodes n2 ON e.dst=n2.id "
+            "WHERE n1.kind='package' AND n1.name='alpha' AND e.kind='contains'"
+        ).fetchall()
+    }
+    assert contained == {"alpha/src/real.ts"}
 
 
 def test_refresh_skips_venv_manifests(tmp_path: Path, conn: sqlite3.Connection) -> None:

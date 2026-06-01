@@ -453,6 +453,57 @@ def test_resolve_file_imports_exact(conn: sqlite3.Connection, tmp_path: Path) ->
     assert stub_count == 0
 
 
+def test_resolve_file_imports_js_specifier_to_ts_target_removes_contains_stub(
+    conn: sqlite3.Connection,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path
+    src = repo / "packages" / "jspkg-a" / "src"
+    src.mkdir(parents=True)
+    (src / "index.ts").write_text('import { Foo } from "./foo.js";\n')
+    (src / "foo.ts").write_text("export class Foo {}\n")
+    (repo / "packages" / "jspkg-a" / "package.json").write_text(
+        json.dumps({"name": "jspkg-a", "type": "module"})
+    )
+    _seed_file_import(
+        conn,
+        importing_path="packages/jspkg-a/src/index.ts",
+        specifier="./foo.js",
+        target_path="packages/jspkg-a/src/foo.ts",
+    )
+    conn.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
+        "VALUES ('package', 'jspkg-a', 'packages/jspkg-a', NULL, '{}', NULL)"
+    )
+    stub_id = conn.execute(
+        "SELECT id FROM nodes WHERE kind='file' AND path='./foo.js' AND uri IS NULL"
+    ).fetchone()[0]
+    pkg_id = conn.execute(
+        "SELECT id FROM nodes WHERE kind='package' AND name='jspkg-a'"
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'contains', NULL)",
+        (pkg_id, stub_id),
+    )
+
+    resolve.resolve_file_imports(conn, repo)
+
+    imports = conn.execute(
+        "SELECT d.path, e.attrs_json FROM edges e "
+        "JOIN nodes d ON e.dst=d.id WHERE e.kind='imports'"
+    ).fetchall()
+    assert len(imports) == 1
+    assert imports[0][0] == "packages/jspkg-a/src/foo.ts"
+    assert json.loads(imports[0][1])["resolution"] == "exact"
+    assert conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='./foo.js'"
+    ).fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
+        "WHERE e.kind='contains' AND d.path='./foo.js'"
+    ).fetchone()[0] == 0
+
+
 def test_resolve_file_imports_external_dropped(
     conn: sqlite3.Connection, tmp_path: Path
 ) -> None:

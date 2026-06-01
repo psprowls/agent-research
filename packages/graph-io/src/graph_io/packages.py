@@ -172,7 +172,8 @@ def _discover_manifests(
 
 def _file_nodes_under(conn: sqlite3.Connection, prefix: str) -> list[str]:
     rows = conn.execute(
-        "SELECT path FROM nodes WHERE kind='file' AND path LIKE ?",
+        "SELECT path FROM nodes "
+        "WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL",
         (f"{prefix}%",),
     ).fetchall()
     return [row[0] for row in rows]

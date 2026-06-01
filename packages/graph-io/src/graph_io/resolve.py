@@ -168,11 +168,20 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
                 (src_id, real_dst, repoint_json),
             )
 
-    # Delete specifier stubs now orphaned (no inbound edge). Scope strictly to
-    # the stub ids collected above — never broaden to all NULL-uri files
-    # (T-nsr-03), which would delete legitimate placeholders.
+    # Delete specifier stubs now orphaned (no inbound non-containment edge).
+    # Scope strictly to the stub ids collected above — never broaden to all
+    # NULL-uri files (T-nsr-03), which would delete legitimate placeholders.
+    #
+    # package.refresh runs before this pass in update.run(), so older/ordering
+    # paths can attach package `contains` edges to temporary import-specifier
+    # stubs. Those containment edges are not semantic once imports have been
+    # resolved/dropped; remove them so the stub can be deleted.
     if stub_ids:
         placeholders = ",".join("?" for _ in stub_ids)
+        conn.execute(
+            f"DELETE FROM edges WHERE kind='contains' AND dst IN ({placeholders})",
+            list(stub_ids),
+        )
         conn.execute(
             f"DELETE FROM nodes WHERE id IN ({placeholders}) "
             "AND uri IS NULL AND id NOT IN (SELECT dst FROM edges)",
