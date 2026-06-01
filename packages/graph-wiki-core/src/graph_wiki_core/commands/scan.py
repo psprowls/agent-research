@@ -150,8 +150,6 @@ def _snapshot_file_map_descriptions(wiki: Path) -> dict[str, dict[str, str]]:
     if not entities_dir.is_dir():
         return snapshot
     for page_path in entities_dir.glob("*.md"):
-        if page_path.name == "_index.md":
-            continue
         try:
             post = frontmatter.load(page_path)
         except Exception:  # noqa: BLE001 — a malformed page must not abort scan
