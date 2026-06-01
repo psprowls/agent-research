@@ -570,6 +570,33 @@ def test_resolve_file_imports_drops_plain_import_stubs(
     ).fetchone()[0] == 1
 
 
+def test_resolve_file_imports_absolute_specifier_not_spared(
+    conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """An absolute specifier pointing at a real host file must NOT be mistaken for
+    a repo file (pathlib drops repo_root when joining an absolute path). Its edge
+    is dropped like any other external import."""
+    abs_target = tmp_path / "outside.py"
+    abs_target.write_text("x = 1\n")
+    _seed_file_import(
+        conn,
+        importing_path="pkg/app.py",
+        specifier=str(abs_target),
+        target_path=None,
+    )
+
+    resolve.resolve_file_imports(conn, tmp_path)
+
+    # Edge dropped (not spared as a "real file").
+    assert conn.execute(
+        "SELECT COUNT(*) FROM edges WHERE kind='imports'"
+    ).fetchone()[0] == 0
+    # Orphaned stub removed.
+    assert conn.execute(
+        "SELECT COUNT(*) FROM nodes WHERE path=?", (str(abs_target),)
+    ).fetchone()[0] == 0
+
+
 def test_resolve_file_imports_ambiguous(
     conn: sqlite3.Connection, tmp_path: Path
 ) -> None:

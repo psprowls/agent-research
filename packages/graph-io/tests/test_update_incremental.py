@@ -135,3 +135,59 @@ def test_incremental_scan_leaves_no_external_import_stubs(tmp_path: Path) -> Non
         assert resolved == 1, "first-party import did not resolve to helper.py"
     finally:
         conn.close()
+
+
+def test_incremental_scan_stub_cleanup_is_idempotent(tmp_path: Path) -> None:
+    """A second incremental scan that re-processes both the importer AND its
+    first-party target must not resurrect external stubs nor flip the resolved
+    first-party edge. Pins the is_file() discriminator that replaced the old
+    name!=path idempotency guard (real files transiently have uri IS NULL while
+    resolve_file_imports runs)."""
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "mypkg/pyproject.toml": '[project]\nname = "mypkg"\n',
+            "mypkg/src/mypkg/__init__.py": "",
+            "mypkg/src/mypkg/app.py": (
+                "import os\nfrom mypkg.helper import helper_fn\n"
+            ),
+            "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 1\n",
+        },
+        "init",
+    )
+    update.run(tmp_path, full=False)
+
+    # Second incremental scan re-processing BOTH files (so the import target is
+    # re-upserted and passes through its transient uri IS NULL window).
+    write_and_commit(
+        tmp_path,
+        {
+            "mypkg/src/mypkg/app.py": (
+                "import os\nfrom mypkg.helper import helper_fn\n# touch\n"
+            ),
+            "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 2\n",
+        },
+        "touch both",
+    )
+    update.run(tmp_path, full=False)
+
+    conn = _ro(tmp_path)
+    try:
+        # No external stub resurrected.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='file' AND uri IS NULL AND path='os'"
+        ).fetchone()[0] == 0
+        # First-party edge still resolved to the real (uri-bearing) helper.py.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
+            "WHERE e.kind='imports' AND d.path='mypkg/src/mypkg/helper.py' "
+            "AND d.uri IS NOT NULL"
+        ).fetchone()[0] == 1
+        # The real target file was NOT deleted by the stub cleanup.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='file' "
+            "AND path='mypkg/src/mypkg/helper.py'"
+        ).fetchone()[0] == 1
+    finally:
+        conn.close()

@@ -20,6 +20,7 @@ _JS_EXTENSIONS = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
 # graph projection for unresolved call/export refs — NOT file-import stubs
 # (those are handled by resolve_file_imports).
 _CROSS_KIND_RESOLVABLE = frozenset({"function", "method", "class", "type"})
+_UNRESOLVED_SYMBOL_KIND = "unresolved_symbol"
 
 
 def _set_resolution(attrs_json: str | None, resolution: str) -> str:
@@ -102,7 +103,10 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
         # share the name == path shape of real files — so probe the working tree.
         # If `specifier` is an actual file under repo_root it is NOT a stub: leave
         # its node and edges untouched (and out of stub_ids, so cleanup spares it).
-        if (repo_root / specifier).is_file():
+        if not Path(specifier).is_absolute() and (repo_root / specifier).is_file():
+            # An ABSOLUTE specifier would make `repo_root / specifier` discard
+            # repo_root (pathlib) and probe the host path — never treat that as a
+            # repo file; let it fall through to resolution (and get dropped).
             continue
         stub_ids.add(stub_id)
         importing_file = repo_root / importing_path
@@ -185,19 +189,29 @@ def sweep(conn: sqlite3.Connection) -> None:
     ).fetchall()
 
     for src, old_dst, edge_kind, attrs_json, node_kind, node_name in placeholder_edges:
+        edge_attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
+        symbol_kind = (
+            edge_attrs.get("symbol_kind")
+            if node_kind == _UNRESOLVED_SYMBOL_KIND
+            else node_kind
+        )
+        if not isinstance(symbol_kind, str):
+            symbol_kind = node_kind
+
         matches = conn.execute(
             "SELECT id FROM nodes WHERE kind=? AND name=? AND path IS NOT NULL",
-            (node_kind, node_name),
+            (symbol_kind, node_name),
         ).fetchall()
 
         if not matches:
             # D-3 conservative cross-kind fallback: a same-kind match found
-            # nothing. For code-kind placeholders (the ('function', name, None)
-            # call/export placeholders), look up ALL code-kind nodes graph-wide
-            # with this name and resolve ONLY when EXACTLY ONE exists. 0 → stay
-            # unresolved; 2+ (any kinds) → stay unresolved, never fabricate an
-            # ambiguous cross-kind edge (bare names like get/render collide).
-            if node_kind in _CROSS_KIND_RESOLVABLE:
+            # nothing. For code-kind placeholders (including the explicit
+            # unresolved_symbol nodes emitted for call/export refs), look up ALL
+            # code-kind nodes graph-wide with this name and resolve ONLY when
+            # EXACTLY ONE exists. 0 → stay unresolved; 2+ (any kinds) → stay
+            # unresolved, never fabricate an ambiguous cross-kind edge (bare
+            # names like get/render collide).
+            if symbol_kind in _CROSS_KIND_RESOLVABLE:
                 cross = conn.execute(
                     "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class', 'type') "
                     "AND name=? AND path IS NOT NULL",
