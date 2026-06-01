@@ -278,6 +278,7 @@ import yaml  # noqa: E402
 _logger = logging.getLogger(__name__)
 
 from graph_io import queries as _queries
+from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table
 
 
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
@@ -914,3 +915,299 @@ def inject_narrative(page_path: Path, prose: str) -> None:
     tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
     tmp_path.write_text(new_content, encoding="utf-8")
     os.replace(tmp_path, page_path)
+
+
+# ---------------------------------------------------------------------------
+# inject_file_map — overwrite the whole `## File map` section deterministically
+# ---------------------------------------------------------------------------
+
+# Match the `## File map` H2 heading line at column 0, with or without the
+# `- <name>` suffix the template/scanner emit. Captures the full heading line so
+# the replacement (which carries its own heading) starts cleanly.
+_FILE_MAP_HEADING_RE = re.compile(r"^## File map\b.*\n", re.MULTILINE)
+
+# Extract the package/app name from a `## File map - <name>` heading line.
+_FILE_MAP_NAME_RE = re.compile(r"^## File map\s*-\s*(\S.*?)\s*$", re.MULTILINE)
+
+# A backticked path cell: `` `src/foo.py` `` → `src/foo.py`.
+_FILE_MAP_PATH_CELL_RE = re.compile(r"^\s*`(.+?)`\s*$")
+
+
+def _is_filled_description(desc: str) -> bool:
+    """True when a File-map Description cell carries real content (not a placeholder).
+
+    Placeholders are the deterministic `— TODO`, the template's
+    `— > TODO — <...>`, or any cell that reduces to empty / a `TODO` / `>`
+    blockquote stub. Used to decide which descriptions are worth preserving
+    across a rescan.
+    """
+    d = desc.strip().lstrip("—").strip()
+    if not d:
+        return False
+    if d.startswith(">"):
+        return False
+    if d.upper().startswith("TODO"):
+        return False
+    return True
+
+
+def _file_map_full_path(current_path: str, token: str) -> str:
+    """Join an H3 section path context with a row's path cell into a package-root
+    path (e.g. ``("src", "foo.py") -> "src/foo.py"``)."""
+    name = token.rstrip("/")
+    return f"{current_path}/{name}" if current_path else name
+
+
+def _section_path_context(header_text: str, pkg_name: str) -> str:
+    """Map an H3 header (`### <pkg>/<sub>/`) to its package-root path context.
+
+    The synthetic root section `### <pkg>/` yields `""`; `### <pkg>/src/`
+    yields `"src"`. Headers that do not start with `<pkg>/` reset context to
+    `""` (defensive — matches `parse_section_entries`).
+    """
+    header = header_text.rstrip("/").strip()
+    if header == pkg_name:
+        return ""
+    if header.startswith(pkg_name + "/"):
+        return header[len(pkg_name) + 1 :]
+    return ""
+
+
+def _extract_file_map_descriptions(section_text: str, pkg_name: str) -> dict[str, str]:
+    """Return ``{package_root_path: description}`` for every File-map row whose
+    Description cell is filled (non-placeholder).
+
+    ``section_text`` is the body of a `## File map - <name>` section (the H3
+    sub-sections + tables, without the H2 heading line). Mirrors the
+    section-context walk in ``wiki_io.lint.common.parse_section_entries`` but
+    captures the Description column. Descriptions are returned with table-pipe
+    escapes already decoded (via ``parse_markdown_table``); the merge step
+    re-escapes on write.
+    """
+    descs: dict[str, str] = {}
+    current_path = ""
+    lines = section_text.splitlines()
+    n = len(lines)
+    i = 0
+    while i < n:
+        m = SECTION_HEADER_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        current_path = _section_path_context(m.group(1), pkg_name)
+        i += 1
+        section_lines: list[str] = []
+        while i < n and not SECTION_HEADER_RE.match(lines[i]):
+            section_lines.append(lines[i])
+            i += 1
+        table = parse_markdown_table("\n".join(section_lines))
+        if table is None:
+            continue
+        _headers, rows = table
+        for row in rows:
+            if len(row) < 3:
+                continue
+            bm = _FILE_MAP_PATH_CELL_RE.match(row[0])
+            token = (bm.group(1) if bm else row[0].strip())
+            if not token.strip("/"):
+                continue
+            if _is_filled_description(row[2]):
+                descs[_file_map_full_path(current_path, token)] = row[2].strip()
+    return descs
+
+
+def _merge_preserved_descriptions(
+    block: str, pkg_name: str, preserved: dict[str, str]
+) -> str:
+    """Rewrite the Description cell of any row in ``block`` whose package-root
+    path has a preserved (filled) description.
+
+    Only `— TODO`/placeholder cells are candidates for substitution — a block
+    fresh from ``build_file_map`` carries `— TODO` on every row, so this is a
+    pure restore of prior descriptions for paths still present on disk. Rows
+    for new paths keep their `— TODO` (to be filled by the code-reader pass).
+    """
+    if not preserved:
+        return block
+    trailing_nl = block.endswith("\n")
+    lines = block.splitlines()
+    current_path = ""
+    out: list[str] = []
+    for line in lines:
+        m = SECTION_HEADER_RE.match(line)
+        if m:
+            current_path = _section_path_context(m.group(1), pkg_name)
+            out.append(line)
+            continue
+        stripped = line.strip()
+        if stripped.startswith("|"):
+            cells = _split_pipes(stripped)
+            if len(cells) >= 3 and _FILE_MAP_PATH_CELL_RE.match(cells[0]):
+                bm = _FILE_MAP_PATH_CELL_RE.match(cells[0])
+                full = _file_map_full_path(current_path, bm.group(1))
+                preserved_desc = preserved.get(full)
+                if preserved_desc and not _is_filled_description(cells[2]):
+                    cells[2] = preserved_desc
+                    cells = [c.replace("|", "\\|") for c in cells]
+                    line = "| " + " | ".join(cells) + " |"
+        out.append(line)
+    result = "\n".join(out)
+    return result + "\n" if trailing_nl else result
+
+
+def inject_file_map(
+    page_path: Path,
+    file_map_block: str,
+    preserved: dict[str, str] | None = None,
+) -> None:
+    """Replace the entire `## File map` section with `file_map_block`.
+
+    Faithful port of the plugin scanner-agent step: locates the FIRST
+    `## File map` H2 heading at column 0 and replaces from that heading through
+    the next H2 (or EOF) with `file_map_block`. Unlike `inject_narrative`, the
+    replaced region *includes* the heading, because `build_file_map()` /
+    `build_file_maps()` emit a complete `## File map - <name>` block (its own
+    heading plus per-folder H3 tables). Writes atomically via temp-file +
+    `os.replace`.
+
+    The block carries deterministic `path` + `kind` rows with `— TODO`
+    Description placeholders. When ``preserved`` is provided (a
+    ``{package_root_path: description}`` map, typically snapshotted from the
+    page's pre-scan File map before ``write_entities`` reset the body), each
+    row whose path still appears in the block has its `— TODO` Description
+    restored from the map. New paths keep `— TODO`, to be filled by the
+    code-reader pass.
+
+    Idempotent: the deterministic block is stable for a fixed file tree, so a
+    second call with the same block (and same ``preserved``) produces
+    byte-identical output.
+
+    Logs a WARNING and returns without writing when the page is missing a
+    `## File map` heading (defensive — package templates always carry it).
+
+    Raises:
+        FileNotFoundError: when `page_path` does not exist.
+    """
+    text = page_path.read_text(encoding="utf-8")  # raises FileNotFoundError naturally
+
+    match = _FILE_MAP_HEADING_RE.search(text)
+    if match is None:
+        _logger.warning(
+            "inject_file_map: no `## File map` heading found at %s", page_path
+        )
+        return
+
+    section_start = match.start()
+    next_h2 = _NEXT_H2_RE.search(text, match.end())
+    section_end = next_h2.start() if next_h2 is not None else len(text)
+
+    block = file_map_block.strip()
+    if block and preserved:
+        name_match = _FILE_MAP_NAME_RE.search(block)
+        pkg_name = name_match.group(1).strip() if name_match else ""
+        block = _merge_preserved_descriptions(block, pkg_name, preserved)
+    new_section = f"{block}\n\n" if block else ""
+    new_content = text[:section_start] + new_section + text[section_end:]
+
+    tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp_path.write_text(new_content, encoding="utf-8")
+    os.replace(tmp_path, page_path)
+
+
+def _file_map_section_span(text: str) -> tuple[int, int] | None:
+    """Return ``(start, end)`` byte offsets of the `## File map` section
+    (heading through next H2 / EOF), or None when there is no File map heading."""
+    match = _FILE_MAP_HEADING_RE.search(text)
+    if match is None:
+        return None
+    next_h2 = _NEXT_H2_RE.search(text, match.end())
+    return match.start(), (next_h2.start() if next_h2 is not None else len(text))
+
+
+def file_map_todo_paths(page_path: Path) -> list[str]:
+    """Return the package-root paths of File-map *file* rows whose Description
+    is still an unfilled placeholder (`— TODO`).
+
+    Used to scope the code-reader description pass: a package with no unfilled
+    rows needs no model call. Returns ``[]`` when the page has no File map
+    section. Directory rows are excluded (descriptions target files).
+    """
+    text = page_path.read_text(encoding="utf-8")
+    span = _file_map_section_span(text)
+    if span is None:
+        return []
+    section = text[span[0] : span[1]]
+    name_match = _FILE_MAP_NAME_RE.search(section)
+    pkg_name = name_match.group(1).strip() if name_match else ""
+    todo: list[str] = []
+    current_path = ""
+    lines = section.splitlines()
+    n = len(lines)
+    i = 0
+    while i < n:
+        m = SECTION_HEADER_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        current_path = _section_path_context(m.group(1), pkg_name)
+        i += 1
+        section_lines: list[str] = []
+        while i < n and not SECTION_HEADER_RE.match(lines[i]):
+            section_lines.append(lines[i])
+            i += 1
+        table = parse_markdown_table("\n".join(section_lines))
+        if table is None:
+            continue
+        _headers, rows = table
+        for row in rows:
+            if len(row) < 3:
+                continue
+            kind = row[1].strip().lower()
+            bm = _FILE_MAP_PATH_CELL_RE.match(row[0])
+            token = (bm.group(1) if bm else row[0].strip())
+            if kind == "dir" or token.endswith("/") or not token.strip("/"):
+                continue
+            if not _is_filled_description(row[2]):
+                todo.append(_file_map_full_path(current_path, token))
+    return todo
+
+
+def fill_file_map_descriptions(page_path: Path, descriptions: dict[str, str]) -> int:
+    """Fill unfilled (`— TODO`) File-map Description cells in ``page_path`` with
+    ``descriptions`` (keyed by package-root path).
+
+    Only placeholder cells are touched — already-filled (human or
+    preserved) descriptions are never overwritten (the merge step checks
+    ``_is_filled_description``). Writes atomically. Returns the number of cells
+    filled (0 when nothing matched or the page has no File map heading).
+
+    Raises:
+        FileNotFoundError: when ``page_path`` does not exist.
+    """
+    if not descriptions:
+        return 0
+    text = page_path.read_text(encoding="utf-8")
+    span = _file_map_section_span(text)
+    if span is None:
+        _logger.warning(
+            "fill_file_map_descriptions: no `## File map` heading found at %s",
+            page_path,
+        )
+        return 0
+    section = text[span[0] : span[1]]
+    # Only count keys that correspond to a currently-unfilled row, so the
+    # return value reflects real fills (not re-applying already-filled cells).
+    todo_before = set(file_map_todo_paths(page_path))
+    applied = sum(1 for p in descriptions if p in todo_before)
+    if applied == 0:
+        return 0
+    name_match = _FILE_MAP_NAME_RE.search(section)
+    pkg_name = name_match.group(1).strip() if name_match else ""
+    new_section = _merge_preserved_descriptions(section, pkg_name, descriptions)
+    if new_section == section:
+        return 0
+    new_content = text[: span[0]] + new_section + text[span[1] :]
+    tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp_path.write_text(new_content, encoding="utf-8")
+    os.replace(tmp_path, page_path)
+    return applied

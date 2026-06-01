@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import frontmatter
 from graph_io import exit_codes, queries
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -27,7 +28,11 @@ from wiki_io.append_log import append_log
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     _compute_collision_set,
+    _extract_file_map_descriptions,
     _kind_list_fns,
+    fill_file_map_descriptions,
+    file_map_todo_paths,
+    inject_file_map,
     inject_narrative,
     scanner_frontmatter_for_node,
     short_filename,
@@ -35,6 +40,7 @@ from wiki_io.entity_writer import (
 )
 from wiki_io.index_generator import generate_index
 from wiki_io.layout_io import read_layout
+from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.scan_monorepo import (
     ExistingPages,
     _load_existing_pages,
@@ -50,6 +56,7 @@ from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
+from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +130,43 @@ def _query_package_uris(conn) -> dict[str, str]:
         "SELECT name, uri FROM nodes WHERE kind='package' AND uri IS NOT NULL"
     ).fetchall()
     return {row[0]: row[1] for row in rows}
+
+
+def _snapshot_file_map_descriptions(wiki: Path) -> dict[str, dict[str, str]]:
+    """Snapshot filled File-map descriptions from existing entity pages, keyed
+    by entity URI, BEFORE ``write_entities`` resets page bodies to template.
+
+    Returns ``{uri: {package_root_path: description}}`` containing only rows
+    whose Description cell is filled (non-placeholder). Pages without a uri,
+    without a `## File map` section, or with no filled rows are omitted.
+
+    This is the durability mechanism for expensive code-reader descriptions:
+    ``write_entities`` re-renders updated pages from the template (wiping the
+    injected File-map body), so the prior descriptions must be captured here
+    and merged back in by ``inject_file_map(preserved=...)``.
+    """
+    snapshot: dict[str, dict[str, str]] = {}
+    entities_dir = wiki / "entities"
+    if not entities_dir.is_dir():
+        return snapshot
+    for page_path in entities_dir.glob("*.md"):
+        if page_path.name == "_index.md":
+            continue
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+            continue
+        uri = post.metadata.get("uri")
+        if not uri:
+            continue
+        section = FILE_MAP_SECTION_RE.search(post.content)
+        if not section:
+            continue
+        pkg_name = section.group(1).strip()
+        descs = _extract_file_map_descriptions(section.group(2), pkg_name)
+        if descs:
+            snapshot[uri] = descs
+    return snapshot
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +408,108 @@ def build_entity_narrative_prompt(
     lines.append("Write the narrative body for this page (prose only).")
 
     return system, "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Phase: file-map description fan-out (code-reader role) — prompt + parser
+# ---------------------------------------------------------------------------
+
+
+def build_file_describer_prompt(
+    pkg: dict, todo_paths: list[str], repo_root: Path | None = None
+) -> tuple[str, str]:
+    """Return (system, human) for the file-map description LLM (code_reader role).
+
+    The human message carries package metadata, the list of paths still needing
+    a description (the model must key its JSON to these verbatim), and up to 3
+    representative source snippets (capped per file) for grounding — mirroring
+    `build_stub_prompt`'s snippet sampling.
+
+    Args:
+        pkg:       Workspace metadata dict (from discover_workspaces).
+        todo_paths: Package-root paths whose Description cell is still `— TODO`.
+        repo_root: Absolute repo root; `pkg['path']` is resolved against it so
+                   snippet reads work regardless of cwd.
+    """
+    system = FILE_DESCRIBER_SYSTEM
+    lines: list[str] = [
+        f"Package name: {pkg.get('name', 'unknown')}",
+        f"Path in repo: {pkg.get('path', 'unknown')}",
+        f"Type: {pkg.get('type', 'unknown')}",
+        f"Language: {pkg.get('language', 'unknown')}",
+        "",
+        "Paths needing a description (use these exact strings as JSON keys):",
+    ]
+    for p in todo_paths:
+        lines.append(f"- {p}")
+    lines.append("")
+
+    pkg_path_str = pkg.get("path")
+    if pkg_path_str:
+        try:
+            if repo_root is not None:
+                pkg_abs = (repo_root / pkg_path_str).resolve()
+            else:
+                pkg_abs = Path(pkg_path_str).resolve()
+            representatives = pick_representative(pkg_abs)
+            if representatives:
+                lines.append("Representative file snippets (for context):")
+                for file_path in representatives[:3]:
+                    try:
+                        snippet = file_path.read_text(encoding="utf-8", errors="replace")
+                        if len(snippet) > 800:
+                            snippet = snippet[:800] + "\n[TRUNCATED]"
+                        lines.append(f"--- {file_path.name} ---")
+                        lines.append(snippet)
+                        lines.append("")
+                    except OSError:
+                        pass
+        except Exception:
+            pass  # snippet sampling is best-effort; metadata + paths suffice
+
+    lines.append(
+        "Return the JSON object mapping each describable path to its one-line description."
+    )
+    return system, "\n".join(lines)
+
+
+def parse_file_describer_output(text: str) -> dict[str, str]:
+    """Parse the describer LLM's response into a ``{path: description}`` dict.
+
+    Tolerates a leading/trailing ```` ```json ```` fence and surrounding prose
+    by extracting the first balanced ``{...}`` JSON object. Returns ``{}`` on
+    any parse failure or non-object payload. Non-string keys/values are dropped;
+    descriptions are stripped and collapsed to a single line.
+    """
+    if not text:
+        return {}
+    candidate = text.strip()
+    # Strip a fenced code block if present.
+    if candidate.startswith("```"):
+        candidate = candidate.split("\n", 1)[-1]
+        if candidate.rstrip().endswith("```"):
+            candidate = candidate.rsplit("```", 1)[0]
+    # Extract the first {...} object span.
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return {}
+    import json
+
+    try:
+        obj = json.loads(candidate[start : end + 1])
+    except (ValueError, TypeError):
+        return {}
+    if not isinstance(obj, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, val in obj.items():
+        if not isinstance(key, str) or not isinstance(val, str):
+            continue
+        desc = " ".join(val.split()).strip()
+        if key.strip() and desc:
+            out[key.strip()] = desc
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +790,14 @@ async def run_scan(
         entity_write_result = None
         narrator_result: FanOutResult | None = None
 
+        # Snapshot prior File-map descriptions BEFORE write_entities re-renders
+        # entity pages from template (which wipes the injected File-map body).
+        # Keyed by URI so Step 10b can merge them back into the deterministic
+        # block, preserving expensive code-reader descriptions across rescans.
+        prior_file_map_descs: dict[str, dict[str, str]] = {}
+        if conn is not None:
+            prior_file_map_descs = _snapshot_file_map_descriptions(wiki)
+
         if conn is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
             entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
@@ -770,6 +924,150 @@ async def run_scan(
                 uri_inner, _kind_inner, _node_inner = err.item
                 narrator_errors.append(f"{uri_inner}: {err.exception!r}")
 
+        # Step 10b: deterministic File-map injection (faithful port of the
+        # plugin scanner-agent step). For every `package` entity page that
+        # write_entities (re)wrote this scan — created or updated, i.e. whose
+        # `## File map` section was just reset to the empty template — replace
+        # that section with the deterministic `build_file_map` block (path +
+        # kind rows; Description stays `— TODO`, filled by a later ingest pass).
+        # `unchanged` pages are left untouched so prior ingest-filled
+        # descriptions survive no-op scans. Skipped when no_file_map dropped
+        # `w["file_map"]` (the per-name lookup yields "" and we skip).
+        entities_file_mapped: list[str] = []
+        file_map_errors: list[str] = []
+        describer_filled: list[str] = []
+        describer_errors: list[str] = []
+        # (uri, node, page_path) for each package whose File map was injected
+        # this scan — Step 10c uses these to fill remaining `— TODO` rows.
+        file_mapped_pages: list[tuple[str, Any, Path]] = []
+        if entity_write_result is not None and conn is not None:
+            refreshed = set(entity_write_result.created) | set(
+                entity_write_result.updated
+            )
+            pkg_list_fn = _kind_list_fns().get("package")
+            if refreshed and pkg_list_fn is not None:
+                fm_collision_set = _compute_collision_set(
+                    conn, ADMITTED_KINDS, _kind_list_fns(),
+                )
+                ws_fm_by_name = {
+                    unscope(w["name"]): w.get("file_map", "") for w in workspaces
+                }
+                for node in pkg_list_fn(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    node_uri = node.attrs.get("uri")
+                    if not node_uri or node_uri not in refreshed:
+                        continue
+                    file_map = ws_fm_by_name.get(node.name, "")
+                    if not file_map:
+                        continue
+                    slug = short_filename(node_uri, fm_collision_set)
+                    fm_page_path = wiki / "entities" / f"{slug}.md"
+                    try:
+                        inject_file_map(
+                            fm_page_path,
+                            file_map,
+                            preserved=prior_file_map_descs.get(node_uri),
+                        )
+                        entities_file_mapped.append(node_uri)
+                        file_mapped_pages.append((node_uri, node, fm_page_path))
+                    except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                        file_map_errors.append(
+                            f"{node_uri}: inject_file_map failed: {fm_exc!r}"
+                        )
+            if entities_file_mapped or file_map_errors:
+                append_log(
+                    wiki,
+                    "scan",
+                    (
+                        f"file maps injected: {len(entities_file_mapped)} "
+                        f"(errors: {len(file_map_errors)})"
+                    ),
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+
+        # Step 10c: code-reader fan-out to fill remaining `— TODO` Description
+        # cells. For each just-file-mapped package that still has unfilled file
+        # rows, dispatch a code_reader-role subagent that reads representative
+        # files and returns {path: one-line description}; we fill ONLY the
+        # unfilled cells (preserved/human descriptions are never overwritten).
+        # Steady-state cost is zero: once a package's rows are all filled (and
+        # preserved across rescans by Step 10b's merge), it has no TODO paths
+        # and is skipped — no model call.
+        if file_mapped_pages and conn is not None:
+            # Build (uri, ws_dict, page_path, todo_paths) for packages with work.
+            describer_items: list[tuple[str, dict, Path, list[str]]] = []
+            for node_uri, node, page_path in file_mapped_pages:
+                todo_paths = file_map_todo_paths(page_path)
+                if not todo_paths:
+                    continue
+                ws_dict = ws_by_name.get(node.name)
+                if ws_dict is None:
+                    continue
+                describer_items.append((node_uri, ws_dict, page_path, todo_paths))
+
+            if describer_items:
+                describer_cfg = load_role_config("code_reader")
+                describer_llm = make_llm("code_reader")
+                describer_pool = SubagentPool(
+                    trace_dir=wiki / ".graph-wiki" / "traces"
+                )
+
+                async def describe_files(
+                    item: tuple[str, dict, Path, list[str]],
+                ) -> TaskResult:
+                    _uri, ws_dict_inner, _page, todo_inner = item
+                    system_msg, human_msg = build_file_describer_prompt(
+                        ws_dict_inner, todo_inner, repo_root=repo
+                    )
+                    resp = await describer_llm.ainvoke(
+                        [
+                            SystemMessage(content=system_msg),
+                            HumanMessage(content=human_msg),
+                        ]
+                    )
+                    return TaskResult(value=resp.content, response=resp)
+
+                describer_result = await describer_pool.run_all(
+                    items=describer_items,
+                    task=describe_files,
+                    role="code_reader",
+                    model_id=describer_cfg["model_id"],
+                    max_concurrency=describer_cfg["max_concurrency"],
+                )
+
+                for item, value in describer_result.successes:
+                    uri_inner, _ws, page_path, _todo = item
+                    descriptions = parse_file_describer_output(value)
+                    if not descriptions:
+                        continue
+                    try:
+                        n_filled = fill_file_map_descriptions(page_path, descriptions)
+                        if n_filled:
+                            describer_filled.append(f"{uri_inner}: {n_filled}")
+                    except Exception as fill_exc:  # noqa: BLE001 — partial-success
+                        describer_errors.append(
+                            f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}"
+                        )
+                for err in describer_result.errors:
+                    uri_inner = err.item[0]
+                    describer_errors.append(f"{uri_inner}: {err.exception!r}")
+
+                if describer_filled or describer_errors:
+                    append_log(
+                        wiki,
+                        "scan",
+                        (
+                            f"file descriptions filled: {len(describer_filled)} "
+                            f"package(s) (errors: {len(describer_errors)})"
+                        ),
+                        detail=None,
+                        silent=True,
+                        raise_exception=True,
+                    )
+
         # Step 11: stale-tag deleted packages (legacy-layout; D-09)
         for pkg_name in diff["deleted"]:
             existing_rec = existing_pages.legacy.get(pkg_name)
@@ -861,7 +1159,12 @@ async def run_scan(
             entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
-            entity_errors=entity_write_errors + narrator_errors,
+            entity_errors=(
+                entity_write_errors
+                + narrator_errors
+                + file_map_errors
+                + describer_errors
+            ),
         )
     finally:
         if conn is not None:

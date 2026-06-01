@@ -21,11 +21,11 @@ _(scanner will populate on next scan)_
 ## Purpose
 > TODO: <One paragraph: what this package does, who uses it, why it exists.>
 
-## File map - {{PACKAGE_SLUG}}
+## File map - {{package_name}}
 > TODO — <Overview of this package's source tree.>
 
-### {{PACKAGE_SLUG}}/
-TODO — describe what this directory contains.
+### {{package_name}}/
+> TODO — <describe what this directory contains.>
 
 | Path | Kind | Description |
 |---|---|---|

@@ -542,6 +542,291 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     mock_conn.close.assert_called(), "read-only conn must be closed in finally"
 
 
+def test_file_map_injected_into_package_entity_page(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """File-map injection: after write_entities creates a package entity page,
+    run_scan replaces its `## File map` section with the deterministic
+    `w["file_map"]` block (path + kind rows). Verified end-to-end against the
+    real write_entities + packaged entity-package.md template.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_minimal_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    # Deterministic file-map block as build_file_map would emit it for pkg-a.
+    pkg_a_block = (
+        "## File map - pkg-a\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### pkg-a/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+        "| `src/pkg_a/__init__.py` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "pkg-a",
+            "path": "packages/pkg-a",
+            "wiki_relative_path": "packages/pkg-a/overview.md",
+            "type": "library",
+            "language": "python",
+            "changed_files": None,
+            # Preset file_map survives because build_file_map is stubbed to None.
+            "file_map": pkg_a_block,
+        },
+        {
+            "name": "pkg-b",
+            "path": "packages/pkg-b",
+            "wiki_relative_path": "packages/pkg-b/overview.md",
+            "type": "library",
+            "language": "python",
+            "changed_files": None,
+            # No file_map → injection is skipped for pkg-b.
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["pkg-a", "pkg-b"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    # Keep the preset file_map values (do not overwrite via real build_file_map).
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    result = asyncio.run(
+        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    )
+
+    # pkg-a was created this scan → its file map should be injected.
+    assert "pkg:org/repo/pkg-a" in result.entities_created
+
+    # Find the entity page for pkg-a by its frontmatter uri.
+    import frontmatter
+
+    entities = sorted((wiki / "entities").glob("*.md"))
+    assert entities, "no entity pages written"
+    pkg_a_page = next(
+        p for p in entities if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+    )
+    text = pkg_a_page.read_text(encoding="utf-8")
+
+    # Deterministic rows landed; the empty template placeholder rows are gone.
+    assert "| `pyproject.toml` | file | — TODO |" in text
+    assert "| `src/pkg_a/__init__.py` | file | — TODO |" in text
+    assert "<Short description of file contents.>" not in text
+    assert text.count("## File map - pkg-a") == 1
+    # Neighboring sections preserved.
+    assert "## Purpose" in text
+    assert "## Public API" in text
+
+
+def test_file_map_descriptions_survive_rescan(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Durability: a Description filled into a package's File-map table survives
+    a rescan, even though write_entities re-renders the page body from template.
+
+    The snapshot-before-write_entities pass captures the filled description; the
+    Step 10b inject_file_map(preserved=...) merge restores it for the path that
+    is still on disk. Unfilled (— TODO) rows stay TODO.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_minimal_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    pkg_a_block = (
+        "## File map - pkg-a\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### pkg-a/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+        "| `src/pkg_a/__init__.py` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "pkg-a",
+            "path": "packages/pkg-a",
+            "wiki_relative_path": "packages/pkg-a/overview.md",
+            "type": "library",
+            "language": "python",
+            "changed_files": None,
+            "file_map": pkg_a_block,
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    import frontmatter
+
+    # Scan 1: page created, File map injected with — TODO rows.
+    asyncio.run(
+        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    )
+    pkg_a_page = next(
+        p
+        for p in (wiki / "entities").glob("*.md")
+        if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+    )
+
+    # Human/ingest fills one description (the other stays — TODO).
+    filled = pkg_a_page.read_text(encoding="utf-8").replace(
+        "| `src/pkg_a/__init__.py` | file | — TODO |",
+        "| `src/pkg_a/__init__.py` | file | the package entrypoint |",
+    )
+    pkg_a_page.write_text(filled, encoding="utf-8")
+
+    # Scan 2: write_entities re-renders the page body from template (wiping the
+    # injected File map); the snapshot+merge must restore the filled cell.
+    asyncio.run(
+        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    )
+
+    text2 = pkg_a_page.read_text(encoding="utf-8")
+    assert "| `src/pkg_a/__init__.py` | file | the package entrypoint |" in text2, (
+        f"filled description was wiped on rescan; page:\n{text2}"
+    )
+    # The un-filled row remains a — TODO placeholder.
+    assert "| `pyproject.toml` | file | — TODO |" in text2
+
+
+def test_code_reader_fanout_fills_todo_descriptions(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10c: after the deterministic File map is injected with — TODO rows,
+    the code_reader fan-out fills the Description cells from the model's
+    {path: description} JSON. Verified end-to-end with a stubbed describer pool.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_minimal_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    pkg_a_block = (
+        "## File map - pkg-a\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### pkg-a/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+        "| `src/pkg_a/__init__.py` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "pkg-a",
+            "path": "packages/pkg-a",
+            "wiki_relative_path": "packages/pkg-a/overview.md",
+            "type": "library",
+            "language": "python",
+            "changed_files": None,
+            "file_map": pkg_a_block,
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    # Override the autouse empty-pool stub: the code_reader pool returns a
+    # {path: description} JSON for each item's todo paths; the narrator pool
+    # (role != code_reader) stays empty.
+    from subagent_runtime.pool import FanOutResult
+
+    async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
+        res = FanOutResult()
+        if role == "code_reader":
+            for it in items:
+                _uri, _ws, _page, todo_paths = it
+                obj = {p: f"desc for {p}" for p in todo_paths}
+                res.successes.append((it, json.dumps(obj)))
+        return res
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+
+    import frontmatter
+
+    asyncio.run(
+        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    )
+
+    pkg_a_page = next(
+        p
+        for p in (wiki / "entities").glob("*.md")
+        if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+    )
+    text = pkg_a_page.read_text(encoding="utf-8")
+
+    # The — TODO placeholders were replaced by the model's descriptions.
+    assert "| `pyproject.toml` | file | desc for pyproject.toml |" in text
+    assert (
+        "| `src/pkg_a/__init__.py` | file | desc for src/pkg_a/__init__.py |"
+        in text
+    )
+    assert "— TODO" not in text
+
+
 def test_phase35_regression_test_path_exists():
     """SC#3 sanity guard: Phase 35 bootstrap test file is still in the repo.
 
