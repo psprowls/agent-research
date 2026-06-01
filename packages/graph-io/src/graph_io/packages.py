@@ -54,6 +54,16 @@ def _extract_dep_name(pep508_str: str) -> str | None:
     m = _DEP_NAME_RE.match(s)
     return m.group(0).lower() if m else None
 
+
+def _dependency_registry_url(ecosystem: str, name: str) -> str:
+    """Return the public registry package page URL for a dependency node."""
+    if ecosystem == "pypi":
+        return f"https://pypi.org/project/{name}/"
+    if ecosystem == "npm":
+        return f"https://www.npmjs.com/package/{name}"
+    raise ValueError(f"unsupported dependency ecosystem: {ecosystem!r}")
+
+
 def _should_skip(manifest_path: Path, repo_root: Path, skip_dirs: frozenset[str]) -> bool:
     if _ignore.should_skip(str(manifest_path), skip_dirs):
         return True
@@ -382,6 +392,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                     "uri": dependency_uri(ecosystem, name),
                     "ecosystem": ecosystem,
                     "name": name,
+                    "url": _dependency_registry_url(ecosystem, name),
                     "versions_in_use": versions,
                 },
             )

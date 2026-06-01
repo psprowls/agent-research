@@ -253,6 +253,7 @@ def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Conne
     boto3_row = dep_rows[0]
     boto3_attrs = json.loads(boto3_row[1])
     assert boto3_attrs["ecosystem"] == "pypi"
+    assert boto3_attrs["url"] == "https://pypi.org/project/boto3/"
     assert boto3_attrs["versions_in_use"] == sorted(
         ["boto3>=1.38", "boto3==1.40.0"]
     )
@@ -1043,6 +1044,7 @@ def test_js_npm_dependency_parity_full_monorepo(
     assert react_row is not None, "react dependency node should be emitted"
     react_attrs = json.loads(react_row[1])
     assert react_attrs["ecosystem"] == "npm"
+    assert react_attrs["url"] == "https://www.npmjs.com/package/react"
     assert react_row[2] == "dependency:npm/react"
     assert "^18.2.0" in react_attrs["versions_in_use"]
 
@@ -1159,6 +1161,7 @@ def test_js_runtime_dep_emits_npm_dependency_node(tmp_path: Path, conn: sqlite3.
     dep_name, attrs_json, uri = dep_row
     attrs = json.loads(attrs_json)
     assert attrs["ecosystem"] == "npm"
+    assert attrs["url"] == "https://www.npmjs.com/package/react"
     assert uri == "dependency:npm/react"
     assert "^18.2.0" in attrs["versions_in_use"]
 
