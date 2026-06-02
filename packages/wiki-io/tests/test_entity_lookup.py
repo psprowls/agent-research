@@ -71,6 +71,38 @@ def test_lookup_entity_by_path_returns_uri_and_name(tmp_path: Path) -> None:
     assert result == ("pkg:o/r/graph-io", "graph-io")
 
 
+def test_lookup_entity_by_path_outside_repo_returns_none(tmp_path: Path) -> None:
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_entity_by_path
+
+    rel = "packages/graph-io/src/graph_io/store.py"
+    db = _seed_db(tmp_path, [("graph-io", "pkg:o/r/graph-io", rel)])
+    conn = read_only_connect(db)
+    try:
+        # A path that is not under repo_root triggers the `except ValueError` branch.
+        outside = tmp_path.parent / "elsewhere" / "store.py"
+        result = lookup_entity_by_path(conn, tmp_path, outside)
+    finally:
+        conn.close()
+    assert result is None
+
+
+def test_lookup_entity_by_path_no_containing_package_returns_none(
+    tmp_path: Path,
+) -> None:
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_entity_by_path
+
+    # Empty graph: no file/package nodes, so the join yields no row.
+    db = _seed_db(tmp_path, [])
+    conn = read_only_connect(db)
+    try:
+        result = lookup_entity_by_path(conn, tmp_path, tmp_path / "anything/file.py")
+    finally:
+        conn.close()
+    assert result is None
+
+
 def test_lookup_entity_by_name_unique_match(tmp_path: Path) -> None:
     from graph_io.store import read_only_connect
     from wiki_io.entity_lookup import lookup_entity_by_name

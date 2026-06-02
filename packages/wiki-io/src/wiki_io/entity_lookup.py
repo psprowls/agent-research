@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Bedrock-free graph lookups shared by ingest — core (`run_ingest_source`)
 and the plugin's Claude-branch prep.
 
@@ -13,6 +11,9 @@ rule the scanner uses (`wiki_io.entity_writer.short_filename`), so an ingest
 replacing the legacy `slug_from_uri` for entity links.
 """
 
+from __future__ import annotations
+
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -30,7 +31,9 @@ ENTITY_KINDS: frozenset[str] = frozenset(
 )
 
 
-def lookup_entity_by_path(conn, repo_root: Path, source_path: Path):
+def lookup_entity_by_path(
+    conn: sqlite3.Connection, repo_root: Path, source_path: Path
+) -> tuple[str, str] | None:
     """Return (uri, name) for the package CONTAINING the source file, or None.
 
     Resolves source_path relative to repo_root (POSIX-style), then joins
@@ -58,7 +61,9 @@ def lookup_entity_by_path(conn, repo_root: Path, source_path: Path):
     return uri, name
 
 
-def lookup_entity_by_name(conn, name: str):
+def lookup_entity_by_name(
+    conn: sqlite3.Connection, name: str
+) -> tuple[str, str] | None:
     """Return (uri, name) for the unique entity-kind match by name, or None.
 
     When more than one entity-kind node shares the name, emit one stderr
@@ -85,7 +90,9 @@ def lookup_entity_by_name(conn, name: str):
     return matched_uri, matched_name
 
 
-def entity_filename_for_uri(uri: str, conn=None) -> str | None:
+def entity_filename_for_uri(
+    uri: str, conn: sqlite3.Connection | None = None
+) -> str | None:
     """Return the scanner's on-disk entity filename stem for a graph URI, or
     None when the URI maps to no admitted entity page.
 
