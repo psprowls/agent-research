@@ -36,7 +36,7 @@ from wiki_io.entity_writer import short_filename
             {},
             "domain_observability",
         ),
-        ("plugin:graph-wiki", {}, "plugin_graph-wiki"),
+        ("agent_plugin:org/repo/graph-wiki", {}, "agent-plugin_graph-wiki"),
         ("dependency:pypi/langchain-aws", {}, "dep_langchain-aws"),
         (
             "test_suite:agent-research/agent-research/packages/wiki-io/tests",
@@ -131,7 +131,7 @@ def _uri_strategy(draw: st.DrawFn) -> str:
                 "pkg",
                 "app",
                 "domain",
-                "plugin",
+                "agent_plugin",
                 "dependency",
                 "test_suite",
             ]
@@ -145,8 +145,8 @@ def _uri_strategy(draw: st.DrawFn) -> str:
         return f"app:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     if template == "domain":
         return f"domain:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
-    if template == "plugin":
-        return f"plugin:{draw(_FRAGMENT)}"
+    if template == "agent_plugin":
+        return f"agent_plugin:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     if template == "dependency":
         return f"dependency:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     # test_suite
