@@ -35,10 +35,16 @@ _PAGE_TYPE_ROUTING = (
     "## Page-type routing\n\n"
     "Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:\n\n"
     "- `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)\n"
-    "- `page_type: package` -> `packages/` (a workspace member with a manifest)\n"
     "- `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)\n"
     "- `page_type: adr` -> `adrs/` (dated decision record)\n\n"
-    "`category` should agree with `page_type` (`source` -> `source`, `package` -> `package`, etc.).\n"
+    "Do NOT author a package page. Code entities (packages, apps, domains, "
+    "dependencies, test suites) are scanner-owned and live under `entities/`. "
+    "To associate this source with a code entity, reference it from the body with "
+    "a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) "
+    "under a `## Touches` section — the scanner derives the backlink onto the "
+    "entity page. Never write into `entities/` pages.\n\n"
+    "`category` should agree with `page_type` (`source` -> `source`, "
+    "`concept` -> `concept`, `adr` -> `adr`).\n"
     "`update_index()` and `append_log()` run automatically — omit those steps."
 )
 

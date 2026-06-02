@@ -135,11 +135,12 @@
   Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:
   
   - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
-  - `page_type: package` -> `packages/` (a workspace member with a manifest)
   - `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)
   - `page_type: adr` -> `adrs/` (dated decision record)
   
-  `category` should agree with `page_type` (`source` -> `source`, `package` -> `package`, etc.).
+  Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
+  
+  `category` should agree with `page_type` (`source` -> `source`, `concept` -> `concept`, `adr` -> `adr`).
   `update_index()` and `append_log()` run automatically — omit those steps.
   
   ## Ingestor rules
@@ -314,11 +315,12 @@
   Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:
   
   - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
-  - `page_type: package` -> `packages/` (a workspace member with a manifest)
   - `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)
   - `page_type: adr` -> `adrs/` (dated decision record)
   
-  `category` should agree with `page_type` (`source` -> `source`, `package` -> `package`, etc.).
+  Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
+  
+  `category` should agree with `page_type` (`source` -> `source`, `concept` -> `concept`, `adr` -> `adr`).
   `update_index()` and `append_log()` run automatically — omit those steps.
   
   ## Ingestor rules
