@@ -571,12 +571,22 @@ def scan(
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     no_file_map: bool = typer.Option(False, "--no-file-map", help="Skip per-package file-map generation"),
     max_depth: int = typer.Option(3, "--max-depth", help="Max directory depth for file map headers"),
+    no_narrate: bool = typer.Option(
+        False, "--no-narrate", help="Skip narrator/file-describer fan-out (structural-only, no Bedrock)"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
     """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
     workspace_path = Path(workspace) if workspace else None
     try:
-        result = asyncio.run(run_scan(workspace_path=workspace_path, no_file_map=no_file_map, max_depth=max_depth))
+        result = asyncio.run(
+            run_scan(
+                workspace_path=workspace_path,
+                no_file_map=no_file_map,
+                max_depth=max_depth,
+                narrate=not no_narrate,
+            )
+        )
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
