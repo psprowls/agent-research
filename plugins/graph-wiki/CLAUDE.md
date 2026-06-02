@@ -8,8 +8,7 @@ This file scopes guidance to the `graph-wiki` plugin tree. The marketplace-level
 plugins/graph-wiki/
 ├── .claude-plugin/           # plugin.json — name, version, keywords, env
 ├── skills/
-│   ├── graph-wiki/           # maintainer skill: SKILL.md + references/ + scripts/
-│   └── obsidian-markdown/    # formatting reference invoked when writing vault pages
+│   └── graph-wiki/           # maintainer skill: SKILL.md + references/ + scripts/
 ├── agents/                   # ingestor, librarian, linter, scanner
 └── commands/                 # bootstrap, scan, ingest, query, lint, log
 ```

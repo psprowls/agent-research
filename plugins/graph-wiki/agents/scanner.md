@@ -1,7 +1,7 @@
 ---
 name: scanner
 description: Dispatched sub-agent that walks the monorepo, builds the code graph, and writes one graph-derived page per admitted entity into the wiki's single `entities/` folder (repository, domain, package, app, agent_plugin, dependency, test_suite). Reports added/updated/deleted entities by URI and surfaces deletions for confirmation. Spawn when the user says "scan the monorepo", "update entity pages", "catch the wiki up to the code", or runs /graph-wiki:scan.
-skills: [graph-wiki, obsidian-markdown]
+skills: [graph-wiki]
 domain: engineering
 model: sonnet
 tools: [Read, Write, Edit, Bash, Grep, Glob]
@@ -56,7 +56,7 @@ Bulleted wikilinks to the changed entity pages. Suggest follow-ups (e.g. `/graph
 
 ## Rules
 
-- **Invoke the `obsidian-markdown` skill** if you hand-edit any entity page (you normally won't — the script owns them). Scanner-owned frontmatter keys are replaced every scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
+- **If you hand-edit any entity page** (you normally won't — the script owns them), preserve human keys. Scanner-owned frontmatter keys are replaced every scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
 - **Never silently delete.** Always surface deletions; offer git undo.
 - **Structural-only.** Do not fill `## Narrative` or file-map descriptions during scan.
 - **Don't hand-write entity pages.** The script renders them from the graph.

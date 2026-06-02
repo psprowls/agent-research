@@ -1,7 +1,7 @@
 ---
 name: ingestor
 description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which package/domain/concept pages will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, updates 5-15 cross-referenced pages, regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
-skills: [graph-wiki, obsidian-markdown]
+skills: [graph-wiki]
 domain: engineering
 model: opus
 tools: [Read, Write, Edit, Bash, Grep, Glob]
@@ -92,7 +92,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 
 ## Rules
 
-- **Invoke the `obsidian-markdown` skill** before writing the source summary or editing any vault page — the vault is an Obsidian vault, so use wikilinks (`[[Note]]`), embeds (`![[file]]`), callouts (`> [!warning]`), proper YAML frontmatter, and `==highlight==` syntax. Plain Markdown links between vault pages are wrong; use wikilinks so Obsidian tracks renames.
+- **Use Obsidian syntax** when writing the source summary or editing any vault page — the vault is an Obsidian vault, so use wikilinks (`[[Note]]`), embeds (`![[file]]`), callouts (`> [!warning]`), proper YAML frontmatter, and `==highlight==` syntax. Plain Markdown links between vault pages are wrong; use wikilinks so Obsidian tracks renames.
 - **`raw/` is immutable.** Read only.
 - **In-repo docs are also read-only.** The doc lives in the repo and the LLM never edits it through this skill — the canonical version stays where it is.
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
