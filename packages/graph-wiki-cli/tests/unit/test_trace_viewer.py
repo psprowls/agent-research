@@ -125,7 +125,7 @@ def test_trace_command_missing_file_exits_nonzero() -> None:
 
 def test_render_trace_record_pure_function() -> None:
     """_render_trace_record returns a string with role, item_id, status, latency_ms."""
-    from graph_wiki_cli.cli import _render_trace_record
+    from subagent_runtime.trace_io import render_trace_record as _render_trace_record
 
     record = {
         "role": "scanner",
@@ -144,6 +144,37 @@ def test_render_trace_record_pure_function() -> None:
     assert "page-a" in output, f"Expected 'page-a' in: {output}"
     assert "success" in output, f"Expected 'success' in: {output}"
     assert "350" in output, f"Expected '350' in: {output}"
+
+
+def test_live_render_matches_trace_expand(tmp_path: Path) -> None:
+    """The string the pool emits live equals what `gw trace --expand` prints
+    for the same record — both go through subagent_runtime.trace_io.render_trace_record.
+    """
+    from typer.testing import CliRunner
+    from subagent_runtime.trace_io import render_trace_record
+    from graph_wiki_cli.cli import app
+
+    record = {
+        "schema_version": 1,
+        "role": "scanner",
+        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "item_id": "page-a",
+        "status": "success",
+        "latency_ms": 350,
+        "tokens_in": 10,
+        "tokens_out": 5,
+        "cost_usd": None,
+        "timestamp": "2026-05-13T10:00:00Z",
+    }
+    trace_file = tmp_path / "one.jsonl"
+    trace_file.write_text(json.dumps(record) + "\n")
+
+    expected_line = render_trace_record(record)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["trace", str(trace_file), "--expand"])
+    assert result.exit_code == 0
+    assert expected_line in result.stdout
 
 
 def test_aggregate_trace_by_role_model_groups_and_costs() -> None:

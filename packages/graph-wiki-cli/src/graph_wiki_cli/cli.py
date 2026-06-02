@@ -65,6 +65,7 @@ from graph_wiki_cli.graph_cli.main import graph_app
 from graph_wiki_cli.wiki_cli.main import wiki_app
 from graph_wiki_core.commands.init import run_init
 from graph_wiki_core.commands.scan import run_scan
+from subagent_runtime.trace_io import render_trace_record
 
 app = typer.Typer(
     name="gw",
@@ -193,33 +194,6 @@ def version() -> None:
     v = importlib.metadata.version("graph-wiki-cli")
     typer.echo(f"gw {v}")
 
-
-def _render_trace_record(record: dict) -> str:
-    """Return a single-line human-readable representation of a trace record.
-
-    Fields: timestamp role model_id(last 30 chars) item_id(first 40 chars)
-            status latency_ms tokens_in -> tokens_out
-    Error records append: ERROR: <error message>
-    Missing fields are substituted with '-' so .get() never raises KeyError.
-    """
-    timestamp = record.get("timestamp", "-")
-    role = record.get("role", "-")
-    model_id = record.get("model_id", "-")
-    model_short = model_id[-30:] if model_id != "-" else "-"
-    item_id = record.get("item_id", "-")
-    item_short = item_id[:40] if item_id != "-" else "-"
-    status = record.get("status", "-")
-    latency_ms = record.get("latency_ms", "-")
-    tokens_in = record.get("tokens_in", "-")
-    tokens_out = record.get("tokens_out", "-")
-
-    line = (
-        f"[{timestamp}] {role} {model_short} {item_short} "
-        f"{status} {latency_ms}ms {tokens_in}->{tokens_out}"
-    )
-    if record.get("status") == "error":
-        line += f"  ERROR: {record.get('error', '')}"
-    return line
 
 
 def _aggregate_trace(records: list[dict]) -> dict:
@@ -441,10 +415,10 @@ def trace(
     # Mode B: default — collapse maximal runs (N>=2) of consecutive groupable
     #         records sharing the same `role` (D-11/D-12); emit one summary
     #         line per group; isolated records and non-groupable records
-    #         (event/kind) render full-line via _render_trace_record.
+    #         (event/kind) render full-line via render_trace_record.
     if expand:
         for record in records:
-            typer.echo(_render_trace_record(record))
+            typer.echo(render_trace_record(record))
     else:
         current_run: list[dict] = []
 
@@ -454,13 +428,13 @@ def trace(
             if len(current_run) >= 2:
                 typer.echo(_render_collapsed_group(current_run))
             else:
-                typer.echo(_render_trace_record(current_run[0]))
+                typer.echo(render_trace_record(current_run[0]))
             current_run.clear()
 
         for record in records:
             if not _is_groupable(record):
                 _flush()
-                typer.echo(_render_trace_record(record))
+                typer.echo(render_trace_record(record))
                 continue
             # Groupable: extend or start a run. CR-01 fix — key by
             # (role, model_id) so mixed-model fan-outs render as distinct
