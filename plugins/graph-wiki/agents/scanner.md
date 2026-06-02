@@ -1,6 +1,6 @@
 ---
 name: scanner
-description: Dispatched sub-agent that walks the monorepo to detect workspace packages (from package.json, pyproject.toml, Cargo.toml, go.mod), diffs against the vault's package/app/domain folders, and proposes/creates/updates stub package pages. Flags renames and deletions for user confirmation. Spawn when the user says "scan the monorepo", "update package pages", "catch the wiki up to the code", or runs /graph-wiki:scan.
+description: Dispatched sub-agent that walks the monorepo, builds the code graph, and writes one graph-derived page per admitted entity into the wiki's single `entities/` folder (repository, domain, package, app, agent_plugin, dependency, test_suite). Reports added/updated/deleted entities by URI and surfaces deletions for confirmation. Spawn when the user says "scan the monorepo", "update entity pages", "catch the wiki up to the code", or runs /graph-wiki:scan.
 skills: [graph-wiki, obsidian-markdown]
 domain: engineering
 model: sonnet
@@ -12,106 +12,58 @@ context: fork
 
 ## Role
 
-You walk the monorepo, detect workspace packages, and keep `<workspace>/wiki/packages/`, `<workspace>/wiki/apps/`, and `<workspace>/wiki/domains/<d>/packages/` in sync with what the repo actually contains. Each app, package, and domain lives in its own folder; the overview file inside is always named `overview.md` (e.g. `<workspace>/wiki/packages/foo/overview.md`). You propose new stub pages for new packages, flag renames and deletions for the user's confirmation, and update frontmatter (exports, depends_on, depended_on_by) on existing pages. You do NOT overwrite prose sections.
+You keep the wiki's single `<workspace>/wiki/entities/` folder in sync with what the code graph says the repo contains. The mechanical script does the writing: it builds the code graph and renders one page per admitted entity — `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite` — into `entities/`, with URI-based filenames (`pkg_<name>.md`, `app_<name>.md`, `dep_<name>.md`, `domain_<name>.md`, `repo_<name>.md`, `agent-plugin_<name>.md`, `unit_tests_<pkg>.md`, …). Your job is to **run the script, report what changed, and surface deletions** — not to hand-write pages.
+
+The scan is **structural-only**: pages carry a `## Narrative\n_(scanner will populate on next scan)_` placeholder and `— TODO` file-map rows. You do NOT fill prose. (Prose is filled later by ingest/query.)
 
 Spawned per scan, not long-running.
 
 ## Inputs
 
 - Repo root and wiki path (resolved automatically via `workspace_io`)
-- Current state of `<workspace>/wiki/packages/`, `<workspace>/wiki/apps/`, and `<workspace>/wiki/domains/<d>/packages/`
+- Current state of `<workspace>/wiki/entities/`
 
 ## Workflow
 
 Follow `references/scan-workflow.md`. Summary:
 
-### 1. Discover workspaces
+### 1. Run the mechanical scan
 ```bash
 uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json
 ```
 
-(Repo and wiki resolved automatically via `workspace_io`.)
+This single command builds the code graph, writes/updates/deletes `entities/*.md` pages deterministically, injects deterministic file maps (Description cells left `— TODO`), regenerates `index.md` + per-folder sub-indexes + `dependencies/index.md`, and appends a `scan` entry to `log.md`. It emits a `ScanResult` JSON with `entities_created`, `entities_updated`, `entities_deleted` (URIs), and `entity_errors`.
 
-**Layout-aware scan:** When the wiki's `CLAUDE.md` contains a `graph-wiki:layout` block, `scan_monorepo.py` scopes discovery to its pinned containers automatically. If drift is detected (a top-level repo dir not in the layout, a pinned dir missing on disk, a classification change), `scan_monorepo.py` prints a "Layout drift detected" block — surface that to the user; don't auto-apply changes.
+It runs **without Bedrock** (structural-only — `narrate=False`). It does NOT call any LLM.
 
-### 2. Present diff
-Report to the user:
-- **New** packages (will stub)
-- **Renamed?** (heuristic match — needs confirmation)
-- **Deleted?** (page exists, package gone — needs confirmation)
-- **Unchanged**
-- Dependency changes (where `depends_on` differs from last scan)
+**Layout-aware:** when the wiki's `CLAUDE.md` pins a `graph-wiki:layout` block, discovery scopes to those containers automatically.
 
-**Wait for confirmation on renames and deletions.** Don't touch those without an explicit "yes".
+### 2. Report entities
+From the JSON, report to the user:
+- **Created** — new entity pages (list by URI / filename)
+- **Updated** — entity pages whose graph-derived frontmatter changed
+- **Deleted** — entity pages removed because their graph node vanished
+- Any `entity_errors`
 
-### 3. Create stubs for new packages
-Use the package templates from `assets/page-templates/package/`. Each new package gets its own folder with a fully scaffolded set of pages — the overview file (`<workspace>/wiki/packages/<name>/overview.md`) plus every sub-page template (`api.md`, `context.md`, `patterns.md`, `testing.md`, `work.md`). Routing rules: `<workspace>/wiki/packages/<name>/overview.md` (cross-domain), `<workspace>/wiki/domains/<d>/packages/<name>/overview.md` (domain-scoped), `<workspace>/wiki/apps/<name>/overview.md` for apps, or under a `package-family` row's `vault_dir:` for nested-manifest packages (the scanner emits `wiki_relative_path` per workspace — use it).
+### 3. Surface deletions (never silently)
+The script has already applied deletions. Do not let them pass silently:
+- Always list the deleted URIs.
+- If `<workspace>/wiki/` is under version control, run `git -C <workspace>/wiki status --short entities/` and offer to undo any deletion the user objects to with `git -C <workspace>/wiki checkout -- entities/<file>`.
+- Entity pages regenerate deterministically on the next scan, so undo/redo is always safe.
 
-Template substitution: the package overview template uses two variables — `{{PACKAGE_SLUG}}` (the package directory name) and `{{CONTAINER_DIR}}` (the container directory the page lives under: `packages` for cross-domain packages, `agents` for agent packages, `plugins` for plugins, `apps` for apps, or the `vault_dir` slug for a package-family row). Derive `CONTAINER_DIR` from the parent folder of the page being written — for `<workspace>/wiki/agents/foo/overview.md` the value is `agents`; for `<workspace>/wiki/plugins/bar/overview.md` it is `plugins`. Pass both variables when calling `ensure_package_pages` so the sub-page wikilinks (`[[wiki/<container>/<slug>/api|api]]`, etc.) resolve correctly.
-
-Call `ensure_package_pages(pkg_dir, pkg_title, templates_dir)` to write the whole set in one call; it is idempotent and never overwrites existing files. Seed frontmatter on the overview from the scan JSON: `title`, `category: package`, `package_path`, `package_type`, `language`, `exports`, `depends_on`, `depended_on_by`, `summary` (generated from README or a one-line description). For package-family workspaces, also copy the `manifests:` aggregate into frontmatter — one entry per detected manifest, so multi-variant packages (e.g. private+public HubSpot apps) carry the full list.
-
-Leave prose section headers with stubs (`## Purpose`, `## Public API`, etc.) — to be filled by later ingests.
-
-When a new domain is encountered for the first time (no existing `<workspace>/wiki/domains/<d>/overview.md`), call `ensure_domain_pages(domain_dir, domain_title, templates_dir)` before creating package stubs under it. This writes the domain overview (`overview.md`) and every domain sub-page template (e.g. `details.md`) in one call. Pass the domain directory, the domain name as title, and `<workspace>/wiki/.templates` as the templates directory.
-
-If the workspace JSON includes a `file_map`, write it into the OVERVIEW page (`<workspace>/wiki/<container>/<name>/overview.md`) in place of the template's `## File map - <name>` block. If the workspace JSON also includes a `file_map_testing` (it will, whenever `file_map` is present — they are emitted as a pair by the scanner), write it into the TESTING sub-page (`<workspace>/wiki/<container>/<name>/testing.md`) in place of that page's `## File map - <name>` block. Both blocks share the same H2 heading text and the same per-major-folder H3 table format; they differ only in which rows they contain (the scanner partitions files via `_is_test_path()` in `packages/wiki-io/src/wiki_io/scan_monorepo.py` — see [[references/page-formats#File map convention (apps and packages)|page-formats]]). For each replacement, replace from the existing `## File map` heading to the next H2 heading. The `testing.md` file is created from the `testing.md` template the same way other sub-pages are (`ensure_subpage(pkg_dir, 'testing', pkg_title, templates_dir)`) before the `file_map_testing` write.
-
-### 4. Per-package change review
-
-The scanner JSON includes a `state_gate` object and a `changed_files` array per workspace.
-
-`state_gate`:
-- `allowed: true` — the working tree is clean and HEAD is on `main`. Sync-state writes are permitted.
-- `allowed: false` — read-only mode. Surface drift to the user, but do NOT bump `last_sync_commit` on any page. Print `state_gate.reason` so the user knows why ("working tree is dirty", "branch is 'feature-x', not 'main'", etc.).
-
-For each workspace, `changed_files` is one of three states:
-
-- **`null`** — bootstrap. The vault page has no recorded `last_sync_commit` (new stub or pre-feature page). Walk through the page contents with the user; on confirmation, write `last_sync_commit: <state_gate.head_commit>` and `last_sync_at: <today>` if the gate is open.
-- **`[]`** — no changes. The recorded SHA already matches HEAD for this package's path. If the gate is open, write `last_sync_commit: <state_gate.head_commit>` (a no-op since the SHA is unchanged) and `last_sync_at: <today>` to confirm review currency.
-- **`[<paths>]`** — non-empty list. Code under this package has changed since the recorded SHA. Show the user the file list (truncate over ~15 entries), walk through whether the page needs editing (Public API changed? File map drift? Key patterns to add?), apply edits as needed (frontmatter + prose), bump `updated:` to today. **Then bump `last_sync_commit` and `last_sync_at` if the gate is open — even if no edits were made.** The act of human review is the signal that the page reflects current code.
-
-If the gate is closed, leave `last_sync_commit` and `last_sync_at` unchanged on every page; the next clean-on-main scan picks up where this one left off.
-
-### 5. Update existing pages (frontmatter only)
-For packages that already have pages: update `exports`, `depends_on`, `depended_on_by`, and bump `updated:` to today. **Do not overwrite prose sections.**
-
-Exception: if the page's File map section is still the unfilled template — every table row's Description cell is `— TODO` and every per-folder paragraph is the placeholder `TODO — describe what this directory contains.` — replace the whole `## File map - <name>` block (heading through the next H2) with the scan's `file_map`. A legacy heading+bullet block whose bullets are all `— TODO` ALSO qualifies as 'unfilled template' for migration purposes; replace it the same way (this is how old-format pages roll over to the new format organically). If anyone has filled in real descriptions, leave the section alone.
-
-### 6. Process renames / deletions (after user confirm)
-- Rename: move the package's folder (`<workspace>/wiki/packages/<old>/` → `<workspace>/wiki/packages/<new>/`) — the overview file inside stays named `overview.md` (only the parent folder rename + frontmatter+wikilink updates are needed), then update `title` and `package_path`, and update inbound wikilinks
-- Delete: either remove the package's folder or move it to `<workspace>/wiki/packages/archived/<name>/` with `status: archived`
-
-### 7. Update index
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
-```
-
-### 8. Stamp token counts
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_tokens.py
-```
-
-### 9. Log
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op scan \
-    --title "detected N new, M renamed, K deleted" --detail "<touched pages>"
-```
-
-### 10. Report
-Bulleted wikilinks. Suggest follow-ups (e.g. `/graph-wiki:lint` to catch any drift, `/graph-wiki:ingest` on README for flesh-out).
+### 4. Report
+Bulleted wikilinks to the changed entity pages. Suggest follow-ups (e.g. `/graph-wiki:lint` to catch drift, `/graph-wiki:ingest` on a README/spec to flesh out `## Narrative` and file-map descriptions).
 
 ## Rules
 
-- **Invoke the `obsidian-markdown` skill** before stubbing or editing package pages — frontmatter must be valid properties (lists for `tags`, `aliases`, etc.) and any inline references between pages should use `[[wikilinks]]` so renames stay tracked.
-- **Confirm renames and deletions.** Never silently.
-- **Don't overwrite prose.** Frontmatter only on existing pages.
-- **Only stub actual workspace entries** (must have a manifest).
-- **Dependency-only frontmatter updates** don't need confirmation.
+- **Invoke the `obsidian-markdown` skill** if you hand-edit any entity page (you normally won't — the script owns them). Scanner-owned frontmatter keys are replaced every scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
+- **Never silently delete.** Always surface deletions; offer git undo.
+- **Structural-only.** Do not fill `## Narrative` or file-map descriptions during scan.
+- **Don't hand-write entity pages.** The script renders them from the graph.
 
 ## Red flags
 
 Stop and ask before proceeding if:
-- The diff shows >10 deletions (likely a bad repo path)
-- A "renamed" package has totally different exports (maybe not a rename)
-- Scanning would create >50 new pages at once (batch-confirm with user)
+- `entities_deleted` has **>10** entries (likely a bad repo path or a failed graph build — inspect before committing).
+- `entity_errors` is non-empty (partial write — report the errors verbatim).
+- The script reports a hard abort (`scan aborted: cg update failed …`) — surface the diagnostic; do not retry blindly.

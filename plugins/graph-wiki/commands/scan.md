@@ -1,11 +1,11 @@
 ---
 name: scan
-description: Walk the monorepo, detect workspace packages from manifests (package.json, pyproject.toml, Cargo.toml, go.mod), diff against the vault's package/app/domain folders, and create/update stub pages (one folder per workspace, with overview file named to match). Flags renames and deletions for user confirmation. Workspace and repo discovered automatically. Usage /graph-wiki:scan
+description: Build the code graph and write one page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into the wiki's single entities/ folder. Reports created/updated/deleted entities by URI; surfaces deletions for confirmation. Workspace and repo discovered automatically. Usage /graph-wiki:scan
 ---
 
 # /graph-wiki:scan
 
-Walk the monorepo and make sure every workspace package has a page in the vault. This is the **entry point** for a fresh wiki — run it right after `/graph-wiki:bootstrap`.
+Build the code graph and write one page per admitted entity into the wiki's single `entities/` folder. This is the **entry point** for a fresh wiki — run it right after `/graph-wiki:bootstrap`.
 
 ## Usage
 
@@ -17,17 +17,12 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 ## What happens
 
-1. **Inventory** — runs `scripts/scan_monorepo.py` to detect workspaces from `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `Cargo.toml`, `go.mod`
-2. **Diff** — compares against `<workspace>/wiki/packages/`, `<workspace>/wiki/apps/`, and `<workspace>/wiki/domains/<d>/packages/`:
-   - new (on disk, no page)
-   - renamed? (heuristic: same path, new name)
-   - deleted? (page exists, not on disk)
-   - unchanged
-3. **Confirm** — presents the diff to you. Renames and deletions require confirmation.
-4. **Create / update** — stub pages for new packages; frontmatter updates (`exports`, `depends_on`, `depended_on_by`) for existing pages. Prose sections on existing pages are left alone.
-5. **Per-package review** — for each package whose source has changed since its `last_sync_commit`, walk through the diff with you and update the page. Bumps `last_sync_commit` to HEAD on confirmation — but only when the working tree is clean and HEAD is on `main`. Otherwise scan runs in read-only mode.
-6. **Index** — updates `<workspace>/wiki/index.md`
-7. **Log** — appends a `scan` entry
+1. **Graph build + write** — `scripts/scan_monorepo.py` builds the code graph and writes one page per admitted entity into `<workspace>/wiki/entities/` (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). Pages use URI-based filenames and are structural-only (`## Narrative` placeholder, `— TODO` file-map rows).
+2. **Frontmatter** — scanner-owned keys (`uri`, `kind`, `depends_on`, `language`, …) are replaced from the graph each scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
+3. **Indexes + log** — `index.md`, per-folder sub-indexes, and `dependencies/index.md` are regenerated; a `scan` entry is appended to `log.md`.
+4. **Report** — created / updated / deleted entities are reported by URI. Deletions are surfaced for confirmation (with a git-based undo when the wiki is versioned); >10 deletions is a stop-and-ask red flag.
+
+This runs entirely **without Bedrock** (structural-only). No prose is generated.
 
 ## Sub-agent
 
@@ -35,9 +30,9 @@ This command dispatches the `scanner` sub-agent. See `agents/scanner.md`.
 
 ## Rules
 
-- **Don't silently delete vault pages** for "deleted" packages — always confirm with the user
-- **Don't overwrite prose sections** on existing package pages — frontmatter only
-- **Only stub new pages** for actual workspace entries (must have a manifest file)
+- **Don't silently delete entity pages** — always surface deletions; >10 is a red flag.
+- **Structural-only** — `## Narrative` and file-map descriptions are filled later by ingest/query, not by scan.
+- **The graph is the source** — entity pages are rendered from the code graph, not hand-written.
 
 ## Layout reconcile
 
