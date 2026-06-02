@@ -14,7 +14,7 @@ Sources live in two places:
 ## Inputs
 
 - Path to a source file. Either inside `raw/` or repo-relative for in-repo docs. If the file is somewhere else (e.g. `~/Downloads/`), prompt the user to stage it under `raw/` first.
-- The current state of `<workspace>/wiki/` (especially `index.md`, relevant `packages/`, `domains/`, `concepts/`)
+- The current state of `<workspace>/wiki/` (especially `index.md`, relevant `entities/`, `concepts/`)
 
 ## Step-by-step
 
