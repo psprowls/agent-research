@@ -15,6 +15,9 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
+## Referenced in wiki
+_(scanner will populate on next scan)_
+
 ## Why we depend on this
 - One paragraph: what this dependency provides, which surfaces use it.
 

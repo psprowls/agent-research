@@ -2885,6 +2885,7 @@ version = "0.1.0"
 source = { editable = "packages/wiki-io" }
 dependencies = [
     { name = "boto3" },
+    { name = "graph-io" },
     { name = "python-frontmatter" },
     { name = "workspace-io" },
 ]
@@ -2892,6 +2893,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.38" },
+    { name = "graph-io", editable = "packages/graph-io" },
     { name = "python-frontmatter", specifier = ">=1.1" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]

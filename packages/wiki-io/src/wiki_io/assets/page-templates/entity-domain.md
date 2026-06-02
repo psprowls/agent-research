@@ -15,6 +15,9 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
+## Referenced in wiki
+_(scanner will populate on next scan)_
+
 ## Scope
 > TODO: <One paragraph: what concern this domain owns and covers, why it is a distinct boundary, and where it borders adjacent domains.>
 

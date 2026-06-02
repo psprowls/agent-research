@@ -61,6 +61,7 @@ from wiki_io.scan_monorepo import (
     discover_workspaces,
     regenerate_dependencies_index,
 )
+from wiki_io.backlink_index import regenerate_referenced_in_wiki
 from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
@@ -1200,6 +1201,25 @@ async def run_scan(
             update_index(wiki)  # per-folder */index.md sub-indexes only (Phase 45 D-02)
         except Exception as exc:
             logger.warning("update_index failed (non-fatal): %s", exc)
+
+        # Step 12b (Slice 4): regenerate the scanner-owned `## Referenced in
+        # wiki` backlink section on every entity page from the [[entities/...]]
+        # forward-links in preserved pages. Pure Python, graph-independent —
+        # runs in both narrated and narrate=False scans.
+        try:
+            backlinked = regenerate_referenced_in_wiki(wiki)
+            append_log(
+                wiki,
+                "scan",
+                f"referenced-in-wiki: {len(backlinked)} entity page(s)",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+        except Exception as exc:  # noqa: BLE001 — non-fatal post-processing
+            logger.warning(
+                "regenerate_referenced_in_wiki failed (non-fatal): %s", exc
+            )
 
         # Step 13: final log entry — both legacy and entity counters surface.
         entity_create_count = len(entity_write_result.created) if entity_write_result else 0

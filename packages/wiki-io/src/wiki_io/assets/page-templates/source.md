@@ -3,6 +3,7 @@ title: "<Source Title>"
 category: source
 summary: <one-line summary>
 source_path: raw/<path-to-source>           # raw/<...> for ingested clips, or a repo-relative path for in-repo docs (e.g. docs/architecture.md)
+entity_uri:                      # canonical code entity this source primarily documents (e.g. pkg:org/repo/graph-io), or null
 source_type: spec                # spec | article | pr | ticket | transcript | rfc | doc
 source_date: <YYYY-MM or YYYY-MM-DD>
 last_sync_commit:                # set only for in-repo docs (source_type: doc) — full SHA at last ingest, used by /graph-wiki:lint to detect changes
@@ -23,7 +24,7 @@ Two sentences max. What the source proposes / argues / reports.
 2. ...
 
 ## Proposed changes (if applicable)
-- `packages/<pkg>` — ...
+- `entities/<prefix>_<name>` — ...
 
 ## Evidence / rationale
 - …
@@ -32,13 +33,11 @@ Two sentences max. What the source proposes / argues / reports.
 - Where this source conflicts with [[concepts/<concept>]] or code at `<path>:<line>`.
 
 ## Touches
-- [[packages/<pkg>]]
-- [[domains/<domain>]]
+- [[entities/<prefix>_<name>]]
 - [[concepts/<concept>]]
 
 ## Decisions triggered
 - [[adrs/<id>-<slug>]]
 
 ## Where it's cited in this wiki
-- [[packages/<pkg>]]
-- [[domains/<domain>]]
+- [[entities/<prefix>_<name>]]

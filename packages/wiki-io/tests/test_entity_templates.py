@@ -161,6 +161,26 @@ def _related_block_body(template_name: str) -> str | None:
     return m.group(1)
 
 
+def test_all_entity_templates_have_referenced_in_wiki_section() -> None:
+    """Slice 4: every entity template carries the scanner-owned
+    `## Referenced in wiki` section with a placeholder."""
+    from importlib.resources import files
+
+    tdir = files("wiki_io.assets.page-templates")
+    kinds = [
+        "package", "app", "domain", "repository",
+        "dependency", "test-suite", "agent-plugin",
+    ]
+    for kind in kinds:
+        body = (tdir / f"entity-{kind}.md").read_text(encoding="utf-8")
+        assert "## Referenced in wiki" in body, f"missing in entity-{kind}.md"
+        # Placeholder mirrors the ## Narrative convention.
+        idx = body.index("## Referenced in wiki")
+        after = body[idx:]
+        assert "_(scanner will populate on next scan)_" in after.split("\n\n", 1)[0] \
+            or "_(scanner will populate" in after[:120], f"no placeholder in entity-{kind}.md"
+
+
 @pytest.mark.parametrize(
     "template_path",
     ENTITY_TEMPLATES,
@@ -186,3 +206,18 @@ def test_related_block_is_obsidian_safe(template_path: Path) -> None:
         assert ":" not in line, (
             f"{template_path.name}: ## Related body line contains `:`: {line!r}"
         )
+
+
+# --- Task 8 (slice4-ingest-entities-parity) ----------------------------------
+
+
+def test_source_template_uses_entities_and_has_entity_uri() -> None:
+    from importlib.resources import files
+
+    body = (files("wiki_io.assets.page-templates") / "source.md").read_text(encoding="utf-8")
+    # Forward-link to entities, not legacy packages/domains.
+    assert "[[entities/" in body
+    assert "[[packages/" not in body
+    assert "[[domains/" not in body
+    # Singular canonical anchor present in frontmatter.
+    assert "entity_uri:" in body

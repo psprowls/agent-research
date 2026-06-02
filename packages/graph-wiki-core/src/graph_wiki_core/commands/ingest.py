@@ -22,7 +22,6 @@ Cross-ref update scope (CONTEXT.md deferred decision):
 
 import logging
 import re
-import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -33,6 +32,11 @@ from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
+from wiki_io.entity_lookup import (
+    entity_filename_for_uri,
+    lookup_entity_by_name,
+    lookup_entity_by_path,
+)
 from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
@@ -43,7 +47,6 @@ from workspace_io.paths import graph_dir
 
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
-from graph_wiki_core.uri_slug import slug_from_uri
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +96,7 @@ class IngestResult:
         slug:               URL-safe slug used for the output filename.
         title:              Human-readable page title.
         page_type:          Page category. From run_ingest_source: source,
-                            package, concept, or adr (set by the ingestor LLM
+                            concept, or adr (set by the ingestor LLM
                             and validated against _PAGE_TYPE_DIRS). From
                             run_ingest_work_item: always "work" (work items
                             bypass _route_target_path and file under
@@ -120,77 +123,15 @@ class IngestResult:
 # Route page_type -> target directory
 # ---------------------------------------------------------------------------
 
+# Slice 4: `package` is no longer an ingest target — entity pages are
+# scanner-owned and live under entities/. Valid ingest page_types collapse to
+# source | concept | adr (all ingest-owned, preserved dirs). The default
+# fallback (page_type not in _PAGE_TYPE_DIRS -> concept) is unchanged.
 _PAGE_TYPE_DIRS: dict[str, str] = {
-    "package": "packages",
     "concept": "concepts",
     "adr": "adrs",
     "source": "sources",
 }
-
-
-# D-03 name-fallback: only consider entity-bearing kinds (file names are noisy).
-_ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
-
-
-def _lookup_entity_by_path(conn, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
-    """Return (uri, name) for the package CONTAINING the source file, or None.
-
-    Strategy: resolve source_path relative to repo_root (POSIX-style), then join
-    nodes (file) -> edges (contains) -> nodes (package) for an exact match.
-    The graph stores POSIX-relative paths from repo root (schema invariant);
-    if source_path is outside repo_root, returns None (no path-relative form).
-
-    Reads URI from the dedicated `nodes.uri` column (Phase 39 finding: production
-    stores URI in the column, NOT in attrs_json).
-    """
-    try:
-        rel = source_path.resolve().relative_to(repo_root.resolve()).as_posix()
-    except ValueError:
-        return None
-    row = conn.execute(
-        "SELECT p.name, p.uri FROM nodes f "
-        "JOIN edges e ON e.dst = f.id AND e.kind='contains' "
-        "JOIN nodes p ON e.src = p.id "
-        "WHERE f.kind='file' AND f.path = ? AND p.kind='package' "
-        "LIMIT 1",
-        (rel,),
-    ).fetchone()
-    if row is None:
-        return None
-    name, uri = row
-    if not uri:
-        return None
-    return uri, name
-
-
-def _lookup_entity_by_name(conn, name: str) -> tuple[str, str] | None:
-    """Return (uri, name) for the unique entity-kind match by name, or None.
-
-    Multi-match policy (D-03 / CONTEXT specifics): when more than one entity-kind
-    node shares the name, emit one stderr warning and return None (fall back to
-    the no-match path).
-
-    URIs are read from the dedicated `nodes.uri` column (Phase 39 finding).
-    """
-    if not name:
-        return None
-    placeholders = ",".join("?" for _ in _ENTITY_KINDS)
-    sql = (
-        f"SELECT name, uri, kind FROM nodes "
-        f"WHERE name = ? AND kind IN ({placeholders}) AND uri IS NOT NULL"
-    )
-    rows = conn.execute(sql, [name, *sorted(_ENTITY_KINDS)]).fetchall()
-    if not rows:
-        return None
-    if len(rows) > 1:
-        uris = [r[1] for r in rows]
-        sys.stderr.write(
-            f"[ingest: name {name!r} matches multiple graph nodes "
-            f"({', '.join(uris)}); falling back to LLM-guessed slug]\n"
-        )
-        return None
-    matched_name, matched_uri, _kind = rows[0]
-    return matched_uri, matched_name
 
 
 def _route_target_path(wiki: Path, page_type: str, slug: str) -> Path:
@@ -314,6 +255,29 @@ def _set_entity_uri_in_body(text: str, entity_uri: str | None) -> str:
 # and bracket characters inside the target so nested or malformed brackets
 # don't match accidentally.
 _WIKILINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
+
+# Slice 4: anchor for the matched entity's durable forward-link. Inserted under
+# the body's `## Touches` section (created if absent). Idempotent.
+_TOUCHES_HEADING_RE = re.compile(r"^## Touches[ \t]*\n", re.MULTILINE)
+
+
+def _ensure_entity_touch_link(text: str, stem: str) -> str:
+    """Guarantee a `[[entities/<stem>]]` wikilink is present in the body.
+
+    This is the durable forward-anchor the scanner reads to derive the entity's
+    `## Referenced in wiki` backlink, so it must survive `_resolve_wikilinks`
+    stripping — call this LAST, after wikilink resolution. Idempotent: inserts
+    a bullet under an existing `## Touches` heading, else appends the section.
+    """
+    link = f"[[entities/{stem}]]"
+    if link in text:
+        return text
+    m = _TOUCHES_HEADING_RE.search(text)
+    if m is not None:
+        insert_at = m.end()
+        return text[:insert_at] + f"- {link}\n" + text[insert_at:]
+    sep = "" if text.endswith("\n") else "\n"
+    return f"{text}{sep}\n## Touches\n- {link}\n"
 
 
 def _resolve_wikilinks(text: str, wiki: Path) -> tuple[str, list[str]]:
@@ -512,8 +476,10 @@ def build_ingest_source_prompt(
         f"\nVault top-level categories:\n{vault_summary}\n"
         f"\n--- Source content ---\n{preview}\n--- End source ---\n"
         f"\nWrite a vault wiki page for this source. "
-        f"Choose the most appropriate page_type (source, package, concept, or adr) "
-        f"and a target_slug based on the content."
+        f"Choose the most appropriate page_type (source, concept, or adr) "
+        f"and a target_slug based on the content. To associate this source with "
+        f"a code entity, reference it with a [[entities/...]] wikilink in the "
+        f"body — do not create a package page."
     )
 
 
@@ -596,12 +562,18 @@ async def run_ingest_source(
         #
         # Surfaces: grep -r "entity_uri: pkg:" wiki/ will find all entity-backed
         # pages; a v1.8 tool may parse + reconcile against the live graph.
-        canonical: tuple[str, str] | None = _lookup_entity_by_path(
+        canonical: tuple[str, str] | None = lookup_entity_by_path(
             conn, repo, source_path
         )
         if canonical is None:
-            canonical = _lookup_entity_by_name(conn, title_guess)
+            canonical = lookup_entity_by_name(conn, title_guess)
         canonical_uri: str | None = canonical[0] if canonical else None
+        # Slice 4: the matched entity drives a [[entities/<stem>]] forward-link
+        # whose target equals the scanner's on-disk filename. None when the
+        # match has no entity page (cls:/fn:/method:) — no link is written.
+        entity_stem: str | None = (
+            entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
+        )
 
         # Step 4: vault structure for context
         vault_structure: list[str] = []
@@ -661,10 +633,6 @@ async def run_ingest_source(
         # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
         target_slug = slugify(target_slug) if target_slug else slug
 
-        # D-04: graph is ground truth for slugs of entity-backed pages.
-        if canonical_uri is not None:
-            target_slug = slug_from_uri(canonical_uri)
-
         # Step 7: write page
         target_path = _route_target_path(wiki, page_type, target_slug)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -686,8 +654,16 @@ async def run_ingest_source(
         # that do not exist in the vault. Two writes is acceptable — vaults
         # are local-disk and writes are <1ms.
         resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
+        current_output = resolved_output if stripped_wikilinks else llm_output
         if stripped_wikilinks:
             target_path.write_text(resolved_output, encoding="utf-8")
+        # Slice 4: ensure the matched entity's forward-link is present. Runs
+        # AFTER _resolve_wikilinks so it is never stripped (the entity page may
+        # not exist on disk yet at ingest time — the scanner backfills it).
+        if entity_stem:
+            linked_output = _ensure_entity_touch_link(current_output, entity_stem)
+            if linked_output != current_output:
+                target_path.write_text(linked_output, encoding="utf-8")
 
         # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
         update_index(wiki)

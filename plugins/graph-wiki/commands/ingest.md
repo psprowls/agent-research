@@ -1,13 +1,13 @@
 ---
 name: ingest
-description: Ingest a source file from raw/ into the Code Wiki — read, discuss, write summary, update package/domain/concept pages, propose ADRs if decisions are captured, flag contradictions with code, update index, append to log. Usage /graph-wiki:ingest <path-to-source>
+description: Ingest a source file from raw/ into the Code Wiki — read, discuss, write summary, link relevant code entities via [[entities/...]] and update concept/ADR pages, propose ADRs if decisions are captured, flag contradictions with code, update index, append to log. Usage /graph-wiki:ingest <path-to-source>
 ---
 
 # /graph-wiki:ingest
 
 Ingest a new source (spec, PR, article, ticket, transcript) into the Code Wiki.
 
-The flow: read the source → discuss TL;DR and key claims with you → write a source summary → update every relevant package/domain/concept page → propose an ADR if the source captures a decision → flag contradictions → update `index.md` → append to `log.md`.
+The flow: read the source → discuss TL;DR and key claims with you → write a source summary → link relevant code entities via `[[entities/...]]` and update concept/ADR pages → propose an ADR if the source captures a decision → flag contradictions → update `index.md` → append to `log.md`.
 
 A typical ingest touches **5-15 vault pages**. You're in the loop.
 
@@ -29,13 +29,13 @@ The script guesses from the raw/ subdirectory, or treats the path as an in-repo 
 
 | Path | Source type | Typical touches |
 |---|---|---|
-| `raw/specs/` | `spec` | Domain/architecture pages + ADR |
+| `raw/specs/` | `spec` | `[[entities/...]]` links + architecture/ADR pages |
 | `raw/articles/` | `article` | Concept/dependency pages |
-| `raw/prs/` | `pr` | Package pages for every package modified |
-| `raw/tickets/` | `ticket` | Issue pages; light package touches |
-| `raw/transcripts/` | `transcript` | ADRs + domain pages |
-| `raw/examples/` | `example` | Concept pages (often pattern-flavored); package/domain `## Inspirations` bullets |
-| `<docs-container>/*.md` | `doc` | Concept/architecture/work pages; gets `last_sync_commit` + `last_sync_at` for drift detection |
+| `raw/prs/` | `pr` | `[[entities/...]]` links for every package modified |
+| `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |
+| `raw/transcripts/` | `transcript` | ADRs + `[[entities/...]]` links for relevant domains |
+| `raw/examples/` | `example` | Concept pages (often pattern-flavored); `[[entities/...]]` `## Inspirations` bullets |
+| `<docs-container>/*.md` | `doc` | Concept/architecture/work pages; `[[entities/...]]` links; gets `last_sync_commit` + `last_sync_at` for drift detection |
 
 ## What happens
 
@@ -44,7 +44,7 @@ The script guesses from the raw/ subdirectory, or treats the path as an in-repo 
 3. **Discuss** — TL;DR, key claims, touched pages, contradictions with vault or code
 4. **Confirm** — waits for your go-ahead
 5. **Write** — creates the source summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`
-6. **Update** — 5-15 pages across packages/domains/concepts
+6. **Link entities** — add `[[entities/...]]` under `## Touches` on the source page; do not edit entity pages (scanner backfills `## Referenced in wiki`)
 7. **ADR** — if the source captures a decision, propose creating `<workspace>/wiki/adrs/<NNNN>-<slug>.md`
 8. **Contradictions** — flags vault↔vault and vault↔code contradictions
 9. **Index** — `scripts/update_index.py` or inline edit

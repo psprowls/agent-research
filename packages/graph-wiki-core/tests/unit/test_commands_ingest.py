@@ -691,13 +691,19 @@ async def test_run_ingest_source_not_initialized_raises_typed_exception(
 
 
 # ---------------------------------------------------------------------------
-# Test: path match overrides LLM slug
+# Slice 4: path match routes to sources/, links entity, never packages/
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_path_match_overrides_slug(tmp_path: Path) -> None:
-    """Seeded path lookup returns canonical URI; LLM slug is replaced."""
+async def test_run_ingest_source_path_match_links_entity_never_packages(
+    tmp_path: Path,
+) -> None:
+    """Slice 4: a path-matched package routes to sources/ (never packages/),
+    sets entity_uri, and embeds a [[entities/pkg_<name>]] wikilink whose target
+    equals short_filename for the URI. The slug is NOT forced from the URI."""
+    from wiki_io.entity_writer import short_filename
+
     from graph_wiki_core.commands.ingest import run_ingest_source
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
@@ -708,15 +714,16 @@ async def test_run_ingest_source_path_match_overrides_slug(tmp_path: Path) -> No
 
     canonical_uri = "pkg:agent-research/agent-research/graph-io"
     _seed_graph_db_for_ingest_tests(
-        workspace,
-        packages=[("graph-io", canonical_uri, rel_path)],
+        workspace, packages=[("graph-io", canonical_uri, rel_path)]
     )
 
+    # LLM picks page_type=source with a clean slug; entity match must NOT
+    # override it (decoupled).
     fake_llm_response = _FM_TEMPLATE.format(
         title="Store",
-        category="package",
-        page_type="package",
-        slug="wrong-slug",  # the LLM's guess that we expect to be overridden
+        category="source",
+        page_type="source",
+        slug="2026-06-store",
     )
 
     with (
@@ -732,31 +739,33 @@ async def test_run_ingest_source_path_match_overrides_slug(tmp_path: Path) -> No
 
         result = await run_ingest_source(source_file, workspace)
 
-    expected_page = wiki / "packages" / "graph-io.md"
+    # Never the legacy packages/ folder.
+    assert not (wiki / "packages").exists()
+    stem = short_filename(canonical_uri, frozenset())  # "pkg_graph-io"
+    expected_page = wiki / "sources" / "2026-06-store.md"
     assert expected_page.exists(), f"expected page at {expected_page}"
     body = expected_page.read_text(encoding="utf-8")
     assert f"entity_uri: {canonical_uri}" in body
-    assert "target_slug: graph-io" in body
-    assert "target_slug: wrong-slug" not in body
+    assert f"[[entities/{stem}]]" in body
+    assert result.page_type == "source"
+    assert result.slug == "2026-06-store"   # LLM slug preserved, not URI tail
     assert result.entity_uri == canonical_uri
-    assert result.slug == "graph-io"
 
 
 # ---------------------------------------------------------------------------
-# Test: name fallback overrides slug when path lookup misses
+# Test: name match sets URI without entity link (cls: has no entity page)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_name_fallback_overrides_slug(
+async def test_run_ingest_source_name_match_sets_uri_without_entity_link(
     tmp_path: Path,
 ) -> None:
-    """When path lookup misses, the name fallback resolves via title_guess."""
+    """Slice 4: a name-matched class (cls: URI, no entity page) sets entity_uri
+    but writes NO [[entities/...]] link and does NOT force the slug."""
     from graph_wiki_core.commands.ingest import run_ingest_source
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
-    # Source file is OUTSIDE the package path used by the graph entry, so path
-    # lookup misses and we fall through to the name lookup.
     source_file = workspace / "random" / "src.md"
     source_file.parent.mkdir(parents=True, exist_ok=True)
     source_file.write_text("# SubagentPool\n\nBody.", encoding="utf-8")
@@ -768,11 +777,6 @@ async def test_run_ingest_source_name_fallback_overrides_slug(
         extra_nodes=[("class", "SubagentPool", None, canonical_uri)],
     )
 
-    # title_guess derives from extract() title -> source_path.stem fallback.
-    # We set the LLM frontmatter title so the body keeps "SubagentPool"; the
-    # in-code title_guess will be "Src" from filename. Force the name match
-    # path by ALSO seeding the title path: extract() reads from the source
-    # file's first heading. The file's first heading is "# SubagentPool".
     fake_llm_response = _FM_TEMPLATE.format(
         title="SubagentPool",
         category="concept",
@@ -794,10 +798,10 @@ async def test_run_ingest_source_name_fallback_overrides_slug(
         result = await run_ingest_source(source_file, workspace)
 
     assert result.entity_uri == canonical_uri
-    # slug should be derived from the URI tail
-    assert result.slug == "subagent_runtime.pool.SubagentPool"
-    written = (wiki / "concepts" / f"{result.slug}.md").read_text(encoding="utf-8")
+    assert result.slug == "some-other-thing"  # LLM slug preserved (no forcing)
+    written = (wiki / "concepts" / "some-other-thing.md").read_text(encoding="utf-8")
     assert f"entity_uri: {canonical_uri}" in written
+    assert "[[entities/" not in written  # cls: has no entity page → no link
 
 
 # ---------------------------------------------------------------------------
@@ -967,3 +971,47 @@ def test_set_entity_uri_in_body_inserts_after_target_slug() -> None:
     lines = out2.splitlines()
     assert lines[0] == "---"
     assert lines[1] == "entity_uri: pkg:x/y/foo"
+
+
+# ---------------------------------------------------------------------------
+# Test: _ensure_entity_touch_link — entity forward-link injector (unit-level)
+# ---------------------------------------------------------------------------
+
+
+def test_ensure_entity_touch_link_inserts_under_existing_heading() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = (
+        "---\ntitle: Foo\n---\n\n"
+        "Body text.\n\n"
+        "## Touches\n"
+        "- [[entities/pkg_other]]\n"
+    )
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # New bullet inserted immediately under the heading.
+    assert "## Touches\n- [[entities/pkg_graph-io]]\n" in out
+    # Pre-existing bullet under the heading is preserved.
+    assert "- [[entities/pkg_other]]" in out
+
+
+def test_ensure_entity_touch_link_appends_section_when_absent() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = "---\ntitle: Foo\n---\n\nBody text.\n"
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # Original content preserved.
+    assert out.startswith(text)
+    # A Touches section is appended with the link bullet.
+    assert "## Touches\n- [[entities/pkg_graph-io]]\n" in out
+
+
+def test_ensure_entity_touch_link_idempotent() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = (
+        "---\ntitle: Foo\n---\n\n"
+        "Refers to [[entities/pkg_graph-io]] inline.\n"
+    )
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # Link already present anywhere → text returned unchanged.
+    assert out == text
