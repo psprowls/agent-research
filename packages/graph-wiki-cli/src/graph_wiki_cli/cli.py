@@ -62,6 +62,7 @@ def _ensure_uv_workspace() -> None:
 _ensure_uv_workspace()
 
 from graph_wiki_cli.graph_cli.main import graph_app
+from graph_wiki_cli.logging_config import configure_verbose_logging
 from graph_wiki_cli.wiki_cli.main import wiki_app
 from graph_wiki_core.commands.init import run_init
 from graph_wiki_core.commands.scan import run_scan
@@ -72,6 +73,25 @@ app = typer.Typer(
     help="gw: AWS Bedrock-powered wiki maintenance CLI.",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def _root(
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
+        "-v",
+        count=True,
+        help=(
+            "Stream a live execution log to stderr (-v = INFO, -vv = DEBUG). "
+            "stderr only — stdout stays clean, so `gw -v query ... --json | jq` "
+            "still works. Independent of a command's own --quiet."
+        ),
+    ),
+) -> None:
+    """gw: AWS Bedrock-powered wiki maintenance CLI."""
+    configure_verbose_logging(verbose)
+
 
 # Highest trace `schema_version` this renderer was authored against (OBS-04 D-03).
 # Records with a higher version still render (lenient consumer) but trigger a
