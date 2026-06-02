@@ -186,6 +186,147 @@ def pick_representative(root: Path, entries: list[tuple[str, int]]) -> str | Non
     return sorted_entries[0][0]
 
 
+def _build_entity_match(workspace_root: Path, repo: Path, source_path: Path, title_guess: str) -> dict:
+    """Resolve the entity a source belongs to and the on-disk entity filename.
+
+    Bedrock-free. Opens a read-only graph conn; returns
+    {"uri": None, "entity_filename": None} when the graph is missing or no
+    entity matches (the harness agent proceeds without a link in that case).
+    """
+    from graph_io.store import GraphNotInitializedError, read_only_connect
+    from workspace_io.paths import graph_dir
+
+    from wiki_io.entity_lookup import (
+        entity_filename_for_uri,
+        lookup_entity_by_name,
+        lookup_entity_by_path,
+    )
+
+    empty = {"uri": None, "entity_filename": None}
+    try:
+        conn = read_only_connect(graph_dir(workspace_root) / "code.db")
+    except GraphNotInitializedError:
+        return empty
+    try:
+        match = lookup_entity_by_path(conn, repo, source_path)
+        if match is None:
+            match = lookup_entity_by_name(conn, title_guess)
+        if match is None:
+            return empty
+        uri = match[0]
+        return {"uri": uri, "entity_filename": entity_filename_for_uri(uri, conn)}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def main() -> None:
+    """Emit the ingest prep brief (JSON) consumed by the harness ingestor agent.
+
+    Bedrock-free: builds on this module's library functions plus the shared
+    `wiki_io.entity_lookup`. Never imports model_adapter / subagent_runtime.
+    """
+    import argparse
+    import datetime
+    import json as _json
+    import sys
+
+    parser = argparse.ArgumentParser(description="Prepare a source for ingestion.")
+    parser.add_argument("source", nargs="?", default=None, help="Path to the source file/folder")
+    parser.add_argument("--source", dest="source_opt", default=None, help="Path to the source (alt form)")
+    parser.add_argument("--workspace", default="", help="Workspace path (default: env / git heuristic)")
+    parser.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON brief")
+    args = parser.parse_args()
+
+    source_arg = args.source_opt or args.source
+    if not source_arg:
+        print("[error] no source path given", file=sys.stderr)
+        sys.exit(1)
+    source_path = Path(source_arg)
+
+    workspace_path = Path(args.workspace) if args.workspace else None
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
+    if repo is None:
+        repo = Path.cwd()
+    workspace_root = workspace_path if workspace_path is not None else wiki.parent
+
+    # Resolve a relative source_path against repo root so relative_to() works below.
+    if not source_path.is_absolute():
+        candidate = repo / source_path
+        source_path = candidate if candidate.exists() else source_path.resolve()
+
+    # Folder ingest (raw/examples/<dir>/).
+    if source_path.is_dir():
+        rel_to_wiki = None
+        try:
+            rel_to_wiki = source_path.relative_to(wiki)
+        except ValueError:
+            pass
+        brief: dict = {
+            "is_folder": True,
+            **folder_brief(source_path, rel_to_wiki),
+            "state_gate": compute_state_gate(repo),
+        }
+        if "_error" in brief:
+            print(f"[error] {brief['_error']}", file=sys.stderr)
+            sys.exit(1)
+        if args.json_output:
+            print(_json.dumps(brief, indent=2))
+        return
+
+    # Single-file ingest.
+    text, title = extract(source_path)
+    title_guess = title or source_path.stem.replace("-", " ").title()
+    slug = slugify(title_guess)
+
+    rel_to_wiki = None
+    rel_to_repo = None
+    try:
+        rel_to_wiki = source_path.relative_to(wiki)
+    except ValueError:
+        pass
+    try:
+        rel_to_repo = source_path.relative_to(repo)
+    except ValueError:
+        pass
+    source_type = guess_source_type(rel_to_wiki, rel_to_repo)
+
+    preview = text[:PREVIEW_CHARS]
+    if len(text) > PREVIEW_CHARS:
+        preview += "\n[TRUNCATED]"
+
+    month = datetime.date.today().strftime("%Y-%m")
+    suggested = f"sources/{month}-{slug}.md"
+    page_exists = (wiki / suggested).exists()
+
+    in_repo_doc = rel_to_repo is not None and rel_to_wiki is None
+
+    brief = {
+        "source_path": str(source_path),
+        "title": title_guess,
+        "source_type": source_type,
+        "slug": slug,
+        "preview": preview,
+        "word_count": len(text.split()),
+        "suggested_summary_path": suggested,
+        "merge_mode": page_exists,
+        "in_repo_doc": in_repo_doc,
+        "entity_match": _build_entity_match(workspace_root, repo, source_path, title_guess),
+        "state_gate": compute_state_gate(repo),
+    }
+    if args.json_output:
+        print(_json.dumps(brief, indent=2))
+    else:
+        print(f"Title: {brief['title']}")
+        print(f"Source type: {brief['source_type']}")
+        print(f"Suggested summary: {brief['suggested_summary_path']}")
+        em = brief["entity_match"]
+        if em["uri"]:
+            print(f"Entity match: {em['uri']} -> [[entities/{em['entity_filename']}]]")
+
+
 def folder_brief(root: Path, rel_to_wiki: Path | None) -> dict:
     """Build the folder-mode addendum to the brief.
     Returns dict; if too many files, returns {'_error': ...} so caller can exit non-zero.
