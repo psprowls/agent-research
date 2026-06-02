@@ -36,9 +36,13 @@ from typing import Any, Awaitable, Callable
 
 from langchain_core.runnables import RunnableConfig
 
-from subagent_runtime.trace_io import write_trace_record
+from subagent_runtime.trace_io import render_trace_record, write_trace_record
 
 logger = logging.getLogger(__name__)
+# Dedicated logger for per-item completion lines (trace format). The CLI's
+# configure_verbose_logging attaches a bare-message handler with propagate=False
+# so these lines stay byte-identical to `gw trace`.
+_trace_logger = logging.getLogger(__name__ + ".trace")
 
 
 @dataclass
@@ -156,6 +160,7 @@ class SubagentPool:
 
         async def _run_one(item: Any) -> tuple[Any, Any] | PerItemError:
             async with semaphore:
+                logger.debug("-> item start: %s", getattr(item, "id", None) or str(item))
                 t0 = time.monotonic()
                 try:
                     # RunnableConfig top-level key confirmed from LangGraph docs.
@@ -196,6 +201,14 @@ class SubagentPool:
                     )
                     return PerItemError(item=item, exception=exc)
 
+        logger.info(
+            "-> fan-out start: role=%s model=%s items=%d concurrency=%d",
+            role,
+            model_id,
+            len(items),
+            max_concurrency,
+        )
+
         # return_exceptions=True: one failure does NOT cancel siblings (deepagents #694).
         batch_t0 = time.monotonic()
         try:
@@ -222,6 +235,12 @@ class SubagentPool:
                 logger.error("Unexpected gather exception: %s", r)
             else:
                 fan_result.successes.append(r)
+        logger.info(
+            "ok fan-out done: %d ok / %d err in %.2fs",
+            len(fan_result.successes),
+            len(fan_result.errors),
+            time.monotonic() - batch_t0,
+        )
         return fan_result
 
     def _write_trace(
@@ -236,10 +255,17 @@ class SubagentPool:
         *,
         error: str | None = None,
     ) -> None:
-        """Thin delegate to subagent_runtime.trace_io.write_trace_record (Phase 16 D-04)."""
-        write_trace_record(
+        """Thin delegate to subagent_runtime.trace_io.write_trace_record (Phase 16 D-04).
+
+        Also emits the per-item completion line at INFO through the dedicated
+        fan-out trace logger so `gw -v` can surface live progress. The pool stays
+        ignorant of verbosity — it always logs; the installed handler decides
+        what shows.
+        """
+        record = write_trace_record(
             path, role, model_id, item, status, latency_ms, response, error=error
         )
+        _trace_logger.info(render_trace_record(record))
 
     def _write_batch_terminal(
         self,
