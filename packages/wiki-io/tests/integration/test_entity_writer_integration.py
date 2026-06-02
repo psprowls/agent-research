@@ -26,7 +26,7 @@ from pathlib import Path
 import frontmatter
 import pytest
 
-from graph_io import packages, plugins, structural_nodes
+from graph_io import agent_plugins, packages, structural_nodes
 from graph_io.schema import apply_schema
 from graph_io.uri import RepoContext
 from wiki_io.entity_writer import (
@@ -86,6 +86,11 @@ def _build_fixture_workspace(root: Path) -> None:
         '    installed_version: "0.1.0"\n'
         '    applied_version: "0.1.0"\n'
     )
+    pdir = root / "plugins" / "graph-wiki" / ".claude-plugin"
+    pdir.mkdir(parents=True, exist_ok=True)
+    (pdir / "plugin.json").write_text(json.dumps(
+        {"name": "graph-wiki", "version": "0.1.0", "description": "A wiki plugin."}
+    ))
 
 
 def _ingest(workspace: Path) -> sqlite3.Connection:
@@ -96,7 +101,7 @@ def _ingest(workspace: Path) -> sqlite3.Connection:
     structural_nodes.emit(
         conn, repo_root=workspace, ctx=CTX, skip_dirs=frozenset()
     )
-    plugins.emit(conn, workspace_root=workspace, ctx=CTX)
+    agent_plugins.emit(conn, repo_root=workspace, ctx=CTX)
     return conn
 
 
@@ -107,7 +112,7 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     wiki_root = tmp_path / "wiki"
     result = write_entities(conn, wiki_root, ADMITTED_KINDS)
 
-    # Expected pages: 1 repo + 2 packages + 3 unique deps (boto3, pyyaml, click) + 1 plugin = 7
+    # Expected pages: 1 repo + 2 packages + 3 unique deps (boto3, pyyaml, click) + 1 agent_plugin = 7
     assert len(result.created) >= 7, (
         f"expected >=7 created, got {len(result.created)}: {result.created}"
     )
@@ -119,7 +124,7 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     assert (entities / "pkg_pkg-a.md").exists()
     assert (entities / "pkg_pkg-b.md").exists()
     assert (entities / "dep_boto3.md").exists()
-    assert (entities / "plugin_graph-wiki.md").exists()
+    assert (entities / "agent-plugin_graph-wiki.md").exists()
     assert (entities / "repo_fixture.md").exists()
 
 
