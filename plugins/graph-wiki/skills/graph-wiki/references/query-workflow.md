@@ -13,10 +13,9 @@ The flow the LLM follows when the user runs `/graph-wiki:query <question>` or di
 The index is the catalog. Scan it and pick the 3-10 pages most likely to contain the answer. A good monorepo query usually pulls across categories:
 
 - `architecture/` for the big picture
-- `packages/` for specific package surface area
-- `domains/` for feature-area context
+- `entities/` for specific package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
 - `concepts/` for cross-cutting patterns
-- `dependencies/` for "how do we use X library" questions
+- `dependencies/` for "how do we use X library" questions (the auto-rendered index; `entities/dep_*` for detail)
 - `work/` for "why does X fail / what's planned / what's in progress"
 - `adrs/` for "why did we do it this way"
 - `sources/` for evidence and original context
@@ -45,7 +44,7 @@ Format:
 - **Direct answer** — 1-3 sentences
 - **Supporting detail** — organized thematically
 - **Inline citations** — mix of:
-  - wiki page wikilinks: `[[packages/xxx]]`, `[[sources/yyy]]`
+  - wiki page wikilinks: `[[entities/pkg_xxx]]`, `[[sources/yyy]]`
   - code paths with line numbers: `` `packages/foo/src/bar.ts:42` ``
 - **Related pages** — 3-5 wikilinks at the end
 
