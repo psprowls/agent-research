@@ -310,15 +310,15 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 # update._git / NotInGitRepoError or imports from structural_nodes
                 # which imports from update).
                 from graph_io import (  # noqa: PLC0415
+                    agent_plugins,
                     derived_edges,
                     domains,
                     entry_points,
-                    plugins,
                     structural_nodes,
                     test_suites,
                 )
                 structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-                plugins.emit(conn, workspace_root=workspace, ctx=ctx)
+                agent_plugins.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 domains.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
