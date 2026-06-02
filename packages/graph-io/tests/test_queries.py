@@ -1130,14 +1130,12 @@ def test_cte_cycle_safe(empty_db: sqlite3.Connection) -> None:
 # ============================================================================
 
 
-def test_valid_kinds_includes_dependency_plugin(conn: sqlite3.Connection) -> None:
-    """D-01: _VALID_KINDS extends from 10 to 12 — dependency + plugin added."""
+def test_valid_kinds_includes_dependency_and_agent_plugin(conn: sqlite3.Connection) -> None:
+    """_VALID_KINDS carries dependency + agent_plugin; legacy plugin is gone."""
     assert "dependency" in queries._VALID_KINDS
-    assert "plugin" in queries._VALID_KINDS
-    # find(conn, kind="dependency") MUST NOT raise (it did pre-Phase 43)
-    rows = queries.find(conn, kind="dependency")
-    assert rows == []
-    rows = queries.find(conn, kind="plugin")
+    assert "agent_plugin" in queries._VALID_KINDS
+    assert "plugin" not in queries._VALID_KINDS
+    rows = queries.find(conn, kind="agent_plugin")
     assert rows == []
 
 
@@ -1228,35 +1226,48 @@ def test_describe_dependency_returns_none_when_missing(conn: sqlite3.Connection)
     assert queries.describe_dependency(conn, ecosystem="pypi", name="nonexistent") is None
 
 
-def test_describe_plugin_returns_plugin_description(conn: sqlite3.Connection) -> None:
-    """D-03 + D-05: describe_plugin returns PluginDescription from node attrs."""
+def test_describe_agent_plugin_returns_description(conn: sqlite3.Connection) -> None:
+    """describe_agent_plugin returns AgentPluginDescription from node attrs."""
     upsert.upsert_records(
         conn,
         GraphRecords(
             nodes=[
                 GraphNode(
-                    kind="plugin",
+                    kind="agent_plugin",
                     name="graph-wiki",
                     path=None,
                     line=None,
                     attrs={
+                        "uri": "agent_plugin:test/repo/graph-wiki",
                         "ecosystem": "claude-code",
-                        "uri": "plugin:graph-wiki",
+                        "version": "0.1.0",
+                        "description": "A wiki plugin.",
+                        "components": {
+                            "commands": [{"id": "command:test/repo/graph-wiki/scan",
+                                          "name": "scan", "description": "Walk the monorepo."}],
+                            "agents": [], "skills": [], "scripts": [],
+                            "hooks": [], "mcp_servers": [],
+                        },
                     },
                 ),
             ],
             edges=[],
         ),
     )
-    p = queries.describe_plugin(conn, name="graph-wiki")
+    p = queries.describe_agent_plugin(conn, name="graph-wiki")
     assert p is not None
     assert p.name == "graph-wiki"
-    assert p.uri == "plugin:graph-wiki"
+    assert p.uri == "agent_plugin:test/repo/graph-wiki"
     assert p.ecosystem == "claude-code"
+    assert p.version == "0.1.0"
+    assert p.description == "A wiki plugin."
+    assert p.commands == [{"id": "command:test/repo/graph-wiki/scan",
+                           "name": "scan", "description": "Walk the monorepo."}]
+    assert p.agents == [] and p.mcp_servers == []
 
 
-def test_describe_plugin_returns_none_when_missing(conn: sqlite3.Connection) -> None:
-    assert queries.describe_plugin(conn, name="nonexistent") is None
+def test_describe_agent_plugin_returns_none_when_missing(conn: sqlite3.Connection) -> None:
+    assert queries.describe_agent_plugin(conn, name="nonexistent") is None
 
 
 def test_list_dependencies_alphabetical(conn: sqlite3.Connection) -> None:
@@ -1467,18 +1478,18 @@ def test_describe_app_does_not_match_package_kind(conn: sqlite3.Connection) -> N
     assert queries.describe_app(conn, name="shared-name") is None
 
 
-def test_list_plugins_alphabetical(conn: sqlite3.Connection) -> None:
-    """D-05: list_plugins returns alphabetically-sorted plugin NodeRecords."""
+def test_list_agent_plugins_alphabetical(conn: sqlite3.Connection) -> None:
+    """list_agent_plugins returns alphabetically-sorted agent_plugin NodeRecords."""
     upsert.upsert_records(
         conn,
         GraphRecords(
             nodes=[
-                GraphNode(kind="plugin", name="zeta", path=None, line=None,
-                          attrs={"ecosystem": "claude-code", "uri": "plugin:zeta"}),
-                GraphNode(kind="plugin", name="alpha", path=None, line=None,
-                          attrs={"ecosystem": "claude-code", "uri": "plugin:alpha"}),
+                GraphNode(kind="agent_plugin", name="zeta", path=None, line=None,
+                          attrs={"ecosystem": "claude-code", "uri": "agent_plugin:o/r/zeta"}),
+                GraphNode(kind="agent_plugin", name="alpha", path=None, line=None,
+                          attrs={"ecosystem": "claude-code", "uri": "agent_plugin:o/r/alpha"}),
             ],
             edges=[],
         ),
     )
-    assert [n.name for n in queries.list_plugins(conn)] == ["alpha", "zeta"]
+    assert [n.name for n in queries.list_agent_plugins(conn)] == ["alpha", "zeta"]

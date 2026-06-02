@@ -20,7 +20,8 @@ _VALID_KINDS = frozenset(
         "domain",
         # Phase 43 (v1.8): admitted entity kinds for the wiki entity writer.
         "dependency",
-        "plugin",
+        # agent-plugin entity: a claude-code plugin under development in this repo.
+        "agent_plugin",
         # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names; Node via require('module').builtinModules)
         "builtin",
         # Phase 50 D-12: app-classified packages (scanner-derived kind)
@@ -179,11 +180,24 @@ class BuiltinDescription:
 
 
 @dataclass(frozen=True)
-class PluginDescription:
-    """Description of a `plugin` node (Phase 43 D-03 + D-05)."""
+class AgentPluginDescription:
+    """Description of an `agent_plugin` node.
+
+    Carries the plugin manifest fields plus the component inventory parsed at
+    graph-build time (commands/agents/skills/scripts/hooks/mcp_servers). Each
+    component is a plain dict with a stable `id`; they are NOT graph nodes.
+    """
     name: str
     uri: str
     ecosystem: str
+    version: str
+    description: str
+    commands: list[dict] = field(default_factory=list)
+    agents: list[dict] = field(default_factory=list)
+    skills: list[dict] = field(default_factory=list)
+    scripts: list[dict] = field(default_factory=list)
+    hooks: list[dict] = field(default_factory=list)
+    mcp_servers: list[dict] = field(default_factory=list)
 
 
 def _row_to_node(row) -> NodeRecord:
@@ -827,26 +841,35 @@ def describe_builtin(
     )
 
 
-def describe_plugin(
+def describe_agent_plugin(
     conn: sqlite3.Connection, *, name: str
-) -> PluginDescription | None:
-    """Return the description of a plugin node, or None.
+) -> AgentPluginDescription | None:
+    """Return the description of an agent_plugin node, or None.
 
     `conn` must be opened read-only.
     """
     row = conn.execute(
         "SELECT name, attrs_json, uri FROM nodes "
-        "WHERE kind='plugin' AND name = ?",
+        "WHERE kind='agent_plugin' AND name = ?",
         (name,),
     ).fetchone()
     if not row:
         return None
     plugin_name, attrs_json, uri = row
     attrs = json.loads(attrs_json) if attrs_json else {}
-    return PluginDescription(
+    comp = attrs.get("components") or {}
+    return AgentPluginDescription(
         name=plugin_name,
         uri=uri or "",
         ecosystem=attrs.get("ecosystem", ""),
+        version=attrs.get("version", ""),
+        description=attrs.get("description", ""),
+        commands=list(comp.get("commands") or []),
+        agents=list(comp.get("agents") or []),
+        skills=list(comp.get("skills") or []),
+        scripts=list(comp.get("scripts") or []),
+        hooks=list(comp.get("hooks") or []),
+        mcp_servers=list(comp.get("mcp_servers") or []),
     )
 
 
@@ -899,9 +922,9 @@ def list_apps(conn: sqlite3.Connection) -> list[NodeRecord]:
     return _list_by_kind(conn, "app")
 
 
-def list_plugins(conn: sqlite3.Connection) -> list[NodeRecord]:
-    """List all Plugin nodes alphabetically. `conn` must be read-only."""
-    return _list_by_kind(conn, "plugin")
+def list_agent_plugins(conn: sqlite3.Connection) -> list[NodeRecord]:
+    """List all agent_plugin nodes alphabetically. `conn` must be read-only."""
+    return _list_by_kind(conn, "agent_plugin")
 
 
 def list_scripts(conn: sqlite3.Connection) -> list[NodeRecord]:
