@@ -1132,6 +1132,91 @@ async def test_app_file_map_descriptions_survive_rescan(
     assert "| `pyproject.toml` | file | — TODO |" in text2
 
 
+@pytest.mark.asyncio
+async def test_description_fill_log_uses_entity_noun(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10c log wording: the `file descriptions filled` line must read
+    `entity(s)`, not `package(s)`, now that apps share the path. Asserts against
+    the real log.md (append_log is unpatched in this module).
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_app_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    app_x_block = (
+        "## File map - app-x\n"
+        "TODO — overview of this app's tree.\n"
+        "\n"
+        "### app-x/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "app-x",
+            "path": "apps/app-x",
+            "wiki_relative_path": "apps/app-x/overview.md",
+            "type": "app",
+            "language": "python",
+            "changed_files": None,
+            "file_map": app_x_block,
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    from subagent_runtime.pool import FanOutResult
+
+    async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
+        res = FanOutResult()
+        if role == "code_reader":
+            for it in items:
+                _uri, _ws, _page, todo_paths = it
+                obj = {p: f"desc for {p}" for p in todo_paths}
+                res.successes.append((it, json.dumps(obj)))
+        return res
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+
+    await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    log_text = (wiki / "log.md").read_text(encoding="utf-8")
+    assert "file descriptions filled:" in log_text, (
+        f"description-fill log line missing; log:\n{log_text}"
+    )
+    fill_line = next(
+        line for line in log_text.splitlines() if "file descriptions filled:" in line
+    )
+    assert "entity(s)" in fill_line, f"expected 'entity(s)' noun; got: {fill_line!r}"
+    assert "package(s)" not in fill_line, f"stale 'package(s)' noun; got: {fill_line!r}"
+
+
 def test_phase35_regression_test_path_exists():
     """SC#3 sanity guard: Phase 35 bootstrap test file is still in the repo.
 

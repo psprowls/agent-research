@@ -1061,7 +1061,7 @@ async def run_scan(
                         "scan",
                         (
                             f"file descriptions filled: {len(describer_filled)} "
-                            f"package(s) (errors: {len(describer_errors)})"
+                            f"entity(s) (errors: {len(describer_errors)})"
                         ),
                         detail=None,
                         silent=True,
