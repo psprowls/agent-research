@@ -31,14 +31,17 @@ def test_cli_module_imports_typer_app_named_gw() -> None:
 
 
 def test_cli_module_imports_core_commands_not_agent_cli_shim() -> None:
-    """The CLI presentation package delegates to graph_wiki_core, not graph_wiki_agent.cli."""
+    """Wiki commands delegate to graph_wiki_core (in wiki_cli/main.py), not graph_wiki_agent.cli."""
     cli_module = importlib.import_module("graph_wiki_cli.cli")
-    source = inspect.getsource(cli_module)
+    wiki_module = importlib.import_module("graph_wiki_cli.wiki_cli.main")
+    cli_source = inspect.getsource(cli_module)
+    wiki_source = inspect.getsource(wiki_module)
 
-    assert "from graph_wiki_core.commands.query import run_query" in source
-    assert "from graph_wiki_core.commands" in source
-    assert "graph_wiki_agent.cli" not in source
-    assert "from graph_wiki_agent" not in source
+    assert "from graph_wiki_core.commands.query import run_query" in wiki_source
+    assert "from graph_wiki_core.commands" in wiki_source
+    for source in (cli_source, wiki_source):
+        assert "graph_wiki_agent.cli" not in source
+        assert "from graph_wiki_agent" not in source
 
 
 def test_graph_io_no_longer_exposes_cg_console_script() -> None:
@@ -67,3 +70,9 @@ def test_migrate_vault_command_removed() -> None:
 
     cli_module = importlib.import_module("graph_wiki_cli.cli")
     assert "migrate_vault" not in inspect.getsource(cli_module)
+
+
+def test_wiki_package_exposes_moved_cli_module_for_gw_wiki_namespace() -> None:
+    wiki_module = importlib.import_module("graph_wiki_cli.wiki_cli.main")
+    assert hasattr(wiki_module, "main")
+    assert "gw wiki" in inspect.getsource(wiki_module)
