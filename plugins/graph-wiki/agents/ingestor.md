@@ -1,6 +1,6 @@
 ---
 name: ingestor
-description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which package/domain/concept pages will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, updates 5-15 cross-referenced pages, regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
+description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which code entities and concepts will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, links the relevant code entities via [[entities/...]] wikilinks (the scanner derives backlinks), and updates concept/ADR pages, regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
 skills: [graph-wiki]
 domain: engineering
 model: opus
@@ -12,7 +12,7 @@ context: fork
 
 ## Role
 
-You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — touching every relevant package, domain, concept, and architecture page; proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
+You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — writing a source summary, linking the relevant code entities via `[[entities/...]]` wikilinks, and updating concept/architecture/ADR pages — never editing entity pages (the scanner owns them); proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
 
 ## Inputs
 
@@ -40,7 +40,7 @@ Before writing:
 - Title, authors, date, source_type
 - 2-3 sentence TL;DR
 - Key claims (3-7 bullets)
-- **Which packages/domains/concepts you'll touch** — bulleted wikilinks
+- **Which code entities and concepts you'll touch** — bulleted `[[entities/...]]` wikilinks
 - **Any contradictions** — with other wiki pages OR with current code (spot-check the files the source mentions)
 - Whether this source captures a decision worth an ADR
 
@@ -57,11 +57,11 @@ raw/-staged sources (specs, articles, PRs, transcripts, tickets) are immutable �
 
 Merge mode (page exists): append `## Re-ingest <date>` at bottom and bump `last_sync_commit` to `state_gate.head_commit` so drift detection resets (gate: `state_gate.allowed` must be true).
 
-### 5. Update package pages
-Per mentioned package: add bullet under `## Appears in sources`; update `## Public API` or `## Key patterns` if new; bump `sources:` and `updated:`.
+### 5. Link the code entities (never edit entity pages)
+For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 
-### 6. Update domain / concept / dependency pages
-Same pattern — add source reference, refresh claims, increment counts.
+### 6. Update concept / dependency pages
+For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept and dependency *content* pages under `concepts/`/`dependencies/` are still hand-maintained; the graph-derived `entities/dep_*` pages are not.)
 
 ### 7. Capture ADRs for decisions
 If the source proposes or documents a decision:
@@ -97,8 +97,9 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 - **In-repo docs are also read-only.** The doc lives in the repo and the LLM never edits it through this skill — the canonical version stays where it is.
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
 - **Discuss before writing.**
-- **Minimum 3 file touches per ingest** (source summary + index + log); typically 5-15.
-- **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
+- **Minimum 3 file touches per ingest** (source summary + index + log).
+- **Cite aggressively.** Every claim on a concept/architecture page links to a source page or a code path.
+- **Entity pages are scanner-owned.** Add `[[entities/...]]` wikilinks under `## Touches` on the source page; never edit files under `entities/`.
 - **Flag contradictions** on both sides.
 - **Propose ADRs** for captured decisions — don't just bury them in a source summary.
 - **Md only for now.** PDF/DOCX/HTML auto-discovery is deferred. Direct `/graph-wiki:ingest <path>` works for any format `ingest_source.py` understands.

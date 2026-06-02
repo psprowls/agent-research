@@ -206,3 +206,18 @@ def test_related_block_is_obsidian_safe(template_path: Path) -> None:
         assert ":" not in line, (
             f"{template_path.name}: ## Related body line contains `:`: {line!r}"
         )
+
+
+# --- Task 8 (slice4-ingest-entities-parity) ----------------------------------
+
+
+def test_source_template_uses_entities_and_has_entity_uri() -> None:
+    from importlib.resources import files
+
+    body = (files("wiki_io.assets.page-templates") / "source.md").read_text(encoding="utf-8")
+    # Forward-link to entities, not legacy packages/domains.
+    assert "[[entities/" in body
+    assert "[[packages/" not in body
+    assert "[[domains/" not in body
+    # Singular canonical anchor present in frontmatter.
+    assert "entity_uri:" in body

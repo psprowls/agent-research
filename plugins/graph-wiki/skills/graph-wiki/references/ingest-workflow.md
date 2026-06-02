@@ -28,6 +28,7 @@ Run `python scripts/ingest_source.py --source <path> --json` to get (wiki and re
 - suggested summary-page path (`<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`)
 - whether a summary page already exists (→ **merge mode**)
 - `last_sync_commit`, `in_repo_doc` flag, and `state_gate` (`allowed`, `reason`, `head_commit`) — use `state_gate.allowed` to decide whether to write drift-detection frontmatter; use `state_gate.head_commit` as the value for `last_sync_commit`
+- `entity_match` — `{ uri: <str|null>, entity_filename: <str|null> }` — the best-matching entity from `entities/` for this source (used to populate `entity_uri:` frontmatter); null when no match is found
 
 ### 2. Read the source
 
@@ -39,7 +40,7 @@ Before writing anything, tell the user:
 - Title, authors, date, source type
 - 2-3 sentence TL;DR
 - Key claims (bulleted, 3-7 items)
-- **Which packages/domains/concepts this source touches** — bulleted wikilinks
+- **Which code entities and concepts this source touches** — bulleted `[[entities/...]]` wikilinks
 - Any **contradictions** with existing pages or with current code
 - Whether this source proposes a decision worth capturing as an ADR
 
@@ -53,28 +54,17 @@ For in-repo docs (`source_type: doc`), also set `last_sync_commit` (`state_gate.
 
 **Merge mode** (summary page already exists): append a new `## Re-ingest <date>` section at the bottom with what changed. Do not overwrite the original summary. Bump `last_sync_commit` to the new HEAD so drift detection resets (gate: clean tree on main).
 
-### 5. Update relevant package pages
+### 5. Link the code entities (never edit entity pages)
 
-For each package the source touches:
-- Add a bullet under `## Appears in sources` pointing to this source with a short note on the connection
-- If the source describes a new export or pattern, update `## Public API` or `## Key patterns`
-- Increment `sources:` in frontmatter
-- Bump `updated:` to today
+For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI from `entity_match.uri` in the brief (or `null` if none).
 
-### 6. Update domain pages
-
-For each domain the source affects:
-- Update `## Key flows` if the source proposes flow changes
-- Add under `## Sources`
-- Add any new packages to the domain's `packages:` frontmatter list
-
-### 7. Update / create concept pages
+### 6. Update / create concept pages
 
 For each cross-cutting concept mentioned:
 - If a page exists: update `## Key claims` or `## Used in`; add to `## Sources`
 - If not: create a stub concept page with the minimum (definition, one cited claim, link back to this source)
 
-### 8. ADR capture (if applicable)
+### 7. ADR capture (if applicable)
 
 If the source represents or proposes a decision, ask the user:
 
@@ -83,9 +73,9 @@ If the source represents or proposes a decision, ask the user:
 If yes:
 - Get the next ADR number (scan existing `adrs/*.md` for highest `adr_id`)
 - Create the ADR using the template
-- Link from the source page and from touched package/domain pages
+- Link from the source page and from touched concept/architecture pages
 
-### 9. Flag contradictions explicitly
+### 8. Flag contradictions explicitly
 
 If the source contradicts an existing wiki page OR current code, add a callout to BOTH the wiki page and (if code) note the code path:
 
@@ -97,17 +87,17 @@ If the source contradicts an existing wiki page OR current code, add a callout t
 
 Log contradictions in `log.md` with `op: note`.
 
-### 10. Update architecture (optional)
+### 9. Update architecture (optional)
 
 If the source meaningfully shifts an `architecture/` page's thesis, revise the "Thesis" paragraph and append a dated entry under "How this synthesis has changed". Don't rewrite history; append.
 
-### 11. Update `index.md`
+### 10. Update `index.md`
 
 Either:
 - Run `python scripts/update_index.py` to regenerate the entire index from frontmatter, OR
 - Edit the relevant category sections inline (faster for small ingests).
 
-### 12. Append to `log.md`
+### 11. Append to `log.md`
 
 Run:
 ```bash
@@ -115,7 +105,7 @@ python scripts/append_log.py --op ingest \
     --title "<title>" --detail "<touched pages>"
 ```
 
-### 13. Report back to the user
+### 12. Report back to the user
 
 Summary the user sees in chat:
 - Source summary page created/updated
@@ -132,7 +122,7 @@ Summary the user sees in chat:
 
 ### PR summaries
 - Source type `pr`. Include the PR URL in `source_path` or a `pr_url` frontmatter field.
-- Touch package pages for every package the PR modified.
+- Add `[[entities/<prefix>_<name>]]` links under `## Touches` for every package the PR modified.
 - If the PR implements an ADR, link both ways.
 
 ### Articles (clipped with Obsidian Web Clipper)
@@ -141,7 +131,7 @@ Summary the user sees in chat:
 - Good source of comparison material — file as `concepts/<a>-vs-<b>.md`.
 
 ### Tickets
-- Usually light ingest — a short summary on the relevant package/domain page plus the source summary.
+- Usually light ingest — a short source summary plus `[[entities/...]]` links for the relevant package/domain entities.
 - Multiple related tickets may roll up into a single `sources/` page.
 
 ### Transcripts
@@ -158,14 +148,13 @@ Summary the user sees in chat:
 - Source location: `raw/examples/`. The path passed to `/graph-wiki:ingest` may resolve to a single file or a folder; folder mode is the headline new capability and produces a single source summary (not one per file).
 - `ingest_source.py` returns a folder brief (file listing, total size, language guesses, representative-file preview) when `--source` resolves to a directory under `raw/examples/`. Single files behave as today, with `source_type: example`. Caps: warn at >50 files or any file >200 KB; hard error at >200 files (almost certainly the wrong directory).
 - `last_sync_commit` and `last_sync_at` are disallowed in frontmatter — examples are external; drift detection does not apply. The state-gate is a no-op for `source_type: example` in the brief output.
-- **Step 3 (Discuss)** for examples covers: TL;DR, what patterns the example demonstrates, key takeaways, which existing concept pages map to those patterns, and which packages/domains the user wants to flag under `## Where this could apply`.
-- **Step 5 (Update package pages)** is replaced for examples: instead of bullets under `## Appears in sources`, add bullets under `## Inspirations` (lazily creating the section if it doesn't exist). Do **not** increment the `sources:` frontmatter counter — that counter is for descriptive sources. Bump `updated:` to today as usual.
-- **Step 6 (Update domain pages)** mirrors Step 5 — domain pages get `## Inspirations` bullets, not `## Sources` entries. Do not add packages to the domain's `packages:` list (the example isn't *in* the domain).
-- **Step 7 (Update / create concept pages)** gains an explicit ask: "Does this example demonstrate a reusable pattern? If so, propose `concepts/<topic>-pattern.md`." Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended. Wait for user confirmation before creating.
-- **Step 8 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still propose an ADR if the example concretely motivates a decision the user is making *now*, but the default ask is skipped.
-- **Step 9 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
+- **Step 3 (Discuss)** for examples covers: TL;DR, what patterns the example demonstrates, key takeaways, which existing concept pages map to those patterns, and which code entities the user wants to flag under `## Where this could apply`.
+- **Step 5 (Link code entities)** for examples: add `[[entities/<prefix>_<name>]]` wikilinks under `## Touches` for the relevant entities. Do **not** edit entity pages. The scanner owns them and backfills `## Referenced in wiki`.
+- **Step 6 (Update / create concept pages)** gains an explicit ask: "Does this example demonstrate a reusable pattern? If so, propose `concepts/<topic>-pattern.md`." Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended. Wait for user confirmation before creating.
+- **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still propose an ADR if the example concretely motivates a decision the user is making *now*, but the default ask is skipped.
+- **Step 8 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
 - The source summary uses `page-formats.md` Section 5a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
-- Each `[[packages/X]]` or `[[domains/X]]` bullet under `## Where this could apply` on the source page is mirrored as an `## Inspirations` bullet on the target page. `/graph-wiki:lint` cross-checks both directions and warns on drift.
+- Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept and architecture pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
 - Frontmatter contract: see `wiki-schema.md` for `origin_url`, `origin_repo`, `license`, `attribution` (`origin_url` or `origin_repo` should be set; lint warns if both are empty).
 
 ## Future formats
