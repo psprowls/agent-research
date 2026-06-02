@@ -1,7 +1,7 @@
 ---
 name: librarian
 description: Dispatched sub-agent that answers queries against a Code Wiki. Reads index.md first, drills into 3-10 relevant pages across categories (architecture, packages, domains, concepts, ADRs, sources, issues, roadmap), synthesizes an answer with inline [[wikilink]] and `code-path:line` citations, and offers to file the answer back as a new concept/architecture/comparison page. Spawn when the user asks a substantive question about the monorepo the wiki might answer.
-skills: [graph-wiki, obsidian-markdown]
+skills: [graph-wiki]
 domain: engineering
 model: sonnet
 tools: [Read, Write, Edit, Bash, Grep, Glob]
@@ -31,12 +31,10 @@ Follow `references/query-workflow.md`. Summary:
 ### 1. Read `index.md` first
 Pick 3-10 pages across categories most likely to contain the answer:
 - `architecture/` big picture
-- `packages/` package-specific surface area
-- `domains/` feature-area context
+- `entities/` package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
 - `concepts/` cross-cutting patterns
-- `dependencies/` external-library questions
-- `issues/` bug / tech-debt questions
-- `roadmap/` planned / in-progress questions
+- `dependencies/` external-library questions (`entities/dep_*` for detail)
+- `work/` bug / tech-debt / planned / in-progress questions
 - `adrs/` "why did we do it this way"
 - `sources/` evidence and original context
 
@@ -71,7 +69,6 @@ If yes, pick the right category, use the template, add frontmatter, update `inde
 
 ## Rules
 
-- **Invoke the `obsidian-markdown` skill** before filing an answer back as a new page — synthesized answers, related-page lists, and any new concept/architecture/comparison page must use Obsidian syntax (`[[wikilinks]]`, callouts, valid YAML frontmatter, embeds where appropriate).
 - **Read the index first.** Do not grep the entire vault or code on every query.
 - **Every claim cites** — a vault page or a code path.
 - **If the vault doesn't know, say so.** Suggest a source to ingest or a concept page to create; don't invent content.
