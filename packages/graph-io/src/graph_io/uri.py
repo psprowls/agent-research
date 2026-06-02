@@ -45,10 +45,10 @@ def domain_uri(ctx: RepoContext, name: str) -> str:
     return f"domain:{ctx.org}/{ctx.repo}/{name}"
 
 
-# v1.8 concept-level kinds (Phase 42 D-04): not repo-scoped, so no RepoContext.
-# Phase 51 PKGFAM-02: package_family entity kind retired; builder removed.
-def plugin_uri(name: str) -> str:
-    return f"plugin:{name}"
+# agent_plugin entities are repo-scoped (a development artifact lives in a
+# specific repo), unlike the retired concept-level `plugin:{name}`.
+def agent_plugin_uri(ctx: RepoContext, name: str) -> str:
+    return f"agent_plugin:{ctx.org}/{ctx.repo}/{name}"
 
 
 def dependency_uri(ecosystem: str, name: str) -> str:

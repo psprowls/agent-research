@@ -9,6 +9,7 @@ import pytest
 from graph_io.queries import _VALID_KINDS
 from graph_io.uri import (
     RepoContext,
+    agent_plugin_uri,
     app_uri,
     dependency_uri,
     domain_uri,
@@ -16,7 +17,6 @@ from graph_io.uri import (
     file_uri,
     parse_remote_url,
     pkg_uri,
-    plugin_uri,
     repo_uri,
     subpkg_uri,
 )
@@ -77,8 +77,6 @@ def test_domain_uri_with_ctx() -> None:
     assert domain_uri(ctx, "billing") == "domain:acme/repo/billing"
 
 
-# v1.8 concept-level URI builders (Phase 42 D-04). These take no RepoContext
-# because the entities are repo-agnostic in the graph data model.
 def test_valid_kinds_excludes_package_family() -> None:
     # Phase 51 PKGFAM-01: package_family is removed from the kind admission set.
     # Asserted here so the negative regression check lives next to the URI
@@ -86,8 +84,9 @@ def test_valid_kinds_excludes_package_family() -> None:
     assert "package_family" not in _VALID_KINDS
 
 
-def test_plugin_uri() -> None:
-    assert plugin_uri("graph-wiki") == "plugin:graph-wiki"
+def test_agent_plugin_uri() -> None:
+    ctx = RepoContext(org="test", repo="repo")
+    assert agent_plugin_uri(ctx, "graph-wiki") == "agent_plugin:test/repo/graph-wiki"
 
 
 def test_dependency_uri() -> None:
