@@ -303,6 +303,61 @@ class TestBuildFileMap:
 
 
 # ---------------------------------------------------------------------------
+# build_dir_file_map() (unpartitioned single-root) tests
+# ---------------------------------------------------------------------------
+
+
+def _bdfm(root_name: str, files: list[str] | None, **kwargs):
+    """Call build_dir_file_map() with a mocked _git_ls_files."""
+    from wiki_io.scan_monorepo import build_dir_file_map
+
+    root_path = Path(f"/fake/{root_name}")
+    with patch("wiki_io.scan_monorepo._git_ls_files", return_value=files):
+        return build_dir_file_map(root_path, **kwargs)
+
+
+class TestBuildDirFileMap:
+    """Tests for build_dir_file_map() — unpartitioned single-root file map."""
+
+    def test_heading_uses_root_basename(self) -> None:
+        """The block heading is labelled with the root directory basename."""
+        result = _bdfm("tests", ["test_main.py"])
+        assert result is not None
+        assert "## File map - tests" in result
+        assert "### tests/" in result
+
+    def test_unpartitioned_lists_root_conftest_and_plain_helper(self) -> None:
+        """No prod/test split: a root conftest.py AND a plain helpers.py both
+        appear (build_file_map's prod/test partition would drop one of them)."""
+        result = _bdfm("tests", ["conftest.py", "helpers.py", "unit/test_x.py"])
+        assert result is not None
+        assert "| `conftest.py` | file | — TODO |" in result
+        assert "| `helpers.py` | file | — TODO |" in result
+        # The nested test file lands in its depth-1 section.
+        assert "### tests/unit/" in result
+        assert "| `test_x.py` | file | — TODO |" in result
+
+    def test_empty_root_short_circuit(self) -> None:
+        """Empty root → the legacy `- (no tracked files)` short-circuit, no table."""
+        result = _bdfm("tests", [])
+        assert result is not None
+        assert "## File map - tests" in result
+        assert "- (no tracked files)" in result
+        assert "| Path | Kind | Description |" not in result
+
+    def test_non_git_returns_none(self) -> None:
+        """Returns None when _git_ls_files returns None (root not under git)."""
+        assert _bdfm("tests", None) is None
+
+    def test_truncation_marker(self) -> None:
+        """When file count > max_entries, the truncation blockquote is appended."""
+        files = [f"test_{i}.py" for i in range(5)]
+        result = _bdfm("tests", files, max_entries=3)
+        assert result is not None
+        assert "> Truncated at 3 files." in result
+
+
+# ---------------------------------------------------------------------------
 # _is_test_path() unit tests
 # ---------------------------------------------------------------------------
 

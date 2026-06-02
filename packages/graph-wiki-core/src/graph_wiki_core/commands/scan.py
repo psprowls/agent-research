@@ -46,6 +46,7 @@ from wiki_io.scan_monorepo import (
     _load_existing_pages,
     _wiki_relative_path_for,
     attach_changed_files,
+    build_dir_file_map,
     build_file_map,
     compute_diff,
     compute_state_gate,
@@ -511,6 +512,41 @@ def parse_file_describer_output(text: str) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Helper: _entity_page_path
+# ---------------------------------------------------------------------------
+
+
+def _entity_page_path(
+    wiki: Path,
+    kind: str,
+    node: Any,
+    uri: str,
+    collision_set: frozenset[str],
+) -> Path:
+    """Resolve the ``entities/<stem>.md`` path for a graph node.
+
+    Applies the suite-aware slug (``suite_kind`` + ``pkg_for_suite`` derived
+    from ``attrs['path']``) for ``test_suite`` kinds, matching what
+    ``write_entities`` produces; all other kinds use the plain prefix slug.
+    """
+    suite_kind: str | None = None
+    pkg_for_suite: str | None = None
+    if kind == "test_suite":
+        attrs = node.attrs if isinstance(node.attrs, dict) else {}
+        suite_kind = attrs.get("suite_kind") or None
+        suite_path = attrs.get("path")
+        if suite_path:
+            pkg_for_suite = Path(suite_path).parent.name or None
+    stem = short_filename(
+        uri,
+        collision_set,
+        suite_kind=suite_kind,
+        pkg_for_suite=pkg_for_suite,
+    )
+    return wiki / "entities" / f"{stem}.md"
+
+
+# ---------------------------------------------------------------------------
 # Helper: _add_stale_tag
 # ---------------------------------------------------------------------------
 
@@ -885,31 +921,10 @@ async def run_scan(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
             )
 
-            def _entity_page_path(kind_inner: str, node_inner: Any, uri_inner: str) -> Path:
-                suite_kind_inner: str | None = None
-                pkg_for_suite_inner: str | None = None
-                if kind_inner == "test_suite":
-                    attrs_inner = (
-                        node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
-                    )
-                    suite_kind_inner = attrs_inner.get("suite_kind") or None
-                    suite_path_inner = attrs_inner.get("path")
-                    if suite_path_inner:
-                        pkg_for_suite_inner = (
-                            Path(suite_path_inner).parent.name or None
-                        )
-                stem = short_filename(
-                    uri_inner,
-                    inject_collision_set,
-                    suite_kind=suite_kind_inner,
-                    pkg_for_suite=pkg_for_suite_inner,
-                )
-                return wiki / "entities" / f"{stem}.md"
-
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
                 entity_page_path = _entity_page_path(
-                    kind_inner, node_inner, uri_inner,
+                    wiki, kind_inner, node_inner, uri_inner, inject_collision_set,
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
@@ -943,11 +958,14 @@ async def run_scan(
                 entity_write_result.updated
             )
             list_fns = _kind_list_fns()
+            # Collision set shared by the package/app and test-suite branches.
+            fm_collision_set = (
+                _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
+                if refreshed
+                else frozenset()
+            )
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
             if refreshed and any(fm_list_fns):
-                fm_collision_set = _compute_collision_set(
-                    conn, ADMITTED_KINDS, _kind_list_fns(),
-                )
                 ws_fm_by_name = {
                     unscope(w["name"]): w.get("file_map", "") for w in workspaces
                 }
@@ -974,6 +992,40 @@ async def run_scan(
                     except Exception as fm_exc:  # noqa: BLE001 — partial-success
                         file_map_errors.append(
                             f"{node_uri}: inject_file_map failed: {fm_exc!r}"
+                        )
+            # Step 10b-ts: test-suite File-map injection. Mirrors Step 10b but
+            # for test_suite entity pages — the suite map starts at the suite
+            # root (node.attrs["path"]) and is UNPARTITIONED (every tracked file
+            # under the root). Reuses the shared collision set and the same
+            # snapshot→merge durability path (preserved=...). Appends each
+            # injected page to file_mapped_pages so Step 10c fills its TODO rows.
+            if refreshed:
+                for node in queries.list_test_suites(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    suite_uri = node.attrs.get("uri")
+                    if not suite_uri or suite_uri not in refreshed:
+                        continue
+                    suite_path = node.attrs.get("path")
+                    if not suite_path:
+                        continue
+                    block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
+                    if not block:
+                        continue
+                    ts_page_path = _entity_page_path(
+                        wiki, "test_suite", node, suite_uri, fm_collision_set,
+                    )
+                    try:
+                        inject_file_map(
+                            ts_page_path,
+                            block,
+                            preserved=prior_file_map_descs.get(suite_uri),
+                        )
+                        entities_file_mapped.append(suite_uri)
+                        file_mapped_pages.append((suite_uri, node, ts_page_path))
+                    except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                        file_map_errors.append(
+                            f"{suite_uri}: inject_file_map failed: {fm_exc!r}"
                         )
             if entities_file_mapped or file_map_errors:
                 append_log(
@@ -1003,9 +1055,18 @@ async def run_scan(
                 todo_paths = file_map_todo_paths(page_path)
                 if not todo_paths:
                     continue
-                ws_dict = ws_by_name.get(node.name)
-                if ws_dict is None:
-                    continue
+                if node.kind == "test_suite":
+                    attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                    ws_dict = {
+                        "name": node.name,
+                        "path": attrs.get("path"),
+                        "type": "test_suite",
+                        "language": attrs.get("language", "unknown"),
+                    }
+                else:
+                    ws_dict = ws_by_name.get(node.name)
+                    if ws_dict is None:
+                        continue
                 describer_items.append((node_uri, ws_dict, page_path, todo_paths))
 
             if describer_items:

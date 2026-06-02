@@ -1234,3 +1234,311 @@ def test_phase35_regression_test_path_exists():
     assert bootstrap_test.exists(), (
         f"Phase 35 regression test missing at {bootstrap_test}; SC#3 cannot be evaluated."
     )
+
+
+def _seed_test_suite_graph(db_path: Path) -> None:
+    """Seed a minimal DB with one test_suite node owned by pkg-a.
+
+    Layout:
+      test_suite node: name 'pkg-a-unit-tests', path 'packages/pkg-a/tests',
+        uri 'test_suite:org/repo/pkg-a/tests', attrs {suite_kind: unit,
+        path: packages/pkg-a/tests, language: python}
+    """
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
+            "'{\"suite_kind\": \"unit\", \"path\": \"packages/pkg-a/tests\", \"language\": \"python\"}', "
+            "'test_suite:org/repo/pkg-a/tests')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_entity_page_path_suite_aware_slug():
+    """Module-level _entity_page_path applies the suite-aware slug for
+    test_suite kinds (suite_kind + pkg_for_suite derived from attrs['path'])."""
+    from types import SimpleNamespace
+
+    wiki = Path("/fake/wiki")
+    node = SimpleNamespace(
+        kind="test_suite",
+        name="pkg-a-unit-tests",
+        attrs={
+            "uri": "test_suite:org/repo/pkg-a/tests",
+            "suite_kind": "unit",
+            "path": "packages/pkg-a/tests",
+        },
+    )
+    page = scan_module._entity_page_path(
+        wiki, "test_suite", node, "test_suite:org/repo/pkg-a/tests", frozenset()
+    )
+    assert page == wiki / "entities" / "unit_tests_pkg-a.md"
+
+    # A package node uses the plain kind prefix (no suite logic).
+    pkg_node = SimpleNamespace(
+        kind="package", name="pkg-a", attrs={"uri": "pkg:org/repo/pkg-a"}
+    )
+    pkg_page = scan_module._entity_page_path(
+        wiki, "package", pkg_node, "pkg:org/repo/pkg-a", frozenset()
+    )
+    assert pkg_page == wiki / "entities" / "pkg_pkg-a.md"
+
+
+@pytest.mark.asyncio
+async def test_file_map_injected_into_test_suite_entity_page(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10b-ts: after write_entities creates a test_suite entity page,
+    run_scan replaces its `## File map` section with the deterministic
+    build_dir_file_map block rooted at the suite path (path + kind rows)."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    # Deterministic suite block as build_dir_file_map would emit it. The heading
+    # label is the suite-root basename ("tests").
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(
+        scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
+    )
+    # No package/app workspaces — only the seeded test_suite drives this scan.
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    result = await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    # The test_suite page was created this scan → file map injected.
+    assert "test_suite:org/repo/pkg-a/tests" in result.entities_created
+
+    suite_page = wiki / "entities" / "unit_tests_pkg-a.md"
+    assert suite_page.exists(), f"suite page not written; entities: {list((wiki / 'entities').glob('*.md'))}"
+    text = suite_page.read_text(encoding="utf-8")
+
+    assert "## File map - tests" in text
+    assert "| `conftest.py` | file | — TODO |" in text
+    assert "| `test_pkg_a.py` | file | — TODO |" in text
+    # The template's placeholder file row is gone.
+    assert "| `<file>` | file | — TODO |" not in text
+    # Neighboring template sections survive injection.
+    assert "## Test conventions" in text
+
+
+@pytest.mark.asyncio
+async def test_code_reader_fills_test_suite_todo_descriptions(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10c: after the suite File map is injected with — TODO rows, the
+    code_reader fan-out fills the Description cells from the model's
+    {path: description} JSON. Proves the synthesized test_suite describer dict
+    routes the suite into the describer pool."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    from subagent_runtime.pool import FanOutResult
+
+    captured_paths: dict = {}
+
+    async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
+        res = FanOutResult()
+        if role == "code_reader":
+            for it in items:
+                uri_inner, ws_dict, _page, todo_paths = it
+                captured_paths[uri_inner] = (ws_dict, list(todo_paths))
+                obj = {p: f"desc for {p}" for p in todo_paths}
+                res.successes.append((it, json.dumps(obj)))
+        return res
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+
+    await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    # The suite was routed into the code_reader pool with a synthesized dict.
+    suite_uri = "test_suite:org/repo/pkg-a/tests"
+    assert suite_uri in captured_paths, f"suite not dispatched to describer; got {captured_paths}"
+    ws_dict, todo = captured_paths[suite_uri]
+    assert ws_dict["type"] == "test_suite"
+    assert ws_dict["path"] == "packages/pkg-a/tests"
+    assert ws_dict["language"] == "python"
+    assert set(todo) == {"conftest.py", "test_pkg_a.py"}
+
+    text = (wiki / "entities" / "unit_tests_pkg-a.md").read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | desc for conftest.py |" in text
+    assert "| `test_pkg_a.py` | file | desc for test_pkg_a.py |" in text
+    assert "— TODO" not in text
+    assert "## Coverage" in text
+
+
+@pytest.mark.asyncio
+async def test_test_suite_file_map_descriptions_survive_rescan(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Durability: descriptions filled into a suite's File map survive a rescan
+    (write_entities re-renders the body; snapshot+merge restores them). A fully
+    described suite triggers NO code_reader call on the second scan."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    from subagent_runtime.pool import FanOutResult
+
+    code_reader_dispatches: list[list] = []
+
+    async def _recording_run_all(self, *, items, task, role, model_id, max_concurrency):
+        if role == "code_reader":
+            code_reader_dispatches.append([it[0] for it in items])
+        return FanOutResult()
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _recording_run_all)
+
+    # Scan 1: suite page created, File map injected with — TODO rows.
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    suite_page = wiki / "entities" / "unit_tests_pkg-a.md"
+    assert suite_page.exists()
+
+    # Injection actually landed the TODO rows before the human edit (guards
+    # against a vacuous pass if injection ever silently no-ops).
+    text1 = suite_page.read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | — TODO |" in text1
+    assert "| `test_pkg_a.py` | file | — TODO |" in text1
+
+    # Human fills BOTH descriptions.
+    filled = text1.replace(
+        "| `conftest.py` | file | — TODO |",
+        "| `conftest.py` | file | shared pytest fixtures |",
+    ).replace(
+        "| `test_pkg_a.py` | file | — TODO |",
+        "| `test_pkg_a.py` | file | unit tests for pkg-a |",
+    )
+    suite_page.write_text(filled, encoding="utf-8")
+
+    code_reader_dispatches.clear()
+
+    # Scan 2: write_entities re-renders the body; snapshot+merge must restore both.
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+
+    text2 = suite_page.read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | shared pytest fixtures |" in text2, (
+        f"filled description wiped on rescan; page:\n{text2}"
+    )
+    assert "| `test_pkg_a.py` | file | unit tests for pkg-a |" in text2, (
+        f"filled description wiped on rescan; page:\n{text2}"
+    )
+    assert "— TODO" not in text2
+
+    # A fully-described suite has no TODO paths → no code_reader dispatch at all.
+    flat = [uri for batch in code_reader_dispatches for uri in batch]
+    assert "test_suite:org/repo/pkg-a/tests" not in flat, (
+        f"fully-described suite should trigger no describer call; dispatches={code_reader_dispatches}"
+    )
