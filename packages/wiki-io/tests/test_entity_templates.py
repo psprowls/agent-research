@@ -161,6 +161,26 @@ def _related_block_body(template_name: str) -> str | None:
     return m.group(1)
 
 
+def test_all_entity_templates_have_referenced_in_wiki_section() -> None:
+    """Slice 4: every entity template carries the scanner-owned
+    `## Referenced in wiki` section with a placeholder."""
+    from importlib.resources import files
+
+    tdir = files("wiki_io.assets.page-templates")
+    kinds = [
+        "package", "app", "domain", "repository",
+        "dependency", "test-suite", "agent-plugin",
+    ]
+    for kind in kinds:
+        body = (tdir / f"entity-{kind}.md").read_text(encoding="utf-8")
+        assert "## Referenced in wiki" in body, f"missing in entity-{kind}.md"
+        # Placeholder mirrors the ## Narrative convention.
+        idx = body.index("## Referenced in wiki")
+        after = body[idx:]
+        assert "_(scanner will populate on next scan)_" in after.split("\n\n", 1)[0] \
+            or "_(scanner will populate" in after[:120], f"no placeholder in entity-{kind}.md"
+
+
 @pytest.mark.parametrize(
     "template_path",
     ENTITY_TEMPLATES,

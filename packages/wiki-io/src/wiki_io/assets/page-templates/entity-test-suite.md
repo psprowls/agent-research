@@ -15,6 +15,9 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
+## Referenced in wiki
+_(scanner will populate on next scan)_
+
 ## Purpose
 > TODO: <One paragraph: what this package's (or app's) test suite covers, what frameworks it uses, and how to run it.>
 

@@ -13,6 +13,9 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
+## Referenced in wiki
+_(scanner will populate on next scan)_
+
 ## Overview
 - One paragraph: what this repository contains, who maintains it, where it lives.
 

@@ -18,6 +18,9 @@ updated: <YYYY-MM-DD>
 ## Narrative
 _(scanner will populate on next scan)_
 
+## Referenced in wiki
+_(scanner will populate on next scan)_
+
 ## Purpose
 > TODO: <One paragraph: what this package does, who uses it, why it exists.>
 
