@@ -21,8 +21,8 @@ Run a scoped command through the CLI package:
 
 ```bash
 uv run --package graph-wiki-cli gw scan --workspace /path/to/repo/graph-wiki
-uv run --package graph-wiki-cli gw ingest source docs/example.md --workspace /path/to/repo/graph-wiki
-uv run --package graph-wiki-cli gw query "Where is auth documented?" --top-k 5
+uv run --package graph-wiki-cli gw wiki ingest source docs/example.md --workspace /path/to/repo/graph-wiki
+uv run --package graph-wiki-cli gw wiki query "Where is auth documented?" --top-k 5
 uv run --package graph-wiki-cli gw graph update --full --repo /path/to/repo --mode test
 uv run --package graph-wiki-cli gw graph find --name SomeSymbol --repo /path/to/repo --mode test
 ```

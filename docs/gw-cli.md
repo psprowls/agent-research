@@ -58,16 +58,11 @@ uv run --package graph-wiki-cli gw --help
 
 - `help` — show human or JSON help.
 - `version` — print the installed `graph-wiki-cli` version.
-- `trace` — render a Graph Wiki JSONL trace file.
 - `bootstrap` — initialize a wiki vault structure.
 - `scan` — scan a repository and create/update wiki stubs.
-- `ingest source` — ingest a source file into the wiki.
-- `ingest work-item` — file a structured work item into the wiki.
-- `query` — query the wiki with hybrid search and librarian fan-out.
-- `log` — append a timestamped wiki log entry.
-- `lint` — run mechanical and semantic wiki checks.
-- `migrate-vault` — migrate an existing vault layout.
+- `trace` — render a Graph Wiki JSONL trace file.
 - `graph` — code-graph operations.
+- `wiki` — wiki-maintenance operations (see below).
 
 ## Code graph commands
 
@@ -120,3 +115,25 @@ Available `gw graph` subcommands:
 - `cross-cutting`
 
 Use `gw graph <subcommand> --help` for command-specific options.
+
+## Wiki commands
+
+Wiki-maintenance commands live under the `gw wiki ...` namespace.
+
+Available `gw wiki` subcommands:
+
+- `query` — query the wiki with hybrid search and librarian fan-out.
+- `log` — append a timestamped wiki log entry.
+- `lint` — run mechanical and semantic wiki checks.
+- `ingest source` — ingest a source file into the wiki.
+- `ingest work-item` — file a structured work item into the wiki.
+
+Common examples:
+
+```bash
+uv run --package graph-wiki-cli gw wiki query "Where is auth documented?" --top-k 5
+uv run --package graph-wiki-cli gw wiki lint --workspace /path/to/repo/graph-wiki
+uv run --package graph-wiki-cli gw wiki ingest source docs/example.md --workspace /path/to/repo/graph-wiki
+```
+
+Use `gw wiki <subcommand> --help` for command-specific options.

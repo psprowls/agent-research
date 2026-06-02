@@ -26,9 +26,9 @@ Current Bedrock shim mapping:
 |---|---:|---|
 | `scan_monorepo.py` | `scan` | `gw scan` |
 | `init_vault.py` | `init` | `gw bootstrap` |
-| `ingest_source.py` | `ingest` | `gw ingest source` |
-| `lint_wiki.py` | `lint` | `gw lint` |
-| `wiki_search.py` | `query` | `gw query` |
+| `ingest_source.py` | `ingest` | `gw wiki ingest source` |
+| `lint_wiki.py` | `lint` | `gw wiki lint` |
+| `wiki_search.py` | `query` | `gw wiki query` |
 
 Each shim preserves the user's original trailing arguments after the mapped prefix. Package-local regression coverage for this contract lives in `packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py`.
 
