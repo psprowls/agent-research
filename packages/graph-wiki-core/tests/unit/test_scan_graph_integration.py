@@ -1039,6 +1039,99 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
     assert "— TODO" not in text
 
 
+@pytest.mark.asyncio
+async def test_app_file_map_descriptions_survive_rescan(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Durability (apps): a Description filled into an app's File-map table
+    survives a rescan, even though write_entities re-renders the page body from
+    template. The snapshot-before-write_entities pass captures the filled cell;
+    Step 10b inject_file_map(preserved=...) restores it. App parity with
+    test_file_map_descriptions_survive_rescan.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_app_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    app_x_block = (
+        "## File map - app-x\n"
+        "TODO — overview of this app's tree.\n"
+        "\n"
+        "### app-x/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `pyproject.toml` | file | — TODO |\n"
+        "| `src/app_x/__init__.py` | file | — TODO |\n"
+    )
+
+    fake_workspaces = [
+        {
+            "name": "app-x",
+            "path": "apps/app-x",
+            "wiki_relative_path": "apps/app-x/overview.md",
+            "type": "app",
+            "language": "python",
+            "changed_files": None,
+            "file_map": app_x_block,
+        },
+    ]
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    import frontmatter
+
+    # Scan 1: page created, File map injected with — TODO rows.
+    await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+    app_x_page = next(
+        p
+        for p in (wiki / "entities").glob("*.md")
+        if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
+    )
+
+    # Human/ingest fills one description (the other stays — TODO).
+    filled = app_x_page.read_text(encoding="utf-8").replace(
+        "| `src/app_x/__init__.py` | file | — TODO |",
+        "| `src/app_x/__init__.py` | file | the app entrypoint |",
+    )
+    app_x_page.write_text(filled, encoding="utf-8")
+
+    # Scan 2: write_entities re-renders the page body from template (wiping the
+    # injected File map); the snapshot+merge must restore the filled cell.
+    await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    text2 = app_x_page.read_text(encoding="utf-8")
+    assert "| `src/app_x/__init__.py` | file | the app entrypoint |" in text2, (
+        f"filled description was wiped on rescan; page:\n{text2}"
+    )
+    # The un-filled row remains a — TODO placeholder.
+    assert "| `pyproject.toml` | file | — TODO |" in text2
+
+
 def test_phase35_regression_test_path_exists():
     """SC#3 sanity guard: Phase 35 bootstrap test file is still in the repo.
 
