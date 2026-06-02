@@ -70,6 +70,13 @@ def _should_skip(manifest_path: Path, repo_root: Path, skip_dirs: frozenset[str]
     return False
 
 
+def _is_plugin_root(manifest_dir: Path) -> bool:
+    """True when `manifest_dir` is a claude-code plugin root (has
+    `.claude-plugin/plugin.json`). Such a manifest is owned by the
+    agent_plugin detector, not the package emitter (spec decision 4)."""
+    return (manifest_dir / ".claude-plugin" / "plugin.json").exists()
+
+
 def _read_pyproject(path: Path) -> dict[str, Any] | None:
     try:
         with path.open("rb") as f:
@@ -158,11 +165,15 @@ def _discover_manifests(
     for manifest_path in repo_root.rglob("pyproject.toml"):
         if _should_skip(manifest_path, repo_root, skip_dirs):
             continue
+        if _is_plugin_root(manifest_path.parent):
+            continue
         info = _read_pyproject(manifest_path)
         if info:
             found.append((manifest_path.parent, info))
     for manifest_path in repo_root.rglob("package.json"):
         if _should_skip(manifest_path, repo_root, skip_dirs):
+            continue
+        if _is_plugin_root(manifest_path.parent):
             continue
         info = _read_package_json(manifest_path)
         if info:

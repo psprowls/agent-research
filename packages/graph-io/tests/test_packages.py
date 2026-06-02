@@ -1347,3 +1347,27 @@ def test_read_package_json_dep_specs_coerces_non_string_spec(tmp_path: Path) -> 
     assert "lodash" in info["dep_specs"]
     assert isinstance(info["dep_specs"]["react"], str)
     assert isinstance(info["dep_specs"]["lodash"], str)
+
+
+# ============================================================================
+# Task 4: Plugin-root manifests excluded from package emitter (spec decision 4)
+# ============================================================================
+
+
+def test_plugin_root_manifest_excluded_from_packages(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """A pyproject.toml AT a .claude-plugin/ dir is NOT emitted as a package;
+    a nested real package under the plugin IS."""
+    pdir = tmp_path / "plugins" / "demo"
+    (pdir / ".claude-plugin").mkdir(parents=True)
+    (pdir / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "demo"}))
+    # A manifest at the plugin ROOT — must be skipped.
+    (pdir / "pyproject.toml").write_text('[project]\nname = "demo-plugin-pkg"\nversion = "0"\n')
+    # A nested real workspace package — must still be detected.
+    nested = pdir / "scripts" / "helper"
+    nested.mkdir(parents=True)
+    (nested / "pyproject.toml").write_text('[project]\nname = "demo-helper"\nversion = "0"\n')
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=RepoContext(org="t", repo="r"))
+    names = {r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
+    assert "demo-plugin-pkg" not in names
+    assert "demo-helper" in names
