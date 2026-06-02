@@ -23,15 +23,15 @@ Default report:
 - **Orphans** — pages with zero inbound `[[wikilinks]]`
 - **Broken links** — wikilinks pointing to non-existent pages
 - **Stale pages** — pages whose `updated:` frontmatter is older than 90 days (tune via `--stale-days`)
-- **Missing frontmatter** — pages lacking `title`, `category`, or `summary`
+- **Missing frontmatter** — curated pages lacking `title`/`category`/`summary`; `entities/` pages lacking `title`/`uri`/`kind` (entity pages use the scanner-owned frontmatter contract, not `category`/`tokens`)
 - **Duplicate titles** — two or more pages sharing the same title
 - **Log gap** — no log entry in the last 14 days (tune via `--log-gap-days`)
-- **Code drift** (monorepo-specific) — packages on disk vs. in vault. Pages declaring `status: planned` in frontmatter are excluded from `orphaned_in_vault` and surfaced separately under `planned_in_vault`, so deliberately seeded plugin/package pages don't drown the signal.
-- **`container_drift`** (`lint/container.py`) — pinned vault dirs vs. disk; orphan vault dirs. Tolerates legacy `issues/`, `roadmap/`, `comparisons/` with a hint pointing at the §2 migrators.
+- **Code drift** (monorepo-specific) — packages/apps on disk vs. `entities/` pages in the vault (matched by entity `kind` + `uri`; legacy `packages/<slug>/` pages still recognized). Pages declaring `status: planned` in frontmatter are excluded from `orphaned_in_vault` and surfaced separately under `planned_in_vault`, so deliberately seeded pages don't drown the signal.
+- **`container_drift`** (`lint/container.py`) — pinned vault dirs vs. disk; orphan vault dirs. `entities/` is a recognized fixed dir. Tolerates legacy `issues/`, `roadmap/`, `comparisons/` with a hint pointing at the §2 migrators.
 - **`source_sync` drift** (`lint/source_sync.py`) — for each in-repo doc source page (`category: source` with `last_sync_commit`), runs `git diff --name-only <last_sync_commit>..HEAD -- <source_path>`. Drift suggests running `/graph-wiki:ingest <path>` to re-ingest.
-- **`package_sync` drift** (`lint/package_sync.py`) — same shape against `package_path` / `app_path`. Pages with no `last_sync_commit` are flagged as "never synced".
+- **`package_sync` drift** (`lint/package_sync.py`) — same shape against `package_path` / `app_path` on legacy/ingest-tracked pages. Graph-derived `entities/` pages don't carry `last_sync_commit`, so code drift (above) is the entity-layout freshness signal; re-run `/graph-wiki:scan` to refresh them.
 - **`file_map` drift** (`lint/file_map.py`) — `## File map` entries that no longer exist on disk.
-- **`domain` placement** (`lint/domain.py`) — package pages whose vault location disagrees with their `domain:` frontmatter.
+- **`domain` placement** (`lint/domain.py`) — legacy package pages whose vault location disagrees with their `domain:` frontmatter. `entities/` pages all live in one folder, so this check only applies to legacy layouts.
 
 ### Optional check groups (`--check`)
 
@@ -72,7 +72,7 @@ Scan pages whose `updated:` is recent. For each, check whether it contradicts an
 
 ### B. Contradictions between vault and code
 
-For each recently-touched `packages/<name>/overview.md` page, spot-check the hand-written prose against the actual `package.json` and `src/index.ts`.
+For each recently-touched `entities/pkg_<name>.md` / `entities/app_<name>.md` page, spot-check the `## Narrative` prose and `## Public API` claims against the actual `package.json` and `src/index.ts`.
 
 ### C. Stale claims
 
