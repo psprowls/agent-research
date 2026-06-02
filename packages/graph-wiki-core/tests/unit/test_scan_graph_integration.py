@@ -1443,3 +1443,102 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
     assert "| `test_pkg_a.py` | file | desc for test_pkg_a.py |" in text
     assert "— TODO" not in text
     assert "## Coverage" in text
+
+
+@pytest.mark.asyncio
+async def test_test_suite_file_map_descriptions_survive_rescan(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Durability: descriptions filled into a suite's File map survive a rescan
+    (write_entities re-renders the body; snapshot+merge restores them). A fully
+    described suite triggers NO code_reader call on the second scan."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    from subagent_runtime.pool import FanOutResult
+
+    code_reader_dispatches: list[list] = []
+
+    async def _recording_run_all(self, *, items, task, role, model_id, max_concurrency):
+        if role == "code_reader":
+            code_reader_dispatches.append([it[0] for it in items])
+        return FanOutResult()
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _recording_run_all)
+
+    # Scan 1: suite page created, File map injected with — TODO rows.
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+    suite_page = wiki / "entities" / "unit_tests_pkg-a.md"
+    assert suite_page.exists()
+
+    # Injection actually landed the TODO rows before the human edit (guards
+    # against a vacuous pass if injection ever silently no-ops).
+    text1 = suite_page.read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | — TODO |" in text1
+    assert "| `test_pkg_a.py` | file | — TODO |" in text1
+
+    # Human fills BOTH descriptions.
+    filled = text1.replace(
+        "| `conftest.py` | file | — TODO |",
+        "| `conftest.py` | file | shared pytest fixtures |",
+    ).replace(
+        "| `test_pkg_a.py` | file | — TODO |",
+        "| `test_pkg_a.py` | file | unit tests for pkg-a |",
+    )
+    suite_page.write_text(filled, encoding="utf-8")
+
+    code_reader_dispatches.clear()
+
+    # Scan 2: write_entities re-renders the body; snapshot+merge must restore both.
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
+
+    text2 = suite_page.read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | shared pytest fixtures |" in text2, (
+        f"filled description wiped on rescan; page:\n{text2}"
+    )
+    assert "| `test_pkg_a.py` | file | unit tests for pkg-a |" in text2, (
+        f"filled description wiped on rescan; page:\n{text2}"
+    )
+    assert "— TODO" not in text2
+
+    # A fully-described suite has no TODO paths → no code_reader dispatch at all.
+    flat = [uri for batch in code_reader_dispatches for uri in batch]
+    assert "test_suite:org/repo/pkg-a/tests" not in flat, (
+        f"fully-described suite should trigger no describer call; dispatches={code_reader_dispatches}"
+    )
