@@ -7,7 +7,7 @@ description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace �
 
 Bootstrap a new Code Wiki. Discovers the workspace via `workspace_io` (walks up from cwd for `.git`, reads `.graph-wiki.yaml` for the workspace path, defaults to `<repo>/graph-wiki`). Creates the wiki at `<workspace>/wiki/`.
 
-The wiki contains `index.md`, `log.md`, and curated subdirs (`adrs/`, `architecture/`, `concepts/`, `dependencies/`, `sources/`, `.templates/`, plus conditional `apps/`, `packages/`, `domains/`) directly — there is no inner vault directory. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
+The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `architecture/`, `concepts/`, `dependencies/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
 
 ## Usage
 
@@ -47,7 +47,7 @@ Before initializing the wiki, run the container classifier so the user can confi
 <workspace>/wiki/               # e.g. <repo>/graph-wiki/wiki/
 ├── index.md
 ├── log.md
-├── packages/ domains/ apps/    # conditional, based on detected containers
+├── entities/                   # one page per admitted entity (seeded with .gitkeep until scanned)
 ├── concepts/ dependencies/
 ├── sources/ architecture/ adrs/
 ├── .templates/                 # page templates for reference
@@ -63,20 +63,17 @@ Before initializing the wiki, run the container classifier so the user can confi
 
 After init:
 1. Open `<workspace>/` in Obsidian (point Obsidian at the workspace root so the sidebar shows `wiki/`, `raw/`, `work/` as siblings)
-2. Run `/graph-wiki:scan` to populate `<workspace>/wiki/packages/` (one folder per package) from workspace manifests
+2. Run `/graph-wiki:scan` to populate `<workspace>/wiki/entities/` (one page per admitted entity) from the code graph
 3. Stage a source under `<workspace>/raw/` and run `/graph-wiki:ingest`
 
-## Sub-page templates
+## Page templates
 
-After init, `<workspace>/wiki/.templates/package/` contains five templates for package sub-pages:
+After init, `<workspace>/wiki/.templates/` holds the templates the scanner and ingest/query flows use as reference (copied from `packages/wiki-io/src/wiki_io/assets/page-templates/`):
 
-- `overview.md` — overview stub with `workflow_hints`
-- `api.md` — public API, exports, CLI
-- `patterns.md` — key patterns and conventions
-- `work.md` — bugs, tech debt, features, open questions
-- `context.md` — concepts, decisions, ADRs, sources
+- **Per-entity-kind:** `entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md` — the scanner renders one `entities/` page per admitted entity from these.
+- **Curated pages:** `concept.md`, `concept-pattern.md`, `source.md`, `adr.md`, `architecture.md`, `dependency.md`, `work.md`, plus `index.md`.
 
-`/graph-wiki:scan` now scaffolds the full set of sub-pages eagerly via `ensure_package_pages()` and `ensure_domain_pages()` (in `layout_io.py`), so all five sub-page stubs exist after a scan. `ensure_subpage()` remains available for legacy packages and for on-demand creation during ingest and work-item filing.
+Entity pages are written by `/graph-wiki:scan` from the code graph (see `references/scan-workflow.md`); the curated-page templates are used by `/graph-wiki:ingest` and `/graph-wiki:query` when filing new concept/source/ADR/architecture pages.
 
 ## Script
 
