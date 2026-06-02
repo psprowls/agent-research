@@ -35,17 +35,17 @@ _SCRIPT_DIR = (
         (
             "ingest_source.py",
             ["docs/example.md", "--workspace", "/tmp/wiki"],
-            ["gw", "ingest", "source", "docs/example.md", "--workspace", "/tmp/wiki"],
+            ["gw", "wiki", "ingest", "source", "docs/example.md", "--workspace", "/tmp/wiki"],
         ),
         (
             "lint_wiki.py",
             ["--workspace", "/tmp/wiki", "--stale-days", "30"],
-            ["gw", "lint", "--workspace", "/tmp/wiki", "--stale-days", "30"],
+            ["gw", "wiki", "lint", "--workspace", "/tmp/wiki", "--stale-days", "30"],
         ),
         (
             "wiki_search.py",
             ["Where is auth documented?", "--top-k", "5"],
-            ["gw", "query", "Where is auth documented?", "--top-k", "5"],
+            ["gw", "wiki", "query", "Where is auth documented?", "--top-k", "5"],
         ),
     ],
 )

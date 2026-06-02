@@ -21,7 +21,7 @@ def main() -> None:
 
     if backend == "bedrock":
         result = subprocess.run(
-            ["gw", "ingest", "source"] + sys.argv[1:],
+            ["gw", "wiki", "ingest", "source"] + sys.argv[1:],
             check=True,
         )
         sys.exit(result.returncode)
