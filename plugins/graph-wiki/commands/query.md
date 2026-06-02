@@ -22,7 +22,7 @@ Ask the wiki a question. The librarian reads `index.md` first, picks relevant pa
 ## What happens
 
 1. **Index-first read** — `<workspace>/wiki/index.md`
-2. **Drill-in** — 3-10 pages across categories (architecture + packages + concepts + sources + adrs + work)
+2. **Drill-in** — 3-10 pages across categories (architecture + entities + concepts + sources + adrs + work)
 3. **Follow links** — opportunistic
 4. **Fallback** — `scripts/wiki_search.py` (BM25); if still nothing, reads code directly
 5. **Synthesize** — direct answer + supporting detail + inline citations (`[[wikilinks]]` + `` `code-paths:line` ``) + "Related pages"
