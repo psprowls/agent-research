@@ -22,7 +22,6 @@ Cross-ref update scope (CONTEXT.md deferred decision):
 
 import logging
 import re
-import sys
 import time
 import uuid
 from dataclasses import dataclass

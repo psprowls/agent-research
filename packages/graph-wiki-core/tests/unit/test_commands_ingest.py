@@ -971,3 +971,47 @@ def test_set_entity_uri_in_body_inserts_after_target_slug() -> None:
     lines = out2.splitlines()
     assert lines[0] == "---"
     assert lines[1] == "entity_uri: pkg:x/y/foo"
+
+
+# ---------------------------------------------------------------------------
+# Test: _ensure_entity_touch_link — entity forward-link injector (unit-level)
+# ---------------------------------------------------------------------------
+
+
+def test_ensure_entity_touch_link_inserts_under_existing_heading() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = (
+        "---\ntitle: Foo\n---\n\n"
+        "Body text.\n\n"
+        "## Touches\n"
+        "- [[entities/pkg_other]]\n"
+    )
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # New bullet inserted immediately under the heading.
+    assert "## Touches\n- [[entities/pkg_graph-io]]\n" in out
+    # Pre-existing bullet under the heading is preserved.
+    assert "- [[entities/pkg_other]]" in out
+
+
+def test_ensure_entity_touch_link_appends_section_when_absent() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = "---\ntitle: Foo\n---\n\nBody text.\n"
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # Original content preserved.
+    assert out.startswith(text)
+    # A Touches section is appended with the link bullet.
+    assert "## Touches\n- [[entities/pkg_graph-io]]\n" in out
+
+
+def test_ensure_entity_touch_link_idempotent() -> None:
+    from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
+
+    text = (
+        "---\ntitle: Foo\n---\n\n"
+        "Refers to [[entities/pkg_graph-io]] inline.\n"
+    )
+    out = _ensure_entity_touch_link(text, "pkg_graph-io")
+    # Link already present anywhere → text returned unchanged.
+    assert out == text
