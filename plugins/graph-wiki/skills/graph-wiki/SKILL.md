@@ -51,9 +51,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 └── wiki/                       # this plugin's curated knowledge base
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
     ├── log.md                  # Append-only timeline
-    ├── apps/<app>/             # [conditional] One folder per application workspace (web, mobile, CLI); overview lives at apps/<app>/overview.md
-    ├── packages/<pkg>/         # [conditional] One folder per library/service workspace package; overview at packages/<pkg>/overview.md
-    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md (domain-scoped packages live under domains/<domain>/packages/<pkg>/overview.md)
+    ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
     ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -64,13 +62,13 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
     └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
 ```
 
-`apps/`, `packages/`, and `domains/` are **conditional** — the detector creates them only when the repo has matching containers. A single-package repo has none of these; its workspace pages live at the wiki root (or under `concepts/` / `architecture/` for cross-cutting topics). A library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
+Every workspace package, app, and domain — plus the repository, external dependencies, and test suites — is rendered as a single page under `entities/`, named `<prefix>_<name>[__hex].md` (prefixes: `repo_`, `domain_`, `pkg_`, `app_`, `agent-plugin_`, `dep_`, suite-kind-aware `unit_tests_`/`int_tests_`). There are no separate `apps/`/`packages/`/`domains/` page folders. Container *detection* still pins the layout block (used to scope the graph build) and is recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`; it no longer creates page folders.
 
 **Source of truth is the code itself.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
 
 ## Four core operations
 
-1. **Scan** — walk the repo, detect packages/apps/workspaces, propose stub `packages/*.md` pages, and surface in-repo `.md` docs as ingest candidates. See `references/scan-workflow.md`.
+1. **Scan** — build the code graph and render one page per admitted entity into `entities/` (structural-only: `## Narrative` placeholder + `— TODO` file-map rows). See `references/scan-workflow.md`.
 2. **Ingest** — read a source (article, spec, PR, transcript, or in-repo doc), discuss takeaways, write a source summary, update 5-15 relevant pages, update index, append to log. In-repo docs (under a `docs` container) are ingested in place — the summary records `source_path` + `last_sync_commit` (when ingested with a clean working tree on main) so /graph-wiki:lint flags staleness when the file changes. PDF/DOCX support is deferred — see `references/ingest-workflow.md` "Future formats". See `references/ingest-workflow.md`.
 3. **Query** — read `index.md`, drill into 3-10 pages, synthesize with inline `[[wikilinks]]`, offer to file the answer back. See `references/query-workflow.md`.
 4. **Lint** — health check including **code-drift detection**: packages on disk missing from the vault, vault pages referencing deleted/renamed packages, stale package summaries whose exports have changed. See `references/lint-workflow.md`.
@@ -85,7 +83,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/init_vault.py \
     --topic "my-repo"
 
-# 2. Scan the repo to create stub pages for every package
+# 2. Scan the repo to render one entities/ page per admitted entity
 /graph-wiki:scan
 
 # 3. Drop a source (article, spec, PR) into raw/ and ingest
@@ -103,7 +101,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 | Command | Purpose |
 |---|---|
 | `/graph-wiki:bootstrap` | Bootstrap a fresh wiki at `<workspace>/wiki/` (workspace resolved via `workspace_io`, defaults to `<repo>/graph-wiki/`) |
-| `/graph-wiki:scan` | Walk the repo, detect packages/apps/workspaces, create/update stub package pages |
+| `/graph-wiki:scan` | Build the code graph; create/update/delete one `entities/` page per admitted entity |
 | `/graph-wiki:ingest <path>` | Read a source from `raw/`, discuss, update vault, log it |
 | `/graph-wiki:query <question>` | Search vault, synthesize answer with citations, offer to file back |
 | `/graph-wiki:lint` | Health check — orphans, broken links, stale claims, **code drift** |
@@ -113,7 +111,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 
 | Agent | When dispatched |
 |---|---|
-| `graph-wiki:scanner` | Walk the repo, detect packages, propose or update stub package pages |
+| `graph-wiki:scanner` | Build the code graph; write/update/delete one `entities/` page per admitted entity |
 | `graph-wiki:ingestor` | Delegated ingest flow — reads source, proposes updates, applies after approval |
 | `graph-wiki:linter` | Runs the health-check workflow (mechanical + semantic + code drift) |
 | `graph-wiki:librarian` | Answers queries using index-first search with citations |
@@ -125,10 +123,10 @@ Each script is a thin shim that imports `main()` from the in-workspace `wiki_io`
 | Script | Purpose |
 |---|---|
 | `init_vault.py` | Create folder structure + seed schema files. Wiki path resolved automatically via `workspace_io`. |
-| `scan_monorepo.py` | Walk the repo, detect `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` workspaces; emit a diff of missing/renamed/deleted package pages |
+| `scan_monorepo.py` | Build the code graph and write/update/delete one page per admitted entity into `entities/` (in-process `run_scan(narrate=False)`) |
 | `ingest_source.py` | Extract text + metadata from a source file — prepares a brief for the LLM |
 | `wiki_search.py` | BM25 search over vault pages (fallback when index alone isn't enough) |
-| `lint_wiki.py` | Orphans, broken links, stale pages, missing frontmatter, log gap, **+ code-drift** (packages on disk vs. in vault) |
+| `lint_wiki.py` | Orphans, broken links, stale pages, missing frontmatter, log gap, **+ code-drift** (entity pages on disk vs. in `entities/`) |
 | `detect_containers.py` | Classify top-level dirs as apps, packages, domains, or docs containers |
 
 ## Cross-tool compatibility
@@ -141,9 +139,9 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 | Category | What it documents | Directory |
 |---|---|---|
-| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/apps/<app>/overview.md` |
-| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/packages/<pkg>/overview.md` |
-| `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/domains/<domain>/overview.md` |
+| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/entities/app_<name>.md` |
+| `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/entities/pkg_<name>.md` |
+| `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/entities/domain_<name>.md` |
 | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
 | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/dependencies/` |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `<workspace>/wiki/sources/` |
@@ -163,7 +161,6 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 ## Related skills
 
-- **`obsidian-markdown`** — bundled with this plugin. Covers Obsidian-specific syntax (wikilinks, embeds, callouts, properties, comments, highlights). The four sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `graph-wiki:librarian`) invoke it whenever they create, edit, or verify a vault page so the output renders correctly in Obsidian.
 - **`wiki`** — the generic personal-knowledge-base version of this skill. Same pattern, different page categories. Use `wiki` for non-code topics (research, books, journaling).
 - **`para-memory-files`** — PARA memory; useful if you have personal memory feeding into a repo wiki.
 
@@ -193,7 +190,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 1. **The code is the source of truth.** If the vault contradicts the code, the code wins — update the vault.
 2. **The LLM never edits files in `raw/`.** Sources are immutable.
 3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources stay in `<workspace>/raw/` (immutable). No exceptions.
-4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
+4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/architecture/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `title`, `uri`, `kind`, `updated` (the scanner owns their frontmatter).
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
 7. **Good query answers get filed back** — explorations compound.
