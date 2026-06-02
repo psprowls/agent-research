@@ -10,3 +10,5 @@ def test_ingestor_prompt_has_no_package_page_type() -> None:
     assert "-> `packages/`" not in system
     # It must instead steer the model to entity wikilinks.
     assert "[[entities/" in system
+    # Guard the frontmatter-rules fragment too (not just the routing bullet).
+    assert "one of `package`" not in system

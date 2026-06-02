@@ -9,8 +9,8 @@ subset appropriate to the page being written.
 
 **Ingestor source-summary pages** require:
 - `title`: descriptive title for the page
-- `category`: one of the page category values (`source`, `concept`, `package`, `adr`, …)
-- `page_type`: one of `package`, `concept`, `adr`, `source`
+- `category`: one of the page category values (`source`, `concept`, `adr`, …)
+- `page_type`: one of `concept`, `adr`, `source`
 - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
 - `summary`: one-line description of the source's main contribution
 - `tags`: list of relevant tags (or empty list)
