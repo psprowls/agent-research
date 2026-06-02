@@ -108,3 +108,65 @@ def test_write_trace_record_swallows_oserror(tmp_path, monkeypatch, caplog):
         f"expected WARNING log containing 'Trace write failed'; got: "
         f"{[r.getMessage() for r in caplog.records]}"
     )
+
+
+def test_write_trace_record_returns_record(tmp_path):
+    """write_trace_record returns the dict it built AND writes the same record to disk."""
+    import json
+    from subagent_runtime.trace_io import write_trace_record
+
+    path = tmp_path / "t.jsonl"
+    returned = write_trace_record(
+        path, "scanner", "model-x", "page-a", "success", 100, None,
+    )
+    assert isinstance(returned, dict)
+    assert returned["role"] == "scanner"
+    assert returned["status"] == "success"
+    assert returned["item_id"] == "page-a"
+    # Backward compat: the on-disk record matches the returned dict exactly.
+    written = json.loads(path.read_text().splitlines()[0])
+    assert written == returned
+
+
+def test_render_trace_record_format():
+    """render_trace_record renders a single human-readable line for a record."""
+    from subagent_runtime.trace_io import render_trace_record
+
+    record = {
+        "timestamp": "2026-05-13T10:00:00Z",
+        "role": "scanner",
+        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "item_id": "page-a",
+        "status": "success",
+        "latency_ms": 350,
+        "tokens_in": 10,
+        "tokens_out": 5,
+    }
+    out = render_trace_record(record)
+    assert isinstance(out, str)
+    assert "scanner" in out
+    assert "page-a" in out
+    assert "success" in out
+    assert "350ms" in out
+    assert "10->5" in out
+    # Model id is rendered as its last 30 chars (matches gw trace convention).
+    assert record["model_id"][-30:] in out
+
+
+def test_render_trace_record_error_suffix():
+    """Error records append an ERROR: <message> suffix."""
+    from subagent_runtime.trace_io import render_trace_record
+
+    record = {
+        "timestamp": "2026-05-13T10:00:00Z",
+        "role": "scanner",
+        "model_id": "model-x",
+        "item_id": "page-b",
+        "status": "error",
+        "latency_ms": 12,
+        "tokens_in": None,
+        "tokens_out": None,
+        "error": "boom",
+    }
+    out = render_trace_record(record)
+    assert "ERROR: boom" in out
