@@ -21,8 +21,16 @@ import frontmatter
 from graph_io import exit_codes, queries
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter.loader import load_role_config, make_llm
-from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+# Bedrock fan-out stack — imported only for the narrated path (narrate=True).
+# Guarded so the plugin's Claude branch (narrate=False) runs without these
+# workspace members installed. When absent, the narrator/file-describer blocks
+# are unreachable (gated on `narrate`), so the None bindings are never called.
+try:
+    from model_adapter.loader import load_role_config, make_llm
+    from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+except ImportError:  # pragma: no cover — exercised by the lazy-import test via reload
+    load_role_config = make_llm = None  # type: ignore[assignment]
+    SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.entity_writer import (
@@ -595,6 +603,7 @@ async def run_scan(
     max_depth: int = 3,
     repo_path: Path | None = None,
     model_override: str | None = None,
+    narrate: bool = True,
 ) -> ScanResult:
     """End-to-end scan: discovery → diff → scanner fan-out → post-processing.
 
@@ -627,6 +636,13 @@ async def run_scan(
         model_override: Bedrock model ID to use for the scanner role instead of
                         the default from models.toml. Used by the sweep runner
                         for single-role-swap evaluation (D-06).
+        narrate:        When True (default), run the narrator and file-describer
+                        Bedrock fan-outs that fill `## Narrative` bodies and
+                        `— TODO` file-map descriptions. When False, skip both
+                        fan-outs entirely (structural-only scan) — entity pages
+                        keep their `## Narrative` placeholder and `— TODO` rows.
+                        The plugin's Claude branch calls with narrate=False so the
+                        scan needs neither model_adapter nor subagent_runtime.
 
     Returns:
         ScanResult with added, updated, deleted, renamed, errors, state_gate.
@@ -851,7 +867,7 @@ async def run_scan(
 
             # Step 9b: narrator fan-out gated on needs_narrative.
             narrator_items: list[tuple[str, str, Any]] = []
-            if entity_write_result.needs_narrative:
+            if narrate and entity_write_result.needs_narrative:
                 list_fns = _kind_list_fns()
                 wanted = set(entity_write_result.needs_narrative)
                 for kind in sorted(ADMITTED_KINDS):
@@ -1048,7 +1064,7 @@ async def run_scan(
         # Steady-state cost is zero: once a package's rows are all filled (and
         # preserved across rescans by Step 10b's merge), it has no TODO paths
         # and is skipped — no model call.
-        if file_mapped_pages and conn is not None:
+        if narrate and file_mapped_pages and conn is not None:
             # Build (uri, ws_dict, page_path, todo_paths) for packages with work.
             describer_items: list[tuple[str, dict, Path, list[str]]] = []
             for node_uri, node, page_path in file_mapped_pages:
