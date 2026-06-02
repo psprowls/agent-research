@@ -63,7 +63,7 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
         "domain",
         "package",
         "app",
-        "plugin",
+        "agent_plugin",
         "dependency",
         "test_suite",
     }
@@ -82,7 +82,7 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "domain": "domain",
     "package": "pkg",
     "app": "app",
-    "plugin": "plugin",
+    "agent_plugin": "agent_plugin",
     # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
     # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
     # the short-form filename for dependency entities is `dep_<name>` and is
@@ -150,7 +150,7 @@ _FILENAME_PREFIX_BY_URI_PREFIX: dict[str, str] = {
     "pkg": "pkg",
     "app": "app",
     "domain": "domain",
-    "plugin": "plugin",
+    "agent_plugin": "agent-plugin",
     "dependency": "dep",
     "test_suite": "tests",
 }
@@ -553,7 +553,7 @@ def _kind_list_fns() -> dict[str, Callable]:
         "domain": lambda conn: _queries.list_domains(conn),
         "test_suite": lambda conn: _queries.list_test_suites(conn),
         "dependency": lambda conn: _queries.list_dependencies(conn),
-        "plugin": lambda conn: _queries.list_plugins(conn),
+        "agent_plugin": lambda conn: _queries.list_agent_plugins(conn),
     }
 
 
@@ -628,10 +628,11 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
             fm["ecosystem"] = d.ecosystem
             fm["versions_in_use"] = list(d.versions_in_use)
             fm["used_by"] = list(d.used_by)
-    elif kind == "plugin":
-        d = _queries.describe_plugin(conn, name=node.name)
+    elif kind == "agent_plugin":
+        d = _queries.describe_agent_plugin(conn, name=node.name)
         if d is not None:
             fm["ecosystem"] = d.ecosystem
+            fm["version"] = d.version
     return fm
 
 
@@ -700,6 +701,65 @@ def _compute_collision_set(
         if len(uris) > 1
         for uri in uris
     )
+
+
+def _md_escape(cell: str) -> str:
+    """Escape a markdown-table cell: pipes and newlines would break the row."""
+    return str(cell).replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _md_table(headers: list[str], rows: list[list[str]]) -> str:
+    """Render a GitHub-flavored markdown table, or `_None._` when there are no
+    rows (so the template token is always substituted to a non-empty value and
+    no residual `{{...}}` survives)."""
+    if not rows:
+        return "_None._"
+    head = "| " + " | ".join(headers) + " |"
+    sep = "| " + " | ".join("---" for _ in headers) + " |"
+    body = "\n".join(
+        "| " + " | ".join(_md_escape(c) for c in row) + " |" for row in rows
+    )
+    return f"{head}\n{sep}\n{body}"
+
+
+def _agent_plugin_table_variables(conn: Any, node: Any) -> dict[str, str]:
+    """Build the six `{{*_table}}` substitution values for an agent_plugin page
+    from its component inventory. Returns `_None._` per section when empty."""
+    d = _queries.describe_agent_plugin(conn, name=node.name)
+    if d is None:
+        empty = "_None._"
+        return {
+            "commands_table": empty, "agents_table": empty, "skills_table": empty,
+            "scripts_table": empty, "hooks_table": empty, "mcp_servers_table": empty,
+        }
+    return {
+        "commands_table": _md_table(
+            ["Command", "Description"],
+            [[c.get("name", ""), c.get("description", "")] for c in d.commands],
+        ),
+        "agents_table": _md_table(
+            ["Agent", "Model", "Tools", "Description"],
+            [[a.get("name", ""), a.get("model", ""),
+              ", ".join(a.get("tools", []) or []), a.get("description", "")]
+             for a in d.agents],
+        ),
+        "skills_table": _md_table(
+            ["Skill", "Description"],
+            [[s.get("name", ""), s.get("description", "")] for s in d.skills],
+        ),
+        "scripts_table": _md_table(
+            ["Script", "Language"],
+            [[s.get("path", ""), s.get("lang", "")] for s in d.scripts],
+        ),
+        "hooks_table": _md_table(
+            ["Event", "Matchers"],
+            [[h.get("event", ""), ", ".join(h.get("matchers", []) or [])] for h in d.hooks],
+        ),
+        "mcp_servers_table": _md_table(
+            ["Server", "Command"],
+            [[m.get("name", ""), m.get("command", "")] for m in d.mcp_servers],
+        ),
+    }
 
 
 def write_entities(
@@ -796,6 +856,8 @@ def write_entities(
                         "package_slug": slug,
                         "PACKAGE_SLUG": slug,
                     }
+                    if kind == "agent_plugin":
+                        variables.update(_agent_plugin_table_variables(conn, node))
                     new_content = _render_entity_page(
                         template_path, merged_fm, variables
                     )

@@ -8,11 +8,11 @@ import pytest
 
 from graph_io import upsert
 from graph_io.queries import (
+    AgentPluginDescription,
     DependencyDescription,
     DomainDescription,
     NodeRecord,
     PackageDescription,
-    PluginDescription,
     RepoDescription,
     SuiteDescription,
 )
@@ -40,7 +40,7 @@ class MockGraphConn:
             "domain": [],
             "package": [],
             "app": [],
-            "plugin": [],
+            "agent_plugin": [],
             "dependency": [],
             "test_suite": [],
         }
@@ -95,10 +95,17 @@ def mock_graph_conn() -> MockGraphConn:
                           "ecosystem": "pypi",
                           "versions_in_use": ["boto3>=1.38"]}),
     ])
-    conn.set_nodes("plugin", [
-        NodeRecord(kind="plugin", name="graph-wiki", path=None, line=None,
-                   attrs={"uri": "plugin:graph-wiki",
-                          "ecosystem": "claude-code"}),
+    conn.set_nodes("agent_plugin", [
+        NodeRecord(kind="agent_plugin", name="graph-wiki", path=None, line=None,
+                   attrs={"uri": "agent_plugin:local/agent-research/graph-wiki",
+                          "ecosystem": "claude-code", "version": "0.1.0",
+                          "description": "A wiki plugin.",
+                          "components": {
+                              "commands": [{"id": "command:local/agent-research/graph-wiki/scan",
+                                            "name": "scan", "description": "Walk the monorepo."}],
+                              "agents": [], "skills": [], "scripts": [],
+                              "hooks": [], "mcp_servers": [],
+                          }}),
     ])
     # Per-node descriptions (used by `write_entities` to populate scanner frontmatter)
     conn.set_description("package", "graph-io", PackageDescription(
@@ -127,8 +134,12 @@ def mock_graph_conn() -> MockGraphConn:
         ecosystem="pypi", name="boto3", uri="dependency:pypi/boto3",
         versions_in_use=["boto3>=1.38"], used_by=["graph-io", "wiki-io"],
     ))
-    conn.set_description("plugin", "graph-wiki", PluginDescription(
-        name="graph-wiki", uri="plugin:graph-wiki", ecosystem="claude-code",
+    conn.set_description("agent_plugin", "graph-wiki", AgentPluginDescription(
+        name="graph-wiki", uri="agent_plugin:local/agent-research/graph-wiki",
+        ecosystem="claude-code", version="0.1.0", description="A wiki plugin.",
+        commands=[{"id": "command:local/agent-research/graph-wiki/scan",
+                   "name": "scan", "description": "Walk the monorepo."}],
+        agents=[], skills=[], scripts=[], hooks=[], mcp_servers=[],
     ))
     return conn
 

@@ -36,7 +36,7 @@ def test_admitted_kinds_shape() -> None:
             "domain",
             "package",
             "app",
-            "plugin",
+            "agent_plugin",
             "dependency",
             "test_suite",
         }
@@ -48,6 +48,8 @@ def test_admitted_kinds_shape() -> None:
     assert ADMITTED_KINDS.isdisjoint(excluded)
     # Phase 51 regression guard: package_family must never re-appear here.
     assert "package_family" not in ADMITTED_KINDS
+    # agent-plugin rename guard: old plugin kind must not re-appear.
+    assert "plugin" not in ADMITTED_KINDS
 
 
 def test_scanner_owned_keys_disjoint_from_human() -> None:
@@ -504,7 +506,7 @@ def _wire_mock_queries(monkeypatch, q_module):
     monkeypatch.setattr(q_module, "list_domains", lambda c: c.list_nodes("domain"))
     monkeypatch.setattr(q_module, "list_test_suites", lambda c: c.list_nodes("test_suite"))
     monkeypatch.setattr(q_module, "list_dependencies", lambda c: c.list_nodes("dependency"))
-    monkeypatch.setattr(q_module, "list_plugins", lambda c: c.list_nodes("plugin"))
+    monkeypatch.setattr(q_module, "list_agent_plugins", lambda c: c.list_nodes("agent_plugin"))
     monkeypatch.setattr(q_module, "describe_repository",
                         lambda c: c.get_description("repository", None))
     monkeypatch.setattr(q_module, "describe_package",
@@ -517,8 +519,8 @@ def _wire_mock_queries(monkeypatch, q_module):
                         lambda c, *, suite_name: c.get_description("test_suite", suite_name))
     monkeypatch.setattr(q_module, "describe_dependency",
                         lambda c, *, ecosystem, name: c.get_description("dependency", (ecosystem, name)))
-    monkeypatch.setattr(q_module, "describe_plugin",
-                        lambda c, *, name: c.get_description("plugin", name))
+    monkeypatch.setattr(q_module, "describe_agent_plugin",
+                        lambda c, *, name: c.get_description("agent_plugin", name))
 
 
 def test_write_entities_creates_pages_per_admitted_kind(
@@ -529,7 +531,7 @@ def test_write_entities_creates_pages_per_admitted_kind(
 
     wiki_root = tmp_path / "wiki"
     result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
-    # 1 repo + 2 packages + 1 domain + 1 test_suite + 1 dep + 1 plugin = 7 created
+    # 1 repo + 2 packages + 1 domain + 1 test_suite + 1 dep + 1 agent_plugin = 7 created
     assert len(result.created) == 7, f"expected 7 created, got {len(result.created)}: {result.created}"
     assert len(result.updated) == 0
     assert len(result.deleted) == 0
@@ -538,7 +540,7 @@ def test_write_entities_creates_pages_per_admitted_kind(
     # Specific filenames (Phase 52: short-form via `short_filename`)
     entities = wiki_root / "entities"
     assert (entities / "pkg_graph-io.md").exists()
-    assert (entities / "plugin_graph-wiki.md").exists()
+    assert (entities / "agent-plugin_graph-wiki.md").exists()
 
 
 def test_write_entities_second_run_all_unchanged(
@@ -650,10 +652,13 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
             attrs={"uri": "domain:test-org/test-repo/observability"},
         ),
     ])
-    mock_graph_conn.set_nodes("plugin", [
+    mock_graph_conn.set_nodes("agent_plugin", [
         _NodeRecord_phase52(
-            kind="plugin", name="demo-plugin", path=None, line=None,
-            attrs={"uri": "plugin:demo-plugin", "ecosystem": "claude-code"},
+            kind="agent_plugin", name="demo-plugin", path=None, line=None,
+            attrs={"uri": "agent_plugin:local/agent-research/demo-plugin",
+                   "ecosystem": "claude-code", "version": "", "description": "",
+                   "components": {"commands": [], "agents": [], "skills": [],
+                                  "scripts": [], "hooks": [], "mcp_servers": []}},
         ),
     ])
     mock_graph_conn.set_nodes("dependency", [
@@ -686,7 +691,7 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
         "repo_test-repo.md",
         "pkg_widget.md",
         "domain_observability.md",
-        "plugin_demo-plugin.md",
+        "agent-plugin_demo-plugin.md",
         "dep_example-lib.md",
         "unit_tests_widget.md",
     ]
@@ -711,7 +716,7 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
 
     mock_graph_conn.set_nodes("repository", [])
     mock_graph_conn.set_nodes("domain", [])
-    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])
     mock_graph_conn.set_nodes("package", [
@@ -747,7 +752,7 @@ def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
     mock_graph_conn.set_nodes("repository", [])
     mock_graph_conn.set_nodes("package", [])
     mock_graph_conn.set_nodes("domain", [])
-    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("test_suite", [])
     mock_graph_conn.set_nodes("dependency", [
         _NodeRecord_phase52(
@@ -799,7 +804,7 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
     mock_graph_conn.set_nodes("repository", [])
     mock_graph_conn.set_nodes("package", [])
     mock_graph_conn.set_nodes("domain", [])
-    mock_graph_conn.set_nodes("plugin", [])
+    mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])
     mock_graph_conn.set_nodes("app", [
