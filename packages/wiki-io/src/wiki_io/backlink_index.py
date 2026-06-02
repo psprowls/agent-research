@@ -20,8 +20,6 @@ from pathlib import Path
 
 import frontmatter
 
-# Hard convention — humans must not rename this heading.
-_HEADING = "## Referenced in wiki"
 # Match the heading at column 0 followed only by optional trailing whitespace.
 _HEADING_RE = re.compile(r"^## Referenced in wiki[ \t]*\n", re.MULTILINE)
 # Next H2 at column 0 — bounds the rewritable body region.

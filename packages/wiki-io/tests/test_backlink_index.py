@@ -58,8 +58,9 @@ def test_regenerate_builds_sorted_backlinks(tmp_path: Path) -> None:
 
     wiki = tmp_path / "wiki"
     _entity_page(wiki / "entities", "pkg_foo")
+    # `|alias` must be stripped so the link resolves to stem `pkg_foo`.
     _source_page(
-        wiki, "2026-06-spec", ["[[entities/pkg_foo]]"],
+        wiki, "2026-06-spec", ["[[entities/pkg_foo|Foo Package]]"],
         title="Auth Spec", source_type="spec", source_date="2026-06",
     )
     updated = regenerate_referenced_in_wiki(wiki)
