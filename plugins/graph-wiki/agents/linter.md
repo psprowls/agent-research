@@ -1,7 +1,7 @@
 ---
 name: linter
 description: Dispatched sub-agent that runs a health check on a Code Wiki. Mechanical checks via scripts (orphans, broken links, stale pages, missing frontmatter, duplicate titles, log gaps, CODE DRIFT), semantic checks (contradictions vault↔vault and vault↔code, stale claims, concept gaps, issue/ticket sync, roadmap staleness, ADR chain health, cross-reference gaps, index drift), and produces a markdown report with suggested actions. Spawn weekly, after batch ingests, after /graph-wiki:scan, or when the user says "lint the wiki" / "check the wiki".
-skills: [graph-wiki, obsidian-markdown]
+skills: [graph-wiki]
 domain: engineering
 model: opus
 tools: [Read, Write, Edit, Bash, Grep, Glob]
@@ -46,7 +46,7 @@ Parse the JSON. Capture:
 ### Pass 2 — Semantic (read and think)
 
 - **Contradictions (vault↔vault)** — scan recently-touched pages
-- **Contradictions (vault↔code)** — spot-check recently-touched `packages/<name>/overview.md` pages against current code
+- **Contradictions (vault↔code)** — spot-check recently-touched `entities/pkg_<name>.md` / `entities/app_<name>.md` pages against current code
 - **Stale claims** — are stale-flagged pages likely outdated by recent PRs or code changes?
 - **Concept gaps** — grep for concept-shaped phrases across 3+ pages without a dedicated page
 - **Issue / ticket sync** — every open `issues/*.md` should have `related_tickets`; tickets in `sources/*-ticket.md` should appear on some issue page
@@ -80,8 +80,8 @@ The report MUST be structured as:
 
 ### Suggested actions
 1. Run `/graph-wiki:scan` to stub <package> and <package>
-2. Archive or delete `<workspace>/wiki/packages/<old-pkg>/`
-3. Re-read `packages/<pkg>/src/index.ts`; update vault exports frontmatter
+2. Re-run `/graph-wiki:scan` — it deletes the entity page for `<old-pkg>` automatically when its graph node is gone
+3. Re-run `/graph-wiki:scan` to refresh `entities/pkg_<pkg>.md` graph-derived frontmatter from current code
 4. Revise target date on `[[roadmap/<slug>]]` or close it
 5. Create concept pages for: <names>
 6. Fix broken link in `[[<page>]]`
@@ -97,7 +97,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 
 ## Rules
 
-- **Invoke the `obsidian-markdown` skill** during the semantic pass — verify pages use valid Obsidian syntax (wikilinks instead of plain Markdown links between vault pages, well-formed callouts, properties in frontmatter rather than inline, embeds via `![[...]]`). Flag pages that mix Markdown links with `.md` targets, malformed callouts, or properties duplicated between frontmatter and body.
+- **Check Obsidian syntax** during the semantic pass — flag pages that use plain Markdown links to `.md` targets instead of `[[wikilinks]]`, malformed callouts, or properties duplicated between frontmatter and body.
 - **Report, don't silently fix.** The user decides.
 - **Prioritize by impact.** Code drift > contradictions > broken links > orphans > stale > style.
 - **Use the scripts AND read pages.** Mechanical + semantic both reveal different problems.
