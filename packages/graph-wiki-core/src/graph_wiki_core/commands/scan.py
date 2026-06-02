@@ -511,6 +511,41 @@ def parse_file_describer_output(text: str) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Helper: _entity_page_path
+# ---------------------------------------------------------------------------
+
+
+def _entity_page_path(
+    wiki: Path,
+    kind: str,
+    node: Any,
+    uri: str,
+    collision_set: frozenset[str],
+) -> Path:
+    """Resolve the ``entities/<stem>.md`` path for a graph node.
+
+    Applies the suite-aware slug (``suite_kind`` + ``pkg_for_suite`` derived
+    from ``attrs['path']``) for ``test_suite`` kinds, matching what
+    ``write_entities`` produces; all other kinds use the plain prefix slug.
+    """
+    suite_kind: str | None = None
+    pkg_for_suite: str | None = None
+    if kind == "test_suite":
+        attrs = node.attrs if isinstance(node.attrs, dict) else {}
+        suite_kind = attrs.get("suite_kind") or None
+        suite_path = attrs.get("path")
+        if suite_path:
+            pkg_for_suite = Path(suite_path).parent.name or None
+    stem = short_filename(
+        uri,
+        collision_set,
+        suite_kind=suite_kind,
+        pkg_for_suite=pkg_for_suite,
+    )
+    return wiki / "entities" / f"{stem}.md"
+
+
+# ---------------------------------------------------------------------------
 # Helper: _add_stale_tag
 # ---------------------------------------------------------------------------
 
@@ -885,31 +920,10 @@ async def run_scan(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
             )
 
-            def _entity_page_path(kind_inner: str, node_inner: Any, uri_inner: str) -> Path:
-                suite_kind_inner: str | None = None
-                pkg_for_suite_inner: str | None = None
-                if kind_inner == "test_suite":
-                    attrs_inner = (
-                        node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
-                    )
-                    suite_kind_inner = attrs_inner.get("suite_kind") or None
-                    suite_path_inner = attrs_inner.get("path")
-                    if suite_path_inner:
-                        pkg_for_suite_inner = (
-                            Path(suite_path_inner).parent.name or None
-                        )
-                stem = short_filename(
-                    uri_inner,
-                    inject_collision_set,
-                    suite_kind=suite_kind_inner,
-                    pkg_for_suite=pkg_for_suite_inner,
-                )
-                return wiki / "entities" / f"{stem}.md"
-
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
                 entity_page_path = _entity_page_path(
-                    kind_inner, node_inner, uri_inner,
+                    wiki, kind_inner, node_inner, uri_inner, inject_collision_set,
                 )
                 try:
                     inject_narrative(entity_page_path, prose)

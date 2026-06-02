@@ -1234,3 +1234,33 @@ def test_phase35_regression_test_path_exists():
     assert bootstrap_test.exists(), (
         f"Phase 35 regression test missing at {bootstrap_test}; SC#3 cannot be evaluated."
     )
+
+
+def test_entity_page_path_suite_aware_slug():
+    """Module-level _entity_page_path applies the suite-aware slug for
+    test_suite kinds (suite_kind + pkg_for_suite derived from attrs['path'])."""
+    from types import SimpleNamespace
+
+    wiki = Path("/fake/wiki")
+    node = SimpleNamespace(
+        kind="test_suite",
+        name="pkg-a-unit-tests",
+        attrs={
+            "uri": "test_suite:org/repo/pkg-a/tests",
+            "suite_kind": "unit",
+            "path": "packages/pkg-a/tests",
+        },
+    )
+    page = scan_module._entity_page_path(
+        wiki, "test_suite", node, "test_suite:org/repo/pkg-a/tests", frozenset()
+    )
+    assert page == wiki / "entities" / "unit_tests_pkg-a.md"
+
+    # A package node uses the plain kind prefix (no suite logic).
+    pkg_node = SimpleNamespace(
+        kind="package", name="pkg-a", attrs={"uri": "pkg:org/repo/pkg-a"}
+    )
+    pkg_page = scan_module._entity_page_path(
+        wiki, "package", pkg_node, "pkg:org/repo/pkg-a", frozenset()
+    )
+    assert pkg_page == wiki / "entities" / "pkg_pkg-a.md"
