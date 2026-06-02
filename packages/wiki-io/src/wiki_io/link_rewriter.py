@@ -52,11 +52,11 @@ from wiki_io.lint.common import (
 
 
 CONVENTION_TEMPLATES: dict[str, str] = {
-    "package":    "packages/{name}/index",
-    "dependency": "dependencies/{ecosystem}/{name}/overview",
-    "domain":     "domain/{name}/index",
-    "plugin":     "plugin/{name}/overview",
-    "test_suite": "test-suites/{name}/index",
+    "package":      "packages/{name}/index",
+    "dependency":   "dependencies/{ecosystem}/{name}/overview",
+    "domain":       "domain/{name}/index",
+    "agent_plugin": "plugin/{name}/overview",  # legacy dir stays "plugin/"; kind renamed to agent_plugin
+    "test_suite":   "test-suites/{name}/index",
 }
 
 OLD_LAYOUT_ROOTS: tuple[str, ...] = (
@@ -242,11 +242,11 @@ def _utc_iso_z() -> str:
 
 
 _LIST_FNS: dict[str, Callable[[sqlite3.Connection], Iterable]] = {
-    "package":    _queries.list_packages,
-    "dependency": _queries.list_dependencies,
-    "domain":     _queries.list_domains,
-    "plugin":     _queries.list_plugins,
-    "test_suite": _queries.list_test_suites,
+    "package":      _queries.list_packages,
+    "dependency":   _queries.list_dependencies,
+    "domain":       _queries.list_domains,
+    "agent_plugin": _queries.list_agent_plugins,
+    "test_suite":   _queries.list_test_suites,
 }
 
 
@@ -327,11 +327,12 @@ def _source2_scan_old_layout(
     index: dict[str, dict[str, str]],
 ) -> None:
     """Source 2: scan-and-match over old layout dirs. Mutates ``table`` in place."""
+    # old-layout dir name -> current kind (plugin/ dir predates the agent_plugin rename)
     kind_for_root = {
         "packages": "package",
         "dependencies": "dependency",
         "domain": "domain",
-        "plugin": "plugin",
+        "plugin": "agent_plugin",
     }
     for root_name in OLD_LAYOUT_ROOTS:
         root = wiki_root / root_name
@@ -375,8 +376,8 @@ _KIND_FOR_PREFIX: dict[str, str | None] = {
     "wiki/dependencies/": "dependency",
     "domain/": "domain",
     "wiki/domain/": "domain",
-    "plugin/": "plugin",
-    "wiki/plugin/": "plugin",
+    "plugin/": "agent_plugin",
+    "wiki/plugin/": "agent_plugin",
     "test-suites/": "test_suite",
     "wiki/test-suites/": "test_suite",
 }

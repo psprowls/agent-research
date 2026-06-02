@@ -47,11 +47,11 @@ from pathlib import Path
 from graph_io.queries import (
     NodeRecord,
     internal_dependencies_of,
+    list_agent_plugins,
     list_apps,
     list_dependencies,
     list_domains,
     list_packages,
-    list_plugins,
     list_test_suites,
 )
 
@@ -76,17 +76,17 @@ from wiki_io.entity_writer import (
 # (in both domain and By-Kind contexts per D-01), so removing them from the flat
 # render order is safe precisely because every package/app now nests its own items.
 _PLACEABLE_KINDS: tuple[str, ...] = (
-    "app", "package", "test_suite", "dependency", "plugin",
+    "app", "package", "test_suite", "dependency", "agent_plugin",
 )
 
-BY_KIND_ORDER: tuple[str, ...] = ("app", "package", "plugin")
+BY_KIND_ORDER: tuple[str, ...] = ("app", "package", "agent_plugin")
 
 KIND_LABELS: dict[str, str] = {
     "app": "Apps",
     "package": "Packages",
     "test_suite": "Test Suites",
     "dependency": "Dependencies",
-    "plugin": "Plugins",
+    "agent_plugin": "Agent Plugins",
 }
 
 # (stable_id, lane_dir_relative_to_wiki_root, section_label)
@@ -173,7 +173,7 @@ def _compute_qualifying_domains(
                   Resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
     - dependency: one-hop transitive via `used_by` -> `package` -> `belongs_to_domain`.
                   Edge direction: package -[used_by]-> dependency.
-    - plugin:     always empty (D-04 — plugins have no domain edges in v1.8).
+    - agent_plugin: always empty (D-04 — agent_plugins have no domain edges in v1.8).
     """
     if kind in ("package", "app"):
         rows = conn.execute(
@@ -215,10 +215,10 @@ def _compute_qualifying_domains(
             (name,),
         ).fetchall()
         return {r[0] for r in rows}
-    if kind == "plugin":
+    if kind == "agent_plugin":
         return set()
     raise ValueError(
-        f"Only app/package/test_suite/dependency/plugin are placeable; got {kind!r}"
+        f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}"
     )
 
 
@@ -357,11 +357,11 @@ def _place_entities(
     name_to_entity: dict[str, PlacedEntity] = {}
 
     kind_to_list_fn = {
-        "app":        list_apps,
-        "package":    list_packages,
-        "test_suite": list_test_suites,
-        "dependency": list_dependencies,
-        "plugin":     list_plugins,
+        "app":          list_apps,
+        "package":      list_packages,
+        "test_suite":   list_test_suites,
+        "dependency":   list_dependencies,
+        "agent_plugin": list_agent_plugins,
     }
     for kind in _PLACEABLE_KINDS:
         list_fn = kind_to_list_fn[kind]
@@ -737,7 +737,7 @@ def _render_by_kind(
 ) -> tuple[list[str], int]:
     """Render the full `## By Kind` block. Returns (lines, by_kind_count).
 
-    Phase 57 D-01/D-08: flat groups are ONLY app/package/plugin (apps first).
+    Phase 57 D-01/D-08: flat groups are ONLY app/package/agent_plugin (apps first).
     test_suites and dependencies are no longer flat groups — they nest under
     the package/app that uses them via `_render_pkg_nested`, exactly like the
     domain sections. This is the cross-cutting fix: a multi/zero-domain

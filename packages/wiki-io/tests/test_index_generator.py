@@ -90,8 +90,8 @@ class TestIndexWriteResult:
             r.changed = True  # type: ignore[misc]
 
     def test_module_constants(self):
-        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/plugin only.
-        assert BY_KIND_ORDER == ("app", "package", "plugin")
+        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/agent_plugin only.
+        assert BY_KIND_ORDER == ("app", "package", "agent_plugin")
         assert len(CURATED_LANES) == 4
         assert CURATED_LANES[0] == ("architecture", "architecture", "Architecture")
         assert CURATED_LANES[1] == ("adrs", "adrs", "ADRs")
@@ -99,7 +99,7 @@ class TestIndexWriteResult:
         assert CURATED_LANES[3] == ("sources", "sources", "Sources")
         assert KIND_LABELS["app"] == "Apps"
         assert KIND_LABELS["package"] == "Packages"
-        assert KIND_LABELS["plugin"] == "Plugins"
+        assert KIND_LABELS["agent_plugin"] == "Agent Plugins"
         # test_suite/dependency are no longer flat groups, but their labels
         # remain as the nested sub-heading strings.
         assert "index.md" in GENERATED_FILES
@@ -252,15 +252,15 @@ class TestQualifyingDomains:
             conn, kind="dependency", name="boto3"
         ) == {"d1", "d2"}
 
-    def test_plugin_always_empty(self, make_index_fixture_graph):
+    def test_agent_plugin_always_empty(self, make_index_fixture_graph):
         spec = {
             "nodes": [
-                ("plugin", "graph-wiki", {"uri": "plugin:graph-wiki", "ecosystem": "claude-code"}),
+                ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
             ],
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="plugin", name="graph-wiki") == set()
+        assert _compute_qualifying_domains(conn, kind="agent_plugin", name="graph-wiki") == set()
 
     def test_invalid_kind_raises(self, make_index_fixture_graph):
         conn = make_index_fixture_graph({"nodes": [], "edges": []})
@@ -325,23 +325,23 @@ class TestPlacement:
         for d in buckets.values():
             assert not any(e.name == "suite" for e in d)
 
-    def test_plugin_always_in_by_kind(self, make_index_fixture_graph):
+    def test_agent_plugin_always_in_by_kind(self, make_index_fixture_graph):
         spec = {
             "nodes": [
-                ("plugin", "graph-wiki", {"uri": "plugin:graph-wiki", "ecosystem": "claude-code"}),
+                ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
             ],
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
         buckets, by_kind = _place(conn)
-        assert any(e.kind == "plugin" and e.name == "graph-wiki" for e in by_kind)
+        assert any(e.kind == "agent_plugin" and e.name == "graph-wiki" for e in by_kind)
         assert buckets == {}
 
     def test_by_kind_sort_order(self, make_index_fixture_graph):
         spec = {
             "nodes": [
                 # insertion order intentionally not matching BY_KIND_ORDER
-                ("plugin", "graph-wiki", {"uri": "plugin:graph-wiki", "ecosystem": "claude-code"}),
+                ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
                 ("package", "pkg-cross", {"uri": "pkg:pkg-cross"}),
                 ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
             ],
@@ -349,9 +349,9 @@ class TestPlacement:
         }
         conn = make_index_fixture_graph(spec)
         _buckets, by_kind = _place(conn)
-        # Filter to the three known names; order must be package, dependency, plugin
+        # Filter to the three known names; order must be package, dependency, agent_plugin
         kinds = [e.kind for e in by_kind if e.name in ("graph-wiki", "pkg-cross", "boto3")]
-        assert kinds == ["package", "dependency", "plugin"]
+        assert kinds == ["package", "dependency", "agent_plugin"]
 
     def test_intra_domain_parent_pkgs_populated(self, make_index_fixture_graph):
         spec = {
@@ -526,7 +526,7 @@ class TestRenderDomainTree:
 
 class TestRenderByKind:
     def test_by_kind_section_order(self, tmp_path, make_index_fixture_graph):
-        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/plugin only,
+        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/agent_plugin only,
         # apps first. A dependency used by a by-kind package nests UNDER that
         # package (no flat `### Dependencies` group).
         spec = {
@@ -534,7 +534,7 @@ class TestRenderByKind:
                 ("app", "myapp", {"uri": "app:agent-research/myapp", "app_kind": "cli"}),
                 ("package", "pkg-cross", {"uri": "pkg:pkg-cross"}),
                 ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-                ("plugin", "graph-wiki", {"uri": "plugin:graph-wiki", "ecosystem": "claude-code"}),
+                ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
             ],
             "edges": [
                 # boto3 is used by pkg-cross (which is by-kind: zero domains)
@@ -547,9 +547,9 @@ class TestRenderByKind:
         text, *_ = _render(conn, wiki_root)
         app_idx = text.find("### Apps")
         pkg_idx = text.find("### Packages")
-        plug_idx = text.find("### Plugins")
+        plug_idx = text.find("### Agent Plugins")
         assert app_idx > -1 and pkg_idx > -1 and plug_idx > -1
-        # Apps first, then packages, then plugins (D-03).
+        # Apps first, then packages, then agent_plugins (D-03).
         assert app_idx < pkg_idx < plug_idx
         # No flat dependency group; boto3 nests under pkg-cross.
         assert "### Dependencies" not in text
@@ -614,7 +614,7 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
             ("package", "pkg-cross", {"uri": "pkg:agent-research/pkg-cross"}),
             ("test_suite", "suite-a", {"uri": "test_suite:agent-research/pkg-a/unit"}),
             ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-            ("plugin", "graph-wiki", {"uri": "plugin:graph-wiki", "ecosystem": "claude-code"}),
+            ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
         ],
         "edges": [
             ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
@@ -642,13 +642,13 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
 
     result = generate_index(conn, wiki_root)
     assert result.changed is True
-    assert result.entity_count == 6  # 3 pkgs + 1 ts + 1 dep + 1 plugin
+    assert result.entity_count == 6  # 3 pkgs + 1 ts + 1 dep + 1 agent_plugin
     assert result.curated_count == 2
     assert result.domain_count == 2
     # Phase 57 D-03/D-08: by_kind_count is the flat top-level group count
-    # (app/package/plugin). boto3 (a by-kind dependency) no longer renders as a
+    # (app/package/agent_plugin). boto3 (a by-kind dependency) no longer renders as a
     # flat group — it nests under its consumer packages — so only pkg-cross
-    # (package) + graph-wiki (plugin) remain as flat By-Kind bullets.
+    # (package) + graph-wiki (agent_plugin) remain as flat By-Kind bullets.
     assert result.by_kind_count == 2
 
     text = (wiki_root / "index.md").read_text(encoding="utf-8")
@@ -661,7 +661,7 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
     # (billing) as a `  - Dependencies` sub-list (D-08/D-10).
     assert "### Dependencies" not in text
     assert "  - Dependencies" in text
-    assert "### Plugins" in text
+    assert "### Agent Plugins" in text
     # Piped human-readable links (IDX-02/D-05).
     assert "[[wiki/entities/pkg_pkg-a|pkg-a]]" in text
     assert "[[wiki/entities/dep_boto3|boto3]]" in text
@@ -701,7 +701,7 @@ def _build_realistic_graph_spec():
             ("dependency", "langchain-aws", {"ecosystem": "pypi", "uri": "dependency:pypi/langchain-aws"}),
             ("dependency", "pytest", {"ecosystem": "pypi", "uri": "dependency:pypi/pytest"}),
             ("dependency", "multi-consumer-dep", {"ecosystem": "pypi", "uri": "dependency:pypi/multi-consumer-dep"}),
-            ("plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "plugin:graph-wiki"}),
+            ("agent_plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "agent_plugin:o/r/graph-wiki"}),
         ],
         "edges": [
             ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
@@ -906,14 +906,14 @@ def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
     assert "## Domain: empty-domain" not in text
 
 
-def test_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
-    """D-04 — plugins always in by_kind regardless of other state."""
+def test_agent_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
+    """D-04 — agent_plugins always in by_kind regardless of other state."""
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
             ("domain", "core", {"uri": "domain:agent-research/core"}),
             ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
-            ("plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "plugin:graph-wiki"}),
+            ("agent_plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "agent_plugin:o/r/graph-wiki"}),
         ],
         "edges": [
             ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
@@ -924,11 +924,11 @@ def test_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    plugin_slug = "plugin_graph-wiki"
-    assert text.count(plugin_slug) == 1
+    agent_plugin_slug = "agent-plugin_graph-wiki"
+    assert text.count(agent_plugin_slug) == 1
     by_kind_idx = text.find("## By Kind")
-    plugins_idx = text.find("### Plugins")
-    plug_link_idx = text.find(plugin_slug)
+    plugins_idx = text.find("### Agent Plugins")
+    plug_link_idx = text.find(agent_plugin_slug)
     assert by_kind_idx > -1
     assert plugins_idx > by_kind_idx
     assert plug_link_idx > plugins_idx

@@ -27,8 +27,8 @@ def fake_graph(monkeypatch):
         "domain": [
             _node("domain", "billing", "domain:agent-research/billing"),
         ],
-        "plugin": [
-            _node("plugin", "graph-wiki", "plugin:graph-wiki"),
+        "agent_plugin": [
+            _node("agent_plugin", "graph-wiki", "agent_plugin:o/r/graph-wiki"),
         ],
         "test_suite": [
             _node(
@@ -85,7 +85,9 @@ def test_build_table_source1_all_kinds_present(fake_graph, tmp_path):
     table = link_rewriter.build_rewrite_table(conn=None, wiki_root=wiki)
     # All 5 admitted kinds represented.
     assert "domain/billing/index" in table
+    # Legacy `plugin/` path rewrites to the agent-plugin_ short filename.
     assert "plugin/graph-wiki/overview" in table
+    assert table["plugin/graph-wiki/overview"] == "entities/agent-plugin_graph-wiki"
     assert "test-suites/unit/index" in table
 
 
