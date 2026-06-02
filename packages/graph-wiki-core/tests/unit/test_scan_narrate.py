@@ -113,3 +113,52 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     # Structural parity: Narrative placeholder intact, file-map rows still — TODO.
     assert "_(scanner will populate on next scan)_" in text
     assert "| `pyproject.toml` | file | — TODO |" in text
+
+
+def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch):
+    """With model_adapter/subagent_runtime un-importable, importing scan.py binds
+    the Bedrock symbols to None (except branch) and run_scan(narrate=False) still
+    completes end-to-end."""
+    import importlib
+    import sys
+
+    workspace = tmp_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    _seed_minimal_graph(workspace / ".graph" / "code.db")
+
+    # Make the Bedrock packages raise ImportError on import.
+    monkeypatch.setitem(sys.modules, "model_adapter.loader", None)
+    monkeypatch.setitem(sys.modules, "subagent_runtime.pool", None)
+
+    reloaded = importlib.reload(scan_module)
+    try:
+        # The except branch bound the symbols to None.
+        assert reloaded.make_llm is None
+        assert reloaded.SubagentPool is None
+
+        reloaded_setattr = monkeypatch.setattr
+        reloaded_setattr(reloaded, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+        reloaded_setattr(reloaded, "discover_workspaces", lambda *a, **kw: [])
+        reloaded_setattr(
+            reloaded, "_load_existing_pages",
+            lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}),
+        )
+        reloaded_setattr(reloaded, "attach_changed_files", lambda *a, **kw: None)
+        reloaded_setattr(
+            reloaded, "compute_diff",
+            lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+        )
+        reloaded_setattr(
+            reloaded, "compute_state_gate",
+            lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        )
+
+        result = asyncio.run(
+            reloaded.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True, narrate=False)
+        )
+        assert result is not None
+    finally:
+        # Restore real Bedrock symbols for the rest of the session.
+        monkeypatch.undo()
+        importlib.reload(scan_module)
