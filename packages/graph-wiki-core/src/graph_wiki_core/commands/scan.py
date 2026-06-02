@@ -1055,9 +1055,18 @@ async def run_scan(
                 todo_paths = file_map_todo_paths(page_path)
                 if not todo_paths:
                     continue
-                ws_dict = ws_by_name.get(node.name)
-                if ws_dict is None:
-                    continue
+                if node.kind == "test_suite":
+                    attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                    ws_dict = {
+                        "name": node.name,
+                        "path": attrs.get("path"),
+                        "type": "test_suite",
+                        "language": attrs.get("language", "unknown"),
+                    }
+                else:
+                    ws_dict = ws_by_name.get(node.name)
+                    if ws_dict is None:
+                        continue
                 describer_items.append((node_uri, ws_dict, page_path, todo_paths))
 
             if describer_items:

@@ -1360,4 +1360,86 @@ async def test_file_map_injected_into_test_suite_entity_page(
     assert "| `<file>` | file | — TODO |" not in text
     # Neighboring template sections survive injection.
     assert "## Test conventions" in text
+
+
+@pytest.mark.asyncio
+async def test_code_reader_fills_test_suite_todo_descriptions(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10c: after the suite File map is injected with — TODO rows, the
+    code_reader fan-out fills the Description cells from the model's
+    {path: description} JSON. Proves the synthesized test_suite describer dict
+    routes the suite into the describer pool."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    from subagent_runtime.pool import FanOutResult
+
+    captured_paths: dict = {}
+
+    async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
+        res = FanOutResult()
+        if role == "code_reader":
+            for it in items:
+                uri_inner, ws_dict, _page, todo_paths = it
+                captured_paths[uri_inner] = (ws_dict, list(todo_paths))
+                obj = {p: f"desc for {p}" for p in todo_paths}
+                res.successes.append((it, json.dumps(obj)))
+        return res
+
+    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+
+    await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    # The suite was routed into the code_reader pool with a synthesized dict.
+    suite_uri = "test_suite:org/repo/pkg-a/tests"
+    assert suite_uri in captured_paths, f"suite not dispatched to describer; got {captured_paths}"
+    ws_dict, todo = captured_paths[suite_uri]
+    assert ws_dict["type"] == "test_suite"
+    assert ws_dict["path"] == "packages/pkg-a/tests"
+    assert ws_dict["language"] == "python"
+    assert set(todo) == {"conftest.py", "test_pkg_a.py"}
+
+    text = (wiki / "entities" / "unit_tests_pkg-a.md").read_text(encoding="utf-8")
+    assert "| `conftest.py` | file | desc for conftest.py |" in text
+    assert "| `test_pkg_a.py` | file | desc for test_pkg_a.py |" in text
+    assert "— TODO" not in text
     assert "## Coverage" in text
