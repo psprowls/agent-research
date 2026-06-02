@@ -264,18 +264,36 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
                     return parent
                 return None
 
-            vault_pkg_pages = {
-                k: p
-                for k, p in pages.items()
-                if p["fm"].get("category") in ("package", "app") and _pkg_slug(k) is not None
-            }
-            vault_names = {_pkg_slug(k) for k in vault_pkg_pages}
+            def _entity_pkg_slug(fm: dict) -> str | None:
+                """Slug for a graph-derived entities/ page (kind: package|app).
+
+                The workspace slug is the final path segment of the entity URI
+                (``pkg:org/repo/alpha`` -> ``alpha``), unscoped to match disk
+                names the same way legacy pages are compared.
+                """
+                if fm.get("kind") not in ("package", "app"):
+                    return None
+                uri = (fm.get("uri") or "").strip()
+                if not uri:
+                    return None
+                tail = uri.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+                return _unscope(tail) if tail else None
+
+            def _slug_for(k: str, p: dict) -> str | None:
+                """Resolve a vault page's package slug: legacy path-shorthand
+                first, then the entity-page (kind+uri) form."""
+                if p["fm"].get("category") in ("package", "app"):
+                    return _pkg_slug(k)
+                return _entity_pkg_slug(p["fm"])
+
+            vault_pkg_pages = {k: p for k, p in pages.items() if _slug_for(k, p) is not None}
+            vault_names = {_slug_for(k, p) for k, p in vault_pkg_pages.items()}
             # Pages declaring ``status: planned`` are deliberately seeded
             # before the workspace exists on disk (e.g. ``graph-graph``).
             # Surface them
             # separately under ``planned_in_vault`` instead of drowning real
             # drift under false positives.
-            planned_names = {_pkg_slug(k) for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
+            planned_names = {_slug_for(k, p) for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
             code_drift = {
                 "packages_on_disk": len(disk_names),
                 "packages_in_vault": len(vault_names),

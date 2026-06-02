@@ -227,3 +227,29 @@ def test_total_pages_excludes_schema_files(tmp_path: Path) -> None:
 
     # Only 'foo.md' is a real page.
     assert result["total_pages"] == 1
+
+
+def test_code_drift_recognizes_entity_pages(tmp_path: Path, monkeypatch) -> None:
+    """Code-drift must match entities/ pages (kind: package, uri: pkg:org/repo/<name>)
+    against on-disk workspace slugs — the new single-entities-folder layout."""
+    from wiki_io import lint_wiki as lw
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "entities" / "pkg_alpha.md").write_text(
+        "---\ntitle: alpha\nuri: pkg:org/repo/alpha\nkind: package\n"
+        "graph_name: alpha\nupdated: 2099-01-01\n---\n\n## Narrative\n_(scanner will populate on next scan)_\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(lw, "_scan_discover", lambda repo, pinned_containers=None: [{"name": "alpha"}])
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
+    cd = result["code_drift"]
+
+    assert cd["packages_on_disk"] == 1
+    assert cd["packages_in_vault"] == 1
+    assert cd["missing_in_vault"] == []
+    assert cd["orphaned_in_vault"] == []
