@@ -36,7 +36,7 @@ def write_trace_record(
     response: Any,
     *,
     error: str | None = None,
-) -> None:
+) -> dict[str, Any]:
     """Write one JSONL trace record. Never raises.
 
     Args:
@@ -86,6 +86,39 @@ def write_trace_record(
             f.write(json.dumps(record) + "\n")
     except OSError as exc:
         logger.warning("Trace write failed (data loss): %s", exc)
+
+    return record
+
+
+def render_trace_record(record: dict) -> str:
+    """Return a single-line human-readable representation of a trace record.
+
+    Single source of truth for the per-record line format, shared by the live
+    fan-out log (subagent_runtime.pool) and the post-hoc `gw trace` viewer.
+
+    Fields: timestamp role model_id(last 30 chars) item_id(first 40 chars)
+            status latency_ms tokens_in -> tokens_out
+    Error records append: ERROR: <error message>
+    Missing fields are substituted with '-' so .get() never raises KeyError.
+    """
+    timestamp = record.get("timestamp", "-")
+    role = record.get("role", "-")
+    model_id = record.get("model_id", "-")
+    model_short = model_id[-30:] if model_id != "-" else "-"
+    item_id = record.get("item_id", "-")
+    item_short = item_id[:40] if item_id != "-" else "-"
+    status = record.get("status", "-")
+    latency_ms = record.get("latency_ms", "-")
+    tokens_in = record.get("tokens_in", "-")
+    tokens_out = record.get("tokens_out", "-")
+
+    line = (
+        f"[{timestamp}] {role} {model_short} {item_short} "
+        f"{status} {latency_ms}ms {tokens_in}->{tokens_out}"
+    )
+    if record.get("status") == "error":
+        line += f"  ERROR: {record.get('error', '')}"
+    return line
 
 
 def _compute_cost_usd(

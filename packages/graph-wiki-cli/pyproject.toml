@@ -7,6 +7,7 @@ dependencies = [
     "graph-wiki-core",
     "graph-io",
     "wiki-io",
+    "subagent-runtime",
     "typer>=0.25.1",
 ]
 
@@ -21,6 +22,7 @@ build-backend = "uv_build"
 graph-wiki-core = { workspace = true }
 graph-io = { workspace = true }
 wiki-io = { workspace = true }
+subagent-runtime = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
