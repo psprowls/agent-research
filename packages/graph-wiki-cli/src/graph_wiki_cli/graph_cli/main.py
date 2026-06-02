@@ -21,6 +21,7 @@ from graph_wiki_cli.graph_cli import (
     q_callees,
     q_callers,
     q_cross_cutting,
+    q_describe_agent_plugin,
     q_describe_app,
     q_describe_builtin,
     q_describe_dependency,
@@ -28,7 +29,6 @@ from graph_wiki_cli.graph_cli import (
     q_describe_entry_point,
     q_describe_package,
     q_describe_path,
-    q_describe_plugin,
     q_describe_repo,
     q_describe_suite,
     q_domain_clusters,
@@ -180,6 +180,12 @@ def exported_by_cmd(ctx: typer.Context, name: str) -> None:
     _run(q_exported_by, ctx, name=name)
 
 
+@graph_app.command(name="describe-agent-plugin")
+def describe_agent_plugin_cmd(ctx: typer.Context, name: str) -> None:
+    """Describe an agent plugin (claude-code plugin under development)."""
+    _run(q_describe_agent_plugin, ctx, name=name)
+
+
 @graph_app.command(name="describe-app")
 def describe_app_cmd(ctx: typer.Context, name: str) -> None:
     """Describe an app node."""
@@ -212,12 +218,6 @@ def describe_package_cmd(ctx: typer.Context, name: str) -> None:
 def describe_path_cmd(ctx: typer.Context, path: str) -> None:
     """Describe a file or directory path."""
     _run(q_describe_path, ctx, path=path)
-
-
-@graph_app.command(name="describe-plugin")
-def describe_plugin_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe a plugin."""
-    _run(q_describe_plugin, ctx, name=name)
 
 
 @graph_app.command(name="describe-repo")

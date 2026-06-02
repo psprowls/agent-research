@@ -1,4 +1,4 @@
-"""Parity tests for `gw graph describe-dependency` and `gw graph describe-plugin` (Phase 43-03 Task 6).
+"""Parity tests for `gw graph describe-dependency` and `gw graph describe-agent-plugin` (Phase 43-03 Task 6).
 
 Also covers `gw graph describe-builtin` (Phase 49 BUILTIN-06).
 """
@@ -15,11 +15,11 @@ import pytest
 
 from graph_io import exit_codes
 from graph_wiki_cli.graph_cli import (
+    q_describe_agent_plugin,
     q_describe_app,
     q_describe_builtin,
     q_describe_dependency,
     q_describe_package,
-    q_describe_plugin,
 )
 
 
@@ -51,6 +51,12 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
         '    installed_version: "0.1.0"\n'
         '    applied_version: "0.1.0"\n'
     )
+
+    # agent_plugin entity: build walks repo_root rglob(".claude-plugin/plugin.json")
+    import json as _json
+    pdir = repo_root / "plugins" / "graph-wiki" / ".claude-plugin"
+    pdir.mkdir(parents=True, exist_ok=True)
+    (pdir / "plugin.json").write_text(_json.dumps({"name": "graph-wiki", "version": "0.1.0"}))
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
     subprocess.run(
@@ -116,21 +122,36 @@ def test_cg_describe_dependency_json(workspace_with_deps_and_plugin, capsys):
     assert parsed["uri"] == "dependency:pypi/boto3"
 
 
-def test_cg_describe_plugin_smoke(workspace_with_deps_and_plugin, capsys):
+def test_cg_describe_agent_plugin_smoke(workspace_with_deps_and_plugin, capsys):
     args = _ns_plugin(workspace_with_deps_and_plugin, name="graph-wiki")
-    exit_code = q_describe_plugin.run(args)
+    exit_code = q_describe_agent_plugin.run(args)
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
     assert "graph-wiki" in captured.out
     assert "claude-code" in captured.out
+    assert "version:" in captured.out
+    assert "0.1.0" in captured.out
 
 
-def test_cg_describe_plugin_not_found(workspace_with_deps_and_plugin, capsys):
+def test_cg_describe_agent_plugin_json(workspace_with_deps_and_plugin, capsys):
+    args = _ns_plugin(workspace_with_deps_and_plugin, name="graph-wiki", fmt="json")
+    exit_code = q_describe_agent_plugin.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    parsed = json.loads(captured.out)
+    assert parsed["name"] == "graph-wiki"
+    assert parsed["ecosystem"] == "claude-code"
+    assert parsed["version"] == "0.1.0"
+    for key in ("commands", "agents", "skills", "scripts", "hooks", "mcp_servers"):
+        assert isinstance(parsed[key], list)
+
+
+def test_cg_describe_agent_plugin_not_found(workspace_with_deps_and_plugin, capsys):
     args = _ns_plugin(workspace_with_deps_and_plugin, name="nonexistent-plugin")
-    exit_code = q_describe_plugin.run(args)
+    exit_code = q_describe_agent_plugin.run(args)
     captured = capsys.readouterr()
     assert exit_code == exit_codes.GENERIC
-    assert "error: plugin not found:" in captured.err
+    assert "error: agent_plugin not found:" in captured.err
 
 
 # ---------------------------------------------------------------------------
