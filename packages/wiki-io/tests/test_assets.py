@@ -31,8 +31,15 @@ def test_core_entity_templates_still_present() -> None:
         "entity-repository.md",
         "entity-domain.md",
         "entity-package.md",
-        "entity-plugin.md",
+        "entity-agent-plugin.md",
         "entity-dependency.md",
         "entity-test-suite.md",
     ):
         assert expected in names, f"missing expected template: {expected}"
+
+
+def test_no_legacy_plugin_template() -> None:
+    """The repurposed entity-plugin.md is gone; entity-agent-plugin.md replaces it."""
+    names = _template_names()
+    assert "entity-plugin.md" not in names
+    assert "entity-agent-plugin.md" in names
