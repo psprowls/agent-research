@@ -79,287 +79,96 @@ Integration tests + fixtures.
 - Whether to roll the e2e suite into the default `test` script once CI Docker support lands.
 ```
 
-## 1. App page
+## 1. Entity page (package)
 
-One per application workspace — web app, mobile app, CLI, desktop client. Apps consume domain code (via `packages/`); they are the top-level composition layer.
-
-```markdown
----
-title: web-next-ts
-category: app
-summary: Next.js 15 web application — dashboard and admin surfaces
-status: active                                # active | planned — `planned` exempts the page from code-drift orphan checks
-app_path: apps/web-next-ts
-platform: web                                 # web | ios | android | mobile | desktop | cli
-framework: nextjs                             # nextjs | expo | vite | remix | sveltekit | tauri | electron | cli
-language: typescript
-entry_points: [app/(dashboard)/page.tsx, app/api/auth/route.ts]
-consumes_domains: [auth, timeline, healthkit]
-depends_on: [@psprowls/shared-ui-react-ts, @psprowls/shared-domain-ts]
-deployment: vercel
-tags: [web, nextjs]
-sources: 2
-updated: 2026-04-20
-last_sync_commit:                             # full SHA of the repo commit this page reflects, set by /graph-wiki:scan
-last_sync_at:                                 # YYYY-MM-DD when sync state was recorded
----
-
-# web-next-ts
-
-## Purpose
-One paragraph: what this app is, who uses it, on what platform.
-
-## Platform & runtime
-- **Platform:** Web (evergreen browsers)
-- **Framework:** Next.js 15 (App Router, Server Components)
-- **Node target:** 22.x
-- **Deployment:** Vercel — see [[architecture/deployment]]
-
-## Entry points
-- `app/(dashboard)/page.tsx` — main dashboard
-- `app/api/auth/[...nextauth]/route.ts` — NextAuth handler
-- `middleware.ts` — auth gate
-
-## Routes / screens
-| Route | Purpose | Auth |
-|---|---|---|
-| `/` | landing | public |
-| `/dashboard` | main UI | required |
-| `/admin/*` | admin | role:admin |
-
-## Provider chain
-`SafeAreaProvider` → `SessionProvider` (NextAuth) → `QueryClientProvider` (TanStack) → `AppSettingsProvider`
-Source: `app/providers.tsx:12`
-
-## File map - web-next-ts
-The Next.js app's root: build config, the auth middleware, and the top-level source directories.
-
-### web-next-ts/
-Root: workspace manifest, Next.js build config, and the auth middleware.
-
-| Path | Kind | Description |
-|---|---|---|
-| `package.json` | file | workspace manifest |
-| `next.config.mjs` | file | Next.js build config |
-| `middleware.ts` | file | auth gate; redirects unauthenticated users |
-
-### web-next-ts/app/
-App Router routes, layouts, and the top-level provider chain.
-
-| Path | Kind | Description |
-|---|---|---|
-| `providers.tsx` | file | top-level provider chain |
-| `(dashboard)/` | dir | dashboard route group |
-| `admin/` | dir | admin surfaces (role:admin gated) |
-| `api/` | dir | API route handlers (NextAuth, etc.) |
-
-### web-next-ts/components/
-App-specific UI (forms, charts, layouts) not promoted to a shared package.
-
-| Path | Kind | Description |
-|---|---|---|
-| (rows omitted in example — populated by scanner) | | |
-
-### web-next-ts/lib/
-Local adapters: env, feature flags, small helpers that don't warrant a shared package yet.
-
-| Path | Kind | Description |
-|---|---|---|
-| (rows omitted in example — populated by scanner) | | |
-
-## Domains consumed
-- [[domains/auth]] — session, sign-in
-- [[domains/timeline]] — feed page
-- [[domains/healthkit]] — health dashboard
-
-## Packages used
-- [[packages/shared-ui-react-ts]] — components
-- [[packages/shared-domain-ts]] — typed API client
-- [[packages/timeline-domain-ts]]
-
-## Key dependencies
-- [[dependencies/react]] — 19.0
-- [[dependencies/next]] — 15.x
-- [[dependencies/tanstack-react-query]]
-- [[dependencies/zustand]] — client state
-
-## Build & deployment
-- `pnpm build --filter=web-next-ts`
-- Deployed on push to main via Vercel
-
-## Decisions
-- [[adrs/0010-zustand-for-client-state]]
-- [[adrs/0011-react-19-on-web-only]]
-
-## Issues
-- [[work/2026-03-12-nextjs-barrel-client-directive]]
-
-## Roadmap
-- [[work/admin-read-only-mode]] — feature target 2026-Q2
-
-## Appears in sources
-- [[sources/2026-02-react-19-migration-pr]]
-- [[sources/2026-03-admin-ui-spec]]
-
-## Open questions
-- …
-```
-
-`last_sync_commit` (40-char SHA) and `last_sync_at` (YYYY-MM-DD) record the repo commit this page was last verified against. `/graph-wiki:scan` writes both when run with a clean working tree on `main`. `/graph-wiki:lint` compares HEAD against `last_sync_commit` to flag packages whose source has changed since the last review.
-
-## 2. Package page
-
-One per workspace library/service. Most common page type after apps.
+All entity pages live under `entities/` named `<prefix>_<name>[__<6hex>].md`. The frontmatter is scanner-owned (replaced every scan); human-preserved keys (`status`, `last_reviewed`, `owner`, `notes`) are never overwritten. `summary` is fill-when-empty.
 
 ```markdown
 ---
-title: common-aws-node-ts
-category: package
-summary: Lambda handler factories, middleware pipeline, and AWS SDK client wrappers
-status: active                                # active | planned — `planned` exempts the page from code-drift orphan checks
-package_path: packages/common-aws-node-ts
-package_type: library
-language: typescript
-depends_on: [@psprowls/common-context-node-ts]
-tags: [aws, lambda, middleware]
-sources: 2
-updated: 2026-04-20
-last_sync_commit:                             # full SHA of the repo commit this page reflects, set by /graph-wiki:scan
-last_sync_at:                                 # YYYY-MM-DD when sync state was recorded
-manifests:                                    # optional — set by /graph-wiki:scan for `package-family` containers
-  # Multi-variant packages (e.g. HubSpot UI extensions with both a private
-  # and public app variant, or a sample with nested src/app/extensions/ and
-  # src/app/app.functions/ manifests). Each entry records one detected
-  # manifest file. Omitted entirely for ordinary single-manifest packages.
-  # - path: references/.../charts-example/private/src/app/extensions/package.json
-  #   name: charts
-  #   language: javascript
-  #   ecosystem: npm
+title: <Package Name>
+uri: pkg:org/repo/<name>
+kind: package
+graph_name: <graph-name>
+last_scan_at: <YYYY-MM-DD>
+domains: []
+depends_on: []
+test_suites: []
+entry_points: []
+language: ""
+version: ""
+updated: <YYYY-MM-DD>
 ---
 
-# common-aws-node-ts
+# <name>
 
-## Purpose
-One paragraph: what this package does, who uses it, why it exists.
+## Narrative
+_(scanner will populate on next scan)_
 
-## Public API
-Main exports and when to use them. Link code with backticked paths.
-
-- `createBaseApiHandler(config)` — `src/handlers/baseApiHandler.ts:15` — public endpoints, no auth
-- `createBaseAuthorizedApiHandler(config)` — `src/handlers/baseApiHandler.ts:47` — with Cognito JWT auth
-- `withGlobalContext<P, B, R>(event, ctx, handler)` — wraps route handlers, parses body
-
-## File map - common-aws-node-ts
-The package root: workspace manifest, README, and the `src/` and `tests/` trees.
-
-### common-aws-node-ts/
-Root: workspace manifest and README.
-
+## File map - <name>
 | Path | Kind | Description |
 |---|---|---|
-| `package.json` | file | workspace manifest |
-| `README.md` | file | package readme |
-
-### common-aws-node-ts/src/
-TypeScript source. `index.ts` re-exports the public handler factories; the rest is split into handlers, middlewares, and pre-configured clients.
-
-| Path | Kind | Description |
-|---|---|---|
-| `index.ts` | file | re-exports public handler factories |
-| `handlers/baseApiHandler.ts` | file | public + authorized handler factories |
-| `handlers/withGlobalContext.ts` | file | body parsing + AsyncLocalStorage wrapper |
-| `middleware/authProvider.ts` | file | Cognito JWT auth middleware |
-| `middleware/eventBodyDeserializer.ts` | file | JSON body parser |
-| `middleware/globalContextProvider.ts` | file | AsyncLocalStorage seeder |
-| `middleware/httpRouteHandler.ts` | file | route dispatcher |
-| `clients/` | dir | pre-configured AWS SDK clients (DynamoDB, S3, SNS) used across handlers |
-
-### common-aws-node-ts/tests/
-Integration tests for the handler factories.
-
-| Path | Kind | Description |
-|---|---|---|
-| `handlers.test.ts` | file | integration tests for the handler factories |
-
-## Key patterns
-- Middleware pipeline order: `globalContextProvider` → `eventBodyDeserializer` → `authProvider` → `httpRouteHandler`
-- Handlers receive `IGlobalContext` from `AsyncLocalStorage`
-
-## Used by
-- [[packages/location-aws-node-ts]]
-- [[packages/healthkit-aws-node-ts]]
-- [[packages/timeline-aws-node-ts]]
-- (full list from `scan_monorepo.py` import graph)
-
-## Belongs to domain
-- [[domains/aws-infrastructure]]
-
-## Related concepts
-- [[concepts/global-context]]
-- [[concepts/lambda-handler-pattern]]
-
-## Decisions
-- [[adrs/0008-middleware-pipeline]]
-- [[adrs/0012-move-to-esm]]
-
-## Appears in sources
-- [[sources/2026-04-auth-migration-spec]] — mentions `authProvider` middleware
-
-## Open questions
-- Should we extract the middleware to a separate package?
+| `<file>` | file | — TODO |
 ```
 
-`last_sync_commit` (40-char SHA) and `last_sync_at` (YYYY-MM-DD) record the repo commit this page was last verified against. `/graph-wiki:scan` writes both when run with a clean working tree on `main`. `/graph-wiki:lint` compares HEAD against `last_sync_commit` to flag packages whose source has changed since the last review.
+The `## Narrative` section is the only H2 the scanner rewrites (on narrate passes). The `## File map - <name>` section is pre-populated by the scanner with `— TODO` Description placeholders; see the [File map convention](#file-map-convention-apps-and-packages) section for the full table rules.
 
-## 3. Domain page
+## 2. Entity page (app)
 
-A feature area that spans multiple packages.
+App entity pages follow the same shape as package pages with the addition of `app_kind` and `app_signals` in the scanner-owned frontmatter. Filename prefix: `app_`.
 
 ```markdown
 ---
-title: Auth
-category: domain
-summary: Authentication across mobile, web, and Lambda — Cognito + JWT session management
-packages: [shared-aws-node-ts, shared-native-ts, shared-domain-ts]
-tags: [auth, cognito, jwt]
-sources: 3
-updated: 2026-04-20
+title: <App Name>
+uri: <app-uri>
+kind: app
+graph_name: <graph-name>
+last_scan_at: <YYYY-MM-DD>
+domains: []
+depends_on: []
+test_suites: []
+entry_points: []
+language: ""
+version: ""
+updated: <YYYY-MM-DD>
 ---
 
-# Auth
+# <name>
 
-## Scope
-One paragraph: what this domain covers, boundaries with adjacent domains.
+## Narrative
+_(scanner will populate on next scan)_
 
-## Packages in this domain
-- [[packages/shared-aws-node-ts]] — Cognito integration, JWT validation middleware
-- [[packages/shared-native-ts]] — `AuthProvider` React Native context
-- [[packages/shared-domain-ts]] — shared API client with auth header injection
-
-## Key flows
-- **Login** — `shared-native-ts/src/auth/login.ts` → Cognito → JWT → stored in SecureStore
-- **Request auth** — `shared-domain-ts/src/client.ts` → attaches Bearer token → Lambda middleware validates
-- **Refresh** — (describe)
-
-## Concepts
-- [[concepts/cognito-jwt-validation]]
-- [[concepts/global-context]] — how `session.user_id` propagates
-
-## Decisions
-- [[adrs/0003-cognito-over-auth0]]
-- [[adrs/0014-jwt-sessions]] — current session approach
-
-## Sources
-- [[sources/2026-04-auth-migration-spec]]
-- [[sources/2026-02-cognito-evaluation]]
-
-## Contrasts / alternatives
-- [[concepts/cognito-vs-auth0]]
-
-## Open questions
-- Biometric refresh flow is under-documented.
-- Multi-tenant support: not yet scoped.
+## File map - <name>
+| Path | Kind | Description |
+|---|---|---|
+| `<file>` | file | — TODO |
 ```
+
+## 3. Entity page (domain)
+
+Domain entity pages carry domain-specific scanner-owned keys (`parent_domain`, `sub_domains`, `packages`). No `## File map` section. Filename prefix: `domain_`.
+
+```markdown
+---
+title: <Domain Name>
+uri: <domain-uri>
+kind: domain
+graph_name: <graph-name>
+last_scan_at: <YYYY-MM-DD>
+parent_domain: ""
+sub_domains: []
+packages: []
+updated: <YYYY-MM-DD>
+---
+
+# <name>
+
+## Narrative
+_(scanner will populate on next scan)_
+```
+
+## Other entity kinds
+
+All other admitted entity kinds (`repository`, `agent_plugin`, `dependency`, `test_suite`) also live in `entities/` with their respective filename prefixes (`repo_`, `agent-plugin_`, `dep_`, `unit_tests_` / `int_tests_` / `tests_`). Each carries the universal scanner-owned keys (`uri`, `kind`, `graph_name`, `last_scan_at`) plus kind-specific keys (see `wiki-schema.md` Entity pages). The authoritative templates are the packaged `entity-*.md` files in `packages/wiki-io/src/wiki_io/assets/page-templates/`.
 
 ## 4. Concept page
 
@@ -395,8 +204,8 @@ interface IGlobalContext {
 From `packages/common-context-node-ts/src/globalContext.ts`.
 
 ## Used in
-- [[packages/common-aws-node-ts]] — injects via middleware
-- [[packages/common-context-node-ts]] — defines the interface
+- [[entities/pkg_common-aws-node-ts]] — injects via middleware
+- [[entities/pkg_common-context-node-ts]] — defines the interface
 - All `*-data-node-ts` packages — scope queries by `session.user_id`
 
 ## Related patterns
@@ -408,7 +217,7 @@ From `packages/common-context-node-ts/src/globalContext.ts`.
 
 ## Open questions / gotchas
 - Default `session.user_id` is `ObjectId(0)` — tests must call `updateSession()` before DB operations.
-- ⚠️ Contradiction: `[[packages/shared-aws-node-ts]]` assumes `session.session_id` always populated, but `[[sources/auth-migration-spec]]` says pre-login requests have null.
+- ⚠️ Contradiction: `[[entities/pkg_shared-aws-node-ts]]` assumes `session.session_id` always populated, but `[[sources/auth-migration-spec]]` says pre-login requests have null.
 ```
 
 ## 4a. Concept page — pattern variant
@@ -448,8 +257,8 @@ The shape of the pattern. Code sketch is fine; keep it minimal and language-agno
 - [[sources/2026-04-react-19-suspense-blog]] — conceptual write-up.
 
 ## Where this could apply in the codebase
-- [[packages/web-next-ts]] — current isLoading-flag pattern in dashboard queries.
-- [[packages/app-expo-ts]] — same.
+- [[entities/pkg_web-next-ts]] — current isLoading-flag pattern in dashboard queries.
+- [[entities/pkg_app-expo-ts]] — same.
 
 ## Related patterns
 - [[concepts/error-boundary-pattern]]
@@ -505,10 +314,10 @@ Two sentences max. What the source proposes / argues / reports.
 - Spec claims `session.session_id` unchanged, but see `[[concepts/global-context]]` — field shape differs.
 
 ## Touches
-- [[packages/shared-aws-node-ts]]
-- [[packages/shared-native-ts]]
-- [[packages/shared-domain-ts]]
-- [[domains/auth]]
+- [[entities/pkg_shared-aws-node-ts]]
+- [[entities/pkg_shared-native-ts]]
+- [[entities/pkg_shared-domain-ts]]
+- [[entities/domain_auth]]
 - [[concepts/global-context]]
 
 ## Decisions triggered
@@ -516,7 +325,7 @@ Two sentences max. What the source proposes / argues / reports.
 
 ## Where it's cited in this wiki
 - [[concepts/global-context]]
-- [[domains/auth]]
+- [[entities/domain_auth]]
 - [[adrs/0014-jwt-sessions]]
 ```
 
@@ -544,7 +353,7 @@ Two-three sentences capturing the current understanding of how requests flow thr
 
 ## Layers
 
-1. **Client** — React Native (`[[packages/app-expo-ts]]`) or Next.js (`[[packages/web-next-ts]]`) uses `[[packages/shared-domain-ts]]` client
+1. **Client** — React Native (`[[entities/pkg_app-expo-ts]]`) or Next.js (`[[entities/pkg_web-next-ts]]`) uses `[[entities/pkg_shared-domain-ts]]` client
 2. **API Gateway / Lambda** — routes to `*-aws-node-ts` handlers; middleware pipeline establishes `[[concepts/global-context]]`
 3. **Data layer** — handlers delegate to `*-data-node-ts` repositories scoped by `session.user_id`
 4. **MongoDB** — per-domain database via `IDatabaseManager.getDatabase(name)`
@@ -553,11 +362,11 @@ Two-three sentences capturing the current understanding of how requests flow thr
 - See `raw/assets/request-flow.svg` (from `[[sources/2025-12-architecture-overview]]`)
 
 ## Key packages
-- [[packages/shared-domain-ts]] — client
-- [[packages/shared-aws-node-ts]] — auth
-- [[packages/common-aws-node-ts]] — middleware base
-- [[packages/common-context-node-ts]] — context
-- [[packages/activities-data-node-ts]] — repo base classes
+- [[entities/pkg_shared-domain-ts]] — client
+- [[entities/pkg_shared-aws-node-ts]] — auth
+- [[entities/pkg_common-aws-node-ts]] — middleware base
+- [[entities/pkg_common-context-node-ts]] — context
+- [[entities/pkg_activities-data-node-ts]] — repo base classes
 
 ## Key concepts
 - [[concepts/global-context]]
@@ -618,10 +427,10 @@ Adopt short-lived JWTs signed by Cognito. Validation in middleware; refresh on t
 - Auth0 (rejected: see [[concepts/cognito-vs-auth0]])
 
 ## Impact
-- [[packages/shared-aws-node-ts]] — middleware change
-- [[packages/shared-native-ts]] — refresh logic
-- [[packages/shared-domain-ts]] — header injection
-- [[domains/auth]] — overall flow
+- [[entities/pkg_shared-aws-node-ts]] — middleware change
+- [[entities/pkg_shared-native-ts]] — refresh logic
+- [[entities/pkg_shared-domain-ts]] — header injection
+- [[entities/domain_auth]] — overall flow
 
 ## Follow-ups
 - Roll out to staging 2026-05
@@ -657,18 +466,18 @@ One paragraph: what this library does, why we use it, which surfaces.
 ## Versions in use
 | Version | Used in | Notes |
 |---|---|---|
-| 19.0.0 | [[packages/web-next-ts]], [[packages/shared-ui-react-ts]] | Migrated 2026-Q1 |
-| 18.3.1 | [[packages/app-expo-ts]], [[packages/shared-ui-native-ts]] | Pinned by RN 0.76 |
+| 19.0.0 | [[entities/pkg_web-next-ts]], [[entities/pkg_shared-ui-react-ts]] | Migrated 2026-Q1 |
+| 18.3.1 | [[entities/pkg_app-expo-ts]], [[entities/pkg_shared-ui-native-ts]] | Pinned by RN 0.76 |
 
 ## Used by
-- [[packages/web-next-ts]]
-- [[packages/app-expo-ts]]
-- [[packages/shared-ui-react-ts]]
-- [[packages/shared-ui-native-ts]]
+- [[entities/pkg_web-next-ts]]
+- [[entities/pkg_app-expo-ts]]
+- [[entities/pkg_shared-ui-react-ts]]
+- [[entities/pkg_shared-ui-native-ts]]
 
 ## Key patterns in this repo
 - Functional components only; no class components.
-- Suspense + Server Components in `[[packages/web-next-ts]]` (Next 15 App Router).
+- Suspense + Server Components in `[[entities/pkg_web-next-ts]]` (Next 15 App Router).
 - `use client` directive boundaries — see [[concepts/nextjs-client-boundary]].
 
 ## Gotchas / workarounds

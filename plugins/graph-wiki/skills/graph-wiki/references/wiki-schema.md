@@ -23,19 +23,8 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 └── wiki/                        # this plugin's curated knowledge base
     ├── index.md                 # content catalog — updated every ingest/scan
     ├── log.md                   # append-only timeline
-    ├── apps/                    # [conditional] one folder per application workspace
-    │   └── <app>/               # e.g. apps/web-next-ts/
-    │       └── <app>.md         #   the app overview (category: app)
-    ├── packages/                # [conditional] cross-domain library/service packages
-    │   └── <pkg>/               # e.g. packages/common-aws-node-ts/
-    │       └── <pkg>.md         #   the package overview (category: package)
-    ├── domains/                 # [conditional] feature areas across packages
-    │   └── <domain>/
-    │       ├── <domain>.md      #   the domain overview (category: domain)
-    │       ├── details.md       #   concepts, dependencies, decisions, sources, contrasts
-    │       └── packages/        #   the domain's workspace packages
-    │           └── <pkg>/
-    │               └── <pkg>.md
+    ├── entities/                # one page per graph-derived entity (all kinds)
+    │   └── <prefix>_<name>.md   # e.g. pkg_common-aws-node-ts.md, app_web-next-ts.md
     ├── concepts/                # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
     ├── dependencies/            # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                 # one summary page per ingested source
@@ -47,9 +36,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
     └── .cursorrules             # (optional) legacy Cursor
 ```
 
-`apps/`, `packages/`, and `domains/` are **conditional containers** — `init_vault.py` creates them only when the detector classifies a top-level directory as an app, package, or domain. A single-package repo has none of these (the repo *is* the package); its module/area pages live at the wiki root or under `concepts/`. A library-only monorepo has `packages/` but not `apps/`. The pinned set is recorded under `containers:` in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
-
-The `package-family` classification adds no new top-level container — its pages land wherever the row's `vault_dir:` points (commonly under `domains/<d>/packages/`). A `package-family` row may also use a slashed `source:` path (e.g. `references/hubspot/hubspot-ui-extensions`); the source dir need not be a top-level repo entry.
+`entities/` is the single flat folder for all graph-derived entity pages (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). There are no separate `apps/`, `packages/`, or `domains/` page folders. Bootstrap seeds `entities/.gitkeep`; `write_entities` removes it once real pages exist and restores it if all pages are swept.
 
 ## Iron rules
 
@@ -76,73 +63,61 @@ Allowed `category` values: `app`, `package`, `domain`, `concept`, `dependency`, 
 
 ## Category-specific frontmatter
 
-### App pages
+### Entity pages
 
-```yaml
----
-title: web-next-ts
-category: app
-summary: Next.js 15 web application — dashboard and admin surfaces
-app_path: apps/web-next-ts                    # relative to repo root
-platform: web                                 # web | ios | android | mobile | desktop | cli
-framework: nextjs                             # nextjs | expo | vite | remix | sveltekit | tauri | electron | cli
-language: typescript
-entry_points: [app/(dashboard)/page.tsx, app/api/auth/route.ts]
-consumes_domains: [auth, timeline, healthkit]
-depends_on: [@psprowls/shared-ui-react-ts, @psprowls/shared-domain-ts, ...]
-deployment: vercel                            # vercel | aws-amplify | cloudflare | app-store | self-hosted | …
-tags: [web, nextjs]
-sources: 0
-updated: 2026-04-20
-last_sync_commit:                             # full SHA of the repo commit this page reflects, set by /graph-wiki:scan
-last_sync_at:                                 # YYYY-MM-DD when sync state was recorded
----
-```
+Entity pages live under `<workspace>/wiki/entities/` — one page per graph-derived entity, regardless of kind. All entity frontmatter is split into two sets:
 
-`last_sync_commit` (40-char SHA) and `last_sync_at` (YYYY-MM-DD) record the repo commit this page was last verified against. `/graph-wiki:scan` writes both when run with a clean working tree on `main`. `/graph-wiki:lint` compares HEAD against `last_sync_commit` to flag packages whose source has changed since the last review.
+**Scanner-owned keys** (replaced every scan — do not hand-edit these):
 
-### Package pages
+| Key | Applies to | Notes |
+|---|---|---|
+| `uri` | all | graph node URI |
+| `kind` | all | `repository \| domain \| package \| app \| agent_plugin \| dependency \| test_suite` |
+| `graph_name` | all | name of the graph that sourced this entity |
+| `last_scan_at` | all | YYYY-MM-DD of last scan |
+| `domains` | package, app | list of domain URIs/names |
+| `depends_on` | package, app | list of dependency names |
+| `test_suites` | package, app | associated test suite names |
+| `entry_points` | package, app | detected entry-point paths |
+| `language` | package, app | primary language string |
+| `version` | package, app | version string from manifest |
+| `app_kind` | app | sub-classification (web, mobile, cli, …) |
+| `app_signals` | app | detected signals (framework, deployment, …) |
+| `parent_domain` | domain | parent domain name, if nested |
+| `sub_domains` | domain | list of child domain names |
+| `packages` | domain | packages owned by this domain |
+| `tested_packages` | test_suite | packages the suite covers |
+| `suite_kind` | test_suite | `unit \| integration \| other` |
+| `file_count` | test_suite | number of test files detected |
+| `ecosystem` | dependency | `npm \| pypi \| cargo \| go \| …` |
+| `used_by` | dependency | packages that declare this dependency |
+| `versions_in_use` | dependency | version strings found across manifests |
+| `package_count` | repository | total workspace packages detected |
+
+**Human-preserved keys** (never overwritten by the scanner):
+
+`status`, `last_reviewed`, `owner`, `notes`, and any key outside the scanner-owned set above.
+
+**`summary`** is fill-when-empty: the scanner writes it only if the field is absent or empty. Once you write a summary, the scanner leaves it alone.
+
+Minimal example (package):
 
 ```yaml
 ---
 title: common-aws-node-ts
-category: package
-summary: Lambda handler factories and middleware pipeline
-package_path: packages/common-aws-node-ts    # relative to repo root
-package_type: library                         # library | service | tool
-language: typescript                          # typescript | python | rust | go | …
-depends_on: [@psprowls/common-context-node-ts, ...]
-tags: [aws, lambda]
-sources: 0
-updated: 2026-04-20
-last_sync_commit:                             # full SHA of the repo commit this page reflects, set by /graph-wiki:scan
-last_sync_at:                                 # YYYY-MM-DD when sync state was recorded
+uri: pkg:org/repo/common-aws-node-ts
+kind: package
+graph_name: my-repo
+last_scan_at: 2026-06-01
+domains: []
+depends_on: []
+test_suites: []
+entry_points: []
+language: typescript
+version: "1.0.0"
+updated: 2026-06-01
 ---
 ```
-
-`last_sync_commit` and `last_sync_at` work the same as on app pages.
-
-Hand-maintained `exports:` and `depended_on_by:` were dropped 2026-05-03; the package page's hand-written prose and `## Public API` section carry the exports narrative instead.
-
-Note: `package_type: app` is retired — apps live in `<workspace>/wiki/apps/` with `category: app`. Services (long-running Lambda stacks, background workers) stay under `<workspace>/wiki/packages/` with `package_type: service`.
-
-### Domain pages
-
-```yaml
----
-title: HealthKit
-category: domain
-summary: HealthKit data ingestion, normalization, and timeline integration
-packages: [healthkit-aws-node-ts, healthkit-events-node-ts, healthkit-data-node-ts]
-tags: [healthkit, ingestion]
-sources: 0
-updated: 2026-04-20
----
-```
-
-Conditional container — `init_vault.py` creates `<workspace>/wiki/domains/` only when the detector classifies a top-level repo directory as `domain`. Many repos don't have a literal `domains/` folder on disk; a domain may be a wiki-only construct expressed through naming convention (e.g. all `healthkit-*` packages). In that case the domain page still lives at `domains/<slug>/overview.md` in the wiki even though the underlying workspaces sit under `<repo>/packages/`. Single-package and library-only repos typically have no domain pages.
-
-`packages:` lists the workspace packages owned by the domain. The page template's body sections (`## Scope`, `## Packages in this domain`, `## Linked packages from other domains`, `## Key flows`) capture what a frontmatter list can't.
 
 ### Concept pages
 
@@ -337,11 +312,20 @@ updated: 2026-04-20
 ## Naming conventions
 
 - **Filenames:** `kebab-case.md` — lowercase, hyphens, no spaces
-- **Apps, packages, and domains live in folders.** The overview file inside each folder shares the folder's name (e.g. `apps/web-next-ts/web-next-ts.md`). Other content for that workspace can live alongside the overview file inside the same folder.
-- **Apps:** `apps/<app-name>/<app-name>.md` — workspace name verbatim.
-- **Packages (cross-domain):** `packages/<package-name>/<package-name>.md` — use the workspace name verbatim. For scoped names (`@psprowls/common-aws-node-ts`), drop the scope in the folder/file name but keep it in `title` frontmatter.
-- **Domain-scoped packages:** `domains/<domain-slug>/packages/<package-name>/<package-name>.md` — same naming rule as cross-domain packages.
-- **Domains:** `domains/<domain-slug>/<domain-slug>.md` — overview lives inside the domain folder.
+- **Entity pages** live flat in `entities/` as `<prefix>_<name>[__<6hex>].md`. The `__<6hex>` SHA suffix is appended only on collision. Prefix per kind:
+
+  | Kind | Prefix | Example |
+  |---|---|---|
+  | `repository` | `repo_` | `repo_my-monorepo.md` |
+  | `domain` | `domain_` | `domain_auth.md` |
+  | `package` | `pkg_` | `pkg_common-aws-node-ts.md` |
+  | `app` | `app_` | `app_web-next-ts.md` |
+  | `agent_plugin` | `agent-plugin_` | `agent-plugin_graph-wiki.md` |
+  | `dependency` | `dep_` | `dep_react.md` |
+  | `test_suite` (unit) | `unit_tests_` | `unit_tests_common-aws-node-ts.md` |
+  | `test_suite` (integration) | `int_tests_` | `int_tests_common-aws-node-ts.md` |
+  | `test_suite` (other) | `tests_` | `tests_common-aws-node-ts.md` |
+
 - **Concepts:** `concepts/<concept-slug>.md` — e.g. `concepts/global-context.md`. Comparisons live here too: `concepts/<a>-vs-<b>.md` for two-way, `concepts/<topic>-options.md` for n-way.
 - **Sources:** `sources/<YYYY-MM>-<short-slug>.md` — e.g. `sources/2026-04-auth-migration-spec.md`
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
@@ -468,12 +452,12 @@ Walks parsed manifests and merges hand-maintained service rows from `<workspace>
 Use Obsidian wikilinks. Three forms:
 
 ```
-[[packages/common-aws-node-ts]]                             # folder shorthand — resolves to packages/common-aws-node-ts/common-aws-node-ts.md
-[[packages/common-aws-node-ts|the AWS helpers package]]     # custom display
-[[common-aws-node-ts]]                                      # stem — resolves if unique
+[[entities/pkg_common-aws-node-ts]]                         # full path to entity page
+[[entities/pkg_common-aws-node-ts|the AWS helpers package]] # custom display
+[[pkg_common-aws-node-ts]]                                  # stem — resolves if unique
 ```
 
-For apps, packages, and domains, prefer the folder-shorthand form `[[<container>/<name>]]`. The linter aliases that to the file inside the folder, so you almost never need to write the doubled path. Stem links also work and are preferred when the name is unambiguous. Use full paths only for non-folder pages (concepts, sources, ADRs, etc.) or when disambiguating between a cross-domain package and a domain-scoped one with the same name (e.g. `[[domains/auth/packages/jwt-helpers]]`).
+For entity pages (packages, apps, domains, etc.), prefer stem links when the name is unambiguous; use the full `entities/<prefix>_<name>` path only when disambiguation is needed. Use full paths for non-entity pages (concepts, sources, ADRs, etc.).
 
 Code references — when citing actual code — use a plain code reference (Obsidian won't wikilink them but it's searchable):
 
@@ -483,12 +467,11 @@ See `packages/common-aws-node-ts/src/handlers/baseApiHandler.ts:42`
 
 ## Cross-reference rules
 
-- **Every package mentioned on a domain or architecture page must be a wikilink** to `packages/<name>`.
-- **Every domain mentioned on a package page** (the domain it belongs to or interacts with) must be a wikilink.
-- **Every ADR referenced in package/domain/architecture must be a wikilink** to `adrs/<id>-<slug>`.
-- **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (backticked, with file:line).
+- **Every package or domain mentioned on an entity or architecture page must be a wikilink** to `entities/<prefix>_<name>`.
+- **Every ADR referenced in entity/architecture pages must be a wikilink** to `adrs/<id>-<slug>`.
+- **Every claim on an entity page cites** either a source page (`[[sources/xxx]]`) or a code path (backticked, with file:line).
 - **Contradictions get flagged inline** with a `> ⚠️ Contradiction:` callout naming the conflicting sources or code paths.
-- **Architecture pages link back to every package, domain, and ADR they draw on.**
+- **Architecture pages link back to every entity and ADR they draw on.**
 
 ## Index discipline
 
@@ -505,12 +488,12 @@ The index groups pages by category, alphabetized by title. Each entry is one lin
 
 ```
 ## [2026-04-20] scan | detected 3 new packages
-Added packages/timeline-data-node-ts, packages/timeline-domain-ts,
-packages/timeline-native-ts. No renames or deletions.
+Added entities/pkg_timeline-data-node-ts.md, entities/pkg_timeline-domain-ts.md,
+entities/pkg_timeline-native-ts.md. No renames or deletions.
 
 ## [2026-04-20] ingest | Auth Migration Spec
 Added sources/2026-04-auth-migration-spec.md. Updated concepts/global-context,
-domains/auth, packages/shared-aws-node-ts, packages/shared-native-ts,
+entities/domain_auth.md, entities/pkg_shared-aws-node-ts.md, entities/pkg_shared-native-ts.md,
 architecture/request-flow, adrs/0014-jwt-sessions (new). Flagged contradiction
 with concepts/global-context on session shape.
 ```

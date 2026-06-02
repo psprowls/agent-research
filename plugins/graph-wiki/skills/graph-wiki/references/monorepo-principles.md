@@ -48,14 +48,14 @@ The generic [wiki](../../wiki) pattern (entities/concepts/sources/synthesis/comp
 
 | Generic LLM Wiki | Code Wiki |
 |---|---|
-| `entities/` (people, orgs, places) | `packages/` (workspace packages, the primary "entities" in a repo) |
-| `concepts/` | `concepts/` + `domains/` (concepts cross packages; domains are coarser units; `<a>-vs-<b>.md` comparisons live in `concepts/`) |
+| `entities/` (people, orgs, places) | `entities/` (one graph-derived page per admitted entity kind: repository, domain, package, app, agent_plugin, dependency, test_suite) |
+| `concepts/` | `concepts/` (cross-cutting patterns; `<a>-vs-<b>.md` comparisons live here) |
 | `sources/` | Same, but source types are: spec, PR, ticket, article, transcript, RFC |
 | `synthesis/` | `architecture/` |
-| *(none)* | `dependencies/` — auto-generated `index.md` covers every dep; detail pages opt-in (`kind: package | package-family | service`) |
+| *(none)* | `dependencies/` — auto-generated `index.md` covers every dep; detail pages opt-in |
 | *(none)* | `adrs/` — dated, citable decisions |
-| Index-first retrieval | Same, plus **code-drift detection** (packages on disk vs. in wiki) |
-| One-time curation | Continuous — every scan/merge picks up new packages automatically |
+| Index-first retrieval | Same, plus **code-drift detection** (entities on disk vs. in wiki) |
+| One-time curation | Continuous — every scan/merge picks up new entities automatically |
 
 ## The code is the source of truth
 
