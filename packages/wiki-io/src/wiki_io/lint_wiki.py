@@ -36,6 +36,7 @@ except ImportError:
     _unscope = lambda n: n  # noqa: E731 — fallback, code-drift check is skipped anyway
 
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.entity_writer import ADMITTED_KINDS
 from wiki_io.layout_io import read_layout
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
@@ -207,11 +208,17 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         fm = page["fm"]
         title = fm.get("title") or Path(key).name
         titles[title].append(key)
-        required = {"title", "category", "summary"}
-        if not required.issubset(fm.keys()):
-            missing_fm.append(key)
-        if "tokens" not in fm:
-            missing_tokens.append(key)
+        if fm.get("kind") in ADMITTED_KINDS:
+            # Graph-derived entities/ pages use the entity frontmatter contract:
+            # title/uri/kind are scanner-owned; they carry no category/summary/tokens.
+            if not {"title", "uri", "kind"}.issubset(fm.keys()):
+                missing_fm.append(key)
+        else:
+            required = {"title", "category", "summary"}
+            if not required.issubset(fm.keys()):
+                missing_fm.append(key)
+            if "tokens" not in fm:
+                missing_tokens.append(key)
         updated = fm.get("updated")
         if updated:
             try:
