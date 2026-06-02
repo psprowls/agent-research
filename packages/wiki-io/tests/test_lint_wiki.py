@@ -286,3 +286,11 @@ def test_entity_pages_use_entity_frontmatter_contract(tmp_path: Path, monkeypatc
     # The curated page is still held to the curated contract.
     assert "wiki/concepts/bad" in result["missing_frontmatter"]
     assert "wiki/concepts/bad" in result["missing_tokens"]
+
+
+def test_container_fixed_dirs_includes_entities() -> None:
+    """The single entities/ folder must be a recognized fixed vault dir so
+    container drift never reports it as an orphan."""
+    from wiki_io.lint.container import FIXED_DIRS
+
+    assert "entities" in FIXED_DIRS

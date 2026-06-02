@@ -9,6 +9,7 @@ from wiki_io.layout_io import read_layout
 GROUP = "container"
 
 FIXED_DIRS = {
+    "entities",
     "concepts",
     "architecture",
     "adrs",
