@@ -46,6 +46,7 @@ from wiki_io.scan_monorepo import (
     _load_existing_pages,
     _wiki_relative_path_for,
     attach_changed_files,
+    build_dir_file_map,
     build_file_map,
     compute_diff,
     compute_state_gate,
@@ -957,11 +958,14 @@ async def run_scan(
                 entity_write_result.updated
             )
             list_fns = _kind_list_fns()
+            # Collision set shared by the package/app and test-suite branches.
+            fm_collision_set = (
+                _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
+                if refreshed
+                else frozenset()
+            )
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
             if refreshed and any(fm_list_fns):
-                fm_collision_set = _compute_collision_set(
-                    conn, ADMITTED_KINDS, _kind_list_fns(),
-                )
                 ws_fm_by_name = {
                     unscope(w["name"]): w.get("file_map", "") for w in workspaces
                 }
@@ -988,6 +992,40 @@ async def run_scan(
                     except Exception as fm_exc:  # noqa: BLE001 — partial-success
                         file_map_errors.append(
                             f"{node_uri}: inject_file_map failed: {fm_exc!r}"
+                        )
+            # Step 10b-ts: test-suite File-map injection. Mirrors Step 10b but
+            # for test_suite entity pages — the suite map starts at the suite
+            # root (node.attrs["path"]) and is UNPARTITIONED (every tracked file
+            # under the root). Reuses the shared collision set and the same
+            # snapshot→merge durability path (preserved=...). Appends each
+            # injected page to file_mapped_pages so Step 10c fills its TODO rows.
+            if refreshed:
+                for node in queries.list_test_suites(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    suite_uri = node.attrs.get("uri")
+                    if not suite_uri or suite_uri not in refreshed:
+                        continue
+                    suite_path = node.attrs.get("path")
+                    if not suite_path:
+                        continue
+                    block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
+                    if not block:
+                        continue
+                    ts_page_path = _entity_page_path(
+                        wiki, "test_suite", node, suite_uri, fm_collision_set,
+                    )
+                    try:
+                        inject_file_map(
+                            ts_page_path,
+                            block,
+                            preserved=prior_file_map_descs.get(suite_uri),
+                        )
+                        entities_file_mapped.append(suite_uri)
+                        file_mapped_pages.append((suite_uri, node, ts_page_path))
+                    except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                        file_map_errors.append(
+                            f"{suite_uri}: inject_file_map failed: {fm_exc!r}"
                         )
             if entities_file_mapped or file_map_errors:
                 append_log(

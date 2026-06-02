@@ -1236,6 +1236,31 @@ def test_phase35_regression_test_path_exists():
     )
 
 
+def _seed_test_suite_graph(db_path: Path) -> None:
+    """Seed a minimal DB with one test_suite node owned by pkg-a.
+
+    Layout:
+      test_suite node: name 'pkg-a-unit-tests', path 'packages/pkg-a/tests',
+        uri 'test_suite:org/repo/pkg-a/tests', attrs {suite_kind: unit,
+        path: packages/pkg-a/tests, language: python}
+    """
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
+            "'{\"suite_kind\": \"unit\", \"path\": \"packages/pkg-a/tests\", \"language\": \"python\"}', "
+            "'test_suite:org/repo/pkg-a/tests')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def test_entity_page_path_suite_aware_slug():
     """Module-level _entity_page_path applies the suite-aware slug for
     test_suite kinds (suite_kind + pkg_for_suite derived from attrs['path'])."""
@@ -1264,3 +1289,75 @@ def test_entity_page_path_suite_aware_slug():
         wiki, "package", pkg_node, "pkg:org/repo/pkg-a", frozenset()
     )
     assert pkg_page == wiki / "entities" / "pkg_pkg-a.md"
+
+
+@pytest.mark.asyncio
+async def test_file_map_injected_into_test_suite_entity_page(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """Step 10b-ts: after write_entities creates a test_suite entity page,
+    run_scan replaces its `## File map` section with the deterministic
+    build_dir_file_map block rooted at the suite path (path + kind rows)."""
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    # Deterministic suite block as build_dir_file_map would emit it. The heading
+    # label is the suite-root basename ("tests").
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(
+        scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
+    )
+    # No package/app workspaces — only the seeded test_suite drives this scan.
+    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
+    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
+    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "compute_diff",
+        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    result = await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=False
+    )
+
+    # The test_suite page was created this scan → file map injected.
+    assert "test_suite:org/repo/pkg-a/tests" in result.entities_created
+
+    suite_page = wiki / "entities" / "unit_tests_pkg-a.md"
+    assert suite_page.exists(), f"suite page not written; entities: {list((wiki / 'entities').glob('*.md'))}"
+    text = suite_page.read_text(encoding="utf-8")
+
+    assert "## File map - tests" in text
+    assert "| `conftest.py` | file | — TODO |" in text
+    assert "| `test_pkg_a.py` | file | — TODO |" in text
+    # The template's placeholder file row is gone.
+    assert "| `<file>` | file | — TODO |" not in text
+    # Neighboring template sections survive injection.
+    assert "## Test conventions" in text
+    assert "## Coverage" in text
