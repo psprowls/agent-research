@@ -56,3 +56,14 @@ def test_graph_package_exposes_moved_cli_module_for_gw_graph_namespace() -> None
     cli_module = importlib.import_module("graph_wiki_cli.graph_cli.main")
     assert hasattr(cli_module, "main")
     assert "gw graph" in inspect.getsource(cli_module)
+
+
+def test_migrate_vault_command_removed() -> None:
+    """`gw migrate-vault` is fully removed — no command, no source reference."""
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    assert "migrate-vault" not in root_command.commands
+
+    cli_module = importlib.import_module("graph_wiki_cli.cli")
+    assert "migrate_vault" not in inspect.getsource(cli_module)
