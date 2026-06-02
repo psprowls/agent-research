@@ -78,9 +78,79 @@ def test_prep_main_is_importable(monkeypatch: pytest.MonkeyPatch) -> None:
     """The ImportError the broken shim raised is gone — main() exists."""
     monkeypatch.setitem(sys.modules, "model_adapter", None)
     monkeypatch.setitem(sys.modules, "subagent_runtime", None)
-    import importlib
 
     import wiki_io.ingest_source as prep
 
     importlib.reload(prep)
     assert callable(prep.main)
+
+
+def test_prep_main_no_entity_match_has_null_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    # Seed a package whose contained file is a DIFFERENT path, and whose name
+    # won't match the source's title — so neither path nor name lookup hits.
+    monkeypatch.setitem(sys.modules, "model_adapter", None)
+    monkeypatch.setitem(sys.modules, "subagent_runtime", None)
+
+    import wiki_io.ingest_source as prep
+
+    importlib.reload(prep)
+
+    workspace = tmp_path
+    wiki = workspace / "wiki"
+    wiki.mkdir()
+    rel = "packages/graph-io/src/graph_io/store.py"
+    src = workspace / rel
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text("# Graph IO Store\n\nBody text.", encoding="utf-8")
+    # The seeded package CONTAINS a different file, so `rel` is uncontained;
+    # its name ("some-other-pkg") won't name-match the title "Graph IO Store".
+    _seed_db(
+        workspace,
+        "some-other-pkg",
+        "pkg:o/r/some-other-pkg",
+        "packages/other/src/other/mod.py",
+    )
+
+    monkeypatch.setattr(
+        sys, "argv", ["ingest_source.py", rel, "--workspace", str(workspace), "--json"]
+    )
+    monkeypatch.setattr(prep, "resolve_wiki_and_repo", lambda *_a, **_k: (wiki, workspace))
+
+    prep.main()
+    brief = json.loads(capsys.readouterr().out)
+
+    assert brief["entity_match"] == {"uri": None, "entity_filename": None}
+
+
+def test_prep_main_folder_ingest_emits_brief(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setitem(sys.modules, "model_adapter", None)
+    monkeypatch.setitem(sys.modules, "subagent_runtime", None)
+
+    import wiki_io.ingest_source as prep
+
+    importlib.reload(prep)
+
+    workspace = tmp_path
+    wiki = workspace / "wiki"
+    wiki.mkdir()
+    folder = workspace / "raw" / "examples" / "demo"
+    folder.mkdir(parents=True)
+    (folder / "a.md").write_text("# A\n\nalpha", encoding="utf-8")
+    (folder / "b.py").write_text("print('b')\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest_source.py", str(folder), "--workspace", str(workspace), "--json"],
+    )
+    monkeypatch.setattr(prep, "resolve_wiki_and_repo", lambda *_a, **_k: (wiki, workspace))
+
+    prep.main()
+    brief = json.loads(capsys.readouterr().out)
+
+    assert brief["is_folder"] is True
+    assert "state_gate" in brief

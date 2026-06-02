@@ -19,9 +19,12 @@ Exports:
 
 from __future__ import annotations
 
+import argparse
+import datetime
 import html.parser
 import json
 import re
+import sys
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -228,11 +231,6 @@ def main() -> None:
     Bedrock-free: builds on this module's library functions plus the shared
     `wiki_io.entity_lookup`. Never imports model_adapter / subagent_runtime.
     """
-    import argparse
-    import datetime
-    import json as _json
-    import sys
-
     parser = argparse.ArgumentParser(description="Prepare a source for ingestion.")
     parser.add_argument("source", nargs="?", default=None, help="Path to the source file/folder")
     parser.add_argument("--source", dest="source_opt", default=None, help="Path to the source (alt form)")
@@ -273,7 +271,7 @@ def main() -> None:
             print(f"[error] {brief['_error']}", file=sys.stderr)
             sys.exit(1)
         if args.json_output:
-            print(_json.dumps(brief, indent=2))
+            print(json.dumps(brief, indent=2))
         return
 
     # Single-file ingest.
@@ -317,7 +315,7 @@ def main() -> None:
         "state_gate": compute_state_gate(repo),
     }
     if args.json_output:
-        print(_json.dumps(brief, indent=2))
+        print(json.dumps(brief, indent=2))
     else:
         print(f"Title: {brief['title']}")
         print(f"Source type: {brief['source_type']}")
