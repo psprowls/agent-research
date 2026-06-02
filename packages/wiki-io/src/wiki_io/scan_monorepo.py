@@ -426,7 +426,7 @@ def _emit_file_map_block(
 ) -> str:
     """Emit a ``## File map - <pkg_name>`` block from the given file list.
 
-    Shared implementation used by both build_file_map() and build_file_maps().
+    Shared implementation used by build_file_map(), build_file_maps(), and build_dir_file_map().
     ``files`` must already be truncated to max_entries before calling.
     ``truncated`` controls whether the truncation marker is appended.
     ``max_entries`` is used only in the truncation marker text.
@@ -594,6 +594,45 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
     if fms is None:
         return None
     return fms[0]
+
+
+def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
+    """Return an unpartitioned ``## File map - <root-basename>`` block covering
+    ALL tracked files under ``path``.
+
+    Unlike ``build_file_map`` (prod-only) / ``build_file_maps`` (prod+test
+    split), this lists everything under the root with no prod/test partition.
+    Used for test-suite entity pages: everything under a suite root is
+    test-related, so partitioning would mis-route files (a root ``conftest.py``
+    into the dropped test half, a plain ``helpers.py`` into prod).
+
+    The heading label is the root directory basename (``path.name``) — stable
+    unless the suite physically moves. This stability is load-bearing for
+    cross-rescan description preservation: the snapshot/merge round-trip strips
+    this label to reconstruct suite-root-relative path keys.
+
+    Returns ``None`` when ``_git_ls_files(path)`` returns ``None`` (not git).
+    Emits the ``- (no tracked files)`` short-circuit for an empty root. Honors
+    ``max_entries`` truncation. Mirrors ``build_file_maps``' contracts.
+    """
+    files = _git_ls_files(path)
+    if files is None:
+        return None
+
+    name = path.name
+    truncated = len(files) > max_entries
+    if truncated:
+        files = files[:max_entries]
+
+    if not files:
+        title_line = f"## File map - {name}"
+        overview_placeholder = "TODO — overview of this package's tree."
+        block = f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
+        if truncated:
+            block = block.rstrip("\n") + f"\n\n> Truncated at {max_entries} files.\n"
+        return block
+
+    return _emit_file_map_block(name, files, truncated, max_depth, max_entries)
 
 
 def discover_workspaces(repo, pinned_containers=None, workspace_dir=None):
