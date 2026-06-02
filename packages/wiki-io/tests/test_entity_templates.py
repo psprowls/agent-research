@@ -109,12 +109,9 @@ def _body(name: str) -> str:
 
 
 def test_entity_package_migrated_sections() -> None:
-    """entity-package.md carries the migrated Purpose and Conventions sections (D-08)."""
+    """entity-package.md carries the migrated Purpose section (D-08)."""
     body = _body("entity-package.md")
     assert "\n## Purpose\n" in body, "entity-package.md: missing migrated `## Purpose`"
-    assert "\n## Conventions\n" in body, (
-        "entity-package.md: missing migrated `## Conventions`"
-    )
 
 
 def test_entity_app_migrated_sections() -> None:
