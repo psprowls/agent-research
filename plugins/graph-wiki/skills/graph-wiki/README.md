@@ -38,7 +38,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 # 2. Open the workspace in Obsidian (sidebar will show wiki/, raw/, work/ as siblings).
 open -a Obsidian ~/my-repo/graph-wiki
 
-# 3. Scan the repo — creates a stub page for every workspace package (or for the single package, if not a monorepo)
+# 3. Scan the repo — renders one entities/ page per admitted entity (package, app, domain, dependency, …)
 cd ~/my-repo
 # in Claude Code:
 > /graph-wiki:scan
@@ -57,9 +57,9 @@ cd ~/my-repo
 
 | Category | Example |
 |---|---|
-| `app` | `<workspace>/wiki/apps/web-next-ts/web-next-ts.md` — Next.js app: platform, routes, domains consumed, deployment |
-| `package` | `<workspace>/wiki/packages/common-aws-node-ts/common-aws-node-ts.md` — Lambda handlers, middleware, exports |
-| `domain` | `<workspace>/wiki/domains/auth/auth.md` — cross-package feature area (auth spans cognito + native + shared) |
+| `app` | `<workspace>/wiki/entities/app_web-next-ts.md` — Next.js app: platform, routes, domains consumed, deployment |
+| `package` | `<workspace>/wiki/entities/pkg_common-aws-node-ts.md` — Lambda handlers, middleware, exports |
+| `domain` | `<workspace>/wiki/entities/domain_auth.md` — cross-package feature area (auth spans cognito + native + shared) |
 | `concept` | `<workspace>/wiki/concepts/global-context.md` — cross-cutting pattern used across packages |
 | `dependency` | `<workspace>/wiki/dependencies/react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | package-family | service`) |
 | `source` | `<workspace>/wiki/sources/2026-04-auth-migration-spec.md` — ingested spec with claims + citations |
@@ -99,9 +99,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 └── wiki/                      # this plugin's curated knowledge base
     ├── index.md               # content catalog
     ├── log.md                 # append-only timeline
-    ├── apps/<app>/            # one folder per application workspace; overview at apps/<app>/overview.md
-    ├── packages/<pkg>/        # one folder per library/service workspace; overview at packages/<pkg>/overview.md
-    ├── domains/<domain>/      # one folder per cross-package feature area; overview at domains/<domain>/overview.md
+    ├── entities/              # one graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, *_tests_*)
     ├── concepts/              # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
     ├── dependencies/          # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/               # one summary per ingested source
@@ -115,7 +113,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 
 ## Four operations
 
-- **Scan** — walk the repo (`package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `Cargo.toml`, `go.mod`), propose/update stub `packages/*.md` pages, flag renames/deletions for human review
+- **Scan** — build the code graph from the repo (`package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `Cargo.toml`, `go.mod`) and write/update/delete one `entities/` page per admitted entity; surface deletions for human review
 - **Ingest** — read a source, discuss with user, write summary, update 5-15 cross-referenced pages, update index, log
 - **Query** — index-first read, drill into 3-10 pages, synthesize with inline citations, offer to re-file the answer
 - **Lint** — mechanical checks (orphans, broken links, stale pages, missing frontmatter) + semantic checks (contradictions, cross-reference gaps) + **code-drift** (packages on disk vs. in vault)

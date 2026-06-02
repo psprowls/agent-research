@@ -70,7 +70,7 @@ The `[plugin]` block is validated on every read: unknown keys raise `RuntimeErro
 | Command | What it does |
 |---|---|
 | `/graph-wiki:bootstrap` | Initialize a wiki workspace; detect repo layout; create vault skeleton |
-| `/graph-wiki:scan` | Walk the repo; create/update package and app stub pages; surface doc candidates |
+| `/graph-wiki:scan` | Build the code graph; create/update/delete one `entities/` page per admitted entity |
 | `/graph-wiki:ingest <path>` | Read a source (spec, article, PR, transcript, in-repo doc); update wiki |
 | `/graph-wiki:query <question>` | Answer a question from the vault; offer to file the answer back |
 | `/graph-wiki:lint` | Health check: orphans, broken links, stale pages, code drift |
