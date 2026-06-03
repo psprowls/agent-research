@@ -536,7 +536,7 @@ def bootstrap(
     interactive: bool = typer.Option(
         False,
         "--interactive",
-        help="Prompt for ambiguous container classifications (default: silent-skip).",
+        help="Accepted for compatibility; has no effect (container detection removed).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
@@ -576,7 +576,7 @@ def scan(
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
-    """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
+    """Build the code graph and write one page per graph entity into wiki/entities/."""
     workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(
