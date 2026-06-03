@@ -706,8 +706,6 @@ async def run_ingest_work_item(
     body: str,
     slug: str | None = None,
     force: bool = False,
-    pkg_dir: Path | None = None,
-    pkg_title: str | None = None,
     workspace_path: Path | None = None,
 ) -> IngestResult:
     """File a structured work item into the wiki workspace.
@@ -727,8 +725,6 @@ async def run_ingest_work_item(
         body:             Markdown body text.
         slug:             Optional page slug; derived from fm['title'] if omitted.
         force:            Overwrite existing page if True.
-        pkg_dir:          Optional vault package directory Path for work sub-page linking.
-        pkg_title:        Display title for the package sub-page template.
         workspace_path:   Wiki workspace root path (None -> env var / git heuristic).
 
     Returns:
@@ -756,8 +752,6 @@ async def run_ingest_work_item(
         body,
         slug=slug,
         force=force,
-        pkg_dir=pkg_dir,
-        pkg_title=pkg_title,
     )
 
     # Step 5: return IngestResult

@@ -203,7 +203,6 @@ def ingest_work_item(
     body: str = typer.Option(..., "--body", help="Markdown body text for the work item"),
     slug: Optional[str] = typer.Option(None, "--slug", help="Page slug (derived from title if omitted)"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing page"),
-    pkg_dir: Optional[Path] = typer.Option(None, "--pkg-dir", help="Optional vault package directory for work sub-page linking"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
 ) -> None:
@@ -216,7 +215,6 @@ def ingest_work_item(
                 body=body,
                 slug=slug,
                 force=force,
-                pkg_dir=pkg_dir,
                 workspace_path=workspace_path,
             )
         )

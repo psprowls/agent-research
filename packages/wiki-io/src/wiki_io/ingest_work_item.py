@@ -13,7 +13,7 @@ Exports:
     _parse_frontmatter(yaml_text) -> dict
     _validate(fm) -> list[str]
     _emit_yaml(fm) -> str
-    file_work_item(wiki, fm, body, slug, force, pkg_dir, pkg_title) -> dict
+    file_work_item(wiki, fm, body, slug, force) -> dict
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ from typing import NoReturn
 
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
-from wiki_io.layout_io import ensure_subpage
 from wiki_io.update_index import update_index
 
 REQUIRED_FIELDS = (
@@ -121,8 +120,6 @@ def file_work_item(
     body: str,
     slug: str | None = None,
     force: bool = False,
-    pkg_dir: Path | None = None,
-    pkg_title: str | None = None,
 ) -> dict:
     """Write a work-item page and update index + log.
 
@@ -135,8 +132,6 @@ def file_work_item(
         body: Markdown body text.
         slug: Page slug; derived from fm['title'] via _slugify() if omitted.
         force: Overwrite existing page if True; raise FileExistsError if False.
-        pkg_dir: Optional vault package directory Path for work sub-page linking.
-        pkg_title: Display title for the package sub-page template.
 
     Returns:
         dict with keys: status, page_path (str), slug, title.
@@ -170,21 +165,5 @@ def file_work_item(
         silent=True,
         raise_exception=True,
     )
-
-    if pkg_dir is not None:
-        vault = wiki
-        pkg_title_str = pkg_title or pkg_dir.name
-        templates_dir = vault / ".templates"
-        try:
-            ensure_subpage(pkg_dir, "work", pkg_title_str, templates_dir)
-        except FileNotFoundError:
-            pass  # templates not installed -- skip silently
-        work_sub = pkg_dir / "work.md"
-        if work_sub.exists():
-            bullet = f"- [[work/{opened}-{slug}]] — {fm.get('summary', '')}\n"
-            existing = work_sub.read_text(encoding="utf-8")
-            if not existing.endswith("\n"):
-                existing += "\n"
-            work_sub.write_text(existing + bullet, encoding="utf-8")
 
     return {"status": "ok", "page_path": str(page_path), "slug": slug, "title": title}

@@ -310,7 +310,6 @@ class WikiIngestInput(BaseModel):
     body: str = Field("", description="Markdown body text (required when type='work-item')")
     slug: str | None = Field(None, description="Page slug (derived from title if omitted)")
     force: bool = Field(False, description="Overwrite existing page")
-    pkg_dir: str = Field("", description="Optional vault package directory path for work sub-page linking")
     workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
 
 
@@ -349,7 +348,6 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
                 body=input.body,
                 slug=input.slug,
                 force=input.force,
-                pkg_dir=Path(input.pkg_dir) if input.pkg_dir else None,
                 workspace_path=vault,
             )
     except (ValueError, FileExistsError) as e:
