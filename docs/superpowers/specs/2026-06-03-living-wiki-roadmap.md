@@ -4,6 +4,7 @@
 **Status:** Planning document (north star + decomposed roadmap). Milestone 1 is specced tightly enough to hand to `writing-plans`; M2–M5 are directional with recommendations.
 **Author:** Pat (enriched with code-verified findings)
 **Supersedes/extends:** the author's original "Where we are / Where we want to be" brief.
+**Prerequisite status:** the **de-containerize** effort has **landed** (merge `34dab312`, 2026-06-03) — this roadmap builds on the resulting graph-only scan path; M1 is the immediate next work.
 
 > **Goal of this document:** turn the graph-wiki from a *snapshot regenerated from scratch on every scan* into a **living knowledge base** that accrues durable human/LLM knowledge, updates incrementally as code changes, and actively assists coding agents — while staying a human-browsable Obsidian markdown vault.
 
@@ -30,7 +31,7 @@ The graph layer is already incremental and commit-aware; the **entity-page layer
 On **every** re-scan, `write_entities` re-renders each entity page's **entire body from the template** (`entity_writer.py:861-870`; the body comes purely from `_render_entity_page` → `template.content`, `:519-522` — the existing body is discarded). Consequences:
 
 - **Frontmatter is merged** — scanner-owned keys replaced, human keys (`status`, `last_reviewed`, `owner`, `notes`, non-empty `summary`) preserved (`merge_frontmatter`, `:358-402`; `SCANNER_OWNED_KEYS`, `:104-137`).
-- **`## File map` row descriptions are preserved** via an explicit snapshot→restore: `_snapshot_file_map_descriptions` (`scan.py:145-177`) captures filled cells *before* the reset, `inject_file_map(preserved=…)` / `_merge_preserved_descriptions` (`entity_writer.py:1127`, `:1088`) graft them back for paths that still exist.
+- **`## File map` row descriptions are preserved** via an explicit snapshot→restore: `_snapshot_file_map_descriptions` (`scan.py:108`) captures filled cells *before* the reset, `inject_file_map(preserved=…)` / `_merge_preserved_descriptions` (`entity_writer.py:1127`, `:1088`) graft them back for paths that still exist.
 - **Everything else in the body is wiped back to template placeholders.** `## Purpose` and `## Public API` — the natural home for human/LLM prose — are reset to `> TODO:` on every scan. **There is no `inject_purpose` / `inject_public_api`; no snapshot step.** This is the central blocker to a living wiki.
 
 ### 1.3 The forward-link sections are duplicative dead weight
@@ -38,13 +39,13 @@ On **every** re-scan, `write_entities` re-renders each entity page's **entire bo
 The template ships `## Concepts`, `## Dependencies`, `## Decisions`, `## Contrasts / alternatives` as forward-link stubs (`entity-package.md:40-50`). **Nothing populates them**, and they're wiped each scan. Meanwhile `## Referenced in wiki` is the real, working cross-reference: `regenerate_referenced_in_wiki` (`backlink_index.py:100-142`) walks the *preserved* dirs for `[[entities/…]]` links pointing **at** the entity and lists them. Two caveats:
 
 - It's a **backlink** (page→entity), the inverse of the forward stubs.
-- `_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "architecture")` + `work/` (`backlink_index.py:35`, `:78-84`) — **`dependencies/` is not walked**, and dependency relationships actually live in the scanner-owned frontmatter key `depends_on`, not as body links.
+- `_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "architecture")` + `work/` (`backlink_index.py:35`, `:79-81`). Post-decontainerize, **dependency pages are themselves entities** (`entities/dep_*.md`) — there is no curated `dependencies/` dir. So the `## Dependencies` stub is redundant with the dependency entity's own page plus the scanner-owned `depends_on` frontmatter key, which is where the relationship data actually lives.
 
-**Decision:** remove the four forward stubs; `## Referenced in wiki` supersedes them. (Optionally add `dependencies/` to the backlink walk.)
+**Decision:** remove the four forward stubs; `## Referenced in wiki` supersedes them.
 
 ### 1.4 The big enabler you already have: an incremental, commit-aware graph
 
-`graph_io/update.py` stores `last_indexed_commit`, `last_indexed_at`, `deriver_version` in a graph-level `metadata` table (`:329-331`) and rebuilds by diffing `git diff --name-status <prev>..HEAD` (`_changed_files`, `:74`, `:277`; reads `last_indexed_commit` at `:268`). **The hard part of "maintain a `last_updated_commit` and review diffs since last scan" already exists — at the graph level.** The gap: this signal is *not* propagated to the page layer. `write_entities` re-renders all pages regardless, and the only re-narration gate is a frontmatter structural-key delta (`_detect_structural_change` / `STRUCTURAL_KEYS`, `entity_writer.py:477`, `:287-299`; `needs_narrative`, `scan.py:869-883`) — **git-agnostic**.
+`graph_io/update.py` stores `last_indexed_commit`, `last_indexed_at`, `deriver_version` in a graph-level `metadata` table (`:329-331`) and rebuilds by diffing `git diff --name-status <prev>..HEAD` (`_changed_files`, `:74`, `:277`; reads `last_indexed_commit` at `:268`). **The hard part of "maintain a `last_updated_commit` and review diffs since last scan" already exists — at the graph level.** The gap: this signal is *not* propagated to the page layer. `write_entities` re-renders all pages regardless, and the only re-narration gate is a frontmatter structural-key delta (`_detect_structural_change` / `STRUCTURAL_KEYS`, `entity_writer.py:477`, `:287-299`; `needs_narrative` fan-out gated at `scan.py:703-707`) — **git-agnostic**.
 
 Reusable precedent for file-level "changed drastically": the embedding index already does **SHA256 content-hash incremental updates** (`commands/query.py:768-806`) — only re-embeds changed pages. The same pattern can gate file re-description.
 
@@ -64,7 +65,7 @@ Each command runs either **headless on Bedrock** (`make_llm` + `SubagentPool` fa
 
 ### 1.7 Alignment with in-flight work
 
-The **de-containerize** effort (`docs/superpowers/specs/2026-06-03-graph-wiki-decontainerize-design.md`, plan, and staleness audit) locks in: **the graph is the sole source of truth; entity pages are disposable/regenerable; file maps are re-sourced from graph node paths; the container/layout-block concept is removed.** This roadmap sits on top of that and is sequenced **after** de-containerize lands (it depends on the simplified, graph-only scan path).
+The **de-containerize** effort (`docs/superpowers/specs/2026-06-03-graph-wiki-decontainerize-design.md`, plan, and staleness audit) **landed 2026-06-03** (merge `34dab312`). What that establishes, now in `main`: **the graph is the sole source of truth; entity pages are disposable/regenerable; file maps are re-sourced from graph node paths** (`scan.py:820-823`, `build_file_map(repo / node_path)`); `detect_containers.py`, `layout_io.py`, the container/layout-block concept, and the source-sync/container lint checks are **deleted**; dependency pages are now entities (`entities/dep_*.md`). This roadmap builds directly on that simplified, graph-only scan path — it is the immediate next work, not a future dependency.
 
 ---
 
@@ -112,7 +113,7 @@ M2 plumbs the graph's existing `last_indexed_commit` into a per-entity `last_upd
 
 | Milestone | Goal | Size | Depends on |
 |---|---|---|---|
-| **M1 — Preservation** | Stop wiping human/LLM sections; remove duplicative stubs | Small (~1 plan) | De-containerize landed |
+| **M1 — Preservation** | Stop wiping human/LLM sections; remove duplicative stubs | Small (~1 plan) | De-containerize ✓ (landed) |
 | **M2 — Commit-gated incremental updates** | Living snapshot: refresh only what changed | Medium–Large | M1 |
 | **M3 — Source re-ingestion + code-as-arbiter** | Reliable, self-correcting knowledge intake | Medium | M1 (ingest hardening can parallelize) |
 | **M4 — Drift propagation to backlinks** | Flag/propose updates to stale concept/ADR pages | Large, expensive | M2, M3 |
@@ -124,7 +125,7 @@ M2 plumbs the graph's existing `last_indexed_commit` into a per-entity `last_upd
 
 **Scope:**
 1. Implement **heading-aware merge** (D2): re-scan preserves all non-scanner-owned H2 sections; regenerates only `## Narrative`, `## File map`, `## Referenced in wiki`. Define the scanner-owned heading set as a single named constant.
-2. **Remove** `## Concepts`, `## Dependencies`, `## Decisions`, `## Contrasts / alternatives` from all entity templates (superseded by `## Referenced in wiki`). Optionally add `dependencies/` to `_PRESERVED_WIKI_DIRS`.
+2. **Remove** `## Concepts`, `## Dependencies`, `## Decisions`, `## Contrasts / alternatives` from all entity templates (superseded by `## Referenced in wiki`; dependency relationships live in `depends_on` frontmatter + the dependency's own entity page).
 3. **Tests:** re-scan preserves a hand-edited `## Purpose` / `## Public API` and a user-added custom H2; still regenerates Narrative/File map/Referenced-in-wiki; File-map description preservation continues to pass; byte-stability/idempotence on a no-op re-scan.
 4. Update `.claude/rules/backward-compatibility.md` wording to the section-ownership model.
 
@@ -169,4 +170,4 @@ Independent of the milestones: tune which **roles** run on which tier (`models.t
 
 ## 7. Sequencing summary
 
-De-containerize (in flight) → **M1 Preservation** → **M2 Commit-gated updates** → **M3 Ingest robustness / code-as-arbiter** (parallelizable with M2) → **M4 Drift propagation** → **M5 Context curation**. M1 is the next thing to spec.
+De-containerize ✓ (landed 2026-06-03) → **M1 Preservation** → **M2 Commit-gated updates** → **M3 Ingest robustness / code-as-arbiter** (parallelizable with M2) → **M4 Drift propagation** → **M5 Context curation**. M1 is the next thing to spec.
