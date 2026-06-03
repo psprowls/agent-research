@@ -39,11 +39,10 @@ def _make_query_result(answer: str = "test answer [[wiki-page]]") -> QueryResult
 
 def _make_scan_result() -> ScanResult:
     return ScanResult(
-        added=["pkg-a"],
-        updated=[],
-        deleted=[],
-        renamed=[],
-        errors=[],
+        entities_created=["pkg:pkg-a"],
+        entities_updated=[],
+        entities_deleted=[],
+        entity_errors=[],
         state_gate={"allowed": True},
     )
 

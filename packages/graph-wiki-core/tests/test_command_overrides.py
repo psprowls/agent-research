@@ -351,7 +351,6 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     """
     from types import SimpleNamespace
     from wiki_io.entity_writer import EntityWriteResult
-    from wiki_io.scan_monorepo import ExistingPages
 
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
@@ -400,21 +399,10 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
             "graph_wiki_core.commands.scan.resolve_wiki_and_repo",
             return_value=(vault, None),
         ))
-        stack.enter_context(patch("graph_wiki_core.commands.scan.read_layout", return_value=None))
-        stack.enter_context(patch("graph_wiki_core.commands.scan.discover_workspaces", return_value=[]))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan._load_existing_pages",
-            return_value=ExistingPages(legacy={}, entities={}),
-        ))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.compute_diff",
-            return_value={"new": [], "renamed": [], "deleted": [], "unchanged": []},
-        ))
         stack.enter_context(patch(
             "graph_wiki_core.commands.scan.compute_state_gate",
             return_value={"allowed": True, "reason": "ok", "head_commit": "abc123"},
         ))
-        stack.enter_context(patch("graph_wiki_core.commands.scan.attach_changed_files"))
         # cg update + read_only_connect simulate a healthy graph so Step 9a runs.
         stack.enter_context(patch(
             "graph_wiki_core.commands.scan._cg_run_build",
@@ -425,8 +413,6 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
             return_value=MagicMock(),
         ))
         stack.enter_context(patch("graph_wiki_core.commands.scan.queries.list_packages", return_value=[]))
-        stack.enter_context(patch("graph_wiki_core.commands.scan._query_package_uris", return_value={}))
-        stack.enter_context(patch("graph_wiki_core.commands.scan._query_package_domains", return_value={}))
         # Phase 45: write_entities + narrator pool + inject_narrative.
         stack.enter_context(patch(
             "graph_wiki_core.commands.scan.write_entities",

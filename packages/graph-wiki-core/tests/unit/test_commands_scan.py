@@ -53,30 +53,30 @@ def _make_fan_out_result(successes=None, errors=None):
 
 
 def test_scan_result_dataclass_shape() -> None:
-    """ScanResult has all 6 required fields with correct types."""
+    """ScanResult has the entity reporting fields with correct types."""
     from graph_wiki_core.commands.scan import ScanResult
 
     result = ScanResult(
-        added=["pkg-a"],
-        updated=["pkg-b"],
-        deleted=["pkg-c"],
-        renamed=[["old", "new"]],
-        errors=["pkg-d: some error"],
         state_gate={"allowed": True, "reason": "clean", "head_commit": "abc123"},
+        entities_created=["pkg:a"],
+        entities_updated=["pkg:b"],
+        entities_deleted=["pkg:c"],
+        entities_narrated=["pkg:a"],
+        entity_errors=["pkg:d: some error"],
     )
 
-    assert isinstance(result.added, list)
-    assert isinstance(result.updated, list)
-    assert isinstance(result.deleted, list)
-    assert isinstance(result.renamed, list)
-    assert isinstance(result.errors, list)
     assert isinstance(result.state_gate, dict)
+    assert isinstance(result.entities_created, list)
+    assert isinstance(result.entities_updated, list)
+    assert isinstance(result.entities_deleted, list)
+    assert isinstance(result.entities_narrated, list)
+    assert isinstance(result.entity_errors, list)
 
-    assert result.added == ["pkg-a"]
-    assert result.updated == ["pkg-b"]
-    assert result.deleted == ["pkg-c"]
-    assert result.renamed == [["old", "new"]]
-    assert result.errors == ["pkg-d: some error"]
+    assert result.entities_created == ["pkg:a"]
+    assert result.entities_updated == ["pkg:b"]
+    assert result.entities_deleted == ["pkg:c"]
+    assert result.entities_narrated == ["pkg:a"]
+    assert result.entity_errors == ["pkg:d: some error"]
     assert result.state_gate["allowed"] is True
 
 
@@ -276,82 +276,6 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 5: stale tag added for deleted packages
-# ---------------------------------------------------------------------------
-
-
-async def test_stale_tag_added_for_deleted_packages(tmp_path: Path) -> None:
-    """Deleted packages get 'stale: true' added to their vault page frontmatter."""
-    from graph_wiki_core.commands.scan import run_scan
-
-    wiki = tmp_path / "wiki"
-    wiki.mkdir()
-    (wiki / "log.md").write_text("", encoding="utf-8")
-
-    old_pkg_dir = wiki / "packages" / "old-pkg"
-    old_pkg_dir.mkdir(parents=True)
-    old_page = old_pkg_dir / "old-pkg.md"
-    old_page.write_text(
-        "---\ntitle: old-pkg\ncategory: package\n---\n\n# old-pkg\n\nOld content.\n",
-        encoding="utf-8",
-    )
-
-    from wiki_io.scan_monorepo import ExistingPages
-
-    existing_dict = {
-        "old-pkg": {
-            "wiki_relative_path": "packages/old-pkg/old-pkg.md",
-            "package_path": "packages/old-pkg",
-            "category": "package",
-            "last_sync_commit": None,
-        }
-    }
-    existing = ExistingPages(legacy=existing_dict, entities={})
-    fake_diff = {
-        "new": [],
-        "unchanged": [],
-        "deleted": ["old-pkg"],
-        "renamed": [],
-    }
-    fan_result = _make_fan_out_result()
-
-    append_log_calls: list[tuple] = []
-
-    def _mock_append_log(wiki_, op, title, detail=None, **kwargs):
-        append_log_calls.append((op, title))
-
-    with (
-        patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
-        patch("graph_wiki_core.commands.scan.read_layout", return_value={}),
-        patch("graph_wiki_core.commands.scan.discover_workspaces", return_value=[]),
-        patch("graph_wiki_core.commands.scan._load_existing_pages", return_value=existing),
-        patch("graph_wiki_core.commands.scan.attach_changed_files"),
-        patch("graph_wiki_core.commands.scan.compute_diff", return_value=fake_diff),
-        patch("graph_wiki_core.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
-        patch("graph_wiki_core.commands.scan.build_file_map", return_value=None),
-        patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
-        patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
-        patch("graph_wiki_core.commands.scan.make_llm"),
-        patch("graph_wiki_core.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
-        patch("graph_wiki_core.commands.scan.update_index"),
-        patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
-        patch("graph_wiki_core.commands.scan.append_log", side_effect=_mock_append_log),
-    ):
-        mock_pool_instance = AsyncMock()
-        mock_pool_instance.run_all = AsyncMock(return_value=fan_result)
-        MockPool.return_value = mock_pool_instance
-
-        await run_scan(workspace_path=wiki)
-
-    page_text = old_page.read_text(encoding="utf-8")
-    assert "stale: true" in page_text, f"Expected 'stale: true' in page, got:\n{page_text}"
-
-    stale_calls = [t for t in append_log_calls if "marked stale" in t[1] and "old-pkg" in t[1]]
-    assert stale_calls, f"Expected append_log call mentioning 'marked stale: old-pkg', got: {append_log_calls}"
-
-
-# ---------------------------------------------------------------------------
 # Test 6: fan-out errors surface in ScanResult.errors
 # ---------------------------------------------------------------------------
 
@@ -430,8 +354,8 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
 
 
 async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
-    """When repo_path is passed, discover_workspaces is called with it,
-    NOT Path.cwd() and NOT whatever resolve_wiki_and_repo returns."""
+    """When repo_path is passed, it flows to compute_state_gate and the graph
+    build, NOT Path.cwd() and NOT whatever resolve_wiki_and_repo returns."""
     from graph_wiki_core.commands.scan import run_scan
 
     wiki = tmp_path / "wiki"
@@ -440,18 +364,8 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     fake_repo = tmp_path / "fake-monorepo"
     fake_repo.mkdir()
 
-    from wiki_io.scan_monorepo import ExistingPages
-
     with (
         patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo") as mock_resolve,
-        patch("graph_wiki_core.commands.scan.read_layout", return_value={}),
-        patch("graph_wiki_core.commands.scan.discover_workspaces") as mock_discover,
-        patch(
-            "graph_wiki_core.commands.scan._load_existing_pages",
-            return_value=ExistingPages(legacy={}, entities={}),
-        ),
-        patch("graph_wiki_core.commands.scan.attach_changed_files") as mock_attach,
-        patch("graph_wiki_core.commands.scan.compute_diff") as mock_diff,
         patch("graph_wiki_core.commands.scan.compute_state_gate") as mock_gate,
         patch("graph_wiki_core.commands.scan.build_file_map", return_value=None),
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
@@ -462,40 +376,19 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
             return_value={"model_id": "fake-model", "max_concurrency": 2},
         ),
         patch("graph_wiki_core.commands.scan.update_index"),
-        patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
+        patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")) as mock_build,
         patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_resolve.return_value = (wiki, None)  # repo=None forces fallback
-        mock_discover.return_value = []
         mock_gate.return_value = {"allowed": False, "reason": "test", "head_commit": "abc"}
-        mock_diff.return_value = {"new": [], "renamed": [], "deleted": [], "unchanged": []}
         mock_pool_instance = AsyncMock()
         mock_pool_instance.run_all = AsyncMock(return_value=_make_fan_out_result())
         MockPool.return_value = mock_pool_instance
 
         await run_scan(workspace_path=wiki, repo_path=fake_repo)
 
-    # discover_workspaces called with fake_repo.resolve(), NOT Path.cwd()
-    call_args = mock_discover.call_args
-    passed_repo = (
-        call_args.args[0]
-        if call_args.args
-        else call_args.kwargs.get("repo") or call_args.kwargs.get("root")
-    )
-    assert passed_repo == fake_repo.resolve(), (
-        f"discover_workspaces expected to receive fake_repo={fake_repo.resolve()}, "
-        f"got {passed_repo}"
-    )
-    # compute_state_gate also got fake_repo, not cwd
+    # compute_state_gate got fake_repo, not cwd
     assert mock_gate.call_args.args[0] == fake_repo.resolve()
-    # attach_changed_files also got fake_repo as the repo arg (3rd positional)
-    assert mock_attach.call_args.args[2] == fake_repo.resolve()
-    # discover_workspaces called with pinned_containers=None — the vault's
-    # layout block describes the ORIGINAL monorepo, not the override repo,
-    # so the override must skip the layout read and use unpinned discovery
-    discover_kwargs = mock_discover.call_args.kwargs
-    assert discover_kwargs.get("pinned_containers") is None, (
-        f"discover_workspaces expected pinned_containers=None when repo_path "
-        f"override is supplied, got {discover_kwargs.get('pinned_containers')!r}"
-    )
+    # the graph build's repo argument (1st positional) is the override repo
+    assert mock_build.call_args.args[0] == fake_repo.resolve()

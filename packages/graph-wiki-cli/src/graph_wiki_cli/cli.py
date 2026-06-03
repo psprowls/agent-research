@@ -594,14 +594,14 @@ def scan(
     if json_output:
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
-        added = len(result.added)
-        updated = len(result.updated)
-        deleted = len(result.deleted)
-        typer.echo(f"Scan complete: +{added} ~{updated} -{deleted}")
-        for err in result.errors:
+        created = len(result.entities_created)
+        updated = len(result.entities_updated)
+        deleted = len(result.entities_deleted)
+        typer.echo(f"Scan complete: entities +{created} ~{updated} -{deleted}")
+        for err in result.entity_errors:
             typer.echo(f"  error: {err}", err=True)
 
-    if result.errors:
+    if result.entity_errors:
         raise typer.Exit(code=3)
 
 

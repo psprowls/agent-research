@@ -43,7 +43,6 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
             side_effect=scan_mod.GraphNotInitializedError("test stub"),
         ),
         patch.object(scan_mod, "append_log"),
-        patch.object(scan_mod, "attach_changed_files"),
         patch.object(
             scan_mod, "regenerate_referenced_in_wiki", return_value=["pkg_foo"]
         ) as mock_regen,

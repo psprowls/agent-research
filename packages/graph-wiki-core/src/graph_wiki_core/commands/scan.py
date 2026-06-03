@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-"""Scan command — walk a monorepo, diff against vault, write graph-driven entity pages.
+"""Scan command — build the code graph, write one page per admitted entity.
 
 Public API:
-    ScanResult                          — dataclass with legacy + entity result fields
+    ScanResult                          — dataclass with state_gate + entity result fields
     build_stub_prompt(pkg)              — human message used by build_entity_narrative_prompt
                                           callers and downstream eval harnesses
     build_entity_narrative_prompt(...)  — (system, human) for the narrator LLM (Phase 45 D-05)
@@ -47,18 +47,11 @@ from wiki_io.entity_writer import (
     write_entities,
 )
 from wiki_io.index_generator import generate_index
-from wiki_io.layout_io import read_layout
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.scan_monorepo import (
-    ExistingPages,
-    _load_existing_pages,
-    _wiki_relative_path_for,
-    attach_changed_files,
     build_dir_file_map,
     build_file_map,
-    compute_diff,
     compute_state_gate,
-    discover_workspaces,
 )
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
 from wiki_io.update_index import update_index
@@ -110,35 +103,6 @@ _INIT_FAILURE_STDERR_PATTERNS = (
 def _is_init_failure_stderr(stderr: str) -> bool:
     """Return True if `stderr` matches a known init-failure pattern (D-08)."""
     return any(p in stderr for p in _INIT_FAILURE_STDERR_PATTERNS)
-
-
-def _query_package_domains(conn) -> dict[str, str]:
-    """Return {package_name: domain_name} for every package with a
-    `belongs_to_domain` edge.
-
-    Single SQL round trip. Packages with no domain edge are absent from the
-    returned dict (caller uses dict.get with the filesystem-derived default).
-    """
-    rows = conn.execute(
-        "SELECT p.name, d.name FROM nodes p "
-        "JOIN edges e ON e.src = p.id AND e.kind='belongs_to_domain' "
-        "JOIN nodes d ON e.dst = d.id "
-        "WHERE p.kind='package' AND d.kind='domain'"
-    ).fetchall()
-    return {row[0]: row[1] for row in rows}
-
-
-def _query_package_uris(conn) -> dict[str, str]:
-    """Return {package_name: uri} for every package node in the graph.
-
-    Reads from the dedicated `nodes.uri` column populated by `upsert._upsert_node`
-    (which pops `uri` from attrs before serializing the rest into attrs_json,
-    see packages/graph-io/src/graph_io/upsert.py). Single SQL round trip.
-    """
-    rows = conn.execute(
-        "SELECT name, uri FROM nodes WHERE kind='package' AND uri IS NOT NULL"
-    ).fetchall()
-    return {row[0]: row[1] for row in rows}
 
 
 def _snapshot_file_map_descriptions(wiki: Path) -> dict[str, dict[str, str]]:
@@ -238,11 +202,6 @@ class ScanResult:
     """Result of a run_scan() call.
 
     Fields:
-        added:             Names of packages that received newly created vault pages.
-        updated:           Names of packages whose existing vault pages were refreshed.
-        deleted:           Names of packages marked stale (vault page exists, repo package gone).
-        renamed:           Pairs [[old_name, new_name], ...] for detected renames.
-        errors:            Error strings for packages that failed during fan-out.
         state_gate:        Dict from compute_state_gate() — {allowed, reason, head_commit}.
         entities_created:  URIs of entity pages newly written this scan (Phase 45 D-15).
         entities_updated:  URIs of entity pages whose frontmatter changed this scan.
@@ -252,13 +211,8 @@ class ScanResult:
                            accumulated for partial-success reporting.
     """
 
-    added: list[str] = field(default_factory=list)
-    updated: list[str] = field(default_factory=list)
-    deleted: list[str] = field(default_factory=list)
-    renamed: list[list[str]] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
     state_gate: dict = field(default_factory=dict)
-    # Phase 45 D-15: URI-keyed entity reporting (alongside legacy name-keyed fields above).
+    # Phase 45 D-15: URI-keyed entity reporting.
     entities_created: list[str] = field(default_factory=list)
     entities_updated: list[str] = field(default_factory=list)
     entities_deleted: list[str] = field(default_factory=list)
@@ -279,7 +233,7 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | No
     chars each to stay within the 500-token scanner budget.
 
     Args:
-        pkg:        Workspace metadata dict (from discover_workspaces).
+        pkg:        Package metadata dict (name/path/type/language/...).
         no_file_map: Skip file_map section if True.
         repo_root:  Absolute path to the repo root. When provided, resolves
                     pkg['path'] against repo_root instead of cwd so file
@@ -433,7 +387,7 @@ def build_file_describer_prompt(
     `build_stub_prompt`'s snippet sampling.
 
     Args:
-        pkg:       Workspace metadata dict (from discover_workspaces).
+        pkg:       Package metadata dict (built from the graph node in Step 10c).
         todo_paths: Package-root paths whose Description cell is still `— TODO`.
         repo_root: Absolute repo root; `pkg['path']` is resolved against it so
                    snippet reads work regardless of cwd.
@@ -555,44 +509,6 @@ def _entity_page_path(
 
 
 # ---------------------------------------------------------------------------
-# Helper: _add_stale_tag
-# ---------------------------------------------------------------------------
-
-
-def _add_stale_tag(page_path: Path) -> None:
-    """Prepend stale: true to the YAML frontmatter of an existing vault page.
-
-    Idempotent: checks for existing stale: line before prepending (T-05-04-03).
-    Preserves all other frontmatter keys and body content.
-    """
-    if not page_path.exists():
-        logger.warning("Cannot add stale tag — page not found: %s", page_path)
-        return
-
-    text = page_path.read_text(encoding="utf-8")
-
-    # Already stale — check only within frontmatter to avoid false positives
-    # from body prose that mentions "stale: true"
-    frontmatter_end = text.find("\n---", 3)
-    if frontmatter_end != -1:
-        frontmatter = text[:frontmatter_end]
-    else:
-        frontmatter = text
-    if "stale: true" in frontmatter:
-        return
-
-    # Insert stale: true as the first field after the opening ---
-    if text.startswith("---\n"):
-        # Replace opening --- with --- + stale: true
-        new_text = "---\nstale: true\n" + text[4:]
-    else:
-        # No frontmatter — prepend it
-        new_text = "---\nstale: true\n---\n\n" + text
-
-    page_path.write_text(new_text, encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
 # Public: run_scan
 # ---------------------------------------------------------------------------
 
@@ -605,21 +521,15 @@ async def run_scan(
     model_override: str | None = None,
     narrate: bool = True,
 ) -> ScanResult:
-    """End-to-end scan: discovery → diff → scanner fan-out → post-processing.
+    """End-to-end scan: graph build → entity writes → narrator fan-out → indexes.
 
     Steps:
-        1. Resolve wiki and repo from workspace_path.
-        2. Read layout block from wiki/CLAUDE.md or wiki/AGENTS.md.
-        3. discover_workspaces(repo, pinned_containers=pinned).
-        4. Build file_map per workspace (unless no_file_map=True).
-        5. _load_existing_pages(wiki) — existing vault pages by name.
-        6. attach_changed_files(workspaces, existing, repo).
-        7. compute_diff(workspaces, existing) → {new, renamed, deleted, unchanged}.
+        1. Resolve wiki and repo from workspace_path; run `cg update`, open conn.
         8. compute_state_gate(repo) → {allowed, reason, head_commit}.
-        9. Scanner fan-out: SubagentPool.run_all for new + changed packages.
-        10. Write successful stub pages (LLM body + deterministic file map).
-        11. Add stale: true to deleted/renamed vault pages + log entries.
-        12. generate_index + update_index.
+        9a. write_entities — graph-driven entity pages.
+        9b. narrator fan-out gated on needs_narrative.
+        10. inject narrator prose + deterministic file maps + code-reader fan-out.
+        12. generate_index + update_index + backlink regeneration.
         13. Final append_log summary.
         14. Return ScanResult.
 
@@ -645,7 +555,7 @@ async def run_scan(
                         scan needs neither model_adapter nor subagent_runtime.
 
     Returns:
-        ScanResult with added, updated, deleted, renamed, errors, state_gate.
+        ScanResult with state_gate and the entities_* / entity_errors fields.
     """
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
@@ -755,83 +665,8 @@ async def run_scan(
                 )
                 conn = None
 
-        # Step 2: read layout block
-        # When repo_path is supplied as an override, also bypass the vault's
-        # pinned_containers — the vault layout describes the ORIGINAL monorepo
-        # the vault was generated from (e.g. `graph-wiki/packages/` + `plugins/`)
-        # and almost certainly does not match the override repo's directory
-        # structure. Using unpinned discovery against the override lets
-        # discover_workspaces find the workspace by its own pyproject.toml.
-        pinned: list[dict] | None = None
-        if repo_path is None:
-            for schema_name in ("CLAUDE.md", "AGENTS.md"):
-                layout = read_layout(wiki / schema_name)
-                if layout and layout.get("containers"):
-                    pinned = layout.get("containers", [])
-                    break
-
-        # Step 3: discover workspaces
-        workspaces = discover_workspaces(repo, pinned_containers=pinned)
-
-        # Phase 39 Step 3.5 (D-03/D-04): decorate workspaces with graph URIs + domain.
-        # queries.list_packages enumerates known package NodeRecords (one round trip);
-        # _query_package_uris (one round trip) maps name → nodes.uri because the URI
-        # lives in the dedicated uri column rather than attrs_json (see upsert.py);
-        # _query_package_domains (one SQL join) maps name → domain via
-        # belongs_to_domain. wiki_relative_path is recomputed only when graph
-        # domain changes the routing.
-        from wiki_io.scan_monorepo import unscope as _unscope
-        if conn is not None:
-            known_pkg_names = {rec.name for rec in queries.list_packages(conn)}
-            pkg_uri_map = _query_package_uris(conn)
-            domain_map = _query_package_domains(conn)
-            n_decorated = 0
-            for w in workspaces:
-                key = _unscope(w["name"])
-                if key not in known_pkg_names:
-                    continue
-                uri = pkg_uri_map.get(key)
-                if uri:
-                    w["uri"] = uri
-                    n_decorated += 1
-                graph_domain = domain_map.get(key)
-                if graph_domain and w.get("domain") != graph_domain:
-                    w["domain"] = graph_domain
-                    # Domain-routed workspaces use domains/<d>/packages/<n>/overview.md;
-                    # vault_dir is structurally unused on that branch.
-                    w["wiki_relative_path"] = _wiki_relative_path_for(w, vault_dir=None)
-            append_log(
-                wiki,
-                "scan",
-                f"graph decoration: {n_decorated}/{len(workspaces)} workspaces",
-                detail=None,
-                silent=True,
-                raise_exception=True,
-            )
-
-        # Step 4: build file_map per workspace
-        if not no_file_map:
-            for w in workspaces:
-                pkg_dir = repo / w["path"]
-                fm = build_file_map(pkg_dir, max_depth=max_depth)
-                if fm is not None:
-                    w["file_map"] = fm
-
-        # Step 5: load existing vault pages (Phase 45 D-11 — dual view)
-        existing_pages = _load_existing_pages(wiki)
-
-        # Step 6: attach changed files since last sync (legacy view only — D-12)
-        attach_changed_files(workspaces, existing_pages.legacy, repo)
-
-        # Step 7: compute diff (legacy view only — D-12)
-        diff = compute_diff(workspaces, existing_pages.legacy)
-
         # Step 8: compute state gate
         state_gate = compute_state_gate(repo)
-
-        # Build workspace lookup by unscoped name for post-processing
-        unscope = _unscope
-        ws_by_name = {unscope(w["name"]): w for w in workspaces}
 
         # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
         # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
@@ -888,11 +723,6 @@ async def run_scan(
                     trace_dir=wiki / ".graph-wiki" / "traces"
                 )
 
-                # Workspace-name → file_map for `package` kinds (narrator hint only).
-                ws_file_map_by_name = {
-                    unscope(w["name"]): w.get("file_map", "") for w in workspaces
-                }
-
                 async def generate_narrative(
                     item: tuple[str, str, Any],
                 ) -> TaskResult:
@@ -901,11 +731,9 @@ async def run_scan(
                     relations_for_prompt = {
                         k: v for k, v in relations.items() if k not in ("uri", "kind")
                     }
-                    file_map = (
-                        ws_file_map_by_name.get(node_inner.name, "")
-                        if kind_inner == "package"
-                        else ""
-                    )
+                    # File maps are graph-sourced (Step 10b); the narrator no
+                    # longer receives a per-workspace file-map hint.
+                    file_map = ""
                     system_msg, human_msg = build_entity_narrative_prompt(
                         node_inner, kind_inner, file_map, relations_for_prompt,
                     )
@@ -1071,18 +899,13 @@ async def run_scan(
                 todo_paths = file_map_todo_paths(page_path)
                 if not todo_paths:
                     continue
-                if node.kind == "test_suite":
-                    attrs = node.attrs if isinstance(node.attrs, dict) else {}
-                    ws_dict = {
-                        "name": node.name,
-                        "path": attrs.get("path"),
-                        "type": "test_suite",
-                        "language": attrs.get("language", "unknown"),
-                    }
-                else:
-                    ws_dict = ws_by_name.get(node.name)
-                    if ws_dict is None:
-                        continue
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                ws_dict = {
+                    "name": node.name,
+                    "path": node.path or attrs.get("path"),
+                    "type": node.kind,
+                    "language": attrs.get("language", "unknown"),
+                }
                 describer_items.append((node_uri, ws_dict, page_path, todo_paths))
 
             if describer_items:
@@ -1145,40 +968,6 @@ async def run_scan(
                         raise_exception=True,
                     )
 
-        # Step 11: stale-tag deleted packages (legacy-layout; D-09)
-        for pkg_name in diff["deleted"]:
-            existing_rec = existing_pages.legacy.get(pkg_name)
-            if existing_rec:
-                page_path = wiki / existing_rec["wiki_relative_path"]
-                _add_stale_tag(page_path)
-                append_log(
-                    wiki,
-                    "scan",
-                    f"marked stale: {pkg_name}",
-                    detail=None,
-                    silent=True,
-                    raise_exception=True,
-                )
-                logger.info("Marked stale: %s", pkg_name)
-
-        # stale-tag renamed packages (old side; D-10)
-        for rename_pair in diff["renamed"]:
-            old_name = rename_pair[0]
-            existing_rec = existing_pages.legacy.get(old_name)
-            if existing_rec:
-                page_path = wiki / existing_rec["wiki_relative_path"]
-                _add_stale_tag(page_path)
-                new_name = rename_pair[1] if len(rename_pair) > 1 else "unknown"
-                append_log(
-                    wiki,
-                    "scan",
-                    f"marked stale: {old_name} (renamed to {new_name})",
-                    detail=None,
-                    silent=True,
-                    raise_exception=True,
-                )
-                logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
-
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
         if conn is not None:
@@ -1219,20 +1008,18 @@ async def run_scan(
                 "regenerate_referenced_in_wiki failed (non-fatal): %s", exc
             )
 
-        # Step 13: final log entry — both legacy and entity counters surface.
+        # Step 13: final log entry — entity counters.
         entity_create_count = len(entity_write_result.created) if entity_write_result else 0
         entity_update_count = len(entity_write_result.updated) if entity_write_result else 0
         entity_delete_count = len(entity_write_result.deleted) if entity_write_result else 0
         needs_count = len(entity_write_result.needs_narrative) if entity_write_result else 0
         narrated_count = len(entities_narrated)
-        n_deleted_legacy = len(diff["deleted"])
         append_log(
             wiki,
             "scan",
             (
-                f"scan complete: legacy +0 ~0 -{n_deleted_legacy}  |  "
-                f"entities +{entity_create_count} ~{entity_update_count} -{entity_delete_count}  "
-                f"(narrated: {narrated_count} of {needs_count})"
+                f"scan complete: entities +{entity_create_count} ~{entity_update_count} "
+                f"-{entity_delete_count}  (narrated: {narrated_count} of {needs_count})"
             ),
             detail=None,
             silent=True,
@@ -1244,11 +1031,6 @@ async def run_scan(
             entity_write_errors = [repr(e) for e in entity_write_result.errors]
 
         return ScanResult(
-            added=[],                            # legacy fan-out removed (D-08)
-            updated=[],
-            deleted=diff["deleted"],
-            renamed=diff["renamed"],
-            errors=[],                           # legacy fan-out removed
             state_gate=state_gate,
             entities_created=sorted(entity_write_result.created) if entity_write_result else [],
             entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],

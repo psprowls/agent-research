@@ -247,8 +247,8 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
     result = asyncio.run(run_scan(workspace_path=workspace, repo_path=eval_harness_dir))
 
     wiki = wiki_dir(workspace)
-    # Collect the stub pages written for any added or updated packages
-    added_or_updated = result.added + result.updated
+    # Collect the entity pages written/updated this scan (URIs).
+    added_or_updated = result.entities_created + result.entities_updated
     if not added_or_updated:
         pytest.skip(
             f"scanner produced no added/updated stubs against workspace {workspace} "

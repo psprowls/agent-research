@@ -419,7 +419,9 @@ async def _sweep_scan_role(
     )
     # Produce a short summary string for structural checks
     summary = (
-        f"scan: added={result.added} updated={result.updated} errors={result.errors}"
+        f"scan: entities_created={result.entities_created} "
+        f"entities_updated={result.entities_updated} "
+        f"entity_errors={result.entity_errors}"
     )
     return result, summary
 
