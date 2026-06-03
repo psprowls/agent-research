@@ -527,12 +527,10 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
             "graph_wiki_core.commands.lint._module_pass",
             return_value={
                 "code_drift": {},
-                "container_drift": {},
                 "dependency_drift": {},
                 "domain_drift": {},
                 "file_map_drift": {},
                 "package_sync_drift": {},
-                "source_sync_drift": {},
                 "workflow_hints": [],
                 "domain_placement": {},
                 "dependency_layer": {},

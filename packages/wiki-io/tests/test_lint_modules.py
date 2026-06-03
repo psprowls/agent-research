@@ -14,12 +14,10 @@ from pathlib import Path
 import pytest
 
 from wiki_io.lint import (
-    container,
     dependency,
     domain,
     file_map,
     package_sync,
-    source_sync,
     workflow_hints,
 )
 
@@ -28,16 +26,14 @@ EDGE_CASE_VAULT = FIXTURES / "edge-case-vault"
 ROUND_TRIP_VAULT = FIXTURES / "round-trip-vault"
 
 EXPECTED_GROUPS = {
-    "container",
     "dependency_layer",
     "domain",
     "file_map",
     "package_sync",
-    "source_sync",
     "workflow_hints",
 }
 
-ALL_MODULES = [container, dependency, domain, file_map, package_sync, source_sync, workflow_hints]
+ALL_MODULES = [dependency, domain, file_map, package_sync, workflow_hints]
 
 
 def _load_pages(wiki: Path) -> dict:
@@ -65,7 +61,7 @@ def _load_pages(wiki: Path) -> dict:
 
 
 def test_all_modules_importable() -> None:
-    """All 7 lint modules can be imported without error."""
+    """All lint modules can be imported without error."""
     for mod in ALL_MODULES:
         assert mod is not None
         assert hasattr(mod, "check"), f"{mod.__name__} missing check()"
@@ -73,7 +69,7 @@ def test_all_modules_importable() -> None:
 
 
 def test_GROUP_constants_unique_and_expected() -> None:
-    """All 7 GROUP constants are the expected strings and are all distinct."""
+    """All GROUP constants are the expected strings and are all distinct."""
     actual_groups = {mod.GROUP for mod in ALL_MODULES}
     assert actual_groups == EXPECTED_GROUPS, (
         f"GROUP mismatch.\nExpected: {EXPECTED_GROUPS}\nGot: {actual_groups}"
@@ -83,13 +79,6 @@ def test_GROUP_constants_unique_and_expected() -> None:
 # ---------------------------------------------------------------------------
 # Per-module smoke tests: check() returns a list against fixture vault
 # ---------------------------------------------------------------------------
-
-
-def test_container_check_returns_list() -> None:
-    """container.check(repo, wiki) returns a list."""
-    # Use edge-case-vault as both repo and wiki — fixture has CLAUDE.md
-    result = container.check(EDGE_CASE_VAULT, EDGE_CASE_VAULT)
-    assert isinstance(result, list), f"Expected list, got {type(result)}"
 
 
 def test_dependency_check_returns_list() -> None:
@@ -116,12 +105,6 @@ def test_file_map_check_returns_list() -> None:
 def test_package_sync_check_returns_list() -> None:
     """package_sync.check(repo, wiki) returns a list."""
     result = package_sync.check(EDGE_CASE_VAULT, EDGE_CASE_VAULT)
-    assert isinstance(result, list), f"Expected list, got {type(result)}"
-
-
-def test_source_sync_check_returns_list() -> None:
-    """source_sync.check(repo, wiki) returns a list."""
-    result = source_sync.check(EDGE_CASE_VAULT, EDGE_CASE_VAULT)
     assert isinstance(result, list), f"Expected list, got {type(result)}"
 
 

@@ -391,8 +391,6 @@ class WikiLintOutput(BaseModel):
     duplicate_titles: dict
     log_gap: dict | None
     code_drift: dict
-    container_drift: list[str]
-    source_sync_drift: list[str]
     file_map_drift: list[str]
     package_sync_drift: list[str]
     domain_placement: list[str]
@@ -431,8 +429,6 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
         duplicate_titles=result.duplicate_titles,
         log_gap=result.log_gap,
         code_drift=result.code_drift,
-        container_drift=result.container_drift,
-        source_sync_drift=result.source_sync_drift,
         file_map_drift=result.file_map_drift,
         package_sync_drift=result.package_sync_drift,
         domain_placement=result.domain_placement,

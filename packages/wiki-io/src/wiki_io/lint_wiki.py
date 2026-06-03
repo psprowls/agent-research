@@ -10,7 +10,7 @@ Mechanical checks:
 Discovers wiki and repo locations from the resolved graph-wiki workspace.
 
 This file is a thin dispatcher. Per-group checks live under ``lint/``:
-``container``, ``file_map``, ``domain``, ``source_sync``, ``package_sync``.
+``file_map``, ``domain``, ``package_sync``.
 Each module exposes a ``check(...)`` entry point and a ``GROUP`` constant.
 
 Usage:
@@ -37,7 +37,6 @@ except ImportError:
 
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.entity_writer import ADMITTED_KINDS
-from wiki_io.layout_io import read_layout
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
@@ -45,12 +44,10 @@ from wiki_io.lint.common import (
     strip_code,
     strip_frontmatter,
 )
-from wiki_io.lint.container import check as check_container_drift
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.package_sync import check as check_package_sync_drift
-from wiki_io.lint.source_sync import check as check_source_sync_drift
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 _SKIPPED: dict = {"skipped": True}
@@ -246,9 +243,9 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     code_drift = _SKIPPED
     if repo_path and _scan_discover:
         try:
-            layout = read_layout(wiki / "CLAUDE.md")
-            pinned_containers = layout.get("containers") if layout else None
-            workspaces = _scan_discover(repo_path, pinned_containers=pinned_containers)
+            # Unpinned discovery: the container layout block is gone (decontainerize),
+            # so code-drift enumerates packages via the heuristic workspace walk.
+            workspaces = _scan_discover(repo_path)
             # Normalize scoped names (``@psprowls/foo`` -> ``foo``) so the diff
             # compares like-for-like against vault slugs/titles.
             disk_names = {_unscope(w["name"]) for w in workspaces}
@@ -337,12 +334,8 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         except Exception as e:
             code_drift = {"error": str(e)}
 
-    container_drift = _SKIPPED
-    source_sync_drift = _SKIPPED
     file_map_drift = _SKIPPED
     if repo_path:
-        container_drift = check_container_drift(repo_path, wiki)
-        source_sync_drift = check_source_sync_drift(repo_path, wiki)
         file_map_drift = check_file_map_drift(repo_path, pages)
 
     package_sync_drift = check_package_sync_drift(repo_path, wiki) if repo_path else _SKIPPED
@@ -356,9 +349,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     workspaces_for_lint = None
     if "dependency_layer" in enabled_optional and repo_path and _scan_discover:
         try:
-            layout = read_layout(wiki / "CLAUDE.md")
-            pinned_containers = layout.get("containers") if layout else None
-            workspaces_for_lint = _scan_discover(repo_path, pinned_containers=pinned_containers)
+            workspaces_for_lint = _scan_discover(repo_path)
         except Exception:
             workspaces_for_lint = None
 
@@ -379,8 +370,6 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         "duplicate_titles": duplicate_titles,
         "log_gap": log_gap,
         "code_drift": code_drift,
-        "container_drift": container_drift,
-        "source_sync_drift": source_sync_drift,
         "file_map_drift": file_map_drift,
         "package_sync_drift": package_sync_drift,
         "domain_placement": domain_placement,
@@ -457,24 +446,6 @@ def print_report(r):
             print(f"[{'WARN' if ed else 'OK'}] exports-frontmatter drift: {len(ed)}")
             for d in ed[:10]:
                 print(f"   ~ {d['page']} (vault: {d['vault_count']}, disk: {d['disk_count']})")
-    print()
-
-    cdrift = r.get("container_drift")
-    if isinstance(cdrift, dict) and cdrift.get("skipped"):
-        print("[SKIP] container drift check (no repo root discovered)")
-    else:
-        header("container drift issues", len(cdrift))
-        for issue in cdrift[:20]:
-            print(f"   - {issue}")
-    print()
-
-    ddrift = r.get("source_sync_drift")
-    if isinstance(ddrift, dict) and ddrift.get("skipped"):
-        print("[SKIP] source sync drift check (no repo root discovered)")
-    else:
-        header("source sync drift issues", len(ddrift))
-        for issue in ddrift[:20]:
-            print(f"   - {issue}")
     print()
 
     fmdrift = r.get("file_map_drift")

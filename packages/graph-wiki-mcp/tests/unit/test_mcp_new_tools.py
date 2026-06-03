@@ -331,8 +331,6 @@ async def test_wiki_lint_emits_progress() -> None:
         duplicate_titles={},
         log_gap=None,
         code_drift={"skipped": True},
-        container_drift=[],
-        source_sync_drift=[],
         file_map_drift=[],
         package_sync_drift=[],
         domain_placement=[],
