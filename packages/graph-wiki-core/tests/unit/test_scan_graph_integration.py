@@ -608,8 +608,6 @@ def test_file_map_injected_into_package_entity_page(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            # Preset file_map survives because build_file_map is stubbed to None.
-            "file_map": pkg_a_block,
         },
         {
             "name": "pkg-b",
@@ -634,8 +632,14 @@ def test_file_map_injected_into_package_entity_page(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    # Keep the preset file_map values (do not overwrite via real build_file_map).
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a,
+    # None for pkg-b (so pkg-b injection is still skipped).
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     result = asyncio.run(
         scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
@@ -707,8 +711,6 @@ async def test_file_map_injected_into_app_entity_page(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            # Preset file_map survives because build_file_map is stubbed to None.
-            "file_map": app_x_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -724,8 +726,13 @@ async def test_file_map_injected_into_app_entity_page(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    # Keep the preset file_map values (do not overwrite via real build_file_map).
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     result = await scan_module.run_scan(
         workspace_path=workspace, repo_path=repo, no_file_map=False
@@ -796,7 +803,6 @@ def test_file_map_descriptions_survive_rescan(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            "file_map": pkg_a_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -812,7 +818,13 @@ def test_file_map_descriptions_survive_rescan(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     import frontmatter
 
@@ -886,7 +898,6 @@ def test_code_reader_fanout_fills_todo_descriptions(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            "file_map": pkg_a_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -902,7 +913,13 @@ def test_code_reader_fanout_fills_todo_descriptions(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     # Override the autouse empty-pool stub: the code_reader pool returns a
     # {path: description} JSON for each item's todo paths; the narrator pool
@@ -983,7 +1000,6 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -999,7 +1015,13 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     # Override the autouse empty-pool stub: the code_reader pool returns a
     # {path: description} JSON for each item's todo paths; the narrator pool
@@ -1081,7 +1103,6 @@ async def test_app_file_map_descriptions_survive_rescan(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -1097,7 +1118,13 @@ async def test_app_file_map_descriptions_survive_rescan(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     import frontmatter
 
@@ -1171,7 +1198,6 @@ async def test_description_fill_log_uses_entity_noun(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
@@ -1187,7 +1213,13 @@ async def test_description_fill_log_uses_entity_noun(
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     from subagent_runtime.pool import FanOutResult
 

@@ -961,8 +961,8 @@ async def run_scan(
         # that section with the deterministic `build_file_map` block (path +
         # kind rows; Description stays `— TODO`, filled by a later ingest pass).
         # `unchanged` pages are left untouched so prior ingest-filled
-        # descriptions survive no-op scans. Skipped when no_file_map dropped
-        # `w["file_map"]` (the per-name lookup yields "" and we skip).
+        # descriptions survive no-op scans. Skipped entirely when no_file_map
+        # is True (guard on the `if refreshed and any(fm_list_fns)` branch).
         entities_file_mapped: list[str] = []
         file_map_errors: list[str] = []
         describer_filled: list[str] = []
@@ -982,10 +982,7 @@ async def run_scan(
                 else frozenset()
             )
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
-            if refreshed and any(fm_list_fns):
-                ws_fm_by_name = {
-                    unscope(w["name"]): w.get("file_map", "") for w in workspaces
-                }
+            if refreshed and any(fm_list_fns) and not no_file_map:
                 fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
                 for node in fm_nodes:
                     if not isinstance(node.attrs, dict):
@@ -993,7 +990,10 @@ async def run_scan(
                     node_uri = node.attrs.get("uri")
                     if not node_uri or node_uri not in refreshed:
                         continue
-                    file_map = ws_fm_by_name.get(node.name, "")
+                    node_path = node.path
+                    if not node_path:
+                        continue
+                    file_map = build_file_map(repo / node_path, max_depth=max_depth)
                     if not file_map:
                         continue
                     slug = short_filename(node_uri, fm_collision_set)

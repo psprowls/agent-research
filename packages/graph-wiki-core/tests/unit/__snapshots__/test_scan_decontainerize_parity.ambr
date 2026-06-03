@@ -333,14 +333,23 @@
       > TODO: <One paragraph: what this package does, who uses it, why it exists.>
       
       ## File map - jspkg
-      > TODO — <Overview of this package's source tree.>
+      TODO — overview of this package's tree.
       
       ### jspkg/
-      > TODO — <describe what this directory contains.>
+      TODO — describe what this directory contains.
       
       | Path | Kind | Description |
       |---|---|---|
-      | `<file>` | file | — > TODO — <Short description of file contents.> |
+      | `index.js` | file | — TODO |
+      | `package.json` | file | — TODO |
+      | `types.d.ts` | file | — TODO |
+      
+      ### jspkg/gen/
+      TODO — describe what this directory contains.
+      
+      | Path | Kind | Description |
+      |---|---|---|
+      | `data.gen.ts` | file | — TODO |
       
       ## Public API
       > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
