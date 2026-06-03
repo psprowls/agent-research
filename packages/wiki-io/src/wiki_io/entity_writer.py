@@ -498,6 +498,95 @@ def _detect_structural_change(existing_fm: dict, new_fm: dict) -> bool:
 _RESIDUAL_TOKEN_RE = re.compile(r"\{\{[^}]+\}\}")
 
 
+# ---------------------------------------------------------------------------
+# Living Wiki M1: heading-aware section preservation (Approach A).
+# Scanner-owned H2 sections are regenerated from the template every scan;
+# every other H2 section is preserved from the existing page on re-scan.
+# ---------------------------------------------------------------------------
+
+
+def _is_scanner_owned_heading(heading: str) -> bool:
+    """True for the three H2 sections the scanner regenerates each scan:
+    `## Narrative`, `## File map[ - <name>]`, `## Referenced in wiki`.
+
+    Everything else (e.g. `## Purpose`, `## Public API`, any hand-added H2)
+    is human-owned and preserved across re-scan.
+    """
+    h = heading.strip()
+    return (
+        h == "## Narrative"
+        or h.startswith("## File map")
+        or h == "## Referenced in wiki"
+    )
+
+
+def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """Split a page body into ``(preamble, [(heading, chunk), ...])``.
+
+    ``preamble`` is everything before the first H2 (the H1 + any intro). Each
+    ``chunk`` starts at its ``## `` heading and runs up to (but not including)
+    the next H2, or EOF; ``heading`` is the stripped first line of the chunk.
+    Lossless: ``preamble + "".join(chunks) == text`` (uses ``_NEXT_H2_RE``,
+    defined at module scope below).
+    """
+    starts = [m.start() for m in _NEXT_H2_RE.finditer(text)]
+    if not starts:
+        return text, []
+    preamble = text[: starts[0]]
+    sections: list[tuple[str, str]] = []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(text)
+        chunk = text[start:end]
+        heading = chunk.split("\n", 1)[0].strip()
+        sections.append((heading, chunk))
+    return preamble, sections
+
+
+def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
+    """Merge human-owned sections from ``existing_body`` into ``template_body``.
+
+    Scanner-owned sections (``_is_scanner_owned_heading``) always come from the
+    template (placeholders the scan pipeline re-injects). Every other section
+    whose heading appears in ``existing_body`` replaces the template's version;
+    sections present only in ``existing_body`` (user-added) are appended in
+    their original order. The preamble (H1 + intro) always comes from the
+    template.
+
+    Idempotent: ``_merge_preserved_sections(t, t) == t`` because the split is
+    lossless and each section round-trips by heading.
+    """
+    pre_t, secs_t = _split_h2_sections(template_body)
+    _pre_e, secs_e = _split_h2_sections(existing_body)
+
+    existing_by_heading: dict[str, str] = {}
+    for heading, chunk in secs_e:
+        existing_by_heading.setdefault(heading, chunk)  # first occurrence wins
+
+    out = [pre_t]
+    template_headings: set[str] = set()
+    consumed: set[str] = set()
+    for heading, chunk in secs_t:
+        template_headings.add(heading)
+        if not _is_scanner_owned_heading(heading) and heading in existing_by_heading:
+            out.append(existing_by_heading[heading])
+            consumed.add(heading)
+        else:
+            out.append(chunk)
+
+    # Preserve user-added sections the template does not define.
+    for heading, chunk in secs_e:
+        if (
+            heading in template_headings
+            or heading in consumed
+            or _is_scanner_owned_heading(heading)
+        ):
+            continue
+        consumed.add(heading)
+        out.append(chunk)
+
+    return "".join(out)
+
+
 def _render_entity_page(
     template_path: Path, frontmatter_dict: dict, variables: dict[str, str]
 ) -> str:
