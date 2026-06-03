@@ -56,11 +56,10 @@ def test_bootstrap_then_render_overviews_zero_broken_links(
     from wiki_io.init_vault import init_wiki, render_template
     from wiki_io.lint_wiki import scan as lint_scan
 
-    # Stub out workspace bootstrap (writes .graph-wiki.yaml, runs git init)
-    # and container detection — neither is exercised by this test, and both
-    # require real I/O against tmp_path that adds noise to the lint surface.
+    # Stub out workspace bootstrap (writes .graph-wiki.yaml, runs git init) —
+    # it is not exercised by this test and requires real I/O against tmp_path
+    # that adds noise to the lint surface.
     monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
-    monkeypatch.setattr(init_vault, "_resolve_pinned_containers", lambda *a, **k: [])
 
     repo = tmp_path / "repo"
     repo.mkdir()

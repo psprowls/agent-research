@@ -254,11 +254,10 @@ class WikiScanInput(BaseModel):
 
 
 class WikiScanOutput(BaseModel):
-    added: list[str]
-    updated: list[str]
-    deleted: list[str]
-    renamed: list[list[str]]
-    errors: list[str]
+    entities_created: list[str]
+    entities_updated: list[str]
+    entities_deleted: list[str]
+    entity_errors: list[str]
     state_gate: dict
 
 
@@ -275,20 +274,19 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
         max_depth=input.max_depth,
         repo_path=Path(input.repo_path).resolve() if input.repo_path else None,
     )
-    added = len(result.added)
-    updated = len(result.updated)
-    deleted = len(result.deleted)
+    created = len(result.entities_created)
+    updated = len(result.entities_updated)
+    deleted = len(result.entities_deleted)
     await ctx.report_progress(
         progress=2,
         total=2,
-        message=f"Scan complete: +{added} ~{updated} -{deleted}",
+        message=f"Scan complete: entities +{created} ~{updated} -{deleted}",
     )
     return WikiScanOutput(
-        added=result.added,
-        updated=result.updated,
-        deleted=result.deleted,
-        renamed=result.renamed,
-        errors=result.errors,
+        entities_created=result.entities_created,
+        entities_updated=result.entities_updated,
+        entities_deleted=result.entities_deleted,
+        entity_errors=result.entity_errors,
         state_gate=result.state_gate,
     )
 
@@ -393,8 +391,6 @@ class WikiLintOutput(BaseModel):
     duplicate_titles: dict
     log_gap: dict | None
     code_drift: dict
-    container_drift: list[str]
-    source_sync_drift: list[str]
     file_map_drift: list[str]
     package_sync_drift: list[str]
     domain_placement: list[str]
@@ -433,8 +429,6 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
         duplicate_titles=result.duplicate_titles,
         log_gap=result.log_gap,
         code_drift=result.code_drift,
-        container_drift=result.container_drift,
-        source_sync_drift=result.source_sync_drift,
         file_map_drift=result.file_map_drift,
         package_sync_drift=result.package_sync_drift,
         domain_placement=result.domain_placement,

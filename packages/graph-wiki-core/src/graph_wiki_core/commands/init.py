@@ -53,8 +53,9 @@ async def run_init(
         topic: Short description of the repository (e.g. "my-project").
         tool: Which schema file(s) to install (claude-code, codex, cursor, all, ...).
         force: If True, overwrite non-empty wiki directory.
-        interactive: If True, prompt for ambiguous container classifications;
-                     if False (default), silent-skip ambiguous rows (today's behavior).
+        interactive: Accepted for signature stability; no-op since container
+                     detection was removed (decontainerize). Forwarded as
+                     `non_interactive=not interactive`, which init_vault ignores.
         workspace_path: Explicit workspace path; if None, reads GRAPH_WIKI_WORKSPACE env var.
         repo_path: Explicit repo root path; if None, walks up from cwd.
 

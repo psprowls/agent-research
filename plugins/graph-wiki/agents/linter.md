@@ -36,10 +36,9 @@ Parse the JSON. Capture:
 - Connected components, hubs, sinks
 - **Code drift**: `missing_in_vault`, `orphaned_in_vault`, `exports_drift`
 
-**New checks:** Beyond mono-wiki's mechanical and semantic checks, run `check_container_drift` and `check_source_sync_drift` (in `lint_wiki.py`). Container drift is informational (the user decides whether to re-run `/graph-wiki:bootstrap`, edit the layout block, or ignore). Source sync drift is actionable: a stale vault doc page (source file changed since `last_sync_commit`) should be re-summarized; a missing source flags either a deleted doc or a misclassified container.
+**New check:** Beyond mono-wiki's mechanical and semantic checks, run `check_package_sync_drift` (in `lint_wiki.py`). Package sync drift is actionable: a package/app page whose source code has changed since its `last_sync_commit` should be re-scanned.
 
 - **Package sync drift** — package/app pages whose source code has changed since their `last_sync_commit`. Surface the count of changed files and one example path; suggest running `/graph-wiki:scan` on a clean main checkout.
-- **Source sync drift** — in-repo doc source pages (`category: source`, `source_type: doc`) whose source file has changed since `last_sync_commit`. Suggest re-ingesting via `/graph-wiki:ingest <path>`.
 - **Never-synced packages** — pages with no `last_sync_commit` (legacy or freshly-created stub). The first clean-on-main `/graph-wiki:scan` will record one.
 - **Sync commit unreachable** — page records a `last_sync_commit` that isn't an ancestor of HEAD (typically means a feature-branch SHA, or main was rebased). Surface as: `<page>: last_sync_commit <sha> not reachable from HEAD`. Suggest re-running `/graph-wiki:scan` on a clean main checkout.
 

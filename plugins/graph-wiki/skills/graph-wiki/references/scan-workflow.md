@@ -7,7 +7,7 @@ Keep the wiki's single `entities/` folder in sync with the code graph. The scan 
 ## Inputs
 
 - Repo root + wiki path (resolved via `workspace_io`).
-- The pinned `graph-wiki:layout` block in `wiki/CLAUDE.md` (scopes graph build + discovery to pinned containers; detection itself is unchanged — see `detection-workflow.md`).
+- The code graph itself — entity discovery is purely graph-driven; there is no folder-shape input or pinned scoping. The graph (built from the repo by `cg`) is the sole source for which entities exist.
 
 ## What gets written
 
@@ -25,7 +25,7 @@ From the `ScanResult` JSON: `entities_created`, `entities_updated`, `entities_de
 `write_entities` hard-deletes pages for vanished graph nodes. Report them; never silently. Offer a git undo when the wiki is versioned. >10 deletions is a red flag (bad repo path / failed graph build) — stop and ask.
 
 ### 4. Update cross-references / indexes
-Already done by the script (`index.md`, per-folder sub-indexes, `dependencies/index.md`). No separate step.
+Already done by the script (`index.md`, per-folder sub-indexes). No separate step.
 
 ### 5. Append to log
 Already done by the script.

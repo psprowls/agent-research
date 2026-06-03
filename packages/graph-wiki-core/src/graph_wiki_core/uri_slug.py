@@ -5,9 +5,8 @@ wiki page. Both the scanner (Phase 39, future refactor) and the ingestor
 (Phase 40, now) consult the graph and derive the slug by taking the URI's
 last segment.
 
-The page-type routing prefix (`apps/`, `domains/<d>/packages/`, `packages/`)
-is chosen elsewhere — `commands/ingest._route_target_path` for the ingestor;
-`wiki_io.scan_monorepo._wiki_relative_path_for` for the scanner. This module
+The page-type routing prefix is chosen elsewhere —
+`commands/ingest._route_target_path` for the ingestor. This module
 returns only the slug.
 """
 from __future__ import annotations

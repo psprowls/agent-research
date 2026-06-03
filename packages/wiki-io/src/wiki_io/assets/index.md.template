@@ -25,7 +25,7 @@ _No pages yet. Create manually or via ingest — feature areas that span package
 _No pages yet. Cross-cutting technical patterns will appear here as they're extracted from sources and code._
 
 ## Dependency (0)
-_No pages yet. The auto-generated `dependencies/index.md` covers every external dep; detail pages live here for the load-bearing ones (React, MongoDB, etc.)._
+_No pages yet. `/graph-wiki:scan` writes one `entities/dep_*.md` page per external dependency._
 
 ## ADR (0)
 _No pages yet. Architecture Decision Records — dated, citable decisions._

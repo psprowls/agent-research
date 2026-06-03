@@ -1,11 +1,6 @@
 # serializer version: 1
 # name: test_render_project_context_with_claude_md
   '''
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.

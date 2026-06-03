@@ -2,14 +2,14 @@
 
 The detailed flow the LLM follows when the user runs `/graph-wiki:ingest <path>` or dispatches the `graph-wiki:ingestor` sub-agent.
 
-Sources in a graph-wiki are one of: **spec**, **article**, **PR summary**, **ticket**, **transcript**, **RFC**, **design doc**, or an **in-repo doc** surfaced by `/graph-wiki:scan`. The ingest flow is the same for all — only the summary template's framing changes.
+Sources in a graph-wiki are one of: **spec**, **article**, **PR summary**, **ticket**, **transcript**, **RFC**, **design doc**, or an **in-repo doc** (a `.md` that lives in the repo, passed by repo-relative path). The ingest flow is the same for all — only the summary template's framing changes.
 
 ## Source locations
 
 Sources live in two places:
 
 - **`<workspace>/raw/<...>`** — clipped articles, specs, PRs, transcripts you've staged. Immutable; the LLM never edits. Owned by `workspace_io`.
-- **`<repo>/<docs-container>/<...>.md`** — in-repo design docs. `/graph-wiki:scan` lists these as ingest candidates; pass the repo-relative path straight to `/graph-wiki:ingest`. The summary records `source_path` (repo-relative) and `last_sync_commit` so `/graph-wiki:lint` flags staleness when the file changes. The doc itself stays in the repo — the wiki does not duplicate it.
+- **`<repo>/<...>.md`** (in-repo design docs) — any `.md` that resolves under the repo but outside the wiki. Pass the repo-relative path straight to `/graph-wiki:ingest`; `ingest_source.py` detects it as an in-repo doc (`in_repo_doc`). The summary records `source_path` (repo-relative) and `last_sync_commit` so `/graph-wiki:lint` flags staleness when the file changes. The doc itself stays in the repo — the wiki does not duplicate it.
 
 ## Inputs
 
@@ -139,7 +139,7 @@ Summary the user sees in chat:
 - Attribute claims to speakers where possible.
 
 ### In-repo docs (source_type: doc)
-- Surfaced by `/graph-wiki:scan` for any pinned `docs` container; the `.md` lives in the repo, not in `raw/`.
+- An in-repo `.md` passed by repo-relative path; the file lives in the repo, not in `raw/`. Not auto-surfaced — point `/graph-wiki:ingest` at it directly.
 - `source_path` is repo-relative (e.g. `docs/architecture.md`). The doc stays canonical — the wiki summary doesn't duplicate it; it cross-references concepts, packages, ADRs, etc. inferred from the doc's content.
 - When `state_gate.allowed` is true, set `last_sync_commit` to `state_gate.head_commit` and `last_sync_at` to today; `/graph-wiki:lint` uses these to flag drift on subsequent runs. Otherwise omit both fields and warn the user that drift detection won't apply until the next clean-on-main ingest.
 - Often produce concept pages, architecture revisions, or ADRs depending on the doc's content. Treat them like specs/RFCs by default.
@@ -159,7 +159,7 @@ Summary the user sees in chat:
 
 ## Future formats
 
-Today, `/graph-wiki:scan` only surfaces `.md` files inside docs containers. Other formats are deferred:
+Today, in-repo doc ingest is limited to `.md` files passed by path. Other formats are deferred:
 
 - **`.pdf`** — needs a parser (or rely on the LLM's PDF Read support).
 - **`.docx` / `.odt`** — needs a parser.

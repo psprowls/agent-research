@@ -20,12 +20,11 @@ A typical ingest touches **5-15 vault pages**. You're in the loop.
 /graph-wiki:ingest raw/prs/842-healthkit-retry.md
 /graph-wiki:ingest raw/transcripts/2026-04-arch-review.md
 /graph-wiki:ingest raw/examples/expo-tanstack-query/   # folder ingest
-/graph-wiki:ingest docs/architecture.md          # in-repo doc surfaced by /graph-wiki:scan
 ```
 
 ## Source types
 
-The script guesses from the raw/ subdirectory, or treats the path as an in-repo doc when it resolves under the repo's pinned `docs` container. Supported:
+The script guesses the source type from the raw/ subdirectory. Supported:
 
 | Path | Source type | Typical touches |
 |---|---|---|
@@ -35,7 +34,6 @@ The script guesses from the raw/ subdirectory, or treats the path as an in-repo 
 | `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |
 | `raw/transcripts/` | `transcript` | ADRs + `[[entities/...]]` links for relevant domains |
 | `raw/examples/` | `example` | Concept pages (often pattern-flavored); `[[entities/...]]` `## Inspirations` bullets |
-| `<docs-container>/*.md` | `doc` | Concept/architecture/work pages; `[[entities/...]]` links; gets `last_sync_commit` + `last_sync_at` for drift detection |
 
 ## What happens
 
@@ -57,9 +55,8 @@ Dispatches the `ingestor` sub-agent. See `agents/ingestor.md`.
 
 ## Rules
 
-- The source must be either inside the wiki's `raw/` layer or an in-repo `.md` under the pinned `docs` container (e.g. `docs/architecture.md`)
+- The source must be inside the wiki's `raw/` layer
 - `raw/` is immutable — the ingestor reads only
-- In-repo docs (`source_type: doc`) get `last_sync_commit` + `last_sync_at` recorded on the source page for `/graph-wiki:lint` drift detection — gated on clean tree + HEAD on `main`. See `agents/ingestor.md` for the full sync-state semantics.
 - If a summary page exists, enters **merge mode** (appends a re-ingest section)
 - Folders under `raw/examples/` are ingested as a single source summary. `ingest_source.py` warns at >50 files, errors at >200 (almost certainly the wrong directory), and warns when any file exceeds 200 KB.
 

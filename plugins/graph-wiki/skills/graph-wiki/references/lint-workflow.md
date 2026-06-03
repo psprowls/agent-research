@@ -27,9 +27,7 @@ Default report:
 - **Duplicate titles** — two or more pages sharing the same title
 - **Log gap** — no log entry in the last 14 days (tune via `--log-gap-days`)
 - **Code drift** (monorepo-specific) — packages/apps on disk vs. `entities/` pages in the vault (matched by entity `kind` + `uri`; legacy `packages/<slug>/` pages still recognized). Pages declaring `status: planned` in frontmatter are excluded from `orphaned_in_vault` and surfaced separately under `planned_in_vault`, so deliberately seeded pages don't drown the signal.
-- **`container_drift`** (`lint/container.py`) — pinned vault dirs vs. disk; orphan vault dirs. `entities/` is a recognized fixed dir. Tolerates legacy `issues/`, `roadmap/`, `comparisons/` with a hint pointing at the §2 migrators.
-- **`source_sync` drift** (`lint/source_sync.py`) — for each in-repo doc source page (`category: source` with `last_sync_commit`), runs `git diff --name-only <last_sync_commit>..HEAD -- <source_path>`. Drift suggests running `/graph-wiki:ingest <path>` to re-ingest.
-- **`package_sync` drift** (`lint/package_sync.py`) — same shape against `package_path` / `app_path` on legacy/ingest-tracked pages. Graph-derived `entities/` pages don't carry `last_sync_commit`, so code drift (above) is the entity-layout freshness signal; re-run `/graph-wiki:scan` to refresh them.
+- **`package_sync` drift** (`lint/package_sync.py`) — for legacy/ingest-tracked package/app pages, runs `git diff --name-only <last_sync_commit>..HEAD` against `package_path` / `app_path`. Graph-derived `entities/` pages don't carry `last_sync_commit`, so code drift (above) is the entity-layout freshness signal; re-run `/graph-wiki:scan` to refresh them.
 - **`file_map` drift** (`lint/file_map.py`) — `## File map` entries that no longer exist on disk.
 - **`domain` placement** (`lint/domain.py`) — legacy package pages whose vault location disagrees with their `domain:` frontmatter. `entities/` pages all live in one folder, so this check only applies to legacy layouts.
 
@@ -45,15 +43,11 @@ python scripts/lint_wiki.py --check dependency_layer
 
 | Rule | Severity | What it catches |
 |---|---|---|
-| `dep-kind-not-in-enum` | error | `kind:` outside `package | package-family | service` |
+| `dep-kind-not-in-enum` | error | `kind:` outside `package | service` |
 | `dep-package-without-ecosystem` | error | `kind: package` and `ecosystem:` missing |
 | `dep-service-without-provider` | error | `kind: service` and `provider:` missing |
-| `dep-family-without-members` | error | `kind: package-family` and `members:` empty |
-| `dep-family-member-not-in-scan` | error | a member listed in `members:` isn't found in any manifest scanned by `discover_workspaces` |
-| `dep-family-back-pointer-mismatch` | error | a package has `family: X` but family X's page doesn't list it (or vice versa) |
-| `dep-multiple-families` | error | a package is claimed by two different family pages |
 | `dep-detail-without-load-bearing` | warn | detail page exists but `load_bearing: true` not set |
-| `dep-stub-detail-page` | warn | detail page body <15 lines beyond frontmatter — flesh out or delete and rely on the auto-generated `dependencies/index.md` |
+| `dep-stub-detail-page` | warn | dependency page body <15 lines beyond frontmatter — flesh out or delete (the entity page is the source of truth) |
 
 ### Other helpers
 
@@ -113,7 +107,7 @@ Present findings to the user as a single markdown report:
 ### Found
 - ⚠️ 4 packages drifted since last sync: `common-aws-node-ts` (12 files), …
 - ⚠️ 2 packages on disk missing wiki pages: `timeline-native-ts`, `timeline-data-node-ts`
-- ⚠️ 1 dep-stub-detail-page: `dependencies/lodash` has 3 body lines — delete and rely on `dependencies/index.md`
+- ⚠️ 1 dep-stub-detail-page: `entities/dep_lodash` has 3 body lines — flesh out or delete
 - 3 orphan wiki pages
 - 4 concepts mentioned across 3+ pages without their own page
 

@@ -19,7 +19,7 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 1. **Graph build + write** — `scripts/scan_monorepo.py` builds the code graph and writes one page per admitted entity into `<workspace>/wiki/entities/` (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). Pages use URI-based filenames and are structural-only (`## Narrative` placeholder, `— TODO` file-map rows).
 2. **Frontmatter** — scanner-owned keys (`uri`, `kind`, `depends_on`, `language`, …) are replaced from the graph each scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
-3. **Indexes + log** — `index.md`, per-folder sub-indexes, and `dependencies/index.md` are regenerated; a `scan` entry is appended to `log.md`.
+3. **Indexes + log** — `index.md` and per-folder sub-indexes are regenerated; a `scan` entry is appended to `log.md`.
 4. **Report** — created / updated / deleted entities are reported by URI. Deletions are surfaced for confirmation (with a git-based undo when the wiki is versioned); >10 deletions is a stop-and-ask red flag.
 
 This runs entirely **without Bedrock** (structural-only). No prose is generated.
@@ -33,29 +33,6 @@ This command dispatches the `scanner` sub-agent. See `agents/scanner.md`.
 - **Don't silently delete entity pages** — always surface deletions; >10 is a red flag.
 - **Structural-only** — `## Narrative` and file-map descriptions are filled later by ingest/query, not by scan.
 - **The graph is the source** — entity pages are rendered from the code graph, not hand-written.
-
-## Layout reconcile
-
-When `/graph-wiki:scan` runs against an initialized wiki, it re-detects containers and compares the result to the pinned layout. If `scan_monorepo.py` prints a "Layout drift detected" block, surface the drift to the user and offer:
-
-- **Re-run `/graph-wiki:bootstrap`** — full re-detection. Overwrites the existing layout block.
-- **Edit the layout block manually** — the user can change a row's `classification` or `vault_dir` directly in `<workspace>/wiki/CLAUDE.md`.
-- **Ignore for now** — drift remains until next scan.
-
-Don't auto-apply changes. Layout decisions are the user's.
-
-## In-repo docs
-
-When a `docs` container is pinned, scan walks its top-level `.md` files and reports any without an existing source summary as ingest candidates:
-
-```
-Docs to ingest: 3
-  ? docs/architecture.md  (run /graph-wiki:ingest docs/architecture.md)
-  ? docs/runbook.md       (run /graph-wiki:ingest docs/runbook.md)
-  ? docs/release-notes.md (run /graph-wiki:ingest docs/release-notes.md)
-```
-
-Scan does not auto-ingest. Pass each path to `/graph-wiki:ingest`; the regular ingest flow produces a `category: source` summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md` and updates concepts/ADRs/packages from the doc's content. PDF, DOCX, and other formats are deferred — md only for now (see `references/ingest-workflow.md` "Future formats").
 
 ## When to run
 

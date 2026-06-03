@@ -15,7 +15,7 @@ The index is the catalog. Scan it and pick the 3-10 pages most likely to contain
 - `architecture/` for the big picture
 - `entities/` for specific package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
 - `concepts/` for cross-cutting patterns
-- `dependencies/` for "how do we use X library" questions (the auto-rendered index; `entities/dep_*` for detail)
+- `entities/dep_*` for "how do we use X library" questions
 - `work/` for "why does X fail / what's planned / what's in progress"
 - `adrs/` for "why did we do it this way"
 - `sources/` for evidence and original context

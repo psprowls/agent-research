@@ -147,8 +147,6 @@ def lint(
         else:
             typer.echo("[OK] Log gap: recent\n")
 
-        _section("Container drift", result.container_drift)
-        _section("Source sync drift", result.source_sync_drift)
         _section("File map drift", result.file_map_drift)
         _section("Package sync drift", result.package_sync_drift)
         _section("Domain placement", result.domain_placement)

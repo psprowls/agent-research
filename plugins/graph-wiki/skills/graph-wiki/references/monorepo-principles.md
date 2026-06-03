@@ -52,7 +52,7 @@ The generic [wiki](../../wiki) pattern (entities/concepts/sources/synthesis/comp
 | `concepts/` | `concepts/` (cross-cutting patterns; `<a>-vs-<b>.md` comparisons live here) |
 | `sources/` | Same, but source types are: spec, PR, ticket, article, transcript, RFC |
 | `synthesis/` | `architecture/` |
-| *(none)* | `dependencies/` — auto-generated `index.md` covers every dep; detail pages opt-in |
+| *(none)* | `entities/dep_*` — one graph-derived page per dependency (`kind: package | service`) |
 | *(none)* | `adrs/` — dated, citable decisions |
 | Index-first retrieval | Same, plus **code-drift detection** (entities on disk vs. in wiki) |
 | One-time curation | Continuous — every scan/merge picks up new entities automatically |

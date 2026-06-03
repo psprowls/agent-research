@@ -10,58 +10,29 @@ from pathlib import Path
 
 
 def test_all_ports_importable():
-    from wiki_io import _workspace, layout_io  # noqa: F401
+    from wiki_io import _workspace  # noqa: F401
     from wiki_io.append_log import VALID_OPS, append_log
-    from wiki_io.detect_containers import detect
     from wiki_io.graph_analyzer import analyze, build_graph
     from wiki_io.init_vault import FIXED_VAULT_DIRS, init_wiki
     from wiki_io.lint.common import WIKILINK_RE, _is_placeholder_target
-    from wiki_io.scan_monorepo import discover_workspaces, scan, unscope
+    from wiki_io.scan_monorepo import unscope
     from wiki_io.update_index import render_index, scan_vault
     from wiki_io.update_tokens import update_page, update_vault
 
     # Callables / values are present and reasonably typed.
     assert callable(update_page)
     assert callable(update_vault)
-    assert callable(detect)
     assert callable(append_log)
     assert isinstance(VALID_OPS, set) and "scan" in VALID_OPS
     assert callable(scan_vault)
     assert callable(render_index)
     assert callable(build_graph)
     assert callable(analyze)
-    assert callable(discover_workspaces)
-    assert callable(scan)
     assert callable(unscope)
     assert callable(init_wiki)
     assert isinstance(FIXED_VAULT_DIRS, list) and "concepts" in FIXED_VAULT_DIRS
     assert callable(_is_placeholder_target)
     assert WIKILINK_RE.search("[[foo]]") is not None
-
-
-def test_detect_containers_smoke(tmp_path: Path):
-    """A tmp repo with a package.json plus a pyproject.toml child must be classified."""
-    from wiki_io.detect_containers import detect
-
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    # Child directory with a python manifest — looks like a 'packages' container.
-    pkgs = repo / "packages"
-    pkgs.mkdir()
-    (pkgs / "alpha").mkdir()
-    (pkgs / "alpha" / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\n',
-        encoding="utf-8",
-    )
-
-    records = detect(repo)
-    assert isinstance(records, list)
-    assert records, "detect() should return at least one container record"
-    sources = {r["source"] for r in records}
-    assert "packages" in sources
-    # The packages dir contains one manifest-bearing child → classification 'package'.
-    classes = {r["source"]: r["classification"] for r in records}
-    assert classes["packages"] == "package", f"expected 'package', got {classes['packages']!r}"
 
 
 def test_resolve_wiki_and_repo_raises_on_no_config(monkeypatch, tmp_path: Path):

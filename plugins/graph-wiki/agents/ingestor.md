@@ -16,7 +16,7 @@ You integrate a new source (spec, PR, article, ticket, transcript) into the `<wo
 
 ## Inputs
 
-- Path to a source file. Either inside `<workspace>/raw/` (staged clip) or repo-relative for an in-repo doc surfaced by `/graph-wiki:scan` (e.g. `docs/architecture.md`).
+- Path to a source file. Either inside `<workspace>/raw/` (staged clip) or repo-relative for an in-repo doc (e.g. `docs/architecture.md`) passed directly to `/graph-wiki:ingest`.
 - The current state of `<workspace>/wiki/` (especially `index.md`)
 - The repo's code (for contradiction checks)
 - The wiki's `CLAUDE.md` / `AGENTS.md` schema
@@ -61,7 +61,7 @@ Merge mode (page exists): append `## Re-ingest <date>` at bottom and bump `last_
 For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 
 ### 6. Update concept / dependency pages
-For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept and dependency *content* pages under `concepts/`/`dependencies/` are still hand-maintained; the graph-derived `entities/dep_*` pages are not.)
+For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept *content* pages under `concepts/` are hand-maintained; dependency pages are graph-derived at `entities/dep_*` and are scanner-owned — never hand-edited.)
 
 ### 7. Capture ADRs for decisions
 If the source proposes or documents a decision:
@@ -107,7 +107,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 ## Red flags
 
 Stop and ask before proceeding if:
-- The source is somewhere unexpected — not under `<workspace>/raw/` and not under `<repo>/<docs-container>/`
+- The source is somewhere unexpected — not under `<workspace>/raw/` and not an in-repo `.md` under the repo
 - The source appears to duplicate an existing source exactly
 - Ingesting would require deleting existing vault pages
 - You detect >5 contradictions with the code (likely major drift — worth a separate conversation)

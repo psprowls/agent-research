@@ -7,7 +7,7 @@ description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace �
 
 Bootstrap a new Code Wiki. Discovers the workspace via `workspace_io` (walks up from cwd for `.git`, reads `.graph-wiki.yaml` for the workspace path, defaults to `<repo>/graph-wiki`). Creates the wiki at `<workspace>/wiki/`.
 
-The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `architecture/`, `concepts/`, `dependencies/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
+The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `architecture/`, `concepts/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
 
 ## Usage
 
@@ -25,22 +25,6 @@ The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/
 /graph-wiki:bootstrap --topic "api monorepo" --tool codex
 ```
 
-## Container detection
-
-Before initializing the wiki, run the container classifier so the user can confirm or override the detected layout:
-
-1. Run the detector for a JSON snapshot:
-
-   ```bash
-   uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/detect_containers.py --json
-   ```
-
-2. Show the user the detected table — one row per top-level dir, with `source`, `classification`, `children_count`, and `reason`.
-
-3. For each row whose `classification` is `ambiguous`, ask the user: "What is `<source>`? Pick: package / app / domain / package-family / docs / skip." Default to `skip` if they don't answer. Use `package-family` when the dir's children are wiki packages but their manifests live 2+ levels below — see `references/scan-workflow.md`.
-
-4. Once classifications are settled, run `init_vault.py` (it re-runs the detector internally; passing `--non-interactive` lets you skip its prompt loop if you've already collected confirmations). Show the user the resulting layout block from `<workspace>/wiki/CLAUDE.md`.
-
 ## What it creates
 
 ```
@@ -48,8 +32,8 @@ Before initializing the wiki, run the container classifier so the user can confi
 ├── index.md
 ├── log.md
 ├── entities/                   # one page per admitted entity (seeded with .gitkeep until scanned)
-├── concepts/ dependencies/
-├── sources/ architecture/ adrs/
+├── concepts/ sources/
+├── architecture/ adrs/
 ├── .templates/                 # page templates for reference
 ├── CLAUDE.md                   # if --tool claude-code or all
 ├── AGENTS.md                   # if --tool codex|cursor|antigravity|opencode|gemini-cli|all

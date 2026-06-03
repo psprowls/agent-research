@@ -32,7 +32,7 @@ The plugin has two delivery surfaces that share the same wiki format:
    /graph-wiki:bootstrap
    ```
 
-   This creates `<repo>/graph-wiki/` with `.graph-wiki.yaml`, `wiki/`, `raw/`, and `work/` subdirectories. The vault layout (apps, packages, domains) is detected interactively.
+   This creates `<repo>/graph-wiki/` with `.graph-wiki.yaml`, `wiki/`, `raw/`, and `work/` subdirectories.
 
 3. Open Obsidian at `<repo>/graph-wiki/` as a vault (not the inner `wiki/` directory). See `skills/graph-wiki/references/obsidian-setup.md` for recommended settings.
 
@@ -69,7 +69,7 @@ The `[plugin]` block is validated on every read: unknown keys raise `RuntimeErro
 
 | Command | What it does |
 |---|---|
-| `/graph-wiki:bootstrap` | Initialize a wiki workspace; detect repo layout; create vault skeleton |
+| `/graph-wiki:bootstrap` | Initialize a wiki workspace; create vault skeleton + schema files |
 | `/graph-wiki:scan` | Build the code graph; create/update/delete one `entities/` page per admitted entity |
 | `/graph-wiki:ingest <path>` | Read a source (spec, article, PR, transcript, in-repo doc); update wiki |
 | `/graph-wiki:query <question>` | Answer a question from the vault; offer to file the answer back |

@@ -47,11 +47,8 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── architecture/           # High-level architecture syntheses
       ├── adrs/                   # Architecture Decision Records
@@ -60,19 +57,17 @@
       └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
   ```
   
-  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
-  
   **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
   
   ## Page categories
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
-  | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
+  | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
   | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `vault_path/sources/` |
   | `architecture` | High-level synthesis — build system, module graph, request flow, deployment topology | `vault_path/architecture/` |
@@ -187,11 +182,6 @@
   Output ONLY YAML frontmatter followed by a markdown body. No commentary outside
   these sections.
   
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.
@@ -227,11 +217,8 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── architecture/           # High-level architecture syntheses
       ├── adrs/                   # Architecture Decision Records
@@ -240,19 +227,17 @@
       └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
   ```
   
-  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
-  
   **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
   
   ## Page categories
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
-  | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
+  | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
   | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `vault_path/sources/` |
   | `architecture` | High-level synthesis — build system, module graph, request flow, deployment topology | `vault_path/architecture/` |
@@ -379,11 +364,11 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/apps/<app>/overview.md` |
-  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/packages/<pkg>/overview.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/domains/<domain>/overview.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
+  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
-  | `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `vault_path/dependencies/` |
+  | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
   | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `vault_path/sources/` |
   | `architecture` | High-level synthesis — build system, module graph, request flow, deployment topology | `vault_path/architecture/` |
@@ -481,11 +466,6 @@
   and identify chain integrity issues. Report one finding per line in plain text.
   Do not include write operations — report only.
   If no ADR chain issues are found, output exactly: No ADR chain issues found.
-  
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
   
   ## Project style (wiki/CLAUDE.md §Style)
   
@@ -601,11 +581,6 @@
   You are a code wiki quality linter. Review the provided wiki pages and identify quality issues.
   Report one finding per line in plain text. Do not include write operations — report only.
   If no quality issues are found, output exactly: No page quality issues found.
-  
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
   
   ## Project style (wiki/CLAUDE.md §Style)
   
@@ -723,11 +698,6 @@
   Report one finding per line in plain text. Do not include write operations — report only.
   If no stale claim issues are found, output exactly: No stale claim issues found.
   
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.
@@ -811,11 +781,8 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── architecture/           # High-level architecture syntheses
       ├── adrs/                   # Architecture Decision Records
@@ -823,8 +790,6 @@
       ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
       └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
   ```
-  
-  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
   
   **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
   
@@ -899,11 +864,6 @@
   Produce ONLY the page body with YAML frontmatter. Do NOT include a "## File map" section — that
   is added separately by the build pipeline and must not appear in your output.
   
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.
@@ -939,11 +899,8 @@
   └── wiki/                       # this agent's curated knowledge base
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
-      ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
-      ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
-      ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
       ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-      ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── architecture/           # High-level architecture syntheses
       ├── adrs/                   # Architecture Decision Records
@@ -951,8 +908,6 @@
       ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
       └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
   ```
-  
-  `apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
   
   **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
   

@@ -2,7 +2,7 @@
 
 Covers the four LOCKED behavioral cases from 10-CONTEXT.md §Project-context renderer:
   1. Missing file → empty string (never None, never crash).
-  2. CLAUDE.md present with layout + style + log → rendered, snapshot-stable.
+  2. CLAUDE.md present with style + log → rendered, snapshot-stable.
   3. CLAUDE.md absent but AGENTS.md present → AGENTS.md is used.
   4. Two consecutive calls return byte-identical output (determinism invariant).
 
@@ -19,31 +19,12 @@ from syrupy.assertion import SnapshotAssertion
 
 # Module-level fixture: a minimal but realistic CLAUDE.md / AGENTS.md body.
 # Contains:
-#   - A valid <!-- graph-wiki:layout:start --> block with two containers
-#     (apps + cores) so the snapshot exercises multi-container ordering.
 #   - A ## Style section.
 #   - A ## Log format section with the canonical fenced code block.
 FIXTURE_CLAUDE_MD = """\
 # Project schema
 
 Some preamble text the renderer should ignore.
-
-<!-- graph-wiki:layout:start -->
-```yaml
-version: 1
-detected_at: 2026-04-29
-repo_root: ..
-containers:
-  - source: apps
-    vault_dir: apps
-    classification: app
-    children_count: 1
-  - source: cores
-    vault_dir: cores
-    classification: package
-    children_count: 4
-```
-<!-- graph-wiki:layout:end -->
 
 ## Style
 
@@ -83,7 +64,7 @@ def test_render_project_context_missing_file(tmp_path: Path) -> None:
 def test_render_project_context_with_claude_md(
     tmp_path: Path, snapshot: SnapshotAssertion
 ) -> None:
-    """CLAUDE.md present → rendered block contains layout/style/log."""
+    """CLAUDE.md present → rendered block contains style/log."""
     try:
         from graph_wiki_core.prompts.project_context import render_project_context
     except ImportError:
@@ -94,8 +75,6 @@ def test_render_project_context_with_claude_md(
     rendered = render_project_context(tmp_path)
 
     assert rendered, "rendered block must be non-empty when CLAUDE.md exists"
-    # At least one container's vault_dir must appear in the rendered output.
-    assert "apps" in rendered or "cores" in rendered
     # Style section was extracted.
     assert "Style" in rendered or "style" in rendered
     # Log format section was extracted.
@@ -116,7 +95,6 @@ def test_render_project_context_agents_md_fallback(tmp_path: Path) -> None:
     rendered = render_project_context(tmp_path)
 
     assert rendered, "rendered block must be non-empty when AGENTS.md exists"
-    assert "apps" in rendered or "cores" in rendered
     assert "Style" in rendered or "style" in rendered
     assert "Log format" in rendered or "log format" in rendered
     # The rendered output should reference AGENTS.md as the source filename.

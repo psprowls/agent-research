@@ -26,7 +26,6 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
     ├── entities/                # one page per graph-derived entity (all kinds)
     │   └── <prefix>_<name>.md   # e.g. pkg_common-aws-node-ts.md, app_web-next-ts.md
     ├── concepts/                # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
-    ├── dependencies/            # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                 # one summary page per ingested source
     ├── architecture/            # high-level syntheses
     ├── adrs/                    # architecture decision records
@@ -81,7 +80,7 @@ Entity pages live under `<workspace>/wiki/entities/` — one page per graph-deri
 | `entry_points` | package, app | detected entry-point paths |
 | `language` | package, app | primary language string |
 | `version` | package, app | version string from manifest |
-| `app_kind` | app | sub-classification (web, mobile, cli, …) |
+| `app_kind` | app | app sub-type (web, mobile, cli, …) |
 | `app_signals` | app | detected signals (framework, deployment, …) |
 | `parent_domain` | domain | parent domain name, if nested |
 | `sub_domains` | domain | list of child domain names |
@@ -136,9 +135,9 @@ Concepts are cross-cutting technical patterns — naming conventions, middleware
 
 ### Dependency pages
 
-`kind:` discriminates three shapes. The auto-generated `dependencies/index.md` covers every dep; detail pages are opt-in for the load-bearing ones. The existence of a detail page *is* the load-bearing signal — `load_bearing: true` is recorded explicitly so lint can catch detail pages that should have been deleted.
+`/graph-wiki:scan` writes one graph-derived dependency page per dep into `entities/dep_<name>.md`. `kind:` discriminates two shapes. `load_bearing: true` is recorded explicitly so lint can flag the load-bearing deps that warrant fuller prose.
 
-**`kind: package`** (e.g., `dependencies/react.md`):
+**`kind: package`** (e.g., `entities/dep_react.md`):
 
 ```yaml
 ---
@@ -147,7 +146,6 @@ category: dependency
 kind: package
 package_name: react
 ecosystem: npm                  # npm | pypi | cargo | go | brew | system
-family: ""                      # back-pointer if member of a package-family — empty otherwise
 versions_in_use: ["19.0.0", "18.3.1"]
 used_by: [web-next-ts, app-expo-ts]
 upstream_url: https://react.dev
@@ -158,28 +156,7 @@ updated: 2026-04-20
 ---
 ```
 
-**`kind: package-family`** (e.g., `dependencies/tailwind.md`):
-
-```yaml
----
-title: Tailwind CSS
-category: dependency
-kind: package-family
-family_name: tailwind
-members:                        # packages shipped under the family's brand
-  - tailwindcss
-  - "@tailwindcss/typography"
-co_required:                    # tooling that travels with the family in practice
-  - autoprefixer
-  - postcss
-load_bearing: true
-upstream_url: https://tailwindcss.com
-tags: [frontend, css]
-updated: 2026-05-03
----
-```
-
-**`kind: service`** (e.g., `dependencies/mongodb-atlas.md`):
+**`kind: service`** (e.g., `entities/dep_mongodb-atlas.md`):
 
 ```yaml
 ---
@@ -199,9 +176,8 @@ updated: 2026-04-20
 
 Field divergences:
 
-- `package` uses `ecosystem:`; `service` uses `provider:`; `package-family` has neither (those live on the members).
+- `package` uses `ecosystem:`; `service` uses `provider:`.
 - `versions_in_use` applies only to `package`. Services aren't versioned the same way.
-- `package-family` uses `members:` and `co_required:` lists. Lint existence-checks members against scanned manifests.
 
 ### Work pages
 
@@ -274,7 +250,7 @@ updated: 2026-04-20
 ---
 ```
 
-In-repo docs (those surfaced by `/graph-wiki:scan` from a pinned `docs` container) use `source_type: doc`, set `source_path` to the repo-relative path, and record `last_sync_commit` and `last_sync_at`. PDF/DOCX/etc. are deferred — only `.md` is auto-surfaced today.
+In-repo docs (an in-repo `.md` passed to `/graph-wiki:ingest` by repo-relative path) use `source_type: doc`, set `source_path` to the repo-relative path, and record `last_sync_commit` and `last_sync_at`. PDF/DOCX/etc. are deferred — only `.md` is supported today.
 
 ### Architecture pages
 
@@ -330,7 +306,7 @@ updated: 2026-04-20
 - **Sources:** `sources/<YYYY-MM>-<short-slug>.md` — e.g. `sources/2026-04-auth-migration-spec.md`
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
 - **Architecture:** `architecture/<topic>.md` — e.g. `architecture/request-flow.md`
-- **Dependencies:** `dependencies/<package-name>.md` — use the registry name (`react.md`, `react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`@tanstack__react-query.md`). Family pages use the family slug (`dependencies/tailwind.md`). Service pages use a slug derived from the service name (`dependencies/mongodb-atlas.md`).
+- **Dependencies:** `entities/dep_<package-name>.md` — use the registry name (`dep_react.md`, `dep_react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`dep_@tanstack__react-query.md`). Service pages use a slug derived from the service name (`dep_mongodb-atlas.md`).
 - **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/initiative items.
 
 ## Taxonomies
@@ -356,7 +332,7 @@ Schema/structure problems are `kind: bug` + `tag: data-model`. Wiki↔code drift
 
 ### `kind` (dependency)
 
-Three values: `package | package-family | service`. Frontmatter shape diverges per kind — see [Dependency pages](#dependency-pages) above.
+Two values: `package | service`. Frontmatter shape diverges per kind — see [Dependency pages](#dependency-pages) above.
 
 ### Severity (work)
 
@@ -430,22 +406,6 @@ Three categories use markdown tables in the body for structured rows. Header row
 - `Done when` is required (lint `warn`) for `kind: feature` and `kind: initiative`; optional otherwise.
 - Pipes inside cell content escape as `\|`.
 - File paths and `path:line` references in the `Action` cell are checked for existence by lint; line numbers are advisory.
-
-## Auto-rendered sections
-
-Sections regenerated mechanically on `graph-wiki:scan`. Marker-bounded so manual content elsewhere on the page survives untouched.
-
-### `dependencies/index.md`
-
-Regenerated by `scan_monorepo.py`. Marker contract:
-
-```markdown
-<!-- auto:dependencies-index generated:<ISO> -->
-(table rendered by scan)
-<!-- /auto:dependencies-index -->
-```
-
-Walks parsed manifests and merges hand-maintained service rows from `<workspace>/wiki/dependencies/services.yaml`. Manual notes can sit outside the marked region.
 
 ## Linking
 

@@ -536,7 +536,7 @@ def bootstrap(
     interactive: bool = typer.Option(
         False,
         "--interactive",
-        help="Prompt for ambiguous container classifications (default: silent-skip).",
+        help="Accepted for compatibility; has no effect (container detection removed).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit InitResult as JSON"),
 ) -> None:
@@ -576,7 +576,7 @@ def scan(
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
-    """Walk repo, diff packages vs vault, create/update stubs via scanner fan-out."""
+    """Build the code graph and write one page per graph entity into wiki/entities/."""
     workspace_path = Path(workspace) if workspace else None
     try:
         result = asyncio.run(
@@ -594,14 +594,14 @@ def scan(
     if json_output:
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
-        added = len(result.added)
-        updated = len(result.updated)
-        deleted = len(result.deleted)
-        typer.echo(f"Scan complete: +{added} ~{updated} -{deleted}")
-        for err in result.errors:
+        created = len(result.entities_created)
+        updated = len(result.entities_updated)
+        deleted = len(result.entities_deleted)
+        typer.echo(f"Scan complete: entities +{created} ~{updated} -{deleted}")
+        for err in result.entity_errors:
             typer.echo(f"  error: {err}", err=True)
 
-    if result.errors:
+    if result.entity_errors:
         raise typer.Exit(code=3)
 
 

@@ -73,11 +73,10 @@ async def test_wiki_scan_emits_progress_notifications() -> None:
     from graph_wiki_mcp.server import WikiScanInput, wiki_scan
 
     mock_result = ScanResult(
-        added=["new-pkg"],
-        updated=[],
-        deleted=[],
-        renamed=[],
-        errors=[],
+        entities_created=["pkg:new-pkg"],
+        entities_updated=[],
+        entities_deleted=[],
+        entity_errors=[],
         state_gate={"allowed": True, "reason": "clean", "head_commit": "abc"},
     )
 
@@ -99,11 +98,10 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
     from graph_wiki_mcp.server import WikiScanInput, WikiScanOutput, wiki_scan
 
     mock_result = ScanResult(
-        added=["alpha", "beta"],
-        updated=["gamma"],
-        deleted=["old"],
-        renamed=[["x", "y"]],
-        errors=[],
+        entities_created=["pkg:alpha", "pkg:beta"],
+        entities_updated=["pkg:gamma"],
+        entities_deleted=["pkg:old"],
+        entity_errors=[],
         state_gate={"allowed": True, "reason": "clean", "head_commit": "abc123"},
     )
 
@@ -115,11 +113,10 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
         result = await wiki_scan(WikiScanInput(), mock_ctx)
 
     assert isinstance(result, WikiScanOutput)
-    assert result.added == ["alpha", "beta"]
-    assert result.updated == ["gamma"]
-    assert result.deleted == ["old"]
-    assert result.renamed == [["x", "y"]]
-    assert result.errors == []
+    assert result.entities_created == ["pkg:alpha", "pkg:beta"]
+    assert result.entities_updated == ["pkg:gamma"]
+    assert result.entities_deleted == ["pkg:old"]
+    assert result.entity_errors == []
     assert result.state_gate["allowed"] is True
 
 
@@ -334,8 +331,6 @@ async def test_wiki_lint_emits_progress() -> None:
         duplicate_titles={},
         log_gap=None,
         code_drift={"skipped": True},
-        container_drift=[],
-        source_sync_drift=[],
         file_map_drift=[],
         package_sync_drift=[],
         domain_placement=[],

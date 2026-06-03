@@ -33,7 +33,7 @@ Pick 3-10 pages across categories most likely to contain the answer:
 - `architecture/` big picture
 - `entities/` package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
 - `concepts/` cross-cutting patterns
-- `dependencies/` external-library questions (`entities/dep_*` for detail)
+- `entities/dep_*` external-library questions
 - `work/` bug / tech-debt / planned / in-progress questions
 - `adrs/` "why did we do it this way"
 - `sources/` evidence and original context

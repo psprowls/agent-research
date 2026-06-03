@@ -76,17 +76,15 @@ def _scan_patches(wiki: Path, repo: Path):
     pool_mock.run_all = AsyncMock(return_value=_empty_fan_result())
     pool_patch = stack.enter_context(patch("graph_wiki_core.commands.scan.SubagentPool"))
     pool_patch.return_value = pool_mock
-    stack.enter_context(patch("graph_wiki_core.commands.scan.regenerate_dependencies_index"))
     stack.enter_context(patch("graph_wiki_core.commands.scan.update_index"))
     stack.enter_context(patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")))
     stack.enter_context(patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")))
     stack.enter_context(patch("graph_wiki_core.commands.scan.append_log"))
-    stack.enter_context(patch("graph_wiki_core.commands.scan.attach_changed_files"))
     return stack
 
 
 # ---------------------------------------------------------------------------
-# Test 1: ScanResult.added is a list
+# Test 1: ScanResult entity fields are lists
 # ---------------------------------------------------------------------------
 
 
@@ -99,11 +97,11 @@ async def test_scan_result_added_is_list(minimal_vault: Path) -> None:
         result = await run_scan(workspace_path=minimal_vault)
 
     assert isinstance(result, ScanResult)
-    assert isinstance(result.added, list)
-    assert isinstance(result.updated, list)
-    assert isinstance(result.deleted, list)
-    assert isinstance(result.renamed, list)
-    assert isinstance(result.errors, list)
+    assert isinstance(result.entities_created, list)
+    assert isinstance(result.entities_updated, list)
+    assert isinstance(result.entities_deleted, list)
+    assert isinstance(result.entities_narrated, list)
+    assert isinstance(result.entity_errors, list)
 
 
 # ---------------------------------------------------------------------------
@@ -141,9 +139,9 @@ async def test_scan_result_json_roundtrip(minimal_vault: Path) -> None:
     json_str = json.dumps(as_dict, indent=2)
     parsed = json.loads(json_str)
 
-    assert "added" in parsed
-    assert "updated" in parsed
-    assert "deleted" in parsed
-    assert "renamed" in parsed
-    assert "errors" in parsed
     assert "state_gate" in parsed
+    assert "entities_created" in parsed
+    assert "entities_updated" in parsed
+    assert "entities_deleted" in parsed
+    assert "entities_narrated" in parsed
+    assert "entity_errors" in parsed

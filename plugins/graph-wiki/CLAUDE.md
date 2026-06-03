@@ -15,7 +15,7 @@ plugins/graph-wiki/
 
 ## Source-of-truth split with `packages/wiki-io/` and `packages/graph-wiki-cli/`
 
-Real Claude-hosted implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, layout detection, page templates (under `src/assets/`), and tests. Bedrock-facing runtime commands are exposed by `packages/graph-wiki-cli/` as the `gw` Typer CLI, backed by `packages/graph-wiki-core/`.
+Real Claude-hosted implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, page templates (under `src/assets/`), and tests. Bedrock-facing runtime commands are exposed by `packages/graph-wiki-cli/` as the `gw` Typer CLI, backed by `packages/graph-wiki-core/`.
 
 The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` for the Claude branch or shells out to `gw` for the Bedrock branch (opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional Bedrock CLI path.
 
@@ -44,7 +44,7 @@ Pytest, in the package — not in the plugin tree:
 uv run pytest packages/wiki-io/
 
 # Single test
-uv run pytest packages/wiki-io/tests/test_layout_io.py::TestX::test_y
+uv run pytest packages/wiki-io/tests/test_scan_monorepo.py::TestX::test_y
 
 # Bedrock shim argv contract
 uv run --package graph-wiki-cli python -m pytest packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py
@@ -64,12 +64,12 @@ The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `worksp
 
 - `<workspace>/raw/` — immutable ingested sources. The LLM never edits files here. Owned by `workspace_io`.
 - `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
-- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `dependencies/`, `sources/`, `architecture/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders.
-- `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are pinned by `init_vault` and record the detected container layout (apps / packages / domains / docs / package-family — container types detected for scan scoping, not page folders; all pages live in `entities/`). Container detection runs through `detect_containers` and is interactive when classifications are ambiguous. `package-family` is the new (2026-05) classification for containers whose packages are several directory levels below their `source`.
+- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `architecture/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders.
+- `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
 
 Inside `<workspace>/wiki/`, every workspace package/app/domain is rendered as a page under the single `entities/` folder, named `<prefix>_<name>[__hex].md`. Bootstrap seeds `entities/.gitkeep`, which `write_entities` removes once real pages exist and restores if all are swept.
 
-When changing how layout is detected, classified, or written, update `init_vault` in `packages/wiki-io/` together with the matching reference docs under `plugins/graph-wiki/skills/graph-wiki/references/` — `detection-workflow.md`, `scan-workflow.md`, `ingest-workflow.md`, `lint-workflow.md`, `query-workflow.md`, `wiki-schema.md`, `monorepo-principles.md`, `page-formats.md`, `obsidian-setup.md`, `cross-tool-setup.md`. The skill's behavior is defined by the union of the script and its reference doc; changing one without the other produces drift.
+When changing how entity pages are discovered, rendered, or written, update `run_scan` / `write_entities` in `packages/wiki-io/` and `packages/graph-wiki-core/` together with the matching reference docs under `plugins/graph-wiki/skills/graph-wiki/references/` — `scan-workflow.md`, `ingest-workflow.md`, `lint-workflow.md`, `query-workflow.md`, `wiki-schema.md`, `monorepo-principles.md`, `page-formats.md`, `obsidian-setup.md`, `cross-tool-setup.md`. The skill's behavior is defined by the union of the script and its reference doc; changing one without the other produces drift.
 
 ## Iron rules the skill enforces
 

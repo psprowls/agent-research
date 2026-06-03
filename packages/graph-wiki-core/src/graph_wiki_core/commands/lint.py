@@ -3,7 +3,7 @@ from __future__ import annotations
 """Lint command — mechanical + semantic health-check of a Code Wiki.
 
 Public API:
-    LintResult              — dataclass: all 18 lint finding fields
+    LintResult              — dataclass: all lint finding fields
     run_lint(workspace_path, stale_days, log_gap_days)  — end-to-end lint pipeline
 
 Linter system prompts are constructed inline via
@@ -14,8 +14,8 @@ where `project_context` is the rendered output of
 Mechanical checks (ported verbatim from lint_wiki.py:scan()):
   - orphans, broken wikilinks (placeholder-filtered), stale pages, missing frontmatter
   - duplicate titles, log gaps, code-drift (packages vs vault)
-  - 7 specialized drift modules: container, dependency, domain, file_map,
-    package_sync, source_sync, workflow_hints
+  - specialized drift modules: dependency, domain, file_map,
+    package_sync, workflow_hints
 
 Semantic checks (3 parallel linter subagents via SubagentPool):
   - page_quality: content quality, contradictions, completeness
@@ -35,7 +35,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.layout_io import read_layout
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
@@ -44,12 +43,10 @@ from wiki_io.lint.common import (
     strip_code,
     strip_frontmatter,
 )
-from wiki_io.lint.container import check as check_container_drift
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.package_sync import check as check_package_sync_drift
-from wiki_io.lint.source_sync import check as check_source_sync_drift
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 logger = logging.getLogger(__name__)
@@ -98,8 +95,6 @@ class LintResult:
     duplicate_titles: dict[str, list[str]] = field(default_factory=dict)
     log_gap: dict | None = None
     code_drift: dict = field(default_factory=lambda: _SKIPPED.copy())
-    container_drift: list[str] = field(default_factory=list)
-    source_sync_drift: list[str] = field(default_factory=list)
     file_map_drift: list[str] = field(default_factory=list)
     package_sync_drift: list[str] = field(default_factory=list)
     domain_placement: list[str] = field(default_factory=list)
@@ -298,24 +293,20 @@ def _mechanical_pass(
 
 
 # ---------------------------------------------------------------------------
-# Private: _module_pass — call all 7 drift-check modules
+# Private: _module_pass — call all drift-check modules
 # ---------------------------------------------------------------------------
 
 
 def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) -> dict:
-    """Call all 7 mechanical lint modules and return their findings.
+    """Call all mechanical lint modules and return their findings.
 
     Modules that require a repo path are skipped (return _SKIPPED) when repo is None,
     matching lint_wiki.py:scan() behavior (lines 283-311).
     """
     if repo is not None:
-        container_drift = check_container_drift(repo, wiki)
-        source_sync_drift = check_source_sync_drift(repo, wiki)
         file_map_drift = check_file_map_drift(repo, pages)
         package_sync_drift = check_package_sync_drift(repo, wiki)
     else:
-        container_drift = []
-        source_sync_drift = []
         file_map_drift = []
         package_sync_drift = []
     domain_placement = check_domain_placement(pages)
@@ -327,11 +318,10 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
     code_drift = _SKIPPED.copy()
     if repo is not None:
         try:
-            from wiki_io.scan_monorepo import discover_workspaces, unscope
+            from wiki_io.scan_monorepo import _discover_heuristic, unscope
 
-            layout = read_layout(wiki / "CLAUDE.md")
-            pinned_containers = layout.get("containers") if layout else None
-            workspaces = discover_workspaces(repo, pinned_containers=pinned_containers)
+            # Container-free discovery: heuristic walk of on-disk package dirs.
+            workspaces = _discover_heuristic(repo)
             disk_names = {unscope(w["name"]) for w in workspaces}
             vault_pkg_pages = {
                 k: p
@@ -356,8 +346,6 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
             logger.debug("Code-drift check failed: %s", exc)
 
     return {
-        "container_drift": container_drift,
-        "source_sync_drift": source_sync_drift,
         "file_map_drift": file_map_drift,
         "package_sync_drift": package_sync_drift,
         "domain_placement": domain_placement,
@@ -499,12 +487,12 @@ async def run_lint(
     log_gap_days: int = 14,
     model_override: str | None = None,
 ) -> LintResult:
-    """End-to-end lint: mechanical pass (inline scan port) + 7 module checks + semantic fan-out.
+    """End-to-end lint: mechanical pass (inline scan port) + module checks + semantic fan-out.
 
     Steps:
         1. Resolve wiki and repo from workspace_path.
         2. MECHANICAL inline pass — port of lint_wiki.py:scan() lines 77-331.
-        3. MECHANICAL module pass — call all 7 drift-check modules.
+        3. MECHANICAL module pass — call all drift-check modules.
         4. SEMANTIC pass — 3-group linter fan-out via SubagentPool.
         5. Return LintResult (NO write-back to vault — D-10).
 
@@ -530,7 +518,7 @@ async def run_lint(
     mech = _mechanical_pass(wiki, workspace, stale_days, log_gap_days)
     pages = mech["pages"]
 
-    # Step 3: 7 module checks
+    # Step 3: module checks
     mod = _module_pass(repo, wiki, workspace, pages)
 
     # Step 4: semantic pass
@@ -550,8 +538,6 @@ async def run_lint(
         duplicate_titles=mech["duplicate_titles"],
         log_gap=mech["log_gap"],
         code_drift=mod["code_drift"],
-        container_drift=mod["container_drift"],
-        source_sync_drift=mod["source_sync_drift"],
         file_map_drift=mod["file_map_drift"],
         package_sync_drift=mod["package_sync_drift"],
         domain_placement=mod["domain_placement"],

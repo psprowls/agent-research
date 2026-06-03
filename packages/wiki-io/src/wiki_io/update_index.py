@@ -50,7 +50,6 @@ CATEGORY_INDEX_FILES = {
     "source": "sources/index.md",
     "adr": "adrs/index.md",
     "architecture": "architecture/index.md",
-    "dependency": "dependencies/index.md",
 }
 GENERATED_FILES = {"index.md", "log.md"} | set(CATEGORY_INDEX_FILES.values())
 
@@ -221,7 +220,7 @@ def render_index(pages, wiki_name, vault_name):
     # ## More — links to category sub-indexes
     # These categories always appear even at 0 pages (browsing entrypoints).
     # "work" stays conditional — it is a workspace namespace, not a wiki entrypoint.
-    _ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}
+    _ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr"}
     more_links = []
     for cat, fname in CATEGORY_INDEX_FILES.items():
         entries = pages.get(cat, [])

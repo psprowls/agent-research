@@ -75,27 +75,15 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
         "|---|---|---|\n"
         "| `pyproject.toml` | file | — TODO |\n"
     )
-    fake_ws = [{
-        "name": "pkg-a", "path": "packages/pkg-a",
-        "wiki_relative_path": "packages/pkg-a/overview.md",
-        "type": "library", "language": "python",
-        "changed_files": None, "file_map": pkg_a_block,
-    }]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_ws)
-    monkeypatch.setattr(
-        scan_module, "_load_existing_pages",
-        lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}),
-    )
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module, "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module, "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     result = asyncio.run(
         scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False, narrate=False)
@@ -139,16 +127,6 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
 
         reloaded_setattr = monkeypatch.setattr
         reloaded_setattr(reloaded, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
-        reloaded_setattr(reloaded, "discover_workspaces", lambda *a, **kw: [])
-        reloaded_setattr(
-            reloaded, "_load_existing_pages",
-            lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}),
-        )
-        reloaded_setattr(reloaded, "attach_changed_files", lambda *a, **kw: None)
-        reloaded_setattr(
-            reloaded, "compute_diff",
-            lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
-        )
         reloaded_setattr(
             reloaded, "compute_state_gate",
             lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},

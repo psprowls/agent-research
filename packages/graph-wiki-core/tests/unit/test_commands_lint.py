@@ -30,7 +30,7 @@ EDGE_CASE_VAULT = (
 
 
 def test_lint_result_dataclass_shape() -> None:
-    """LintResult has all 18 required fields."""
+    """LintResult has all required fields."""
     from graph_wiki_core.commands.lint import LintResult
 
     required_fields = {
@@ -43,8 +43,6 @@ def test_lint_result_dataclass_shape() -> None:
         "duplicate_titles",
         "log_gap",
         "code_drift",
-        "container_drift",
-        "source_sync_drift",
         "file_map_drift",
         "package_sync_drift",
         "domain_placement",
@@ -161,16 +159,16 @@ def test_run_lint_log_gap_days_threshold_default_14() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 6: all 7 module check() functions are called
+# Test 6: all module check() functions are called
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> None:
-    """run_lint calls all 7 lint module check() functions.
+async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None:
+    """run_lint calls all lint module check() functions.
 
-    We mock resolve_wiki_and_repo to return a non-None repo path so that all 7
-    module checks are exercised (the 4 repo-dependent checks are guarded by
+    We mock resolve_wiki_and_repo to return a non-None repo path so that all
+    module checks are exercised (the repo-dependent checks are guarded by
     repo is not None in _module_pass).
     """
     wiki = tmp_path / "wiki"
@@ -186,22 +184,18 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
     from graph_wiki_core.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
 
-    mock_container = MagicMock(return_value=[])
     mock_dependency = MagicMock(return_value=[])
     mock_domain = MagicMock(return_value=[])
     mock_file_map = MagicMock(return_value=[])
     mock_package_sync = MagicMock(return_value=[])
-    mock_source_sync = MagicMock(return_value=[])
     mock_workflow = MagicMock(return_value=[])
 
     with (
         patch("graph_wiki_core.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
-        patch("graph_wiki_core.commands.lint.check_container_drift", mock_container),
         patch("graph_wiki_core.commands.lint.check_dependency_layer", mock_dependency),
         patch("graph_wiki_core.commands.lint.check_domain_placement", mock_domain),
         patch("graph_wiki_core.commands.lint.check_file_map_drift", mock_file_map),
         patch("graph_wiki_core.commands.lint.check_package_sync_drift", mock_package_sync),
-        patch("graph_wiki_core.commands.lint.check_source_sync_drift", mock_source_sync),
         patch("graph_wiki_core.commands.lint.check_workflow_hints", mock_workflow),
         patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool,
     ):
@@ -210,12 +204,10 @@ async def test_run_lint_calls_all_7_module_check_functions(tmp_path: Path) -> No
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
         await run_lint(workspace_path=wiki)
 
-    assert mock_container.called, "check_container_drift not called"
     assert mock_dependency.called, "check_dependency_layer not called"
     assert mock_domain.called, "check_domain_placement not called"
     assert mock_file_map.called, "check_file_map_drift not called"
     assert mock_package_sync.called, "check_package_sync_drift not called"
-    assert mock_source_sync.called, "check_source_sync_drift not called"
     assert mock_workflow.called, "check_workflow_hints not called"
 
 

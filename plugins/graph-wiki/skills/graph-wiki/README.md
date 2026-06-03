@@ -4,7 +4,7 @@
 > An adaptation of [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) targetting source code repositories.
 
 
-Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki detects the repo's top-level shape — single package, workspace-style monorepo (Turborepo / pnpm / Nx / Bazel / Cargo / Go workspaces), or a hybrid — and adapts the vault layout to match. The chosen layout is pinned to `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` so the LLM knows what containers exist. The LLM walks your code, produces a page per package (or per module/area in single-package repos), cross-references domains and concepts, ingests specs and articles and PRs, and keeps everything current as the code evolves.
+Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki works on any repo shape — single package, workspace-style monorepo (Turborepo / pnpm / Nx / Bazel / Cargo / Go workspaces), or a hybrid. It builds a code graph and renders one page per entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into a single `entities/` folder. The LLM walks your code, cross-references domains and concepts, ingests specs and articles and PRs, and keeps everything current as the code evolves.
 
 ## When to use
 
@@ -24,9 +24,9 @@ READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an
 | **SKILL.md** | Master skill — architecture, workflows, page categories, iron rules |
 | **4 sub-agents** | `graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:librarian`, `graph-wiki:linter` |
 | **6 slash commands** | `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log` |
-| **7 Python tools** | Via wiki_io: `init_vault`, `scan_monorepo`, `ingest_source`, `wiki_search`, `lint_wiki` (+ code-drift), `detect_containers`, plus `_config.py` backend selector |
+| **6 Python tools** | Via wiki_io: `init_vault`, `scan_monorepo`, `ingest_source`, `wiki_search`, `lint_wiki` (+ code-drift), plus `_config.py` backend selector |
 | **12 reference docs** | Schema, page formats, 4 workflows (scan/ingest/query/lint), Obsidian setup, cross-tool setup, monorepo principles, lifecycle rules, sidecar schema |
-| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus page templates (app, package, domain, concept, dependency, package-family, work, source, architecture, adr) |
+| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus entity templates (`entity-repository`, `entity-domain`, `entity-package`, `entity-app`, `entity-agent-plugin`, `entity-dependency`, `entity-test-suite`) and curated-page templates (`concept`, `concept-pattern`, `source`, `adr`, `architecture`, `dependency`, `work`, `index`) |
 
 ## Quick start
 
@@ -61,7 +61,7 @@ cd ~/my-repo
 | `package` | `<workspace>/wiki/entities/pkg_common-aws-node-ts.md` — Lambda handlers, middleware, exports |
 | `domain` | `<workspace>/wiki/entities/domain_auth.md` — cross-package feature area (auth spans cognito + native + shared) |
 | `concept` | `<workspace>/wiki/concepts/global-context.md` — cross-cutting pattern used across packages |
-| `dependency` | `<workspace>/wiki/dependencies/react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | package-family | service`) |
+| `dependency` | `<workspace>/wiki/entities/dep_react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | service`) |
 | `source` | `<workspace>/wiki/sources/2026-04-auth-migration-spec.md` — ingested spec with claims + citations |
 | `architecture` | `<workspace>/wiki/architecture/request-flow.md` — high-level synthesis |
 | `adr` | `<workspace>/wiki/adrs/0012-move-to-esm.md` — dated decision with context + consequences |
@@ -101,7 +101,6 @@ Only the schema loader file changes per tool. The scripts run identically everyw
     ├── log.md                 # append-only timeline
     ├── entities/              # one graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, *_tests_*)
     ├── concepts/              # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
-    ├── dependencies/          # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/               # one summary per ingested source
     ├── architecture/          # high-level syntheses
     ├── adrs/                  # decision records

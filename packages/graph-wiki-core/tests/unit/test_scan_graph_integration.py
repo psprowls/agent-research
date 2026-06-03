@@ -255,132 +255,6 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
     assert "cg update complete: exit_code=0" in log_text
 
 
-def test_decoration_adds_uri_and_domain(tmp_workspace_with_packages, monkeypatch):
-    """D-03 / D-04: after a successful cg update, every workspace dict whose
-    unscope(name) matches a graph package gets `pkg['uri']` from the graph
-    and `pkg['domain']` from belongs_to_domain (when present).
-    """
-    workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-
-    # Seed the graph DB at the expected path so read_only_connect succeeds.
-    db = workspace / ".graph" / "code.db"
-    _seed_minimal_graph(db)
-
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
-
-    # Capture the decorated workspaces by patching the fan-out to inspect items.
-    captured: dict = {}
-    from subagent_runtime.pool import FanOutResult
-
-    async def _capture_fanout(self, *, items, task, role, model_id, max_concurrency):
-        captured["items"] = list(items)
-        return FanOutResult()
-
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _capture_fanout)
-
-    # Also intercept the workspace list directly via discover_workspaces wrapper,
-    # because fan-out only sees diffed items. Easier: patch discover_workspaces
-    # to inject a known minimal list that matches our seeded graph names.
-    fake_workspaces = [
-        {
-            "name": "pkg-a",
-            "path": "packages/pkg-a",
-            "wiki_relative_path": "packages/pkg-a/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-        },
-        {
-            "name": "pkg-b",
-            "path": "packages/pkg-b",
-            "wiki_relative_path": "packages/pkg-b/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a", "pkg-b"], "unchanged": [], "deleted": [], "renamed": []},
-    )
-    monkeypatch.setattr(
-        scan_module,
-        "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
-    )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
-
-    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
-
-    # Inspect the decorated workspaces (mutated in place by the decoration step).
-    pkg_a = next(w for w in fake_workspaces if w["name"] == "pkg-a")
-    pkg_b = next(w for w in fake_workspaces if w["name"] == "pkg-b")
-
-    assert pkg_a.get("uri") == "pkg:org/repo/pkg-a", f"pkg-a uri not decorated: {pkg_a}"
-    assert pkg_b.get("uri") == "pkg:org/repo/pkg-b", f"pkg-b uri not decorated: {pkg_b}"
-    # pkg-a has belongs_to_domain → my-domain; pkg-b has none
-    assert pkg_a.get("domain") == "my-domain", f"pkg-a domain not decorated: {pkg_a}"
-    assert pkg_b.get("domain") is None or pkg_b.get("domain") == "", \
-        f"pkg-b has unexpected domain: {pkg_b}"
-
-
-def test_slug_recomputed_on_domain_change(tmp_workspace_with_packages, monkeypatch):
-    """SC#2 / D-03: a package whose graph domain differs from its filesystem
-    domain has its `wiki_relative_path` recomputed to the domain-scoped slug.
-    """
-    workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-
-    db = workspace / ".graph" / "code.db"
-    _seed_minimal_graph(db)
-
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
-
-    # pkg-a starts at packages/pkg-a/overview.md; after graph decoration
-    # gives it domain=my-domain, slug should become
-    # domains/my-domain/packages/pkg-a/overview.md.
-    pkg_a = {
-        "name": "pkg-a",
-        "path": "packages/pkg-a",
-        "wiki_relative_path": "packages/pkg-a/overview.md",
-        "type": "library",
-        "language": "python",
-        "changed_files": None,
-    }
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [pkg_a])
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
-    )
-    monkeypatch.setattr(
-        scan_module,
-        "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
-    )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
-
-    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
-
-    assert pkg_a["domain"] == "my-domain"
-    assert (
-        pkg_a["wiki_relative_path"] == "domains/my-domain/packages/pkg-a/overview.md"
-    ), f"slug not recomputed: {pkg_a['wiki_relative_path']}"
-
-
 @pytest.mark.parametrize(
     "exit_code,stderr",
     [
@@ -532,28 +406,6 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
 
     monkeypatch.setattr(scan_module, "write_entities", _boom_write)
 
-    # Patch discover_workspaces so we actually reach the fan-out step.
-    monkeypatch.setattr(
-        scan_module,
-        "discover_workspaces",
-        lambda *a, **kw: [
-            {
-                "name": "pkg-a",
-                "path": "packages/pkg-a",
-                "wiki_relative_path": "packages/pkg-a/overview.md",
-                "type": "library",
-                "language": "python",
-                "changed_files": None,
-            }
-        ],
-    )
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -608,8 +460,6 @@ def test_file_map_injected_into_package_entity_page(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            # Preset file_map survives because build_file_map is stubbed to None.
-            "file_map": pkg_a_block,
         },
         {
             "name": "pkg-b",
@@ -621,21 +471,19 @@ def test_file_map_injected_into_package_entity_page(
             # No file_map → injection is skipped for pkg-b.
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a", "pkg-b"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    # Keep the preset file_map values (do not overwrite via real build_file_map).
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a,
+    # None for pkg-b (so pkg-b injection is still skipped).
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     result = asyncio.run(
         scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
@@ -707,25 +555,20 @@ async def test_file_map_injected_into_app_entity_page(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            # Preset file_map survives because build_file_map is stubbed to None.
-            "file_map": app_x_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    # Keep the preset file_map values (do not overwrite via real build_file_map).
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     result = await scan_module.run_scan(
         workspace_path=workspace, repo_path=repo, no_file_map=False
@@ -796,23 +639,20 @@ def test_file_map_descriptions_survive_rescan(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            "file_map": pkg_a_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     import frontmatter
 
@@ -886,23 +726,20 @@ def test_code_reader_fanout_fills_todo_descriptions(
             "type": "library",
             "language": "python",
             "changed_files": None,
-            "file_map": pkg_a_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["pkg-a"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for pkg-a.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     # Override the autouse empty-pool stub: the code_reader pool returns a
     # {path: description} JSON for each item's todo paths; the narrator pool
@@ -983,23 +820,20 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     # Override the autouse empty-pool stub: the code_reader pool returns a
     # {path: description} JSON for each item's todo paths; the narrator pool
@@ -1081,23 +915,20 @@ async def test_app_file_map_descriptions_survive_rescan(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     import frontmatter
 
@@ -1171,23 +1002,20 @@ async def test_description_fill_log_uses_entity_noun(
             "type": "app",
             "language": "python",
             "changed_files": None,
-            "file_map": app_x_block,
         },
     ]
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_workspaces)
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": ["app-x"], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    # Step 10b now sources file-map text via build_file_map(repo / node.path).
+    # No real git repo in this fixture — mock returns the expected block for app-x.
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
+    )
 
     from subagent_runtime.pool import FanOutResult
 
@@ -1327,14 +1155,6 @@ async def test_file_map_injected_into_test_suite_entity_page(
         scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
     )
     # No package/app workspaces — only the seeded test_suite drives this scan.
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -1394,14 +1214,6 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
         "| `test_pkg_a.py` | file | — TODO |\n"
     )
     monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -1476,14 +1288,6 @@ async def test_test_suite_file_map_descriptions_survive_rescan(
         "| `test_pkg_a.py` | file | — TODO |\n"
     )
     monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
-    monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: [])
-    monkeypatch.setattr(scan_module, "_load_existing_pages", lambda wiki: __import__("wiki_io.scan_monorepo", fromlist=["ExistingPages"]).ExistingPages(legacy={}, entities={}))
-    monkeypatch.setattr(scan_module, "attach_changed_files", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        scan_module,
-        "compute_diff",
-        lambda ws, ex: {"new": [], "unchanged": [], "deleted": [], "renamed": []},
-    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",

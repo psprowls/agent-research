@@ -128,20 +128,18 @@ def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# _collect_python_package() — pyproject deps + collect_external_dependencies
+# _collect_python_package() — pyproject deps
 # ---------------------------------------------------------------------------
 
 
 def test_python_package_external_deps_populated(tmp_path: Path) -> None:
     """A Python workspace member must expose ``external_deps`` + ``ecosystem``
-    (`pypi`) so ``collect_external_dependencies`` can aggregate it into the
-    dependencies/index.md auto-block.
+    (`pypi`) from its pyproject ``[project].dependencies``.
 
-    Regression for the 2026-05-23 lint finding: ``dependencies/index.md`` was
-    empty despite ~12 declared third-party deps because the Python collector
-    returned no ``external_deps`` / ``ecosystem`` keys.
+    Regression for the 2026-05-23 lint finding: the Python collector returned
+    no ``external_deps`` / ``ecosystem`` keys despite declared third-party deps.
     """
-    from wiki_io.scan_monorepo import _collect_python_package, collect_external_dependencies
+    from wiki_io.scan_monorepo import _collect_python_package
 
     repo = tmp_path
     pkg = repo / "packages" / "alpha"
@@ -165,11 +163,6 @@ def test_python_package_external_deps_populated(tmp_path: Path) -> None:
     assert ws["ecosystem"] == "pypi"
     assert ws["external_deps"] == {"boto3": ">=1.38", "python-frontmatter": ">=1.1"}
     assert ws["depends_on"] == ["beta"]
-
-    aggregated = collect_external_dependencies([ws])
-    names = {d["name"] for d in aggregated}
-    assert names == {"boto3", "python-frontmatter"}
-    assert all(d["ecosystem"] == "pypi" for d in aggregated)
 
 
 # ---------------------------------------------------------------------------

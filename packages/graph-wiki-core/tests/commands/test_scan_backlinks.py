@@ -35,7 +35,6 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
         patch.object(scan_mod, "compute_state_gate", return_value=fake_state_gate),
         patch.object(scan_mod, "make_llm"),
         patch.object(scan_mod, "SubagentPool", return_value=pool_mock),
-        patch.object(scan_mod, "regenerate_dependencies_index"),
         patch.object(scan_mod, "update_index"),
         patch.object(scan_mod, "_cg_run_build", return_value=(0, "", "")),
         patch.object(
@@ -44,7 +43,6 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
             side_effect=scan_mod.GraphNotInitializedError("test stub"),
         ),
         patch.object(scan_mod, "append_log"),
-        patch.object(scan_mod, "attach_changed_files"),
         patch.object(
             scan_mod, "regenerate_referenced_in_wiki", return_value=["pkg_foo"]
         ) as mock_regen,
