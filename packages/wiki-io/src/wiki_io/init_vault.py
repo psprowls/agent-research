@@ -27,15 +27,12 @@ import argparse
 import datetime as dt
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.detect_containers import detect as _detect_containers
-from wiki_io.layout_io import write_layout as _write_layout
 from workspace_io.init import init as _workspace_init
 
 PLUGIN_NAME = "graph-wiki"
@@ -93,58 +90,6 @@ def render_template(src, dest, variables):
     return True
 
 
-def _resolve_pinned_containers(
-    repo: Path, non_interactive: bool, workspace_path: Path | None = None
-) -> list[dict]:
-    """Run the detector, prompt for ambiguous rows, return the pinned list."""
-    records = _detect_containers(repo, workspace_path=workspace_path)
-    if records and records[0]["classification"] == "single-package":
-        if not non_interactive:
-            print("Detected: single-package repo (no structural containers).")
-        else:
-            logger.info("Detected: single-package repo (no structural containers).")
-        return []
-    if not records:
-        return []
-
-    if not non_interactive:
-        print(f"Detected {len(records)} top-level container(s):")
-        print()
-        for r in records:
-            src = r["source"] or "<root>"
-            print(f"  {src:30s} -> {r['classification']:14s} ({r['children_count']} children) - {r['reason']}")
-        print()
-    else:
-        logger.info("Detected %d top-level container(s).", len(records))
-
-    pinned = []
-    for r in records:
-        cls = r["classification"]
-        if cls == "ambiguous":
-            if non_interactive:
-                cls = "skip"
-            else:
-                choice = (
-                    input(
-                        f"  '{r['source']}' is ambiguous. Pick [package/app/domain/docs/skip] (default: skip): "
-                    ).strip()
-                    or "skip"
-                )
-                if choice not in {"package", "app", "domain", "docs", "skip"}:
-                    print(f"    invalid choice '{choice}'; defaulting to 'skip'")
-                    choice = "skip"
-                cls = choice
-        pinned.append(
-            {
-                "source": r["source"],
-                "vault_dir": None if cls in ("skip", "docs") else r["source"],
-                "classification": cls,
-                "children_count": r["children_count"],
-            }
-        )
-    return pinned
-
-
 def _error(message, as_json=False):
     if as_json:
         print(json.dumps({"status": "error", "message": message}))
@@ -169,7 +114,14 @@ def init_wiki(
     `<workspace>/work/`, `.graph-wiki.yaml`). That dependency is not available
     in agent-research; Phase 5 will provide a workspace-bootstrap equivalent.
     For now, this function only writes inside `wiki_path`.
+
+    `non_interactive` is accepted but ignored: it previously drove the
+    ambiguous-container prompt during layout detection. Entity discovery is now
+    purely graph-driven, so no container detection or layout block is written.
+    The parameter is retained as a no-op so existing callers (run_init, the CLI
+    `gw bootstrap --interactive` flag) keep working unchanged.
     """
+    del non_interactive  # no-op: container detection removed (decontainerize)
     if wiki_path.exists() and any(wiki_path.iterdir()) and not force:
         _error(f"{wiki_path} is not empty. Use --force to overwrite.", as_json)
 
@@ -185,8 +137,6 @@ def init_wiki(
         version=PLUGIN_VERSION,
         workspace=workspace_path,
     )
-
-    pinned = _resolve_pinned_containers(repo_path, non_interactive, workspace_path=workspace_path)
 
     try:
         wiki_path.mkdir(parents=True, exist_ok=True)
@@ -255,24 +205,6 @@ def init_wiki(
                     template_count += 1
                 except OSError as e:
                     print(f"[warn] failed to copy template {rel}: {e}", file=sys.stderr)
-
-    repo_root_rel = os.path.relpath(repo_path, start=workspace_path)
-    layout = {
-        "version": 1,
-        "detected_at": today,
-        "repo_root": repo_root_rel,
-        "containers": pinned,
-    }
-    for schema_name in ("CLAUDE.md", "AGENTS.md"):
-        schema_path = wiki_path / schema_name
-        if schema_path.exists():
-            try:
-                _write_layout(schema_path, layout)
-            except OSError as e:
-                print(
-                    f"[warn] failed to write layout to {schema_name}: {e}",
-                    file=sys.stderr,
-                )
 
     gitignore = wiki_path / ".gitignore"
     gitignore.write_text(
