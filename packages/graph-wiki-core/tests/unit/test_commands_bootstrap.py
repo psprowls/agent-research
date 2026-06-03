@@ -86,8 +86,10 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
     ):
         from graph_wiki_core.commands.init import run_init
 
+        # repo_path pins Phase-1 workspace bootstrap to tmp_path; without it,
+        # run_init falls back to Path.cwd() and scaffolds a real <cwd>/graph-wiki.
         result = await run_init(
-            topic="my-topic", tool="claude-code", force=True, workspace_path=None
+            topic="my-topic", tool="claude-code", force=True, workspace_path=None, repo_path=tmp_path
         )
 
     assert result.status == "ok"
