@@ -588,7 +588,10 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
 
 
 def _render_entity_page(
-    template_path: Path, frontmatter_dict: dict, variables: dict[str, str]
+    template_path: Path,
+    frontmatter_dict: dict,
+    variables: dict[str, str],
+    existing_body: str | None = None,
 ) -> str:
     """Render an entity page: template body + given frontmatter dict.
 
@@ -615,6 +618,9 @@ def _render_entity_page(
     body = _RESIDUAL_TOKEN_RE.sub(
         lambda m: f"> TODO: <add value for {m.group(0).strip('{}')}>", body
     )
+    # Living Wiki M1: preserve human-owned sections from the existing page.
+    if existing_body is not None:
+        body = _merge_preserved_sections(body, existing_body)
     yaml_block = yaml.safe_dump(
         frontmatter_dict,
         sort_keys=False,
@@ -926,10 +932,12 @@ def write_entities(
                 try:
                     scanner_fm = scanner_frontmatter_for_node(conn, kind, node)
                     existing_fm: dict = {}
+                    existing_body: str | None = None
                     existed = page_path.exists()
                     if existed:
                         post = frontmatter.load(page_path)
                         existing_fm = dict(post.metadata)
+                        existing_body = post.content
                     merged_fm = merge_frontmatter(existing_fm, scanner_fm)
                     # Phase 56 SCAN-01 (D-04): build the {{...}} data-token map
                     # from node-available data. Keys here are DATA tokens only;
@@ -948,7 +956,8 @@ def write_entities(
                     if kind == "agent_plugin":
                         variables.update(_agent_plugin_table_variables(conn, node))
                     new_content = _render_entity_page(
-                        template_path, merged_fm, variables
+                        template_path, merged_fm, variables,
+                        existing_body=existing_body,
                     )
                     new_bytes = new_content.encode("utf-8")
                     if existed:
