@@ -27,9 +27,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-# Import discover_workspaces from sibling scan_monorepo
+# Import the container-free heuristic package walk from sibling scan_monorepo
 try:
-    from wiki_io.scan_monorepo import discover_workspaces as _scan_discover
+    from wiki_io.scan_monorepo import _discover_heuristic as _scan_discover
     from wiki_io.scan_monorepo import unscope as _unscope
 except ImportError:
     _scan_discover = None

@@ -318,10 +318,10 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
     code_drift = _SKIPPED.copy()
     if repo is not None:
         try:
-            from wiki_io.scan_monorepo import discover_workspaces, unscope
+            from wiki_io.scan_monorepo import _discover_heuristic, unscope
 
-            # Unpinned discovery: container layout block is gone (decontainerize).
-            workspaces = discover_workspaces(repo)
+            # Container-free discovery: heuristic walk of on-disk package dirs.
+            workspaces = _discover_heuristic(repo)
             disk_names = {unscope(w["name"]) for w in workspaces}
             vault_pkg_pages = {
                 k: p
