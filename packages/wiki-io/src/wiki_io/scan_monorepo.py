@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
 """
-scan_monorepo.py — Walk a repo and emit a structured inventory of its workspaces.
+scan_monorepo.py — heuristic package discovery + file-map building helpers.
 
-Container-aware: reads the wiki's CLAUDE.md for a graph-wiki:layout block to
-scope the scan to pinned `app`/`package`/`domain` containers. Falls back to the
-heuristic walk from repo root (Node/pnpm globs, pyproject.toml rglob, Cargo.toml workspaces).
+This module is a library of pure functions; it has no CLI and does no
+container/layout/diff bookkeeping. Its callers (the scan command and the lint
+code-drift check) import individual helpers directly.
 
-Discovers repo and wiki locations from the resolved graph-wiki workspace.
-
-Detects workspace packages from (in priority order):
+Package discovery — ``_discover_heuristic(repo)`` walks the repo and returns a
+sorted list of package dicts, one per manifest it finds (in priority order):
   - package.json + pnpm-workspace.yaml / workspaces field  (Node/pnpm/yarn/npm)
-  - pyproject.toml                                         (Python — poetry/hatch/uv)
-  - Cargo.toml with [workspace]                            (Rust)
-  - .claude-plugin/plugin.json                             (Claude Code plugins)
-  # TODO: go.mod + go.work (Go) — not yet implemented
+  - pyproject.toml                                          (Python — poetry/hatch/uv)
+  - Cargo.toml with [workspace]                             (Rust)
+  - .claude-plugin/plugin.json                              (Claude Code plugins)
+Vendored trees (``node_modules``, ``.venv``) and test-fixture manifests
+(``tests``/``fixtures``/``samples`` segments) are skipped. Each dict is built by
+the matching ``_collect_*`` collector and carries at least ``name``, ``path``
+(relative to repo), ``type``, ``language``, ``depends_on`` (internal workspace
+deps), and ``exports``; ``_discover_heuristic`` also fills ``depended_on_by``.
 
-For each detected package, emits:
-  - name, path (relative to repo), type (library/app/service), language
-  - exports (from package.json `exports` / pyproject `[project.scripts]` / etc.)
-  - depends_on (internal workspace dependencies)
+File maps — ``build_file_map`` (prod-only), ``build_file_maps`` (prod + test
+pair), and ``build_dir_file_map`` (whole-dir, no prod/test split) emit the
+``## File map`` markdown block for a package or directory. The prod/test split
+rule lives in ``_is_test_path``.
 
-Also computes a diff against existing pages in `wiki/apps/<name>/<name>.md`,
-`wiki/packages/<name>/<name>.md`, and `wiki/domains/<d>/packages/<name>/<name>.md`:
-  - new    — on disk, no vault page
-  - deleted — has a vault page, no longer on disk
-  - renamed — heuristic match (same path, new name or same name, new path)
-  - unchanged
-
-Usage:
-    python scan_monorepo.py --json
-    python scan_monorepo.py
+Other helpers: ``unscope`` (normalize ``@scope/foo`` -> ``foo``),
+``compute_state_gate`` (whether state writes are allowed for a repo), and
+``_git_ls_files`` (tracked + non-ignored files under a path).
 """
 
 from __future__ import annotations
@@ -626,6 +622,13 @@ def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 80) ->
 
 
 def _discover_heuristic(repo, workspace_dir=None):
+    """Walk ``repo`` and return a sorted list of package dicts (one per manifest).
+
+    ``workspace_dir`` is the graph-wiki workspace subtree to exclude when it is a
+    proper subdirectory of ``repo`` (the "D-11 guard parity" filter — keeps the
+    workspace's own vault/scaffold from being mistaken for a package). Current
+    callers (lint code-drift) don't pass it; kept for that guard / forward compat.
+    """
     workspaces = []
     seen_paths = set()
 
