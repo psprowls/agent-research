@@ -36,15 +36,3 @@ _(scanner will populate on next scan)_
 
 ## Public API
 > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
-
-## Concepts
-- [[concepts/<concept>]]
-
-## Dependencies
-- [[dependencies/<lib>]]
-
-## Decisions
-- [[adrs/<id>-<slug>]]
-
-## Contrasts / alternatives
-- [[concepts/<a>-vs-<b>]]

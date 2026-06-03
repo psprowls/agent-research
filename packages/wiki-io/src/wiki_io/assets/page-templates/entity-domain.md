@@ -26,15 +26,3 @@ _(scanner will populate on next scan)_
 
 ## Key flows
 > TODO: <**<Flow name>** — `<path/to/entry>:<line>` → describe the flow, one per row.>
-
-## Concepts
-- [[concepts/<concept>]]
-
-## Dependencies
-- [[dependencies/<lib>]]
-
-## Decisions
-- [[adrs/<id>-<slug>]]
-
-## Contrasts / alternatives
-- [[concepts/<a>-vs-<b>]]
