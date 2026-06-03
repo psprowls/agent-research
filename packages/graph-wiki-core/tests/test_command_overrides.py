@@ -459,7 +459,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
         from graph_wiki_core.commands.scan import run_scan
 
-        await run_scan(workspace_path=vault, model_override=candidate)
+        await run_scan(workspace_path=vault, model_override=candidate, no_file_map=True)
 
     # narrator built via make_llm with the candidate override.
     assert ("narrator", candidate) in make_llm_calls, (

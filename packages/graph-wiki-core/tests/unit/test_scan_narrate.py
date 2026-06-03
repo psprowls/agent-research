@@ -79,7 +79,7 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
         "name": "pkg-a", "path": "packages/pkg-a",
         "wiki_relative_path": "packages/pkg-a/overview.md",
         "type": "library", "language": "python",
-        "changed_files": None, "file_map": pkg_a_block,
+        "changed_files": None,
     }]
     monkeypatch.setattr(scan_module, "discover_workspaces", lambda *a, **kw: fake_ws)
     monkeypatch.setattr(
@@ -95,7 +95,11 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
         scan_module, "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
-    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        scan_module,
+        "build_file_map",
+        lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
+    )
 
     result = asyncio.run(
         scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False, narrate=False)
