@@ -43,13 +43,9 @@ python scripts/lint_wiki.py --check dependency_layer
 
 | Rule | Severity | What it catches |
 |---|---|---|
-| `dep-kind-not-in-enum` | error | `kind:` outside `package | package-family | service` |
+| `dep-kind-not-in-enum` | error | `kind:` outside `package | service` |
 | `dep-package-without-ecosystem` | error | `kind: package` and `ecosystem:` missing |
 | `dep-service-without-provider` | error | `kind: service` and `provider:` missing |
-| `dep-family-without-members` | error | `kind: package-family` and `members:` empty |
-| `dep-family-member-not-in-scan` | error | a member listed in `members:` isn't found in any manifest scanned by `discover_workspaces` |
-| `dep-family-back-pointer-mismatch` | error | a package has `family: X` but family X's page doesn't list it (or vice versa) |
-| `dep-multiple-families` | error | a package is claimed by two different family pages |
 | `dep-detail-without-load-bearing` | warn | detail page exists but `load_bearing: true` not set |
 | `dep-stub-detail-page` | warn | detail page body <15 lines beyond frontmatter — flesh out or delete and rely on the auto-generated `dependencies/index.md` |
 

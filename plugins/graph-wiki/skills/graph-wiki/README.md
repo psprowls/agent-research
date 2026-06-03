@@ -26,7 +26,7 @@ READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an
 | **6 slash commands** | `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log` |
 | **6 Python tools** | Via wiki_io: `init_vault`, `scan_monorepo`, `ingest_source`, `wiki_search`, `lint_wiki` (+ code-drift), plus `_config.py` backend selector |
 | **12 reference docs** | Schema, page formats, 4 workflows (scan/ingest/query/lint), Obsidian setup, cross-tool setup, monorepo principles, lifecycle rules, sidecar schema |
-| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus page templates (app, package, domain, concept, dependency, package-family, work, source, architecture, adr) |
+| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus entity templates (`entity-repository`, `entity-domain`, `entity-package`, `entity-app`, `entity-agent-plugin`, `entity-dependency`, `entity-test-suite`) and curated-page templates (`concept`, `concept-pattern`, `source`, `adr`, `architecture`, `dependency`, `work`, `index`) |
 
 ## Quick start
 
@@ -61,7 +61,7 @@ cd ~/my-repo
 | `package` | `<workspace>/wiki/entities/pkg_common-aws-node-ts.md` — Lambda handlers, middleware, exports |
 | `domain` | `<workspace>/wiki/entities/domain_auth.md` — cross-package feature area (auth spans cognito + native + shared) |
 | `concept` | `<workspace>/wiki/concepts/global-context.md` — cross-cutting pattern used across packages |
-| `dependency` | `<workspace>/wiki/dependencies/react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | package-family | service`) |
+| `dependency` | `<workspace>/wiki/dependencies/react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | service`) |
 | `source` | `<workspace>/wiki/sources/2026-04-auth-migration-spec.md` — ingested spec with claims + citations |
 | `architecture` | `<workspace>/wiki/architecture/request-flow.md` — high-level synthesis |
 | `adr` | `<workspace>/wiki/adrs/0012-move-to-esm.md` — dated decision with context + consequences |

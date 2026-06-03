@@ -181,7 +181,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 - `CLAUDE.md.template`, `AGENTS.md.template`, `cursorrules.template` — schema loaders per tool
 - `index.md.template`, `log.md.template` — starter index and log
-- `page-templates/` — app, package, domain, concept, dependency, package-family, work, source, architecture, adr
+- `page-templates/` — graph-derived entity templates (`entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md`) plus curated-page templates (`concept.md`, `concept-pattern.md`, `source.md`, `adr.md`, `architecture.md`, `dependency.md`, `work.md`, `index.md`)
 
 ## Iron rules
 

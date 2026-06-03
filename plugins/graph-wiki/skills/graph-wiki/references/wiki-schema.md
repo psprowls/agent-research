@@ -136,7 +136,7 @@ Concepts are cross-cutting technical patterns — naming conventions, middleware
 
 ### Dependency pages
 
-`kind:` discriminates three shapes. The auto-generated `dependencies/index.md` covers every dep; detail pages are opt-in for the load-bearing ones. The existence of a detail page *is* the load-bearing signal — `load_bearing: true` is recorded explicitly so lint can catch detail pages that should have been deleted.
+`kind:` discriminates two shapes. The auto-generated `dependencies/index.md` covers every dep; detail pages are opt-in for the load-bearing ones. The existence of a detail page *is* the load-bearing signal — `load_bearing: true` is recorded explicitly so lint can catch detail pages that should have been deleted.
 
 **`kind: package`** (e.g., `dependencies/react.md`):
 
@@ -147,7 +147,6 @@ category: dependency
 kind: package
 package_name: react
 ecosystem: npm                  # npm | pypi | cargo | go | brew | system
-family: ""                      # back-pointer if member of a package-family — empty otherwise
 versions_in_use: ["19.0.0", "18.3.1"]
 used_by: [web-next-ts, app-expo-ts]
 upstream_url: https://react.dev
@@ -155,27 +154,6 @@ load_bearing: true
 quirks: []
 tags: [frontend, ui]
 updated: 2026-04-20
----
-```
-
-**`kind: package-family`** (e.g., `dependencies/tailwind.md`):
-
-```yaml
----
-title: Tailwind CSS
-category: dependency
-kind: package-family
-family_name: tailwind
-members:                        # packages shipped under the family's brand
-  - tailwindcss
-  - "@tailwindcss/typography"
-co_required:                    # tooling that travels with the family in practice
-  - autoprefixer
-  - postcss
-load_bearing: true
-upstream_url: https://tailwindcss.com
-tags: [frontend, css]
-updated: 2026-05-03
 ---
 ```
 
@@ -199,9 +177,8 @@ updated: 2026-04-20
 
 Field divergences:
 
-- `package` uses `ecosystem:`; `service` uses `provider:`; `package-family` has neither (those live on the members).
+- `package` uses `ecosystem:`; `service` uses `provider:`.
 - `versions_in_use` applies only to `package`. Services aren't versioned the same way.
-- `package-family` uses `members:` and `co_required:` lists. Lint existence-checks members against scanned manifests.
 
 ### Work pages
 
@@ -330,7 +307,7 @@ updated: 2026-04-20
 - **Sources:** `sources/<YYYY-MM>-<short-slug>.md` — e.g. `sources/2026-04-auth-migration-spec.md`
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
 - **Architecture:** `architecture/<topic>.md` — e.g. `architecture/request-flow.md`
-- **Dependencies:** `dependencies/<package-name>.md` — use the registry name (`react.md`, `react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`@tanstack__react-query.md`). Family pages use the family slug (`dependencies/tailwind.md`). Service pages use a slug derived from the service name (`dependencies/mongodb-atlas.md`).
+- **Dependencies:** `dependencies/<package-name>.md` — use the registry name (`react.md`, `react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`@tanstack__react-query.md`). Service pages use a slug derived from the service name (`dependencies/mongodb-atlas.md`).
 - **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/initiative items.
 
 ## Taxonomies
@@ -356,7 +333,7 @@ Schema/structure problems are `kind: bug` + `tag: data-model`. Wiki↔code drift
 
 ### `kind` (dependency)
 
-Three values: `package | package-family | service`. Frontmatter shape diverges per kind — see [Dependency pages](#dependency-pages) above.
+Two values: `package | service`. Frontmatter shape diverges per kind — see [Dependency pages](#dependency-pages) above.
 
 ### Severity (work)
 
