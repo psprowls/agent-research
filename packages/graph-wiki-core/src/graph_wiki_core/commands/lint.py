@@ -3,7 +3,7 @@ from __future__ import annotations
 """Lint command — mechanical + semantic health-check of a Code Wiki.
 
 Public API:
-    LintResult              — dataclass: all 18 lint finding fields
+    LintResult              — dataclass: all lint finding fields
     run_lint(workspace_path, stale_days, log_gap_days)  — end-to-end lint pipeline
 
 Linter system prompts are constructed inline via
