@@ -275,7 +275,7 @@ def main():
     p.add_argument(
         "--non-interactive",
         action="store_true",
-        help="Don't prompt for ambiguous containers; mark them skip.",
+        help="Accepted for compatibility; has no effect (container detection removed).",
     )
     p.add_argument(
         "--workspace",
