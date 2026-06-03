@@ -32,23 +32,6 @@ FIXTURE_CLAUDE_MD_FOR_SNAPSHOTS = """\
 
 Some preamble text the renderer should ignore.
 
-<!-- graph-wiki:layout:start -->
-```yaml
-version: 1
-detected_at: 2026-04-29
-repo_root: ..
-containers:
-  - source: apps
-    vault_dir: apps
-    classification: app
-    children_count: 1
-  - source: cores
-    vault_dir: cores
-    classification: package
-    children_count: 4
-```
-<!-- graph-wiki:layout:end -->
-
 ## Style
 
 - Be concise.

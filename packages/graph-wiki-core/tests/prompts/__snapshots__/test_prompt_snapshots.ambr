@@ -187,11 +187,6 @@
   Output ONLY YAML frontmatter followed by a markdown body. No commentary outside
   these sections.
   
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.
@@ -482,11 +477,6 @@
   Do not include write operations — report only.
   If no ADR chain issues are found, output exactly: No ADR chain issues found.
   
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
-  
   ## Project style (wiki/CLAUDE.md §Style)
   
   - Be concise.
@@ -601,11 +591,6 @@
   You are a code wiki quality linter. Review the provided wiki pages and identify quality issues.
   Report one finding per line in plain text. Do not include write operations — report only.
   If no quality issues are found, output exactly: No page quality issues found.
-  
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
   
   ## Project style (wiki/CLAUDE.md §Style)
   
@@ -722,11 +707,6 @@
   may be outdated based on their source_path or package_path frontmatter.
   Report one finding per line in plain text. Do not include write operations — report only.
   If no stale claim issues are found, output exactly: No stale claim issues found.
-  
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
   
   ## Project style (wiki/CLAUDE.md §Style)
   
@@ -898,11 +878,6 @@
   
   Produce ONLY the page body with YAML frontmatter. Do NOT include a "## File map" section — that
   is added separately by the build pipeline and must not appear in your output.
-  
-  ## Project layout (parsed from wiki/CLAUDE.md)
-  
-  - apps → app (1 children)
-  - cores → package (4 children)
   
   ## Project style (wiki/CLAUDE.md §Style)
   
