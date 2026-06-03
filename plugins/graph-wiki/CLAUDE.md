@@ -64,7 +64,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `worksp
 
 - `<workspace>/raw/` — immutable ingested sources. The LLM never edits files here. Owned by `workspace_io`.
 - `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
-- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `dependencies/`, `sources/`, `architecture/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders.
+- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `architecture/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders.
 - `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
 
 Inside `<workspace>/wiki/`, every workspace package/app/domain is rendered as a page under the single `entities/` folder, named `<prefix>_<name>[__hex].md`. Bootstrap seeds `entities/.gitkeep`, which `write_entities` removes once real pages exist and restores if all are swept.

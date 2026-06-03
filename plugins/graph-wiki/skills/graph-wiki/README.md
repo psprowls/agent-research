@@ -61,7 +61,7 @@ cd ~/my-repo
 | `package` | `<workspace>/wiki/entities/pkg_common-aws-node-ts.md` — Lambda handlers, middleware, exports |
 | `domain` | `<workspace>/wiki/entities/domain_auth.md` — cross-package feature area (auth spans cognito + native + shared) |
 | `concept` | `<workspace>/wiki/concepts/global-context.md` — cross-cutting pattern used across packages |
-| `dependency` | `<workspace>/wiki/dependencies/react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | service`) |
+| `dependency` | `<workspace>/wiki/entities/dep_react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | service`) |
 | `source` | `<workspace>/wiki/sources/2026-04-auth-migration-spec.md` — ingested spec with claims + citations |
 | `architecture` | `<workspace>/wiki/architecture/request-flow.md` — high-level synthesis |
 | `adr` | `<workspace>/wiki/adrs/0012-move-to-esm.md` — dated decision with context + consequences |
@@ -101,7 +101,6 @@ Only the schema loader file changes per tool. The scripts run identically everyw
     ├── log.md                 # append-only timeline
     ├── entities/              # one graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, *_tests_*)
     ├── concepts/              # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
-    ├── dependencies/          # external libraries — index.md auto-generated; detail pages opt-in
     ├── sources/               # one summary per ingested source
     ├── architecture/          # high-level syntheses
     ├── adrs/                  # decision records

@@ -32,7 +32,7 @@ Follow `references/scan-workflow.md`. Summary:
 uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json
 ```
 
-This single command builds the code graph, writes/updates/deletes `entities/*.md` pages deterministically, injects deterministic file maps (Description cells left `— TODO`), regenerates `index.md` + per-folder sub-indexes + `dependencies/index.md`, and appends a `scan` entry to `log.md`. It emits a `ScanResult` JSON with `entities_created`, `entities_updated`, `entities_deleted` (URIs), and `entity_errors`.
+This single command builds the code graph, writes/updates/deletes `entities/*.md` pages deterministically, injects deterministic file maps (Description cells left `— TODO`), regenerates `index.md` + per-folder sub-indexes, and appends a `scan` entry to `log.md`. It emits a `ScanResult` JSON with `entities_created`, `entities_updated`, `entities_deleted` (URIs), and `entity_errors`.
 
 It runs **without Bedrock** (structural-only — `narrate=False`). It does NOT call any LLM.
 

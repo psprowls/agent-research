@@ -103,7 +103,7 @@ CURATED_LANES: tuple[tuple[str, str, str], ...] = (
 GENERATED_FILES: frozenset[str] = frozenset({
     "index.md", "log.md",
     "concepts/index.md", "adrs/index.md", "sources/index.md",
-    "architecture/index.md", "dependencies/index.md",
+    "architecture/index.md",
 })
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)

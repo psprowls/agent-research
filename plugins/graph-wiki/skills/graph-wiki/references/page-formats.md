@@ -438,7 +438,7 @@ Adopt short-lived JWTs signed by Cognito. Validation in middleware; refresh on t
 
 ## 8. Dependency page
 
-The auto-generated `dependencies/index.md` covers every dep the monorepo touches. Detail pages are opt-in for the load-bearing / quirky / actively-migrated ones. Two shapes via `kind:` — `package`, `service`. Example below shows `kind: package`; see `wiki-schema.md` for the service variant.
+`/graph-wiki:scan` writes one graph-derived dependency page per dep the monorepo touches into `entities/dep_<name>.md`. Two shapes via `kind:` — `package`, `service`. Example below shows `kind: package`; see `wiki-schema.md` for the service variant.
 
 ```markdown
 ---
@@ -490,7 +490,7 @@ One paragraph: what this library does, why we use it, which surfaces.
 - [[adrs/0011-react-19-on-web-only]]
 
 ## Related
-- [[dependencies/react-native]]
+- [[entities/dep_react-native]]
 - [[concepts/server-state-vs-client-state]]
 - [[work/rn-0-77-upgrade]]
 ```

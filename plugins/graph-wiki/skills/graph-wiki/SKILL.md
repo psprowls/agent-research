@@ -53,7 +53,6 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
     ├── log.md                  # Append-only timeline
     ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-    ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
     ├── architecture/           # High-level architecture syntheses
     ├── adrs/                   # Architecture Decision Records
@@ -142,7 +141,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/entities/pkg_<name>.md` |
 | `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/entities/domain_<name>.md` |
 | `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
-| `dependency` | An external package, package family, or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/dependencies/` |
+| `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/entities/dep_<name>.md` |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `<workspace>/wiki/sources/` |
 | `architecture` | High-level synthesis — build system, module graph, request flow, deployment topology | `<workspace>/wiki/architecture/` |
 | `adr` | Architecture Decision Record — a dated, citable decision with context + consequences | `<workspace>/wiki/adrs/` |

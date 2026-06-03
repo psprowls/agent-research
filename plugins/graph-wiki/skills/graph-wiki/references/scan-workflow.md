@@ -25,7 +25,7 @@ From the `ScanResult` JSON: `entities_created`, `entities_updated`, `entities_de
 `write_entities` hard-deletes pages for vanished graph nodes. Report them; never silently. Offer a git undo when the wiki is versioned. >10 deletions is a red flag (bad repo path / failed graph build) — stop and ask.
 
 ### 4. Update cross-references / indexes
-Already done by the script (`index.md`, per-folder sub-indexes, `dependencies/index.md`). No separate step.
+Already done by the script (`index.md`, per-folder sub-indexes). No separate step.
 
 ### 5. Append to log
 Already done by the script.

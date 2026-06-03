@@ -19,7 +19,7 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 1. **Graph build + write** — `scripts/scan_monorepo.py` builds the code graph and writes one page per admitted entity into `<workspace>/wiki/entities/` (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). Pages use URI-based filenames and are structural-only (`## Narrative` placeholder, `— TODO` file-map rows).
 2. **Frontmatter** — scanner-owned keys (`uri`, `kind`, `depends_on`, `language`, …) are replaced from the graph each scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
-3. **Indexes + log** — `index.md`, per-folder sub-indexes, and `dependencies/index.md` are regenerated; a `scan` entry is appended to `log.md`.
+3. **Indexes + log** — `index.md` and per-folder sub-indexes are regenerated; a `scan` entry is appended to `log.md`.
 4. **Report** — created / updated / deleted entities are reported by URI. Deletions are surfaced for confirmation (with a git-based undo when the wiki is versioned); >10 deletions is a stop-and-ask red flag.
 
 This runs entirely **without Bedrock** (structural-only). No prose is generated.

@@ -7,7 +7,7 @@ description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace �
 
 Bootstrap a new Code Wiki. Discovers the workspace via `workspace_io` (walks up from cwd for `.git`, reads `.graph-wiki.yaml` for the workspace path, defaults to `<repo>/graph-wiki`). Creates the wiki at `<workspace>/wiki/`.
 
-The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `architecture/`, `concepts/`, `dependencies/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
+The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `architecture/`, `concepts/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
 
 ## Usage
 
@@ -32,8 +32,8 @@ The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/
 ├── index.md
 ├── log.md
 ├── entities/                   # one page per admitted entity (seeded with .gitkeep until scanned)
-├── concepts/ dependencies/
-├── sources/ architecture/ adrs/
+├── concepts/ sources/
+├── architecture/ adrs/
 ├── .templates/                 # page templates for reference
 ├── CLAUDE.md                   # if --tool claude-code or all
 ├── AGENTS.md                   # if --tool codex|cursor|antigravity|opencode|gemini-cli|all

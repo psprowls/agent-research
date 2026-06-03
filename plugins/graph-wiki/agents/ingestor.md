@@ -61,7 +61,7 @@ Merge mode (page exists): append `## Re-ingest <date>` at bottom and bump `last_
 For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 
 ### 6. Update concept / dependency pages
-For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept and dependency *content* pages under `concepts/`/`dependencies/` are still hand-maintained; the graph-derived `entities/dep_*` pages are not.)
+For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept *content* pages under `concepts/` are hand-maintained; dependency pages are graph-derived at `entities/dep_*` and are scanner-owned — never hand-edited.)
 
 ### 7. Capture ADRs for decisions
 If the source proposes or documents a decision:

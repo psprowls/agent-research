@@ -47,7 +47,7 @@ python scripts/lint_wiki.py --check dependency_layer
 | `dep-package-without-ecosystem` | error | `kind: package` and `ecosystem:` missing |
 | `dep-service-without-provider` | error | `kind: service` and `provider:` missing |
 | `dep-detail-without-load-bearing` | warn | detail page exists but `load_bearing: true` not set |
-| `dep-stub-detail-page` | warn | detail page body <15 lines beyond frontmatter — flesh out or delete and rely on the auto-generated `dependencies/index.md` |
+| `dep-stub-detail-page` | warn | dependency page body <15 lines beyond frontmatter — flesh out or delete (the entity page is the source of truth) |
 
 ### Other helpers
 
@@ -107,7 +107,7 @@ Present findings to the user as a single markdown report:
 ### Found
 - ⚠️ 4 packages drifted since last sync: `common-aws-node-ts` (12 files), …
 - ⚠️ 2 packages on disk missing wiki pages: `timeline-native-ts`, `timeline-data-node-ts`
-- ⚠️ 1 dep-stub-detail-page: `dependencies/lodash` has 3 body lines — delete and rely on `dependencies/index.md`
+- ⚠️ 1 dep-stub-detail-page: `entities/dep_lodash` has 3 body lines — flesh out or delete
 - 3 orphan wiki pages
 - 4 concepts mentioned across 3+ pages without their own page
 
