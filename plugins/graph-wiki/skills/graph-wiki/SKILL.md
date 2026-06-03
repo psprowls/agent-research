@@ -2,7 +2,7 @@
 name: graph-wiki
 description: Use when building or maintaining a persistent wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Adapts to the repo's folder structure: detects app, package, domain, package-family, and docs containers and pins the layout in CLAUDE.md/AGENTS.md. Triggers include "wiki this repo", "document this codebase", "graph-wiki", "ingest this spec/PR/article into the wiki", or whenever the user wants a compounding, cross-referenced knowledge base alongside source code.
 context: fork
-version: 0.1.0
+version: 0.1.1
 author: psprowls
 license: MIT
 tags: [monorepo, documentation, knowledge-management, obsidian, wiki, turborepo, pnpm, nx]

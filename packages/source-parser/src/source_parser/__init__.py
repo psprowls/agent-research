@@ -11,7 +11,7 @@ from source_parser.projections.graph import (
 )
 from source_parser.tree import Reference, SourceNode, Span
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "GraphEdge",

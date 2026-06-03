@@ -21,7 +21,7 @@ def test_update_full_populates_db(tmp_path: Path) -> None:
     head = write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def foo():\n    return 1\n",
             "src/b.py": "from .a import foo\n\ndef bar():\n    return foo()\n",
         },
@@ -66,7 +66,7 @@ def test_update_skips_default_skip_dirs(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def keep_me():\n    return 1\n",
             "dist/junk.py": "def skip_me():\n    return 2\n",
         },
@@ -102,7 +102,7 @@ def test_deriver_version_bump_forces_rebuild(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def real_func():\n    return 1\n",
         },
         "init",
@@ -174,7 +174,7 @@ def test_unchanged_deriver_version_still_short_circuits(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def real_func():\n    return 1\n",
         },
         "init",
@@ -211,7 +211,7 @@ def test_update_honors_graphignore(tmp_path: Path) -> None:
         tmp_path,
         {
             ".graphignore": "generated\n",
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def keep_me():\n    return 1\n",
             "generated/auto.py": "def skip_me():\n    return 2\n",
         },

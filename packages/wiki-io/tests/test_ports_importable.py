@@ -50,7 +50,7 @@ def test_detect_containers_smoke(tmp_path: Path):
     pkgs.mkdir()
     (pkgs / "alpha").mkdir()
     (pkgs / "alpha" / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\n',
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n',
         encoding="utf-8",
     )
 

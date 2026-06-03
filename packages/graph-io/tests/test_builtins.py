@@ -63,7 +63,7 @@ def _build_git_python_repo(root: Path, py_files: dict[str, str]) -> None:
     """Create a minimal git+pyproject.toml Python repo under *root* and commit."""
     init_repo(root)
     files = {
-        "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\ndependencies = []\n',
+        "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = []\n',
     }
     files.update(py_files)
     write_and_commit(root, files, "init")
@@ -263,7 +263,7 @@ def test_node_stdlib_emits_builtin_nodes(tmp_path: Path) -> None:
     write_and_commit(
         repo,
         {
-            "package.json": json.dumps({"name": "demo-js", "version": "0.1.0"}),
+            "package.json": json.dumps({"name": "demo-js", "version": "0.1.1"}),
             "src/index.js": "const fs = require('fs');\nimport 'node:fs/promises';\n",
         },
         "init",
@@ -304,7 +304,7 @@ def test_node_dependency_vs_builtin_classification(tmp_path: Path) -> None:
         {
             "package.json": json.dumps({
                 "name": "demo-js",
-                "version": "0.1.0",
+                "version": "0.1.1",
                 "dependencies": {"express": "^4.0.0"},
             }),
             "src/app.js": "const fs = require('fs');\nconst express = require('express');\n",

@@ -14,16 +14,16 @@ Install command
   That's it. gw now lives at ~/.local/bin/gw (already on your PATH) and you can run it from any directory:
 
 ```bash
-  gw version          # gw 0.1.0
+  gw version          # gw 0.1.1
   gw --help
   gw scan --workspace /path/to/repo/graph-wiki
-  gw version          # gw 0.1.0
+  gw version          # gw 0.1.1
   gw --help
   gw scan --workspace /path/to/repo/graph-wiki
   gw graph status --repo /path/to/repo --mode test
 
   What each flag does / why
-  gw version          # gw 0.1.0
+  gw version          # gw 0.1.1
   gw --help
   gw scan --workspace /path/to/repo/graph-wiki
   gw --help

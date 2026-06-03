@@ -136,8 +136,8 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
         "initialized_at: '2026-05-25'\n"
         "plugins:\n"
         "- name: graph-wiki-agent\n"
-        "  installed_version: 0.1.0\n"
-        "  applied_version: 0.1.0\n"
+        "  installed_version: 0.1.1\n"
+        "  applied_version: 0.1.1\n"
     )
 
     db = tmp_path / "graph-wiki" / ".graph" / "code.db"

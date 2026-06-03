@@ -1,6 +1,6 @@
 [project]
 name = "source-parser"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tree-sitter-backed Python package that turns source files into a span-bearing SourceTree, with a graph projection aligned to lattice-graph."
 authors = [
   { name = "Patrick Sprowls", email = "psprowls@gmail.com" },

@@ -603,7 +603,7 @@ wheels = [
 
 [[package]]
 name = "eval-harness"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/eval-harness" }
 dependencies = [
     { name = "aiobotocore" },
@@ -772,7 +772,7 @@ requires-dist = [
 
 [[package]]
 name = "graph-wiki-cli"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/graph-wiki-cli" }
 dependencies = [
     { name = "graph-io" },
@@ -793,7 +793,7 @@ requires-dist = [
 
 [[package]]
 name = "graph-wiki-core"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/graph-wiki-core" }
 dependencies = [
     { name = "bm25s" },
@@ -828,7 +828,7 @@ requires-dist = [
 
 [[package]]
 name = "graph-wiki-mcp"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/graph-wiki-mcp" }
 dependencies = [
     { name = "graph-wiki-core" },
@@ -1348,7 +1348,7 @@ wheels = [
 
 [[package]]
 name = "model-adapter"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/model-adapter" }
 dependencies = [
     { name = "boto3" },
@@ -2539,7 +2539,7 @@ wheels = [
 
 [[package]]
 name = "source-parser"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/source-parser" }
 dependencies = [
     { name = "tree-sitter" },
@@ -2587,7 +2587,7 @@ wheels = [
 
 [[package]]
 name = "subagent-runtime"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/subagent-runtime" }
 dependencies = [
     { name = "langchain-aws" },
@@ -2881,7 +2881,7 @@ wheels = [
 
 [[package]]
 name = "wiki-io"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/wiki-io" }
 dependencies = [
     { name = "boto3" },
@@ -2900,7 +2900,7 @@ requires-dist = [
 
 [[package]]
 name = "workspace-io"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/workspace-io" }
 dependencies = [
     { name = "pyyaml" },

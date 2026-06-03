@@ -52,7 +52,7 @@ def test_e2e_python_cli_app_reclassified(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "my-cli"\nversion = "0.1.0"\n'
+        '[project]\nname = "my-cli"\nversion = "0.1.1"\n'
         '[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
     )
     (repo / "src" / "my_cli").mkdir(parents=True)
@@ -83,7 +83,7 @@ def test_e2e_pure_library_stays_package(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
     )
     (repo / "src" / "purelib").mkdir(parents=True)
     (repo / "src" / "purelib" / "__init__.py").write_text("")
@@ -147,7 +147,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     pyp = repo / "pyproject.toml"
-    pyp.write_text('[project]\nname = "myapp"\nversion = "0.1.0"\n')
+    pyp.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     _git_init(repo)
     _git_commit_all(repo, "seed")
 
@@ -169,7 +169,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
 
     # Add [project.scripts] → second update should flip to kind='app'.
     pyp.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
         '[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     update.run(repo, full=True)
@@ -187,7 +187,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     assert uri2.startswith("app:")
 
     # Remove [project.scripts] → third update should revert to kind='package'.
-    pyp.write_text('[project]\nname = "myapp"\nversion = "0.1.0"\n')
+    pyp.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     update.run(repo, full=True)
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
@@ -210,7 +210,7 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "graph-wiki-agent"\nversion = "0.1.0"\n'
+        '[project]\nname = "graph-wiki-agent"\nversion = "0.1.1"\n'
         '[project.scripts]\ngraph-wiki = "graph_wiki_agent.cli:main"\n'
     )
     (repo / "src" / "graph_wiki_agent").mkdir(parents=True)

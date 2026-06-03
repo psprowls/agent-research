@@ -35,7 +35,7 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
     repo_root.mkdir()
     # Single python package with one dep.
     (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.0"\n'
+        '[project]\nname = "demo"\nversion = "0.1.1"\n'
         'dependencies = ["boto3>=1.38"]\n'
     )
     (repo_root / "src" / "demo").mkdir(parents=True)
@@ -48,15 +48,15 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
         'initialized_at: "2026-05-27"\n'
         'plugins:\n'
         '  - name: graph-wiki\n'
-        '    installed_version: "0.1.0"\n'
-        '    applied_version: "0.1.0"\n'
+        '    installed_version: "0.1.1"\n'
+        '    applied_version: "0.1.1"\n'
     )
 
     # agent_plugin entity: build walks repo_root rglob(".claude-plugin/plugin.json")
     import json as _json
     pdir = repo_root / "plugins" / "graph-wiki" / ".claude-plugin"
     pdir.mkdir(parents=True, exist_ok=True)
-    (pdir / "plugin.json").write_text(_json.dumps({"name": "graph-wiki", "version": "0.1.0"}))
+    (pdir / "plugin.json").write_text(_json.dumps({"name": "graph-wiki", "version": "0.1.1"}))
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
     subprocess.run(
@@ -130,7 +130,7 @@ def test_cg_describe_agent_plugin_smoke(workspace_with_deps_and_plugin, capsys):
     assert "graph-wiki" in captured.out
     assert "claude-code" in captured.out
     assert "version:" in captured.out
-    assert "0.1.0" in captured.out
+    assert "0.1.1" in captured.out
 
 
 def test_cg_describe_agent_plugin_json(workspace_with_deps_and_plugin, capsys):
@@ -141,7 +141,7 @@ def test_cg_describe_agent_plugin_json(workspace_with_deps_and_plugin, capsys):
     parsed = json.loads(captured.out)
     assert parsed["name"] == "graph-wiki"
     assert parsed["ecosystem"] == "claude-code"
-    assert parsed["version"] == "0.1.0"
+    assert parsed["version"] == "0.1.1"
     for key in ("commands", "agents", "skills", "scripts", "hooks", "mcp_servers"):
         assert isinstance(parsed[key], list)
 
@@ -172,12 +172,12 @@ def workspace_with_internal_dep(tmp_path: Path) -> Path:
     # Internal target package.
     (repo_root / "alpha").mkdir()
     (repo_root / "alpha" / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
     )
     # Consumer declares alpha (separator mismatch exercises normalization too).
     (repo_root / "beta").mkdir()
     (repo_root / "beta" / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n'
         'dependencies = ["alpha>=0.1"]\n'
     )
 
@@ -258,7 +258,7 @@ def workspace_with_builtins(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.0"\ndependencies = []\n'
+        '[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = []\n'
     )
     (repo_root / "src" / "demo").mkdir(parents=True)
     (repo_root / "src" / "demo" / "__init__.py").write_text(
@@ -357,7 +357,7 @@ def workspace_with_app(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "my-cli"\nversion = "0.1.0"\n'
+        '[project]\nname = "my-cli"\nversion = "0.1.1"\n'
         '[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
     )
     (repo_root / "src" / "my_cli").mkdir(parents=True)

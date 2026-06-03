@@ -149,7 +149,7 @@ def test_python_package_external_deps_populated(tmp_path: Path) -> None:
     (pkg / "pyproject.toml").write_text(
         "[project]\n"
         'name = "alpha"\n'
-        'version = "0.1.0"\n'
+        'version = "0.1.1"\n'
         "dependencies = [\n"
         '    "boto3>=1.38",\n'
         '    "python-frontmatter>=1.1",\n'

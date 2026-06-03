@@ -22,8 +22,8 @@ def test_e2e_pipeline(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo-py"\nversion = "0.1.0"\n',
-            "package.json": '{"name": "demo-js", "version": "0.1.0"}',
+            "pyproject.toml": '[project]\nname = "demo-py"\nversion = "0.1.1"\n',
+            "package.json": '{"name": "demo-js", "version": "0.1.1"}',
             "src/a.py": "def alpha():\n    return beta()\n\ndef beta():\n    return 1\n",
             "src/b.js": "function gamma() { return 1; }\n",
         },

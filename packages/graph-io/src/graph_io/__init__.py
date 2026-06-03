@@ -3,4 +3,4 @@
 The package owns the SQLite store, manifest scanning, and read-only queries.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

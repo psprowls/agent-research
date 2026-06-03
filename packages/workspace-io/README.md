@@ -42,8 +42,8 @@ version: 2
 initialized_at: '2026-05-18'
 plugins:
 - name: graph-wiki-agent
-  installed_version: 0.1.0
-  applied_version: 0.1.0
+  installed_version: 0.1.1
+  applied_version: 0.1.1
   roles:
   - name: preflight
     model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

@@ -92,7 +92,7 @@ def test_update_full_twice_produces_byte_identical_db(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "def foo():\n    return 1\n",
             "src/b.py": "from .a import foo\n\ndef bar():\n    return foo()\n",
         },

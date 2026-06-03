@@ -152,7 +152,7 @@ def tmp_workspace_with_packages(tmp_workspace):
         pdir.mkdir(parents=True)
         (pdir / "__init__.py").write_text('"""pkg."""\n')
         (repo / "packages" / name / "pyproject.toml").write_text(
-            f'[project]\nname = "{name}"\nversion = "0.1.0"\n'
+            f'[project]\nname = "{name}"\nversion = "0.1.1"\n'
         )
     return tmp_workspace
 

@@ -68,14 +68,14 @@ def _build_fixture_workspace(root: Path) -> None:
     (root / "pkg-a" / "pyproject.toml").write_text(
         '[project]\n'
         'name = "pkg-a"\n'
-        'version = "0.1.0"\n'
+        'version = "0.1.1"\n'
         'dependencies = ["boto3>=1.38", "pyyaml>=6"]\n'
     )
     (root / "pkg-b").mkdir(parents=True)
     (root / "pkg-b" / "pyproject.toml").write_text(
         '[project]\n'
         'name = "pkg-b"\n'
-        'version = "0.1.0"\n'
+        'version = "0.1.1"\n'
         'dependencies = ["boto3==1.40", "click>=8"]\n'
     )
     (root / ".graph-wiki.yaml").write_text(
@@ -83,13 +83,13 @@ def _build_fixture_workspace(root: Path) -> None:
         'initialized_at: "2026-05-26"\n'
         'plugins:\n'
         '  - name: graph-wiki\n'
-        '    installed_version: "0.1.0"\n'
-        '    applied_version: "0.1.0"\n'
+        '    installed_version: "0.1.1"\n'
+        '    applied_version: "0.1.1"\n'
     )
     pdir = root / "plugins" / "graph-wiki" / ".claude-plugin"
     pdir.mkdir(parents=True, exist_ok=True)
     (pdir / "plugin.json").write_text(json.dumps(
-        {"name": "graph-wiki", "version": "0.1.0", "description": "A wiki plugin."}
+        {"name": "graph-wiki", "version": "0.1.1", "description": "A wiki plugin."}
     ))
 
 
@@ -289,7 +289,7 @@ def test_no_unsubstituted_token_and_summary_populated(tmp_path):
     (tmp_path / "pkg-a" / "pyproject.toml").write_text(
         '[project]\n'
         'name = "pkg-a"\n'
-        'version = "0.1.0"\n'
+        'version = "0.1.1"\n'
         'description = "Package A does useful things."\n'
         'dependencies = ["boto3>=1.38", "pyyaml>=6"]\n'
     )

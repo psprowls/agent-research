@@ -66,7 +66,7 @@ def post_phase33_fixture(tmp_path_factory) -> FixtureRefs:
                 # contract pre-existing tests covered.
                 "[project]\n"
                 'name = "sample-pkg"\n'
-                'version = "0.1.0"\n'
+                'version = "0.1.1"\n'
             ),
             "src/sample_pkg/__init__.py": "",
             "src/sample_pkg/cli.py": "def main():\n    return 0\n",

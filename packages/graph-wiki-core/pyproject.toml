@@ -1,6 +1,6 @@
 [project]
 name = "graph-wiki-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared graph-wiki command, prompt, and runtime implementation"
 requires-python = ">=3.11"
 dependencies = [

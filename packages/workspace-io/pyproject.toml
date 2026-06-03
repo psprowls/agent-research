@@ -1,6 +1,6 @@
 [project]
 name = "workspace-io"
-version = "0.1.0"
+version = "0.1.1"
 description = "Workspace bootstrap, manifest IO, and config resolution for the graph-wiki ecosystem."
 requires-python = ">=3.11"
 dependencies = ["pyyaml>=6.0"]

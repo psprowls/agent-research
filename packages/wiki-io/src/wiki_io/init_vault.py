@@ -39,7 +39,7 @@ from wiki_io.layout_io import write_layout as _write_layout
 from workspace_io.init import init as _workspace_init
 
 PLUGIN_NAME = "graph-wiki"
-PLUGIN_VERSION = "0.1.0"
+PLUGIN_VERSION = "0.1.1"
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 

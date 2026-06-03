@@ -22,7 +22,7 @@ def mixed_workspace(tmp_path: Path) -> Path:
     repo.mkdir()
     # Python pkg importing pathlib + os + boto3
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.0"\n'
+        '[project]\nname = "demo"\nversion = "0.1.1"\n'
         'dependencies = ["boto3>=1.38"]\n'
     )
     (repo / "src" / "demo").mkdir(parents=True)
@@ -32,7 +32,7 @@ def mixed_workspace(tmp_path: Path) -> Path:
     # JS pkg importing fs + node:path + express
     (repo / "js-app").mkdir()
     (repo / "js-app" / "package.json").write_text(
-        '{"name": "js-demo", "version": "0.1.0", "dependencies": {"express": "^4.0.0"}}'
+        '{"name": "js-demo", "version": "0.1.1", "dependencies": {"express": "^4.0.0"}}'
     )
     (repo / "js-app" / "index.js").write_text(
         "const fs = require('fs');\nconst path = require('node:path');\n"

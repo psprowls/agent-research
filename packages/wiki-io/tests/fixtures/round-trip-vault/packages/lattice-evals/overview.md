@@ -45,7 +45,7 @@ Python source root; contains the single `lattice_evals` importable package.
 
 Core evaluation harness — CLI, orchestrator, runner, transcript parser, metrics, verifiers, and report generation.
 
-- `__init__.py` — Exposes the package version string (`__version__ = "0.1.0"`).
+- `__init__.py` — Exposes the package version string (`__version__ = "0.1.1"`).
 - `cli.py` — CLI entry point implementing the `lattice-eval` command group (`list`, `show`, `run`, `report`, `verify` subcommands).
 - `isolation.py` — Implements `IsolationContext`, which sets up a per-run git worktree, fresh `CLAUDE_CONFIG_DIR`, and plugin symlinks for hermetic runs.
 - `judge.py` — Thin wrapper around `claude -p --output-format stream-json` for synchronous LLM judge calls, returning text and token usage.

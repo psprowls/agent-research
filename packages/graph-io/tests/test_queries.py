@@ -97,7 +97,7 @@ def test_imports_returns_resolved_only(conn: sqlite3.Connection) -> None:
 def test_describe_package(conn: sqlite3.Connection) -> None:
     upsert.upsert_records(conn, GraphRecords(
         nodes=[
-            GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.1"}),
             GraphNode(kind="file", name="alpha/a.py", path="alpha/a.py", line=None, attrs={}),
             GraphNode(kind="function", name="foo", path="alpha/a.py", line=1, attrs={}),
         ],
@@ -109,7 +109,7 @@ def test_describe_package(conn: sqlite3.Connection) -> None:
     desc = queries.describe_package(conn, name="alpha")
     assert desc.name == "alpha"
     assert desc.language == "python"
-    assert desc.version == "0.1.0"
+    assert desc.version == "0.1.1"
     assert "alpha/a.py" in desc.files
     assert desc.counts["function"] == 1
 
@@ -124,9 +124,9 @@ def test_describe_package_internal_deps_and_dependents(
         conn,
         GraphRecords(
             nodes=[
-                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.0"}),
-                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.0"}),
-                GraphNode(kind="package", name="gamma", path="gamma", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.1"}),
+                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.1"}),
+                GraphNode(kind="package", name="gamma", path="gamma", line=None, attrs={"language": "python", "version": "0.1.1"}),
             ],
             edges=[
                 # beta depends on alpha (src=consumer, dst=internal package)
@@ -161,8 +161,8 @@ def test_internal_dependencies_of_package_and_app(
         conn,
         GraphRecords(
             nodes=[
-                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.0"}),
-                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.0"}),
+                GraphNode(kind="package", name="alpha", path="alpha", line=None, attrs={"language": "python", "version": "0.1.1"}),
+                GraphNode(kind="package", name="beta", path="beta", line=None, attrs={"language": "python", "version": "0.1.1"}),
                 GraphNode(kind="app", name="myapp", path="apps/myapp", line=None, attrs={"language": "python"}),
             ],
             edges=[
@@ -409,7 +409,7 @@ def _seed_demo_package(conn: sqlite3.Connection) -> None:
     """Seed a single `demo` package containing src/a.py with `def alpha()`."""
     upsert.upsert_records(conn, GraphRecords(
         nodes=[
-            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.1"}),
             GraphNode(kind="file", name="src/a.py", path="src/a.py", line=None, attrs={}),
             GraphNode(kind="function", name="alpha", path="src/a.py", line=1, attrs={}),
         ],
@@ -442,8 +442,8 @@ def test_find_all_three_filters(conn: sqlite3.Connection) -> None:
     # filters must return only the one inside `demo`.
     upsert.upsert_records(conn, GraphRecords(
         nodes=[
-            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.0"}),
-            GraphNode(kind="package", name="other", path="other", line=None, attrs={"language": "python", "version": "0.1.0"}),
+            GraphNode(kind="package", name="demo", path="demo", line=None, attrs={"language": "python", "version": "0.1.1"}),
+            GraphNode(kind="package", name="other", path="other", line=None, attrs={"language": "python", "version": "0.1.1"}),
             GraphNode(kind="file", name="demo/a.py", path="demo/a.py", line=None, attrs={}),
             GraphNode(kind="file", name="other/a.py", path="other/a.py", line=None, attrs={}),
             GraphNode(kind="function", name="alpha", path="demo/a.py", line=1, attrs={}),
@@ -1240,7 +1240,7 @@ def test_describe_agent_plugin_returns_description(conn: sqlite3.Connection) -> 
                     attrs={
                         "uri": "agent_plugin:test/repo/graph-wiki",
                         "ecosystem": "claude-code",
-                        "version": "0.1.0",
+                        "version": "0.1.1",
                         "description": "A wiki plugin.",
                         "components": {
                             "commands": [{"id": "command:test/repo/graph-wiki/scan",
@@ -1259,7 +1259,7 @@ def test_describe_agent_plugin_returns_description(conn: sqlite3.Connection) -> 
     assert p.name == "graph-wiki"
     assert p.uri == "agent_plugin:test/repo/graph-wiki"
     assert p.ecosystem == "claude-code"
-    assert p.version == "0.1.0"
+    assert p.version == "0.1.1"
     assert p.description == "A wiki plugin."
     assert p.commands == [{"id": "command:test/repo/graph-wiki/scan",
                            "name": "scan", "description": "Walk the monorepo."}]
@@ -1426,7 +1426,7 @@ def test_describe_app_returns_app_description(conn: sqlite3.Connection) -> None:
                     line=None,
                     attrs={
                         "language": "python",
-                        "version": "0.1.0",
+                        "version": "0.1.1",
                         "uri": "app:o/r/my-cli",
                         "app_kind": "cli",
                         "app_signals": ["cli"],
@@ -1440,7 +1440,7 @@ def test_describe_app_returns_app_description(conn: sqlite3.Connection) -> None:
     assert desc is not None
     assert desc.name == "my-cli"
     assert desc.language == "python"
-    assert desc.version == "0.1.0"
+    assert desc.version == "0.1.1"
     assert desc.app_kind == "cli"
     assert desc.app_signals == ["cli"]
     assert desc.files == []

@@ -45,7 +45,7 @@ Pure-logic Python library implementing a stage-aware, two-pass context-curation 
 
 ### lattice-curator-core/src/lattice_curator_core/
 
-- `__init__.py` — public exports + `VERSION = "0.1.0"`
+- `__init__.py` — public exports + `VERSION = "0.1.1"`
 - `bedrock.py` — `make_bedrock(config)` LangChain `ChatBedrockConverse` wrapper; reads `LATTICE_CURATOR_MODEL` + AWS creds
 - `config.py` — `.lattice-curator.json` loader + bundled defaults; Pydantic-validated; deep-merged
 - `format.py` — `format_brief(brief, mode)` renderer; `hybrid` produces excerpts + see-also list, `inline` expands everything

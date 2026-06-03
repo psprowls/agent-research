@@ -46,7 +46,7 @@ def test_refresh_pyproject(tmp_path: Path, conn: sqlite3.Connection) -> None:
     pkg_dir = tmp_path / "packages" / "alpha"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\ndependencies = ["beta"]\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\ndependencies = ["beta"]\n'
     )
     _seed_file_node(conn, "packages/alpha/src/a.py")
 
@@ -57,7 +57,7 @@ def test_refresh_pyproject(tmp_path: Path, conn: sqlite3.Connection) -> None:
     ).fetchone()
     assert row[0] == "alpha"
     attrs = json.loads(row[1])
-    assert attrs["version"] == "0.1.0"
+    assert attrs["version"] == "0.1.1"
     assert attrs["dependencies"] == ["beta"]
     assert attrs["language"] == "python"
 
@@ -87,7 +87,7 @@ def test_refresh_pyproject_stores_description(
     pkg_dir = tmp_path / "packages" / "alpha"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
         'description = "A test package."\n'
     )
 
@@ -107,7 +107,7 @@ def test_refresh_pyproject_absent_description_is_empty(
     pkg_dir = tmp_path / "packages" / "beta"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -122,7 +122,7 @@ def test_refresh_pyproject_absent_description_is_empty(
 def test_refresh_creates_contains_edges(tmp_path: Path, conn: sqlite3.Connection) -> None:
     pkg_dir = tmp_path / "alpha"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.0"\n')
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.1"\n')
     _seed_file_node(conn, "alpha/src/a.py")
     _seed_file_node(conn, "alpha/src/b.py")
     _seed_file_node(conn, "outside/c.py")
@@ -146,7 +146,7 @@ def test_refresh_does_not_contain_import_specifier_stubs(
     pkg_dir = tmp_path / "alpha"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
     )
     _seed_file_node(conn, "alpha/src/real.ts")
     conn.execute(
@@ -175,7 +175,7 @@ def test_refresh_skips_venv_manifests(tmp_path: Path, conn: sqlite3.Connection) 
 
     real_pkg = tmp_path / "pkg"
     real_pkg.mkdir(parents=True)
-    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real-pkg"\nversion = "0.1.0"\n')
+    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real-pkg"\nversion = "0.1.1"\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
@@ -194,7 +194,7 @@ def test_refresh_skips_graphignore_manifests(tmp_path: Path, conn: sqlite3.Conne
 
     real_pkg = tmp_path / "packages" / "real"
     real_pkg.mkdir(parents=True)
-    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.0"\n')
+    (real_pkg / "pyproject.toml").write_text('[project]\nname = "real"\nversion = "0.1.1"\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
@@ -222,7 +222,7 @@ def test_refresh_writes_pkg_uri_on_package_nodes(
     """SC#1: every Package node has a non-NULL pkg:org/repo/name uri."""
     pkg_dir = tmp_path / "foo_pkg"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "foo"\nversion = "0.1.0"\n')
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "foo"\nversion = "0.1.1"\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=RepoContext("myorg", "myrepo"))
 
@@ -267,13 +267,13 @@ def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Conne
     pkg_a = tmp_path / "pkg-a"
     pkg_a.mkdir()
     (pkg_a / "pyproject.toml").write_text(
-        '[project]\nname = "pkg-a"\nversion = "0.1.0"\n'
+        '[project]\nname = "pkg-a"\nversion = "0.1.1"\n'
         'dependencies = ["boto3>=1.38", "langchain-aws>=1.4"]\n'
     )
     pkg_b = tmp_path / "pkg-b"
     pkg_b.mkdir()
     (pkg_b / "pyproject.toml").write_text(
-        '[project]\nname = "pkg-b"\nversion = "0.1.0"\n'
+        '[project]\nname = "pkg-b"\nversion = "0.1.1"\n'
         'dependencies = ["boto3==1.40.0"]\n'
         '[dependency-groups]\ndev = ["pytest>=8"]\n'
     )
@@ -317,7 +317,7 @@ def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connect
     pkg_c = tmp_path / "pkg-c"
     pkg_c.mkdir()
     (pkg_c / "pyproject.toml").write_text(
-        '[project]\nname = "pkg-c"\nversion = "0.1.0"\n'
+        '[project]\nname = "pkg-c"\nversion = "0.1.1"\n'
         'dependencies = ["boto3>=1.38"]\n'
         '[dependency-groups]\nextra = ["boto3>=1.40"]\n'
     )
@@ -350,12 +350,12 @@ def test_workspace_dep_suppressed_and_depends_on_package_emitted(
     internal = tmp_path / "graph_io"
     internal.mkdir()
     (internal / "pyproject.toml").write_text(
-        '[project]\nname = "graph_io"\nversion = "0.1.0"\n'
+        '[project]\nname = "graph_io"\nversion = "0.1.1"\n'
     )
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n'
         'dependencies = ["graph-io>=0.1", "boto3>=1.38"]\n'
     )
 
@@ -417,12 +417,12 @@ def test_internal_dep_edges_dedupe_per_consumer(
     internal = tmp_path / "alpha"
     internal.mkdir()
     (internal / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.0"\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
     )
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n'
         'dependencies = ["alpha>=0.1"]\n'
         '[dependency-groups]\ndev = ["alpha>=0.1"]\n'
     )
@@ -454,13 +454,13 @@ def test_internal_dep_on_app_target_resolves_app_kind(
     app_target = tmp_path / "mytool"
     app_target.mkdir()
     (app_target / "pyproject.toml").write_text(
-        '[project]\nname = "mytool"\nversion = "0.1.0"\n'
+        '[project]\nname = "mytool"\nversion = "0.1.1"\n'
         '[project.scripts]\nmytool = "mytool.cli:main"\n'
     )
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n'
         'dependencies = ["mytool>=0.1"]\n'
     )
 
@@ -489,7 +489,7 @@ def test_read_pyproject_scripts_present_true_when_section_nonempty(tmp_path: Pat
     manifest.write_text(
         '[project]\n'
         'name = "alpha"\n'
-        'version = "0.1.0"\n'
+        'version = "0.1.1"\n'
         '[project.scripts]\n'
         'alpha-cli = "alpha.cli:main"\n'
     )
@@ -498,7 +498,7 @@ def test_read_pyproject_scripts_present_true_when_section_nonempty(tmp_path: Pat
     assert info["scripts_present"] is True
     # Legacy keys preserved.
     assert info["name"] == "alpha"
-    assert info["version"] == "0.1.0"
+    assert info["version"] == "0.1.1"
     assert info["language"] == "python"
     assert info["dependencies"] == []
     assert info["dep_groups"] == {}
@@ -509,7 +509,7 @@ def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Pat
     # Missing section.
     missing = tmp_path / "missing" / "pyproject.toml"
     missing.parent.mkdir()
-    missing.write_text('[project]\nname = "alpha"\nversion = "0.1.0"\n')
+    missing.write_text('[project]\nname = "alpha"\nversion = "0.1.1"\n')
     info_missing = packages._read_pyproject(missing)
     assert info_missing is not None
     assert info_missing["scripts_present"] is False
@@ -518,7 +518,7 @@ def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Pat
     empty = tmp_path / "empty" / "pyproject.toml"
     empty.parent.mkdir()
     empty.write_text(
-        '[project]\nname = "beta"\nversion = "0.1.0"\n[project.scripts]\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\n[project.scripts]\n'
     )
     info_empty = packages._read_pyproject(empty)
     assert info_empty is not None
@@ -590,7 +590,7 @@ def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
     manifest = pkg_dir / "pyproject.toml"
     # First refresh: no scripts → kind="package".
     manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
     row = conn.execute(
@@ -603,7 +603,7 @@ def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
 
     # Second refresh after adding [project.scripts] → expect kind flip to "app".
     manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
         '[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -630,7 +630,7 @@ def test_kind_flip_app_to_pkg_reverts(
     manifest = pkg_dir / "pyproject.toml"
     # First refresh with scripts → kind="app".
     manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
         '[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -643,7 +643,7 @@ def test_kind_flip_app_to_pkg_reverts(
 
     # Remove [project.scripts] → expect revert to kind="package".
     manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
@@ -668,7 +668,7 @@ def test_kind_flip_preserves_inbound_edge_fk(
     pkg_dir = tmp_path / "myapp"
     pkg_dir.mkdir(parents=True)
     manifest = pkg_dir / "pyproject.toml"
-    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.0"\n')
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
     pkg_row = conn.execute(
         "SELECT id FROM nodes WHERE name='myapp' AND kind='package'"
@@ -694,7 +694,7 @@ def test_kind_flip_preserves_inbound_edge_fk(
 
     # Flip pkg → app.
     manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
         '[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -719,7 +719,7 @@ def test_no_kind_flip_for_zero_signal_manifest(
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
     )
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
     rows_before = conn.execute(
@@ -909,7 +909,7 @@ def test_refresh_python_pure_library_stays_package(
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir()
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
     )
     kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "purelib")
     assert kind == "package"
@@ -926,14 +926,14 @@ def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(
     app_dir = tmp_path / "myapp"
     app_dir.mkdir()
     (app_dir / "pyproject.toml").write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
         '[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     # Package: pyproject without scripts.
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir()
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.0"\n'
+        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -1026,7 +1026,7 @@ def test_refresh_python_package_dev_dependencies_empty(
     pkg_dir = tmp_path / "pypkg"
     pkg_dir.mkdir()
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "pypkg"\nversion = "0.1.0"\ndependencies = ["boto3"]\n'
+        '[project]\nname = "pypkg"\nversion = "0.1.1"\ndependencies = ["boto3"]\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)

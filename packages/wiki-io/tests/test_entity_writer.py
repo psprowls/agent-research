@@ -643,7 +643,7 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
         _NodeRecord_phase52(
             kind="package", name="widget", path="packages/widget", line=None,
             attrs={"uri": "pkg:test-org/test-repo/widget",
-                   "language": "python", "version": "0.1.0"},
+                   "language": "python", "version": "0.1.1"},
         ),
     ])
     mock_graph_conn.set_nodes("domain", [
@@ -723,12 +723,12 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
         _NodeRecord_phase52(
             kind="package", name="utils", path="org-a/repo/utils", line=None,
             attrs={"uri": "pkg:org-a/repo/utils",
-                   "language": "python", "version": "0.1.0"},
+                   "language": "python", "version": "0.1.1"},
         ),
         _NodeRecord_phase52(
             kind="package", name="utils", path="org-b/repo/utils", line=None,
             attrs={"uri": "pkg:org-b/repo/utils",
-                   "language": "python", "version": "0.1.0"},
+                   "language": "python", "version": "0.1.1"},
         ),
     ])
 
@@ -812,7 +812,7 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
             kind="app", name="demo-app",
             path="apps/demo-app", line=None,
             attrs={"uri": "app:test-org/test-repo/demo-app",
-                   "language": "python", "version": "0.1.0"},
+                   "language": "python", "version": "0.1.1"},
         ),
     ])
 

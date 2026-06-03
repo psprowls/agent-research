@@ -1,6 +1,6 @@
 [project]
 name = "wiki-io"
-version = "0.1.0"
+version = "0.1.1"
 description = "Vault IO for graph-wiki-agent"
 requires-python = ">=3.11"
 dependencies = [

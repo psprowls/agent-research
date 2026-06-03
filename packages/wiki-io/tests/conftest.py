@@ -77,7 +77,7 @@ def mock_graph_conn() -> MockGraphConn:
                           "language": "python", "version": "0.2.1"}),
         NodeRecord(kind="package", name="wiki-io", path="packages/wiki-io", line=None,
                    attrs={"uri": "pkg:local/agent-research/wiki-io",
-                          "language": "python", "version": "0.1.0"}),
+                          "language": "python", "version": "0.1.1"}),
     ])
     conn.set_nodes("domain", [
         NodeRecord(kind="domain", name="storage", path=None, line=None,
@@ -98,7 +98,7 @@ def mock_graph_conn() -> MockGraphConn:
     conn.set_nodes("agent_plugin", [
         NodeRecord(kind="agent_plugin", name="graph-wiki", path=None, line=None,
                    attrs={"uri": "agent_plugin:local/agent-research/graph-wiki",
-                          "ecosystem": "claude-code", "version": "0.1.0",
+                          "ecosystem": "claude-code", "version": "0.1.1",
                           "description": "A wiki plugin.",
                           "components": {
                               "commands": [{"id": "command:local/agent-research/graph-wiki/scan",
@@ -114,7 +114,7 @@ def mock_graph_conn() -> MockGraphConn:
         domains=["storage"], entry_points=[], test_suites=[],
     ))
     conn.set_description("package", "wiki-io", PackageDescription(
-        name="wiki-io", language="python", version="0.1.0",
+        name="wiki-io", language="python", version="0.1.1",
         files=["packages/wiki-io/src/wiki_io/entity_writer.py"], counts={"function": 15},
         domains=[], entry_points=[], test_suites=[],
     ))
@@ -136,7 +136,7 @@ def mock_graph_conn() -> MockGraphConn:
     ))
     conn.set_description("agent_plugin", "graph-wiki", AgentPluginDescription(
         name="graph-wiki", uri="agent_plugin:local/agent-research/graph-wiki",
-        ecosystem="claude-code", version="0.1.0", description="A wiki plugin.",
+        ecosystem="claude-code", version="0.1.1", description="A wiki plugin.",
         commands=[{"id": "command:local/agent-research/graph-wiki/scan",
                    "name": "scan", "description": "Walk the monorepo."}],
         agents=[], skills=[], scripts=[], hooks=[], mcp_servers=[],

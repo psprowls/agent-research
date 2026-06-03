@@ -24,7 +24,7 @@ def repo_with_wiki(tmp_path: Path) -> Path:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "x = 1\n",
             "graph-wiki/.graph-wiki.yaml": "registered_plugins: []\n",
             "graph-wiki/wiki/packages/demo/demo.md": "# demo\n",
@@ -59,7 +59,7 @@ def test_sync_wiki_reports_undocumented(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "lonely"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "lonely"\nversion = "0.1.1"\n',
             "src/a.py": "x = 1\n",
             "graph-wiki/.graph-wiki.yaml": "registered_plugins: []\n",
         },

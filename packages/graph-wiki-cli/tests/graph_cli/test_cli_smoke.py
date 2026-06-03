@@ -25,7 +25,7 @@ def populated_repo(tmp_path: Path) -> Path:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/a.py": "__all__ = ['alpha']\n\ndef alpha():\n    return beta()\n\ndef beta():\n    return 1\n",
             # src/demo/__init__.py makes `demo` a first-party importable package.
             "src/demo/__init__.py": "__all__ = ['delta']\n\ndef delta():\n    return 1\n",
@@ -208,7 +208,7 @@ def builtin_repo(tmp_path: Path) -> Path:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.0"\n',
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
             "src/demo/__init__.py": "from pathlib import Path\nimport os\n",
         },
         "init",
@@ -242,7 +242,7 @@ def test_cg_list_builtins_json(builtin_repo: Path) -> None:
 def test_cg_list_builtins_empty(tmp_path: Path) -> None:
     """list-builtins on a freshly initialised empty graph exits 0 (no builtins yet)."""
     init_repo(tmp_path)
-    write_and_commit(tmp_path, {"pyproject.toml": '[project]\nname = "empty"\nversion = "0.1.0"\n'}, "init")
+    write_and_commit(tmp_path, {"pyproject.toml": '[project]\nname = "empty"\nversion = "0.1.1"\n'}, "init")
     res = _cg(["update", "--full"], tmp_path)
     assert res.returncode == 0, res.stderr
 
@@ -271,7 +271,7 @@ def app_repo(tmp_path: Path) -> Path:
             "pyproject.toml": (
                 '[project]\n'
                 'name = "my-cli"\n'
-                'version = "0.1.0"\n'
+                'version = "0.1.1"\n'
                 '[project.scripts]\n'
                 'my-cli = "my_cli.cli:main"\n'
             ),
@@ -310,7 +310,7 @@ def test_cg_list_apps_empty(tmp_path: Path) -> None:
     init_repo(tmp_path)
     write_and_commit(
         tmp_path,
-        {"pyproject.toml": '[project]\nname = "purelib"\nversion = "0.1.0"\n'},
+        {"pyproject.toml": '[project]\nname = "purelib"\nversion = "0.1.1"\n'},
         "init",
     )
     res = _cg(["update", "--full"], tmp_path)

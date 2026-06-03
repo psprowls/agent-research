@@ -8,7 +8,7 @@ import sys
 
 def test_package_imports() -> None:
     import graph_io
-    assert graph_io.__version__ == "0.1.0"
+    assert graph_io.__version__ == "0.1.1"
 
 
 def test_cli_help_lists_all_subcommands() -> None:
