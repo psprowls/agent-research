@@ -12,11 +12,8 @@ The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `
 └── wiki/                       # this agent's curated knowledge base
     ├── index.md                # Content catalog (updated every ingest/scan)
     ├── log.md                  # Append-only timeline
-    ├── apps/<app>/             # [conditional] One folder per app workspace; overview at apps/<app>/overview.md
-    ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
-    ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-    ├── entities/               # One page per graph-derived entity (packages, apps, dependencies as dep_<name>.md, etc.)
+    ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
     ├── architecture/           # High-level architecture syntheses
     ├── adrs/                   # Architecture Decision Records
@@ -24,8 +21,6 @@ The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `
     ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
     └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
 ```
-
-`apps/`, `packages/`, and `domains/` are **conditional** — created only when the repo has matching containers. A single-package repo has none; a library-only monorepo has `packages/` but no `apps/`. Pinned containers are recorded in `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md`.
 
 **The code is the source of truth.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.\
 """
