@@ -40,12 +40,3 @@ _(scanner will populate on next scan)_
 
 ## How it fits together
 > TODO: <Inferred cross-component relationships — populated by a follow-up narrator pass.>
-
-## Concepts
-- [[concepts/<concept>]]
-
-## Decisions
-- [[adrs/<id>-<slug>]]
-
-## Contrasts / alternatives
-- [[concepts/<a>-vs-<b>]]

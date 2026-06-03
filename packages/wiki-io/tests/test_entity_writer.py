@@ -611,6 +611,47 @@ def test_write_entities_needs_narrative_on_structural_change(
     assert any("graph-io" in uri for uri in r2.needs_narrative)
 
 
+def test_write_entities_preserves_human_body_section_across_rescan(
+    tmp_path, mock_graph_conn, monkeypatch,
+):
+    """A hand-filled ## Purpose section survives a second write_entities run."""
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    page_path = wiki_root / "entities" / "pkg_graph-io.md"
+    raw = page_path.read_text()
+    marker = "> TODO: <One paragraph: what this package does, who uses it, why it exists.>"
+    assert marker in raw, "expected the package template's Purpose placeholder"
+    human_prose = "The graph-io package builds and queries the SQLite code graph."
+    page_path.write_text(raw.replace(marker, human_prose))
+
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    final = page_path.read_text()
+    assert human_prose in final            # human ## Purpose preserved
+    assert "## Public API" in final        # sibling sections intact
+
+
+def test_write_entities_preserves_custom_h2_across_rescan(
+    tmp_path, mock_graph_conn, monkeypatch,
+):
+    """A user-added H2 section (not in the template) survives a re-scan."""
+    from graph_io import queries as q
+    _wire_mock_queries(monkeypatch, q)
+    wiki_root = tmp_path / "wiki"
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+
+    page_path = wiki_root / "entities" / "pkg_graph-io.md"
+    raw = page_path.read_text()
+    page_path.write_text(raw.rstrip() + "\n\n## Field Notes\nMy hand-written notes.\n")
+
+    write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    final = page_path.read_text()
+    assert "## Field Notes" in final
+    assert "My hand-written notes." in final
+
+
 # ============================================================================
 # Phase 52 Plan 02: short_filename integration in write_entities
 # ============================================================================

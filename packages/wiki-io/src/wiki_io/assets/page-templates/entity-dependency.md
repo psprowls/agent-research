@@ -23,15 +23,3 @@ _(scanner will populate on next scan)_
 
 ## Gotchas / workarounds
 - Quirks, breaking-change history, or in-repo workarounds applied to this dep.
-
-## Concepts
-- [[concepts/<concept>]]
-
-## Dependencies
-- [[dependencies/<lib>]]
-
-## Decisions
-- [[adrs/<id>-<slug>]]
-
-## Contrasts / alternatives
-- [[concepts/<a>-vs-<b>]]

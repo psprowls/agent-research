@@ -221,3 +221,28 @@ def test_source_template_uses_entities_and_has_entity_uri() -> None:
     assert "[[domains/" not in body
     # Singular canonical anchor present in frontmatter.
     assert "entity_uri:" in body
+
+
+# --- Task 4 (Living Wiki M1 preservation) ------------------------------------
+
+_FORWARD_LINK_HEADINGS = (
+    "## Concepts",
+    "## Dependencies",
+    "## Decisions",
+    "## Contrasts / alternatives",
+)
+
+
+@pytest.mark.parametrize(
+    "template_path",
+    ENTITY_TEMPLATES,
+    ids=[p.name for p in ENTITY_TEMPLATES],
+)
+def test_no_forward_link_stub_sections(template_path: Path) -> None:
+    """Entity templates must not carry the duplicative forward-link stubs;
+    `## Referenced in wiki` (backlinks) supersedes them (Living Wiki M1)."""
+    text = template_path.read_text(encoding="utf-8")
+    for heading in _FORWARD_LINK_HEADINGS:
+        assert not re.search(
+            rf"^{re.escape(heading)}\s*$", text, re.MULTILINE
+        ), f"{template_path.name} still carries `{heading}`"

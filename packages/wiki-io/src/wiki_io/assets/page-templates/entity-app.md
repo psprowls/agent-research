@@ -45,15 +45,3 @@ _(scanner will populate on next scan)_
 | Path | Kind | Description |
 |---|---|---|
 | `<file>` | file | — > TODO — <Short description of file contents.> |
-
-## Concepts
-- [[concepts/<concept>]]
-
-## Dependencies
-- [[dependencies/<lib>]]
-
-## Decisions
-- [[adrs/<id>-<slug>]]
-
-## Contrasts / alternatives
-- [[concepts/<a>-vs-<b>]]
