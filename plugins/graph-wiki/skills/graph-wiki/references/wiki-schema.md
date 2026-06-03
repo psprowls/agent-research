@@ -81,7 +81,7 @@ Entity pages live under `<workspace>/wiki/entities/` — one page per graph-deri
 | `entry_points` | package, app | detected entry-point paths |
 | `language` | package, app | primary language string |
 | `version` | package, app | version string from manifest |
-| `app_kind` | app | sub-classification (web, mobile, cli, …) |
+| `app_kind` | app | app sub-type (web, mobile, cli, …) |
 | `app_signals` | app | detected signals (framework, deployment, …) |
 | `parent_domain` | domain | parent domain name, if nested |
 | `sub_domains` | domain | list of child domain names |
@@ -274,7 +274,7 @@ updated: 2026-04-20
 ---
 ```
 
-In-repo docs (those surfaced by `/graph-wiki:scan` from a pinned `docs` container) use `source_type: doc`, set `source_path` to the repo-relative path, and record `last_sync_commit` and `last_sync_at`. PDF/DOCX/etc. are deferred — only `.md` is auto-surfaced today.
+In-repo docs (an in-repo `.md` passed to `/graph-wiki:ingest` by repo-relative path) use `source_type: doc`, set `source_path` to the repo-relative path, and record `last_sync_commit` and `last_sync_at`. PDF/DOCX/etc. are deferred — only `.md` is supported today.
 
 ### Architecture pages
 

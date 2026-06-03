@@ -34,29 +34,6 @@ This command dispatches the `scanner` sub-agent. See `agents/scanner.md`.
 - **Structural-only** — `## Narrative` and file-map descriptions are filled later by ingest/query, not by scan.
 - **The graph is the source** — entity pages are rendered from the code graph, not hand-written.
 
-## Layout reconcile
-
-When `/graph-wiki:scan` runs against an initialized wiki, it re-detects containers and compares the result to the pinned layout. If `scan_monorepo.py` prints a "Layout drift detected" block, surface the drift to the user and offer:
-
-- **Re-run `/graph-wiki:bootstrap`** — full re-detection. Overwrites the existing layout block.
-- **Edit the layout block manually** — the user can change a row's `classification` or `vault_dir` directly in `<workspace>/wiki/CLAUDE.md`.
-- **Ignore for now** — drift remains until next scan.
-
-Don't auto-apply changes. Layout decisions are the user's.
-
-## In-repo docs
-
-When a `docs` container is pinned, scan walks its top-level `.md` files and reports any without an existing source summary as ingest candidates:
-
-```
-Docs to ingest: 3
-  ? docs/architecture.md  (run /graph-wiki:ingest docs/architecture.md)
-  ? docs/runbook.md       (run /graph-wiki:ingest docs/runbook.md)
-  ? docs/release-notes.md (run /graph-wiki:ingest docs/release-notes.md)
-```
-
-Scan does not auto-ingest. Pass each path to `/graph-wiki:ingest`; the regular ingest flow produces a `category: source` summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md` and updates concepts/ADRs/packages from the doc's content. PDF, DOCX, and other formats are deferred — md only for now (see `references/ingest-workflow.md` "Future formats").
-
 ## When to run
 
 - Right after `/graph-wiki:bootstrap`

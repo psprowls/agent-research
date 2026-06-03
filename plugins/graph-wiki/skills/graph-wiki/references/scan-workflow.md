@@ -7,7 +7,7 @@ Keep the wiki's single `entities/` folder in sync with the code graph. The scan 
 ## Inputs
 
 - Repo root + wiki path (resolved via `workspace_io`).
-- The pinned `graph-wiki:layout` block in `wiki/CLAUDE.md` (scopes graph build + discovery to pinned containers; detection itself is unchanged — see `detection-workflow.md`).
+- The code graph itself — entity discovery is purely graph-driven; there is no folder-shape input or pinned scoping. The graph (built from the repo by `cg`) is the sole source for which entities exist.
 
 ## What gets written
 

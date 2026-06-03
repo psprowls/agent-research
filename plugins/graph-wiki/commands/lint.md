@@ -25,7 +25,7 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 ### Pass 1 — Mechanical (scripts)
 
-- `scripts/lint_wiki.py` — orphans, broken links, stale, missing frontmatter, duplicate titles, log gap, **+ code drift** (packages missing from vault, vault pages for deleted packages, exports drift), **+ sync drift** (`package_sync_drift` for package/app pages whose source changed since `last_sync_commit`; `source_sync_drift` for in-repo doc source pages; never-synced stubs flagged separately)
+- `scripts/lint_wiki.py` — orphans, broken links, stale, missing frontmatter, duplicate titles, log gap, **+ code drift** (packages missing from vault, vault pages for deleted packages, exports drift), **+ sync drift** (`package_sync_drift` for package/app pages whose source changed since `last_sync_commit`; never-synced stubs flagged separately)
 - `scripts/graph_analyzer.py` — hubs, sinks, components
 
 ### Pass 2 — Semantic (LLM)

@@ -16,7 +16,7 @@ You integrate a new source (spec, PR, article, ticket, transcript) into the `<wo
 
 ## Inputs
 
-- Path to a source file. Either inside `<workspace>/raw/` (staged clip) or repo-relative for an in-repo doc surfaced by `/graph-wiki:scan` (e.g. `docs/architecture.md`).
+- Path to a source file. Either inside `<workspace>/raw/` (staged clip) or repo-relative for an in-repo doc (e.g. `docs/architecture.md`) passed directly to `/graph-wiki:ingest`.
 - The current state of `<workspace>/wiki/` (especially `index.md`)
 - The repo's code (for contradiction checks)
 - The wiki's `CLAUDE.md` / `AGENTS.md` schema
@@ -107,7 +107,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 ## Red flags
 
 Stop and ask before proceeding if:
-- The source is somewhere unexpected — not under `<workspace>/raw/` and not under `<repo>/<docs-container>/`
+- The source is somewhere unexpected — not under `<workspace>/raw/` and not an in-repo `.md` under the repo
 - The source appears to duplicate an existing source exactly
 - Ingesting would require deleting existing vault pages
 - You detect >5 contradictions with the code (likely major drift — worth a separate conversation)

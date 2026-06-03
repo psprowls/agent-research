@@ -36,8 +36,6 @@ This single command builds the code graph, writes/updates/deletes `entities/*.md
 
 It runs **without Bedrock** (structural-only — `narrate=False`). It does NOT call any LLM.
 
-**Layout-aware:** when the wiki's `CLAUDE.md` pins a `graph-wiki:layout` block, discovery scopes to those containers automatically.
-
 ### 2. Report entities
 From the JSON, report to the user:
 - **Created** — new entity pages (list by URI / filename)
