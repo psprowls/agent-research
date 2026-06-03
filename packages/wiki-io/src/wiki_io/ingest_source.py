@@ -28,7 +28,6 @@ import sys
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.layout_io import ensure_subpage
 from wiki_io.scan_monorepo import compute_state_gate
 
 PREVIEW_CHARS = 1200

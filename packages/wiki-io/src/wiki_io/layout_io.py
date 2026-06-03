@@ -24,7 +24,6 @@ Hand-rolled minimal YAML emitter and parser tailored to this fixed shape
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from pathlib import Path
 from typing import Optional
@@ -143,83 +142,3 @@ def _parse_scalar(v: str):
     if v.lstrip("-").isdigit():
         return int(v)
     return v
-
-
-def ensure_subpage(
-    pkg_dir: Path,
-    subpage_name: str,
-    pkg_title: str,
-    templates_dir: Path,
-    today: Optional[str] = None,
-) -> tuple[Path, bool]:
-    """Create a package sub-page from template if it doesn't exist.
-
-    Returns (path, created) where created=True if the file was just written.
-    Raises FileNotFoundError if the template is missing.
-    """
-    dest = pkg_dir / f"{subpage_name}.md"
-    if dest.exists():
-        return dest, False
-    tmpl = templates_dir / "package" / f"{subpage_name}.md"
-    if not tmpl.exists():
-        raise FileNotFoundError(f"template not found: {tmpl}")
-    date = today or dt.date.today().isoformat()
-    text = tmpl.read_text(encoding="utf-8")
-    text = text.replace("{{PACKAGE_TITLE}}", pkg_title).replace("{{DATE}}", date)
-    pkg_dir.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text, encoding="utf-8")
-    return dest, True
-
-
-def ensure_domain_page(
-    domain_dir: Path,
-    domain_title: str,
-    templates_dir: Path,
-    today: Optional[str] = None,
-) -> tuple[Path, bool]:
-    """Create <domain>/overview.md from the overview template if it doesn't exist.
-
-    Returns (path, created) where created=True if the file was just written.
-    Raises FileNotFoundError if the template is missing.
-    """
-    dest = domain_dir / "overview.md"
-    if dest.exists():
-        return dest, False
-    tmpl = templates_dir / "domain" / "overview.md"
-    if not tmpl.exists():
-        raise FileNotFoundError(f"template not found: {tmpl}")
-    date = today or dt.date.today().isoformat()
-    text = tmpl.read_text(encoding="utf-8")
-    text = (
-        text.replace("{{DOMAIN_TITLE}}", domain_title)
-        .replace("{{DOMAIN_SLUG}}", domain_dir.name)
-        .replace("{{DATE}}", date)
-    )
-    domain_dir.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text, encoding="utf-8")
-    return dest, True
-
-
-def ensure_domain_details(
-    domain_dir: Path,
-    domain_title: str,
-    templates_dir: Path,
-    today: Optional[str] = None,
-) -> tuple[Path, bool]:
-    """Create <domain>/details.md from the details template if it doesn't exist.
-
-    Returns (path, created) where created=True if the file was just written.
-    Raises FileNotFoundError if the template is missing.
-    """
-    dest = domain_dir / "details.md"
-    if dest.exists():
-        return dest, False
-    tmpl = templates_dir / "domain" / "details.md"
-    if not tmpl.exists():
-        raise FileNotFoundError(f"template not found: {tmpl}")
-    date = today or dt.date.today().isoformat()
-    text = tmpl.read_text(encoding="utf-8")
-    text = text.replace("{{DOMAIN_TITLE}}", domain_title).replace("{{DATE}}", date)
-    domain_dir.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text, encoding="utf-8")
-    return dest, True
