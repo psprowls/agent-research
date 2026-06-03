@@ -450,7 +450,6 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
             "graph_wiki_core.commands.scan.make_llm",
             side_effect=_fake_make_llm,
         ))
-        stack.enter_context(patch("graph_wiki_core.commands.scan.regenerate_dependencies_index"))
         stack.enter_context(patch("graph_wiki_core.commands.scan.append_log"))
         stack.enter_context(patch("graph_wiki_core.commands.scan.update_index"))
 

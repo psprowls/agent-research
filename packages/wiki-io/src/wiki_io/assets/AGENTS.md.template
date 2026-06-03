@@ -46,7 +46,6 @@ domains/                  → [conditional] feature areas across packages
 └── <slug>/                  declares as `classification: package` (e.g. `plugins/`,
     └── overview.md          `agents/`) — pages use `category: package`
 concepts/                 → cross-cutting patterns
-dependencies/             → external libraries (index.md auto-generated)
 sources/                  → one summary per ingested source (cites files in ../raw/)
 architecture/             → high-level syntheses
 adrs/                     → decision records

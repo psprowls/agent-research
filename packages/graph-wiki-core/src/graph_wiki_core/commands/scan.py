@@ -59,7 +59,6 @@ from wiki_io.scan_monorepo import (
     compute_diff,
     compute_state_gate,
     discover_workspaces,
-    regenerate_dependencies_index,
 )
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
 from wiki_io.update_index import update_index
@@ -620,7 +619,7 @@ async def run_scan(
         9. Scanner fan-out: SubagentPool.run_all for new + changed packages.
         10. Write successful stub pages (LLM body + deterministic file map).
         11. Add stale: true to deleted/renamed vault pages + log entries.
-        12. regenerate_dependencies_index + update_index.
+        12. generate_index + update_index.
         13. Final append_log summary.
         14. Return ScanResult.
 
@@ -1181,8 +1180,7 @@ async def run_scan(
                 logger.info("Marked stale (renamed): %s -> %s", old_name, new_name)
 
         # Step 12: regenerate indexes (Phase 45 D-01).
-        # Order: dependencies index → graph-driven wiki/index.md → per-folder sub-indexes.
-        regenerate_dependencies_index(wiki, workspaces)
+        # Order: graph-driven wiki/index.md → per-folder sub-indexes.
         if conn is not None:
             # generate_index is read-only on the graph; raises on failure (Phase 44 D-19).
             index_result = generate_index(conn, wiki)

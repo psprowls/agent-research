@@ -1184,239 +1184,6 @@ def discover_docs(repo: Path, wiki: Path, pinned_containers: list[dict]) -> list
     return candidates
 
 
-# ----------------------------------------------------------------------------
-# Index regeneration — dependencies/index.md
-#
-# Marker contract per wiki-schema.md "Auto-rendered sections":
-#   <!-- auto:dependencies-index generated:<ISO> -->
-#   (table)
-#   <!-- /auto:dependencies-index -->
-# Content outside the marker pair is preserved on regen.
-# ----------------------------------------------------------------------------
-
-DEPS_INDEX_OPEN = "<!-- auto:dependencies-index"
-DEPS_INDEX_CLOSE = "<!-- /auto:dependencies-index -->"
-
-_AUTO_BLOCK_RE_TEMPLATE = r"<!--\s*auto:{name}[^>]*-->.*?<!--\s*/auto:{name}\s*-->"
-
-
-def collect_external_dependencies(workspaces: list[dict]) -> list[dict]:
-    """Aggregate external dependencies across scanned workspaces.
-
-    Returns a list sorted by (ecosystem, name) where each entry is::
-
-        {
-            "name": "react",
-            "kind": "package",
-            "ecosystem": "npm",
-            "versions_in_use": ["19.0.0", "18.3.1"],
-            "used_by": ["web-next-ts", "app-expo-ts"],
-        }
-    """
-    by_key: dict[tuple[str, str], dict] = {}
-    for w in workspaces:
-        ecosystem = w.get("ecosystem")
-        ext = w.get("external_deps") or {}
-        if not ecosystem or not ext:
-            continue
-        ws_name = unscope(w["name"])
-        for dep_name, version in ext.items():
-            key = (ecosystem, dep_name)
-            entry = by_key.get(key)
-            if entry is None:
-                entry = {
-                    "name": dep_name,
-                    "kind": "package",
-                    "ecosystem": ecosystem,
-                    "versions_in_use": [],
-                    "used_by": [],
-                }
-                by_key[key] = entry
-            v = (version or "").strip()
-            if v and v not in entry["versions_in_use"]:
-                entry["versions_in_use"].append(v)
-            if ws_name not in entry["used_by"]:
-                entry["used_by"].append(ws_name)
-    for entry in by_key.values():
-        entry["versions_in_use"].sort()
-        entry["used_by"].sort()
-    return sorted(by_key.values(), key=lambda e: (e["ecosystem"], e["name"].lower()))
-
-
-def load_services_yaml(wiki: Path) -> list[dict]:
-    """Read hand-maintained wiki/dependencies/services.yaml.
-
-    Minimal parser tailored to a list-of-dicts shape::
-
-        - name: MongoDB Atlas
-          provider: mongodb-atlas
-          used_by: [location-aws-node-ts, healthkit-aws-node-ts]
-          load_bearing: true
-
-    Returns ``[]`` when the file is absent or unparseable. Each entry comes
-    out as a ``kind: service`` dict slotted into the index alongside packages.
-    """
-    services_path = wiki / "dependencies" / "services.yaml"
-    if not services_path.exists():
-        return []
-    try:
-        text = services_path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    services: list[dict] = []
-    current: dict | None = None
-    for raw in text.splitlines():
-        line = raw.rstrip()
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if line.startswith("- "):
-            if current:
-                services.append(current)
-            current = {"kind": "service"}
-            rest = line[2:]
-            k, _, v = rest.partition(":")
-            current[k.strip()] = _parse_yaml_scalar(v.strip())
-        elif line.startswith("  ") and current is not None:
-            k, _, v = line.strip().partition(":")
-            current[k.strip()] = _parse_yaml_scalar(v.strip())
-    if current:
-        services.append(current)
-    # Normalize used_by to a list
-    for s in services:
-        ub = s.get("used_by")
-        if isinstance(ub, str):
-            s["used_by"] = [x.strip() for x in ub.strip("[]").split(",") if x.strip()]
-        elif ub is None:
-            s["used_by"] = []
-    return services
-
-
-def _parse_yaml_scalar(v: str):
-    if v == "" or v == "null":
-        return None
-    if v.startswith("[") and v.endswith("]"):
-        inner = v[1:-1].strip()
-        if not inner:
-            return []
-        return [x.strip().strip("'\"") for x in inner.split(",") if x.strip()]
-    if v in ("true", "false"):
-        return v == "true"
-    if v.lstrip("-").isdigit():
-        return int(v)
-    return v.strip("'\"")
-
-
-def render_dependencies_index_table(
-    deps: list[dict],
-    services: list[dict],
-    deps_dir: Path | None = None,
-) -> str:
-    """Render the marker-bounded table body for dependencies/index.md.
-
-    When ``deps_dir`` is provided, the Detail column emits a wikilink only when
-    a matching ``<name>.md`` page exists under ``deps_dir``; otherwise the cell
-    is ``—`` so the lint doesn't flag the auto-block as a broken-link source.
-    """
-    def _detail_for(slug: str) -> str:
-        if deps_dir is not None and not (deps_dir / f"{slug}.md").exists():
-            return "—"
-        return f"[[{slug}]]"
-
-    lines = [
-        "| Name | Kind | Ecosystem/Provider | Versions | Used by | Detail |",
-        "|---|---|---|---|---|---|",
-    ]
-    for d in deps:
-        versions = ", ".join(d["versions_in_use"]) if d["versions_in_use"] else "—"
-        used_by = ", ".join(d["used_by"]) if d["used_by"] else "—"
-        detail = _detail_for(d["name"])
-        lines.append(f"| {d['name']} | package | {d['ecosystem']} | {versions} | {used_by} | {detail} |")
-    for s in services:
-        name = s.get("name", "")
-        provider = s.get("provider", "")
-        used_by = ", ".join(s.get("used_by") or []) or "—"
-        detail = _detail_for(_to_slug(name)) if s.get("load_bearing") else "—"
-        lines.append(f"| {name} | service | {provider} | n/a | {used_by} | {detail} |")
-    return "\n".join(lines) + "\n"
-
-
-def _to_slug(name: str) -> str:
-    out: list[str] = []
-    prev_alnum = False
-    for c in name:
-        if c.isalnum():
-            out.append(c.lower())
-            prev_alnum = True
-        elif prev_alnum:
-            out.append("-")
-            prev_alnum = False
-    return "".join(out).strip("-")
-
-
-def _replace_or_append_auto_block(
-    existing: str,
-    open_tag: str,
-    close_marker: str,
-    block: str,
-) -> str:
-    """Replace the marker-bounded block in ``existing``, or append it."""
-    pattern = re.compile(
-        re.escape(open_tag) + r"[^>]*-->.*?" + re.escape(close_marker),
-        re.DOTALL,
-    )
-    if pattern.search(existing):
-        return pattern.sub(block, existing, count=1)
-    sep = "" if not existing or existing.endswith("\n") else "\n"
-    return existing + sep + "\n" + block + "\n"
-
-
-def _extract_auto_block_body(
-    existing: str,
-    open_tag: str,
-    close_marker: str,
-) -> str | None:
-    """Return the body between the open marker's ``-->`` and the close marker,
-    or ``None`` when the auto-block isn't present. Lets callers compare
-    rendered content against what's on disk and skip writes when only the
-    timestamp would change.
-    """
-    pattern = re.compile(
-        re.escape(open_tag) + r"[^>]*-->\n?(.*?)" + re.escape(close_marker),
-        re.DOTALL,
-    )
-    m = pattern.search(existing)
-    return m.group(1) if m else None
-
-
-def regenerate_dependencies_index(wiki: Path, workspaces: list[dict]) -> Path | None:
-    """Regenerate wiki/dependencies/index.md (marker-bounded). Returns the
-    written path, or None if the dependencies/ folder doesn't exist yet or
-    when the table body is unchanged (skipping the write keeps re-runs
-    byte-identical so the scanner doesn't trip its own state gate)."""
-    deps_dir = wiki / "dependencies"
-    if not deps_dir.exists():
-        return None
-    deps = collect_external_dependencies(workspaces)
-    services = load_services_yaml(wiki)
-    table = render_dependencies_index_table(deps, services, deps_dir=deps_dir)
-    index_path = deps_dir / "index.md"
-    existing = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
-    existing_body = _extract_auto_block_body(existing, DEPS_INDEX_OPEN, DEPS_INDEX_CLOSE)
-    if existing_body is not None and existing_body == table:
-        return None
-    generated = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    block = f"{DEPS_INDEX_OPEN} generated:{generated} -->\n{table}{DEPS_INDEX_CLOSE}"
-    if not existing:
-        existing = (
-            "# Dependencies\n\n"
-            "Auto-generated dependency index. The marker-bounded block below is "
-            "regenerated by `/graph-wiki:scan`. Manual notes can sit outside the markers.\n\n"
-        )
-    new_text = _replace_or_append_auto_block(existing, DEPS_INDEX_OPEN, DEPS_INDEX_CLOSE, block)
-    index_path.write_text(new_text, encoding="utf-8")
-    return index_path
-
-
 def main():
     p = argparse.ArgumentParser(description="Scan a monorepo for workspaces and diff against the wiki.")
     p.add_argument("--json", action="store_true", help="Emit JSON only")
@@ -1431,11 +1198,6 @@ def main():
         default=4,
         help="Max directory depth expanded as header sections in the file map (default: 4). "
         "Sub-directories deeper than this are listed as folder bullets in their parent section.",
-    )
-    p.add_argument(
-        "--no-index-regen",
-        action="store_true",
-        help="Skip regenerating dependencies/index.md",
     )
     args = p.parse_args()
 
@@ -1486,12 +1248,6 @@ def main():
     if wiki.exists() and pinned:
         doc_candidates = discover_docs(repo, wiki, pinned)
 
-    regenerated_indexes: list[str] = []
-    if wiki.exists() and not args.no_index_regen:
-        dep_index = regenerate_dependencies_index(wiki, workspaces)
-        if dep_index is not None:
-            regenerated_indexes.append(str(dep_index.relative_to(wiki)))
-
     result = {
         "repo": str(repo),
         "wiki": str(wiki),
@@ -1500,7 +1256,6 @@ def main():
         "diff": diff,
         "doc_candidates": doc_candidates,
         "state_gate": compute_state_gate(repo),
-        "regenerated_indexes": regenerated_indexes,
     }
 
     if args.json:
@@ -1537,12 +1292,6 @@ def main():
         print(f"Docs to ingest: {len(doc_candidates)}")
         for d in doc_candidates:
             print(f"  ? {d['path']}  (run /graph-wiki:ingest {d['path']})")
-
-    if regenerated_indexes:
-        print()
-        print("Regenerated indexes:")
-        for path in regenerated_indexes:
-            print(f"  ✎ {path}")
 
 
 # Public alias so callers can do: from wiki_io.scan_monorepo import scan
