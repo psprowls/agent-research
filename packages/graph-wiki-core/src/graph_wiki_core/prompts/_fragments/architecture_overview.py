@@ -16,7 +16,7 @@ The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `
     ├── packages/<pkg>/         # [conditional] One folder per library/service package; overview at packages/<pkg>/overview.md
     ├── domains/<domain>/       # [conditional] One folder per cross-package feature area; overview at domains/<domain>/overview.md
     ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
-    ├── dependencies/           # External libraries — index.md auto-generated; detail pages opt-in
+    ├── entities/               # One page per graph-derived entity (packages, apps, dependencies as dep_<name>.md, etc.)
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
     ├── architecture/           # High-level architecture syntheses
     ├── adrs/                   # Architecture Decision Records

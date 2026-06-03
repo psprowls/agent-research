@@ -57,7 +57,7 @@ def check(pages: dict, *, workspaces: list[dict] | None = None) -> list[str]:
         if body_lines < 15:
             findings.append(
                 f"{key}: dep-stub-detail-page: only {body_lines} body lines beyond frontmatter "
-                f"(<15 — flesh out or delete and rely on dependencies/index.md)"
+                f"(<15 — flesh out or delete; the dependency entity page is the source of truth)"
             )
 
     return findings
