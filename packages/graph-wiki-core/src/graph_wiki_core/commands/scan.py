@@ -960,25 +960,34 @@ async def run_scan(
         # (uri, node, page_path) for each package/app whose File map was injected
         # this scan — Step 10c uses these to fill remaining `— TODO` rows.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
+        # M2b §3.4: package/app URIs whose File map was re-described this scan
+        # (>=1 changed row dropped from preserved, or an unknown anchor forced a
+        # full drop). Consumed by the shared-anchor restamp after Step 10c.
+        redescribed_uris: set[str] = set()
         if entity_write_result is not None and conn is not None:
             refreshed = set(entity_write_result.created) | set(
                 entity_write_result.updated
             )
+            # M2b §3.2 (load-bearing): a package whose source changed with no
+            # structural delta is in commit_dirty but NOT refreshed; without this
+            # union its File map is never re-injected and the preserved-drop below
+            # can't fire. Mirrors M2a's needs_narrative.update(commit_dirty).
+            fm_targets = refreshed | set(commit_dirty)
             list_fns = _kind_list_fns()
             # Collision set shared by the package/app and test-suite branches.
             fm_collision_set = (
                 _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
-                if refreshed
+                if fm_targets
                 else frozenset()
             )
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
-            if refreshed and any(fm_list_fns) and not no_file_map:
+            if fm_targets and any(fm_list_fns) and not no_file_map:
                 fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
                 for node in fm_nodes:
                     if not isinstance(node.attrs, dict):
                         continue
                     node_uri = node.attrs.get("uri")
-                    if not node_uri or node_uri not in refreshed:
+                    if not node_uri or node_uri not in fm_targets:
                         continue
                     node_path = node.path
                     if not node_path:
@@ -986,13 +995,32 @@ async def run_scan(
                     file_map = build_file_map(repo / node_path, max_depth=max_depth)
                     if not file_map:
                         continue
+                    # M2b §3.1/§3.3: drop changed rows from preserved so they
+                    # re-emerge as `— TODO` and Step 10c re-describes them. Gated
+                    # on `narrate` — an LLM-free scan keeps the cost cache intact
+                    # and re-describes nothing (Step 10c is narrate-gated too).
+                    preserved = dict(prior_file_map_descs.get(node_uri) or {})
+                    if narrate and node_uri in commit_dirty:
+                        changed = commit_dirty[node_uri]
+                        if changed is None:
+                            # Unknown anchor: no preserved row can be trusted —
+                            # drop all, forcing a full re-describe (D-D / §3.1).
+                            preserved = {}
+                            redescribed_uris.add(node_uri)
+                        else:
+                            changed_rel = _changed_rel_paths(changed, node_path)
+                            dropped = {p for p in preserved if p in changed_rel}
+                            if dropped:
+                                for p in dropped:
+                                    preserved.pop(p, None)
+                                redescribed_uris.add(node_uri)
                     slug = short_filename(node_uri, fm_collision_set)
                     fm_page_path = wiki / "entities" / f"{slug}.md"
                     try:
                         inject_file_map(
                             fm_page_path,
                             file_map,
-                            preserved=prior_file_map_descs.get(node_uri),
+                            preserved=preserved,
                         )
                         entities_file_mapped.append(node_uri)
                         file_mapped_pages.append((node_uri, node, fm_page_path))
