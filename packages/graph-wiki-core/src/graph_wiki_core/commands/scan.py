@@ -559,24 +559,24 @@ def _changed_rel_paths(changed: list[str], node_path: str) -> set[str]:
     return rel
 
 
-def _commit_dirty_uris(
+def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
     conn: Any,
     head: str | None,
     collision_set: frozenset[str],
-) -> set[str]:
-    """URIs of `package`/`app` entities whose files changed since the commit
-    recorded on their page (`last_updated_commit`).
+) -> dict[str, list[str] | None]:
+    """Map `package`/`app` URIs whose files changed since the commit recorded on
+    their page (`last_updated_commit`) to the changed-file list.
 
-    M2a commit-gate: makes `## Narrative` refresh track real code changes, not
-    just frontmatter structural deltas. Pages WITHOUT an anchor are skipped
-    (D-C) — their refresh stays governed by the existing new/structural gate
-    until a narration stamps an anchor. A `None` from `changed_files_since`
-    (anchor SHA unknown to this repo) is treated as dirty (D-D) so a stale
-    anchor self-corrects on the next narrated scan.
+    Keys are the dirty URIs (so ``result.keys()`` is the M2a "needs
+    re-narration" set). Each value is the repo-relative list of files
+    ``changed_files_since`` reported, or ``None`` when the anchor SHA is unknown
+    to this repo (D-D self-correction). Pages WITHOUT an anchor are skipped
+    (D-C). M2a used only the keys; M2b consumes the values to drop changed rows
+    from the File-map ``preserved`` map (§3.1).
     """
-    dirty: set[str] = set()
+    dirty: dict[str, list[str] | None] = {}
     if head is None or conn is None:
         return dirty
     list_fns = _kind_list_fns()
@@ -604,7 +604,7 @@ def _commit_dirty_uris(
                 continue
             changed = changed_files_since(repo, str(anchor), node_path)
             if changed is None or changed:
-                dirty.add(uri)
+                dirty[uri] = changed
     return dirty
 
 
@@ -767,6 +767,7 @@ async def run_scan(
 
         # Step 8: compute state gate
         state_gate = compute_state_gate(repo)
+        head = state_gate.get("head_commit")
 
         # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
         # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
@@ -774,6 +775,12 @@ async def run_scan(
         # for future eval sweeps targeting the narrator role.
         entity_write_result = None
         narrator_result: FanOutResult | None = None
+        # M2b: per-URI changed-file lists for commit-dirty package/app pages
+        # (keys = dirty URIs; value = repo-relative changed paths, or None when
+        # the page's anchor SHA is unknown to the repo). Consumed by Step 10b's
+        # preserved-drop. Pre-initialized so the file-map block reads it safely
+        # even when the graph conn is None.
+        commit_dirty: dict[str, list[str] | None] = {}
 
         # Snapshot prior File-map descriptions BEFORE write_entities re-renders
         # entity pages from template (which wipes the injected File-map body).
@@ -804,17 +811,17 @@ async def run_scan(
 
             # M2a commit-gate: re-narrate package/app entities whose files
             # changed since their recorded last_updated_commit (Living Wiki M2).
-            commit_dirty = _commit_dirty_uris(
+            commit_dirty = _commit_dirty_changes(
                 wiki,
                 repo,
                 conn,
-                state_gate.get("head_commit"),
+                head,
                 _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
             )
             if commit_dirty:
                 # EntityWriteResult is a frozen dataclass; mutate the set in
                 # place rather than rebinding the field (`|=` would rebind).
-                entity_write_result.needs_narrative.update(commit_dirty)
+                entity_write_result.needs_narrative.update(commit_dirty.keys())
                 append_log(
                     wiki,
                     "scan",
@@ -888,7 +895,6 @@ async def run_scan(
             inject_collision_set = _compute_collision_set(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
             )
-            head = state_gate.get("head_commit")
 
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
