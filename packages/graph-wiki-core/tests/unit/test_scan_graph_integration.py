@@ -1346,3 +1346,78 @@ async def test_test_suite_file_map_descriptions_survive_rescan(
     assert "test_suite:org/repo/pkg-a/tests" not in flat, (
         f"fully-described suite should trigger no describer call; dispatches={code_reader_dispatches}"
     )
+
+
+@pytest.mark.asyncio
+async def test_suite_filemap_skipped_under_no_file_map(
+    tmp_workspace_with_packages, monkeypatch
+):
+    """D4 / Test 12: test-suite File-map branch honors --no-file-map.
+
+    Before D4, the suite branch guard was `if fm_targets:` (ignoring
+    no_file_map). After D4 it is `if fm_targets and not no_file_map:`. This
+    test asserts that when run_scan is called with no_file_map=True over a
+    workspace containing a test_suite node, the suite entity page's `## File
+    map` section is NOT injected — it keeps the template placeholder rows and
+    the deterministic path/kind table is absent.
+
+    The assertion is load-bearing: against the pre-D4 code (guard missing
+    `not no_file_map`) the injection fires regardless and the placeholder is
+    replaced, causing this test to FAIL.
+    """
+    workspace = tmp_workspace_with_packages
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    db = workspace / ".graph" / "code.db"
+    _seed_test_suite_graph(db)
+
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
+    )
+
+    # build_dir_file_map would inject deterministic rows if the branch fires.
+    suite_block = (
+        "## File map - tests\n"
+        "TODO — overview of this package's tree.\n"
+        "\n"
+        "### tests/\n"
+        "TODO — describe what this directory contains.\n"
+        "\n"
+        "| Path | Kind | Description |\n"
+        "|---|---|---|\n"
+        "| `conftest.py` | file | — TODO |\n"
+        "| `test_pkg_a.py` | file | — TODO |\n"
+    )
+    monkeypatch.setattr(
+        scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
+    )
+    monkeypatch.setattr(
+        scan_module,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+    )
+    monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
+
+    result = await scan_module.run_scan(
+        workspace_path=workspace, repo_path=repo, no_file_map=True
+    )
+
+    # The test_suite entity page should have been created.
+    assert "test_suite:org/repo/pkg-a/tests" in result.entities_created
+
+    suite_page = wiki / "entities" / "unit_tests_pkg-a.md"
+    assert suite_page.exists(), f"suite page not written; entities: {list((wiki / 'entities').glob('*.md'))}"
+    text = suite_page.read_text(encoding="utf-8")
+
+    # Deterministic injected rows must NOT be present — the branch was skipped.
+    assert "| `conftest.py` | file | — TODO |" not in text, (
+        "suite File map was injected despite no_file_map=True (pre-D4 regression)"
+    )
+    assert "| `test_pkg_a.py` | file | — TODO |" not in text, (
+        "suite File map was injected despite no_file_map=True (pre-D4 regression)"
+    )
+    # The template placeholder row (not a real file path) must still be present,
+    # confirming the section exists in its un-injected template form.
+    assert "## File map" in text, "## File map section header should still exist (from template)"
+    assert "## Test conventions" in text

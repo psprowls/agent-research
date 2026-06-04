@@ -187,9 +187,9 @@ def emit(
 
     Honors the same vendored/fixture skip-dir filtering as the package walker
     (`graph_io._ignore`). Silently tolerates plugins with no components and
-    manifests missing a `name`. Nodes carry `path=None` (like the retired
-    plugin nodes); whole-plugin removal is covered by delete-and-rebuild per
-    the project backward-compatibility rule.
+    manifests missing a `name`. Each node's `path` is the plugin directory
+    relative to `repo_root` (e.g. `plugins/demo`); whole-plugin removal is
+    covered by delete-and-rebuild per the project backward-compatibility rule.
     """
     repo_root = Path(repo_root).resolve()
     if skip_dirs is None:
@@ -226,7 +226,8 @@ def emit(
             "description": str(manifest.get("description") or ""),
             "components": components,
         }
-        nodes.append(GraphNode(kind="agent_plugin", name=name, path=None, line=None, attrs=attrs))
+        plugin_rel = plugin_dir.resolve().relative_to(repo_root).as_posix()
+        nodes.append(GraphNode(kind="agent_plugin", name=name, path=plugin_rel, line=None, attrs=attrs))
 
     if nodes:
         upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=[]))
