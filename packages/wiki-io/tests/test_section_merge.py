@@ -104,3 +104,58 @@ def test_merge_pto_matches_file_map_by_type_despite_heading_suffix() -> None:
 def test_merge_with_empty_existing_returns_template() -> None:
     template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
     assert _merge_preserved_sections(template, "") == template
+
+
+def test_reconcile_template_adds_h2() -> None:
+    """A new human-owned H2 added to the template appears on the merged page."""
+    existing = "# T\n\n## Narrative\nprose\n\n## Purpose\nkept\n"
+    template = (
+        "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n\n## Public API\n> TODO\n"
+    )
+    out = _merge_preserved_sections(template, existing)
+    assert "## Public API" in out                 # new template section added
+    assert "kept" in out                          # existing human section preserved
+
+
+def test_reconcile_template_drops_scanner_h2() -> None:
+    """A scanner-owned H2 dropped from the template is removed from the page
+    (scanner sections are template-driven; they do not linger)."""
+    existing = (
+        "# T\n\n## Narrative\nprose\n\n## File map - foo\n| a | b | c |\n\n"
+        "## Purpose\nkept\n"
+    )
+    template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
+    out = _merge_preserved_sections(template, existing)
+    assert "## File map" not in out               # dropped scanner section removed
+    assert "kept" in out
+
+
+def test_reconcile_template_drops_human_h2_is_preserved() -> None:
+    """A human-owned H2 the template no longer defines is preserved (appended as
+    a user section) — human content is never silently dropped."""
+    existing = "# T\n\n## Narrative\nprose\n\n## Purpose\nkept human content\n"
+    template = "# T\n\n## Narrative\n_p_\n"   # template dropped ## Purpose
+    out = _merge_preserved_sections(template, existing)
+    assert "## Purpose" in out
+    assert "kept human content" in out
+
+
+def test_reconcile_template_reorders_sections() -> None:
+    """Output section order follows the template order, not the page's."""
+    existing = "# T\n\n## Purpose\np\n\n## Narrative\nprose\n"
+    template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
+    out = _merge_preserved_sections(template, existing)
+    assert out.index("## Narrative") < out.index("## Purpose")  # template order
+
+
+def test_reconcile_user_added_section_trails() -> None:
+    """A user-added H2 absent from the template is preserved and trails the
+    template-defined sections."""
+    existing = (
+        "# T\n\n## Narrative\nprose\n\n## Purpose\np\n\n## My Notes\ncustom\n"
+    )
+    template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
+    out = _merge_preserved_sections(template, existing)
+    assert "## My Notes" in out
+    assert "custom" in out
+    assert out.index("## Purpose") < out.index("## My Notes")   # trails template
