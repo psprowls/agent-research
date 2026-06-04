@@ -15,7 +15,6 @@ from graph_io import exit_codes
 from graph_wiki_core.commands.scan import _changed_rel_paths
 from wiki_io.entity_writer import EntityWriteResult
 
-
 # ---------------------------------------------------------------------------
 # §3.3 path-namespace transform (unit)
 # ---------------------------------------------------------------------------
