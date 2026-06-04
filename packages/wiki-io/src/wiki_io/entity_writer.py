@@ -498,6 +498,30 @@ def _detect_structural_change(existing_fm: dict, new_fm: dict) -> bool:
 _RESIDUAL_TOKEN_RE = re.compile(r"\{\{[^}]+\}\}")
 
 
+# Living Wiki M2a: per-entity provenance key. Holds the full HEAD SHA at which
+# this entity's `## Narrative` was last regenerated. NOT in SCANNER_OWNED_KEYS —
+# merge_frontmatter preserves it; only the scan pipeline stamps it (on narration).
+LAST_UPDATED_COMMIT_KEY = "last_updated_commit"
+
+
+def _render_page_text(frontmatter_dict: dict, body: str) -> str:
+    """Frame a frontmatter dict + body into the canonical entity-page text.
+
+    Single source of truth for the dump convention (D-14/D-15): `sort_keys=False`
+    (order pre-decided by `merge_frontmatter`), one trailing newline. Shared by
+    `_render_entity_page` and `set_frontmatter_value` so a page stamped by the
+    latter re-renders byte-identically through the former.
+    """
+    yaml_block = yaml.safe_dump(
+        frontmatter_dict,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+        width=10_000,
+    ).rstrip("\n")
+    return f"---\n{yaml_block}\n---\n{body}".rstrip("\n") + "\n"
+
+
 # ---------------------------------------------------------------------------
 # Living Wiki M1: heading-aware section preservation (Approach A).
 # Scanner-owned H2 sections are regenerated from the template every scan;
@@ -621,16 +645,28 @@ def _render_entity_page(
     # Living Wiki M1: preserve human-owned sections from the existing page.
     if existing_body is not None:
         body = _merge_preserved_sections(body, existing_body)
-    yaml_block = yaml.safe_dump(
-        frontmatter_dict,
-        sort_keys=False,
-        default_flow_style=False,
-        allow_unicode=True,
-        width=10_000,
-    )
-    yaml_block = yaml_block.rstrip("\n")
-    rendered = f"---\n{yaml_block}\n---\n{body}".rstrip("\n") + "\n"
-    return rendered
+    return _render_page_text(frontmatter_dict, body)
+
+
+def set_frontmatter_value(page_path: Path, key: str, value: str) -> None:
+    """Set a single frontmatter `key` to `value` on an entity page, preserving
+    the body bytes and the canonical dump convention.
+
+    The key is updated in place when present, or appended last when new — which
+    matches `merge_frontmatter`'s placement of non-scanner keys, so a subsequent
+    `write_entities` re-render is byte-identical. Writes atomically via a temp
+    file + `os.replace` (mirrors `inject_narrative`).
+
+    Raises:
+        FileNotFoundError: when `page_path` does not exist.
+    """
+    post = frontmatter.load(page_path)  # raises FileNotFoundError naturally
+    fm = dict(post.metadata)
+    fm[key] = value
+    new_content = _render_page_text(fm, post.content)
+    tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp_path.write_text(new_content, encoding="utf-8")
+    os.replace(tmp_path, page_path)
 
 
 # ----------------------------------------------------------------------------

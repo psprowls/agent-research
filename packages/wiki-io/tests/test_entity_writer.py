@@ -871,3 +871,20 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
     post = _fm.load(page_path)
     assert post.metadata.get("kind") == "app"
     assert post.metadata.get("uri") == "app:test-org/test-repo/demo-app"
+
+
+def test_merge_frontmatter_preserves_last_updated_commit() -> None:
+    """last_updated_commit is NOT scanner-owned: merge_frontmatter must keep an
+    existing value (regression guard — adding it to SCANNER_OWNED_KEYS would
+    silently break the M2a commit-gate)."""
+    from wiki_io.entity_writer import (
+        LAST_UPDATED_COMMIT_KEY,
+        SCANNER_OWNED_KEYS,
+        merge_frontmatter,
+    )
+
+    assert LAST_UPDATED_COMMIT_KEY not in SCANNER_OWNED_KEYS
+    existing = {"uri": "pkg:a", "kind": "package", LAST_UPDATED_COMMIT_KEY: "sha1"}
+    scanner = {"uri": "pkg:a", "kind": "package"}
+    merged = merge_frontmatter(existing, scanner)
+    assert merged[LAST_UPDATED_COMMIT_KEY] == "sha1"
