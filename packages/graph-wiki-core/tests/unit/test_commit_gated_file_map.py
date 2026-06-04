@@ -378,3 +378,52 @@ def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> N
     assert "D2:mod.py" not in t2
     assert "D1:util.py" in t2
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
+
+
+def _descs_empty(item) -> dict:
+    """Describer callback that fills NOTHING — simulates a failed/empty describe
+    (e.g. Bedrock throttling). The dropped row stays `— TODO`."""
+    return {}
+
+
+def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -> None:
+    """If the describer fails to refill a dropped row (row stays `— TODO`), the
+    anchor must NOT advance — the page stays commit-dirty so the next scan
+    retries, rather than stranding the TODO forever. [final-review issue 1]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    desc_tag = {"v": "D1"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+    )
+    # Scan 1: good prose + describer fills both rows, stamps head1.
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert "D1:mod.py" in _page(wiki).read_text(encoding="utf-8")
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
+
+    # Scan 2: mod.py changed → its row is dropped to `— TODO`. Narration is
+    # EMPTY (isolates the restamp path), and the describer returns NOTHING so the
+    # row is never refilled.
+    heads["v"] = "head2"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: "", descs=_descs_empty),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    t2 = _page(wiki).read_text(encoding="utf-8")
+    assert "D1:mod.py" not in t2        # the stale row WAS dropped
+    assert "| `mod.py` | file | — TODO |" in t2  # and left unfilled (describe failed)
+    assert "D1:util.py" in t2           # untouched row preserved
+    # The anchor must stay at head1 so the next scan retries the failed describe.
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"

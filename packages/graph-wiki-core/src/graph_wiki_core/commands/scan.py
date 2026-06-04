@@ -1171,10 +1171,18 @@ async def run_scan(
         # forced a full re-describe) must advance last_updated_commit to HEAD so
         # the next scan's diff baseline includes this re-description (idempotence
         # + cost-churn guard). Pages the narrator loop already stamped (non-empty
-        # prose) are skipped — the empty-prose guard's intent is preserved.
+        # prose) are skipped — the empty-prose guard's intent is preserved. A page
+        # whose describer (Step 10c) failed to refill its dropped rows still shows
+        # `— TODO`; it is NOT stamped, so it stays commit-dirty and the next scan
+        # retries the describe rather than stranding the TODO behind an advanced
+        # anchor (final-review issue 1: stamp on refill, not merely on drop).
         if narrate and head and redescribed_uris:
             for uri_inner, _node, page_path in file_mapped_pages:
-                if uri_inner in redescribed_uris and uri_inner not in narr_stamped:
+                if (
+                    uri_inner in redescribed_uris
+                    and uri_inner not in narr_stamped
+                    and not file_map_todo_paths(page_path)
+                ):
                     try:
                         set_frontmatter_value(
                             page_path, LAST_UPDATED_COMMIT_KEY, head
