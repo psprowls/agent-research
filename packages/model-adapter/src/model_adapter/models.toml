@@ -127,6 +127,23 @@ region          = "us-east-1"
 max_tokens      = 1024
 max_concurrency = 5
 
+# Living Wiki M2e — intra-page human-section drift judge. Cheap classification
+# role: compares a human-owned section against the page's regenerated narrative
+# and returns {stale, reason}. Cost-offload candidate (validated later by the
+# deepeval harness); initial config mirrors the cheap `scanner` tier.
+[roles.drift_judge]
+model_id        = "openai.gpt-oss-20b-1:0"
+region          = "us-east-1"
+max_tokens      = 256
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "mistral.ministral-3-14b-instruct",
+]
+
 # NOTE: the binding judge configuration lives in eval_harness/judge.py
 # (JUDGE_PANEL_CONFIG). These blocks are kept in sync for reference only
 # and are NOT read by the judge harness.
