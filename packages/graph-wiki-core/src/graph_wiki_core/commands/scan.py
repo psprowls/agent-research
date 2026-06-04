@@ -42,6 +42,7 @@ from wiki_io.drift import (
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     LAST_UPDATED_COMMIT_KEY,
+    _agent_plugin_table_variables,
     _compute_collision_set,
     _extract_file_map_descriptions,
     _kind_list_fns,
@@ -289,6 +290,17 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | No
 # ---------------------------------------------------------------------------
 
 
+# Ordered (heading, dict-key) pairs for the agent_plugin component inventory
+# injected into the narrator prompt (D3 — grounding the narrator in components).
+_AGENT_PLUGIN_INVENTORY_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("## Commands",    "commands_table"),
+    ("## Agents",      "agents_table"),
+    ("## Skills",      "skills_table"),
+    ("## Scripts",     "scripts_table"),
+    ("## Hooks",       "hooks_table"),
+    ("## MCP servers", "mcp_servers_table"),
+)
+
 # Human-readable labels for each scanner-owned relation key. Used by the
 # narrator prompt to render relations as natural prose hints instead of YAML.
 _NARRATIVE_RELATION_LABELS: dict[str, str] = {
@@ -314,6 +326,7 @@ _NARRATIVE_RELATION_LABELS: dict[str, str] = {
 
 def build_entity_narrative_prompt(
     node, kind: str, file_map_text: str, relations: dict,
+    components_text: str = "",
 ) -> tuple[str, str]:
     """Return (system_message, human_message) for the narrator LLM (Phase 45 D-05).
 
@@ -323,11 +336,13 @@ def build_entity_narrative_prompt(
     appear in the model's output.
 
     Args:
-        node:           graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
-        kind:           One of ADMITTED_KINDS.
-        file_map_text:  Optional file listing (non-empty only for `package` kinds).
-        relations:      Per-kind relation dict from `scanner_frontmatter_for_node`,
-                        with `uri` and `kind` already stripped or harmlessly ignored.
+        node:            graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
+        kind:            One of ADMITTED_KINDS.
+        file_map_text:   Optional file listing (non-empty only for `package` kinds).
+        relations:       Per-kind relation dict from `scanner_frontmatter_for_node`,
+                         with `uri` and `kind` already stripped or harmlessly ignored.
+        components_text: Optional component inventory (non-empty only for `agent_plugin`
+                         kinds); rendered tables joined under their H2 headings.
 
     Returns:
         A `(system, human)` string pair ready to wrap in SystemMessage + HumanMessage.
@@ -366,6 +381,11 @@ def build_entity_narrative_prompt(
         lines.append("")
         lines.append("File listing (for reference; do NOT include this in your output):")
         lines.append(file_map_text[:1500])
+
+    if kind == "agent_plugin" and components_text:
+        lines.append("")
+        lines.append("Component inventory (for reference; do NOT reproduce verbatim in your output):")
+        lines.append(components_text[:2000])  # wider cap than file_map: the six component tables are denser
 
     lines.append("")
     lines.append("Write the narrative body for this page (prose only).")
@@ -978,8 +998,16 @@ async def run_scan(
                     # File maps are graph-sourced (Step 10b); the narrator no
                     # longer receives a per-workspace file-map hint.
                     file_map = ""
+                    components_text = ""
+                    if kind_inner == "agent_plugin":
+                        tv = _agent_plugin_table_variables(conn, node_inner)
+                        components_text = "\n\n".join(
+                            f"{heading}\n{tv[key]}"
+                            for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                        )
                     system_msg, human_msg = build_entity_narrative_prompt(
                         node_inner, kind_inner, file_map, relations_for_prompt,
+                        components_text=components_text,
                     )
                     msgs = [
                         SystemMessage(content=system_msg),
