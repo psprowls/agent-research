@@ -35,14 +35,17 @@ from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
+    LAST_UPDATED_COMMIT_KEY,
     _compute_collision_set,
     _extract_file_map_descriptions,
     _kind_list_fns,
+    extract_narrative,
     fill_file_map_descriptions,
     file_map_todo_paths,
     inject_file_map,
     inject_narrative,
     scanner_frontmatter_for_node,
+    set_frontmatter_value,
     short_filename,
     write_entities,
 )
@@ -54,6 +57,7 @@ from wiki_io.scan_monorepo import (
     compute_state_gate,
 )
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
+from wiki_io.git_state import changed_files_since
 from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
@@ -506,6 +510,55 @@ def _entity_page_path(
         pkg_for_suite=pkg_for_suite,
     )
     return wiki / "entities" / f"{stem}.md"
+
+
+def _commit_dirty_uris(
+    wiki: Path,
+    repo: Path,
+    conn: Any,
+    head: str | None,
+    collision_set: frozenset[str],
+) -> set[str]:
+    """URIs of `package`/`app` entities whose files changed since the commit
+    recorded on their page (`last_updated_commit`).
+
+    M2a commit-gate: makes `## Narrative` refresh track real code changes, not
+    just frontmatter structural deltas. Pages WITHOUT an anchor are skipped
+    (D-C) — their refresh stays governed by the existing new/structural gate
+    until a narration stamps an anchor. A `None` from `changed_files_since`
+    (anchor SHA unknown to this repo) is treated as dirty (D-D) so a stale
+    anchor self-corrects on the next narrated scan.
+    """
+    dirty: set[str] = set()
+    if head is None or conn is None:
+        return dirty
+    list_fns = _kind_list_fns()
+    for kind in ("package", "app"):
+        list_fn = list_fns.get(kind)
+        if list_fn is None:
+            continue
+        for node in list_fn(conn):
+            if not isinstance(node.attrs, dict):
+                continue
+            uri = node.attrs.get("uri")
+            node_path = node.path
+            if not uri or not node_path:
+                continue
+            page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
+            if not page_path.exists():
+                continue
+            try:
+                anchor = frontmatter.load(page_path).metadata.get(
+                    LAST_UPDATED_COMMIT_KEY
+                )
+            except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+                continue
+            if not anchor:
+                continue
+            changed = changed_files_since(repo, str(anchor), node_path)
+            if changed is None or changed:
+                dirty.add(uri)
+    return dirty
 
 
 # ---------------------------------------------------------------------------
