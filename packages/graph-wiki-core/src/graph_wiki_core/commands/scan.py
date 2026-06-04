@@ -891,6 +891,9 @@ async def run_scan(
         # that `write_entities` just produced.
         entities_narrated: list[str] = []
         narrator_errors: list[str] = []
+        # M2b §3.4: URIs the narrator loop stamped this scan (non-empty prose).
+        # The shared-anchor restamp dedups against this set.
+        narr_stamped: set[str] = set()
         if narrator_result is not None:
             inject_collision_set = _compute_collision_set(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
@@ -903,10 +906,14 @@ async def run_scan(
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
-                    if head:
+                    # M2b §3.4 empty-prose guard: empty narration must not mint a
+                    # sticky "up-to-date" anchor. Stamp only on real prose; a
+                    # file-map re-description advances the anchor separately below.
+                    if head and prose.strip():
                         set_frontmatter_value(
                             entity_page_path, LAST_UPDATED_COMMIT_KEY, head
                         )
+                        narr_stamped.add(uri_inner)
                     entities_narrated.append(uri_inner)
                 except Exception as inject_exc:  # noqa: BLE001 — partial-success
                     narrator_errors.append(
@@ -1158,6 +1165,24 @@ async def run_scan(
                         silent=True,
                         raise_exception=True,
                     )
+
+        # M2b §3.4 shared-anchor rider: a page whose File map was re-described
+        # this scan (>=1 changed row dropped & re-queued, or an unknown anchor
+        # forced a full re-describe) must advance last_updated_commit to HEAD so
+        # the next scan's diff baseline includes this re-description (idempotence
+        # + cost-churn guard). Pages the narrator loop already stamped (non-empty
+        # prose) are skipped — the empty-prose guard's intent is preserved.
+        if narrate and head and redescribed_uris:
+            for uri_inner, _node, page_path in file_mapped_pages:
+                if uri_inner in redescribed_uris and uri_inner not in narr_stamped:
+                    try:
+                        set_frontmatter_value(
+                            page_path, LAST_UPDATED_COMMIT_KEY, head
+                        )
+                    except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                        logger.warning(
+                            "anchor restamp failed for %s: %s", uri_inner, exc
+                        )
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.

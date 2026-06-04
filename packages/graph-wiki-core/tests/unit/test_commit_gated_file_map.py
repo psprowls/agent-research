@@ -216,3 +216,131 @@ def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> N
     assert "D2:mod.py" in t2
     assert "D1:mod.py" not in t2
     assert "D1:util.py" in t2
+
+
+def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatch) -> None:
+    """A re-description scan advances last_updated_commit to HEAD; a subsequent
+    no-change scan re-describes nothing and leaves the anchor put. [spec test 4]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    desc_tag = {"v": "D1"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
+
+    # Scan 2: mod.py changed → re-described, anchor advances to head2.
+    heads["v"] = "head2"
+    desc_tag["v"] = "D2"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert "D2:mod.py" in _page(wiki).read_text(encoding="utf-8")
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
+
+    # Scan 3: nothing changed since head2 → no re-description, anchor stable.
+    heads["v"] = "head3"
+    desc_tag["v"] = "D3"
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    t3 = _page(wiki).read_text(encoding="utf-8")
+    assert "D2:mod.py" in t3        # untouched
+    assert "D3:mod.py" not in t3    # describer never re-ran for it
+    assert "D1:util.py" in t3
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
+
+
+def test_empty_narration_alone_does_not_stamp(m2b_workspace, monkeypatch) -> None:
+    """Empty narration on a fresh page (no prior anchor, nothing re-described)
+    must not mint an anchor. [spec test 5, part A]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: "", descs=_descs_tagged({"v": "D1"})),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") is None
+
+
+def test_redescription_advances_anchor_despite_empty_narration(
+    m2b_workspace, monkeypatch
+) -> None:
+    """A scan that re-describes file-map rows advances the anchor even when
+    narration returns empty. [spec test 5, part B]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    prose_tag = {"v": "real prose"}
+    desc_tag = {"v": "D1"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: prose_tag["v"], descs=_descs_tagged(desc_tag)),
+    )
+    # Scan 1: real prose stamps head1.
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
+
+    # Scan 2: mod.py changed, but narration comes back EMPTY. The re-description
+    # must still advance the anchor.
+    heads["v"] = "head2"
+    prose_tag["v"] = ""
+    desc_tag["v"] = "D2"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert "D2:mod.py" in _page(wiki).read_text(encoding="utf-8")
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
+
+
+def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) -> None:
+    """An anchor SHA unknown to the repo drops ALL preserved rows, re-describes
+    every row once, then re-stamps to HEAD. [spec test 6]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    desc_tag = {"v": "D1"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert "D1:util.py" in _page(wiki).read_text(encoding="utf-8")
+
+    # Scan 2: changed_files_since returns None (anchor SHA gone) → drop all rows.
+    heads["v"] = "head2"
+    desc_tag["v"] = "D2"
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: None)
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    t2 = _page(wiki).read_text(encoding="utf-8")
+    assert "D2:mod.py" in t2
+    assert "D2:util.py" in t2       # both rows re-described
+    assert "D1:util.py" not in t2
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
