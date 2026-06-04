@@ -47,6 +47,7 @@ from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.package_sync import check as check_package_sync_drift
+from wiki_io.lint.scanner_heading import check as check_scanner_heading
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,7 @@ class LintResult:
     domain_placement: list[str] = field(default_factory=list)
     workflow_hints: list[str] = field(default_factory=list)
     dependency_layer: list[str] | None = None
+    scanner_heading_drift: list[str] = field(default_factory=list)
     semantic_findings: dict[str, list[str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
@@ -313,6 +315,7 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
     workflow_hints_issues = check_workflow_hints(pages, workspace)
     # dependency_layer is optional — pass pages only, no workspaces (skip workspaces arg)
     dependency_layer = check_dependency_layer(pages)
+    scanner_heading_drift = check_scanner_heading(pages)
 
     # Code-drift check (packages on disk vs vault) — skipped when repo is None
     code_drift = _SKIPPED.copy()
@@ -351,6 +354,7 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
         "domain_placement": domain_placement,
         "workflow_hints": workflow_hints_issues,
         "dependency_layer": dependency_layer,
+        "scanner_heading_drift": scanner_heading_drift,
         "code_drift": code_drift,
     }
 
@@ -543,6 +547,7 @@ async def run_lint(
         domain_placement=mod["domain_placement"],
         workflow_hints=mod["workflow_hints"],
         dependency_layer=mod["dependency_layer"],
+        scanner_heading_drift=mod["scanner_heading_drift"],
         semantic_findings=semantic_findings,
         errors=errors,
     )

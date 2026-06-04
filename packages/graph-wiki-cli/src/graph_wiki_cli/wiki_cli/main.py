@@ -151,6 +151,7 @@ def lint(
         _section("Package sync drift", result.package_sync_drift)
         _section("Domain placement", result.domain_placement)
         _section("Workflow hints", result.workflow_hints)
+        _section("Scanner heading drift", result.scanner_heading_drift)
 
         for group, findings in result.semantic_findings.items():
             _section(f"Semantic: {group}", findings)
