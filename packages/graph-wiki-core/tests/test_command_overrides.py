@@ -534,6 +534,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
                 "workflow_hints": [],
                 "domain_placement": {},
                 "dependency_layer": {},
+                "scanner_heading_drift": [],
             },
         ),
         patch(
