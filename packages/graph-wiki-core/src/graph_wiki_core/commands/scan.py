@@ -1037,25 +1037,41 @@ async def run_scan(
                         file_map_errors.append(
                             f"{node_uri}: inject_file_map failed: {fm_exc!r}"
                         )
-            # Step 10b-ts: test-suite File-map injection. Mirrors Step 10b but
-            # for test_suite entity pages — the suite map starts at the suite
-            # root (node.attrs["path"]) and is UNPARTITIONED (every tracked file
-            # under the root). Reuses the shared collision set and the same
-            # snapshot→merge durability path (preserved=...). Appends each
-            # injected page to file_mapped_pages so Step 10c fills its TODO rows.
-            if refreshed:
+            # Step 10b-ts: test-suite File-map injection — commit-gated parity
+            # with Step 10b (M2c #4 §3.1). The suite map starts at the suite root
+            # (node.path, authoritative — D1) and is UNPARTITIONED (every tracked
+            # file under the root). Trigger is the suite slice of fm_targets so a
+            # commit-dirty-but-structurally-unchanged suite is still re-injected;
+            # the preserved-drop re-queues changed rows as `— TODO`, and
+            # re-described suites join redescribed_uris for the unified stamp.
+            if fm_targets:
                 for node in queries.list_test_suites(conn):
                     if not isinstance(node.attrs, dict):
                         continue
                     suite_uri = node.attrs.get("uri")
-                    if not suite_uri or suite_uri not in refreshed:
+                    if not suite_uri or suite_uri not in fm_targets:
                         continue
-                    suite_path = node.attrs.get("path")
+                    suite_path = node.path
                     if not suite_path:
                         continue
                     block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
                     if not block:
                         continue
+                    preserved = dict(prior_file_map_descs.get(suite_uri) or {})
+                    if narrate and suite_uri in commit_dirty:
+                        changed = commit_dirty[suite_uri]
+                        if changed is None:
+                            # Unknown anchor: no preserved row can be trusted —
+                            # drop all, forcing a full re-describe (D-D / §3.1).
+                            preserved = {}
+                            redescribed_uris.add(suite_uri)
+                        else:
+                            changed_rel = _changed_rel_paths(changed, suite_path)
+                            dropped = {p for p in preserved if p in changed_rel}
+                            if dropped:
+                                for p in dropped:
+                                    preserved.pop(p, None)
+                                redescribed_uris.add(suite_uri)
                     ts_page_path = _entity_page_path(
                         wiki, "test_suite", node, suite_uri, fm_collision_set,
                     )
@@ -1063,7 +1079,7 @@ async def run_scan(
                         inject_file_map(
                             ts_page_path,
                             block,
-                            preserved=prior_file_map_descs.get(suite_uri),
+                            preserved=preserved,
                         )
                         entities_file_mapped.append(suite_uri)
                         file_mapped_pages.append((suite_uri, node, ts_page_path))
