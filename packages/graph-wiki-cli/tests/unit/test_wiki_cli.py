@@ -1,6 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 import typer
+from typer.testing import CliRunner
+
+from graph_wiki_cli.cli import app
+
+runner = CliRunner()
 
 
 def test_wiki_cli_module_exposes_wiki_app_and_main() -> None:
@@ -33,3 +42,36 @@ def test_moved_commands_no_longer_top_level() -> None:
     root_command = typer.main.get_command(app)
     for name in ("query", "log", "lint", "ingest"):
         assert name not in root_command.commands
+
+
+def test_ack_drift_subcommand_registered() -> None:
+    """`gw wiki ack-drift` is registered under the wiki group."""
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    wiki_group = root_command.commands["wiki"]
+    assert "ack-drift" in wiki_group.commands
+
+
+def test_ack_drift_cli_clears_and_exits_zero(tmp_path: Path) -> None:
+    """`gw wiki ack-drift <uri> --workspace <ws>` exits 0 and prints cleared count."""
+    from graph_wiki_core.commands.ack_drift import AckDriftResult
+
+    fake_page = tmp_path / "pkg-a.md"
+    fake_result = AckDriftResult(page_path=fake_page, cleared=2)
+
+    with patch("graph_wiki_cli.wiki_cli.main.run_ack_drift", return_value=fake_result) as mock_fn:
+        result = runner.invoke(app, ["wiki", "ack-drift", "pkg:org/repo/pkg-a", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "Cleared 2" in result.output
+    mock_fn.assert_called_once_with("pkg:org/repo/pkg-a", workspace_path=tmp_path)
+
+
+def test_ack_drift_cli_unknown_entity_exits_nonzero() -> None:
+    """`gw wiki ack-drift` exits 1 when run_ack_drift raises ValueError."""
+    with patch("graph_wiki_cli.wiki_cli.main.run_ack_drift", side_effect=ValueError("no entity page found")):
+        result = runner.invoke(app, ["wiki", "ack-drift", "pkg:does/not/exist"])
+
+    assert result.exit_code == 1
+    assert "no entity page found" in result.output

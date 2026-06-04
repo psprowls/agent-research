@@ -33,12 +33,19 @@ except ImportError:  # pragma: no cover — exercised by the lazy-import test vi
     SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
+from wiki_io.drift import (
+    clear_resolved_flags,
+    extract_file_map,
+    iter_human_sections,
+    section_hash,
+)
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     LAST_UPDATED_COMMIT_KEY,
     _compute_collision_set,
     _extract_file_map_descriptions,
     _kind_list_fns,
+    extract_narrative,
     fill_file_map_descriptions,
     file_map_todo_paths,
     inject_file_map,
@@ -46,6 +53,7 @@ from wiki_io.entity_writer import (
     scanner_frontmatter_for_node,
     set_frontmatter_value,
     short_filename,
+    update_frontmatter,
     write_entities,
 )
 from wiki_io.index_generator import generate_index
@@ -61,6 +69,10 @@ from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
+from graph_wiki_core.prompts.drift_judge import (
+    build_drift_judge_prompt,
+    parse_drift_verdict,
+)
 from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -565,6 +577,158 @@ def _commit_dirty_changes(
             if changed is None or changed:
                 dirty[uri] = changed
     return dirty
+
+
+# Living Wiki M2e: kinds with BOTH a regenerated `## Narrative` and human-owned
+# sections worth drift-checking. `repository`/`domain`/`dependency` have no
+# curated human prose and are excluded (spec §3.4). `agent_plugin` is included
+# now for forward-compatibility — its commit-gated coverage completes with the
+# agent-plugin parity plan, but it already narrates on structural change.
+DRIFT_TARGET_KINDS: frozenset[str] = frozenset(
+    {"package", "app", "test_suite", "agent_plugin"}
+)
+
+
+def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
+    """Return ``[(page_path, anchor, narrative, file_map), ...]`` for entity pages
+    whose narrative is newer than their last drift check (spec §3.1 step 1).
+
+    Gate (all required): kind in DRIFT_TARGET_KINDS; `last_updated_commit`
+    present; `## Narrative` present (ground truth); and
+    `drift_checked_commit != last_updated_commit` (a missing checked-commit
+    counts as lagging). Comparison is string inequality — SHAs are not ordered.
+    """
+    entities_dir = wiki / "entities"
+    if not entities_dir.is_dir():
+        return []
+    out: list[tuple[Path, str, str, str | None]] = []
+    for page_path in sorted(entities_dir.glob("*.md")):
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+            continue
+        meta = post.metadata
+        if meta.get("kind") not in DRIFT_TARGET_KINDS:
+            continue
+        anchor = meta.get(LAST_UPDATED_COMMIT_KEY)
+        if not anchor:
+            continue
+        if meta.get("drift_checked_commit") == anchor:
+            continue  # already drift-checked at this narrative revision
+        narrative = extract_narrative(post.content)
+        if not narrative:
+            continue  # no ground truth -> nothing to judge against
+        out.append(
+            (page_path, str(anchor), narrative, extract_file_map(post.content))
+        )
+    return out
+
+
+async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
+    """Judge each human-owned section of every drift candidate against its page's
+    regenerated narrative; write `drift_review` + advance `drift_checked_commit`.
+
+    Judge-once: only candidate pages (narrative newer than last check) are judged,
+    and each is stamped to its anchor afterward, so a (page, narrative-change) pair
+    costs LLM tokens exactly once (spec §3.1/D3).
+    """
+    if make_llm is None or SubagentPool is None:  # bedrock stack absent
+        return
+    candidates = _drift_candidates(wiki)
+    if not candidates:
+        return
+
+    # item = (page_path, anchor, heading, chunk, narrative, file_map)
+    items: list[tuple[Path, str, str, str, str, str | None]] = []
+    page_anchor: dict[Path, str] = {}
+    for page_path, anchor, narrative, file_map in candidates:
+        page_anchor[page_path] = anchor
+        body = page_path.read_text(encoding="utf-8")
+        for heading, chunk in iter_human_sections(body):
+            items.append((page_path, anchor, heading, chunk, narrative, file_map))
+
+    verdicts: list[tuple] = []
+    if items:
+        drift_cfg = load_role_config("drift_judge")
+        drift_llm = make_llm("drift_judge", model_override=model_override)
+        drift_pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+
+        async def judge(item: tuple) -> TaskResult:
+            _pp, _anchor, heading, chunk, narrative, file_map = item
+            system_msg, human_msg = build_drift_judge_prompt(
+                heading, chunk, narrative, file_map
+            )
+            resp = await drift_llm.ainvoke(
+                [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
+            )
+            return TaskResult(value=parse_drift_verdict(resp.content), response=resp)
+
+        fan = await drift_pool.run_all(
+            items=items,
+            task=judge,
+            role="drift_judge",
+            model_id=drift_cfg["model_id"],
+            max_concurrency=drift_cfg["max_concurrency"],
+        )
+        verdicts = list(fan.successes)
+
+    flags_by_page: dict[Path, list[dict]] = {}
+    for item, verdict in verdicts:
+        page_path, anchor, heading, chunk, _narr, _fmp = item
+        if isinstance(verdict, dict) and verdict.get("stale"):
+            flags_by_page.setdefault(page_path, []).append(
+                {
+                    "section": heading.removeprefix("## ").strip(),
+                    "detected_commit": anchor,
+                    "hash": section_hash(chunk),
+                    "reason": str(verdict.get("reason", "")),
+                }
+            )
+
+    for page_path, anchor in page_anchor.items():
+        entries = flags_by_page.get(page_path)
+        try:
+            if entries:
+                update_frontmatter(
+                    page_path,
+                    {"drift_checked_commit": anchor, "drift_review": entries},
+                )
+            else:
+                update_frontmatter(
+                    page_path,
+                    {"drift_checked_commit": anchor},
+                    delete=["drift_review"],
+                )
+        except Exception as exc:  # noqa: BLE001 — non-fatal flag write
+            logger.warning("drift flag write failed for %s: %s", page_path, exc)
+
+
+def _drift_clear_pass(wiki: Path) -> None:
+    """Free, every-scan flag resolution (spec §3.2/D4). For every entity page
+    holding a `drift_review` key, recompute each flagged section's current hash;
+    drop entries whose hash changed (prose edited) or whose section is gone, and
+    remove the key when it empties. No LLM, runs even on --no-narrate scans."""
+    entities_dir = wiki / "entities"
+    if not entities_dir.is_dir():
+        return
+    for page_path in sorted(entities_dir.glob("*.md")):
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — malformed page must not abort scan
+            continue
+        entries = post.metadata.get("drift_review")
+        if not entries:
+            continue
+        survivors = clear_resolved_flags(entries, post.content)
+        if survivors == entries:
+            continue
+        try:
+            if survivors:
+                update_frontmatter(page_path, {"drift_review": survivors})
+            else:
+                update_frontmatter(page_path, delete=["drift_review"])
+        except Exception as exc:  # noqa: BLE001 — non-fatal
+            logger.warning("drift clear write failed for %s: %s", page_path, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -1140,6 +1304,18 @@ async def run_scan(
                     logger.warning(
                         "anchor stamp failed for %s: %s", uri_inner, exc
                     )
+
+        # Living Wiki M2e: human-section drift flagging post-pass. Runs after
+        # anchor stamping so each page holds its final `## Narrative` and settled
+        # human sections plus its freshly-stamped last_updated_commit. Gated on
+        # `narrate` (needs the cheap-tier drift_judge LLM); self-recovers any page
+        # whose drift pass was skipped in a prior scan (drift_checked_commit lag).
+        if narrate:
+            await _drift_flag_pass(wiki, model_override)
+
+        # Free clear pass — runs every scan (even --no-narrate): a human edit to a
+        # flagged section clears its flag promptly without an LLM call.
+        _drift_clear_pass(wiki)
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.

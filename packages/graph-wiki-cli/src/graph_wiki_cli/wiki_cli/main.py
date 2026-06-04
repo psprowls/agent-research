@@ -18,6 +18,7 @@ import typer
 
 from graph_io import exit_codes as _gio_exit_codes
 
+from graph_wiki_core.commands.ack_drift import run_ack_drift
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
     run_ingest_source,
@@ -160,6 +161,26 @@ def lint(
         for err in result.errors:
             typer.echo(f"  error: {err}", err=True)
         raise typer.Exit(code=3)
+
+
+@wiki_app.command(name="ack-drift")
+def ack_drift(
+    entity: str = typer.Argument(..., help="Entity URI or page slug to clear drift flags for"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit the result as JSON"),
+) -> None:
+    """Acknowledge (clear) human-section drift flags on an entity page without editing its prose."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = run_ack_drift(entity, workspace_path=workspace_path)
+    except (RuntimeError, ValueError, FileNotFoundError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2, default=str))
+    else:
+        typer.echo(f"[ok] Cleared {result.cleared} drift flag(s): {result.page_path}")
 
 
 # ---------------------------------------------------------------------------
