@@ -4,7 +4,7 @@
 **Status:** Design — ready for `writing-plans`.
 **Author:** Pat (with code-verified findings)
 **Milestone:** Living Wiki M2e (final slice of M2 — "Commit-gated incremental updates").
-**Builds on:** M2a (narrative persistence + commit-gate), M2b (commit-gated file-map row re-description), M2c (commit-gate consolidation), and **M2d (preserve-then-overwrite merge)**. M2a/M2b/M2c landed on `main` (M2c merge `d2f19481`); **M2d is specced** (`docs/superpowers/specs/2026-06-04-living-wiki-m2d-preserve-then-overwrite-design.md`) and is the immediate precondition (see §7).
+**Builds on:** M2a (narrative persistence + commit-gate), M2b (commit-gated file-map row re-description), M2c (commit-gate consolidation), and **M2d (preserve-then-overwrite merge)**. M2a/M2b/M2c landed on `main` (M2c merge `d2f19481`); **M2d is executing now** (spec `docs/superpowers/specs/2026-06-04-living-wiki-m2d-preserve-then-overwrite-design.md`; plan `docs/superpowers/plans/2026-06-04-living-wiki-m2d-preserve-then-overwrite.md`) and is the immediate precondition (see §7).
 **Roadmap:** `docs/superpowers/specs/2026-06-03-living-wiki-roadmap.md` (§4 "M2": *"detect when human/LLM sections may have drifted … and flag for review … flag-don't-auto-edit"*; §6 Q6).
 
 ---
@@ -157,7 +157,7 @@ LLM fan-out mocked at the `SubagentPool.run_all` boundary (project fixture patte
   - New drift post-pass (§3.1) + free clear pass (§3.2), placed after anchor stamping; reuse `needs_narrative` / the re-narrated set for the pre-filter and `_commit_dirty_changes` outputs already in scope.
 - `packages/wiki-io/src/wiki_io/entity_writer.py`
   - `set_frontmatter_value` (`:686`) — **extend** (or add a sibling `set_frontmatter_structured`) to write a structured (list-of-dict) value for `drift_review`; current impl writes scalar strings only.
-  - Reuse the H2-section parsing helpers (the same machinery `_merge_preserved_sections` uses to split human vs. scanner sections) to enumerate human-owned sections and hash their bodies.
+  - Reuse `_split_h2_sections` + `_is_scanner_owned_heading` (the same machinery `_merge_preserved_sections` uses) to enumerate human-owned sections — a section is human-owned iff `not _is_scanner_owned_heading(heading)` — and hash their bodies.
   - `SCANNER_OWNED_KEYS` — confirm `drift_checked_commit` / `drift_review` are **not** added to it (preserved, like `last_updated_commit`).
 - `packages/model-adapter` / `models.toml` — add the `drift_judge` role (cheap tier).
 - `packages/graph-wiki-cli/src/graph_wiki_cli/wiki_cli/main.py` — `ack-drift` subcommand (§3.5).
@@ -167,7 +167,7 @@ LLM fan-out mocked at the `SubagentPool.run_all` boundary (project fixture patte
 
 ## 7. Sequencing & dependencies
 
-**Precondition:** **M2d (PTO)** merges to `main` — M2e reads the stable merged narrative + preserved human sections and adds frontmatter via the targeted setter; rebase onto M2d's merge before implementing. M2a/M2b/M2c are already landed.
+**Precondition:** **M2d (PTO)** merges to `main` — M2d is *executing now* (plan `docs/superpowers/plans/2026-06-04-living-wiki-m2d-preserve-then-overwrite.md`), not yet merged. M2e reads the stable merged narrative + preserved human sections and adds frontmatter via the targeted setter; rebase onto M2d's merge before implementing. M2a/M2b/M2c are already landed. (M2e's commit-comparison gate reads `last_updated_commit` off the page after anchor stamping — M2d leaves M2c's anchor-stamping pass untouched and deletes the `entities_narrated` restore-loop consumer, neither of which M2e depends on.)
 
 **After M2e:** a **separate agent-plugin parity plan** brings `agent_plugin` to M2a–M2d commit-gate parity (add it to `_commit_dirty_changes`'s kind loop; decide the file-map-equivalent story given agent-plugin has no `## File map` — its structural sections are `## Commands`/`## Agents`/etc., so this plan has its own small design surface). Sequenced **after M2e, before M3**. M2e's `agent_plugin` drift coverage lights up fully once this lands; no M2e changes are required when it does.
 
