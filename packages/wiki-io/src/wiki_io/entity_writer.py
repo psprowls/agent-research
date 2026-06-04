@@ -584,69 +584,49 @@ def _scanner_section_token(heading: str) -> str:
     return "\x00scanner:referenced\x00"
 
 
-def _normalize_scanner_bodies(body: str) -> str:
-    """Return `body` with every scanner-owned section (heading + body) replaced
-    by a constant token, leaving the preamble and human sections verbatim.
-
-    Used by `_equal_modulo_scanner`: two bodies that differ only inside scanner
-    sections (or in the `## File map` heading suffix) normalize to the same text.
-    """
-    preamble, sections = _split_h2_sections(body)
-    parts = [preamble]
-    for heading, chunk in sections:
-        if _is_scanner_owned_heading(heading):
-            parts.append(_scanner_section_token(heading) + "\n")
-        else:
-            parts.append(chunk)
-    return "".join(parts)
-
-
-def _equal_modulo_scanner(old_text: str, new_text: str) -> bool:
-    """True iff two full page texts are equal once scanner-owned section bodies
-    are normalized out: identical frontmatter (compared in full), identical
-    preamble, identical human sections, and the same set/order of scanner
-    sections (their bodies and `## File map` heading suffixes ignored).
-
-    Conservative on any parse failure → returns False (caller writes the page).
-    """
-    try:
-        old_post = frontmatter.loads(old_text)
-        new_post = frontmatter.loads(new_text)
-    except Exception:  # noqa: BLE001 — a malformed page must fall back to "write"
-        return False
-    if dict(old_post.metadata) != dict(new_post.metadata):
-        return False
-    return _normalize_scanner_bodies(old_post.content) == _normalize_scanner_bodies(
-        new_post.content
-    )
-
-
 def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
-    """Merge human-owned sections from ``existing_body`` into ``template_body``.
+    """Merge an existing page's content into ``template_body`` (PTO).
 
-    Scanner-owned sections (``_is_scanner_owned_heading``) always come from the
-    template (placeholders the scan pipeline re-injects). Every other section
-    whose heading appears in ``existing_body`` replaces the template's version;
-    sections present only in ``existing_body`` (user-added) are appended in
-    their original order. The preamble (H1 + intro) always comes from the
-    template.
+    Preserve-then-overwrite: each scanner-owned section
+    (``_is_scanner_owned_heading``) takes its body from the existing page when
+    the page already has a section of that **type** (matched via
+    ``_scanner_section_token`` — this is what dodges the `## File map - <slug>`
+    vs `- <basename>` heading-suffix mismatch); otherwise it falls back to the
+    template placeholder (newly-created page, or a scanner section newly added
+    to the template). The scan pipeline overwrites a scanner section's body
+    only when it actually regenerates it this scan.
+
+    Human/user sections are unchanged from the M1 merge: a human heading that
+    appears in ``existing_body`` replaces the template's version; sections
+    present only in ``existing_body`` (user-added) are appended in their
+    original order. The preamble (H1 + intro) always comes from the template.
 
     Idempotent: ``_merge_preserved_sections(t, t) == t`` because the split is
-    lossless and each section round-trips by heading.
+    lossless and each section round-trips (scanner by type, human by heading).
     """
     pre_t, secs_t = _split_h2_sections(template_body)
     _pre_e, secs_e = _split_h2_sections(existing_body)
 
     existing_by_heading: dict[str, str] = {}
+    existing_scanner_by_token: dict[str, str] = {}
     for heading, chunk in secs_e:
-        existing_by_heading.setdefault(heading, chunk)  # first occurrence wins
+        if _is_scanner_owned_heading(heading):
+            existing_scanner_by_token.setdefault(
+                _scanner_section_token(heading), chunk
+            )  # first occurrence wins
+        else:
+            existing_by_heading.setdefault(heading, chunk)  # first occurrence wins
 
     out = [pre_t]
     template_headings: set[str] = set()
     consumed: set[str] = set()
     for heading, chunk in secs_t:
         template_headings.add(heading)
-        if not _is_scanner_owned_heading(heading) and heading in existing_by_heading:
+        if _is_scanner_owned_heading(heading):
+            # PTO: preserve the existing same-type scanner body; else placeholder.
+            token = _scanner_section_token(heading)
+            out.append(existing_scanner_by_token.get(token, chunk))
+        elif heading in existing_by_heading:
             out.append(existing_by_heading[heading])
             consumed.add(heading)
         else:
@@ -1053,22 +1033,13 @@ def write_entities(
                     new_bytes = new_content.encode("utf-8")
                     if existed:
                         old_bytes = page_path.read_bytes()
-                        # M2c #3 (Approach B): absorb scanner-body churn. The
-                        # three scanner-owned sections are reset to placeholders
-                        # in `new_content` and re-populated by later scan steps;
-                        # a page whose only differences are inside those sections
-                        # is `unchanged` — skip the write so the real on-disk
-                        # body (filled by a prior scan) is left untouched.
+                        # PTO: write_entities no longer resets scanner sections
+                        # to placeholders (the merge preserves them), so a no-op
+                        # rescan renders byte-identical content and the plain
+                        # compare buckets it `unchanged`. (M2c #3's churn-mask
+                        # helper absorbed the reset churn; PTO removes the reset,
+                        # so the helper is gone.)
                         if old_bytes == new_bytes:
-                            unchanged.append(uri)
-                            continue
-                        try:
-                            old_text = old_bytes.decode("utf-8")
-                        except UnicodeDecodeError:
-                            old_text = None
-                        if old_text is not None and _equal_modulo_scanner(
-                            old_text, new_content
-                        ):
                             unchanged.append(uri)
                             continue
                         page_path.write_text(new_content, encoding="utf-8")

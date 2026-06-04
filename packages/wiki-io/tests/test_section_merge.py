@@ -1,4 +1,4 @@
-"""Unit tests for heading-aware section preservation helpers (Living Wiki M1)."""
+"""Unit tests for heading-aware section preservation helpers (Living Wiki M1/M2d)."""
 
 from __future__ import annotations
 
@@ -44,7 +44,10 @@ def test_merge_identity_is_stable() -> None:
     assert _merge_preserved_sections(body, body) == body
 
 
-def test_merge_preserves_human_section_and_regenerates_scanner_section() -> None:
+def test_merge_pto_preserves_scanner_section_body_and_human_section() -> None:
+    """PTO: a scanner-owned section's EXISTING body survives the merge (it is
+    overwritten later only by the inject steps that regenerate it). Human
+    sections are still preserved; the template placeholder is NOT re-imposed."""
     template = (
         "# T\n\n## Narrative\n_(placeholder)_\n\n## Purpose\n> TODO: fill me\n"
     )
@@ -53,8 +56,8 @@ def test_merge_preserves_human_section_and_regenerates_scanner_section() -> None
     )
     out = _merge_preserved_sections(template, existing)
     assert "Real human purpose." in out          # human section preserved
-    assert "_(placeholder)_" in out               # scanner section from template
-    assert "OLD NARRATIVE PROSE" not in out       # scanner section NOT preserved
+    assert "OLD NARRATIVE PROSE" in out           # PTO: existing scanner body kept
+    assert "_(placeholder)_" not in out           # PTO: template placeholder NOT re-imposed
     assert "> TODO: fill me" not in out           # template Purpose overwritten by human
 
 
@@ -68,12 +71,34 @@ def test_merge_appends_user_added_custom_section() -> None:
     assert "custom stuff" in out
 
 
-def test_merge_file_map_is_scanner_owned() -> None:
+def test_merge_pto_preserves_file_map_body() -> None:
+    """PTO: the existing `## File map` body is preserved across the merge."""
     template = "# T\n\n## File map - foo\n> TODO\n\n## Purpose\n> TODO\n"
     existing = "# T\n\n## File map - foo\n| a | b | c |\n\n## Purpose\nKeep me.\n"
     out = _merge_preserved_sections(template, existing)
     assert "Keep me." in out                       # human Purpose preserved
-    assert "| a | b | c |" not in out              # file map regenerated, not preserved
+    assert "| a | b | c |" in out                  # PTO: existing file map preserved
+
+
+def test_merge_pto_matches_file_map_by_type_despite_heading_suffix() -> None:
+    """[spec §5 test 3] The template renders `## File map - <slug>` while the
+    on-disk page carries `## File map - <basename>` (the injector's last-writer
+    form). PTO must match by section TYPE, so the existing filled basename
+    section is preserved and the slug-suffixed template slot is discarded."""
+    template = (
+        "# T\n\n## Narrative\n_(placeholder)_\n\n"
+        "## File map - pkg_pkg-a\n> TODO: <Overview>\n\n"
+        "### pkg_pkg-a/\n| `<file>` | file | — TODO |\n"
+    )
+    existing = (
+        "# T\n\n## Narrative\nreal prose\n\n"
+        "## File map - pkg-a\n### pkg-a/\n| `mod.py` | file | does a thing |\n"
+    )
+    out = _merge_preserved_sections(template, existing)
+    assert "## File map - pkg-a" in out            # existing (basename) heading kept
+    assert "## File map - pkg_pkg-a" not in out     # slug-suffixed template slot dropped
+    assert "does a thing" in out                    # filled rows preserved
+    assert "— TODO" not in out                       # template placeholder rows discarded
 
 
 def test_merge_with_empty_existing_returns_template() -> None:
