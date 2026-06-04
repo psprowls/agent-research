@@ -1053,7 +1053,22 @@ def write_entities(
                     new_bytes = new_content.encode("utf-8")
                     if existed:
                         old_bytes = page_path.read_bytes()
+                        # M2c #3 (Approach B): absorb scanner-body churn. The
+                        # three scanner-owned sections are reset to placeholders
+                        # in `new_content` and re-populated by later scan steps;
+                        # a page whose only differences are inside those sections
+                        # is `unchanged` — skip the write so the real on-disk
+                        # body (filled by a prior scan) is left untouched.
                         if old_bytes == new_bytes:
+                            unchanged.append(uri)
+                            continue
+                        try:
+                            old_text = old_bytes.decode("utf-8")
+                        except UnicodeDecodeError:
+                            old_text = None
+                        if old_text is not None and _equal_modulo_scanner(
+                            old_text, new_content
+                        ):
                             unchanged.append(uri)
                             continue
                         page_path.write_text(new_content, encoding="utf-8")
