@@ -566,8 +566,8 @@ def _commit_dirty_changes(
     head: str | None,
     collision_set: frozenset[str],
 ) -> dict[str, list[str] | None]:
-    """Map `package`/`app` URIs whose files changed since the commit recorded on
-    their page (`last_updated_commit`) to the changed-file list.
+    """Map `package`/`app`/`test_suite` URIs whose files changed since the commit
+    recorded on their page (`last_updated_commit`) to the changed-file list.
 
     Keys are the dirty URIs (so ``result.keys()`` is the M2a "needs
     re-narration" set). Each value is the repo-relative list of files
@@ -580,7 +580,7 @@ def _commit_dirty_changes(
     if head is None or conn is None:
         return dirty
     list_fns = _kind_list_fns()
-    for kind in ("package", "app"):
+    for kind in ("package", "app", "test_suite"):
         list_fn = list_fns.get(kind)
         if list_fn is None:
             continue
@@ -891,9 +891,14 @@ async def run_scan(
         # that `write_entities` just produced.
         entities_narrated: list[str] = []
         narrator_errors: list[str] = []
-        # M2b §3.4: URIs the narrator loop stamped this scan (non-empty prose).
-        # The shared-anchor restamp dedups against this set.
-        narr_stamped: set[str] = set()
+        # M2c Part 3 (§3.3 D4): the narrator loop no longer stamps the anchor
+        # inline. It records which pages got real prose (`good_prose_uris`) and
+        # where each narrated page lives (`narrated_page_paths`); a single
+        # refill-gated pass after Step 10c does the stamping. This closes the
+        # narrator-path residual where good prose advanced the anchor even though
+        # a dropped file-map row was never refilled.
+        good_prose_uris: set[str] = set()
+        narrated_page_paths: dict[str, Path] = {}
         if narrator_result is not None:
             inject_collision_set = _compute_collision_set(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
@@ -906,14 +911,11 @@ async def run_scan(
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
-                    # M2b §3.4 empty-prose guard: empty narration must not mint a
-                    # sticky "up-to-date" anchor. Stamp only on real prose; a
-                    # file-map re-description advances the anchor separately below.
+                    narrated_page_paths[uri_inner] = entity_page_path
+                    # Empty-prose guard (M2b §3.4): empty narration records
+                    # nothing, so it can never mint an anchor on its own.
                     if head and prose.strip():
-                        set_frontmatter_value(
-                            entity_page_path, LAST_UPDATED_COMMIT_KEY, head
-                        )
-                        narr_stamped.add(uri_inner)
+                        good_prose_uris.add(uri_inner)
                     entities_narrated.append(uri_inner)
                 except Exception as inject_exc:  # noqa: BLE001 — partial-success
                     narrator_errors.append(
@@ -1035,25 +1037,41 @@ async def run_scan(
                         file_map_errors.append(
                             f"{node_uri}: inject_file_map failed: {fm_exc!r}"
                         )
-            # Step 10b-ts: test-suite File-map injection. Mirrors Step 10b but
-            # for test_suite entity pages — the suite map starts at the suite
-            # root (node.attrs["path"]) and is UNPARTITIONED (every tracked file
-            # under the root). Reuses the shared collision set and the same
-            # snapshot→merge durability path (preserved=...). Appends each
-            # injected page to file_mapped_pages so Step 10c fills its TODO rows.
-            if refreshed:
+            # Step 10b-ts: test-suite File-map injection — commit-gated parity
+            # with Step 10b (M2c #4 §3.1). The suite map starts at the suite root
+            # (node.path, authoritative — D1) and is UNPARTITIONED (every tracked
+            # file under the root). Trigger is the suite slice of fm_targets so a
+            # commit-dirty-but-structurally-unchanged suite is still re-injected;
+            # the preserved-drop re-queues changed rows as `— TODO`, and
+            # re-described suites join redescribed_uris for the unified stamp.
+            if fm_targets:
                 for node in queries.list_test_suites(conn):
                     if not isinstance(node.attrs, dict):
                         continue
                     suite_uri = node.attrs.get("uri")
-                    if not suite_uri or suite_uri not in refreshed:
+                    if not suite_uri or suite_uri not in fm_targets:
                         continue
-                    suite_path = node.attrs.get("path")
+                    suite_path = node.path
                     if not suite_path:
                         continue
                     block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
                     if not block:
                         continue
+                    preserved = dict(prior_file_map_descs.get(suite_uri) or {})
+                    if narrate and suite_uri in commit_dirty:
+                        changed = commit_dirty[suite_uri]
+                        if changed is None:
+                            # Unknown anchor: no preserved row can be trusted —
+                            # drop all, forcing a full re-describe (D-D / §3.1).
+                            preserved = {}
+                            redescribed_uris.add(suite_uri)
+                        else:
+                            changed_rel = _changed_rel_paths(changed, suite_path)
+                            dropped = {p for p in preserved if p in changed_rel}
+                            if dropped:
+                                for p in dropped:
+                                    preserved.pop(p, None)
+                                redescribed_uris.add(suite_uri)
                     ts_page_path = _entity_page_path(
                         wiki, "test_suite", node, suite_uri, fm_collision_set,
                     )
@@ -1061,7 +1079,7 @@ async def run_scan(
                         inject_file_map(
                             ts_page_path,
                             block,
-                            preserved=prior_file_map_descs.get(suite_uri),
+                            preserved=preserved,
                         )
                         entities_file_mapped.append(suite_uri)
                         file_mapped_pages.append((suite_uri, node, ts_page_path))
@@ -1166,31 +1184,38 @@ async def run_scan(
                         raise_exception=True,
                     )
 
-        # M2b §3.4 shared-anchor rider: a page whose File map was re-described
-        # this scan (>=1 changed row dropped & re-queued, or an unknown anchor
-        # forced a full re-describe) must advance last_updated_commit to HEAD so
-        # the next scan's diff baseline includes this re-description (idempotence
-        # + cost-churn guard). Pages the narrator loop already stamped (non-empty
-        # prose) are skipped — the empty-prose guard's intent is preserved. A page
-        # whose describer (Step 10c) failed to refill its dropped rows still shows
-        # `— TODO`; it is NOT stamped, so it stays commit-dirty and the next scan
-        # retries the describe rather than stranding the TODO behind an advanced
-        # anchor (final-review issue 1: stamp on refill, not merely on drop).
-        if narrate and head and redescribed_uris:
+        # M2c Part 3 (§3.3 D4): unified, refill-gated anchor stamping. A page
+        # advances last_updated_commit to HEAD iff it was re-narrated with good
+        # prose OR had a file-map row re-described this scan, AND no file-map
+        # `— TODO` row remains. The single gate covers both stamp reasons:
+        #   - good prose with an unrefilled dropped row → NOT stamped (stays
+        #     commit-dirty; next scan retries the describe) — closes the residual;
+        #   - a re-described page whose rows are all refilled → stamped
+        #     (idempotence + cost-churn guard, preserves M2b);
+        #   - a narrated-only page with no file-map TODO (file_map_todo_paths
+        #     returns [] for pages with all rows filled or no File map section) →
+        #     stamped, preserving M2a behavior.
+        if narrate and head:
+            stamp_page_paths: dict[str, Path] = dict(narrated_page_paths)
             for uri_inner, _node, page_path in file_mapped_pages:
-                if (
-                    uri_inner in redescribed_uris
-                    and uri_inner not in narr_stamped
-                    and not file_map_todo_paths(page_path)
-                ):
-                    try:
-                        set_frontmatter_value(
-                            page_path, LAST_UPDATED_COMMIT_KEY, head
-                        )
-                    except Exception as exc:  # noqa: BLE001 — non-fatal stamp
-                        logger.warning(
-                            "anchor restamp failed for %s: %s", uri_inner, exc
-                        )
+                stamp_page_paths.setdefault(uri_inner, page_path)
+            for uri_inner in good_prose_uris | redescribed_uris:
+                page_path = stamp_page_paths.get(uri_inner)
+                if page_path is None:
+                    continue
+                try:
+                    # The refill check + the stamp share the try so an
+                    # unreadable/missing page is non-fatal (mirrors the old
+                    # narrator-loop try block that wrapped the equivalent I/O).
+                    if file_map_todo_paths(page_path):
+                        continue
+                    set_frontmatter_value(
+                        page_path, LAST_UPDATED_COMMIT_KEY, head
+                    )
+                except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                    logger.warning(
+                        "anchor stamp failed for %s: %s", uri_inner, exc
+                    )
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
