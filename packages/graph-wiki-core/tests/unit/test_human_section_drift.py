@@ -187,3 +187,103 @@ def test_fresh_verdict_no_flag_but_checked_advances(ws, monkeypatch):
     meta = _fm.load(_page_for(wiki)).metadata
     assert "drift_review" not in meta
     assert meta["drift_checked_commit"] == meta["last_updated_commit"] == "head1"
+
+
+def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
+    """[§5.5] editing a flagged section's body clears its flag next scan with NO
+    drift_judge call; an emptied drift_review key is removed."""
+    wiki = ws / "wiki"
+    repo = ws / "repo"
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": False, "reason": ""}))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    page = _page_for(wiki)
+    _add_human_section(page, "## Behavior", "Processes items synchronously.")
+
+    # Code change -> re-narrate -> stale flag written at head2. Flag ONLY the
+    # appended Behavior section (the template also seeds Purpose/Public API).
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
+    )
+    monkeypatch.setattr(scan_mod, "changed_files_since",
+                        lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _spy(lambda it: {"stale": True, "reason": "now async"}
+             if it[2] == "## Behavior" else {"stale": False, "reason": ""}),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    review = _fm.load(_page_for(wiki)).metadata.get("drift_review")
+    assert review and any(e["section"] == "Behavior" for e in review)
+
+    # Human edits the flagged Behavior body; re-scan with no code change.
+    page = _page_for(wiki)
+    text = page.read_text(encoding="utf-8").replace(
+        "Processes items synchronously.", "Processes items via async fan-out."
+    )
+    page.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    rec: dict = {}
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+
+    assert rec.get("drift_items", []) == []  # clear pass is free; no judge
+    # The only flagged section (Behavior) was edited, so the key is now removed.
+    assert "drift_review" not in _fm.load(_page_for(wiki)).metadata
+
+
+def test_dependency_and_narrativeless_never_flagged(ws, monkeypatch):
+    """[§5.8] a non-target kind and a page without a narrative produce no judge
+    calls and no drift keys.
+
+    ADAPTED (per plan NOTE): a full ``run_scan`` deletes a hand-written
+    ``dep-foo.md`` as an orphan (it is not a graph node), so the dep page no
+    longer exists to assert against. We instead exercise the candidate filter
+    and flag pass DIRECTLY (mirroring the Task-7 direct-call style), which is the
+    actual gate §5.8 governs: the ``dependency`` page (non-target kind) and a
+    narrative-less ``package`` page must NOT be candidates, must produce no judge
+    item, and must gain no drift keys.
+    """
+    wiki = ws / "wiki"
+    rec: dict = {}
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
+
+    # A hand-written dependency page (non-target kind) + a narrative-less package.
+    (wiki / "entities").mkdir(parents=True, exist_ok=True)
+    dep = wiki / "entities" / "dep-foo.md"
+    dep.write_text(
+        "---\nuri: dep:foo\nkind: dependency\nlast_updated_commit: head1\n---\n"
+        "# dep:foo\n\n## Purpose\nA dependency.\n",
+        encoding="utf-8",
+    )
+    narrativeless = wiki / "entities" / "pkg-b.md"
+    narrativeless.write_text(
+        "---\nuri: pkg:b\nkind: package\nlast_updated_commit: head1\n---\n"
+        "# pkg:b\n\n## Purpose\nA package with no narrative.\n",
+        encoding="utf-8",
+    )
+
+    # Neither hand-written page qualifies as a drift candidate.
+    candidate_paths = [c[0] for c in scan_mod._drift_candidates(wiki)]
+    assert dep not in candidate_paths          # non-target kind
+    assert narrativeless not in candidate_paths  # no `## Narrative`
+
+    # The flag pass judges no items for them and writes no drift keys.
+    asyncio.run(scan_mod._drift_flag_pass(wiki, None))
+
+    dep_meta = _fm.load(dep).metadata
+    assert "drift_review" not in dep_meta
+    assert "drift_checked_commit" not in dep_meta
+    nl_meta = _fm.load(narrativeless).metadata
+    assert "drift_review" not in nl_meta
+    assert "drift_checked_commit" not in nl_meta
+    # Neither page ever produced a judge item.
+    assert all(it[0] not in (dep, narrativeless)
+               for it in rec.get("drift_items", []))

@@ -120,3 +120,29 @@ def test_clear_resolved_flags_keeps_all_when_unchanged():
         for h, chunk in iter_human_sections(_BODY)
     ]
     assert clear_resolved_flags(entries, _BODY) == entries
+
+
+def test_drift_keys_are_not_scanner_owned():
+    """Guards §5.7: drift_checked_commit / drift_review must be PRESERVED across
+    re-scan, so they must never be added to SCANNER_OWNED_KEYS (which merge wipes
+    to template values)."""
+    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
+    assert "drift_checked_commit" not in SCANNER_OWNED_KEYS
+    assert "drift_review" not in SCANNER_OWNED_KEYS
+
+
+def test_merge_frontmatter_preserves_drift_keys():
+    """A scanner re-render keeps unknown preserved keys (like last_updated_commit,
+    drift_checked_commit, drift_review)."""
+    from wiki_io.entity_writer import merge_frontmatter
+
+    existing = {
+        "uri": "pkg:a", "kind": "package",
+        "drift_checked_commit": "abc",
+        "drift_review": [{"section": "Purpose", "hash": "h", "detected_commit": "abc", "reason": "r"}],
+    }
+    scanner = {"uri": "pkg:a", "kind": "package"}
+    merged = merge_frontmatter(existing, scanner)
+    assert merged["drift_checked_commit"] == "abc"
+    assert merged["drift_review"] == existing["drift_review"]

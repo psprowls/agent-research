@@ -34,6 +34,7 @@ except ImportError:  # pragma: no cover — exercised by the lazy-import test vi
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.drift import (
+    clear_resolved_flags,
     extract_file_map,
     iter_human_sections,
     section_hash,
@@ -702,6 +703,34 @@ async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
             logger.warning("drift flag write failed for %s: %s", page_path, exc)
 
 
+def _drift_clear_pass(wiki: Path) -> None:
+    """Free, every-scan flag resolution (spec §3.2/D4). For every entity page
+    holding a `drift_review` key, recompute each flagged section's current hash;
+    drop entries whose hash changed (prose edited) or whose section is gone, and
+    remove the key when it empties. No LLM, runs even on --no-narrate scans."""
+    entities_dir = wiki / "entities"
+    if not entities_dir.is_dir():
+        return
+    for page_path in sorted(entities_dir.glob("*.md")):
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — malformed page must not abort scan
+            continue
+        entries = post.metadata.get("drift_review")
+        if not entries:
+            continue
+        survivors = clear_resolved_flags(entries, post.content)
+        if survivors == entries:
+            continue
+        try:
+            if survivors:
+                update_frontmatter(page_path, {"drift_review": survivors})
+            else:
+                update_frontmatter(page_path, delete=["drift_review"])
+        except Exception as exc:  # noqa: BLE001 — non-fatal
+            logger.warning("drift clear write failed for %s: %s", page_path, exc)
+
+
 # ---------------------------------------------------------------------------
 # Public: run_scan
 # ---------------------------------------------------------------------------
@@ -1283,6 +1312,10 @@ async def run_scan(
         # whose drift pass was skipped in a prior scan (drift_checked_commit lag).
         if narrate:
             await _drift_flag_pass(wiki, model_override)
+
+        # Free clear pass — runs every scan (even --no-narrate): a human edit to a
+        # flagged section clears its flag promptly without an LLM call.
+        _drift_clear_pass(wiki)
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
