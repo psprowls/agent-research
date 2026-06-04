@@ -539,24 +539,44 @@ def _entity_page_path(
     return wiki / "entities" / f"{stem}.md"
 
 
-def _commit_dirty_uris(
+def _changed_rel_paths(changed: list[str], node_path: str) -> set[str]:
+    """Relativize repo-relative changed paths to package-root-relative keys.
+
+    `changed_files_since` returns repo-relative paths (e.g.
+    ``packages/foo/src/bar.py``); the File-map ``preserved`` dict is keyed by
+    package-root-relative paths (e.g. ``src/bar.py``, see
+    ``_extract_file_map_descriptions``). This maps the former to the latter so
+    the preserved-drop's set-matching works. Paths not under ``node_path`` are
+    silently dropped — they cannot match a row in this page's File map (§3.3).
+    """
+    base = Path(node_path)
+    rel: set[str] = set()
+    for p in changed:
+        try:
+            rel.add(str(Path(p).relative_to(base)))
+        except ValueError:
+            continue
+    return rel
+
+
+def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
     conn: Any,
     head: str | None,
     collision_set: frozenset[str],
-) -> set[str]:
-    """URIs of `package`/`app` entities whose files changed since the commit
-    recorded on their page (`last_updated_commit`).
+) -> dict[str, list[str] | None]:
+    """Map `package`/`app` URIs whose files changed since the commit recorded on
+    their page (`last_updated_commit`) to the changed-file list.
 
-    M2a commit-gate: makes `## Narrative` refresh track real code changes, not
-    just frontmatter structural deltas. Pages WITHOUT an anchor are skipped
-    (D-C) — their refresh stays governed by the existing new/structural gate
-    until a narration stamps an anchor. A `None` from `changed_files_since`
-    (anchor SHA unknown to this repo) is treated as dirty (D-D) so a stale
-    anchor self-corrects on the next narrated scan.
+    Keys are the dirty URIs (so ``result.keys()`` is the M2a "needs
+    re-narration" set). Each value is the repo-relative list of files
+    ``changed_files_since`` reported, or ``None`` when the anchor SHA is unknown
+    to this repo (D-D self-correction). Pages WITHOUT an anchor are skipped
+    (D-C). M2a used only the keys; M2b consumes the values to drop changed rows
+    from the File-map ``preserved`` map (§3.1).
     """
-    dirty: set[str] = set()
+    dirty: dict[str, list[str] | None] = {}
     if head is None or conn is None:
         return dirty
     list_fns = _kind_list_fns()
@@ -584,7 +604,7 @@ def _commit_dirty_uris(
                 continue
             changed = changed_files_since(repo, str(anchor), node_path)
             if changed is None or changed:
-                dirty.add(uri)
+                dirty[uri] = changed
     return dirty
 
 
@@ -747,6 +767,7 @@ async def run_scan(
 
         # Step 8: compute state gate
         state_gate = compute_state_gate(repo)
+        head = state_gate.get("head_commit")
 
         # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
         # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
@@ -754,6 +775,12 @@ async def run_scan(
         # for future eval sweeps targeting the narrator role.
         entity_write_result = None
         narrator_result: FanOutResult | None = None
+        # M2b: per-URI changed-file lists for commit-dirty package/app pages
+        # (keys = dirty URIs; value = repo-relative changed paths, or None when
+        # the page's anchor SHA is unknown to the repo). Consumed by Step 10b's
+        # preserved-drop. Pre-initialized so the file-map block reads it safely
+        # even when the graph conn is None.
+        commit_dirty: dict[str, list[str] | None] = {}
 
         # Snapshot prior File-map descriptions BEFORE write_entities re-renders
         # entity pages from template (which wipes the injected File-map body).
@@ -784,17 +811,17 @@ async def run_scan(
 
             # M2a commit-gate: re-narrate package/app entities whose files
             # changed since their recorded last_updated_commit (Living Wiki M2).
-            commit_dirty = _commit_dirty_uris(
+            commit_dirty = _commit_dirty_changes(
                 wiki,
                 repo,
                 conn,
-                state_gate.get("head_commit"),
+                head,
                 _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
             )
             if commit_dirty:
                 # EntityWriteResult is a frozen dataclass; mutate the set in
                 # place rather than rebinding the field (`|=` would rebind).
-                entity_write_result.needs_narrative.update(commit_dirty)
+                entity_write_result.needs_narrative.update(commit_dirty.keys())
                 append_log(
                     wiki,
                     "scan",
@@ -864,11 +891,13 @@ async def run_scan(
         # that `write_entities` just produced.
         entities_narrated: list[str] = []
         narrator_errors: list[str] = []
+        # M2b §3.4: URIs the narrator loop stamped this scan (non-empty prose).
+        # The shared-anchor restamp dedups against this set.
+        narr_stamped: set[str] = set()
         if narrator_result is not None:
             inject_collision_set = _compute_collision_set(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
             )
-            head = state_gate.get("head_commit")
 
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
@@ -877,10 +906,14 @@ async def run_scan(
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
-                    if head:
+                    # M2b §3.4 empty-prose guard: empty narration must not mint a
+                    # sticky "up-to-date" anchor. Stamp only on real prose; a
+                    # file-map re-description advances the anchor separately below.
+                    if head and prose.strip():
                         set_frontmatter_value(
                             entity_page_path, LAST_UPDATED_COMMIT_KEY, head
                         )
+                        narr_stamped.add(uri_inner)
                     entities_narrated.append(uri_inner)
                 except Exception as inject_exc:  # noqa: BLE001 — partial-success
                     narrator_errors.append(
@@ -934,25 +967,34 @@ async def run_scan(
         # (uri, node, page_path) for each package/app whose File map was injected
         # this scan — Step 10c uses these to fill remaining `— TODO` rows.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
+        # M2b §3.4: package/app URIs whose File map was re-described this scan
+        # (>=1 changed row dropped from preserved, or an unknown anchor forced a
+        # full drop). Consumed by the shared-anchor restamp after Step 10c.
+        redescribed_uris: set[str] = set()
         if entity_write_result is not None and conn is not None:
             refreshed = set(entity_write_result.created) | set(
                 entity_write_result.updated
             )
+            # M2b §3.2 (load-bearing): a package whose source changed with no
+            # structural delta is in commit_dirty but NOT refreshed; without this
+            # union its File map is never re-injected and the preserved-drop below
+            # can't fire. Mirrors M2a's needs_narrative.update(commit_dirty).
+            fm_targets = refreshed | set(commit_dirty)
             list_fns = _kind_list_fns()
             # Collision set shared by the package/app and test-suite branches.
             fm_collision_set = (
                 _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
-                if refreshed
+                if fm_targets
                 else frozenset()
             )
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
-            if refreshed and any(fm_list_fns) and not no_file_map:
+            if fm_targets and any(fm_list_fns) and not no_file_map:
                 fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
                 for node in fm_nodes:
                     if not isinstance(node.attrs, dict):
                         continue
                     node_uri = node.attrs.get("uri")
-                    if not node_uri or node_uri not in refreshed:
+                    if not node_uri or node_uri not in fm_targets:
                         continue
                     node_path = node.path
                     if not node_path:
@@ -960,13 +1002,32 @@ async def run_scan(
                     file_map = build_file_map(repo / node_path, max_depth=max_depth)
                     if not file_map:
                         continue
+                    # M2b §3.1/§3.3: drop changed rows from preserved so they
+                    # re-emerge as `— TODO` and Step 10c re-describes them. Gated
+                    # on `narrate` — an LLM-free scan keeps the cost cache intact
+                    # and re-describes nothing (Step 10c is narrate-gated too).
+                    preserved = dict(prior_file_map_descs.get(node_uri) or {})
+                    if narrate and node_uri in commit_dirty:
+                        changed = commit_dirty[node_uri]
+                        if changed is None:
+                            # Unknown anchor: no preserved row can be trusted —
+                            # drop all, forcing a full re-describe (D-D / §3.1).
+                            preserved = {}
+                            redescribed_uris.add(node_uri)
+                        else:
+                            changed_rel = _changed_rel_paths(changed, node_path)
+                            dropped = {p for p in preserved if p in changed_rel}
+                            if dropped:
+                                for p in dropped:
+                                    preserved.pop(p, None)
+                                redescribed_uris.add(node_uri)
                     slug = short_filename(node_uri, fm_collision_set)
                     fm_page_path = wiki / "entities" / f"{slug}.md"
                     try:
                         inject_file_map(
                             fm_page_path,
                             file_map,
-                            preserved=prior_file_map_descs.get(node_uri),
+                            preserved=preserved,
                         )
                         entities_file_mapped.append(node_uri)
                         file_mapped_pages.append((node_uri, node, fm_page_path))
@@ -1104,6 +1165,32 @@ async def run_scan(
                         silent=True,
                         raise_exception=True,
                     )
+
+        # M2b §3.4 shared-anchor rider: a page whose File map was re-described
+        # this scan (>=1 changed row dropped & re-queued, or an unknown anchor
+        # forced a full re-describe) must advance last_updated_commit to HEAD so
+        # the next scan's diff baseline includes this re-description (idempotence
+        # + cost-churn guard). Pages the narrator loop already stamped (non-empty
+        # prose) are skipped — the empty-prose guard's intent is preserved. A page
+        # whose describer (Step 10c) failed to refill its dropped rows still shows
+        # `— TODO`; it is NOT stamped, so it stays commit-dirty and the next scan
+        # retries the describe rather than stranding the TODO behind an advanced
+        # anchor (final-review issue 1: stamp on refill, not merely on drop).
+        if narrate and head and redescribed_uris:
+            for uri_inner, _node, page_path in file_mapped_pages:
+                if (
+                    uri_inner in redescribed_uris
+                    and uri_inner not in narr_stamped
+                    and not file_map_todo_paths(page_path)
+                ):
+                    try:
+                        set_frontmatter_value(
+                            page_path, LAST_UPDATED_COMMIT_KEY, head
+                        )
+                    except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                        logger.warning(
+                            "anchor restamp failed for %s: %s", uri_inner, exc
+                        )
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.

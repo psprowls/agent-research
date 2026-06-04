@@ -12,7 +12,7 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
-from graph_wiki_core.commands.scan import _commit_dirty_uris
+from graph_wiki_core.commands.scan import _commit_dirty_changes
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, short_filename
 
 
@@ -50,10 +50,10 @@ def test_dirty_when_files_changed(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/foo/x.py"]
     )
-    dirty = _commit_dirty_uris(
+    dirty = _commit_dirty_changes(
         wiki, tmp_path / "repo", object(), "head_sha", frozenset()
     )
-    assert dirty == {uri}
+    assert dirty == {uri: ["packages/foo/x.py"]}
 
 
 def test_clean_when_no_changes(tmp_path, monkeypatch) -> None:
@@ -62,9 +62,9 @@ def test_clean_when_no_changes(tmp_path, monkeypatch) -> None:
     _write_page(wiki, uri, anchor="anchor_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
-    assert _commit_dirty_uris(
+    assert _commit_dirty_changes(
         wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == set()
+    ) == {}
 
 
 def test_skips_pages_without_anchor(tmp_path, monkeypatch) -> None:
@@ -76,9 +76,9 @@ def test_skips_pages_without_anchor(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod, "changed_files_since", lambda *a: consulted.append(1) or []
     )
-    assert _commit_dirty_uris(
+    assert _commit_dirty_changes(
         wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == set()
+    ) == {}
     assert consulted == []  # git never consulted for anchorless pages
 
 
@@ -88,9 +88,9 @@ def test_unknown_anchor_treated_as_dirty(tmp_path, monkeypatch) -> None:
     _write_page(wiki, uri, anchor="gone_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: None)  # SHA unknown
-    assert _commit_dirty_uris(
+    assert _commit_dirty_changes(
         wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == {uri}
+    ) == {uri: None}
 
 
 def test_no_head_returns_empty(tmp_path, monkeypatch) -> None:
@@ -98,9 +98,9 @@ def test_no_head_returns_empty(tmp_path, monkeypatch) -> None:
     uri = "pkg:org/repo/foo"
     _write_page(wiki, uri, anchor="anchor_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
-    assert _commit_dirty_uris(
+    assert _commit_dirty_changes(
         wiki, tmp_path / "repo", object(), None, frozenset()
-    ) == set()
+    ) == {}
 
 
 # ---------------------------------------------------------------------------
