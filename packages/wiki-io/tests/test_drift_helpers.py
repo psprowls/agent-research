@@ -54,3 +54,69 @@ def test_update_frontmatter_preserves_body_and_other_keys(tmp_path):
 def test_update_frontmatter_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         update_frontmatter(tmp_path / "nope.md", {"x": "y"})
+
+
+# ---------------------------------------------------------------------------
+# Task 2: pure drift helpers (wiki_io.drift)
+# ---------------------------------------------------------------------------
+
+from wiki_io.drift import (
+    clear_resolved_flags,
+    extract_file_map,
+    iter_human_sections,
+    section_hash,
+)
+
+_BODY = (
+    "# pkg:a\n\n"
+    "## Narrative\nThe package does async fan-out.\n\n"
+    "## Purpose\nProcesses items synchronously.\n\n"
+    "## Public API\n`run()`\n\n"
+    "## File map - a\n\n| Path | Kind | Description |\n|---|---|---|\n"
+    "| `x.py` | file | core |\n\n"
+    "## Referenced in wiki\n- [[entities/foo]]\n"
+)
+
+
+def test_iter_human_sections_excludes_scanner_sections():
+    secs = iter_human_sections(_BODY)
+    headings = [h for h, _ in secs]
+    assert headings == ["## Purpose", "## Public API"]
+    # chunk includes the heading line
+    assert secs[0][1].startswith("## Purpose")
+    assert "synchronously" in secs[0][1]
+
+
+def test_section_hash_is_stable_and_edit_sensitive():
+    chunk = "## Purpose\nProcesses items synchronously.\n"
+    assert section_hash(chunk) == section_hash(chunk + "\n\n")  # trailing ws ignored
+    assert section_hash(chunk) != section_hash("## Purpose\nProcesses items async.\n")
+
+
+def test_extract_file_map_returns_section_or_none():
+    assert "| `x.py` |" in extract_file_map(_BODY)
+    no_fm = "# t\n\n## Narrative\nn\n\n## Purpose\np\n"
+    assert extract_file_map(no_fm) is None
+
+
+def test_clear_resolved_flags_drops_edited_and_missing():
+    purpose_chunk = "## Purpose\nProcesses items synchronously.\n\n"
+    entries = [
+        {"section": "Purpose", "detected_commit": "c1",
+         "hash": section_hash(purpose_chunk), "reason": "r1"},
+        {"section": "Public API", "detected_commit": "c1",
+         "hash": "STALEHASH", "reason": "r2"},      # hash mismatch -> edited -> drop
+        {"section": "Gone", "detected_commit": "c1",
+         "hash": "whatever", "reason": "r3"},        # section absent -> drop
+    ]
+    survivors = clear_resolved_flags(entries, _BODY)
+    assert [e["section"] for e in survivors] == ["Purpose"]
+
+
+def test_clear_resolved_flags_keeps_all_when_unchanged():
+    entries = [
+        {"section": h.removeprefix("## "), "detected_commit": "c1",
+         "hash": section_hash(chunk), "reason": "r"}
+        for h, chunk in iter_human_sections(_BODY)
+    ]
+    assert clear_resolved_flags(entries, _BODY) == entries
