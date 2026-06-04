@@ -782,6 +782,28 @@ async def run_scan(
                 raise_exception=True,
             )
 
+            # M2a commit-gate: re-narrate package/app entities whose files
+            # changed since their recorded last_updated_commit (Living Wiki M2).
+            commit_dirty = _commit_dirty_uris(
+                wiki,
+                repo,
+                conn,
+                state_gate.get("head_commit"),
+                _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+            )
+            if commit_dirty:
+                # EntityWriteResult is a frozen dataclass; mutate the set in
+                # place rather than rebinding the field (`|=` would rebind).
+                entity_write_result.needs_narrative.update(commit_dirty)
+                append_log(
+                    wiki,
+                    "scan",
+                    f"commit-gate: {len(commit_dirty)} entity(s) flagged for re-narration",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+
             # Step 9b: narrator fan-out gated on needs_narrative.
             narrator_items: list[tuple[str, str, Any]] = []
             if narrate and entity_write_result.needs_narrative:
@@ -846,6 +868,7 @@ async def run_scan(
             inject_collision_set = _compute_collision_set(
                 conn, ADMITTED_KINDS, _kind_list_fns(),
             )
+            head = state_gate.get("head_commit")
 
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
@@ -854,6 +877,10 @@ async def run_scan(
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
+                    if head:
+                        set_frontmatter_value(
+                            entity_page_path, LAST_UPDATED_COMMIT_KEY, head
+                        )
                     entities_narrated.append(uri_inner)
                 except Exception as inject_exc:  # noqa: BLE001 — partial-success
                     narrator_errors.append(

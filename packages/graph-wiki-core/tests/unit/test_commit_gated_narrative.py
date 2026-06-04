@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import types
-from pathlib import Path
-
 import asyncio
 import sqlite3
-
-import frontmatter as _fm
-import pytest
-from graph_io import exit_codes
+import types
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
+import pytest
+from graph_io import exit_codes
 from graph_wiki_core.commands.scan import _commit_dirty_uris
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, short_filename
 
@@ -236,3 +234,39 @@ def test_narrative_survives_no_narrate_rescan(m2a_workspace, monkeypatch) -> Non
     text = _page_for(wiki).read_text(encoding="utf-8")
     assert "PROSE for pkg:org/repo/pkg-a" in text
     assert "_(scanner will populate on next scan)_" not in text
+
+
+def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypatch) -> None:
+    """Scan 1 narrates at head1; scan 2 (files changed, head2) re-narrates the
+    package and advances its last_updated_commit to head2."""
+    workspace = m2a_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    # Distinct prose per scan so we can tell a refresh from a restore.
+    prose_tag = {"v": "FIRST"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
+    )
+
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head1"
+    assert "FIRST prose for" in _page_for(wiki).read_text(encoding="utf-8")
+
+    # Scan 2: HEAD moved and the package's files changed since head1.
+    heads["v"] = "head2"
+    prose_tag["v"] = "SECOND"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    final = _page_for(wiki).read_text(encoding="utf-8")
+    assert "SECOND prose for pkg:org/repo/pkg-a" in final  # refreshed, not restored
+    assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head2"
