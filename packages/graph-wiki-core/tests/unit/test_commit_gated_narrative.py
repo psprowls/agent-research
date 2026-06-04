@@ -182,13 +182,26 @@ def m2a_workspace(tmp_path, monkeypatch):
 
 
 def _narrate_all_spy(prose_fn):
-    """Return an async SubagentPool.run_all that narrates every item via prose_fn."""
+    """Return an async SubagentPool.run_all that narrates every item via prose_fn.
+
+    For the code_reader role it returns JSON descriptions filling every TODO
+    file-map row, so the M2c Part-3 refill gate (stamp iff no `— TODO` remains)
+    is satisfied and the anchor-stamping assertions hold. The narrative-specific
+    assertions in these tests are unaffected.
+    """
 
     async def _run_all(self, *, items, task, role, model_id, max_concurrency):
         from subagent_runtime.pool import FanOutResult
 
         result = FanOutResult()
-        result.successes = [(it, prose_fn(it)) for it in items]
+        if role == "narrator":
+            result.successes = [(it, prose_fn(it)) for it in items]
+        else:  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
+            import json as _json
+
+            result.successes = [
+                (it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
+            ]
         return result
 
     return _run_all
