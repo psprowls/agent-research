@@ -379,7 +379,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         errors=[],
     )
 
-    fake_node = SimpleNamespace(name="foo", attrs={"uri": needy_uri})
+    fake_node = SimpleNamespace(name="foo", path="packages/foo", attrs={"uri": needy_uri})
     fake_list_fns = {"package": lambda conn: [fake_node]}
 
     async def fake_run_all(items, task, **kwargs):
