@@ -64,16 +64,17 @@ def test_emit_creates_one_node_with_manifest_fields(tmp_path: Path, conn: sqlite
     _make_plugin(tmp_path)
     agent_plugins.emit(conn, repo_root=tmp_path, ctx=_CTX)
     rows = conn.execute(
-        "SELECT name, attrs_json, uri FROM nodes WHERE kind='agent_plugin'"
+        "SELECT name, attrs_json, uri, path FROM nodes WHERE kind='agent_plugin'"
     ).fetchall()
     assert len(rows) == 1
-    name, attrs_json, uri = rows[0]
+    name, attrs_json, uri, path = rows[0]
     attrs = json.loads(attrs_json)
     assert name == "demo"
     assert uri == "agent_plugin:test/repo/demo"
     assert attrs["ecosystem"] == "claude-code"
     assert attrs["version"] == "1.2.3"
     assert attrs["description"] == "A demo plugin."
+    assert path == "plugins/demo"
 
 
 def test_emit_parses_all_component_types(tmp_path: Path, conn: sqlite3.Connection) -> None:
