@@ -39,7 +39,6 @@ from wiki_io.entity_writer import (
     _compute_collision_set,
     _extract_file_map_descriptions,
     _kind_list_fns,
-    extract_narrative,
     fill_file_map_descriptions,
     file_map_todo_paths,
     inject_file_map,
@@ -109,66 +108,26 @@ def _is_init_failure_stderr(stderr: str) -> bool:
     return any(p in stderr for p in _INIT_FAILURE_STDERR_PATTERNS)
 
 
-def _snapshot_file_map_descriptions(wiki: Path) -> dict[str, dict[str, str]]:
-    """Snapshot filled File-map descriptions from existing entity pages, keyed
-    by entity URI, BEFORE ``write_entities`` resets page bodies to template.
+def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
+    """Read filled File-map descriptions from a single entity page's CURRENT
+    on-disk `## File map` section, keyed by package-root path.
 
-    Returns ``{uri: {package_root_path: description}}`` containing only rows
-    whose Description cell is filled (non-placeholder). Pages without a uri,
-    without a `## File map` section, or with no filled rows are omitted.
-
-    This is the durability mechanism for expensive code-reader descriptions:
-    ``write_entities`` re-renders updated pages from the template (wiping the
-    injected File-map body), so the prior descriptions must be captured here
-    and merged back in by ``inject_file_map(preserved=...)``.
+    Returns ``{}`` when the page is missing, malformed, or has no filled rows.
+    PTO replacement for the pre-scan `_snapshot_file_map_descriptions` pass:
+    under preserve-then-overwrite, `write_entities` no longer resets the
+    File-map body, so at Step 10b injection time the page still holds the
+    descriptions a prior scan filled — read them live here instead of
+    snapshotting every page before the write.
     """
-    snapshot: dict[str, dict[str, str]] = {}
-    entities_dir = wiki / "entities"
-    if not entities_dir.is_dir():
-        return snapshot
-    for page_path in entities_dir.glob("*.md"):
-        try:
-            post = frontmatter.load(page_path)
-        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
-            continue
-        uri = post.metadata.get("uri")
-        if not uri:
-            continue
-        section = FILE_MAP_SECTION_RE.search(post.content)
-        if not section:
-            continue
-        pkg_name = section.group(1).strip()
-        descs = _extract_file_map_descriptions(section.group(2), pkg_name)
-        if descs:
-            snapshot[uri] = descs
-    return snapshot
-
-
-def _snapshot_narratives(wiki: Path) -> dict[str, str]:
-    """Snapshot non-placeholder `## Narrative` prose from existing entity pages,
-    keyed by URI, BEFORE write_entities resets page bodies to template.
-
-    Mirrors `_snapshot_file_map_descriptions`: the M1 heading-aware merge resets
-    the scanner-owned `## Narrative` to the template placeholder on every
-    re-render, so prior narrated prose must be captured here and restored after
-    write_entities for entities not re-narrated this scan (M2a persistence).
-    """
-    snapshot: dict[str, str] = {}
-    entities_dir = wiki / "entities"
-    if not entities_dir.is_dir():
-        return snapshot
-    for page_path in entities_dir.glob("*.md"):
-        try:
-            post = frontmatter.load(page_path)
-        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
-            continue
-        uri = post.metadata.get("uri")
-        if not uri:
-            continue
-        prose = extract_narrative(post.content)
-        if prose:
-            snapshot[uri] = prose
-    return snapshot
+    try:
+        post = frontmatter.load(page_path)
+    except Exception:  # noqa: BLE001 — a missing/malformed page must not abort scan
+        return {}
+    section = FILE_MAP_SECTION_RE.search(post.content)
+    if not section:
+        return {}
+    pkg_name = section.group(1).strip()
+    return _extract_file_map_descriptions(section.group(2), pkg_name)
 
 
 # ---------------------------------------------------------------------------
@@ -782,16 +741,6 @@ async def run_scan(
         # even when the graph conn is None.
         commit_dirty: dict[str, list[str] | None] = {}
 
-        # Snapshot prior File-map descriptions BEFORE write_entities re-renders
-        # entity pages from template (which wipes the injected File-map body).
-        # Keyed by URI so Step 10b can merge them back into the deterministic
-        # block, preserving expensive code-reader descriptions across rescans.
-        prior_file_map_descs: dict[str, dict[str, str]] = {}
-        prior_narratives: dict[str, str] = {}
-        if conn is not None:
-            prior_file_map_descs = _snapshot_file_map_descriptions(wiki)
-            prior_narratives = _snapshot_narratives(wiki)
-
         if conn is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
             entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
@@ -925,34 +874,6 @@ async def run_scan(
                 uri_inner, _kind_inner, _node_inner = err.item
                 narrator_errors.append(f"{uri_inner}: {err.exception!r}")
 
-        # M2a narrative persistence: restore prior narrative prose for entities
-        # NOT re-narrated this scan. write_entities reset every `## Narrative` to
-        # the template placeholder (M1 heading-aware merge); without this, prose
-        # injected on a prior scan would be wiped whenever the entity is not in
-        # needs_narrative. Runs in narrate and --no-narrate scans alike (D-F);
-        # never clobbers fresh prose (D-G).
-        if conn is not None and prior_narratives:
-            narrated_set = set(entities_narrated)
-            for page_path in sorted((wiki / "entities").glob("*.md")):
-                try:
-                    post = frontmatter.load(page_path)
-                except Exception:  # noqa: BLE001
-                    continue
-                restore_uri = post.metadata.get("uri")
-                if not restore_uri or restore_uri in narrated_set:
-                    continue
-                prose = prior_narratives.get(restore_uri)
-                if not prose:
-                    continue
-                if extract_narrative(post.content) is not None:
-                    continue  # already carries real prose — don't clobber (D-G)
-                try:
-                    inject_narrative(page_path, prose)
-                except Exception as exc:  # noqa: BLE001 — non-fatal restore
-                    logger.warning(
-                        "narrative restore failed for %s: %s", restore_uri, exc
-                    )
-
         # Step 10b: deterministic File-map injection (faithful port of the
         # plugin scanner-agent step). For every `package`/`app` entity page that
         # write_entities (re)wrote this scan — created or updated, i.e. whose
@@ -1004,11 +925,14 @@ async def run_scan(
                     file_map = build_file_map(repo / node_path, max_depth=max_depth)
                     if not file_map:
                         continue
-                    # M2b §3.1/§3.3: drop changed rows from preserved so they
-                    # re-emerge as `— TODO` and Step 10c re-describes them. Gated
-                    # on `narrate` — an LLM-free scan keeps the cost cache intact
-                    # and re-describes nothing (Step 10c is narrate-gated too).
-                    preserved = dict(prior_file_map_descs.get(node_uri) or {})
+                    slug = short_filename(node_uri, fm_collision_set)
+                    fm_page_path = wiki / "entities" / f"{slug}.md"
+                    # PTO: re-source surviving descriptions from the LIVE page —
+                    # write_entities no longer reset the File-map body, so the
+                    # filled rows are still on disk here. Then M2b's
+                    # preserved-drop (below, unchanged) drops changed rows so
+                    # they re-emerge as `— TODO` for Step 10c.
+                    preserved = dict(_live_file_map_descriptions(fm_page_path))
                     if narrate and node_uri in commit_dirty:
                         changed = commit_dirty[node_uri]
                         if changed is None:
@@ -1023,8 +947,6 @@ async def run_scan(
                                 for p in dropped:
                                     preserved.pop(p, None)
                                 redescribed_uris.add(node_uri)
-                    slug = short_filename(node_uri, fm_collision_set)
-                    fm_page_path = wiki / "entities" / f"{slug}.md"
                     try:
                         inject_file_map(
                             fm_page_path,
@@ -1057,7 +979,12 @@ async def run_scan(
                     block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
                     if not block:
                         continue
-                    preserved = dict(prior_file_map_descs.get(suite_uri) or {})
+                    ts_page_path = _entity_page_path(
+                        wiki, "test_suite", node, suite_uri, fm_collision_set,
+                    )
+                    # PTO: live-source preserved descriptions from the suite page
+                    # (mirrors Step 10b; the suite branch is at package parity).
+                    preserved = dict(_live_file_map_descriptions(ts_page_path))
                     if narrate and suite_uri in commit_dirty:
                         changed = commit_dirty[suite_uri]
                         if changed is None:
@@ -1072,9 +999,6 @@ async def run_scan(
                                 for p in dropped:
                                     preserved.pop(p, None)
                                 redescribed_uris.add(suite_uri)
-                    ts_page_path = _entity_page_path(
-                        wiki, "test_suite", node, suite_uri, fm_collision_set,
-                    )
                     try:
                         inject_file_map(
                             ts_page_path,

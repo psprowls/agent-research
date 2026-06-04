@@ -135,8 +135,9 @@ def test_human_section_edit_is_preserved_not_churned(churn_workspace, monkeypatc
     bodies) → the page correctly buckets `unchanged` and the write is skipped.
     The genuine anti-data-loss intent of spec test 6 — the human edit is not
     lost and not overwritten by the placeholder — is what is asserted here.
-    `_equal_modulo_scanner`'s own "human section differs → not equal" contract is
-    covered in `packages/wiki-io/tests/test_equal_modulo_scanner.py`.
+    Under M2d PTO the page renders byte-identical to disk (the merge preserves
+    every section), so the plain `old_bytes == new_bytes` compare buckets it
+    `unchanged` and skips the write.
     """
     workspace = churn_workspace
     wiki = workspace / "wiki"
