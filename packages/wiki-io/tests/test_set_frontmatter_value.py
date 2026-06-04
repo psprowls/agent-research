@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import frontmatter
-
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, set_frontmatter_value
 
 
