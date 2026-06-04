@@ -566,6 +566,61 @@ def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
     return preamble, sections
 
 
+def _scanner_section_token(heading: str) -> str:
+    """Collapse a scanner-owned H2 heading to a constant per-type token.
+
+    The `## File map - <name>` heading carries a name suffix that differs
+    between the template render (`{{PACKAGE_SLUG}}` → the slug) and the injected
+    deterministic block (the directory basename), so the suffix — like the body —
+    must be normalized away. The token distinguishes the three scanner sections
+    so an added/removed section still registers as a difference.
+    """
+    h = heading.strip()
+    if h == "## Narrative":
+        return "\x00scanner:narrative\x00"
+    if h.startswith("## File map"):
+        return "\x00scanner:filemap\x00"
+    # `_is_scanner_owned_heading` guarantees the only remaining case.
+    return "\x00scanner:referenced\x00"
+
+
+def _normalize_scanner_bodies(body: str) -> str:
+    """Return `body` with every scanner-owned section (heading + body) replaced
+    by a constant token, leaving the preamble and human sections verbatim.
+
+    Used by `_equal_modulo_scanner`: two bodies that differ only inside scanner
+    sections (or in the `## File map` heading suffix) normalize to the same text.
+    """
+    preamble, sections = _split_h2_sections(body)
+    parts = [preamble]
+    for heading, chunk in sections:
+        if _is_scanner_owned_heading(heading):
+            parts.append(_scanner_section_token(heading) + "\n")
+        else:
+            parts.append(chunk)
+    return "".join(parts)
+
+
+def _equal_modulo_scanner(old_text: str, new_text: str) -> bool:
+    """True iff two full page texts are equal once scanner-owned section bodies
+    are normalized out: identical frontmatter (compared in full), identical
+    preamble, identical human sections, and the same set/order of scanner
+    sections (their bodies and `## File map` heading suffixes ignored).
+
+    Conservative on any parse failure → returns False (caller writes the page).
+    """
+    try:
+        old_post = frontmatter.loads(old_text)
+        new_post = frontmatter.loads(new_text)
+    except Exception:  # noqa: BLE001 — a malformed page must fall back to "write"
+        return False
+    if dict(old_post.metadata) != dict(new_post.metadata):
+        return False
+    return _normalize_scanner_bodies(old_post.content) == _normalize_scanner_bodies(
+        new_post.content
+    )
+
+
 def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
     """Merge human-owned sections from ``existing_body`` into ``template_body``.
 
