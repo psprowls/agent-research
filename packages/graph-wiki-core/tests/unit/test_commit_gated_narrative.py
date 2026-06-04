@@ -126,6 +126,29 @@ def _seed_one_package(db_path: Path) -> None:
         conn.close()
 
 
+def _seed_two_packages(db_path: Path) -> None:
+    """Graph with two package nodes pkg-a and pkg-b under packages/."""
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', "
+            "'pkg:org/repo/pkg-a')"
+        )
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-b', 'packages/pkg-b', NULL, '{\"language\": \"python\"}', "
+            "'pkg:org/repo/pkg-b')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def m2a_workspace(tmp_path, monkeypatch):
     workspace = tmp_path / "workspace"
@@ -172,14 +195,52 @@ def _narrate_all_spy(prose_fn):
 
 
 _PKG_A = "pkg:org/repo/pkg-a"
+_PKG_B = "pkg:org/repo/pkg-b"
 
 
-def _page_for(wiki: Path):
+def _page_for_uri(wiki: Path, uri: str):
     return next(
         p
         for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == _PKG_A
+        if _fm.load(p).metadata.get("uri") == uri
     )
+
+
+def _page_for(wiki: Path):
+    return _page_for_uri(wiki, _PKG_A)
+
+
+@pytest.fixture
+def m2a_workspace_two(tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    (wiki / ".graph-wiki").mkdir(parents=True)
+    (wiki / "CLAUDE.md").write_text("# Wiki\n")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    repo.mkdir()
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    _seed_two_packages(workspace / ".graph" / "code.db")
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
+    )
+    monkeypatch.setattr(
+        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
+    )
+
+    # Per-package deterministic file map for either pkg-a or pkg-b paths.
+    def _file_map(path, **kw):
+        for slug in ("pkg-a", "pkg-b"):
+            if str(path).endswith(slug):
+                return (
+                    f"## File map - {slug}\nTODO\n\n### {slug}/\nTODO\n\n"
+                    "| Path | Kind | Description |\n|---|---|---|\n"
+                    "| `pyproject.toml` | file | — TODO |\n"
+                )
+        return None
+
+    monkeypatch.setattr(scan_mod, "build_file_map", _file_map)
+    return workspace
 
 
 def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
@@ -270,3 +331,56 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     final = _page_for(wiki).read_text(encoding="utf-8")
     assert "SECOND prose for pkg:org/repo/pkg-a" in final  # refreshed, not restored
     assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head2"
+
+
+def test_mixed_scan_refreshes_changed_preserves_unchanged(
+    m2a_workspace_two, monkeypatch
+) -> None:
+    """Two packages in one scan: pkg-a's files changed since its anchor (refresh
+    + restamp to head2); pkg-b's did not (preserve old prose + keep head1)."""
+    workspace = m2a_workspace_two
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    prose_tag = {"v": "FIRST"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
+    )
+
+    # Scan 1 at head1: both packages narrated and anchored to head1.
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    for uri in (_PKG_A, _PKG_B):
+        page = _page_for_uri(wiki, uri)
+        assert f"FIRST prose for {uri}" in page.read_text(encoding="utf-8")
+        assert _fm.load(page).metadata.get("last_updated_commit") == "head1"
+
+    # Scan 2 at head2: only pkg-a's subpath changed since head1; pkg-b is clean.
+    heads["v"] = "head2"
+    prose_tag["v"] = "SECOND"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: (
+            ["packages/pkg-a/x.py"] if str(sub).endswith("pkg-a") else []
+        ),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+
+    # pkg-a: refreshed with new prose, anchor advanced to head2.
+    page_a = _page_for_uri(wiki, _PKG_A)
+    text_a = page_a.read_text(encoding="utf-8")
+    assert f"SECOND prose for {_PKG_A}" in text_a
+    assert _fm.load(page_a).metadata.get("last_updated_commit") == "head2"
+
+    # pkg-b: preserved old prose, anchor NOT advanced, no placeholder bleed.
+    page_b = _page_for_uri(wiki, _PKG_B)
+    text_b = page_b.read_text(encoding="utf-8")
+    assert f"FIRST prose for {_PKG_B}" in text_b
+    assert "SECOND prose" not in text_b
+    assert "_(scanner will populate on next scan)_" not in text_b
+    assert _fm.load(page_b).metadata.get("last_updated_commit") == "head1"
