@@ -266,6 +266,7 @@ import logging  # noqa: E402
 import os  # noqa: E402
 import re  # noqa: E402
 import sqlite3  # noqa: E402
+from collections.abc import Iterable  # noqa: E402
 from contextlib import contextmanager  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
 from importlib.resources import files as _resource_files  # noqa: E402
@@ -698,6 +699,37 @@ def set_frontmatter_value(page_path: Path, key: str, value: str) -> None:
     post = frontmatter.load(page_path)  # raises FileNotFoundError naturally
     fm = dict(post.metadata)
     fm[key] = value
+    new_content = _render_page_text(fm, post.content)
+    tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp_path.write_text(new_content, encoding="utf-8")
+    os.replace(tmp_path, page_path)
+
+
+def update_frontmatter(
+    page_path: Path,
+    updates: dict[str, object] | None = None,
+    *,
+    delete: Iterable[str] = (),
+) -> None:
+    """Apply frontmatter `updates` and key `delete`s in one atomic read-modify-write.
+
+    Structured sibling of `set_frontmatter_value` (which is scalar-string only):
+    `updates` values may be any YAML-serializable object (e.g. the `drift_review`
+    list-of-dicts); `delete` removes keys (e.g. dropping `drift_review` when its
+    last flag clears). Body bytes and the canonical dump convention are preserved
+    via `_render_page_text`, so a subsequent `write_entities` re-render is
+    byte-identical. New keys append last (matching `merge_frontmatter`'s placement
+    of non-scanner keys). Writes atomically via temp file + `os.replace`.
+
+    Raises:
+        FileNotFoundError: when `page_path` does not exist.
+    """
+    post = frontmatter.load(page_path)  # raises FileNotFoundError naturally
+    fm = dict(post.metadata)
+    for key, value in (updates or {}).items():
+        fm[key] = value
+    for key in delete:
+        fm.pop(key, None)
     new_content = _render_page_text(fm, post.content)
     tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
     tmp_path.write_text(new_content, encoding="utf-8")
