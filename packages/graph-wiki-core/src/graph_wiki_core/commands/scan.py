@@ -557,7 +557,7 @@ def _commit_dirty_changes(
     head: str | None,
     collision_set: frozenset[str],
 ) -> dict[str, list[str] | None]:
-    """Map `package`/`app`/`test_suite` URIs whose files changed since the commit
+    """Map `package`/`app`/`test_suite`/`agent_plugin` URIs whose files changed since the commit
     recorded on their page (`last_updated_commit`) to the changed-file list.
 
     Keys are the dirty URIs (so ``result.keys()`` is the M2a "needs
@@ -571,7 +571,7 @@ def _commit_dirty_changes(
     if head is None or conn is None:
         return dirty
     list_fns = _kind_list_fns()
-    for kind in ("package", "app", "test_suite"):
+    for kind in ("package", "app", "test_suite", "agent_plugin"):
         list_fn = list_fns.get(kind)
         if list_fn is None:
             continue
