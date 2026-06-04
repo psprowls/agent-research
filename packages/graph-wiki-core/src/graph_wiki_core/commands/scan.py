@@ -113,11 +113,11 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
     on-disk `## File map` section, keyed by package-root path.
 
     Returns ``{}`` when the page is missing, malformed, or has no filled rows.
-    PTO replacement for the pre-scan `_snapshot_file_map_descriptions` pass:
-    under preserve-then-overwrite, `write_entities` no longer resets the
-    File-map body, so at Step 10b injection time the page still holds the
-    descriptions a prior scan filled — read them live here instead of
-    snapshotting every page before the write.
+    PTO replacement for the old pre-scan File-map snapshot pass: under
+    preserve-then-overwrite, `write_entities` no longer resets the File-map
+    body, so at Step 10b injection time the page still holds the descriptions a
+    prior scan filled — read them live here instead of snapshotting every page
+    before the write.
     """
     try:
         post = frontmatter.load(page_path)

@@ -1340,11 +1340,10 @@ def inject_file_map(
 
     The block carries deterministic `path` + `kind` rows with `— TODO`
     Description placeholders. When ``preserved`` is provided (a
-    ``{package_root_path: description}`` map, typically snapshotted from the
-    page's pre-scan File map before ``write_entities`` reset the body), each
-    row whose path still appears in the block has its `— TODO` Description
-    restored from the map. New paths keep `— TODO`, to be filled by the
-    code-reader pass.
+    ``{package_root_path: description}`` map, live-sourced under PTO from the
+    page's current File map at inject time), each row whose path still appears
+    in the block has its `— TODO` Description restored from the map. New paths
+    keep `— TODO`, to be filled by the code-reader pass.
 
     Idempotent: the deterministic block is stable for a fixed file tree, so a
     second call with the same block (and same ``preserved``) produces
