@@ -397,3 +397,45 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(
     assert "SECOND prose" not in text_b
     assert "_(scanner will populate on next scan)_" not in text_b
     assert _fm.load(page_b).metadata.get("last_updated_commit") == "head1"
+
+
+def test_commit_dirty_includes_test_suite(tmp_path, monkeypatch) -> None:
+    """[M2c #4] A test_suite page with an anchor whose files changed since it
+    appears in the commit-dirty map (previously the kind loop skipped suites)."""
+    import types
+
+    from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, short_filename
+
+    wiki = tmp_path / "wiki"
+    uri = "test_suite:org/repo/pkg-a/tests"
+    suite_path = "packages/pkg-a/tests"
+    node = types.SimpleNamespace(
+        attrs={"uri": uri, "suite_kind": "unit", "path": suite_path},
+        path=suite_path,
+        name="pkg-a-unit-tests",
+        kind="test_suite",
+    )
+    stem = short_filename(uri, frozenset(), suite_kind="unit", pkg_for_suite="pkg-a")
+    page = wiki / "entities" / f"{stem}.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        f"---\nuri: {uri}\nkind: test_suite\n{LAST_UPDATED_COMMIT_KEY}: anchor_sha\n"
+        f"---\n# {uri}\n\n## Narrative\nprose\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        scan_mod, "_kind_list_fns",
+        lambda: {
+            "package": lambda conn: [],
+            "app": lambda conn: [],
+            "test_suite": lambda conn: [node],
+        },
+    )
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
+    )
+    dirty = scan_mod._commit_dirty_changes(
+        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
+    )
+    assert dirty == {uri: ["packages/pkg-a/tests/test_mod.py"]}
