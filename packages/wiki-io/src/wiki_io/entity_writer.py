@@ -1080,6 +1080,30 @@ _NARRATIVE_HEADING_RE = re.compile(r"^## Narrative[ \t]*\n", re.MULTILINE)
 # narrative body region).
 _NEXT_H2_RE = re.compile(r"^## ", re.MULTILINE)
 
+# Living Wiki M2a: the entity templates' `## Narrative` placeholder. A section
+# equal to this (or empty) is treated as "no prose" by extract_narrative.
+_NARRATIVE_PLACEHOLDER = "_(scanner will populate on next scan)_"
+
+
+def extract_narrative(text: str) -> str | None:
+    """Return the stripped body of the `## Narrative` section, or None when the
+    section is missing, empty, or still the template placeholder.
+
+    Used by the scan pipeline to snapshot narrated prose before `write_entities`
+    re-renders the page (which resets this scanner-owned section), and to guard
+    the restore step from overwriting freshly-injected prose.
+    """
+    match = _NARRATIVE_HEADING_RE.search(text)
+    if match is None:
+        return None
+    body_start = match.end()
+    next_h2 = _NEXT_H2_RE.search(text, body_start)
+    body_end = next_h2.start() if next_h2 is not None else len(text)
+    body = text[body_start:body_end].strip()
+    if not body or body == _NARRATIVE_PLACEHOLDER:
+        return None
+    return body
+
 
 def inject_narrative(page_path: Path, prose: str) -> None:
     """Replace the body of the `## Narrative` section with `prose`.
