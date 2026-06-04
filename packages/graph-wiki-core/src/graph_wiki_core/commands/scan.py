@@ -144,6 +144,33 @@ def _snapshot_file_map_descriptions(wiki: Path) -> dict[str, dict[str, str]]:
     return snapshot
 
 
+def _snapshot_narratives(wiki: Path) -> dict[str, str]:
+    """Snapshot non-placeholder `## Narrative` prose from existing entity pages,
+    keyed by URI, BEFORE write_entities resets page bodies to template.
+
+    Mirrors `_snapshot_file_map_descriptions`: the M1 heading-aware merge resets
+    the scanner-owned `## Narrative` to the template placeholder on every
+    re-render, so prior narrated prose must be captured here and restored after
+    write_entities for entities not re-narrated this scan (M2a persistence).
+    """
+    snapshot: dict[str, str] = {}
+    entities_dir = wiki / "entities"
+    if not entities_dir.is_dir():
+        return snapshot
+    for page_path in entities_dir.glob("*.md"):
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+            continue
+        uri = post.metadata.get("uri")
+        if not uri:
+            continue
+        prose = extract_narrative(post.content)
+        if prose:
+            snapshot[uri] = prose
+    return snapshot
+
+
 # ---------------------------------------------------------------------------
 # Local helper: pick_representative
 # ---------------------------------------------------------------------------
@@ -733,8 +760,10 @@ async def run_scan(
         # Keyed by URI so Step 10b can merge them back into the deterministic
         # block, preserving expensive code-reader descriptions across rescans.
         prior_file_map_descs: dict[str, dict[str, str]] = {}
+        prior_narratives: dict[str, str] = {}
         if conn is not None:
             prior_file_map_descs = _snapshot_file_map_descriptions(wiki)
+            prior_narratives = _snapshot_narratives(wiki)
 
         if conn is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
@@ -833,6 +862,34 @@ async def run_scan(
             for err in narrator_result.errors:
                 uri_inner, _kind_inner, _node_inner = err.item
                 narrator_errors.append(f"{uri_inner}: {err.exception!r}")
+
+        # M2a narrative persistence: restore prior narrative prose for entities
+        # NOT re-narrated this scan. write_entities reset every `## Narrative` to
+        # the template placeholder (M1 heading-aware merge); without this, prose
+        # injected on a prior scan would be wiped whenever the entity is not in
+        # needs_narrative. Runs in narrate and --no-narrate scans alike (D-F);
+        # never clobbers fresh prose (D-G).
+        if conn is not None and prior_narratives:
+            narrated_set = set(entities_narrated)
+            for page_path in sorted((wiki / "entities").glob("*.md")):
+                try:
+                    post = frontmatter.load(page_path)
+                except Exception:  # noqa: BLE001
+                    continue
+                restore_uri = post.metadata.get("uri")
+                if not restore_uri or restore_uri in narrated_set:
+                    continue
+                prose = prior_narratives.get(restore_uri)
+                if not prose:
+                    continue
+                if extract_narrative(post.content) is not None:
+                    continue  # already carries real prose — don't clobber (D-G)
+                try:
+                    inject_narrative(page_path, prose)
+                except Exception as exc:  # noqa: BLE001 — non-fatal restore
+                    logger.warning(
+                        "narrative restore failed for %s: %s", restore_uri, exc
+                    )
 
         # Step 10b: deterministic File-map injection (faithful port of the
         # plugin scanner-agent step). For every `package`/`app` entity page that
