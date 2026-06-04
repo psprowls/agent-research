@@ -339,3 +339,36 @@ def test_ack_drift_unknown_entity_raises(ws):
 
     with pytest.raises(ValueError):
         run_ack_drift("pkg:does/not/exist", workspace_path=ws)
+
+
+def test_agent_plugin_judged_without_file_map(ws, monkeypatch):
+    """[§5.9] an agent_plugin page (narrative present, NO file map) has its human
+    sections judged against its narrative; file_map passed to the judge is None;
+    a stale verdict flags it."""
+    wiki = ws / "wiki"
+    (wiki / "entities").mkdir(parents=True, exist_ok=True)
+    page = wiki / "entities" / "agent-plugin-foo.md"
+    page.write_text(
+        "---\nuri: agent_plugin:org/repo/foo\nkind: agent_plugin\n"
+        "last_updated_commit: head1\n---\n"
+        "# foo\n\n## Narrative\nProvides three slash commands via async hooks.\n\n"
+        "## Commands\nExposes a single synchronous command.\n",
+        encoding="utf-8",
+    )
+
+    captured: dict = {}
+
+    def _verdict(item):
+        # item = (page_path, anchor, heading, chunk, narrative, file_map)
+        captured["file_map"] = item[5]
+        captured["heading"] = item[2]
+        return {"stale": True, "reason": "command count drifted"}
+
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(_verdict))
+    asyncio.run(scan_mod._drift_flag_pass(wiki, None))
+
+    assert captured["file_map"] is None      # agent_plugin has no File map
+    assert captured["heading"] == "## Commands"
+    meta = _fm.load(page).metadata
+    assert meta["drift_checked_commit"] == "head1"
+    assert meta["drift_review"][0]["section"] == "Commands"

@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import frontmatter
-
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.entity_writer import update_frontmatter
 
