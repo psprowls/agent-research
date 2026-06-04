@@ -545,6 +545,18 @@ def _is_scanner_owned_heading(heading: str) -> bool:
     )
 
 
+# Living Wiki agent-plugin parity (D1): scanner-DATA sections — deterministic
+# graph projections rendered into the template every scan. Unlike scanner-prose
+# / scanner-filemap (preserved then overwritten by an inject post-pass), these
+# are template-authoritative: the merge keeps the freshly-rendered template body
+# and never sources them from disk, so they can never freeze. These headings
+# appear only on the agent_plugin template.
+SCANNER_DATA_HEADINGS: frozenset[str] = frozenset({
+    "## Commands", "## Agents", "## Skills",
+    "## Scripts", "## Hooks", "## MCP servers",
+})
+
+
 def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
     """Split a page body into ``(preamble, [(heading, chunk), ...])``.
 
@@ -602,6 +614,10 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
     present only in ``existing_body`` (user-added) are appended in their
     original order. The preamble (H1 + intro) always comes from the template.
 
+    Scanner-data sections (``SCANNER_DATA_HEADINGS``) are template-authoritative:
+    never sourced from ``existing_body``, always taken from the freshly-rendered
+    ``template_body``, and excluded from the user-trailing pass.
+
     Idempotent: ``_merge_preserved_sections(t, t) == t`` because the split is
     lossless and each section round-trips (scanner by type, human by heading).
     """
@@ -615,6 +631,8 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
             existing_scanner_by_token.setdefault(
                 _scanner_section_token(heading), chunk
             )  # first occurrence wins
+        elif heading in SCANNER_DATA_HEADINGS:
+            continue  # template-authoritative; never sourced from the on-disk page
         else:
             existing_by_heading.setdefault(heading, chunk)  # first occurrence wins
 
@@ -627,6 +645,8 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
             # PTO: preserve the existing same-type scanner body; else placeholder.
             token = _scanner_section_token(heading)
             out.append(existing_scanner_by_token.get(token, chunk))
+        elif heading in SCANNER_DATA_HEADINGS:
+            out.append(chunk)  # always the fresh graph render
         elif heading in existing_by_heading:
             out.append(existing_by_heading[heading])
             consumed.add(heading)
@@ -639,6 +659,7 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
             heading in template_headings
             or heading in consumed
             or _is_scanner_owned_heading(heading)
+            or heading in SCANNER_DATA_HEADINGS
         ):
             continue
         consumed.add(heading)

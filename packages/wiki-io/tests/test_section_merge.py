@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import frontmatter
+
 from wiki_io.entity_writer import (
+    SCANNER_DATA_HEADINGS,
     _is_scanner_owned_heading,
     _merge_preserved_sections,
     _split_h2_sections,
+    _template_path_for_kind,
 )
 
 
@@ -159,3 +163,97 @@ def test_reconcile_user_added_section_trails() -> None:
     assert "## My Notes" in out
     assert "custom" in out
     assert out.index("## Purpose") < out.index("## My Notes")   # trails template
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki agent_plugin M2 parity (D1): SCANNER_DATA_HEADINGS tests
+# ---------------------------------------------------------------------------
+
+# A minimal agent_plugin-style template body carrying the six data tables.
+_AGENT_PLUGIN_TEMPLATE = (
+    "# TestPlugin\n\n"
+    "## Narrative\n_(scanner will populate on next scan)_\n\n"
+    "## Referenced in wiki\n_(scanner will populate on next scan)_\n\n"
+    "## Purpose\n> TODO: fill me\n\n"
+    "## Commands\n| Command | Description |\n| --- | --- |\n| cmd-A | desc-A |\n| cmd-B | desc-B |\n\n"
+    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n| agent-1 | sonnet | t1 | Agent one |\n\n"
+    "## Skills\n| Skill | Description |\n| --- | --- |\n| skill-X | Skill X desc |\n\n"
+    "## Scripts\n| Script | Language |\n| --- | --- |\n| run.sh | bash |\n\n"
+    "## Hooks\n| Event | Matchers |\n| --- | --- |\n| PostToolUse | foo |\n\n"
+    "## MCP servers\n| Server | Command |\n| --- | --- |\n| srv | npx srv |\n\n"
+    "## How it fits together\n> TODO: relationships\n"
+)
+
+# Stale existing page: Commands has rows X,Y instead of A,B.
+_AGENT_PLUGIN_EXISTING_STALE = (
+    "# TestPlugin\n\n"
+    "## Narrative\nold prose\n\n"
+    "## Referenced in wiki\n- [[some-page]]\n\n"
+    "## Purpose\nHuman-written purpose.\n\n"
+    "## Commands\n| Command | Description |\n| --- | --- |\n| cmd-X | desc-X |\n| cmd-Y | desc-Y |\n\n"
+    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n| agent-old | haiku | t0 | Old agent |\n\n"
+    "## Skills\n| Skill | Description |\n| --- | --- |\n| skill-OLD | stale |\n\n"
+    "## Scripts\n| Script | Language |\n| --- | --- |\n| old.sh | bash |\n\n"
+    "## Hooks\n| Event | Matchers |\n| --- | --- |\n| OldEvent | bar |\n\n"
+    "## MCP servers\n| Server | Command |\n| --- | --- |\n| old-srv | npx old |\n\n"
+    "## How it fits together\n> TODO: relationships\n"
+)
+
+
+def test_scanner_data_regenerates_discards_stale_body() -> None:
+    """D1 test 1: scanner-data sections take the fresh template body; stale
+    on-disk rows are discarded."""
+    out = _merge_preserved_sections(_AGENT_PLUGIN_TEMPLATE, _AGENT_PLUGIN_EXISTING_STALE)
+    # Fresh rows from template
+    assert "cmd-A" in out
+    assert "cmd-B" in out
+    # Stale rows must NOT survive
+    assert "cmd-X" not in out
+    assert "cmd-Y" not in out
+
+
+def test_scanner_data_human_section_still_preserved() -> None:
+    """D1 test 2: human-owned sections (## Purpose) are preserved even when
+    scanner-data sections are refreshed."""
+    out = _merge_preserved_sections(_AGENT_PLUGIN_TEMPLATE, _AGENT_PLUGIN_EXISTING_STALE)
+    assert "Human-written purpose." in out
+    assert "> TODO: fill me" not in out  # template placeholder overwritten by human
+
+
+def test_scanner_data_user_added_h2_still_trails() -> None:
+    """D1 test 3: a user-added H2 not in the template survives and trails
+    the template sections even alongside scanner-data headings."""
+    existing_with_extra = _AGENT_PLUGIN_EXISTING_STALE + "## Notes\nmy notes here\n"
+    out = _merge_preserved_sections(_AGENT_PLUGIN_TEMPLATE, existing_with_extra)
+    assert "## Notes" in out
+    assert "my notes here" in out
+    # Must trail the last template section
+    assert out.index("## How it fits together") < out.index("## Notes")
+
+
+def test_scanner_data_idempotent() -> None:
+    """D1 test 4: merge(t, t) == t for an agent_plugin-style template body
+    carrying all six data tables."""
+    assert _merge_preserved_sections(_AGENT_PLUGIN_TEMPLATE, _AGENT_PLUGIN_TEMPLATE) == _AGENT_PLUGIN_TEMPLATE
+
+
+def test_scanner_data_headings_constant_and_in_template() -> None:
+    """D1 test 5: SCANNER_DATA_HEADINGS covers exactly the six table headings,
+    and every member is present as an H2 in the real agent_plugin template."""
+    assert SCANNER_DATA_HEADINGS == frozenset({
+        "## Commands", "## Agents", "## Skills",
+        "## Scripts", "## Hooks", "## MCP servers",
+    })
+    # Cross-check against the real template on disk.
+    template_path = _template_path_for_kind("agent_plugin")
+    template_body = frontmatter.load(template_path).content
+    template_h2s = {
+        line.strip()
+        for line in template_body.splitlines()
+        if line.startswith("## ")
+    }
+    for heading in SCANNER_DATA_HEADINGS:
+        assert heading in template_h2s, (
+            f"{heading!r} is in SCANNER_DATA_HEADINGS but not found as an H2 "
+            f"in the agent_plugin template. Template H2s: {template_h2s}"
+        )
