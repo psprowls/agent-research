@@ -1158,7 +1158,8 @@ async def run_scan(
             # commit-dirty-but-structurally-unchanged suite is still re-injected;
             # the preserved-drop re-queues changed rows as `— TODO`, and
             # re-described suites join redescribed_uris for the unified stamp.
-            if fm_targets:
+            # `not no_file_map` mirrors the package/app branch guard (D4 parity).
+            if fm_targets and not no_file_map:
                 for node in queries.list_test_suites(conn):
                     if not isinstance(node.attrs, dict):
                         continue

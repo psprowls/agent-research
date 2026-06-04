@@ -364,3 +364,130 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
 
     assert f"PROSE {_PLUGIN_URI} @ head1" in text
     assert meta.get("last_updated_commit") == "head1"
+
+
+# ---------------------------------------------------------------------------
+# Test 13 — advancing last_updated_commit activates M2e drift flagging
+# (Test 12 — D4 no-file-map suite guard — lives in test_scan_graph_integration.py)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_plugin_commit_advance_activates_drift_flagging(
+    plugin_workspace, monkeypatch
+) -> None:
+    """[Test 13] Advancing an agent_plugin's last_updated_commit (now possible
+    after Task 4 / commit-gate parity) activates M2e drift flagging for the
+    page's human sections.
+
+    Scenario:
+      Scan 1 (head1): plugin created + narrated + stamped; drift judge marks
+        all sections fresh (not-stale).
+      Add a curated human section (## How it fits together).
+      Scan 2 (head2): code changes -> re-narrate -> last_updated_commit
+        advances to head2; drift_checked_commit lags (was set to head1 by
+        scan 1). The drift flag pass fires, picks the page as a candidate
+        (last_updated_commit != drift_checked_commit), calls the judge on
+        the new human section, and stamps drift_checked_commit = head2.
+
+    This test proves the headline outcome of the parity milestone: the drift
+    machinery that was already gated on DRIFT_TARGET_KINDS (which includes
+    agent_plugin) activates automatically once the commit-gate is wired.
+    """
+    workspace = plugin_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    db_path = workspace / ".graph" / "code.db"
+
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+
+    # Spy covering all three roles. On scan 1, verdict_fn marks all not-stale.
+    verdict_fn = {"fn": lambda it: {"stale": False, "reason": ""}}
+    recorder: dict = {}
+
+    async def _full_spy(self, *, items, task, role, model_id, max_concurrency):
+        from subagent_runtime.pool import FanOutResult
+
+        result = FanOutResult()
+        if role == "narrator":
+            result.successes = [
+                (it, f"PROSE {it[0]} @ {heads['v']}") for it in items
+            ]
+        elif role == "code_reader":
+            result.successes = [
+                (it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
+            ]
+        elif role == "drift_judge":
+            recorder.setdefault("items", []).extend(items)
+            result.successes = [(it, verdict_fn["fn"](it)) for it in items]
+        return result
+
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _full_spy)
+
+    # --- Scan 1: plugin created, narrated, stamped at head1; judge runs ---
+    asyncio.run(
+        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
+    )
+    page = _page(wiki)
+    meta1 = _fm.load(page).metadata
+    assert meta1.get("last_updated_commit") == "head1"
+    assert meta1.get("drift_checked_commit") == "head1"  # scan 1 judge ran + stamped
+    assert "drift_review" not in meta1  # all sections fresh
+
+    # Human adds a curated section AFTER scan 1. Uses a heading that doesn't
+    # collide with template-seeded headings (## How it fits together).
+    text = page.read_text(encoding="utf-8")
+    page.write_text(
+        text.rstrip("\n") + "\n\n## How it fits together\nUsed by the CLI orchestrator.\n",
+        encoding="utf-8",
+    )
+
+    # --- Setup for scan 2: code changed; judge marks the new section stale ---
+    heads["v"] = "head2"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["plugins/demo/commands/alpha.md"],
+    )
+    verdict_fn["fn"] = lambda it: {"stale": True, "reason": "command semantics changed"}
+    recorder.clear()
+
+    # --- Scan 2: re-narrate advances last_updated_commit → drift gate fires ---
+    asyncio.run(
+        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
+    )
+    page = _page(wiki)
+    meta2 = _fm.load(page).metadata
+
+    # Commit-gate advanced the anchor to head2.
+    assert meta2.get("last_updated_commit") == "head2"
+
+    # Drift judge ran for the agent_plugin page (page is a drift candidate
+    # because drift_checked_commit was head1 but last_updated_commit is now head2).
+    drift_items = recorder.get("items", [])
+    plugin_items = [it for it in drift_items if it[0] == page]
+    assert plugin_items, (
+        f"drift judge was not called for agent_plugin page; drift_items={drift_items}"
+    )
+
+    # The curated section (## How it fits together) was judged.
+    judged_headings = {it[2] for it in plugin_items}
+    assert "## How it fits together" in judged_headings, (
+        f"curated section not judged; judged headings: {judged_headings}"
+    )
+
+    # drift_checked_commit was advanced to head2 (judge completed for this page).
+    assert meta2.get("drift_checked_commit") == "head2"
+
+    # drift_review was written because the stale verdict fired.
+    review = meta2.get("drift_review", [])
+    how_entry = next(
+        (e for e in review if e.get("section") == "How it fits together"), None
+    )
+    assert how_entry is not None, (
+        f"drift_review entry missing for 'How it fits together'; review={review}"
+    )
+    assert how_entry["detected_commit"] == "head2"
+    assert how_entry["reason"] == "command semantics changed"
