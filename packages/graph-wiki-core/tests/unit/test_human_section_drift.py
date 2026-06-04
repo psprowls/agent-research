@@ -287,3 +287,55 @@ def test_dependency_and_narrativeless_never_flagged(ws, monkeypatch):
     # Neither page ever produced a judge item.
     assert all(it[0] not in (dep, narrativeless)
                for it in rec.get("drift_items", []))
+
+
+def test_ack_drift_clears_without_edit(ws, monkeypatch):
+    """[§5.6] ack-drift removes all drift_review entries; a subsequent no-change
+    scan does not re-flag (drift_checked_commit already current)."""
+    from graph_wiki_core.commands.ack_drift import run_ack_drift
+
+    wiki = ws / "wiki"
+    repo = ws / "repo"
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": False, "reason": ""}))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    page = _page_for(wiki)
+    _add_human_section(page, "## Behavior", "Processes items synchronously.")
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
+    )
+    monkeypatch.setattr(scan_mod, "changed_files_since",
+                        lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _spy(lambda it: {"stale": True, "reason": "now async"}
+             if it[2] == "## Behavior" else {"stale": False, "reason": ""}),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata.get("drift_review")
+
+    # Ack by URI -> flags cleared, prose untouched.
+    result = run_ack_drift(_PKG_A, workspace_path=ws)
+    assert result.cleared == 1
+    meta = _fm.load(_page_for(wiki)).metadata
+    assert "drift_review" not in meta
+    assert "Processes items synchronously." in _page_for(wiki).read_text(encoding="utf-8")
+
+    # No-change re-scan -> not re-flagged (checked-commit already == anchor).
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": True, "reason": "x"}))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert "drift_review" not in _fm.load(_page_for(wiki)).metadata
+
+
+def test_ack_drift_unknown_entity_raises(ws):
+    from graph_wiki_core.commands.ack_drift import run_ack_drift
+
+    with pytest.raises(ValueError):
+        run_ack_drift("pkg:does/not/exist", workspace_path=ws)
