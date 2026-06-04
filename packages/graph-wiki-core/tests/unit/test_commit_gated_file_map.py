@@ -344,3 +344,38 @@ def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) 
     assert "D2:util.py" in t2       # both rows re-described
     assert "D1:util.py" not in t2
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
+
+
+def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> None:
+    """A --no-narrate rescan with a changed file refreshes structure but does
+    NOT drop/re-describe rows and NOT move the anchor. [spec test 7]"""
+    workspace = m2b_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    desc_tag = {"v": "D1"}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool, "run_all",
+        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+    )
+    # Scan 1 (narrate) fills rows + stamps head1.
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
+
+    # Scan 2 (--no-narrate) at head2 with mod.py changed.
+    heads["v"] = "head2"
+    desc_tag["v"] = "D2"
+    monkeypatch.setattr(
+        scan_mod, "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
+    t2 = _page(wiki).read_text(encoding="utf-8")
+    assert "D1:mod.py" in t2        # NOT re-described (cost cache intact)
+    assert "D2:mod.py" not in t2
+    assert "D1:util.py" in t2
+    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
