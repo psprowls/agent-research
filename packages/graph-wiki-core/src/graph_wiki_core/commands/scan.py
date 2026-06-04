@@ -539,6 +539,26 @@ def _entity_page_path(
     return wiki / "entities" / f"{stem}.md"
 
 
+def _changed_rel_paths(changed: list[str], node_path: str) -> set[str]:
+    """Relativize repo-relative changed paths to package-root-relative keys.
+
+    `changed_files_since` returns repo-relative paths (e.g.
+    ``packages/foo/src/bar.py``); the File-map ``preserved`` dict is keyed by
+    package-root-relative paths (e.g. ``src/bar.py``, see
+    ``_extract_file_map_descriptions``). This maps the former to the latter so
+    the preserved-drop's set-matching works. Paths not under ``node_path`` are
+    silently dropped — they cannot match a row in this page's File map (§3.3).
+    """
+    base = Path(node_path)
+    rel: set[str] = set()
+    for p in changed:
+        try:
+            rel.add(str(Path(p).relative_to(base)))
+        except ValueError:
+            continue
+    return rel
+
+
 def _commit_dirty_uris(
     wiki: Path,
     repo: Path,
