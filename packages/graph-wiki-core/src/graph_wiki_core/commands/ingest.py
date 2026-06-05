@@ -708,29 +708,38 @@ async def run_ingest_source(
         )
         llm_output: str = resp.content
 
-        # Step 6: parse response to get page_type and target_slug
+        # Step 6: parse response to get source_kind and target_slug.
+        # M3 Part A: classification is DECOUPLED from routing. Every ingested
+        # doc becomes a Source page; `source_kind` is descriptive only and
+        # defaults to "unknown" on a parse miss (empty fm).
         fm, _body = _parse_ingestor_response(llm_output)
-        page_type = str(fm.get("page_type", "concept")).lower()
-        if page_type not in _PAGE_TYPE_DIRS:
-            page_type = "concept"
+        frontmatter_parsed = bool(fm)  # False ⟺ parse miss (spec §3.5)
+        source_kind = str(fm.get("source_kind", "")).strip().lower() or "unknown"
 
         target_slug = str(fm.get("target_slug", "")).strip()
         # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
         target_slug = slugify(target_slug) if target_slug else slug
 
-        # Step 7: write page
-        target_path = _route_target_path(wiki, page_type, target_slug)
+        # Step 7: write page. D1 — always route to sources/ (page_type fixed to
+        # "source"; _route_target_path keeps the path-traversal safety check).
+        target_path = _route_target_path(wiki, "source", target_slug)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        # Reconcile target_slug in the body with the on-disk filename slug.
-        # _route_target_path uses slugify(target_slug); if that differs from
-        # what the LLM wrote, rewrite the body's `target_slug:` line to match.
-        # Also handles the case where the LLM omitted target_slug entirely
-        # (we fell back to slugify(title)) — write that fallback into the body.
         canonical_slug = target_path.stem
+
+        # D3 synthesize-frontmatter rule: when the LLM emitted NO frontmatter at
+        # all, the body-mutation helpers below would no-op — prepend a minimal
+        # block so the unknown-kind Source page lands with its metadata.
+        if not frontmatter_parsed and not llm_output.lstrip().startswith("---"):
+            llm_output = _synthesize_frontmatter_block(
+                llm_output, source_kind, canonical_slug, canonical_uri
+            )
+
+        # Reconcile target_slug in the body with the on-disk filename slug, write
+        # entity_uri (null when no graph match), and stamp source_kind. All three
+        # helpers are idempotent and preserve comments/order.
         llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
-        # D-05/D-06: write entity_uri frontmatter on every successful ingest.
-        # null when no graph match; full URI when matched.
         llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
+        llm_output = _set_source_kind_in_body(llm_output, source_kind)
         # Write the file first so it is part of the "known pages" set when
         # resolving self-references in the body (e.g. an ADR linking to
         # itself or a sibling created earlier in the same ingest).
@@ -769,10 +778,13 @@ async def run_ingest_source(
             page_path=page_path_rel,
             slug=target_slug,
             title=title_guess,
-            page_type=page_type,
+            page_type="source",  # D1: run_ingest_source always files under sources/
             source_path=str(source_path),
             cross_refs_updated=1,
             entity_uri=canonical_uri,
+            source_kind=source_kind,
+            stripped_wikilinks=stripped_wikilinks,
+            frontmatter_parsed=frontmatter_parsed,
         )
     finally:
         try:

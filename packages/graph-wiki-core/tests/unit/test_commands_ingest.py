@@ -98,7 +98,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     wiki.mkdir()
     (wiki / "log.md").write_text("", encoding="utf-8")
 
-    fake_llm_response = "---\npage_type: concept\ntarget_slug: foo\ntitle: My Source\ncategory: concept\nsummary: A test concept\n---\n\nBody text here."
+    fake_llm_response = "---\nsource_kind: source\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
 
     _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
@@ -117,13 +117,11 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
 
         result = await run_ingest_source(source_file, wiki)
 
-    # Page should be written under concepts/foo.md
-    expected_page = wiki / "concepts" / "foo.md"
+    # M3: every ingested doc lands under sources/.
+    expected_page = wiki / "sources" / "foo.md"
     assert expected_page.exists(), f"Expected page at {expected_page}"
-    # Phase 40: body now also contains an entity_uri: null line (no graph match);
-    # use substring assertions rather than strict equality.
     written_body = expected_page.read_text(encoding="utf-8")
-    assert "page_type: concept" in written_body
+    assert "source_kind: source" in written_body
     assert "target_slug: foo" in written_body
     assert "entity_uri: null" in written_body
     assert "Body text here." in written_body
@@ -136,8 +134,10 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     assert isinstance(result, IngestResult)
     assert result.status == "ok"
     assert result.slug == "foo"
-    assert result.page_type == "concept"
-    assert "concepts/foo.md" in result.page_path
+    assert result.page_type == "source"
+    assert result.source_kind == "source"
+    assert result.frontmatter_parsed is True
+    assert "sources/foo.md" in result.page_path
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +503,7 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
         result = await run_ingest_source(source_file, wiki)
 
     # Determine the actual on-disk path; assert filename slug == body target_slug
-    written_path = wiki / "concepts" / f"{result.slug}.md"
+    written_path = wiki / "sources" / f"{result.slug}.md"
     assert written_path.exists(), f"expected page at {written_path}"
     written_body = written_path.read_text(encoding="utf-8")
     assert f"target_slug: {result.slug}" in written_body, (
@@ -610,7 +610,7 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
 
         result = await run_ingest_source(source_file, wiki)
 
-    written = (wiki / "concepts" / "my-page.md").read_text(encoding="utf-8")
+    written = (wiki / "sources" / "my-page.md").read_text(encoding="utf-8")
     assert "[[real-thing]]" in written
     assert "[[Hallucinated Person]]" not in written
     assert "Hallucinated Person" in written  # label preserved
@@ -618,7 +618,8 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
     call_args = mock_append_log.call_args
     detail = call_args.kwargs.get("detail") or (call_args.args[3] if len(call_args.args) >= 4 else "")
     assert "stripped 1" in detail or "stripped 1 unresolved" in detail
-    assert result.page_type == "concept"
+    assert result.page_type == "source"
+    assert result.stripped_wikilinks == ["Hallucinated Person"]
 
 
 # ===========================================================================
@@ -807,7 +808,7 @@ async def test_run_ingest_source_name_match_sets_uri_without_entity_link(
 
     assert result.entity_uri == canonical_uri
     assert result.slug == "some-other-thing"  # LLM slug preserved (no forcing)
-    written = (wiki / "concepts" / "some-other-thing.md").read_text(encoding="utf-8")
+    written = (wiki / "sources" / "some-other-thing.md").read_text(encoding="utf-8")
     assert f"entity_uri: {canonical_uri}" in written
     assert "[[entities/" not in written  # cls: has no entity page → no link
 
@@ -852,7 +853,7 @@ async def test_run_ingest_source_no_match_writes_null_entity_uri(
         result = await run_ingest_source(source_file, workspace)
 
     assert result.entity_uri is None
-    written = (wiki / "concepts" / "my-thing.md").read_text(encoding="utf-8")
+    written = (wiki / "sources" / "my-thing.md").read_text(encoding="utf-8")
     assert "entity_uri: null" in written
 
 
@@ -904,7 +905,7 @@ async def test_run_ingest_source_multi_match_warns_and_falls_back(
 
     captured = capsys.readouterr()
     assert "matches multiple graph nodes" in captured.err
-    written = (wiki / "concepts" / "helper.md").read_text(encoding="utf-8")
+    written = (wiki / "sources" / "helper.md").read_text(encoding="utf-8")
     assert "entity_uri: null" in written
     assert result.entity_uri is None
 
@@ -1090,6 +1091,139 @@ def test_set_source_kind_in_body_inserts_and_is_idempotent() -> None:
 
     # No frontmatter -> unchanged.
     assert _set_source_kind_in_body("no frontmatter here", "unknown") == "no frontmatter here"
+
+
+# ---------------------------------------------------------------------------
+# M3: always-Source routing even when the LLM claims adr/concept
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_always_routes_to_sources_even_if_llm_says_adr(
+    tmp_path: Path,
+) -> None:
+    """An LLM response claiming page_type: adr still lands under sources/."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "src.md"
+    source_file.write_text("# A Decision\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    # LLM claims adr AND emits a descriptive source_kind.
+    fake_llm_response = (
+        "---\n"
+        "title: A Decision\n"
+        "page_type: adr\n"
+        "source_kind: source\n"
+        "target_slug: a-decision\n"
+        "summary: x\n"
+        "---\n"
+        "Body."
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    assert (wiki / "sources" / "a-decision.md").exists()
+    assert not (wiki / "adrs").exists() or not any((wiki / "adrs").iterdir())
+    assert result.page_type == "source"
+    assert result.source_kind == "source"
+    assert result.frontmatter_parsed is True
+    assert "sources/a-decision.md" in result.page_path
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_no_frontmatter_synthesizes_unknown(
+    tmp_path: Path,
+) -> None:
+    """LLM emits a body with NO frontmatter -> synthesized block lands with
+    source_kind: unknown, target_slug + entity_uri present, frontmatter_parsed False."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "raw-notes.md"
+    source_file.write_text("# Raw Notes\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    # No --- block at all.
+    fake_llm_response = "Just some prose the model emitted, no frontmatter whatsoever."
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    # Slug falls back to slugify(title) == "raw-notes".
+    written = (wiki / "sources" / "raw-notes.md").read_text(encoding="utf-8")
+    assert "source_kind: unknown" in written
+    assert "target_slug: raw-notes" in written  # synthesis ran BEFORE the body helpers
+    assert "entity_uri: null" in written
+    assert "Just some prose" in written
+    assert result.page_type == "source"
+    assert result.source_kind == "unknown"
+    assert result.frontmatter_parsed is False
+    assert "sources/raw-notes.md" in result.page_path
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_surfaces_stripped_wikilinks_in_result(
+    tmp_path: Path,
+) -> None:
+    """Hallucinated [[links]] are reported in IngestResult.stripped_wikilinks."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "concepts" / "real-thing.md").write_text("# Real", encoding="utf-8")
+    source_file = workspace / "src.md"
+    source_file.write_text("# Src\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    fake_llm_response = (
+        "---\n"
+        "title: My Page\n"
+        "source_kind: source\n"
+        "target_slug: my-page\n"
+        "summary: x\n"
+        "---\n"
+        "Refers to [[real-thing]] and to [[Hallucinated Person]]."
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+
+        result = await run_ingest_source(source_file, workspace)
+
+    assert result.stripped_wikilinks == ["Hallucinated Person"]
+    assert result.frontmatter_parsed is True
+    assert result.source_kind == "source"
 
 
 def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
