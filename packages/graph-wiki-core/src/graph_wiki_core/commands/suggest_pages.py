@@ -192,3 +192,71 @@ def merge_suggested_pages(existing: list[dict], proposals: list[dict]) -> list[d
         result.append(_ordered_entry(appended))
 
     return result
+
+
+def _split_frontmatter(text: str) -> tuple[str, str, str] | None:
+    """Return (lead_ws, fm_block, rest) where rest starts with '\\n---', or None.
+
+    Reassembly is exactly: lead + '---\\n' + fm_block + rest.
+    """
+    s = text.lstrip()
+    lead = text[: len(text) - len(s)]
+    if not s.startswith("---"):
+        return None
+    after = s[3:].lstrip("\n")
+    idx = after.find("\n---")
+    if idx == -1:
+        return None
+    return lead, after[:idx], after[idx:]
+
+
+def read_suggested_pages(text: str) -> list[dict]:
+    """Return the `suggested_pages` list from the page frontmatter, or []."""
+    parts = _split_frontmatter(text)
+    if parts is None:
+        return []
+    _lead, block, _rest = parts
+    try:
+        fm = yaml.safe_load(block)
+    except yaml.YAMLError:
+        return []
+    if isinstance(fm, dict) and isinstance(fm.get("suggested_pages"), list):
+        return [_ordered_entry(e) for e in fm["suggested_pages"] if isinstance(e, dict)]
+    return []
+
+
+def set_suggested_pages_in_frontmatter(text: str, entries: list[dict]) -> str:
+    """Write `entries` as the LAST frontmatter key (Design Decision #2).
+
+    Strips any existing `suggested_pages:` block (from that top-level line to the
+    end of the frontmatter block) and re-appends the freshly-serialized block.
+    Removes the key entirely when `entries` is empty. No-ops when there is no
+    frontmatter (the synthesize-frontmatter rule upstream guarantees one).
+    """
+    parts = _split_frontmatter(text)
+    if parts is None:
+        return text
+    lead, block, rest = parts
+
+    lines = block.split("\n")
+    cut = None
+    for i, ln in enumerate(lines):
+        if ln[:1] not in (" ", "\t") and ln.strip().startswith("suggested_pages:"):
+            cut = i
+            break
+    if cut is not None:
+        lines = lines[:cut]
+    cleaned = "\n".join(lines).rstrip("\n")
+
+    if not entries:
+        new_block = cleaned
+    else:
+        dumped = yaml.safe_dump(
+            {"suggested_pages": [_ordered_entry(e) for e in entries]},
+            sort_keys=False,
+            default_flow_style=False,
+            allow_unicode=True,
+        ).rstrip("\n")
+        new_block = f"{cleaned}\n{dumped}" if cleaned else dumped
+
+    return f"{lead}---\n{new_block}{rest}"

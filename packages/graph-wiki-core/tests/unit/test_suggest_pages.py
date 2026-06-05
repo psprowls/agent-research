@@ -203,3 +203,73 @@ def test_merge_dedups_duplicate_proposals_by_key():
     out = merge_suggested_pages([], [_prop("concept", "a", title="first"), _prop("concept", "a", title="second")])
     assert len(out) == 1
     assert out[0]["title"] == "first"
+
+
+def test_set_and_read_suggested_pages_round_trip():
+    from graph_wiki_core.commands.suggest_pages import (
+        read_suggested_pages,
+        set_suggested_pages_in_frontmatter,
+    )
+
+    page = "---\nsource_kind: source\ntarget_slug: foo\nentity_uri: null\n---\n\nBody text.\n"
+    entries = [
+        {"kind": "concept", "title": "Sec Ownership", "slug": "sec-ownership",
+         "mode": "create_new", "existing_slug": None, "rationale": "why", "status": "proposed"},
+    ]
+    out = set_suggested_pages_in_frontmatter(page, entries)
+    # Other keys + body preserved.
+    assert "source_kind: source" in out
+    assert "target_slug: foo" in out
+    assert out.rstrip().endswith("Body text.")
+    # suggested_pages serialized into frontmatter and is the last key.
+    assert "suggested_pages:" in out
+    fm_block = out.split("---", 2)[1]
+    assert fm_block.rstrip().splitlines()[-1].lstrip().startswith("- ") or "suggested_pages:" in fm_block
+    # Reading returns the entries back.
+    got = read_suggested_pages(out)
+    assert got == entries
+
+
+def test_set_suggested_pages_is_idempotent_and_replaces_block():
+    from graph_wiki_core.commands.suggest_pages import set_suggested_pages_in_frontmatter
+
+    page = "---\nsource_kind: source\ntarget_slug: foo\nentity_uri: null\n---\n\nBody.\n"
+    entries = [
+        {"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
+         "existing_slug": None, "rationale": "r", "status": "proposed"},
+    ]
+    once = set_suggested_pages_in_frontmatter(page, entries)
+    twice = set_suggested_pages_in_frontmatter(once, entries)
+    assert once == twice  # byte-stable
+    # Replacing with a different set does not duplicate the key.
+    other = [
+        {"kind": "concept", "title": "U", "slug": "u", "mode": "create_new",
+         "existing_slug": None, "rationale": "r2", "status": "approved"},
+    ]
+    replaced = set_suggested_pages_in_frontmatter(once, other)
+    assert replaced.count("suggested_pages:") == 1
+    assert "slug: u" in replaced
+    assert "slug: t" not in replaced
+
+
+def test_set_suggested_pages_empty_removes_key():
+    from graph_wiki_core.commands.suggest_pages import (
+        read_suggested_pages,
+        set_suggested_pages_in_frontmatter,
+    )
+
+    page = "---\nsource_kind: source\ntarget_slug: foo\n---\nBody.\n"
+    entries = [{"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
+                "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    with_block = set_suggested_pages_in_frontmatter(page, entries)
+    cleared = set_suggested_pages_in_frontmatter(with_block, [])
+    assert "suggested_pages:" not in cleared
+    assert "source_kind: source" in cleared
+    assert read_suggested_pages(cleared) == []
+
+
+def test_read_suggested_pages_no_frontmatter_returns_empty():
+    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
+
+    assert read_suggested_pages("no frontmatter here") == []
+    assert read_suggested_pages("---\nsource_kind: source\n---\nBody") == []
