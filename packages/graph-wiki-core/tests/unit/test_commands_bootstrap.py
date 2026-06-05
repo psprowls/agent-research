@@ -48,7 +48,7 @@ def _make_init_result(wiki: Path, workspace: Path):
 
 
 def test_init_wiki_creates_raw_and_work_dirs(tmp_path: Path) -> None:
-    """init_wiki() creates raw/ and work/ as siblings of the wiki dir."""
+    """init_wiki() creates raw/ as a workspace sibling and work/ under the wiki dir."""
     from wiki_io.init_vault import init_wiki
 
     workspace = tmp_path / "workspace"
@@ -65,7 +65,7 @@ def test_init_wiki_creates_raw_and_work_dirs(tmp_path: Path) -> None:
     )
 
     assert (workspace / "raw").is_dir(), "raw/ directory must be created"
-    assert (workspace / "work").is_dir(), "work/ directory must be created"
+    assert (wiki / "work").is_dir(), "work/ directory must be created under the wiki"
 
 
 # ---------------------------------------------------------------------------
