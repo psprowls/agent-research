@@ -350,3 +350,36 @@ async def test_wiki_lint_emits_progress() -> None:
     assert mock_ctx.report_progress.await_count >= 2, (
         f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
     )
+
+
+async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
+    """wiki_ingest surfaces source_kind / stripped_wikilinks / frontmatter_parsed."""
+    from graph_wiki_core.commands.ingest import IngestResult
+    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    fake = IngestResult(
+        status="ok",
+        page_path="sources/doc.md",
+        slug="doc",
+        title="Doc",
+        page_type="source",
+        source_path="/x/doc.md",
+        cross_refs_updated=1,
+        source_kind="unknown",
+        stripped_wikilinks=["ghost"],
+        frontmatter_parsed=False,
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with patch(
+        "graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake
+    ):
+        out = await wiki_ingest(
+            WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx
+        )
+
+    assert out.source_kind == "unknown"
+    assert out.stripped_wikilinks == ["ghost"]
+    assert out.frontmatter_parsed is False

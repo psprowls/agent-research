@@ -320,6 +320,10 @@ class WikiIngestOutput(BaseModel):
     source_path: str
     cross_refs_updated: int
     entity_uri: str | None = None  # Phase 40: canonical entity URI (None for free-form sources)
+    # Living Wiki M3 Part A (ingest hardening):
+    source_kind: str | None = None
+    stripped_wikilinks: list[str] = Field(default_factory=list)
+    frontmatter_parsed: bool = True
 
 
 @mcp.tool(
@@ -366,6 +370,9 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         source_path=result.source_path,
         cross_refs_updated=result.cross_refs_updated,
         entity_uri=result.entity_uri,
+        source_kind=result.source_kind,
+        stripped_wikilinks=result.stripped_wikilinks,
+        frontmatter_parsed=result.frontmatter_parsed,
     )
 
 
