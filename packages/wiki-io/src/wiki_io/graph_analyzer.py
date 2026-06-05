@@ -1,19 +1,11 @@
-#!/usr/bin/env python3
 """
 graph_analyzer.py — Analyze the wikilink graph of a Code Wiki.
 
-Wiki path is discovered automatically via wiki_io._workspace.resolve_wiki_and_repo
-(reads GRAPH_WIKI_WORKSPACE or walks up from cwd to find a wiki/ directory).
-
-Usage:
-    python graph_analyzer.py
-    python graph_analyzer.py --json --top 20
+Import-only library module used by plugin and CLI delivery surfaces.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -24,8 +16,6 @@ try:
     from wiki_io.scan_monorepo import unscope as _unscope
 except ImportError:
     _unscope = lambda n: n  # noqa: E731
-
-from wiki_io._workspace import resolve_wiki_and_repo
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -171,39 +161,3 @@ def analyze(wiki, top):
         "components": [{"size": len(c), "sample": sorted(c)[:5]} for c in comps[:10]],
         "component_count": len(comps),
     }
-
-
-def main():
-    p = argparse.ArgumentParser(description="Analyze the wikilink graph of a Code Wiki")
-    p.add_argument("--top", type=int, default=10)
-    p.add_argument("--json", action="store_true")
-    args = p.parse_args()
-    wiki, _ = resolve_wiki_and_repo()
-    r = analyze(wiki, args.top)
-
-    if args.json:
-        print(json.dumps(r, indent=2, default=list))
-        return
-
-    print(f"Code Wiki graph — {r['total_pages']} pages, {r['total_edges']} links")
-    print(f"Connected components: {r['component_count']}")
-    print()
-    print("Top outbound hubs:")
-    for h in r["top_outbound_hubs"]:
-        print(f"  - {h['page']}  ({h['outbound']} out)")
-    print()
-    print("Top inbound hubs:")
-    for h in r["top_inbound_hubs"]:
-        print(f"  - {h['page']}  ({h['inbound']} in)")
-    print()
-    print(f"Orphans (no inbound): {len(r['orphans'])}")
-    for o in r["orphans"][:10]:
-        print(f"  - {o}")
-    print()
-    print(f"Sinks (no outbound): {len(r['sinks'])}")
-    for s in r["sinks"][:10]:
-        print(f"  - {s}")
-
-
-if __name__ == "__main__":
-    main()

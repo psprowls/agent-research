@@ -93,17 +93,11 @@ If the source meaningfully shifts an `architecture/` page's thesis, revise the "
 
 ### 10. Update `index.md`
 
-Either:
-- Run `python scripts/update_index.py` to regenerate the entire index from frontmatter, OR
-- Edit the relevant category sections inline (faster for small ingests).
+If you edited wiki pages manually, edit the relevant category sections inline. Command-layer ingest/scan flows update indexes automatically.
 
 ### 11. Append to `log.md`
 
-Run:
-```bash
-python scripts/append_log.py --op ingest \
-    --title "<title>" --detail "<touched pages>"
-```
+Append a `## [YYYY-MM-DD] ingest | <title>` entry with the touched pages.
 
 ### 12. Report back to the user
 

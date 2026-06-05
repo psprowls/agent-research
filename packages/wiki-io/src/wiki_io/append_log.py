@@ -1,37 +1,15 @@
-#!/usr/bin/env python3
 """
 append_log.py — Append a standardized entry to wiki/log.md.
 
 The log is append-only and uses a consistent header so unix tools can parse it:
     ## [YYYY-MM-DD] <op> | <title>
-
-Discovers wiki location via wiki_io._workspace.resolve_wiki_and_repo.
-Requires GRAPH_WIKI_WORKSPACE env var (or a git repo containing a wiki/ directory).
-
-Usage:
-    python append_log.py --op ingest --title "Auth Migration Spec"
-    python append_log.py --op scan --title "detected 3 new packages" --detail "..."
-    python append_log.py --op lint --title "weekly health check" --json
-
-Valid ops:
-    scan     — a /graph-wiki:scan pass ran
-    ingest   — a source was read and integrated
-    query    — a question was answered (filed back as a page)
-    lint     — a health-check pass ran
-    create   — a new page was created outside of an ingest
-    update   — an existing page was updated outside of an ingest
-    delete   — a page was removed
-    note     — freeform note (contradictions flagged, thesis revisions, etc.)
 """
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 import json
 import sys
-
-from wiki_io._workspace import resolve_wiki_and_repo
 
 VALID_OPS = {"scan", "ingest", "query", "lint", "create", "update", "delete", "note"}
 
@@ -127,24 +105,3 @@ def append_log(wiki, op, title, detail, as_json=False, silent=False, raise_excep
             if detail:
                 print(f"     detail: {detail}")
     return result
-
-
-def main():
-    p = argparse.ArgumentParser(description="Append a standardized entry to wiki/log.md")
-    p.add_argument("--op", required=True, choices=sorted(VALID_OPS))
-    p.add_argument("--title", required=True)
-    p.add_argument("--detail", default=None)
-    p.add_argument("--json", action="store_true")
-    args = p.parse_args()
-    wiki, _ = resolve_wiki_and_repo()
-    append_log(
-        wiki,
-        args.op,
-        args.title,
-        args.detail,
-        as_json=args.json,
-    )
-
-
-if __name__ == "__main__":
-    main()

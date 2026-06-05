@@ -90,7 +90,7 @@ For each recently-touched page, check: do all package/domain/dependency mentions
 
 ### G. Index drift
 
-Compare `index.md` against actual `<workspace>/wiki/` contents. If out of sync, either regenerate (`update_index.py`) or patch inline.
+Compare `index.md` against actual `<workspace>/wiki/` contents. If out of sync after manual plugin edits, patch the relevant section inline.
 
 ## Pass 3 — report
 

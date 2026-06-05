@@ -2,8 +2,8 @@
 
 _Initialized {{DATE}} • 0 pages_
 
-> Content-oriented catalog of every page in this wiki. Updated by
-> `scripts/update_index.py` or during `/graph-wiki:scan` / `/graph-wiki:ingest`. Answer
+> Content-oriented catalog of every page in this wiki. Updated during
+> command-layer scan/ingest flows. Answer
 > queries by reading this file first, then drilling into relevant pages.
 >
 > Topic: **{{TOPIC}}**

@@ -15,10 +15,10 @@ in its own git repo (e.g. a separate wiki repo describing a source repo
 elsewhere on disk), where `.git`-discovery would otherwise bind to the
 wiki's own repo.
 """
+
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -100,20 +100,8 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
     # D-03: strict — raise if no .graph-wiki.yaml present in the resolved workspace.
     manifest = workspace / ".graph-wiki.yaml"
     if not manifest.exists():
-            if require_manifest is True:
-                raise RuntimeError(
-                    f"No .graph-wiki.yaml found in {workspace}. "
-                    f"Run: gw bootstrap <path>"
-                )
+        if require_manifest is True:
+            raise RuntimeError(f"No .graph-wiki.yaml found in {workspace}. Run: gw bootstrap <path>")
     # Workspace manifest may pin a different repo_root explicitly.
     repo_root = _repo_directory_override(workspace, repo_root)
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
-
-
-def _main() -> int:
-    print(resolve().workspace)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(_main())

@@ -1,32 +1,97 @@
 #!/usr/bin/env python3
-"""Plugin shim for ingest_source — dispatches to wiki_io (claude) or gw (bedrock)."""
+"""Plugin script for preparing a source ingestion brief."""
+
+from __future__ import annotations
+
+import argparse
+import json
 import subprocess
 import sys
+from pathlib import Path
 
 from _uv_reexec import ensure as _ensure_uv
 
 _ensure_uv()
 
-from wiki_io.ingest_source import main as _core_main
 
-
-def main() -> None:
+def _backend_for(command: str) -> str:
     try:
         from _config import backend_for
     except ImportError:
-        def backend_for(cmd: str, repo: object = None) -> str:  # type: ignore[misc]
-            return "claude"
+        return "claude"
+    return backend_for(command)
 
-    backend = backend_for("ingest")
 
-    if backend == "bedrock":
-        result = subprocess.run(
-            ["gw", "wiki", "ingest", "source"] + sys.argv[1:],
-            check=True,
-        )
-        sys.exit(result.returncode)
+def _run_bedrock() -> None:
+    result = subprocess.run(["gw", "wiki", "ingest", "source"] + sys.argv[1:], check=True)
+    sys.exit(result.returncode)
+
+
+def _source_for_branch(source_path: Path, repo: Path) -> Path:
+    if source_path.is_absolute():
+        return source_path
+    candidate = repo / source_path
+    return candidate if candidate.exists() else source_path.resolve()
+
+
+def main() -> None:
+    if _backend_for("ingest") == "bedrock":
+        _run_bedrock()
+
+    from wiki_io._workspace import resolve_wiki_and_repo
+    from wiki_io.ingest_source import build_folder_ingest_brief, build_ingest_brief
+
+    parser = argparse.ArgumentParser(description="Prepare a source for ingestion.")
+    parser.add_argument("source", nargs="?", default=None, help="Path to the source file/folder")
+    parser.add_argument("--source", dest="source_opt", default=None, help="Path to the source (alt form)")
+    parser.add_argument("--workspace", default="", help="Workspace path (default: env / git heuristic)")
+    parser.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON brief")
+    args = parser.parse_args()
+
+    source_arg = args.source_opt or args.source
+    if not source_arg:
+        print("[error] no source path given", file=sys.stderr)
+        sys.exit(1)
+
+    workspace_path = Path(args.workspace).expanduser().resolve() if args.workspace else None
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
+    if repo is None:
+        repo = Path.cwd()
+    workspace_root = workspace_path if workspace_path is not None else wiki.parent
+    source_path = Path(source_arg).expanduser()
+
+    if _source_for_branch(source_path, repo).is_dir():
+        brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
+        if "_error" in brief:
+            print(f"[error] {brief['_error']}", file=sys.stderr)
+            sys.exit(1)
     else:
-        _core_main()
+        brief = build_ingest_brief(
+            source_path=source_path,
+            wiki=wiki,
+            repo=repo,
+            workspace_root=workspace_root,
+        )
+
+    if args.json_output:
+        print(json.dumps(brief, indent=2))
+        return
+
+    if brief.get("is_folder"):
+        print(f"Folder: {source_path}")
+        print(f"Files: {brief['file_count']}")
+        print(f"Representative: {brief.get('representative_file')}")
+        warnings = brief.get("warnings") or []
+        if warnings:
+            print(f"Warnings: {', '.join(warnings)}")
+        return
+
+    print(f"Title: {brief['title']}")
+    print(f"Source type: {brief['source_type']}")
+    print(f"Suggested summary: {brief['suggested_summary_path']}")
+    entity_match = brief["entity_match"]
+    if entity_match["uri"]:
+        print(f"Entity match: {entity_match['uri']} -> [[entities/{entity_match['entity_filename']}]]")
 
 
 if __name__ == "__main__":

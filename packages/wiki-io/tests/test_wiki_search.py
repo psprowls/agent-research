@@ -6,9 +6,6 @@ with the upstream wiki_search implementation is out of Phase 14 scope (VP-02).
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -16,51 +13,14 @@ EDGE_CASE_VAULT = FIXTURES / "edge-case-vault"
 
 
 def test_wiki_search_importable():
-    """wiki_io.wiki_search imports cleanly and exports a callable main."""
-    from wiki_io.wiki_search import main  # noqa: F401
+    """wiki_io.wiki_search imports cleanly and exports library helpers."""
+    from wiki_io import wiki_search
 
-    assert callable(main)
-
-
-def test_wiki_search_runs_on_fixture_vault():
-    """Structural smoke: wiki_search produces parseable JSON against the edge-case fixture vault."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "wiki_io.wiki_search",
-            "--query",
-            "test",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        env={
-            **__import__("os").environ,
-            "GRAPH_WIKI_WORKSPACE": str(EDGE_CASE_VAULT.parent),
-        },
-    )
-    # The module resolves the wiki as <workspace>/wiki; the edge-case-vault IS the
-    # wiki directory, so we set the parent as the workspace and accept either a
-    # successful run (exit 0) OR an exit code of 1 from the no-wiki-found path
-    # (the fixture vault may not be inside a workspace layout). Either way the
-    # output must be valid JSON when exit code is 0, or the error message must be
-    # a plain string on stderr.
-    if result.returncode == 0:
-        data = json.loads(result.stdout)
-        assert "query" in data, f"missing 'query' key: {data}"
-        assert "hits" in data, f"missing 'hits' key: {data}"
-        assert isinstance(data["hits"], list)
-    else:
-        # Non-zero exit is acceptable when the vault can't be resolved from the
-        # fixture path; what we're asserting is that the module ran and produced
-        # a structured error, not an uncaught Python exception.
-        assert result.returncode in (1, 2), (
-            f"unexpected exit code {result.returncode}: {result.stderr}"
-        )
-        assert "Traceback" not in result.stderr, (
-            f"module crashed with an unhandled exception:\n{result.stderr}"
-        )
+    assert callable(wiki_search.load_docs)
+    assert callable(wiki_search.tokenize)
+    assert callable(wiki_search.bm25_scores)
+    assert callable(wiki_search.snippet)
+    assert not hasattr(wiki_search, "main")
 
 
 def test_wiki_search_internal_helpers():

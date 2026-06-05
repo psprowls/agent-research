@@ -8,15 +8,7 @@ from pathlib import Path
 
 import pytest
 
-
-_SCRIPT_DIR = (
-    Path(__file__).resolve().parents[4]
-    / "plugins"
-    / "graph-wiki"
-    / "skills"
-    / "graph-wiki"
-    / "scripts"
-)
+_SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "skills" / "graph-wiki" / "scripts"
 
 
 @pytest.mark.parametrize(
@@ -84,11 +76,6 @@ def _install_fake_wiki_io(monkeypatch: pytest.MonkeyPatch) -> None:
     package.__path__ = []  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "wiki_io", package)
 
-    for name in ("scan_monorepo", "init_vault", "ingest_source", "lint_wiki", "wiki_search"):
+    for name in ("scan_monorepo", "init_vault", "ingest_source", "lint_wiki", "wiki_search", "graph_analyzer"):
         module = types.ModuleType(f"wiki_io.{name}")
-
-        def main() -> None:  # pragma: no cover - failure path for this Bedrock-only test
-            raise AssertionError("Claude-hosted wiki_io branch should not execute for bedrock backend")
-
-        module.main = main  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, f"wiki_io.{name}", module)

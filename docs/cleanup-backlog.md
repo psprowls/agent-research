@@ -2,8 +2,8 @@
 
 Read-only review of the workspace's library packages across four dimensions:
 executable `main()`/CLI entry points, dead code, environment-variable usage, and
-coding-style consistency. **Nothing in this document has been changed** — it is a
-backlog of cleanup candidates.
+coding-style consistency. Part 1 has since been updated to reflect the completed
+cleanup-boundary pass; later parts remain a backlog of cleanup candidates.
 
 Covered: **Part 1** — `workspace-io`, `wiki-io`, `graph-io`. **Part 2** —
 `model-adapter`, `subagent-runtime`, `source-parser`, `eval-harness`. **Part 3** —
@@ -21,17 +21,18 @@ Covered: **Part 1** — `workspace-io`, `wiki-io`, `graph-io`. **Part 2** —
 
 The only modules permitted to contain executable code — a `main()` function and/or
 an `if __name__ == "__main__":` block — live in `graph-wiki-cli`, `graph-wiki-mcp`,
-and the scripts in the `graph-wiki` plugin. The reference example of a **violation**
-is `packages/wiki-io/src/wiki_io/update_index.py` (`def main()` at L321 +
-`if __name__ == "__main__":` at L413). Library packages should be import-only.
+and the scripts in the `graph-wiki` plugin. Part 1 previously used
+`packages/wiki-io/src/wiki_io/update_index.py` as the reference violation; that
+has been fixed. Remaining live violations are tracked in Part 3 for
+`graph-wiki-core`, which is a library package and should be import-only.
 
 ## Summary
 
 | Package | `main()`/CLI | Dead-code candidates | Env vars |
 |---|---|---|---|
-| `graph-io` | none (clean) | 1 function + 3 unused params | 1 (`GRAPH_WIKI_LOCK_TIMEOUT_MS`) — OK |
-| `wiki-io` | **8 violating modules** | 1 orphaned module + several test-only symbols | 0 (correctly delegated) |
-| `workspace-io` | **1 violating module** | 1 orphaned module + 3 unused accessors | 1 (`GRAPH_WIKI_WORKSPACE`) — OK |
+| `graph-io` | none (clean) | retained symmetric query helper + 3 unused params | 1 (`GRAPH_WIKI_LOCK_TIMEOUT_MS`) — OK |
+| `wiki-io` | import-only after boundary cleanup | completed `link_rewriter` deletion + several test-only symbols | 0 (correctly delegated) |
+| `workspace-io` | import-only after boundary cleanup | retained update-state API + 3 unused accessors | 1 (`GRAPH_WIKI_WORKSPACE`) — OK |
 | `model-adapter` | none (clean) | none | 0 |
 | `subagent-runtime` | none (clean) | none | 0 |
 | `source-parser` | none (clean) | 1 dead method (+ public-but-unused API) | 0 |
@@ -40,46 +41,56 @@ is `packages/wiki-io/src/wiki_io/update_index.py` (`def main()` at L321 +
 | `graph-wiki-cli` | allowed — `gw` console script (inventory only) | 4 dead re-exports + 2 unwired shims | 1 (`GRAPH_WIKI_BOOTSTRAP_REEXEC`) — OK |
 | `graph-wiki-mcp` | allowed — MCP server + console script (inventory only) | none | 0 (delegated) |
 
+## Part 1 status after cleanup-boundary pass
+
+The Part 1 boundary violations have been resolved:
+
+- `wiki-io` keeps importable behavior and no longer owns command-line parsing or `__main__` blocks for the audited modules.
+- Graph Wiki plugin scripts are the allowed executable delivery surface for the Claude-hosted plugin branch.
+- `workspace_io.config` is import-only; `python -m workspace_io.config` is not a supported surface.
+- `wiki_io.link_rewriter` was deleted because the migrate-vault feature hook is intentionally absent.
+
+The cleanup target is a library/executable boundary, not deleting every symbol without a production caller.
+
+### Retained intentional APIs
+
+- `workspace_io.versions` is retained as a reserved manifest/plugin update-state API. It remains unwired in command-entry checks in this pass, but it is backed by manifest schema behavior and focused tests.
+- `graph_io.queries.list_entry_points` is retained as a symmetric public query helper for the `entry_point` node kind, alongside the other `list_*` query helpers.
+- `wiki_io.graph_analyzer` is retained as importable library behavior. Only its executable parser/output wrapper moved to the plugin script.
+
 ---
 
 ## 1. Executable `main()` / CLI entry points (rule violations)
 
-### wiki-io — 8 violating modules
+### wiki-io — resolved
 
-Every one has both `def main()` and `if __name__ == "__main__":`, all using `argparse`.
-They split into two cleanup classes:
+The audited wiki-io modules now keep importable behavior without owning command-line
+parsing or `__main__` blocks.
 
-**Class A — pure dead executable code (no shim, no `[project.scripts]`, no caller).**
-Safe to delete the `main()` + `__main__` blocks outright. Also drop their now-inaccurate
-`python … --dry-run` usage docstrings.
+**Completed Class A — pure library behavior retained.**
 
 | Module | `main` | `__main__` | Library logic still used? |
 |---|---|---|---|
-| `update_index.py` | L321 | L413 | Yes — `update_index()` used by `ingest.py`, `scan.py`, `ingest_work_item.py`. Keep the function, drop the CLI. |
-| `update_tokens.py` | L225 | L247 | Yes — `count_tokens()` used by `query.py`. |
-| `append_log.py` | L132 | L149 | Yes — `append_log()` used by ingest/log/scan paths. |
+| `update_index.py` | removed | removed | Yes — `update_index()` used by `ingest.py`, `scan.py`, `ingest_work_item.py`. |
+| `update_tokens.py` | removed | removed | Yes — `count_tokens()` used by `query.py`. |
+| `append_log.py` | removed | removed | Yes — `append_log()` used by ingest/log/scan paths. |
 
-**Class B — plugin shim depends on `main`.** Each has a shim under
-`plugins/graph-wiki/skills/graph-wiki/scripts/<mod>.py` doing
-`from wiki_io.<mod> import main as _core_main`. Cleanup means **inverting the shim
-contract**: move the `argparse` body into the shim (or the CLI package), leaving wiki-io
-import-only. Requires editing both files per module — not a pure deletion.
+**Completed Class B — plugin scripts own parser/output wrappers.**
 
 | Module | `main` | `__main__` | Shim |
 |---|---|---|---|
-| `init_vault.py` | L258 | L305 | `scripts/init_vault.py` imports `main as _core_main` |
-| `ingest_source.py` | L227 | — | `scripts/ingest_source.py` imports `main` |
-| `wiki_search.py` | L153 | L191 | `scripts/wiki_search.py` imports `main` |
-| `lint_wiki.py` | L491 | L534 | `scripts/lint_wiki.py` imports `main` |
-| `graph_analyzer.py` | L176 | L208 | `scripts/graph_analyzer.py` imports `main` |
+| `init_vault.py` | removed | removed | `scripts/init_vault.py` owns the executable wrapper |
+| `ingest_source.py` | removed | — | `scripts/ingest_source.py` owns the executable wrapper |
+| `wiki_search.py` | removed | removed | `scripts/wiki_search.py` owns the executable wrapper |
+| `lint_wiki.py` | removed | removed | `scripts/lint_wiki.py` owns the executable wrapper |
+| `graph_analyzer.py` | removed | removed | `scripts/graph_analyzer.py` owns the executable wrapper |
 
-`graph_analyzer.py` is special: its library functions (`analyze`, `build_graph`,
-`connected_components`) have **zero production consumers** (test-only), so it is a script,
-not a library module — relocate it wholesale to the CLI/plugin layer.
+`graph_analyzer.py` is retained as importable library behavior; only its executable
+parser/output wrapper moved to the plugin script.
 
-### workspace-io — 1 violating module
+### workspace-io — resolved
 
-`config.py:113-119`:
+`config.py` used to expose:
 ```python
 def _main() -> int:
     print(resolve().workspace)
@@ -88,11 +99,9 @@ def _main() -> int:
 if __name__ == "__main__":
     sys.exit(_main())
 ```
-The library functions (`resolve`, `GraphWikiConfig`, etc.) are heavily imported and must
-stay. Only the executable block must go. Its **sole exerciser** is the test
-`test_cli_prints_workspace_to_stdout` (`tests/test_config.py:106-117`), which runs
-`python -m workspace_io.config`. Removing the block also orphans `import sys`
-(`config.py:21`), so delete that import and update/remove the test.
+That executable surface is gone. The library functions (`resolve`,
+`GraphWikiConfig`, etc.) stay, and `python -m workspace_io.config` is not a supported
+surface.
 
 ### graph-io — clean
 
@@ -107,12 +116,9 @@ pattern; no action.
 
 ### wiki-io
 
-- **`link_rewriter.py` — orphaned production module (strongest signal).** Public surface
-  (`rewrite_text`, `build_rewrite_table`, `rewrite_vault`, `RewriteResult`) has zero
-  non-test usage. The module docstring promises wiring into a `cg migrate-vault` CLI
-  subcommand that **was never built** (no `migrate-vault` symbol anywhere). Either finish
-  the wiring or delete the module + `test_link_rewriter.py` + `test_link_rewriter_build_table.py`.
-- **`graph_analyzer.py`** — library functions test-only (see Class B above).
+- **`link_rewriter.py` — completed deletion.** The migrate-vault feature hook is
+  intentionally absent, so the orphaned module and its focused tests were removed.
+- **`graph_analyzer.py`** — retained as importable library behavior (see Class B above).
 - **Test-only public symbols** (not dead, but flag): `wiki_search.py`
   (`bm25_scores`, `load_docs`, `snippet`, `tokenize`); `update_index.py`
   (`render_index`, `scan_vault`); `index_generator.py` (`IndexWriteResult`, `PlacedEntity`).
@@ -122,10 +128,9 @@ pattern; no action.
 
 ### graph-io
 
-- **`queries.list_entry_points` (`queries.py:895`) — dead in production.** Referenced only
-  by `test_queries.py`. The CLI command uses `entry_points_for_package` instead. All sibling
-  `list_*` helpers have real callers; this is the lone exception. Remove function + its test
-  block (unless kept for symmetric public surface).
+- **`queries.list_entry_points` (`queries.py:895`) — retained intentional API.** It is a
+  symmetric public query helper for the `entry_point` node kind, alongside the other
+  `list_*` query helpers.
 - **Unused `ctx` parameters** (surgical, signature-only):
   - `derived_edges._compute_references_and_depends_on(conn, repo_root, ctx)` — `ctx` unused (L70-73)
   - `derived_edges._compute_testsuite_domain(conn, ctx)` — `ctx` unused (L171-173)
@@ -137,9 +142,10 @@ pattern; no action.
 
 ### workspace-io
 
-- **`versions.py` — orphaned module.** `PendingUpdate`, `pending_updates`, `warn_if_stale`
-  (all re-exported in `__init__.py`) have **zero non-test consumers** repo-wide. Remove the
-  module + its three `__init__.py` re-exports, or document the intended-but-unshipped consumer.
+- **`workspace_io.versions` — retained intentional API.** `PendingUpdate`,
+  `pending_updates`, and `warn_if_stale` are reserved manifest/plugin update-state behavior.
+  The API remains unwired in command-entry checks in this pass, but it is backed by manifest
+  schema behavior and focused tests.
 - **Three unused path accessors in `paths.py`** (test-only): `raw_dir` (L19),
   `work_dir` (L23), `knowledge_dir` (L27). Low priority (one-line pure accessors).
 
@@ -169,15 +175,14 @@ All env-var usage is consistent, centralized, and well-guarded. No cleanup requi
 - **pathlib throughout** — no `os.path` usage in any package.
 
 ### wiki-io
-- **`print` vs `logging` mix.** The 8 `main()`-bearing modules are `print`-heavy (CLI output);
-  `entity_writer.py` is logging-only; `init_vault.py` mixes **both** `print` and `logging` in
-  one file (the concrete inconsistency to flag). Once the CLI bodies move out (§1), the library
-  modules become logging-only naturally.
+- **`print` vs `logging` mix.** The legacy modules were `print`-heavy while they owned CLI
+  output; `entity_writer.py` is logging-only. After the boundary cleanup, remaining print usage
+  in importable modules should be treated as a style issue and moved toward logging where useful.
 - **Type-hint coverage split.** Legacy ports (`append_log`, `update_index`, `wiki_search`,
   `graph_analyzer`, `lint_wiki`) are largely untyped; newer modules (`drift`, `entity_writer`,
   `index_generator`, `backlink_index`, all `lint/`) are fully typed.
-- **Vestigial shebangs** (`#!/usr/bin/env python3`) on the older modules only — meaningless for
-  a library and correlated 1:1 with the §1 violations.
+- **Vestigial shebangs** (`#!/usr/bin/env python3`) on older importable modules, if any remain,
+  are meaningless for a library.
 - **Duplicated frontmatter parsers**: `update_index.py:83` and `lint/common.py:108` both define
   independent regex `parse_frontmatter` of the same format — consolidation opportunity.
 
@@ -204,27 +209,14 @@ All env-var usage is consistent, centralized, and well-guarded. No cleanup requi
 
 ## Prioritized cleanup backlog (Part 1)
 
-**High (rule violations / clear dead code)**
-1. wiki-io: delete `main()` + `__main__` from `update_index.py`, `update_tokens.py`, `append_log.py`
-   (Class A — no callers). Drop their `--dry-run` usage docstrings.
-2. wiki-io: invert the shim contract for `init_vault`, `ingest_source`, `wiki_search`, `lint_wiki`,
-   `graph_analyzer` (Class B) — move argparse bodies to the plugin scripts / CLI.
-3. workspace-io: remove `_main()` + `__main__` from `config.py:113-119`; drop orphaned `import sys`;
-   update/remove `test_cli_prints_workspace_to_stdout`.
-4. graph-io: remove `queries.list_entry_points` (`queries.py:895`) + its test references.
-
-**Medium (orphaned modules)**
-5. wiki-io: resolve `link_rewriter.py` — wire up `cg migrate-vault` or delete module + 2 tests.
-6. wiki-io: relocate `graph_analyzer.py` wholesale to CLI/plugin (no library consumers).
-7. workspace-io: remove `versions.py` + its 3 `__init__.py` re-exports (zero non-test consumers).
+**High:** none remaining for Part 1 boundary cleanup.
 
 **Low (style / surgical)**
-8. graph-io: drop unused `ctx` params in `derived_edges` (×2) and `test_suites._emit_tests_edges`.
-9. graph-io: unify warning channel (prefer `logging`); hoist `import_scan.py:204` sqlite3 import;
-   normalize `render.py:14` json alias.
-10. workspace-io: simplify `config.py:101-107`; align `versions.py:7` import style.
-11. wiki-io: fix stale "Phase 46 deletes update_index.py" docstrings; add type hints to legacy ports;
-    resolve `init_vault.py` print+logging mix; drop vestigial shebangs; consolidate `parse_frontmatter`.
+1. graph-io: drop unused `ctx` params in `derived_edges` (x2) and `test_suites._emit_tests_edges`.
+2. graph-io: unify warning channel (prefer `logging`); hoist `import_scan.py` sqlite3 import; normalize `render.py` json alias.
+3. workspace-io: simplify the strict-manifest branch in `config.py`.
+4. wiki-io: add type hints to legacy ports and consolidate duplicated frontmatter parsing where it remains useful.
+5. wiki-io: fix stale "Phase 46 deletes update_index.py" docstrings in `update_index.py` and `index_generator.py`.
 
 ---
 

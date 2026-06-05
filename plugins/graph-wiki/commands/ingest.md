@@ -45,8 +45,8 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 6. **Link entities** — add `[[entities/...]]` under `## Touches` on the source page; do not edit entity pages (scanner backfills `## Referenced in wiki`)
 7. **ADR** — if the source captures a decision, propose creating `<workspace>/wiki/adrs/<NNNN>-<slug>.md`
 8. **Contradictions** — flags vault↔vault and vault↔code contradictions
-9. **Index** — `scripts/update_index.py` or inline edit
-10. **Log** — `scripts/append_log.py --op ingest`
+9. **Index** — command-layer ingest updates this automatically; manual plugin edits update relevant sections inline
+10. **Log** — append a `## [YYYY-MM-DD] ingest | <title>` entry for manual plugin edits
 11. **Report** — bulleted wikilinks to every touched page
 
 ## Sub-agent

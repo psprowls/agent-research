@@ -141,12 +141,12 @@ All scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/` (or where
 - `init_vault.py` — bootstrap a wiki
 - `scan_monorepo.py` — detect packages, emit diff
 - `ingest_source.py` — prep a source for ingest (metadata + preview)
-- `update_index.py` — regenerate `index.md`
-- `append_log.py` — append a standardized log entry
 - `wiki_search.py` — BM25 search fallback
 - `lint_wiki.py` — mechanical health check + code-drift
 - `graph_analyzer.py` — link graph stats
 - `export_marp.py` — render a page as a Marp slide deck
+
+Index and log maintenance is automatic in command-layer scan/ingest flows. For manual plugin edits, update `index.md` and `log.md` directly.
 
 ## Obsidian
 

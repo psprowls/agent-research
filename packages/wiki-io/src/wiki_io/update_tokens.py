@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 update_tokens.py — Stamp `tokens: <count>` frontmatter on every wiki page.
 
@@ -8,18 +7,10 @@ rewrites the `tokens` field via `python-frontmatter`. Stripping the field before
 counting avoids a circular dependency: a file that already contains `tokens: N`
 would produce a different count than the same file before the field was added,
 breaking idempotency. Re-running on an unchanged vault is a no-op.
-
-Discovers wiki location from the resolved graph-wiki workspace.
-
-Usage:
-    python -m wiki_io.update_tokens
-    python -m wiki_io.update_tokens --dry-run --json
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Iterator
@@ -27,8 +18,6 @@ from typing import Iterator
 import boto3
 import frontmatter
 from botocore.exceptions import ClientError
-
-from wiki_io._workspace import resolve_wiki_and_repo
 
 SKIP_FILENAMES = {"index.md", "log.md"}
 
@@ -65,13 +54,7 @@ def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFA
     client = boto3.client("bedrock-runtime", region_name=region)
     response = client.count_tokens(
         modelId=model_id,
-        input={
-            "converse": {
-                "messages": [
-                    {"role": "user", "content": [{"text": text}]}
-                ]
-            }
-        },
+        input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}},
     )
     return response["inputTokens"]
 
@@ -220,29 +203,3 @@ def update_vault(
     for bucket in result.values():
         bucket.sort()
     return result
-
-
-def main() -> None:
-    p = argparse.ArgumentParser(description="Stamp `tokens` frontmatter across the wiki")
-    p.add_argument("--dry-run", action="store_true", help="Print changes without writing")
-    p.add_argument("--json", action="store_true", help="Machine-readable output")
-    p.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="Bedrock model ID for token counting")
-    p.add_argument("--region", default=DEFAULT_REGION, help="AWS region for Bedrock")
-    args = p.parse_args()
-
-    wiki, _ = resolve_wiki_and_repo()
-    result = update_vault(wiki, dry_run=args.dry_run, model_id=args.model_id, region=args.region)
-
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
-
-    label = "Would update" if args.dry_run else "Updated"
-    print(f"{label} {len(result['updated'])} • Unchanged {len(result['unchanged'])} • Skipped {len(result['skipped'])}")
-    for kind in ("updated", "skipped"):
-        for rel in result[kind][:20]:
-            print(f"  [{kind}] {rel}")
-
-
-if __name__ == "__main__":
-    main()
