@@ -13,8 +13,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from wiki_io.wikilinks import vault_wikilink
 from workspace_io.paths import wiki_dir, work_dir
+
+from wiki_io.wikilinks import vault_wikilink
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Categories rendered in the main index (navigation backbone only)
