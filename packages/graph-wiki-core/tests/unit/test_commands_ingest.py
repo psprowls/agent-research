@@ -317,27 +317,35 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
 
 
 def test_ingest_result_round_trips_to_json() -> None:
-    """IngestResult serializes to JSON without error."""
+    """IngestResult serializes to JSON without error; new fields have honest defaults."""
     from graph_wiki_core.commands.ingest import IngestResult
 
     result = IngestResult(
         status="ok",
-        page_path="concepts/foo.md",
+        page_path="sources/foo.md",
         slug="foo",
         title="Foo",
-        page_type="concept",
+        page_type="source",
         source_path="/some/path/foo.md",
         cross_refs_updated=1,
     )
 
-    # Should not raise
+    # Defaults for the M3 fields
+    assert result.source_kind is None
+    assert result.stripped_wikilinks == []
+    assert result.frontmatter_parsed is True
+
+    # Should not raise; new fields serialize cleanly
     serialized = json.dumps(dataclasses.asdict(result))
     parsed = json.loads(serialized)
 
     assert parsed["status"] == "ok"
     assert parsed["slug"] == "foo"
-    assert parsed["page_type"] == "concept"
+    assert parsed["page_type"] == "source"
     assert parsed["cross_refs_updated"] == 1
+    assert parsed["source_kind"] is None
+    assert parsed["stripped_wikilinks"] == []
+    assert parsed["frontmatter_parsed"] is True
 
 
 # ---------------------------------------------------------------------------

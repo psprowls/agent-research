@@ -24,7 +24,7 @@ import logging
 import re
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -107,6 +107,14 @@ class IngestResult:
                             matched the source by path or by name; None when no graph
                             match was found OR when the result was produced by
                             `run_ingest_work_item` (work items bypass entity lookup).
+        source_kind:        Living Wiki M3: descriptive kind on Source pages
+                            (run_ingest_source). "unknown" on a parse miss; None
+                            for work items.
+        stripped_wikilinks: Living Wiki M3: unresolved [[wikilinks]] removed from
+                            the body (empty when none were stripped).
+        frontmatter_parsed: Living Wiki M3: False when the ingestor frontmatter
+                            failed to parse and we fell through to
+                            source_kind: unknown.
     """
 
     status: str
@@ -117,6 +125,10 @@ class IngestResult:
     source_path: str
     cross_refs_updated: int
     entity_uri: str | None = None  # Phase 40: canonical entity URI; None for free-form sources
+    # Living Wiki M3 Part A (ingest hardening):
+    source_kind: str | None = None  # descriptive kind on Source pages; "unknown" on parse miss; None for work items
+    stripped_wikilinks: list[str] = field(default_factory=list)  # unresolved [[links]] stripped from the body
+    frontmatter_parsed: bool = True  # False when we fell through to source_kind: unknown via a parse miss
 
 
 # ---------------------------------------------------------------------------
