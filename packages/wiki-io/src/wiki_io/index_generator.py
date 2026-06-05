@@ -546,8 +546,10 @@ def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
     return row is None
 
 
-def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str:
-    """Forward-derive the piped `[[wiki/entities/<stem>|<name>]]` wikilink.
+def _entity_wikilink(
+    entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None
+) -> str:
+    """Forward-derive the piped `[[wiki/entities/<stem>|<text>]]` wikilink.
 
     Phase 53 D-05: uses `short_filename` from Phase 52 with the precomputed
     collision_set so the index agrees with `write_entities` on filenames
@@ -555,6 +557,8 @@ def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str
 
     Phase 57 IDX-02/D-05: the link is PIPED with display text = `entity.name`
     (human-readable) — the bare stem is the link target, not the visible text.
+    `label` overrides the display text (e.g. "open page") when the entity name
+    already lives in a `####` header above the link (Item 2 / By-Kind).
     """
     stem = _short_filename(
         entity.uri,
@@ -562,7 +566,8 @@ def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str]) -> str
         suite_kind=entity.suite_kind,
         pkg_for_suite=entity.pkg_for_suite,
     )
-    return f"[[wiki/entities/{stem}|{entity.name}]]"
+    text = label if label is not None else entity.name
+    return f"[[wiki/entities/{stem}|{text}]]"
 
 
 def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: str) -> str:
@@ -760,7 +765,11 @@ def _render_by_kind(
         lines.append(f"### {KIND_LABELS[kind]}")
         lines.append("")
         for e in group:
-            lines.append(_entity_bullet(e, collision_set, ""))
+            lines.append(f"#### {e.name}")
+            lines.append("")
+            link = _entity_wikilink(e, collision_set, label="open page")
+            summary = f"{e.summary} — " if e.summary else ""
+            lines.append(f"{summary}{link}")
             total += 1
             if e.kind in ("package", "app"):
                 lines.extend(
@@ -768,6 +777,7 @@ def _render_by_kind(
                         conn, e, sub_for_pkg, name_to_entity, collision_set
                     )
                 )
+            lines.append("")
         lines.append("")
     if total == 0:
         return [], 0

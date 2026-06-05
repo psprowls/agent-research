@@ -551,7 +551,17 @@ class TestRenderByKind:
         assert app_idx > -1 and pkg_idx > -1 and plug_idx > -1
         # Apps first, then packages, then agent_plugins (D-03).
         assert app_idx < pkg_idx < plug_idx
-        # No flat dependency group; boto3 nests under pkg-cross.
+        # By-kind entities now render as `#### {name}` headers with an
+        # `open page` link line (header replaces the old name bullet).
+        assert "#### pkg-cross" in text
+        assert "[[wiki/entities/pkg_pkg-cross|open page]]" in text
+        assert "#### myapp" in text
+        assert "[[wiki/entities/app_myapp|open page]]" in text
+        assert "#### graph-wiki" in text
+        assert "[[wiki/entities/agent-plugin_graph-wiki|open page]]" in text
+        # The old bare name bullet for a by-kind entity is gone.
+        assert "[[wiki/entities/pkg_pkg-cross|pkg-cross]]" not in text
+        # No flat dependency group; boto3 still nests under pkg-cross (bullet).
         assert "### Dependencies" not in text
         assert "  - Dependencies" in text
         assert "[[wiki/entities/dep_boto3|boto3]]" in text
@@ -814,7 +824,7 @@ def test_cross_cutting_in_by_kind_only(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    cross_link = "[[wiki/entities/pkg_pkg-cross|pkg-cross]]"
+    cross_link = "[[wiki/entities/pkg_pkg-cross|open page]]"
     assert text.count(cross_link) == 1
     by_kind_idx = text.find("## By Kind")
     cross_idx = text.find(cross_link)
@@ -1022,7 +1032,8 @@ def test_app_zero_domain_renders_in_by_kind_apps_first(
     assert apps_idx > -1
     assert pkgs_idx > -1
     assert apps_idx < pkgs_idx  # apps listed first (D-03)
-    assert "[[wiki/entities/app_myapp|myapp]]" in text
+    assert "#### myapp" in text
+    assert "[[wiki/entities/app_myapp|open page]]" in text
 
 
 def test_app_single_domain_renders_under_its_domain(
