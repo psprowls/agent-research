@@ -238,3 +238,24 @@ def test_entities_dir_bootstrapped_with_gitkeep(
     assert "entities/.gitkeep" in result["installed_files"], (
         f"installed_files missing entities/.gitkeep: {result['installed_files']}"
     )
+
+
+def test_work_dir_created_under_wiki(tmp_path, monkeypatch):
+    from wiki_io import init_vault
+    from workspace_io.paths import work_dir
+
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname="solo"\nversion="0.0.1"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
+
+    init_vault.init_wiki(
+        wiki, repo, topic="Agent Research", tool="claude-code", force=False, non_interactive=True
+    )
+
+    assert work_dir(workspace).is_dir(), "work/ must be created under the wiki"
+    assert not (workspace / "work").exists(), "no stale sibling work/ dir"

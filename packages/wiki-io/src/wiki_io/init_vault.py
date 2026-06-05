@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from workspace_io.init import init as _workspace_init
+from workspace_io.paths import work_dir
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ def init_wiki(
 
     NOTE: The upstream implementation called a workspace.init() helper to
     register the plugin with the workspace (creating `<workspace>/raw/`,
-    `<workspace>/work/`, `.graph-wiki.yaml`). That dependency is not available
+    `<workspace>/wiki/work/`, `.graph-wiki.yaml`). That dependency is not available
     in agent-research; Phase 5 will provide a workspace-bootstrap equivalent.
     For now, this function only writes inside `wiki_path`.
 
@@ -116,9 +117,9 @@ def init_wiki(
         _error(f"{wiki_path} is not empty. Use --force to overwrite.", as_json)
 
     workspace_path = wiki_path.parent
-    # Create raw/ and work/ workspace sibling directories.
+    # raw/ is a workspace sibling; work/ now lives under the wiki.
     (workspace_path / "raw").mkdir(parents=True, exist_ok=True)
-    (workspace_path / "work").mkdir(parents=True, exist_ok=True)
+    work_dir(workspace_path).mkdir(parents=True, exist_ok=True)
     # Register plugin with the workspace: writes .graph-wiki.yaml, runs git init
     # if needed, ensures .graph-wiki.local.yaml is gitignored, renders <workspace>/CLAUDE.md.
     _workspace_init(
@@ -215,16 +216,16 @@ def init_wiki(
         "installed_files": installed_files,
         "page_templates_copied": template_count,
         "raw_path": str(workspace_path / "raw"),
-        "work_path": str(workspace_path / "work"),
+        "work_path": str(work_dir(workspace_path)),
         "layers": {
             "wiki": f"{wiki_path}/ — LLM-maintained knowledge base",
             "raw": f"{workspace_path}/raw/ — staging area for source ingestion",
-            "work": f"{workspace_path}/work/ — work item pages",
+            "work": f"{wiki_path}/work/ — work item pages",
             "index": f"{wiki_path}/index.md",
             "log": f"{wiki_path}/log.md",
         },
         "next_steps": [
-            f"Open {workspace_path} in Obsidian (sidebar shows wiki/, raw/, work/ as siblings)",
+            f"Open {workspace_path} in Obsidian (sidebar shows wiki/ and raw/; work/ lives under wiki/)",
             "Run /graph-wiki:scan to populate wiki/packages/ from workspace manifests",
             f"Stage a source under {workspace_path}/raw/ and run /graph-wiki:ingest",
         ],
