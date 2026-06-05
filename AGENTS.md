@@ -72,7 +72,6 @@ The scan pipeline regenerates entity pages every run, but only *some* sections. 
 
 - **Worktrees need their own venv.** A fresh `git worktree`'s `.pth` points at the parent repo's `src`, so bare `python` imports the wrong package source. Run `uv sync` in the worktree and use `<worktree>/.venv/bin/python` for tests.
 - **Interrupted scans leave sticky placeholders.** Killing a scan mid-narration leaves entity pages with placeholder `## Narrative`/file-maps that plain re-scans won't refill (re-render is byte-identical → "unchanged"). Recovery: `rm wiki/entities/*.md` then rescan.
-- **Brand gate.** `scripts/check-brand.sh` fails the build on stray upstream names (`lattice`, `code-wiki-agent`, etc.) not allow-listed in `.brand-grep-allow`. Run it after renames.
 - `pre-commit` is configured (`.pre-commit-config.yaml`) — runs ruff.
 
 ## Conventions

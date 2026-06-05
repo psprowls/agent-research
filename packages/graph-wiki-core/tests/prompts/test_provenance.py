@@ -653,8 +653,6 @@ def test_disallowed_prefix_rejected() -> None:
     Plan 04) and any sibling under `packages/workspace-io/` other than the
     one CLAUDE.md.template literal.
     """
-    # The literal here is referenced by the brand-gate's allowlist; see
-    # `.brand-grep-allow` for the rationale.
     assert not _starts_with_allowed_prefix("packages/prompt-sources/foo.md"), (
         "whitelist must reject the historical prompt-sources prefix"
     )
