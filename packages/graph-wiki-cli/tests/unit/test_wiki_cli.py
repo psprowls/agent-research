@@ -83,9 +83,8 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
     separately from stdout."""
     from unittest.mock import AsyncMock
 
-    from graph_wiki_core.commands.ingest import IngestResult
-
     from graph_wiki_cli.wiki_cli.main import wiki_app
+    from graph_wiki_core.commands.ingest import IngestResult
 
     src = tmp_path / "doc.md"
     src.write_text("# Doc\n\nBody.", encoding="utf-8")
