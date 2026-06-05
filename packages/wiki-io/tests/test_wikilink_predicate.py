@@ -16,23 +16,23 @@ class IsPlaceholderTargetTest(unittest.TestCase):
 
     def test_detects_ellipsis_as_placeholder(self):
         """Target containing ... is recognized as placeholder template."""
-        self.assertTrue(_is_placeholder_target("wiki/packages/..."))
+        self.assertTrue(_is_placeholder_target("entities/..."))
         self.assertTrue(_is_placeholder_target("..."))
-        self.assertTrue(_is_placeholder_target("wiki/..."))
+        self.assertTrue(_is_placeholder_target("concepts/..."))
 
     def test_detects_angle_brackets_as_placeholder(self):
         """Target containing < or > is recognized as placeholder template."""
-        self.assertTrue(_is_placeholder_target("wiki/<package>"))
+        self.assertTrue(_is_placeholder_target("entities/<package>"))
         self.assertTrue(_is_placeholder_target("<package>"))
         self.assertTrue(_is_placeholder_target("work/<slug>"))
-        self.assertTrue(_is_placeholder_target("wiki/adrs/<adr_id>"))
+        self.assertTrue(_is_placeholder_target("adrs/<adr_id>"))
 
     def test_rejects_normal_wiki_links(self):
         """Normal wikilinks are not placeholders."""
-        self.assertFalse(_is_placeholder_target("wiki/adrs/index"))
-        self.assertFalse(_is_placeholder_target("wiki/packages/foo"))
+        self.assertFalse(_is_placeholder_target("adrs/index"))
+        self.assertFalse(_is_placeholder_target("entities/pkg_foo"))
         self.assertFalse(_is_placeholder_target("work/2026-05-10-slug"))
-        self.assertFalse(_is_placeholder_target("wiki/domains/bar"))
+        self.assertFalse(_is_placeholder_target("entities/domain_bar"))
 
     def test_rejects_empty_and_simple_targets(self):
         """Empty and simple targets are not placeholders."""
@@ -64,8 +64,8 @@ class WikilinkRegexTest(unittest.TestCase):
         ``target`` — not ``target\\``. Regression for the 6 false-positive
         broken links reported by /graph-wiki:lint on 2026-05-23."""
         self.assertEqual(
-            self._target(r"[[wiki/concepts/orchestrator-agent-anatomy\|orchestrator]]"),
-            "wiki/concepts/orchestrator-agent-anatomy",
+            self._target(r"[[concepts/orchestrator-agent-anatomy\|orchestrator]]"),
+            "concepts/orchestrator-agent-anatomy",
         )
 
     def test_table_cell_escaped_alias_with_anchor(self) -> None:
