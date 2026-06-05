@@ -130,3 +130,76 @@ def _atomic_write(path: Path, text: str) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
+
+
+def upsert_proposal(wiki: Path, proposal: dict) -> dict:
+    """Lifecycle merge for one proposal (spec §3.2). Returns the merged record.
+
+    `proposal` is producer-supplied:
+        {kind, mode, target_slug, title, origin: {ref, source, rationale, ...}}
+
+    - No note exists      → create it `proposed` with origins=[origin].
+    - Human status        → left untouched (approved/rejected/created never stomped).
+    - status == proposed  → merge origin into origins[] keyed by `ref` (append if
+                            new, update in place if the same ref re-fires), refresh
+                            title/mode, re-render; status stays proposed.
+    Byte-stable on a no-op (writes only when bytes differ). Atomic write.
+    """
+    kind = proposal["kind"]
+    target_slug = proposal["target_slug"]
+    origin = _ordered_origin(proposal["origin"])
+    path = proposal_path(wiki, kind, target_slug)
+
+    if path.exists():
+        record = read_proposal(path)
+        if record["status"] in HUMAN_DECIDED:
+            return record  # decided: never stomped, no write
+        origins = record["origins"]
+        ref = origin.get("ref")
+        for i, existing in enumerate(origins):
+            if existing.get("ref") == ref:
+                origins[i] = origin
+                break
+        else:
+            origins.append(origin)
+        record["title"] = proposal.get("title", record["title"])
+        record["mode"] = proposal.get("mode", record["mode"])
+        record["origins"] = origins
+    else:
+        record = {
+            "kind": kind,
+            "mode": proposal.get("mode", "create_new"),
+            "target_slug": target_slug,
+            "title": proposal.get("title", ""),
+            "status": "proposed",
+            "origins": [origin],
+        }
+
+    record = _ordered_record(record)
+    text = _serialize(record, render_proposal_body(record))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists() or path.read_text(encoding="utf-8") != text:
+        _atomic_write(path, text)
+    return record
+
+
+def list_proposals(wiki: Path, status: str | None = None, kind: str | None = None) -> list[dict]:
+    """Glob `proposals/` into records, optionally filtered by status/kind.
+
+    Sorted by filename. A malformed note is skipped, never fatal.
+    """
+    d = wiki / "proposals"
+    if not d.is_dir():
+        return []
+    records: list[dict] = []
+    for md in sorted(d.glob("*.md")):
+        try:
+            rec = read_proposal(md)
+        except Exception:  # noqa: BLE001 — a malformed note must not abort the list
+            continue
+        if status is not None and rec["status"] != status:
+            continue
+        if kind is not None and rec["kind"] != kind:
+            continue
+        records.append(rec)
+    return records
