@@ -77,15 +77,10 @@ Two kinds:
 If the source shifts an architecture thesis, revise and append to `## How this synthesis has changed`.
 
 ### 10. Update index
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/update_index.py
-```
+If you edited wiki pages manually, update the relevant `index.md` category sections inline. Command-layer ingest/scan flows update indexes automatically.
 
 ### 11. Log
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op ingest \
-    --title "<title>" --detail "<touched pages>"
-```
+Append a `## [YYYY-MM-DD] ingest | <title>` entry to `log.md` with the touched pages and notable contradictions.
 
 ### 12. Report
 Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs created.

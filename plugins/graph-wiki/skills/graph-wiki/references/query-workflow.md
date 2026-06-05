@@ -64,11 +64,7 @@ If yes:
 - Use the appropriate template
 - Add frontmatter with `category`, `summary`, `updated`
 - Update `<workspace>/wiki/index.md`
-- Append to `log.md`:
-  ```bash
-  uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op create \
-      --title "<question>" --detail "filed query response to <path>"
-  ```
+- Append a `## [YYYY-MM-DD] create | <question>` entry to `log.md` with the filed response path.
 
 ## Output formats
 

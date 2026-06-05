@@ -88,11 +88,7 @@ The report MUST be structured as:
 Want me to run these in order, or pick specific ones?
 ```
 
-Then log:
-```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/append_log.py --op lint \
-    --title "<date> health check" --detail "<findings summary>"
-```
+Then append a `## [YYYY-MM-DD] lint | <date> health check` entry to `log.md` with the findings summary.
 
 ## Rules
 

@@ -27,10 +27,11 @@ Log format: `## [YYYY-MM-DD] <op> | <title>`
 Valid ops: scan, ingest, query, lint, create, update, delete, note.
 
 Scripts (Python stdlib) in `<plugin-path>/scripts/`:
-- init_vault.py, scan_monorepo.py, ingest_source.py, update_index.py, append_log.py
+- init_vault.py, scan_monorepo.py, ingest_source.py
 - lint_wiki.py (+ code-drift), graph_analyzer.py, wiki_search.py, export_marp.py
 
 Run any with `--help`. Use them when helpful — they're fast and deterministic.
+Index and log maintenance is automatic in command-layer scan/ingest flows. For manual plugin edits, update `index.md` and `log.md` directly.
 
 Style: concise. Cite with `[[wikilinks]]` and `` `code-paths:line` ``. Say "I don't know" when you don't.
 Update `updated:` frontmatter on every touch.

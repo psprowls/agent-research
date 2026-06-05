@@ -142,10 +142,11 @@ Ops: `scan`, `ingest`, `query`, `lint`, `create`, `update`, `delete`, `note`.
 Python scripts live wherever the plugin is installed. Standard library only.
 
 - `init_vault.py`, `scan_monorepo.py`, `ingest_source.py`
-- `update_index.py`, `append_log.py`
 - `wiki_search.py`, `lint_wiki.py`, `graph_analyzer.py`, `export_marp.py`
 
 Run any with `--help`.
+
+Index and log maintenance is automatic in command-layer scan/ingest flows. For manual plugin edits, update `index.md` and `log.md` directly.
 
 ## Style
 
