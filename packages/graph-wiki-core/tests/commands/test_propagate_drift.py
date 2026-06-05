@@ -321,7 +321,8 @@ def test_only_entity_restricts_candidate_set(ws, conn, monkeypatch):
     c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
     c2.execute("INSERT INTO nodes(kind,name,path,line,attrs_json,uri) VALUES "
                "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')")
-    c2.commit(); c2.close()
+    c2.commit()
+    c2.close()
     conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
 
     _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
@@ -344,7 +345,8 @@ def test_only_page_restricts_target_set(ws, conn, monkeypatch):
     c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
     c2.execute("INSERT INTO nodes(kind,name,path,line,attrs_json,uri) VALUES "
                "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')")
-    c2.commit(); c2.close()
+    c2.commit()
+    c2.close()
     conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
 
     _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
@@ -372,8 +374,6 @@ def test_refire_same_entity_updates_origin_in_place(ws, conn, monkeypatch):
     asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
 
     # Entity re-narrated at a new commit -> candidate again.
-    import frontmatter as _fm
-    pd_meta = _fm.load(page).metadata
     page.write_text(page.read_text().replace("last_updated_commit: h2", "last_updated_commit: h3"),
                     encoding="utf-8")
     _patch_judge(monkeypatch, lambda item: {"stale": True, "findings": [
