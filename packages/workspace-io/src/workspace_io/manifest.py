@@ -82,8 +82,13 @@ def write(path: Path, data: dict) -> None:
     payload = {
         "version": 2,
         "initialized_at": str(data.get("initialized_at", "") or ""),
-        "plugins": plugins_payload,
     }
+    # Wiki display name. Optional — only emitted when set, so manifests for
+    # workspaces bootstrapped before this key existed stay topic-free.
+    topic = data.get("topic")
+    if topic:
+        payload["topic"] = str(topic)
+    payload["plugins"] = plugins_payload
     path.write_text(
         yaml.safe_dump(payload, sort_keys=False, default_flow_style=False),
         encoding="utf-8",

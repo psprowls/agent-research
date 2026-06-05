@@ -21,16 +21,7 @@ from graph_wiki_cli.graph_cli import (
     q_callees,
     q_callers,
     q_cross_cutting,
-    q_describe_agent_plugin,
-    q_describe_app,
-    q_describe_builtin,
-    q_describe_dependency,
-    q_describe_domain,
-    q_describe_entry_point,
-    q_describe_package,
-    q_describe_path,
-    q_describe_repo,
-    q_describe_suite,
+    q_describe,
     q_domain_clusters,
     q_domain_deps,
     q_domain_refs,
@@ -39,13 +30,8 @@ from graph_wiki_cli.graph_cli import (
     q_find,
     q_imported_by,
     q_imports,
-    q_list_apps,
-    q_list_builtins,
-    q_list_domains,
+    q_list,
     q_list_entry_points,
-    q_list_packages,
-    q_list_scripts,
-    q_list_suites,
     q_what_tests,
 )
 from graph_io.queries import _VALID_KINDS
@@ -180,68 +166,33 @@ def exported_by_cmd(ctx: typer.Context, name: str) -> None:
     _run(q_exported_by, ctx, name=name)
 
 
-@graph_app.command(name="describe-agent-plugin")
-def describe_agent_plugin_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe an agent plugin (claude-code plugin under development)."""
-    _run(q_describe_agent_plugin, ctx, name=name)
-
-
-@graph_app.command(name="describe-app")
-def describe_app_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe an app node."""
-    _run(q_describe_app, ctx, name=name)
-
-
-@graph_app.command(name="describe-builtin")
-def describe_builtin_cmd(ctx: typer.Context, uri: str) -> None:
-    """Describe a builtin node by URI."""
-    _run(q_describe_builtin, ctx, uri=uri)
-
-
-@graph_app.command(name="describe-dependency")
-def describe_dependency_cmd(
+@graph_app.command(name="describe")
+def describe_cmd(
     ctx: typer.Context,
-    name: str,
-    ecosystem: Optional[str] = typer.Option(None, "--ecosystem"),
+    selector: Optional[str] = typer.Argument(None, help="Name / path / URI of the entity (omit only for --kind repo)."),
+    kind: Optional[str] = typer.Option(
+        None, "--kind", "-k",
+        help=f"Entity kind: {', '.join(q_describe.DESCRIBE_KINDS)}. Inferred from the selector when omitted.",
+    ),
+    ecosystem: Optional[str] = typer.Option(
+        None, "--ecosystem", help="Dependency ecosystem (use with --kind dependency)."
+    ),
 ) -> None:
-    """Describe a dependency."""
-    _run(q_describe_dependency, ctx, name=name, ecosystem=ecosystem)
+    """Describe a graph entity. Kind is inferred from the selector when --kind is omitted."""
+    if kind is not None and kind not in q_describe.DESCRIBE_KINDS:
+        raise typer.BadParameter(f"kind must be one of: {', '.join(q_describe.DESCRIBE_KINDS)}")
+    _run(q_describe, ctx, selector=selector, kind=kind, ecosystem=ecosystem)
 
 
-@graph_app.command(name="describe-package")
-def describe_package_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe a package."""
-    _run(q_describe_package, ctx, name=name)
-
-
-@graph_app.command(name="describe-path")
-def describe_path_cmd(ctx: typer.Context, path: str) -> None:
-    """Describe a file or directory path."""
-    _run(q_describe_path, ctx, path=path)
-
-
-@graph_app.command(name="describe-repo")
-def describe_repo_cmd(ctx: typer.Context) -> None:
-    """Describe the repository node."""
-    _run(q_describe_repo, ctx)
-
-
-@graph_app.command(name="list-apps")
-def list_apps_cmd(ctx: typer.Context) -> None:
-    """List app nodes."""
-    _run(q_list_apps, ctx)
-
-
-@graph_app.command(name="list-builtins")
-def list_builtins_cmd(ctx: typer.Context) -> None:
-    """List builtin nodes."""
-    _run(q_list_builtins, ctx)
-
-
-@graph_app.command(name="list-packages")
-def list_packages_cmd(ctx: typer.Context) -> None:
-    """List package nodes."""
-    _run(q_list_packages, ctx)
+@graph_app.command(name="list")
+def list_cmd(
+    ctx: typer.Context,
+    kind: str = typer.Option(..., "--kind", "-k", help=f"Entity kind: {', '.join(q_list.LIST_KINDS)}."),
+) -> None:
+    """List graph entities of a given kind."""
+    if kind not in q_list.LIST_KINDS:
+        raise typer.BadParameter(f"kind must be one of: {', '.join(q_list.LIST_KINDS)}")
+    _run(q_list, ctx, kind=kind)
 
 
 @graph_app.command(name="list-entry-points")
@@ -256,24 +207,6 @@ def list_entry_points_cmd(
     _run(q_list_entry_points, ctx, package=package, kind=kind)
 
 
-@graph_app.command(name="list-scripts")
-def list_scripts_cmd(ctx: typer.Context) -> None:
-    """List executable scripts."""
-    _run(q_list_scripts, ctx)
-
-
-@graph_app.command(name="list-suites")
-def list_suites_cmd(ctx: typer.Context) -> None:
-    """List test suites."""
-    _run(q_list_suites, ctx)
-
-
-@graph_app.command(name="describe-suite")
-def describe_suite_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe a test suite."""
-    _run(q_describe_suite, ctx, name=name)
-
-
 @graph_app.command(name="what-tests")
 def what_tests_cmd(
     ctx: typer.Context,
@@ -284,24 +217,6 @@ def what_tests_cmd(
     if kind is not None and kind not in TEST_TARGET_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(TEST_TARGET_KINDS)}")
     _run(q_what_tests, ctx, name=name, kind=kind)
-
-
-@graph_app.command(name="list-domains")
-def list_domains_cmd(ctx: typer.Context) -> None:
-    """List domain nodes."""
-    _run(q_list_domains, ctx)
-
-
-@graph_app.command(name="describe-domain")
-def describe_domain_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe a domain."""
-    _run(q_describe_domain, ctx, name=name)
-
-
-@graph_app.command(name="describe-entry-point")
-def describe_entry_point_cmd(ctx: typer.Context, name: str) -> None:
-    """Describe an entry point."""
-    _run(q_describe_entry_point, ctx, name=name)
 
 
 @graph_app.command(name="domain-clusters")

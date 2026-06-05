@@ -12,6 +12,32 @@ from pathlib import Path
 import pytest
 
 
+def test_init_wiki_titles_claude_md_with_topic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wiki CLAUDE.md title uses the human topic, not the 'wiki' dir name."""
+    from wiki_io import init_vault
+
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname="solo"\nversion="0.0.1"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
+
+    init_vault.init_wiki(
+        wiki, repo, topic="Agent Research", tool="claude-code", force=False, non_interactive=True
+    )
+
+    claude = (wiki / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude.splitlines()[0] == "# Agent Research — Code Wiki"
+    # The bootstrapped index stub title is topic-based too.
+    index = (wiki / "index.md").read_text(encoding="utf-8")
+    assert "# Index — Agent Research" in index
+
+
 def test_init_wiki_creates_section_index_stubs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -633,6 +633,30 @@ class TestRenderByKind:
         assert text.count("[[wiki/entities/tests_suite|suite]]") == 2
 
 
+def test_index_title_uses_display_name_when_given(tmp_path, make_index_fixture_graph):
+    """A supplied display_name overrides the wiki dir name in the index title."""
+    conn = make_index_fixture_graph(
+        {"nodes": [("repository", "agent-research", {"uri": "repo:agent-research"})], "edges": []}
+    )
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir(parents=True, exist_ok=True)
+
+    generate_index(conn, wiki_root, display_name="Agent Research")
+    assert (wiki_root / "index.md").read_text(encoding="utf-8").splitlines()[0] == "# Index — Agent Research"
+
+
+def test_index_title_falls_back_to_wiki_dir_name(tmp_path, make_index_fixture_graph):
+    """With no display_name, the title falls back to the wiki directory name."""
+    conn = make_index_fixture_graph(
+        {"nodes": [("repository", "agent-research", {"uri": "repo:agent-research"})], "edges": []}
+    )
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir(parents=True, exist_ok=True)
+
+    generate_index(conn, wiki_root)
+    assert (wiki_root / "index.md").read_text(encoding="utf-8").splitlines()[0] == "# Index — wiki"
+
+
 def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph):
     """Happy-path integration. Builds a realistic graph, writes vault, runs
     generate_index, asserts the resulting IndexWriteResult counts and the

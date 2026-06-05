@@ -20,7 +20,7 @@ def test_graph_help_lists_native_code_graph_subcommands() -> None:
     assert "Code graph operations" in result.output
     assert "update" in result.output
     assert "find" in result.output
-    assert "describe-package" in result.output
+    assert "describe" in result.output
     assert "domain-clusters" in result.output
 
 

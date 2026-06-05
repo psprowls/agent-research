@@ -136,6 +136,7 @@ def init_wiki(
         plugin=PLUGIN_NAME,
         version=PLUGIN_VERSION,
         workspace=workspace_path,
+        topic=topic,
     )
 
     try:
@@ -149,7 +150,9 @@ def init_wiki(
     variables = {
         "TOPIC": topic,
         "DATE": today,
-        "WIKI_NAME": wiki_path.name,
+        # Display name for page titles. Use the human topic, not the literal
+        # wiki dir name ("wiki"), so titles read "# Agent Research — Code Wiki".
+        "WIKI_NAME": topic,
         "REPO_PATH": str(repo_path),
     }
 

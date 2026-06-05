@@ -148,6 +148,22 @@ def test_user_prose_in_claude_md_preserved_across_init(tmp_path):
     assert "code-wiki-second" in after
 
 
+def test_init_persists_topic_to_manifest(tmp_path):
+    init(tmp_path, plugin="graph-wiki-agent", version="1.0.0", topic="Agent Research")
+    assert read(manifest_path(tmp_path / "graph-wiki"))["topic"] == "Agent Research"
+
+
+def test_init_without_topic_writes_no_topic_key(tmp_path):
+    init(tmp_path, plugin="graph-wiki-agent", version="1.0.0")
+    assert "topic" not in read(manifest_path(tmp_path / "graph-wiki"))
+
+
+def test_second_init_without_topic_preserves_existing_topic(tmp_path):
+    init(tmp_path, plugin="graph-wiki-agent", version="1.0.0", topic="Agent Research")
+    init(tmp_path, plugin="code-wiki-second", version="1.0.0")
+    assert read(manifest_path(tmp_path / "graph-wiki"))["topic"] == "Agent Research"
+
+
 def test_init_tolerates_existing_manifest_without_plugins_key(tmp_path):
     workspace = tmp_path / "graph-wiki"
     workspace.mkdir()

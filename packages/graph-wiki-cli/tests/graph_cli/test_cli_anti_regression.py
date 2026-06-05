@@ -120,8 +120,8 @@ def test_pre_existing_subcommand_exits_zero(
         "update": ["update", "--full"],
         "find": ["find", "--name", "main"],
         "status": ["status"],
-        "describe-package": ["describe-package", refs.package_name],
-        "describe-path": ["describe-path", refs.file_path],
+        "describe-package": ["describe", refs.package_name, "--kind", "package"],
+        "describe-path": ["describe", refs.file_path, "--kind", "path"],
         "callers": ["callers", refs.symbol_id],
         "callees": ["callees", refs.symbol_id],
     }

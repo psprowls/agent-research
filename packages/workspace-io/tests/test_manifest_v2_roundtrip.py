@@ -102,3 +102,45 @@ def test_v2_roles_absent_round_trips_cleanly(tmp_path):
     assert "roles" not in result["plugins"][0]
     # .get() must not raise
     assert result["plugins"][0].get("roles") is None
+
+
+def test_v2_topic_roundtrips(tmp_path):
+    """The wiki display name (topic) survives write → read verbatim."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    data = {
+        "version": 2,
+        "initialized_at": "2026-06-04",
+        "topic": "Agent Research",
+        "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
+    }
+    write(mpath, data)
+    assert read(mpath)["topic"] == "Agent Research"
+
+
+def test_v2_topic_absent_round_trips_cleanly(tmp_path):
+    """A manifest with no topic produces no topic key on disk or on read."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    data = {
+        "version": 2,
+        "initialized_at": "2026-06-04",
+        "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
+    }
+    write(mpath, data)
+    assert "topic:" not in mpath.read_text(encoding="utf-8")
+    assert "topic" not in read(mpath)
+
+
+def test_v2_topic_renders_after_initialized_at(tmp_path):
+    """When present, topic sits between initialized_at and plugins."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    write(
+        mpath,
+        {
+            "version": 2,
+            "initialized_at": "2026-06-04",
+            "topic": "Agent Research",
+            "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
+        },
+    )
+    text = mpath.read_text(encoding="utf-8")
+    assert text.index("initialized_at:") < text.index("topic:") < text.index("plugins:")
