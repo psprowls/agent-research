@@ -62,6 +62,7 @@ from wiki_io.entity_writer import (
     _kind_list_fns,
     short_filename as _short_filename,
 )
+from wiki_io.wikilinks import vault_wikilink
 
 # ============================================================================
 # Module constants (D-09, D-12)
@@ -445,18 +446,6 @@ def _infer_title(path: Path, fm: dict) -> str:
     return path.stem.replace("-", " ").replace("_", " ").title()
 
 
-def _entry_link(path: str, title: str) -> str:
-    """Port of `update_index.py::_entry_link`.
-
-    Wiki entries (rel paths not starting with `work/`) get a `wiki/` prefix
-    so Obsidian (rooted at the workspace) resolves the link. Work entries
-    arrive workspace-rooted and pass through.
-    """
-    stem = path[:-3] if path.endswith(".md") else path
-    target = stem if stem.startswith("work/") else f"wiki/{stem}"
-    return f"[[{target}|{title}]]"
-
-
 def _scan_curated_lane(wiki_root: Path, lane_dir_rel: str) -> list[dict[str, str]]:
     """Walk `wiki_root / lane_dir_rel` for *.md pages; return sorted entries.
 
@@ -551,7 +540,7 @@ def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
 def _entity_wikilink(
     entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None
 ) -> str:
-    """Forward-derive the piped `[[wiki/entities/<stem>|<text>]]` wikilink.
+    """Forward-derive the piped `[[entities/<stem>|<text>]]` wikilink.
 
     Phase 53 D-05: uses `short_filename` from Phase 52 with the precomputed
     collision_set so the index agrees with `write_entities` on filenames
@@ -569,7 +558,7 @@ def _entity_wikilink(
         pkg_for_suite=entity.pkg_for_suite,
     )
     text = label if label is not None else entity.name
-    return f"[[wiki/entities/{stem}|{text}]]"
+    return vault_wikilink(f"entities/{stem}", text)
 
 
 def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: str) -> str:
@@ -792,7 +781,7 @@ def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
         return []
     lines = [f"## {label}", ""]
     for e in entries:
-        link = _entry_link(e["path"], e["title"])
+        link = vault_wikilink(e["path"], e["title"])
         summary = f" — {e['summary']}" if e.get("summary") else ""
         lines.append(f"- {link}{summary}")
     lines.append("")
@@ -932,7 +921,6 @@ __all__ = [
     "_consumer_pkgs",
     "_consumer_pkgs_in_domain",
     "_entity_bullet",
-    "_entry_link",
     "_infer_title",
     "_parse_frontmatter",
     "_place_entities",
