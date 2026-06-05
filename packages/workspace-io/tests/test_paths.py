@@ -14,7 +14,7 @@ def test_work_dir(tmp_path):
 
 
 def test_graph_dir(tmp_path):
-    assert graph_dir(tmp_path) == tmp_path / ".graph"
+    assert graph_dir(tmp_path) == tmp_path / ".graph-wiki"
 
 
 def test_raw_dir(tmp_path):

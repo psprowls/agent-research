@@ -96,7 +96,7 @@ def _open_graph_conn(workspace: Path) -> sqlite3.Connection:
 
 def _trace_path(workspace: Path, command: str, shared_stamp: str) -> Path:
     """Compute the per-invocation trace JSONL path under <workspace>/.graph-wiki/traces/."""
-    trace_dir = workspace / ".graph-wiki" / "traces"
+    trace_dir = graph_dir(workspace) / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     return trace_dir / f"{shared_stamp}-{command}.jsonl"
 

@@ -19,7 +19,9 @@ from workspace_io.paths import graph_dir
 from graph_io import _ignore, builtins, packages, resolve, schema, store, upsert
 from graph_io.uri import RepoContext, parse_remote_url
 
-_GITIGNORE_BODY = "code.db\ncode.db-wal\ncode.db-shm\n"
+# The `.graph-wiki/` dir holds only local machine state (graph DB + cache,
+# subagent traces, search index); ignore it wholesale.
+_GITIGNORE_BODY = "*\n"
 
 
 class NotInGitRepoError(Exception):
@@ -222,7 +224,7 @@ def _enforce_strict_tree_invariant(conn: sqlite3.Connection) -> None:
 def _unlink_db_files(db_path: Path) -> None:
     """Unlink `db_path` plus its `code.db-wal` / `code.db-shm` siblings.
 
-    Filenames are fixed by `_GITIGNORE_BODY`; siblings live in `db_path.parent`.
+    The WAL/SHM siblings mirror `code.db`'s name; they live in `db_path.parent`.
     """
     db_path.unlink(missing_ok=True)
     (db_path.parent / "code.db-wal").unlink(missing_ok=True)

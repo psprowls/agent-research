@@ -199,6 +199,10 @@ test-out/
 .claude/scheduled_tasks.lock
 .graph-wiki.local.yaml
 
+# graph-wiki local machine state (graph DB, traces, search index) — never committed.
+# Anchored to repo root so it can't match the committed test fixture vaults.
+/.graph-wiki/
+
 # ── GSD baseline (auto-generated) ──
 .gsd-id
 .mcp.json

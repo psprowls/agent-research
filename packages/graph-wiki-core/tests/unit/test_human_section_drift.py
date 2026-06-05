@@ -49,7 +49,7 @@ def ws(tmp_path, monkeypatch):
     (wiki / "log.md").write_text("", encoding="utf-8")
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
-    _seed_one_package(workspace / ".graph" / "code.db")
+    _seed_one_package(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
     )

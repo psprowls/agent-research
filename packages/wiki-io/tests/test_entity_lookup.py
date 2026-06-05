@@ -10,7 +10,7 @@ import pytest
 
 
 def _seed_db(workspace: Path, packages, extra_nodes=None) -> Path:
-    """Create <workspace>/.graph/code.db with package + optional extra nodes.
+    """Create <workspace>/.graph-wiki/code.db with package + optional extra nodes.
 
     `packages`: list of (name, uri, rel_file_path | None).
     `extra_nodes`: list of (kind, name, path | None, uri | None).

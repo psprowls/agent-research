@@ -26,7 +26,7 @@ def _make_v1_db(repo_root: Path) -> Path:
     init_repo(repo_root)
     write_and_commit(repo_root, {"a.py": "x = 1\n"}, "init")
     assert _cg(["update", "--full"], repo_root).returncode == 0
-    db = repo_root / "graph-wiki" / ".graph" / "code.db"
+    db = repo_root / "graph-wiki" / ".graph-wiki" / "code.db"
     with sqlite3.connect(db) as conn:
         conn.execute(
             "INSERT INTO metadata(key, value) VALUES ('schema_version', '1') "
@@ -95,7 +95,7 @@ def test_exit_4_schema_mismatch(tmp_path: Path) -> None:
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
     _cg(["update", "--full"], tmp_path)
 
-    db = tmp_path / "graph-wiki" / ".graph" / "code.db"
+    db = tmp_path / "graph-wiki" / ".graph-wiki" / "code.db"
     with sqlite3.connect(db) as conn:
         conn.execute(
             "INSERT INTO metadata(key, value) VALUES ('schema_version', '999') "
@@ -140,7 +140,7 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
         "  applied_version: 0.1.1\n"
     )
 
-    db = tmp_path / "graph-wiki" / ".graph" / "code.db"
+    db = tmp_path / "graph-wiki" / ".graph-wiki" / "code.db"
     locker = sqlite3.connect(db)
     locker.isolation_level = None  # manual transaction control
     locker.execute("BEGIN EXCLUSIVE")

@@ -25,7 +25,7 @@ def _seed_graph_db_for_ingest_tests(
     packages: list[tuple[str, str, str | None]],
     extra_nodes: list[tuple[str, str, str | None, str | None]] | None = None,
 ) -> Path:
-    """Create <workspace>/.graph/code.db with package nodes + (optional) file nodes.
+    """Create <workspace>/.graph-wiki/code.db with package nodes + (optional) file nodes.
 
     Each `packages` entry is (name, uri, rel_file_path | None). When rel_file_path
     is supplied, a 'file' node is inserted and a 'contains' edge wires
@@ -653,7 +653,7 @@ def _build_workspace_with_repo(tmp_path: Path) -> tuple[Path, Path, Path]:
 async def test_run_ingest_source_not_initialized_raises_typed_exception(
     tmp_path: Path,
 ) -> None:
-    """Missing .graph/code.db → IngestorGraphNotInitializedError; LLM not invoked."""
+    """Missing .graph-wiki/code.db → IngestorGraphNotInitializedError; LLM not invoked."""
     from graph_wiki_core.commands.ingest import (
         IngestorGraphNotInitializedError,
         run_ingest_source,
@@ -663,7 +663,7 @@ async def test_run_ingest_source_not_initialized_raises_typed_exception(
     source_file = workspace / "src.md"
     source_file.write_text("# Src\n\nBody.", encoding="utf-8")
 
-    # Do NOT create workspace/.graph/code.db — that is the test scenario.
+    # Do NOT create workspace/.graph-wiki/code.db — that is the test scenario.
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,

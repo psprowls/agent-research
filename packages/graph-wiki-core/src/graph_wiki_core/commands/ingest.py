@@ -592,7 +592,7 @@ async def run_ingest_source(
         resolved_model_id = model_override or ingestor_cfg["model_id"]
         # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
         # to disk for every production ingest invocation, not just pool-driven calls.
-        trace_dir = wiki / ".graph-wiki" / "traces"
+        trace_dir = graph_dir(wiki.parent) / "traces"
         trace_dir.mkdir(parents=True, exist_ok=True)
         trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
         t0 = time.monotonic()

@@ -6,10 +6,12 @@ removes the tmpdir on exit. This matches the post-Phase-22 API contract
 (D-09: wiki is always derived as workspace_path/wiki) so callers can pass
 ``workspace_path=wt.path`` directly.
 
-The copy includes .graph-wiki/ (BM25 index + SQLite embedding DB) so indexes
-travel with the wiki. No index rebuild is needed at sweep time. An empty,
-schema-valid graph DB is also provisioned at ``<tmp>/.graph/code.db`` so the
-ingestor can open it without raising IngestorGraphNotInitializedError.
+The source vault's ``.graph-wiki/`` (BM25 index + SQLite embedding DB + traces)
+is relocated to the workspace-level ``<tmp>/.graph-wiki/`` so the consolidated
+resolver finds the indexes — they travel with the wiki and no rebuild is needed
+at sweep time. An empty, schema-valid graph DB is also provisioned at
+``<tmp>/.graph-wiki/code.db`` so the ingestor can open it without raising
+IngestorGraphNotInitializedError.
 
 Threat mitigation T-4-01: source_wiki is anchored to caller-supplied
 Path; no user input is interpolated into the copy operation.
@@ -47,7 +49,15 @@ class EvalWorktree:
         self._tmp = tempfile.mkdtemp(prefix="eval-wt-")
         self.path = Path(self._tmp)
         shutil.copytree(self._source, self.path / "wiki", dirs_exist_ok=False)
-        db_path = graph_dir(self.path) / "code.db"
+        # Source vaults store their index/traces under <wiki>/.graph-wiki (legacy
+        # layout); relocate to the workspace-level .graph-wiki so the consolidated
+        # resolver (graph_dir(wiki.parent)) finds them — no rebuild at sweep time.
+        wiki_meta = self.path / "wiki" / ".graph-wiki"
+        ws_meta = graph_dir(self.path)
+        if wiki_meta.exists():
+            shutil.move(str(wiki_meta), str(ws_meta))
+        ws_meta.mkdir(parents=True, exist_ok=True)
+        db_path = ws_meta / "code.db"
         conn = store.connect(db_path, create=True)
         conn.close()
         return self

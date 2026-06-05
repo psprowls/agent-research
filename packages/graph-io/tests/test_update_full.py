@@ -49,9 +49,8 @@ def test_update_writes_gitignore(tmp_path: Path) -> None:
     update.run(tmp_path, full=True)
 
     gitignore = (graph_dir(resolve_workspace(tmp_path, False).workspace) / ".gitignore").read_text()
-    assert "code.db" in gitignore
-    assert "code.db-wal" in gitignore
-    assert "code.db-shm" in gitignore
+    # The whole .graph-wiki/ dir is local machine state — ignored wholesale.
+    assert gitignore.strip() == "*"
 
 
 def test_update_raises_outside_git(tmp_path: Path) -> None:

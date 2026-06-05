@@ -29,4 +29,11 @@ def knowledge_dir(workspace: Path) -> Path:
 
 
 def graph_dir(workspace: Path) -> Path:
-    return Path(workspace) / ".graph"
+    """The consolidated local-artifacts directory at the workspace root.
+
+    Holds all uncommitted graph-wiki machine state: the code graph DB
+    (`code.db` + `cache/`), subagent `traces/`, and the search index
+    (`bm25/`, `search.db`). Gitignored wholesale. Distinct from the
+    committed `.graph-wiki.yaml` manifest (see `manifest_path`).
+    """
+    return Path(workspace) / ".graph-wiki"

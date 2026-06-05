@@ -26,7 +26,7 @@ def repo_root(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def conn(workspace: Path) -> sqlite3.Connection:
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     c = store.connect(db, create=True)
     yield c
     c.close()

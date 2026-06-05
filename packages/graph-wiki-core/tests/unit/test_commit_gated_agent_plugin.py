@@ -116,7 +116,7 @@ def plugin_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
 
     _make_plugin(repo, commands=["alpha"])
-    _emit_plugin(workspace / ".graph" / "code.db", repo)
+    _emit_plugin(workspace / ".graph-wiki" / "code.db", repo)
 
     monkeypatch.setattr(
         scan_mod, "_cg_run_build",
@@ -145,7 +145,7 @@ def test_command_added_refreshes_table_and_renarrates(
     workspace = plugin_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"
-    db_path = workspace / ".graph" / "code.db"
+    db_path = workspace / ".graph-wiki" / "code.db"
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
@@ -282,7 +282,7 @@ def test_no_narrate_refreshes_tables_not_narrative(
     workspace = plugin_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"
-    db_path = workspace / ".graph" / "code.db"
+    db_path = workspace / ".graph-wiki" / "code.db"
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
@@ -396,7 +396,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
     workspace = plugin_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"
-    db_path = workspace / ".graph" / "code.db"
+    db_path = workspace / ".graph-wiki" / "code.db"
 
     heads = {"v": "head1"}
     monkeypatch.setattr(

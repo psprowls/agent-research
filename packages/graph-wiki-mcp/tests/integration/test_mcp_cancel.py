@@ -33,9 +33,10 @@ def _seed_minimal_vault(vault: Path) -> list[str]:
     (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
     (vault / ".graph-wiki" / "search.db").touch()
 
-    # Real page files — drill_page reads these via (wiki / page_path).read_text()
-    pages_dir = vault / "pages"
-    pages_dir.mkdir()
+    # Real page files — drill_page reads these via (wiki / page_path).read_text();
+    # the wiki is the `wiki/` subdir, with the index at the workspace-level .graph-wiki.
+    pages_dir = vault / "wiki" / "pages"
+    pages_dir.mkdir(parents=True)
     (pages_dir / "alpha.md").write_text(
         "---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n"
     )
@@ -95,7 +96,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     # Patch resolve_wiki_and_repo so run_query uses our tmp_path vault directly.
     monkeypatch.setattr(
         "graph_wiki_core.commands.query.resolve_wiki_and_repo",
-        lambda workspace_path=None: (tmp_path.resolve(), None),
+        lambda workspace_path=None: (tmp_path.resolve() / "wiki", None),
     )
 
     # Patch the search layer — BM25 and embedding calls — to return the seeded pages
@@ -139,8 +140,9 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
         await task
 
     # --- Trace assertions ---
-    # Trace files are written to: wiki / ".graph-wiki" / "traces" / "*.jsonl"
-    # wiki = tmp_path.resolve() per the monkeypatched resolve_wiki_and_repo.
+    # Trace files are written to: graph_dir(wiki.parent) / "traces" / "*.jsonl".
+    # wiki = tmp_path.resolve()/"wiki" per the monkeypatched resolve_wiki_and_repo,
+    # so traces land under the workspace-level <tmp_path>/.graph-wiki/traces.
     trace_dir = tmp_path.resolve() / ".graph-wiki" / "traces"
     trace_files = list(trace_dir.glob("*.jsonl"))
     assert trace_files, f"No trace files found in {trace_dir}"

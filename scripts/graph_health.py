@@ -4,7 +4,7 @@
 Usage:
     python3 graph_health.py [path/to/code.db]
 
-Defaults to .graph/code.db under the current directory. Read-only.
+Defaults to .graph-wiki/code.db under the current directory. Read-only.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-DB = Path(sys.argv[1] if len(sys.argv) > 1 else ".graph/code.db")
+DB = Path(sys.argv[1] if len(sys.argv) > 1 else ".graph-wiki/code.db")
 
 
 def q(conn, sql, params=()):

@@ -69,7 +69,7 @@ def churn_workspace(tmp_path, monkeypatch):
     (wiki / "log.md").write_text("", encoding="utf-8")
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
-    _seed_one_package(workspace / ".graph" / "code.db")
+    _seed_one_package(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
         scan_mod, "_cg_run_build",
         lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
@@ -169,7 +169,7 @@ def test_frontmatter_only_change_forces_updated(churn_workspace, monkeypatch) ->
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     # Mutate the graph: change the package language (a scanner-owned fm key).
-    conn = sqlite3.connect(workspace / ".graph" / "code.db")
+    conn = sqlite3.connect(workspace / ".graph-wiki" / "code.db")
     try:
         conn.execute(
             "UPDATE nodes SET attrs_json='{\"language\": \"rust\"}' "

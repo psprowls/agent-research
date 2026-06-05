@@ -9,7 +9,7 @@ Decision references
 - D-01 / D-04: Python stdlib source is `sys.stdlib_module_names` at the *scanner runtime*.
   Drift across Python versions is accepted — no ``requires-python`` parsing.
 - D-02: Node builtins are cached per workspace at
-  ``<workspace>/.graph/cache/node-builtins-<major>.json``.
+  ``<workspace>/.graph-wiki/cache/node-builtins-<major>.json``.
 - D-03: When ``node`` is missing AND no cache exists, JS Builtin emission is silently
   skipped with zero exceptions and zero stderr output.
 - D-05: Top-level module only — ``from os.path import join`` → ``builtin:python/os``.

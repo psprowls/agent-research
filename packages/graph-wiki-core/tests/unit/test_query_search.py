@@ -150,7 +150,8 @@ def test_cosine_search_sqlite_orders_by_similarity(tmp_path: Path) -> None:
 
     # Query vector aligned to vec1 (dimension 0)
     query_vec = _make_vec(dim, 0)
-    results = _cosine_search_sqlite(tmp_path, query_vec, top_k=2)
+    # _cosine_search_sqlite takes the wiki; the search.db lives at graph_dir(wiki.parent).
+    results = _cosine_search_sqlite(tmp_path / "wiki", query_vec, top_k=2)
 
     assert len(results) == 2
     assert results[0][0] == "page1.md", f"Expected page1.md first, got {results[0][0]}"
@@ -223,11 +224,11 @@ def test_build_index_creates_bm25_and_sqlite(tmp_path: Path) -> None:
 
         build_index(vault)
 
-    bm25_dir = vault / ".graph-wiki" / "bm25"
+    bm25_dir = vault.parent / ".graph-wiki" / "bm25"
     assert bm25_dir.exists(), ".graph-wiki/bm25/ should exist after build_index"
     assert any(bm25_dir.iterdir()), ".graph-wiki/bm25/ should be non-empty"
 
-    db_path = vault / ".graph-wiki" / "search.db"
+    db_path = vault.parent / ".graph-wiki" / "search.db"
     assert db_path.exists(), ".graph-wiki/search.db should exist after build_index"
 
     # Verify WAL mode

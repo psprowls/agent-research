@@ -21,9 +21,9 @@ async def test_evalworktree_creates_copy(fixture_wiki_path: Path) -> None:
 
 
 async def test_evalworktree_includes_graph_wiki(fixture_wiki_path: Path) -> None:
-    """EvalWorktree copy includes wiki/.graph-wiki/bm25 so indexes travel with the wiki."""
+    """EvalWorktree relocates the vault's .graph-wiki/bm25 to the workspace root so indexes travel."""
     async with EvalWorktree(fixture_wiki_path) as wt:
-        assert (wt.path / "wiki" / ".graph-wiki" / "bm25").exists()
+        assert (wt.path / ".graph-wiki" / "bm25").exists()
 
 
 async def test_evalworktree_cleans_up(fixture_wiki_path: Path) -> None:
@@ -51,7 +51,7 @@ async def test_evalworktree_isolation(fixture_wiki_path: Path) -> None:
 
 
 async def test_evalworktree_provisions_graph_db(fixture_wiki_path: Path) -> None:
-    """EvalWorktree provisions an empty schema-valid graph DB at .graph/code.db."""
+    """EvalWorktree provisions an empty schema-valid graph DB at .graph-wiki/code.db."""
     async with EvalWorktree(fixture_wiki_path) as wt:
         db_path = graph_dir(wt.path) / "code.db"
         assert db_path.exists()

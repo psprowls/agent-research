@@ -30,11 +30,12 @@ def _seed_minimal_vault(vault: Path) -> list[str]:
     Same seed pattern as integration/test_mcp_cancel.py: stub index presence,
     real page files for drill_page's read_text().
     """
+    # Index lives at the workspace-level .graph-wiki; pages live under the wiki.
     (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
     (vault / ".graph-wiki" / "search.db").touch()
 
-    pages_dir = vault / "pages"
-    pages_dir.mkdir()
+    pages_dir = vault / "wiki" / "pages"
+    pages_dir.mkdir(parents=True)
     (pages_dir / "alpha.md").write_text(
         "---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n"
     )
@@ -81,7 +82,7 @@ async def test_query_summary_record_has_schema_version_one(
     )
     monkeypatch.setattr(
         "graph_wiki_core.commands.query.resolve_wiki_and_repo",
-        lambda workspace_path=None: (tmp_path.resolve(), None),
+        lambda workspace_path=None: (tmp_path.resolve() / "wiki", None),
     )
     monkeypatch.setattr(
         "graph_wiki_core.commands.query.bm25_query",

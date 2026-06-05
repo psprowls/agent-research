@@ -671,7 +671,7 @@ async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
     if items:
         drift_cfg = load_role_config("drift_judge")
         drift_llm = make_llm("drift_judge", model_override=model_override)
-        drift_pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+        drift_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
 
         async def judge(item: tuple) -> TaskResult:
             _pp, _anchor, heading, chunk, narrative, file_map = item
@@ -823,15 +823,15 @@ async def run_scan(
             raise_exception=True,
         )
         # NOTE: run_build interprets `workspace` as the workspace ROOT (where
-        # `.graph/code.db` is written), not the wiki directory. commands/graph.py
+        # `.graph-wiki/code.db` is written), not the wiki directory. commands/graph.py
         # (`_resolve_paths` → `cfg.workspace`) and the librarian
         # (`graph_dir(wiki.parent)` in commands/query.py) both use the workspace
         # root. We follow that convention here so the post-update
         # `read_only_connect(graph_dir(wiki.parent) / "code.db")` finds the
         # DB the graph build just created. (The plan's must_have says
         # `workspace=wiki`; that is a plan-spec drift — passing `wiki` makes the
-        # build write to `<wiki>/.graph/code.db` while the read path looks under
-        # `<workspace>/.graph/code.db`, so the conn open would fall through
+        # build write to `<wiki>/.graph-wiki/code.db` while the read path looks under
+        # `<workspace>/.graph-wiki/code.db`, so the conn open would fall through
         # to the post-update NOT_INITIALIZED fallback every time. See Phase
         # 39 SUMMARY's deviations section.)
         #
@@ -886,7 +886,7 @@ async def run_scan(
             raise ScanAbortedError(exit_code=_cg_exit, stderr=_cg_stderr)
 
         # Phase 39 Step 1.6 (D-05): open the read-only graph conn ONCE on success.
-        # wiki is workspace/wiki under the standard layout; .graph lives next to it
+        # wiki is workspace/wiki under the standard layout; .graph-wiki lives next to it
         # (mirrors the pattern in commands/query.py — librarian's graph-tools wiring).
         if _graph_ready:
             try:
@@ -984,7 +984,7 @@ async def run_scan(
                 narrator_cfg = load_role_config("narrator")
                 narrator_llm = make_llm("narrator", model_override=model_override)
                 narrator_pool = SubagentPool(
-                    trace_dir=wiki / ".graph-wiki" / "traces"
+                    trace_dir=graph_dir(wiki.parent) / "traces"
                 )
 
                 async def generate_narrative(
@@ -1245,7 +1245,7 @@ async def run_scan(
                 describer_cfg = load_role_config("code_reader")
                 describer_llm = make_llm("code_reader")
                 describer_pool = SubagentPool(
-                    trace_dir=wiki / ".graph-wiki" / "traces"
+                    trace_dir=graph_dir(wiki.parent) / "traces"
                 )
 
                 async def describe_files(

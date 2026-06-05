@@ -16,7 +16,7 @@ import pytest
 
 
 def _read_summary(wiki: Path) -> dict:
-    trace_dir = wiki / ".graph-wiki" / "traces"
+    trace_dir = wiki.parent / ".graph-wiki" / "traces"
     summary_files = list(trace_dir.glob("query_*.jsonl"))
     assert len(summary_files) == 1, f"expected one query_*.jsonl, got {summary_files}"
     raw = summary_files[0].read_text().strip()
@@ -54,8 +54,8 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".graph-wiki" / "search.db").touch()
+    (vault.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault.parent / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "Useful excerpt about the topic")],
@@ -101,8 +101,8 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".graph-wiki" / "search.db").touch()
+    (vault.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault.parent / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "Useful excerpt about the topic")],
@@ -144,8 +144,8 @@ async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Pa
 
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / ".graph-wiki" / "bm25").mkdir(parents=True)
-    (vault / ".graph-wiki" / "search.db").touch()
+    (vault.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (vault.parent / ".graph-wiki" / "search.db").touch()
 
     librarian_fan = FanOutResult(
         successes=[("page1.md", "NO_RELEVANT_CONTENT")],

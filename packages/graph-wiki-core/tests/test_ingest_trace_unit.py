@@ -16,7 +16,7 @@ import pytest
 
 
 def _seed_empty_graph(workspace: Path) -> None:
-    """Seed an empty .graph/code.db so Phase 40's NOT_INITIALIZED gate is satisfied."""
+    """Seed an empty .graph-wiki/code.db so Phase 40's NOT_INITIALIZED gate is satisfied."""
     from graph_io.store import connect
     from workspace_io.paths import graph_dir
 
@@ -64,7 +64,7 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     ):
         await run_ingest_source(source, workspace_path=wiki)
 
-    trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
+    trace_files = list((wiki.parent / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1, f"expected one ingest_*.jsonl, found {trace_files}"
     records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(records) == 1
@@ -103,7 +103,7 @@ async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None
     ):
         await run_ingest_source(source, workspace_path=wiki)
 
-    trace_files = list((wiki / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
+    trace_files = list((wiki.parent / ".graph-wiki" / "traces").glob("ingest_*.jsonl"))
     assert len(trace_files) == 1
     records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(records) == 1

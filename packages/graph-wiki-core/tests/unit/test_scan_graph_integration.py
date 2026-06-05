@@ -228,7 +228,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
     assert order, "expected at least the cg_update step to run"
     assert order[0] == "cg_update", f"cg update must run first; got order={order}"
     # Verify the call shape — full=False, workspace is the ROOT (wiki.parent),
-    # which run_build writes `.graph/code.db` under. Mirrors commands/graph.py
+    # which run_build writes `.graph-wiki/code.db` under. Mirrors commands/graph.py
     # and the librarian's read path (commands/query.py uses graph_dir(wiki.parent)).
     assert captured_call["full"] is False, f"expected full=False; got {captured_call['full']}"
     assert captured_call["workspace"] == workspace, (
@@ -382,7 +382,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -431,7 +431,7 @@ def test_file_map_injected_into_package_entity_page(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -526,7 +526,7 @@ async def test_file_map_injected_into_app_entity_page(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
     monkeypatch.setattr(
@@ -612,7 +612,7 @@ def test_file_map_descriptions_survive_rescan(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -699,7 +699,7 @@ def test_code_reader_fanout_fills_todo_descriptions(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
     monkeypatch.setattr(
@@ -793,7 +793,7 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
     monkeypatch.setattr(
@@ -888,7 +888,7 @@ async def test_app_file_map_descriptions_survive_rescan(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
     monkeypatch.setattr(
@@ -976,7 +976,7 @@ async def test_description_fill_log_uses_entity_noun(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
     monkeypatch.setattr(
@@ -1131,7 +1131,7 @@ async def test_file_map_injected_into_test_suite_entity_page(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
     monkeypatch.setattr(
@@ -1195,7 +1195,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
     monkeypatch.setattr(
@@ -1269,7 +1269,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
     monkeypatch.setattr(
@@ -1370,7 +1370,7 @@ async def test_suite_filemap_skipped_under_no_file_map(
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    db = workspace / ".graph" / "code.db"
+    db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
     monkeypatch.setattr(

@@ -252,7 +252,7 @@ def _cosine_search_sqlite(
     Opens and closes the connection per call (no module-level state).
     Returns list of (page_path, cosine_score) sorted descending.
     """
-    db_path = vault_path / ".graph-wiki" / _SEARCH_DB_NAME
+    db_path = graph_dir(vault_path.parent) / _SEARCH_DB_NAME
     conn = sqlite3.connect(str(db_path))
     try:
         rows = conn.execute("SELECT path, embedding FROM pages").fetchall()
@@ -579,7 +579,7 @@ async def _run_code_fallback(
     # TRACE-FU-01 (D-03): trace per-call synthesizer invocation alongside the
     # summary_record. The synth_resp also feeds the summary_record's
     # tokens_in / tokens_out so the per-query summary reports usage.
-    trace_dir = wiki / ".graph-wiki" / "traces"
+    trace_dir = graph_dir(wiki.parent) / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
     trace_file = trace_dir / f"synth_codefallback_{query_id}.jsonl"
     t0 = time.monotonic()
@@ -748,7 +748,7 @@ def build_index(vault_path: Path) -> None:
         return
 
     # ---- BM25 ----
-    bm25_dir = vault_path / ".graph-wiki" / _BM25_SUBDIR
+    bm25_dir = graph_dir(vault_path.parent) / _BM25_SUBDIR
     bm25_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("Rebuilding BM25 index for %d pages", len(pages))
@@ -766,7 +766,7 @@ def build_index(vault_path: Path) -> None:
     tokenizer.save_stopwords(str(bm25_dir))
 
     # ---- Embedding index (incremental) ----
-    db_path = vault_path / ".graph-wiki" / _SEARCH_DB_NAME
+    db_path = graph_dir(vault_path.parent) / _SEARCH_DB_NAME
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(str(db_path))
@@ -820,7 +820,7 @@ def bm25_query(
 
     Vocab is frozen at query time (update_vocab=False) — Pitfall 1 fix.
     """
-    bm25_dir = vault_path / ".graph-wiki" / _BM25_SUBDIR
+    bm25_dir = graph_dir(vault_path.parent) / _BM25_SUBDIR
 
     retriever = bm25s.BM25.load(str(bm25_dir), load_corpus=True)
 
@@ -900,8 +900,8 @@ async def run_query(
     wiki, _ = resolve_wiki_and_repo(workspace_path)
 
     # Step 2: auto-build index if missing
-    bm25_dir = wiki / ".graph-wiki" / _BM25_SUBDIR
-    db_path = wiki / ".graph-wiki" / _SEARCH_DB_NAME
+    bm25_dir = graph_dir(wiki.parent) / _BM25_SUBDIR
+    db_path = graph_dir(wiki.parent) / _SEARCH_DB_NAME
     if not bm25_dir.exists() or not db_path.exists():
         logger.warning(
             "First-time index build — may take a moment. query_id=%s", query_id
@@ -1000,7 +1000,7 @@ async def run_query(
 
     # ---- Phase 37: wrap remaining run_query body in try/finally (LIBTOOLS-03) ----
     try:
-        pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+        pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
 
         async def drill_page(page_path: str) -> TaskResult:
             page_text = _page_texts.get(page_path) or (wiki / page_path).read_text(
@@ -1093,7 +1093,7 @@ async def run_query(
             ]
             # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
             # feed the summary_record so the query summary reports usage.
-            synth_trace_dir = wiki / ".graph-wiki" / "traces"
+            synth_trace_dir = graph_dir(wiki.parent) / "traces"
             synth_trace_dir.mkdir(parents=True, exist_ok=True)
             synth_trace_file = synth_trace_dir / f"synth_librarian_{query_id}.jsonl"
             synth_t0 = time.monotonic()
@@ -1167,7 +1167,7 @@ async def run_query(
 
         # Write query summary trace record (RESEARCH Open Question 1 — write directly)
         ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
-        trace_dir = wiki / ".graph-wiki" / "traces"
+        trace_dir = graph_dir(wiki.parent) / "traces"
         trace_dir.mkdir(parents=True, exist_ok=True)
         summary_file = trace_dir / f"query_{query_id}.jsonl"
         try:

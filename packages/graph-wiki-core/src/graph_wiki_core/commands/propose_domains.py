@@ -651,7 +651,7 @@ def propose_domains_cmd(
     )
 
     # D-01/D-20: SubagentPool fan-out — partial-success + trace records.
-    pool = SubagentPool(trace_dir=workspace_root / ".graph-wiki" / "traces")
+    pool = SubagentPool(trace_dir=graph_dir(workspace_root) / "traces")
     fan_result = asyncio.run(
         pool.run_all(
             items=list(cluster_result.clusters),

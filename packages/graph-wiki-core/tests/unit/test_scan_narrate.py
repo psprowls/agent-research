@@ -50,7 +50,7 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    _seed_minimal_graph(workspace / ".graph" / "code.db")
+    _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
         scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
     )
@@ -113,7 +113,7 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
     workspace = tmp_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"
-    _seed_minimal_graph(workspace / ".graph" / "code.db")
+    _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
 
     # Make the Bedrock packages raise ImportError on import.
     monkeypatch.setitem(sys.modules, "model_adapter.loader", None)

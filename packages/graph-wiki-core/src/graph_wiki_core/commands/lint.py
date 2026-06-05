@@ -35,6 +35,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
+from workspace_io.paths import graph_dir
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
@@ -526,7 +527,7 @@ async def run_lint(
     mod = _module_pass(repo, wiki, workspace, pages)
 
     # Step 4: semantic pass
-    pool = SubagentPool(trace_dir=wiki / ".graph-wiki" / "traces")
+    pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
     cfg = load_role_config("linter")
     semantic_findings, errors = await _semantic_pass(
         wiki, pages, pool, cfg, model_override=model_override, project_context=project_ctx
