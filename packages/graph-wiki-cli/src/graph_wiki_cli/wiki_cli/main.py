@@ -117,6 +117,7 @@ def lint(
         # Human-readable multi-section report
         typer.echo(f"Code Wiki lint — {result.wiki}")
         typer.echo(f"Total pages: {result.total_pages}")
+        typer.echo(f"Open proposals: {result.open_proposals}")
         typer.echo("")
 
         def _section(label: str, items: list) -> None:

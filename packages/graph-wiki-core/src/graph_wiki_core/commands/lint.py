@@ -35,6 +35,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.proposals import list_proposals
 from workspace_io.paths import graph_dir
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
@@ -105,6 +106,7 @@ class LintResult:
     scanner_heading_drift: list[str] = field(default_factory=list)
     semantic_findings: dict[str, list[str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    open_proposals: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +516,7 @@ async def run_lint(
     """
     # Step 1: resolve wiki and repo
     wiki, repo = resolve_wiki_and_repo(workspace_path)
+    open_proposals = len(list_proposals(wiki, status="proposed"))
     project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()
@@ -551,4 +554,5 @@ async def run_lint(
         scanner_heading_drift=mod["scanner_heading_drift"],
         semantic_findings=semantic_findings,
         errors=errors,
+        open_proposals=open_proposals,
     )
