@@ -29,7 +29,6 @@ from wiki_io.index_generator import (
     _compute_qualifying_domains,
     _consumer_pkgs,
     _consumer_pkgs_in_domain,
-    _entry_link,
     _place_entities,
     _render,
     _scan_curated_lane,
@@ -106,8 +105,10 @@ class TestIndexWriteResult:
         assert "concepts/index.md" in GENERATED_FILES
 
     def test_entry_link_wiki_vs_work(self):
-        assert _entry_link("work/foo.md", "Foo") == "[[work/foo|Foo]]"
-        assert _entry_link("concepts/foo.md", "Foo") == "[[wiki/concepts/foo|Foo]]"
+        from wiki_io.wikilinks import vault_wikilink
+
+        assert vault_wikilink("work/foo.md", "Foo") == "[[work/foo|Foo]]"
+        assert vault_wikilink("concepts/foo.md", "Foo") == "[[concepts/foo|Foo]]"
 
 
 # ============================================================================
@@ -485,7 +486,7 @@ class TestRenderDomainTree:
         text, *_ = _render(conn, wiki_root)
         assert "## Domains — agent-research" in text
         assert "## Domain: core" in text
-        assert "[[wiki/entities/pkg_pkg-a|pkg-a]]" in text
+        assert "[[entities/pkg_pkg-a|pkg-a]]" in text
 
     def test_sub_domain_nesting(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -554,17 +555,17 @@ class TestRenderByKind:
         # By-kind entities now render as `#### {name}` headers with an
         # `open page` link line (header replaces the old name bullet).
         assert "#### pkg-cross" in text
-        assert "[[wiki/entities/pkg_pkg-cross|open page]]" in text
+        assert "[[entities/pkg_pkg-cross|open page]]" in text
         assert "#### myapp" in text
-        assert "[[wiki/entities/app_myapp|open page]]" in text
+        assert "[[entities/app_myapp|open page]]" in text
         assert "#### graph-wiki" in text
-        assert "[[wiki/entities/agent-plugin_graph-wiki|open page]]" in text
+        assert "[[entities/agent-plugin_graph-wiki|open page]]" in text
         # The old bare name bullet for a by-kind entity is gone.
-        assert "[[wiki/entities/pkg_pkg-cross|pkg-cross]]" not in text
+        assert "[[entities/pkg_pkg-cross|pkg-cross]]" not in text
         # No flat dependency group; boto3 still nests under pkg-cross (bullet).
         assert "### Dependencies" not in text
         assert "  - Dependencies" in text
-        assert "[[wiki/entities/dep_boto3|boto3]]" in text
+        assert "[[entities/dep_boto3|boto3]]" in text
 
     def test_by_kind_entity_summary_renders_before_open_page_link(
         self, tmp_path, make_index_fixture_graph
@@ -587,7 +588,7 @@ class TestRenderByKind:
         )
         text, *_ = _render(conn, wiki_root)
         assert "#### pkg-cross" in text
-        assert "Cross summary — [[wiki/entities/pkg_pkg-cross|open page]]" in text
+        assert "Cross summary — [[entities/pkg_pkg-cross|open page]]" in text
 
     def test_empty_by_kind_omitted(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -630,7 +631,7 @@ class TestRenderByKind:
         assert "### Test Suites" not in text
         assert "  - Test Suites" in text
         # suite tests pkg-1 and pkg-2 → its link appears under each (duplicated).
-        assert text.count("[[wiki/entities/tests_suite|suite]]") == 2
+        assert text.count("[[entities/tests_suite|suite]]") == 2
 
 
 def test_index_title_uses_display_name_when_given(tmp_path, make_index_fixture_graph):
@@ -720,8 +721,8 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
     assert "  - Dependencies" in text
     assert "### Agent Plugins" in text
     # Piped human-readable links (IDX-02/D-05).
-    assert "[[wiki/entities/pkg_pkg-a|pkg-a]]" in text
-    assert "[[wiki/entities/dep_boto3|boto3]]" in text
+    assert "[[entities/pkg_pkg-a|pkg-a]]" in text
+    assert "[[entities/dep_boto3|boto3]]" in text
     assert "## ADRs" in text
     assert "## Concepts" in text
     # Empty curated lanes omitted (D-08)
@@ -871,7 +872,7 @@ def test_cross_cutting_in_by_kind_only(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    cross_link = "[[wiki/entities/pkg_pkg-cross|open page]]"
+    cross_link = "[[entities/pkg_pkg-cross|open page]]"
     assert text.count(cross_link) == 1
     by_kind_idx = text.find("## By Kind")
     cross_idx = text.find(cross_link)
@@ -954,7 +955,7 @@ def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
 
     text, *_ = _render(conn, wiki_root)
     assert "## Domain: active-domain" in text
-    assert "[[wiki/entities/pkg_pkg-solo|pkg-solo]]" in text
+    assert "[[entities/pkg_pkg-solo|pkg-solo]]" in text
     active_start = text.find("## Domain: active-domain")
     next_section = text.find("##", active_start + len("## Domain: active-domain"))
     active_section = text[active_start:next_section if next_section > -1 else None]
@@ -1080,7 +1081,7 @@ def test_app_zero_domain_renders_in_by_kind_apps_first(
     assert pkgs_idx > -1
     assert apps_idx < pkgs_idx  # apps listed first (D-03)
     assert "#### myapp" in text
-    assert "[[wiki/entities/app_myapp|open page]]" in text
+    assert "[[entities/app_myapp|open page]]" in text
 
 
 def test_app_single_domain_renders_under_its_domain(
@@ -1104,7 +1105,7 @@ def test_app_single_domain_renders_under_its_domain(
     text, *_ = _render(conn, wiki_root)
     assert "## Domain: core" in text
     # App link present under its domain; no By-Kind section at all (only entity).
-    assert "[[wiki/entities/app_myapp|myapp]]" in text
+    assert "[[entities/app_myapp|myapp]]" in text
     assert "### Apps" not in text
 
 
@@ -1140,8 +1141,8 @@ def test_internal_dependencies_subsection_distinct_from_dependencies(
     assert "  - Dependencies" in text
     assert "  - Internal dependencies" in text
     # External dep → dependency entity page; internal dep → PACKAGE entity page.
-    assert "[[wiki/entities/dep_boto3|boto3]]" in text
-    assert "[[wiki/entities/pkg_target|target]]" in text
+    assert "[[entities/dep_boto3|boto3]]" in text
+    assert "[[entities/pkg_target|target]]" in text
     # The internal-deps heading is distinct from (and after) the external one.
     dep_idx = text.find("  - Dependencies")
     internal_idx = text.find("  - Internal dependencies")
@@ -1177,10 +1178,10 @@ def test_inline_summary_from_entity_page_frontmatter(
     )
     text, *_ = _render(conn, wiki_root)
     # pkg-a renders the inline summary suffix (D-07).
-    assert "[[wiki/entities/pkg_pkg-a|pkg-a]] — Some summary" in text
+    assert "[[entities/pkg_pkg-a|pkg-a]] — Some summary" in text
     # pkg-b (no entity page) renders the link with NO ` — ` suffix.
-    assert "[[wiki/entities/pkg_pkg-b|pkg-b]]\n" in text
-    assert "[[wiki/entities/pkg_pkg-b|pkg-b]] —" not in text
+    assert "[[entities/pkg_pkg-b|pkg-b]]\n" in text
+    assert "[[entities/pkg_pkg-b|pkg-b]] —" not in text
 
 
 # --- Fan-out regression guard (SC#3 / D-07/D-08) ---
