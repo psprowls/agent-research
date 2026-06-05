@@ -47,6 +47,7 @@ from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-expose
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from workspace_io.paths import graph_dir
 
+from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
 
@@ -116,6 +117,11 @@ class IngestResult:
         frontmatter_parsed: Living Wiki M3: False when the ingestor frontmatter
                             failed to parse and we fell through to
                             source_kind: unknown.
+        suggested_pages:    Living Wiki M3: proposed concept/adr/architecture pages
+                            recorded on the Source page (each a dict with
+                            kind/slug/mode/status/…). Empty for work items.
+        suggestions_parsed: Living Wiki M3: False when the extractor LLM call
+                            errored or its output did not parse (zero suggestions).
     """
 
     status: str
@@ -130,6 +136,9 @@ class IngestResult:
     source_kind: str | None = None  # descriptive kind on Source pages; "unknown" on parse miss; None for work items
     stripped_wikilinks: list[str] = field(default_factory=list)  # unresolved [[links]] stripped from the body
     frontmatter_parsed: bool = True  # False when we fell through to source_kind: unknown via a parse miss
+    # Living Wiki M3 (suggestion step):
+    suggested_pages: list[dict] = field(default_factory=list)  # proposals after this run's merge
+    suggestions_parsed: bool = True  # False when the extractor call errored or its output didn't parse
 
 
 # ---------------------------------------------------------------------------
@@ -758,6 +767,17 @@ async def run_ingest_source(
             if linked_output != current_output:
                 target_path.write_text(linked_output, encoding="utf-8")
 
+        # Step 7.5 (Living Wiki M3): inline suggest phase — propose derived
+        # concept/adr/architecture pages from the just-written Source page.
+        # Best-effort: a failure here never fails the ingest (spec §3.1).
+        try:
+            suggested_pages, suggestions_parsed = await run_suggest_phase(
+                wiki=wiki, page_path=target_path
+            )
+        except Exception:
+            logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
+            suggested_pages, suggestions_parsed = [], False
+
         # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
         update_index(wiki)
 
@@ -784,6 +804,8 @@ async def run_ingest_source(
             source_kind=source_kind,
             stripped_wikilinks=stripped_wikilinks,
             frontmatter_parsed=frontmatter_parsed,
+            suggested_pages=suggested_pages,
+            suggestions_parsed=suggestions_parsed,
         )
     finally:
         try:

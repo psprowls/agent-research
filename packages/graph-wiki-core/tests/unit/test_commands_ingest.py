@@ -16,6 +16,29 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
+# M3 autouse: defang the extractor LLM for the whole module so existing tests
+# never trigger a live Bedrock call from the suggest phase.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _stub_extractor_llm():
+    """Defang the M3 suggest phase for the whole module.
+
+    The suggest phase calls make_llm("extractor") in the suggest_pages
+    namespace, which the per-test ingest.make_llm patches do NOT cover. Stub it
+    to return `suggestions: []` (parsed True, zero proposals) so existing tests
+    never hit Bedrock. Tests that assert on suggestions nest their own
+    `patch("graph_wiki_core.commands.suggest_pages.make_llm", ...)` inside this
+    one, which wins for their duration.
+    """
+    fake = MagicMock()
+    fake.ainvoke = AsyncMock(return_value=MagicMock(content="suggestions: []"))
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake):
+        yield
+
+
+# ---------------------------------------------------------------------------
 # Phase 40 graph-seeding helper for ingest tests
 # ---------------------------------------------------------------------------
 
@@ -1224,6 +1247,93 @@ async def test_run_ingest_source_surfaces_stripped_wikilinks_in_result(
     assert result.stripped_wikilinks == ["Hallucinated Person"]
     assert result.frontmatter_parsed is True
     assert result.source_kind == "source"
+
+
+# ---------------------------------------------------------------------------
+# M3 suggestion step: inline suggest phase wired into run_ingest_source
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_attaches_suggestions(tmp_path: Path) -> None:
+    """A clean ingest records proposals on the Source page + in IngestResult."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "spec.md"
+    source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    ingestor_response = (
+        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    )
+    extractor_response = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Cross Cutting Idea\n"
+        "    slug: cross-cutting-idea\n"
+        "    mode: create_new\n"
+        "    rationale: The source defines it.\n"
+    )
+
+    ingestor_llm = MagicMock()
+    ingestor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm = MagicMock()
+    extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        result = await run_ingest_source(source_file, workspace)
+
+    assert result.suggestions_parsed is True
+    assert [(s["kind"], s["slug"], s["status"]) for s in result.suggested_pages] == [
+        ("concept", "cross-cutting-idea", "proposed")
+    ]
+    written = (wiki / "sources" / "spec.md").read_text(encoding="utf-8")
+    assert "suggested_pages:" in written
+    assert "## Suggested pages" in written
+    assert "cross-cutting-idea" in written
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_suggest_phase_degraded_is_nonfatal(tmp_path: Path) -> None:
+    """Extractor parse miss -> suggestions_parsed False, ingest still ok, page intact."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "spec.md"
+    source_file.write_text("# Spec\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\n---\nBody."
+    extractor_response = "this is not valid yaml: : ["
+
+    ingestor_llm = MagicMock()
+    ingestor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm = MagicMock()
+    extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        mock_resolve.return_value = (wiki, repo)
+        result = await run_ingest_source(source_file, workspace)
+
+    assert result.status == "ok"
+    assert result.suggestions_parsed is False
+    assert result.suggested_pages == []
+    written = (wiki / "sources" / "spec.md").read_text(encoding="utf-8")
+    assert "suggested_pages:" not in written  # nothing fabricated
 
 
 def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
