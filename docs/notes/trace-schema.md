@@ -1,7 +1,7 @@
 # Trace Schema for `graph-wiki-agent`
 
 This document is the authoritative reference for the JSONL records written by
-`graph-wiki-agent` into `.graph-wiki/traces/` under any wiki root. It is intended
+`graph-wiki-agent` into `.graph-wiki/traces/` under the workspace root. It is intended
 for operators reading raw trace files with `grep` / `jq`, for downstream tooling
 that parses those files, and for future maintainers extending the schema. It
 covers the directory layout, the three record shapes that appear in those
@@ -19,7 +19,7 @@ rewritten on disk. Producers (`SubagentPool`, the `query` command) always stamp
 
 ## 1. Directory Layout and Filename Convention
 
-Trace files live under `<wiki_root>/.graph-wiki/traces/`. The directory is
+Trace files live under `<workspace_root>/.graph-wiki/traces/`. The directory is
 created on demand by the writer the first time a fan-out batch or a query
 summary needs to be persisted.
 
