@@ -43,10 +43,10 @@ def indented_code_spans(text: str) -> list[tuple[int, int]]:
     ascending, non-overlapping. Empty input or text with no indented blocks
     returns ``[]``.
 
-    Per CommonMark §4.4; used by ``wiki_io.link_rewriter.rewrite_text`` to
-    mask indented code regions from wikilink rewriting. The helper does NOT
-    look at fences — the caller is expected to union with fenced/inline
-    spans separately (double-coverage is harmless).
+    Per CommonMark §4.4; used before parsing wikilinks so links inside code
+    are not treated as links. The helper does NOT look at fences — the caller
+    is expected to union with fenced/inline spans separately (double-coverage
+    is harmless).
     """
     if not text:
         return []
