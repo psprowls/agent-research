@@ -47,7 +47,7 @@ from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-expose
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from workspace_io.paths import graph_dir
 
-from graph_wiki_core.commands.suggest_pages import read_suggested_pages, run_suggest_phase
+from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
 
@@ -117,9 +117,10 @@ class IngestResult:
         frontmatter_parsed: Living Wiki M3: False when the ingestor frontmatter
                             failed to parse and we fell through to
                             source_kind: unknown.
-        suggested_pages:    Living Wiki M3: proposed concept/adr/architecture pages
-                            recorded on the Source page (each a dict with
-                            kind/slug/mode/status/…). Empty for work items.
+        suggested_pages:    Living Wiki M3: proposals upserted into the ledger
+                            (wiki/proposals/) by this run (each a dict with
+                            kind/slug/mode/status). Empty on a degraded run or for
+                            work items.
         suggestions_parsed: Living Wiki M3: False when the extractor LLM call
                             errored or its output did not parse (zero suggestions).
     """
@@ -137,7 +138,7 @@ class IngestResult:
     stripped_wikilinks: list[str] = field(default_factory=list)  # unresolved [[links]] stripped from the body
     frontmatter_parsed: bool = True  # False when we fell through to source_kind: unknown via a parse miss
     # Living Wiki M3 (suggestion step):
-    suggested_pages: list[dict] = field(default_factory=list)  # proposals after this run's merge
+    suggested_pages: list[dict] = field(default_factory=list)  # proposals upserted by this run (empty on degraded path)
     suggestions_parsed: bool = True  # False when the extractor call errored or its output didn't parse
 
 
@@ -748,14 +749,6 @@ async def run_ingest_source(
         llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
         llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
         llm_output = _set_source_kind_in_body(llm_output, source_kind)
-        # Living Wiki M3: capture the page's prior suggested_pages (human
-        # decisions) BEFORE the ingestor output overwrites the page, so the
-        # suggest phase can preserve approved/rejected across re-ingest (§3.4).
-        prior_suggested = (
-            read_suggested_pages(target_path.read_text(encoding="utf-8"))
-            if target_path.exists()
-            else []
-        )
         # Write the file first so it is part of the "known pages" set when
         # resolving self-references in the body (e.g. an ADR linking to
         # itself or a sibling created earlier in the same ingest).
@@ -780,7 +773,7 @@ async def run_ingest_source(
         # Best-effort: a failure here never fails the ingest (spec §3.1).
         try:
             suggested_pages, suggestions_parsed = await run_suggest_phase(
-                wiki=wiki, page_path=target_path, prior_entries=prior_suggested
+                wiki=wiki, page_path=target_path
             )
         except Exception:
             logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)

@@ -335,3 +335,58 @@ async def test_run_lint_no_write_back_to_vault(tmp_path: Path) -> None:
 
     after_hash = _dir_hash(wiki)
     assert before_hash == after_hash, "Vault was modified by run_lint (D-10 violation)"
+
+
+# ---------------------------------------------------------------------------
+# Test 10: open_proposals count in LintResult
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_lint_reports_open_proposals_count(tmp_path: Path) -> None:
+    """LintResult.open_proposals counts notes at status: proposed (spec §3.7)."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+    from wiki_io.proposals import set_proposal_status, upsert_proposal
+
+    workspace = tmp_path / "wiki"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    wiki.mkdir()
+    (workspace / "CLAUDE.md").write_text(
+        "# wiki\n\n```yaml\nversion: 1\ncontainers: []\n```\n", encoding="utf-8"
+    )
+    (workspace / "index.md").write_text("# Index\n", encoding="utf-8")
+
+    # Two proposed + one approved → open count is 2.
+    # proposals must be written into the resolved wiki dir (workspace/wiki/).
+    upsert_proposal(wiki, {
+        "kind": "concept", "mode": "create_new", "target_slug": "a", "title": "A",
+        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+    })
+    upsert_proposal(wiki, {
+        "kind": "adr", "mode": "create_new", "target_slug": "b", "title": "B",
+        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+    })
+    upsert_proposal(wiki, {
+        "kind": "concept", "mode": "create_new", "target_slug": "c", "title": "C",
+        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+    })
+    set_proposal_status(wiki, "concept", "c", "approved")
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=workspace)
+
+    assert result.open_proposals == 2
+
+
+def test_lint_result_has_open_proposals_field() -> None:
+    import dataclasses
+
+    from graph_wiki_core.commands.lint import LintResult
+
+    fields = {f.name for f in dataclasses.fields(LintResult)}
+    assert "open_proposals" in fields

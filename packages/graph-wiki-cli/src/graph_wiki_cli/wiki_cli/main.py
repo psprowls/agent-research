@@ -19,6 +19,7 @@ import typer
 from graph_io import exit_codes as _gio_exit_codes
 
 from graph_wiki_core.commands.ack_drift import run_ack_drift
+from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
     run_ingest_source,
@@ -116,6 +117,7 @@ def lint(
         # Human-readable multi-section report
         typer.echo(f"Code Wiki lint — {result.wiki}")
         typer.echo(f"Total pages: {result.total_pages}")
+        typer.echo(f"Open proposals: {result.open_proposals}")
         typer.echo("")
 
         def _section(label: str, items: list) -> None:
@@ -181,6 +183,83 @@ def ack_drift(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2, default=str))
     else:
         typer.echo(f"[ok] Cleared {result.cleared} drift flag(s): {result.page_path}")
+
+
+@wiki_app.command(name="proposals")
+def proposals(
+    status: str = typer.Option(
+        "proposed",
+        "--status",
+        help="proposed|approved|rejected|created|all (default: proposed)",
+    ),
+    kind: Optional[str] = typer.Option(
+        None, "--kind", help="concept|adr|architecture (default: all kinds)"
+    ),
+    workspace: str = typer.Option(
+        "", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit records as JSON"),
+) -> None:
+    """List curated-page proposals from the ledger (defaults to open ones)."""
+    workspace_path = Path(workspace) if workspace else None
+    status_filter = None if status == "all" else status
+    try:
+        records = run_list_proposals(
+            workspace_path=workspace_path, status=status_filter, kind=kind
+        )
+    except (RuntimeError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(records, indent=2))
+        return
+    if not records:
+        typer.echo("No proposals.")
+        return
+    for r in records:
+        proposal_id = f"{r['kind']}-{r['target_slug']}"
+        typer.echo(
+            f"{proposal_id}  [{r['status']}]  mode={r['mode']}  "
+            f"origins={len(r['origins'])}  — {r['title']}"
+        )
+
+
+proposal_app = typer.Typer(help="Approve or reject a curated-page proposal.")
+wiki_app.add_typer(proposal_app, name="proposal")
+
+
+def _decide(proposal_id: str, status: str, workspace: str, json_output: bool) -> None:
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        decision = run_set_proposal_status(proposal_id, status, workspace_path=workspace_path)
+    except (RuntimeError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(decision), indent=2))
+    else:
+        typer.echo(f"[ok] {decision.proposal_id} -> {decision.status}")
+
+
+@proposal_app.command(name="approve")
+def proposal_approve(
+    proposal_id: str = typer.Argument(..., help="<kind>-<target_slug>, e.g. adr-0007-md"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json", help="Emit the decision as JSON"),
+) -> None:
+    """Approve a proposal (flip its status to `approved`)."""
+    _decide(proposal_id, "approved", workspace, json_output)
+
+
+@proposal_app.command(name="reject")
+def proposal_reject(
+    proposal_id: str = typer.Argument(..., help="<kind>-<target_slug>, e.g. adr-0007-md"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json", help="Emit the decision as JSON"),
+) -> None:
+    """Reject a proposal (flip its status to `rejected`, preserved so it is not re-proposed)."""
+    _decide(proposal_id, "rejected", workspace, json_output)
 
 
 # ---------------------------------------------------------------------------
