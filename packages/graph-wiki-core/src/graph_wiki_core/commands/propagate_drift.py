@@ -319,7 +319,12 @@ async def run_propagate_drift(
                 notes_written += 1  # nothing is written in a dry run
             report.append({"kind": kind, "target_slug": slug, "origins": origins_written})
 
-    if not dry_run:
+    # Stamp the per-entity anchor only on a full / --only <entity> run, where
+    # ALL of the entity's curated targets were judged at this narrative. A
+    # --only <page> run judges just one of the entity's targets, so stamping
+    # would falsely mark the entity fully propagated and starve its other
+    # targets from a later full run — leave it unstamped (non-advancing re-check).
+    if not dry_run and only_target is None:
         for c in processed:
             try:
                 update_frontmatter(c.page_path, {DRIFT_PROPAGATED_COMMIT_KEY: c.last_updated_commit})

@@ -349,7 +349,7 @@ def test_only_page_restricts_target_set(ws, conn, monkeypatch):
     c2.close()
     conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
 
-    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    page_a = _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
     _write_entity_page(wiki, stem="pkg_b", uri="pkg:org/repo/pkg-b", last_updated_commit="h2")
     _write_curated(wiki, "concepts", "ca", "About [[entities/pkg_a]].")
     _write_curated(wiki, "concepts", "cb", "About [[entities/pkg_b]].")
@@ -359,6 +359,10 @@ def test_only_page_restricts_target_set(ws, conn, monkeypatch):
     res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn2, only="ca"))
     conn2.close()
     assert res.pages_judged == 1  # only the "ca" target page
+    # --only <page> judges just one of an entity's targets, so it must NOT stamp
+    # the anchor — pkg_a stays a candidate for a later full run (no starvation).
+    import frontmatter as _fm
+    assert "drift_propagated_commit" not in _fm.load(page_a).metadata
 
 
 def test_refire_same_entity_updates_origin_in_place(ws, conn, monkeypatch):
