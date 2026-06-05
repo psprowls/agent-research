@@ -80,9 +80,25 @@ def _resolve_kind(args: object) -> "str | int":
             "('package','app','domain','dependency','test_suite','agent_plugin','entry_point')",
             (selector,),
         ).fetchall()
+        cli_kinds = sorted({_DB_KIND_TO_CLI[r[0]] for r in rows})
+        if len(cli_kinds) == 1 and cli_kinds[0] == "dependency" and getattr(args, "ecosystem", None) is None:
+            eco_rows = conn.execute(
+                "SELECT DISTINCT json_extract(attrs_json, '$.ecosystem') FROM nodes "
+                "WHERE kind='dependency' AND name = ?",
+                (selector,),
+            ).fetchall()
+            ecosystems = sorted(r[0] for r in eco_rows if r[0] is not None)
+            if len(ecosystems) > 1:
+                print(
+                    f"error: ambiguous dependency {selector!r} across ecosystems: "
+                    f"{', '.join(ecosystems)}; pass --ecosystem",
+                    file=sys.stderr,
+                )
+                return exit_codes.AMBIGUOUS
+            if ecosystems:
+                args.ecosystem = ecosystems[0]
     finally:
         conn.close()
-    cli_kinds = sorted({_DB_KIND_TO_CLI[r[0]] for r in rows})
     if not cli_kinds:
         # Not a known entity name — fall back to a path lookup; describe_path
         # reports "path not found in graph" if it is not one.

@@ -85,8 +85,9 @@ kind is inferred from the selector:
 
 - no selector → `repo`
 - selector starting with `builtin:` → `builtin`
-- a name matching exactly one entity → that kind
+- a name matching exactly one entity → that kind; if the kind is `dependency` and `--ecosystem` is omitted, the ecosystem is auto-resolved from the graph
 - a name matching more than one kind → error (exit 7); pass `--kind`
+- a dependency name present in more than one ecosystem → error (exit 7); pass `--ecosystem`
 - otherwise → treated as a `path`
 
 Use `--ecosystem` with `--kind dependency`.

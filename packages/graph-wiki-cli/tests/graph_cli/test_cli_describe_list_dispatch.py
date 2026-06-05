@@ -107,3 +107,132 @@ def test_describe_ambiguous_selector_errors(tmp_path: Path) -> None:
     assert res.returncode == 7
     assert "ambiguous" in res.stderr.lower()
     assert "--kind" in res.stderr
+
+
+# ---------------------------------------------------------------------------
+# Ecosystem auto-resolution for bare-name dependency describe
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def repo_with_pypi_dep(tmp_path: Path) -> Path:
+    """Repo with a single Python package declaring boto3 as a dependency.
+
+    After update --full, the graph has a dependency node (ecosystem=pypi, name=boto3).
+    """
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": (
+                '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+                'dependencies = ["boto3>=1.38"]\n'
+            ),
+            "src/myapp/__init__.py": "",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_infers_dependency_and_autofills_ecosystem(repo_with_pypi_dep: Path) -> None:
+    """Bare 'describe boto3' (no --kind, no --ecosystem) auto-resolves ecosystem=pypi."""
+    # First verify the dependency node was actually created with ecosystem=pypi.
+    probe = _cg(
+        ["describe", "boto3", "--kind", "dependency", "--ecosystem", "pypi"],
+        repo_with_pypi_dep,
+    )
+    assert probe.returncode == 0, f"fixture probe failed: {probe.stderr}"
+    assert "boto3" in probe.stdout
+
+    # Now test the inference path: no --kind, no --ecosystem.
+    res = _cg(["describe", "boto3"], repo_with_pypi_dep)
+    assert res.returncode == 0, f"expected exit 0, got {res.returncode}; stderr={res.stderr}"
+    assert "boto3" in res.stdout
+    assert "ecosystem" in res.stdout
+
+    # JSON variant: confirm ecosystem is filled correctly.
+    res_json = _cg(["--fmt", "json", "describe", "boto3"], repo_with_pypi_dep)
+    assert res_json.returncode == 0, f"json variant failed: {res_json.stderr}"
+    parsed = json.loads(res_json.stdout)
+    assert parsed["name"] == "boto3"
+    assert parsed["ecosystem"] == "pypi"
+
+
+def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None:
+    """Bare 'describe lodash' when lodash exists in both pypi and npm → exit 7.
+
+    The current scanner collapses same-(kind,name,path) rows via UPSERT, so two
+    ecosystems for the same dep name cannot coexist through a normal scan. This
+    test reaches the ambiguous branch by seeding the graph DB directly with two
+    dependency rows, then calling _resolve_kind as a unit test.
+    """
+    import json as _json
+    import sqlite3
+    import types
+
+    from graph_wiki_cli.graph_cli.q_describe import _resolve_kind
+    from workspace_io.paths import graph_dir
+
+    # Build a minimal repo + workspace so graph_dir resolves.
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {"pyproject.toml": '[project]\nname = "dummy"\nversion = "0.1.0"\n'},
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+
+    # Resolve workspace and get the DB path.
+    from workspace_io.config import resolve as resolve_workspace
+    ws = resolve_workspace(tmp_path, require_manifest=False).workspace
+    db = graph_dir(ws) / "code.db"
+
+    # Directly insert a second dependency row for lodash/npm alongside any
+    # existing lodash/pypi row (or insert both fresh).
+    conn = sqlite3.connect(str(db))
+    try:
+        # Remove any existing lodash rows so we control exactly two.
+        conn.execute("DELETE FROM nodes WHERE kind='dependency' AND name='lodash'")
+        # Insert pypi row.
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,NULL,NULL,?,?)",
+            (
+                "dependency", "lodash",
+                _json.dumps({"ecosystem": "pypi", "name": "lodash", "url": "", "versions_in_use": []}),
+                "dependency:pypi/lodash",
+            ),
+        )
+        # Insert npm row — same (kind, name, path=NULL) key, so we must use a
+        # distinct URI to differentiate; force a second row via raw INSERT.
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,NULL,NULL,?,?)",
+            (
+                "dependency", "lodash",
+                _json.dumps({"ecosystem": "npm", "name": "lodash", "url": "", "versions_in_use": []}),
+                "dependency:npm/lodash",
+            ),
+        )
+        conn.commit()
+        # Verify two rows exist.
+        count = conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='lodash'"
+        ).fetchone()[0]
+        assert count == 2, f"expected 2 lodash rows, got {count}"
+    finally:
+        conn.close()
+
+    # Call _resolve_kind directly with a SimpleNamespace that has ecosystem=None.
+    args = types.SimpleNamespace(
+        selector="lodash",
+        ecosystem=None,
+        workspace=ws,
+    )
+    result = _resolve_kind(args)
+    from graph_io import exit_codes
+    assert result == exit_codes.AMBIGUOUS, (
+        f"expected AMBIGUOUS (7), got {result!r}"
+    )
