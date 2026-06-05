@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
@@ -70,9 +69,7 @@ def test_lint_wiki_scan_runs_on_fixture_vault(tmp_path: Path) -> None:
         "dependency_layer",
         "workflow_hints",
     }
-    assert expected_keys.issubset(result.keys()), (
-        f"scan() result missing keys: {expected_keys - result.keys()}"
-    )
+    assert expected_keys.issubset(result.keys()), f"scan() result missing keys: {expected_keys - result.keys()}"
 
     # Basic type assertions.
     assert isinstance(result["wiki"], str)
@@ -87,16 +84,7 @@ def test_lint_wiki_scan_runs_on_fixture_vault(tmp_path: Path) -> None:
 
 def _legit_page() -> str:
     """Frontmatter for a fully valid wiki page (no lint findings)."""
-    return (
-        "---\n"
-        "title: Foo\n"
-        "category: concept\n"
-        "summary: a legit page\n"
-        "tokens: 100\n"
-        "updated: 2099-01-01\n"
-        "---\n\n"
-        "Body.\n"
-    )
+    return "---\ntitle: Foo\ncategory: concept\nsummary: a legit page\ntokens: 100\nupdated: 2099-01-01\n---\n\nBody.\n"
 
 
 def test_schema_files_excluded_from_page_enumeration(tmp_path: Path) -> None:
@@ -168,8 +156,7 @@ def test_code_drift_recognizes_overview_md(tmp_path: Path, monkeypatch) -> None:
     wiki = workspace / "wiki"
     (wiki / "packages" / "alpha").mkdir(parents=True)
     (wiki / "packages" / "alpha" / "overview.md").write_text(
-        "---\ntitle: alpha\ncategory: package\nsummary: alpha package\ntokens: 10\n"
-        "updated: 2099-01-01\n---\n\nBody.\n",
+        "---\ntitle: alpha\ncategory: package\nsummary: alpha package\ntokens: 10\nupdated: 2099-01-01\n---\n\nBody.\n",
         encoding="utf-8",
     )
 
@@ -195,8 +182,7 @@ def test_code_drift_recognizes_legacy_pkg_pkg_md(tmp_path: Path, monkeypatch) ->
     wiki = workspace / "wiki"
     (wiki / "packages" / "beta").mkdir(parents=True)
     (wiki / "packages" / "beta" / "beta.md").write_text(
-        "---\ntitle: beta\ncategory: package\nsummary: beta package\ntokens: 10\n"
-        "updated: 2099-01-01\n---\n\nBody.\n",
+        "---\ntitle: beta\ncategory: package\nsummary: beta package\ntokens: 10\nupdated: 2099-01-01\n---\n\nBody.\n",
         encoding="utf-8",
     )
 

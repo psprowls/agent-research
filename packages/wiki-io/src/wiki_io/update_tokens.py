@@ -54,13 +54,7 @@ def count_tokens(text: str, model_id: str = DEFAULT_MODEL_ID, region: str = DEFA
     client = boto3.client("bedrock-runtime", region_name=region)
     response = client.count_tokens(
         modelId=model_id,
-        input={
-            "converse": {
-                "messages": [
-                    {"role": "user", "content": [{"text": text}]}
-                ]
-            }
-        },
+        input={"converse": {"messages": [{"role": "user", "content": [{"text": text}]}]}},
     )
     return response["inputTokens"]
 

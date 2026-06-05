@@ -8,15 +8,7 @@ from pathlib import Path
 
 import pytest
 
-
-_SCRIPT_DIR = (
-    Path(__file__).resolve().parents[4]
-    / "plugins"
-    / "graph-wiki"
-    / "skills"
-    / "graph-wiki"
-    / "scripts"
-)
+_SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "skills" / "graph-wiki" / "scripts"
 
 
 @pytest.mark.parametrize(

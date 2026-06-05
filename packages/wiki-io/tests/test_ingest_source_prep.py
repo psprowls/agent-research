@@ -35,9 +35,7 @@ def _seed_db(workspace: Path, name: str, uri: str, rel_path: str) -> None:
         conn.close()
 
 
-def test_build_ingest_brief_emits_brief_without_bedrock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_ingest_brief_emits_brief_without_bedrock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Make the Bedrock stack un-importable; the prep must not need it.
     monkeypatch.setitem(sys.modules, "model_adapter", None)
     monkeypatch.setitem(sys.modules, "subagent_runtime", None)
@@ -83,9 +81,7 @@ def test_prep_module_exports_brief_builders(monkeypatch: pytest.MonkeyPatch) -> 
     assert not hasattr(prep, "main")
 
 
-def test_build_ingest_brief_no_entity_match_has_null_fields(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_ingest_brief_no_entity_match_has_null_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Seed a package whose contained file is a DIFFERENT path, and whose name
     # won't match the source's title — so neither path nor name lookup hits.
     monkeypatch.setitem(sys.modules, "model_adapter", None)

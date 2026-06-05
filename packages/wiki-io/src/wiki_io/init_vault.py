@@ -20,9 +20,9 @@ import logging
 import sys
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 from workspace_io.init import init as _workspace_init
+
+logger = logging.getLogger(__name__)
 
 PLUGIN_NAME = "graph-wiki"
 PLUGIN_VERSION = "0.1.1"

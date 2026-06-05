@@ -1,9 +1,9 @@
 """Tests for workspace_io.config — workspace resolution."""
+
 from pathlib import Path
 
 import pytest
-
-from workspace_io.config import GraphWikiConfig, resolve
+from workspace_io.config import resolve
 
 
 def _make_repo(root: Path) -> Path:
@@ -115,13 +115,15 @@ def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="gw bootstrap"):
         resolve(repo, True)
 
+
 def test_resolve_doesnt_raise_when_no_manifest_found(tmp_path, monkeypatch):
     """D-03: non-strict — resolve() returns workspace when manifest is missing."""
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
     workspace = resolve(repo, False).workspace
     assert workspace
-        
+
+
 def _seed_manifest_with(workspace: Path, extra_keys: dict[str, str]) -> None:
     """Write a v2 .graph-wiki.yaml with additional flat top-level keys appended."""
     workspace.mkdir(parents=True, exist_ok=True)

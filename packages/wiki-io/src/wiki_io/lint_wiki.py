@@ -240,6 +240,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             # Normalize scoped names (``@psprowls/foo`` -> ``foo``) so the diff
             # compares like-for-like against vault slugs/titles.
             disk_names = {_unscope(w["name"]) for w in workspaces}
+
             # Package/app overview pages are folder-shorthand at
             # ``<container>/<slug>/overview.md`` — the slug we diff against
             # disk is the parent directory name, not the file stem. ``k`` has

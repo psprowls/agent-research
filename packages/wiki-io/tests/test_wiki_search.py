@@ -23,7 +23,6 @@ def test_wiki_search_importable():
     assert not hasattr(wiki_search, "main")
 
 
-
 def test_wiki_search_internal_helpers():
     """tokenize(), load_docs(), bm25_scores(), and snippet() are importable and callable."""
     from wiki_io.wiki_search import bm25_scores, load_docs, snippet, tokenize

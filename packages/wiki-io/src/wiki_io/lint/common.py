@@ -297,7 +297,7 @@ def parse_section_entries(body: str, pkg_name: str) -> list[tuple[str, bool]]:
             if header_text == pkg_name:
                 current_path = ""
             elif header_text.startswith(pkg_name + "/"):
-                current_path = header_text[len(pkg_name) + 1:]
+                current_path = header_text[len(pkg_name) + 1 :]
             else:
                 current_path = ""
             if current_path and current_path not in seen_dirs:

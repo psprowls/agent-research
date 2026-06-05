@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib
 import inspect
 
-
 LIBRARY_ONLY_MODULES = [
     "wiki_io.update_index",
     "wiki_io.update_tokens",
