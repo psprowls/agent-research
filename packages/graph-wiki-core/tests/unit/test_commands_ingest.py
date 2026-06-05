@@ -1072,3 +1072,48 @@ def test_parse_ingestor_response_empty_block_returns_empty_dict() -> None:
     fm, body = _parse_ingestor_response(raw)
     assert fm == {}
     assert body.strip() == "Body."
+
+
+def test_set_source_kind_in_body_inserts_and_is_idempotent() -> None:
+    from graph_wiki_core.commands.ingest import _set_source_kind_in_body
+
+    text = "---\ntarget_slug: foo\ntitle: Foo\n---\n\nBody"
+    out = _set_source_kind_in_body(text, "unknown")
+    # Inserted as the first frontmatter field.
+    lines = out.splitlines()
+    assert lines[0] == "---"
+    assert lines[1] == "source_kind: unknown"
+    # Idempotence: calling twice yields exactly one source_kind: line.
+    twice = _set_source_kind_in_body(out, "source")
+    assert twice.count("source_kind:") == 1
+    assert "source_kind: source" in twice
+
+    # No frontmatter -> unchanged.
+    assert _set_source_kind_in_body("no frontmatter here", "unknown") == "no frontmatter here"
+
+
+def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
+    from graph_wiki_core.commands.ingest import (
+        _rewrite_target_slug_in_body,
+        _set_entity_uri_in_body,
+        _synthesize_frontmatter_block,
+    )
+
+    body = "Just a body, no frontmatter.\n"
+    out = _synthesize_frontmatter_block(body, "unknown", "my-slug", None)
+    assert out.startswith("---\n")
+    assert "source_kind: unknown" in out
+    assert "target_slug: my-slug" in out
+    assert "entity_uri: null" in out
+    assert out.rstrip().endswith("Just a body, no frontmatter.")
+
+    # The downstream body helpers now function on the synthesized block and are
+    # idempotent against it (proves synthesis produces a valid --- block).
+    out2 = _rewrite_target_slug_in_body(out, "my-slug")
+    out2 = _set_entity_uri_in_body(out2, None)
+    assert out2.count("target_slug:") == 1
+    assert out2.count("entity_uri:") == 1
+
+    # entity_uri carried through when present.
+    out_uri = _synthesize_frontmatter_block(body, "source", "s", "pkg:x/y/z")
+    assert "entity_uri: pkg:x/y/z" in out_uri

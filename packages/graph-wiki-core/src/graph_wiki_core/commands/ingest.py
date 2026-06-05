@@ -262,6 +262,65 @@ def _set_entity_uri_in_body(text: str, entity_uri: str | None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Living Wiki M3 Part A — source_kind frontmatter + synthesize-frontmatter rule
+# ---------------------------------------------------------------------------
+
+
+def _set_source_kind_in_body(text: str, source_kind: str) -> str:
+    """Insert or replace the `source_kind:` line in the YAML frontmatter of `text`.
+
+    Placement: inserted as the FIRST field of the frontmatter block. Idempotent
+    — any existing `source_kind:` line is dropped first, so only one ever
+    appears. Operates on raw text (preserves comments/order); returns text
+    unchanged when no `---` block is present.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+
+    new_lines: list[str] = []
+    for line in fm_block.splitlines():
+        if line.lstrip().startswith("source_kind:"):
+            continue  # drop existing line (idempotence)
+        new_lines.append(line)
+    new_lines.insert(0, f"source_kind: {source_kind}")
+    new_fm = "\n".join(new_lines)
+    return f"{leading_ws}---\n{new_fm}{body_and_close}"
+
+
+def _synthesize_frontmatter_block(
+    body: str, source_kind: str, target_slug: str, entity_uri: str | None
+) -> str:
+    """Prepend a minimal YAML frontmatter block to a body that has none.
+
+    D3 synthesize-frontmatter rule (spec §3.3): the body-mutation helpers
+    (_rewrite_target_slug_in_body / _set_entity_uri_in_body /
+    _set_source_kind_in_body) no-op when there is no `---` block. When the
+    ingestor LLM emits a body with no frontmatter at all, this guarantees the
+    unknown-kind Source page still lands with its metadata. The block carries
+    all three fields so the downstream setters become idempotent no-ops.
+    `entity_uri=None` is written as the literal `null` (mirrors
+    _set_entity_uri_in_body).
+    """
+    uri_val = "null" if entity_uri is None else entity_uri
+    return (
+        "---\n"
+        f"source_kind: {source_kind}\n"
+        f"target_slug: {target_slug}\n"
+        f"entity_uri: {uri_val}\n"
+        "---\n\n"
+        f"{body}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Strip unresolved wikilinks (Plan 06-14 / UAT G4)
 # ---------------------------------------------------------------------------
 
