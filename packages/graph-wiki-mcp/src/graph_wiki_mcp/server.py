@@ -251,6 +251,9 @@ class WikiScanInput(BaseModel):
         "",
         description="Override repo root for scanner (default: resolved from workspace_path). Use for testing.",
     )
+    propagate_drift: bool = Field(
+        False, description="After narration, propose curated-page updates for changed entities (M4)"
+    )
 
 
 class WikiScanOutput(BaseModel):
@@ -273,6 +276,7 @@ async def wiki_scan(input: WikiScanInput, ctx: Context) -> WikiScanOutput:
         no_file_map=input.no_file_map,
         max_depth=input.max_depth,
         repo_path=Path(input.repo_path).resolve() if input.repo_path else None,
+        propagate_drift=input.propagate_drift,
     )
     created = len(result.entities_created)
     updated = len(result.entities_updated)
