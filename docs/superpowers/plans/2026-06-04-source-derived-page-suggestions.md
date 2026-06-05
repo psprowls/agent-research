@@ -1345,11 +1345,42 @@ git commit -m "feat(suggest): add run_suggest_phase orchestrator + extractor pro
 - Modify: `packages/graph-wiki-core/src/graph_wiki_core/commands/ingest.py` (imports, `IngestResult`, `run_ingest_source`)
 - Test: `packages/graph-wiki-core/tests/unit/test_commands_ingest.py` (wired-phase integration tests)
 
-The existing ingest tests mock `make_llm` once and return a single fake for the ingestor call. The suggest phase calls `make_llm("extractor")` inside `suggest_pages`, so we patch **`graph_wiki_core.commands.suggest_pages.make_llm`** separately (it is imported into that module) — the ingestor patch and the extractor patch do not collide.
+The existing ingest tests mock `make_llm` once and return a single fake for the ingestor call. The suggest phase calls `make_llm("extractor")` inside `suggest_pages`, which the `ingest.make_llm` patch does **not** cover (it is a separate import in that module). This cuts two ways:
 
-- [ ] **Step 1: Write the failing integration tests**
+1. **Pre-existing source-ingest tests** (which never patch the extractor) would otherwise make live extractor Bedrock calls — **Step 1a adds a module-scoped autouse fixture** that stubs `suggest_pages.make_llm` to a `suggestions: []` no-op for the whole module.
+2. **The new tests below** that assert on suggestions patch **`graph_wiki_core.commands.suggest_pages.make_llm`** explicitly, nesting inside the autouse fixture to supply their own extractor output.
 
-Add to `test_commands_ingest.py`, after the Part A integration tests (after `test_run_ingest_source_surfaces_stripped_wikilinks_in_result`):
+Either way the ingestor patch and the extractor patch target distinct namespaces and never collide.
+
+- [ ] **Step 1a: Add a module-scoped autouse fixture that defangs the extractor**
+
+**Why (load-bearing):** the existing Part-A source-ingest tests patch only `graph_wiki_core.commands.ingest.make_llm`. The new suggest phase calls `make_llm("extractor")` resolved in the **`suggest_pages` namespace** (`suggest_pages.py` does `from model_adapter.loader import make_llm`), so the `ingest.make_llm` patch does **not** cover it. There is no conftest Bedrock guard in `graph-wiki-core` tests. Without this fixture, every pre-existing `run_ingest_source` test would make a **live extractor Bedrock call** (real cost/latency/flakiness with creds present; a caught slow-path exception without). The backstop `try/except` masks this rather than preventing it.
+
+Add this autouse fixture to `test_commands_ingest.py` near the top of the file (after the imports, before the first test). It returns an empty, well-formed proposal list so the suggest phase becomes a deterministic no-op for every test that does not override it:
+
+```python
+@pytest.fixture(autouse=True)
+def _stub_extractor_llm():
+    """Defang the M3 suggest phase for the whole module.
+
+    The suggest phase calls make_llm("extractor") in the suggest_pages
+    namespace, which the per-test ingest.make_llm patches do NOT cover. Stub it
+    to return `suggestions: []` (parsed True, zero proposals) so existing tests
+    never hit Bedrock. Tests that assert on suggestions nest their own
+    `patch("graph_wiki_core.commands.suggest_pages.make_llm", ...)` inside this
+    one, which wins for their duration.
+    """
+    fake = MagicMock()
+    fake.ainvoke = AsyncMock(return_value=MagicMock(content="suggestions: []"))
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake):
+        yield
+```
+
+(`MagicMock`, `AsyncMock`, `patch` are already imported at `test_commands_ingest.py:13`.)
+
+- [ ] **Step 1b: Write the failing integration tests**
+
+Add to `test_commands_ingest.py`, after the Part A integration tests (after `test_run_ingest_source_surfaces_stripped_wikilinks_in_result`). Note both new tests below already wrap their own `patch("graph_wiki_core.commands.suggest_pages.make_llm", ...)`, which nests inside the Step-1a autouse fixture and overrides it for their duration:
 
 ```python
 # ---------------------------------------------------------------------------
@@ -1532,7 +1563,7 @@ Expected: PASS.
 - [ ] **Step 8: Run the whole ingest file (confirm Part A tests still green)**
 
 Run: `uv run --package graph-wiki-core pytest tests/unit/test_commands_ingest.py -q`
-Expected: PASS. The Part A tests mock only `graph_wiki_core.commands.ingest.make_llm`; the suggest phase's `make_llm("extractor")` is therefore the SAME mock in those tests and returns the ingestor's fake content, which `parse_extractor_response` treats as a parse miss (`suggestions_parsed=False`, zero suggestions) — harmless, those tests don't assert on suggestions. Confirm none regress.
+Expected: PASS. The pre-existing Part-A source-ingest tests patch only `graph_wiki_core.commands.ingest.make_llm`, which does **not** cover the extractor call (resolved in the `suggest_pages` namespace). The **Step-1a autouse fixture** is what keeps them green and offline: it stubs `suggest_pages.make_llm` to return `suggestions: []`, so the suggest phase runs as a deterministic no-op (`suggestions_parsed=True`, zero suggestions) without touching Bedrock. Those tests don't assert on suggestions, so they don't regress. **Confirm the autouse fixture from Step 1a is present** — without it these tests would attempt live extractor calls.
 
 - [ ] **Step 9: Commit**
 
