@@ -18,7 +18,6 @@ wiki's own repo.
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,12 +107,3 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
     # Workspace manifest may pin a different repo_root explicitly.
     repo_root = _repo_directory_override(workspace, repo_root)
     return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
-
-
-def _main() -> int:
-    print(resolve().workspace)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(_main())

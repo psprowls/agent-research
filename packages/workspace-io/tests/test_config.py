@@ -1,6 +1,4 @@
 """Tests for workspace_io.config — workspace resolution."""
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -103,17 +101,11 @@ def test_resolve_with_no_arg_uses_cwd(tmp_path, monkeypatch):
     assert cfg.repo_root == repo.resolve()
 
 
-def test_cli_prints_workspace_to_stdout(tmp_path):
+def test_resolve_returns_workspace_path_for_repo(tmp_path, monkeypatch):
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
     _seed_manifest(repo / "graph-wiki")
-    result = subprocess.run(
-        [sys.executable, "-m", "workspace_io.config"],
-        cwd=str(repo),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert result.stdout.strip() == str((repo / "graph-wiki").resolve())
+    assert resolve(repo).workspace == (repo / "graph-wiki").resolve()
 
 
 def test_resolve_raises_when_no_manifest_found(tmp_path, monkeypatch):
