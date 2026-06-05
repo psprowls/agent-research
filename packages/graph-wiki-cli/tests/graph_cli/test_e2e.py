@@ -44,15 +44,15 @@ def test_e2e_pipeline(tmp_path: Path) -> None:
     assert res.returncode == 0
     assert "beta" in res.stdout
 
-    res = _cg(["--fmt", "json", "describe-package", "demo-py"], tmp_path)
+    res = _cg(["--fmt", "json", "describe", "demo-py", "--kind", "package"], tmp_path)
     assert res.returncode == 0
     assert json.loads(res.stdout)["language"] == "python"
 
-    res = _cg(["--fmt", "json", "describe-package", "demo-js"], tmp_path)
+    res = _cg(["--fmt", "json", "describe", "demo-js", "--kind", "package"], tmp_path)
     assert res.returncode == 0
     assert json.loads(res.stdout)["language"] == "javascript"
 
-    res = _cg(["--fmt", "json", "describe-path", "src/a.py"], tmp_path)
+    res = _cg(["--fmt", "json", "describe", "src/a.py", "--kind", "path"], tmp_path)
     assert res.returncode == 0
     assert json.loads(res.stdout)["path"] == "src/a.py"
 

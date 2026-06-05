@@ -72,10 +72,36 @@ Common examples:
 uv run --package graph-wiki-cli gw graph update --full --repo /path/to/repo --mode test
 uv run --package graph-wiki-cli gw graph status --repo /path/to/repo --mode test
 uv run --package graph-wiki-cli gw graph find --name SomeSymbol --repo /path/to/repo --mode test
-uv run --package graph-wiki-cli gw graph describe-package graph-io --repo /path/to/repo --mode test
+uv run --package graph-wiki-cli gw graph describe graph-io --kind package --repo /path/to/repo --mode test
 ```
 
-Available `gw graph` subcommands:
+### Describe an entity
+
+`gw graph describe <selector> [--kind KIND] [--ecosystem ECO]`
+
+`--kind` is one of: `package`, `app`, `domain`, `suite`, `dependency`,
+`agent-plugin`, `entry-point`, `builtin`, `path`, `repo`. When omitted, the
+kind is inferred from the selector:
+
+- no selector → `repo`
+- selector starting with `builtin:` → `builtin`
+- a name matching exactly one entity → that kind; if the kind is `dependency` and `--ecosystem` is omitted, the ecosystem is auto-resolved from the graph
+- a name matching more than one kind → error (exit 7); pass `--kind`
+- a dependency name present in more than one ecosystem → error (exit 7); pass `--ecosystem`
+- otherwise → treated as a `path`
+
+Use `--ecosystem` with `--kind dependency`.
+
+### List entities
+
+`gw graph list --kind KIND`
+
+`--kind` is one of: `apps`, `builtins`, `packages`, `scripts`, `suites`,
+`domains`.
+
+Entry points are listed with the separate `gw graph list-entry-points <package> [--kind executable|library]` command (scoped to one package).
+
+### Other available `gw graph` subcommands
 
 - `update`
 - `sync-wiki`
@@ -88,23 +114,7 @@ Available `gw graph` subcommands:
 - `imported-by`
 - `exports`
 - `exported-by`
-- `describe-app`
-- `describe-builtin`
-- `describe-dependency`
-- `describe-package`
-- `describe-path`
-- `describe-plugin`
-- `describe-repo`
-- `describe-suite`
-- `describe-domain`
-- `describe-entry-point`
-- `list-apps`
-- `list-builtins`
-- `list-packages`
 - `list-entry-points`
-- `list-scripts`
-- `list-suites`
-- `list-domains`
 - `what-tests`
 - `domain-clusters`
 - `domain-refs`
