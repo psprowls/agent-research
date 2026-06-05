@@ -392,17 +392,28 @@ async def run_suggest_phase(
     vault_index = build_curated_vault_index(wiki)
     prompt = build_extract_suggestions_prompt(page_text, vault_index)
 
+    def _degraded() -> tuple[list[dict], bool]:
+        # Persist any prior (human-decided) entries back to the page so on-disk
+        # state matches what we report — the page may have just been overwritten
+        # upstream with no suggested_pages. No-op when there are no priors.
+        if existing:
+            text = set_suggested_pages_in_frontmatter(page_text, existing)
+            text = set_suggested_pages_section_in_body(text, render_suggested_pages_section(existing))
+            if text != page_text:
+                page_path.write_text(text, encoding="utf-8")
+        return existing, False
+
     try:
         llm = make_llm("extractor")
         resp = await llm.ainvoke([SystemMessage(EXTRACTOR_SYSTEM), HumanMessage(prompt)])
     except Exception:
         logger.warning("extractor LLM call failed; skipping suggestions", exc_info=True)
-        return existing, False
+        return _degraded()
 
     proposals, parsed = parse_extractor_response(resp.content)
     if not parsed:
         # Parse miss: nothing new; leave existing entries untouched, signal degraded.
-        return existing, False
+        return _degraded()
 
     merged = merge_suggested_pages(existing, proposals)
     new_text = set_suggested_pages_in_frontmatter(page_text, merged)

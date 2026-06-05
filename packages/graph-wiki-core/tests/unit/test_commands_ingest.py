@@ -1420,6 +1420,90 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
     assert [(s["slug"], s["status"]) for s in on_disk] == [("cross-cutting-idea", "approved")]
 
 
+@pytest.mark.asyncio
+async def test_run_ingest_source_degraded_reingest_persists_human_decision(
+    tmp_path: Path,
+) -> None:
+    """A degraded re-ingest (extractor parse-miss) still persists prior decisions.
+
+    On the second ingest the extractor returns unparseable YAML. The page was
+    just overwritten by the ingestor with no suggested_pages, so the suggest
+    phase must write the prior (approved) entry back to disk — otherwise a third
+    ingest would read [] and drop the decision permanently.
+    """
+    from graph_wiki_core.commands.ingest import run_ingest_source
+    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "spec.md"
+    source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    ingestor_response = (
+        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    )
+    extractor_response = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Cross Cutting Idea\n"
+        "    slug: cross-cutting-idea\n"
+        "    mode: create_new\n"
+        "    rationale: The source defines it.\n"
+    )
+
+    ingestor_llm = MagicMock()
+    ingestor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm = MagicMock()
+    extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+
+    # First ingest -> proposal lands as 'proposed'.
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        await run_ingest_source(source_file, workspace)
+
+    # Human approves the suggestion by editing the on-disk page.
+    page = wiki / "sources" / "spec.md"
+    page_text = page.read_text(encoding="utf-8")
+    assert "status: proposed" in page_text, f"expected 'status: proposed' in page; got:\n{page_text}"
+    page.write_text(page_text.replace("status: proposed", "status: approved"), encoding="utf-8")
+
+    # Re-ingest the SAME source, but the extractor now returns unparseable YAML
+    # (degraded path). The human decision must survive both in IngestResult AND
+    # on disk.
+    ingestor_llm2 = MagicMock()
+    ingestor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm2 = MagicMock()
+    extractor_llm2.ainvoke = AsyncMock(
+        return_value=MagicMock(content="this is not valid yaml: : [")
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm2),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm2),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        second = await run_ingest_source(source_file, workspace)
+
+    # (a) degraded
+    assert second.suggestions_parsed is False
+    # (b) IngestResult still reports the approved entry
+    kept = [s for s in second.suggested_pages if s["slug"] == "cross-cutting-idea"]
+    assert len(kept) == 1, f"expected entry for 'cross-cutting-idea'; got: {second.suggested_pages}"
+    assert kept[0]["status"] == "approved"
+    # (c) on-disk page still carries the approved entry + the body section
+    written = page.read_text(encoding="utf-8")
+    on_disk = read_suggested_pages(written)
+    assert [(s["slug"], s["status"]) for s in on_disk] == [("cross-cutting-idea", "approved")]
+    assert "## Suggested pages" in written
+
+
 def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
     from graph_wiki_core.commands.ingest import (
         _rewrite_target_slug_in_body,
