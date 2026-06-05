@@ -383,3 +383,43 @@ async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
     assert out.source_kind == "unknown"
     assert out.stripped_wikilinks == ["ghost"]
     assert out.frontmatter_parsed is False
+
+
+@pytest.mark.asyncio
+async def test_wiki_ingest_source_passes_through_suggestions() -> None:
+    """wiki_ingest surfaces suggested_pages / suggestions_parsed."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.ingest import IngestResult
+    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    fake = IngestResult(
+        status="ok",
+        page_path="sources/doc.md",
+        slug="doc",
+        title="Doc",
+        page_type="source",
+        source_path="/x/doc.md",
+        cross_refs_updated=1,
+        source_kind="source",
+        stripped_wikilinks=[],
+        frontmatter_parsed=True,
+        suggested_pages=[
+            {"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
+             "existing_slug": None, "rationale": "r", "status": "proposed"},
+        ],
+        suggestions_parsed=True,
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with patch(
+        "graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake
+    ):
+        out = await wiki_ingest(
+            WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx
+        )
+
+    assert out.suggestions_parsed is True
+    assert out.suggested_pages[0]["slug"] == "t"

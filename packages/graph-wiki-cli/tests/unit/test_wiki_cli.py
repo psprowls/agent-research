@@ -116,3 +116,46 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
     assert "frontmatter did not parse" in result.stderr
     assert "stripped 2 unresolved wikilink(s)" in result.stderr
     assert "Made Up Person" in result.stderr
+
+
+def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
+    """Text-mode CLI lists suggestions and warns when the suggest pass degraded."""
+    from unittest.mock import AsyncMock
+
+    from graph_wiki_cli.wiki_cli.main import wiki_app
+    from graph_wiki_core.commands.ingest import IngestResult
+
+    src = tmp_path / "doc.md"
+    src.write_text("# Doc\n\nBody.", encoding="utf-8")
+
+    fake_result = IngestResult(
+        status="ok",
+        page_path="sources/doc.md",
+        slug="doc",
+        title="Doc",
+        page_type="source",
+        source_path=str(src),
+        cross_refs_updated=1,
+        source_kind="source",
+        stripped_wikilinks=[],
+        frontmatter_parsed=True,
+        suggested_pages=[
+            {"kind": "concept", "title": "Idea", "slug": "idea", "mode": "create_new",
+             "existing_slug": None, "rationale": "r", "status": "proposed"},
+        ],
+        suggestions_parsed=False,
+    )
+
+    with patch(
+        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        new_callable=AsyncMock,
+        return_value=fake_result,
+    ):
+        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+
+    assert result.exit_code == 0
+    assert "suggested 1 page(s)" in result.stdout
+    assert "concept" in result.stdout
+    assert "idea" in result.stdout
+    # degraded warning goes to stderr (err=True); Click 8.2+ keeps stderr separate
+    assert "suggestion pass degraded" in result.stderr

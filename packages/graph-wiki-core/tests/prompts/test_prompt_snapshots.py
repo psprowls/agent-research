@@ -133,6 +133,15 @@ def test_code_reader_system_snapshot(snapshot: SnapshotAssertion) -> None:
     assert CODE_READER_SYSTEM == snapshot
 
 
+def test_extractor_system_snapshot(snapshot: SnapshotAssertion) -> None:
+    """EXTRACTOR_SYSTEM matches recorded snapshot."""
+    try:
+        from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
+    except ImportError:
+        pytest.skip("prompts module not yet implemented")
+    assert EXTRACTOR_SYSTEM == snapshot
+
+
 # ---------------------------------------------------------------------------
 # Plan 10-07: with-project-context snapshots (CTX-04 §Snapshot coverage)
 #

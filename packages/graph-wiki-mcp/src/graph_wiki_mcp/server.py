@@ -324,6 +324,9 @@ class WikiIngestOutput(BaseModel):
     source_kind: str | None = None
     stripped_wikilinks: list[str] = Field(default_factory=list)
     frontmatter_parsed: bool = True
+    # Living Wiki M3 (suggestion step):
+    suggested_pages: list[dict] = Field(default_factory=list)
+    suggestions_parsed: bool = True
 
 
 @mcp.tool(
@@ -373,6 +376,8 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         source_kind=result.source_kind,
         stripped_wikilinks=result.stripped_wikilinks,
         frontmatter_parsed=result.frontmatter_parsed,
+        suggested_pages=result.suggested_pages,
+        suggestions_parsed=result.suggestions_parsed,
     )
 
 
