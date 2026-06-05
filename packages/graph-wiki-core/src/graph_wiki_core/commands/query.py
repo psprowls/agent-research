@@ -630,7 +630,7 @@ async def _retry_synthesis_drop_unresolved(
 ) -> str:
     """One-shot synthesizer retry that names the unresolved wikilink tokens
     literally and tells the model to either repair them with a valid
-    `[[wiki/...]]` path from the excerpts or drop them entirely.
+    `[[entities/...]]` path from the excerpts or drop them entirely.
 
     The retry HumanMessage embeds each unresolved token as written (e.g.
     `[[ghost]]`) so the model is told exactly which targets to fix — this is
@@ -645,7 +645,7 @@ async def _retry_synthesis_drop_unresolved(
         f"{unresolved_tokens}. "
         "These targets do not exist in the vault. "
         "Rewrite the answer below. For each unresolved citation listed above, "
-        "either replace it with a valid full-path [[wiki/...]] wikilink that "
+        "either replace it with a valid full-path [[entities/...]] wikilink that "
         "appears verbatim in at least one excerpt, or remove the citation "
         "entirely. Do not invent a new wikilink target. Preserve all other "
         "content, code-path:line references, and structure from your previous "

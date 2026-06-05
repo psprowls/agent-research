@@ -326,8 +326,8 @@ def test_synthesizer_prompt_requires_full_wikilink_paths() -> None:
     from graph_wiki_core.commands.query import SYNTHESIZER_SYSTEM
 
     # Full-path example must appear
-    assert "[[wiki/" in SYNTHESIZER_SYSTEM, (
-        "Synthesizer prompt must show full-path wikilink form like [[wiki/...]]"
+    assert "[[entities/" in SYNTHESIZER_SYSTEM, (
+        "Synthesizer prompt must show full-path wikilink form like [[entities/...]]"
     )
     # Slug-only-forbidden directive — accept several phrasings
     lowered = SYNTHESIZER_SYSTEM.lower()
