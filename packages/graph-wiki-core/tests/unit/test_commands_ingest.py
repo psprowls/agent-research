@@ -86,7 +86,7 @@ def _seed_graph_db_for_ingest_tests(
 
 @pytest.mark.asyncio
 async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
-    """Fake ingestor returns page_type=concept; page written under concepts/foo.md."""
+    """Fake ingestor returns source_kind=source; page written under sources/foo.md (M3)."""
     from graph_wiki_core.commands.ingest import IngestResult, run_ingest_source
 
     # Create a fake source file

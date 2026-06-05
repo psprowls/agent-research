@@ -97,12 +97,11 @@ class IngestResult:
         page_path:          Path to the written page relative to wiki root.
         slug:               URL-safe slug used for the output filename.
         title:              Human-readable page title.
-        page_type:          Page category. From run_ingest_source: source,
-                            concept, or adr (set by the ingestor LLM
-                            and validated against _PAGE_TYPE_DIRS). From
-                            run_ingest_work_item: always "work" (work items
-                            bypass _route_target_path and file under
-                            <workspace>/work/ via file_work_item).
+        page_type:          Page category (routing class). From run_ingest_source:
+                            always "source" (M3 Part A — every ingested doc lands
+                            under sources/; see source_kind for the descriptive
+                            kind). From run_ingest_work_item: always "work" (work
+                            items file under <workspace>/work/ via file_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
         entity_uri:         Phase 40 (INGESTOR-01) canonical entity URI when the graph
@@ -586,8 +585,8 @@ async def run_ingest_source(
         3. Guess source_type from path location.
         4. Build ingestor prompt (vault structure + source preview).
         5. Single LLM call to ingestor role (no fan-out needed for single source).
-        6. Parse YAML frontmatter from LLM response to determine page_type + target_slug.
-        7. Write LLM output to target_path based on page_type.
+        6. Parse YAML frontmatter from LLM response to read source_kind + target_slug.
+        7. Write LLM output to sources/<target_slug>.md (routing is fixed — M3 Part A).
         8. update_index(wiki) — cross-ref update (index-only scope per CONTEXT.md deferred).
         9. append_log(wiki, "ingest", ...) — audit trail.
         10. Return IngestResult.
