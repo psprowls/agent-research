@@ -21,7 +21,9 @@ def raw_dir(workspace: Path) -> Path:
 
 
 def work_dir(workspace: Path) -> Path:
-    return Path(workspace) / "work"
+    # work/ lives UNDER the wiki so [[work/foo]] resolves against the wiki
+    # root identically to [[concepts/foo]] (single vault-relative base).
+    return wiki_dir(workspace) / "work"
 
 
 def knowledge_dir(workspace: Path) -> Path:

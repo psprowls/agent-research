@@ -10,7 +10,7 @@ def test_wiki_dir(tmp_path):
 
 
 def test_work_dir(tmp_path):
-    assert work_dir(tmp_path) == tmp_path / "work"
+    assert work_dir(tmp_path) == tmp_path / "wiki" / "work"
 
 
 def test_graph_dir(tmp_path):
