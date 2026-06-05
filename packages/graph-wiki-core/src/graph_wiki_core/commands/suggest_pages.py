@@ -21,9 +21,11 @@ Public API:
 """
 
 import logging
+from pathlib import Path
 
 import yaml
 from wiki_io.ingest_source import slugify
+from wiki_io.update_index import parse_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -116,3 +118,34 @@ def parse_extractor_response(text: str) -> tuple[list[dict], bool]:
         if norm is not None:
             proposals.append(norm)
     return proposals, True
+
+
+# Directory name -> curated page kind.
+_CURATED_DIRS = {"concepts": "concept", "adrs": "adr", "architecture": "architecture"}
+
+
+def build_curated_vault_index(wiki: Path) -> list[dict]:
+    """List existing curated pages as [{kind, slug, title, summary}].
+
+    Cheap dedup substrate (spec §3.6): walks concepts/ / adrs/ / architecture/
+    and reads title/summary from frontmatter only. No graph, no retrieval.
+    """
+    index: list[dict] = []
+    for dirname, kind in _CURATED_DIRS.items():
+        d = wiki / dirname
+        if not d.is_dir():
+            continue
+        for md in sorted(d.glob("*.md")):
+            try:
+                fm = parse_frontmatter(md.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+            index.append(
+                {
+                    "kind": kind,
+                    "slug": md.stem,
+                    "title": fm.get("title", md.stem),
+                    "summary": fm.get("summary", ""),
+                }
+            )
+    return index
