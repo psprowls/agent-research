@@ -562,3 +562,75 @@ doc-only; the read happens in `workspace_io`.)
 
 **Clean — no cleanup:** `graph-wiki-mcp` has no dead code and no env-var issues (style-only findings);
 its server/tool entry points are acceptable and intentionally retained.
+
+---
+
+# Cross-cutting: ruff is configured but unenforced, and the tree has drifted
+
+Separate from the per-package audits above — this is a repo-wide tooling finding. Captured
+2026-06-05; **nothing decided yet**, deferred for a later pass.
+
+## What's true (verified, ruff 0.15.12 — the pinned pre-commit rev)
+
+- **Nothing enforces ruff.** `.pre-commit-config.yaml` declares `ruff` + `ruff-format`, but
+  `pre-commit install` was never run (no hook in the git common dir), and there is **no CI**
+  (`.github/workflows/` is empty). So ruff has never gated a commit. This is why the tree drifted.
+- **The tree has drifted hard, under the *correct* config:**
+  - `ruff format --check .` → **281 of 461 files** would be reformatted.
+  - `ruff check .` → **989 lint errors**.
+- **Genuine style conflict with the formatter.** The committed code is hand-curated — column-aligned
+  tuples, compact multi-element collections, deliberate multi-line signatures. `ruff format` is
+  Black-style: it explodes every trailing-comma collection one-per-line and collapses signatures that
+  fit in 120. It will **never** reproduce the existing alignment. "Just run `ruff format`" means
+  accepting that churn and losing the hand-alignment permanently. (`skip-magic-trailing-comma = true`
+  would kill the per-element explosion — the single biggest churn driver — but format still collapses
+  aligned tuples.)
+
+## Corrects a prior misconception
+
+The memory note `ruff-format-discovery-88-vs-120` claimed that passing explicit
+`packages/<pkg>/src/...` paths makes ruff fall back to **line-length 88** (because the per-package
+`pyproject.toml`s have no `[tool.ruff]`). **That mechanism is wrong.** `ruff check --show-settings`
+resolves `line_length = 120` whether you pass a nested package path or the repo root — ruff walks up
+to the root config correctly. The note's *conclusion* ("the tree is already format-dirty; don't run
+`ruff format` to fix your diff") is right, and bigger than stated: the drift is real under 120, not an
+artifact of an 88 fallback. (Memory note to be corrected/retired.)
+
+## The 989 `ruff check` errors, triaged by rule
+
+| Rule | Count | Nature |
+|---|---|---|
+| E402 import-not-at-top | 431 | mostly the guarded/deferred-import + docstring-first convention — largely intentional |
+| I001 unsorted imports | 247 | auto-fixable, low-risk |
+| E501 line-too-long | 180 | real long lines |
+| F401 unused import | 95 | some are `__init__` re-exports, some genuinely dead |
+| F841 unused local | 20 | smells |
+| E741 ambiguous name (`l`/`I`/`O`) | 10 | style |
+| **F821 undefined name** | **4** | **likely real bugs** — see below |
+| F811 redefinition | 1 | `test_scan_parity.py:67` redefines `patch` |
+| F541 f-string w/o placeholders | 1 | trivial |
+
+~87% (E402 + I001 + E501 = 858) is style/noise. The F-codes are the only smell/bug signal.
+
+**F821 detail (the only likely-real bugs):**
+- `packages/graph-wiki-core/tests/unit/test_query_search.py:174-175` — `hashlib` used but never imported (×3).
+- `packages/eval-harness/tests/eval/test_sweep_dry_run.py:58` — `SweepResult` undefined.
+- Both are in test files (may be masked by being skipped / star-imports) — confirm before assuming green.
+
+## Decision options (for the return pass)
+
+1. **Lint-only, curated + enforce.** Drop `ruff-format` (formatting stays human-owned). Tune
+   `ruff check` to ignore the rules that fight the style (E402, E501), keep I001 + the F-codes, fix the
+   real smells, then actually `pre-commit install` so it gates going forward. Small diff, real signal.
+   *(This was the leaning recommendation.)*
+2. **Submit to the formatter.** One big `ruff format` + `ruff check --fix` commit across all 461 files;
+   accept the 281-file churn and loss of manual alignment; then install pre-commit. Conventional and
+   fully enforced, but a massive one-time diff.
+3. **Just fix the real bugs.** Fix only F821/F811/F841/F401; leave config + enforcement alone; correct
+   the memory note; defer the rest.
+
+## When picking up
+
+Re-run the numbers first (`uv run ruff check .` and `uv run ruff format --check .`) — the tree may have
+drifted further. The fastest concrete win regardless of direction is the 4 F821 + 1 F811 (likely real),
+which are independent of the formatting-philosophy decision.
