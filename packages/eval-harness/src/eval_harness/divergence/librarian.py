@@ -31,7 +31,7 @@ def _resolve_in_wiki(slug: str, wiki: Path) -> Path | None:
     exact = wiki / f"{slug}.md"
     if exact.exists():
         return exact
-    # Directory-style link: [[packages/lattice-wiki-core]] → packages/lattice-wiki-core/overview.md
+    # Directory-style link: [[entities/pkg_lattice-wiki-core]] → entities/pkg_lattice-wiki-core.md
     overview = wiki / slug / "overview.md"
     if overview.exists():
         return overview

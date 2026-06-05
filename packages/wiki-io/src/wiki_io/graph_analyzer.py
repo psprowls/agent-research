@@ -83,7 +83,7 @@ def build_graph(wiki):
             if target.endswith(".md"):
                 target = target[:-3]
             # Strip workspace-root prefix (e.g. "wiki/") so ADR-0015-form
-            # wikilinks like [[wiki/packages/foo/api]] resolve to vault-relative keys.
+            # wikilinks like [[packages/foo/api]] resolve to vault-relative keys.
             if target.startswith(vault_prefix):
                 target = target[len(vault_prefix) :]
 
