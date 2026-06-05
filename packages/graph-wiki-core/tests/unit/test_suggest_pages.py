@@ -123,3 +123,83 @@ def test_build_curated_vault_index_missing_dirs_returns_empty(tmp_path):
     wiki = tmp_path / "wiki"
     wiki.mkdir()
     assert build_curated_vault_index(wiki) == []
+
+
+def _prop(kind, slug, title="T", mode="create_new", existing=None, rationale="r"):
+    return {
+        "kind": kind,
+        "title": title,
+        "slug": slug,
+        "mode": mode,
+        "existing_slug": existing,
+        "rationale": rationale,
+    }
+
+
+def test_merge_appends_new_as_proposed():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    out = merge_suggested_pages([], [_prop("concept", "a"), _prop("adr", "b")])
+    assert [(e["kind"], e["slug"], e["status"]) for e in out] == [
+        ("concept", "a", "proposed"),
+        ("adr", "b", "proposed"),
+    ]
+
+
+def test_merge_preserves_human_decided_untouched():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    existing = [
+        {"kind": "concept", "title": "Kept", "slug": "a", "mode": "create_new",
+         "existing_slug": None, "rationale": "old", "status": "approved"},
+    ]
+    # A new proposal for the SAME key must not re-add or mutate the approved entry.
+    out = merge_suggested_pages(existing, [_prop("concept", "a", title="New", rationale="new")])
+    assert len(out) == 1
+    assert out[0]["status"] == "approved"
+    assert out[0]["title"] == "Kept"
+    assert out[0]["rationale"] == "old"
+
+
+def test_merge_refreshes_matching_proposed_in_place():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    existing = [
+        {"kind": "concept", "title": "Old", "slug": "a", "mode": "create_new",
+         "existing_slug": None, "rationale": "old", "status": "proposed"},
+    ]
+    out = merge_suggested_pages(existing, [_prop("concept", "a", title="Fresh", rationale="fresh")])
+    assert len(out) == 1
+    assert out[0]["title"] == "Fresh"
+    assert out[0]["rationale"] == "fresh"
+    assert out[0]["status"] == "proposed"
+
+
+def test_merge_preserves_orphaned_proposed():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    existing = [
+        {"kind": "concept", "title": "Orphan", "slug": "a", "mode": "create_new",
+         "existing_slug": None, "rationale": "r", "status": "proposed"},
+    ]
+    out = merge_suggested_pages(existing, [_prop("adr", "b")])  # no proposal for 'a'
+    keys = [(e["kind"], e["slug"]) for e in out]
+    assert ("concept", "a") in keys  # orphan kept
+    assert ("adr", "b") in keys
+
+
+def test_merge_is_idempotent_on_identical_proposals():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    proposals = [_prop("concept", "a"), _prop("adr", "b")]
+    once = merge_suggested_pages([], proposals)
+    twice = merge_suggested_pages(once, proposals)
+    assert once == twice
+
+
+def test_merge_dedups_duplicate_proposals_by_key():
+    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
+
+    out = merge_suggested_pages([], [_prop("concept", "a", title="first"), _prop("concept", "a", title="second")])
+    assert len(out) == 1
+    assert out[0]["title"] == "first"

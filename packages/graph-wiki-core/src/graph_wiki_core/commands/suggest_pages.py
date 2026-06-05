@@ -149,3 +149,46 @@ def build_curated_vault_index(wiki: Path) -> list[dict]:
                 }
             )
     return index
+
+
+def merge_suggested_pages(existing: list[dict], proposals: list[dict]) -> list[dict]:
+    """Merge new proposals into the existing suggested_pages list (spec §3.4).
+
+    - Human-decided entries (status in HUMAN_DECIDED) are preserved in place and
+      never mutated.
+    - A still-`proposed` entry whose (kind, slug) matches a new proposal is
+      refreshed in place from that proposal (status stays `proposed`).
+    - An orphaned `proposed` entry (no matching proposal) is preserved.
+    - Genuinely new proposals (key not already present) are appended as
+      `proposed`, in proposal order, deduped by key.
+    - A proposal whose key matches ANY existing entry is not appended again.
+    """
+    prop_by_key: dict[tuple[str, str], dict] = {}
+    for p in proposals:  # first occurrence wins (dedup)
+        prop_by_key.setdefault((p["kind"], p["slug"]), p)
+
+    existing_keys = {(e["kind"], e["slug"]) for e in existing}
+
+    result: list[dict] = []
+    for e in existing:
+        key = (e["kind"], e["slug"])
+        if e.get("status") in HUMAN_DECIDED:
+            result.append(e)  # untouched
+        elif key in prop_by_key:
+            refreshed = dict(prop_by_key[key])
+            refreshed["status"] = "proposed"
+            result.append(_ordered_entry(refreshed))
+        else:
+            result.append(e)  # orphaned proposed: preserve
+
+    for p in proposals:
+        key = (p["kind"], p["slug"])
+        if key in existing_keys:
+            continue
+        if any((r["kind"], r["slug"]) == key for r in result):
+            continue  # already appended (duplicate proposal)
+        appended = dict(p)
+        appended["status"] = "proposed"
+        result.append(_ordered_entry(appended))
+
+    return result
