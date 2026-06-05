@@ -225,8 +225,8 @@ def init_wiki(
             "log": f"{wiki_path}/log.md",
         },
         "next_steps": [
-            f"Open {workspace_path} in Obsidian (sidebar shows wiki/ and raw/; work/ lives under wiki/)",
-            "Run /graph-wiki:scan to populate wiki/packages/ from workspace manifests",
+            f"Open {wiki_path} in Obsidian (the wiki root is the vault; raw/ sits beside it at {workspace_path}/raw/)",
+            "Run /graph-wiki:scan to populate wiki/entities/ from the code graph",
             f"Stage a source under {workspace_path}/raw/ and run /graph-wiki:ingest",
         ],
     }
@@ -243,7 +243,7 @@ def init_wiki(
     logger.info("     Installed: %s", ", ".join(installed_files))
     logger.info("     Page templates copied: %d", template_count)
     logger.info("Next steps:")
-    logger.info("  1. Open %s in Obsidian (workspace root)", workspace_path)
-    logger.info("  2. Run /graph-wiki:scan to populate wiki/packages/")
+    logger.info("  1. Open %s in Obsidian (wiki root = vault)", wiki_path)
+    logger.info("  2. Run /graph-wiki:scan to populate wiki/entities/")
     logger.info("  3. Stage a source under %s/raw/ and run /graph-wiki:ingest <path>", workspace_path)
     return result
