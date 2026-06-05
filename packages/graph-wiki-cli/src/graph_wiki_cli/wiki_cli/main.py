@@ -18,7 +18,12 @@ import typer
 
 from graph_io import exit_codes as _gio_exit_codes
 
+from graph_io.store import read_only_connect
+from wiki_io._workspace import resolve_wiki_and_repo
+from workspace_io.paths import graph_dir
+
 from graph_wiki_core.commands.ack_drift import run_ack_drift
+from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
@@ -260,6 +265,44 @@ def proposal_reject(
 ) -> None:
     """Reject a proposal (flip its status to `rejected`, preserved so it is not re-proposed)."""
     _decide(proposal_id, "rejected", workspace, json_output)
+
+
+@wiki_app.command(name="propagate-drift")
+def propagate_drift(
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Judge + report without writing notes or stamping anchors"),
+    only: Optional[str] = typer.Option(None, "--only", help="Restrict to one entity (uri/stem) or curated page (slug)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit PropagateDriftResult as JSON"),
+) -> None:
+    """Propose curated-page updates for entities whose code changed (M4 drift producer)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        wiki, repo = resolve_wiki_and_repo(workspace_path)
+    except (RuntimeError, FileNotFoundError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+    conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+    try:
+        result = asyncio.run(
+            run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=dry_run, only=only)
+        )
+    finally:
+        conn.close()
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        prefix = "[dry-run] " if result.dry_run else ""
+        typer.echo(
+            f"{prefix}propagate-drift: judged {result.pages_judged} page(s), "
+            f"{result.entities_considered} entit(ies) considered, "
+            f"{result.pages_stale} stale, {result.notes_written} note(s) "
+            f"{'would be ' if result.dry_run else ''}written, "
+            f"{result.pages_skipped_settled} skipped (settled)."
+        )
+        for row in result.proposals:
+            refs = ", ".join(o["ref"] for o in row["origins"])
+            typer.echo(f"  {row['kind']}-{row['target_slug']}  <- {refs}")
 
 
 # ---------------------------------------------------------------------------

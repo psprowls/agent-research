@@ -574,6 +574,9 @@ def scan(
     no_narrate: bool = typer.Option(
         False, "--no-narrate", help="Skip narrator/file-describer fan-out (structural-only, no Bedrock)"
     ),
+    propagate_drift: bool = typer.Option(
+        False, "--propagate-drift", help="After narration, propose curated-page updates for changed entities (M4)"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
 ) -> None:
     """Build the code graph and write one page per graph entity into wiki/entities/."""
@@ -585,6 +588,7 @@ def scan(
                 no_file_map=no_file_map,
                 max_depth=max_depth,
                 narrate=not no_narrate,
+                propagate_drift=propagate_drift,
             )
         )
     except RuntimeError as e:

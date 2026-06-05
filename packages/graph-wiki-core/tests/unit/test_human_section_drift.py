@@ -372,3 +372,48 @@ def test_agent_plugin_judged_without_file_map(ws, monkeypatch):
     meta = _fm.load(page).metadata
     assert meta["drift_checked_commit"] == "head1"
     assert meta["drift_review"][0]["section"] == "Commands"
+
+
+def test_scan_propagate_drift_off_by_default(ws, monkeypatch):
+    """[M4 §3.7 / §5 test 15] without the flag, scan never runs the M4 producer."""
+    repo = ws / "repo"
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": False, "reason": ""}))
+    calls = {"n": 0}
+
+    async def _pd(**kwargs):
+        calls["n"] += 1
+        from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+        return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
+
+    monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert calls["n"] == 0
+
+
+def test_scan_propagate_drift_on_runs_producer(ws, monkeypatch):
+    """[M4 §3.7 / §5 test 15] with the flag, the producer runs once after narration,
+    called with the open conn + resolved wiki/repo."""
+    repo = ws / "repo"
+    monkeypatch.setattr(
+        scan_mod, "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
+                        _spy(lambda it: {"stale": False, "reason": ""}))
+    captured: dict = {}
+
+    async def _pd(**kwargs):
+        captured.update(kwargs)
+        from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+        return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
+
+    monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo,
+                                  narrate=True, propagate_drift=True))
+    assert set(captured) >= {"wiki", "repo", "conn"}  # producer invoked with state
+    assert captured["conn"] is not None

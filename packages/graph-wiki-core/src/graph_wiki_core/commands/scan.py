@@ -71,6 +71,7 @@ from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
+from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
@@ -764,6 +765,7 @@ async def run_scan(
     repo_path: Path | None = None,
     model_override: str | None = None,
     narrate: bool = True,
+    propagate_drift: bool = False,
 ) -> ScanResult:
     """End-to-end scan: graph build → entity writes → narrator fan-out → indexes.
 
@@ -797,6 +799,11 @@ async def run_scan(
                         keep their `## Narrative` placeholder and `— TODO` rows.
                         The plugin's Claude branch calls with narrate=False so the
                         scan needs neither model_adapter nor subagent_runtime.
+        propagate_drift: When True (and narrate=True), after the drift passes run
+                        the M4 cross-page drift producer (gw wiki propagate-drift)
+                        over the just-written entity pages, proposing curated-page
+                        updates into the ledger. Off by default. Needs the
+                        Bedrock stack (gated alongside narrate).
 
     Returns:
         ScanResult with state_gate and the entities_* / entity_errors fields.
@@ -1350,6 +1357,13 @@ async def run_scan(
         # Free clear pass — runs every scan (even --no-narrate): a human edit to a
         # flagged section clears its flag promptly without an LLM call.
         _drift_clear_pass(wiki)
+
+        # Living Wiki M4: opt-in cross-page drift producer. Runs after narration
+        # (narratives fresh, last_updated_commit advanced) and reads M4's own
+        # anchors off disk, so no in-memory state is threaded in. Gated on both
+        # narrate (needs Bedrock) and the explicit flag (off by default, §3.7).
+        if narrate and propagate_drift and conn is not None:
+            await run_propagate_drift(wiki=wiki, repo=repo, conn=conn)
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
