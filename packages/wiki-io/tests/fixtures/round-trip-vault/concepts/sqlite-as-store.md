@@ -11,7 +11,7 @@ tokens: 477
 
 ## Decision
 
-[[wiki/adrs/0001-sqlite-primary-store-for-code-graph]] and [[wiki/adrs/0008-single-writer-code-db]] establish SQLite as the code graph's backing store. The database (`code.db`) lives at `<workspace>/.graph/` — gitignored machine state that is regenerated from source by `cg scan`.
+[[adrs/0001-sqlite-primary-store-for-code-graph]] and [[adrs/0008-single-writer-code-db]] establish SQLite as the code graph's backing store. The database (`code.db`) lives at `<workspace>/.graph/` — gitignored machine state that is regenerated from source by `cg scan`.
 
 ## Why SQLite
 
@@ -28,13 +28,13 @@ ADR-0008 mandates a single-writer model: only `cg scan` writes to `code.db`. Rea
 
 ## Where it appears
 
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]] — owns the schema, scan writer, and query surface
-- [[wiki/plugins/lattice-graph/lattice-graph]] — ships the `cg` CLI; `cg scan` rebuilds the DB from the repo
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]] — feeds parsed symbols into the graph writer
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — reads the graph DB via the `GraphSource` adapter for the two-pass retriever
+- [[packages/lattice-graph-core/lattice-graph-core]] — owns the schema, scan writer, and query surface
+- [[plugins/lattice-graph/lattice-graph]] — ships the `cg` CLI; `cg scan` rebuilds the DB from the repo
+- [[packages/lattice-source-parser/lattice-source-parser]] — feeds parsed symbols into the graph writer
+- [[packages/lattice-curator-core/lattice-curator-core]] — reads the graph DB via the `GraphSource` adapter for the two-pass retriever
 
 ## Related
 
-- [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]]
-- [[wiki/adrs/0007-cli-first-code-graph]]
-- [[wiki/adrs/0008-single-writer-code-db]]
+- [[adrs/0001-sqlite-primary-store-for-code-graph]]
+- [[adrs/0007-cli-first-code-graph]]
+- [[adrs/0008-single-writer-code-db]]

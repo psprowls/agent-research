@@ -18,17 +18,17 @@ Claude Code does not always invoke a workflow skill before starting work, and ev
 1. **Quiet drift** — Claude makes a change consistent with what it knows but inconsistent with what the codebase expects (a known anti-pattern documented in `lattice/knowledge/` that never reached the context window).
 2. **Context bloat** — when curation is attempted by hand, it tends to over-fetch, dumping whole wiki sections into the turn and crowding out the actual prompt.
 
-The curator runs outside Claude's decision loop. It gates on `UserPromptSubmit`, decides whether to fire heuristically, picks a tight set of catalog entries via a cheap [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] pass, summarizes them via a second Bedrock pass, and prints a compact brief to stdout that Claude Code injects into the turn. The package is the engine for that work.
+The curator runs outside Claude's decision loop. It gates on `UserPromptSubmit`, decides whether to fire heuristically, picks a tight set of catalog entries via a cheap [[concepts/bedrock-langgraph-stack|Bedrock]] pass, summarizes them via a second Bedrock pass, and prints a compact brief to stdout that Claude Code injects into the turn. The package is the engine for that work.
 
 ### Why it's a pure-logic Python library
 
-The package has no Claude Code, hook, or MCP awareness. The plugin ([[wiki/plugins/lattice-curator/lattice-curator]]) owns those surfaces. Three reasons for the split:
+The package has no Claude Code, hook, or MCP awareness. The plugin ([[plugins/lattice-curator/lattice-curator]]) owns those surfaces. Three reasons for the split:
 
 1. **Reusability.** CI checks, eval scenarios, and future tooling can consume `gate()` / `retrieve()` / `format_brief()` directly without faking a Claude Code environment.
 2. **Testability.** The retriever takes `model` and `sources` as arguments; unit tests inject fakes; integration tests replay recorded Bedrock responses; nothing in the engine knows what `~/.cache/lattice-curator/state.json` is.
 3. **Boundary discipline.** Every interesting decision (gate heuristics, stage prompts, schema validation, fail-silent semantics) lives in one place. The plugin is plumbing.
 
-This mirrors the precedent set by [[wiki/packages/lattice-source-parser/lattice-source-parser]] — pure Python library at `packages/`, thin Claude Code wrapper at `plugins/`.
+This mirrors the precedent set by [[packages/lattice-source-parser/lattice-source-parser]] — pure Python library at `packages/`, thin Claude Code wrapper at `plugins/`.
 
 ### Why Python (not TypeScript)
 
@@ -44,15 +44,15 @@ Likely reasons for the pivot (inferred from neighbors, not from a written record
 
 Two `Source` adapters ship today:
 
-1. **Wiki** (`wiki_source(vault_dir)`) — pulls catalog entries from any markdown vault with frontmatter. The repo's vault at `lattice/wiki/` is the canonical consumer. See [[wiki/plugins/lattice-wiki/lattice-wiki]].
+1. **Wiki** (`wiki_source(vault_dir)`) — pulls catalog entries from any markdown vault with frontmatter. The repo's vault at `lattice/wiki/` is the canonical consumer. See [[plugins/lattice-wiki/lattice-wiki]].
 2. **Knowledge** (`experts_source(rules_dir)`) — pulls from the per-repo `lattice/knowledge/` directory, seeded from the package's bundled rules via the plugin's `/curator:init` command.
 
-The bundled rules under `src/lattice_curator_core/knowledge/` are global tooling — they ship with the package version. Once seeded into a project's `lattice/knowledge/`, they become per-repo data: editable, gitignorable per project, replaceable. See [[wiki/concepts/per-repo-data-vs-global-tooling-tier]] for the broader pattern.
+The bundled rules under `src/lattice_curator_core/knowledge/` are global tooling — they ship with the package version. Once seeded into a project's `lattice/knowledge/`, they become per-repo data: editable, gitignorable per project, replaceable. See [[concepts/per-repo-data-vs-global-tooling-tier]] for the broader pattern.
 
 ## Decisions
 
-- [[wiki/adrs/0010-lattice-curator-as-fifth-plugin]] — package vs plugin split, outside-the-loop posture.
-- [[wiki/adrs/0012-python-bedrock-stack-for-curator]] — Python stack choice for the curator.
+- [[adrs/0010-lattice-curator-as-fifth-plugin]] — package vs plugin split, outside-the-loop posture.
+- [[adrs/0012-python-bedrock-stack-for-curator]] — Python stack choice for the curator.
 
 Note: An earlier ADR referenced "0025-typescript-bedrock-stack-for-curator" which contradicts the Python implementation. ADR 0012 supersedes it.
 
@@ -66,7 +66,7 @@ Context curation / RAG pipeline
 
 ## Used by
 
-- [[wiki/plugins/lattice-curator/lattice-curator]] — the only plugin that wraps this package with Claude Code surfaces (hooks, MCP, `/curator:init` command)
+- [[plugins/lattice-curator/lattice-curator]] — the only plugin that wraps this package with Claude Code surfaces (hooks, MCP, `/curator:init` command)
 
 ## Related dependencies
 

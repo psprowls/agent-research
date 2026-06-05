@@ -37,6 +37,6 @@ No third-party dependencies. Requires Python 3.11+.
 
 ## Sub-pages
 
-- [[wiki/packages/my-utils/api]] — public API reference
-- [[wiki/concepts/functional-helpers]] — concept: the functional-helpers pattern used here
-- [[wiki/adrs/0001-pure-python]] — ADR: why stdlib-only
+- [[packages/my-utils/api]] — public API reference
+- [[concepts/functional-helpers]] — concept: the functional-helpers pattern used here
+- [[adrs/0001-pure-python]] — ADR: why stdlib-only

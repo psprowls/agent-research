@@ -80,12 +80,12 @@ class Source(Protocol):
 
 Two surfaces ship:
 
-- **Wiki** — Obsidian-style vault. `description:` frontmatter required; `kind` from frontmatter becomes the only tag. Used to expose [[wiki/plugins/lattice-wiki/lattice-wiki]] vault content.
-- **Experts** — directory of `<domain>/*.md` rules. `description:` and `impact:` frontmatter; the top-level subfolder becomes `domain`, with `_shared` mapped to `shared`. Used to expose the bundled rule library and the per-project `lattice/knowledge/` seeded by [[wiki/plugins/lattice-curator/lattice-curator]]'s `/curator:init` command.
+- **Wiki** — Obsidian-style vault. `description:` frontmatter required; `kind` from frontmatter becomes the only tag. Used to expose [[plugins/lattice-wiki/lattice-wiki]] vault content.
+- **Experts** — directory of `<domain>/*.md` rules. `description:` and `impact:` frontmatter; the top-level subfolder becomes `domain`, with `_shared` mapped to `shared`. Used to expose the bundled rule library and the per-project `lattice/knowledge/` seeded by [[plugins/lattice-curator/lattice-curator]]'s `/curator:init` command.
 
 Catalog dedup is by `path` (first-write-wins) at `retriever.py:57` — sources earlier in the list shadow later ones.
 
-### [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] as a test seam
+### [[concepts/bedrock-langgraph-stack|Bedrock]] as a test seam
 
 `make_bedrock(config)` returns a `ChatBedrockConverse`. The retriever takes `model` as a positional argument and only depends on `model.with_structured_output(SchemaCls).ainvoke(text)`. Tests inject any object satisfying that contract — no network needed. Live runs read `LATTICE_CURATOR_MODEL`, `AWS_DEFAULT_REGION` / `AWS_REGION` from env. Default model: `us.anthropic.claude-haiku-4-5-20251001-v1:0`.
 
@@ -112,7 +112,7 @@ The corollary is the JSONL fire log (`append_fire`) — every fire writes a stru
 
 ## See also
 
-- [[wiki/packages/lattice-curator-core/api]] — the function and type contracts the patterns rely on
-- [[wiki/packages/lattice-curator-core/context]] — the why behind the boundary and the stack
-- [[wiki/concepts/two-pass-context-curation]] — the algorithm written up as a concept page
-- [[wiki/concepts/curator-source-interface]] — the adapter protocol
+- [[packages/lattice-curator-core/api]] — the function and type contracts the patterns rely on
+- [[packages/lattice-curator-core/context]] — the why behind the boundary and the stack
+- [[concepts/two-pass-context-curation]] — the algorithm written up as a concept page
+- [[concepts/curator-source-interface]] — the adapter protocol

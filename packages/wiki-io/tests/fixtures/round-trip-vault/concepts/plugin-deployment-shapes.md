@@ -51,7 +51,7 @@ Layout from `raw/specs/architecture/3.1-plugin-topology.md:489-508`. The library
 
 - **A (pure MCP)** — loses marketplace distribution; two-step install; can't bundle skill content.
 - **B (plugin + CLI only)** — loses persistent state and typed tool ergonomics; ~100–200 ms Python startup per query is meaningful in agent loops with 10+ queries.
-- **C (MCP only)** — initially planned for v1, but inverted: v1 now ships CLI-first per [[wiki/adrs/0007-cli-first-code-graph]] so the library boundary is exercised through a thin testable adapter before MCP lands.
+- **C (MCP only)** — initially planned for v1, but inverted: v1 now ships CLI-first per [[adrs/0007-cli-first-code-graph]] so the library boundary is exercised through a thin testable adapter before MCP lands.
 - **D (skill + raw `sqlite3`)** — agents writing SQL through Bash escape badly; schema lives in skill content (token cost every session); errors are unstructured.
 - **E (subagent owns graph access)** — subagent invocation is ~10⁴× slower than an MCP tool; defeats the original "grep is wasteful" motivation. Variant where the subagent **owns the MCP server** held open for v2.
 - **G (pre-built graph in CI)** — promising as a v2 *deployment option*; schema in §3.2 supports it without changes.
@@ -59,14 +59,14 @@ Layout from `raw/specs/architecture/3.1-plugin-topology.md:489-508`. The library
 ## v1 staging
 
 > [!info] Staged delivery — CLI-first, MCP at v1.1
-> v1 ships **CLI-first**: only the CLI adapter (a partial shape F). The MCP adapter slips to v1.1 once the library boundary stabilizes through real CLI use. This inverts the original §3.1 ordering (which had v1 as MCP-only); see [[wiki/adrs/0007-cli-first-code-graph]] for the rationale and 2026-05-lattice-graph-plugin-design §9.1 for the design.
+> v1 ships **CLI-first**: only the CLI adapter (a partial shape F). The MCP adapter slips to v1.1 once the library boundary stabilizes through real CLI use. This inverts the original §3.1 ordering (which had v1 as MCP-only); see [[adrs/0007-cli-first-code-graph]] for the rationale and 2026-05-lattice-graph-plugin-design §9.1 for the design.
 
 ## Used in
-- [[wiki/plugins/lattice-graph/lattice-graph]] — implements shape F (v1 ships CLI-first; MCP at v1.1 per [[wiki/adrs/0007-cli-first-code-graph]])
+- [[plugins/lattice-graph/lattice-graph]] — implements shape F (v1 ships CLI-first; MCP at v1.1 per [[adrs/0007-cli-first-code-graph]])
 
 ## Related patterns
-- [[wiki/concepts/per-repo-data-vs-global-tooling-tier]] — F is a per-repo data plugin shape
-- [[wiki/concepts/per-repo-layout]] — F's storage lives at `<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`)
+- [[concepts/per-repo-data-vs-global-tooling-tier]] — F is a per-repo data plugin shape
+- [[concepts/per-repo-layout]] — F's storage lives at `<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`)
 
 ## Sources
 - 2026-05-architecture-3.1-plugin-topology

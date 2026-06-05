@@ -19,7 +19,7 @@ tokens: 745
 
 ## Context
 
-An earlier decision (ADR-0025, TypeScript Bedrock stack for curator) proposed building the curator package in TypeScript. Before implementation began, the team reconsidered in light of the existing Python uv workspace (see [[wiki/adrs/0009-uv-ruff-python-tooling]]) and the maturity of `langchain-aws` / `langgraph` on the Python side.
+An earlier decision (ADR-0025, TypeScript Bedrock stack for curator) proposed building the curator package in TypeScript. Before implementation began, the team reconsidered in light of the existing Python uv workspace (see [[adrs/0009-uv-ruff-python-tooling]]) and the maturity of `langchain-aws` / `langgraph` on the Python side.
 
 ## Decision
 
@@ -28,7 +28,7 @@ Adopt the following stack for `packages/lattice-curator-core/`:
 | Concern | Choice |
 |---|---|
 | Language | Python 3.12 |
-| Build | `hatchling` (uv workspace, per [[wiki/adrs/0009-uv-ruff-python-tooling]]) |
+| Build | `hatchling` (uv workspace, per [[adrs/0009-uv-ruff-python-tooling]]) |
 | Test runner | `pytest` with `asyncio_mode = "auto"` |
 | LLM client | `langchain-aws` `ChatBedrockConverse` via `langchain-core` |
 | Pipeline orchestration | `langgraph` `StateGraph` |
@@ -54,6 +54,6 @@ The test seam at `bedrock.py` is preserved: `retrieve()` accepts a model argumen
 
 ## Impact
 
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — Python package with `langchain-aws`, `langgraph`, `pydantic`, `python-frontmatter`.
-- [[wiki/plugins/lattice-curator/lattice-curator]] — hooks and MCP server are Python; bash shim bridges Claude Code's invocation.
-- [[wiki/packages/lattice-evals/lattice-evals]] — curator eval scenarios call into the Python package directly.
+- [[packages/lattice-curator-core/lattice-curator-core]] — Python package with `langchain-aws`, `langgraph`, `pydantic`, `python-frontmatter`.
+- [[plugins/lattice-curator/lattice-curator]] — hooks and MCP server are Python; bash shim bridges Claude Code's invocation.
+- [[packages/lattice-evals/lattice-evals]] — curator eval scenarios call into the Python package directly.

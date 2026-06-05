@@ -20,7 +20,7 @@ test -d lattice/.graph || { echo "No code graph found. Run /lattice-graph:init f
 
 (`plugins/lattice-graph/commands/find.md:9` and siblings.)
 
-The actual graph location is `<repo>/lattice/.graph/code.db` per ADR-0001-sqlite-primary-store-for-code-graph, ADR-0011-single-workspace-root, [[wiki/concepts/per-repo-layout]], and `packages/lattice-graph-core/README.md:5`. The guard checks for `lattice/.graph` — now the correct base directory under the new single-workspace layout. The bug is cosmetic: when no graph exists, `cg` itself returns exit code 3 (`NOT_INITIALIZED`) and the user sees a downstream error rather than the friendly "Run init first" message. A small tightening to `test -f lattice/.graph/code.db` would add explicitness.
+The actual graph location is `<repo>/lattice/.graph/code.db` per ADR-0001-sqlite-primary-store-for-code-graph, ADR-0011-single-workspace-root, [[concepts/per-repo-layout]], and `packages/lattice-graph-core/README.md:5`. The guard checks for `lattice/.graph` — now the correct base directory under the new single-workspace layout. The bug is cosmetic: when no graph exists, `cg` itself returns exit code 3 (`NOT_INITIALIZED`) and the user sees a downstream error rather than the friendly "Run init first" message. A small tightening to `test -f lattice/.graph/code.db` would add explicitness.
 
 > [!info] Contradiction resolved by ADR-0011
 > The guard (`test -d lattice/.graph`) was originally wrong — it checked `lattice/.graph` while the documented path was `.lattice/graph/`. ADR-0011-single-workspace-root moved the graph to `<repo>/lattice/.graph/code.db`, so the guard now checks the correct directory.

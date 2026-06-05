@@ -13,14 +13,14 @@ tokens: 1583
 ## Definition
 The `lattice-*` ecosystem occupies a single configurable workspace root inside any consumer repo. The default workspace name is `lattice` (`DEFAULT_WORKSPACE_NAME` in `packages/lattice-workspace/src/lattice_workspace/config.py`). All per-repo data lives under this root:
 
-- `<workspace>/wiki/` — the [[wiki/plugins/lattice-wiki/lattice-wiki]] vault. Human-visible. Committed to git.
+- `<workspace>/wiki/` — the [[plugins/lattice-wiki/lattice-wiki]] vault. Human-visible. Committed to git.
 - `<workspace>/work/` — work items (bugs, features, spikes). Committed to git.
-- `<workspace>/.graph/` — machine state for [[wiki/plugins/lattice-graph/lattice-graph]]. Gitignored.
+- `<workspace>/.graph/` — machine state for [[plugins/lattice-graph/lattice-graph]]. Gitignored.
 
 The workspace path is resolved by `lattice_workspace.config.resolve()`: it walks up from cwd to find `.git`, then checks `.lattice.local.yaml` for a `lattice-directory` override; if absent it defaults to `<repo>/lattice`. The resolved workspace is then passed to path accessors in `packages/lattice-workspace/src/lattice_workspace/paths.py`.
 
 > [!note] ADR-0011 records the consolidation to a single workspace root
-> An earlier decision proposed two distinct roots (`<repo>/wiki/` + `<repo>/.lattice/`). The implementation consolidated to a single workspace root. [[wiki/adrs/0011-single-workspace-root]] documents this decision.
+> An earlier decision proposed two distinct roots (`<repo>/wiki/` + `<repo>/.lattice/`). The implementation consolidated to a single workspace root. [[adrs/0011-single-workspace-root]] documents this decision.
 
 ## Motivation
 - All per-repo lattice data lives under one named root, making it easy to find, move, or exclude from non-lattice tooling.
@@ -52,21 +52,21 @@ Because the Obsidian vault opens at `<workspace>/`, wikilinks resolve **workspac
 
 | Target | Wikilink |
 |---|---|
-| Wiki page | `[[wiki/<category>/...]]` — e.g. `[[wiki/packages/foo/foo]]`, `[[wiki/concepts/bar]]` |
+| Wiki page | `[[<category>/...]]` — e.g. `[[packages/foo/foo]]`, `[[concepts/bar]]` |
 | Work item | `[[work/<slug>]]` |
 | Sibling resource | `[[raw/...]]`, `[[knowledge/...]]` (resolvable but not structurally linted) |
 
 ==Forbidden:== `[[../work/...]]` (the `../` escapes the vault), bare `[[packages/...]]` / `[[concepts/...]]` (only resolves if the vault opened one level deeper).
 
-See [[wiki/adrs/0015-workspace-root-wikilink-form]] and [[wiki/sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]] for the linter alignment that enforces these forms.
+See [[adrs/0015-workspace-root-wikilink-form]] and [[sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]] for the linter alignment that enforces these forms.
 
 ## Used in
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — owns `<workspace>/wiki/`
-- [[wiki/plugins/lattice-graph/lattice-graph]] — owns `<workspace>/.graph/code.db`
-- [[wiki/plugins/lattice-work/lattice-work]] — work items live at `<workspace>/work/`
+- [[plugins/lattice-wiki/lattice-wiki]] — owns `<workspace>/wiki/`
+- [[plugins/lattice-graph/lattice-graph]] — owns `<workspace>/.graph/code.db`
+- [[plugins/lattice-work/lattice-work]] — work items live at `<workspace>/work/`
 
 ## Related patterns
-- [[wiki/concepts/lattice-naming-convention]] — naming applies to plugins, not directories.
+- [[concepts/lattice-naming-convention]] — naming applies to plugins, not directories.
 
 ## Path ownership across the ecosystem
 
@@ -101,11 +101,11 @@ code.db-shm
 NOT gitignored: `<workspace>/wiki/` (everything in it), `<workspace>/work/`, `<workspace>/work-index.json`, `<workspace>/wiki/log.md`, `<workspace>/.lattice.yaml`.
 
 ## Decisions
-- [[wiki/adrs/0011-single-workspace-root]] — consolidation to single root
-- [[wiki/adrs/0015-workspace-root-wikilink-form]] — canonical wikilink forms that follow from this layout
+- [[adrs/0011-single-workspace-root]] — consolidation to single root
+- [[adrs/0015-workspace-root-wikilink-form]] — canonical wikilink forms that follow from this layout
 
 ## Related concepts
-- [[wiki/concepts/lattice-cross-plugin-contract]] — env-var discovery, subprocess invocation, idempotency
+- [[concepts/lattice-cross-plugin-contract]] — env-var discovery, subprocess invocation, idempotency
 
 ## Open questions / gotchas
-- `<workspace>/.graph/` is gitignored at v1; v2 deployment option per [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]] commits a CI-built graph as a release artifact.
+- `<workspace>/.graph/` is gitignored at v1; v2 deployment option per [[adrs/0001-sqlite-primary-store-for-code-graph]] commits a CI-built graph as a release artifact.

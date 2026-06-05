@@ -11,10 +11,10 @@ tokens: 1859
 # Code-graph MCP tool surface (12 tools + `cg_query`)
 
 > [!info] MCP surface deferred to v1.1
-> Per 2026-05-lattice-graph-plugin-design §9.1, v1 ships **CLI-first** — the MCP server adapter slips to v1.1 once the library boundary stabilizes through real CLI use. v1 also trims five query commands (`cg describe-type`, `cg imported-by`, `cg exports`, `cg exported-by`, `cg query`) — see that source for the full deferred list. This page documents the eventual v1.1 surface; until then, only the v1 CLI commands listed in [[wiki/packages/lattice-graph-core/lattice-graph-core]] are available.
+> Per 2026-05-lattice-graph-plugin-design §9.1, v1 ships **CLI-first** — the MCP server adapter slips to v1.1 once the library boundary stabilizes through real CLI use. v1 also trims five query commands (`cg describe-type`, `cg imported-by`, `cg exports`, `cg exported-by`, `cg query`) — see that source for the full deferred list. This page documents the eventual v1.1 surface; until then, only the v1 CLI commands listed in [[packages/lattice-graph-core/lattice-graph-core]] are available.
 
 ## Definition
-[[wiki/plugins/lattice-graph/lattice-graph]] will expose its index through 12 named MCP tools plus `cg_query` (raw-SQL escape hatch) at v1.1. The Python CLI mirrors the surface 1:1; both adapters share one query library — at v1, that library lives in [[wiki/packages/lattice-graph-core/lattice-graph-core]] (`queries.py`) and only the CLI adapter ships.
+[[plugins/lattice-graph/lattice-graph]] will expose its index through 12 named MCP tools plus `cg_query` (raw-SQL escape hatch) at v1.1. The Python CLI mirrors the surface 1:1; both adapters share one query library — at v1, that library lives in [[packages/lattice-graph-core/lattice-graph-core]] (`queries.py`) and only the CLI adapter ships.
 
 ## Tool list (v1)
 
@@ -90,13 +90,13 @@ plugins/lattice-graph/
 The library is the unit of versioning. MCP and CLI bump together because they share the API contract; the library bumps when a query changes shape (a new field, a renamed argument).
 
 ## Used in
-- [[wiki/plugins/lattice-graph/lattice-graph]] — exposes this surface
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — consumes via `cg_describe_package` (citation verification), `cg_describe_path` (lint), `cg_describe_type` (data-model drift) per §3.6
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — consumes `cg_callers`, `cg_callees`, `cg_find` as grep replacements per §3.9
+- [[plugins/lattice-graph/lattice-graph]] — exposes this surface
+- [[plugins/lattice-wiki/lattice-wiki]] — consumes via `cg_describe_package` (citation verification), `cg_describe_path` (lint), `cg_describe_type` (data-model drift) per §3.6
+- [[plugins/lattice-workflows/lattice-workflows]] — consumes `cg_callers`, `cg_callees`, `cg_find` as grep replacements per §3.9
 
 ## Related patterns
-- [[wiki/concepts/code-graph-schema]] — what the tools query against
-- [[wiki/concepts/plugin-deployment-shapes]] — shape F splits one surface across two adapters
+- [[concepts/code-graph-schema]] — what the tools query against
+- [[concepts/plugin-deployment-shapes]] — shape F splits one surface across two adapters
 
 ## Sources
 - 2026-05-architecture-3.3-mcp-tools-surface — original 12-tool surface and library-boundary contract

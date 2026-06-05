@@ -10,16 +10,16 @@ tokens: 595
 
 ## Concepts
 
-- [[wiki/concepts/source-tree-model]] — the span-bearing intermediate this package produces
-- [[wiki/concepts/language-parser-abstraction]] — per-language module shape, `attrs_json` convention, additivity contract
-- [[wiki/concepts/code-graph-schema]] — the SQLite schema this package's `GraphRecords` feeds into
+- [[concepts/source-tree-model]] — the span-bearing intermediate this package produces
+- [[concepts/language-parser-abstraction]] — per-language module shape, `attrs_json` convention, additivity contract
+- [[concepts/code-graph-schema]] — the SQLite schema this package's `GraphRecords` feeds into
 
 ## Decisions
 
-- [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]] — graph records produced here feed the SQLite store
-- [[wiki/adrs/0005-sourcetree-sole-domain-model]] — SourceTree (SourceNode + Reference + Span) is the only domain object the package exports; all consumer outputs are pure projections on top of it
-- [[wiki/adrs/0006-source-parser-sibling-package]] — lattice-source-parser ships as a sibling Python package free of storage and transport concerns
-- [[wiki/adrs/0009-uv-ruff-python-tooling]] — workspace member under the root `uv.lock`; ruff config and `.python-version` are root-only
+- [[adrs/0001-sqlite-primary-store-for-code-graph]] — graph records produced here feed the SQLite store
+- [[adrs/0005-sourcetree-sole-domain-model]] — SourceTree (SourceNode + Reference + Span) is the only domain object the package exports; all consumer outputs are pure projections on top of it
+- [[adrs/0006-source-parser-sibling-package]] — lattice-source-parser ships as a sibling Python package free of storage and transport concerns
+- [[adrs/0009-uv-ruff-python-tooling]] — workspace member under the root `uv.lock`; ruff config and `.python-version` are root-only
 
 ## Sources
 
@@ -33,7 +33,7 @@ tokens: 595
 
 ## Used by
 
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]] — primary consumer; upserts `GraphRecords` into the SQLite store and runs cross-file resolution
+- [[packages/lattice-graph-core/lattice-graph-core]] — primary consumer; upserts `GraphRecords` into the SQLite store and runs cross-file resolution
 
 ## Related dependencies
 

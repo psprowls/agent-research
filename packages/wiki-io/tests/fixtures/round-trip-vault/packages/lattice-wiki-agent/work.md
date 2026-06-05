@@ -29,14 +29,14 @@ These should agree. Likely fix: pick one region and update both. Until then, cal
 
 - **No README inside the package.** New contributors land on `pyproject.toml` and have to infer the surface from the agents folder.
 - **Test coverage is shallow.** `test_cli.py` only checks that `--help` mentions each flag. `test_agents.py` (65 lines) and `test_ingest.py` (66 lines) cover the happy path with a mock model. There are no tests for the `Path(wiki).parent` heuristic, the `SystemExit` swallow in `LintAgent`, or the `ClickException` branches in `cli.py:75` / `cli.py:94`.
-- **No integration with [[wiki/concepts/explicit-not-magic-update-lifecycle]] guarantees.** Nothing verifies that `update_index_log` actually ran after `update_refs` — if the LLM rate-limits, the vault can end up with a new source page but no index/log update.
+- **No integration with [[concepts/explicit-not-magic-update-lifecycle]] guarantees.** Nothing verifies that `update_index_log` actually ran after `update_refs` — if the LLM rate-limits, the vault can end up with a new source page but no index/log update.
 - **Hard-coded `stale_days=90, log_gap_days=14`** in `LintAgent.run()` (`agents/lint.py:18`). These should come from `Config` or be flag-overridable on the CLI.
 
 ## Features
 
 ### `ScanAgent` accepts a model but never uses it
 
-`packages/lattice-wiki-agent/src/lattice_wiki_agent/agents/scan.py:11` takes `model: Any | None` and stores it on `self._model`, but `run()` (`scan.py:15`) only calls the mechanical `discover_workspaces`. The CLI builds a [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] client when the scan backend is `"bedrock"` (`cli.py:45`), pays the AWS overhead, and discards it. Either drop the `model` parameter or wire up an LLM-driven post-processing step (e.g. propose stub package pages with semantic descriptions, the way the plugin's `lattice-wiki:scanner` sub-agent does).
+`packages/lattice-wiki-agent/src/lattice_wiki_agent/agents/scan.py:11` takes `model: Any | None` and stores it on `self._model`, but `run()` (`scan.py:15`) only calls the mechanical `discover_workspaces`. The CLI builds a [[concepts/bedrock-langgraph-stack|Bedrock]] client when the scan backend is `"bedrock"` (`cli.py:45`), pays the AWS overhead, and discards it. Either drop the `model` parameter or wire up an LLM-driven post-processing step (e.g. propose stub package pages with semantic descriptions, the way the plugin's `lattice-wiki:scanner` sub-agent does).
 
 ### `InitAgent` ignores its `model` parameter
 
@@ -48,7 +48,7 @@ These should agree. Likely fix: pick one region and update both. Until then, cal
 
 ### `IngestAgent` never creates wikilinks back to its own output
 
-The ingest pipeline writes a source summary at `<vault>/sources/<stem>.md` (`agents/ingest.py:114-117`) and updates referenced pages (`agents/ingest.py:130-148`), but the prompt for `update_refs` (`agents/ingest.py:140`) doesn't instruct the LLM to add a `[[wiki/sources/<stem>]]` wikilink to the page being updated. The plugin's interactive ingest workflow does this manually. Result: the headless ingest can produce technically-correct page edits that don't link back to the source, partially defeating the index.
+The ingest pipeline writes a source summary at `<vault>/sources/<stem>.md` (`agents/ingest.py:114-117`) and updates referenced pages (`agents/ingest.py:130-148`), but the prompt for `update_refs` (`agents/ingest.py:140`) doesn't instruct the LLM to add a `[[sources/<stem>]]` wikilink to the page being updated. The plugin's interactive ingest workflow does this manually. Result: the headless ingest can produce technically-correct page edits that don't link back to the source, partially defeating the index.
 
 ### `IngestAgent` doesn't capture ADRs
 
@@ -70,7 +70,7 @@ Same gap — the interactive flow inserts `> ⚠️ Contradiction:` callouts whe
 
 ## Related
 
-- [[wiki/packages/lattice-wiki-agent/lattice-wiki-agent]] — overview.
-- [[wiki/packages/lattice-wiki-agent/api]] — surface details.
-- [[wiki/packages/lattice-wiki-agent/patterns]] — design conventions.
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — the underlying library; some gaps could be fixed there instead.
+- [[packages/lattice-wiki-agent/lattice-wiki-agent]] — overview.
+- [[packages/lattice-wiki-agent/api]] — surface details.
+- [[packages/lattice-wiki-agent/patterns]] — design conventions.
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — the underlying library; some gaps could be fixed there instead.

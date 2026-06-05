@@ -78,19 +78,19 @@ The dispatch layer (Claude Code's Skill / subagent invocation) reads `model:` wh
 
 ## Used in
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — applies the rubric across its skills and agents
-- [[wiki/plugins/lattice-workflows/patterns]] — "Per-skill model selection" pattern bullet
-- [[wiki/plugins/lattice-workflows/api]] — notes the `model:` frontmatter field on each skill
+- [[plugins/lattice-workflows/lattice-workflows]] — applies the rubric across its skills and agents
+- [[plugins/lattice-workflows/patterns]] — "Per-skill model selection" pattern bullet
+- [[plugins/lattice-workflows/api]] — notes the `model:` frontmatter field on each skill
 
 ## Related patterns
 
-- [[wiki/concepts/lattice-workflows-consumption-seam]] — workflow as a consumer; per-skill model choice is independent of which surface (vault, graph, sidecar) the skill reads
-- [[wiki/concepts/execution-skills-comparison]] — chooses *which* execution skill to run; this concept chooses *which model* runs the chosen skill
-- [[wiki/concepts/subagent-vs-teammate]] — dispatched units that also benefit from per-unit `model:` declarations
+- [[concepts/lattice-workflows-consumption-seam]] — workflow as a consumer; per-skill model choice is independent of which surface (vault, graph, sidecar) the skill reads
+- [[concepts/execution-skills-comparison]] — chooses *which* execution skill to run; this concept chooses *which model* runs the chosen skill
+- [[concepts/subagent-vs-teammate]] — dispatched units that also benefit from per-unit `model:` declarations
 
 ## Sources
 
-- [[wiki/sources/2026-05-model-selection-guidelines]]
+- [[sources/2026-05-model-selection-guidelines]]
 
 ## Open questions / gotchas
 

@@ -15,7 +15,7 @@ tokens: 1755
 
 Originally the scripts (`lint_wiki.py`, `scan_monorepo.py`, etc.) lived directly under the plugin at `plugins/lattice-wiki/skills/lattice-wiki/scripts/`. As they grew, two pressures pulled them out:
 
-1. **Reuse.** [[wiki/packages/lattice-wiki-agent/lattice-wiki-agent]] needed to call the same operations programmatically with a Bedrock-backed LLM driving the loop, not as one-shot CLIs. The agent imports `lattice_wiki_core.lint.<group>` modules directly.
+1. **Reuse.** [[packages/lattice-wiki-agent/lattice-wiki-agent]] needed to call the same operations programmatically with a Bedrock-backed LLM driving the loop, not as one-shot CLIs. The agent imports `lattice_wiki_core.lint.<group>` modules directly.
 2. **Testability.** Test fixtures already lived outside the plugin (`fixtures/` at repo root); pulling the implementation into a real Python package made `uv run pytest` from the workspace root straightforward.
 
 The extraction is one-way: `plugins/lattice-wiki/skills/lattice-wiki/scripts/` now holds **only shims** that vendor and re-dispatch.
@@ -41,7 +41,7 @@ Users don't pick a backend — they install the plugin and the shims run the std
 
 ### Relationship to lattice-wiki-agent
 
-[[wiki/packages/lattice-wiki-agent/lattice-wiki-agent]] sits on top of this package. It does **not** re-implement the operations — it imports `lattice_wiki_core` modules and wraps them in agent loops. `LintAgent`, `ScanAgent`, `IngestAgent` all reuse the same data structures the core package emits. This is why `lint_wiki.scan(...)` returns a JSON-serializable dict instead of formatted text — the agent consumes the dict, the CLI's `print_report` is a separate downstream renderer.
+[[packages/lattice-wiki-agent/lattice-wiki-agent]] sits on top of this package. It does **not** re-implement the operations — it imports `lattice_wiki_core` modules and wraps them in agent loops. `LintAgent`, `ScanAgent`, `IngestAgent` all reuse the same data structures the core package emits. This is why `lint_wiki.scan(...)` returns a JSON-serializable dict instead of formatted text — the agent consumes the dict, the CLI's `print_report` is a separate downstream renderer.
 
 ### Vendor sync
 
@@ -58,22 +58,22 @@ The plugin's `vendor/lattice_wiki_core/` is **generated**, not authoritative. Th
 - ADR-0010 (lint-dispatcher-split) — `lint_wiki.py` is a dispatcher; check groups live under `lint/`. Stripped — ADR not yet renumbered.
 - ADR-0017 (stdlib-only-per-repo-tier) — no third-party deps; `pyproject.toml:10` declares `dependencies = []`. Every parser (YAML, TOML, HTML, BM25) is hand-rolled. Stripped — ADR not yet renumbered.
 - ADR-0005 (per-repo-directory-layout) — `<wiki>/raw/` + `<wiki>/<vault>/` shape this package enforces. `init_vault.py` creates both; `ingest_source.py` reads from `raw/`; every other script writes only into `<vault>/`. Stripped — ADR not yet renumbered.
-- ADR-0016 (subprocess-cross-plugin-invocation) — `ingest_work_item.py` is the canonical cross-plugin entry point: [[wiki/plugins/lattice-work/lattice-work]] and [[wiki/plugins/lattice-workflows/lattice-workflows]] call it via subprocess with `--json`, parsing exit codes (0/2/3). Internal callers follow the same contract — even when modules are siblings, the boundary is the CLI. Stripped — ADR not yet renumbered.
+- ADR-0016 (subprocess-cross-plugin-invocation) — `ingest_work_item.py` is the canonical cross-plugin entry point: [[plugins/lattice-work/lattice-work]] and [[plugins/lattice-workflows/lattice-workflows]] call it via subprocess with `--json`, parsing exit codes (0/2/3). Internal callers follow the same contract — even when modules are siblings, the boundary is the CLI. Stripped — ADR not yet renumbered.
 
 ## Sources
 
-- [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]] — bundled spec covering the three 2026-05-09 fixes (index taxonomy, lint `--json` skipped sentinel, CLAUDE.md.template AGENTS.md claim).
+- [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]] — bundled spec covering the three 2026-05-09 fixes (index taxonomy, lint `--json` skipped sentinel, CLAUDE.md.template AGENTS.md claim).
 
 ## Belongs to domain
 
-None — this is a cross-cutting library used by the per-repo data tier ([[wiki/concepts/per-repo-data-vs-global-tooling-tier]]).
+None — this is a cross-cutting library used by the per-repo data tier ([[concepts/per-repo-data-vs-global-tooling-tier]]).
 
 ## Used by
 
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — vendors `src/lattice_wiki_core/` into `skills/lattice-wiki/scripts/vendor/` at build time (see `scripts/build.sh:60-69` and `scripts/plugins.json`)
-- [[wiki/packages/lattice-wiki-agent/lattice-wiki-agent]] — Bedrock-backed agent that wraps the same operations behind an LLM-driven surface
-- [[wiki/plugins/lattice-work/lattice-work]] — invokes `ingest_work_item.py` via subprocess to file work pages from outside the wiki plugin
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — `file-work-item` skill spawns `ingest_work_item.py` via subprocess
+- [[plugins/lattice-wiki/lattice-wiki]] — vendors `src/lattice_wiki_core/` into `skills/lattice-wiki/scripts/vendor/` at build time (see `scripts/build.sh:60-69` and `scripts/plugins.json`)
+- [[packages/lattice-wiki-agent/lattice-wiki-agent]] — Bedrock-backed agent that wraps the same operations behind an LLM-driven surface
+- [[plugins/lattice-work/lattice-work]] — invokes `ingest_work_item.py` via subprocess to file work pages from outside the wiki plugin
+- [[plugins/lattice-workflows/lattice-workflows]] — `file-work-item` skill spawns `ingest_work_item.py` via subprocess
 
 ## Related dependencies
 
@@ -90,4 +90,4 @@ Notable evolutions (read the log for the full sequence):
 - **2026-05-04** — `_load_existing_pages` was hardcoded to the default vault dir; layout-aware resolution (`resolve_vault_dir`) was retrofitted across the package. Both `_vault_path_for` and `_load_existing_pages` were generalized to layout-pinned containers.
 - **2026-05-05** — File map renderer was missing top-level `scripts/` entries from the `lattice-wiki` package page.
 - **2026-05-07** — stdlib-only constraint formalized as ADR-0017.
-- **2026-05-09** — three bundled wiki bug fixes shipped (see [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]]): `update_index.SUBPAGE_STEMS` += `"work"` plus `_ALWAYS_IN_MORE` set so packages' work sub-pages stop leaking into the Package nav and the More section can't go invisible; `lint_wiki._SKIPPED = {"skipped": True}` sentinel so `--json` callers can tell skipped from clean; `CLAUDE.md.template:6` unconditional `AGENTS.md` claim removed.
+- **2026-05-09** — three bundled wiki bug fixes shipped (see [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]]): `update_index.SUBPAGE_STEMS` += `"work"` plus `_ALWAYS_IN_MORE` set so packages' work sub-pages stop leaking into the Package nav and the More section can't go invisible; `lint_wiki._SKIPPED = {"skipped": True}` sentinel so `--json` callers can tell skipped from clean; `CLAUDE.md.template:6` unconditional `AGENTS.md` claim removed.

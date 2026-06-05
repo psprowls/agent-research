@@ -14,7 +14,7 @@ tokens: 888
 
 ## What the source is
 
-A short comparative note distinguishing three [[wiki/plugins/lattice-workflows/lattice-workflows]] execution-oriented skills that are easy to confuse: `executing-plans`, `subagent-driven-development`, and `dispatching-parallel-agents`. Lives at `raw/articles/execution-skills-comparison.md`.
+A short comparative note distinguishing three [[plugins/lattice-workflows/lattice-workflows]] execution-oriented skills that are easy to confuse: `executing-plans`, `subagent-driven-development`, and `dispatching-parallel-agents`. Lives at `raw/articles/execution-skills-comparison.md`.
 
 ## TL;DR
 
@@ -44,13 +44,13 @@ Have implementation plan?
 
 ## Relationship to existing pages
 
-- Distinguishes three skills documented at [[wiki/plugins/lattice-workflows/api]]; that page now points each of the three at the new comparison concept.
-- The "execution-skill selection pattern" added to [[wiki/plugins/lattice-workflows/patterns]] captures the decision-tree rule.
-- Related conceptually to [[wiki/concepts/subagent-vs-teammate]] — both pages clarify Claude Code dispatch mechanisms; that page distinguishes subagents from agent-team teammates, this one distinguishes the skills that drive subagent dispatch.
+- Distinguishes three skills documented at [[plugins/lattice-workflows/api]]; that page now points each of the three at the new comparison concept.
+- The "execution-skill selection pattern" added to [[plugins/lattice-workflows/patterns]] captures the decision-tree rule.
+- Related conceptually to [[concepts/subagent-vs-teammate]] — both pages clarify Claude Code dispatch mechanisms; that page distinguishes subagents from agent-team teammates, this one distinguishes the skills that drive subagent dispatch.
 
 ## Synthesis
 
-See [[wiki/concepts/execution-skills-comparison]] for the canonical concept page that absorbs this source's contents and is linked from the workflow skills' API entries.
+See [[concepts/execution-skills-comparison]] for the canonical concept page that absorbs this source's contents and is linked from the workflow skills' API entries.
 
 ## Contradictions
 

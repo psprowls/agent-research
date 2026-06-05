@@ -19,7 +19,7 @@ tokens: 629
 
 ## Context
 
-`<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`) is the SQLite store backing [[wiki/plugins/lattice-graph/lattice-graph]]. Multiple processes can plausibly want to touch it: the update lifecycle (re-parse on git diff), slash commands querying the graph, the MCP server, wiki integration lint, and `prefer-graph-over-grep` lookups. SQLite tolerates multi-reader-single-writer but only when callers respect that model; a stray writer can corrupt or stall queries.
+`<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`) is the SQLite store backing [[plugins/lattice-graph/lattice-graph]]. Multiple processes can plausibly want to touch it: the update lifecycle (re-parse on git diff), slash commands querying the graph, the MCP server, wiki integration lint, and `prefer-graph-over-grep` lookups. SQLite tolerates multi-reader-single-writer but only when callers respect that model; a stray writer can corrupt or stall queries.
 
 ## Decision
 
@@ -37,7 +37,7 @@ The single-writer rule is enforced **structurally**: the writer takes a SQLite w
 
 ## Related
 
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]]
-- [[wiki/adrs/0002-explicit-graph-update-lifecycle]]
-- [[wiki/adrs/0007-cli-first-code-graph]]
+- [[plugins/lattice-graph/lattice-graph]]
+- [[adrs/0001-sqlite-primary-store-for-code-graph]]
+- [[adrs/0002-explicit-graph-update-lifecycle]]
+- [[adrs/0007-cli-first-code-graph]]

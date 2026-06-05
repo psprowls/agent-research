@@ -19,11 +19,11 @@ tokens: 530
 
 ## Context
 
-[[wiki/plugins/lattice-graph/lattice-graph]] needs to expose its query surface through some adapter — CLI, MCP server, slash commands, or all of the above. Building the MCP server first risks shipping a transport before the underlying library boundary is well exercised; a misshapen library forced through MCP first tends to grow MCP-specific quirks that leak back into the library.
+[[plugins/lattice-graph/lattice-graph]] needs to expose its query surface through some adapter — CLI, MCP server, slash commands, or all of the above. Building the MCP server first risks shipping a transport before the underlying library boundary is well exercised; a misshapen library forced through MCP first tends to grow MCP-specific quirks that leak back into the library.
 
 ## Decision
 
-v1 ships the **`cg` console-script entry point** (on [[wiki/packages/lattice-graph-core/lattice-graph-core]]) plus **3 slash commands** that shell out to it. The MCP server adapter slips to **v1.1**.
+v1 ships the **`cg` console-script entry point** (on [[packages/lattice-graph-core/lattice-graph-core]]) plus **3 slash commands** that shell out to it. The MCP server adapter slips to **v1.1**.
 
 Rationale: exercise the library boundary by use through a thin testable adapter (the CLI) before adding a second adapter (MCP). The CLI is small, scriptable, and trivially testable; if the library shape is wrong, it shows up in CLI ergonomics first and gets fixed cheaply.
 
@@ -36,6 +36,6 @@ Rationale: exercise the library boundary by use through a thin testable adapter 
 
 ## Related
 
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]]
-- [[wiki/adrs/0008-single-writer-code-db]]
+- [[plugins/lattice-graph/lattice-graph]]
+- [[packages/lattice-graph-core/lattice-graph-core]]
+- [[adrs/0008-single-writer-code-db]]

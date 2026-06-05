@@ -16,15 +16,15 @@ tokens: 1581
 
 ## TL;DR
 
-A design spec that makes the wiki addressable from the code graph. [[wiki/packages/lattice-graph-core/lattice-graph-core]] gains a new `wiki_page` node kind and a `documents` edge kind connecting `kind="package"` nodes to their wiki overview pages. A new `cg sync-wiki` subcommand resolves the link by trying three path conventions in order and emits a drift report (undocumented / newly linked / stale). All shipped in v0.2.0 — see [[wiki/plugins/lattice-graph/lattice-graph]] for the slash-command wrapper.
+A design spec that makes the wiki addressable from the code graph. [[packages/lattice-graph-core/lattice-graph-core]] gains a new `wiki_page` node kind and a `documents` edge kind connecting `kind="package"` nodes to their wiki overview pages. A new `cg sync-wiki` subcommand resolves the link by trying three path conventions in order and emits a drift report (undocumented / newly linked / stale). All shipped in v0.2.0 — see [[plugins/lattice-graph/lattice-graph]] for the slash-command wrapper.
 
 ## Key claims
 
 1. **No schema migration.** The existing `nodes`/`edges` tables already support arbitrary `kind` values, so the new `wiki_page` node kind and `documents` edge kind require no DDL change. `wiki_page` nodes carry the workspace-relative path in `name` (e.g. `wiki/packages/lattice-graph-core/lattice-graph-core.md`). Source: `packages/lattice-graph-core/src/graph_io/schema.py` and the spec's "Data Model" section.
 2. **Three path conventions, tried in order.** For each `kind="package"` node, `sync_wiki.py` checks `wiki/packages/<name>/<name>.md`, then `wiki/apps/<name>/<name>.md`, then `wiki/domains/*/packages/<name>/<name>.md` (glob). First match wins; on a glob collision, emit a warning and skip. See `packages/lattice-graph-core/src/graph_io/sync_wiki.py`.
 3. **Cleanup pass closes the drift loop.** `wiki_page` nodes whose file no longer exists on disk are removed along with their incoming `documents` edges. This handles renames and deletions; without it, the graph would accumulate orphans whenever a wiki page moves.
-4. **Drift report classifies three buckets.** `cg sync-wiki` prints **undocumented** (package nodes with no outgoing `documents` edge), **newly linked** (edges added this run), and **stale** (`wiki_page` nodes removed because their file vanished). This is the inverse-direction complement to [[wiki/packages/lattice-wiki-core/lattice-wiki-core]]'s code-drift lint.
-5. **Three explicit non-goals.** The spec rules out (a) ingesting wiki sub-pages, ADRs, or concept pages — only package overviews; (b) making `lattice-graph-core` depend on `lattice-wiki-core` — the boundary stays one-way through the filesystem; (c) running wiki sync as part of `cg update` — it's an explicit, separate subcommand. See [[wiki/concepts/explicit-not-magic-update-lifecycle]] for the pattern.
+4. **Drift report classifies three buckets.** `cg sync-wiki` prints **undocumented** (package nodes with no outgoing `documents` edge), **newly linked** (edges added this run), and **stale** (`wiki_page` nodes removed because their file vanished). This is the inverse-direction complement to [[packages/lattice-wiki-core/lattice-wiki-core]]'s code-drift lint.
+5. **Three explicit non-goals.** The spec rules out (a) ingesting wiki sub-pages, ADRs, or concept pages — only package overviews; (b) making `lattice-graph-core` depend on `lattice-wiki-core` — the boundary stays one-way through the filesystem; (c) running wiki sync as part of `cg update` — it's an explicit, separate subcommand. See [[concepts/explicit-not-magic-update-lifecycle]] for the pattern.
 6. **New files (as shipped).** `packages/lattice-graph-core/src/graph_io/sync_wiki.py`, `packages/lattice-graph-core/src/graph_io/cli/ops_sync_wiki.py`, registered as `"sync-wiki": ops_sync_wiki` in `cli/main.py`. Test coverage in `tests/test_sync_wiki.py` and `tests/test_cli_sync_wiki.py`.
 
 ## Queries enabled
@@ -46,25 +46,25 @@ The `documents` edge set makes three graph queries trivial:
 ## Surprises / contradictions
 
 - None against the code. The spec matches the shipped v0.2.0 implementation: `sync_wiki.py` and `ops_sync_wiki.py` exist (`packages/lattice-graph-core/src/graph_io/sync_wiki.py`, `cli/ops_sync_wiki.py`), the slash command is wired (`plugins/lattice-graph/commands/sync-wiki.md`), and the wiki overview pages already reference both.
-- Subtle: the `cg sync-wiki` slash command guards on graph existence at `lattice/.graph/` (the path used by other `/lattice-graph:*` query commands per [[wiki/plugins/lattice-graph/api]]), so running `sync-wiki` before `/lattice-graph:init` + `/lattice-graph:update` returns the cosmetic guard error rather than `cg`'s exit 3. Not a contradiction — same plugin-wide pattern.
+- Subtle: the `cg sync-wiki` slash command guards on graph existence at `lattice/.graph/` (the path used by other `/lattice-graph:*` query commands per [[plugins/lattice-graph/api]]), so running `sync-wiki` before `/lattice-graph:init` + `/lattice-graph:update` returns the cosmetic guard error rather than `cg`'s exit 3. Not a contradiction — same plugin-wide pattern.
 
 ## Touches
 
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]]
-- [[wiki/packages/lattice-graph-core/api]]
-- [[wiki/packages/lattice-graph-core/context]]
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/plugins/lattice-graph/api]]
+- [[packages/lattice-graph-core/lattice-graph-core]]
+- [[packages/lattice-graph-core/api]]
+- [[packages/lattice-graph-core/context]]
+- [[plugins/lattice-graph/lattice-graph]]
+- [[plugins/lattice-graph/api]]
 
 ## Decisions triggered
 
 None new. The spec is a forward-looking implementation plan that aligns with existing decisions:
 
-- [[wiki/adrs/0007-cli-first-code-graph]] — `cg sync-wiki` is another CLI subcommand; no MCP surface added.
-- [[wiki/adrs/0008-single-writer-code-db]] — `cg sync-wiki` writes to `code.db`, so it falls under the single-writer rule alongside `cg update`.
+- [[adrs/0007-cli-first-code-graph]] — `cg sync-wiki` is another CLI subcommand; no MCP surface added.
+- [[adrs/0008-single-writer-code-db]] — `cg sync-wiki` writes to `code.db`, so it falls under the single-writer rule alongside `cg update`.
 
 The two extensions sketched in "Future Directions" (walking full `wiki/packages/<name>/` subtrees; dedicated `concept`/`work` node kinds for graph-wide wiki topology) are explicitly deferred — candidates for future work items, not ADRs yet.
 
 ## Related sources
 
-- [[wiki/sources/2026-05-lattice-wiki-core-lint-code-drift-slug-normalization]] — the wiki-side companion that detects code drift; `cg sync-wiki` is the graph-side inverse.
+- [[sources/2026-05-lattice-wiki-core-lint-code-drift-slug-normalization]] — the wiki-side companion that detects code drift; `cg sync-wiki` is the graph-side inverse.

@@ -93,6 +93,6 @@ YAML lists with multi-line strings are noisy, depend on serializer behavior, and
 Both file-level (`packages/foo`) and `file:line` (`packages/foo/src/bar.ts:42`) are accepted in `affects:` and `## Plan` action references. Lint verifies file/package existence; line numbers are advisory and don't trip lint. Same convention as code citations elsewhere in the wiki.
 
 ## Related
-- [[wiki/concepts/lattice-work-namespace-schema]]
+- [[concepts/lattice-work-namespace-schema]]
 - adrs/0008-unified-work-namespace
 - 2026-05-lattice-ecosystem-schema-refinements

@@ -7,4 +7,4 @@ updated: 2026-05-14
 
 # ADR Index
 
-- [[wiki/adrs/0001-pure-python]] — my-utils is stdlib-only (no third-party dependencies). Status: accepted.
+- [[adrs/0001-pure-python]] — my-utils is stdlib-only (no third-party dependencies). Status: accepted.

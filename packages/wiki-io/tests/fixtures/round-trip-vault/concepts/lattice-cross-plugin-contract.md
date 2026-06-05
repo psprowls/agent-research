@@ -15,7 +15,7 @@ The conventions that govern how plugins in the `lattice-*` ecosystem discover ea
 
 ## Workspace resolution via subprocess
 
-A second discovery channel sits beside the env-var convention: any consumer can resolve the lattice workspace by shelling out to `python -m lattice_workspace.config`, which prints the resolved workspace path and exits 0 (see [[wiki/packages/lattice-workspace/lattice-workspace]]). [[wiki/plugins/lattice-workflows/lattice-workflows]]'s `brainstorming` and `writing-plans` skills use this entry point — falling back to `Path("lattice").resolve()` when the call fails — and then assert `<workspace>/.lattice.yaml` exists before writing into `<workspace>/{specs,plans}/` (per [[wiki/adrs/0013-plans-and-specs-in-lattice-workspace]]). This honors the "subprocess, not import" rule while keeping the resolution logic single-sourced inside `lattice-workspace`.
+A second discovery channel sits beside the env-var convention: any consumer can resolve the lattice workspace by shelling out to `python -m lattice_workspace.config`, which prints the resolved workspace path and exits 0 (see [[packages/lattice-workspace/lattice-workspace]]). [[plugins/lattice-workflows/lattice-workflows]]'s `brainstorming` and `writing-plans` skills use this entry point — falling back to `Path("lattice").resolve()` when the call fails — and then assert `<workspace>/.lattice.yaml` exists before writing into `<workspace>/{specs,plans}/` (per [[adrs/0013-plans-and-specs-in-lattice-workspace]]). This honors the "subprocess, not import" rule while keeping the resolution logic single-sourced inside `lattice-workspace`.
 
 ## Discovery — `${LATTICE_<NAME>_ROOT}` env vars
 
@@ -118,7 +118,7 @@ A user can install in any order; plugins check peer state at runtime and emit wa
 
 - Migrators at `<plugin>/scripts/migrate_<from>_to_<to>.py`. One-shot transformations from `schema_version` N to N+1.
 - Plugin's startup checks the existing data's `schema_version` and prompts the user to run the migrator if behind.
-- Migrators are explicit user actions. Same reasoning as [[wiki/concepts/explicit-not-magic-update-lifecycle]] — surprise factor.
+- Migrators are explicit user actions. Same reasoning as [[concepts/explicit-not-magic-update-lifecycle]] — surprise factor.
 
 ### Compatibility matrix per README
 
@@ -134,7 +134,7 @@ Versioning:
 - **Minor** — additive (new fields, slash commands, lint rules). Backwards-compatible.
 - **Patch** — bugfixes only.
 
-Per-plugin `installed_version` and `applied_version` are tracked in `.lattice.yaml` (manifest schema v2) so each plugin can detect "the workspace is behind this plugin code" at command entry. See [[wiki/concepts/plugin-versioning-and-update-mechanism]] — the `warn_if_stale` / `pending_updates` / `init(version=)` API in `lattice-workspace` is the recommended top-of-command call alongside the env-var discovery above.
+Per-plugin `installed_version` and `applied_version` are tracked in `.lattice.yaml` (manifest schema v2) so each plugin can detect "the workspace is behind this plugin code" at command entry. See [[concepts/plugin-versioning-and-update-mechanism]] — the `warn_if_stale` / `pending_updates` / `init(version=)` API in `lattice-workspace` is the recommended top-of-command call alongside the env-var discovery above.
 
 ## `.gitignore` conventions
 
@@ -157,28 +157,28 @@ lattice/*/transient/
 The graph DB itself is gitignored at v1; v2's CI-built-graph option may flip this with explicit configuration.
 
 ## Used in
-- [[wiki/plugins/lattice-wiki/lattice-wiki]]
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/plugins/lattice-work/lattice-work]]
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
+- [[plugins/lattice-wiki/lattice-wiki]]
+- [[plugins/lattice-graph/lattice-graph]]
+- [[plugins/lattice-work/lattice-work]]
+- [[plugins/lattice-workflows/lattice-workflows]]
 
 ## Related patterns
-- [[wiki/concepts/per-repo-layout]] — the single `<repo>/lattice/` workspace root this contract sits on top of
-- [[wiki/concepts/lattice-workflows-observability-gate]] — sibling env-var convention: `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY` gates a hook category instead of identifying a plugin's install root. First adopter is `plugins/lattice-workflows/hooks/log-skill-invocation`.
-- [[wiki/concepts/plugin-versioning-and-update-mechanism]] — per-plugin version tracking in `.lattice.yaml` v2 + the `warn_if_stale` / `pending_updates` / `init(version=)` API in `lattice-workspace` (v0.3.0).
+- [[concepts/per-repo-layout]] — the single `<repo>/lattice/` workspace root this contract sits on top of
+- [[concepts/lattice-workflows-observability-gate]] — sibling env-var convention: `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY` gates a hook category instead of identifying a plugin's install root. First adopter is `plugins/lattice-workflows/hooks/log-skill-invocation`.
+- [[concepts/plugin-versioning-and-update-mechanism]] — per-plugin version tracking in `.lattice.yaml` v2 + the `warn_if_stale` / `pending_updates` / `init(version=)` API in `lattice-workspace` (v0.3.0).
 
 ## Decisions
-- [[wiki/adrs/0011-single-workspace-root]] — the single `<repo>/lattice/` workspace root
-- [[wiki/adrs/0013-plans-and-specs-in-lattice-workspace]] — adds `python -m lattice_workspace.config` as a workflow-side adopter of subprocess-based resolution
+- [[adrs/0011-single-workspace-root]] — the single `<repo>/lattice/` workspace root
+- [[adrs/0013-plans-and-specs-in-lattice-workspace]] — adds `python -m lattice_workspace.config` as a workflow-side adopter of subprocess-based resolution
 
 ## Sources
-- [[wiki/sources/2026-05-plans-specs-path-redesign]] — concrete adopter: brainstorming + writing-plans skills resolve via subprocess CLI, hard-fail on missing `.lattice.yaml`
-- [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — adds per-plugin `installed_version` / `applied_version` to the install/upgrade choreography section. `warn_if_stale` is the recommended top-of-command call alongside the env-var discovery convention; `lattice-wiki` is the reference adopter, `lattice-graph` / `lattice-curator` / `lattice-work` are follow-ups.
+- [[sources/2026-05-plans-specs-path-redesign]] — concrete adopter: brainstorming + writing-plans skills resolve via subprocess CLI, hard-fail on missing `.lattice.yaml`
+- [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — adds per-plugin `installed_version` / `applied_version` to the install/upgrade choreography section. `warn_if_stale` is the recommended top-of-command call alongside the env-var discovery convention; `lattice-wiki` is the reference adopter, `lattice-graph` / `lattice-curator` / `lattice-work` are follow-ups.
 
 ## Open questions / deferred to v2
 - Hard plugin dependencies in `marketplace.json` (today: runtime check + helpful error).
 - Auto-discovery of peers via marketplace API (today: env vars).
-- CI-built graph snapshot per [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]] — flips graph DB from gitignored to committed.
+- CI-built graph snapshot per [[adrs/0001-sqlite-primary-store-for-code-graph]] — flips graph DB from gitignored to committed.
 - `<repo>/.lattice/config.yaml` for ecosystem-wide settings.
 - Multi-repo aggregation across workspaces.
 - `/lattice:status` cross-plugin telemetry command.

@@ -12,7 +12,7 @@ tokens: 1336
 
 ### Imports core, doesn't shell out
 
-Every agent imports the corresponding function directly from [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] rather than spawning the equivalent `scripts/*.py` from the [[wiki/plugins/lattice-wiki/lattice-wiki]] plugin:
+Every agent imports the corresponding function directly from [[packages/lattice-wiki-core/lattice-wiki-core]] rather than spawning the equivalent `scripts/*.py` from the [[plugins/lattice-wiki/lattice-wiki]] plugin:
 
 | Agent | Core call |
 |---|---|
@@ -49,7 +49,7 @@ Every LLM call goes through `with_structured_output(<dataclass>)`:
 
 The agents never parse free-form text. This shifts schema enforcement to `langchain-aws` / `langchain-core` and keeps the agent code linear.
 
-### [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] factory matches sibling packages
+### [[concepts/bedrock-langgraph-stack|Bedrock]] factory matches sibling packages
 
 `make_bedrock(cfg)` (`bedrock.py:11`) is intentionally minimal — three lines that build a `ChatBedrockConverse` honouring `LATTICE_WIKI_MODEL` and `AWS_DEFAULT_REGION` env overrides. The source comment (`bedrock.py:1`) flags this as the same pattern used in `lattice-curator`, so callers who already have AWS env-var conventions get them for free.
 
@@ -69,7 +69,7 @@ Both `IngestAgent.__init__` (`agents/ingest.py:186`) and `LogAgent.run` (`agents
 
 ## Related
 
-- [[wiki/packages/lattice-wiki-agent/api]] — flag and signature reference.
-- [[wiki/packages/lattice-wiki-agent/context]] — why this layer exists alongside the plugin skill.
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — the library these patterns are built on.
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]] — the lifecycle these agents mechanise.
+- [[packages/lattice-wiki-agent/api]] — flag and signature reference.
+- [[packages/lattice-wiki-agent/context]] — why this layer exists alongside the plugin skill.
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — the library these patterns are built on.
+- [[concepts/explicit-not-magic-update-lifecycle]] — the lifecycle these agents mechanise.

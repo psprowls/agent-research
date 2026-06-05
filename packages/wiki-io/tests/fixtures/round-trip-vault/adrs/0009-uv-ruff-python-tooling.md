@@ -19,7 +19,7 @@ tokens: 677
 
 ## Context
 
-`packages/` hosts multiple Python libraries — currently [[wiki/packages/lattice-source-parser/lattice-source-parser]] and [[wiki/packages/lattice-evals/lattice-evals]], with more expected. Without a shared tooling standard, each package would pick its own resolver (pip / poetry / pdm / hatch), its own lint/format stack (black / ruff / flake8 / isort), and its own test runner — fragmenting CI, contributor onboarding, and developer ergonomics. A monorepo-friendly tool that locks once and resolves cross-package deps natively was needed.
+`packages/` hosts multiple Python libraries — currently [[packages/lattice-source-parser/lattice-source-parser]] and [[packages/lattice-evals/lattice-evals]], with more expected. Without a shared tooling standard, each package would pick its own resolver (pip / poetry / pdm / hatch), its own lint/format stack (black / ruff / flake8 / isort), and its own test runner — fragmenting CI, contributor onboarding, and developer ergonomics. A monorepo-friendly tool that locks once and resolves cross-package deps natively was needed.
 
 ## Decision
 
@@ -42,5 +42,5 @@ All Python packages under `packages/` are members of a **single uv workspace**:
 
 ## Related
 
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]]
-- [[wiki/packages/lattice-evals/lattice-evals]]
+- [[packages/lattice-source-parser/lattice-source-parser]]
+- [[packages/lattice-evals/lattice-evals]]

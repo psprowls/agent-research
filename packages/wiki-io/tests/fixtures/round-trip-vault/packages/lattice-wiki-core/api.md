@@ -9,7 +9,7 @@ tokens: 5668
 
 # lattice-wiki-core — API
 
-`__init__.py` is empty (`packages/lattice-wiki-core/src/lattice_wiki_core/__init__.py:1`); modules are imported by name (`from lattice_wiki_core.scan_monorepo import discover_workspaces`). Each module is also a CLI (`python -m lattice_wiki_core.<name> --help`) and is invoked that way by [[wiki/plugins/lattice-wiki/lattice-wiki]] shims.
+`__init__.py` is empty (`packages/lattice-wiki-core/src/lattice_wiki_core/__init__.py:1`); modules are imported by name (`from lattice_wiki_core.scan_monorepo import discover_workspaces`). Each module is also a CLI (`python -m lattice_wiki_core.<name> --help`) and is invoked that way by [[plugins/lattice-wiki/lattice-wiki]] shims.
 
 ## Public API
 
@@ -108,13 +108,13 @@ CLI: `--repo <path> [--wiki <path>] [--json] [--no-file-map] [--max-depth N] [--
 
 Returned report keys: `total_pages`, `orphans`, `broken_links`, `stale`, `missing_frontmatter`, `missing_tokens`, `duplicate_titles`, `log_gap`, `code_drift`, `container_drift`, `source_sync_drift`, `file_map_drift`, `package_sync_drift`, `domain_placement`, `dependency_layer` (optional), `workflow_hints`.
 
-**`missing_tokens` (v0.4.0).** Soft warning, collected at `lint_wiki.py:190-202`. Walks `linted` pages (top-level `wiki/` + `work/`) and lists any whose frontmatter lacks a `tokens:` key. Reported separately from the required-fields check (`title`/`category`/`summary`) because `tokens` is computed by `update_tokens` rather than authored — absence nudges the user to re-run the stamper but does not invalidate the page. See [[wiki/sources/2026-05-lattice-wiki-core-tokens-frontmatter-field]].
+**`missing_tokens` (v0.4.0).** Soft warning, collected at `lint_wiki.py:190-202`. Walks `linted` pages (top-level `wiki/` + `work/`) and lists any whose frontmatter lacks a `tokens:` key. Reported separately from the required-fields check (`title`/`category`/`summary`) because `tokens` is computed by `update_tokens` rather than authored — absence nudges the user to re-run the stamper but does not invalidate the page. See [[sources/2026-05-lattice-wiki-core-tokens-frontmatter-field]].
 
-**Skipped sentinel.** When `repo_path` is `None`, the five drift fields (`code_drift`, `container_drift`, `source_sync_drift`, `file_map_drift`, `package_sync_drift`) are initialized to a module-level sentinel `_SKIPPED: dict = {"skipped": True}` (`lint_wiki.py:55`) instead of `None`. This lets JSON callers distinguish "check skipped" (`{"skipped": true}`) from "check ran clean" (`[]`). Test the sentinel with `isinstance(val, dict) and val.get("skipped")`. See [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
+**Skipped sentinel.** When `repo_path` is `None`, the five drift fields (`code_drift`, `container_drift`, `source_sync_drift`, `file_map_drift`, `package_sync_drift`) are initialized to a module-level sentinel `_SKIPPED: dict = {"skipped": True}` (`lint_wiki.py:55`) instead of `None`. This lets JSON callers distinguish "check skipped" (`{"skipped": true}`) from "check ran clean" (`[]`). Test the sentinel with `isinstance(val, dict) and val.get("skipped")`. See [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
 
 `code_drift` shape: `{packages_on_disk, packages_in_vault, missing_in_vault, orphaned_in_vault, planned_in_vault, exports_drift}`. `status: planned` pages bypass orphan flagging (`lint_wiki.py:165`).
 
-**Overview-only `vault_pkg_pages` filter (v0.3.2).** `vault_pkg_pages` is narrowed at `lint_wiki.py:236-239` to pages where both `fm.category in {"package", "app"}` AND `Path(k).parent.name == Path(k).name` — i.e. only the overview file `<container>/<slug>/<slug>.md`. This structural invariant excludes facet sub-pages (`api.md`, `context.md`, `patterns.md`, `work.md`) which inherit `category: package` from the overview convention. Every downstream set — `vault_names` (`lint_wiki.py:241`), `planned_names` (`lint_wiki.py:247`), and the `exports_drift` lookup key (`lint_wiki.py:261`) — uses `Path(k).name` (path-derived slug) instead of `fm.get("title")`, matching `disk_names` semantics without suffix stripping. Eliminated 47 false-positive `orphaned_in_vault` entries on a clean wiki. See [[wiki/sources/2026-05-lattice-wiki-core-lint-code-drift-slug-normalization]].
+**Overview-only `vault_pkg_pages` filter (v0.3.2).** `vault_pkg_pages` is narrowed at `lint_wiki.py:236-239` to pages where both `fm.category in {"package", "app"}` AND `Path(k).parent.name == Path(k).name` — i.e. only the overview file `<container>/<slug>/<slug>.md`. This structural invariant excludes facet sub-pages (`api.md`, `context.md`, `patterns.md`, `work.md`) which inherit `category: package` from the overview convention. Every downstream set — `vault_names` (`lint_wiki.py:241`), `planned_names` (`lint_wiki.py:247`), and the `exports_drift` lookup key (`lint_wiki.py:261`) — uses `Path(k).name` (path-derived slug) instead of `fm.get("title")`, matching `disk_names` semantics without suffix stripping. Eliminated 47 false-positive `orphaned_in_vault` entries on a clean wiki. See [[sources/2026-05-lattice-wiki-core-lint-code-drift-slug-normalization]].
 
 `OPTIONAL_GROUPS = {"dependency_layer"}` — gate via `--check dependency_layer`.
 
@@ -143,7 +143,7 @@ Each module: `check(...) -> list[str]` returning one human-readable issue per fi
 - `render_index(pages, wiki_name, vault_name) -> str` — `update_index.py:134`. Main `index.md` is **navigation-only** — only `app`, `domain`, `package` get listed; everything else lives in category sub-indexes via the `## More` block.
 - `render_category_index(entries, category, label, vault_name) -> str` — `update_index.py:185`. Standalone sub-index file per category in `CATEGORY_INDEX_FILES`. **v0.3.1:** now prepends YAML frontmatter (`title`, `category: index`, `summary`, `updated`).
 
-`MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]` (`update_index.py:27`). `CATEGORY_INDEX_FILES = {concept, work, source, adr, architecture, dependency}` (`update_index.py:46`). `SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work"}` (`update_index.py:57`) — excluded from main index but still parsed; `"work"` was added so `packages/*/work.md` files don't leak into the Package nav count (see [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]]). `_ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}` (`update_index.py:174`) — those five categories render in the `## More` block even at 0 pages so they don't go invisible.
+`MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]` (`update_index.py:27`). `CATEGORY_INDEX_FILES = {concept, work, source, adr, architecture, dependency}` (`update_index.py:46`). `SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work"}` (`update_index.py:57`) — excluded from main index but still parsed; `"work"` was added so `packages/*/work.md` files don't leak into the Package nav count (see [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]]). `_ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}` (`update_index.py:174`) — those five categories render in the `## More` block even at 0 pages so they don't go invisible.
 
 CLI: `--wiki <path> [--dry-run] [--json]`.
 
@@ -202,7 +202,7 @@ All functions: 10s subprocess timeout, return `None` when git is unavailable.
 
 `packages/lattice-wiki-core/src/lattice_wiki_core/graph_analyzer.py`
 
-- `build_graph(wiki) -> tuple[set, dict, dict]` — `graph_analyzer.py:61`. Walks all vault pages, resolves wikilinks (with folder-shorthand `[[wiki/packages/foo]]` → `packages/foo/foo.md`), and treats `depends_on:` frontmatter as graph edges.
+- `build_graph(wiki) -> tuple[set, dict, dict]` — `graph_analyzer.py:61`. Walks all vault pages, resolves wikilinks (with folder-shorthand `[[packages/foo]]` → `packages/foo/foo.md`), and treats `depends_on:` frontmatter as graph edges.
 - `connected_components(nodes, out, inb) -> list[set]` — `graph_analyzer.py:118`.
 - `analyze(wiki, top) -> dict` — `graph_analyzer.py:142`. `{total_pages, total_edges, top_outbound_hubs, top_inbound_hubs, orphans, sinks, components, component_count}`.
 
@@ -220,7 +220,7 @@ CLI: `--wiki <path> [--top N=10] [--json]`.
 
 CLI: `--dry-run` (print without writing) / `--json` (machine-readable). Dependencies: `tiktoken>=0.7`, `python-frontmatter>=1.1` (added to `pyproject.toml` in v0.4.0).
 
-See [[wiki/sources/2026-05-lattice-wiki-core-tokens-frontmatter-field]].
+See [[sources/2026-05-lattice-wiki-core-tokens-frontmatter-field]].
 
 ### wiki_search
 

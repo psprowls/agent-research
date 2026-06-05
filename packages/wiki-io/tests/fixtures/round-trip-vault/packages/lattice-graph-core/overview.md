@@ -101,7 +101,7 @@ pytest suite covering unit, integration, and CLI subprocess scenarios.
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-graph-core/api]]      — public API, CLI surface, exit codes, module layout
-- [[wiki/packages/lattice-graph-core/patterns]] — key patterns, conventions, tooling, dependencies
-- [[wiki/packages/lattice-graph-core/work]]     — bugs, tech debt, features, open questions
-- [[wiki/packages/lattice-graph-core/context]]  — concepts, decisions, ADRs, sources
+- [[packages/lattice-graph-core/api]]      — public API, CLI surface, exit codes, module layout
+- [[packages/lattice-graph-core/patterns]] — key patterns, conventions, tooling, dependencies
+- [[packages/lattice-graph-core/work]]     — bugs, tech debt, features, open questions
+- [[packages/lattice-graph-core/context]]  — concepts, decisions, ADRs, sources

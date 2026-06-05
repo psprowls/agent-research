@@ -42,5 +42,5 @@ split into a separate optional package (`my-utils-extras`).
 
 ## Impact
 
-- [[wiki/packages/my-utils/my-utils]] — declares `dependencies = []`
-- [[wiki/packages/my-utils/api]] — all functions implemented in stdlib only
+- [[packages/my-utils/my-utils]] — declares `dependencies = []`
+- [[packages/my-utils/api]] — all functions implemented in stdlib only

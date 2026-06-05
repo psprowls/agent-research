@@ -19,7 +19,7 @@ tokens: 1730
 
 ## Key claims
 
-1. **Workspace resolution shared with `file-work-item`.** Both writing skills (`brainstorming`, `writing-plans`) resolve the workspace by shelling out to `python -m lattice_workspace.config`, falling back to `Path("lattice").resolve()`. They then assert `<workspace>/.lattice.yaml` exists; missing manifest → `SystemExit` with a message pointing at `/lattice-wiki:init` or `/lattice-graph:init`. This matches the pattern already used by [[wiki/plugins/lattice-workflows/lattice-workflows|lattice-workflows]]'s `:file-work-item`.
+1. **Workspace resolution shared with `file-work-item`.** Both writing skills (`brainstorming`, `writing-plans`) resolve the workspace by shelling out to `python -m lattice_workspace.config`, falling back to `Path("lattice").resolve()`. They then assert `<workspace>/.lattice.yaml` exists; missing manifest → `SystemExit` with a message pointing at `/lattice-wiki:init` or `/lattice-graph:init`. This matches the pattern already used by [[plugins/lattice-workflows/lattice-workflows|lattice-workflows]]'s `:file-work-item`.
 2. **File targets land beside the wiki, not under `docs/`.**
 
    | Artifact | Path |
@@ -73,25 +73,25 @@ Affected test files: `tests/claude-code/test-document-review-system.sh`, `tests/
 ## Surprises / contradictions
 
 > [!warning] Workflow is a consumer, but now also a writer of workspace siblings
-> [[wiki/concepts/lattice-workflows-consumption-seam]] frames workflow as ==consumer, not writer==. That principle was specifically about the *wiki vault* — new vault pages still go through `ingest_work_item.py`, not direct edits. This spec adds a different write surface: `<workspace>/specs/` and `<workspace>/plans/`, which are workspace siblings of `wiki/`, not vault interior. Consumer-of-vault still holds; new lattice-workflow-owned-siblings now exist.
+> [[concepts/lattice-workflows-consumption-seam]] frames workflow as ==consumer, not writer==. That principle was specifically about the *wiki vault* — new vault pages still go through `ingest_work_item.py`, not direct edits. This spec adds a different write surface: `<workspace>/specs/` and `<workspace>/plans/`, which are workspace siblings of `wiki/`, not vault interior. Consumer-of-vault still holds; new lattice-workflow-owned-siblings now exist.
 
 No code↔vault contradictions: the spec is fully landed and verified against `plugins/lattice-workflows/skills/{brainstorming,writing-plans}/SKILL.md` and `skills/shared/workspace-resolution.md`.
 
 ## Touches
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
-- [[wiki/packages/lattice-workspace/lattice-workspace]]
-- [[wiki/concepts/lattice-workflows-consumption-seam]]
-- [[wiki/concepts/lattice-cross-plugin-contract]]
+- [[plugins/lattice-workflows/lattice-workflows]]
+- [[packages/lattice-workspace/lattice-workspace]]
+- [[concepts/lattice-workflows-consumption-seam]]
+- [[concepts/lattice-cross-plugin-contract]]
 
 ## Decisions triggered
 
-- [[wiki/adrs/0013-plans-and-specs-in-lattice-workspace]]
+- [[adrs/0013-plans-and-specs-in-lattice-workspace]]
 
 ## Where it's cited in this wiki
 
-- [[wiki/plugins/lattice-workflows/context]]
-- [[wiki/plugins/lattice-workflows/patterns]]
-- [[wiki/packages/lattice-workspace/context]]
-- [[wiki/concepts/lattice-workflows-consumption-seam]]
-- [[wiki/concepts/lattice-cross-plugin-contract]]
+- [[plugins/lattice-workflows/context]]
+- [[plugins/lattice-workflows/patterns]]
+- [[packages/lattice-workspace/context]]
+- [[concepts/lattice-workflows-consumption-seam]]
+- [[concepts/lattice-cross-plugin-contract]]

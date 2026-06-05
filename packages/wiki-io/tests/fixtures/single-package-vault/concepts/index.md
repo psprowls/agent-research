@@ -7,4 +7,4 @@ updated: 2026-05-14
 
 # Concepts Index
 
-- [[wiki/concepts/functional-helpers]] — The pipe/compose/partial_apply pattern for composable function pipelines.
+- [[concepts/functional-helpers]] — The pipe/compose/partial_apply pattern for composable function pipelines.

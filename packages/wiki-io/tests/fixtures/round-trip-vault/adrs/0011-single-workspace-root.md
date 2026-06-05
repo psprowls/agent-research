@@ -55,8 +55,8 @@ Use `<repo>/lattice/` as the single workspace root. The sub-paths are:
 
 ## Impact
 
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — owns the `DEFAULT_WORKSPACE_NAME` constant and workspace-root resolution.
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — vault is now `<workspace>/wiki/`, not `<repo>/wiki/`.
-- [[wiki/plugins/lattice-graph/lattice-graph]] — graph DB is now `<workspace>/.graph/code.db`.
-- [[wiki/plugins/lattice-work/lattice-work]] — work items live at `<workspace>/work/`.
-- [[wiki/concepts/per-repo-layout]] — reflects the single-root paths.
+- [[packages/lattice-workspace/lattice-workspace]] — owns the `DEFAULT_WORKSPACE_NAME` constant and workspace-root resolution.
+- [[plugins/lattice-wiki/lattice-wiki]] — vault is now `<workspace>/wiki/`, not `<repo>/wiki/`.
+- [[plugins/lattice-graph/lattice-graph]] — graph DB is now `<workspace>/.graph/code.db`.
+- [[plugins/lattice-work/lattice-work]] — work items live at `<workspace>/work/`.
+- [[concepts/per-repo-layout]] — reflects the single-root paths.

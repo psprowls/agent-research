@@ -25,7 +25,7 @@ tokens: 1119
 
 ## Purpose
 
-The Claude Code plugin tier of the lattice code-graph stack. A thin shell — manifest, slash-command wrappers, and a SessionStart hook — sitting on top of [[wiki/packages/lattice-graph-core/lattice-graph-core]], which owns all Python logic (schema, SQLite store, upsert, manifest scan, cross-file edge resolve, queries, and the `cg` console-script). v0.2.0 is CLI-first per ADR-0007-cli-first-code-graph: every slash command shells to `cg`; the MCP server adapter slips to v1.1. The graph itself is a per-repo SQLite database at `<repo>/lattice/.graph/code.db` parsed by [[wiki/packages/lattice-source-parser/lattice-source-parser]] (tree-sitter). Designed for tools and agents — not humans — at cardinalities (10K–500K nodes) and access patterns (point lookups + bounded traversals) where a relational store outperforms a native graph database.
+The Claude Code plugin tier of the lattice code-graph stack. A thin shell — manifest, slash-command wrappers, and a SessionStart hook — sitting on top of [[packages/lattice-graph-core/lattice-graph-core]], which owns all Python logic (schema, SQLite store, upsert, manifest scan, cross-file edge resolve, queries, and the `cg` console-script). v0.2.0 is CLI-first per ADR-0007-cli-first-code-graph: every slash command shells to `cg`; the MCP server adapter slips to v1.1. The graph itself is a per-repo SQLite database at `<repo>/lattice/.graph/code.db` parsed by [[packages/lattice-source-parser/lattice-source-parser]] (tree-sitter). Designed for tools and agents — not humans — at cardinalities (10K–500K nodes) and access patterns (point lookups + bounded traversals) where a relational store outperforms a native graph database.
 
 ## File map
 
@@ -48,7 +48,7 @@ The Claude Code plugin tier of the lattice code-graph stack. A thin shell — ma
 
 ## Sub-pages
 
-- [[wiki/plugins/lattice-graph/api]] — slash commands with full signatures, SessionStart hook contract, exit codes
-- [[wiki/plugins/lattice-graph/patterns]] — thin-shell pattern, single-writer rule, staleness banner, command composition
-- [[wiki/plugins/lattice-graph/work]] — open follow-ons, code drift, open questions
-- [[wiki/plugins/lattice-graph/context]] — concepts, ADRs, scope boundaries, why CLI-first
+- [[plugins/lattice-graph/api]] — slash commands with full signatures, SessionStart hook contract, exit codes
+- [[plugins/lattice-graph/patterns]] — thin-shell pattern, single-writer rule, staleness banner, command composition
+- [[plugins/lattice-graph/work]] — open follow-ons, code drift, open questions
+- [[plugins/lattice-graph/context]] — concepts, ADRs, scope boundaries, why CLI-first

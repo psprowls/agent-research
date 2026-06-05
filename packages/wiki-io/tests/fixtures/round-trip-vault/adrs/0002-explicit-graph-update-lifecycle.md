@@ -18,7 +18,7 @@ tokens: 856
 **Status:** accepted (2026-05-03)
 
 ## Context
-[[wiki/plugins/lattice-graph/lattice-graph]] needs a strategy for keeping its SQLite index current as code changes. Three plausible approaches:
+[[plugins/lattice-graph/lattice-graph]] needs a strategy for keeping its SQLite index current as code changes. Three plausible approaches:
 
 1. Auto-update at session start.
 2. Watch the filesystem and re-parse changed files in real time.
@@ -36,7 +36,7 @@ Concretely:
 - A SessionStart hook checks `metadata.last_indexed_commit` against `git rev-parse HEAD` and emits a banner when stale. The hook never auto-updates.
 - No filesystem watcher.
 
-See [[wiki/concepts/explicit-not-magic-update-lifecycle]] for the full lifecycle shape.
+See [[concepts/explicit-not-magic-update-lifecycle]] for the full lifecycle shape.
 
 ## Consequences
 
@@ -55,12 +55,12 @@ See [[wiki/concepts/explicit-not-magic-update-lifecycle]] for the full lifecycle
 - **Auto-update at session start** — rejected: surprise factor (30 s blocking update is jarring), branch-switch ambiguity (intent unclear), failure handling (auto-update can leave graph in unknown state).
 - **Filesystem watcher** — rejected: cross-platform burden, fights git on branch switches, wrong cadence (millisecond-fresh isn't needed), process-lifecycle pain.
 - **Trigger from git hooks** (post-commit, post-merge) — rejected: couples graph updates to git plumbing; user might not want graph rebuilt every commit during a long debugging session.
-- **CI-built graphs** — held open as v2 deployment option per [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]].
+- **CI-built graphs** — held open as v2 deployment option per [[adrs/0001-sqlite-primary-store-for-code-graph]].
 
 ## Impact
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]]
-- [[wiki/concepts/code-graph-schema]] — `metadata.last_indexed_commit`, `last_updated_at`, `schema_version` rows
+- [[plugins/lattice-graph/lattice-graph]]
+- [[concepts/explicit-not-magic-update-lifecycle]]
+- [[concepts/code-graph-schema]] — `metadata.last_indexed_commit`, `last_updated_at`, `schema_version` rows
 
 ## Follow-ups
 - v2: `auto_update_threshold` config flag (silently update if fewer than N commits behind).

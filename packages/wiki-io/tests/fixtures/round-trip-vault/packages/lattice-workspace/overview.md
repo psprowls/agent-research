@@ -67,11 +67,11 @@ Pytest suite. One file per module, behavioral tests (idempotency, gitignore hand
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-workspace/api]]      — public API, config schema, path accessors, init flags
-- [[wiki/packages/lattice-workspace/patterns]] — discovery walk-up, `.lattice.local.yaml` override, manifest format, work-schema sharing
-- [[wiki/packages/lattice-workspace/work]]     — bugs, gaps, migration TODOs surfaced from the code
-- [[wiki/packages/lattice-workspace/context]]  — concepts, ADRs, history, why this package exists
+- [[packages/lattice-workspace/api]]      — public API, config schema, path accessors, init flags
+- [[packages/lattice-workspace/patterns]] — discovery walk-up, `.lattice.local.yaml` override, manifest format, work-schema sharing
+- [[packages/lattice-workspace/work]]     — bugs, gaps, migration TODOs surfaced from the code
+- [[packages/lattice-workspace/context]]  — concepts, ADRs, history, why this package exists
 
 ## Sources
 
-- [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — the design spec for v2 manifest, `warn_if_stale`, `pending_updates`, the `version=` kwarg on `init()`, and the PyYAML swap. Shipped in v0.3.0.
+- [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — the design spec for v2 manifest, `warn_if_stale`, `pending_updates`, the `version=` kwarg on `init()`, and the PyYAML swap. Shipped in v0.3.0.

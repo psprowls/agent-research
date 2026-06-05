@@ -23,7 +23,7 @@ tokens: 465
 
 ## Open questions
 
-- Whether work-tracker also queries [[wiki/plugins/lattice-graph/lattice-graph]] for `affects:` resolution against the graph (instead of filesystem) — v1 cuts this (filesystem-only). Re-open when the graph plugin exists; lift to a wiki ADR when the fallback lands.
+- Whether work-tracker also queries [[plugins/lattice-graph/lattice-graph]] for `affects:` resolution against the graph (instead of filesystem) — v1 cuts this (filesystem-only). Re-open when the graph plugin exists; lift to a wiki ADR when the fallback lands.
 - Whether to wire `archive-eligible` lint findings into `:status`'s "stuck" section, or keep them lint-only. Default: lint-only.
 - Whether to add `closed_at:` frontmatter — rejected for v1 in favor of reusing `updated:`. Revisit if the typo-resets-the-clock failure mode bites.
 - Naming for `--min-age-days` vs `--age-days` vs `--older-than-days` on `:archive`.

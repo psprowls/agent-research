@@ -48,7 +48,7 @@ There is no inverse of `init()`. Removing a plugin from `plugins:` requires manu
 
 ### Migrate `lattice-wiki` to use `lattice-workspace`
 
-[[wiki/plugins/lattice-wiki/lattice-wiki]] does not yet import `lattice-workspace`. Its skill scripts still take `--wiki <path>` directly. Migration would mean:
+[[plugins/lattice-wiki/lattice-wiki]] does not yet import `lattice-workspace`. Its skill scripts still take `--wiki <path>` directly. Migration would mean:
 
 - Replacing the manual `--wiki` resolution with `lattice_workspace.config.resolve()`.
 - Changing the default vault location to `paths.wiki_dir(workspace)` so the `.lattice.local.yaml` override applies to the wiki too.

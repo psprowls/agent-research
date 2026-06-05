@@ -19,20 +19,20 @@ Claude Code fires shell hooks at specific points in the session lifecycle. Plugi
 
 Fires once when a Claude Code session begins (before the first user prompt). Used to inject persistent context into the session — workspace layout, active work items, relevant wiki pages.
 
-- [[wiki/plugins/lattice-curator/lattice-curator]] — fires the stage-aware retriever; injects the top-scoring wiki/graph/work context for the session's project
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — can inject the wiki schema into the session
+- [[plugins/lattice-curator/lattice-curator]] — fires the stage-aware retriever; injects the top-scoring wiki/graph/work context for the session's project
+- [[plugins/lattice-wiki/lattice-wiki]] — can inject the wiki schema into the session
 
 ### `UserPromptSubmit`
 
 Fires each time the user submits a prompt, before Claude processes it. Allows plugins to augment or gate the prompt.
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — injects skill hints and active task state before each turn
+- [[plugins/lattice-workflows/lattice-workflows]] — injects skill hints and active task state before each turn
 
 ### `PreToolUse`
 
 Fires before Claude executes a tool call. Allows plugins to inspect, log, or block tool use.
 
-- Used by [[wiki/plugins/lattice-work/lattice-work]] for lifecycle lint gates — blocks tool calls that would leave a work item in an invalid state
+- Used by [[plugins/lattice-work/lattice-work]] for lifecycle lint gates — blocks tool calls that would leave a work item in an invalid state
 
 ## Registration pattern
 
@@ -59,6 +59,6 @@ Hook scripts receive event context via stdin (JSON) and write injected context t
 
 ## Related
 
-- [[wiki/plugins/lattice-curator/lattice-curator]] — heaviest `SessionStart` hook (Bedrock retrieval)
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — `UserPromptSubmit` for skill context injection
-- [[wiki/plugins/lattice-work/lattice-work]] — `PreToolUse` for lifecycle gates
+- [[plugins/lattice-curator/lattice-curator]] — heaviest `SessionStart` hook (Bedrock retrieval)
+- [[plugins/lattice-workflows/lattice-workflows]] — `UserPromptSubmit` for skill context injection
+- [[plugins/lattice-work/lattice-work]] — `PreToolUse` for lifecycle gates

@@ -19,7 +19,7 @@ tokens: 491
 
 ## Context
 
-Work items carry an `affects:` field listing the code surfaces (paths, packages, symbols) that the work touches. The richest version of this field would be matched against [[wiki/plugins/lattice-graph/lattice-graph]]'s graph — symbol names resolve to graph nodes, allowing reverse lookups ("which work items affect this function?"). But `lattice-graph` has not yet shipped, and v1 of [[wiki/plugins/lattice-work/lattice-work]] needs a complete contract.
+Work items carry an `affects:` field listing the code surfaces (paths, packages, symbols) that the work touches. The richest version of this field would be matched against [[plugins/lattice-graph/lattice-graph]]'s graph — symbol names resolve to graph nodes, allowing reverse lookups ("which work items affect this function?"). But `lattice-graph` has not yet shipped, and v1 of [[plugins/lattice-work/lattice-work]] needs a complete contract.
 
 ## Decision
 
@@ -34,5 +34,5 @@ In v1, the `affects:` field is matched by **filesystem path prefix only**. The v
 
 ## Related
 
-- [[wiki/plugins/lattice-work/lattice-work]]
-- [[wiki/plugins/lattice-graph/lattice-graph]]
+- [[plugins/lattice-work/lattice-work]]
+- [[plugins/lattice-graph/lattice-graph]]

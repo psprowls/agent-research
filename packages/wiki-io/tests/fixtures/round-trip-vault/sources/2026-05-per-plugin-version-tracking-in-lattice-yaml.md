@@ -15,7 +15,7 @@ tokens: 2293
 
 ## TL;DR
 
-This spec adds **per-plugin version tracking** to `.lattice.yaml` so each plugin can detect when its own installed version has drifted from the version that last applied changes to the workspace. It bumps the manifest schema 1→2 (plugins go from `list[str]` to `list[{name, installed_version, applied_version}]`), introduces `warn_if_stale` and `pending_updates` helpers on [[wiki/packages/lattice-workspace/lattice-workspace]], makes `version=` a required keyword on `init()`, and swaps the hand-rolled YAML parser for PyYAML.
+This spec adds **per-plugin version tracking** to `.lattice.yaml` so each plugin can detect when its own installed version has drifted from the version that last applied changes to the workspace. It bumps the manifest schema 1→2 (plugins go from `list[str]` to `list[{name, installed_version, applied_version}]`), introduces `warn_if_stale` and `pending_updates` helpers on [[packages/lattice-workspace/lattice-workspace]], makes `version=` a required keyword on `init()`, and swaps the hand-rolled YAML parser for PyYAML.
 
 ## Key claims
 
@@ -59,10 +59,10 @@ This spec adds **per-plugin version tracking** to `.lattice.yaml` so each plugin
 > [!warning] Wiki↔code drift discovered while ingesting
 > Two `lattice-workspace` sub-pages were stale and have been updated as part of this ingest:
 >
-> - [[wiki/packages/lattice-workspace/api]] — described `init(repo_root, *, plugin, workspace=None)` and a hand-rolled YAML parser; both contradicted `packages/lattice-workspace/src/lattice_workspace/init.py:22` and `manifest.py`. Now updated to describe the v0.3.0 surface (required `version=`, PyYAML, `warn_if_stale`, `pending_updates`, `PendingUpdate`).
-> - [[wiki/packages/lattice-workspace/patterns]] — claimed `dependencies = []` in `pyproject.toml` and showed a v1 manifest example. Both contradicted `packages/lattice-workspace/pyproject.toml:9` and the v2 schema. Now updated.
+> - [[packages/lattice-workspace/api]] — described `init(repo_root, *, plugin, workspace=None)` and a hand-rolled YAML parser; both contradicted `packages/lattice-workspace/src/lattice_workspace/init.py:22` and `manifest.py`. Now updated to describe the v0.3.0 surface (required `version=`, PyYAML, `warn_if_stale`, `pending_updates`, `PendingUpdate`).
+> - [[packages/lattice-workspace/patterns]] — claimed `dependencies = []` in `pyproject.toml` and showed a v1 manifest example. Both contradicted `packages/lattice-workspace/pyproject.toml:9` and the v2 schema. Now updated.
 >
-> The package overview ([[wiki/packages/lattice-workspace/lattice-workspace]]) was already accurate.
+> The package overview ([[packages/lattice-workspace/lattice-workspace]]) was already accurate.
 
 - Spec frontmatter says `status: draft` but the design is shipped. The spec doc is being treated as a historical design record, not a forward-looking proposal.
 - Spec §5 says "v1-coerced entries present as `(plugin, applied_version=None, installed_version=None)`" and `pending_updates` excludes them — this matches the `versions.py:51-53` implementation. `warn_if_stale` short-circuits when `applied_version is None` (`versions.py:34`), which is consistent with spec §5's "first-time semantics, returns False, does not write."
@@ -70,27 +70,27 @@ This spec adds **per-plugin version tracking** to `.lattice.yaml` so each plugin
 
 ## Touches
 
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — added to `## Sources`
-- [[wiki/packages/lattice-workspace/api]] — major rewrite: v2 manifest, `version=` kwarg, `warn_if_stale`, `pending_updates`
-- [[wiki/packages/lattice-workspace/patterns]] — v2 manifest example, PyYAML dep, version-aware idempotent init
-- [[wiki/packages/lattice-workspace/context]] — sources section, ADR reference
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — sources reference (reference integration via `_version_check.py`)
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — sources reference (consumer of `warn_if_stale` at command entry)
-- [[wiki/concepts/lattice-cross-plugin-contract]] — new section on per-plugin version tracking
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]] — new section on the per-plugin staleness banner pattern
+- [[packages/lattice-workspace/lattice-workspace]] — added to `## Sources`
+- [[packages/lattice-workspace/api]] — major rewrite: v2 manifest, `version=` kwarg, `warn_if_stale`, `pending_updates`
+- [[packages/lattice-workspace/patterns]] — v2 manifest example, PyYAML dep, version-aware idempotent init
+- [[packages/lattice-workspace/context]] — sources section, ADR reference
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — sources reference (reference integration via `_version_check.py`)
+- [[plugins/lattice-wiki/lattice-wiki]] — sources reference (consumer of `warn_if_stale` at command entry)
+- [[concepts/lattice-cross-plugin-contract]] — new section on per-plugin version tracking
+- [[concepts/explicit-not-magic-update-lifecycle]] — new section on the per-plugin staleness banner pattern
 
 ## Decisions triggered
 
-- [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]
+- [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]
 
 ## Where it's cited in this wiki
 
-- [[wiki/packages/lattice-workspace/lattice-workspace]]
-- [[wiki/packages/lattice-workspace/api]]
-- [[wiki/packages/lattice-workspace/patterns]]
-- [[wiki/packages/lattice-workspace/context]]
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]]
-- [[wiki/plugins/lattice-wiki/lattice-wiki]]
-- [[wiki/concepts/lattice-cross-plugin-contract]]
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]]
-- [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]
+- [[packages/lattice-workspace/lattice-workspace]]
+- [[packages/lattice-workspace/api]]
+- [[packages/lattice-workspace/patterns]]
+- [[packages/lattice-workspace/context]]
+- [[packages/lattice-wiki-core/lattice-wiki-core]]
+- [[plugins/lattice-wiki/lattice-wiki]]
+- [[concepts/lattice-cross-plugin-contract]]
+- [[concepts/explicit-not-magic-update-lifecycle]]
+- [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]

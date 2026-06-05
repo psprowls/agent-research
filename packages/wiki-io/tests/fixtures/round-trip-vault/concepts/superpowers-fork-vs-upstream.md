@@ -17,7 +17,7 @@ Two engineering-discipline frameworks share a name and a core skill library, but
 - **`obra/superpowers`** — the upstream maintained by `obra`. Markdown-checklist task tracking. Cross-CLI compatible (Claude Code, Codex, Gemini, OpenCode). Ships `RELEASE-NOTES.md`. Uses `git rev-parse --git-dir` vs `--git-common-dir` (with submodule guard) for worktree detection.
 - **`pcvelz/superpowers`** — the Claude-Code-native fork. Replaces TodoWrite with native `TaskCreate`/`TaskUpdate`/`TaskList` (CC v2.1.16+) including `blockedBy` dependencies, `.tasks.json` persistence, and cross-session resume. Renames every skill from `superpowers:*` to `superpowers-extended-cc:*`. Adds opt-in `pre-commit-check-tasks.sh` and `stop-deflection-guard.sh` hooks plus a local `code-reviewer` subagent.
 
-[[wiki/plugins/lattice-workflows/lattice-workflows]] is itself a further-downstream fork of `pcvelz/superpowers` (see lineage below).
+[[plugins/lattice-workflows/lattice-workflows]] is itself a further-downstream fork of `pcvelz/superpowers` (see lineage below).
 
 ## Lineage
 
@@ -38,7 +38,7 @@ lattice-workflows  (this repo — plugins/lattice-workflows)
 Each downward hop is a substantive rewrite, not just a rename:
 
 - **`obra` → `pcvelz`** introduces `TaskCreate`/`TaskUpdate`/`TaskList`, the embedded ` ```json:metadata` fence (because `TaskGet` does not return the `metadata` parameter), the "MUST NOT call EnterPlanMode/ExitPlanMode" hard-gate (with `ExitPlanMode` → `AskUserQuestion` swap), the directory-name worktree heuristic (a known regression — see below), and the `superpowers:*` → `superpowers-extended-cc:*` rename across the session-start hook and every skill cross-reference.
-- **`pcvelz` → `lattice-workflows`** keeps the CC-native substrate but adapts to the lattice ecosystem: workspace-aware hooks, the [[wiki/concepts/lattice-workflows-consumption-seam|consumption seam]] over wiki/graph/work, the [[wiki/concepts/lattice-workflows-observability-gate|observability gate]], and ecosystem-specific commands like `:next` and `:status` over the `lattice-work` sidecar.
+- **`pcvelz` → `lattice-workflows`** keeps the CC-native substrate but adapts to the lattice ecosystem: workspace-aware hooks, the [[concepts/lattice-workflows-consumption-seam|consumption seam]] over wiki/graph/work, the [[concepts/lattice-workflows-observability-gate|observability gate]], and ecosystem-specific commands like `:next` and `:status` over the `lattice-work` sidecar.
 
 ## Shape
 
@@ -81,25 +81,25 @@ Pick **`obra/superpowers`** (upstream) when:
 - You rely on the robust `git rev-parse`-based worktree detection.
 - You depend on `RELEASE-NOTES.md` to track what changed between versions.
 
-`lattice-workflows` has already committed to the fork — see [[wiki/adrs/0016-track-pcvelz-superpowers-fork]] for the recorded decision and its revisit triggers.
+`lattice-workflows` has already committed to the fork — see [[adrs/0016-track-pcvelz-superpowers-fork]] for the recorded decision and its revisit triggers.
 
 ## Used in
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — the lattice fork of `pcvelz/superpowers`; the LICENSE and README preserve attribution back to `obra/superpowers`.
-- [[wiki/plugins/lattice-workflows/context]] — lists `obra/superpowers` and `pcvelz/superpowers` under "Related dependencies".
+- [[plugins/lattice-workflows/lattice-workflows]] — the lattice fork of `pcvelz/superpowers`; the LICENSE and README preserve attribution back to `obra/superpowers`.
+- [[plugins/lattice-workflows/context]] — lists `obra/superpowers` and `pcvelz/superpowers` under "Related dependencies".
 
 ## Related patterns
 
-- [[wiki/concepts/execution-skills-comparison]] — `executing-plans` vs `subagent-driven-development` vs `dispatching-parallel-agents`; all three are downstream consumers of whichever superpowers substrate is in use.
-- [[wiki/concepts/lattice-workflows-consumption-seam]] — how `lattice-workflows` consumes the rest of the lattice ecosystem (wiki, graph, work).
-- [[wiki/concepts/shape-a-vs-shape-b]] — another `<a>-vs-<b>` comparison covering team-layout choices inside `lattice-workflows`.
+- [[concepts/execution-skills-comparison]] — `executing-plans` vs `subagent-driven-development` vs `dispatching-parallel-agents`; all three are downstream consumers of whichever superpowers substrate is in use.
+- [[concepts/lattice-workflows-consumption-seam]] — how `lattice-workflows` consumes the rest of the lattice ecosystem (wiki, graph, work).
+- [[concepts/shape-a-vs-shape-b]] — another `<a>-vs-<b>` comparison covering team-layout choices inside `lattice-workflows`.
 
 ## Sources
 
-- [[wiki/sources/2026-05-superpower-fork-selection]]
+- [[sources/2026-05-superpower-fork-selection]]
 
 ## Open questions / gotchas
 
 - The fork's README claim "tracks `obra/superpowers` main branch" is only as true as the maintainer's last merge — confirm currency before relying on upstream parity.
 - The worktree-detection regression is the most concrete reason a non-`.worktrees`-naming repo might want to override the fork's `using-git-worktrees` skill locally.
-- If Claude Code ever exposes a richer `TaskGet` (returning the `metadata` parameter natively), the brittle ` ```json:metadata` fence becomes obsolete — a revisit trigger for [[wiki/adrs/0016-track-pcvelz-superpowers-fork]].
+- If Claude Code ever exposes a richer `TaskGet` (returning the `metadata` parameter natively), the brittle ` ```json:metadata` fence becomes obsolete — a revisit trigger for [[adrs/0016-track-pcvelz-superpowers-fork]].

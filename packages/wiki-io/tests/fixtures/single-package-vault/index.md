@@ -6,9 +6,9 @@ _Auto-generated 2026-05-14 • 1 navigation page_
 
 ## Package (1)
 
-- [[wiki/packages/my-utils/my-utils|my-utils]] — Pure-Python utility library providing functional helpers, data validation, and text processing primitives.
+- [[packages/my-utils/my-utils|my-utils]] — Pure-Python utility library providing functional helpers, data validation, and text processing primitives.
 
 ## More
 
-- [[wiki/concepts/index]] — Concept (1 page)
-- [[wiki/adrs/index]] — ADR (1 page)
+- [[concepts/index]] — Concept (1 page)
+- [[adrs/index]] — ADR (1 page)

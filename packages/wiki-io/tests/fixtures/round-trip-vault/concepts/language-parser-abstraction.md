@@ -31,7 +31,7 @@ class LanguageParser(ABC):
     def extract_signature(self, function_node, source: bytes) -> str: ...
 ```
 
-Source: `raw/specs/architecture/3.5-language-support.md:39-57`. `ParseResult` carries node/edge records that match the [[wiki/concepts/code-graph-schema|SQLite schema]]; the core handles batching, transaction management, and `attrs_json` serialization.
+Source: `raw/specs/architecture/3.5-language-support.md:39-57`. `ParseResult` carries node/edge records that match the [[concepts/code-graph-schema|SQLite schema]]; the core handles batching, transaction management, and `attrs_json` serialization.
 
 ## Registry
 
@@ -99,7 +99,7 @@ Adding a new language is **additive** (no core changes):
 
 ## Tree-sitter distribution
 
-v1 leans on **`tree-sitter-language-pack`** — pre-compiled wheels for macOS/Linux/Windows; pip-installable. This is the local stdlib break per §3.1; isolated to `lattice-graph` so [[wiki/plugins/lattice-wiki/lattice-wiki]] keeps its pure-stdlib invariant.
+v1 leans on **`tree-sitter-language-pack`** — pre-compiled wheels for macOS/Linux/Windows; pip-installable. This is the local stdlib break per §3.1; isolated to `lattice-graph` so [[plugins/lattice-wiki/lattice-wiki]] keeps its pure-stdlib invariant.
 
 Fallback if the package goes unmaintained: bundle `.so`/`.dylib`/`.dll` per platform with the plugin (more work but already-known-feasible).
 
@@ -108,11 +108,11 @@ Fallback if the package goes unmaintained: bundle `.so`/`.dylib`/`.dll` per plat
 Each parser ships with fixture files under `fixtures/<language>/`. Each fixture exercises one feature; each has a corresponding `.expected.json` listing expected nodes and edges. Tests via `python -m unittest discover` (matching `lattice-wiki`'s pattern).
 
 ## Used in
-- [[wiki/plugins/lattice-graph/lattice-graph]] — owns the parser tier
+- [[plugins/lattice-graph/lattice-graph]] — owns the parser tier
 
 ## Related patterns
-- [[wiki/concepts/code-graph-schema]] — what `ParseResult` materializes into
-- [[wiki/concepts/code-graph-mcp-surface]] — `cg_status.languages_indexed` surfaces the registry
+- [[concepts/code-graph-schema]] — what `ParseResult` materializes into
+- [[concepts/code-graph-mcp-surface]] — `cg_status.languages_indexed` surfaces the registry
 
 ## Two implementation strategies (config-driven vs. custom)
 

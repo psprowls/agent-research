@@ -10,5 +10,5 @@ _No packages configured._
 
 ## More
 
-- [[wiki/concepts/index]] — Concept (3 pages — includes intentional edge-case pages)
-- [[wiki/missing-section/index]] — This wikilink points to a non-existent page (intentional broken link for testing)
+- [[concepts/index]] — Concept (3 pages — includes intentional edge-case pages)
+- [[missing-section/index]] — This wikilink points to a non-existent page (intentional broken link for testing)

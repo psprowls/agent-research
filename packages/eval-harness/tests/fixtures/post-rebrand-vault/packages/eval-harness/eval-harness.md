@@ -30,5 +30,5 @@ Phase 16 D-06 extended `ROLES_WITH_DIVERGENCE` to the full set of six in-scope r
 
 ## Cross-refs
 
-- Reads canonical role definitions from [[wiki/packages/prompt-sources/prompt-sources]]
-- Uses [[wiki/packages/subagent-runtime/subagent-runtime]] trace records for token accounting
+- Reads canonical role definitions from [[packages/prompt-sources/prompt-sources]]
+- Uses [[packages/subagent-runtime/subagent-runtime]] trace records for token accounting

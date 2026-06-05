@@ -11,7 +11,7 @@ tokens: 2704
 # lattice-workflows consumption seam
 
 ## Definition
-[[wiki/plugins/lattice-workflows/lattice-workflows]] consumes the rest of the lattice ecosystem through five named integration patterns. ==Workflow is a consumer, not a writer.== It reads vault content, queries the graph, reads the work-tracker sidecar; the only write path is filing new work items, which goes **through** [[wiki/plugins/lattice-wiki/lattice-wiki]]'s ingest mechanism rather than directly editing the vault.
+[[plugins/lattice-workflows/lattice-workflows]] consumes the rest of the lattice ecosystem through five named integration patterns. ==Workflow is a consumer, not a writer.== It reads vault content, queries the graph, reads the work-tracker sidecar; the only write path is filing new work items, which goes **through** [[plugins/lattice-wiki/lattice-wiki]]'s ingest mechanism rather than directly editing the vault.
 
 ## What workflow reads vs. writes
 
@@ -26,12 +26,12 @@ tokens: 2704
 | **New work pages** | `category: work` page with `kind`, `severity`, `affects`, `## Plan` table | When workflow identifies a follow-up that shouldn't become a TODO comment | Cross-plugin call to `${LATTICE_WIKI_ROOT}/scripts/ingest_work_item.py` |
 | **Status transitions** | Frontmatter updates (`status`, `updated`, `resolved_in`) | When work moves `accepted` → `in-progress` → `resolved` | Direct edit of the markdown file (one-line frontmatter changes) |
 | **Activity log** | Appends to `<vault>/log.md` | After each cross-plugin write | Direct append (matches wiki's `append_log.py`) |
-| **Sidecar regen trigger** | Calls `${LATTICE_WORK_ROOT}/scripts/regenerate_work_index.py` | After work-page mutation | Cross-plugin invocation per [[wiki/concepts/lattice-cross-plugin-contract]] |
+| **Sidecar regen trigger** | Calls `${LATTICE_WORK_ROOT}/scripts/regenerate_work_index.py` | After work-page mutation | Cross-plugin invocation per [[concepts/lattice-cross-plugin-contract]] |
 
 ==The asymmetry — full ingest for new pages, direct edits for status — matches risk:== creating a new page is structured + needs validation; toggling a status field is a one-line edit that doesn't touch schema.
 
 > [!note] Workflow also writes workspace-sibling artifacts
-> Per [[wiki/adrs/0013-plans-and-specs-in-lattice-workspace]] (and [[wiki/sources/2026-05-plans-specs-path-redesign]]), the `brainstorming` and `writing-plans` skills now write into `<workspace>/specs/` and `<workspace>/plans/` — workspace siblings of `wiki/`, not vault interior. The "consumer, not writer" principle is specifically about the *vault*: new vault pages still go through `ingest_work_item.py`. Workflow now owns its own pair of workspace directories alongside what `lattice-workspace` and `lattice-work` own.
+> Per [[adrs/0013-plans-and-specs-in-lattice-workspace]] (and [[sources/2026-05-plans-specs-path-redesign]]), the `brainstorming` and `writing-plans` skills now write into `<workspace>/specs/` and `<workspace>/plans/` — workspace siblings of `wiki/`, not vault interior. The "consumer, not writer" principle is specifically about the *vault*: new vault pages still go through `ingest_work_item.py`. Workflow now owns its own pair of workspace directories alongside what `lattice-workspace` and `lattice-work` own.
 
 ## The five integration patterns
 
@@ -136,20 +136,20 @@ The "lowest common denominator" is grep-only; that's where a workflow user start
 - Inherited `claude-superpowers` hooks unchanged (session-start, pre-commit gate, etc. — general engineering discipline, not lattice-aware)
 
 ## Used in
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — owner of the seam
+- [[plugins/lattice-workflows/lattice-workflows]] — owner of the seam
 - lattice-experts — knowledge layer over workflow
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — read source + ingest target
-- [[wiki/plugins/lattice-graph/lattice-graph]] — read source for grep replacement
-- [[wiki/plugins/lattice-work/lattice-work]] — sidecar source for prioritize + status
+- [[plugins/lattice-wiki/lattice-wiki]] — read source + ingest target
+- [[plugins/lattice-graph/lattice-graph]] — read source for grep replacement
+- [[plugins/lattice-work/lattice-work]] — sidecar source for prioritize + status
 
 ## Related patterns
-- [[wiki/concepts/lattice-cross-plugin-contract]] — env-var discovery, subprocess invocation, exit codes
+- [[concepts/lattice-cross-plugin-contract]] — env-var discovery, subprocess invocation, exit codes
 - wiki-cites-graph-not-duplicates — analogous consumer-side relationship for the wiki
 
 ## Sources
 - 2026-05-architecture-3.9-lattice-workflows-seam
 - 2026-05-wiki-workflows-seam-parity — concretizes the v1 deliverables for the two-plugin slice (wiki + workflows); lands Patterns 1+3 fully and Patterns 2/4/5 as degraded stubs honoring this concept's graceful-degradation matrix
-- [[wiki/sources/2026-05-plans-specs-path-redesign]] — adds workspace-sibling `specs/` and `plans/` write surfaces; preserves the consumer-of-vault principle; routes through `python -m lattice_workspace.config` for resolution
+- [[sources/2026-05-plans-specs-path-redesign]] — adds workspace-sibling `specs/` and `plans/` write surfaces; preserves the consumer-of-vault principle; routes through `python -m lattice_workspace.config` for resolution
 
 ## Decisions
 - adrs/0004-work-tracker-as-consumer-plugin — establishes the work-tracker side of the seam

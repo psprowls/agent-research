@@ -45,12 +45,12 @@ Regression test shipped as `packages/lattice-wiki-core/tests/test_lint_code_drif
 ## Surprises / contradictions
 
 - None against the code. Verified live at `packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py:236-261` — the shipped implementation matches the spec exactly.
-- The pre-fix vault page [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] already mentions this change ("`vault_pkg_pages` filter now also requires `Path(k).parent.name == Path(k).name` (overview-file guard, prevents sub-pages from being treated as package pages)") under the v0.3.2 changelog bullet, but it was previously uncited. This ingest backfills the citation.
+- The pre-fix vault page [[packages/lattice-wiki-core/lattice-wiki-core]] already mentions this change ("`vault_pkg_pages` filter now also requires `Path(k).parent.name == Path(k).name` (overview-file guard, prevents sub-pages from being treated as package pages)") under the v0.3.2 changelog bullet, but it was previously uncited. This ingest backfills the citation.
 
 ## Touches
 
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — source citation added to v0.3.2 changelog bullet for `lint_wiki.py`
-- [[wiki/packages/lattice-wiki-core/api]] — slug-based `vault_pkg_pages` filter and `code_drift` semantics documented under the `lint_wiki` section
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — source citation added to v0.3.2 changelog bullet for `lint_wiki.py`
+- [[packages/lattice-wiki-core/api]] — slug-based `vault_pkg_pages` filter and `code_drift` semantics documented under the `lint_wiki` section
 
 ## Decisions triggered
 
@@ -62,5 +62,5 @@ None. The structural-invariant filter is a small implementation choice scoped to
 
 ## Where it's cited in this wiki
 
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]]
-- [[wiki/packages/lattice-wiki-core/api]]
+- [[packages/lattice-wiki-core/lattice-wiki-core]]
+- [[packages/lattice-wiki-core/api]]

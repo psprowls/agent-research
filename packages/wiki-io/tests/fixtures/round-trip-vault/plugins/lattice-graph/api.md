@@ -24,7 +24,7 @@ The plugin manifest at `plugins/lattice-graph/.claude-plugin/plugin.json` declar
 
 ### Queries
 
-Each query command guards with `test -d lattice/.graph || { echo "No code graph found. Run /lattice-graph:init first."; exit 1; }` before invoking `cg`. (See [[wiki/plugins/lattice-graph/work]] — the guard path is wrong but `cg` itself returns exit 3 on a missing graph, so the bug is cosmetic.)
+Each query command guards with `test -d lattice/.graph || { echo "No code graph found. Run /lattice-graph:init first."; exit 1; }` before invoking `cg`. (See [[plugins/lattice-graph/work]] — the guard path is wrong but `cg` itself returns exit 3 on a missing graph, so the bug is cosmetic.)
 
 | Slash command | Shells to | Args | Example |
 |---|---|---|---|
@@ -32,9 +32,9 @@ Each query command guards with `test -d lattice/.graph || { echo "No code graph 
 | `/lattice-graph:callers` | `cg callers {{args}}` | `<name>` | `process_payment` |
 | `/lattice-graph:callees` | `cg callees {{args}}` | `<name>` | `process_payment` |
 | `/lattice-graph:imports` | `cg imports {{args}}` | `<path>` | `src/auth.py` |
-| `/lattice-graph:imported-by` | `cg imported-by {{args}}` | `<path> [--symbol NAME] [--depth N]` | `src/auth.py --symbol login --depth 2`. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
-| `/lattice-graph:exports` | `cg exports {{args}}` | `<path>` | `src/models.py`. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
-| `/lattice-graph:exported-by` | `cg exported-by {{args}}` | `<name>` | `DatabaseConnection`. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| `/lattice-graph:imported-by` | `cg imported-by {{args}}` | `<path> [--symbol NAME] [--depth N]` | `src/auth.py --symbol login --depth 2`. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| `/lattice-graph:exports` | `cg exports {{args}}` | `<path>` | `src/models.py`. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| `/lattice-graph:exported-by` | `cg exported-by {{args}}` | `<name>` | `DatabaseConnection`. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
 | `/lattice-graph:describe` | `cg describe {{args}}` | `<path-or-package>` | `lattice-source-parser` or `packages/lattice-source-parser/src/main.py` |
 
 > [!note] `describe` is one command, not two
@@ -122,10 +122,10 @@ Source: `plugins/lattice-graph/README.md:18-22`, `packages/lattice-graph-core/RE
 
 ### Deferred to v1.1
 
-- **MCP server adapter** — 12 named MCP tools + `cg_query` raw-SQL escape hatch. CLI-first decision puts MCP behind a stabilized library boundary. See [[wiki/concepts/code-graph-mcp-surface]].
+- **MCP server adapter** — 12 named MCP tools + `cg_query` raw-SQL escape hatch. CLI-first decision puts MCP behind a stabilized library boundary. See [[concepts/code-graph-mcp-surface]].
 - **Additional query subcommands**: `cg describe-type` (needs an `extends`/`inherits` edge kind not in v1 schema; bumps `schema_version`), `cg query` (raw-SQL escape hatch; lands with MCP).
-- **C# parser** — committed for v1.1. v1 ships TypeScript/JavaScript and Python via [[wiki/packages/lattice-source-parser/lattice-source-parser]].
+- **C# parser** — committed for v1.1. v1 ships TypeScript/JavaScript and Python via [[packages/lattice-source-parser/lattice-source-parser]].
 
 ### Operations / lifecycle summary
 
-`/lattice-graph:update` runs incrementally on `git diff prev_commit..HEAD` inside a single SQLite transaction (atomic). The SessionStart hook surfaces staleness as a banner; nothing auto-updates. See [[wiki/concepts/explicit-not-magic-update-lifecycle]] for the full lifecycle.
+`/lattice-graph:update` runs incrementally on `git diff prev_commit..HEAD` inside a single SQLite transaction (atomic). The SessionStart hook surfaces staleness as a banner; nothing auto-updates. See [[concepts/explicit-not-magic-update-lifecycle]] for the full lifecycle.

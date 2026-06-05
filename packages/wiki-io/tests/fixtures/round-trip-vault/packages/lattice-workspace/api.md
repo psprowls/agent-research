@@ -53,7 +53,7 @@ Both paths are returned `.resolve()`-d (canonical, symlinks chased).
 
 ### `init(repo_root, *, plugin, version, workspace=None) -> None`
 
-`packages/lattice-workspace/src/lattice_workspace/init.py`. Idempotent bootstrap. `version=` is **required** as of v0.3.0 — see [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] and [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]].
+`packages/lattice-workspace/src/lattice_workspace/init.py`. Idempotent bootstrap. `version=` is **required** as of v0.3.0 — see [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] and [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]].
 
 | Arg | Required | Notes |
 |---|---|---|
@@ -94,7 +94,7 @@ Behavior:
 | `applied_version == version` | `False` | nothing |
 | `applied_version != version` | `True` | sets `installed_version=version` (leaves `applied_version` untouched) |
 
-Caller (the plugin) is responsible for printing a banner when this returns `True`. `warn_if_stale` only signals — see [[wiki/concepts/plugin-versioning-and-update-mechanism]] for the rationale (banner-not-auto-apply).
+Caller (the plugin) is responsible for printing a banner when this returns `True`. `warn_if_stale` only signals — see [[concepts/plugin-versioning-and-update-mechanism]] for the rationale (banner-not-auto-apply).
 
 ### `pending_updates(workspace) -> list[PendingUpdate]`
 
@@ -124,7 +124,7 @@ All six functions are pure path composition; no filesystem I/O. Source: `package
 Callers obtain `workspace` from `resolve().workspace` and pass it to these accessors.
 
 > [!note] `graph_dir` lives **inside** the workspace
-> `<workspace>/.graph/` — with the default workspace this is `<repo>/lattice/.graph/`. [[wiki/concepts/per-repo-layout]] describes the single-root layout.
+> `<workspace>/.graph/` — with the default workspace this is `<repo>/lattice/.graph/`. [[concepts/per-repo-layout]] describes the single-root layout.
 
 ### `manifest` — `.lattice.yaml` reader/writer
 
@@ -197,11 +197,11 @@ Recognized keys (consumed by `config.py`):
 
 `write_schema(work_dir) -> None` writes `<work_dir>/.schema.md`. Idempotent — does nothing if the file already exists. Creates `work_dir` if absent.
 
-The schema describes the frontmatter contract for `<workspace>/work/*.md` files, shared with [[wiki/plugins/lattice-work/lattice-work]] per [[wiki/concepts/lattice-work-namespace-schema]].
+The schema describes the frontmatter contract for `<workspace>/work/*.md` files, shared with [[plugins/lattice-work/lattice-work]] per [[concepts/lattice-work-namespace-schema]].
 
 ### `render` — workspace `CLAUDE.md` rendering
 
-`packages/lattice-workspace/src/lattice_workspace/render.py`. Renders `<workspace>/CLAUDE.md` from `assets/CLAUDE.md.template` and the `.lattice.yaml` manifest. Iterates plugin entries as dicts (`entry["name"]`) — the v0.3.0 update needed to handle the v2 schema. The rendered block surfaces only plugin names, not version info (a future enhancement; see [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]] follow-ups).
+`packages/lattice-workspace/src/lattice_workspace/render.py`. Renders `<workspace>/CLAUDE.md` from `assets/CLAUDE.md.template` and the `.lattice.yaml` manifest. Iterates plugin entries as dicts (`entry["name"]`) — the v0.3.0 update needed to handle the v2 schema. The rendered block surfaces only plugin names, not version info (a future enhancement; see [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]] follow-ups).
 
 Called by `init()` after every manifest mutation so the rendered block stays in sync.
 
@@ -226,4 +226,4 @@ Called by `init()` after every manifest mutation so the rendered block stays in 
 
 ## Sources
 
-- [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — design spec for the v0.3.0 surface (`init(version=)`, `warn_if_stale`, `pending_updates`, v2 manifest, PyYAML).
+- [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — design spec for the v0.3.0 surface (`init(version=)`, `warn_if_stale`, `pending_updates`, v2 manifest, PyYAML).

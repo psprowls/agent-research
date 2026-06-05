@@ -50,7 +50,7 @@ ScanAgent(model: Any | None, wiki_path: Path)
 await agent.run(repo_path: Path) -> {"packages": list, "count": int}
 ```
 
-Source: `packages/lattice-wiki-agent/src/lattice_wiki_agent/agents/scan.py:10`. Calls `lattice_wiki_core.scan_monorepo.scan` and wraps the result. The `model` parameter is currently unused — see [[wiki/packages/lattice-wiki-agent/work]].
+Source: `packages/lattice-wiki-agent/src/lattice_wiki_agent/agents/scan.py:10`. Calls `lattice_wiki_core.scan_monorepo.scan` and wraps the result. The `model` parameter is currently unused — see [[packages/lattice-wiki-agent/work]].
 
 ### `LintAgent`
 
@@ -108,14 +108,14 @@ The CLI is a Click `@click.group()` (`cli.py:13`). Every subcommand calls `load_
 
 | Subcommand | Required flags | Optional flags | Backend gate | Source |
 |---|---|---|---|---|
-| `init`   | `--wiki`, `--repo` | `--topic`, `--vault-name` | none — runs even without [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] | `cli.py:22` |
+| `init`   | `--wiki`, `--repo` | `--topic`, `--vault-name` | none — runs even without [[concepts/bedrock-langgraph-stack|Bedrock]] | `cli.py:22` |
 | `scan`   | `--wiki`, `--repo` | — | none | `cli.py:38` |
 | `lint`   | `--wiki` | `--semantic` | `--semantic` requires `bedrock` | `cli.py:53` |
 | `ingest` | `--wiki`, positional `SOURCE_FILE` | — | hard-fails unless `backends.ingest = "bedrock"` (`cli.py:75`) | `cli.py:69` |
 | `query`  | `--wiki`, positional `QUESTION` | — | hard-fails unless `backends.query = "bedrock"` (`cli.py:94`) | `cli.py:88` |
 | `log`    | `--wiki` | — | none | `cli.py:106` |
 
-For `lint`, `ingest`, `query`, `log`, the repo path is inferred as `Path(wiki).parent` (`cli.py:59`, `:73`, `:92`). See [[wiki/packages/lattice-wiki-agent/work]] — this is brittle for nested wikis.
+For `lint`, `ingest`, `query`, `log`, the repo path is inferred as `Path(wiki).parent` (`cli.py:59`, `:73`, `:92`). See [[packages/lattice-wiki-agent/work]] — this is brittle for nested wikis.
 
 ### Configuration — `.lattice-wiki.json`
 
@@ -138,10 +138,10 @@ For `lint`, `ingest`, `query`, `log`, the repo path is inferred as `Path(wiki).p
 
 - `backends.<command>` ∈ `{"claude", "bedrock"}` — `"claude"` means "no Bedrock model is built; agent runs mechanically only". Default is `"claude"` for every command (`config.py:9`).
 - `bedrock.model` — Bedrock inference profile id; default `us.amazon.nova-pro-v1:0` (`config.py:18`).
-- `bedrock.region` — AWS region; default `us-east-1` from the dict (`config.py:19`) but `BedrockConfig.region` dataclass default is `"us-west-2"` (`config.py:27`). See [[wiki/packages/lattice-wiki-agent/work]] — these disagree.
+- `bedrock.region` — AWS region; default `us-east-1` from the dict (`config.py:19`) but `BedrockConfig.region` dataclass default is `"us-west-2"` (`config.py:27`). See [[packages/lattice-wiki-agent/work]] — these disagree.
 
 ## Related
 
-- [[wiki/packages/lattice-wiki-agent/patterns]] — how the agents compose around `lattice-wiki-core`.
-- [[wiki/packages/lattice-wiki-agent/context]] — why the agent layer exists.
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — the library every agent delegates to.
+- [[packages/lattice-wiki-agent/patterns]] — how the agents compose around `lattice-wiki-core`.
+- [[packages/lattice-wiki-agent/context]] — why the agent layer exists.
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — the library every agent delegates to.

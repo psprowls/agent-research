@@ -21,7 +21,7 @@ Six slash commands plus four sub-agents (`scanner`, `ingestor`, `linter`, `libra
 
 ### Ingest source types
 
-`ingest_source.py` infers `source_type` from the `raw/` subdirectory or treats the path as an in-repo doc when it resolves under the pinned `docs` container. Per [[wiki/concepts/code-wiki-pattern]] the supported types are:
+`ingest_source.py` infers `source_type` from the `raw/` subdirectory or treats the path as an in-repo doc when it resolves under the pinned `docs` container. Per [[concepts/code-wiki-pattern]] the supported types are:
 
 | Source path | `source_type` | Notes |
 |---|---|---|
@@ -33,7 +33,7 @@ Six slash commands plus four sub-agents (`scanner`, `ingestor`, `linter`, `libra
 | `raw/examples/` | `example` | Concept (often pattern-flavored) + `## Inspirations` bullets on packages/domains. Folder ingest supported. |
 | `<docs-container>/*.md` | `doc` | Concept/architecture/work; gets `last_sync_commit` + `last_sync_at` for drift detection (gated on clean-on-main) |
 
-`source_type: example` is the headline addition in 0.3.0 — see `## Key patterns` in [[wiki/plugins/lattice-wiki/patterns]].
+`source_type: example` is the headline addition in 0.3.0 — see `## Key patterns` in [[plugins/lattice-wiki/patterns]].
 
 ## CLI
 

@@ -55,4 +55,4 @@ For belt-and-suspenders, `--no-session-persistence` (a documented `claude -p` fl
 - 2026-05-06-lattice-evals-worktree-does-not-isolate-auto-memory — the bug and fix
 - 2026-05-06-lattice-evals-oauth-token-as-api-key-rejected — companion auth regression discovered the same session
 - 2026-05-05-lattice-evals-credentials-in-isolated-config-dir — earlier credentials-isolation analysis (now partially superseded)
-- [[wiki/concepts/prompt-caching]] — server-side state that survives `CLAUDE_CONFIG_DIR` isolation but is not behavioral
+- [[concepts/prompt-caching]] — server-side state that survives `CLAUDE_CONFIG_DIR` isolation but is not behavioral

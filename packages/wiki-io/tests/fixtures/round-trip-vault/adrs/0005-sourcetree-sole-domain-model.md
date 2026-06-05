@@ -19,7 +19,7 @@ tokens: 560
 
 ## Context
 
-[[wiki/packages/lattice-source-parser/lattice-source-parser]] needs a domain shape that supports multiple consumer projections (graph records, chunks, embeddings) across multiple languages (Python, JavaScript, TypeScript at v1; more later). Two candidate shapes were considered: per-language subclass hierarchies (`PythonFunction`, `TypeScriptInterface`, etc.), or a single span-bearing tree with string-tagged kinds.
+[[packages/lattice-source-parser/lattice-source-parser]] needs a domain shape that supports multiple consumer projections (graph records, chunks, embeddings) across multiple languages (Python, JavaScript, TypeScript at v1; more later). Two candidate shapes were considered: per-language subclass hierarchies (`PythonFunction`, `TypeScriptInterface`, etc.), or a single span-bearing tree with string-tagged kinds.
 
 Per-language subclassing leaks each language's assumptions into the shared API and forces every consumer to handle N type variants. A single intermediate keeps the consumer surface flat.
 
@@ -36,6 +36,6 @@ A single span-bearing intermediate (`SourceNode` + `Reference` + `Span`) is the 
 
 ## Related
 
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]]
-- [[wiki/concepts/source-tree-model]]
-- [[wiki/adrs/0006-source-parser-sibling-package]]
+- [[packages/lattice-source-parser/lattice-source-parser]]
+- [[concepts/source-tree-model]]
+- [[adrs/0006-source-parser-sibling-package]]

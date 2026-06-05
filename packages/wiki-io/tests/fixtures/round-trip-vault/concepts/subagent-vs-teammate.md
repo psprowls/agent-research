@@ -53,15 +53,15 @@ Cost                   Lower (single context)   Higher (each teammate is a sessi
 
 ## Used in
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — `subagent-driven-development` uses one-shot subagents for implementer / spec-reviewer / code-quality-reviewer dispatches.
+- [[plugins/lattice-workflows/lattice-workflows]] — `subagent-driven-development` uses one-shot subagents for implementer / spec-reviewer / code-quality-reviewer dispatches.
 - `.claude/skills/launching-plan-teams/` — uses agent-team teammates because review-loops need peer messaging and implementer persistence.
 
 ## Related patterns
 
-- [[wiki/concepts/lead-nudge-protocol]] — teammate-specific gotcha: idle teammates don't auto-wake on dependency clear.
-- [[wiki/concepts/shape-a-vs-shape-b]] — design choice within the agent-teams model (2 vs 3 teammates per plan).
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]] — same "explicit over implicit" posture; both subagent dispatch and teammate spawn require explicit instructions, no auto-discovery.
-- [[wiki/concepts/execution-skills-comparison]] — one level up from this page: distinguishes the lattice-workflows *skills* (`executing-plans` / `subagent-driven-development` / `dispatching-parallel-agents`) that drive subagent dispatch.
+- [[concepts/lead-nudge-protocol]] — teammate-specific gotcha: idle teammates don't auto-wake on dependency clear.
+- [[concepts/shape-a-vs-shape-b]] — design choice within the agent-teams model (2 vs 3 teammates per plan).
+- [[concepts/explicit-not-magic-update-lifecycle]] — same "explicit over implicit" posture; both subagent dispatch and teammate spawn require explicit instructions, no auto-discovery.
+- [[concepts/execution-skills-comparison]] — one level up from this page: distinguishes the lattice-workflows *skills* (`executing-plans` / `subagent-driven-development` / `dispatching-parallel-agents`) that drive subagent dispatch.
 
 ## Sources
 

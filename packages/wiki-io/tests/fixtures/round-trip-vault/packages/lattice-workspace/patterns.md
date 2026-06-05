@@ -59,7 +59,7 @@ plugins:
 
 Each plugin's `init` slash-command calls `lattice_workspace.init(repo_root, plugin=<plugin-name>, version=__version__)`. The plugin entry is added to `plugins:` if absent or updated in place if present. Re-running with the same version is a no-op — the manifest is **not rewritten** if nothing changed.
 
-The `version: 2` bump is **lazy and one-way**. v1 manifests on disk (bare-string plugin lists) are coerced to v2 in memory by `manifest.read`'s `_coerce()` step but the file is **not rewritten** until a real mutation lands. A workspace nobody runs against stays in v1 on disk indefinitely — fine, no spurious diffs. See [[wiki/concepts/plugin-versioning-and-update-mechanism]] for the full coercion semantics.
+The `version: 2` bump is **lazy and one-way**. v1 manifests on disk (bare-string plugin lists) are coerced to v2 in memory by `manifest.read`'s `_coerce()` step but the file is **not rewritten** until a real mutation lands. A workspace nobody runs against stays in v1 on disk indefinitely — fine, no spurious diffs. See [[concepts/plugin-versioning-and-update-mechanism]] for the full coercion semantics.
 
 The manifest is the only "is this a lattice workspace?" marker. `lattice-curator`'s `_find_project_root` looks for either `.git` or `.lattice.yaml` to support workspaces detached from a git repo (`plugins/lattice-curator/commands/curator_init.py:14`).
 
@@ -98,11 +98,11 @@ Subdirectories owned by accessors:
 
 | Accessor | Path | Owner |
 |---|---|---|
-| `wiki_dir` | `<workspace>/wiki` | [[wiki/plugins/lattice-wiki/lattice-wiki]] |
-| `raw_dir` | `<workspace>/raw` | [[wiki/plugins/lattice-wiki/lattice-wiki]] (sources) |
-| `work_dir` | `<workspace>/work` | shared: [[wiki/plugins/lattice-wiki/lattice-wiki]] (schema) + [[wiki/plugins/lattice-work/lattice-work]] (lifecycle) |
-| `knowledge_dir` | `<workspace>/knowledge` | [[wiki/plugins/lattice-curator/lattice-curator]] |
-| `graph_dir` | `<workspace>/.graph` | [[wiki/packages/lattice-graph-core/lattice-graph-core]] |
+| `wiki_dir` | `<workspace>/wiki` | [[plugins/lattice-wiki/lattice-wiki]] |
+| `raw_dir` | `<workspace>/raw` | [[plugins/lattice-wiki/lattice-wiki]] (sources) |
+| `work_dir` | `<workspace>/work` | shared: [[plugins/lattice-wiki/lattice-wiki]] (schema) + [[plugins/lattice-work/lattice-work]] (lifecycle) |
+| `knowledge_dir` | `<workspace>/knowledge` | [[plugins/lattice-curator/lattice-curator]] |
+| `graph_dir` | `<workspace>/.graph` | [[packages/lattice-graph-core/lattice-graph-core]] |
 | `manifest_path` | `<workspace>/.lattice.yaml` | this package |
 
 ### Idempotent, version-recording init
@@ -123,7 +123,7 @@ Failures: `git init` raises `RuntimeError` with stderr; missing `version=` raise
 `pyproject.toml` declares `dependencies = ["pyyaml>=6.0"]` (`packages/lattice-workspace/pyproject.toml`). v0.3.0 traded the package's prior stdlib-only posture for parser correctness once the v2 manifest shape (nested dicts inside a list, including `null` values) pushed past what the hand-rolled flat parser could reasonably handle.
 
 > [!info] Trade-off accepted in v0.3.0
-> PyYAML adds ~5 MB and a transitive dep to a previously dependency-free package that sits at the bottom of the per-repo plugin dependency graph (every per-repo-data plugin transitively depends on it). Accepted: the parser-correctness win on a foundational package outweighs the install cost; lattice already pulls heavier deps elsewhere (`lattice-curator`, `lattice-wiki-agent`). See [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]].
+> PyYAML adds ~5 MB and a transitive dep to a previously dependency-free package that sits at the bottom of the per-repo plugin dependency graph (every per-repo-data plugin transitively depends on it). Accepted: the parser-correctness win on a foundational package outweighs the install cost; lattice already pulls heavier deps elsewhere (`lattice-curator`, `lattice-wiki-agent`). See [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]].
 
 Practical consequences:
 
@@ -146,7 +146,7 @@ lattice-source-parser = { workspace = true }
 lattice-workspace = { workspace = true }
 ```
 
-This is the canonical way other packages depend on it. Plugins that aren't full uv workspace members (`lattice-work`'s `regenerate_work_index.py`) fall back to `sys.path` munging (`scripts/regenerate_work_index.py:24-31`) — see [[wiki/packages/lattice-workspace/work]].
+This is the canonical way other packages depend on it. Plugins that aren't full uv workspace members (`lattice-work`'s `regenerate_work_index.py`) fall back to `sys.path` munging (`scripts/regenerate_work_index.py:24-31`) — see [[packages/lattice-workspace/work]].
 
 ## Conventions
 
@@ -154,4 +154,4 @@ This is the canonical way other packages depend on it. Plugins that aren't full 
 - Use `init(repo_root, plugin=<name>, version=__version__)` in every plugin's `init` slash-command — it is idempotent, version-recording, and safe to call repeatedly.
 - Call `warn_if_stale(cfg.workspace, plugin=<name>, version=__version__)` at the top of every user-facing plugin command; print a plugin-owned banner if it returns `True`.
 - `.lattice.local.yaml` is always gitignored — never commit it; `init()` handles the `.gitignore` entry automatically.
-- Related concepts: [[wiki/concepts/per-repo-layout]], [[wiki/concepts/per-repo-data-vs-global-tooling-tier]], [[wiki/concepts/lattice-cross-plugin-contract]], [[wiki/concepts/lattice-vault-terminology]], [[wiki/concepts/plugin-versioning-and-update-mechanism]]
+- Related concepts: [[concepts/per-repo-layout]], [[concepts/per-repo-data-vs-global-tooling-tier]], [[concepts/lattice-cross-plugin-contract]], [[concepts/lattice-vault-terminology]], [[concepts/plugin-versioning-and-update-mechanism]]

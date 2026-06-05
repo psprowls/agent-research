@@ -112,7 +112,7 @@ Static YAML and JSONL files used as test inputs for schema validation and runner
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-evals/api]]      — public API, CLI subcommands, module layout
-- [[wiki/packages/lattice-evals/patterns]] — key patterns, isolation axes, verifier kinds, tooling
-- [[wiki/packages/lattice-evals/work]]     — bugs, tech debt, features, open questions
-- [[wiki/packages/lattice-evals/context]]  — concepts, decisions, ADRs, sources
+- [[packages/lattice-evals/api]]      — public API, CLI subcommands, module layout
+- [[packages/lattice-evals/patterns]] — key patterns, isolation axes, verifier kinds, tooling
+- [[packages/lattice-evals/work]]     — bugs, tech debt, features, open questions
+- [[packages/lattice-evals/context]]  — concepts, decisions, ADRs, sources

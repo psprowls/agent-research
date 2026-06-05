@@ -21,7 +21,7 @@ tokens: 1003
 The code-graph layer needs persistent storage. The "graphs need graph databases" intuition is real but doesn't survive contact with our cardinality (10K–500K nodes) and access patterns (point lookups + bounded traversals at depth ≤ 3). Five storage options weighed in the storage and schema spec: SQLite, DuckDB, KuzuDB, Neo4j/Memgraph, GraphML+NetworkX.
 
 ## Decision
-Use **SQLite** as the primary store for [[wiki/plugins/lattice-graph/lattice-graph]], with the canonical two-table + metadata schema documented in [[wiki/concepts/code-graph-schema]] and the database file at `<workspace>/.graph/code.db` (where workspace defaults to `<repo>/lattice/` — see [[wiki/packages/lattice-workspace/lattice-workspace]]).
+Use **SQLite** as the primary store for [[plugins/lattice-graph/lattice-graph]], with the canonical two-table + metadata schema documented in [[concepts/code-graph-schema]] and the database file at `<workspace>/.graph/code.db` (where workspace defaults to `<repo>/lattice/` — see [[packages/lattice-workspace/lattice-workspace]]).
 
 Recursive CTEs handle the bounded traversal queries (depth ≤ 3) that constitute the hot path; per-language detail lives in `attrs_json` blobs to keep the core graph language-agnostic.
 
@@ -56,9 +56,9 @@ Move to KuzuDB (or DuckDB with property-graph extensions) at v2 if:
 None of these are true at v1.
 
 ## Impact
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/concepts/code-graph-schema]]
-- [[wiki/concepts/per-repo-layout]]
+- [[plugins/lattice-graph/lattice-graph]]
+- [[concepts/code-graph-schema]]
+- [[concepts/per-repo-layout]]
 
 ## Follow-ups
 - v2 may add `cg_export_graphml` MCP tool for visualization snapshot from SQLite.

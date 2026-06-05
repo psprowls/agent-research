@@ -114,7 +114,7 @@ if warn_if_stale(workspace, plugin="lattice-wiki", version=__version__):
     print("⚠ lattice-wiki updates available — run /wiki:init to apply")
 ```
 
-This is the same surprise-avoidance principle that governs [[wiki/concepts/explicit-not-magic-update-lifecycle]]: surface staleness as a banner; never auto-apply at session start. Reasons carry over — surprise factor, ambiguity at the moment of invocation, and clean failure handling when the user can see what went wrong.
+This is the same surprise-avoidance principle that governs [[concepts/explicit-not-magic-update-lifecycle]]: surface staleness as a banner; never auto-apply at session start. Reasons carry over — surprise factor, ambiguity at the moment of invocation, and clean failure handling when the user can see what went wrong.
 
 Inside the plugin's own init/upgrade command, the plugin runs its update logic *before* calling `workspace_init` so the version bump only happens on success:
 
@@ -150,16 +150,16 @@ v0.3.0 swaps `manifest.py`'s hand-rolled YAML-subset reader for `pyyaml` (`>= 6.
 One small consequence: PyYAML parses bare ISO dates (e.g. `2026-05-09`) as `datetime.date`. `manifest.read` normalizes `initialized_at` back to `str` so callers see a stable type.
 
 ## Used in
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — owner of the manifest, the API, and the coercion step
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — reference integration: calls `warn_if_stale` at command entry; calls `init(..., version=__version__)` from its own init flow
+- [[packages/lattice-workspace/lattice-workspace]] — owner of the manifest, the API, and the coercion step
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — reference integration: calls `warn_if_stale` at command entry; calls `init(..., version=__version__)` from its own init flow
 
 ## Related patterns
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]] — the parent principle: surface staleness, never auto-apply. This concept is the per-workspace analog for plugin code (vs. lattice-graph's per-repo analog for graph data).
-- [[wiki/concepts/lattice-cross-plugin-contract]] — adds version tracking to the install/upgrade choreography section. `warn_if_stale` becomes the recommended top-of-command call alongside the existing env-var discovery and subprocess invocation conventions.
-- [[wiki/concepts/per-repo-layout]] — `.lattice.yaml` lives at the workspace root this concept reads and writes.
+- [[concepts/explicit-not-magic-update-lifecycle]] — the parent principle: surface staleness, never auto-apply. This concept is the per-workspace analog for plugin code (vs. lattice-graph's per-repo analog for graph data).
+- [[concepts/lattice-cross-plugin-contract]] — adds version tracking to the install/upgrade choreography section. `warn_if_stale` becomes the recommended top-of-command call alongside the existing env-var discovery and subprocess invocation conventions.
+- [[concepts/per-repo-layout]] — `.lattice.yaml` lives at the workspace root this concept reads and writes.
 
 ## Decisions
-- [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]
+- [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]]
 
 ## Sources
 - `lattice/specs/2026-05-09-lattice-workspace-plugin-versions-design.md` — the design spec for v0.3.0

@@ -55,9 +55,9 @@ The promotion path:
 
 What changes during promotion:
 - **Frontmatter rigor** — plugin skills are user-facing; the description must be tuned for retrieval, not just for the author
-- **Tests** — plugins demand baseline RED-GREEN tests via [[wiki/plugins/lattice-workflows/lattice-workflows]]:`writing-skills`; project skills can skip this during incubation
+- **Tests** — plugins demand baseline RED-GREEN tests via [[plugins/lattice-workflows/lattice-workflows]]:`writing-skills`; project skills can skip this during incubation
 - **Slash command** — plugin skills often have a slash command at `commands/<name>.md`; project skills don't need one
-- **Cross-references** — `[[wiki/wikilinks]]` and `lattice-workflows:` namespacing assume the plugin shape; the project version may use shorter forms
+- **Cross-references** — `[[wikilinks]]` and `lattice-workflows:` namespacing assume the plugin shape; the project version may use shorter forms
 - **Knowledge Skills slot** — if the skill dispatches subagents and the plan supplies `knowledge_skills`, the dispatch templates need to reference the lattice-experts entries by their fully-qualified names
 
 ## Used in
@@ -69,7 +69,7 @@ What changes during promotion:
 
 - knowledge-skills-pattern — knowledge skills follow a similar bare-name-first resolution that lets project/user skills shadow plugin defaults.
 - adrs/0007-bare-name-first-skill-resolution — the resolution policy that makes project-scoped skills first-class.
-- [[wiki/concepts/subagent-vs-teammate]] — context for why iteration speed matters: agent-teams skills involve multiple roles, multiple prompts, multiple smoke tests; the iteration cost amplifies the value of an incubator path.
+- [[concepts/subagent-vs-teammate]] — context for why iteration speed matters: agent-teams skills involve multiple roles, multiple prompts, multiple smoke tests; the iteration cost amplifies the value of an incubator path.
 
 ## Open questions / gotchas
 

@@ -19,7 +19,7 @@ tokens: 1392
 
 ## Context
 
-Before this decision, [[wiki/plugins/lattice-workflows/lattice-workflows]]'s `brainstorming` and `writing-plans` skills wrote their output to a fixed `docs/lattice-workflows/{specs,plans}/` tree relative to the consumer repo. This was inconsistent with every other lattice ecosystem tool: `lattice-wiki`, `lattice-graph`, `lattice-work`, and `lattice-curator` all write under the [[wiki/packages/lattice-workspace/lattice-workspace|lattice workspace]] resolved by `python -m lattice_workspace.config` (typically `<repo>/lattice/`).
+Before this decision, [[plugins/lattice-workflows/lattice-workflows]]'s `brainstorming` and `writing-plans` skills wrote their output to a fixed `docs/lattice-workflows/{specs,plans}/` tree relative to the consumer repo. This was inconsistent with every other lattice ecosystem tool: `lattice-wiki`, `lattice-graph`, `lattice-work`, and `lattice-curator` all write under the [[packages/lattice-workspace/lattice-workspace|lattice workspace]] resolved by `python -m lattice_workspace.config` (typically `<repo>/lattice/`).
 
 Two concrete problems:
 
@@ -27,7 +27,7 @@ Two concrete problems:
 2. **Generic filenames.** `YYYY-MM-DD-<feature>.md` carried no indication of which package or plugin the work targeted, hurting browseability inside a monorepo with 12+ packages and plugins.
 3. **Silent fallback.** When a non-lattice repo invoked the brainstorming skill, output landed in a freshly created `docs/lattice-workflows/` tree without warning the user that the surrounding lattice plumbing was absent.
 
-The `:file-work-item` slash command had already adopted workspace-resolution-via-CLI (per [[wiki/concepts/lattice-cross-plugin-contract]]). The brainstorming + writing-plans skills were the last holdouts.
+The `:file-work-item` slash command had already adopted workspace-resolution-via-CLI (per [[concepts/lattice-cross-plugin-contract]]). The brainstorming + writing-plans skills were the last holdouts.
 
 ## Decision
 
@@ -52,13 +52,13 @@ The `:file-work-item` slash command had already adopted workspace-resolution-via
 - Workflow output lives next to the wiki and work items it describes, browsable from a single `lattice/` root.
 - Filename prefixes make the package/plugin scope of a spec or plan visible at a glance.
 - Errors surface upfront rather than silently producing dead output in repos that haven't been initialized.
-- `python -m lattice_workspace.config` becomes the canonical workspace-resolution entry point — one more adopter of the [[wiki/concepts/lattice-cross-plugin-contract]] subprocess-not-import convention.
+- `python -m lattice_workspace.config` becomes the canonical workspace-resolution entry point — one more adopter of the [[concepts/lattice-cross-plugin-contract]] subprocess-not-import convention.
 - The brainstorming/writing-plans seam now matches `:file-work-item`'s pattern, eliminating an inconsistency.
 
 **Negative:**
 - Pre-existing `docs/lattice-workflows/{specs,plans}/` artifacts in consumer repos are not migrated automatically. Teams need to relocate them by hand or accept the dual-tree state during transition.
 - Tests must seed `.lattice.yaml` and a workspace dir per fixture (a one-time uplift across ~10 test files; see the source page for the file list).
-- Workflow now writes a workspace-sibling pair of directories — see the asymmetry note in [[wiki/concepts/lattice-workflows-consumption-seam]].
+- Workflow now writes a workspace-sibling pair of directories — see the asymmetry note in [[concepts/lattice-workflows-consumption-seam]].
 
 ## Alternatives considered
 
@@ -68,8 +68,8 @@ The `:file-work-item` slash command had already adopted workspace-resolution-via
 
 ## Impact
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — `brainstorming` and `writing-plans` skills updated; new shared `workspace-resolution.md` doc.
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — `python -m lattice_workspace.config` is now also a workflow-side entry point.
-- [[wiki/concepts/lattice-workflows-consumption-seam]] — adds a workspace-sibling write surface that does not violate the consumer-of-vault principle.
-- [[wiki/concepts/lattice-cross-plugin-contract]] — additional adopter of the env-var-and-subprocess discovery contract.
-- [[wiki/sources/2026-05-plans-specs-path-redesign]] — the originating spec.
+- [[plugins/lattice-workflows/lattice-workflows]] — `brainstorming` and `writing-plans` skills updated; new shared `workspace-resolution.md` doc.
+- [[packages/lattice-workspace/lattice-workspace]] — `python -m lattice_workspace.config` is now also a workflow-side entry point.
+- [[concepts/lattice-workflows-consumption-seam]] — adds a workspace-sibling write surface that does not violate the consumer-of-vault principle.
+- [[concepts/lattice-cross-plugin-contract]] — additional adopter of the env-var-and-subprocess discovery contract.
+- [[sources/2026-05-plans-specs-path-redesign]] — the originating spec.

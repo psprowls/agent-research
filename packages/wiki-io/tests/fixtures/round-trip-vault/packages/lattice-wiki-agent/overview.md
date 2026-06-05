@@ -29,11 +29,11 @@ tokens: 1163
 
 ## Purpose
 
-`lattice-wiki-agent` is a Python CLI and library that wraps each [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] operation as an agent — `IngestAgent`, `QueryAgent`, `ScanAgent`, `LintAgent`, `LogAgent`, `InitAgent` — so the same workflows the [[wiki/plugins/lattice-wiki/lattice-wiki]] skill drives interactively can also run headlessly from a script, CI job, or automation pipeline. LLM-powered steps (ingest, query, optional lint semantic pass) are routed through Amazon [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] via `langchain-aws` and orchestrated with `langgraph`; mechanical steps (scan, log, init) reuse the core library directly without any model.
+`lattice-wiki-agent` is a Python CLI and library that wraps each [[packages/lattice-wiki-core/lattice-wiki-core]] operation as an agent — `IngestAgent`, `QueryAgent`, `ScanAgent`, `LintAgent`, `LogAgent`, `InitAgent` — so the same workflows the [[plugins/lattice-wiki/lattice-wiki]] skill drives interactively can also run headlessly from a script, CI job, or automation pipeline. LLM-powered steps (ingest, query, optional lint semantic pass) are routed through Amazon [[concepts/bedrock-langgraph-stack|Bedrock]] via `langchain-aws` and orchestrated with `langgraph`; mechanical steps (scan, log, init) reuse the core library directly without any model.
 
 ## File map - lattice-wiki-agent
 
-Python package wiring a Click CLI to a set of LangGraph agents that drive [[wiki/packages/lattice-wiki-core/lattice-wiki-core]].
+Python package wiring a Click CLI to a set of LangGraph agents that drive [[packages/lattice-wiki-core/lattice-wiki-core]].
 
 - `pyproject.toml` — Hatchling build config; declares the `lattice-wiki-agent` console script and a path-source dep on `lattice-wiki-core`.
 - `uv.lock` — uv-resolved lockfile pinning langchain-aws, langgraph, and click versions.
@@ -94,7 +94,7 @@ A minimal vault used by the tests.
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-wiki-agent/api]] — public CLI and Python API surface.
-- [[wiki/packages/lattice-wiki-agent/patterns]] — agent-per-operation, structured output, per-command backend selection.
-- [[wiki/packages/lattice-wiki-agent/work]] — bugs, gaps, tech debt, and open questions.
-- [[wiki/packages/lattice-wiki-agent/context]] — why this package exists alongside lattice-wiki-core and the plugin.
+- [[packages/lattice-wiki-agent/api]] — public CLI and Python API surface.
+- [[packages/lattice-wiki-agent/patterns]] — agent-per-operation, structured output, per-command backend selection.
+- [[packages/lattice-wiki-agent/work]] — bugs, gaps, tech debt, and open questions.
+- [[packages/lattice-wiki-agent/context]] — why this package exists alongside lattice-wiki-core and the plugin.

@@ -59,8 +59,8 @@ The nudge message can carry useful state (branch SHA, worktree path, upstream ve
 
 ## Related patterns
 
-- [[wiki/concepts/subagent-vs-teammate]] — the broader teammate-specific gotchas, of which this is one.
-- [[wiki/concepts/shape-a-vs-shape-b]] — Shape A needs 1 nudge per plan, Shape B needs 2; both depend on this protocol.
+- [[concepts/subagent-vs-teammate]] — the broader teammate-specific gotchas, of which this is one.
+- [[concepts/shape-a-vs-shape-b]] — Shape A needs 1 nudge per plan, Shape B needs 2; both depend on this protocol.
 - knowledge-skills-pattern — same family of "tell the model explicitly, don't expect auto-discovery" findings.
 
 ## Open questions / gotchas

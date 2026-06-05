@@ -16,7 +16,7 @@ tokens: 1126
 
 ## TL;DR
 
-A short rubric for matching a Claude model (Opus 4.7 / Sonnet 4.6 / Haiku 4.5) to a task based on ambiguity, stakes, and shape. Proposes adding a `model:` field to each skill's YAML frontmatter in [[wiki/plugins/lattice-workflows/lattice-workflows]] so the dispatch layer can honor per-skill model choices, complementing the existing `subagent_type` dimension.
+A short rubric for matching a Claude model (Opus 4.7 / Sonnet 4.6 / Haiku 4.5) to a task based on ambiguity, stakes, and shape. Proposes adding a `model:` field to each skill's YAML frontmatter in [[plugins/lattice-workflows/lattice-workflows]] so the dispatch layer can honor per-skill model choices, complementing the existing `subagent_type` dimension.
 
 ## Key claims
 
@@ -34,7 +34,7 @@ A short rubric for matching a Claude model (Opus 4.7 / Sonnet 4.6 / Haiku 4.5) t
 
 ## Synthesis
 
-Canonical concept page: [[wiki/concepts/model-selection-per-skill]]. The lattice-workflows pattern bullet "Per-skill model selection" on [[wiki/plugins/lattice-workflows/patterns]] captures the rule for the plugin.
+Canonical concept page: [[concepts/model-selection-per-skill]]. The lattice-workflows pattern bullet "Per-skill model selection" on [[plugins/lattice-workflows/patterns]] captures the rule for the plugin.
 
 ## Notes on the source's mapping
 
@@ -44,22 +44,22 @@ The source's "Applied to lattice-workflows Skills" table calls everything a "ski
 - **`code-scanner`** maps to the `lattice-wiki:scanner` agent: `plugins/lattice-wiki/agents/scanner.md` (model: sonnet). The repo-walk / vault-diff work is owned by `lattice-wiki`, not `lattice-workflows`. "code-scanner" was a generic name in the source.
 - **`using-workflows`** intentionally omits `model:` — it runs inside the caller's main loop, so declaring a model would override the loop's choice. The "every skill carries `model:`" framing is therefore not literally universal; the bootstrap skill is the deliberate exception.
 
-The reshaped table lives on [[wiki/concepts/model-selection-per-skill]]. No further contradictions with other vault pages.
+The reshaped table lives on [[concepts/model-selection-per-skill]]. No further contradictions with other vault pages.
 
 ## Touches
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
-- [[wiki/plugins/lattice-workflows/patterns]]
-- [[wiki/plugins/lattice-workflows/api]]
-- [[wiki/concepts/model-selection-per-skill]]
+- [[plugins/lattice-workflows/lattice-workflows]]
+- [[plugins/lattice-workflows/patterns]]
+- [[plugins/lattice-workflows/api]]
+- [[concepts/model-selection-per-skill]]
 
 ## Decisions triggered
 
-- None. Captured as a pattern bullet on [[wiki/plugins/lattice-workflows/patterns]] rather than an ADR (per ingest decision 2026-05-10).
+- None. Captured as a pattern bullet on [[plugins/lattice-workflows/patterns]] rather than an ADR (per ingest decision 2026-05-10).
 
 ## Where it's cited in this wiki
 
-- [[wiki/concepts/model-selection-per-skill]]
-- [[wiki/plugins/lattice-workflows/patterns]]
-- [[wiki/plugins/lattice-workflows/api]]
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
+- [[concepts/model-selection-per-skill]]
+- [[plugins/lattice-workflows/patterns]]
+- [[plugins/lattice-workflows/api]]
+- [[plugins/lattice-workflows/lattice-workflows]]

@@ -24,7 +24,7 @@ tokens: 2013
 
 ## Purpose
 
-`lattice-workflows` ships an engineering-discipline framework for Claude Code: a library of [[wiki/concepts/lattice-workflows-consumption-seam|workflow skills]] covering planning, brainstorming, test-driven development, systematic debugging, code review, parallel agent dispatch, and branch lifecycle management, plus a hooks layer and slash commands that wire those skills into every session. It is used by developers who want Claude to follow a structured process rather than improvising — mandatory gates enforce brainstorming before implementation, TDD before production code, and root-cause investigation before fixes. The plugin exists to provide the process discipline that guides how Claude approaches tasks: the skills are not suggestions but behavioral constraints that shape every session from startup (via the `SessionStart` hook that injects `using-workflows`) through delivery (via `finishing-a-development-branch`). It is a Claude Code-native fork of `obra/superpowers` via `pcvelz/superpowers`, extending the upstream core with native task management, structured task metadata, and a pre-commit task gate.
+`lattice-workflows` ships an engineering-discipline framework for Claude Code: a library of [[concepts/lattice-workflows-consumption-seam|workflow skills]] covering planning, brainstorming, test-driven development, systematic debugging, code review, parallel agent dispatch, and branch lifecycle management, plus a hooks layer and slash commands that wire those skills into every session. It is used by developers who want Claude to follow a structured process rather than improvising — mandatory gates enforce brainstorming before implementation, TDD before production code, and root-cause investigation before fixes. The plugin exists to provide the process discipline that guides how Claude approaches tasks: the skills are not suggestions but behavioral constraints that shape every session from startup (via the `SessionStart` hook that injects `using-workflows`) through delivery (via `finishing-a-development-branch`). It is a Claude Code-native fork of `obra/superpowers` via `pcvelz/superpowers`, extending the upstream core with native task management, structured task metadata, and a pre-commit task gate.
 
 ## File map
 
@@ -89,13 +89,13 @@ One subdirectory per skill; each contains a `SKILL.md` frontmatter-driven prompt
 
 ## Sub-pages
 
-- [[wiki/plugins/lattice-workflows/api]]      — slash commands, available skills, and public API surface
-- [[wiki/plugins/lattice-workflows/patterns]] — key patterns, conventions, and downstream consumers
-- [[wiki/plugins/lattice-workflows/work]]     — bugs, tech debt, features, open questions
-- [[wiki/plugins/lattice-workflows/context]]  — concepts, decisions, and ingested sources
+- [[plugins/lattice-workflows/api]]      — slash commands, available skills, and public API surface
+- [[plugins/lattice-workflows/patterns]] — key patterns, conventions, and downstream consumers
+- [[plugins/lattice-workflows/work]]     — bugs, tech debt, features, open questions
+- [[plugins/lattice-workflows/context]]  — concepts, decisions, and ingested sources
 
 ## Appears in sources
 
-- [[wiki/sources/2026-05-execution-skills-comparison]] — disambiguates `executing-plans`, `subagent-driven-development`, and `dispatching-parallel-agents`; synthesized into [[wiki/concepts/execution-skills-comparison]].
-- [[wiki/sources/2026-05-model-selection-guidelines]] — three-tier rubric (Opus / Sonnet / Haiku) for per-skill / per-agent model selection via `model:` frontmatter; synthesized into [[wiki/concepts/model-selection-per-skill]]. Flags a code-side gap: `code-scanner` is referenced in the rubric but does not exist in the codebase.
-- [[wiki/sources/2026-05-superpower-fork-selection]] — side-by-side comparison of `pcvelz/superpowers` vs `obra/superpowers`; synthesized into [[wiki/concepts/superpowers-fork-vs-upstream]] and the decision recorded as [[wiki/adrs/0016-track-pcvelz-superpowers-fork]].
+- [[sources/2026-05-execution-skills-comparison]] — disambiguates `executing-plans`, `subagent-driven-development`, and `dispatching-parallel-agents`; synthesized into [[concepts/execution-skills-comparison]].
+- [[sources/2026-05-model-selection-guidelines]] — three-tier rubric (Opus / Sonnet / Haiku) for per-skill / per-agent model selection via `model:` frontmatter; synthesized into [[concepts/model-selection-per-skill]]. Flags a code-side gap: `code-scanner` is referenced in the rubric but does not exist in the codebase.
+- [[sources/2026-05-superpower-fork-selection]] — side-by-side comparison of `pcvelz/superpowers` vs `obra/superpowers`; synthesized into [[concepts/superpowers-fork-vs-upstream]] and the decision recorded as [[adrs/0016-track-pcvelz-superpowers-fork]].

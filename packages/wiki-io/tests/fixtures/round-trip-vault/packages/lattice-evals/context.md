@@ -10,12 +10,12 @@ tokens: 338
 
 ## Concepts
 
-- [[wiki/concepts/claude-code-auto-memory-isolation]] — isolation approach used by the harness runner
-- [[wiki/concepts/prompt-caching]] — cache warmth affects cost metrics across scenario runs
+- [[concepts/claude-code-auto-memory-isolation]] — isolation approach used by the harness runner
+- [[concepts/prompt-caching]] — cache warmth affects cost metrics across scenario runs
 
 ## Decisions
 
-- [[wiki/adrs/0009-uv-ruff-python-tooling]] — workspace member under the root `uv.lock`; ruff config and `.python-version` are root-only
+- [[adrs/0009-uv-ruff-python-tooling]] — workspace member under the root `uv.lock`; ruff config and `.python-version` are root-only
 
 ## Sources
 

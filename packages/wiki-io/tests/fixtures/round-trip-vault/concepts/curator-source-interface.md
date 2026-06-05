@@ -12,7 +12,7 @@ tokens: 1223
 
 ## Definition
 
-A **Source** is a TypeScript adapter that exposes a markdown knowledge directory to the curator's [[wiki/concepts/two-pass-context-curation|two-pass retriever]] through two methods:
+A **Source** is a TypeScript adapter that exposes a markdown knowledge directory to the curator's [[concepts/two-pass-context-curation|two-pass retriever]] through two methods:
 
 ```ts
 export interface CatalogEntry {
@@ -36,7 +36,7 @@ export interface Source {
 
 The curator's value comes from breadth — the more knowledge surfaces it can pick from, the better its briefs. But each surface has its own conventions:
 
-- The [[wiki/plugins/lattice-wiki/lattice-wiki|wiki]] vault uses `category`, `kind`, and per-page `description:` frontmatter.
+- The [[plugins/lattice-wiki/lattice-wiki|wiki]] vault uses `category`, `kind`, and per-page `description:` frontmatter.
 - The lattice-experts rule library uses `{domain, impact}` frontmatter with `_shared/` collapsed to `domain: shared`.
 - A future per-project rule pack might use neither.
 
@@ -78,12 +78,12 @@ Source toggles are coarse (whole-source on/off). Finer-grained filtering (e.g. "
 
 ## Used in
 
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — defines the interface in `src/sources/types.ts`; ships `wiki.ts` and `experts.ts` adapters. New sources slot in without retriever edits.
+- [[packages/lattice-curator-core/lattice-curator-core]] — defines the interface in `src/sources/types.ts`; ships `wiki.ts` and `experts.ts` adapters. New sources slot in without retriever edits.
 
 ## Related patterns
 
-- [[wiki/concepts/two-pass-context-curation]] — the consumer of the catalog the `Source` produces.
-- [[wiki/concepts/lattice-cross-plugin-contract]] — the broader "plugins consume each other through narrow interfaces, not imports" posture the curator honors.
+- [[concepts/two-pass-context-curation]] — the consumer of the catalog the `Source` produces.
+- [[concepts/lattice-cross-plugin-contract]] — the broader "plugins consume each other through narrow interfaces, not imports" posture the curator honors.
 
 ## Sources
 

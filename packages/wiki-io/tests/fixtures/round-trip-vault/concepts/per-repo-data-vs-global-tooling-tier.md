@@ -15,8 +15,8 @@ The five `lattice-*` plugins split cleanly into two tiers based on where their d
 
 | Tier | Plugins | Data location | Cardinality / cadence |
 |---|---|---|---|
-| **Per-repo data** | [[wiki/plugins/lattice-wiki/lattice-wiki]], [[wiki/plugins/lattice-graph/lattice-graph]], [[wiki/plugins/lattice-work/lattice-work]] | inside the consumer repo (`<repo>/lattice/` workspace root; wiki at `lattice/wiki/`, graph at `lattice/.graph/`) | per-repo; cadence varies (per-commit graph, per-ingest wiki, per-planning-session work) |
-| **Global tooling** | [[wiki/plugins/lattice-workflows/lattice-workflows]], lattice-experts | installed at user-level; applies across all repos | global; configuration cadence (rare) |
+| **Per-repo data** | [[plugins/lattice-wiki/lattice-wiki]], [[plugins/lattice-graph/lattice-graph]], [[plugins/lattice-work/lattice-work]] | inside the consumer repo (`<repo>/lattice/` workspace root; wiki at `lattice/wiki/`, graph at `lattice/.graph/`) | per-repo; cadence varies (per-commit graph, per-ingest wiki, per-planning-session work) |
+| **Global tooling** | [[plugins/lattice-workflows/lattice-workflows]], lattice-experts | installed at user-level; applies across all repos | global; configuration cadence (rare) |
 
 ## Motivation
 - The data plugins read/write per-repo paths and need explicit path ownership to avoid collisions (path table in §3.8). They are mutually optional but compose by design.
@@ -49,18 +49,18 @@ A user can install plugins in any order; layered opt-in:
 4. + `lattice-work` → planning surface; consumes wiki vault for storage.
 5. + `lattice-experts` → role-aware knowledge skills slot into workflow's dispatch templates.
 
-Each layer degrades gracefully when its consumers are absent — the contract is detailed in [[wiki/concepts/lattice-cross-plugin-contract]].
+Each layer degrades gracefully when its consumers are absent — the contract is detailed in [[concepts/lattice-cross-plugin-contract]].
 
 ## Used in
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — per-repo data
-- [[wiki/plugins/lattice-graph/lattice-graph]] — per-repo data
-- [[wiki/plugins/lattice-work/lattice-work]] — per-repo data
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — global tooling
+- [[plugins/lattice-wiki/lattice-wiki]] — per-repo data
+- [[plugins/lattice-graph/lattice-graph]] — per-repo data
+- [[plugins/lattice-work/lattice-work]] — per-repo data
+- [[plugins/lattice-workflows/lattice-workflows]] — global tooling
 - lattice-experts — global tooling
 
 ## Related patterns
-- [[wiki/concepts/per-repo-layout]] — what per-repo data tier writes inside the repo
-- [[wiki/concepts/plugin-deployment-shapes]] — shape F is the canonical per-repo data deployment
+- [[concepts/per-repo-layout]] — what per-repo data tier writes inside the repo
+- [[concepts/plugin-deployment-shapes]] — shape F is the canonical per-repo data deployment
 
 ## Sources
 - 2026-05-architecture-3.1-plugin-topology

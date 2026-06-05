@@ -57,14 +57,14 @@ Every error path in every observability hook exits `0` silently:
 A failing observability hook must never propagate a non-zero exit code to Claude Code.
 
 ## Used in
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — first hook adopting the gate is `log-skill-invocation` (see `plugins/lattice-workflows/hooks/log-skill-invocation`).
+- [[plugins/lattice-workflows/lattice-workflows]] — first hook adopting the gate is `log-skill-invocation` (see `plugins/lattice-workflows/hooks/log-skill-invocation`).
 
 ## Related patterns
-- [[wiki/concepts/lattice-cross-plugin-contract]] — `${LATTICE_<NAME>_ROOT}` discovery; the observability gate is a sibling convention naming env-vars `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY`.
-- [[wiki/concepts/lattice-naming-convention]] — `lattice-` prefix extends to env-var naming.
+- [[concepts/lattice-cross-plugin-contract]] — `${LATTICE_<NAME>_ROOT}` discovery; the observability gate is a sibling convention naming env-vars `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY`.
+- [[concepts/lattice-naming-convention]] — `lattice-` prefix extends to env-var naming.
 
 ## Decisions
-- [[wiki/adrs/0003-observability-as-category-gate]]
+- [[adrs/0003-observability-as-category-gate]]
 
 ## Open questions / gotchas
 - Per-hook gates (`LATTICE_WORKFLOWS_OBSERVABILITY_<name>`) deferred — only add if a real need shows up.

@@ -15,11 +15,11 @@ tokens: 455
 
 ## How it's used in lattice
 
-[[wiki/packages/lattice-source-parser/lattice-source-parser]] is the sole consumer. It uses tree-sitter to walk source files and extract:
+[[packages/lattice-source-parser/lattice-source-parser]] is the sole consumer. It uses tree-sitter to walk source files and extract:
 
 - Top-level symbol definitions (functions, classes, constants)
 - Import/dependency edges between modules
-- File-level metadata fed into the [[wiki/packages/lattice-graph-core/lattice-graph-core]] SQLite store
+- File-level metadata fed into the [[packages/lattice-graph-core/lattice-graph-core]] SQLite store
 
 The `tree-sitter` Python binding (`py-tree-sitter`) is declared as a dependency of `lattice-source-parser`; no other workspace package depends on it directly.
 
@@ -33,6 +33,6 @@ The `tree-sitter` Python binding (`py-tree-sitter`) is declared as a dependency 
 
 ## Related
 
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]] — primary user
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]] — stores the extracted symbol graph
-- [[wiki/adrs/0006-source-parser-sibling-package]] — decision to extract source parsing into a sibling package
+- [[packages/lattice-source-parser/lattice-source-parser]] — primary user
+- [[packages/lattice-graph-core/lattice-graph-core]] — stores the extracted symbol graph
+- [[adrs/0006-source-parser-sibling-package]] — decision to extract source parsing into a sibling package

@@ -69,12 +69,12 @@ Latency budget targets: gate <50ms, both Bedrock hops 1–3s combined. The hook 
 
 ## Used in
 
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — implements the pipeline as `gate.ts` + `retriever.ts` + `stages/` + `format.ts`. Bedrock-hosted small model (`ChatBedrockConverse`) provides the LLM calls.
-- [[wiki/plugins/lattice-curator/lattice-curator]] — wires the pipeline behind a `UserPromptSubmit` hook (gated path) and an MCP `context.fetch` tool (always fires; gate skipped).
+- [[packages/lattice-curator-core/lattice-curator-core]] — implements the pipeline as `gate.ts` + `retriever.ts` + `stages/` + `format.ts`. Bedrock-hosted small model (`ChatBedrockConverse`) provides the LLM calls.
+- [[plugins/lattice-curator/lattice-curator]] — wires the pipeline behind a `UserPromptSubmit` hook (gated path) and an MCP `context.fetch` tool (always fires; gate skipped).
 
 ## Related patterns
 
-- [[wiki/concepts/curator-source-interface]] — the `Source` adapter that produces the flat catalog feeding Pass 1.
+- [[concepts/curator-source-interface]] — the `Source` adapter that produces the flat catalog feeding Pass 1.
 - knowledge-skills-pattern — adjacent observation that subagents need explicit knowledge direction; the curator generalizes the fix to top-level Claude Code turns.
 - wiki-cites-graph-not-duplicates — the wiki points to other surfaces rather than absorbing them; the curator does the inverse for read-time, pulling pointed-to content into one bounded brief.
 

@@ -8,4 +8,4 @@ updated: 2026-05-10
 
 # Architecture
 
-No architecture pages yet. See [[wiki/adrs/index]] for the 15 ADRs that capture key design decisions.
+No architecture pages yet. See [[adrs/index]] for the 15 ADRs that capture key design decisions.

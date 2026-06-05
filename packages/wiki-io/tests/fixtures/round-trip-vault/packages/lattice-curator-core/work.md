@@ -16,7 +16,7 @@ tokens: 716
 ## Tech debt
 
 - **`budgets.*` declared but not enforced.** `Config.budgets.pass1_timeout_ms`, `pass2_timeout_ms`, `minute_budget_seconds` exist in `config.py` and have defaults, but the retriever does not pass them to `asyncio.wait_for` and the hook does not enforce a per-minute cap. Either wire them up or remove them.
-- **Token counts are estimates, not measurements.** `pass1_tokens` / `pass2_tokens` in `Brief.diagnostics` use `len(prompt_text) // 4` rather than [[wiki/concepts/bedrock-langgraph-stack|Bedrock]]'s reported usage. Adequate for budget signals; misleading for dollar accounting.
+- **Token counts are estimates, not measurements.** `pass1_tokens` / `pass2_tokens` in `Brief.diagnostics` use `len(prompt_text) // 4` rather than [[concepts/bedrock-langgraph-stack|Bedrock]]'s reported usage. Adequate for budget signals; misleading for dollar accounting.
 - **Catalog dedup is order-sensitive.** First source wins on path collision (`retriever.py:57`). If the wiki vault and `lattice/knowledge/` ever produce overlapping paths, the order of `sources` in `curator_fire.py` decides which one is visible. Worth documenting or making the merge strategy explicit.
 - **`VERSION` lives in two places.** `__init__.py` declares `VERSION = "0.1.1"` while `pyproject.toml` declares `version = "1.0.0"`. Move to one source (likely `pyproject.toml` + `importlib.metadata.version`).
 - **README is stale.** Claims TypeScript / pnpm; the source is Python.
@@ -38,5 +38,5 @@ tokens: 716
 
 ## See also
 
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — package overview
+- [[packages/lattice-curator-core/lattice-curator-core]] — package overview
 - [[work/2026-05-04-plugin-aware-semantic-processing]] — related work item

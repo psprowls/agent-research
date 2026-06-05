@@ -19,14 +19,14 @@ tokens: 1963
 
 ## Context
 
-[[wiki/plugins/lattice-workflows/lattice-workflows]] is descended from `obra/superpowers` (the original engineering-discipline framework) via the `pcvelz/superpowers` fork. The two upstreams diverge substantively, not cosmetically — see [[wiki/concepts/superpowers-fork-vs-upstream]] for the full lineage diagram, comparison table, and decision rubric.
+[[plugins/lattice-workflows/lattice-workflows]] is descended from `obra/superpowers` (the original engineering-discipline framework) via the `pcvelz/superpowers` fork. The two upstreams diverge substantively, not cosmetically — see [[concepts/superpowers-fork-vs-upstream]] for the full lineage diagram, comparison table, and decision rubric.
 
 The choice of which upstream to track is consequential because every skill rewrite, hook, and slash command lattice-workflows inherits flows from that decision:
 
 - `obra/superpowers` keeps cross-CLI portability (Claude Code, Codex, Gemini, OpenCode), markdown-checklist task tracking, robust `git rev-parse`-based worktree detection, and `RELEASE-NOTES.md`.
 - `pcvelz/superpowers` replaces TodoWrite with Claude Code's native `TaskCreate`/`TaskUpdate`/`TaskList` (CC v2.1.16+), adds `blockedBy` dependency enforcement, persists state to `.tasks.json` for cross-session resume, embeds metadata as a ` ```json:metadata` fence inside task descriptions, hard-gates `EnterPlanMode`/`ExitPlanMode` (swapping to `AskUserQuestion` at handoff), and ships opt-in `pre-commit-check-tasks.sh` and `stop-deflection-guard.sh` hooks plus a local `code-reviewer` subagent. It renames the namespace to `superpowers-extended-cc:*` and removes `RELEASE-NOTES.md`.
 
-Full background and the side-by-side trade-off table are in [[wiki/sources/2026-05-superpower-fork-selection]].
+Full background and the side-by-side trade-off table are in [[sources/2026-05-superpower-fork-selection]].
 
 ## Decision
 
@@ -47,7 +47,7 @@ Concretely:
 - **Cross-session resume.** A fresh subagent can pick up mid-plan by reading `.tasks.json` rather than re-parsing a plan document.
 - **Plan-mode guardrail.** The hard-gate avoids the documented footgun where plan mode silently disables Write/Edit and breaks any skill that needs to save artifacts mid-flow.
 - **Opt-in hooks shipped.** `pre-commit-check-tasks.sh` (blocks `git commit` while a task is `in_progress`) and `stop-deflection-guard.sh` (blocks fresh-session deflections under 50% context) are off by default, fail-open, and parse the transcript defensively.
-- **Aligned with the rest of the ecosystem.** [[wiki/concepts/lattice-workflows-consumption-seam]], the curator's `stage-tracker.mjs` `PreToolUse:Skill` hook, and the workspace-aware seams all already assume Claude Code as the runtime.
+- **Aligned with the rest of the ecosystem.** [[concepts/lattice-workflows-consumption-seam]], the curator's `stage-tracker.mjs` `PreToolUse:Skill` hook, and the workspace-aware seams all already assume Claude Code as the runtime.
 
 **Negative:**
 
@@ -65,9 +65,9 @@ Concretely:
 
 ## Impact
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — the plugin's identity is "Claude-Code-native fork of `pcvelz/superpowers`"; the description and `## Purpose` already say so.
-- [[wiki/plugins/lattice-workflows/context]] — lists both `obra/superpowers` and `pcvelz/superpowers` under Related dependencies with the lineage made explicit.
-- [[wiki/concepts/superpowers-fork-vs-upstream]] — the comparison concept this ADR rests on.
+- [[plugins/lattice-workflows/lattice-workflows]] — the plugin's identity is "Claude-Code-native fork of `pcvelz/superpowers`"; the description and `## Purpose` already say so.
+- [[plugins/lattice-workflows/context]] — lists both `obra/superpowers` and `pcvelz/superpowers` under Related dependencies with the lineage made explicit.
+- [[concepts/superpowers-fork-vs-upstream]] — the comparison concept this ADR rests on.
 
 ## Revisit triggers
 

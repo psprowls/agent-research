@@ -23,7 +23,7 @@ tokens: 1653
 
 ## Purpose
 
-A consumer plugin that adds bug / tech-debt / feature / initiative / spike tracking on top of the [[wiki/plugins/lattice-wiki/lattice-wiki]] vault. Work items live as markdown under `<workspace>/work/*.md`. This plugin owns lifecycle lint, sidecar `work-index.json` generation, planner-facing slash commands, and `lattice-workflows` consumption. The dependency direction is one-way: `lattice-work` → `lattice-wiki`, never reversed.
+A consumer plugin that adds bug / tech-debt / feature / initiative / spike tracking on top of the [[plugins/lattice-wiki/lattice-wiki]] vault. Work items live as markdown under `<workspace>/work/*.md`. This plugin owns lifecycle lint, sidecar `work-index.json` generation, planner-facing slash commands, and `lattice-workflows` consumption. The dependency direction is one-way: `lattice-work` → `lattice-wiki`, never reversed.
 
 ## File map
 
@@ -103,11 +103,11 @@ Minimal fake vaults used by the test suite; each fixture represents a distinct s
 
 ## Sub-pages
 
-- [[wiki/plugins/lattice-work/api]]      — slash commands, cross-plugin entry point, lifecycle lint rules, sidecar schema
-- [[wiki/plugins/lattice-work/patterns]] — key patterns, repository layout, downstream consumers, recorded cons
-- [[wiki/plugins/lattice-work/work]]     — bugs, tech debt, features, open questions
-- [[wiki/plugins/lattice-work/context]]  — concepts, decisions, ingested sources
+- [[plugins/lattice-work/api]]      — slash commands, cross-plugin entry point, lifecycle lint rules, sidecar schema
+- [[plugins/lattice-work/patterns]] — key patterns, repository layout, downstream consumers, recorded cons
+- [[plugins/lattice-work/work]]     — bugs, tech debt, features, open questions
+- [[plugins/lattice-work/context]]  — concepts, decisions, ingested sources
 
 ## Lint split with lattice-wiki
 
-Lifecycle lint (the 19 `work_layer` rules covering enum validity, state-conditional required fields, plan-table parsing, sidecar freshness, etc.) remains owned by this plugin. **Base structural lint** (frontmatter parses, staleness, duplicate titles) for `work/**` runs inside [[wiki/plugins/lattice-wiki/lattice-wiki]]'s `lint_wiki.py` — which now walks `<workspace>/` and discovers `work/**` as a sibling of `wiki/**` per [[wiki/sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]]. Work pages carry an `is_work` flag that exempts them from orphan detection (work items legitimately have no inbound wiki backlinks); see [[wiki/adrs/0015-workspace-root-wikilink-form]].
+Lifecycle lint (the 19 `work_layer` rules covering enum validity, state-conditional required fields, plan-table parsing, sidecar freshness, etc.) remains owned by this plugin. **Base structural lint** (frontmatter parses, staleness, duplicate titles) for `work/**` runs inside [[plugins/lattice-wiki/lattice-wiki]]'s `lint_wiki.py` — which now walks `<workspace>/` and discovers `work/**` as a sibling of `wiki/**` per [[sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]]. Work pages carry an `is_work` flag that exempts them from orphan detection (work items legitimately have no inbound wiki backlinks); see [[adrs/0015-workspace-root-wikilink-form]].

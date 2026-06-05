@@ -27,4 +27,4 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed everywhere: [[wiki/packages/subagent-runtime/subagent-runtime]], [[wiki/agents/graph-wiki-agent/graph-wiki-agent]]
+- Consumed everywhere: [[packages/subagent-runtime/subagent-runtime]], [[agents/graph-wiki-agent/graph-wiki-agent]]

@@ -23,7 +23,7 @@ tokens: 2081
 
 ## Purpose
 
-lattice-wiki is a Claude Code plugin that builds and maintains a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Developers and Claude Code agents use it to automate the full scan/ingest/query/lint lifecycle: detecting workspace packages, ingesting design docs and specs, answering codebase questions with citations, and health-checking the vault for drift and broken links. It exposes six slash commands (`/lattice-wiki:init`, `scan`, `ingest`, `query`, `lint`, `log`) backed by four sub-agents (`ingestor`, `librarian`, `linter`, `scanner`) and a suite of pure-stdlib Python scripts; the shared library work lives in [[wiki/packages/lattice-wiki-core/lattice-wiki-core]].
+lattice-wiki is a Claude Code plugin that builds and maintains a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Developers and Claude Code agents use it to automate the full scan/ingest/query/lint lifecycle: detecting workspace packages, ingesting design docs and specs, answering codebase questions with citations, and health-checking the vault for drift and broken links. It exposes six slash commands (`/lattice-wiki:init`, `scan`, `ingest`, `query`, `lint`, `log`) backed by four sub-agents (`ingestor`, `librarian`, `linter`, `scanner`) and a suite of pure-stdlib Python scripts; the shared library work lives in [[packages/lattice-wiki-core/lattice-wiki-core]].
 
 ## File map - lattice-wiki
 
@@ -70,7 +70,7 @@ Primary skill: schema, workflows, scripts, and templates that drive every wiki o
 - `README.md` — skill overview
 - `SKILL.md` — main skill body (the plugin's primary instructions)
 
-> Bootstrap templates and page templates live in [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] at `packages/lattice-wiki-core/src/assets/`. They were extracted from the plugin tree into the core package and are now vendored into the plugin at build time.
+> Bootstrap templates and page templates live in [[packages/lattice-wiki-core/lattice-wiki-core]] at `packages/lattice-wiki-core/src/assets/`. They were extracted from the plugin tree into the core package and are now vendored into the plugin at build time.
 
 ##### lattice-wiki/skills/lattice-wiki/references/
 
@@ -89,7 +89,7 @@ Long-form reference docs the skill loads on demand — one file per workflow plu
 
 ##### lattice-wiki/skills/lattice-wiki/scripts/
 
-Pure-stdlib Python that does the actual work behind every slash command — scan, ingest, lint, search, log, and bootstrap. The per-check lint modules and unittest suite live in `lattice-wiki-core` ([[wiki/packages/lattice-wiki-core/lattice-wiki-core]]).
+Pure-stdlib Python that does the actual work behind every slash command — scan, ingest, lint, search, log, and bootstrap. The per-check lint modules and unittest suite live in `lattice-wiki-core` ([[packages/lattice-wiki-core/lattice-wiki-core]]).
 
 - `append_log.py` — appends a standardized log entry to `log.md`
 - `detect_containers.py` — classifies top-level repo dirs as app / package / domain / docs / skip
@@ -122,13 +122,13 @@ Per-feature deep-dive references the skill loads on demand.
 
 ## Sub-pages
 
-- [[wiki/plugins/lattice-wiki/api]]      — slash commands, sub-agents, ingest source types, CLI scripts
-- [[wiki/plugins/lattice-wiki/patterns]] — key patterns, conventions, downstream consumers
-- [[wiki/plugins/lattice-wiki/work]]     — bugs, tech debt, features, open questions
-- [[wiki/plugins/lattice-wiki/context]]  — concepts, decisions, sources
+- [[plugins/lattice-wiki/api]]      — slash commands, sub-agents, ingest source types, CLI scripts
+- [[plugins/lattice-wiki/patterns]] — key patterns, conventions, downstream consumers
+- [[plugins/lattice-wiki/work]]     — bugs, tech debt, features, open questions
+- [[plugins/lattice-wiki/context]]  — concepts, decisions, sources
 
 ## Appears in sources
 
-- [[wiki/sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]] — schema docs (`CLAUDE.md`, `AGENTS.md`) and page templates document the workspace-root-relative wikilink form (`[[work/<slug>]]`, `[[wiki/<category>/...]]`); decision in [[wiki/adrs/0015-workspace-root-wikilink-form]].
-- [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — `lattice-wiki` is the **reference plugin** for the v0.3.0 per-plugin version-tracking integration. Every user-facing slash command (`/lattice-wiki:scan`, `/lattice-wiki:ingest`, `/lattice-wiki:query`, `/lattice-wiki:lint`, `/lattice-wiki:log`) gates on `lattice_workspace.warn_if_stale` via `lattice_wiki_core._version_check.check_for_updates` at script entry; `/lattice-wiki:init` passes `version=__version__` into `workspace_init`. See [[wiki/concepts/plugin-versioning-and-update-mechanism]] for the cross-plugin pattern.
-- [[wiki/sources/2026-05-lattice-release-wiki-sync]] — repo-level `/release` slash command (`.claude/commands/release.md`) dispatches the `lattice-wiki:scanner` sub-agent as an optional post-release Step 9 once HEAD is on `main` and the tree is clean, then commits any resulting wiki edits as a follow-up `docs: post-release wiki sync for <TAG>` commit. The shipped flow runs `cg update` + `cg sync-wiki` before the scanner.
+- [[sources/2026-05-workspace-relative-wikilinks-linter-and-content-rewrite]] — schema docs (`CLAUDE.md`, `AGENTS.md`) and page templates document the workspace-root-relative wikilink form (`[[work/<slug>]]`, `[[<category>/...]]`); decision in [[adrs/0015-workspace-root-wikilink-form]].
+- [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — `lattice-wiki` is the **reference plugin** for the v0.3.0 per-plugin version-tracking integration. Every user-facing slash command (`/lattice-wiki:scan`, `/lattice-wiki:ingest`, `/lattice-wiki:query`, `/lattice-wiki:lint`, `/lattice-wiki:log`) gates on `lattice_workspace.warn_if_stale` via `lattice_wiki_core._version_check.check_for_updates` at script entry; `/lattice-wiki:init` passes `version=__version__` into `workspace_init`. See [[concepts/plugin-versioning-and-update-mechanism]] for the cross-plugin pattern.
+- [[sources/2026-05-lattice-release-wiki-sync]] — repo-level `/release` slash command (`.claude/commands/release.md`) dispatches the `lattice-wiki:scanner` sub-agent as an optional post-release Step 9 once HEAD is on `main` and the tree is clean, then commits any resulting wiki edits as a follow-up `docs: post-release wiki sync for <TAG>` commit. The shipped flow runs `cg update` + `cg sync-wiki` before the scanner.

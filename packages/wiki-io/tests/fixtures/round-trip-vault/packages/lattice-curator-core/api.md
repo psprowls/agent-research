@@ -55,7 +55,7 @@ START → build_catalog → pass1_pick →[picks_router]→ load_picks → pass2
 
 The `model` argument is duck-typed — anything supporting `.with_structured_output(SchemaCls).ainvoke(prompt)` works. `make_bedrock(config)` returns a `ChatBedrockConverse`; tests can substitute a fake.
 
-`pass1_tokens` and `pass2_tokens` in diagnostics are `len(prompt_text) // 4` rough counts — not [[wiki/concepts/bedrock-langgraph-stack|Bedrock]]-reported usage.
+`pass1_tokens` and `pass2_tokens` in diagnostics are `len(prompt_text) // 4` rough counts — not [[concepts/bedrock-langgraph-stack|Bedrock]]-reported usage.
 
 ### `format_brief(brief: Brief, mode: Mode) -> str`
 
@@ -180,6 +180,6 @@ class StageDef:
 
 ## See also
 
-- [[wiki/packages/lattice-curator-core/patterns]] — the gate → retrieve → format pipeline narrative
-- [[wiki/packages/lattice-curator-core/context]] — concepts, decisions, why the boundary is shaped this way
-- [[wiki/plugins/lattice-curator/lattice-curator]] — how the plugin wraps these primitives in hooks + MCP
+- [[packages/lattice-curator-core/patterns]] — the gate → retrieve → format pipeline narrative
+- [[packages/lattice-curator-core/context]] — concepts, decisions, why the boundary is shaped this way
+- [[plugins/lattice-curator/lattice-curator]] — how the plugin wraps these primitives in hooks + MCP

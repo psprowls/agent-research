@@ -11,7 +11,7 @@ tokens: 1744
 # Lattice skill resolution order
 
 ## Definition
-The four-step lookup that [[wiki/plugins/lattice-workflows/lattice-workflows]]'s `writing-plans` (recommend time) and `subagent-driven-development` / `systematic-debugging` (dispatch time) use to resolve `<role>-<tech>` knowledge skill names. ==Bare match wins so user-level and project-level skills can override lattice-experts defaults without forking.==
+The four-step lookup that [[plugins/lattice-workflows/lattice-workflows]]'s `writing-plans` (recommend time) and `subagent-driven-development` / `systematic-debugging` (dispatch time) use to resolve `<role>-<tech>` knowledge skill names. ==Bare match wins so user-level and project-level skills can override lattice-experts defaults without forking.==
 
 ## Resolution order
 
@@ -75,12 +75,12 @@ This change lands with the rename sweep (`claude-superpowers-knowledge` → `lat
 The 38/0 finding from `claude-superpowers/docs/subagent-knowledge-skills.md`: subagents invoked the `Skill` tool zero times across 38 real-world dispatches. ==Knowledge has to be named explicitly in the dispatch prompt — subagents don't reach for skills voluntarily.== This is what forces the consumer-side plumbing (recommender, slot-filler, dispatch templates) to live in `lattice-workflows`, while `lattice-experts` is the content side of the contract.
 
 ## Used in
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — the consumer (`writing-plans` + `subagent-driven-development`)
+- [[plugins/lattice-workflows/lattice-workflows]] — the consumer (`writing-plans` + `subagent-driven-development`)
 - lattice-experts — the content provider (the namespaced default)
 
 ## Related patterns
-- [[wiki/concepts/lattice-workflows-consumption-seam]] — knowledge skills participate in the seam by filling subagent dispatch slots
-- [[wiki/concepts/lattice-naming-convention]] — the namespacing convention this resolution depends on
+- [[concepts/lattice-workflows-consumption-seam]] — knowledge skills participate in the seam by filling subagent dispatch slots
+- [[concepts/lattice-naming-convention]] — the namespacing convention this resolution depends on
 
 ## Sources
 - 2026-05-architecture-3.10-lattice-experts-design

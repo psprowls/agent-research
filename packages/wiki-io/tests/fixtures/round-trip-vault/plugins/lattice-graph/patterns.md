@@ -12,7 +12,7 @@ tokens: 1664
 
 ### Thin shell to `cg`
 
-The plugin contains no Python logic. Every slash command body shells to the `cg` console-script provided by [[wiki/packages/lattice-graph-core/lattice-graph-core]] via that package's `[project.scripts]` entry point. `uv sync` (or `uv tool install` from `/lattice-graph:init`) puts `cg` on `PATH`.
+The plugin contains no Python logic. Every slash command body shells to the `cg` console-script provided by [[packages/lattice-graph-core/lattice-graph-core]] via that package's `[project.scripts]` entry point. `uv sync` (or `uv tool install` from `/lattice-graph:init`) puts `cg` on `PATH`.
 
 ```markdown
 # commands/update.md
@@ -25,7 +25,7 @@ Concretely:
 - Tests for any plugin-visible behavior live in the core package, not here. The plugin tree has no `tests/` directory.
 - `pyproject.toml` declares `lattice-graph-core` as a workspace dep; that's the only Python-level coupling.
 
-This matches the [[wiki/concepts/plugin-deployment-shapes]] shape F split: a Python library + a Claude Code plugin shell. v1 ships only the CLI adapter; the MCP adapter slips to v1.1 per ADR-0007-cli-first-code-graph. The pattern is mirrored by [[wiki/packages/lattice-source-parser/lattice-source-parser]], which established the package-precedent the design spec cites.
+This matches the [[concepts/plugin-deployment-shapes]] shape F split: a Python library + a Claude Code plugin shell. v1 ships only the CLI adapter; the MCP adapter slips to v1.1 per ADR-0007-cli-first-code-graph. The pattern is mirrored by [[packages/lattice-source-parser/lattice-source-parser]], which established the package-precedent the design spec cites.
 
 ### Explicit update lifecycle (no magic)
 
@@ -43,7 +43,7 @@ Instead, updates are user-initiated:
 
 `cg update` indexes HEAD, not the working tree. Two reasons: `last_indexed_commit` is meaningless if the index includes uncommitted state, and it matches the parser's expectations (one file → one commit-stable tree). The SessionStart banner is silent about uncommitted changes by design.
 
-See [[wiki/concepts/explicit-not-magic-update-lifecycle]] for the full principle.
+See [[concepts/explicit-not-magic-update-lifecycle]] for the full principle.
 
 ### Staleness detection via SessionStart hook
 
@@ -69,7 +69,7 @@ These contracts are not currently exercised end-to-end — see [[work/2026-05-06
 
 ### Single-writer `code.db`
 
-Per ADR-0008-single-writer-code-db: `cg update` is the only writer to `<repo>/lattice/.graph/code.db`. All other consumers — slash commands, the future MCP server, [[wiki/plugins/lattice-wiki/lattice-wiki]] integration, the `prefer-graph-over-grep` skill — open the database in `mode=ro`.
+Per ADR-0008-single-writer-code-db: `cg update` is the only writer to `<repo>/lattice/.graph/code.db`. All other consumers — slash commands, the future MCP server, [[plugins/lattice-wiki/lattice-wiki]] integration, the `prefer-graph-over-grep` skill — open the database in `mode=ro`.
 
 Enforced structurally, not by convention:
 
@@ -96,7 +96,7 @@ The five query commands (`find`, `callers`, `callees`, `imports`, `describe`) ar
 ## Conventions
 
 - **Logic in core, not here** — `plugins/lattice-graph/CLAUDE.md` codifies this; the plugin tree has no Python logic and no `tests/` directory.
-- **Tree-sitter grammars as binary deps** — the plugin transitively pulls `tree-sitter` + `tree-sitter-language-pack` through [[wiki/packages/lattice-source-parser/lattice-source-parser]]. This breaks the pure-stdlib invariant locally but is isolated to this stack so [[wiki/plugins/lattice-wiki/lattice-wiki]] keeps its pure-stdlib promise.
-- **Per-repo data tier** — see [[wiki/concepts/per-repo-data-vs-global-tooling-tier]]. The graph DB lives at `<repo>/lattice/.graph/code.db` per ADR-0011-single-workspace-root and [[wiki/concepts/per-repo-layout]].
-- **Shape F** in the [[wiki/concepts/plugin-deployment-shapes]] decision matrix — Python library + plugin shell. v1 = partial F (CLI adapter only); v1.1 fills in the MCP adapter.
-- **Consumers** — [[wiki/plugins/lattice-wiki/lattice-wiki]] runs `cg describe` / `cg find` for citation verification with filesystem fallback. The `prefer-graph-over-grep` skill in [[wiki/plugins/lattice-workflows/lattice-workflows]] substitutes `cg_callers` / `cg_callees` / `cg_find` / `cg_describe_package` for grep where applicable. Tools, scripts, CI, and agents can also use `cg` directly on `PATH`.
+- **Tree-sitter grammars as binary deps** — the plugin transitively pulls `tree-sitter` + `tree-sitter-language-pack` through [[packages/lattice-source-parser/lattice-source-parser]]. This breaks the pure-stdlib invariant locally but is isolated to this stack so [[plugins/lattice-wiki/lattice-wiki]] keeps its pure-stdlib promise.
+- **Per-repo data tier** — see [[concepts/per-repo-data-vs-global-tooling-tier]]. The graph DB lives at `<repo>/lattice/.graph/code.db` per ADR-0011-single-workspace-root and [[concepts/per-repo-layout]].
+- **Shape F** in the [[concepts/plugin-deployment-shapes]] decision matrix — Python library + plugin shell. v1 = partial F (CLI adapter only); v1.1 fills in the MCP adapter.
+- **Consumers** — [[plugins/lattice-wiki/lattice-wiki]] runs `cg describe` / `cg find` for citation verification with filesystem fallback. The `prefer-graph-over-grep` skill in [[plugins/lattice-workflows/lattice-workflows]] substitutes `cg_callers` / `cg_callees` / `cg_find` / `cg_describe_package` for grep where applicable. Tools, scripts, CI, and agents can also use `cg` directly on `PATH`.

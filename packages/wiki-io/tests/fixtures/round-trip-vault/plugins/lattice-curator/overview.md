@@ -32,7 +32,7 @@ tokens: 928
 
 ## Purpose
 
-Thin Claude Code plugin wrapping [[wiki/packages/lattice-curator-core/lattice-curator-core]]. The plugin owns the surfaces that touch Claude Code — two hooks, one slash command, and one MCP server — and delegates all curation logic to the package. This is the only piece of the curator that knows Claude Code exists; the package is reusable from CI, evals, and future plugins without it. Two hooks are registered: `UserPromptSubmit` (synchronous, fires the curator before Claude processes a prompt) and `PreToolUse:Skill` (async, records which workflow skill was just invoked to improve stage routing on the next turn). Install this plugin when you want stage-aware context briefs injected automatically at the start of each Claude Code turn.
+Thin Claude Code plugin wrapping [[packages/lattice-curator-core/lattice-curator-core]]. The plugin owns the surfaces that touch Claude Code — two hooks, one slash command, and one MCP server — and delegates all curation logic to the package. This is the only piece of the curator that knows Claude Code exists; the package is reusable from CI, evals, and future plugins without it. Two hooks are registered: `UserPromptSubmit` (synchronous, fires the curator before Claude processes a prompt) and `PreToolUse:Skill` (async, records which workflow skill was just invoked to improve stage routing on the next turn). Install this plugin when you want stage-aware context briefs injected automatically at the start of each Claude Code turn.
 
 ## File map - lattice-curator
 
@@ -60,7 +60,7 @@ Thin Claude Code plugin wrapping [[wiki/packages/lattice-curator-core/lattice-cu
 
 ## Sub-pages
 
-- [[wiki/plugins/lattice-curator/api]]      — hook surface, slash command, MCP server contract
-- [[wiki/plugins/lattice-curator/context]]  — plugin deployment shape, relationship to the package, why two hooks
-- [[wiki/plugins/lattice-curator/patterns]] — key patterns and conventions
-- [[wiki/plugins/lattice-curator/work]]     — bugs, tech debt, features, open questions
+- [[plugins/lattice-curator/api]]      — hook surface, slash command, MCP server contract
+- [[plugins/lattice-curator/context]]  — plugin deployment shape, relationship to the package, why two hooks
+- [[plugins/lattice-curator/patterns]] — key patterns and conventions
+- [[plugins/lattice-curator/work]]     — bugs, tech debt, features, open questions

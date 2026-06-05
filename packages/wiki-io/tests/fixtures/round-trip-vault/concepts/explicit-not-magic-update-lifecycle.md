@@ -10,7 +10,7 @@ tokens: 1965
 # Explicit-not-magic update lifecycle
 
 ## Definition
-[[wiki/plugins/lattice-graph/lattice-graph]] updates its index only when the user (or a slash command, or a session hook surfacing a recommendation) explicitly initiates them. The graph never silently re-parses behind the user's back. The same discipline now extends to per-plugin code drift — when a plugin ships a newer version than the one last applied to a workspace, the plugin surfaces a banner and waits for an explicit init/upgrade, never auto-running its update logic.
+[[plugins/lattice-graph/lattice-graph]] updates its index only when the user (or a slash command, or a session hook surfacing a recommendation) explicitly initiates them. The graph never silently re-parses behind the user's back. The same discipline now extends to per-plugin code drift — when a plugin ships a newer version than the one last applied to a workspace, the plugin surfaces a banner and waits for an explicit init/upgrade, never auto-running its update logic.
 
 ## Motivation
 
@@ -91,25 +91,25 @@ The same discipline governs **per-plugin code drift** (introduced in `lattice-wo
 
 `warn_if_stale` returns `True` only on mismatch and writes `installed_version=version` (leaving `applied_version` untouched) so subsequent `pending_updates(workspace)` reads can aggregate signals across plugins. The plugin's own init flow, after running its update logic end-to-end, calls `init(version=...)` which sets *both* versions atomically. The asymmetry — `warn_if_stale` bumps only `installed_version`; `init` bumps both — is the same explicit-not-magic split: "I noticed an update is available" is recorded passively at the moment any command runs; "I successfully applied the update" only happens on explicit user action.
 
-The reference integration is [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] via `_version_check.py`. See [[wiki/concepts/plugin-versioning-and-update-mechanism]] for the full mechanism (manifest schema, lazy v1→v2 coercion, banner-not-auto-apply contract). The graph case here and the plugin case share one intuition: **surface staleness, never auto-apply**.
+The reference integration is [[packages/lattice-wiki-core/lattice-wiki-core]] via `_version_check.py`. See [[concepts/plugin-versioning-and-update-mechanism]] for the full mechanism (manifest schema, lazy v1→v2 coercion, banner-not-auto-apply contract). The graph case here and the plugin case share one intuition: **surface staleness, never auto-apply**.
 
 ## Used in
-- [[wiki/plugins/lattice-graph/lattice-graph]] — the original lifecycle this concept governs (graph data freshness)
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — the per-plugin extension (`warn_if_stale`, `pending_updates`, version-recording `init`)
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — reference integration via `_version_check.py`
+- [[plugins/lattice-graph/lattice-graph]] — the original lifecycle this concept governs (graph data freshness)
+- [[packages/lattice-workspace/lattice-workspace]] — the per-plugin extension (`warn_if_stale`, `pending_updates`, version-recording `init`)
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — reference integration via `_version_check.py`
 
 ## Related patterns
-- [[wiki/concepts/code-graph-schema]] — `metadata.schema_version` and `last_indexed_commit` rows
-- [[wiki/concepts/plugin-versioning-and-update-mechanism]] — the per-plugin analog: `installed_version` / `applied_version` in `.lattice.yaml` v2
-- [[wiki/concepts/lattice-cross-plugin-contract]] — banner-not-auto-apply is the install/upgrade-time complement to subprocess-not-import
+- [[concepts/code-graph-schema]] — `metadata.schema_version` and `last_indexed_commit` rows
+- [[concepts/plugin-versioning-and-update-mechanism]] — the per-plugin analog: `installed_version` / `applied_version` in `.lattice.yaml` v2
+- [[concepts/lattice-cross-plugin-contract]] — banner-not-auto-apply is the install/upgrade-time complement to subprocess-not-import
 
 ## Decisions
-- [[wiki/adrs/0002-explicit-graph-update-lifecycle]] — the original ADR, scoped to graph data
-- [[wiki/adrs/0014-per-plugin-version-tracking-in-lattice-yaml]] — extends the discipline to per-plugin code drift
+- [[adrs/0002-explicit-graph-update-lifecycle]] — the original ADR, scoped to graph data
+- [[adrs/0014-per-plugin-version-tracking-in-lattice-yaml]] — extends the discipline to per-plugin code drift
 
 ## Sources
-- [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — design spec for the per-plugin staleness banner pattern
-- [[wiki/sources/2026-05-lattice-release-wiki-sync]] — a workflow-level instance of the same discipline: the `/release` slash command refuses to run when HEAD is not `main` rather than silently rebasing or warning-and-continuing, ensuring downstream steps (wiki sync, scanner `state_gate`) have a known precondition.
+- [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] — design spec for the per-plugin staleness banner pattern
+- [[sources/2026-05-lattice-release-wiki-sync]] — a workflow-level instance of the same discipline: the `/release` slash command refuses to run when HEAD is not `main` rather than silently rebasing or warning-and-continuing, ensuring downstream steps (wiki sync, scanner `state_gate`) have a known precondition.
 
 ## Open questions / gotchas
 - v2 may add `auto_update_threshold` config (silently update if fewer than N commits behind). Behind a flag, not default.

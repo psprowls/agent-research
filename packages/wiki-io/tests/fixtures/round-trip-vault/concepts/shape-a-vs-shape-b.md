@@ -21,7 +21,7 @@ For N plans, Shape A spawns 2N teammates and 2N tasks; Shape B spawns 3N teammat
 
 ## Motivation
 
-The original [[wiki/plugins/lattice-workflows/lattice-workflows]]:`subagent-driven-development` skill separates spec compliance from code quality at the per-task level — a deliberate choice to prevent blurred verdicts ("looks fine I guess") that emerge when a single reviewer applies all lenses simultaneously. `launching-plan-teams` carries that ethos to the per-plan level.
+The original [[plugins/lattice-workflows/lattice-workflows]]:`subagent-driven-development` skill separates spec compliance from code quality at the per-task level — a deliberate choice to prevent blurred verdicts ("looks fine I guess") that emerge when a single reviewer applies all lenses simultaneously. `launching-plan-teams` carries that ethos to the per-plan level.
 
 But the spec/quality split has a cost: 50% more reviewer teammates, more `SendMessage` traffic, and more lead bookkeeping. For a substantive plan (real feature, real refactor), the cost is worth it — review fidelity directly affects what merges. For a trivial plan (fixture file, version bump, doc tweak), the cost is overkill — there's no quality bar that benefits from the split.
 
@@ -63,8 +63,8 @@ The default in `launching-plan-teams` SKILL.md is Shape B; Shape A is documented
 
 ## Related patterns
 
-- [[wiki/concepts/subagent-vs-teammate]] — the underlying agent-teams primitive both shapes build on.
-- [[wiki/concepts/lead-nudge-protocol]] — both shapes require it; Shape B requires it twice per plan.
+- [[concepts/subagent-vs-teammate]] — the underlying agent-teams primitive both shapes build on.
+- [[concepts/lead-nudge-protocol]] — both shapes require it; Shape B requires it twice per plan.
 - knowledge-skills-pattern — Shape B's spec-vs-quality split echoes that pattern's role × tech separation.
 
 ## Open questions / gotchas

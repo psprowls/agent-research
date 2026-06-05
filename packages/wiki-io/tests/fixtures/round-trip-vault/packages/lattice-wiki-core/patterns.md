@@ -25,7 +25,7 @@ Counter-pattern (intentional): some CLIs also emit a human-readable report when 
 
 ### Skipped-vs-clean sentinel in JSON output
 
-`lint_wiki.scan` distinguishes "check skipped because we have no `repo_path`" from "check ran and found nothing". Skipped fields are initialized to a module-level `_SKIPPED: dict = {"skipped": True}` (`lint_wiki.py:55`) instead of `None` — `json.dumps(..., default=list)` does NOT coerce `None` to `[]`, so a `None` field would serialize as `null` and lose the distinction. Clean checks return `[]` from their `lint/*.check(...)` modules. Callers test `isinstance(val, dict) and val.get("skipped")` (see `lint_wiki.py:315-365` for the print-report guards). Documented in [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
+`lint_wiki.scan` distinguishes "check skipped because we have no `repo_path`" from "check ran and found nothing". Skipped fields are initialized to a module-level `_SKIPPED: dict = {"skipped": True}` (`lint_wiki.py:55`) instead of `None` — `json.dumps(..., default=list)` does NOT coerce `None` to `[]`, so a `None` field would serialize as `null` and lose the distinction. Clean checks return `[]` from their `lint/*.check(...)` modules. Callers test `isinstance(val, dict) and val.get("skipped")` (see `lint_wiki.py:315-365` for the print-report guards). Documented in [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
 
 ### Pipeline: scan → update_index → append_log
 
@@ -74,12 +74,12 @@ The pattern: SHA at sync time → diff at lint time. The scan never writes the S
 
 ### Folder-shorthand wikilink resolution
 
-A wikilink like `[[wiki/packages/foo]]` resolves to `packages/foo/foo.md`. This shorthand is implemented twice (deliberately — both modules do their own walks):
+A wikilink like `[[packages/foo]]` resolves to `packages/foo/foo.md`. This shorthand is implemented twice (deliberately — both modules do their own walks):
 
 - `lint_wiki.scan` (`lint_wiki.py:91-100`)
 - `graph_analyzer.build_graph` (`graph_analyzer.py:93-102`)
 
-Both also fall back to **stem matching**: `[[wiki/lattice-wiki]]` resolves if any page anywhere has that filename. This is what makes inter-package cross-links work without forcing the writer to know each page's full path.
+Both also fall back to **stem matching**: `[[lattice-wiki]]` resolves if any page anywhere has that filename. This is what makes inter-package cross-links work without forcing the writer to know each page's full path.
 
 ### Container detection algorithm
 
@@ -120,7 +120,7 @@ The renderer emits one section per directory (H3 = first level, H6 = fourth leve
 
 Sub-pages (filenames matching `SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work"}`) are excluded from the main index but still parsed. `"work"` was added so `packages/*/work.md` files don't double-count in the Package nav.
 
-The `## More` block always renders five categories (`_ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}`) even at 0 pages so they don't go invisible to first-time readers. `work` stays conditional — it's a workspace namespace, not a browsing entrypoint. See [[wiki/sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
+The `## More` block always renders five categories (`_ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr", "dependency"}`) even at 0 pages so they don't go invisible to first-time readers. `work` stays conditional — it's a workspace namespace, not a browsing entrypoint. See [[sources/2026-05-lattice-wiki-core-three-wiki-bug-fixes]].
 
 ### Marker-bounded auto-blocks
 

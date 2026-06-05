@@ -15,7 +15,7 @@ tokens: 1581
 # SourceTree model (parser intermediate)
 
 ## Definition
-The single domain model used inside [[wiki/packages/lattice-source-parser/lattice-source-parser]]: a tree of `SourceNode` objects rooted at a `kind='file'` node, each carrying a byte/line/column `Span`, plus per-node `Reference` lists for outgoing calls / imports / exports. All consumer-facing outputs (graph records, future chunks, future type-aware projections) are pure functions on top of this tree — the tree itself never reshapes for a projection.
+The single domain model used inside [[packages/lattice-source-parser/lattice-source-parser]]: a tree of `SourceNode` objects rooted at a `kind='file'` node, each carrying a byte/line/column `Span`, plus per-node `Reference` lists for outgoing calls / imports / exports. All consumer-facing outputs (graph records, future chunks, future type-aware projections) are pure functions on top of this tree — the tree itself never reshapes for a projection.
 
 ## Motivation
 
@@ -79,7 +79,7 @@ Projections are pure functions `SourceNode -> SomeOutput`. The tree never reshap
 
 | Projection | Status | Output |
 |---|---|---|
-| `to_graph_records(tree)` | v1 (`projections/graph.py`) | `GraphRecords(nodes, edges)` aligned to the [[wiki/concepts/code-graph-schema]] |
+| `to_graph_records(tree)` | v1 (`projections/graph.py`) | `GraphRecords(nodes, edges)` aligned to the [[concepts/code-graph-schema]] |
 | Chunking | deferred | token-counted source chunks for RAG / LLM context |
 | Type-aware projection | deferred | nodes annotated with mypy / pyright type info |
 
@@ -107,16 +107,16 @@ Tree-sitter `ERROR` nodes do not abort. The walker emits a partial tree and reco
 
 ## Used in
 
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]] — produced by `parse_file()` / `parse_bytes()`; consumed by `to_graph_records()`
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]] — primary downstream consumer (via `to_graph_records`)
+- [[packages/lattice-source-parser/lattice-source-parser]] — produced by `parse_file()` / `parse_bytes()`; consumed by `to_graph_records()`
+- [[packages/lattice-graph-core/lattice-graph-core]] — primary downstream consumer (via `to_graph_records`)
 
 ## Related patterns
 
-- [[wiki/concepts/code-graph-schema]] — the SQLite schema that `to_graph_records()` targets
+- [[concepts/code-graph-schema]] — the SQLite schema that `to_graph_records()` targets
 
 ## Decisions
 
-- [[wiki/adrs/0005-sourcetree-sole-domain-model]]
+- [[adrs/0005-sourcetree-sole-domain-model]]
 
 ## Open questions / gotchas
 

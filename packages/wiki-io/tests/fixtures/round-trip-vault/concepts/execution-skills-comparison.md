@@ -12,7 +12,7 @@ tokens: 1064
 
 ## Definition
 
-Three skills in [[wiki/plugins/lattice-workflows/lattice-workflows]] all dispatch or execute "work units" and look superficially similar:
+Three skills in [[plugins/lattice-workflows/lattice-workflows]] all dispatch or execute "work units" and look superficially similar:
 
 - **`executing-plans`** — single-agent, sequential, resumed-session execution of a written plan. Main agent does the work itself, task by task; restores state from `.tasks.json`.
 - **`subagent-driven-development`** (SDD) — same-session execution of a written plan, but each task runs through a fresh subagent pipeline (implementer → spec-compliance reviewer → code-quality reviewer). Tasks still run serially; each step is isolated from the previous.
@@ -53,17 +53,17 @@ Have implementation plan?
 
 ## Used in
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — all three skills ship in the plugin's `skills/` tree.
-- [[wiki/plugins/lattice-workflows/api]] — the three skill bullets now link back here for disambiguation.
-- [[wiki/plugins/lattice-workflows/patterns]] — captures the decision-tree rule as the "execution-skill selection" pattern.
+- [[plugins/lattice-workflows/lattice-workflows]] — all three skills ship in the plugin's `skills/` tree.
+- [[plugins/lattice-workflows/api]] — the three skill bullets now link back here for disambiguation.
+- [[plugins/lattice-workflows/patterns]] — captures the decision-tree rule as the "execution-skill selection" pattern.
 
 ## Related patterns
 
-- [[wiki/concepts/subagent-vs-teammate]] — distinguishes the two off-main Claude Code dispatch *mechanisms* (subagents vs agent-team teammates). This page is one level up: it distinguishes the *skills* that drive subagent dispatch.
+- [[concepts/subagent-vs-teammate]] — distinguishes the two off-main Claude Code dispatch *mechanisms* (subagents vs agent-team teammates). This page is one level up: it distinguishes the *skills* that drive subagent dispatch.
 
 ## Sources
 
-- [[wiki/sources/2026-05-execution-skills-comparison]] — the comparison note this page synthesizes.
+- [[sources/2026-05-execution-skills-comparison]] — the comparison note this page synthesizes.
 
 ## Open questions / gotchas
 

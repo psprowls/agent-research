@@ -10,7 +10,7 @@ tokens: 1057
 # Code-graph schema (nodes / edges / metadata)
 
 ## Definition
-The canonical SQLite schema backing [[wiki/plugins/lattice-graph/lattice-graph]]. Two tables (`nodes`, `edges`) plus `metadata`. Per-language detail lives in `attrs_json` blobs; the core graph stays language-agnostic.
+The canonical SQLite schema backing [[plugins/lattice-graph/lattice-graph]]. Two tables (`nodes`, `edges`) plus `metadata`. Per-language detail lives in `attrs_json` blobs; the core graph stays language-agnostic.
 
 ## Shape
 
@@ -44,10 +44,10 @@ CREATE TABLE metadata (
 ```
 
 ## Node kinds
-Core v1 set: `file | package | class | function | method`. v0.2.0 added `wiki_page` (workspace-relative path in `name`, no schema migration — the `kind` column is open) via [[wiki/sources/2026-05-lattice-graph-core-documents-edge]]. Adding a kind that requires new columns or indexes would bump `schema_version` and force a full rebuild; `wiki_page` did not because it reuses the existing columns.
+Core v1 set: `file | package | class | function | method`. v0.2.0 added `wiki_page` (workspace-relative path in `name`, no schema migration — the `kind` column is open) via [[sources/2026-05-lattice-graph-core-documents-edge]]. Adding a kind that requires new columns or indexes would bump `schema_version` and force a full rebuild; `wiki_page` did not because it reuses the existing columns.
 
 ## Edge kinds
-Core v1 set: `contains | imports | calls | exports`. v0.2.0 added `documents` (package → `wiki_page`) via [[wiki/sources/2026-05-lattice-graph-core-documents-edge]]. The MCP tools surface exposes traversal tools for three of the v1 kinds; `contains` is consumed via `cg_describe_*` digests, not as standalone traversal.
+Core v1 set: `contains | imports | calls | exports`. v0.2.0 added `documents` (package → `wiki_page`) via [[sources/2026-05-lattice-graph-core-documents-edge]]. The MCP tools surface exposes traversal tools for three of the v1 kinds; `contains` is consumed via `cg_describe_*` digests, not as standalone traversal.
 
 ## Recursive CTE example — transitive callers depth ≤ 3
 
@@ -76,16 +76,16 @@ GROUP BY n.id;
 - **No write API for consumers** — graph is mechanically produced; single writer is `cg update` itself.
 
 ## Used in
-- [[wiki/plugins/lattice-graph/lattice-graph]] — sole producer/owner
+- [[plugins/lattice-graph/lattice-graph]] — sole producer/owner
 
 ## Related patterns
-- [[wiki/concepts/per-repo-layout]] — schema lives at `<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`)
+- [[concepts/per-repo-layout]] — schema lives at `<workspace>/.graph/code.db` (default: `<repo>/lattice/.graph/code.db`)
 
 ## Schema fidelity is a hard goal of the parser package
 
-The [[wiki/packages/lattice-source-parser/lattice-source-parser]] design treats this schema as a stable contract. `to_graph_records()` emits records whose shape (kind, name, path, attrs_json) maps 1:1 onto the table columns above. Identity inside the projection is `(kind, name, path)` tuples — integer `id`s are an implementation detail of the *store* and are allocated at upsert time by [[wiki/packages/lattice-graph-core/lattice-graph-core]].
+The [[packages/lattice-source-parser/lattice-source-parser]] design treats this schema as a stable contract. `to_graph_records()` emits records whose shape (kind, name, path, attrs_json) maps 1:1 onto the table columns above. Identity inside the projection is `(kind, name, path)` tuples — integer `id`s are an implementation detail of the *store* and are allocated at upsert time by [[packages/lattice-graph-core/lattice-graph-core]].
 
 The package never touches SQLite. The plugin owns ID allocation, transactions, manifest scanning into `kind: package` nodes, and cross-file resolution.
 
 ## Decisions
-- [[wiki/adrs/0001-sqlite-primary-store-for-code-graph]]
+- [[adrs/0001-sqlite-primary-store-for-code-graph]]

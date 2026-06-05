@@ -25,7 +25,7 @@ Cross-plugin entry point (callable from `lattice-wiki` ingestor and `lattice-wor
 ${LATTICE_WORK_ROOT}/scripts/regenerate_work_index.py --vault <path>
 ```
 
-Subprocess invocation, not Python import. Plugins evolve independently. Per [[wiki/concepts/lattice-cross-plugin-contract]].
+Subprocess invocation, not Python import. Plugins evolve independently. Per [[concepts/lattice-cross-plugin-contract]].
 
 Exit codes: `0` success, `2` invalid args, `3` runtime error (e.g. malformed frontmatter, slug collision, git failure), `4` vault not found / `<workspace>/work/` missing.
 

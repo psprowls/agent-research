@@ -10,11 +10,11 @@ tokens: 1334
 
 ## Key patterns
 
-- **SourceTree as sole domain model** — two dataclasses (`SourceNode`, `Reference`) plus `Span`. Symbol kind is a string tag; per-language detail lives in `attrs` dicts. All consumer outputs are pure projections on top of the tree. See [[wiki/concepts/source-tree-model]].
-- **[[wiki/concepts/language-parser-abstraction|LanguageParser abstraction]]** — each language is a self-contained module behind `_base.LanguageParser`. The registry (`PARSERS` / `EXTENSIONS`) lives in `parsers/__init__.py`; dispatch is by file extension or explicit `language=` arg.
+- **SourceTree as sole domain model** — two dataclasses (`SourceNode`, `Reference`) plus `Span`. Symbol kind is a string tag; per-language detail lives in `attrs` dicts. All consumer outputs are pure projections on top of the tree. See [[concepts/source-tree-model]].
+- **[[concepts/language-parser-abstraction|LanguageParser abstraction]]** — each language is a self-contained module behind `_base.LanguageParser`. The registry (`PARSERS` / `EXTENSIONS`) lives in `parsers/__init__.py`; dispatch is by file extension or explicit `language=` arg.
 - **Two implementation strategies, same output shape** — config-driven via `LanguageConfig` + `_generic.py` for C-family languages (JavaScript, TypeScript, future Java/Kotlin/Scala/C#); custom walkers for outliers (Python). Both emit identical `SourceNode` shape.
 - **Span-bearing nodes** — every node carries `Span` (byte offsets + 1-indexed lines + 0-indexed columns). No source text on nodes; consumers slice by span.
-- **Pure-function projection layer** — `projections/graph.py` converts `SourceTree` into `GraphRecords` aligned with the SQLite schema (see [[wiki/concepts/code-graph-schema]]). Identity is `(kind, name, path)` tuples; integer IDs are allocated by the consumer at upsert time. No I/O.
+- **Pure-function projection layer** — `projections/graph.py` converts `SourceTree` into `GraphRecords` aligned with the SQLite schema (see [[concepts/code-graph-schema]]). Identity is `(kind, name, path)` tuples; integer IDs are allocated by the consumer at upsert time. No I/O.
 - **Tolerant parsing** — tree-sitter `ERROR` nodes do not abort; partial tree is emitted with offending spans recorded in `file_node.attrs['parse_errors']`.
 - **Binary tree-sitter dep, isolated** — `tree-sitter` + `tree-sitter-language-pack` are binary wheels. Stdlib break is intentional and confined to this package and `lattice-graph-core`.
 - **uv workspace member** — this package is a member of the repo-root uv workspace (sole `uv.lock` lives at the repo root). Lint/format via ruff with root-only config; tests via pytest; Python 3.12 pinned via root `.python-version`.

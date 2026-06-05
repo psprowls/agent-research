@@ -56,8 +56,8 @@ Checked the shipped module at `packages/lattice-wiki-core/src/lattice_wiki_core/
 
 ## Touched
 
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — corrected `update_tokens.py` description (tiktoken, not whitespace word count); added source ref.
-- [[wiki/packages/lattice-wiki-core/api]] — added `update_tokens` entry under Public API; noted `missing_tokens` in the lint dispatcher report shape.
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — corrected `update_tokens.py` description (tiktoken, not whitespace word count); added source ref.
+- [[packages/lattice-wiki-core/api]] — added `update_tokens` entry under Public API; noted `missing_tokens` in the lint dispatcher report shape.
 
 ## Links
 

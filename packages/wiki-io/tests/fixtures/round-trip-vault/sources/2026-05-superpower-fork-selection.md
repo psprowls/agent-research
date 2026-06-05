@@ -53,18 +53,18 @@ The fork makes a defensible bet: CC-native task management is meaningfully bette
 
 ## Touches
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
-- [[wiki/plugins/lattice-workflows/context]]
-- [[wiki/concepts/superpowers-fork-vs-upstream]]
-- [[wiki/adrs/0016-track-pcvelz-superpowers-fork]]
+- [[plugins/lattice-workflows/lattice-workflows]]
+- [[plugins/lattice-workflows/context]]
+- [[concepts/superpowers-fork-vs-upstream]]
+- [[adrs/0016-track-pcvelz-superpowers-fork]]
 
 ## Decisions triggered
 
-- [[wiki/adrs/0016-track-pcvelz-superpowers-fork]] — track `pcvelz/superpowers` rather than `obra/superpowers` upstream
+- [[adrs/0016-track-pcvelz-superpowers-fork]] — track `pcvelz/superpowers` rather than `obra/superpowers` upstream
 
 ## Where it's cited in this wiki
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]]
-- [[wiki/plugins/lattice-workflows/context]]
-- [[wiki/concepts/superpowers-fork-vs-upstream]]
-- [[wiki/adrs/0016-track-pcvelz-superpowers-fork]]
+- [[plugins/lattice-workflows/lattice-workflows]]
+- [[plugins/lattice-workflows/context]]
+- [[concepts/superpowers-fork-vs-upstream]]
+- [[adrs/0016-track-pcvelz-superpowers-fork]]

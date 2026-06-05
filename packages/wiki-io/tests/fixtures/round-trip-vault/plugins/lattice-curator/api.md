@@ -21,7 +21,7 @@ Source of truth: `plugins/lattice-curator/.claude-plugin/plugin.json` and the sc
 |---|---|
 | `name` | `lattice-curator` |
 | `version` | `1.0.0` |
-| `description` | "Stage-aware context curator: gates UserPromptSubmit, runs a two-pass [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] retriever over wiki + experts catalogs, injects compact briefs back into Claude Code." |
+| `description` | "Stage-aware context curator: gates UserPromptSubmit, runs a two-pass [[concepts/bedrock-langgraph-stack|Bedrock]] retriever over wiki + experts catalogs, injects compact briefs back into Claude Code." |
 | `env.LATTICE_CURRATOR_ROOT` | `${CLAUDE_PLUGIN_ROOT}` |
 | `commands` | `["commands/init.md"]` |
 | `mcpServers["lattice-curator"]` | `python ${CLAUDE_PLUGIN_ROOT}/mcp/server.py` |
@@ -71,7 +71,7 @@ Behavior:
 3. Merge `{lastSkill: {name: skill, at: now_ms}}` into `~/.cache/lattice-curator/state.json` (preserves any existing keys like `lastFireAt`).
 
 > [!warning] Naming concern
-> `hooks.json` registers the hook command as `"... run-hook.cmd" stage-tracker`, and the shim invokes `python "${HOOK_DIR}/$1.py"` — i.e. it tries to load `stage-tracker.py`. The actual file is `stage_tracker.py` (underscore). Either rename the files or change the registered argument to `stage_tracker` / `curator_fire`. See [[wiki/plugins/lattice-curator/work]].
+> `hooks.json` registers the hook command as `"... run-hook.cmd" stage-tracker`, and the shim invokes `python "${HOOK_DIR}/$1.py"` — i.e. it tries to load `stage-tracker.py`. The actual file is `stage_tracker.py` (underscore). Either rename the files or change the registered argument to `stage_tracker` / `curator_fire`. See [[plugins/lattice-curator/work]].
 
 ### Slash command
 
@@ -167,6 +167,6 @@ Schema for a fire entry (from the package's `FireEntry` Pydantic model):
 
 ## See also
 
-- [[wiki/plugins/lattice-curator/lattice-curator]] — plugin overview
-- [[wiki/plugins/lattice-curator/context]] — why the plugin is shaped this way
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — the package primitives the hooks compose
+- [[plugins/lattice-curator/lattice-curator]] — plugin overview
+- [[plugins/lattice-curator/context]] — why the plugin is shaped this way
+- [[packages/lattice-curator-core/lattice-curator-core]] — the package primitives the hooks compose

@@ -28,14 +28,14 @@ Every Claude Code plugin in this ecosystem is named `lattice-<concern>` — for 
 | _(new)_ | `lattice-work` | shipped |
 
 ## Used in
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — renamed from `llm-code-wiki`
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — renamed from `claude-superpowers`; drops the "superpowers" word
-- [[wiki/plugins/lattice-graph/lattice-graph]]
-- [[wiki/plugins/lattice-work/lattice-work]]
+- [[plugins/lattice-wiki/lattice-wiki]] — renamed from `llm-code-wiki`
+- [[plugins/lattice-workflows/lattice-workflows]] — renamed from `claude-superpowers`; drops the "superpowers" word
+- [[plugins/lattice-graph/lattice-graph]]
+- [[plugins/lattice-work/lattice-work]]
 
 ## Related patterns
-- [[wiki/concepts/per-repo-layout]] — naming applies to plugins; per-repo dirs (`wiki/`, `.lattice/`) are a separate convention.
-- [[wiki/concepts/lattice-workflows-observability-gate]] — extends the `lattice-` prefix to env-vars: `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY` aligns with the `${LATTICE_<NAME>_ROOT}` discovery shape from [[wiki/concepts/lattice-cross-plugin-contract]].
+- [[concepts/per-repo-layout]] — naming applies to plugins; per-repo dirs (`wiki/`, `.lattice/`) are a separate convention.
+- [[concepts/lattice-workflows-observability-gate]] — extends the `lattice-` prefix to env-vars: `LATTICE_<PLUGIN_UPPER>_OBSERVABILITY` aligns with the `${LATTICE_<NAME>_ROOT}` discovery shape from [[concepts/lattice-cross-plugin-contract]].
 
 ## Open questions / gotchas
 - The `lattice-experts` name is still a working name — final scope and identity may shift.

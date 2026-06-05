@@ -39,14 +39,14 @@ v1 is **CLI-first**; MCP slips to v1.1.
 | Update | `cg update [--full]` | Incremental by default (git diff); `--full` rebuilds; single SQLite transaction; honours `.cgignore` at repo root |
 | Status | `cg status [--json]` | Cardinalities, `last_indexed_commit`, `schema_version`, staleness; exit `2` when stale |
 | Dump | `cg dump` | Raw SQL dump for debugging |
-| Sync wiki | `cg sync-wiki` | Walk `kind:package` nodes, try `wiki/packages/<n>/<n>.md`, `wiki/apps/<n>/<n>.md`, `wiki/domains/*/packages/<n>/<n>.md` in order; upsert `wiki_page` nodes + `documents` edges; cleanup pass removes nodes whose file no longer exists; prints **undocumented / newly linked / stale** drift report. See [[wiki/sources/2026-05-lattice-graph-core-documents-edge]]. |
+| Sync wiki | `cg sync-wiki` | Walk `kind:package` nodes, try `wiki/packages/<n>/<n>.md`, `wiki/apps/<n>/<n>.md`, `wiki/domains/*/packages/<n>/<n>.md` in order; upsert `wiki_page` nodes + `documents` edges; cleanup pass removes nodes whose file no longer exists; prints **undocumented / newly linked / stale** drift report. See [[sources/2026-05-lattice-graph-core-documents-edge]]. |
 | Find | `cg find <name> [--kind …] [--package …]` | Definitions matching name |
 | Callers | `cg callers <name> [--depth N]` | Recursive CTE traversal, depth-bounded |
 | Callees | `cg callees <name> [--depth N]` | Recursive CTE traversal, depth-bounded |
 | Imports | `cg imports <target>` | What this file/package imports |
-| Imported by | `cg imported-by <path> [--symbol …] [--depth N]` | Inverse of `imports`; default depth 1; `--symbol` narrows to importers of a specific name. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
-| Exports | `cg exports <path>` | Public symbols a file declares as exported; single-hop. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
-| Exported by | `cg exported-by <name>` | Which file owns this exported symbol name. See [[wiki/sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| Imported by | `cg imported-by <path> [--symbol …] [--depth N]` | Inverse of `imports`; default depth 1; `--symbol` narrows to importers of a specific name. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| Exports | `cg exports <path>` | Public symbols a file declares as exported; single-hop. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
+| Exported by | `cg exported-by <name>` | Which file owns this exported symbol name. See [[sources/2026-05-lattice-graph-core-symmetric-commands]]. |
 | Describe package | `cg describe-package <name>` | Structured digest (files, exports, deps, counts) |
 | Describe path | `cg describe-path <path>` | Resolve a path (with or without `:line`) |
 

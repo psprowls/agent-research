@@ -30,5 +30,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Anchored by [[wiki/packages/eval-harness/eval-harness]] divergence rules
-- Consumed by [[wiki/agents/graph-wiki-agent/graph-wiki-agent]] command prompts
+- Anchored by [[packages/eval-harness/eval-harness]] divergence rules
+- Consumed by [[agents/graph-wiki-agent/graph-wiki-agent]] command prompts

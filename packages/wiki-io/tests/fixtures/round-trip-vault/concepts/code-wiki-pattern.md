@@ -14,7 +14,7 @@ tokens: 1424
 
 A **code wiki** is a markdown knowledge base that lives next to a source-code project, evolves with it, and obeys a small set of structural and behavioral rules: source code is the only source of truth, ingested raw material is immutable, and all curated knowledge accretes in a single vault directory. Pages cite — they don't duplicate — facts that the code or other vault pages already carry.
 
-The pattern is the structural shape (three layers, frontmatter-on-every-page, append-only log, content-oriented index) plus the iron rules (code-truth, raw-immutable, every-write-goes-to-vault, every-claim-cites). Any tool that follows the shape and the rules implements the pattern; [[wiki/plugins/lattice-wiki/lattice-wiki]] is one such implementation.
+The pattern is the structural shape (three layers, frontmatter-on-every-page, append-only log, content-oriented index) plus the iron rules (code-truth, raw-immutable, every-write-goes-to-vault, every-claim-cites). Any tool that follows the shape and the rules implements the pattern; [[plugins/lattice-wiki/lattice-wiki]] is one such implementation.
 
 ## Motivation
 
@@ -22,7 +22,7 @@ Documentation drifts the moment the code moves. The pattern fights drift through
 
 1. **Code-as-truth** — the wiki may describe the code, but it never overrides it. When the wiki and the code disagree, the wiki is wrong.
 2. **Raw is immutable** — clipped articles, PRs, specs, transcripts get captured once and never edited. Curated knowledge happens in the vault on top of them.
-3. **Every claim cites** — vault pages carry inline `[[wiki/wikilinks]]` to other pages and `` `code-paths:line` `` to source. Claims that don't cite are flagged.
+3. **Every claim cites** — vault pages carry inline `[[wikilinks]]` to other pages and `` `code-paths:line` `` to source. Claims that don't cite are flagged.
 
 This shape lets a code wiki accrete value over many small contributions (ingest one source, file one query answer, fix one drift) without requiring any single page to be authoritative.
 
@@ -65,15 +65,15 @@ Drop any of these and the pattern stops being self-correcting.
 
 ## Used in
 
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — the canonical implementation; ships scripts (`scan_monorepo.py`, `ingest_source.py`, `lint_wiki.py`, `update_index.py`, `wiki_search.py`, `graph_analyzer.py`) and the agent dispatch (`ingestor`, `librarian`, `linter`, `scanner`).
-- [[wiki/plugins/lattice-work/lattice-work]] — consumer plugin; reads `<vault>/work/*.md` for lifecycle tracking. Schema and migrator stay in the wiki per adrs/0004-work-tracker-as-consumer-plugin.
+- [[plugins/lattice-wiki/lattice-wiki]] — the canonical implementation; ships scripts (`scan_monorepo.py`, `ingest_source.py`, `lint_wiki.py`, `update_index.py`, `wiki_search.py`, `graph_analyzer.py`) and the agent dispatch (`ingestor`, `librarian`, `linter`, `scanner`).
+- [[plugins/lattice-work/lattice-work]] — consumer plugin; reads `<vault>/work/*.md` for lifecycle tracking. Schema and migrator stay in the wiki per adrs/0004-work-tracker-as-consumer-plugin.
 
 ## Related patterns
 
 - wiki-cites-graph-not-duplicates — the wiki↔graph integration principle; mechanically derivable facts get queried from `lattice-graph` rather than duplicated into vault frontmatter.
-- [[wiki/concepts/per-repo-layout]] — `<repo>/wiki/` (committed, human-visible) plus `<repo>/.lattice/` (machine state, gitignored) as the two ecosystem roots.
-- [[wiki/concepts/lattice-page-body-table-conventions]] — the body-table grammar (`## Plan`, `## Endpoints`, `## Fields`) the schema relies on.
-- [[wiki/concepts/lattice-vault-terminology]] — canonical glossary for the load-bearing terms (`raw`, `vault`, `container`, `domain`).
+- [[concepts/per-repo-layout]] — `<repo>/wiki/` (committed, human-visible) plus `<repo>/.lattice/` (machine state, gitignored) as the two ecosystem roots.
+- [[concepts/lattice-page-body-table-conventions]] — the body-table grammar (`## Plan`, `## Endpoints`, `## Fields`) the schema relies on.
+- [[concepts/lattice-vault-terminology]] — canonical glossary for the load-bearing terms (`raw`, `vault`, `container`, `domain`).
 
 ## Sources
 

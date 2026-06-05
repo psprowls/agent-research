@@ -36,7 +36,7 @@ tokens: 1496
 
 ## Purpose
 
-Pure-logic Python library implementing a stage-aware, two-pass context-curation pipeline. Given `(prompt, transcript_tail, stage, sources, model)`, it returns a `Brief` (or a no-op gate decision) without any awareness of Claude Code, hooks, or MCP. The package is the engine; [[wiki/plugins/lattice-curator/lattice-curator]] is the only piece that touches Claude Code surfaces. The pipeline is a two-pass curation modeled as a LangGraph `StateGraph`: a cheap heuristic gate decides whether to fire; on fire, the retriever walks `build_catalog → pass1_pick → (load_picks → pass2_brief | assemble) → END`. Pass 1 sees a flattened catalog of frontmatter; Pass 2 sees the full text of the picks. Both calls hit a [[wiki/concepts/bedrock-langgraph-stack|Bedrock]]-hosted small model via LangChain's `ChatBedrockConverse` (default `us.anthropic.claude-haiku-4-5-20251001-v1:0`). Knowledge surfaces plug in through the `Source` adapter contract. Stage-aware: `brainstorming`, `writing-plans`, `execute-plan`, `debugging` each have a tuned prompt pair plus a `selection_target {min, max}` budget; `generic` is the fallback.
+Pure-logic Python library implementing a stage-aware, two-pass context-curation pipeline. Given `(prompt, transcript_tail, stage, sources, model)`, it returns a `Brief` (or a no-op gate decision) without any awareness of Claude Code, hooks, or MCP. The package is the engine; [[plugins/lattice-curator/lattice-curator]] is the only piece that touches Claude Code surfaces. The pipeline is a two-pass curation modeled as a LangGraph `StateGraph`: a cheap heuristic gate decides whether to fire; on fire, the retriever walks `build_catalog → pass1_pick → (load_picks → pass2_brief | assemble) → END`. Pass 1 sees a flattened catalog of frontmatter; Pass 2 sees the full text of the picks. Both calls hit a [[concepts/bedrock-langgraph-stack|Bedrock]]-hosted small model via LangChain's `ChatBedrockConverse` (default `us.anthropic.claude-haiku-4-5-20251001-v1:0`). Knowledge surfaces plug in through the `Source` adapter contract. Stage-aware: `brainstorming`, `writing-plans`, `execute-plan`, `debugging` each have a tuned prompt pair plus a `selection_target {min, max}` budget; `generic` is the fallback.
 
 ## File map
 
@@ -58,7 +58,7 @@ Pure-logic Python library implementing a stage-aware, two-pass context-curation 
 ### lattice-curator-core/src/lattice_curator_core/sources/
 
 - `types.py` — `Source` Protocol, `CatalogEntry` dataclass, `walk_md(directory)` helper
-- `wiki.py` — adapter for the [[wiki/plugins/lattice-wiki/lattice-wiki]] vault; walks `<vault_dir>/**/*.md`, parses frontmatter, skips files without a `description:`
+- `wiki.py` — adapter for the [[plugins/lattice-wiki/lattice-wiki]] vault; walks `<vault_dir>/**/*.md`, parses frontmatter, skips files without a `description:`
 - `experts.py` — adapter for the experts rule library; emits `{domain, impact}` tags from frontmatter; treats `_shared/` as `domain: shared`
 
 ### lattice-curator-core/src/lattice_curator_core/stages/
@@ -86,7 +86,7 @@ Pytest suite (`asyncio_mode = "auto"`). Run with `pytest`.
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-curator-core/api]] — public API surface, stage definitions, retrieval pipeline contract
-- [[wiki/packages/lattice-curator-core/patterns]] — the gate → retrieve → format pipeline, stage-aware curation, source adapter contract
-- [[wiki/packages/lattice-curator-core/work]] — bugs, tech debt, features, open questions
-- [[wiki/packages/lattice-curator-core/context]] — concepts, decisions, ADRs, sources, why this exists
+- [[packages/lattice-curator-core/api]] — public API surface, stage definitions, retrieval pipeline contract
+- [[packages/lattice-curator-core/patterns]] — the gate → retrieve → format pipeline, stage-aware curation, source adapter contract
+- [[packages/lattice-curator-core/work]] — bugs, tech debt, features, open questions
+- [[packages/lattice-curator-core/context]] — concepts, decisions, ADRs, sources, why this exists

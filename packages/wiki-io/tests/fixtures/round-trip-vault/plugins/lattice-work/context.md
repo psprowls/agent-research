@@ -10,9 +10,9 @@ tokens: 914
 
 ## Concepts
 
-- [[wiki/concepts/per-repo-layout]] — work items live inside the committed `<repo>/wiki/` vault.
-- [[wiki/concepts/per-repo-data-vs-global-tooling-tier]] — per-repo data tier classification.
-- [[wiki/concepts/lattice-work-namespace-schema]] — the schema this plugin's lifecycle lint and sidecar generator enforce.
+- [[concepts/per-repo-layout]] — work items live inside the committed `<repo>/wiki/` vault.
+- [[concepts/per-repo-data-vs-global-tooling-tier]] — per-repo data tier classification.
+- [[concepts/lattice-work-namespace-schema]] — the schema this plugin's lifecycle lint and sidecar generator enforce.
 
 ## Decisions
 
@@ -21,7 +21,7 @@ tokens: 914
 - ADR 0008 — unified-work-namespace: this plugin owns the 19-rule `work_layer` lifecycle lint and the `<workspace>/work-index.json` sidecar generator
 - ADR 0016 — subprocess-cross-plugin-invocation: `regenerate_work_index.py` is invoked by other plugins as a subprocess, never imported
 - ADR 0017 — stdlib-only-per-repo-tier: stdlib-only Python (no PyYAML, no pytest); shared per-repo-tier constraint
-- [[wiki/adrs/0004-filesystem-affects-resolution-v1]] — v1 `affects:` matched by filesystem path prefix only; graph-aware resolution deferred
+- [[adrs/0004-filesystem-affects-resolution-v1]] — v1 `affects:` matched by filesystem path prefix only; graph-aware resolution deferred
 
 ## Sources
 
@@ -41,8 +41,8 @@ tokens: 914
 
 ## Used by
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — `/lattice-workflows:next` reads the sidecar for prioritization; `/lattice-workflows:status` for rollup; `/lattice-workflows:file-work-item` calls `regenerate_work_index.py` after the wiki's `ingest_work_item.py` succeeds. All gracefully degrade when this plugin is absent.
+- [[plugins/lattice-workflows/lattice-workflows]] — `/lattice-workflows:next` reads the sidecar for prioritization; `/lattice-workflows:status` for rollup; `/lattice-workflows:file-work-item` calls `regenerate_work_index.py` after the wiki's `ingest_work_item.py` succeeds. All gracefully degrade when this plugin is absent.
 
 ## Related dependencies
 
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — hard one-way dependency; `lattice-work` reads/writes through the vault that `lattice-wiki` owns. `lattice-wiki` does not depend on `lattice-work`.
+- [[plugins/lattice-wiki/lattice-wiki]] — hard one-way dependency; `lattice-work` reads/writes through the vault that `lattice-wiki` owns. `lattice-wiki` does not depend on `lattice-work`.

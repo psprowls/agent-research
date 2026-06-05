@@ -25,7 +25,7 @@ The plugin assumes the `lattice-curator` Python package is importable from whate
 
 ### Why the package/plugin split
 
-The plugin is a thin adapter. Every interesting decision (gating, retrieval, formatting, schema validation, fail-silent semantics) lives in [[wiki/packages/lattice-curator-core/lattice-curator-core]]. The plugin's job is:
+The plugin is a thin adapter. Every interesting decision (gating, retrieval, formatting, schema validation, fail-silent semantics) lives in [[packages/lattice-curator-core/lattice-curator-core]]. The plugin's job is:
 
 1. Translate Claude Code's hook payloads into the package's typed inputs (`GateInput`, `retrieve(...)`).
 2. Persist a tiny amount of cross-turn state (`~/.cache/lattice-curator/state.json`).
@@ -39,7 +39,7 @@ This split has three benefits:
 - **The plugin is replaceable.** If the Claude Code hook contract changes, the plugin can be rewritten without touching gate/retrieve/format logic.
 - **The boundary is testable.** The package has no `~/.cache` knowledge; the plugin has no LangGraph knowledge.
 
-Mirrors the [[wiki/packages/lattice-source-parser/lattice-source-parser]] precedent.
+Mirrors the [[packages/lattice-source-parser/lattice-source-parser]] precedent.
 
 ### Why two hooks
 
@@ -49,7 +49,7 @@ The state is intentionally tiny (one JSON file, two top-level keys), local (per-
 
 ### Why `UserPromptSubmit` is `async: false`
 
-The brief must land in the context window before Claude starts processing the prompt. `async: true` would let the prompt go through immediately and inject the brief into a later turn, which defeats the point. The cost is a synchronous [[wiki/concepts/bedrock-langgraph-stack|Bedrock]] round trip per fire — typically 1-3 seconds at default model size. The gate is designed to keep fire frequency low (`min_prompt_length=40`, `debounce_seconds=30`) so the per-turn cost amortizes.
+The brief must land in the context window before Claude starts processing the prompt. `async: true` would let the prompt go through immediately and inject the brief into a later turn, which defeats the point. The cost is a synchronous [[concepts/bedrock-langgraph-stack|Bedrock]] round trip per fire — typically 1-3 seconds at default model size. The gate is designed to keep fire frequency low (`min_prompt_length=40`, `debounce_seconds=30`) so the per-turn cost amortizes.
 
 ### Why MCP exists alongside hooks
 
@@ -64,7 +64,7 @@ The two paths are logged separately in `fires.jsonl` (different `outcome` values
 
 ### Per-repo data relationship
 
-`/curator:init` calls `seed_knowledge(knowledge_dir(root))` where `knowledge_dir(root)` resolves to `<root>/lattice/knowledge/` via the `lattice-workspace` helper. Once seeded, the rule library is per-repo data — editable, gitignorable per project, replaceable. The plugin and the package itself remain global tooling. See [[wiki/concepts/per-repo-data-vs-global-tooling-tier]].
+`/curator:init` calls `seed_knowledge(knowledge_dir(root))` where `knowledge_dir(root)` resolves to `<root>/lattice/knowledge/` via the `lattice-workspace` helper. Once seeded, the rule library is per-repo data — editable, gitignorable per project, replaceable. The plugin and the package itself remain global tooling. See [[concepts/per-repo-data-vs-global-tooling-tier]].
 
 ## Decisions
 
@@ -81,12 +81,12 @@ Context curation / Claude Code plugin ecosystem.
 
 ## Used by
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — owns the workflow skills the `PreToolUse:Skill` hook tracks; skill invocations are the strongest gate signal.
+- [[plugins/lattice-workflows/lattice-workflows]] — owns the workflow skills the `PreToolUse:Skill` hook tracks; skill invocations are the strongest gate signal.
 
 ## Related dependencies
 
-- [[wiki/packages/lattice-curator-core/lattice-curator-core]] — the engine; this plugin is the only Claude-Code-shaped consumer.
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — required by `curator_init.py` for workspace root discovery and `knowledge_dir` resolution.
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — wiki vault is one of the curator's two v1 knowledge surfaces.
-- [[wiki/concepts/two-pass-context-curation]], [[wiki/concepts/curator-source-interface]] — pipeline + adapter patterns.
-- [[wiki/concepts/per-repo-data-vs-global-tooling-tier]] — `lattice/knowledge/` after `/curator:init` is per-repo data; the plugin and the package are global tooling.
+- [[packages/lattice-curator-core/lattice-curator-core]] — the engine; this plugin is the only Claude-Code-shaped consumer.
+- [[packages/lattice-workspace/lattice-workspace]] — required by `curator_init.py` for workspace root discovery and `knowledge_dir` resolution.
+- [[plugins/lattice-wiki/lattice-wiki]] — wiki vault is one of the curator's two v1 knowledge surfaces.
+- [[concepts/two-pass-context-curation]], [[concepts/curator-source-interface]] — pipeline + adapter patterns.
+- [[concepts/per-repo-data-vs-global-tooling-tier]] — `lattice/knowledge/` after `/curator:init` is per-repo data; the plugin and the package are global tooling.

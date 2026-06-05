@@ -19,11 +19,11 @@ tokens: 596
 
 ## Context
 
-The original spec called for a parser tier inside [[wiki/plugins/lattice-graph/lattice-graph]]. Bundling the parser inside the plugin would couple it to SQLite, MCP, the Claude Code plugin loader, and `${LATTICE_*}` env vars — none of which other potential consumers (chunkers, RAG indexers, eval harnesses, ad-hoc scripts) need.
+The original spec called for a parser tier inside [[plugins/lattice-graph/lattice-graph]]. Bundling the parser inside the plugin would couple it to SQLite, MCP, the Claude Code plugin loader, and `${LATTICE_*}` env vars — none of which other potential consumers (chunkers, RAG indexers, eval harnesses, ad-hoc scripts) need.
 
 ## Decision
 
-[[wiki/packages/lattice-source-parser/lattice-source-parser]] ships as a **sibling Python package** at `packages/lattice-source-parser/`. It depends only on `tree-sitter` and `tree-sitter-language-pack`. It has **no knowledge** of SQLite, MCP, Claude Code plugins, or `${LATTICE_*}` env vars. Any Python project — not just `lattice-graph` — can `pip install lattice-source-parser` and use it standalone.
+[[packages/lattice-source-parser/lattice-source-parser]] ships as a **sibling Python package** at `packages/lattice-source-parser/`. It depends only on `tree-sitter` and `tree-sitter-language-pack`. It has **no knowledge** of SQLite, MCP, Claude Code plugins, or `${LATTICE_*}` env vars. Any Python project — not just `lattice-graph` — can `pip install lattice-source-parser` and use it standalone.
 
 The seam between package and plugin sits between the package's `GraphRecords` projection and the plugin's SQLite upsert.
 
@@ -37,6 +37,6 @@ The seam between package and plugin sits between the package's `GraphRecords` pr
 
 ## Related
 
-- [[wiki/packages/lattice-source-parser/lattice-source-parser]]
-- [[wiki/packages/lattice-graph-core/lattice-graph-core]]
-- [[wiki/adrs/0005-sourcetree-sole-domain-model]]
+- [[packages/lattice-source-parser/lattice-source-parser]]
+- [[packages/lattice-graph-core/lattice-graph-core]]
+- [[adrs/0005-sourcetree-sole-domain-model]]

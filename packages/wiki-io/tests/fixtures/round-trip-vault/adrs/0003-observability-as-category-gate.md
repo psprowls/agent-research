@@ -38,7 +38,7 @@ The first adopter is `plugins/lattice-workflows/hooks/log-skill-invocation`, reg
 - One env var for users to learn — disable the whole category with one toggle.
 - Adding a new observability hook is a code-only change; no new disable surface to document.
 - Fail-open invariant means observability bugs degrade silently, never breaking user sessions.
-- Aligns with `${LATTICE_<NAME>_ROOT}` env-var naming (see [[wiki/concepts/lattice-cross-plugin-contract]] and [[wiki/concepts/lattice-naming-convention]]).
+- Aligns with `${LATTICE_<NAME>_ROOT}` env-var naming (see [[concepts/lattice-cross-plugin-contract]] and [[concepts/lattice-naming-convention]]).
 
 **Negative:**
 - Coarse granularity — users can't disable just one observability hook (e.g. keep skill logging but turn off tool-use logging). Mitigated by deferring per-hook gates until a real need shows up.
@@ -52,9 +52,9 @@ The first adopter is `plugins/lattice-workflows/hooks/log-skill-invocation`, reg
 
 ## Impact
 
-- [[wiki/plugins/lattice-workflows/lattice-workflows]] — first adopter; future observability hooks will reuse the gate.
-- [[wiki/concepts/lattice-workflows-observability-gate]] — captures the convention.
-- [[wiki/concepts/lattice-cross-plugin-contract]] — sibling env-var convention to `${LATTICE_<NAME>_ROOT}`.
+- [[plugins/lattice-workflows/lattice-workflows]] — first adopter; future observability hooks will reuse the gate.
+- [[concepts/lattice-workflows-observability-gate]] — captures the convention.
+- [[concepts/lattice-cross-plugin-contract]] — sibling env-var convention to `${LATTICE_<NAME>_ROOT}`.
 
 ## Follow-ups
 
@@ -63,4 +63,4 @@ The first adopter is `plugins/lattice-workflows/hooks/log-skill-invocation`, reg
 
 ## Related
 
-- [[wiki/concepts/lattice-workflows-observability-gate]]
+- [[concepts/lattice-workflows-observability-gate]]

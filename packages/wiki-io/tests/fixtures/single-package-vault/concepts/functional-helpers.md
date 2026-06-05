@@ -27,5 +27,5 @@ tokens: 178
 
 ## Where it appears
 
-- [[wiki/packages/my-utils/api]] — `pipe`, `compose`, `partial_apply` function signatures
-- [[wiki/packages/my-utils/my-utils]] — package overview and file map
+- [[packages/my-utils/api]] — `pipe`, `compose`, `partial_apply` function signatures
+- [[packages/my-utils/my-utils]] — package overview and file map

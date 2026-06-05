@@ -23,7 +23,7 @@ tokens: 2778
 
 ## Purpose
 
-`lattice-source-parser` is a standalone Python library that uses `tree-sitter` and `tree-sitter-language-pack` to parse Python, JavaScript, and TypeScript source files into a span-bearing `SourceTree` — a lightweight intermediate representation composed of `SourceNode`, `Reference`, and `Span` dataclasses. A second-stage projection (`to_graph_records`) maps that tree onto `GraphNode` / `GraphEdge` / `GraphRecords` values aligned to the `lattice-graph` SQLite schema, producing `contains`, `calls`, `imports`, and `exports` edges ready for upsert. The package exists as a sibling library (not a plugin) so that any consumer — chunkers, indexers, RAG pipelines, evals, or future language-aware tools — can `pip install lattice-source-parser` and get tree-sitter-backed parsing without pulling in SQLite, MCP, or manifest-scanning logic. Those concerns live in [[wiki/packages/lattice-graph-core/lattice-graph-core]]. Three language parsers ship at v1: a custom hand-written walker for Python and config-driven `generic_walk` parsers for JavaScript and TypeScript. Cross-file edge resolution and git-diff incremental updates are explicitly out of scope.
+`lattice-source-parser` is a standalone Python library that uses `tree-sitter` and `tree-sitter-language-pack` to parse Python, JavaScript, and TypeScript source files into a span-bearing `SourceTree` — a lightweight intermediate representation composed of `SourceNode`, `Reference`, and `Span` dataclasses. A second-stage projection (`to_graph_records`) maps that tree onto `GraphNode` / `GraphEdge` / `GraphRecords` values aligned to the `lattice-graph` SQLite schema, producing `contains`, `calls`, `imports`, and `exports` edges ready for upsert. The package exists as a sibling library (not a plugin) so that any consumer — chunkers, indexers, RAG pipelines, evals, or future language-aware tools — can `pip install lattice-source-parser` and get tree-sitter-backed parsing without pulling in SQLite, MCP, or manifest-scanning logic. Those concerns live in [[packages/lattice-graph-core/lattice-graph-core]]. Three language parsers ship at v1: a custom hand-written walker for Python and config-driven `generic_walk` parsers for JavaScript and TypeScript. Cross-file edge resolution and git-diff incremental updates are explicitly out of scope.
 
 ## File map - lattice-source-parser
 
@@ -155,7 +155,7 @@ pytest test suite: fixture-parametrized parser tests, unit tests for each module
 
 ## Sub-pages
 
-- [[wiki/packages/lattice-source-parser/api]]      — public API, architecture diagram, parse pipeline
-- [[wiki/packages/lattice-source-parser/patterns]] — LanguageParser abstraction, two impl strategies, v1 scope, non-goals
-- [[wiki/packages/lattice-source-parser/work]]     — bugs, tech debt, features, open questions
-- [[wiki/packages/lattice-source-parser/context]]  — concepts, decisions, ADRs, sources
+- [[packages/lattice-source-parser/api]]      — public API, architecture diagram, parse pipeline
+- [[packages/lattice-source-parser/patterns]] — LanguageParser abstraction, two impl strategies, v1 scope, non-goals
+- [[packages/lattice-source-parser/work]]     — bugs, tech debt, features, open questions
+- [[packages/lattice-source-parser/context]]  — concepts, decisions, ADRs, sources

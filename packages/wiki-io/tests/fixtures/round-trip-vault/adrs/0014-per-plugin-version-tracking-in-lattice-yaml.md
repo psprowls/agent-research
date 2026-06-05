@@ -23,7 +23,7 @@ tokens: 1944
 
 A global "all plugins, all pending updates" surface (e.g. a `/lattice:status` command, or a SessionStart hook in `lattice-workflows` that scans every plugin) was considered but explicitly deferred — it requires per-plugin metadata to exist *first*. This ADR provides that metadata and the minimal API plugins need to surface their own staleness, leaving the orchestration layer for a follow-up.
 
-See [[wiki/sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] for the full design spec.
+See [[sources/2026-05-per-plugin-version-tracking-in-lattice-yaml]] for the full design spec.
 
 ## Decision
 
@@ -77,13 +77,13 @@ Adopt all of the following as a single coherent change to `lattice-workspace` (s
 
 ## Impact
 
-- [[wiki/packages/lattice-workspace/lattice-workspace]] — owns the manifest schema, `init`, `warn_if_stale`, `pending_updates`, and `PendingUpdate`.
-- [[wiki/packages/lattice-workspace/api]] — public surface fully updated to v0.3.0.
-- [[wiki/packages/lattice-workspace/patterns]] — manifest-schema example and dependency posture updated.
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]] — `_version_check.py` is the reference integration.
-- [[wiki/plugins/lattice-wiki/lattice-wiki]] — the first plugin to integrate `warn_if_stale` at command entry.
-- [[wiki/concepts/lattice-cross-plugin-contract]] — extended with the per-plugin version-tracking discipline.
-- [[wiki/concepts/explicit-not-magic-update-lifecycle]] — extended with the banner-not-auto-apply pattern at the per-plugin level.
+- [[packages/lattice-workspace/lattice-workspace]] — owns the manifest schema, `init`, `warn_if_stale`, `pending_updates`, and `PendingUpdate`.
+- [[packages/lattice-workspace/api]] — public surface fully updated to v0.3.0.
+- [[packages/lattice-workspace/patterns]] — manifest-schema example and dependency posture updated.
+- [[packages/lattice-wiki-core/lattice-wiki-core]] — `_version_check.py` is the reference integration.
+- [[plugins/lattice-wiki/lattice-wiki]] — the first plugin to integrate `warn_if_stale` at command entry.
+- [[concepts/lattice-cross-plugin-contract]] — extended with the per-plugin version-tracking discipline.
+- [[concepts/explicit-not-magic-update-lifecycle]] — extended with the banner-not-auto-apply pattern at the per-plugin level.
 
 ## Follow-ups
 
