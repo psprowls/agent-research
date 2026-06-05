@@ -1,28 +1,17 @@
-#!/usr/bin/env python3
 """
-update_index.py — Regenerate wiki/index.md from the frontmatter of every vault page.
+update_index.py — Regenerate category sub-indexes from vault page frontmatter.
 
 The index is content-oriented: a catalog organized by category, with one-line
 summaries read from each page's YAML frontmatter.
-
-Discovers wiki location from the resolved graph-wiki workspace.
-
-Usage:
-    python update_index.py
-    python update_index.py --dry-run
 """
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-
-from wiki_io._workspace import resolve_wiki_and_repo
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Categories rendered in the main index (navigation backbone only)
@@ -44,7 +33,7 @@ CATEGORY_ORDER = [
 
 # Category sub-index files inside the wiki; folder-scoped categories use <folder>/index.md.
 # `work` is intentionally absent — work items live at <workspace>/work/ (sibling of the wiki),
-# so its index is written outside the vault. See scan_work() / main().
+# so its index is written outside the vault. See scan_work() / update_index().
 CATEGORY_INDEX_FILES = {
     "concept": "concepts/index.md",
     "source": "sources/index.md",
@@ -316,99 +305,3 @@ def update_index(wiki: Path) -> None:
         )
         work_index_path.parent.mkdir(parents=True, exist_ok=True)
         work_index_path.write_text(work_index_content, encoding="utf-8")
-
-
-def main():
-    p = argparse.ArgumentParser(description="Regenerate wiki/index.md")
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--json", action="store_true")
-    args = p.parse_args()
-
-    try:
-        wiki, _ = resolve_wiki_and_repo()
-        pages = scan_vault(wiki)
-        # Work items live at <workspace>/work/, sibling of the wiki.
-        work_entries = scan_work(wiki.parent)
-        if work_entries:
-            pages["work"] = work_entries
-        vault = wiki
-    except SystemExit:
-        raise
-    except Exception as e:
-        if args.json:
-            print(json.dumps({"status": "error", "message": str(e)}))
-        else:
-            print(f"[error] {e}", file=sys.stderr)
-        sys.exit(1)
-
-    total = sum(len(v) for v in pages.values())
-    summary = {
-        "status": "ok",
-        "wiki": str(wiki),
-        "total_pages": total,
-        "by_category": {k: len(v) for k, v in pages.items()},
-        "dry_run": args.dry_run,
-    }
-
-    if args.dry_run:
-        if args.json:
-            print(json.dumps(summary, indent=2))
-        else:
-            # Phase 45 D-02: main index is owned by wiki_io.index_generator;
-            # only per-folder sub-index content is rendered by this module.
-            print(f"[dry-run] would write per-folder sub-indexes for {total} pages")
-        return
-
-    # Write category sub-indexes inside the wiki.
-    written_cat_indexes = []
-    for cat, fname in CATEGORY_INDEX_FILES.items():
-        entries = pages.get(cat, [])
-        if not entries:
-            continue
-        label = CATEGORY_LABELS.get(cat, cat.capitalize())
-        cat_content = render_category_index(entries, cat, label, vault.name)
-        cat_path = vault / fname
-        cat_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            cat_path.write_text(cat_content, encoding="utf-8")
-        except OSError as e:
-            if args.json:
-                print(json.dumps({"status": "error", "message": f"failed to write {cat_path}: {e}"}))
-            else:
-                print(f"[warn] failed to write {cat_path}: {e}", file=sys.stderr)
-        else:
-            written_cat_indexes.append(fname)
-            if not args.json:
-                print(f"[ok] wrote {cat_path} ({len(entries)} pages)")
-
-    # Write the work index at <workspace>/work/index.md (sibling of the wiki).
-    if work_entries:
-        work_index_path = wiki.parent / "work" / "index.md"
-        work_index_content = render_category_index(
-            work_entries, "work", CATEGORY_LABELS["work"], vault.name, location="work"
-        )
-        work_index_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            work_index_path.write_text(work_index_content, encoding="utf-8")
-        except OSError as e:
-            if args.json:
-                print(json.dumps({"status": "error", "message": f"failed to write {work_index_path}: {e}"}))
-            else:
-                print(f"[warn] failed to write {work_index_path}: {e}", file=sys.stderr)
-        else:
-            written_cat_indexes.append("work/index.md")
-            if not args.json:
-                print(f"[ok] wrote {work_index_path} ({len(work_entries)} pages)")
-
-    summary["category_indexes_written"] = written_cat_indexes
-    if args.json:
-        print(json.dumps(summary, indent=2))
-    else:
-        print(
-            f"[ok] wrote {len(written_cat_indexes)} sub-index file(s) "
-            f"({total} pages); main index is now owned by wiki_io.index_generator"
-        )
-
-
-if __name__ == "__main__":
-    main()

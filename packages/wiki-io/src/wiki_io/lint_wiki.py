@@ -411,7 +411,7 @@ def print_report(r):
     for p in r["missing_tokens"][:20]:
         print(f"   - {p}")
     if r["missing_tokens"]:
-        print("   Run: python -m wiki_io.update_tokens")
+        print("   Token stamping is library-only; use an allowed delivery surface that calls update_vault().")
     print()
 
     header("duplicate titles", len(r["duplicate_titles"]))
