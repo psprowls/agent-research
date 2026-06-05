@@ -236,3 +236,75 @@ def test_set_proposal_status_is_byte_stable(tmp_path: Path) -> None:
     first = path.read_bytes()
     set_proposal_status(wiki, "concept", "a", "approved")
     assert path.read_bytes() == first
+
+
+# ---------------------------------------------------------------------------
+# D8 — non-change guard tests (index + backlink exclusion)
+# ---------------------------------------------------------------------------
+
+
+def test_proposals_is_not_a_curated_index_lane() -> None:
+    """spec §3.8: proposals/ is a transient queue, not an index lane."""
+    from wiki_io.index_generator import CURATED_LANES
+    from wiki_io.init_vault import SECTION_INDEX_STUBS
+    from wiki_io.update_index import CATEGORY_INDEX_FILES
+
+    assert "proposals" not in {lane[0] for lane in CURATED_LANES}
+    assert "proposals" not in {lane[1] for lane in CURATED_LANES}
+    assert "proposals" not in SECTION_INDEX_STUBS
+    assert "proposals" not in {Path(v).parts[0] for v in CATEGORY_INDEX_FILES.values()}
+
+
+def test_proposals_is_not_a_backlink_source() -> None:
+    """spec §3.8: proposals/ is NOT in _PRESERVED_WIKI_DIRS (no backlinks)."""
+    from wiki_io.backlink_index import _PRESERVED_WIKI_DIRS
+
+    assert "proposals" not in _PRESERVED_WIKI_DIRS
+
+
+def test_proposal_note_generates_no_entity_backlink(tmp_path: Path) -> None:
+    """A proposals/ note linking [[entities/...]] must NOT backlink the entity."""
+    from wiki_io.backlink_index import regenerate_referenced_in_wiki
+    from wiki_io.proposals import upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    entities = wiki / "entities"
+    entities.mkdir(parents=True)
+    (entities / "pkg_x.md").write_text(
+        "---\nuri: pkg:o/r/pkg_x\nkind: package\n---\n\n# pkg_x\n\n"
+        "## Narrative\nProse.\n\n## Referenced in wiki\n_(scanner will populate)_\n",
+        encoding="utf-8",
+    )
+    # The proposal body carries an entities/ ref (M4-shaped origin).
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "adr",
+            "mode": "update_existing",
+            "target_slug": "0007-md",
+            "title": "MD",
+            "origin": {"ref": "entities/pkg_x", "source": "drift", "rationale": "r"},
+        },
+    )
+    regenerate_referenced_in_wiki(wiki)
+    text = (entities / "pkg_x.md").read_text(encoding="utf-8")
+    assert "_No wiki pages reference this entity yet._" in text
+    assert "[[adr-0007-md]]" not in text
+
+
+def test_update_index_ignores_proposals(tmp_path: Path) -> None:
+    """update_index writes no proposals sub-index and omits proposal slugs."""
+    from wiki_io.proposals import upsert_proposal
+    from wiki_io.update_index import update_index
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    upsert_proposal(tmp_path / "wiki", {  # writes wiki/proposals/concept-xyz.md
+        "kind": "concept", "mode": "create_new", "target_slug": "xyz",
+        "title": "XYZ", "origin": _origin(),
+    })
+    update_index(wiki)
+    assert not (wiki / "proposals" / "index.md").exists()
+    # No category sub-index mentions the proposal slug.
+    for sub in wiki.rglob("index.md"):
+        assert "concept-xyz" not in sub.read_text(encoding="utf-8")
