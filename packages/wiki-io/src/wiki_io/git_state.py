@@ -36,6 +36,19 @@ def head_commit(repo: Path) -> str | None:
     return sha or None
 
 
+def short_commit(repo: Path, sha: str) -> str:
+    """Abbreviate a SHA to git's canonical short form (adaptive length).
+
+    Returns the input unchanged on any git failure — a full SHA is still
+    git-resolvable, so callers never break. Mirrors the other _run-based
+    helpers in this module.
+    """
+    out = _run(repo, "rev-parse", "--short", sha)
+    if out is None or out[0] != 0 or not out[1].strip():
+        return sha
+    return out[1].strip()
+
+
 def is_clean_main(repo: Path) -> tuple[bool, str]:
     """Return (True, "") iff working tree is clean AND HEAD is on `main`.
 
