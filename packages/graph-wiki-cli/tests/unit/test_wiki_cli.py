@@ -75,3 +75,45 @@ def test_ack_drift_cli_unknown_entity_exits_nonzero() -> None:
 
     assert result.exit_code == 1
     assert "no entity page found" in result.output
+
+
+def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
+    """Text-mode CLI prints loud warnings (stderr) when frontmatter didn't
+    parse and when wikilinks were stripped. Click 8.3 captures stderr
+    separately from stdout."""
+    from unittest.mock import AsyncMock
+
+    from graph_wiki_core.commands.ingest import IngestResult
+
+    from graph_wiki_cli.wiki_cli.main import wiki_app
+
+    src = tmp_path / "doc.md"
+    src.write_text("# Doc\n\nBody.", encoding="utf-8")
+
+    fake_result = IngestResult(
+        status="ok",
+        page_path="sources/doc.md",
+        slug="doc",
+        title="Doc",
+        page_type="source",
+        source_path=str(src),
+        cross_refs_updated=1,
+        source_kind="unknown",
+        stripped_wikilinks=["Made Up Person", "fake/page"],
+        frontmatter_parsed=False,
+    )
+
+    with patch(
+        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        new_callable=AsyncMock,
+        return_value=fake_result,
+    ):
+        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+
+    assert result.exit_code == 0
+    # stdout carries the ok line + the descriptive source_kind
+    assert "source_kind: unknown" in result.stdout
+    # warnings go to stderr (err=True)
+    assert "frontmatter did not parse" in result.stderr
+    assert "stripped 2 unresolved wikilink(s)" in result.stderr
+    assert "Made Up Person" in result.stderr

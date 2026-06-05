@@ -214,7 +214,19 @@ def ingest_source(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"[ok] Ingested: {result.page_path}")
-        typer.echo(f"     page_type: {result.page_type}, slug: {result.slug}")
+        typer.echo(f"     source_kind: {result.source_kind}, slug: {result.slug}")
+        if not result.frontmatter_parsed:
+            typer.echo(
+                "⚠ frontmatter did not parse — wrote Source page with "
+                "source_kind: unknown",
+                err=True,
+            )
+        if result.stripped_wikilinks:
+            typer.echo(
+                f"⚠ stripped {len(result.stripped_wikilinks)} unresolved "
+                f"wikilink(s): {result.stripped_wikilinks}",
+                err=True,
+            )
 
 
 @ingest_app.command(name="work-item")
