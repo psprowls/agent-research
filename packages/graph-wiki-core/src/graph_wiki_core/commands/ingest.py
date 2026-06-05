@@ -560,11 +560,11 @@ def build_ingest_source_prompt(
         f"Source type: {source_type}\n"
         f"\nVault top-level categories:\n{vault_summary}\n"
         f"\n--- Source content ---\n{preview}\n--- End source ---\n"
-        f"\nWrite a vault wiki page for this source. "
-        f"Choose the most appropriate page_type (source, concept, or adr) "
-        f"and a target_slug based on the content. To associate this source with "
-        f"a code entity, reference it with a [[entities/...]] wikilink in the "
-        f"body — do not create a package page."
+        f"\nWrite a Source page for this document. It will be filed under "
+        f"sources/. Provide a target_slug based on the content, and optionally a "
+        f"descriptive source_kind. To associate this source with a code entity, "
+        f"reference it with a [[entities/...]] wikilink in the body — do not "
+        f"create a package page."
     )
 
 
