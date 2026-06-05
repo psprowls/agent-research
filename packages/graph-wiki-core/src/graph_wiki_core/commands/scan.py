@@ -65,7 +65,7 @@ from wiki_io.scan_monorepo import (
     compute_state_gate,
 )
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
-from wiki_io.git_state import changed_files_since
+from wiki_io.git_state import changed_files_since, short_commit
 from wiki_io.update_index import update_index
 from workspace_io.paths import graph_dir
 
@@ -911,6 +911,10 @@ async def run_scan(
         # Step 8: compute state gate
         state_gate = compute_state_gate(repo)
         head = state_gate.get("head_commit")
+        # Item 1: abbreviate to git's canonical short form ONCE per scan (HEAD is
+        # the same for every page stamped this run). Falls back to the full SHA on
+        # any git failure, so stamping never breaks (full SHAs stay git-resolvable).
+        short_head = short_commit(repo, head) if head else head
 
         # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
         # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
@@ -1327,7 +1331,7 @@ async def run_scan(
                     if file_map_todo_paths(page_path):
                         continue
                     set_frontmatter_value(
-                        page_path, LAST_UPDATED_COMMIT_KEY, head
+                        page_path, LAST_UPDATED_COMMIT_KEY, short_head
                     )
                 except Exception as exc:  # noqa: BLE001 — non-fatal stamp
                     logger.warning(

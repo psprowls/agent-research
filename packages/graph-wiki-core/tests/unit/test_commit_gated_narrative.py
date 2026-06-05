@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import subprocess
 import types
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -439,3 +440,88 @@ def test_commit_dirty_includes_test_suite(tmp_path, monkeypatch) -> None:
         wiki, tmp_path / "repo", object(), "head_sha", frozenset()
     )
     assert dirty == {uri: ["packages/pkg-a/tests/test_mod.py"]}
+
+
+# ---------------------------------------------------------------------------
+# Item 1: stamped last_updated_commit is git's canonical short form
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def m2a_workspace_gitrepo(tmp_path, monkeypatch):
+    """Like m2a_workspace, but `repo` is a REAL one-commit git checkout so
+    short_commit(repo, full_sha) actually abbreviates (instead of falling back).
+    Yields (workspace, full_head_sha)."""
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    (wiki / ".graph-wiki").mkdir(parents=True)
+    (wiki / "CLAUDE.md").write_text("# Wiki\n")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    # Real git repo with one commit (so `git rev-parse --short <full>` resolves).
+    (repo / "packages" / "pkg-a").mkdir(parents=True)
+    (repo / "packages" / "pkg-a" / "pyproject.toml").write_text(
+        "[project]\n", encoding="utf-8"
+    )
+    for args in (
+        ["init"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"],
+    ):
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    full = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True
+    ).stdout.strip()
+
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    _seed_one_package(workspace / ".graph-wiki" / "code.db")
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
+    )
+    monkeypatch.setattr(
+        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
+    )
+    monkeypatch.setattr(
+        scan_mod,
+        "build_file_map",
+        lambda path, **kw: (
+            "## File map - pkg-a\nTODO\n\n### pkg-a/\nTODO\n\n"
+            "| Path | Kind | Description |\n|---|---|---|\n"
+            "| `pyproject.toml` | file | — TODO |\n"
+            if str(path).endswith("pkg-a")
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo: {"allowed": True, "reason": "clean", "head_commit": full},
+    )
+    return workspace, full
+
+
+def test_stamped_commit_is_short_form(m2a_workspace_gitrepo, monkeypatch) -> None:
+    """A narrated page's last_updated_commit is stamped as git's short SHA
+    (abbreviated, a strict prefix of HEAD, and still git-resolvable)."""
+    workspace, full = m2a_workspace_gitrepo
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+    )
+
+    asyncio.run(
+        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
+    )
+
+    stamped = str(_fm.load(_page_for(wiki)).metadata.get("last_updated_commit"))
+    assert stamped != full           # abbreviated, not the full 40-char SHA
+    assert len(stamped) < 40
+    assert full.startswith(stamped)  # git's canonical prefix
+    resolved = subprocess.run(
+        ["git", "rev-parse", stamped], cwd=repo, capture_output=True, text=True
+    ).stdout.strip()
+    assert resolved == full          # short form still resolves to HEAD
