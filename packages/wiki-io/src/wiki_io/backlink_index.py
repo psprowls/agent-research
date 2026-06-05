@@ -97,6 +97,31 @@ def _format_bullet(category: str, slug: str, post) -> str:
     return f"- [[{category}/{slug}]] — {title}{suffix}"
 
 
+def build_entity_backlink_map(wiki: Path) -> dict[str, list[tuple[str, str, Path]]]:
+    """entity_stem -> [(category, slug, page_path)] for every [[entities/<stem>]]
+    wikilink across the preserved wiki dirs.
+
+    The inverse map ``regenerate_referenced_in_wiki`` builds internally, exposed
+    as a value. A malformed referencing page is skipped (never fatal). Each
+    referencing page contributes a given entity at most once (de-duped per page).
+    """
+    refs: dict[str, list[tuple[str, str, Path]]] = {}
+    for category, page_path in _iter_preserved_pages(wiki):
+        try:
+            post = frontmatter.load(page_path)
+        except Exception:  # noqa: BLE001 — a malformed page must not abort the map
+            continue
+        slug = page_path.stem
+        seen_here: set[str] = set()
+        for m in _ENTITY_LINK_RE.finditer(post.content):
+            stem = m.group(1).strip().removesuffix(".md")
+            if stem in seen_here:
+                continue
+            seen_here.add(stem)
+            refs.setdefault(stem, []).append((category, slug, page_path))
+    return refs
+
+
 def regenerate_referenced_in_wiki(wiki: Path) -> list[str]:
     """Rebuild `## Referenced in wiki` on every entity page from the
     `[[entities/<stem>]]` wikilinks found across preserved pages.
@@ -110,21 +135,7 @@ def regenerate_referenced_in_wiki(wiki: Path) -> list[str]:
     if not entities_dir.is_dir():
         return []
 
-    # stem -> list[(category, slug, post)] of referencing pages.
-    refs: dict[str, list[tuple[str, str, object]]] = {}
-    for category, page_path in _iter_preserved_pages(wiki):
-        try:
-            post = frontmatter.load(page_path)
-        except Exception:  # noqa: BLE001 — a malformed page must not abort regen
-            continue
-        slug = page_path.stem
-        seen_here: set[str] = set()
-        for m in _ENTITY_LINK_RE.finditer(post.content):
-            stem = m.group(1).strip().removesuffix(".md")
-            if stem in seen_here:
-                continue
-            seen_here.add(stem)
-            refs.setdefault(stem, []).append((category, slug, post))
+    refs = build_entity_backlink_map(wiki)
 
     updated: list[str] = []
     for page_path in sorted(entities_dir.glob("*.md")):
@@ -133,7 +144,8 @@ def regenerate_referenced_in_wiki(wiki: Path) -> list[str]:
         if entries:
             entries_sorted = sorted(entries, key=lambda e: (e[0], e[1]))
             body = "\n".join(
-                _format_bullet(cat, slug, post) for cat, slug, post in entries_sorted
+                _format_bullet(cat, slug, frontmatter.load(pp))
+                for cat, slug, pp in entries_sorted
             )
         else:
             body = _EMPTY_BODY

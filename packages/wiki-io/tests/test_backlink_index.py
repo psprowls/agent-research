@@ -114,6 +114,36 @@ def test_regenerate_empty_when_no_references(tmp_path: Path) -> None:
     assert "Human-authored text that must survive." in text
 
 
+def test_build_entity_backlink_map_returns_category_slug_path(tmp_path):
+    """[M4 §3.2] The extracted helper exposes the inverse map as a value:
+    stem -> [(category, slug, page_path)] for [[entities/<stem>]] links across
+    the preserved dirs."""
+    from wiki_io.backlink_index import build_entity_backlink_map
+
+    wiki = tmp_path / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "concepts").mkdir()
+    (wiki / "sources").mkdir()
+    (wiki / "entities" / "pkg_a.md").write_text("---\nuri: x\n---\n", encoding="utf-8")
+    (wiki / "concepts" / "async-fanout.md").write_text(
+        "---\ntitle: Async fan-out\n---\nSee [[entities/pkg_a]] for detail.\n",
+        encoding="utf-8",
+    )
+    (wiki / "sources" / "spec-1.md").write_text(
+        "---\ntitle: Spec 1\n---\nAlso [[entities/pkg_a]].\n", encoding="utf-8"
+    )
+
+    mapping = build_entity_backlink_map(wiki)
+
+    assert set(mapping.keys()) == {"pkg_a"}
+    entries = sorted(mapping["pkg_a"], key=lambda e: (e[0], e[1]))
+    assert entries[0][0] == "concepts" and entries[0][1] == "async-fanout"
+    assert entries[1][0] == "sources" and entries[1][1] == "spec-1"
+    # Third element is the page Path, not a frontmatter Post.
+    assert entries[0][2] == wiki / "concepts" / "async-fanout.md"
+    assert all(isinstance(e[2], Path) for e in entries)
+
+
 def test_regenerate_preserves_other_h2s(tmp_path: Path) -> None:
     """Scanner-owned: only ## Referenced in wiki is rewritten."""
     from wiki_io.backlink_index import regenerate_referenced_in_wiki
