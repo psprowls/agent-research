@@ -9,6 +9,7 @@ dependencies = [
     "wiki-io",
     "subagent-runtime",
     "typer>=0.25.1",
+    "click>=8.0",
 ]
 
 [project.scripts]

@@ -8,7 +8,7 @@ Install command
 
 ```bash
   cd /Users/pat/Personal/agent-research
-  uv tool install --force --editable ./packages/graph-wiki-cli --with click
+  uv tool install --force --editable ./packages/graph-wiki-cli
 ```
 
   That's it. gw now lives at ~/.local/bin/gw (already on your PATH) and you can run it from any directory:
@@ -36,10 +36,7 @@ Install command
   - --editable — installs the CLI pointing at your repo source (packages/graph-wiki-cli/src/...). Code edits to gw take effect immediately, no
   reinstall. uv automatically resolved all seven local workspace members (graph-wiki-core, graph-io, wiki-io, workspace-io, model-adapter,
   subagent-runtime, source-parser) from local paths — none are on PyPI.
-  - --with click — required workaround. uv tool install ignores uv.lock and resolves fresh, so it pulled typer 0.26.5; click didn't get installed
-  into the isolated tool env, and cli.py imports click directly. Without this flag gw crashes with ModuleNotFoundError: No module named 'click'.
-  - --force — only needed because my first attempt (without --with click) already created the tool; it overwrites it. On a clean machine you can
-  drop --force.
+  - --force — only needed if the tool was already installed; it overwrites it. On a clean machine you can drop --force.
 
 ### Two real caveats
 

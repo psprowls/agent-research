@@ -775,6 +775,7 @@ name = "graph-wiki-cli"
 version = "0.1.1"
 source = { editable = "packages/graph-wiki-cli" }
 dependencies = [
+    { name = "click" },
     { name = "graph-io" },
     { name = "graph-wiki-core" },
     { name = "subagent-runtime" },
@@ -784,6 +785,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.0" },
     { name = "graph-io", editable = "packages/graph-io" },
     { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
