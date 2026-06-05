@@ -26,6 +26,15 @@ EDGE_CASE_VAULT = (
 )
 
 
+def _workspace_for(tmp_path: Path, vault: Path) -> Path:
+    """Return a workspace dir whose `wiki/` is a symlink to `vault`, so
+    resolve_wiki_and_repo(workspace) lands the walk on the fixture content."""
+    link = tmp_path / "wiki"
+    if not link.exists():
+        link.symlink_to(vault, target_is_directory=True)
+    return tmp_path
+
+
 @pytest.fixture
 def no_semantic_pool():
     """Context manager that patches SubagentPool to return empty semantic findings."""
@@ -44,11 +53,11 @@ def no_semantic_pool():
 
 
 @pytest.mark.asyncio
-async def test_lint_result_json_serializable(no_semantic_pool) -> None:
+async def test_lint_result_json_serializable(no_semantic_pool, tmp_path) -> None:
     """LintResult from edge-case-vault serializes via dataclasses.asdict + json.dumps."""
     from graph_wiki_core.commands.lint import run_lint
 
-    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     d = dataclasses.asdict(result)
     # Should not raise
@@ -68,11 +77,11 @@ async def test_lint_result_json_serializable(no_semantic_pool) -> None:
 
 
 @pytest.mark.asyncio
-async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool) -> None:
+async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool, tmp_path) -> None:
     """edge-case-vault has known broken links — result.broken_links is non-empty."""
     from graph_wiki_core.commands.lint import run_lint
 
-    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     assert isinstance(result.broken_links, list)
     # edge-case-vault/concepts/broken-wikilinks.md has 3 broken links
@@ -87,11 +96,11 @@ async def test_lint_edge_case_vault_has_broken_links(no_semantic_pool) -> None:
 
 
 @pytest.mark.asyncio
-async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool) -> None:
+async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool, tmp_path) -> None:
     """edge-case-vault has pages with incomplete frontmatter — result.missing_frontmatter non-empty."""
     from graph_wiki_core.commands.lint import run_lint
 
-    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     assert isinstance(result.missing_frontmatter, list)
     # edge-case-vault/concepts/missing-title.md lacks the required 'title' field
@@ -107,14 +116,14 @@ async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool) ->
 
 
 @pytest.mark.asyncio
-async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool) -> None:
+async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool, tmp_path) -> None:
     """No entries in broken_links match placeholder patterns ([[wiki/...]] or [[work/<slug>]]).
 
     This is phase success criterion 3 verified at the parity integration layer.
     """
     from graph_wiki_core.commands.lint import run_lint
 
-    result = await run_lint(workspace_path=EDGE_CASE_VAULT)
+    result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     for src, target in result.broken_links:
         assert "..." not in target, (

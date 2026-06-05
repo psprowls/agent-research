@@ -24,6 +24,15 @@ EDGE_CASE_VAULT = (
 )
 
 
+def _workspace_for(tmp_path: Path, vault: Path) -> Path:
+    """Return a workspace dir whose `wiki/` is a symlink to `vault`, so
+    resolve_wiki_and_repo(workspace) lands the walk on the fixture content."""
+    link = tmp_path / "wiki"
+    if not link.exists():
+        link.symlink_to(vault, target_is_directory=True)
+    return tmp_path
+
+
 # ---------------------------------------------------------------------------
 # Test 1: LintResult dataclass shape
 # ---------------------------------------------------------------------------
@@ -62,7 +71,7 @@ def test_lint_result_dataclass_shape() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_lint_mechanical_finds_orphans_in_fixture() -> None:
+async def test_run_lint_mechanical_finds_orphans_in_fixture(tmp_path) -> None:
     """run_lint against edge-case-vault: result.orphans is a list."""
     from graph_wiki_core.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
@@ -73,7 +82,7 @@ async def test_run_lint_mechanical_finds_orphans_in_fixture() -> None:
         mock_pool.run_all = AsyncMock(
             return_value=FanOutResult(successes=[], errors=[])
         )
-        result = await run_lint(workspace_path=EDGE_CASE_VAULT)
+        result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     assert isinstance(result.orphans, list)
     assert isinstance(result.total_pages, int)
@@ -117,7 +126,8 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
         mock_pool.run_all = AsyncMock(
             return_value=FanOutResult(successes=[], errors=[])
         )
-        result = await run_lint(workspace_path=wiki)
+        # resolve_wiki_and_repo appends /wiki, so pass the parent.
+        result = await run_lint(workspace_path=tmp_path)
 
     broken_targets = [t for _, t in result.broken_links]
     # Placeholder targets (... or < or >) must NOT appear in broken_links
@@ -390,3 +400,63 @@ def test_lint_result_has_open_proposals_field() -> None:
 
     fields = {f.name for f in dataclasses.fields(LintResult)}
     assert "open_proposals" in fields
+
+
+@pytest.mark.asyncio
+async def test_run_lint_wiki_rooted_links_not_broken(tmp_path) -> None:
+    """[[entities/x]] / [[concepts/y]] / [[work/z]] resolve against the wiki
+    root → result.broken_links is empty."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    wiki = tmp_path / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "work").mkdir(parents=True)
+    (wiki / "entities" / "x.md").write_text(
+        "---\ntitle: X\ncategory: entity\nsummary: s\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "y.md").write_text(
+        "---\ntitle: Y\ncategory: concept\nsummary: s\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "work" / "z.md").write_text(
+        "---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "hub.md").write_text(
+        "---\ntitle: Hub\ncategory: concept\nsummary: s\n---\n\n"
+        "[[entities/x]] [[concepts/y]] [[work/z]]\n",
+        encoding="utf-8",
+    )
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        # workspace_path=tmp_path → resolve appends /wiki → wiki dir above.
+        result = await run_lint(workspace_path=tmp_path)
+
+    assert result.broken_links == [], result.broken_links
+
+
+@pytest.mark.asyncio
+async def test_run_lint_all_vault_categories_linted(tmp_path) -> None:
+    """A malformed page in every real top-level vault dir is flagged for
+    missing frontmatter (every category is linted after the rebase)."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    wiki = tmp_path / "wiki"
+    tops = ["concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"]
+    for top in tops:
+        (wiki / top).mkdir(parents=True)
+        (wiki / top / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=tmp_path)
+
+    mf = set(result.missing_frontmatter)
+    for top in tops:
+        assert f"{top}/bad" in mf, f"{top}/bad not flagged (not linted): {mf}"

@@ -54,12 +54,10 @@ from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 logger = logging.getLogger(__name__)
 
-# Tops that get full lint treatment (orphans, stale, missing-fm checks).
-# Adapted from lint_wiki.py (line 59) — diverges from upstream {"wiki", "work"}:
-# upstream's vault top-level is "wiki" which contains all category dirs, but in
-# the new architecture the wiki root IS the vault path, so LINTED_TOPS covers
-# the category dirs directly: concepts, packages, apps, domains, adrs, work.
-LINTED_TOPS = {"wiki", "work", "concepts", "packages", "apps", "domains", "adrs"}
+# Every real top-level vault dir under the wiki root. The mechanical pass walks
+# from the wiki (not the workspace), so a page's top path-part is its category
+# dir; LINTED_TOPS must enumerate them all to keep the same pages linted.
+LINTED_TOPS = {"concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"}
 
 # Sentinel used by upstream for skipped dict checks; preserved for serialization compat
 _SKIPPED: dict = {"skipped": True}
@@ -116,13 +114,12 @@ class LintResult:
 
 def _mechanical_pass(
     wiki: Path,
-    workspace: Path,
     stale_days: int,
     log_gap_days: int,
 ) -> dict:
     """Port of lint_wiki.py:scan() mechanical section.
 
-    Walks the workspace tree, builds a link graph, detects orphans/broken links/
+    Walks the wiki tree, builds a link graph, detects orphans/broken links/
     stale pages/missing frontmatter/duplicate titles/log gaps.
 
     Returns a dict with all mechanical fields matching LintResult field names.
@@ -134,14 +131,8 @@ def _mechanical_pass(
     inbound: dict[str, set] = defaultdict(set)
     outbound: dict[str, set] = defaultdict(set)
 
-    # Build effective linted tops: the wiki directory name (usually "wiki") + "work",
-    # plus the wiki directory name for any vault that uses a different name (e.g. fixtures).
-    # This matches lint_wiki.py behavior where LINTED_TOPS = {"wiki", "work"} and the
-    # vault is always named "wiki".
-    effective_linted_tops = LINTED_TOPS | {wiki.name}
-
-    for md in workspace.rglob("*.md"):
-        rel = md.relative_to(workspace)
+    for md in wiki.rglob("*.md"):
+        rel = md.relative_to(wiki)
         # Exclude any path that has a dotdir component (.graph/, .obsidian/, etc.)
         if any(part.startswith(".") for part in rel.parts):
             continue
@@ -163,7 +154,7 @@ def _mechanical_pass(
             "path": key + ".md",
             "fm": fm,
             "text": text,
-            "linted": top in effective_linted_tops,
+            "linted": top in LINTED_TOPS,
             "is_work": top == "work",
         }
 
@@ -200,8 +191,8 @@ def _mechanical_pass(
     # Parse outbound links from index.md files so that:
     # (a) pages only linked from an index are not flagged as orphans, and
     # (b) broken links inside index.md files are reported.
-    for md in workspace.rglob("*.md"):
-        rel = md.relative_to(workspace)
+    for md in wiki.rglob("*.md"):
+        rel = md.relative_to(wiki)
         if rel.name != "index.md":
             continue
         if any(part.startswith(".") for part in rel.parts):
@@ -523,7 +514,7 @@ async def run_lint(
     workspace = wiki.parent
 
     # Step 2: mechanical inline pass
-    mech = _mechanical_pass(wiki, workspace, stale_days, log_gap_days)
+    mech = _mechanical_pass(wiki, stale_days, log_gap_days)
     pages = mech["pages"]
 
     # Step 3: module checks
