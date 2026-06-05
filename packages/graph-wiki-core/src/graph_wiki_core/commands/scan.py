@@ -67,7 +67,8 @@ from wiki_io.scan_monorepo import (
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
 from wiki_io.git_state import changed_files_since
 from wiki_io.update_index import update_index
-from workspace_io.paths import graph_dir
+from workspace_io import manifest as _manifest
+from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.prompts.drift_judge import (
@@ -1350,7 +1351,10 @@ async def run_scan(
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
         if conn is not None:
             # generate_index is read-only on the graph; raises on failure (Phase 44 D-19).
-            index_result = generate_index(conn, wiki)
+            # Title the index with the wiki's human topic (manifest `topic`),
+            # falling back to the wiki dir name for pre-topic workspaces.
+            display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
+            index_result = generate_index(conn, wiki, display_name)
             append_log(
                 wiki,
                 "scan",

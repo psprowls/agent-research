@@ -28,8 +28,13 @@ def init(
     plugin: str,
     version: str,
     workspace: Path | None = None,
+    topic: str | None = None,
 ) -> None:
-    """Create the workspace and `.graph-wiki.yaml` if absent. Append/update plugin entry. Idempotent."""
+    """Create the workspace and `.graph-wiki.yaml` if absent. Append/update plugin entry. Idempotent.
+
+    `topic` is the wiki display name. When provided it is recorded in the
+    manifest (first writer wins — a later init without a topic preserves it).
+    """
     repo_root = Path(repo_root).resolve()
     if workspace is None:
         workspace = resolve_workspace(repo_root=repo_root)
@@ -65,6 +70,10 @@ def init(
         )
         entry["installed_version"] = version
         entry["applied_version"] = version
+
+    if topic and data.get("topic") != topic:
+        data["topic"] = topic
+        changed = True
 
     if changed or not mpath.exists():
         manifest.write(mpath, data)

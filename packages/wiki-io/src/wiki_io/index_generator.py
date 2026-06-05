@@ -793,9 +793,12 @@ def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
 
 
 def _render(
-    conn: sqlite3.Connection, wiki_root: Path
+    conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None
 ) -> tuple[str, int, int, int, int]:
     """Render the full index.
+
+    `display_name` titles the index (the wiki's human topic). Falls back to the
+    wiki directory name when not supplied.
 
     Returns (text, entity_count, curated_count, domain_count, by_kind_count).
     """
@@ -826,7 +829,7 @@ def _render(
 
     today = datetime.date.today().isoformat()
     lines: list[str] = [
-        f"# Index — {wiki_root.name}",
+        f"# Index — {display_name or wiki_root.name}",
         "",
         f"_Auto-generated {today} • {entity_count} entities • "
         f"{curated_count} curated pages_",
@@ -857,16 +860,19 @@ def _render(
 
 
 def generate_index(
-    conn: sqlite3.Connection, wiki_root: Path
+    conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None
 ) -> IndexWriteResult:
     """Render `wiki/index.md` and write-if-changed. Atomic on POSIX.
+
+    `display_name` titles the index (the wiki's human topic); falls back to the
+    wiki directory name when not supplied.
 
     D-16: byte-compare against the existing file; only `os.replace` when
     bytes differ. D-19: all-or-nothing — exceptions in render/place
     propagate out untouched.
     """
     text, entity_count, curated_count, domain_count, by_kind_count = _render(
-        conn, wiki_root
+        conn, wiki_root, display_name
     )
     path = wiki_root / "index.md"
     new_bytes = text.encode("utf-8")
