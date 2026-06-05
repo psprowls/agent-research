@@ -260,3 +260,73 @@ def set_suggested_pages_in_frontmatter(text: str, entries: list[dict]) -> str:
         new_block = f"{cleaned}\n{dumped}" if cleaned else dumped
 
     return f"{lead}---\n{new_block}{rest}"
+
+
+_SECTION_HEADING = "## Suggested pages"
+_SECTION_NOTE = (
+    "_Generated from the `suggested_pages` frontmatter. To approve, edit `status` "
+    "there (proposed -> approved/rejected), not in this section — it is "
+    "regenerated on every ingest._"
+)
+
+
+def render_suggested_pages_section(entries: list[dict]) -> str:
+    """Render the `## Suggested pages` body section, or '' when there are none."""
+    if not entries:
+        return ""
+    lines = [_SECTION_HEADING, "", _SECTION_NOTE, ""]
+    for e in entries:
+        kind = e.get("kind", "")
+        if e.get("mode") == "update_existing" and e.get("existing_slug"):
+            verb = "update"
+            target = f"existing `{e['existing_slug']}`"
+        else:
+            verb = "create new"
+            target = f"`{e.get('slug', '')}`"
+        status = e.get("status", "proposed")
+        title = e.get("title") or e.get("slug", "")
+        lines.append(f"- **{kind} · {verb}** — {title} — {target} · _{status}_")
+        rationale = (e.get("rationale") or "").strip()
+        if rationale:
+            lines.append(f"  {rationale}")
+    return "\n".join(lines)
+
+
+def set_suggested_pages_section_in_body(text: str, section: str) -> str:
+    """Replace / append / remove the `## Suggested pages` H2 region.
+
+    - Existing section present: replace from its heading to the next `## ` (or EOF).
+    - Absent: append `section` at the end.
+    - `section == ''`: remove the existing section (no-op if absent).
+    Output ends with exactly one trailing newline.
+    """
+    lines = text.split("\n")
+    start = next((i for i, ln in enumerate(lines) if ln.strip() == _SECTION_HEADING), None)
+
+    if start is not None:
+        end = len(lines)
+        for j in range(start + 1, len(lines)):
+            if lines[j].startswith("## "):
+                end = j
+                break
+        before = lines[:start]
+        after = lines[end:]
+        while before and before[-1].strip() == "":
+            before.pop()
+        while after and after[0].strip() == "":
+            after.pop(0)
+        pieces: list[str] = before[:]
+        if section:
+            if pieces:
+                pieces.append("")
+            pieces.extend(section.split("\n"))
+        if after:
+            if pieces:
+                pieces.append("")
+            pieces.extend(after)
+        return "\n".join(pieces).rstrip("\n") + "\n"
+
+    if not section:
+        return text
+    base = text.rstrip("\n")
+    return f"{base}\n\n{section}\n" if base else f"{section}\n"

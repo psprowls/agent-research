@@ -273,3 +273,107 @@ def test_read_suggested_pages_no_frontmatter_returns_empty():
 
     assert read_suggested_pages("no frontmatter here") == []
     assert read_suggested_pages("---\nsource_kind: source\n---\nBody") == []
+
+
+def test_render_section_empty_when_no_entries():
+    from graph_wiki_core.commands.suggest_pages import render_suggested_pages_section
+
+    assert render_suggested_pages_section([]) == ""
+
+
+def test_render_section_lists_entries_with_status_and_rationale():
+    from graph_wiki_core.commands.suggest_pages import render_suggested_pages_section
+
+    entries = [
+        {"kind": "concept", "title": "Sec Ownership", "slug": "sec-ownership",
+         "mode": "create_new", "existing_slug": None, "rationale": "a split", "status": "proposed"},
+        {"kind": "adr", "title": "MD", "slug": "md", "mode": "update_existing",
+         "existing_slug": "0007-md", "rationale": "revisits", "status": "approved"},
+    ]
+    section = render_suggested_pages_section(entries)
+    assert section.startswith("## Suggested pages")
+    assert "edit `status`" in section  # the "approve in frontmatter" note
+    assert "**concept · create new**" in section
+    assert "sec-ownership" in section
+    assert "_proposed_" in section
+    assert "**adr · update**" in section
+    assert "0007-md" in section
+    assert "_approved_" in section
+    assert "a split" in section
+
+
+def test_set_section_appends_when_absent():
+    from graph_wiki_core.commands.suggest_pages import (
+        render_suggested_pages_section,
+        set_suggested_pages_section_in_body,
+    )
+
+    body = "---\nsource_kind: source\n---\n\nIntro paragraph.\n"
+    section = render_suggested_pages_section(
+        [{"kind": "concept", "title": "T", "slug": "t", "mode": "create_new",
+          "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    )
+    out = set_suggested_pages_section_in_body(body, section)
+    assert "Intro paragraph." in out
+    assert out.count("## Suggested pages") == 1
+    assert out.rstrip().endswith("_proposed_") or "_proposed_" in out
+
+
+def test_set_section_replaces_existing_and_is_idempotent():
+    from graph_wiki_core.commands.suggest_pages import (
+        render_suggested_pages_section,
+        set_suggested_pages_section_in_body,
+    )
+
+    section1 = render_suggested_pages_section(
+        [{"kind": "concept", "title": "One", "slug": "one", "mode": "create_new",
+          "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    )
+    base = "Intro.\n"
+    once = set_suggested_pages_section_in_body(base, section1)
+    twice = set_suggested_pages_section_in_body(once, section1)
+    assert once == twice
+    assert once.count("## Suggested pages") == 1
+
+    section2 = render_suggested_pages_section(
+        [{"kind": "adr", "title": "Two", "slug": "two", "mode": "create_new",
+          "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    )
+    replaced = set_suggested_pages_section_in_body(once, section2)
+    assert replaced.count("## Suggested pages") == 1
+    assert "Two" in replaced
+    assert "One" not in replaced
+
+
+def test_set_section_removes_when_empty_section():
+    from graph_wiki_core.commands.suggest_pages import (
+        render_suggested_pages_section,
+        set_suggested_pages_section_in_body,
+    )
+
+    section1 = render_suggested_pages_section(
+        [{"kind": "concept", "title": "One", "slug": "one", "mode": "create_new",
+          "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    )
+    body = set_suggested_pages_section_in_body("Intro.\n", section1)
+    cleared = set_suggested_pages_section_in_body(body, "")
+    assert "## Suggested pages" not in cleared
+    assert "Intro." in cleared
+
+
+def test_set_section_preserves_trailing_h2():
+    from graph_wiki_core.commands.suggest_pages import (
+        render_suggested_pages_section,
+        set_suggested_pages_section_in_body,
+    )
+
+    body = "Intro.\n\n## Suggested pages\n\nold content\n\n## Touches\n\n[[entities/pkg_x]]\n"
+    section = render_suggested_pages_section(
+        [{"kind": "concept", "title": "T", "slug": "t", "mode": "create_new",
+          "existing_slug": None, "rationale": "r", "status": "proposed"}]
+    )
+    out = set_suggested_pages_section_in_body(body, section)
+    assert "## Touches" in out          # following H2 survives
+    assert "[[entities/pkg_x]]" in out
+    assert "old content" not in out     # old section body replaced
+    assert out.count("## Suggested pages") == 1
