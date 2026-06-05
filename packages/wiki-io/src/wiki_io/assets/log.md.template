@@ -9,6 +9,6 @@
 
 ## [{{DATE}}] note | Wiki initialized
 Topic: **{{TOPIC}}**. Repo: **{{REPO_PATH}}**.
-Wiki created at `<workspace>/wiki/` with subdirs `entities/`, `concepts/`, `sources/`, `architecture/`, `adrs/`, `.templates/`. `raw/` and `work/` live at the workspace level (owned by `graph-wiki workspace`).
+Wiki created at `<workspace>/wiki/` with subdirs `entities/`, `concepts/`, `sources/`, `architecture/`, `adrs/`, `work/`, `.templates/`. `raw/` is a workspace sibling (owned by `graph-wiki workspace`); `work/` lives under the wiki.
 Schema loader: `CLAUDE.md` + `AGENTS.md` + `.cursorrules`.
-Next: run `/graph-wiki:scan` to populate `packages/`.
+Next: run `/graph-wiki:scan` to populate `entities/`.

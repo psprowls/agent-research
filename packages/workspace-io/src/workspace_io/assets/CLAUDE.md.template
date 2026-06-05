@@ -3,13 +3,13 @@
 > **Workspace path:** `{{WORKSPACE_PATH}}`
 > **Initialized:** `{{INITIALIZED_AT}}`
 
-This is a graph-wiki workspace — a per-repo container for plugin-managed knowledge. The Obsidian vault opens here, so the sidebar shows every workspace-level directory side by side.
+This is a graph-wiki workspace — a per-repo container for plugin-managed knowledge. The Obsidian vault opens at `wiki/` (the code wiki); `raw/` and the files below are siblings of that vault.
 
 ## Layout
 
-- `wiki/` — code wiki (curated package/domain/concept pages, ADRs, architecture syntheses). Owned by `graph-wiki-agent`. See [`wiki/CLAUDE.md`](wiki/CLAUDE.md) when present.
+- `wiki/` — the code wiki and Obsidian vault (entity pages under `entities/`, plus concepts, sources, ADRs, architecture, and the `work/` tracker). Owned by `graph-wiki-agent`. See [`wiki/CLAUDE.md`](wiki/CLAUDE.md) when present.
 - `raw/` — immutable ingested sources (specs, PRs, articles, transcripts). The LLM reads from here but never writes.
-- `work/` — unified bug / tech-debt / feature / initiative / spike tracker. Schema owned by `workspace-io`; lifecycle (lint, sidecar, archive, status) owned by `graph-wiki-agent`.
+- `wiki/work/` — unified bug / tech-debt / feature / initiative / spike tracker (under the wiki). Schema owned by `workspace-io`; lifecycle (lint, sidecar, archive, status) owned by `graph-wiki-agent`.
 - `knowledge/` — other plugin-managed knowledge stores.
 - `.graph-wiki.yaml` — workspace manifest. Lists registered plugins.
 - `.graph-wiki.local.yaml` — per-machine overrides (e.g. `graph-wiki-directory:` to relocate the workspace). Gitignored.
@@ -26,7 +26,7 @@ The block above is auto-rendered from `.graph-wiki.yaml` every time `workspace-i
 
 - Treat each plugin's own schema doc as authoritative for its directory. The pointers above lead to the canonical source.
 - The `raw/` directory is read-only from the LLM's perspective.
-- Cite work items from wiki pages as `[[../work/<slug>]]` (relative to a wiki page).
+- Cite work items from wiki pages as `[[work/<slug>]]` (work/ lives under the wiki, same base as every page).
 
 ## Log format
 

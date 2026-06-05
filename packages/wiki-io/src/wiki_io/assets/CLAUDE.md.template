@@ -9,50 +9,41 @@ You are the maintainer of this wiki. You read from `../raw/` (immutable ingested
 
 ## Where the wiki sits
 
-This wiki is a sibling of other workspace-level directories. Obsidian opens at the workspace root, so the sidebar shows them all together:
+Obsidian opens at the **wiki root** (`<workspace>/wiki/`) — this directory *is* the vault, and every `[[wikilink]]` resolves relative to it.
 
 ```
-<workspace>/                  → e.g. <repo>/graph-wiki/. Obsidian vault opens here.
+<workspace>/                  → e.g. <repo>/graph-wiki/.
 ├── .graph-wiki.yaml          → workspace manifest (owned by graph-wiki workspace)
 ├── CLAUDE.md                 → workspace-level schema (owned by graph-wiki workspace)
-├── raw/                      → ingested sources. IMMUTABLE. Owned by graph-wiki workspace.
-├── work/                     → unified bug / tech-debt / feature / initiative / spike tracker. Owned by graph-wiki workspace.
-├── knowledge/                → other plugin-managed knowledge stores
-└── wiki/                     → this wiki — you own everything here
+├── raw/                      → ingested sources. IMMUTABLE. A workspace sibling — read it on disk at ../raw/.
+└── wiki/                     → this wiki — the Obsidian vault root; you own everything inside
     ├── CLAUDE.md             → this file
-    └── …                     → curated pages described below
+    ├── index.md / log.md     → content catalog + append-only timeline
+    ├── entities/             → one page per code-graph entity (written by scan)
+    ├── concepts/ sources/ architecture/ adrs/   → curated pages
+    └── work/                 → work-item tracker (under the wiki, so [[work/<slug>]] resolves)
 ```
 
-When this file says "wiki root" it means the directory containing this `CLAUDE.md` (i.e. `<workspace>/wiki/`). Paths below are written relative to the wiki root unless prefixed with `../`.
+When this file says "wiki root" it means the directory containing this `CLAUDE.md` — the Obsidian vault root. All `[[wikilinks]]` are relative to it. `../raw/` is the one path you reach outside the vault (read-only).
 
 ## Wiki structure
 
 ```
-index.md                  → content catalog — update every scan/ingest
+index.md                  → content catalog — regenerated every scan/ingest
 log.md                    → append-only timeline
-apps/                     → [conditional] one folder per application workspace
-└── <app>/
-    └── overview.md       →   the app overview (category: app)
-packages/                 → [conditional] cross-domain library/service packages
-└── <pkg>/
-    └── overview.md       →   the package overview (category: package)
-domains/                  → [conditional] feature areas across packages
-└── <domain>/
-    ├── overview.md       →   the domain overview (category: domain)
-    └── packages/         →   the domain's workspace packages
-        └── <pkg>/
-            └── overview.md
-<other-container>/        → [conditional] any non-default container the layout block
-└── <slug>/                  declares as `classification: package` (e.g. `plugins/`,
-    └── overview.md          `agents/`) — pages use `category: package`
+entities/                 → one page per code-graph entity, written by scan:
+                            repository / domain / package / app / agent_plugin /
+                            dependency / test_suite. Filenames are slugs like
+                            `pkg_<name>`, `dep_<name>`, `domain_<name>`.
 concepts/                 → cross-cutting technical concepts
 sources/                  → one summary per ingested source (cites files in ../raw/)
 architecture/             → high-level syntheses
 adrs/                     → architecture decision records
+work/                     → unified bug / tech-debt / feature / initiative / spike tracker
 .templates/               → page templates (reference only)
 ```
 
-Work items live at `../work/` (sibling of this wiki, owned by `graph-wiki workspace`). Reference them from wiki pages with wikilinks like `[[work/2026-04-21-flaky-healthkit-tests]]`.
+Work items live under the wiki at `work/`. Reference them from any page with `[[work/2026-04-21-flaky-healthkit-tests]]` — the same wiki-root base as `[[concepts/...]]` and `[[entities/...]]`.
 
 ## Page frontmatter (required on every wiki page)
 
@@ -75,7 +66,7 @@ Each category has additional required fields — see `<skill>/references/page-fo
 1. Run `python <skill>/scripts/scan_monorepo.py --json` (workspace and repo discovered automatically)
 2. Present the diff to the user — new / renamed / deleted packages
 3. Wait for confirmation on renames and deletions
-4. Create stub `packages/<name>/overview.md` pages for new packages (one folder per package)
+4. Create/refresh `entities/<slug>.md` pages for new entities (scan writes these from the code graph)
 5. Update frontmatter (`exports`, `depends_on`, `depended_on_by`) on existing pages
 6. Update `index.md` and append a `scan` log entry
 
@@ -88,7 +79,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 3. **Discuss with the user first** — TL;DR, key claims, which packages/domains/concepts will be touched, any contradictions with code
 4. Wait for confirmation
 5. Create/merge the summary page at `sources/<YYYY-MM>-<slug>.md`. For in-repo docs, record `last_sync_commit` and `last_sync_at` in frontmatter so lint can flag staleness later
-6. Update every relevant package/domain/concept page (typically 5-15 pages)
+6. Update every relevant entity, concept, and source page (typically 5-15 pages)
 7. If the source represents a decision, propose an ADR
 8. Flag contradictions with `> ⚠️ Contradiction:` callouts (on wiki pages and/or noting code paths)
 9. Update `index.md` and append an `ingest` log entry
@@ -108,7 +99,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 
 1. Run `python <skill>/scripts/lint_wiki.py` for mechanical checks **including code drift** (workspace and repo discovered automatically)
 2. Run `graph_analyzer.py` for structural stats
-3. Semantic checks: contradictions (wiki↔wiki and wiki↔code), stale claims, concept gaps, stale work items (`../work/` items past their target date), ADR chain health
+3. Semantic checks: contradictions (wiki↔wiki and wiki↔code), stale claims, concept gaps, stale work items (`work/` items past their target date), ADR chain health
 4. Present findings as a markdown report with suggested actions
 5. Append a `lint` entry to `log.md`
 
@@ -116,7 +107,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 
 1. **The code is the source of truth.** If the wiki and the code disagree, update the wiki — never the other way around.
 2. **`../raw/` is immutable.** You read from it; you never write to it.
-3. **All wiki writes go under this wiki directory.** Work items go to `../work/` (owned by `graph-wiki workspace`). No exceptions.
+3. **All wiki writes go under this wiki directory** — including work items, which live at `work/`. No exceptions.
 4. **Every wiki page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
 5. **Every scan/ingest touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim cites** — either a wiki page (`[[sources/xxx]]`) or a code path (`` `packages/foo/src/bar.ts:42` ``).
@@ -150,7 +141,7 @@ Index and log maintenance is automatic in command-layer scan/ingest flows. For m
 
 ## Obsidian
 
-Open `<workspace>/` (one level up from this wiki) in Obsidian — the sidebar will show `wiki/`, `raw/`, `work/`, etc. as siblings. Useful plugins: Graph view, Backlinks, Dataview, Marp, Templates, Git.
+Open `<workspace>/wiki/` in Obsidian — this wiki directory **is** the vault, so `[[entities/...]]`, `[[concepts/...]]`, `[[work/...]]`, and every other page resolve directly. The immutable `../raw/` sources sit beside the vault; open the parent `<workspace>/` instead if you want them in the sidebar too. Useful plugins: Graph view, Backlinks, Dataview, Marp, Templates, Git.
 
 ## Style
 

@@ -7,12 +7,12 @@ Topic: {{TOPIC}}
 Repo: {{REPO_PATH}}
 Initialized: {{DATE}}
 
-Layout: this wiki sits at `<workspace>/wiki/`. `../raw/` (sources) and `../work/` (work tracker) are siblings, owned by `graph-wiki workspace`. Reference work items with `[[work/<slug>]]`.
+Layout: Obsidian opens at the wiki root `<workspace>/wiki/` (the vault). `work/` lives under the wiki; reference items with `[[work/<slug>]]`. `../raw/` (immutable sources) is a workspace sibling, read-only.
 
 Core rules:
 1. The code is the source of truth. If the wiki and the code disagree, update the wiki.
 2. `../raw/` is immutable. Read only.
-3. All wiki writes go under this wiki directory. Work items go to `../work/`.
+3. All wiki writes go under this wiki directory, including work items at `work/`.
 4. Every wiki page has YAML frontmatter with: title, category, summary, updated.
 5. Every scan/ingest touches at least 3 files: touched pages + index.md + log.md.
 6. Every claim cites a wiki page (`[[wikilink]]`) or code path (`` `path:line` ``).
