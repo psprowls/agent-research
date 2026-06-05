@@ -1036,6 +1036,11 @@ def test_parse_ingestor_response_uses_safe_load_for_valid_yaml() -> None:
     assert fm["tags"] == ["a", "b"]  # safe_load yields a real list
     assert body.strip() == "Body."
 
+    # A typed scalar only safe_load (not the hand-rolled parser) produces:
+    raw_bool = "---\nsource_kind: source\ntarget_slug: foo\nactive: true\n---\nBody."
+    fm_bool, _ = _parse_ingestor_response(raw_bool)
+    assert fm_bool["active"] is True
+
 
 def test_parse_ingestor_response_falls_back_to_handrolled_on_yaml_error() -> None:
     """An unquoted colon in a value makes safe_load raise; the hand-rolled

@@ -380,8 +380,10 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
 
     After fence-strip, behavior is unchanged: returns ({}, body_str) when
     the text does not start with `---` or has no closing `---`, otherwise
-    parses the YAML block with the same hand-rolled scalar/list parser
-    used by ingest_work_item (no yaml.load).
+    parses the YAML block with yaml.safe_load (primary) and falls back to
+    the hand-rolled scalar/list parser if safe_load raises YAMLError or
+    returns a non-dict value (e.g. an LLM quirk like an unquoted ':' in a
+    value field).
     """
     original_text = text
     text = text.strip()
