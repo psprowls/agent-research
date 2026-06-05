@@ -201,12 +201,52 @@ async def run_propagate_drift(
     if make_llm is None or SubagentPool is None:
         return PropagateDriftResult(0, len(candidates), 0, 0, 0, dry_run, [])
 
+    # --only: an entity (uri/stem) narrows the candidate set; otherwise a target
+    # (slug/page-stem) narrows the target set (§3.8, test 13).
+    only_target: str | None = None
+    if only is not None:
+        entity_match = [c for c in candidates if c.uri == only or c.stem == only]
+        if entity_match:
+            candidates = entity_match
+        else:
+            only_target = only
+
     targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+    if only_target is not None:
+        targets = {
+            p: e
+            for p, e in targets.items()
+            if e["target_slug"] == only_target or p.stem == only_target
+        }
 
-    # The candidates actually processed this run (Task 6 narrows these via --only).
-    processed = candidates
+    # Ledger pre-filter: drop targets the human already disposed of (§3.3).
+    settled = {
+        (rec["kind"], rec["target_slug"])
+        for rec in list_proposals(wiki)
+        if rec["status"] in HUMAN_DECIDED
+    }
+    pages_skipped_settled = 0
+    judge_targets: list[dict] = []
+    for entry in targets.values():
+        if (entry["kind"], entry["target_slug"]) in settled:
+            pages_skipped_settled += 1
+            continue
+        judge_targets.append(entry)
 
-    judge_targets = list(targets.values())
+    # Processed candidates get the anchor stamp: every candidate in scope whose
+    # backlinkers were considered — INCLUDING those whose targets were all
+    # pre-filtered out (§3.5). In target-only mode, scope is just the candidates
+    # backlinking the chosen page.
+    if only_target is not None:
+        seen_ids: set[int] = set()
+        processed: list[PropagationCandidate] = []
+        for entry in targets.values():
+            for c in entry["candidates"]:
+                if id(c) not in seen_ids:
+                    seen_ids.add(id(c))
+                    processed.append(c)
+    else:
+        processed = candidates
 
     items: list[tuple] = []
     for entry in judge_targets:
@@ -291,7 +331,7 @@ async def run_propagate_drift(
         entities_considered=len(processed),
         notes_written=notes_written,
         pages_stale=pages_stale,
-        pages_skipped_settled=0,  # Task 6 fills this in
+        pages_skipped_settled=pages_skipped_settled,
         dry_run=dry_run,
         proposals=report,
     )

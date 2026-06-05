@@ -262,3 +262,126 @@ def test_entity_with_no_curated_backlink_is_still_stamped(ws, conn, monkeypatch)
     assert res.pages_judged == 0  # no curated target
     import frontmatter as _fm
     assert _fm.load(page).metadata.get("drift_propagated_commit") == "h2"
+
+
+# --- guardrail tests (Task 6) -----------------------------------------------
+
+
+def test_settled_target_is_skipped(ws, conn, monkeypatch):
+    """[§5 test 6] a rejected/created note on a target -> not judged; a proposed
+    note (or none) -> judged."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    # Pre-seed a rejected note for this exact target.
+    from wiki_io.proposals import upsert_proposal, set_proposal_status
+    upsert_proposal(wiki, {"kind": "concept", "mode": "update_existing",
+                           "target_slug": "fanout", "title": "T",
+                           "origin": {"ref": "entities/pkg_a", "source": "ingest"}})
+    set_proposal_status(wiki, "concept", "fanout", "rejected")
+
+    rec = {"items": []}
+    _patch_judge(monkeypatch, lambda item: {"stale": True, "findings": [
+        {"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "y"}]}, recorder=rec)
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+
+    assert res.pages_judged == 0
+    assert res.pages_skipped_settled == 1
+    assert rec["items"] == []  # judge never saw the settled target
+    # The rejected note is untouched.
+    assert read_proposal(proposal_path(wiki, "concept", "fanout"))["status"] == "rejected"
+
+
+def test_dry_run_judges_but_writes_nothing_and_does_not_stamp(ws, conn, monkeypatch):
+    """[§5 tests 5, 12] --dry-run populates the report, writes zero notes, and
+    leaves drift_propagated_commit unstamped (re-runnable)."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    page = _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": True, "findings": [
+        {"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "now async"}]})
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=True))
+    assert res.dry_run is True
+    assert res.pages_judged == 1
+    assert res.pages_stale == 1
+    assert res.notes_written == 0
+    assert len(res.proposals) == 1  # report shows what WOULD be proposed
+    assert list_proposals(wiki) == []  # nothing written
+    import frontmatter as _fm
+    assert "drift_propagated_commit" not in _fm.load(page).metadata
+
+
+def test_only_entity_restricts_candidate_set(ws, conn, monkeypatch):
+    """[§5 test 13] --only <entity> restricts the candidate set to that entity."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    import sqlite3
+    c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
+    c2.execute("INSERT INTO nodes(kind,name,path,line,attrs_json,uri) VALUES "
+               "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')")
+    c2.commit(); c2.close()
+    conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
+
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_entity_page(wiki, stem="pkg_b", uri="pkg:org/repo/pkg-b", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "ca", "About [[entities/pkg_a]].")
+    _write_curated(wiki, "concepts", "cb", "About [[entities/pkg_b]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn2, only="pkg_a"))
+    conn2.close()
+    assert res.entities_considered == 1  # only pkg_a
+    assert res.pages_judged == 1         # only its target
+
+
+def test_only_page_restricts_target_set(ws, conn, monkeypatch):
+    """[§5 test 13] --only <page-slug> restricts the target set to that page."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    import sqlite3
+    c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
+    c2.execute("INSERT INTO nodes(kind,name,path,line,attrs_json,uri) VALUES "
+               "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')")
+    c2.commit(); c2.close()
+    conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
+
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_entity_page(wiki, stem="pkg_b", uri="pkg:org/repo/pkg-b", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "ca", "About [[entities/pkg_a]].")
+    _write_curated(wiki, "concepts", "cb", "About [[entities/pkg_b]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn2, only="ca"))
+    conn2.close()
+    assert res.pages_judged == 1  # only the "ca" target page
+
+
+def test_refire_same_entity_updates_origin_in_place(ws, conn, monkeypatch):
+    """[§5 test 8] re-firing the same entity on the same target updates that
+    origin in place (no duplicate); detected_commit advances; status stays
+    proposed."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    page = _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": True, "findings": [
+        {"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "r1"}]})
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+
+    # Entity re-narrated at a new commit -> candidate again.
+    import frontmatter as _fm
+    pd_meta = _fm.load(page).metadata
+    page.write_text(page.read_text().replace("last_updated_commit: h2", "last_updated_commit: h3"),
+                    encoding="utf-8")
+    _patch_judge(monkeypatch, lambda item: {"stale": True, "findings": [
+        {"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "r2"}]})
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+
+    rec = read_proposal(proposal_path(wiki, "concept", "fanout"))
+    assert rec["status"] == "proposed"
+    assert len(rec["origins"]) == 1  # merged in place by ref
+    assert rec["origins"][0]["detected_commit"] == "h3"
+    assert rec["origins"][0]["rationale"] == "r2"
