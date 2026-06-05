@@ -42,6 +42,7 @@ from wiki_io.entity_lookup import (
 from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slugify
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
+from wiki_io.wikilinks import vault_wikilink
 
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
@@ -351,7 +352,7 @@ def _ensure_entity_touch_link(text: str, stem: str) -> str:
     stripping — call this LAST, after wikilink resolution. Idempotent: inserts
     a bullet under an existing `## Touches` heading, else appends the section.
     """
-    link = f"[[entities/{stem}]]"
+    link = vault_wikilink(f"entities/{stem}")
     if link in text:
         return text
     m = _TOUCHES_HEADING_RE.search(text)
