@@ -1023,3 +1023,47 @@ def test_ensure_entity_touch_link_idempotent() -> None:
     out = _ensure_entity_touch_link(text, "pkg_graph-io")
     # Link already present anywhere → text returned unchanged.
     assert out == text
+
+
+def test_parse_ingestor_response_uses_safe_load_for_valid_yaml() -> None:
+    """Clean YAML is parsed (typed) via yaml.safe_load."""
+    from graph_wiki_core.commands.ingest import _parse_ingestor_response
+
+    raw = "---\nsource_kind: source\ntarget_slug: foo\ntags:\n  - a\n  - b\n---\nBody."
+    fm, body = _parse_ingestor_response(raw)
+    assert fm["source_kind"] == "source"
+    assert fm["target_slug"] == "foo"
+    assert fm["tags"] == ["a", "b"]  # safe_load yields a real list
+    assert body.strip() == "Body."
+
+
+def test_parse_ingestor_response_falls_back_to_handrolled_on_yaml_error() -> None:
+    """An unquoted colon in a value makes safe_load raise; the hand-rolled
+    parser recovers the value verbatim."""
+    from graph_wiki_core.commands.ingest import _parse_ingestor_response
+
+    # `summary: foo: bar baz` -> safe_load raises ScannerError (a YAMLError);
+    # hand-rolled partition-on-first-colon recovers val="foo: bar baz".
+    raw = (
+        "---\n"
+        "source_kind: source\n"
+        "target_slug: foo\n"
+        "summary: foo: bar baz\n"
+        "---\n"
+        "Body."
+    )
+    fm, body = _parse_ingestor_response(raw)
+    assert fm["source_kind"] == "source"
+    assert fm["target_slug"] == "foo"
+    assert fm["summary"] == "foo: bar baz"
+    assert body.strip() == "Body."
+
+
+def test_parse_ingestor_response_empty_block_returns_empty_dict() -> None:
+    """A frontmatter block with no parseable keys returns ({}, body)."""
+    from graph_wiki_core.commands.ingest import _parse_ingestor_response
+
+    raw = "---\n# only a comment\n---\nBody."
+    fm, body = _parse_ingestor_response(raw)
+    assert fm == {}
+    assert body.strip() == "Body."

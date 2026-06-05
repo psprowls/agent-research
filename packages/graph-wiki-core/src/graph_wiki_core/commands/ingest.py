@@ -27,6 +27,8 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.trace_io import write_trace_record
@@ -428,7 +430,17 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
     yaml_block = rest[:closing_idx].strip()
     body = rest[closing_idx + 4:].lstrip("\n")
 
-    # Parse YAML block (simple key: value + list items)
+    # D3 (spec §3.3): prefer yaml.safe_load. If it raises YAMLError or returns
+    # a non-dict, fall back to the hand-rolled scalar/list parser below — it
+    # tolerates LLM quirks safe_load rejects (e.g. an unquoted ':' in a value).
+    try:
+        loaded = yaml.safe_load(yaml_block)
+    except yaml.YAMLError:
+        loaded = None
+    if isinstance(loaded, dict):
+        return loaded, body
+
+    # Fallback: hand-rolled scalar/list parser (kept verbatim).
     fm: dict = {}
     cur_key: str | None = None
     cur_list: list | None = None
