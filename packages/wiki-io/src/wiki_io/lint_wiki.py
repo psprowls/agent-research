@@ -44,7 +44,10 @@ from wiki_io.lint.workflow_hints import check as check_workflow_hints
 _SKIPPED: dict = {"skipped": True}
 
 OPTIONAL_GROUPS = {"dependency_layer"}
-LINTED_TOPS = {"wiki", "work"}
+# Every real top-level vault dir under the wiki root. Walking from the wiki
+# (not the workspace) means a page's top path-part is its category dir, so
+# LINTED_TOPS must enumerate them all to keep the same pages linted as before.
+LINTED_TOPS = {"concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"}
 # Tool-schema files (emitted by init_vault.py per the --tool flag). Not wiki
 # content pages — exclude at any depth from page enumeration and from the
 # index-link parser. See plan 260521-gc0 (decision: any-depth, forward-compat).
@@ -76,8 +79,8 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     inbound = defaultdict(set)
     outbound = defaultdict(set)
 
-    for md in workspace.rglob("*.md"):
-        rel = md.relative_to(workspace)
+    for md in wiki.rglob("*.md"):
+        rel = md.relative_to(wiki)
         # Exclude any path that has a dotdir component (.graph/, .obsidian/, etc.)
         if any(part.startswith(".") for part in rel.parts):
             continue
@@ -138,8 +141,8 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     # Parse outbound links from index.md files so that:
     # (a) pages only linked from an index are not flagged as orphans, and
     # (b) broken links inside index.md files are reported.
-    for md in workspace.rglob("*.md"):
-        rel = md.relative_to(workspace)
+    for md in wiki.rglob("*.md"):
+        rel = md.relative_to(wiki)
         if rel.name != "index.md":
             continue
         if any(part.startswith(".") for part in rel.parts):

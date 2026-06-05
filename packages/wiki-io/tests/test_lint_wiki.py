@@ -108,13 +108,13 @@ def test_schema_files_excluded_from_page_enumeration(tmp_path: Path) -> None:
     result = scan(wiki, stale_days=90, log_gap_days=14)
 
     # Neither schema file should appear in lint findings.
-    assert "wiki/CLAUDE" not in result["missing_frontmatter"]
-    assert "wiki/AGENTS" not in result["missing_frontmatter"]
-    assert "wiki/CLAUDE" not in result["missing_tokens"]
-    assert "wiki/AGENTS" not in result["missing_tokens"]
+    assert "CLAUDE" not in result["missing_frontmatter"]
+    assert "AGENTS" not in result["missing_frontmatter"]
+    assert "CLAUDE" not in result["missing_tokens"]
+    assert "AGENTS" not in result["missing_tokens"]
     # And not in orphans either.
-    assert "wiki/CLAUDE" not in result["orphans"]
-    assert "wiki/AGENTS" not in result["orphans"]
+    assert "CLAUDE" not in result["orphans"]
+    assert "AGENTS" not in result["orphans"]
 
 
 def test_schema_files_excluded_at_any_depth(tmp_path: Path) -> None:
@@ -266,8 +266,69 @@ def test_entity_pages_use_entity_frontmatter_contract(tmp_path: Path, monkeypatc
 
     result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
 
-    assert "wiki/entities/pkg_alpha" not in result["missing_frontmatter"]
-    assert "wiki/entities/pkg_alpha" not in result["missing_tokens"]
+    assert "entities/pkg_alpha" not in result["missing_frontmatter"]
+    assert "entities/pkg_alpha" not in result["missing_tokens"]
     # The curated page is still held to the curated contract.
-    assert "wiki/concepts/bad" in result["missing_frontmatter"]
-    assert "wiki/concepts/bad" in result["missing_tokens"]
+    assert "concepts/bad" in result["missing_frontmatter"]
+    assert "concepts/bad" in result["missing_tokens"]
+
+
+def test_wiki_rooted_links_not_broken(tmp_path):
+    """[[entities/x]], [[concepts/y]], [[work/z]] all resolve against the
+    wiki root → zero broken links."""
+    from wiki_io.lint_wiki import scan
+
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "work").mkdir(parents=True)
+
+    (wiki / "entities" / "x.md").write_text(
+        "---\ntitle: X\nuri: pkg:o/r/x\nkind: package\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "y.md").write_text(
+        "---\ntitle: Y\ncategory: concept\nsummary: s\ntokens: 1\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "work" / "z.md").write_text(
+        "---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "hub.md").write_text(
+        "---\ntitle: Hub\ncategory: concept\nsummary: s\ntokens: 1\n---\n\n"
+        "[[entities/x]] [[concepts/y]] [[work/z]]\n",
+        encoding="utf-8",
+    )
+
+    result = scan(wiki, stale_days=90, log_gap_days=14)
+
+    assert result["broken_links"] == [], result["broken_links"]
+
+
+def test_all_vault_categories_are_linted(tmp_path):
+    """Behavior preservation: a malformed page in every real top-level vault dir
+    is flagged for missing frontmatter (i.e. every category is linted)."""
+    from wiki_io.lint_wiki import scan
+
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    curated_tops = ["concepts", "adrs", "architecture", "sources", "proposals"]
+    for top in curated_tops:
+        (wiki / top).mkdir(parents=True)
+        # missing category + summary → flagged under the curated contract
+        (wiki / top / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")
+    # entities/ page missing uri → flagged under the entity contract
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "entities" / "bad.md").write_text(
+        "---\ntitle: B\nkind: package\n---\n\nbody\n", encoding="utf-8"
+    )
+    # work/ page missing category + summary → flagged (work is linted)
+    (wiki / "work").mkdir(parents=True)
+    (wiki / "work" / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")
+
+    result = scan(wiki, stale_days=90, log_gap_days=14)
+    mf = set(result["missing_frontmatter"])
+
+    for top in curated_tops:
+        assert f"{top}/bad" in mf, f"{top}/bad not linted/flagged: {mf}"
+    assert "entities/bad" in mf
+    assert "work/bad" in mf
