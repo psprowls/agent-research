@@ -14,11 +14,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_lint_wiki_importable() -> None:
-    """wiki_io.lint_wiki exports main and scan as callables."""
-    from wiki_io.lint_wiki import main, scan  # noqa: F401
+    """wiki_io.lint_wiki exports library callables only."""
+    from wiki_io import lint_wiki
 
-    assert callable(main)
-    assert callable(scan)
+    assert callable(lint_wiki.scan)
+    assert callable(lint_wiki.print_report)
+    assert not hasattr(lint_wiki, "main")
 
 
 def test_lint_wiki_scan_runs_on_fixture_vault(tmp_path: Path) -> None:

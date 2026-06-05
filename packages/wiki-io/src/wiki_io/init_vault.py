@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 init_vault.py — Bootstrap a Code Wiki alongside a source code repo.
 
@@ -8,22 +7,13 @@ integration stubbed out (Phase 5 will reintroduce an equivalent workspace
 bootstrap step). All file paths and template copying remain byte-identical
 to the source.
 
-Usage:
-    python init_vault.py --topic "my-repo"
-    python init_vault.py --topic "my-repo" --tool all
-    python init_vault.py --topic "my-repo" --tool codex
-
-The --tool flag controls which schema file(s) to install:
-    claude-code  → CLAUDE.md (default)
-    codex        → AGENTS.md
-    cursor       → AGENTS.md + .cursorrules
-    antigravity  → AGENTS.md
-    all          → CLAUDE.md + AGENTS.md + .cursorrules (recommended for multi-tool)
+This library module accepts a ``tool`` argument in ``init_wiki()`` to select
+which schema file(s) to install. Command-line parsing lives in the Graph Wiki
+plugin script.
 """
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 import json
 import logging
@@ -32,7 +22,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from wiki_io._workspace import resolve_wiki_and_repo
 from workspace_io.init import init as _workspace_init
 
 PLUGIN_NAME = "graph-wiki"
@@ -256,54 +245,3 @@ def init_wiki(
     logger.info("  2. Run /graph-wiki:scan to populate wiki/packages/")
     logger.info("  3. Stage a source under %s/raw/ and run /graph-wiki:ingest <path>", workspace_path)
     return result
-
-
-def main():
-    p = argparse.ArgumentParser(
-        description="Initialize a Code Wiki in the resolved graph-wiki workspace.",
-    )
-    p.add_argument(
-        "--topic",
-        required=True,
-        help="Short description of the repo (e.g. 'psprowls my-repo')",
-    )
-    p.add_argument(
-        "--tool",
-        default="all",
-        choices=sorted(TOOL_FILES.keys()),
-        help="Which schema file(s) to install (default: all)",
-    )
-    p.add_argument("--force", action="store_true", help="Overwrite non-empty target directory")
-    p.add_argument("--json", action="store_true", help="Emit result as JSON")
-    p.add_argument(
-        "--non-interactive",
-        action="store_true",
-        help="Accepted for compatibility; has no effect (container detection removed).",
-    )
-    p.add_argument(
-        "--workspace",
-        default=None,
-        help="Workspace path (bypasses .graph-wiki.yaml discovery; required on first bootstrap).",
-    )
-    p.add_argument(
-        "--repo",
-        default=None,
-        help="Override repo root (default: walk up from cwd for .git).",
-    )
-    args = p.parse_args()
-    workspace_arg = Path(args.workspace).expanduser().resolve() if args.workspace else None
-    repo_arg = Path(args.repo).expanduser().resolve() if args.repo else None
-    wiki, repo = resolve_wiki_and_repo(workspace_path=workspace_arg, repo_path=repo_arg)
-    init_wiki(
-        wiki,
-        repo,
-        args.topic,
-        args.tool,
-        args.force,
-        as_json=args.json,
-        non_interactive=args.non_interactive,
-    )
-
-
-if __name__ == "__main__":
-    main()

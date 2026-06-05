@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 lint_wiki.py — Health-check a Code Wiki.
 
@@ -7,23 +6,16 @@ Mechanical checks:
   - duplicate titles, log gaps
   - code-drift (monorepo-specific): packages on disk vs. in the vault
 
-Discovers wiki and repo locations from the resolved graph-wiki workspace.
+Import-only library module; delivery surfaces pass resolved wiki/repo paths.
 
 This file is a thin dispatcher. Per-group checks live under ``lint/``:
 ``file_map``, ``domain``, ``package_sync``.
 Each module exposes a ``check(...)`` entry point and a ``GROUP`` constant.
-
-Usage:
-    python lint_wiki.py
-    python lint_wiki.py --stale-days 60 --json
 """
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -35,7 +27,6 @@ except ImportError:
     _scan_discover = None
     _unscope = lambda n: n  # noqa: E731 — fallback, code-drift check is skipped anyway
 
-from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.entity_writer import ADMITTED_KINDS
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
@@ -486,50 +477,3 @@ def print_report(r):
         for f in findings[:20]:
             print(f"   - {f}")
     print()
-
-
-def main():
-    p = argparse.ArgumentParser(description="Lint a Code Wiki (with code-drift detection)")
-    p.add_argument("--stale-days", type=int, default=90)
-    p.add_argument("--log-gap-days", type=int, default=14)
-    p.add_argument("--json", action="store_true")
-    p.add_argument(
-        "--check",
-        default="",
-        help=(
-            "Comma-separated optional check groups to enable in addition to the "
-            "default set. Available: " + ",".join(sorted(OPTIONAL_GROUPS))
-        ),
-    )
-    args = p.parse_args()
-
-    optional_checks: set[str] = set()
-    if args.check:
-        for name in args.check.split(","):
-            name = name.strip()
-            if not name:
-                continue
-            if name not in OPTIONAL_GROUPS:
-                print(
-                    f"[error] unknown --check group '{name}' (known: {','.join(sorted(OPTIONAL_GROUPS))})",
-                    file=sys.stderr,
-                )
-                sys.exit(2)
-            optional_checks.add(name)
-
-    wiki, repo_path = resolve_wiki_and_repo()
-    report = scan(
-        wiki,
-        stale_days=args.stale_days,
-        log_gap_days=args.log_gap_days,
-        repo_path=repo_path,
-        optional_checks=optional_checks,
-    )
-    if args.json:
-        print(json.dumps(report, indent=2, default=list))
-    else:
-        print_report(report)
-
-
-if __name__ == "__main__":
-    main()

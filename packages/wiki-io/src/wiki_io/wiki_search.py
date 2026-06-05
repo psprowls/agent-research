@@ -1,24 +1,14 @@
-#!/usr/bin/env python3
 """
-wiki_search.py — BM25 search over a Code Wiki. Standard library only.
+wiki_search.py — BM25 search helpers over a Code Wiki. Standard library only.
 
-Discovers wiki location from the resolved graph-wiki workspace.
-
-Usage:
-    python wiki_search.py --query "middleware pipeline"
-    python wiki_search.py --query "global context" --limit 5 --json
+Import-only library module used by plugin and CLI delivery surfaces.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import math
 import re
-import sys
 from collections import Counter, defaultdict
-
-from wiki_io._workspace import resolve_wiki_and_repo
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_\-']+")
 STOPWORDS = {
@@ -148,45 +138,3 @@ def snippet(text, query, width=220):
             s = text[start:end].replace("\n", " ")
             return ("…" if start > 0 else "") + s + ("…" if end < len(text) else "")
     return text[:width].replace("\n", " ") + ("…" if len(text) > width else "")
-
-
-def main():
-    p = argparse.ArgumentParser(description="BM25 search over a Code Wiki")
-    p.add_argument("--query", required=True)
-    p.add_argument("--limit", type=int, default=10)
-    p.add_argument("--json", action="store_true")
-    args = p.parse_args()
-
-    wiki, _ = resolve_wiki_and_repo()
-    docs = load_docs(wiki)
-    qtokens = tokenize(args.query)
-    if not qtokens:
-        print("[error] empty query after tokenization", file=sys.stderr)
-        sys.exit(1)
-
-    scored = bm25_scores(docs, qtokens)[: args.limit]
-    hits = []
-    for i, s in scored:
-        d = docs[i]
-        hits.append(
-            {
-                "path": d["path"],
-                "score": round(s, 3),
-                "snippet": snippet(d["text"], qtokens),
-            }
-        )
-
-    if args.json:
-        print(json.dumps({"query": args.query, "hits": hits}, indent=2, ensure_ascii=False))
-    else:
-        if not hits:
-            print(f"No matches for: {args.query}")
-            return
-        print(f"Query: {args.query}  ({len(hits)} hits)")
-        for h in hits:
-            print(f"\n  [{h['score']}] {h['path']}")
-            print(f"     {h['snippet']}")
-
-
-if __name__ == "__main__":
-    main()

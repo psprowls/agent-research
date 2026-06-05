@@ -37,9 +37,11 @@ def _install_fake_wiki_io(
 
     workspace_module = types.ModuleType("wiki_io._workspace")
 
-    def fake_resolve_wiki_and_repo(*args, **kwargs):
-        resolved_workspace = workspace or Path(kwargs.get("workspace") or args[0])
-        resolved_repo = repo or resolved_workspace.parent / "repo"
+    def fake_resolve_wiki_and_repo(workspace_path=None, repo_path=None):
+        resolved_workspace = workspace or workspace_path
+        if resolved_workspace is None:
+            resolved_workspace = Path.cwd() / "workspace"
+        resolved_repo = repo_path or repo or resolved_workspace.parent / "repo"
         return resolved_workspace / "wiki", resolved_repo
 
     workspace_module.resolve_wiki_and_repo = fake_resolve_wiki_and_repo  # type: ignore[attr-defined]
@@ -245,6 +247,7 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
             "claude-code",
             "--force",
             "--json",
+            "--non-interactive",
         ],
     )
 
@@ -262,3 +265,61 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
         }
     ]
     assert json.loads(capsys.readouterr().out)["status"] == "ok"
+
+
+def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _install_claude_backend(monkeypatch)
+    calls: list[dict[str, object]] = []
+    workspace = tmp_path / "workspace"
+    _install_fake_wiki_io(monkeypatch, workspace)
+
+    module = types.ModuleType("wiki_io.init_vault")
+    module.TOOL_FILES = {"claude-code": [], "codex": [], "all": []}  # type: ignore[attr-defined]
+
+    def fake_init_wiki(wiki_path, repo_path, topic, tool, force, as_json=False, non_interactive=False):
+        calls.append(
+            {
+                "wiki_path": wiki_path,
+                "repo_path": repo_path,
+                "topic": topic,
+                "tool": tool,
+                "force": force,
+                "as_json": as_json,
+                "non_interactive": non_interactive,
+            }
+        )
+        return {"status": "ok"}
+
+    module.init_wiki = fake_init_wiki  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "wiki_io.init_vault", module)
+
+    repo = tmp_path / "repo-only"
+    repo.mkdir()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "init_vault.py",
+            "--repo",
+            str(repo),
+            "--topic",
+            "Demo",
+        ],
+    )
+
+    runpy.run_path(str(_SCRIPT_DIR / "init_vault.py"), run_name="__main__")
+
+    assert calls == [
+        {
+            "wiki_path": workspace / "wiki",
+            "repo_path": repo,
+            "topic": "Demo",
+            "tool": "all",
+            "force": False,
+            "as_json": False,
+            "non_interactive": False,
+        }
+    ]
