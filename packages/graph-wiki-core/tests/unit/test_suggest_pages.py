@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from graph_wiki_core.commands.suggest_pages import (
     SUGGESTION_KINDS,
     parse_extractor_response,
@@ -377,3 +378,112 @@ def test_set_section_preserves_trailing_h2():
     assert "[[entities/pkg_x]]" in out
     assert "old content" not in out     # old section body replaced
     assert out.count("## Suggested pages") == 1
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_writes_proposals_to_page(tmp_path):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.suggest_pages import read_suggested_pages, run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    page = wiki / "sources" / "doc.md"
+    page.write_text(
+        "---\nsource_kind: source\ntarget_slug: doc\nentity_uri: null\n---\n\nThe doc body.\n",
+        encoding="utf-8",
+    )
+
+    llm_yaml = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: A Concept\n"
+        "    slug: a-concept\n"
+        "    mode: create_new\n"
+        "    rationale: justified\n"
+    )
+    fake_llm = MagicMock()
+    fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
+
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
+        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+
+    assert parsed is True
+    assert [(e["kind"], e["slug"], e["status"]) for e in entries] == [("concept", "a-concept", "proposed")]
+    # Persisted to the page frontmatter + body mirror.
+    written = page.read_text(encoding="utf-8")
+    assert read_suggested_pages(written) == entries
+    assert "## Suggested pages" in written
+    assert "a-concept" in written
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_llm_error_is_best_effort(tmp_path):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    page = wiki / "sources" / "doc.md"
+    original = "---\nsource_kind: source\ntarget_slug: doc\n---\n\nBody.\n"
+    page.write_text(original, encoding="utf-8")
+
+    fake_llm = MagicMock()
+    fake_llm.ainvoke = AsyncMock(side_effect=RuntimeError("bedrock boom"))
+
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
+        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+
+    assert entries == []
+    assert parsed is False
+    # Page is intact (no suggested_pages added).
+    assert "suggested_pages:" not in page.read_text(encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_preserves_prior_human_decision(tmp_path):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    page = wiki / "sources" / "doc.md"
+    # Page already carries an approved suggestion (human edited status).
+    page.write_text(
+        "---\n"
+        "source_kind: source\n"
+        "target_slug: doc\n"
+        "suggested_pages:\n"
+        "- kind: concept\n"
+        "  title: Kept\n"
+        "  slug: kept\n"
+        "  mode: create_new\n"
+        "  existing_slug: null\n"
+        "  rationale: r\n"
+        "  status: approved\n"
+        "---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    # Re-ingest proposes the SAME key again.
+    llm_yaml = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: New Title\n"
+        "    slug: kept\n"
+        "    mode: create_new\n"
+        "    rationale: new\n"
+    )
+    fake_llm = MagicMock()
+    fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
+
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
+        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+
+    assert parsed is True
+    kept = [e for e in entries if e["slug"] == "kept"]
+    assert len(kept) == 1
+    assert kept[0]["status"] == "approved"   # decision preserved
+    assert kept[0]["title"] == "Kept"        # not overwritten by the new proposal

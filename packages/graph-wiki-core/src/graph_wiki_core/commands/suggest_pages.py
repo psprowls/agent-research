@@ -24,8 +24,12 @@ import logging
 from pathlib import Path
 
 import yaml
+from langchain_core.messages import HumanMessage, SystemMessage
+from model_adapter.loader import make_llm
 from wiki_io.ingest_source import slugify
 from wiki_io.update_index import parse_frontmatter
+
+from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -330,3 +334,65 @@ def set_suggested_pages_section_in_body(text: str, section: str) -> str:
         return text
     base = text.rstrip("\n")
     return f"{base}\n\n{section}\n" if base else f"{section}\n"
+
+
+def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) -> str:
+    """Human message for the extractor: the Source page + the curated-vault index."""
+    preview = source_text[:EXTRACT_PREVIEW_CHARS]
+    if len(source_text) > EXTRACT_PREVIEW_CHARS:
+        preview += "\n[TRUNCATED]"
+
+    if vault_index:
+        index_lines = "\n".join(
+            f"  - {e['kind']}/{e['slug']} — {e.get('title', '')}"
+            + (f" — {e['summary']}" if e.get("summary") else "")
+            for e in vault_index
+        )
+    else:
+        index_lines = "  (no curated pages yet)"
+
+    return (
+        "Existing curated pages (propose update_existing when your idea is "
+        "already covered by one of these; otherwise create_new):\n"
+        f"{index_lines}\n\n"
+        "--- Source page ---\n"
+        f"{preview}\n"
+        "--- End source page ---\n\n"
+        "Propose the concept/adr/architecture pages this source justifies, as a "
+        "YAML `suggestions:` list. Return `suggestions: []` if none are warranted."
+    )
+
+
+async def run_suggest_phase(
+    *,
+    wiki: Path,
+    page_path: Path,
+) -> tuple[list[dict], bool]:
+    """Inline suggest phase: propose derived pages and persist them on the page.
+
+    Best-effort (spec §3.1): on any LLM error the page is left as-is and
+    (existing_entries, False) is returned. Returns (merged_entries, parsed).
+    """
+    page_text = page_path.read_text(encoding="utf-8")
+    existing = read_suggested_pages(page_text)
+    vault_index = build_curated_vault_index(wiki)
+    prompt = build_extract_suggestions_prompt(page_text, vault_index)
+
+    try:
+        llm = make_llm("extractor")
+        resp = await llm.ainvoke([SystemMessage(EXTRACTOR_SYSTEM), HumanMessage(prompt)])
+    except Exception:
+        logger.warning("extractor LLM call failed; skipping suggestions", exc_info=True)
+        return existing, False
+
+    proposals, parsed = parse_extractor_response(resp.content)
+    if not parsed:
+        # Parse miss: nothing new; leave existing entries untouched, signal degraded.
+        return existing, False
+
+    merged = merge_suggested_pages(existing, proposals)
+    new_text = set_suggested_pages_in_frontmatter(page_text, merged)
+    new_text = set_suggested_pages_section_in_body(new_text, render_suggested_pages_section(merged))
+    if new_text != page_text:
+        page_path.write_text(new_text, encoding="utf-8")
+    return merged, True
