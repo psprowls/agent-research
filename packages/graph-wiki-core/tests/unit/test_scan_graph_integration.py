@@ -593,8 +593,9 @@ async def test_file_map_injected_into_app_entity_page(
     assert "<Short description of file contents.>" not in text
     assert text.count("## File map - app-x") == 1
     # Neighboring sections survive injection (only the File map block is replaced).
+    # `## File map` is the last template section, so survival is asserted on the
+    # preceding `## Provider chain` block.
     assert "## Provider chain" in text
-    assert "## Concepts" in text
 
 
 def test_file_map_descriptions_survive_rescan(

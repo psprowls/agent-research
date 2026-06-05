@@ -405,6 +405,48 @@ class TestIsTestPath:
         assert _is_test_path("ava.config.mjs") is True
 
 
+class TestIsCompiledArtifact:
+    """Tests for _is_compiled_artifact() — keeps Python bytecode out of file maps."""
+
+    def test_pycache_dir_component_is_artifact(self) -> None:
+        """Any __pycache__ path component classifies as a compiled artifact."""
+        from wiki_io.scan_monorepo import _is_compiled_artifact
+        assert _is_compiled_artifact("__pycache__/foo.cpython-311.pyc") is True
+        assert _is_compiled_artifact("tests/__pycache__/test_x.cpython-311-pytest-9.0.3.pyc") is True
+
+    def test_pyc_and_pyo_basenames_are_artifacts(self) -> None:
+        """.pyc / .pyo basenames classify as artifacts even without __pycache__."""
+        from wiki_io.scan_monorepo import _is_compiled_artifact
+        assert _is_compiled_artifact("legacy/module.pyc") is True
+        assert _is_compiled_artifact("module.pyo") is True
+
+    def test_source_python_is_not_artifact(self) -> None:
+        """Plain .py source files are not compiled artifacts."""
+        from wiki_io.scan_monorepo import _is_compiled_artifact
+        assert _is_compiled_artifact("src/pkg/module.py") is False
+        assert _is_compiled_artifact("conftest.py") is False
+
+    def test_git_ls_files_drops_compiled_artifacts(self) -> None:
+        """_git_ls_files filters tracked bytecode (e.g. a fixture built with git add .)."""
+        from unittest.mock import MagicMock
+
+        from wiki_io.scan_monorepo import _git_ls_files
+
+        ls_output = (
+            "src/app/__init__.py\n"
+            "src/app/__pycache__/__init__.cpython-311.pyc\n"
+            "tests/test_app.py\n"
+            "tests/__pycache__/test_app.cpython-311-pytest-9.0.3.pyc\n"
+        )
+        with patch("wiki_io.scan_monorepo.subprocess.run") as run:
+            run.side_effect = [
+                MagicMock(returncode=0),  # git rev-parse --git-dir
+                MagicMock(returncode=0, stdout=ls_output),  # git ls-files
+            ]
+            files = _git_ls_files(Path("/fake/pkg"))
+        assert files == ["src/app/__init__.py", "tests/test_app.py"]
+
+
 # ---------------------------------------------------------------------------
 # build_file_maps() (paired API) tests
 # ---------------------------------------------------------------------------

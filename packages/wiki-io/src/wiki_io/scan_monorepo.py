@@ -348,7 +348,27 @@ def _git_ls_files(pkg_path: Path) -> list[str] | None:
         return None
     if result.returncode != 0:
         return None
-    return sorted(line.strip() for line in result.stdout.splitlines() if line.strip())
+    return sorted(
+        rel
+        for line in result.stdout.splitlines()
+        if (rel := line.strip()) and not _is_compiled_artifact(rel)
+    )
+
+
+def _is_compiled_artifact(rel: str) -> bool:
+    """True for Python bytecode artifacts that should never appear in a file map.
+
+    ``__pycache__`` dirs and ``.pyc``/``.pyo`` files are virtually always
+    gitignored in real repos, so ``git ls-files`` won't surface them — but a
+    tree that tracks them anyway (e.g. a test fixture built with ``git add .``
+    over stray compiled files) would otherwise leak version-stamped bytecode
+    names into the deterministic file map. Filtering here keeps the map source-
+    only for every ``_git_ls_files`` consumer.
+    """
+    parts = rel.split("/")
+    if "__pycache__" in parts:
+        return True
+    return parts[-1].endswith((".pyc", ".pyo"))
 
 
 # ---------------------------------------------------------------------------
