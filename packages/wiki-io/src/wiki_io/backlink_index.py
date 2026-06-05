@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 import frontmatter
+from workspace_io.paths import work_dir
 
 # Match the heading at column 0 followed only by optional trailing whitespace.
 _HEADING_RE = re.compile(r"^## Referenced in wiki[ \t]*\n", re.MULTILINE)
@@ -75,10 +76,10 @@ def _iter_preserved_pages(wiki: Path):
                 if p.name == "index.md":
                     continue
                 yield folder, p
-    # work/ is a sibling of the wiki (workspace-rooted).
-    work_dir = wiki.parent / "work"
-    if work_dir.is_dir():
-        for p in sorted(work_dir.rglob("*.md")):
+    # work/ lives under the wiki (wiki-rooted, like every other category).
+    work_root = work_dir(wiki.parent)
+    if work_root.is_dir():
+        for p in sorted(work_root.rglob("*.md")):
             if p.name == "index.md":
                 continue
             yield "work", p

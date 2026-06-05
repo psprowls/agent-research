@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
+from workspace_io.paths import work_dir
+
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.update_index import update_index
@@ -144,7 +146,7 @@ def file_work_item(
     opened = str(fm["opened"])
     slug = slug or _slugify(title)
 
-    work_root = wiki.parent / "work"
+    work_root = work_dir(wiki.parent)
     work_root.mkdir(parents=True, exist_ok=True)
     page_path = work_root / f"{opened}-{slug}.md"
 

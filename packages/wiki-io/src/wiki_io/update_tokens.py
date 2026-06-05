@@ -18,6 +18,7 @@ from typing import Iterator
 import boto3
 import frontmatter
 from botocore.exceptions import ClientError
+from workspace_io.paths import work_dir
 
 SKIP_FILENAMES = {"index.md", "log.md"}
 
@@ -193,10 +194,10 @@ def update_vault(
         status, _ = update_page(page, dry_run=dry_run, model_id=model_id, region=region)
         result[status].append(str(page.relative_to(workspace)))
 
-    # Process work items (sibling of wiki)
-    work_dir = workspace / "work"
-    if work_dir.exists():
-        for page in iter_pages(work_dir):
+    # Process work items (now under the wiki)
+    work_root = work_dir(workspace)
+    if work_root.exists():
+        for page in iter_pages(work_root):
             status, _ = update_page(page, dry_run=dry_run, model_id=model_id, region=region)
             result[status].append(str(page.relative_to(workspace)))
 
