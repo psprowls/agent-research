@@ -566,6 +566,29 @@ class TestRenderByKind:
         assert "  - Dependencies" in text
         assert "[[wiki/entities/dep_boto3|boto3]]" in text
 
+    def test_by_kind_entity_summary_renders_before_open_page_link(
+        self, tmp_path, make_index_fixture_graph
+    ):
+        """A by-kind entity with a `summary:` renders `{summary} — [[…|open page]]`
+        on the line beneath its `#### {name}` header (summary-first ordering)."""
+        spec = {
+            "nodes": [
+                ("package", "pkg-cross", {"uri": "pkg:pkg-cross"}),  # zero domains
+            ],
+            "edges": [],
+        }
+        conn = make_index_fixture_graph(spec)
+        wiki_root = tmp_path / "wiki"
+        wiki_root.mkdir(parents=True, exist_ok=True)
+        _write_curated_page(
+            wiki_root / "entities" / "pkg_pkg-cross.md",
+            title="pkg-cross",
+            summary="Cross summary",
+        )
+        text, *_ = _render(conn, wiki_root)
+        assert "#### pkg-cross" in text
+        assert "Cross summary — [[wiki/entities/pkg_pkg-cross|open page]]" in text
+
     def test_empty_by_kind_omitted(self, tmp_path, make_index_fixture_graph):
         spec = {
             "nodes": [
