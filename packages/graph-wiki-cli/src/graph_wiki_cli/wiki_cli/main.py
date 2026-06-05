@@ -227,6 +227,16 @@ def ingest_source(
                 f"wikilink(s): {result.stripped_wikilinks}",
                 err=True,
             )
+        if result.suggested_pages:
+            typer.echo(f"     suggested {len(result.suggested_pages)} page(s):")
+            for s in result.suggested_pages:
+                mode = "update" if s.get("mode") == "update_existing" else "new"
+                typer.echo(
+                    f"       - {s.get('kind')} \"{s.get('title')}\" "
+                    f"({mode}, {s.get('status')}) -> {s.get('slug')}"
+                )
+        if not result.suggestions_parsed:
+            typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)
 
 
 @ingest_app.command(name="work-item")
