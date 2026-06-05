@@ -39,13 +39,8 @@ from graph_wiki_cli.graph_cli import (
     q_find,
     q_imported_by,
     q_imports,
-    q_list_apps,
-    q_list_builtins,
-    q_list_domains,
+    q_list,
     q_list_entry_points,
-    q_list_packages,
-    q_list_scripts,
-    q_list_suites,
     q_what_tests,
 )
 from graph_io.queries import _VALID_KINDS
@@ -226,22 +221,15 @@ def describe_repo_cmd(ctx: typer.Context) -> None:
     _run(q_describe_repo, ctx)
 
 
-@graph_app.command(name="list-apps")
-def list_apps_cmd(ctx: typer.Context) -> None:
-    """List app nodes."""
-    _run(q_list_apps, ctx)
-
-
-@graph_app.command(name="list-builtins")
-def list_builtins_cmd(ctx: typer.Context) -> None:
-    """List builtin nodes."""
-    _run(q_list_builtins, ctx)
-
-
-@graph_app.command(name="list-packages")
-def list_packages_cmd(ctx: typer.Context) -> None:
-    """List package nodes."""
-    _run(q_list_packages, ctx)
+@graph_app.command(name="list")
+def list_cmd(
+    ctx: typer.Context,
+    kind: str = typer.Option(..., "--kind", "-k", help=f"Entity kind: {', '.join(q_list.LIST_KINDS)}."),
+) -> None:
+    """List graph entities of a given kind."""
+    if kind not in q_list.LIST_KINDS:
+        raise typer.BadParameter(f"kind must be one of: {', '.join(q_list.LIST_KINDS)}")
+    _run(q_list, ctx, kind=kind)
 
 
 @graph_app.command(name="list-entry-points")
@@ -254,18 +242,6 @@ def list_entry_points_cmd(
     if kind is not None and kind not in ENTRY_POINT_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(ENTRY_POINT_KINDS)}")
     _run(q_list_entry_points, ctx, package=package, kind=kind)
-
-
-@graph_app.command(name="list-scripts")
-def list_scripts_cmd(ctx: typer.Context) -> None:
-    """List executable scripts."""
-    _run(q_list_scripts, ctx)
-
-
-@graph_app.command(name="list-suites")
-def list_suites_cmd(ctx: typer.Context) -> None:
-    """List test suites."""
-    _run(q_list_suites, ctx)
 
 
 @graph_app.command(name="describe-suite")
@@ -284,12 +260,6 @@ def what_tests_cmd(
     if kind is not None and kind not in TEST_TARGET_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(TEST_TARGET_KINDS)}")
     _run(q_what_tests, ctx, name=name, kind=kind)
-
-
-@graph_app.command(name="list-domains")
-def list_domains_cmd(ctx: typer.Context) -> None:
-    """List domain nodes."""
-    _run(q_list_domains, ctx)
 
 
 @graph_app.command(name="describe-domain")

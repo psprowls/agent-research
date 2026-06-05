@@ -198,7 +198,7 @@ def test_find_in_package_unknown_exits_1(populated_repo: Path) -> None:
     assert res.returncode == 1, (res.returncode, res.stdout, res.stderr)
 
 
-# ── Phase 49 BUILTIN-06 / D-12: gw graph list-builtins smoke ───────────────────────
+# ── Phase 49 BUILTIN-06 / D-12: gw graph list --kind builtins smoke ────────────────
 
 
 @pytest.fixture()
@@ -219,8 +219,8 @@ def builtin_repo(tmp_path: Path) -> Path:
 
 
 def test_cg_list_builtins_smoke(builtin_repo: Path) -> None:
-    """list-builtins exits 0; human output includes pathlib and os line-per-line."""
-    res = _cg(["list-builtins"], builtin_repo)
+    """list --kind builtins exits 0; human output includes pathlib and os line-per-line."""
+    res = _cg(["list", "--kind", "builtins"], builtin_repo)
     assert res.returncode == 0, res.stderr
     lines = res.stdout.splitlines()
     assert "pathlib" in lines
@@ -228,8 +228,8 @@ def test_cg_list_builtins_smoke(builtin_repo: Path) -> None:
 
 
 def test_cg_list_builtins_json(builtin_repo: Path) -> None:
-    """list-builtins --fmt json exits 0; output is a JSON list with kind='builtin' entries."""
-    res = _cg(["--fmt", "json", "list-builtins"], builtin_repo)
+    """list --kind builtins --fmt json exits 0; output is a JSON list with kind='builtin' entries."""
+    res = _cg(["--fmt", "json", "list", "--kind", "builtins"], builtin_repo)
     assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert isinstance(data, list)
@@ -240,25 +240,25 @@ def test_cg_list_builtins_json(builtin_repo: Path) -> None:
 
 
 def test_cg_list_builtins_empty(tmp_path: Path) -> None:
-    """list-builtins on a freshly initialised empty graph exits 0 (no builtins yet)."""
+    """list --kind builtins on a freshly initialised empty graph exits 0 (no builtins yet)."""
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"pyproject.toml": '[project]\nname = "empty"\nversion = "0.1.1"\n'}, "init")
     res = _cg(["update", "--full"], tmp_path)
     assert res.returncode == 0, res.stderr
 
     # human mode: warning to stderr, no stdout
-    res_human = _cg(["list-builtins"], tmp_path)
+    res_human = _cg(["list", "--kind", "builtins"], tmp_path)
     assert res_human.returncode == 0, res_human.stderr
     assert "No builtins in graph." in res_human.stderr
     assert res_human.stdout.strip() == ""
 
     # json mode: [] to stdout
-    res_json = _cg(["--fmt", "json", "list-builtins"], tmp_path)
+    res_json = _cg(["--fmt", "json", "list", "--kind", "builtins"], tmp_path)
     assert res_json.returncode == 0, res_json.stderr
     assert json.loads(res_json.stdout) == []
 
 
-# ── Phase 50 APP-05 / D-09: gw graph list-apps smoke ──────────────────────────────
+# ── Phase 50 APP-05 / D-09: gw graph list --kind apps smoke ────────────────────────
 
 
 @pytest.fixture()
@@ -286,16 +286,16 @@ def app_repo(tmp_path: Path) -> Path:
 
 
 def test_cg_list_apps_smoke(app_repo: Path) -> None:
-    """list-apps exits 0; human output includes the app name line-per-line."""
-    res = _cg(["list-apps"], app_repo)
+    """list --kind apps exits 0; human output includes the app name line-per-line."""
+    res = _cg(["list", "--kind", "apps"], app_repo)
     assert res.returncode == 0, res.stderr
     lines = res.stdout.splitlines()
     assert "my-cli" in lines
 
 
 def test_cg_list_apps_json(app_repo: Path) -> None:
-    """list-apps --fmt json exits 0; output is a JSON list with kind='app' entries."""
-    res = _cg(["--fmt", "json", "list-apps"], app_repo)
+    """list --kind apps --fmt json exits 0; output is a JSON list with kind='app' entries."""
+    res = _cg(["--fmt", "json", "list", "--kind", "apps"], app_repo)
     assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert isinstance(data, list)
@@ -306,7 +306,7 @@ def test_cg_list_apps_json(app_repo: Path) -> None:
 
 
 def test_cg_list_apps_empty(tmp_path: Path) -> None:
-    """list-apps on a graph with no apps emits the empty-result message."""
+    """list --kind apps on a graph with no apps emits the empty-result message."""
     init_repo(tmp_path)
     write_and_commit(
         tmp_path,
@@ -317,12 +317,27 @@ def test_cg_list_apps_empty(tmp_path: Path) -> None:
     assert res.returncode == 0, res.stderr
 
     # human mode: warning to stderr, no stdout
-    res_human = _cg(["list-apps"], tmp_path)
+    res_human = _cg(["list", "--kind", "apps"], tmp_path)
     assert res_human.returncode == 0, res_human.stderr
     assert "No apps in graph." in res_human.stderr
     assert res_human.stdout.strip() == ""
 
     # json mode: [] to stdout
-    res_json = _cg(["--fmt", "json", "list-apps"], tmp_path)
+    res_json = _cg(["--fmt", "json", "list", "--kind", "apps"], tmp_path)
     assert res_json.returncode == 0, res_json.stderr
     assert json.loads(res_json.stdout) == []
+
+
+# ── gw graph list --kind dispatcher ───────────────────────────────────────────
+
+
+def test_list_packages_via_kind(populated_repo: Path) -> None:
+    res = _cg(["list", "--kind", "packages"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    assert "demo" in res.stdout
+
+
+def test_list_unknown_kind_is_bad_parameter(populated_repo: Path) -> None:
+    res = _cg(["list", "--kind", "wombats"], populated_repo)
+    assert res.returncode == 2
+    assert "kind must be one of" in res.stderr
