@@ -161,6 +161,25 @@ sweep_candidates = [
   "mistral.ministral-3-14b-instruct",
 ]
 
+# Living Wiki M4 — cross-page drift propagator. Judges a whole curated page
+# (concept/adr/architecture) against the CURRENT narratives of the changed
+# entities that backlink it, and proposes ledger notes for stale claims. Cheap
+# classification tier (mirrors drift_judge); settle the default after a
+# deepeval sweep (spec §7 open-q #2). max_tokens is a touch higher than
+# drift_judge because the verdict carries one finding per triggering entity.
+[roles.drift_propagator]
+model_id        = "openai.gpt-oss-20b-1:0"
+region          = "us-east-1"
+max_tokens      = 512
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "mistral.ministral-3-14b-instruct",
+]
+
 # NOTE: the binding judge configuration lives in eval_harness/judge.py
 # (JUDGE_PANEL_CONFIG). These blocks are kept in sync for reference only
 # and are NOT read by the judge harness.

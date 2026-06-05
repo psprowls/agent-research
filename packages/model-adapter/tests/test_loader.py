@@ -269,6 +269,16 @@ def test_load_role_config_unknown_role_raises_keyerror():
         load_role_config("nonexistent")
 
 
+def test_drift_propagator_role_is_configured():
+    """[M4 §4] The cross-page drift judge has a cheap-tier role with candidates."""
+    from model_adapter.loader import load_role_config
+
+    cfg = load_role_config("drift_propagator")
+    assert cfg["model_id"]
+    assert cfg["max_concurrency"] >= 1
+    assert cfg.get("sweep_candidates")
+
+
 def test_make_llm_librarian_sets_max_tokens():
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm
