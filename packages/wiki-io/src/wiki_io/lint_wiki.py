@@ -269,13 +269,14 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
                 return None
 
             def _entity_pkg_slug(fm: dict) -> str | None:
-                """Slug for a graph-derived entities/ page (kind: package|app).
+                """Slug for a graph-derived entities/ page (kind: package|app|agent_plugin).
 
                 The workspace slug is the final path segment of the entity URI
-                (``pkg:org/repo/alpha`` -> ``alpha``), unscoped to match disk
-                names the same way legacy pages are compared.
+                (``pkg:org/repo/alpha`` -> ``alpha``,
+                ``agent_plugin:org/repo/graph-wiki`` -> ``graph-wiki``),
+                unscoped to match disk names the same way legacy pages are compared.
                 """
-                if fm.get("kind") not in ("package", "app"):
+                if fm.get("kind") not in ("package", "app", "agent_plugin"):
                     return None
                 uri = (fm.get("uri") or "").strip()
                 if not uri:
@@ -433,13 +434,13 @@ def print_report(r):
         if cd.get("error"):
             print(f"[WARN] code drift check failed: {cd['error']}")
         else:
-            print(f"Code drift: {cd['packages_on_disk']} packages on disk, {cd['packages_in_vault']} in vault")
+            print(f"Code drift: {cd['packages_on_disk']} entities on disk, {cd['packages_in_vault']} in vault")
             mw = cd.get("missing_in_vault", [])
-            print(f"[{'WARN' if mw else 'OK'}] packages missing from vault: {len(mw)}")
+            print(f"[{'WARN' if mw else 'OK'}] entities missing from vault: {len(mw)}")
             for n in mw[:10]:
                 print(f"   + {n}  (run /graph-wiki:scan)")
             ow = cd.get("orphaned_in_vault", [])
-            print(f"[{'WARN' if ow else 'OK'}] vault pages for non-existent packages: {len(ow)}")
+            print(f"[{'WARN' if ow else 'OK'}] vault pages for non-existent entities: {len(ow)}")
             for n in ow[:10]:
                 print(f"   - {n}  (archive or delete)")
             ed = cd.get("exports_drift", [])
