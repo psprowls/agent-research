@@ -423,3 +423,36 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
 
     assert out.suggestions_parsed is True
     assert out.suggested_pages[0]["slug"] == "t"
+
+
+# ---------------------------------------------------------------------------
+# wiki_propagate_drift tool (Living Wiki M4)
+# ---------------------------------------------------------------------------
+
+
+async def test_wiki_propagate_drift_returns_summary(monkeypatch):
+    """wiki_propagate_drift calls run_propagate_drift and returns summary fields (M4 §3.7)."""
+    from pathlib import Path
+
+    from unittest.mock import MagicMock
+
+    import graph_wiki_mcp.server as srv
+    from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+
+    async def _fake(**kwargs):
+        assert kwargs["dry_run"] is True
+        assert kwargs["only"] is None
+        return PropagateDriftResult(1, 2, 0, 1, 0, True, [])
+
+    monkeypatch.setattr(srv, "run_propagate_drift", _fake)
+    monkeypatch.setattr(srv, "resolve_wiki_and_repo",
+                        lambda p: (Path("/w/wiki"), Path("/w/repo")))
+    monkeypatch.setattr(srv, "read_only_connect",
+                        lambda p: type("C", (), {"close": lambda self: None})())
+
+    out = await srv.wiki_propagate_drift(
+        srv.WikiPropagateDriftInput(dry_run=True), MagicMock()
+    )
+    assert out.pages_judged == 1
+    assert out.entities_considered == 2
+    assert out.dry_run is True

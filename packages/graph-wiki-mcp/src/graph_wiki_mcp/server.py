@@ -453,6 +453,61 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
     )
 
 
+# --- wiki_propagate_drift tool (Living Wiki M4) ---
+
+from graph_io.store import read_only_connect  # noqa: E402
+from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
+from workspace_io.paths import graph_dir  # noqa: E402
+from graph_wiki_core.commands.propagate_drift import (  # noqa: E402
+    PropagateDriftResult,
+    run_propagate_drift,
+)
+
+
+class WikiPropagateDriftInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
+    dry_run: bool = Field(False, description="Judge + report without writing notes or stamping anchors")
+    only: str | None = Field(None, description="Restrict to one entity (uri/stem) or curated page (slug)")
+
+
+class WikiPropagateDriftOutput(BaseModel):
+    pages_judged: int
+    entities_considered: int
+    notes_written: int
+    pages_stale: int
+    pages_skipped_settled: int
+    dry_run: bool
+    proposals: list[dict]
+
+
+@mcp.tool(
+    name="wiki_propagate_drift",
+    description="Propose curated-page updates for entities whose code changed (M4 drift producer).",
+)
+async def wiki_propagate_drift(
+    input: WikiPropagateDriftInput, ctx: Context
+) -> WikiPropagateDriftOutput:
+    workspace = Path(input.workspace_path) if input.workspace_path else None
+    wiki, repo = resolve_wiki_and_repo(workspace)
+    conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+    try:
+        result: PropagateDriftResult = await run_propagate_drift(
+            wiki=wiki, repo=repo, conn=conn, dry_run=input.dry_run, only=input.only
+        )
+    finally:
+        conn.close()
+    return WikiPropagateDriftOutput(
+        pages_judged=result.pages_judged,
+        entities_considered=result.entities_considered,
+        notes_written=result.notes_written,
+        pages_stale=result.pages_stale,
+        pages_skipped_settled=result.pages_skipped_settled,
+        dry_run=result.dry_run,
+        proposals=result.proposals,
+    )
+
+
 # ---------------------------------------------------------------------------
 # graph_build, graph_describe, graph_query tools (Phase 38 / GRAPHCMD-04)
 # ---------------------------------------------------------------------------
