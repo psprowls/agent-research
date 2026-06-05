@@ -136,3 +136,129 @@ def test_absent_anchor_is_candidate(ws, conn, monkeypatch):
     assert len(cands) == 1
     assert cands[0].drift_propagated_commit is None
     assert cands[0].changed_files == []
+
+
+# --- happy-path (run_propagate_drift) tests --------------------------------
+
+import asyncio
+from unittest.mock import MagicMock
+
+import graph_wiki_core.commands.propagate_drift as pd
+from wiki_io.proposals import list_proposals, proposal_path, read_proposal
+
+
+def _patch_judge(monkeypatch, verdict_fn, *, recorder: dict | None = None):
+    """Replace make_llm + SubagentPool.run_all. `verdict_fn(item)` returns the
+    parsed verdict dict for one item; `item` is
+    (kind, target_slug, title, page_body, entities, entry)."""
+    monkeypatch.setattr(pd, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(pd, "load_role_config", lambda role: {"model_id": "m", "max_concurrency": 4})
+
+    async def _run_all(self, items, task, role, *, model_id, max_concurrency, recursion_limit=None):
+        from subagent_runtime.pool import FanOutResult
+
+        result = FanOutResult()
+        if recorder is not None:
+            recorder.setdefault("items", []).extend(items)
+        result.successes = [(it, verdict_fn(it)) for it in items]
+        return result
+
+    monkeypatch.setattr(pd.SubagentPool, "run_all", _run_all)
+
+
+def test_stale_page_with_two_entities_yields_one_note_two_origins(ws, conn, monkeypatch):
+    """[§5 test 7] one page backlinked by two changed entities, both stale ->
+    ONE ledger note with TWO source:drift origins (detected_commit + hash set)."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    # Second package node so both entities map to a node_path.
+    c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
+    c2.execute(
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+        "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')"
+    )
+    c2.commit()
+    c2.close()
+    conn2 = read_only_connect(ws / ".graph-wiki" / "code.db")
+
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a",
+                       last_updated_commit="h2", narrative="A is async now.")
+    _write_entity_page(wiki, stem="pkg_b", uri="pkg:org/repo/pkg-b",
+                       last_updated_commit="h9", narrative="B is async now.")
+    _write_curated(wiki, "concepts", "fanout",
+                   "Both pkg_a [[entities/pkg_a]] and pkg_b [[entities/pkg_b]] are synchronous.")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+
+    def verdict(item):
+        kind, slug, title, body, entities, entry = item
+        return {"stale": True, "findings": [
+            {"entity_stem": stem, "stale_claim": "sync", "rationale": f"{stem} now async"}
+            for stem, _narr, _files in entities
+        ]}
+
+    _patch_judge(monkeypatch, verdict)
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn2))
+    conn2.close()
+
+    assert res.pages_judged == 1
+    assert res.entities_considered == 2
+    assert res.notes_written == 1
+    assert res.pages_stale == 1
+
+    rec = read_proposal(proposal_path(wiki, "concept", "fanout"))
+    assert rec["status"] == "proposed"
+    assert rec["mode"] == "update_existing"
+    assert len(rec["origins"]) == 2
+    refs = {o["ref"] for o in rec["origins"]}
+    assert refs == {"entities/pkg_a", "entities/pkg_b"}
+    for o in rec["origins"]:
+        assert o["source"] == "drift"
+        assert o["detected_commit"] in {"h2", "h9"}
+        assert o["hash"]  # sha256 of the entity narrative
+
+
+def test_non_stale_page_writes_no_note(ws, conn, monkeypatch):
+    """[§5 test 10] judge says not stale -> no ledger note."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+    assert res.notes_written == 0
+    assert list_proposals(wiki) == []
+
+
+def test_anchor_stamped_and_second_run_is_idempotent(ws, conn, monkeypatch):
+    """[§5 test 4] every processed candidate's drift_propagated_commit is stamped
+    to last_updated_commit; a second run with no code change judges nothing."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    page = _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+    import frontmatter as _fm
+    assert _fm.load(page).metadata.get("drift_propagated_commit") == "h2"
+
+    rec = {"items": []}
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []}, recorder=rec)
+    res2 = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+    assert res2.entities_considered == 0
+    assert rec["items"] == []  # judge never invoked
+
+
+def test_entity_with_no_curated_backlink_is_still_stamped(ws, conn, monkeypatch):
+    """[§3.5] a candidate whose only backlinkers are non-curated (or none) is
+    still stamped, so it is not reconsidered until its narrative changes."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    page = _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    _write_curated(wiki, "sources", "spec", "About [[entities/pkg_a]].")  # sources excluded
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, conn=conn))
+    assert res.pages_judged == 0  # no curated target
+    import frontmatter as _fm
+    assert _fm.load(page).metadata.get("drift_propagated_commit") == "h2"

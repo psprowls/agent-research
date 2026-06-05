@@ -151,3 +151,147 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
             )
         )
     return out
+
+
+def _page_title(page_path: Path, fallback: str) -> str:
+    try:
+        return str(frontmatter.load(page_path).metadata.get("title") or fallback)
+    except Exception:  # noqa: BLE001
+        return fallback
+
+
+def _build_targets(
+    candidates: list[PropagationCandidate], backlink_map: dict
+) -> dict[Path, dict]:
+    """page_path -> {kind, target_slug, page_path, candidates[]} for curated
+    pages backlinked by a candidate (sources/work filtered out)."""
+    targets: dict[Path, dict] = {}
+    for c in candidates:
+        for category, slug, page_path in backlink_map.get(c.stem, []):
+            kind = _CATEGORY_TO_KIND.get(category)
+            if kind is None:
+                continue  # sources / work are not drift targets
+            entry = targets.setdefault(
+                page_path,
+                {"kind": kind, "target_slug": slug, "page_path": page_path, "candidates": []},
+            )
+            entry["candidates"].append(c)
+    return targets
+
+
+async def run_propagate_drift(
+    *,
+    wiki: Path,
+    repo: Path,
+    conn: Any,
+    dry_run: bool = False,
+    only: str | None = None,
+    model_override: str | None = None,
+) -> PropagateDriftResult:
+    """Propose curated-page updates for changed entities (spec §3.6).
+
+    candidates → curated backlink targets → kind-aware judge → upsert one origin
+    per finding → stamp drift_propagated_commit per processed candidate. Both
+    surfaces call this; it computes its own candidates off the on-disk anchors.
+    """
+    candidates = propagation_candidates(wiki, repo, conn)
+
+    # The Bedrock stack is required to judge; absent it (plugin branch) we make
+    # no proposals and stamp nothing (mirrors scan._drift_flag_pass early-out).
+    if make_llm is None or SubagentPool is None:
+        return PropagateDriftResult(0, len(candidates), 0, 0, 0, dry_run, [])
+
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+
+    # The candidates actually processed this run (Task 6 narrows these via --only).
+    processed = candidates
+
+    judge_targets = list(targets.values())
+
+    items: list[tuple] = []
+    for entry in judge_targets:
+        body = entry["page_path"].read_text(encoding="utf-8")
+        title = _page_title(entry["page_path"], entry["target_slug"])
+        entity_tuples = [(c.stem, c.narrative, c.changed_files) for c in entry["candidates"]]
+        items.append(
+            (entry["kind"], entry["target_slug"], title, body, entity_tuples, entry)
+        )
+
+    verdicts: list[tuple] = []
+    if items:
+        cfg = load_role_config("drift_propagator")
+        llm = make_llm("drift_propagator", model_override=model_override)
+        pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
+
+        async def judge(item: tuple) -> "TaskResult":
+            kind, _slug, title, body, entity_tuples, _entry = item
+            system_msg, human_msg = build_drift_propagator_prompt(kind, title, body, entity_tuples)
+            resp = await llm.ainvoke(
+                [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
+            )
+            return TaskResult(value=parse_drift_propagator_verdict(resp.content), response=resp)
+
+        fan = await pool.run_all(
+            items,
+            judge,
+            "drift_propagator",
+            model_id=cfg["model_id"],
+            max_concurrency=cfg["max_concurrency"],
+        )
+        verdicts = list(fan.successes)
+
+    pages_stale = 0
+    notes_written = 0
+    report: list[dict] = []
+    for item, verdict in verdicts:
+        kind, slug, title, _body, _entity_tuples, entry = item
+        if not (isinstance(verdict, dict) and verdict.get("stale")):
+            continue
+        findings = verdict.get("findings") or []
+        by_stem = {c.stem: c for c in entry["candidates"]}
+        origins_written: list[dict] = []
+        for finding in findings:
+            cand = by_stem.get(finding.get("entity_stem"))
+            if cand is None:
+                continue  # finding references an entity not in this page's batch
+            origin = {
+                "ref": f"entities/{cand.stem}",
+                "source": "drift",
+                "detected_commit": cand.last_updated_commit,
+                "hash": section_hash(cand.narrative),
+                "rationale": str(finding.get("rationale", "")),
+            }
+            if not dry_run:
+                upsert_proposal(
+                    wiki,
+                    {
+                        "kind": kind,
+                        "mode": "update_existing",
+                        "target_slug": slug,
+                        "title": title,
+                        "origin": origin,
+                    },
+                )
+            origins_written.append(origin)
+        if origins_written:
+            pages_stale += 1
+            if not dry_run:
+                notes_written += 1  # nothing is written in a dry run
+            report.append({"kind": kind, "target_slug": slug, "origins": origins_written})
+
+    if not dry_run:
+        for c in processed:
+            try:
+                update_frontmatter(c.page_path, {DRIFT_PROPAGATED_COMMIT_KEY: c.last_updated_commit})
+            except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                logger.warning("drift_propagated stamp failed for %s: %s", c.page_path, exc)
+
+    return PropagateDriftResult(
+        pages_judged=len(items),
+        entities_considered=len(processed),
+        notes_written=notes_written,
+        pages_stale=pages_stale,
+        pages_skipped_settled=0,  # Task 6 fills this in
+        dry_run=dry_run,
+        proposals=report,
+    )
