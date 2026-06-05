@@ -1255,9 +1255,11 @@ async def test_run_ingest_source_surfaces_stripped_wikilinks_in_result(
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_attaches_suggestions(tmp_path: Path) -> None:
-    """A clean ingest records proposals on the Source page + in IngestResult."""
+async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
+    """A clean ingest records proposals in proposals/ + in IngestResult; the
+    Source page carries no suggested_pages and no ## Suggested pages section."""
     from graph_wiki_core.commands.ingest import run_ingest_source
+    from wiki_io.proposals import proposal_path
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
     source_file = workspace / "spec.md"
@@ -1291,19 +1293,23 @@ async def test_run_ingest_source_attaches_suggestions(tmp_path: Path) -> None:
         mock_resolve.return_value = (wiki, repo)
         result = await run_ingest_source(source_file, workspace)
 
+    # Report shape preserved (kind/title/slug/mode/status).
     assert result.suggestions_parsed is True
     assert [(s["kind"], s["slug"], s["status"]) for s in result.suggested_pages] == [
         ("concept", "cross-cutting-idea", "proposed")
     ]
+    assert set(result.suggested_pages[0]) == {"kind", "title", "slug", "mode", "status"}
+    # Storage moved to the ledger.
+    assert proposal_path(wiki, "concept", "cross-cutting-idea").exists()
+    # The Source page is clean.
     written = (wiki / "sources" / "spec.md").read_text(encoding="utf-8")
-    assert "suggested_pages:" in written
-    assert "## Suggested pages" in written
-    assert "cross-cutting-idea" in written
+    assert "suggested_pages" not in written
+    assert "## Suggested pages" not in written
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_suggest_phase_degraded_is_nonfatal(tmp_path: Path) -> None:
-    """Extractor parse miss -> suggestions_parsed False, ingest still ok, page intact."""
+async def test_run_ingest_source_suggest_degraded_is_nonfatal(tmp_path: Path) -> None:
+    """Extractor parse miss -> suggestions_parsed False, ingest still ok, zero notes."""
     from graph_wiki_core.commands.ingest import run_ingest_source
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
@@ -1332,26 +1338,23 @@ async def test_run_ingest_source_suggest_phase_degraded_is_nonfatal(tmp_path: Pa
     assert result.status == "ok"
     assert result.suggestions_parsed is False
     assert result.suggested_pages == []
-    written = (wiki / "sources" / "spec.md").read_text(encoding="utf-8")
-    assert "suggested_pages:" not in written  # nothing fabricated
+    assert not any((wiki / "proposals").glob("*.md"))
 
 
 # ---------------------------------------------------------------------------
-# M3: re-ingest preserves human suggestion decisions (spec §3.4)
+# M3: re-ingest preserves human suggestion decisions (spec §3.2)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Path) -> None:
-    """Re-ingesting the same source preserves a human's approved status (spec §3.4).
+    """A human's approved decision in the ledger survives re-ingest (spec §3.2).
 
-    The ingestor overwrites the Source page with fresh LLM output that carries no
-    suggested_pages. If prior decisions are NOT captured before the overwrite,
-    merge_suggested_pages never sees them and the approved entry reverts to
-    proposed. This test confirms the fix: prior decisions survive re-ingest.
+    The note's status is human-decided, so upsert leaves it untouched on the
+    second ingest — no prior-state capture in ingest.py is required.
     """
     from graph_wiki_core.commands.ingest import run_ingest_source
-    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
+    from wiki_io.proposals import proposal_path, read_proposal, set_proposal_status
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
     source_file = workspace / "spec.md"
@@ -1370,12 +1373,14 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
         "    rationale: The source defines it.\n"
     )
 
-    ingestor_llm = MagicMock()
-    ingestor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
-    extractor_llm = MagicMock()
-    extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+    def _llms():
+        i = MagicMock()
+        i.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+        e = MagicMock()
+        e.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+        return i, e
 
-    # First ingest -> proposal lands as 'proposed'.
+    ingestor_llm, extractor_llm = _llms()
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
         patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
@@ -1389,19 +1394,10 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
         ("cross-cutting-idea", "proposed")
     ]
 
-    # Human approves the suggestion by editing the on-disk page.
-    page = wiki / "sources" / "spec.md"
-    page_text = page.read_text(encoding="utf-8")
-    assert "status: proposed" in page_text, f"expected 'status: proposed' in page; got:\n{page_text}"
-    page.write_text(page_text.replace("status: proposed", "status: approved"), encoding="utf-8")
+    # Human approves via the ledger API.
+    set_proposal_status(wiki, "concept", "cross-cutting-idea", "approved")
 
-    # Re-ingest the SAME source (ingestor returns fresh content w/o suggested_pages;
-    # extractor proposes the SAME key again). Human decision must survive.
-    ingestor_llm2 = MagicMock()
-    ingestor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
-    extractor_llm2 = MagicMock()
-    extractor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
-
+    ingestor_llm2, extractor_llm2 = _llms()
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
         patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm2),
@@ -1412,27 +1408,19 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
         second = await run_ingest_source(source_file, workspace)
 
     kept = [s for s in second.suggested_pages if s["slug"] == "cross-cutting-idea"]
-    assert len(kept) == 1, f"expected entry for 'cross-cutting-idea'; got: {second.suggested_pages}"
-    assert kept[0]["status"] == "approved", (
-        f"human decision 'approved' should be preserved on re-ingest; got: {kept[0]['status']}"
-    )
-    on_disk = read_suggested_pages(page.read_text(encoding="utf-8"))
-    assert [(s["slug"], s["status"]) for s in on_disk] == [("cross-cutting-idea", "approved")]
+    assert len(kept) == 1
+    assert kept[0]["status"] == "approved"  # decision preserved by the ledger
+    on_disk = read_proposal(proposal_path(wiki, "concept", "cross-cutting-idea"))
+    assert on_disk["status"] == "approved"
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_degraded_reingest_persists_human_decision(
-    tmp_path: Path,
-) -> None:
-    """A degraded re-ingest (extractor parse-miss) still persists prior decisions.
-
-    On the second ingest the extractor returns unparseable YAML. The page was
-    just overwritten by the ingestor with no suggested_pages, so the suggest
-    phase must write the prior (approved) entry back to disk — otherwise a third
-    ingest would read [] and drop the decision permanently.
-    """
+async def test_run_ingest_source_degraded_reingest_preserves_ledger_decision(tmp_path: Path) -> None:
+    """A degraded re-ingest (extractor parse-miss) leaves a human-decided ledger
+    note untouched — the suggest phase writes nothing, so the decision survives
+    on disk even though this run reports zero suggestions."""
     from graph_wiki_core.commands.ingest import run_ingest_source
-    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
+    from wiki_io.proposals import proposal_path, read_proposal, set_proposal_status
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
     source_file = workspace / "spec.md"
@@ -1456,7 +1444,6 @@ async def test_run_ingest_source_degraded_reingest_persists_human_decision(
     extractor_llm = MagicMock()
     extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
 
-    # First ingest -> proposal lands as 'proposed'.
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
         patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
@@ -1466,15 +1453,10 @@ async def test_run_ingest_source_degraded_reingest_persists_human_decision(
     ):
         await run_ingest_source(source_file, workspace)
 
-    # Human approves the suggestion by editing the on-disk page.
-    page = wiki / "sources" / "spec.md"
-    page_text = page.read_text(encoding="utf-8")
-    assert "status: proposed" in page_text, f"expected 'status: proposed' in page; got:\n{page_text}"
-    page.write_text(page_text.replace("status: proposed", "status: approved"), encoding="utf-8")
+    # Human approves via the ledger.
+    set_proposal_status(wiki, "concept", "cross-cutting-idea", "approved")
 
-    # Re-ingest the SAME source, but the extractor now returns unparseable YAML
-    # (degraded path). The human decision must survive both in IngestResult AND
-    # on disk.
+    # Re-ingest the SAME source, but the extractor now returns unparseable YAML.
     ingestor_llm2 = MagicMock()
     ingestor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
     extractor_llm2 = MagicMock()
@@ -1491,17 +1473,13 @@ async def test_run_ingest_source_degraded_reingest_persists_human_decision(
     ):
         second = await run_ingest_source(source_file, workspace)
 
-    # (a) degraded
+    # (a) degraded: this run parsed nothing and reports nothing.
     assert second.suggestions_parsed is False
-    # (b) IngestResult still reports the approved entry
-    kept = [s for s in second.suggested_pages if s["slug"] == "cross-cutting-idea"]
-    assert len(kept) == 1, f"expected entry for 'cross-cutting-idea'; got: {second.suggested_pages}"
-    assert kept[0]["status"] == "approved"
-    # (c) on-disk page still carries the approved entry + the body section
-    written = page.read_text(encoding="utf-8")
-    on_disk = read_suggested_pages(written)
-    assert [(s["slug"], s["status"]) for s in on_disk] == [("cross-cutting-idea", "approved")]
-    assert "## Suggested pages" in written
+    # IngestResult reports only THIS run's upserts; a degraded run writes nothing,
+    # so [] is correct even though the approved note persists on disk.
+    assert second.suggested_pages == []
+    # (b) the human decision survives on disk — the ledger note is untouched.
+    assert read_proposal(proposal_path(wiki, "concept", "cross-cutting-idea"))["status"] == "approved"
 
 
 def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
