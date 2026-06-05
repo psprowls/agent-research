@@ -367,14 +367,28 @@ async def run_suggest_phase(
     *,
     wiki: Path,
     page_path: Path,
+    prior_entries: list[dict] | None = None,
 ) -> tuple[list[dict], bool]:
     """Inline suggest phase: propose derived pages and persist them on the page.
 
     Best-effort (spec §3.1): on any LLM error the page is left as-is and
     (existing_entries, False) is returned. Returns (merged_entries, parsed).
+
+    Args:
+        wiki:          Vault root.
+        page_path:     Path to the Source page to read and update.
+        prior_entries: When the caller captured the page's suggested_pages BEFORE
+                       rewriting the page (e.g. run_ingest_source overwrites with
+                       fresh ingestor output that carries no suggested_pages), pass
+                       them here as the merge base so human decisions survive
+                       re-ingest (spec §3.4). Standalone callers leave this None
+                       and the current on-disk page is used instead.
     """
     page_text = page_path.read_text(encoding="utf-8")
-    existing = read_suggested_pages(page_text)
+    # When the caller captured prior suggested_pages BEFORE overwriting the page,
+    # use those as the merge base. Standalone callers (prior_entries=None) read
+    # from the current on-disk page.
+    existing = prior_entries if prior_entries is not None else read_suggested_pages(page_text)
     vault_index = build_curated_vault_index(wiki)
     prompt = build_extract_suggestions_prompt(page_text, vault_index)
 

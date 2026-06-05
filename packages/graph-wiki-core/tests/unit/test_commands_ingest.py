@@ -1336,6 +1336,90 @@ async def test_run_ingest_source_suggest_phase_degraded_is_nonfatal(tmp_path: Pa
     assert "suggested_pages:" not in written  # nothing fabricated
 
 
+# ---------------------------------------------------------------------------
+# M3: re-ingest preserves human suggestion decisions (spec §3.4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Path) -> None:
+    """Re-ingesting the same source preserves a human's approved status (spec §3.4).
+
+    The ingestor overwrites the Source page with fresh LLM output that carries no
+    suggested_pages. If prior decisions are NOT captured before the overwrite,
+    merge_suggested_pages never sees them and the approved entry reverts to
+    proposed. This test confirms the fix: prior decisions survive re-ingest.
+    """
+    from graph_wiki_core.commands.ingest import run_ingest_source
+    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "spec.md"
+    source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    ingestor_response = (
+        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    )
+    extractor_response = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Cross Cutting Idea\n"
+        "    slug: cross-cutting-idea\n"
+        "    mode: create_new\n"
+        "    rationale: The source defines it.\n"
+    )
+
+    ingestor_llm = MagicMock()
+    ingestor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm = MagicMock()
+    extractor_llm.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+
+    # First ingest -> proposal lands as 'proposed'.
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        first = await run_ingest_source(source_file, workspace)
+
+    assert [(s["slug"], s["status"]) for s in first.suggested_pages] == [
+        ("cross-cutting-idea", "proposed")
+    ]
+
+    # Human approves the suggestion by editing the on-disk page.
+    page = wiki / "sources" / "spec.md"
+    page_text = page.read_text(encoding="utf-8")
+    assert "status: proposed" in page_text, f"expected 'status: proposed' in page; got:\n{page_text}"
+    page.write_text(page_text.replace("status: proposed", "status: approved"), encoding="utf-8")
+
+    # Re-ingest the SAME source (ingestor returns fresh content w/o suggested_pages;
+    # extractor proposes the SAME key again). Human decision must survive.
+    ingestor_llm2 = MagicMock()
+    ingestor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
+    extractor_llm2 = MagicMock()
+    extractor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=extractor_response))
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm2),
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm2),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        second = await run_ingest_source(source_file, workspace)
+
+    kept = [s for s in second.suggested_pages if s["slug"] == "cross-cutting-idea"]
+    assert len(kept) == 1, f"expected entry for 'cross-cutting-idea'; got: {second.suggested_pages}"
+    assert kept[0]["status"] == "approved", (
+        f"human decision 'approved' should be preserved on re-ingest; got: {kept[0]['status']}"
+    )
+    on_disk = read_suggested_pages(page.read_text(encoding="utf-8"))
+    assert [(s["slug"], s["status"]) for s in on_disk] == [("cross-cutting-idea", "approved")]
+
+
 def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
     from graph_wiki_core.commands.ingest import (
         _rewrite_target_slug_in_body,
