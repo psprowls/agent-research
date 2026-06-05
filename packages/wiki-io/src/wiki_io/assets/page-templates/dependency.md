@@ -27,7 +27,7 @@ One paragraph: what this library/service does, why we use it, which surfaces.
 | | | |
 
 ## Used by
-- [[packages/<pkg>]]
+- [[entities/pkg_<pkg>]]
 
 ## Key patterns in this repo
 - …
@@ -42,5 +42,5 @@ One paragraph: what this library/service does, why we use it, which surfaces.
 - [[adrs/<id>-<slug>]]
 
 ## Related
-- [[dependencies/<other>]]
+- [[entities/dep_<other>]]
 - [[concepts/<concept>]]

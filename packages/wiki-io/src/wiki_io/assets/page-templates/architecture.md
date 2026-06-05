@@ -22,13 +22,13 @@ Two or three sentences capturing the current understanding. Revised as new sourc
 - See `raw/assets/<diagram>.svg`
 
 ## Key packages
-- [[packages/<pkg>]]
+- [[entities/pkg_<pkg>]]
 
 ## Key concepts
 - [[concepts/<concept>]]
 
 ## Key dependencies
-- [[dependencies/<lib>]]
+- [[entities/dep_<lib>]]
 
 ## Decisions shaping this
 - [[adrs/<id>-<slug>]]

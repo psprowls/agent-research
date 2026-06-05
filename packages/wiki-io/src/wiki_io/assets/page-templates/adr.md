@@ -36,8 +36,8 @@ What is decided, in present tense.
 - **<Alternative>** — why rejected
 
 ## Impact
-- [[packages/<pkg>]]
-- [[domains/<domain>]]
+- [[entities/pkg_<pkg>]]
+- [[entities/domain_<domain>]]
 
 ## Follow-ups
 - …

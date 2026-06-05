@@ -15,4 +15,4 @@ _Auto-generated <YYYY-MM-DD> • <N> pages_
 
 ## <Label> (<N>)
 
-- [[wiki/<path>|<Title>]] — <summary>
+- [[<path>|<Title>]] — <summary>

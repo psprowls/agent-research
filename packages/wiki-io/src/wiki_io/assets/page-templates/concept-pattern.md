@@ -35,7 +35,7 @@ The shape of the pattern. Code sketch is fine; keep it minimal and language-agno
 - [[sources/<example-slug>]] — one line on how this example illustrates it.
 
 ## Where this could apply in the codebase
-- [[packages/<pkg>]] — current state and how this pattern would apply.
+- [[entities/pkg_<pkg>]] — current state and how this pattern would apply.
 
 ## Related patterns
 - [[concepts/<related-pattern>]]

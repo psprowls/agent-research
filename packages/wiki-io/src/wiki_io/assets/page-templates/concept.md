@@ -23,14 +23,14 @@ Why this pattern exists. What problem it solves.
 From `<path/to/definition>:<line>`.
 
 ## Used in
-- [[packages/<pkg>]] — how it's used there
-- [[packages/<pkg>]] — ...
+- [[entities/pkg_<pkg>]] — how it's used there
+- [[entities/pkg_<pkg>]] — ...
 
 ## Related patterns
 - [[concepts/<other>]]
 
 ## Dependencies
-- [[dependencies/<lib>]] — if relevant
+- [[entities/dep_<lib>]] — if relevant
 
 ## Sources
 - [[sources/<source>]]
