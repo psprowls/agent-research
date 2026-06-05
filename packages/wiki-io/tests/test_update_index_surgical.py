@@ -65,3 +65,20 @@ def test_update_index_leaves_pre_existing_main_index_mtime_unchanged(tmp_path: P
 
     mtime_after = (wiki / "index.md").stat().st_mtime_ns
     assert mtime_before == mtime_after, "update_index must not touch wiki/index.md mtime"
+
+
+def test_scan_work_reads_work_under_wiki(tmp_path):
+    """scan_work locates work/ under the wiki and keys entries 'work/<name>'."""
+    from wiki_io.update_index import scan_work
+
+    workspace = tmp_path
+    work = workspace / "wiki" / "work"
+    work.mkdir(parents=True)
+    (work / "2026-05-03-foo.md").write_text(
+        "---\ntitle: Foo\nsummary: s\n---\n\nBody.\n", encoding="utf-8"
+    )
+
+    entries = scan_work(workspace)
+
+    assert len(entries) == 1
+    assert entries[0]["path"] == "work/2026-05-03-foo.md"

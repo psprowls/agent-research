@@ -13,6 +13,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from workspace_io.paths import wiki_dir, work_dir
+
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Categories rendered in the main index (navigation backbone only)
 MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]
@@ -32,8 +34,8 @@ CATEGORY_ORDER = [
 ]
 
 # Category sub-index files inside the wiki; folder-scoped categories use <folder>/index.md.
-# `work` is intentionally absent — work items live at <workspace>/work/ (sibling of the wiki),
-# so its index is written outside the vault. See scan_work() / update_index().
+# `work` is intentionally absent — work items live at <workspace>/wiki/work/ (under the wiki root),
+# so its index is written inside the vault. See scan_work() / update_index().
 CATEGORY_INDEX_FILES = {
     "concept": "concepts/index.md",
     "source": "sources/index.md",
@@ -124,19 +126,20 @@ def scan_vault(wiki):
 
 
 def scan_work(workspace):
-    """Scan <workspace>/work/ for work-item pages.
+    """Scan <workspace>/wiki/work/ for work-item pages.
 
     Returns a list of entries shaped like scan_vault() values. Paths are
-    workspace-relative (e.g. "work/2026-05-03-foo.md") so they render as
-    workspace-rooted wikilinks. Skips the generated work index, dotfiles,
+    wiki-relative (e.g. "work/2026-05-03-foo.md") so they render as
+    wiki-rooted wikilinks. Skips the generated work index, dotfiles,
     and the archived/ sub-namespace (owned by graph-wiki work lifecycle).
     """
-    work_dir = workspace / "work"
-    if not work_dir.exists():
+    work_root = work_dir(workspace)
+    if not work_root.exists():
         return []
+    wiki = wiki_dir(workspace)
     entries = []
-    for md in sorted(work_dir.rglob("*.md")):
-        rel = md.relative_to(workspace)
+    for md in sorted(work_root.rglob("*.md")):
+        rel = md.relative_to(wiki)
         if rel.name == "index.md":
             continue
         if any(part.startswith(".") for part in rel.parts):
@@ -165,8 +168,8 @@ def _entry_link(path, title):
 
     Wiki entries have wiki-relative paths (e.g. "concepts/foo.md") and need
     the "wiki/" prefix because the Obsidian vault opens at the workspace root.
-    Work entries are scanned from <workspace>/work/ and already arrive as
-    workspace-relative paths (e.g. "work/2026-05-03-foo.md") — no prefix.
+    Work entries are scanned from <workspace>/wiki/work/ and arrive as
+    wiki-relative paths (e.g. "work/2026-05-03-foo.md") — no prefix.
     """
     stem = path[:-3] if path.endswith(".md") else path
     target = stem if stem.startswith("work/") else f"wiki/{stem}"
@@ -298,7 +301,7 @@ def update_index(wiki: Path) -> None:
         cat_path.parent.mkdir(parents=True, exist_ok=True)
         cat_path.write_text(cat_content, encoding="utf-8")
     if work_entries:
-        work_index_path = wiki.parent / "work" / "index.md"
+        work_index_path = work_dir(wiki.parent) / "index.md"
         work_index_content = render_category_index(
             work_entries, "work", CATEGORY_LABELS["work"], vault.name, location="work"
         )
