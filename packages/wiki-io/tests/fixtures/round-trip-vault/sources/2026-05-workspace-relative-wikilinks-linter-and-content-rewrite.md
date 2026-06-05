@@ -1,79 +1,73 @@
 ---
-title: "Workspace-relative wikilinks — linter and content rewrite"
+title: "Wiki-root-relative wikilinks — linter and content rewrite"
 category: source
-summary: Approved design spec aligning the lint_wiki.py walker and all wiki content with ADR-0011's single workspace root — wikilinks become workspace-root-relative ([[work/...]] and [[wiki/...]]), the linter walks <workspace>/ and splits pages into linted vs resolvable-only tiers, and a two-pass regex rewrites the existing vault.
-source_path: lattice/specs/2026-05-09-lattice-workspace-relative-wikilinks-design.md
+summary: Approved design aligning the lint_wiki.py walker and all wiki content with the wiki-root vault base — wikilinks become wiki-root-relative ([[work/...]] and [[concepts/...]]), the linter walks the wiki root and keys pages wiki-relative, and a sweep rewrites the legacy [[wiki/...]] prefix out of the existing vault.
+source_path: lattice/specs/2026-05-09-lattice-wiki-root-wikilinks-design.md
 source_type: spec
 source_date: 2026-05-09
-authors: [Patrick Sprowls]
+authors: ["@psprowls"]
 ingested: 2026-05-09
-updated: 2026-05-09
+updated: 2026-06-05
 tokens: 1790
 ---
 
-# Workspace-relative wikilinks — linter and content rewrite
+# Wiki-root-relative wikilinks — linter and content rewrite
 
 ## TL;DR
-Obsidian opens the vault at `<workspace>/` (e.g. `lattice/`), so wikilinks are vault-root-relative — meaning workspace-root-relative — and must take the form `[[work/<slug>]]` and `[[wiki/packages/...]]` rather than `[[../work/...]]` or bare `[[packages/...]]`. The spec aligns both the linter (walk `<workspace>/`, split pages into linted (`wiki/**`, `work/**`) vs resolvable-only tiers) and the existing content (two-pass regex sweep) with this reality, closing the two open work items filed for the bug.
+Obsidian opens the vault at the wiki root (`<workspace>/wiki/`), so wikilinks are
+wiki-root-relative — `[[work/<slug>]]`, `[[concepts/...]]`, `[[packages/...]]` —
+not `[[wiki/...]]` or `[[../work/...]]`. The spec aligns the linter (walk the wiki
+root, key pages wiki-relative, work items live under the wiki) and the existing
+content (a one-pass sweep of the legacy `wiki/` prefix) with this reality.
 
 ## Key claims
-1. Both bugs — wrong link form in content and a linter blind to `work/` siblings — stem from [[wiki/adrs/0011-single-workspace-root]], which neither the linter nor existing wiki content was updated to match.
-2. **Linter fix:** `lint_wiki.py` walks `<workspace>/` (`wiki.parent`) instead of `<workspace>/wiki/`. Pages are keyed workspace-relative (e.g. `wiki/packages/foo/foo`, `work/2026-05-09-foo`). No public signature change — `workspace = wiki.parent` is derived inside the function.
-3. **Three lint tiers:**
-   - **Linted:** `wiki/**` and `work/**` — structural lint runs (frontmatter, staleness, duplicate titles), wikilinks resolve.
-   - **Resolvable-only:** all other non-dotdir top-levels (`raw/`, `knowledge/`, etc.) — wikilinks resolve to them but they aren't structurally linted.
-   - **Excluded:** any path with a dotdir component (`.graph/`, `.obsidian/`) — invisible to the linter.
-4. **Work pages are exempt from orphan detection.** A page-level `is_work` flag gates orphan checks: work items legitimately exist without wiki backlinks. Frontmatter / staleness / duplicate-title checks still apply to `work/**`.
-5. **`work/archived/` continues to be skipped** under the new walk (lifecycle-managed by [[wiki/plugins/lattice-work/lattice-work]]).
-6. **Wikilink resolution is unchanged in logic** — it now operates on workspace-relative keys, so `[[wiki/packages/foo/foo]]`, `[[work/2026-05-09-fix]]`, folder-shorthand `[[wiki/packages/foo]]`, and stem-shorthand `[[foo]]` all continue to resolve.
-7. **Content rewrite is two regex passes** over every `*.md` under `<workspace>/wiki/`, plus `lattice/CLAUDE.md` and `lattice/wiki/CLAUDE.md`:
-   - Pass 1 (must run first): `\[\[\.\./work/` → `[[work/`
-   - Pass 2 (protect prefixed and sibling links): `\[\[(?!wiki/|work/|raw/|knowledge/)` → `[[wiki/`
-   - Aliases (`[[foo|Display Text]]`) are preserved by both passes.
-8. **Schema doc edits:** `lattice/CLAUDE.md` updates the citation guidance from `[[../work/<slug>]] (relative to a wiki page)` to `[[work/<slug>]] (vault-root-relative)`. `lattice/wiki/CLAUDE.md` updates its example and adds a note that wiki-internal links use `[[wiki/...]]` (workspace-root-relative, not wiki-root-relative).
-9. **New fixture `sibling-work-resolution/`** plus 5 explicit test cases — including a regression guard (test 5) that `[[../work/foo]]` is flagged as broken.
-10. **Out of scope:** structural lint for resolvable-only directories, lifecycle lint in `lattice-work` (unchanged), `graph_analyzer.py`, `wiki_search.py`, `append_log.py`, and the `lint/` sub-checks.
+1. The legacy `[[wiki/...]]` prefix only resolved when Obsidian opened at
+   `<workspace>/`. Opening at the wiki root makes `[[concepts/...]]`,
+   `[[packages/...]]`, and `[[work/...]]` share one link base.
+2. **Linter fix:** `lint_wiki.py` walks the wiki root and keys pages
+   wiki-relative (e.g. `concepts/foo`, `packages/foo/foo`, `work/2026-05-09-foo`).
+3. **Work items live under the wiki** at `work/`, so they are linted by the
+   wiki-root walk and `[[work/<slug>]]` resolves like any other page. Work pages
+   are exempt from orphan detection — they legitimately exist without backlinks.
+4. **Wikilink resolution is unchanged in logic** — it now operates on
+   wiki-relative keys, so `[[packages/foo/foo]]`, `[[work/2026-05-09-fix]]`,
+   folder-shorthand `[[packages/foo]]`, and stem-shorthand `[[foo]]` all resolve.
+5. **Content rewrite is a single sweep** over every `*.md` in the vault:
+   `\[\[wiki/` → `[[`. Aliases (`[[foo|Display Text]]`) are preserved; `[[work/...]]`
+   and bare stems are never touched (they never start with `wiki/`).
+6. **Schema doc edits:** templates and `CLAUDE.md`/`AGENTS.md` document
+   `[[work/<slug>]]` and `[[<category>/...]]` as canonical and drop the `wiki/`
+   prefix and the `../work/` form.
 
 ## Proposed changes
-- `packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` — switch the page-discovery loop to a workspace-root walk; introduce per-page `linted` and `is_work` flags; gate structural checks on those flags; remove the now-redundant `work/archived/` guard from the old vault walk.
-- `packages/lattice-wiki-core/src/lattice_wiki_core/assets/` — page-template wikilink examples reviewed for the new form.
-- `packages/lattice-wiki-core/src/lattice_wiki_core/ingest_work_item.py` — review for any programmatically-generated wikilinks.
-- `packages/lattice-wiki-core/tests/fixtures/sibling-work-resolution/` — new fixture with vault page, concept, and a sibling work item.
-- `lattice/CLAUDE.md` and `lattice/wiki/CLAUDE.md` — schema docs updated to document `[[work/<slug>]]` and `[[wiki/...]]` as canonical.
-- All `*.md` under `lattice/wiki/` — two-pass regex rewrite of existing wikilinks.
+- `lint_wiki.py` — walk the wiki root; key pages wiki-relative; work items under the wiki.
+- page templates — wikilink examples use the wiki-root form.
+- All `*.md` under the vault — one-pass `\[\[wiki/` → `[[` sweep.
 
 ## Acceptance criteria
-- `grep -r '\[\[\.\./work/' lattice/wiki/` returns zero results.
-- `pytest packages/lattice-wiki-core/tests/` passes, including the new test cases.
-- `python packages/lattice-wiki-core/src/lattice_wiki_core/lint_wiki.py` on the live wiki returns 0 broken links targeting `work/...` paths.
-- Both schema docs document `[[work/<slug>]]` and `[[wiki/...]]` as canonical.
-
-## Surprises / contradictions
-- `[[wiki/concepts/lattice-vault-terminology]]` describes `wiki` as a "top-level directory holding both `raw/` and the vault" — that model predates [[wiki/adrs/0011-single-workspace-root]] and is now stale: today the workspace root *is* the vault, with `raw/`, `wiki/`, and `work/` as siblings. Flagged on the page.
-- `[[wiki/concepts/per-repo-layout]]` ASCII tree shows `<workspace>/wiki/` containing `raw/` and a `<vault-name>/` subdirectory — same stale model. Flagged on the page.
-- No vault↔code contradictions — the spec describes the fix; the work items it closes describe the broken state on disk.
+- `grep -r '\[\[wiki/' lattice/wiki/` returns zero results.
+- The linter reports zero broken links for the canonical forms.
+- Schema docs document `[[work/<slug>]]` and `[[<category>/...]]` as canonical.
 
 ## Touches
-- [[wiki/concepts/lattice-vault-terminology]]
-- [[wiki/concepts/per-repo-layout]]
-- [[wiki/concepts/lattice-work-namespace-schema]]
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]]
-- [[wiki/packages/lattice-wiki-core/work]]
-- [[wiki/plugins/lattice-wiki/lattice-wiki]]
-- [[wiki/plugins/lattice-work/lattice-work]]
+- [[concepts/lattice-vault-terminology]]
+- [[concepts/per-repo-layout]]
+- [[concepts/lattice-work-namespace-schema]]
+- [[packages/lattice-wiki-core/lattice-wiki-core]]
+- [[plugins/lattice-wiki/lattice-wiki]]
+- [[plugins/lattice-work/lattice-work]]
 
 ## Decisions triggered
-- [[wiki/adrs/0015-workspace-root-wikilink-form]]
+- [[adrs/0015-workspace-root-wikilink-form]]
 
 ## Closes
 - [[work/2026-05-09-fix-vault-rooted-wikilinks]]
 - [[work/2026-05-09-adjust-linter-for-work-sibling-to-vault]]
 
 ## Where it's cited in this wiki
-- [[wiki/adrs/0015-workspace-root-wikilink-form]]
-- [[wiki/concepts/lattice-vault-terminology]]
-- [[wiki/concepts/per-repo-layout]]
-- [[wiki/concepts/lattice-work-namespace-schema]]
-- [[wiki/packages/lattice-wiki-core/lattice-wiki-core]]
-- [[wiki/plugins/lattice-wiki/lattice-wiki]]
-- [[wiki/plugins/lattice-work/lattice-work]]
+- [[adrs/0015-workspace-root-wikilink-form]]
+- [[concepts/lattice-vault-terminology]]
+- [[concepts/per-repo-layout]]
+- [[packages/lattice-wiki-core/lattice-wiki-core]]
+- [[plugins/lattice-wiki/lattice-wiki]]
+- [[plugins/lattice-work/lattice-work]]
