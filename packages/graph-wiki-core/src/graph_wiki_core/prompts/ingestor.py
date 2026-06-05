@@ -31,20 +31,21 @@ _ROLE_INTRO = (
     "these sections."
 )
 
-_PAGE_TYPE_ROUTING = (
-    "## Page-type routing\n\n"
-    "Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:\n\n"
-    "- `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)\n"
-    "- `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)\n"
-    "- `page_type: adr` -> `adrs/` (dated decision record)\n\n"
+_SOURCE_LANDING = (
+    "## Source landing\n\n"
+    "Every ingested document becomes a **Source page** under `sources/`. You do "
+    "NOT choose the destination — routing is fixed. Do NOT emit a `page_type` "
+    "field; it is ignored, and this rule supersedes any `page_type` mentioned "
+    "elsewhere in these instructions.\n\n"
+    "Optionally emit a descriptive `source_kind` field — use `source` for a "
+    "document you can cleanly summarize. It is purely descriptive and does NOT "
+    "control where the page is written.\n\n"
     "Do NOT author a package page. Code entities (packages, apps, domains, "
     "dependencies, test suites) are scanner-owned and live under `entities/`. "
     "To associate this source with a code entity, reference it from the body with "
     "a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) "
     "under a `## Touches` section — the scanner derives the backlink onto the "
     "entity page. Never write into `entities/` pages.\n\n"
-    "`category` should agree with `page_type` (`source` -> `source`, "
-    "`concept` -> `concept`, `adr` -> `adr`).\n"
     "`update_index()` and `append_log()` run automatically — omit those steps."
 )
 
@@ -120,7 +121,7 @@ def build_ingestor_system(project_context: str = "") -> str:
         STYLE_RULES,
         CLAUDE_MD_DISAMBIGUATION,
         LOG_FORMAT,
-        _PAGE_TYPE_ROUTING,
+        _SOURCE_LANDING,
         _INGESTOR_RULES,
         _RED_FLAGS,
         _OUTPUT_FORMAT,

@@ -24,8 +24,10 @@ import logging
 import re
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+import yaml
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
@@ -95,18 +97,25 @@ class IngestResult:
         page_path:          Path to the written page relative to wiki root.
         slug:               URL-safe slug used for the output filename.
         title:              Human-readable page title.
-        page_type:          Page category. From run_ingest_source: source,
-                            concept, or adr (set by the ingestor LLM
-                            and validated against _PAGE_TYPE_DIRS). From
-                            run_ingest_work_item: always "work" (work items
-                            bypass _route_target_path and file under
-                            <workspace>/work/ via file_work_item).
+        page_type:          Page category (routing class). From run_ingest_source:
+                            always "source" (M3 Part A — every ingested doc lands
+                            under sources/; see source_kind for the descriptive
+                            kind). From run_ingest_work_item: always "work" (work
+                            items file under <workspace>/work/ via file_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
         entity_uri:         Phase 40 (INGESTOR-01) canonical entity URI when the graph
                             matched the source by path or by name; None when no graph
                             match was found OR when the result was produced by
                             `run_ingest_work_item` (work items bypass entity lookup).
+        source_kind:        Living Wiki M3: descriptive kind on Source pages
+                            (run_ingest_source). "unknown" on a parse miss; None
+                            for work items.
+        stripped_wikilinks: Living Wiki M3: unresolved [[wikilinks]] removed from
+                            the body (empty when none were stripped).
+        frontmatter_parsed: Living Wiki M3: False when the ingestor frontmatter
+                            failed to parse and we fell through to
+                            source_kind: unknown.
     """
 
     status: str
@@ -117,6 +126,10 @@ class IngestResult:
     source_path: str
     cross_refs_updated: int
     entity_uri: str | None = None  # Phase 40: canonical entity URI; None for free-form sources
+    # Living Wiki M3 Part A (ingest hardening):
+    source_kind: str | None = None  # descriptive kind on Source pages; "unknown" on parse miss; None for work items
+    stripped_wikilinks: list[str] = field(default_factory=list)  # unresolved [[links]] stripped from the body
+    frontmatter_parsed: bool = True  # False when we fell through to source_kind: unknown via a parse miss
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +261,65 @@ def _set_entity_uri_in_body(text: str, entity_uri: str | None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Living Wiki M3 Part A — source_kind frontmatter + synthesize-frontmatter rule
+# ---------------------------------------------------------------------------
+
+
+def _set_source_kind_in_body(text: str, source_kind: str) -> str:
+    """Insert or replace the `source_kind:` line in the YAML frontmatter of `text`.
+
+    Placement: inserted as the FIRST field of the frontmatter block. Idempotent
+    — any existing `source_kind:` line is dropped first, so only one ever
+    appears. Operates on raw text (preserves comments/order); returns text
+    unchanged when no `---` block is present.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+
+    new_lines: list[str] = []
+    for line in fm_block.splitlines():
+        if line.lstrip().startswith("source_kind:"):
+            continue  # drop existing line (idempotence)
+        new_lines.append(line)
+    new_lines.insert(0, f"source_kind: {source_kind}")
+    new_fm = "\n".join(new_lines)
+    return f"{leading_ws}---\n{new_fm}{body_and_close}"
+
+
+def _synthesize_frontmatter_block(
+    body: str, source_kind: str, target_slug: str, entity_uri: str | None
+) -> str:
+    """Prepend a minimal YAML frontmatter block to a body that has none.
+
+    D3 synthesize-frontmatter rule (spec §3.3): the body-mutation helpers
+    (_rewrite_target_slug_in_body / _set_entity_uri_in_body /
+    _set_source_kind_in_body) no-op when there is no `---` block. When the
+    ingestor LLM emits a body with no frontmatter at all, this guarantees the
+    unknown-kind Source page still lands with its metadata. The block carries
+    all three fields so the downstream setters become idempotent no-ops.
+    `entity_uri=None` is written as the literal `null` (mirrors
+    _set_entity_uri_in_body).
+    """
+    uri_val = "null" if entity_uri is None else entity_uri
+    return (
+        "---\n"
+        f"source_kind: {source_kind}\n"
+        f"target_slug: {target_slug}\n"
+        f"entity_uri: {uri_val}\n"
+        "---\n\n"
+        f"{body}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Strip unresolved wikilinks (Plan 06-14 / UAT G4)
 # ---------------------------------------------------------------------------
 
@@ -366,8 +438,10 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
 
     After fence-strip, behavior is unchanged: returns ({}, body_str) when
     the text does not start with `---` or has no closing `---`, otherwise
-    parses the YAML block with the same hand-rolled scalar/list parser
-    used by ingest_work_item (no yaml.load).
+    parses the YAML block with yaml.safe_load (primary) and falls back to
+    the hand-rolled scalar/list parser if safe_load raises YAMLError or
+    returns a non-dict value (e.g. an LLM quirk like an unquoted ':' in a
+    value field).
     """
     original_text = text
     text = text.strip()
@@ -416,7 +490,17 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
     yaml_block = rest[:closing_idx].strip()
     body = rest[closing_idx + 4:].lstrip("\n")
 
-    # Parse YAML block (simple key: value + list items)
+    # D3 (spec §3.3): prefer yaml.safe_load. If it raises YAMLError or returns
+    # a non-dict, fall back to the hand-rolled scalar/list parser below — it
+    # tolerates LLM quirks safe_load rejects (e.g. an unquoted ':' in a value).
+    try:
+        loaded = yaml.safe_load(yaml_block)
+    except yaml.YAMLError:
+        loaded = None
+    if isinstance(loaded, dict):
+        return loaded, body
+
+    # Fallback: hand-rolled scalar/list parser (kept verbatim).
     fm: dict = {}
     cur_key: str | None = None
     cur_list: list | None = None
@@ -475,11 +559,11 @@ def build_ingest_source_prompt(
         f"Source type: {source_type}\n"
         f"\nVault top-level categories:\n{vault_summary}\n"
         f"\n--- Source content ---\n{preview}\n--- End source ---\n"
-        f"\nWrite a vault wiki page for this source. "
-        f"Choose the most appropriate page_type (source, concept, or adr) "
-        f"and a target_slug based on the content. To associate this source with "
-        f"a code entity, reference it with a [[entities/...]] wikilink in the "
-        f"body — do not create a package page."
+        f"\nWrite a Source page for this document. It will be filed under "
+        f"sources/. Provide a target_slug based on the content, and optionally a "
+        f"descriptive source_kind. To associate this source with a code entity, "
+        f"reference it with a [[entities/...]] wikilink in the body — do not "
+        f"create a package page."
     )
 
 
@@ -501,8 +585,8 @@ async def run_ingest_source(
         3. Guess source_type from path location.
         4. Build ingestor prompt (vault structure + source preview).
         5. Single LLM call to ingestor role (no fan-out needed for single source).
-        6. Parse YAML frontmatter from LLM response to determine page_type + target_slug.
-        7. Write LLM output to target_path based on page_type.
+        6. Parse YAML frontmatter from LLM response to read source_kind + target_slug.
+        7. Write LLM output to sources/<target_slug>.md (routing is fixed — M3 Part A).
         8. update_index(wiki) — cross-ref update (index-only scope per CONTEXT.md deferred).
         9. append_log(wiki, "ingest", ...) — audit trail.
         10. Return IngestResult.
@@ -623,29 +707,38 @@ async def run_ingest_source(
         )
         llm_output: str = resp.content
 
-        # Step 6: parse response to get page_type and target_slug
+        # Step 6: parse response to get source_kind and target_slug.
+        # M3 Part A: classification is DECOUPLED from routing. Every ingested
+        # doc becomes a Source page; `source_kind` is descriptive only and
+        # defaults to "unknown" on a parse miss (empty fm).
         fm, _body = _parse_ingestor_response(llm_output)
-        page_type = str(fm.get("page_type", "concept")).lower()
-        if page_type not in _PAGE_TYPE_DIRS:
-            page_type = "concept"
+        frontmatter_parsed = bool(fm)  # False ⟺ parse miss (spec §3.5)
+        source_kind = str(fm.get("source_kind", "")).strip().lower() or "unknown"
 
         target_slug = str(fm.get("target_slug", "")).strip()
         # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
         target_slug = slugify(target_slug) if target_slug else slug
 
-        # Step 7: write page
-        target_path = _route_target_path(wiki, page_type, target_slug)
+        # Step 7: write page. D1 — always route to sources/ (page_type fixed to
+        # "source"; _route_target_path keeps the path-traversal safety check).
+        target_path = _route_target_path(wiki, "source", target_slug)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        # Reconcile target_slug in the body with the on-disk filename slug.
-        # _route_target_path uses slugify(target_slug); if that differs from
-        # what the LLM wrote, rewrite the body's `target_slug:` line to match.
-        # Also handles the case where the LLM omitted target_slug entirely
-        # (we fell back to slugify(title)) — write that fallback into the body.
         canonical_slug = target_path.stem
+
+        # D3 synthesize-frontmatter rule: when the LLM emitted NO frontmatter at
+        # all, the body-mutation helpers below would no-op — prepend a minimal
+        # block so the unknown-kind Source page lands with its metadata.
+        if not frontmatter_parsed and not llm_output.lstrip().startswith("---"):
+            llm_output = _synthesize_frontmatter_block(
+                llm_output, source_kind, canonical_slug, canonical_uri
+            )
+
+        # Reconcile target_slug in the body with the on-disk filename slug, write
+        # entity_uri (null when no graph match), and stamp source_kind. All three
+        # helpers are idempotent and preserve comments/order.
         llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
-        # D-05/D-06: write entity_uri frontmatter on every successful ingest.
-        # null when no graph match; full URI when matched.
         llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
+        llm_output = _set_source_kind_in_body(llm_output, source_kind)
         # Write the file first so it is part of the "known pages" set when
         # resolving self-references in the body (e.g. an ADR linking to
         # itself or a sibling created earlier in the same ingest).
@@ -684,10 +777,13 @@ async def run_ingest_source(
             page_path=page_path_rel,
             slug=target_slug,
             title=title_guess,
-            page_type=page_type,
+            page_type="source",  # D1: run_ingest_source always files under sources/
             source_path=str(source_path),
             cross_refs_updated=1,
             entity_uri=canonical_uri,
+            source_kind=source_kind,
+            stripped_wikilinks=stripped_wikilinks,
+            frontmatter_parsed=frontmatter_parsed,
         )
     finally:
         try:

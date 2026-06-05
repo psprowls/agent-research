@@ -82,7 +82,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `page_type`: one of `concept`, `adr`, `source`
+  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -125,17 +125,14 @@
   
   Grep the log: `grep "^## \[" log.md | tail -10`
   
-  ## Page-type routing
+  ## Source landing
   
-  Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:
+  Every ingested document becomes a **Source page** under `sources/`. You do NOT choose the destination — routing is fixed. Do NOT emit a `page_type` field; it is ignored, and this rule supersedes any `page_type` mentioned elsewhere in these instructions.
   
-  - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
-  - `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)
-  - `page_type: adr` -> `adrs/` (dated decision record)
+  Optionally emit a descriptive `source_kind` field — use `source` for a document you can cleanly summarize. It is purely descriptive and does NOT control where the page is written.
   
   Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
-  `category` should agree with `page_type` (`source` -> `source`, `concept` -> `concept`, `adr` -> `adr`).
   `update_index()` and `append_log()` run automatically — omit those steps.
   
   ## Ingestor rules
@@ -252,7 +249,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `page_type`: one of `concept`, `adr`, `source`
+  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -295,17 +292,14 @@
   
   Grep the log: `grep "^## \[" log.md | tail -10`
   
-  ## Page-type routing
+  ## Source landing
   
-  Choose exactly one `page_type`. The on-disk destination is determined by `page_type`:
+  Every ingested document becomes a **Source page** under `sources/`. You do NOT choose the destination — routing is fixed. Do NOT emit a `page_type` field; it is ignored, and this rule supersedes any `page_type` mentioned elsewhere in these instructions.
   
-  - `page_type: source` -> `sources/` (specs, PRs, articles, transcripts, in-repo docs)
-  - `page_type: concept` -> `concepts/` (cross-cutting technical idea, comparison page)
-  - `page_type: adr` -> `adrs/` (dated decision record)
+  Optionally emit a descriptive `source_kind` field — use `source` for a document you can cleanly summarize. It is purely descriptive and does NOT control where the page is written.
   
   Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
-  `category` should agree with `page_type` (`source` -> `source`, `concept` -> `concept`, `adr` -> `adr`).
   `update_index()` and `append_log()` run automatically — omit those steps.
   
   ## Ingestor rules
@@ -802,7 +796,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `page_type`: one of `concept`, `adr`, `source`
+  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -920,7 +914,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `page_type`: one of `concept`, `adr`, `source`
+  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
