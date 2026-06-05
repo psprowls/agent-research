@@ -74,17 +74,6 @@
       | `mypkg/sub/deep/__init__.py` | file | — TODO |
       | `mypkg/sub/deep/baz.py` | file | — TODO |
       
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'domain_core.md': '''
@@ -110,18 +99,6 @@
       
       ## Key flows
       > TODO: <**<Flow name>** — `<path/to/entry>:<line>` → describe the flow, one per row.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'domain_presentation.md': '''
@@ -147,18 +124,6 @@
       
       ## Key flows
       > TODO: <**<Flow name>** — `<path/to/entry>:<line>` → describe the flow, one per row.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'domain_web.md': '''
@@ -185,18 +150,6 @@
       
       ## Key flows
       > TODO: <**<Flow name>** — `<path/to/entry>:<line>` → describe the flow, one per row.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'int_tests_tests.md': '''
@@ -290,18 +243,6 @@
       
       ## Public API
       > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'pkg_jspkg.md': '''
@@ -353,18 +294,6 @@
       
       ## Public API
       > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'pkg_pyutil.md': '''
@@ -410,18 +339,6 @@
       
       ## Public API
       > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'pkg_webutil.md': '''
@@ -467,18 +384,6 @@
       
       ## Public API
       > TODO: <Main exports and when to use them. Link code with backticked `path:line` references — e.g. `exportName(args)` — `src/path/to/file.py:line` — short description.>
-      
-      ## Concepts
-      - [[concepts/<concept>]]
-      
-      ## Dependencies
-      - [[dependencies/<lib>]]
-      
-      ## Decisions
-      - [[adrs/<id>-<slug>]]
-      
-      ## Contrasts / alternatives
-      - [[concepts/<a>-vs-<b>]]
   
     ''',
     'repo_repo.md': '''
