@@ -13,6 +13,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from wiki_io.wikilinks import vault_wikilink
 from workspace_io.paths import wiki_dir, work_dir
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -163,18 +164,6 @@ def scan_work(workspace):
     return entries
 
 
-def _entry_link(path, title):
-    """Build an Obsidian wikilink for a page entry.
-
-    Wiki entries have wiki-relative paths (e.g. "concepts/foo.md") and need
-    the "wiki/" prefix because the Obsidian vault opens at the workspace root.
-    Work entries are scanned from <workspace>/wiki/work/ and arrive as
-    wiki-relative paths (e.g. "work/2026-05-03-foo.md") — no prefix.
-    """
-    stem = path[:-3] if path.endswith(".md") else path
-    target = stem if stem.startswith("work/") else f"wiki/{stem}"
-    return f"[[{target}|{title}]]"
-
 
 def render_index(pages, wiki_name, vault_name):
     today = dt.date.today().isoformat()
@@ -204,26 +193,25 @@ def render_index(pages, wiki_name, vault_name):
         lines.append("")
         for e in nav_entries:
             summary = f" — {e['summary']}" if e["summary"] else ""
-            link = _entry_link(e["path"], e["title"])
+            link = vault_wikilink(e["path"], e["title"])
             lines.append(f"- {link}{summary}")
         lines.append("")
 
     # ## More — links to category sub-indexes
     # These categories always appear even at 0 pages (browsing entrypoints).
-    # "work" stays conditional — it is a workspace namespace, not a wiki entrypoint.
+    # "work" stays conditional — it is its own namespace under the wiki.
     _ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr"}
     more_links = []
     for cat, fname in CATEGORY_INDEX_FILES.items():
         entries = pages.get(cat, [])
         if entries or cat in _ALWAYS_IN_MORE:
             label = CATEGORY_LABELS.get(cat, cat.capitalize())
-            stem = fname[:-3]  # strip .md
-            more_links.append(f"- [[wiki/{stem}]] — {label} ({len(entries)} pages)")
-    # Work index lives at <workspace>/work/index.md (sibling of the wiki),
-    # so its wikilink is workspace-rooted, not wiki-rooted.
+            more_links.append(f"- {vault_wikilink(fname)} — {label} ({len(entries)} pages)")
+    # Work index lives under the wiki at work/index.md, so it shares the
+    # single wiki-root-relative base with every other page.
     work_entries = pages.get("work", [])
     if work_entries:
-        more_links.append(f"- [[work/index]] — {CATEGORY_LABELS['work']} ({len(work_entries)} pages)")
+        more_links.append(f"- {vault_wikilink('work/index')} — {CATEGORY_LABELS['work']} ({len(work_entries)} pages)")
     if more_links:
         lines.append("## More")
         lines.append("")
@@ -262,7 +250,7 @@ def render_category_index(entries, category, label, vault_name, location=None):
     ]
     for e in sorted(entries, key=lambda x: x["title"].lower()):
         summary = f" — {e['summary']}" if e["summary"] else ""
-        link = _entry_link(e["path"], e["title"])
+        link = vault_wikilink(e["path"], e["title"])
         meta = []
         if e["status"]:
             meta.append(e["status"])
