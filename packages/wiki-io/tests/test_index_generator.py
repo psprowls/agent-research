@@ -443,21 +443,21 @@ class TestWorkScan:
 
     def test_basic_work_scan(self, tmp_path):
         _write_curated_page(
-            tmp_path / "work" / "2026-05-03-foo.md", title="Foo work item"
+            tmp_path / "wiki" / "work" / "2026-05-03-foo.md", title="Foo work item"
         )
         entries = _scan_work(tmp_path)
         assert len(entries) == 1
         assert entries[0]["path"] == "work/2026-05-03-foo.md"
 
     def test_skips_work_index(self, tmp_path):
-        _write_curated_page(tmp_path / "work" / "foo.md", title="Foo")
-        _write_curated_page(tmp_path / "work" / "index.md", title="Idx")
+        _write_curated_page(tmp_path / "wiki" / "work" / "foo.md", title="Foo")
+        _write_curated_page(tmp_path / "wiki" / "work" / "index.md", title="Idx")
         entries = _scan_work(tmp_path)
         assert [e["title"] for e in entries] == ["Foo"]
 
     def test_skips_archived_subdir(self, tmp_path):
-        _write_curated_page(tmp_path / "work" / "foo.md", title="Foo")
-        _write_curated_page(tmp_path / "work" / "archived" / "old.md", title="Old")
+        _write_curated_page(tmp_path / "wiki" / "work" / "foo.md", title="Foo")
+        _write_curated_page(tmp_path / "wiki" / "work" / "archived" / "old.md", title="Old")
         entries = _scan_work(tmp_path)
         assert [e["title"] for e in entries] == ["Foo"]
 

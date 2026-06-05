@@ -54,6 +54,7 @@ from graph_io.queries import (
     list_packages,
     list_test_suites,
 )
+from workspace_io.paths import wiki_dir, work_dir
 
 from wiki_io.entity_writer import (
     ADMITTED_KINDS as _ADMITTED_KINDS,
@@ -485,17 +486,18 @@ def _scan_curated_lane(wiki_root: Path, lane_dir_rel: str) -> list[dict[str, str
 
 
 def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
-    """Walk `workspace_root / 'work'` for *.md pages; workspace-rooted paths.
+    """Walk `workspace_root / 'wiki' / 'work'` for *.md pages; wiki-rooted paths.
 
     Returns [] if `work/` does not exist. Skips `index.md`, dotfiles, and
     the `archived/` sub-namespace.
     """
-    work_dir = workspace_root / "work"
-    if not work_dir.exists():
+    work_root = work_dir(workspace_root)
+    if not work_root.exists():
         return []
+    wiki = wiki_dir(workspace_root)
     entries: list[dict[str, str]] = []
-    for md in sorted(work_dir.rglob("*.md")):
-        rel = md.relative_to(workspace_root)
+    for md in sorted(work_root.rglob("*.md")):
+        rel = md.relative_to(wiki)
         if rel.name == "index.md":
             continue
         if any(part.startswith(".") for part in rel.parts):
