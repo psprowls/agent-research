@@ -101,6 +101,23 @@ sweep_candidates = [
   "zai.glm-4.7-flash",
 ]
 
+[roles.extractor]
+# Living Wiki M3 — inline page-suggestion pass. Reads a just-landed Source page +
+# a cheap curated-vault index and proposes concept/adr/architecture pages.
+# Mirrors the ingestor tier (correctness-sensitive but small output); tunable
+# independently per the roadmap §5 cost-offloading lever.
+model_id        = "zai.glm-4.7-flash"
+region          = "us-east-1"
+max_tokens      = 1024
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "zai.glm-4.7-flash",
+]
+
 [roles.synthesizer]
 # Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
 # Haiku removed for quota exhaustion; per-role defaults chosen in that session.
