@@ -73,7 +73,7 @@ def test_imports(populated_repo: Path) -> None:
 
 
 def test_describe_package(populated_repo: Path) -> None:
-    res = _cg(["--fmt", "json", "describe-package", "demo"], populated_repo)
+    res = _cg(["--fmt", "json", "describe", "demo", "--kind", "package"], populated_repo)
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["name"] == "demo"
@@ -81,7 +81,7 @@ def test_describe_package(populated_repo: Path) -> None:
 
 
 def test_describe_path(populated_repo: Path) -> None:
-    res = _cg(["--fmt", "json", "describe-path", "src/a.py"], populated_repo)
+    res = _cg(["--fmt", "json", "describe", "src/a.py", "--kind", "path"], populated_repo)
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["path"] == "src/a.py"

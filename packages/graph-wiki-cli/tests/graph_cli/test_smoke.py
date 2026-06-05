@@ -22,6 +22,6 @@ def test_cli_help_lists_all_subcommands() -> None:
         "update", "status", "dump",
         "find", "callers", "callees", "imports",
         "imported-by", "exports", "exported-by",
-        "describe-package", "describe-path",
+        "describe", "list",
     ):
         assert sub in out, f"missing subcommand in --help: {sub}"

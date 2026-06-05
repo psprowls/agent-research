@@ -64,7 +64,7 @@ def test_exit_1_generic_describe_unknown_package(tmp_path: Path) -> None:
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
     _cg(["update", "--full"], tmp_path)
-    res = _cg(["describe-package", "no-such-package"], tmp_path)
+    res = _cg(["describe", "no-such-package", "--kind", "package"], tmp_path)
     assert res.returncode == 1
     assert "not found" in res.stderr
 
@@ -112,8 +112,8 @@ def test_exit_4_schema_mismatch(tmp_path: Path) -> None:
         ["imported-by", "a.py"],
         ["exports", "a.py"],
         ["exported-by", "x"],
-        ["describe-package", "anything"],
-        ["describe-path", "a.py"],
+        ["describe", "anything", "--kind", "package"],
+        ["describe", "a.py", "--kind", "path"],
     ):
         res = _cg(argv, tmp_path)
         assert res.returncode == 4, (argv, res.stdout, res.stderr)
