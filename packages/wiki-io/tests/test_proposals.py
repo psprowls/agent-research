@@ -200,3 +200,39 @@ def test_upsert_byte_stable_no_op(tmp_path: Path) -> None:
     first = path.read_bytes()
     upsert_proposal(wiki, _proposal(target_slug="a"))  # identical evidence
     assert path.read_bytes() == first
+
+
+def test_set_proposal_status_flips_and_preserves_body(tmp_path: Path) -> None:
+    from wiki_io.proposals import proposal_path, read_proposal, set_proposal_status, upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    upsert_proposal(wiki, _proposal(target_slug="a", origin=_origin(rationale="keep me")))
+    path = proposal_path(wiki, "concept", "a")
+
+    ok = set_proposal_status(wiki, "concept", "a", "approved")
+    assert ok is True
+    rec = read_proposal(path)
+    assert rec["status"] == "approved"
+    # The rendered evidence body survives the status flip.
+    assert "keep me" in path.read_text(encoding="utf-8")
+    # A subsequent upsert (re-ingest) does not revert the decision.
+    upsert_proposal(wiki, _proposal(target_slug="a", title="NEW"))
+    assert read_proposal(path)["status"] == "approved"
+
+
+def test_set_proposal_status_returns_false_when_missing(tmp_path: Path) -> None:
+    from wiki_io.proposals import set_proposal_status
+
+    assert set_proposal_status(tmp_path / "wiki", "concept", "nope", "approved") is False
+
+
+def test_set_proposal_status_is_byte_stable(tmp_path: Path) -> None:
+    from wiki_io.proposals import proposal_path, set_proposal_status, upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    upsert_proposal(wiki, _proposal(target_slug="a"))
+    path = proposal_path(wiki, "concept", "a")
+    set_proposal_status(wiki, "concept", "a", "approved")
+    first = path.read_bytes()
+    set_proposal_status(wiki, "concept", "a", "approved")
+    assert path.read_bytes() == first

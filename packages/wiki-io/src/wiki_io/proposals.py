@@ -93,19 +93,23 @@ def render_proposal_body(record: dict) -> str:
     return "\n".join(lines).rstrip("\n")
 
 
+def _record_from_metadata(metadata: dict, stem: str) -> dict:
+    """Build a proposal record dict from parsed frontmatter metadata."""
+    origins = metadata.get("origins") or []
+    return {
+        "kind": metadata.get("kind", ""),
+        "mode": metadata.get("mode", "create_new"),
+        "target_slug": metadata.get("target_slug", stem),
+        "title": metadata.get("title", ""),
+        "status": metadata.get("status", "proposed"),
+        "origins": [dict(o) for o in origins if isinstance(o, dict)],
+    }
+
+
 def read_proposal(path: Path) -> dict:
     """Parse one note into {kind, mode, target_slug, title, status, origins[]}."""
     post = frontmatter.load(path)
-    m = post.metadata
-    origins = m.get("origins") or []
-    return {
-        "kind": m.get("kind", ""),
-        "mode": m.get("mode", "create_new"),
-        "target_slug": m.get("target_slug", path.stem),
-        "title": m.get("title", ""),
-        "status": m.get("status", "proposed"),
-        "origins": [dict(o) for o in origins if isinstance(o, dict)],
-    }
+    return _record_from_metadata(post.metadata, path.stem)
 
 
 def _serialize(record: dict, body: str) -> str:
@@ -181,6 +185,24 @@ def upsert_proposal(wiki: Path, proposal: dict) -> dict:
     if not path.exists() or path.read_text(encoding="utf-8") != text:
         _atomic_write(path, text)
     return record
+
+
+def set_proposal_status(wiki: Path, kind: str, target_slug: str, status: str) -> bool:
+    """Write `status` on one note, preserving the existing rendered body.
+
+    Returns False when the note does not exist (nothing written). Unlike
+    `upsert_proposal`, this never regenerates the body — it is the human's
+    approve/reject/created write. Re-serializes with the canonical key order so
+    the result is byte-stable on a repeat.
+    """
+    path = proposal_path(wiki, kind, target_slug)
+    if not path.exists():
+        return False
+    post = frontmatter.load(path)
+    record = _record_from_metadata(post.metadata, path.stem)
+    record["status"] = status
+    _atomic_write(path, _serialize(record, post.content.strip()))
+    return True
 
 
 def list_proposals(wiki: Path, status: str | None = None, kind: str | None = None) -> list[dict]:
