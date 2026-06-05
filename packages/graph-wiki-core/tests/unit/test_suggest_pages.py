@@ -126,265 +126,12 @@ def test_build_curated_vault_index_missing_dirs_returns_empty(tmp_path):
     assert build_curated_vault_index(wiki) == []
 
 
-def _prop(kind, slug, title="T", mode="create_new", existing=None, rationale="r"):
-    return {
-        "kind": kind,
-        "title": title,
-        "slug": slug,
-        "mode": mode,
-        "existing_slug": existing,
-        "rationale": rationale,
-    }
-
-
-def test_merge_appends_new_as_proposed():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    out = merge_suggested_pages([], [_prop("concept", "a"), _prop("adr", "b")])
-    assert [(e["kind"], e["slug"], e["status"]) for e in out] == [
-        ("concept", "a", "proposed"),
-        ("adr", "b", "proposed"),
-    ]
-
-
-def test_merge_preserves_human_decided_untouched():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    existing = [
-        {"kind": "concept", "title": "Kept", "slug": "a", "mode": "create_new",
-         "existing_slug": None, "rationale": "old", "status": "approved"},
-    ]
-    # A new proposal for the SAME key must not re-add or mutate the approved entry.
-    out = merge_suggested_pages(existing, [_prop("concept", "a", title="New", rationale="new")])
-    assert len(out) == 1
-    assert out[0]["status"] == "approved"
-    assert out[0]["title"] == "Kept"
-    assert out[0]["rationale"] == "old"
-
-
-def test_merge_refreshes_matching_proposed_in_place():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    existing = [
-        {"kind": "concept", "title": "Old", "slug": "a", "mode": "create_new",
-         "existing_slug": None, "rationale": "old", "status": "proposed"},
-    ]
-    out = merge_suggested_pages(existing, [_prop("concept", "a", title="Fresh", rationale="fresh")])
-    assert len(out) == 1
-    assert out[0]["title"] == "Fresh"
-    assert out[0]["rationale"] == "fresh"
-    assert out[0]["status"] == "proposed"
-
-
-def test_merge_preserves_orphaned_proposed():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    existing = [
-        {"kind": "concept", "title": "Orphan", "slug": "a", "mode": "create_new",
-         "existing_slug": None, "rationale": "r", "status": "proposed"},
-    ]
-    out = merge_suggested_pages(existing, [_prop("adr", "b")])  # no proposal for 'a'
-    keys = [(e["kind"], e["slug"]) for e in out]
-    assert ("concept", "a") in keys  # orphan kept
-    assert ("adr", "b") in keys
-
-
-def test_merge_is_idempotent_on_identical_proposals():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    proposals = [_prop("concept", "a"), _prop("adr", "b")]
-    once = merge_suggested_pages([], proposals)
-    twice = merge_suggested_pages(once, proposals)
-    assert once == twice
-
-
-def test_merge_dedups_duplicate_proposals_by_key():
-    from graph_wiki_core.commands.suggest_pages import merge_suggested_pages
-
-    out = merge_suggested_pages([], [_prop("concept", "a", title="first"), _prop("concept", "a", title="second")])
-    assert len(out) == 1
-    assert out[0]["title"] == "first"
-
-
-def test_set_and_read_suggested_pages_round_trip():
-    from graph_wiki_core.commands.suggest_pages import (
-        read_suggested_pages,
-        set_suggested_pages_in_frontmatter,
-    )
-
-    page = "---\nsource_kind: source\ntarget_slug: foo\nentity_uri: null\n---\n\nBody text.\n"
-    entries = [
-        {"kind": "concept", "title": "Sec Ownership", "slug": "sec-ownership",
-         "mode": "create_new", "existing_slug": None, "rationale": "why", "status": "proposed"},
-    ]
-    out = set_suggested_pages_in_frontmatter(page, entries)
-    # Other keys + body preserved.
-    assert "source_kind: source" in out
-    assert "target_slug: foo" in out
-    assert out.rstrip().endswith("Body text.")
-    # suggested_pages serialized into frontmatter and is the last key.
-    assert "suggested_pages:" in out
-    fm_block = out.split("---", 2)[1]
-    assert fm_block.rstrip().splitlines()[-1].lstrip().startswith("- ") or "suggested_pages:" in fm_block
-    # Reading returns the entries back.
-    got = read_suggested_pages(out)
-    assert got == entries
-
-
-def test_set_suggested_pages_is_idempotent_and_replaces_block():
-    from graph_wiki_core.commands.suggest_pages import set_suggested_pages_in_frontmatter
-
-    page = "---\nsource_kind: source\ntarget_slug: foo\nentity_uri: null\n---\n\nBody.\n"
-    entries = [
-        {"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
-         "existing_slug": None, "rationale": "r", "status": "proposed"},
-    ]
-    once = set_suggested_pages_in_frontmatter(page, entries)
-    twice = set_suggested_pages_in_frontmatter(once, entries)
-    assert once == twice  # byte-stable
-    # Replacing with a different set does not duplicate the key.
-    other = [
-        {"kind": "concept", "title": "U", "slug": "u", "mode": "create_new",
-         "existing_slug": None, "rationale": "r2", "status": "approved"},
-    ]
-    replaced = set_suggested_pages_in_frontmatter(once, other)
-    assert replaced.count("suggested_pages:") == 1
-    assert "slug: u" in replaced
-    assert "slug: t" not in replaced
-
-
-def test_set_suggested_pages_empty_removes_key():
-    from graph_wiki_core.commands.suggest_pages import (
-        read_suggested_pages,
-        set_suggested_pages_in_frontmatter,
-    )
-
-    page = "---\nsource_kind: source\ntarget_slug: foo\n---\nBody.\n"
-    entries = [{"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
-                "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    with_block = set_suggested_pages_in_frontmatter(page, entries)
-    cleared = set_suggested_pages_in_frontmatter(with_block, [])
-    assert "suggested_pages:" not in cleared
-    assert "source_kind: source" in cleared
-    assert read_suggested_pages(cleared) == []
-
-
-def test_read_suggested_pages_no_frontmatter_returns_empty():
-    from graph_wiki_core.commands.suggest_pages import read_suggested_pages
-
-    assert read_suggested_pages("no frontmatter here") == []
-    assert read_suggested_pages("---\nsource_kind: source\n---\nBody") == []
-
-
-def test_render_section_empty_when_no_entries():
-    from graph_wiki_core.commands.suggest_pages import render_suggested_pages_section
-
-    assert render_suggested_pages_section([]) == ""
-
-
-def test_render_section_lists_entries_with_status_and_rationale():
-    from graph_wiki_core.commands.suggest_pages import render_suggested_pages_section
-
-    entries = [
-        {"kind": "concept", "title": "Sec Ownership", "slug": "sec-ownership",
-         "mode": "create_new", "existing_slug": None, "rationale": "a split", "status": "proposed"},
-        {"kind": "adr", "title": "MD", "slug": "md", "mode": "update_existing",
-         "existing_slug": "0007-md", "rationale": "revisits", "status": "approved"},
-    ]
-    section = render_suggested_pages_section(entries)
-    assert section.startswith("## Suggested pages")
-    assert "edit `status`" in section  # the "approve in frontmatter" note
-    assert "**concept · create new**" in section
-    assert "sec-ownership" in section
-    assert "_proposed_" in section
-    assert "**adr · update**" in section
-    assert "0007-md" in section
-    assert "_approved_" in section
-    assert "a split" in section
-
-
-def test_set_section_appends_when_absent():
-    from graph_wiki_core.commands.suggest_pages import (
-        render_suggested_pages_section,
-        set_suggested_pages_section_in_body,
-    )
-
-    body = "---\nsource_kind: source\n---\n\nIntro paragraph.\n"
-    section = render_suggested_pages_section(
-        [{"kind": "concept", "title": "T", "slug": "t", "mode": "create_new",
-          "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    )
-    out = set_suggested_pages_section_in_body(body, section)
-    assert "Intro paragraph." in out
-    assert out.count("## Suggested pages") == 1
-    assert out.rstrip().endswith("_proposed_") or "_proposed_" in out
-
-
-def test_set_section_replaces_existing_and_is_idempotent():
-    from graph_wiki_core.commands.suggest_pages import (
-        render_suggested_pages_section,
-        set_suggested_pages_section_in_body,
-    )
-
-    section1 = render_suggested_pages_section(
-        [{"kind": "concept", "title": "One", "slug": "one", "mode": "create_new",
-          "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    )
-    base = "Intro.\n"
-    once = set_suggested_pages_section_in_body(base, section1)
-    twice = set_suggested_pages_section_in_body(once, section1)
-    assert once == twice
-    assert once.count("## Suggested pages") == 1
-
-    section2 = render_suggested_pages_section(
-        [{"kind": "adr", "title": "Two", "slug": "two", "mode": "create_new",
-          "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    )
-    replaced = set_suggested_pages_section_in_body(once, section2)
-    assert replaced.count("## Suggested pages") == 1
-    assert "Two" in replaced
-    assert "One" not in replaced
-
-
-def test_set_section_removes_when_empty_section():
-    from graph_wiki_core.commands.suggest_pages import (
-        render_suggested_pages_section,
-        set_suggested_pages_section_in_body,
-    )
-
-    section1 = render_suggested_pages_section(
-        [{"kind": "concept", "title": "One", "slug": "one", "mode": "create_new",
-          "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    )
-    body = set_suggested_pages_section_in_body("Intro.\n", section1)
-    cleared = set_suggested_pages_section_in_body(body, "")
-    assert "## Suggested pages" not in cleared
-    assert "Intro." in cleared
-
-
-def test_set_section_preserves_trailing_h2():
-    from graph_wiki_core.commands.suggest_pages import (
-        render_suggested_pages_section,
-        set_suggested_pages_section_in_body,
-    )
-
-    body = "Intro.\n\n## Suggested pages\n\nold content\n\n## Touches\n\n[[entities/pkg_x]]\n"
-    section = render_suggested_pages_section(
-        [{"kind": "concept", "title": "T", "slug": "t", "mode": "create_new",
-          "existing_slug": None, "rationale": "r", "status": "proposed"}]
-    )
-    out = set_suggested_pages_section_in_body(body, section)
-    assert "## Touches" in out          # following H2 survives
-    assert "[[entities/pkg_x]]" in out
-    assert "old content" not in out     # old section body replaced
-    assert out.count("## Suggested pages") == 1
-
-
 @pytest.mark.asyncio
-async def test_run_suggest_phase_writes_proposals_to_page(tmp_path):
+async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from graph_wiki_core.commands.suggest_pages import read_suggested_pages, run_suggest_phase
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+    from wiki_io.proposals import list_proposals, proposal_path
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
@@ -393,6 +140,7 @@ async def test_run_suggest_phase_writes_proposals_to_page(tmp_path):
         "---\nsource_kind: source\ntarget_slug: doc\nentity_uri: null\n---\n\nThe doc body.\n",
         encoding="utf-8",
     )
+    original = page.read_text(encoding="utf-8")
 
     llm_yaml = (
         "suggestions:\n"
@@ -406,84 +154,105 @@ async def test_run_suggest_phase_writes_proposals_to_page(tmp_path):
     fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
 
     assert parsed is True
-    assert [(e["kind"], e["slug"], e["status"]) for e in entries] == [("concept", "a-concept", "proposed")]
-    # Persisted to the page frontmatter + body mirror.
-    written = page.read_text(encoding="utf-8")
-    assert read_suggested_pages(written) == entries
-    assert "## Suggested pages" in written
-    assert "a-concept" in written
+    # Report shape preserved (kind/title/slug/mode/status; slug == target_slug).
+    assert reports == [
+        {
+            "kind": "concept",
+            "title": "A Concept",
+            "slug": "a-concept",
+            "mode": "create_new",
+            "status": "proposed",
+        }
+    ]
+    # The proposal lives in the ledger, keyed by filename, with an ingest origin.
+    note = proposal_path(wiki, "concept", "a-concept")
+    assert note.exists()
+    rec = list_proposals(wiki)[0]
+    assert rec["origins"] == [
+        {"ref": "sources/doc", "source": "ingest", "rationale": "justified"}
+    ]
+    # The Source page is NOT touched — no suggested_pages, no section.
+    assert page.read_text(encoding="utf-8") == original
+    assert "suggested_pages" not in original
+    assert "## Suggested pages" not in original
 
 
 @pytest.mark.asyncio
-async def test_run_suggest_phase_llm_error_is_best_effort(tmp_path):
+async def test_run_suggest_phase_update_existing_targets_existing_slug(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
 
     from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+    from wiki_io.proposals import proposal_path
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
+    (wiki / "adrs").mkdir(parents=True)
     page = wiki / "sources" / "doc.md"
-    original = "---\nsource_kind: source\ntarget_slug: doc\n---\n\nBody.\n"
-    page.write_text(original, encoding="utf-8")
+    page.write_text("---\ntarget_slug: doc\n---\n\nBody.\n", encoding="utf-8")
 
-    fake_llm = MagicMock()
-    fake_llm.ainvoke = AsyncMock(side_effect=RuntimeError("bedrock boom"))
-
-    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
-
-    assert entries == []
-    assert parsed is False
-    # Page is intact (no suggested_pages added).
-    assert "suggested_pages:" not in page.read_text(encoding="utf-8")
-
-
-@pytest.mark.asyncio
-async def test_run_suggest_phase_preserves_prior_human_decision(tmp_path):
-    from unittest.mock import AsyncMock, MagicMock, patch
-
-    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
-
-    wiki = tmp_path / "wiki"
-    (wiki / "sources").mkdir(parents=True)
-    page = wiki / "sources" / "doc.md"
-    # Page already carries an approved suggestion (human edited status).
-    page.write_text(
-        "---\n"
-        "source_kind: source\n"
-        "target_slug: doc\n"
-        "suggested_pages:\n"
-        "- kind: concept\n"
-        "  title: Kept\n"
-        "  slug: kept\n"
-        "  mode: create_new\n"
-        "  existing_slug: null\n"
-        "  rationale: r\n"
-        "  status: approved\n"
-        "---\n\nBody.\n",
-        encoding="utf-8",
-    )
-
-    # Re-ingest proposes the SAME key again.
     llm_yaml = (
         "suggestions:\n"
-        "  - kind: concept\n"
-        "    title: New Title\n"
-        "    slug: kept\n"
-        "    mode: create_new\n"
-        "    rationale: new\n"
+        "  - kind: adr\n"
+        "    title: Markdown stays canonical\n"
+        "    slug: md-idea\n"
+        "    mode: update_existing\n"
+        "    existing_slug: 0007-md\n"
+        "    rationale: revisits the decision\n"
     )
     fake_llm = MagicMock()
     fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        entries, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
 
-    assert parsed is True
-    kept = [e for e in entries if e["slug"] == "kept"]
-    assert len(kept) == 1
-    assert kept[0]["status"] == "approved"   # decision preserved
-    assert kept[0]["title"] == "Kept"        # not overwritten by the new proposal
+    # The note is keyed by the EXISTING slug (the update target), not the proposal slug.
+    assert proposal_path(wiki, "adr", "0007-md").exists()
+    assert reports[0]["slug"] == "0007-md"
+    assert reports[0]["mode"] == "update_existing"
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_llm_error_writes_zero_notes(tmp_path):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    page = wiki / "sources" / "doc.md"
+    page.write_text("---\ntarget_slug: doc\n---\n\nBody.\n", encoding="utf-8")
+
+    fake_llm = MagicMock()
+    fake_llm.ainvoke = AsyncMock(side_effect=RuntimeError("bedrock boom"))
+
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
+        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+
+    assert reports == []
+    assert parsed is False
+    # No notes written; the dir may not even exist.
+    assert not list((wiki / "proposals").glob("*.md")) if (wiki / "proposals").is_dir() else True
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_parse_miss_writes_zero_notes(tmp_path):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    page = wiki / "sources" / "doc.md"
+    page.write_text("---\ntarget_slug: doc\n---\n\nBody.\n", encoding="utf-8")
+
+    fake_llm = MagicMock()
+    fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content="not valid yaml: : ["))
+
+    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
+        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+
+    assert reports == []
+    assert parsed is False
