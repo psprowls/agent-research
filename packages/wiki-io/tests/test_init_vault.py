@@ -126,6 +126,35 @@ def test_entities_in_fixed_vault_dirs() -> None:
     assert "entities" in FIXED_VAULT_DIRS
 
 
+def test_proposals_in_fixed_vault_dirs() -> None:
+    """The proposal ledger dir must be bootstrapped inside wiki/."""
+    from wiki_io.init_vault import FIXED_VAULT_DIRS
+
+    assert "proposals" in FIXED_VAULT_DIRS
+
+
+def test_init_wiki_creates_proposals_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """gw bootstrap creates wiki/proposals/ (spec §3.8)."""
+    from wiki_io import init_vault
+
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname="solo"\nversion="0.0.1"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(init_vault, "_workspace_init", lambda *a, **k: None)
+
+    init_vault.init_wiki(
+        wiki, repo, topic="test", tool="claude-code", force=False, non_interactive=True
+    )
+
+    assert (wiki / "proposals").is_dir()
+
+
 def test_dependencies_not_in_fixed_vault_dirs() -> None:
     """IQP: 'dependencies' legacy container must NOT be in FIXED_VAULT_DIRS."""
     from wiki_io.init_vault import FIXED_VAULT_DIRS
