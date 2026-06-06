@@ -5,12 +5,19 @@ from __future__ import annotations
 import dataclasses
 import json as _json
 import sys
+from typing import Protocol
 
 from graph_io import cluster, exit_codes, store
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import FormatArgs
 
-def run(args: object) -> int:
+
+class DomainClustersArgs(FormatArgs, Protocol):
+    hub_threshold: float
+
+
+def run(args: DomainClustersArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

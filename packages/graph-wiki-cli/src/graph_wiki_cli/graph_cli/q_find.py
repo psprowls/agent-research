@@ -8,8 +8,10 @@ from graph_io import exit_codes, queries, store
 from graph_io import render as _render
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import FindArgs
 
-def run(args: object) -> int:
+
+def run(args: FindArgs) -> int:
     # D-01: at least one filter required.
     if args.name is None and args.kind is None and args.in_package is None:
         return exit_codes.GENERIC

@@ -9,6 +9,7 @@ the attribute that module expects (``name`` / ``uri`` / ``path``), and — when
 from __future__ import annotations
 
 import sys
+from typing import cast
 
 from graph_io import exit_codes, store
 from workspace_io.paths import graph_dir
@@ -25,9 +26,10 @@ from graph_wiki_cli.graph_cli import (
     q_describe_repo,
     q_describe_suite,
 )
+from graph_wiki_cli.graph_cli._args import AnyRunModule, MutableDescribeArgs
 
 # CLI kind -> (module, name of the args attribute that module reads as its selector)
-_DISPATCH = {
+_DISPATCH: dict[str, tuple[AnyRunModule, str | None]] = {
     "package": (q_describe_package, "name"),
     "app": (q_describe_app, "name"),
     "domain": (q_describe_domain, "name"),
@@ -54,7 +56,7 @@ _INFER_DB_KIND = {
 _DB_KIND_TO_CLI = {db: cli for cli, db in _INFER_DB_KIND.items()}
 
 
-def _resolve_kind(args: object) -> "str | int":
+def _resolve_kind(args: MutableDescribeArgs) -> str | int:
     """Infer the describe kind from ``args.selector``.
 
     Returns a CLI kind string, or an int exit code on DB/ambiguity error
@@ -112,7 +114,7 @@ def _resolve_kind(args: object) -> "str | int":
     return cli_kinds[0]
 
 
-def run(args: object) -> int:
+def run(args: MutableDescribeArgs) -> int:
     kind = args.kind
     if kind is None:
         kind = _resolve_kind(args)
@@ -121,4 +123,5 @@ def run(args: object) -> int:
     module, selector_attr = _DISPATCH[kind]
     if selector_attr is not None:
         setattr(args, selector_attr, args.selector)
+    module = cast(AnyRunModule, module)
     return module.run(args)

@@ -7,8 +7,10 @@ import sys
 from graph_io import exit_codes, store
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import WorkspaceArgs
 
-def run(args: object) -> int:
+
+def run(args: WorkspaceArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)
