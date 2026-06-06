@@ -14,11 +14,13 @@ from __future__ import annotations
 import logging
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 import yaml
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import upsert
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext, domain_uri
 
 _LOG = logging.getLogger("graph_io.domains")
@@ -259,7 +261,7 @@ def emit(
             GraphNode(
                 kind=_DOMAIN_KIND,
                 name=dom_name,
-                path=None,
+                path=cast(str, None),
                 line=None,
                 attrs=dom_attrs_for_node,
             )
@@ -312,5 +314,5 @@ def emit(
     with conn:
         upsert.upsert_records(
             conn,
-            GraphRecords(nodes=nodes_out, edges=edges_out),
+            as_graph_records(nodes=nodes_out, edges=edges_out),
         )

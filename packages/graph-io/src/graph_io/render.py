@@ -12,13 +12,17 @@ from __future__ import annotations
 
 import dataclasses
 import json as _json
+from collections.abc import Mapping
 from typing import Any, Callable, Iterable
 
 
 def _to_dict(record: Any) -> dict[str, Any]:
     if dataclasses.is_dataclass(record) and not isinstance(record, type):
-        return dataclasses.asdict(record)
-    return dict(record)
+        out: dict[str, Any] = dataclasses.asdict(record)
+        return out
+    if isinstance(record, Mapping):
+        return {str(key): value for key, value in record.items()}
+    raise TypeError(f"record is not renderable as a mapping: {type(record).__name__}")
 
 
 def _is_importer_batch(rows: list[Any]) -> bool:
@@ -77,9 +81,12 @@ def render(
     total = len(rows)
     truncated = cap is not None and total > cap
     if truncated:
-        rows = rows[:cap]
+        row_cap = cap
+        if row_cap is None:
+            raise RuntimeError("truncated render requires a row cap")
+        rows = rows[:row_cap]
         if on_truncate is not None:
-            on_truncate(cap, total)
+            on_truncate(row_cap, total)
 
     if _is_importer_batch(rows):
         if fmt == "json":
@@ -104,6 +111,8 @@ def render(
         for r in dicts:
             lines.append("  ".join(str(r.get(k, "")).ljust(widths[k]) for k in keys))
         if truncated:
+            if cap is None:
+                raise RuntimeError("truncated render requires a row cap")
             lines.append(f"... showing {cap} of {total} (truncated)")
         return "\n".join(lines)
     raise ValueError(f"unknown format: {fmt!r}")

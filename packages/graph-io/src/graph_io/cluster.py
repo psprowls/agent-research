@@ -310,7 +310,19 @@ def compute_clusters(
         )
 
     # Outer sort by (-size, members[0]).
-    pre_sort.sort(key=lambda c: (-c["size"], c["members_sorted"][0]))
+    def _cluster_sort_key(cluster_record: dict[str, object]) -> tuple[int, str]:
+        size_value = cluster_record["size"]
+        members_value = cluster_record["members_sorted"]
+        if not isinstance(size_value, int):
+            return (0, "")
+        if not isinstance(members_value, tuple) or len(members_value) < 1:
+            return (-size_value, "")
+        first_member = members_value[0]
+        if not isinstance(first_member, str):
+            return (-size_value, "")
+        return (-size_value, first_member)
+
+    pre_sort.sort(key=_cluster_sort_key)
 
     clusters_list: list[Cluster] = []
     name_to_cluster_id: dict[str, int] = {}

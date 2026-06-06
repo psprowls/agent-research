@@ -8,12 +8,13 @@ import sqlite3
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import _ignore, upsert
 from graph_io.classification import classify
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri
 
 # PEP 508 bare-name prefix: identifier characters before any version/extra/marker.
@@ -281,11 +282,12 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 ),
             )
 
+        package_path = rel_prefix or None
         nodes = [
             GraphNode(
                 kind=new_kind,
                 name=info["name"],
-                path=rel_prefix or None,
+                path=cast(str, package_path),
                 line=None,
                 attrs=attrs,
             )
@@ -301,7 +303,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                     attrs={},
                 )
             )
-        upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+        upsert.upsert_records(conn, as_graph_records(nodes=nodes, edges=edges))
 
         # Phase 43 D-02 / k5y T2: collect deps from manifests and feed the shared
         # dep_acc / used_by_pairs / internal_pkg_edges accumulators.
@@ -381,7 +383,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             GraphNode(
                 kind="dependency",
                 name=name,
-                path=None,
+                path=cast(str, None),
                 line=None,
                 attrs={
                     "uri": dependency_uri(ecosystem, name),
@@ -437,4 +439,4 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         dep_edges.append(GraphEdge(src=src, dst=dst, kind="used_by", attrs={}))
         dep_edges.append(GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={}))
     if dep_nodes or dep_edges:
-        upsert.upsert_records(conn, GraphRecords(nodes=dep_nodes, edges=dep_edges))
+        upsert.upsert_records(conn, as_graph_records(nodes=dep_nodes, edges=dep_edges))

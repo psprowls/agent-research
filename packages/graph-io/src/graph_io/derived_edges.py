@@ -20,10 +20,11 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from source_parser.projections.graph import GraphEdge, GraphRecords
+from source_parser.projections.graph import GraphEdge
 
 from graph_io import upsert
 from graph_io.import_scan import scan_package_imports
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext
 
 _REFERENCES_KIND = "references"
@@ -169,7 +170,7 @@ def _compute_references_and_depends_on(
     if edges_out:
         upsert.upsert_records(
             conn,
-            GraphRecords(nodes=[], edges=edges_out),
+            as_graph_records(edges=edges_out),
         )
 
 
@@ -233,5 +234,5 @@ def _compute_testsuite_domain(
     if edges_out:
         upsert.upsert_records(
             conn,
-            GraphRecords(nodes=[], edges=edges_out),
+            as_graph_records(edges=edges_out),
         )

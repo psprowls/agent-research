@@ -34,10 +34,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 from workspace_io.paths import graph_dir
 
 from graph_io import _ignore, upsert
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext, builtin_uri
 
 # ---------------------------------------------------------------------------
@@ -423,4 +424,4 @@ def refresh(
         for (pkg_name, lang, module_name), symbols in sorted(edge_acc.items())
     ]
 
-    upsert.upsert_records(conn, GraphRecords(nodes=builtin_nodes, edges=builtin_edges))
+    upsert.upsert_records(conn, as_graph_records(nodes=builtin_nodes, edges=builtin_edges))

@@ -18,10 +18,12 @@ import sqlite3
 import sys
 import tomllib
 from pathlib import Path
+from typing import cast
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import upsert
+from graph_io.records import as_graph_records
 from graph_io.structural_nodes import _resolve_import_root
 from graph_io.uri import RepoContext, entry_point_uri
 
@@ -130,7 +132,7 @@ def _emit_pyproject_entries(
             GraphNode(
                 kind="entry_point",
                 name=ep_name,
-                path=None,
+                path=cast(str, None),
                 line=None,
                 attrs=attrs,
             )
@@ -315,7 +317,7 @@ def _emit_packagejson_entries(
             GraphNode(
                 kind="entry_point",
                 name=ep_name,
-                path=node_path,
+                path=cast(str, node_path),
                 line=None,
                 attrs=attrs,
             )
@@ -439,4 +441,4 @@ def emit(
             edges.extend(pj_edges)
         # Unknown languages: skip silently (no EntryPoint emission).
 
-    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+    upsert.upsert_records(conn, as_graph_records(nodes=nodes, edges=edges))
