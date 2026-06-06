@@ -323,10 +323,10 @@ def ingest_source(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"[ok] Ingested: {result.page_path}")
-        typer.echo(f"     source_kind: {result.source_kind}, slug: {result.slug}")
+        typer.echo(f"     source_type: {result.source_type}, slug: {result.slug}")
         if not result.frontmatter_parsed:
             typer.echo(
-                "⚠ frontmatter did not parse — wrote Source page with source_kind: unknown",
+                "⚠ frontmatter did not parse — wrote Source page using the path-guess source_type",
                 err=True,
             )
         if result.stripped_wikilinks:
