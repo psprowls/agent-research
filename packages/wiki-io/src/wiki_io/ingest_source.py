@@ -9,7 +9,8 @@ Supported source formats (stdlib only): .md .txt .html .htm .json .csv
 Exports:
     slugify(text) -> str
     extract(path) -> tuple[str, str | None]
-    guess_source_type(rel_to_wiki, rel_to_repo) -> str
+    guess_source_type(rel_to_workspace, rel_to_repo) -> str
+    SOURCE_TYPE_ENUM, RAW_FOLDER_TYPES   (closed source_type enum + raw-folder subset)
     language_for(path) -> str
     list_folder_files(root) -> list[tuple[str, int]]
     pick_representative(root, entries) -> str | None
@@ -131,15 +132,27 @@ def extract(path: Path) -> tuple[str, str | None]:
         return "", None
 
 
-def guess_source_type(rel_to_wiki: Path | None, rel_to_repo: Path | None) -> str:
+# Source-type model (source-type-consolidation design 2026-06-05). One closed
+# enum on every Source page; `note` is the catch-all (no `unknown`, no `rfc`).
+SOURCE_TYPE_ENUM = frozenset(
+    {"spec", "article", "pr", "ticket", "transcript", "example", "doc", "note"}
+)
+# The subset a `raw/<type>/` folder produces authoritatively. The LLM cannot
+# override these — see run_ingest_source / build_ingest_brief.
+RAW_FOLDER_TYPES = frozenset({"spec", "article", "pr", "ticket", "transcript", "example"})
+
+
+def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -> str:
     """Guess source_type from where the file lives.
 
-    `rel_to_wiki` is the source path relative to the wiki (e.g. raw/specs/x.md)
-    when the source lives under <workspace>/raw/. `rel_to_repo` is the repo-relative
-    path when the source is an in-repo doc. Either may be None.
+    `rel_to_workspace` is the source path relative to the WORKSPACE root (e.g.
+    `raw/specs/x.md`) when the source lives under `<workspace>/raw/`. `raw/` is a
+    sibling of `wiki/`, so this must be measured from the workspace root, NOT the
+    wiki dir. `rel_to_repo` is the repo-relative path for an in-repo doc. Either
+    may be None.
     """
-    if rel_to_wiki is not None:
-        parts = rel_to_wiki.parts
+    if rel_to_workspace is not None:
+        parts = rel_to_workspace.parts
         if "specs" in parts:
             return "spec"
         if "articles" in parts:
