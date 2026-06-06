@@ -28,7 +28,7 @@ def test_e2e_pipeline(tmp_path: Path) -> None:
             "src/a.py": "def alpha():\n    return beta()\n\ndef beta():\n    return 1\n",
             "src/b.js": "function gamma() { return 1; }\n",
         },
-        "",
+        "init",
     )
 
     assert _cg(["update", "--full"], tmp_path).returncode == 0
