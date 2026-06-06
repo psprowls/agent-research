@@ -33,7 +33,7 @@ def test_build_wiki_catalog_lists_curated_sources_entities_and_proposals(tmp_pat
         title="graph-wiki-core",
         summary="Core package",
         uri="pkg:graph-wiki-core",
-        entity_kind="package",
+        kind="package",
     )
     upsert_proposal(
         wiki,
@@ -53,6 +53,7 @@ def test_build_wiki_catalog_lists_curated_sources_entities_and_proposals(tmp_pat
     assert {entry["slug"] for entry in catalog["architecture"]} == {"layers"}
     assert {entry["slug"] for entry in catalog["sources"]} == {"spec"}
     assert [entry["uri"] for entry in catalog["entities"]] == ["pkg:graph-wiki-core"]
+    assert catalog["entities"][0]["entity_kind"] == "package"
     assert [entry["target_slug"] for entry in catalog["proposals"]] == ["fanout"]
 
 

@@ -48,7 +48,7 @@ def _frontmatter_entry(path: Path, wiki: Path, kind: str) -> dict[str, Any] | No
         "title": metadata.get("title", path.stem.replace("-", " ").replace("_", " ").title()),
         "summary": metadata.get("summary", ""),
         "uri": metadata.get("uri", ""),
-        "entity_kind": metadata.get("entity_kind", ""),
+        "entity_kind": metadata.get("kind", ""),
         "excerpt": excerpt,
     }
     return entry
