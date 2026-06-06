@@ -10,7 +10,7 @@ subset appropriate to the page being written.
 **Ingestor source-summary pages** require:
 - `title`: descriptive title for the page
 - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-- `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
+- `source_type`: classification from the closed enum (`spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`); classify from content, default `note` when unsure. Files under `raw/<type>/` take the type from the folder. Does NOT control routing — every ingested doc lands under `sources/`
 - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
 - `summary`: one-line description of the source's main contribution
 - `tags`: list of relevant tags (or empty list)

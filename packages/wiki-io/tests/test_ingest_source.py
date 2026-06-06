@@ -233,6 +233,46 @@ def test_constants_present() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Source-type enum constants (source-type-consolidation design 2026-06-05)
+# ---------------------------------------------------------------------------
+
+
+def test_source_type_enum_contents() -> None:
+    from wiki_io.ingest_source import SOURCE_TYPE_ENUM
+
+    assert set(SOURCE_TYPE_ENUM) == {
+        "spec",
+        "article",
+        "pr",
+        "ticket",
+        "transcript",
+        "example",
+        "doc",
+        "note",
+    }
+    # No legacy/removed values.
+    assert "unknown" not in SOURCE_TYPE_ENUM
+    assert "rfc" not in SOURCE_TYPE_ENUM
+
+
+def test_raw_folder_types_is_authoritative_subset() -> None:
+    from wiki_io.ingest_source import RAW_FOLDER_TYPES, SOURCE_TYPE_ENUM
+
+    assert set(RAW_FOLDER_TYPES) == {
+        "spec",
+        "article",
+        "pr",
+        "ticket",
+        "transcript",
+        "example",
+    }
+    # The raw-folder subset never includes the path-default catch-alls.
+    assert set(RAW_FOLDER_TYPES) <= set(SOURCE_TYPE_ENUM)
+    assert "doc" not in RAW_FOLDER_TYPES
+    assert "note" not in RAW_FOLDER_TYPES
+
+
+# ---------------------------------------------------------------------------
 # No lattice_wiki_core or _version_check references
 # ---------------------------------------------------------------------------
 

@@ -349,7 +349,7 @@ async def test_wiki_lint_emits_progress() -> None:
 
 
 async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
-    """wiki_ingest surfaces source_kind / stripped_wikilinks / frontmatter_parsed."""
+    """wiki_ingest surfaces source_type / stripped_wikilinks / frontmatter_parsed."""
     from graph_wiki_core.commands.ingest import IngestResult
     from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
 
@@ -361,7 +361,7 @@ async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
         page_type="source",
         source_path="/x/doc.md",
         cross_refs_updated=1,
-        source_kind="unknown",
+        source_type="note",
         stripped_wikilinks=["ghost"],
         frontmatter_parsed=False,
     )
@@ -372,7 +372,7 @@ async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
     with patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake):
         out = await wiki_ingest(WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx)
 
-    assert out.source_kind == "unknown"
+    assert out.source_type == "note"
     assert out.stripped_wikilinks == ["ghost"]
     assert out.frontmatter_parsed is False
 
@@ -393,7 +393,7 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
         page_type="source",
         source_path="/x/doc.md",
         cross_refs_updated=1,
-        source_kind="source",
+        source_type="doc",
         stripped_wikilinks=[],
         frontmatter_parsed=True,
         suggested_pages=[

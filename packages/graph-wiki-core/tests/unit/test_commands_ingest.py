@@ -106,7 +106,7 @@ def _seed_graph_db_for_ingest_tests(
 
 @pytest.mark.asyncio
 async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
-    """Fake ingestor returns source_kind=source; page written under sources/foo.md (M3)."""
+    """Fake ingestor omits source_type so it falls to the doc path-guess; page written under sources/foo.md (M3)."""
     from graph_wiki_core.commands.ingest import IngestResult, run_ingest_source
 
     # Create a fake source file
@@ -119,7 +119,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     (wiki / "log.md").write_text("", encoding="utf-8")
 
     fake_llm_response = (
-        "---\nsource_kind: source\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
+        "---\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
     )
 
     _seed_graph_db_for_ingest_tests(wiki, packages=[])
@@ -143,7 +143,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     expected_page = wiki / "sources" / "foo.md"
     assert expected_page.exists(), f"Expected page at {expected_page}"
     written_body = expected_page.read_text(encoding="utf-8")
-    assert "source_kind: source" in written_body
+    assert "source_type: doc" in written_body
     assert "target_slug: foo" in written_body
     assert "entity_uri: null" in written_body
     assert "Body text here." in written_body
@@ -157,7 +157,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert result.slug == "foo"
     assert result.page_type == "source"
-    assert result.source_kind == "source"
+    assert result.source_type == "doc"
     assert result.frontmatter_parsed is True
     assert "sources/foo.md" in result.page_path
 
@@ -348,7 +348,7 @@ def test_ingest_result_round_trips_to_json() -> None:
     )
 
     # Defaults for the M3 fields
-    assert result.source_kind is None
+    assert result.source_type is None
     assert result.stripped_wikilinks == []
     assert result.frontmatter_parsed is True
 
@@ -360,7 +360,7 @@ def test_ingest_result_round_trips_to_json() -> None:
     assert parsed["slug"] == "foo"
     assert parsed["page_type"] == "source"
     assert parsed["cross_refs_updated"] == 1
-    assert parsed["source_kind"] is None
+    assert parsed["source_type"] is None
     assert parsed["stripped_wikilinks"] == []
     assert parsed["frontmatter_parsed"] is True
 
@@ -1026,15 +1026,15 @@ def test_parse_ingestor_response_uses_safe_load_for_valid_yaml() -> None:
     """Clean YAML is parsed (typed) via yaml.safe_load."""
     from graph_wiki_core.commands.ingest import _parse_ingestor_response
 
-    raw = "---\nsource_kind: source\ntarget_slug: foo\ntags:\n  - a\n  - b\n---\nBody."
+    raw = "---\nsource_type: source\ntarget_slug: foo\ntags:\n  - a\n  - b\n---\nBody."
     fm, body = _parse_ingestor_response(raw)
-    assert fm["source_kind"] == "source"
+    assert fm["source_type"] == "source"
     assert fm["target_slug"] == "foo"
     assert fm["tags"] == ["a", "b"]  # safe_load yields a real list
     assert body.strip() == "Body."
 
     # A typed scalar only safe_load (not the hand-rolled parser) produces:
-    raw_bool = "---\nsource_kind: source\ntarget_slug: foo\nactive: true\n---\nBody."
+    raw_bool = "---\nsource_type: source\ntarget_slug: foo\nactive: true\n---\nBody."
     fm_bool, _ = _parse_ingestor_response(raw_bool)
     assert fm_bool["active"] is True
 
@@ -1046,9 +1046,9 @@ def test_parse_ingestor_response_falls_back_to_handrolled_on_yaml_error() -> Non
 
     # `summary: foo: bar baz` -> safe_load raises ScannerError (a YAMLError);
     # hand-rolled partition-on-first-colon recovers val="foo: bar baz".
-    raw = "---\nsource_kind: source\ntarget_slug: foo\nsummary: foo: bar baz\n---\nBody."
+    raw = "---\nsource_type: source\ntarget_slug: foo\nsummary: foo: bar baz\n---\nBody."
     fm, body = _parse_ingestor_response(raw)
-    assert fm["source_kind"] == "source"
+    assert fm["source_type"] == "source"
     assert fm["target_slug"] == "foo"
     assert fm["summary"] == "foo: bar baz"
     assert body.strip() == "Body."
@@ -1064,22 +1064,20 @@ def test_parse_ingestor_response_empty_block_returns_empty_dict() -> None:
     assert body.strip() == "Body."
 
 
-def test_set_source_kind_in_body_inserts_and_is_idempotent() -> None:
-    from graph_wiki_core.commands.ingest import _set_source_kind_in_body
+def test_set_source_type_in_body_inserts_and_is_idempotent() -> None:
+    from graph_wiki_core.commands.ingest import _set_source_type_in_body
 
-    text = "---\ntarget_slug: foo\ntitle: Foo\n---\n\nBody"
-    out = _set_source_kind_in_body(text, "unknown")
-    # Inserted as the first frontmatter field.
+    text = "---\ntarget_slug: foo\n---\nBody."
+    out = _set_source_type_in_body(text, "note")
     lines = out.splitlines()
     assert lines[0] == "---"
-    assert lines[1] == "source_kind: unknown"
-    # Idempotence: calling twice yields exactly one source_kind: line.
-    twice = _set_source_kind_in_body(out, "source")
-    assert twice.count("source_kind:") == 1
-    assert "source_kind: source" in twice
-
-    # No frontmatter -> unchanged.
-    assert _set_source_kind_in_body("no frontmatter here", "unknown") == "no frontmatter here"
+    assert lines[1] == "source_type: note"
+    # Idempotence: calling twice yields exactly one source_type: line.
+    twice = _set_source_type_in_body(out, "spec")
+    assert twice.count("source_type:") == 1
+    assert "source_type: spec" in twice
+    # No-frontmatter: returns text unchanged.
+    assert _set_source_type_in_body("no frontmatter here", "note") == "no frontmatter here"
 
 
 # ---------------------------------------------------------------------------
@@ -1099,9 +1097,9 @@ async def test_run_ingest_source_always_routes_to_sources_even_if_llm_says_adr(
     source_file.write_text("# A Decision\n\nBody.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    # LLM claims adr AND emits a descriptive source_kind.
+    # LLM claims adr (page_type ignored — every ingest lands under sources/).
     fake_llm_response = (
-        "---\ntitle: A Decision\npage_type: adr\nsource_kind: source\ntarget_slug: a-decision\nsummary: x\n---\nBody."
+        "---\ntitle: A Decision\npage_type: adr\ntarget_slug: a-decision\nsummary: x\n---\nBody."
     )
 
     with (
@@ -1120,17 +1118,17 @@ async def test_run_ingest_source_always_routes_to_sources_even_if_llm_says_adr(
     assert (wiki / "sources" / "a-decision.md").exists()
     assert not (wiki / "adrs").exists() or not any((wiki / "adrs").iterdir())
     assert result.page_type == "source"
-    assert result.source_kind == "source"
+    assert result.source_type == "doc"
     assert result.frontmatter_parsed is True
     assert "sources/a-decision.md" in result.page_path
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_source_no_frontmatter_synthesizes_unknown(
+async def test_run_ingest_source_no_frontmatter_synthesizes_path_guess(
     tmp_path: Path,
 ) -> None:
     """LLM emits a body with NO frontmatter -> synthesized block lands with
-    source_kind: unknown, target_slug + entity_uri present, frontmatter_parsed False."""
+    source_type: doc (the path-guess), target_slug + entity_uri present, frontmatter_parsed False."""
     from graph_wiki_core.commands.ingest import run_ingest_source
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
@@ -1156,14 +1154,126 @@ async def test_run_ingest_source_no_frontmatter_synthesizes_unknown(
 
     # Slug falls back to slugify(title) == "raw-notes".
     written = (wiki / "sources" / "raw-notes.md").read_text(encoding="utf-8")
-    assert "source_kind: unknown" in written
+    assert "source_type: doc" in written
     assert "target_slug: raw-notes" in written  # synthesis ran BEFORE the body helpers
     assert "entity_uri: null" in written
     assert "Just some prose" in written
     assert result.page_type == "source"
-    assert result.source_kind == "unknown"
+    assert result.source_type == "doc"
     assert result.frontmatter_parsed is False
     assert "sources/raw-notes.md" in result.page_path
+
+
+# ---------------------------------------------------------------------------
+# Source-type determination (source-type-consolidation design 2026-06-05)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_raw_folder_type_is_authoritative(tmp_path: Path) -> None:
+    """A source under raw/specs/ is stamped source_type: spec; a contrary LLM
+    value is ignored (raw/<type>/ folders are authoritative)."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "raw" / "specs" / "auth.md"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("# Auth Spec\n\nBody.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    # The LLM tries to call it an article — must be ignored.
+    fake_llm_response = "---\nsource_type: article\ntarget_slug: auth\ntitle: Auth\nsummary: x\n---\nBody."
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+        result = await run_ingest_source(source_file, workspace)
+
+    written = (wiki / "sources" / "auth.md").read_text(encoding="utf-8")
+    assert "source_type: spec" in written
+    assert "source_type: article" not in written
+    assert result.source_type == "spec"
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_llm_overrides_non_raw_type(tmp_path: Path) -> None:
+    """For an in-repo doc (path-guess 'doc'), the LLM may override the type with
+    a more specific enum value."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    source_file = workspace / "notes.md"  # in-repo, NOT under raw/
+    source_file.write_text("# Notes\n\nA meeting transcript.", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    fake_llm_response = "---\nsource_type: transcript\ntarget_slug: notes\ntitle: Notes\nsummary: x\n---\nBody."
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=fake_llm_response))
+        mock_make_llm.return_value = fake_llm
+        result = await run_ingest_source(source_file, workspace)
+
+    written = (wiki / "sources" / "notes.md").read_text(encoding="utf-8")
+    assert "source_type: transcript" in written
+    assert result.source_type == "transcript"
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_falls_back_to_path_guess_on_bad_llm_type(tmp_path: Path) -> None:
+    """An out-of-enum or absent LLM source_type falls back to the path-guess:
+    'doc' for an in-repo file, 'note' for a loose file under neither workspace
+    nor repo."""
+    from graph_wiki_core.commands.ingest import run_ingest_source
+
+    workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
+    _seed_graph_db_for_ingest_tests(workspace, packages=[])
+
+    # (a) in-repo file, LLM returns out-of-enum garbage -> doc
+    in_repo = workspace / "doc.md"
+    in_repo.write_text("# Doc\n\nBody.", encoding="utf-8")
+    resp_garbage = "---\nsource_type: nonsense\ntarget_slug: doc\ntitle: Doc\nsummary: x\n---\nBody."
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=resp_garbage))
+        mock_make_llm.return_value = fake_llm
+        result_doc = await run_ingest_source(in_repo, workspace)
+    assert result_doc.source_type == "doc"
+    assert "source_type: doc" in (wiki / "sources" / "doc.md").read_text(encoding="utf-8")
+
+    # (b) loose file outside workspace+repo, LLM omits source_type -> note
+    loose = tmp_path / "outside" / "loose.md"
+    loose.parent.mkdir(parents=True)
+    loose.write_text("# Loose\n\nBody.", encoding="utf-8")
+    resp_empty = "---\ntarget_slug: loose\ntitle: Loose\nsummary: x\n---\nBody."
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),
+        patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+    ):
+        fake_llm = MagicMock()
+        fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=resp_empty))
+        mock_make_llm.return_value = fake_llm
+        result_note = await run_ingest_source(loose, workspace)
+    assert result_note.source_type == "note"
+    assert "source_type: note" in (wiki / "sources" / "loose.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.asyncio
@@ -1183,7 +1293,6 @@ async def test_run_ingest_source_surfaces_stripped_wikilinks_in_result(
     fake_llm_response = (
         "---\n"
         "title: My Page\n"
-        "source_kind: source\n"
         "target_slug: my-page\n"
         "summary: x\n"
         "---\n"
@@ -1205,7 +1314,7 @@ async def test_run_ingest_source_surfaces_stripped_wikilinks_in_result(
 
     assert result.stripped_wikilinks == ["Hallucinated Person"]
     assert result.frontmatter_parsed is True
-    assert result.source_kind == "source"
+    assert result.source_type == "doc"
 
 
 # ---------------------------------------------------------------------------
@@ -1225,7 +1334,7 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    ingestor_response = "---\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1274,7 +1383,7 @@ async def test_run_ingest_source_suggest_degraded_is_nonfatal(tmp_path: Path) ->
     source_file.write_text("# Spec\n\nBody.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\n---\nBody."
+    ingestor_response = "---\ntarget_slug: spec\ntitle: Spec\n---\nBody."
     extractor_response = "this is not valid yaml: : ["
 
     ingestor_llm = MagicMock()
@@ -1318,7 +1427,7 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    ingestor_response = "---\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1380,7 +1489,7 @@ async def test_run_ingest_source_degraded_reingest_preserves_ledger_decision(tmp
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
+    ingestor_response = "---\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1439,9 +1548,9 @@ def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
     )
 
     body = "Just a body, no frontmatter.\n"
-    out = _synthesize_frontmatter_block(body, "unknown", "my-slug", None)
+    out = _synthesize_frontmatter_block(body, "note", "my-slug", None)
     assert out.startswith("---\n")
-    assert "source_kind: unknown" in out
+    assert "source_type: note" in out
     assert "target_slug: my-slug" in out
     assert "entity_uri: null" in out
     assert out.rstrip().endswith("Just a body, no frontmatter.")

@@ -122,7 +122,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
+  - `source_type`: classification from the closed enum (`spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`); classify from content, default `note` when unsure. Files under `raw/<type>/` take the type from the folder. Does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -169,7 +169,7 @@
   
   Every ingested document becomes a **Source page** under `sources/`. You do NOT choose the destination — routing is fixed. Do NOT emit a `page_type` field; it is ignored, and this rule supersedes any `page_type` mentioned elsewhere in these instructions.
   
-  Optionally emit a descriptive `source_kind` field — use `source` for a document you can cleanly summarize. It is purely descriptive and does NOT control where the page is written.
+  Emit a `source_type` field from this closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. Classify it from the document's content. If the source is staged under a `raw/<type>/` folder (specs, articles, prs, tickets, transcripts, examples) the type is taken from that folder and your value is ignored — so this matters most for in-repo docs and loose files. Use `note` (the catch-all) when unsure. `source_type` is descriptive metadata and does NOT control where the page is written.
   
   Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
@@ -289,7 +289,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
+  - `source_type`: classification from the closed enum (`spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`); classify from content, default `note` when unsure. Files under `raw/<type>/` take the type from the folder. Does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -336,7 +336,7 @@
   
   Every ingested document becomes a **Source page** under `sources/`. You do NOT choose the destination — routing is fixed. Do NOT emit a `page_type` field; it is ignored, and this rule supersedes any `page_type` mentioned elsewhere in these instructions.
   
-  Optionally emit a descriptive `source_kind` field — use `source` for a document you can cleanly summarize. It is purely descriptive and does NOT control where the page is written.
+  Emit a `source_type` field from this closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. Classify it from the document's content. If the source is staged under a `raw/<type>/` folder (specs, articles, prs, tickets, transcripts, examples) the type is taken from that folder and your value is ignored — so this matters most for in-repo docs and loose files. Use `note` (the catch-all) when unsure. `source_type` is descriptive metadata and does NOT control where the page is written.
   
   Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
@@ -836,7 +836,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
+  - `source_type`: classification from the closed enum (`spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`); classify from content, default `note` when unsure. Files under `raw/<type>/` take the type from the folder. Does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)
@@ -954,7 +954,7 @@
   **Ingestor source-summary pages** require:
   - `title`: descriptive title for the page
   - `category`: one of the page category values (`source`, `concept`, `adr`, …)
-  - `source_kind`: optional descriptive kind (e.g. `source`); does NOT control routing — every ingested doc lands under `sources/`
+  - `source_type`: classification from the closed enum (`spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`); classify from content, default `note` when unsure. Files under `raw/<type>/` take the type from the folder. Does NOT control routing — every ingested doc lands under `sources/`
   - `target_slug`: URL-safe slug for the output filename (e.g. `auth-design`)
   - `summary`: one-line description of the source's main contribution
   - `tags`: list of relevant tags (or empty list)

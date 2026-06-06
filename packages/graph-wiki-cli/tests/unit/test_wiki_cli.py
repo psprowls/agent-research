@@ -95,7 +95,7 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
         page_type="source",
         source_path=str(src),
         cross_refs_updated=1,
-        source_kind="unknown",
+        source_type="note",
         stripped_wikilinks=["Made Up Person", "fake/page"],
         frontmatter_parsed=False,
     )
@@ -108,8 +108,8 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
         result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
 
     assert result.exit_code == 0
-    # stdout carries the ok line + the descriptive source_kind
-    assert "source_kind: unknown" in result.stdout
+    # stdout carries the ok line + the source_type
+    assert "source_type: note" in result.stdout
     # warnings go to stderr (err=True)
     assert "frontmatter did not parse" in result.stderr
     assert "stripped 2 unresolved wikilink(s)" in result.stderr
@@ -134,7 +134,7 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
         page_type="source",
         source_path=str(src),
         cross_refs_updated=1,
-        source_kind="source",
+        source_type="doc",
         stripped_wikilinks=[],
         frontmatter_parsed=True,
         suggested_pages=[

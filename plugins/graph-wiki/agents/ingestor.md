@@ -49,6 +49,8 @@ Before writing:
 ### 4. Write the source summary
 `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the source template. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`.
 
+`source_type` is a closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. A source staged under a `raw/<type>/` folder takes its type from that folder (authoritative). For in-repo docs and loose files, classify from the document's content; default to `doc` for in-repo docs and `note` (the catch-all) when unsure. There is no `unknown` and no `rfc`.
+
 For `source_type: doc` (in-repo docs), record:
 - `last_sync_commit: <state_gate.head_commit>` — write only when `state_gate.allowed` is true. Otherwise omit both fields and tell the user the source page won't get drift detection until next clean-on-main ingest. Surface `state_gate.reason` if false.
 - `last_sync_at: <today>`

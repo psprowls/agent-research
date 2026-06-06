@@ -117,6 +117,40 @@ def test_build_ingest_brief_no_entity_match_has_null_fields(tmp_path: Path, monk
     assert brief["entity_match"] == {"uri": None, "entity_filename": None}
 
 
+def test_build_ingest_brief_raw_folder_is_authoritative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A source under <workspace>/raw/specs/ resolves to source_type 'spec'
+    (raw/ is a sibling of wiki/, so the guess is measured from the workspace
+    root, not the wiki dir)."""
+    monkeypatch.setitem(sys.modules, "model_adapter", None)
+    monkeypatch.setitem(sys.modules, "subagent_runtime", None)
+
+    import wiki_io.ingest_source as prep
+
+    importlib.reload(prep)
+
+    workspace = tmp_path
+    wiki = workspace / "wiki"
+    wiki.mkdir()
+    repo = workspace / "repo"  # repo is a SEPARATE dir (production layout)
+    repo.mkdir()
+    src = workspace / "raw" / "specs" / "auth.md"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text("# Auth Spec\n\nBody text.", encoding="utf-8")
+
+    brief = prep.build_ingest_brief(
+        source_path=src,
+        wiki=wiki,
+        repo=repo,
+        workspace_root=workspace,
+    )
+
+    assert brief["source_type"] == "spec"
+    # raw-staged sources are not in-repo docs.
+    assert brief["in_repo_doc"] is False
+
+
 def test_build_folder_ingest_brief_emits_brief(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "model_adapter", None)
     monkeypatch.setitem(sys.modules, "subagent_runtime", None)

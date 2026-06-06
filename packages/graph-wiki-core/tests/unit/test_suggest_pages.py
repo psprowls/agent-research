@@ -137,7 +137,7 @@ async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
     (wiki / "sources").mkdir(parents=True)
     page = wiki / "sources" / "doc.md"
     page.write_text(
-        "---\nsource_kind: source\ntarget_slug: doc\nentity_uri: null\n---\n\nThe doc body.\n",
+        "---\nsource_type: doc\ntarget_slug: doc\nentity_uri: null\n---\n\nThe doc body.\n",
         encoding="utf-8",
     )
     original = page.read_text(encoding="utf-8")
