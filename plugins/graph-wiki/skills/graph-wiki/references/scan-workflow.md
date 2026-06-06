@@ -37,6 +37,8 @@ Bulleted wikilinks; suggest `/graph-wiki:lint` and `/graph-wiki:ingest` to flesh
 
 Scanner-owned keys (replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `domains`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `parent_domain`, `sub_domains`, `packages`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
 
+The state gate (`last_updated_commit` stamping on scan/ingest) is configurable per-workspace via the `state_gate:` block in `<workspace>/.graph-wiki.yaml` (`enabled` + allowed `branches`); absent config gates on a clean `main`. See the workspace-io README for the schema.
+
 ## Anti-patterns
 
 - Hand-writing `entities/*.md` pages (the graph renders them).
