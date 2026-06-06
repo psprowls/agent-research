@@ -15,7 +15,7 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
 from graph_io import exit_codes, queries
@@ -32,6 +32,11 @@ try:
 except ImportError:  # pragma: no cover — exercised by the lazy-import test via reload
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:
+    from subagent_runtime.pool import SubagentPool as SubagentPoolType
+    from subagent_runtime.pool import TaskResult as TaskResultType
+
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.backlink_index import regenerate_referenced_in_wiki
@@ -80,6 +85,17 @@ from graph_wiki_core.prompts.drift_judge import (
 from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+
+def _bedrock_stack() -> tuple[Any, Any, type["SubagentPoolType"], type["TaskResultType"]] | None:
+    if load_role_config is None or make_llm is None or SubagentPool is None or TaskResult is None:
+        return None
+    return (
+        cast(Any, load_role_config),
+        cast(Any, make_llm),
+        cast(type["SubagentPoolType"], SubagentPool),
+        cast(type["TaskResultType"], TaskResult),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +151,7 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
     before the write.
     """
     try:
-        post = frontmatter.load(page_path)
+        post = frontmatter.load(str(page_path))
     except Exception:  # noqa: BLE001 — a missing/malformed page must not abort scan
         return {}
     section = FILE_MAP_SECTION_RE.search(post.content)
@@ -588,7 +604,7 @@ def _commit_dirty_changes(
             if not page_path.exists():
                 continue
             try:
-                anchor = frontmatter.load(page_path).metadata.get(LAST_UPDATED_COMMIT_KEY)
+                anchor = frontmatter.load(str(page_path)).metadata.get(LAST_UPDATED_COMMIT_KEY)
             except Exception:  # noqa: BLE001 — a malformed page must not abort scan
                 continue
             if not anchor:
@@ -622,7 +638,7 @@ def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
     out: list[tuple[Path, str, str, str | None]] = []
     for page_path in sorted(entities_dir.glob("*.md")):
         try:
-            post = frontmatter.load(page_path)
+            post = frontmatter.load(str(page_path))
         except Exception:  # noqa: BLE001 — a malformed page must not abort scan
             continue
         meta = post.metadata
@@ -648,8 +664,10 @@ async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
     and each is stamped to its anchor afterward, so a (page, narrative-change) pair
     costs LLM tokens exactly once (spec §3.1/D3).
     """
-    if make_llm is None or SubagentPool is None:  # bedrock stack absent
+    stack = _bedrock_stack()
+    if stack is None:
         return
+    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
     candidates = _drift_candidates(wiki)
     if not candidates:
         return
@@ -665,15 +683,15 @@ async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
 
     verdicts: list[tuple] = []
     if items:
-        drift_cfg = load_role_config("drift_judge")
-        drift_llm = make_llm("drift_judge", model_override=model_override)
-        drift_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
+        drift_cfg = load_role_config_fn("drift_judge")
+        drift_llm = make_llm_fn("drift_judge", model_override=model_override)
+        drift_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
-        async def judge(item: tuple) -> TaskResult:
+        async def judge(item: tuple) -> TaskResultType:
             _pp, _anchor, heading, chunk, narrative, file_map = item
             system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
             resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-            return TaskResult(value=parse_drift_verdict(resp.content), response=resp)
+            return task_result_type(value=parse_drift_verdict(resp.content), response=resp)
 
         fan = await drift_pool.run_all(
             items=items,
@@ -725,13 +743,13 @@ def _drift_clear_pass(wiki: Path) -> None:
         return
     for page_path in sorted(entities_dir.glob("*.md")):
         try:
-            post = frontmatter.load(page_path)
+            post = frontmatter.load(str(page_path))
         except Exception:  # noqa: BLE001 — malformed page must not abort scan
             continue
         entries = post.metadata.get("drift_review")
-        if not entries:
+        if not isinstance(entries, list):
             continue
-        survivors = clear_resolved_flags(entries, post.content)
+        survivors = clear_resolved_flags(cast(list[dict[str, Any]], entries), post.content)
         if survivors == entries:
             continue
         try:
@@ -911,7 +929,7 @@ async def run_scan(
         # REMOVED in v1.8 — D-08 hard cutover. `model_override` is kept available
         # for future eval sweeps targeting the narrator role.
         entity_write_result = None
-        narrator_result: FanOutResult | None = None
+        narrator_result: Any | None = None
         # M2b: per-URI changed-file lists for commit-dirty package/app pages
         # (keys = dirty URIs; value = repo-relative changed paths, or None when
         # the page's anchor SHA is unknown to the repo). Consumed by Step 10b's
@@ -975,46 +993,51 @@ async def run_scan(
                             narrator_items.append((node_uri, kind, node))
 
             if narrator_items:
-                narrator_cfg = load_role_config("narrator")
-                narrator_llm = make_llm("narrator", model_override=model_override)
-                narrator_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
+                stack = _bedrock_stack()
+                if stack is None:
+                    narrator_items = []
+                else:
+                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+                    narrator_cfg = load_role_config_fn("narrator")
+                    narrator_llm = make_llm_fn("narrator", model_override=model_override)
+                    narrator_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
-                async def generate_narrative(
-                    item: tuple[str, str, Any],
-                ) -> TaskResult:
-                    uri_inner, kind_inner, node_inner = item
-                    relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
-                    relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
-                    # File maps are graph-sourced (Step 10b); the narrator no
-                    # longer receives a per-workspace file-map hint.
-                    file_map = ""
-                    components_text = ""
-                    if kind_inner == "agent_plugin":
-                        tv = _agent_plugin_table_variables(conn, node_inner)
-                        components_text = "\n\n".join(
-                            f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                    async def generate_narrative(
+                        item: tuple[str, str, Any],
+                    ) -> TaskResultType:
+                        uri_inner, kind_inner, node_inner = item
+                        relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
+                        relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
+                        # File maps are graph-sourced (Step 10b); the narrator no
+                        # longer receives a per-workspace file-map hint.
+                        file_map = ""
+                        components_text = ""
+                        if kind_inner == "agent_plugin":
+                            tv = _agent_plugin_table_variables(conn, node_inner)
+                            components_text = "\n\n".join(
+                                f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                            )
+                        system_msg, human_msg = build_entity_narrative_prompt(
+                            node_inner,
+                            kind_inner,
+                            file_map,
+                            relations_for_prompt,
+                            components_text=components_text,
                         )
-                    system_msg, human_msg = build_entity_narrative_prompt(
-                        node_inner,
-                        kind_inner,
-                        file_map,
-                        relations_for_prompt,
-                        components_text=components_text,
-                    )
-                    msgs = [
-                        SystemMessage(content=system_msg),
-                        HumanMessage(content=human_msg),
-                    ]
-                    resp = await narrator_llm.ainvoke(msgs)
-                    return TaskResult(value=resp.content, response=resp)
+                        msgs = [
+                            SystemMessage(content=system_msg),
+                            HumanMessage(content=human_msg),
+                        ]
+                        resp = await narrator_llm.ainvoke(msgs)
+                        return task_result_type(value=resp.content, response=resp)
 
-                narrator_result = await narrator_pool.run_all(
-                    items=narrator_items,
-                    task=generate_narrative,
-                    role="narrator",
-                    model_id=narrator_cfg["model_id"],
-                    max_concurrency=narrator_cfg["max_concurrency"],
-                )
+                    narrator_result = await narrator_pool.run_all(
+                        items=narrator_items,
+                        task=generate_narrative,
+                        role="narrator",
+                        model_id=narrator_cfg["model_id"],
+                        max_concurrency=narrator_cfg["max_concurrency"],
+                    )
 
         # Phase 45 D-07/D-08: Step 10 — inject narrator prose into entity pages.
         # The legacy `wiki/packages/<name>/<name>.md` write block is REMOVED (D-08
@@ -1033,6 +1056,7 @@ async def run_scan(
         good_prose_uris: set[str] = set()
         narrated_page_paths: dict[str, Path] = {}
         if narrator_result is not None:
+            assert conn is not None
             inject_collision_set = _compute_collision_set(
                 conn,
                 ADMITTED_KINDS,
@@ -1229,45 +1253,50 @@ async def run_scan(
                 describer_items.append((node_uri, ws_dict, page_path, todo_paths))
 
             if describer_items:
-                describer_cfg = load_role_config("code_reader")
-                describer_llm = make_llm("code_reader")
-                describer_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
+                stack = _bedrock_stack()
+                if stack is None:
+                    describer_items = []
+                else:
+                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+                    describer_cfg = load_role_config_fn("code_reader")
+                    describer_llm = make_llm_fn("code_reader")
+                    describer_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
-                async def describe_files(
-                    item: tuple[str, dict, Path, list[str]],
-                ) -> TaskResult:
-                    _uri, ws_dict_inner, _page, todo_inner = item
-                    system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
-                    resp = await describer_llm.ainvoke(
-                        [
-                            SystemMessage(content=system_msg),
-                            HumanMessage(content=human_msg),
-                        ]
+                    async def describe_files(
+                        item: tuple[str, dict, Path, list[str]],
+                    ) -> TaskResultType:
+                        _uri, ws_dict_inner, _page, todo_inner = item
+                        system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
+                        resp = await describer_llm.ainvoke(
+                            [
+                                SystemMessage(content=system_msg),
+                                HumanMessage(content=human_msg),
+                            ]
+                        )
+                        return task_result_type(value=resp.content, response=resp)
+
+                    describer_result = await describer_pool.run_all(
+                        items=describer_items,
+                        task=describe_files,
+                        role="code_reader",
+                        model_id=describer_cfg["model_id"],
+                        max_concurrency=describer_cfg["max_concurrency"],
                     )
-                    return TaskResult(value=resp.content, response=resp)
 
-                describer_result = await describer_pool.run_all(
-                    items=describer_items,
-                    task=describe_files,
-                    role="code_reader",
-                    model_id=describer_cfg["model_id"],
-                    max_concurrency=describer_cfg["max_concurrency"],
-                )
-
-                for item, value in describer_result.successes:
-                    uri_inner, _ws, page_path, _todo = item
-                    descriptions = parse_file_describer_output(value)
-                    if not descriptions:
-                        continue
-                    try:
-                        n_filled = fill_file_map_descriptions(page_path, descriptions)
-                        if n_filled:
-                            describer_filled.append(f"{uri_inner}: {n_filled}")
-                    except Exception as fill_exc:  # noqa: BLE001 — partial-success
-                        describer_errors.append(f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}")
-                for err in describer_result.errors:
-                    uri_inner = err.item[0]
-                    describer_errors.append(f"{uri_inner}: {err.exception!r}")
+                    for item, value in describer_result.successes:
+                        uri_inner, _ws, page_path, _todo = item
+                        descriptions = parse_file_describer_output(value)
+                        if not descriptions:
+                            continue
+                        try:
+                            n_filled = fill_file_map_descriptions(page_path, descriptions)
+                            if n_filled:
+                                describer_filled.append(f"{uri_inner}: {n_filled}")
+                        except Exception as fill_exc:  # noqa: BLE001 — partial-success
+                            describer_errors.append(f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}")
+                    for err in describer_result.errors:
+                        uri_inner = err.item[0]
+                        describer_errors.append(f"{uri_inner}: {err.exception!r}")
 
                 if describer_filled or describer_errors:
                     append_log(
@@ -1307,7 +1336,7 @@ async def run_scan(
                     # narrator-loop try block that wrapped the equivalent I/O).
                     if file_map_todo_paths(page_path):
                         continue
-                    set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, short_head)
+                    set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
                 except Exception as exc:  # noqa: BLE001 — non-fatal stamp
                     logger.warning("anchor stamp failed for %s: %s", uri_inner, exc)
 
