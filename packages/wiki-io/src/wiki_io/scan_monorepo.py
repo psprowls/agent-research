@@ -741,18 +741,35 @@ def _discover_heuristic(repo, workspace_dir=None):
     return workspaces
 
 
-def compute_state_gate(repo: Path) -> dict:
+def compute_state_gate(repo: Path, workspace: Path | None = None) -> dict:
     """Return JSON-serializable gate info: whether state writes are allowed.
 
     {"allowed": bool, "reason": str, "head_commit": str | None}
 
-    The agent reads this to decide whether to bump last_sync_commit on
-    reviewed packages. When allowed=False, scan still runs in read-only
-    mode — it reports drift but does not bump state.
-    """
-    from wiki_io.git_state import head_commit, is_clean_main
+    The agent reads this to decide whether to bump last_updated_commit on
+    reviewed pages. When allowed=False, scan still runs in read-only mode — it
+    reports drift but does not bump state.
 
-    ok, reason = is_clean_main(repo)
+    Gate config comes from `<workspace>/.graph-wiki.yaml`'s `state_gate` block.
+    `workspace=None` preserves the historical default (enabled, branches=["main"]).
+    """
+    from wiki_io.git_state import head_commit, is_clean_on_branches
+
+    if workspace is None:
+        enabled, branches = True, ["main"]
+    else:
+        from workspace_io import manifest
+
+        enabled, branches = manifest.read_state_gate(workspace / ".graph-wiki.yaml")
+
+    if not enabled:
+        return {
+            "allowed": True,
+            "reason": "state gate disabled in .graph-wiki.yaml",
+            "head_commit": head_commit(repo),
+        }
+
+    ok, reason = is_clean_on_branches(repo, branches)
     return {
         "allowed": ok,
         "reason": reason,

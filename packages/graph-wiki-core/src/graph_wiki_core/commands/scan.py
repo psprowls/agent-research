@@ -779,7 +779,7 @@ async def run_scan(
 
     Steps:
         1. Resolve wiki and repo from workspace_path; run `cg update`, open conn.
-        8. compute_state_gate(repo) → {allowed, reason, head_commit}.
+        8. compute_state_gate(repo, workspace=wiki.parent) → {allowed, reason, head_commit}.
         9a. write_entities — graph-driven entity pages.
         9b. narrator fan-out gated on needs_narrative.
         10. inject narrator prose + deterministic file maps + code-reader fan-out.
@@ -917,7 +917,7 @@ async def run_scan(
                 conn = None
 
         # Step 8: compute state gate
-        state_gate = compute_state_gate(repo)
+        state_gate = compute_state_gate(repo, workspace=wiki.parent)
         head = state_gate.get("head_commit")
         # Item 1: abbreviate to git's canonical short form ONCE per scan (HEAD is
         # the same for every page stamped this run). Falls back to the full SHA on

@@ -384,7 +384,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
@@ -426,7 +426,7 @@ def test_file_map_injected_into_package_entity_page(tmp_workspace_with_packages,
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for pkg-a,
@@ -494,7 +494,7 @@ async def test_file_map_injected_into_app_entity_page(tmp_workspace_with_package
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for app-x.
@@ -561,7 +561,7 @@ def test_file_map_descriptions_survive_rescan(tmp_workspace_with_packages, monke
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for pkg-a.
@@ -628,7 +628,7 @@ def test_code_reader_fanout_fills_todo_descriptions(tmp_workspace_with_packages,
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for pkg-a.
@@ -701,7 +701,7 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(tmp_workspace_with
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for app-x.
@@ -775,7 +775,7 @@ async def test_app_file_map_descriptions_survive_rescan(tmp_workspace_with_packa
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for app-x.
@@ -842,7 +842,7 @@ async def test_description_fill_log_uses_entity_noun(tmp_workspace_with_packages
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     # Step 10b now sources file-map text via build_file_map(repo / node.path).
     # No real git repo in this fixture — mock returns the expected block for app-x.
@@ -967,7 +967,7 @@ async def test_file_map_injected_into_test_suite_entity_page(tmp_workspace_with_
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
@@ -1020,7 +1020,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(tmp_workspace_with
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
@@ -1088,7 +1088,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
@@ -1186,7 +1186,7 @@ async def test_suite_filemap_skipped_under_no_file_map(tmp_workspace_with_packag
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 

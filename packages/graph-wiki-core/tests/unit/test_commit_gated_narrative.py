@@ -234,7 +234,7 @@ def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -267,7 +267,7 @@ def test_narrative_survives_no_narrate_rescan(m2a_workspace, monkeypatch) -> Non
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -294,7 +294,7 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     # Distinct prose per scan so we can tell a refresh from a restore.
     prose_tag = {"v": "FIRST"}
@@ -333,7 +333,7 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(m2a_workspace_two, mon
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     prose_tag = {"v": "FIRST"}
     monkeypatch.setattr(
@@ -462,7 +462,7 @@ def m2a_workspace_gitrepo(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": full},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": full},
     )
     return workspace, full
 

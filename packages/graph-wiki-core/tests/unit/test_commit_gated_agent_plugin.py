@@ -146,7 +146,7 @@ def test_command_added_refreshes_table_and_renarrates(plugin_workspace, monkeypa
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -203,7 +203,7 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     narrator_calls: list = []
 
@@ -271,7 +271,7 @@ def test_no_narrate_refreshes_tables_not_narrative(plugin_workspace, monkeypatch
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -330,7 +330,7 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -382,7 +382,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
 
     # Spy covering all three roles. On scan 1, verdict_fn marks all not-stale.

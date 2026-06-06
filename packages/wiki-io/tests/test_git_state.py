@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from wiki_io.git_state import head_commit, short_commit
+from wiki_io.git_state import head_commit, is_clean_on_branches, short_commit
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -47,3 +47,49 @@ def test_short_commit_non_git_dir_returns_input(tmp_path):
     non_repo.mkdir()
     sha = "a" * 40
     assert short_commit(non_repo, sha) == sha
+
+
+def _init_repo_on_branch(repo: Path, branch: str) -> None:
+    """Init a one-commit git repo with HEAD on `branch` (clean tree)."""
+    repo.mkdir(parents=True, exist_ok=True)
+    (repo / "f.txt").write_text("hi\n", encoding="utf-8")
+    _git(repo, "init")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init")
+    _git(repo, "branch", "-M", branch)
+
+
+def test_is_clean_on_branches_allowed_branch_clean(tmp_path):
+    repo = tmp_path / "repo"
+    _init_repo_on_branch(repo, "main")
+    assert is_clean_on_branches(repo, ["main", "develop"]) == (True, "")
+
+
+def test_is_clean_on_branches_matches_non_first_entry(tmp_path):
+    repo = tmp_path / "repo"
+    _init_repo_on_branch(repo, "develop")
+    assert is_clean_on_branches(repo, ["main", "develop"]) == (True, "")
+
+
+def test_is_clean_on_branches_branch_not_listed(tmp_path):
+    repo = tmp_path / "repo"
+    _init_repo_on_branch(repo, "feature-x")
+    ok, reason = is_clean_on_branches(repo, ["main"])
+    assert ok is False
+    assert "not in" in reason
+    assert "feature-x" in reason
+
+
+def test_is_clean_on_branches_dirty_tree(tmp_path):
+    repo = tmp_path / "repo"
+    _init_repo_on_branch(repo, "main")
+    (repo / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+    assert is_clean_on_branches(repo, ["main"]) == (False, "working tree is dirty")
+
+
+def test_is_clean_on_branches_non_git_dir(tmp_path):
+    non_repo = tmp_path / "plain"
+    non_repo.mkdir()
+    ok, reason = is_clean_on_branches(non_repo, ["main"])
+    assert ok is False
+    assert reason == "not a git repo"

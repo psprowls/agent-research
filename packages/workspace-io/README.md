@@ -13,6 +13,10 @@ by `workspace_io.manifest.read()` / `write()`. The v2 envelope:
 - `plugin:` (singular, optional) — top-level routing block with `backend_default`
   and `backend_overrides`. Validated by `manifest.read()`; see `manifest.py` for
   the exact rules.
+- `state_gate:` (top-level, optional) — gate that guards `last_updated_commit`
+  narrative-provenance stamping. `{enabled: bool, branches: [str, ...]}`,
+  defaulting to `{enabled: true, branches: [main]}` when absent. Validated and
+  normalized by `manifest.read()`; read via `read_state_gate()`.
 
 ### Per-plugin `roles:` block
 
@@ -70,6 +74,38 @@ roles = read_roles("graph-wiki-agent", Path(".graph-wiki.yaml"))
 `read_roles` is a thin read-only lookup — it does not validate role-dict field
 shape. Callers (e.g. `model_adapter.loader`) decide how to merge with packaged
 defaults on a per-role basis.
+
+## State gate
+
+The optional top-level `state_gate:` block controls whether a scan/ingest run is
+allowed to stamp `last_updated_commit` provenance:
+
+```yaml
+state_gate:           # gate that guards last_updated_commit narrative stamping
+  enabled: true       # set false to disable the gate entirely (writes always allowed)
+  branches:           # branches on which stamping is allowed (clean tree also required)
+    - main
+    - develop
+```
+
+- `enabled` (bool, default `true`) — `false` bypasses both the branch check and
+  the clean-tree check; stamping is always allowed.
+- `branches` (list of branch names, default `[main]`) — when enabled, stamping is
+  allowed iff HEAD is on one of these branches AND the working tree is clean. A
+  scalar value (`branches: main`) is coerced to a one-element list.
+
+Read it programmatically:
+
+```python
+from pathlib import Path
+from workspace_io import read_state_gate
+
+enabled, branches = read_state_gate(Path(".graph-wiki.yaml"))
+# -> (True, ["main"]) when the block / manifest is absent
+```
+
+Like the `plugin:` block, `state_gate:` is hand-edited — `manifest.write()` does
+not emit it, so it survives only because `read()` round-trips disk additively.
 
 ---
 

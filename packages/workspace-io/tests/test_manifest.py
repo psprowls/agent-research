@@ -1,7 +1,7 @@
 """Tests for workspace_io.manifest — .graph-wiki.yaml read/write."""
 
 import pytest
-from workspace_io.manifest import read, read_roles, write
+from workspace_io.manifest import read, read_roles, read_state_gate, write
 
 
 def _v2(plugins):
@@ -177,3 +177,120 @@ def test_read_roles_returns_empty_when_plugin_has_no_roles_key(tmp_path):
 def test_read_roles_returns_empty_when_manifest_missing(tmp_path):
     """read_roles returns [] when the manifest file does not exist (matches read() contract)."""
     assert read_roles("graph-wiki-agent", tmp_path / ".graph-wiki.yaml") == []
+
+
+def test_state_gate_default_when_missing(tmp_path):
+    """Block absent → defaults to {enabled: True, branches: ['main']}."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n",
+        encoding="utf-8",
+    )
+    assert read(mpath)["state_gate"] == {"enabled": True, "branches": ["main"]}
+
+
+def test_state_gate_explicit_values(tmp_path):
+    """Explicit enabled + branches are returned verbatim."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "state_gate:\n  enabled: false\n  branches:\n    - main\n    - develop\n",
+        encoding="utf-8",
+    )
+    assert read(mpath)["state_gate"] == {"enabled": False, "branches": ["main", "develop"]}
+
+
+def test_state_gate_scalar_branches_coerced(tmp_path):
+    """A scalar branches value is coerced to a one-element list."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  branches: develop\n",
+        encoding="utf-8",
+    )
+    assert read(mpath)["state_gate"] == {"enabled": True, "branches": ["develop"]}
+
+
+def test_state_gate_partial_block_uses_defaults(tmp_path):
+    """A present block with only enabled keeps the default branches."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  enabled: false\n",
+        encoding="utf-8",
+    )
+    assert read(mpath)["state_gate"] == {"enabled": False, "branches": ["main"]}
+
+
+def test_state_gate_raises_when_not_mapping(tmp_path):
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate: main\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="must be a mapping"):
+        read(mpath)
+
+
+def test_state_gate_raises_on_unknown_key(tmp_path):
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  foo: bar\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="unknown keys"):
+        read(mpath)
+
+
+def test_state_gate_raises_on_non_bool_enabled(tmp_path):
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  enabled: yes_please\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="must be a bool"):
+        read(mpath)
+
+
+def test_state_gate_raises_on_empty_branches(tmp_path):
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  branches: []\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="non-empty list"):
+        read(mpath)
+
+
+def test_state_gate_raises_on_non_string_branch_item(tmp_path):
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nstate_gate:\n  branches:\n    - main\n    - 7\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="strings"):
+        read(mpath)
+
+
+def test_read_state_gate_returns_tuple(tmp_path):
+    """read_state_gate returns (enabled, branches) from the normalized block."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
+        "state_gate:\n  enabled: false\n  branches:\n    - develop\n",
+        encoding="utf-8",
+    )
+    assert read_state_gate(mpath) == (False, ["develop"])
+
+
+def test_read_state_gate_defaults_when_block_absent(tmp_path):
+    """Block absent on an existing manifest → (True, ['main'])."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n",
+        encoding="utf-8",
+    )
+    assert read_state_gate(mpath) == (True, ["main"])
+
+
+def test_read_state_gate_defaults_when_manifest_missing(tmp_path):
+    """Missing manifest → (True, ['main']) (matches read() empty-dict contract)."""
+    assert read_state_gate(tmp_path / ".graph-wiki.yaml") == (True, ["main"])
