@@ -86,10 +86,32 @@ sweep_candidates = [
 ]
 
 [roles.ingestor]
-# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
-# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
-# qwen.qwen3-vl-235b-a22b removed (vision model, overkill for text ingestion).
-model_id        = "zai.glm-4.7-flash"
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.proposal_reasoner]
+# Ingest proposal reasoning pass. Uses Kimi K2.5 through Bedrock runtime;
+# Kimi K2 Thinking and Bedrock Mantle are deferred.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.extractor]
+# Normalizes proposal_reasoner analysis into strict proposal YAML.
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
@@ -98,24 +120,7 @@ sweep_candidates = [
   "openai.gpt-oss-120b-1:0",
   "minimax.minimax-m2.5",
   "qwen.qwen3-next-80b-a3b",
-  "zai.glm-4.7-flash",
-]
-
-[roles.extractor]
-# Living Wiki M3 — inline page-suggestion pass. Reads a just-landed Source page +
-# a cheap curated-vault index and proposes concept/adr/architecture pages.
-# Mirrors the ingestor tier (correctness-sensitive but small output); tunable
-# independently per the roadmap §5 cost-offloading lever.
-model_id        = "zai.glm-4.7-flash"
-region          = "us-east-1"
-max_tokens      = 1024
-max_concurrency = 5
-sweep_candidates = [
-  "qwen.qwen3-32b-v1:0",
-  "openai.gpt-oss-120b-1:0",
-  "minimax.minimax-m2.5",
-  "qwen.qwen3-next-80b-a3b",
-  "zai.glm-4.7-flash",
+  "moonshotai.kimi-k2.5",
 ]
 
 [roles.synthesizer]
