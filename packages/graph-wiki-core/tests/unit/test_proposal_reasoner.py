@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
-def _page(path: Path, **frontmatter: str) -> Path:
+def _page(path: Path, title: str | None = None, kind: str | None = None, **frontmatter: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    yaml_lines = [f"{key}: {value}" for key, value in frontmatter.items()]
+    metadata: dict[str, str] = {}
+    if title is not None:
+        metadata["title"] = title
+    if kind is not None:
+        metadata["kind"] = kind
+    metadata.update(frontmatter)
+    yaml_lines = [f"{key}: {value}" for key, value in metadata.items()]
     path.write_text("---\n" + "\n".join(yaml_lines) + "\n---\n\nBody text for " + path.stem, encoding="utf-8")
     return path
 
@@ -75,3 +84,64 @@ def test_build_source_chunks_splits_when_over_budget() -> None:
     assert chunks.chunks == ["abcdefgh", "ijklmnop", "qrstuvwx", "yz"]
     assert chunks.full_text is None
     assert chunks.over_budget is True
+
+
+def test_build_reasoner_tools_read_wiki_page_is_bounded(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import build_reasoner_tools
+
+    wiki = tmp_path / "wiki"
+    _page(wiki / "concepts" / "ownership.md", "Ownership", "concept")
+    tools = {tool.name: tool for tool in build_reasoner_tools(wiki=wiki, chunks=[], graph_tools=[])}
+
+    out = tools["read_wiki_page"].invoke({"path": "concepts/ownership.md"})
+
+    assert "# Ownership" in out
+    assert "ERROR" not in out
+    assert "outside wiki" in tools["read_wiki_page"].invoke({"path": "../secret.md"})
+
+
+def test_build_reasoner_tools_read_source_chunk(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import build_reasoner_tools
+
+    tools = {
+        tool.name: tool
+        for tool in build_reasoner_tools(wiki=tmp_path / "wiki", chunks=["one", "two"], graph_tools=[])
+    }
+
+    assert tools["read_source_chunk"].invoke({"index": 1}) == "two"
+    assert "ERROR" in tools["read_source_chunk"].invoke({"index": 4})
+
+
+@pytest.mark.asyncio
+async def test_run_proposal_reasoner_handles_one_tool_call(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import run_proposal_reasoner
+
+    wiki = tmp_path / "wiki"
+    _page(wiki / "concepts" / "ownership.md", "Ownership", "concept")
+    source_page = wiki / "sources" / "spec.md"
+    _page(source_page, "Spec", "source")
+
+    first = MagicMock(
+        content="",
+        tool_calls=[{"name": "read_wiki_page", "args": {"path": "concepts/ownership.md"}, "id": "call_1"}],
+    )
+    second = MagicMock(content="Candidate: update Ownership", tool_calls=[])
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(side_effect=[first, second])
+
+    with patch("graph_wiki_core.commands.proposal_reasoner.make_llm", return_value=llm):
+        result = await run_proposal_reasoner(
+            wiki=wiki,
+            source_path=tmp_path / "source.md",
+            source_text="Full source text",
+            source_page_path=source_page,
+            source_page_text=source_page.read_text(encoding="utf-8"),
+            entity_uri=None,
+            entity_stem=None,
+            graph_tools=[],
+        )
+
+    assert result.status == "ok"
+    assert result.analysis == "Candidate: update Ownership"
+    assert llm.ainvoke.call_count == 2
