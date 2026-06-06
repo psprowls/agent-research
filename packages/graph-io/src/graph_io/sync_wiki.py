@@ -13,9 +13,10 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import store, upsert
+from graph_io.records import as_graph_records
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ def _packages(conn: sqlite3.Connection) -> list[tuple[str, str | None]]:
 def _link_package(conn: sqlite3.Connection, pkg_name: str, pkg_path: str | None, wiki_rel: str) -> None:
     upsert.upsert_records(
         conn,
-        GraphRecords(
+        as_graph_records(
             nodes=[
                 GraphNode(
                     kind="wiki_page",

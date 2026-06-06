@@ -14,8 +14,10 @@ from collections import defaultdict
 from graph_io import exit_codes, queries, store
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import ListScriptsArgs
 
-def run(args: object) -> int:
+
+def run(args: ListScriptsArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

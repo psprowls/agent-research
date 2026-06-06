@@ -26,10 +26,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import _ignore, upsert
 from graph_io.import_scan import scan_files_imports
+from graph_io.records import as_graph_records
 from graph_io.structural_nodes import (
     _owning_package,
 )
@@ -294,18 +295,25 @@ def emit(
         root_files[r.rel_path].append(file_rel)
 
     # Find Repository node id (parent for repo-owned suites).
-    repo_row = conn.execute("SELECT id, name FROM nodes WHERE kind='repository'").fetchone()
+    repo_row = conn.execute("SELECT id, name, path FROM nodes WHERE kind='repository'").fetchone()
     if repo_row is None:
         # Defensive: structural_nodes.emit hasn't run yet — abort.
         return
     repo_name = repo_row[1]
-    repo_key = ("repository", repo_name, None)
+    repo_path = repo_row[2]
+    if repo_path is None:
+        raise ValueError("graph node path is required for this projection")
+    repo_key = ("repository", repo_name, repo_path)
 
     # Build TestSuite nodes + physically_contains parent edges.
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
 
     for r in roots:
+        if r.owner_kind != "repository" and r.owner_name is None:
+            continue
+        owner_name = r.owner_name
+
         # Compute kind_attr first — suite_name depends on it for package-owned suites.
         kind_attr = _classify_suite_kind(r.rel_path, root_files[r.rel_path])
 
@@ -316,7 +324,7 @@ def emit(
         if r.owner_kind == "repository":
             suite_name = r.rel_path
         else:
-            suite_name = f"{r.owner_name}-{kind_attr}-tests"
+            suite_name = f"{owner_name}-{kind_attr}-tests"
 
         attrs: dict = {
             "uri": test_suite_uri(ctx, r.rel_path),
@@ -342,8 +350,10 @@ def emit(
         else:
             # Phase 50 D-04: owner may be a Package OR App; resolve kind from
             # the side-table built earlier.
-            owner_kind_str = pkg_kind_map.get(r.owner_name, "package")
-            parent_src = (owner_kind_str, r.owner_name, r.owner_pkg_rel)
+            if owner_name is None:
+                continue
+            owner_kind_str = pkg_kind_map.get(owner_name, "package")
+            parent_src = (owner_kind_str, owner_name, r.owner_pkg_rel)
         edges.append(
             GraphEdge(
                 src=parent_src,
@@ -353,7 +363,7 @@ def emit(
             )
         )
 
-    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+    upsert.upsert_records(conn, as_graph_records(nodes=nodes, edges=edges))
 
     # Re-parent test files: DELETE-then-INSERT atomic per D-14. The outer
     # update.run already wraps emit() in a transaction (Plan 30-04 wiring),
@@ -464,4 +474,4 @@ def _emit_tests_edges(
             )
 
     if edges_out:
-        upsert.upsert_records(conn, GraphRecords(nodes=[], edges=edges_out))
+        upsert.upsert_records(conn, as_graph_records(edges=edges_out))

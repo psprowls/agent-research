@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
 from graph_io import queries as _queries
@@ -44,7 +44,22 @@ except ImportError:  # pragma: no cover — exercised when the Bedrock stack is 
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = None  # type: ignore[assignment]
 
+if TYPE_CHECKING:
+    from subagent_runtime.pool import SubagentPool as SubagentPoolType
+    from subagent_runtime.pool import TaskResult as TaskResultType
+
 logger = logging.getLogger(__name__)
+
+
+def _bedrock_stack() -> tuple[Any, Any, type["SubagentPoolType"], type["TaskResultType"]] | None:
+    if load_role_config is None or make_llm is None or SubagentPool is None or TaskResult is None:
+        return None
+    return (
+        cast(Any, load_role_config),
+        cast(Any, make_llm),
+        cast(type["SubagentPoolType"], SubagentPool),
+        cast(type["TaskResultType"], TaskResult),
+    )
 
 # M4's per-entity provenance anchor (new key; preserved across re-scan; NOT in
 # SCANNER_OWNED_KEYS — see .claude/rules/backward-compatibility.md, Task 10).
@@ -121,7 +136,7 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
     out: list[PropagationCandidate] = []
     for page_path in sorted(entities_dir.glob("*.md")):
         try:
-            post = frontmatter.load(page_path)
+            post = frontmatter.load(str(page_path))
         except Exception:  # noqa: BLE001 — a malformed page must not abort the pass
             continue
         meta = post.metadata
@@ -132,7 +147,7 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
         propagated = meta.get(DRIFT_PROPAGATED_COMMIT_KEY)
         if propagated == anchor:
             continue  # already propagated at this narrative revision
-        node_path = uri_to_path.get(uri)
+        node_path = uri_to_path.get(str(uri))
         if not node_path:
             continue  # kind without a git change signal
         narrative = extract_narrative(post.content)
@@ -155,7 +170,7 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
 
 def _page_title(page_path: Path, fallback: str) -> str:
     try:
-        return str(frontmatter.load(page_path).metadata.get("title") or fallback)
+        return str(frontmatter.load(str(page_path)).metadata.get("title") or fallback)
     except Exception:  # noqa: BLE001
         return fallback
 
@@ -196,8 +211,10 @@ async def run_propagate_drift(
 
     # The Bedrock stack is required to judge; absent it (plugin branch) we make
     # no proposals and stamp nothing (mirrors scan._drift_flag_pass early-out).
-    if make_llm is None or SubagentPool is None:
+    stack = _bedrock_stack()
+    if stack is None:
         return PropagateDriftResult(0, len(candidates), 0, 0, 0, dry_run, [])
+    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
 
     # --only: an entity (uri/stem) narrows the candidate set; otherwise a target
     # (slug/page-stem) narrows the target set (§3.8, test 13).
@@ -247,15 +264,15 @@ async def run_propagate_drift(
 
     verdicts: list[tuple] = []
     if items:
-        cfg = load_role_config("drift_propagator")
-        llm = make_llm("drift_propagator", model_override=model_override)
-        pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
+        cfg = load_role_config_fn("drift_propagator")
+        llm = make_llm_fn("drift_propagator", model_override=model_override)
+        pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
-        async def judge(item: tuple) -> "TaskResult":
+        async def judge(item: tuple) -> TaskResultType:
             kind, _slug, title, body, entity_tuples, _entry = item
             system_msg, human_msg = build_drift_propagator_prompt(kind, title, body, entity_tuples)
             resp = await llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-            return TaskResult(value=parse_drift_propagator_verdict(resp.content), response=resp)
+            return task_result_type(value=parse_drift_propagator_verdict(resp.content), response=resp)
 
         fan = await pool.run_all(
             items,

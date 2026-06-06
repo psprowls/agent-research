@@ -162,7 +162,8 @@ class DivergenceMetric:
                 )
                 tc = LLMTestCase(input=query, actual_output=output.answer)
                 metric.measure(tc)
-                scores.append(metric.score)
+                if metric.score is not None:
+                    scores.append(metric.score)
                 reasons.append(metric.reason or "")
 
             if not scores:

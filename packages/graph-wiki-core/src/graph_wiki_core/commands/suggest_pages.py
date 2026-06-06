@@ -208,6 +208,10 @@ async def run_suggest_phase(
         logger.warning("extractor LLM call failed; skipping suggestions", exc_info=True)
         return [], False
 
+    if not isinstance(resp.content, str):
+        logger.warning("extractor LLM returned non-text content; skipping suggestions")
+        return [], False
+
     proposals, parsed = parse_extractor_response(resp.content)
     if not parsed:
         return [], False

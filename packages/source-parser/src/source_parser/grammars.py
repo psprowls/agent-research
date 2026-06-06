@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import cast
 
 import tree_sitter
+from tree_sitter_language_pack import SupportedLanguage
 from tree_sitter_language_pack import get_language as _pack_get_language
 
 from source_parser.errors import UnsupportedLanguageError
@@ -24,7 +26,7 @@ def get_language(name: str) -> tree_sitter.Language:
             extension=None,
         )
     try:
-        return _pack_get_language(name)
+        return _pack_get_language(cast(SupportedLanguage, name))
     except Exception as exc:
         raise UnsupportedLanguageError(
             f"Failed to load grammar for {name!r}: {exc}",

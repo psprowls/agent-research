@@ -119,7 +119,8 @@ def panel_score(query: str, actual: str, expected: str) -> dict:
             expected_output=expected,
         )
         metric.measure(tc)
-        scores.append(metric.score)
+        if metric.score is not None:
+            scores.append(metric.score)
         reasons.append(metric.reason or "")
 
     if len(scores) < 2:

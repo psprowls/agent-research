@@ -34,7 +34,7 @@ def main() -> None:
         from _config import backend_for
     except ImportError:
 
-        def backend_for(cmd: str, repo: object = None) -> str:  # type: ignore[misc]
+        def backend_for(command: str, repo_root: str | None = None) -> str:
             return "claude"
 
     backend = backend_for("scan")

@@ -17,9 +17,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from source_parser.projections.graph import GraphNode, GraphRecords
+from source_parser.projections.graph import GraphNode
 
 from graph_io import _ignore, upsert
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext, agent_plugin_uri
 
 # Map file extension -> a coarse language label for the Scripts inventory.
@@ -241,4 +242,4 @@ def emit(
         nodes.append(GraphNode(kind="agent_plugin", name=name, path=plugin_rel, line=None, attrs=attrs))
 
     if nodes:
-        upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=[]))
+        upsert.upsert_records(conn, as_graph_records(nodes=nodes))

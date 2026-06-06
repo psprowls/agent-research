@@ -9,8 +9,10 @@ import sys
 from graph_io import exit_codes, queries, store
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import BuiltinDescribeArgs
 
-def run(args: object) -> int:
+
+def run(args: BuiltinDescribeArgs) -> int:
     # URI parse — fail fast on malformed input with exit_codes.GENERIC.
     if not args.uri.startswith("builtin:"):
         print(f"error: not a builtin URI: {args.uri}", file=sys.stderr)

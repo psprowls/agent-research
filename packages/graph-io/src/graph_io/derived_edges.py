@@ -20,10 +20,11 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from source_parser.projections.graph import GraphEdge, GraphRecords
+from source_parser.projections.graph import GraphEdge
 
 from graph_io import upsert
 from graph_io.import_scan import scan_package_imports
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext
 
 _REFERENCES_KIND = "references"
@@ -37,6 +38,11 @@ _PACKAGE_KIND = "package"
 _MANIFEST_KINDS = ("package", "app")
 _TEST_SUITE_KIND = "test_suite"
 _BELONGS_TO_DOMAIN_KIND = "belongs_to_domain"
+_DOMAINS_SOURCE_PATH = "domains.yaml"
+
+
+def _domain_key(name: str) -> tuple[str, str, str]:
+    return (_DOMAIN_KIND, name, _DOMAINS_SOURCE_PATH)
 
 
 def compute(
@@ -150,7 +156,7 @@ def _compute_references_and_depends_on(
         tgt_kind = pkg_key_to_kind.get(tgt_key, _PACKAGE_KIND)
         edges_out.append(
             GraphEdge(
-                src=(_DOMAIN_KIND, d_name, None),
+                src=_domain_key(d_name),
                 dst=(tgt_kind, tgt_name, tgt_path),
                 kind=_REFERENCES_KIND,
                 attrs={"usage_count": len(src_set)},
@@ -159,8 +165,8 @@ def _compute_references_and_depends_on(
     for (a_name, b_name), pair_set in dep_buckets.items():
         edges_out.append(
             GraphEdge(
-                src=(_DOMAIN_KIND, a_name, None),
-                dst=(_DOMAIN_KIND, b_name, None),
+                src=_domain_key(a_name),
+                dst=_domain_key(b_name),
                 kind=_DEPENDS_ON_KIND,
                 attrs={"usage_count": len(pair_set)},
             )
@@ -169,7 +175,7 @@ def _compute_references_and_depends_on(
     if edges_out:
         upsert.upsert_records(
             conn,
-            GraphRecords(nodes=[], edges=edges_out),
+            as_graph_records(edges=edges_out),
         )
 
 
@@ -224,7 +230,7 @@ def _compute_testsuite_domain(
         edges_out.append(
             GraphEdge(
                 src=(_TEST_SUITE_KIND, ts_name, ts_path),
-                dst=(_DOMAIN_KIND, target_domain, None),
+                dst=_domain_key(target_domain),
                 kind=_TESTS_KIND,
                 attrs={},
             )
@@ -233,5 +239,5 @@ def _compute_testsuite_domain(
     if edges_out:
         upsert.upsert_records(
             conn,
-            GraphRecords(nodes=[], edges=edges_out),
+            as_graph_records(edges=edges_out),
         )

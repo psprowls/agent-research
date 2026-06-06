@@ -7,6 +7,8 @@ import sys
 from graph_io import exit_codes, store, sync_wiki
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import WorkspaceArgs
+
 
 def _format_report(report: sync_wiki.DriftReport) -> str:
     lines: list[str] = []
@@ -35,7 +37,7 @@ def _format_report(report: sync_wiki.DriftReport) -> str:
     return "\n".join(lines)
 
 
-def run(args: object) -> int:
+def run(args: WorkspaceArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.connect(db, create=False)

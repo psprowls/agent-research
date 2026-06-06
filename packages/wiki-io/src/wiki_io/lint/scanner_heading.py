@@ -55,6 +55,8 @@ def check(pages: dict) -> list[str]:
     for key, page in pages.items():
         fm = page.get("fm") or {}
         kind = fm.get("kind")
+        if not isinstance(kind, str):
+            continue
         expected = _EXPECTED_SCANNER_HEADINGS.get(kind)
         if not expected:
             continue

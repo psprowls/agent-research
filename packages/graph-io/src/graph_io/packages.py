@@ -10,10 +10,11 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import _ignore, upsert
 from graph_io.classification import classify
+from graph_io.records import as_graph_records
 from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri
 
 # PEP 508 bare-name prefix: identifier characters before any version/extra/marker.
@@ -209,7 +210,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # package/app kind so the retargeted used_by / new depends_on_package edges
     # resolve to the real node (D-07, mirroring derived_edges.py:148-153).
     workspace_names: set[str] = set()
-    workspace_kinds: dict[str, tuple[str, str, str | None]] = {}
+    workspace_kinds: dict[str, tuple[str, str, str]] = {}
     for pkg_dir, info in manifests:
         rel = pkg_dir.resolve().relative_to(repo_root).as_posix()
         rel = "" if rel == "." else rel
@@ -220,18 +221,18 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         # consumer may declare it under a different separator/case spelling, but
         # the edge dst must match the real node so it resolves instead of
         # inserting a stub.
-        workspace_kinds[norm] = (ws_kind, info["name"], rel or None)
+        workspace_kinds[norm] = (ws_kind, info["name"], rel)
 
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
     # Phase 50 D-04: track consumer kind so used_by edges from App nodes use src=("app", ...).
     # k5y T2: extended with is_dev bool so dev-origin JS edges carry attrs={"dev": True}.
-    used_by_pairs: list[tuple[str, str | None, str, str, bool]] = []
+    used_by_pairs: list[tuple[str, str, str, str, str, bool]] = []
     # Phase 55 D-04/D-06/D-07: internal package→package relationships, carrying
     # both endpoints' resolved (kind, name, rel_path) so the retargeted used_by
     # and the new depends_on_package edge point at the real package/app nodes.
     internal_pkg_edges: list[
-        tuple[str, str | None, str, str, str | None, str]
+        tuple[str, str, str, str, str, str]
     ] = []  # (consumer_name, consumer_rel, consumer_kind, target_name, target_rel, target_kind)
     for pkg_dir, info in manifests:
         rel_prefix = pkg_dir.resolve().relative_to(repo_root).as_posix()
@@ -266,7 +267,8 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         # gives this UPDATE read-your-own-writes semantics for the subsequent
         # upsert_records call.
         other_kind = "package" if new_kind == "app" else "app"
-        other_id = upsert._node_id(conn, (other_kind, info["name"], rel_prefix or None))
+        package_path = rel_prefix
+        other_id = upsert._node_id(conn, (other_kind, info["name"], package_path))
         if other_id is not None:
             # Mirror _upsert_node's convention: the "uri" key lives in the
             # nodes.uri column, not attrs_json.
@@ -285,7 +287,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
             GraphNode(
                 kind=new_kind,
                 name=info["name"],
-                path=rel_prefix or None,
+                path=package_path,
                 line=None,
                 attrs=attrs,
             )
@@ -295,20 +297,20 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         for file_path in _file_nodes_under(conn, prefix):
             edges.append(
                 GraphEdge(
-                    src=(new_kind, info["name"], rel_prefix or None),
+                    src=(new_kind, info["name"], package_path),
                     dst=("file", file_path, file_path),
                     kind="contains",
                     attrs={},
                 )
             )
-        upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+        upsert.upsert_records(conn, as_graph_records(nodes=nodes, edges=edges))
 
         # Phase 43 D-02 / k5y T2: collect deps from manifests and feed the shared
         # dep_acc / used_by_pairs / internal_pkg_edges accumulators.
         # Python: project.dependencies + dependency-groups (PEP 508 specifiers).
         # JavaScript: dep_specs dict from _read_package_json (raw version strings).
         consumer_name = info["name"]
-        consumer_rel_path = rel_prefix or None
+        consumer_rel_path = package_path
         consumer_kind = new_kind
         consumer_norm = _normalize_name(consumer_name)
         if info["language"] == "python":
@@ -343,7 +345,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 if s not in bucket["versions_in_use"]:
                     bucket["versions_in_use"].append(s)
                 # Python deps are never dev in this model (dep_groups treated as runtime).
-                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, dep_name, False))
+                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, "pypi", dep_name, False))
         elif info["language"] == "javascript":
             # k5y T2: iterate dep_specs (name->spec, runtime wins on collision).
             # is_dev = name came ONLY from devDependencies (not in runtime set).
@@ -371,17 +373,20 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                     bucket["versions_in_use"].append(raw_spec)
                 # is_dev: name is in devDependencies AND NOT in runtime dependencies.
                 is_dev = dep_name in dev_set and dep_name not in runtime_set
-                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev))
+                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, "npm", dep_name, is_dev))
 
     # Emit dependency nodes (one per (ecosystem, name)) + used_by edges.
     dep_nodes: list[GraphNode] = []
+    dependency_paths: dict[tuple[str, str], str] = {}
     for (ecosystem, name), bucket in sorted(dep_acc.items()):
         versions = sorted(set(bucket["versions_in_use"]))
+        dependency_path = f"dependency:{ecosystem}:{name}"
+        dependency_paths[(ecosystem, name)] = dependency_path
         dep_nodes.append(
             GraphNode(
                 kind="dependency",
                 name=name,
-                path=None,
+                path=dependency_path,
                 line=None,
                 attrs={
                     "uri": dependency_uri(ecosystem, name),
@@ -398,16 +403,17 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
     # src uses consumer_kind so App consumers emit src=("app", ...).
     # k5y T2: is_dev=True → attrs={"dev": True}; False/omitted → attrs={}.
     dep_edges: list[GraphEdge] = []
-    seen_edges: set[tuple[str, str]] = set()
-    for consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev in used_by_pairs:
-        if (consumer_name, dep_name) in seen_edges:
+    seen_edges: set[tuple[str, str, str]] = set()
+    for consumer_name, consumer_rel_path, consumer_kind, ecosystem, dep_name, is_dev in used_by_pairs:
+        if (consumer_name, ecosystem, dep_name) in seen_edges:
             continue
-        seen_edges.add((consumer_name, dep_name))
+        seen_edges.add((consumer_name, ecosystem, dep_name))
         edge_attrs: dict[str, Any] = {"dev": True} if is_dev else {}
+        dep_path = dependency_paths[(ecosystem, dep_name)]
         dep_edges.append(
             GraphEdge(
                 src=(consumer_kind, consumer_name, consumer_rel_path),
-                dst=("dependency", dep_name, None),
+                dst=("dependency", dep_name, dep_path),
                 kind="used_by",
                 attrs=edge_attrs,
             )
@@ -429,12 +435,12 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         target_rel_path,
         target_kind,
     ) in internal_pkg_edges:
-        if (consumer_name, target_name) in seen_edges:
+        if (consumer_name, target_kind, target_name) in seen_edges:
             continue
-        seen_edges.add((consumer_name, target_name))
+        seen_edges.add((consumer_name, target_kind, target_name))
         src = (consumer_kind, consumer_name, consumer_rel_path)
         dst = (target_kind, target_name, target_rel_path)
         dep_edges.append(GraphEdge(src=src, dst=dst, kind="used_by", attrs={}))
         dep_edges.append(GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={}))
     if dep_nodes or dep_edges:
-        upsert.upsert_records(conn, GraphRecords(nodes=dep_nodes, edges=dep_edges))
+        upsert.upsert_records(conn, as_graph_records(nodes=dep_nodes, edges=dep_edges))

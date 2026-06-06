@@ -25,9 +25,10 @@ import sqlite3
 from pathlib import Path
 from typing import Iterator
 
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import _ignore, upsert
+from graph_io.records import as_graph_records
 from graph_io.update import NotInGitRepoError, _git
 from graph_io.uri import RepoContext, file_uri, repo_uri, subpkg_uri
 
@@ -432,10 +433,11 @@ def emit(
 
     # --- Repository node (D-01, D-02, D-03) ---
 
+    repo_path = ""
     repo_node = GraphNode(
         kind="repository",
         name=ctx.repo,
-        path=None,
+        path=repo_path,
         line=None,
         attrs={
             "uri": repo_uri(ctx),
@@ -447,7 +449,7 @@ def emit(
     )
     nodes.append(repo_node)
 
-    repo_key = ("repository", ctx.repo, None)
+    repo_key = ("repository", ctx.repo, repo_path)
 
     # --- Read existing Package/App rows ---
     # Phase 50 D-04: apps are physically contained by the repository the same
@@ -698,23 +700,26 @@ def emit(
         if is_test:
             parent_src = repo_key  # D-14: Repository, not Package
         else:
-            sub_map = pkg_to_subpkg_map.get(owner_name, {})
-            if is_python and sub_map:
-                cur = fpath.parent.resolve()
-                parent_src = None
-                while True:
-                    if cur in sub_map:
-                        sp_dotted, sp_rel = sub_map[cur]
-                        parent_src = ("subpackage", sp_dotted, sp_rel)
-                        break
-                    parent = cur.parent
-                    if parent == cur:
-                        break
-                    cur = parent
-                if parent_src is None:
-                    parent_src = pkg_key
+            if owner_name is None:
+                parent_src = repo_key
             else:
-                parent_src = pkg_key
+                sub_map = pkg_to_subpkg_map.get(owner_name, {})
+                if is_python and sub_map:
+                    cur = fpath.parent.resolve()
+                    parent_src = None
+                    while True:
+                        if cur in sub_map:
+                            sp_dotted, sp_rel = sub_map[cur]
+                            parent_src = ("subpackage", sp_dotted, sp_rel)
+                            break
+                        parent = cur.parent
+                        if parent == cur:
+                            break
+                        cur = parent
+                    if parent_src is None:
+                        parent_src = pkg_key
+                else:
+                    parent_src = pkg_key
 
         edges.append(
             GraphEdge(
@@ -725,4 +730,4 @@ def emit(
             )
         )
 
-    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+    upsert.upsert_records(conn, as_graph_records(nodes=nodes, edges=edges))

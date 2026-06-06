@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import sys
+from typing import Protocol
 
 from graph_io import exit_codes, queries, store
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli import _format
+from graph_wiki_cli.graph_cli._args import PathDescribeArgs
 
 
-def run(args: object) -> int:
+class ImportedByArgs(PathDescribeArgs, Protocol):
+    symbol: str | None
+    depth: int
+
+
+def run(args: ImportedByArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)

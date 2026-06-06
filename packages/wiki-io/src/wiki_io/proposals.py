@@ -38,6 +38,10 @@ _RECORD_KEY_ORDER = ("kind", "mode", "target_slug", "title", "status", "origins"
 _ORIGIN_KEY_ORDER = ("ref", "source", "rationale", "detected_commit", "hash")
 
 
+def _load_frontmatter(path: Path) -> frontmatter.Post:
+    return frontmatter.load(str(path))
+
+
 def _ordered_origin(origin: dict) -> dict:
     """Canonical key order for one origin entry; drops absent / None keys."""
     return {k: origin[k] for k in _ORIGIN_KEY_ORDER if k in origin and origin[k] is not None}
@@ -107,7 +111,7 @@ def _record_from_metadata(metadata: dict, stem: str) -> dict:
 
 def read_proposal(path: Path) -> dict:
     """Parse one note into {kind, mode, target_slug, title, status, origins[]}."""
-    post = frontmatter.load(path)
+    post = _load_frontmatter(path)
     return _record_from_metadata(post.metadata, path.stem)
 
 
@@ -197,7 +201,7 @@ def set_proposal_status(wiki: Path, kind: str, target_slug: str, status: str) ->
     path = proposal_path(wiki, kind, target_slug)
     if not path.exists():
         return False
-    post = frontmatter.load(path)
+    post = _load_frontmatter(path)
     record = _record_from_metadata(post.metadata, path.stem)
     record["status"] = status
     _atomic_write(path, _serialize(record, post.content.strip()))

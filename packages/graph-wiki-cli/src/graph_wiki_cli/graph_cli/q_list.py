@@ -8,6 +8,8 @@ routed here — it has a required positional package argument and a different
 
 from __future__ import annotations
 
+from typing import cast
+
 from graph_wiki_cli.graph_cli import (
     q_list_apps,
     q_list_builtins,
@@ -16,8 +18,9 @@ from graph_wiki_cli.graph_cli import (
     q_list_scripts,
     q_list_suites,
 )
+from graph_wiki_cli.graph_cli._args import AnyRunModule, ListArgs
 
-_DISPATCH = {
+_DISPATCH: dict[str, AnyRunModule] = {
     "apps": q_list_apps,
     "builtins": q_list_builtins,
     "packages": q_list_packages,
@@ -28,5 +31,5 @@ _DISPATCH = {
 LIST_KINDS = tuple(_DISPATCH)
 
 
-def run(args: object) -> int:
-    return _DISPATCH[args.kind].run(args)
+def run(args: ListArgs) -> int:
+    return _DISPATCH[cast(str, args.kind)].run(args)

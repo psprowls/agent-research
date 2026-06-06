@@ -197,12 +197,15 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
         return exit_code, "", stderr
 
     try:
-        # Defensive guard: every kind except repository requires an identifier.
-        # Real callers (the Typer Argument and the MCP identifier-required check)
-        # already prevent None reaching here; this stops a latent TypeError if the
-        # public core is called directly with identifier=None (e.g. entry_point's
-        # `":" in raw`).
-        if identifier is None and kind != "repository":
+        if kind == "repository":
+            desc = queries.describe_repository(conn)
+            if desc is None:
+                return exit_codes.GENERIC, "", "error: not found: repository"
+            return exit_codes.SUCCESS, _render.format_repo(desc, fmt="human"), ""
+
+        # Defensive guard: every other kind requires an identifier. Real callers
+        # already prevent None reaching here; this keeps the public core safe.
+        if identifier is None:
             return exit_codes.GENERIC, "", "error: identifier required"
 
         if kind == "package":
@@ -216,12 +219,6 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: path not found in graph: {identifier}"
             return exit_codes.SUCCESS, _render.format_path(desc, fmt="human"), ""
-
-        if kind == "repository":
-            desc = queries.describe_repository(conn)
-            if desc is None:
-                return exit_codes.GENERIC, "", "error: not found: repository"
-            return exit_codes.SUCCESS, _render.format_repo(desc, fmt="human"), ""
 
         if kind == "domain":
             desc = queries.describe_domain(conn, name=identifier)

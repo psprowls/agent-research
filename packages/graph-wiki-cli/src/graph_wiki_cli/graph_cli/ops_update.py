@@ -6,8 +6,10 @@ import sys
 
 from graph_io import exit_codes, store, update
 
+from graph_wiki_cli.graph_cli._args import UpdateArgs
 
-def run(args: object) -> int:
+
+def run(args: UpdateArgs) -> int:
     try:
         update.run(args.repo, workspace=args.workspace, full=args.full)
     except update.NotInGitRepoError as exc:

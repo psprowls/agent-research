@@ -5,12 +5,15 @@ from __future__ import annotations
 import dataclasses
 import json as _json
 import sys
+from typing import cast
 
 from graph_io import exit_codes, queries, store
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.graph_cli._args import DependencyDescribeArgs
 
-def run(args: object) -> int:
+
+def run(args: DependencyDescribeArgs) -> int:
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)
@@ -21,7 +24,7 @@ def run(args: object) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        desc = queries.describe_dependency(conn, ecosystem=args.ecosystem, name=args.name)
+        desc = queries.describe_dependency(conn, ecosystem=cast(str, args.ecosystem), name=args.name)
     finally:
         conn.close()
     if desc is None:

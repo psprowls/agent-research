@@ -74,14 +74,14 @@ def test_emit_repository_node_single(conn: sqlite3.Connection, tmp_path: Path, p
     assert len(rows) == 1
     name, path, uri = rows[0]
     assert name == "repo"
-    assert path is None
+    assert path == ""
     assert uri == "repo:test/repo"
 
 
-def test_emit_repository_path_is_null(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
+def test_emit_repository_path_is_repo_root(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
     row = conn.execute("SELECT path FROM nodes WHERE kind='repository'").fetchone()
-    assert row[0] is None
+    assert row[0] == ""
 
 
 def test_emit_repository_attrs_include_owner_name_url(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:

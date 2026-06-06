@@ -45,6 +45,8 @@ def _insert_node(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, ?, ?)",
         (kind, name, path, line, attrs_json, uri),
     )
+    if cursor.lastrowid is None:
+        raise RuntimeError("SQLite did not return a row id for inserted graph node")
     return cursor.lastrowid
 
 

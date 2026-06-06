@@ -270,6 +270,9 @@ def propagate_drift(
     except (RuntimeError, FileNotFoundError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
+    if repo is None:
+        typer.echo("Error: repo path is required to propagate drift", err=True)
+        raise typer.Exit(code=1)
     conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
     try:
         result = asyncio.run(run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=dry_run, only=only))

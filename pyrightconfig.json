@@ -1,0 +1,26 @@
+{
+  "include": [
+    "packages/*/src/**/*.py",
+    "plugins/graph-wiki/skills/graph-wiki/scripts/**/*.py"
+  ],
+  "exclude": [
+    "**/tests/**",
+    "**/fixtures/**",
+    ".venv/**",
+    ".worktrees/**",
+    ".git/**",
+    ".hypothesis/**",
+    ".claude/**",
+    ".gsd/**",
+    ".agents/**",
+    "graph-wiki/**",
+    "**/__pycache__/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/node_modules/**"
+  ],
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "standard"
+}

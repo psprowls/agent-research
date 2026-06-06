@@ -7,9 +7,16 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from typing import Protocol
 
 from graph_io import exit_codes, queries, schema, store
 from workspace_io.paths import graph_dir
+
+from graph_wiki_cli.graph_cli._args import FormatArgs, RepoWorkspaceArgs
+
+
+class StatusArgs(RepoWorkspaceArgs, FormatArgs, Protocol):
+    pass
 
 
 def _git_head(repo: Path) -> str | None:
@@ -47,7 +54,7 @@ def _collect(conn: sqlite3.Connection) -> dict:
     }
 
 
-def run(args: object) -> int:
+def run(args: StatusArgs) -> int:
     head = _git_head(args.repo)
     if head is None:
         print("error: not in a git repo", file=sys.stderr)
