@@ -8,6 +8,7 @@ import yaml
 
 _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
+_KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
 
 
 def read(path: Path) -> dict:
@@ -52,6 +53,29 @@ def read(path: Path) -> dict:
         plugin["backend_default"] = backend_default
         plugin["backend_overrides"] = overrides
         raw["plugin"] = plugin
+    # Validate and normalise the optional [state_gate] block. Always returns
+    # {"enabled": bool, "branches": [str, ...]}; defaults to the historical
+    # behavior (gate on a clean `main`) when the block is absent.
+    state_gate = raw.get("state_gate")
+    if state_gate is None:
+        raw["state_gate"] = {"enabled": True, "branches": ["main"]}
+    else:
+        if not isinstance(state_gate, dict):
+            raise RuntimeError(f"{path}: 'state_gate' must be a mapping, got {type(state_gate).__name__}")
+        unknown = set(state_gate.keys()) - _KNOWN_STATE_GATE_KEYS
+        if unknown:
+            raise RuntimeError(f"{path}: unknown keys in state_gate block: {sorted(unknown)}")
+        enabled = state_gate.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise RuntimeError(f"{path}: state_gate.enabled must be a bool, got {type(enabled).__name__}")
+        branches = state_gate.get("branches", ["main"])
+        if isinstance(branches, str):
+            branches = [branches]
+        if not isinstance(branches, list) or not branches:
+            raise RuntimeError(f"{path}: state_gate.branches must be a non-empty list of branch names")
+        if not all(isinstance(b, str) for b in branches):
+            raise RuntimeError(f"{path}: state_gate.branches must contain only strings")
+        raw["state_gate"] = {"enabled": enabled, "branches": branches}
     return raw
 
 
