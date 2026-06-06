@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Scan command — build the code graph, write one page per admitted entity.
 
 Public API:
@@ -11,6 +9,8 @@ Public API:
                                           Step 9b narrator fan-out + Step 12 dual-writer indexes)
 """
 
+from __future__ import annotations
+
 import logging
 import sys
 from dataclasses import dataclass, field
@@ -21,6 +21,7 @@ import frontmatter
 from graph_io import exit_codes, queries
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage, SystemMessage
+
 # Bedrock fan-out stack — imported only for the narrated path (narrate=True).
 # Guarded so the plugin's Claude branch (narrate=False) runs without these
 # workspace members installed. When absent, the narrator/file-describer blocks
@@ -33,6 +34,7 @@ except ImportError:  # pragma: no cover — exercised by the lazy-import test vi
     SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
+from wiki_io.backlink_index import regenerate_referenced_in_wiki
 from wiki_io.drift import (
     clear_resolved_flags,
     extract_file_map,
@@ -47,8 +49,8 @@ from wiki_io.entity_writer import (
     _extract_file_map_descriptions,
     _kind_list_fns,
     extract_narrative,
-    fill_file_map_descriptions,
     file_map_todo_paths,
+    fill_file_map_descriptions,
     inject_file_map,
     inject_narrative,
     scanner_frontmatter_for_node,
@@ -57,6 +59,7 @@ from wiki_io.entity_writer import (
     update_frontmatter,
     write_entities,
 )
+from wiki_io.git_state import changed_files_since, short_commit
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.scan_monorepo import (
@@ -64,8 +67,6 @@ from wiki_io.scan_monorepo import (
     build_file_map,
     compute_state_gate,
 )
-from wiki_io.backlink_index import regenerate_referenced_in_wiki
-from wiki_io.git_state import changed_files_since, short_commit
 from wiki_io.update_index import update_index
 from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
@@ -98,8 +99,7 @@ class ScanAbortedError(RuntimeError):
         self.exit_code = exit_code
         self.stderr = stderr
         super().__init__(
-            f"cg update failed (exit_code={exit_code}); scan aborted. "
-            f"stderr: {stderr.strip() or '<empty>'}"
+            f"cg update failed (exit_code={exit_code}); scan aborted. stderr: {stderr.strip() or '<empty>'}"
         )
 
 
@@ -196,6 +196,7 @@ def pick_representative(pkg_path: Path, entries: list[Path] | None = None) -> li
     # Combine and deduplicate up to 3
     candidates = entry_points + src_files + [p for p in source_files if p not in entry_points and p not in src_files]
     return candidates[:3]
+
 
 # ---------------------------------------------------------------------------
 # ScanResult dataclass
@@ -295,39 +296,42 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | No
 # Ordered (heading, dict-key) pairs for the agent_plugin component inventory
 # injected into the narrator prompt (D3 — grounding the narrator in components).
 _AGENT_PLUGIN_INVENTORY_SECTIONS: tuple[tuple[str, str], ...] = (
-    ("## Commands",    "commands_table"),
-    ("## Agents",      "agents_table"),
-    ("## Skills",      "skills_table"),
-    ("## Scripts",     "scripts_table"),
-    ("## Hooks",       "hooks_table"),
+    ("## Commands", "commands_table"),
+    ("## Agents", "agents_table"),
+    ("## Skills", "skills_table"),
+    ("## Scripts", "scripts_table"),
+    ("## Hooks", "hooks_table"),
     ("## MCP servers", "mcp_servers_table"),
 )
 
 # Human-readable labels for each scanner-owned relation key. Used by the
 # narrator prompt to render relations as natural prose hints instead of YAML.
 _NARRATIVE_RELATION_LABELS: dict[str, str] = {
-    "depends_on":      "Depends on",
-    "test_suites":     "Test suites",
-    "entry_points":    "Entry points",
-    "domains":         "Domains",
-    "parent_domain":   "Parent domain",
-    "sub_domains":     "Sub-domains",
-    "packages":        "Packages",
+    "depends_on": "Depends on",
+    "test_suites": "Test suites",
+    "entry_points": "Entry points",
+    "domains": "Domains",
+    "parent_domain": "Parent domain",
+    "sub_domains": "Sub-domains",
+    "packages": "Packages",
     "tested_packages": "Tested packages",
-    "used_by":         "Used by",
-    "members":         "Members",
-    "ecosystem":       "Ecosystem",
-    "language":        "Language",
-    "version":         "Version",
-    "suite_kind":      "Suite kind",
-    "file_count":      "File count",
-    "package_count":   "Package count",
+    "used_by": "Used by",
+    "members": "Members",
+    "ecosystem": "Ecosystem",
+    "language": "Language",
+    "version": "Version",
+    "suite_kind": "Suite kind",
+    "file_count": "File count",
+    "package_count": "Package count",
     "versions_in_use": "Versions in use",
 }
 
 
 def build_entity_narrative_prompt(
-    node, kind: str, file_map_text: str, relations: dict,
+    node,
+    kind: str,
+    file_map_text: str,
+    relations: dict,
     components_text: str = "",
 ) -> tuple[str, str]:
     """Return (system_message, human_message) for the narrator LLM (Phase 45 D-05).
@@ -400,9 +404,7 @@ def build_entity_narrative_prompt(
 # ---------------------------------------------------------------------------
 
 
-def build_file_describer_prompt(
-    pkg: dict, todo_paths: list[str], repo_root: Path | None = None
-) -> tuple[str, str]:
+def build_file_describer_prompt(pkg: dict, todo_paths: list[str], repo_root: Path | None = None) -> tuple[str, str]:
     """Return (system, human) for the file-map description LLM (code_reader role).
 
     The human message carries package metadata, the list of paths still needing
@@ -452,9 +454,7 @@ def build_file_describer_prompt(
         except Exception:
             pass  # snippet sampling is best-effort; metadata + paths suffice
 
-    lines.append(
-        "Return the JSON object mapping each describable path to its one-line description."
-    )
+    lines.append("Return the JSON object mapping each describable path to its one-line description.")
     return system, "\n".join(lines)
 
 
@@ -588,9 +588,7 @@ def _commit_dirty_changes(
             if not page_path.exists():
                 continue
             try:
-                anchor = frontmatter.load(page_path).metadata.get(
-                    LAST_UPDATED_COMMIT_KEY
-                )
+                anchor = frontmatter.load(page_path).metadata.get(LAST_UPDATED_COMMIT_KEY)
             except Exception:  # noqa: BLE001 — a malformed page must not abort scan
                 continue
             if not anchor:
@@ -606,9 +604,7 @@ def _commit_dirty_changes(
 # curated human prose and are excluded (spec §3.4). `agent_plugin` is included
 # now for forward-compatibility — its commit-gated coverage completes with the
 # agent-plugin parity plan, but it already narrates on structural change.
-DRIFT_TARGET_KINDS: frozenset[str] = frozenset(
-    {"package", "app", "test_suite", "agent_plugin"}
-)
+DRIFT_TARGET_KINDS: frozenset[str] = frozenset({"package", "app", "test_suite", "agent_plugin"})
 
 
 def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
@@ -640,9 +636,7 @@ def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
         narrative = extract_narrative(post.content)
         if not narrative:
             continue  # no ground truth -> nothing to judge against
-        out.append(
-            (page_path, str(anchor), narrative, extract_file_map(post.content))
-        )
+        out.append((page_path, str(anchor), narrative, extract_file_map(post.content)))
     return out
 
 
@@ -677,12 +671,8 @@ async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
 
         async def judge(item: tuple) -> TaskResult:
             _pp, _anchor, heading, chunk, narrative, file_map = item
-            system_msg, human_msg = build_drift_judge_prompt(
-                heading, chunk, narrative, file_map
-            )
-            resp = await drift_llm.ainvoke(
-                [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
-            )
+            system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
+            resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
             return TaskResult(value=parse_drift_verdict(resp.content), response=resp)
 
         fan = await drift_pool.run_all(
@@ -847,9 +837,7 @@ async def run_scan(
         # shim onto the typed run_build core. update.run is silent on success, so
         # _cg_stdout is always "" here (sanctioned by D-06).
         _workspace_root = wiki.parent
-        _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(
-            repo, _workspace_root, full=False
-        )
+        _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False)
         _graph_ready = False
         if _cg_exit == exit_codes.SUCCESS:
             append_log(
@@ -863,14 +851,9 @@ async def run_scan(
             _graph_ready = True
         elif _cg_exit == exit_codes.GENERIC and _is_init_failure_stderr(_cg_stderr):
             # D-08 graceful fallback: init failure (permission/disk). One stderr line.
-            reason = (
-                _cg_stderr.strip().splitlines()[-1]
-                if _cg_stderr.strip()
-                else "unknown init failure"
-            )
+            reason = _cg_stderr.strip().splitlines()[-1] if _cg_stderr.strip() else "unknown init failure"
             sys.stderr.write(
-                f"[NOT_INITIALIZED fallback: graph could not be initialized "
-                f"({reason}); using path-based slugs]\n"
+                f"[NOT_INITIALIZED fallback: graph could not be initialized ({reason}); using path-based slugs]\n"
             )
             append_log(
                 wiki,
@@ -903,8 +886,7 @@ async def run_scan(
                 # Defensive: should not happen after a successful cg update,
                 # but treat as a NOT_INITIALIZED-class fallback if it does.
                 sys.stderr.write(
-                    f"[NOT_INITIALIZED fallback: graph could not be initialized "
-                    f"({exc}); using path-based slugs]\n"
+                    f"[NOT_INITIALIZED fallback: graph could not be initialized ({exc}); using path-based slugs]\n"
                 )
                 append_log(
                     wiki,
@@ -995,18 +977,14 @@ async def run_scan(
             if narrator_items:
                 narrator_cfg = load_role_config("narrator")
                 narrator_llm = make_llm("narrator", model_override=model_override)
-                narrator_pool = SubagentPool(
-                    trace_dir=graph_dir(wiki.parent) / "traces"
-                )
+                narrator_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
 
                 async def generate_narrative(
                     item: tuple[str, str, Any],
                 ) -> TaskResult:
                     uri_inner, kind_inner, node_inner = item
                     relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
-                    relations_for_prompt = {
-                        k: v for k, v in relations.items() if k not in ("uri", "kind")
-                    }
+                    relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
                     # File maps are graph-sourced (Step 10b); the narrator no
                     # longer receives a per-workspace file-map hint.
                     file_map = ""
@@ -1014,11 +992,13 @@ async def run_scan(
                     if kind_inner == "agent_plugin":
                         tv = _agent_plugin_table_variables(conn, node_inner)
                         components_text = "\n\n".join(
-                            f"{heading}\n{tv[key]}"
-                            for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                            f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
                         )
                     system_msg, human_msg = build_entity_narrative_prompt(
-                        node_inner, kind_inner, file_map, relations_for_prompt,
+                        node_inner,
+                        kind_inner,
+                        file_map,
+                        relations_for_prompt,
                         components_text=components_text,
                     )
                     msgs = [
@@ -1054,13 +1034,19 @@ async def run_scan(
         narrated_page_paths: dict[str, Path] = {}
         if narrator_result is not None:
             inject_collision_set = _compute_collision_set(
-                conn, ADMITTED_KINDS, _kind_list_fns(),
+                conn,
+                ADMITTED_KINDS,
+                _kind_list_fns(),
             )
 
             for item, prose in narrator_result.successes:
                 uri_inner, kind_inner, node_inner = item
                 entity_page_path = _entity_page_path(
-                    wiki, kind_inner, node_inner, uri_inner, inject_collision_set,
+                    wiki,
+                    kind_inner,
+                    node_inner,
+                    uri_inner,
+                    inject_collision_set,
                 )
                 try:
                     inject_narrative(entity_page_path, prose)
@@ -1071,9 +1057,7 @@ async def run_scan(
                         good_prose_uris.add(uri_inner)
                     entities_narrated.append(uri_inner)
                 except Exception as inject_exc:  # noqa: BLE001 — partial-success
-                    narrator_errors.append(
-                        f"{uri_inner}: inject_narrative failed: {inject_exc!r}"
-                    )
+                    narrator_errors.append(f"{uri_inner}: inject_narrative failed: {inject_exc!r}")
             for err in narrator_result.errors:
                 uri_inner, _kind_inner, _node_inner = err.item
                 narrator_errors.append(f"{uri_inner}: {err.exception!r}")
@@ -1099,9 +1083,7 @@ async def run_scan(
         # full drop). Consumed by the shared-anchor restamp after Step 10c.
         redescribed_uris: set[str] = set()
         if entity_write_result is not None and conn is not None:
-            refreshed = set(entity_write_result.created) | set(
-                entity_write_result.updated
-            )
+            refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
             # M2b §3.2 (load-bearing): a package whose source changed with no
             # structural delta is in commit_dirty but NOT refreshed; without this
             # union its File map is never re-injected and the preserved-drop below
@@ -1109,11 +1091,7 @@ async def run_scan(
             fm_targets = refreshed | set(commit_dirty)
             list_fns = _kind_list_fns()
             # Collision set shared by the package/app and test-suite branches.
-            fm_collision_set = (
-                _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
-                if fm_targets
-                else frozenset()
-            )
+            fm_collision_set = _compute_collision_set(conn, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
             if fm_targets and any(fm_list_fns) and not no_file_map:
                 fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
@@ -1160,9 +1138,7 @@ async def run_scan(
                         entities_file_mapped.append(node_uri)
                         file_mapped_pages.append((node_uri, node, fm_page_path))
                     except Exception as fm_exc:  # noqa: BLE001 — partial-success
-                        file_map_errors.append(
-                            f"{node_uri}: inject_file_map failed: {fm_exc!r}"
-                        )
+                        file_map_errors.append(f"{node_uri}: inject_file_map failed: {fm_exc!r}")
             # Step 10b-ts: test-suite File-map injection — commit-gated parity
             # with Step 10b (M2c #4 §3.1). The suite map starts at the suite root
             # (node.path, authoritative — D1) and is UNPARTITIONED (every tracked
@@ -1185,7 +1161,11 @@ async def run_scan(
                     if not block:
                         continue
                     ts_page_path = _entity_page_path(
-                        wiki, "test_suite", node, suite_uri, fm_collision_set,
+                        wiki,
+                        "test_suite",
+                        node,
+                        suite_uri,
+                        fm_collision_set,
                     )
                     # PTO: live-source preserved descriptions from the suite page
                     # (mirrors Step 10b; the suite branch is at package parity).
@@ -1213,17 +1193,12 @@ async def run_scan(
                         entities_file_mapped.append(suite_uri)
                         file_mapped_pages.append((suite_uri, node, ts_page_path))
                     except Exception as fm_exc:  # noqa: BLE001 — partial-success
-                        file_map_errors.append(
-                            f"{suite_uri}: inject_file_map failed: {fm_exc!r}"
-                        )
+                        file_map_errors.append(f"{suite_uri}: inject_file_map failed: {fm_exc!r}")
             if entities_file_mapped or file_map_errors:
                 append_log(
                     wiki,
                     "scan",
-                    (
-                        f"file maps injected: {len(entities_file_mapped)} "
-                        f"(errors: {len(file_map_errors)})"
-                    ),
+                    (f"file maps injected: {len(entities_file_mapped)} (errors: {len(file_map_errors)})"),
                     detail=None,
                     silent=True,
                     raise_exception=True,
@@ -1256,17 +1231,13 @@ async def run_scan(
             if describer_items:
                 describer_cfg = load_role_config("code_reader")
                 describer_llm = make_llm("code_reader")
-                describer_pool = SubagentPool(
-                    trace_dir=graph_dir(wiki.parent) / "traces"
-                )
+                describer_pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
 
                 async def describe_files(
                     item: tuple[str, dict, Path, list[str]],
                 ) -> TaskResult:
                     _uri, ws_dict_inner, _page, todo_inner = item
-                    system_msg, human_msg = build_file_describer_prompt(
-                        ws_dict_inner, todo_inner, repo_root=repo
-                    )
+                    system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
                     resp = await describer_llm.ainvoke(
                         [
                             SystemMessage(content=system_msg),
@@ -1293,9 +1264,7 @@ async def run_scan(
                         if n_filled:
                             describer_filled.append(f"{uri_inner}: {n_filled}")
                     except Exception as fill_exc:  # noqa: BLE001 — partial-success
-                        describer_errors.append(
-                            f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}"
-                        )
+                        describer_errors.append(f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}")
                 for err in describer_result.errors:
                     uri_inner = err.item[0]
                     describer_errors.append(f"{uri_inner}: {err.exception!r}")
@@ -1338,13 +1307,9 @@ async def run_scan(
                     # narrator-loop try block that wrapped the equivalent I/O).
                     if file_map_todo_paths(page_path):
                         continue
-                    set_frontmatter_value(
-                        page_path, LAST_UPDATED_COMMIT_KEY, short_head
-                    )
+                    set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, short_head)
                 except Exception as exc:  # noqa: BLE001 — non-fatal stamp
-                    logger.warning(
-                        "anchor stamp failed for %s: %s", uri_inner, exc
-                    )
+                    logger.warning("anchor stamp failed for %s: %s", uri_inner, exc)
 
         # Living Wiki M2e: human-section drift flagging post-pass. Runs after
         # anchor stamping so each page holds its final `## Narrative` and settled
@@ -1376,10 +1341,7 @@ async def run_scan(
             append_log(
                 wiki,
                 "scan",
-                (
-                    f"index: wiki/index.md changed={index_result.changed} "
-                    f"bytes={index_result.bytes_written}"
-                ),
+                (f"index: wiki/index.md changed={index_result.changed} bytes={index_result.bytes_written}"),
                 detail=None,
                 silent=True,
                 raise_exception=True,
@@ -1404,9 +1366,7 @@ async def run_scan(
                 raise_exception=True,
             )
         except Exception as exc:  # noqa: BLE001 — non-fatal post-processing
-            logger.warning(
-                "regenerate_referenced_in_wiki failed (non-fatal): %s", exc
-            )
+            logger.warning("regenerate_referenced_in_wiki failed (non-fatal): %s", exc)
 
         # Step 13: final log entry — entity counters.
         entity_create_count = len(entity_write_result.created) if entity_write_result else 0
@@ -1436,12 +1396,7 @@ async def run_scan(
             entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
-            entity_errors=(
-                entity_write_errors
-                + narrator_errors
-                + file_map_errors
-                + describer_errors
-            ),
+            entity_errors=(entity_write_errors + narrator_errors + file_map_errors + describer_errors),
         )
     finally:
         if conn is not None:

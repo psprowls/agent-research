@@ -17,7 +17,8 @@ _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 # Backtick-wrapped code citation, e.g. `pool.py:115` or `src/foo/bar.py:10-15`.
 _BACKTICK_CODE_RE = re.compile(r"`[^`]*?:\d+(?:-\d+)?`")
 
-# Vault-thinness acknowledgement phrasing per agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md
+# Vault-thinness acknowledgement phrasing per
+# agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md
 # rule 4. Match common variants; case-insensitive.
 _VAULT_THIN_PHRASES_RE = re.compile(
     r"\b(?:the\s+vault\s+does(?:\s+not|\s*n['’]t)\s+(?:document|cover|know|contain|describe)"
@@ -57,13 +58,12 @@ def _check_no_slug_only_wikilinks(output: AgentOutputProxy, wiki: Path) -> Verdi
     return Verdict(passed=True, excerpt="")
 
 
-def _check_no_path_line_promoted_to_wikilink(
-    output: AgentOutputProxy, wiki: Path
-) -> Verdict:
+def _check_no_path_line_promoted_to_wikilink(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SYN-003 (hard): A `path:line` reference inside `[[...]]` brackets is a
     promotion error — code citations must remain `` `path:line` ``, not wikilinks.
 
-    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#red-flags (code-fallback fidelity).
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/synthesizer.md#red-flags
+    (code-fallback fidelity).
     """
     for link in _WIKILINK_RE.findall(output.answer or ""):
         if re.search(r":\d+", link):
@@ -74,9 +74,7 @@ def _check_no_path_line_promoted_to_wikilink(
     return Verdict(passed=True, excerpt="")
 
 
-def _check_vault_thin_acknowledgement(
-    output: AgentOutputProxy, wiki: Path
-) -> Verdict:
+def _check_vault_thin_acknowledgement(output: AgentOutputProxy, wiki: Path) -> Verdict:
     """SYN-004 (soft): When the answer is short and emits no wikilink citations,
     it likely needs an explicit vault-thinness acknowledgement.
 

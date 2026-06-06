@@ -17,9 +17,13 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
+
+if TYPE_CHECKING:
+    from eval_harness.sweep import SweepResult
 
 # Add parent tests/ dir to sys.path so conftest.py can be imported as a module.
 # conftest.py lives in packages/eval-harness/tests/ (one level up from this file).
@@ -35,27 +39,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
-FIXTURE_VAULT = (
-    _WORKSPACE_ROOT
-    / "packages"
-    / "wiki-io"
-    / "tests"
-    / "fixtures"
-    / "round-trip-vault"
-)
+FIXTURE_VAULT = _WORKSPACE_ROOT / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
 
 # The six agent roles under test (D-01)
 ROLES = ["librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor"]
 
 from conftest import EVAL_GATE  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_fake_sweep_result(role: str, model_id: str) -> "SweepResult":
+def _make_fake_sweep_result(role: str, model_id: str) -> SweepResult:
     """Return a minimal SweepResult with $0 cost (mocked Bedrock)."""
     from eval_harness.sweep import SweepResult
 
@@ -66,9 +62,9 @@ def _make_fake_sweep_result(role: str, model_id: str) -> "SweepResult":
         answer="test answer [[TestPage]]",
         citations=["TestPage"],
         pages_drilled=1,
-        tokens_in=None,   # mocked — no real Bedrock tokens
+        tokens_in=None,  # mocked — no real Bedrock tokens
         tokens_out=None,
-        cost_usd=None,    # $0 spend (no real Bedrock call)
+        cost_usd=None,  # $0 spend (no real Bedrock call)
         wall_seconds=0.01,
         structural={"has_citation": True},
         status="ok",
@@ -110,22 +106,21 @@ def test_dry_run_writes_all_role_docs(tmp_path: Path, monkeypatch: pytest.Monkey
     """
     from eval_harness.preflight import _ROLE_TIER
     from eval_harness.report import render_index_md, render_role_doc
-    from eval_harness.sweep import SweepResult
 
     sweep_dir = tmp_path / ".planning" / "sweep"
     sweep_dir.mkdir(parents=True, exist_ok=True)
 
-    cases_path = _make_cases_file(tmp_path)
+    _make_cases_file(tmp_path)
 
     # Use a single fake candidate per role to keep the test fast.
     # In the real sweep, candidates come from models.toml sweep_candidates.
     FAKE_CANDIDATES = {
-        "librarian":   ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
+        "librarian": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
         "synthesizer": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
         "code_reader": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
-        "scanner":     ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
-        "linter":      ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
-        "ingestor":    ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
+        "scanner": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
+        "linter": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
+        "ingestor": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"],
     }
 
     role_doc_paths: list[Path] = []
@@ -170,9 +165,7 @@ def test_dry_run_writes_all_role_docs(tmp_path: Path, monkeypatch: pytest.Monkey
         doc_path = sweep_dir / f"{role}.md"
         assert doc_path.exists(), f"Missing role doc: {doc_path}"
         content = doc_path.read_text()
-        assert "Pareto frontier" in content, (
-            f"'Pareto frontier' not found in {role}.md"
-        )
+        assert "Pareto frontier" in content, f"'Pareto frontier' not found in {role}.md"
 
     # INDEX.md exists and links all 6 roles
     assert index_path.exists(), "INDEX.md not found"
@@ -250,7 +243,7 @@ def test_dry_run_skips_bed01_when_no_aws(
             role_candidates,
             n_cases=1,
             repeats=1,
-            skip_bed01=True,       # BED-01 is skipped
+            skip_bed01=True,  # BED-01 is skipped
             auto_confirm=True,
         )
     except SystemExit as e:

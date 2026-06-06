@@ -5,10 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from typer.testing import CliRunner
-
 from graph_wiki_cli.cli import app
-
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

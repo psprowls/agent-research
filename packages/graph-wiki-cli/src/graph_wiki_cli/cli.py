@@ -32,6 +32,7 @@ def _ensure_uv_workspace() -> None:
         return
     try:
         import wiki_io  # noqa: F401  — probe only
+
         return
     except (ImportError, ModuleNotFoundError):
         pass
@@ -61,12 +62,15 @@ def _ensure_uv_workspace() -> None:
 
 _ensure_uv_workspace()
 
-from graph_wiki_cli.graph_cli.main import graph_app
-from graph_wiki_cli.logging_config import configure_verbose_logging
-from graph_wiki_cli.wiki_cli.main import wiki_app
-from graph_wiki_core.commands.init import run_init
-from graph_wiki_core.commands.scan import run_scan
-from subagent_runtime.trace_io import render_trace_record
+# Imports below run after the uv re-exec bootstrap above, so they cannot move to
+# the top of the module.
+from graph_wiki_core.commands.init import run_init  # noqa: E402
+from graph_wiki_core.commands.scan import run_scan  # noqa: E402
+from subagent_runtime.trace_io import render_trace_record  # noqa: E402
+
+from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
+from graph_wiki_cli.logging_config import configure_verbose_logging  # noqa: E402
+from graph_wiki_cli.wiki_cli.main import wiki_app  # noqa: E402
 
 app = typer.Typer(
     name="gw",
@@ -215,7 +219,6 @@ def version() -> None:
     typer.echo(f"gw {v}")
 
 
-
 def _aggregate_trace(records: list[dict]) -> dict:
     """Aggregate trace records into per-role and per-(role, model_id) breakdowns.
 
@@ -338,11 +341,7 @@ def _render_collapsed_group(records: list[dict]) -> str:
             counts[status] += 1
         else:
             counts["other"] += 1
-    breakdown_parts = [
-        f"{counts[k]} {k}"
-        for k in ("success", "error", "cancelled", "other")
-        if counts[k]
-    ]
+    breakdown_parts = [f"{counts[k]} {k}" for k in ("success", "error", "cancelled", "other") if counts[k]]
     breakdown = " / ".join(breakdown_parts) if breakdown_parts else f"{n} unknown"
 
     # Token sums (defensive defaults).
@@ -367,8 +366,7 @@ def _render_collapsed_group(records: list[dict]) -> str:
         cost_str = f"${cost_sum:.6f}"
 
     return (
-        f"[{ts_first} .. {ts_last}] {role} / {model_short} x{n}: {breakdown}, "
-        f"{sum_tin}->{sum_tout} tokens, {cost_str}"
+        f"[{ts_first} .. {ts_last}] {role} / {model_short} x{n}: {breakdown}, {sum_tin}->{sum_tout} tokens, {cost_str}"
     )
 
 
@@ -480,10 +478,7 @@ def trace(
     typer.echo("")
     typer.echo("Per-role breakdown:")
     for role, stats in agg["by_role"].items():
-        typer.echo(
-            f"  {role}: count={stats['count']} "
-            f"tokens_in={stats['tokens_in']} tokens_out={stats['tokens_out']}"
-        )
+        typer.echo(f"  {role}: count={stats['count']} tokens_in={stats['tokens_in']} tokens_out={stats['tokens_out']}")
 
     # Per-(role, model_id) cost rollup (OBS-05; D-07/D-08/D-09/D-15).
     # Sort:
@@ -518,12 +513,7 @@ def trace(
             cost_str = f"${stats['cost_usd_sum']:.6f}"
             if unk:
                 cost_str += f" (+{unk} unknown)"
-        typer.echo(
-            f"  {role} / {model_short}: {count} items, "
-            f"{tin}->{tout} tokens, {cost_str}"
-        )
-
-
+        typer.echo(f"  {role} / {model_short}: {count} items, {tin}->{tout} tokens, {cost_str}")
 
 
 @app.command()
@@ -607,7 +597,6 @@ def scan(
 
     if result.entity_errors:
         raise typer.Exit(code=3)
-
 
 
 # graph command namespace: native Typer subapp for code-graph operations.

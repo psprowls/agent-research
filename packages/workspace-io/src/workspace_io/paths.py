@@ -4,7 +4,9 @@ Callers obtain the workspace from `workspace_io.config.resolve()`
 and pass `.workspace` here. These functions do no I/O — they only
 compose paths.
 """
+
 from __future__ import annotations
+
 from pathlib import Path
 
 

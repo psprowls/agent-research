@@ -15,6 +15,7 @@ regions are recognised:
 If `.graph-wiki.yaml` is missing, render is a no-op (the caller is responsible
 for creating the manifest first).
 """
+
 from __future__ import annotations
 
 import re
@@ -63,13 +64,7 @@ def _render_full_template(workspace: Path, plugins: list[dict], initialized_at: 
 
 def _refresh_auto_block(text: str, plugins: list[dict]) -> str:
     """Replace the existing auto block in `text` with a freshly rendered one."""
-    block = (
-        AUTO_START
-        + "\n"
-        + _render_plugin_list(plugins)
-        + "\n"
-        + AUTO_END
-    )
+    block = AUTO_START + "\n" + _render_plugin_list(plugins) + "\n" + AUTO_END
     return _BLOCK_RE.sub(lambda _: block, text, count=1)
 
 

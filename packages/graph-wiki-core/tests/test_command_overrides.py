@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for per-role model_override surfaces on command functions.
 
 Proves D-06 single-role-swap protocol: when exactly one role is overridden,
@@ -14,11 +12,10 @@ model_override.
 All tests use unittest.mock.patch and AsyncMock — no real Bedrock calls.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
-
-import pytest
-
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -123,13 +120,11 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
 
     # synthesizer went through make_llm with the candidate override.
     assert ("synthesizer", candidate) in make_llm_calls, (
-        f"Expected make_llm('synthesizer', model_override={candidate!r}); "
-        f"got calls: {make_llm_calls}"
+        f"Expected make_llm('synthesizer', model_override={candidate!r}); got calls: {make_llm_calls}"
     )
     # librarian was NOT overridden (no model_override).
     assert ("librarian", None) in make_llm_calls, (
-        f"Expected librarian to use make_llm('librarian') with no override; "
-        f"got calls: {make_llm_calls}"
+        f"Expected librarian to use make_llm('librarian') with no override; got calls: {make_llm_calls}"
     )
 
 
@@ -197,8 +192,7 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
         )
 
     assert ("code_reader", candidate) in make_llm_calls, (
-        f"Expected make_llm('code_reader', model_override={candidate!r}); "
-        f"got calls: {make_llm_calls}"
+        f"Expected make_llm('code_reader', model_override={candidate!r}); got calls: {make_llm_calls}"
     )
 
 
@@ -258,8 +252,7 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
         )
 
     assert ("librarian", candidate) in make_llm_calls, (
-        f"Expected make_llm('librarian', model_override={candidate!r}); "
-        f"got calls: {make_llm_calls}"
+        f"Expected make_llm('librarian', model_override={candidate!r}); got calls: {make_llm_calls}"
     )
 
 
@@ -323,19 +316,16 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
 
     # librarian got the candidate.
     assert ("librarian", librarian_candidate) in make_llm_calls, (
-        f"Expected make_llm('librarian', model_override={librarian_candidate!r}); "
-        f"got calls: {make_llm_calls}"
+        f"Expected make_llm('librarian', model_override={librarian_candidate!r}); got calls: {make_llm_calls}"
     )
     # synthesizer went through make_llm WITHOUT the candidate (no override bleed).
     assert ("synthesizer", None) in make_llm_calls, (
-        f"Expected synthesizer to use make_llm('synthesizer') with no override; "
-        f"got calls: {make_llm_calls}"
+        f"Expected synthesizer to use make_llm('synthesizer') with no override; got calls: {make_llm_calls}"
     )
     # The candidate appears exactly once — only for librarian.
     candidate_overrides = [c for c in make_llm_calls if c[1] == librarian_candidate]
     assert candidate_overrides == [("librarian", librarian_candidate)], (
-        "Librarian candidate bled into another role (D-06 violation); "
-        f"all make_llm calls: {make_llm_calls}"
+        f"Librarian candidate bled into another role (D-06 violation); all make_llm calls: {make_llm_calls}"
     )
 
 
@@ -350,6 +340,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     with no override.
     """
     from types import SimpleNamespace
+
     from wiki_io.entity_writer import EntityWriteResult
 
     candidate = "us.amazon.nova-lite-v1:0"
@@ -395,47 +386,65 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     from contextlib import ExitStack
 
     with ExitStack() as stack:
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.resolve_wiki_and_repo",
-            return_value=(vault, None),
-        ))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.compute_state_gate",
-            return_value={"allowed": True, "reason": "ok", "head_commit": "abc123"},
-        ))
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.resolve_wiki_and_repo",
+                return_value=(vault, None),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.compute_state_gate",
+                return_value={"allowed": True, "reason": "ok", "head_commit": "abc123"},
+            )
+        )
         # cg update + read_only_connect simulate a healthy graph so Step 9a runs.
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan._cg_run_build",
-            return_value=(0, "", ""),
-        ))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
-            return_value=MagicMock(),
-        ))
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan._cg_run_build",
+                return_value=(0, "", ""),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.read_only_connect",
+                return_value=MagicMock(),
+            )
+        )
         stack.enter_context(patch("graph_wiki_core.commands.scan.queries.list_packages", return_value=[]))
         # Phase 45: write_entities + narrator pool + inject_narrative.
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.write_entities",
-            return_value=fake_write_result,
-        ))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan._kind_list_fns",
-            return_value=fake_list_fns,
-        ))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.scanner_frontmatter_for_node",
-            return_value={"uri": needy_uri, "kind": "package"},
-        ))
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.write_entities",
+                return_value=fake_write_result,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan._kind_list_fns",
+                return_value=fake_list_fns,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.scanner_frontmatter_for_node",
+                return_value={"uri": needy_uri, "kind": "package"},
+            )
+        )
         stack.enter_context(patch("graph_wiki_core.commands.scan.inject_narrative"))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.generate_index",
-            return_value=MagicMock(changed=False, bytes_written=0),
-        ))
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.generate_index",
+                return_value=MagicMock(changed=False, bytes_written=0),
+            )
+        )
         mock_pool_cls = stack.enter_context(patch("graph_wiki_core.commands.scan.SubagentPool"))
-        stack.enter_context(patch(
-            "graph_wiki_core.commands.scan.make_llm",
-            side_effect=_fake_make_llm,
-        ))
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.make_llm",
+                side_effect=_fake_make_llm,
+            )
+        )
         stack.enter_context(patch("graph_wiki_core.commands.scan.append_log"))
         stack.enter_context(patch("graph_wiki_core.commands.scan.update_index"))
 
@@ -449,13 +458,11 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
     # narrator built via make_llm with the candidate override.
     assert ("narrator", candidate) in make_llm_calls, (
-        f"Expected make_llm('narrator', model_override={candidate!r}); "
-        f"got: {make_llm_calls}"
+        f"Expected make_llm('narrator', model_override={candidate!r}); got: {make_llm_calls}"
     )
     # make_llm('narrator') with NO override must NOT have happened.
     assert ("narrator", None) not in make_llm_calls, (
-        f"make_llm('narrator') with no override should not be called when "
-        f"model_override is set; got: {make_llm_calls}"
+        f"make_llm('narrator') with no override should not be called when model_override is set; got: {make_llm_calls}"
     )
 
 
@@ -495,6 +502,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
     async def _mock_run_all(items, task, **kwargs):
         """Execute the task function on each item so run_linter_group fires."""
         from subagent_runtime.pool import FanOutResult
+
         successes = []
         errors = []
         for item in items:
@@ -554,12 +562,10 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
         await run_lint(workspace_path=vault, model_override=candidate)
 
     assert ("linter", candidate) in make_llm_calls, (
-        f"Expected make_llm('linter', model_override={candidate!r}); "
-        f"got: {make_llm_calls}"
+        f"Expected make_llm('linter', model_override={candidate!r}); got: {make_llm_calls}"
     )
     assert ("linter", None) not in make_llm_calls, (
-        f"make_llm('linter') with no override should not be called when "
-        f"model_override is set; got: {make_llm_calls}"
+        f"make_llm('linter') with no override should not be called when model_override is set; got: {make_llm_calls}"
     )
 
 
@@ -573,9 +579,7 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
     source.write_text("def hello(): pass\n")
 
     ingestor_resp = MagicMock()
-    ingestor_resp.content = (
-        "---\npage_type: concept\ntarget_slug: hello-func\n---\n# Hello\n"
-    )
+    ingestor_resp.content = "---\npage_type: concept\ntarget_slug: hello-func\n---\n# Hello\n"
 
     ingestor_instance = AsyncMock()
     ingestor_instance.ainvoke = AsyncMock(return_value=ingestor_resp)
@@ -590,6 +594,7 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
     # Seed an empty graph so the test exercises the model_override path.
     from graph_io.store import connect as _gio_connect
     from workspace_io.paths import graph_dir as _gio_graph_dir
+
     _gio_db = _gio_graph_dir(vault) / "code.db"
     _gio_db.parent.mkdir(parents=True, exist_ok=True)
     _gio_conn = _gio_connect(_gio_db, create=True)
@@ -612,10 +617,8 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
         await run_ingest_source(source_path=source, workspace_path=vault, model_override=candidate)
 
     assert ("ingestor", candidate) in make_llm_calls, (
-        f"Expected make_llm('ingestor', model_override={candidate!r}); "
-        f"got: {make_llm_calls}"
+        f"Expected make_llm('ingestor', model_override={candidate!r}); got: {make_llm_calls}"
     )
     assert ("ingestor", None) not in make_llm_calls, (
-        f"make_llm('ingestor') with no override should not be called when "
-        f"model_override is set; got: {make_llm_calls}"
+        f"make_llm('ingestor') with no override should not be called when model_override is set; got: {make_llm_calls}"
     )

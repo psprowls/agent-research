@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 """Tests for wiki_io.update_tokens — Bedrock CountTokens API shape.
 
 Requirements: TOK-01, TOK-02 (mocked).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def test_count_tokens_request_shape() -> None:
@@ -23,13 +21,7 @@ def test_count_tokens_request_shape() -> None:
     mock_factory.assert_called_once_with("bedrock-runtime", region_name="us-east-1")
     fake_client.count_tokens.assert_called_once_with(
         modelId="m1",
-        input={
-            "converse": {
-                "messages": [
-                    {"role": "user", "content": [{"text": "hello world"}]}
-                ]
-            }
-        },
+        input={"converse": {"messages": [{"role": "user", "content": [{"text": "hello world"}]}]}},
     )
     assert result == 42
 
@@ -47,6 +39,7 @@ def test_count_tokens_returns_input_tokens() -> None:
 
 
 # F2 — tokens: null on unsupported model.
+
 
 def _seed_page(path: Path, tokens_value: str | int | None = 5) -> None:
     """Write a minimal page with the given tokens frontmatter value.

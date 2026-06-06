@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from wiki_io.lint import (
     dependency,
     domain,
@@ -71,9 +69,7 @@ def test_all_modules_importable() -> None:
 def test_GROUP_constants_unique_and_expected() -> None:
     """All GROUP constants are the expected strings and are all distinct."""
     actual_groups = {mod.GROUP for mod in ALL_MODULES}
-    assert actual_groups == EXPECTED_GROUPS, (
-        f"GROUP mismatch.\nExpected: {EXPECTED_GROUPS}\nGot: {actual_groups}"
-    )
+    assert actual_groups == EXPECTED_GROUPS, f"GROUP mismatch.\nExpected: {EXPECTED_GROUPS}\nGot: {actual_groups}"
 
 
 # ---------------------------------------------------------------------------

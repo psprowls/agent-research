@@ -15,7 +15,8 @@ from ._git_repo import init_repo, write_and_commit
 def _cg(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--repo", str(cwd), "--mode", "test", *args],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -124,10 +125,7 @@ def repo_with_pypi_dep(tmp_path: Path) -> Path:
     write_and_commit(
         tmp_path,
         {
-            "pyproject.toml": (
-                '[project]\nname = "myapp"\nversion = "0.1.0"\n'
-                'dependencies = ["boto3>=1.38"]\n'
-            ),
+            "pyproject.toml": ('[project]\nname = "myapp"\nversion = "0.1.0"\ndependencies = ["boto3>=1.38"]\n'),
             "src/myapp/__init__.py": "",
         },
         "init",
@@ -188,6 +186,7 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
 
     # Resolve workspace and get the DB path.
     from workspace_io.config import resolve as resolve_workspace
+
     ws = resolve_workspace(tmp_path, require_manifest=False).workspace
     db = graph_dir(ws) / "code.db"
 
@@ -201,7 +200,8 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,NULL,NULL,?,?)",
             (
-                "dependency", "lodash",
+                "dependency",
+                "lodash",
                 _json.dumps({"ecosystem": "pypi", "name": "lodash", "url": "", "versions_in_use": []}),
                 "dependency:pypi/lodash",
             ),
@@ -211,16 +211,15 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,NULL,NULL,?,?)",
             (
-                "dependency", "lodash",
+                "dependency",
+                "lodash",
                 _json.dumps({"ecosystem": "npm", "name": "lodash", "url": "", "versions_in_use": []}),
                 "dependency:npm/lodash",
             ),
         )
         conn.commit()
         # Verify two rows exist.
-        count = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='lodash'"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='lodash'").fetchone()[0]
         assert count == 2, f"expected 2 lodash rows, got {count}"
     finally:
         conn.close()
@@ -233,6 +232,5 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
     )
     result = _resolve_kind(args)
     from graph_io import exit_codes
-    assert result == exit_codes.AMBIGUOUS, (
-        f"expected AMBIGUOUS (7), got {result!r}"
-    )
+
+    assert result == exit_codes.AMBIGUOUS, f"expected AMBIGUOUS (7), got {result!r}"

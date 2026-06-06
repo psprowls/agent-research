@@ -9,6 +9,7 @@ The page-type routing prefix is chosen elsewhere —
 `commands/ingest._route_target_path` for the ingestor. This module
 returns only the slug.
 """
+
 from __future__ import annotations
 
 

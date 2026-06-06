@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Fast unit tests for query.py synthesizer-token extraction (TRACE-FU-01 D-03).
 
 Asserts the synthesizer usage_metadata None-guard captures tokens into the
 per-query summary_record at BOTH synth call sites (librarian path and
 code-fallback path). No real Bedrock calls.
 """
+
+from __future__ import annotations
 
 import json
 from contextlib import ExitStack
@@ -47,10 +47,9 @@ def _setup_query_patches(vault: Path):
 @pytest.mark.asyncio
 async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) -> None:
     """Librarian-path synth call: tokens flow from usage_metadata into summary_record."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -94,10 +93,9 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
 @pytest.mark.asyncio
 async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) -> None:
     """When usage_metadata is None (Bedrock error response), tokens fields are None."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -137,10 +135,9 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
 @pytest.mark.asyncio
 async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Path) -> None:
     """Code-fallback synth call: tokens flow into summary_record via tuple return."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()

@@ -118,8 +118,7 @@ def run_dependency_verifiers(verifiers: Sequence[Path] = (S02_VERIFIER, S03_VERI
             output = "\n".join(part for part in [result.stdout.strip(), result.stderr.strip()] if part)
             fail(
                 "dependency verifier failed: "
-                f"{display_path(verifier)} exited {result.returncode}"
-                + (f"\n{output}" if output else "")
+                f"{display_path(verifier)} exited {result.returncode}" + (f"\n{output}" if output else "")
             )
 
 
@@ -226,7 +225,11 @@ def verify_roadmap(text: str) -> None:
     require_contains(text, "### S04 → Future milestones")
     require_regex(text, r"S04 → Future milestones.*Verified initialized GSD state", "S04 to future milestones boundary")
     require_contains(text, "Consumes:")
-    require_regex(text, r"Consumes:\s*- PROJECT, REQUIREMENTS, M001-CONTEXT, ROADMAP, and DECISIONS artifacts", "S04 consumed artifacts")
+    require_regex(
+        text,
+        r"Consumes:\s*- PROJECT, REQUIREMENTS, M001-CONTEXT, ROADMAP, and DECISIONS artifacts",
+        "S04 consumed artifacts",
+    )
 
 
 def verify_decisions(text: str) -> None:
@@ -284,14 +287,15 @@ def expect_failure(action, expected_message_part: str) -> None:
     except AssertionError as exc:
         if expected_message_part not in str(exc):
             fail(
-                "negative self-check failed for unexpected reason: "
-                f"wanted {expected_message_part!r}, got {str(exc)!r}"
+                f"negative self-check failed for unexpected reason: wanted {expected_message_part!r}, got {str(exc)!r}"
             )
         return
     fail(f"negative self-check unexpectedly passed: {expected_message_part}")
 
 
-def run_negative_self_checks(requirements_text: str, roadmap_text: str, decisions_text: str, assembled_text: str) -> None:
+def run_negative_self_checks(
+    requirements_text: str, roadmap_text: str, decisions_text: str, assembled_text: str
+) -> None:
     expect_failure(
         lambda: verify_required_artifacts([PROJECT, ROOT / ".gsd" / "MISSING-ARTIFACT.md"]),
         "required artifact is missing",
@@ -299,11 +303,17 @@ def run_negative_self_checks(requirements_text: str, roadmap_text: str, decision
 
     with tempfile.TemporaryDirectory() as tmp:
         failing = Path(tmp) / "failing_verifier.py"
-        failing.write_text("import sys\nsys.stderr.write('synthetic dependency failure\\n')\nsys.exit(7)\n", encoding="utf-8")
+        failing.write_text(
+            "import sys\nsys.stderr.write('synthetic dependency failure\\n')\nsys.exit(7)\n", encoding="utf-8"
+        )
         expect_failure(lambda: run_dependency_verifiers([failing]), "dependency verifier failed")
 
     expect_failure(
-        lambda: verify_decisions(decisions_text.replace("Manual curation", "Hand-written notes").replace("manual curation", "hand-written notes")),
+        lambda: verify_decisions(
+            decisions_text.replace("Manual curation", "Hand-written notes").replace(
+                "manual curation", "hand-written notes"
+            )
+        ),
         "manual curation",
     )
     expect_failure(
@@ -311,7 +321,9 @@ def run_negative_self_checks(requirements_text: str, roadmap_text: str, decision
         "roadmap missing dependency mapping for S04",
     )
     expect_failure(
-        lambda: verify_no_affirmative_overclaims(assembled_text + "\nM001 completed a wholesale .planning conversion.\n"),
+        lambda: verify_no_affirmative_overclaims(
+            assembled_text + "\nM001 completed a wholesale .planning conversion.\n"
+        ),
         "wholesale conversion completed",
     )
 

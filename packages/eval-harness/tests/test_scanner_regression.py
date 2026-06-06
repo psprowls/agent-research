@@ -21,7 +21,6 @@ import pytest
 from eval_harness.divergence.check import AgentOutputProxy
 from eval_harness.divergence.scanner import SCANNER_CHECKS
 
-
 # Cross-package fixture vault path, precomputed at import time (mirrors
 # the FIXTURE_VAULT pattern from test_query_e2e.py:27-34).
 FIXTURE_VAULT: Path = Path(__file__).parent / "fixtures" / "post-rebrand-vault"
@@ -45,9 +44,7 @@ def _package_page_for(name: str) -> Path:
 def test_fixture_vault_contains_every_post_rebrand_package() -> None:
     """Fixture vault has one page per current packages/* member."""
     for pkg in _EXPECTED_PACKAGE_FILES:
-        assert _package_page_for(pkg).is_file(), (
-            f"missing fixture page for {pkg}: {_package_page_for(pkg)}"
-        )
+        assert _package_page_for(pkg).is_file(), f"missing fixture page for {pkg}: {_package_page_for(pkg)}"
 
 
 def test_fixture_vault_contains_no_lattice_symbols() -> None:
@@ -55,9 +52,7 @@ def test_fixture_vault_contains_no_lattice_symbols() -> None:
     for md in FIXTURE_VAULT.rglob("*.md"):
         text = md.read_text()
         lowered = text.lower()
-        assert "lattice" not in lowered, (
-            f"fixture page {md.relative_to(FIXTURE_VAULT)} still contains 'lattice'"
-        )
+        assert "lattice" not in lowered, f"fixture page {md.relative_to(FIXTURE_VAULT)} still contains 'lattice'"
 
 
 @pytest.mark.parametrize("package", _EXPECTED_PACKAGE_FILES)
@@ -77,6 +72,4 @@ def test_scanner_hard_checks_pass_on_fixture_page(package: str) -> None:
         verdict = check.check(proxy, FIXTURE_VAULT)
         if not verdict.passed:
             hard_failures.append((check.id, verdict.excerpt))
-    assert not hard_failures, (
-        f"scanner regression on {package}: {hard_failures}"
-    )
+    assert not hard_failures, f"scanner regression on {package}: {hard_failures}"

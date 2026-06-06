@@ -39,9 +39,7 @@ def _importer_human(rows: list[Any]) -> str:
     ]
     keys = ["path", "symbols", "depth"]
     widths = {k: max(len(row[k]) for row in formatted) for k in keys}
-    return "\n".join(
-        "  ".join(row[k].ljust(widths[k]) for k in keys) for row in formatted
-    )
+    return "\n".join("  ".join(row[k].ljust(widths[k]) for k in keys) for row in formatted)
 
 
 def _importer_json(rows: list[Any]) -> str:

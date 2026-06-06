@@ -135,9 +135,7 @@ class _GuardedChatBedrockConverse(ChatBedrockConverse):
         BedrockAccessDenied, or return None for any other error code (caller
         re-raises the original)."""
         if e.response.get("Error", {}).get("Code") == "AccessDeniedException":
-            return BedrockAccessDenied(
-                _format_access_denied_message(self._model_id_for_errors, e)
-            )
+            return BedrockAccessDenied(_format_access_denied_message(self._model_id_for_errors, e))
         return None
 
     def _original_invoke(self, *args: Any, **kwargs: Any) -> Any:

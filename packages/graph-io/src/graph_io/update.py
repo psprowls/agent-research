@@ -12,7 +12,6 @@ from typing import Iterable
 
 from source_parser.parse import parse_bytes
 from source_parser.projections.graph import to_graph_records
-
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
 
@@ -55,9 +54,7 @@ class StrictTreeInvariantError(Exception):
 
 
 def _git(args: list[str], *, cwd: Path) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise NotInGitRepoError(result.stderr.strip() or "git command failed")
     return result.stdout
@@ -93,6 +90,7 @@ def _diff(cwd: Path, prev: str) -> list[tuple[str, str]]:
 
 def _is_parseable(path: str) -> bool:
     from source_parser.parsers import EXTENSIONS
+
     return Path(path).suffix in EXTENSIONS
 
 
@@ -102,8 +100,7 @@ def _delete_file_nodes(conn, path: str) -> None:
 
 def _set_metadata(conn, key: str, value: str) -> None:
     conn.execute(
-        "INSERT INTO metadata(key, value) VALUES (?, ?) "
-        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        "INSERT INTO metadata(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, value),
     )
 
@@ -194,9 +191,7 @@ def _read_schema_version_or_none(db_path: Path) -> str | None:
     except sqlite3.Error:
         return None
     try:
-        row = conn.execute(
-            "SELECT value FROM metadata WHERE key='schema_version'"
-        ).fetchone()
+        row = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
     except sqlite3.Error:
         return None
     finally:
@@ -209,16 +204,10 @@ def _enforce_strict_tree_invariant(conn: sqlite3.Connection) -> None:
     physically_contains parents. Always on. Always runs at the end of
     update.run inside the transaction (D-20)."""
     rows = conn.execute(
-        "SELECT dst, COUNT(*) "
-        "FROM edges "
-        "WHERE kind = 'physically_contains' "
-        "GROUP BY dst "
-        "HAVING COUNT(*) > 1"
+        "SELECT dst, COUNT(*) FROM edges WHERE kind = 'physically_contains' GROUP BY dst HAVING COUNT(*) > 1"
     ).fetchall()
     if rows:
-        raise StrictTreeInvariantError(
-            offending_child_ids=[row[0] for row in rows]
-        )
+        raise StrictTreeInvariantError(offending_child_ids=[row[0] for row in rows])
 
 
 def _unlink_db_files(db_path: Path) -> None:
@@ -231,7 +220,9 @@ def _unlink_db_files(db_path: Path) -> None:
     (db_path.parent / "code.db-shm").unlink(missing_ok=True)
 
 
-def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, lock_timeout_ms: int | None = None) -> None:
+def run(
+    repo_root: Path, *, workspace: Path | None = None, full: bool = False, lock_timeout_ms: int | None = None
+) -> None:
     """Run an update against `repo_root`. Single SQLite transaction.
 
     If `workspace` is provided (e.g. already resolved at the CLI layer), it is
@@ -294,13 +285,13 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                 resolve.resolve_file_imports(conn, repo_root)
                 if full:
                     tracked_paths = [
-                        rel for _, rel in changed
-                        if _is_parseable(rel) and not _ignore.should_skip(rel, skip_dirs)
+                        rel for _, rel in changed if _is_parseable(rel) and not _ignore.should_skip(rel, skip_dirs)
                     ]
                     if tracked_paths:
                         placeholders = ",".join("?" for _ in tracked_paths)
                         conn.execute(
-                            f"DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin') AND path IS NOT NULL AND path NOT IN ({placeholders})",
+                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin') "
+                            f"AND path IS NOT NULL AND path NOT IN ({placeholders})",
                             tracked_paths,
                         )
                     else:
@@ -319,6 +310,7 @@ def run(repo_root: Path, *, workspace: Path | None = None, full: bool = False, l
                     structural_nodes,
                     test_suites,
                 )
+
                 structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 agent_plugins.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)

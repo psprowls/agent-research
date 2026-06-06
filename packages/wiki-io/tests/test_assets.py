@@ -4,6 +4,7 @@ Phase 51 PKGFAM-03: belt-and-suspenders regression that the retired
 `entity-package-family.md` and `package-family.md` templates do NOT
 re-appear in the packaged assets.
 """
+
 from __future__ import annotations
 
 from importlib.resources import files
@@ -16,12 +17,8 @@ def _template_names() -> set[str]:
 def test_no_package_family_template() -> None:
     """Phase 51 PKGFAM-03: the two package-family templates are deleted."""
     names = _template_names()
-    assert "entity-package-family.md" not in names, (
-        "entity-package-family.md must stay deleted (Phase 51 PKGFAM-03)"
-    )
-    assert "package-family.md" not in names, (
-        "package-family.md must stay deleted (Phase 51 PKGFAM-03)"
-    )
+    assert "entity-package-family.md" not in names, "entity-package-family.md must stay deleted (Phase 51 PKGFAM-03)"
+    assert "package-family.md" not in names, "package-family.md must stay deleted (Phase 51 PKGFAM-03)"
 
 
 def test_core_entity_templates_still_present() -> None:

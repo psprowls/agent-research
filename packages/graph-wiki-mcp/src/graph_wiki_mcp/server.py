@@ -53,13 +53,11 @@ sys.stdout = _StdoutGuard()  # type: ignore[assignment]
 # All other imports come AFTER the guard is installed so any library-init
 # stdout chatter (boto3, botocore, anyio, etc.) trips the guard loudly.
 import logging  # noqa: E402
-
 from pathlib import Path  # noqa: E402
 
+from graph_wiki_core.commands.query import QueryResult, run_query  # noqa: E402
 from mcp.server.fastmcp import Context, FastMCP  # noqa: E402
 from pydantic import BaseModel, ConfigDict, Field  # noqa: E402
-
-from graph_wiki_core.commands.query import QueryResult, run_query  # noqa: E402
 
 # --- Redirect all logging to stderr ---
 logging.basicConfig(
@@ -100,8 +98,9 @@ def wiki_ping(input: PingInput) -> PingOutput:
 
 # --- wiki_query tool ---
 
+
 class WikiQueryInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     query: str
     workspace_path: str = ""  # empty -> resolve from GRAPH_WIKI_WORKSPACE env var
     top_k: int = Field(default=5, ge=3, le=10)  # 3-10 range enforced (MCP-04)
@@ -149,7 +148,7 @@ from graph_wiki_core.commands.log import LogResult, run_log  # noqa: E402
 
 
 class WikiLogInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     op: str = Field(..., description="Log operation type (scan/ingest/lint/create/update/delete/note/query)")
     title: str = Field(..., description="Short title for the log entry")
     detail: str | None = Field(None, description="Optional extended detail")
@@ -192,7 +191,7 @@ from graph_wiki_core.commands.init import InitResult, run_init  # noqa: E402
 
 
 class WikiBootstrapInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     topic: str = Field(..., description="Short description of the repository")
     tool: str = Field(..., description="Schema file(s) to install (claude-code, codex, cursor, all, ...)")
     force: bool = Field(False, description="Overwrite non-empty target directory")
@@ -243,7 +242,7 @@ from graph_wiki_core.commands.scan import ScanResult, run_scan  # noqa: E402
 
 
 class WikiScanInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
     no_file_map: bool = Field(False, description="Skip per-package file-map generation")
     max_depth: int = Field(3, description="Max directory depth for file map headers")
@@ -303,7 +302,7 @@ from graph_wiki_core.commands.ingest import IngestResult, run_ingest_source, run
 
 
 class WikiIngestInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     type: Literal["source", "work-item"] = Field(
         ..., description="Ingest type: 'source' for files, 'work-item' for structured tickets"
     )
@@ -391,7 +390,7 @@ from graph_wiki_core.commands.lint import LintResult, run_lint  # noqa: E402
 
 
 class WikiLintInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
     stale_days: int = Field(90, description="Days before a page is flagged as stale")
     log_gap_days: int = Field(14, description="Days before a log gap is flagged")
@@ -460,16 +459,16 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
 # --- wiki_propagate_drift tool (Living Wiki M4) ---
 
 from graph_io.store import read_only_connect  # noqa: E402
-from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
-from workspace_io.paths import graph_dir  # noqa: E402
 from graph_wiki_core.commands.propagate_drift import (  # noqa: E402
     PropagateDriftResult,
     run_propagate_drift,
 )
+from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
+from workspace_io.paths import graph_dir  # noqa: E402
 
 
 class WikiPropagateDriftInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     workspace_path: str = Field("", description="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
     dry_run: bool = Field(False, description="Judge + report without writing notes or stamping anchors")
     only: str | None = Field(None, description="Restrict to one entity (uri/stem) or curated page (slug)")
@@ -489,9 +488,7 @@ class WikiPropagateDriftOutput(BaseModel):
     name="wiki_propagate_drift",
     description="Propose curated-page updates for entities whose code changed (M4 drift producer).",
 )
-async def wiki_propagate_drift(
-    input: WikiPropagateDriftInput, ctx: Context
-) -> WikiPropagateDriftOutput:
+async def wiki_propagate_drift(input: WikiPropagateDriftInput, ctx: Context) -> WikiPropagateDriftOutput:
     workspace = Path(input.workspace_path) if input.workspace_path else None
     wiki, repo = resolve_wiki_and_repo(workspace)
     conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
@@ -534,9 +531,9 @@ class GraphBuildInput(BaseModel):
 
 class GraphDescribeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal[
-        "package", "path", "repository", "domain", "entry_point", "test_suite"
-    ] = Field(..., description="Entity kind (snake_case enum).")
+    kind: Literal["package", "path", "repository", "domain", "entry_point", "test_suite"] = Field(
+        ..., description="Entity kind (snake_case enum)."
+    )
     identifier: str | None = Field(
         None,
         description="Identifier (e.g. package name, file path). Required for all kinds except 'repository'.",
@@ -562,9 +559,7 @@ class GraphCommandOutput(BaseModel):
     trace_path: str | None = None
 
 
-def _pack_output(
-    exit_code: int, stdout: str, stderr: str, trace_path: str | None
-) -> GraphCommandOutput:
+def _pack_output(exit_code: int, stdout: str, stderr: str, trace_path: str | None) -> GraphCommandOutput:
     return GraphCommandOutput(
         status="success" if exit_code == 0 else "error",
         exit_code=exit_code,
@@ -616,7 +611,10 @@ async def graph_build(input: GraphBuildInput, ctx: Context) -> GraphCommandOutpu
 
 @mcp.tool(
     name="graph_describe",
-    description="Describe a graph entity. Mirrors `gw graph describe-package`, `gw graph describe-path`, and related describe commands.",
+    description=(
+        "Describe a graph entity. Mirrors `gw graph describe-package`, "
+        "`gw graph describe-path`, and related describe commands."
+    ),
 )
 async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphCommandOutput:
     # Validate kind + identifier-required semantics against the public mapping
@@ -640,9 +638,7 @@ async def graph_describe(input: GraphDescribeInput, ctx: Context) -> GraphComman
         trace_path_str = str(trace_file.resolve())
 
     t0 = time.monotonic()
-    exit_code, stdout, stderr = graph_module.run_describe(
-        input.kind, input.identifier, repo, workspace
-    )
+    exit_code, stdout, stderr = graph_module.run_describe(input.kind, input.identifier, repo, workspace)
     dur_ms = int((time.monotonic() - t0) * 1000)
 
     if trace_file is not None:

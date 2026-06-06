@@ -12,8 +12,7 @@ All tests are deterministic (no live Bedrock calls).
 from __future__ import annotations
 
 import pytest
-
-from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check
+from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost
 from model_adapter.exceptions import BedrockAccessDenied
 
 # ---------------------------------------------------------------------------

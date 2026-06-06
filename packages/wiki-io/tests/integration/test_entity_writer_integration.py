@@ -25,7 +25,6 @@ from pathlib import Path
 
 import frontmatter
 import pytest
-
 from graph_io import agent_plugins, packages, structural_nodes
 from graph_io.schema import apply_schema
 from graph_io.uri import RepoContext
@@ -42,16 +41,10 @@ CTX = RepoContext(org="local", repo="fixture")
 def _init_git_repo(root: Path) -> None:
     """Initialize a git repo so structural_nodes._tracked_files has something to read."""
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=root, check=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "test"], cwd=root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=root, check=True)
     subprocess.run(["git", "add", "."], cwd=root, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "fixture init"], cwd=root, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "fixture init"], cwd=root, check=True)
 
 
 def _build_fixture_workspace(root: Path) -> None:
@@ -66,31 +59,25 @@ def _build_fixture_workspace(root: Path) -> None:
     (root / "pkg-a" / "src" / "pkg_a" / "__init__.py").write_text("")
     (root / "pkg-a" / "src" / "pkg_a" / "sub" / "__init__.py").write_text("")
     (root / "pkg-a" / "pyproject.toml").write_text(
-        '[project]\n'
-        'name = "pkg-a"\n'
-        'version = "0.1.1"\n'
-        'dependencies = ["boto3>=1.38", "pyyaml>=6"]\n'
+        '[project]\nname = "pkg-a"\nversion = "0.1.1"\ndependencies = ["boto3>=1.38", "pyyaml>=6"]\n'
     )
     (root / "pkg-b").mkdir(parents=True)
     (root / "pkg-b" / "pyproject.toml").write_text(
-        '[project]\n'
-        'name = "pkg-b"\n'
-        'version = "0.1.1"\n'
-        'dependencies = ["boto3==1.40", "click>=8"]\n'
+        '[project]\nname = "pkg-b"\nversion = "0.1.1"\ndependencies = ["boto3==1.40", "click>=8"]\n'
     )
     (root / ".graph-wiki.yaml").write_text(
-        'version: 2\n'
+        "version: 2\n"
         'initialized_at: "2026-05-26"\n'
-        'plugins:\n'
-        '  - name: graph-wiki\n'
+        "plugins:\n"
+        "  - name: graph-wiki\n"
         '    installed_version: "0.1.1"\n'
         '    applied_version: "0.1.1"\n'
     )
     pdir = root / "plugins" / "graph-wiki" / ".claude-plugin"
     pdir.mkdir(parents=True, exist_ok=True)
-    (pdir / "plugin.json").write_text(json.dumps(
-        {"name": "graph-wiki", "version": "0.1.1", "description": "A wiki plugin."}
-    ))
+    (pdir / "plugin.json").write_text(
+        json.dumps({"name": "graph-wiki", "version": "0.1.1", "description": "A wiki plugin."})
+    )
 
 
 def _ingest(workspace: Path) -> sqlite3.Connection:
@@ -98,9 +85,7 @@ def _ingest(workspace: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
     apply_schema(conn)
     packages.refresh(conn, repo_root=workspace, ctx=CTX)
-    structural_nodes.emit(
-        conn, repo_root=workspace, ctx=CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=workspace, ctx=CTX, skip_dirs=frozenset())
     agent_plugins.emit(conn, repo_root=workspace, ctx=CTX)
     return conn
 
@@ -113,9 +98,7 @@ def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
     result = write_entities(conn, wiki_root, ADMITTED_KINDS)
 
     # Expected pages: 1 repo + 2 packages + 3 unique deps (boto3, pyyaml, click) + 1 agent_plugin = 7
-    assert len(result.created) >= 7, (
-        f"expected >=7 created, got {len(result.created)}: {result.created}"
-    )
+    assert len(result.created) >= 7, f"expected >=7 created, got {len(result.created)}: {result.created}"
     assert result.errors == [], f"unexpected errors: {result.errors}"
     assert result.needs_narrative == set(result.created)
 
@@ -143,9 +126,7 @@ def test_write_entities_removes_gitkeep_when_pages_created(tmp_path):
     result = write_entities(conn, wiki_root, ADMITTED_KINDS)
 
     assert result.created, "fixture should create at least one entity page"
-    assert not (entities / ".gitkeep").exists(), (
-        ".gitkeep must be removed once real entity pages exist"
-    )
+    assert not (entities / ".gitkeep").exists(), ".gitkeep must be removed once real entity pages exist"
     assert any(entities.glob("*.md")), "expected entity *.md pages on disk"
 
 
@@ -162,9 +143,7 @@ def test_write_entities_restores_gitkeep_when_dir_empty(tmp_path):
     assert result.created == []
     entities = wiki_root / "entities"
     assert list(entities.glob("*.md")) == [], "no entity pages expected"
-    assert (entities / ".gitkeep").is_file(), (
-        ".gitkeep must be restored when entities/ is empty"
-    )
+    assert (entities / ".gitkeep").is_file(), ".gitkeep must be restored when entities/ is empty"
 
 
 def test_status_deprecated_preserved_after_rewrite(tmp_path):
@@ -199,9 +178,7 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
         "  SELECT id FROM nodes WHERE kind='package' AND name='pkg-a'"
         ")"
     )
-    conn.execute(
-        "DELETE FROM nodes WHERE kind='package' AND name='pkg-a'"
-    )
+    conn.execute("DELETE FROM nodes WHERE kind='package' AND name='pkg-a'")
 
     result = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert any("pkg-a" in uri for uri in result.deleted)
@@ -287,7 +264,7 @@ def test_no_unsubstituted_token_and_summary_populated(tmp_path):
     _build_fixture_workspace(tmp_path)
     # Give pkg-a a real description so its summary is description-derived (D-06/D-05).
     (tmp_path / "pkg-a" / "pyproject.toml").write_text(
-        '[project]\n'
+        "[project]\n"
         'name = "pkg-a"\n'
         'version = "0.1.1"\n'
         'description = "Package A does useful things."\n'
@@ -305,14 +282,10 @@ def test_no_unsubstituted_token_and_summary_populated(tmp_path):
     for page in pages:
         post = frontmatter.load(page)
         # SCAN-01: no raw {{...}} data token survives in the body.
-        assert "{{" not in post.content, (
-            f"{page.name}: unsubstituted token survives in body"
-        )
+        assert "{{" not in post.content, f"{page.name}: unsubstituted token survives in body"
         # SCAN-02: every page has a non-empty summary.
         summary = post.metadata.get("summary")
-        assert summary not in (None, "", []), (
-            f"{page.name}: missing/empty summary: {summary!r}"
-        )
+        assert summary not in (None, "", []), f"{page.name}: missing/empty summary: {summary!r}"
 
     # pkg-a's summary is the real description (description-derived path).
     pkg_a = frontmatter.load(entities / "pkg_pkg-a.md")

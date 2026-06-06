@@ -16,9 +16,7 @@ from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
 
 def test_parse_plain_json_object():
-    out = parse_file_describer_output(
-        '{"pyproject.toml": "package manifest", "src/core.py": "the engine"}'
-    )
+    out = parse_file_describer_output('{"pyproject.toml": "package manifest", "src/core.py": "the engine"}')
     assert out == {
         "pyproject.toml": "package manifest",
         "src/core.py": "the engine",

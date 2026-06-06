@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Parity tests for the lint command (Plan 05-06).
 
 Uses edge-case-vault fixture; mocks SubagentPool.run_all to avoid Bedrock calls.
@@ -8,6 +6,8 @@ Verifies finding shape invariants (NOT exact counts — counts may drift with fi
 Requirements: CMD-05 (parity against lattice-wiki lint behavior)
 Success criterion 3: broken-link placeholder filter verified at parity layer.
 """
+
+from __future__ import annotations
 
 import dataclasses
 import json
@@ -126,12 +126,6 @@ async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool, tmp
     result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     for src, target in result.broken_links:
-        assert "..." not in target, (
-            f"Placeholder target with '...' in broken_links: ({src}, {target})"
-        )
-        assert "<" not in target, (
-            f"Placeholder target with '<' in broken_links: ({src}, {target})"
-        )
-        assert ">" not in target, (
-            f"Placeholder target with '>' in broken_links: ({src}, {target})"
-        )
+        assert "..." not in target, f"Placeholder target with '...' in broken_links: ({src}, {target})"
+        assert "<" not in target, f"Placeholder target with '<' in broken_links: ({src}, {target})"
+        assert ">" not in target, f"Placeholder target with '>' in broken_links: ({src}, {target})"

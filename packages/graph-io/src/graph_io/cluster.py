@@ -260,9 +260,7 @@ def compute_clusters(
     steps. ``hub_threshold`` must be in ``(0.0, 1.0]`` (D-06).
     """
     if not (0.0 < hub_threshold <= 1.0):
-        raise ValueError(
-            f"hub_threshold must be in (0.0, 1.0], got {hub_threshold}"
-        )
+        raise ValueError(f"hub_threshold must be in (0.0, 1.0], got {hub_threshold}")
 
     names = _load_package_names(conn)
     n_packages_total = len(names)
@@ -286,9 +284,7 @@ def compute_clusters(
     hubs = _compute_hubs(adjacency_in, names, hub_threshold)
 
     remaining_names = [n for n in names if n not in hubs]
-    remaining_edges = [
-        (s, d) for s, d in edges if s not in hubs and d not in hubs
-    ]
+    remaining_edges = [(s, d) for s, d in edges if s not in hubs and d not in hubs]
 
     uf = _UnionFind(remaining_names)
     for src, dst in remaining_edges:
@@ -345,15 +341,11 @@ def compute_clusters(
                 name=h,
                 imported_by_count=imported_by_count,
                 imported_by_fraction=imported_by_fraction,
-                connects_clusters=_compute_connects_clusters(
-                    h, edges, name_to_cluster_id
-                ),
+                connects_clusters=_compute_connects_clusters(h, edges, name_to_cluster_id),
             )
         )
 
-    degenerate_warning = _detect_degenerate(
-        clusters_tuple, n_packages_total, hub_threshold
-    )
+    degenerate_warning = _detect_degenerate(clusters_tuple, n_packages_total, hub_threshold)
 
     return ClusterResult(
         hub_threshold=hub_threshold,

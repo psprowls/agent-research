@@ -18,9 +18,7 @@ from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, short_filename
 
 
 def _node(uri: str, path: str):
-    return types.SimpleNamespace(
-        attrs={"uri": uri}, path=path, name=Path(path).name, kind="package"
-    )
+    return types.SimpleNamespace(attrs={"uri": uri}, path=path, name=Path(path).name, kind="package")
 
 
 def _write_page(wiki: Path, uri: str, *, anchor: str | None) -> Path:
@@ -29,9 +27,7 @@ def _write_page(wiki: Path, uri: str, *, anchor: str | None) -> Path:
     fm = f"uri: {uri}\nkind: package\n"
     if anchor:
         fm += f"{LAST_UPDATED_COMMIT_KEY}: {anchor}\n"
-    page.write_text(
-        f"---\n{fm}---\n# {uri}\n\n## Narrative\nprose\n", encoding="utf-8"
-    )
+    page.write_text(f"---\n{fm}---\n# {uri}\n\n## Narrative\nprose\n", encoding="utf-8")
     return page
 
 
@@ -48,12 +44,8 @@ def test_dirty_when_files_changed(tmp_path, monkeypatch) -> None:
     uri = "pkg:org/repo/foo"
     _write_page(wiki, uri, anchor="anchor_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
-    monkeypatch.setattr(
-        scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/foo/x.py"]
-    )
-    dirty = _commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    )
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/foo/x.py"])
+    dirty = _commit_dirty_changes(wiki, tmp_path / "repo", object(), "head_sha", frozenset())
     assert dirty == {uri: ["packages/foo/x.py"]}
 
 
@@ -63,9 +55,7 @@ def test_clean_when_no_changes(tmp_path, monkeypatch) -> None:
     _write_page(wiki, uri, anchor="anchor_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
-    assert _commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == {}
+    assert _commit_dirty_changes(wiki, tmp_path / "repo", object(), "head_sha", frozenset()) == {}
 
 
 def test_skips_pages_without_anchor(tmp_path, monkeypatch) -> None:
@@ -74,12 +64,8 @@ def test_skips_pages_without_anchor(tmp_path, monkeypatch) -> None:
     _write_page(wiki, uri, anchor=None)  # pre-M2 page
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
     consulted: list[int] = []
-    monkeypatch.setattr(
-        scan_mod, "changed_files_since", lambda *a: consulted.append(1) or []
-    )
-    assert _commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == {}
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: consulted.append(1) or [])
+    assert _commit_dirty_changes(wiki, tmp_path / "repo", object(), "head_sha", frozenset()) == {}
     assert consulted == []  # git never consulted for anchorless pages
 
 
@@ -89,9 +75,7 @@ def test_unknown_anchor_treated_as_dirty(tmp_path, monkeypatch) -> None:
     _write_page(wiki, uri, anchor="gone_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: None)  # SHA unknown
-    assert _commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    ) == {uri: None}
+    assert _commit_dirty_changes(wiki, tmp_path / "repo", object(), "head_sha", frozenset()) == {uri: None}
 
 
 def test_no_head_returns_empty(tmp_path, monkeypatch) -> None:
@@ -99,9 +83,7 @@ def test_no_head_returns_empty(tmp_path, monkeypatch) -> None:
     uri = "pkg:org/repo/foo"
     _write_page(wiki, uri, anchor="anchor_sha")
     _patch_list_fns(monkeypatch, [_node(uri, "packages/foo")])
-    assert _commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), None, frozenset()
-    ) == {}
+    assert _commit_dirty_changes(wiki, tmp_path / "repo", object(), None, frozenset()) == {}
 
 
 # ---------------------------------------------------------------------------
@@ -161,12 +143,8 @@ def m2a_workspace(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(
-        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
-    )
-    monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
-    )
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     # Minimal deterministic file map so the package page gets a File map section.
     monkeypatch.setattr(
         scan_mod,
@@ -200,9 +178,7 @@ def _narrate_all_spy(prose_fn):
         else:  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
             import json as _json
 
-            result.successes = [
-                (it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+            result.successes = [(it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         return result
 
     return _run_all
@@ -213,11 +189,7 @@ _PKG_B = "pkg:org/repo/pkg-b"
 
 
 def _page_for_uri(wiki: Path, uri: str):
-    return next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == uri
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == uri)
 
 
 def _page_for(wiki: Path):
@@ -235,12 +207,8 @@ def m2a_workspace_two(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_two_packages(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(
-        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
-    )
-    monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
-    )
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
 
     # Per-package deterministic file map for either pkg-a or pkg-b paths.
     def _file_map(path, **kw):
@@ -264,11 +232,13 @@ def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
     wiki = workspace / "wiki"
     repo = workspace / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
     )
 
@@ -295,11 +265,13 @@ def test_narrative_survives_no_narrate_rescan(m2a_workspace, monkeypatch) -> Non
     wiki = workspace / "wiki"
     repo = workspace / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -320,13 +292,15 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     # Distinct prose per scan so we can tell a refresh from a restore.
     prose_tag = {"v": "FIRST"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
     )
 
@@ -338,7 +312,8 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     heads["v"] = "head2"
     prose_tag["v"] = "SECOND"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -347,9 +322,7 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head2"
 
 
-def test_mixed_scan_refreshes_changed_preserves_unchanged(
-    m2a_workspace_two, monkeypatch
-) -> None:
+def test_mixed_scan_refreshes_changed_preserves_unchanged(m2a_workspace_two, monkeypatch) -> None:
     """Two packages in one scan: pkg-a's files changed since its anchor (refresh
     + restamp to head2); pkg-b's did not (preserve old prose + keep head1)."""
     workspace = m2a_workspace_two
@@ -358,12 +331,14 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     prose_tag = {"v": "FIRST"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
     )
 
@@ -378,10 +353,9 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(
     heads["v"] = "head2"
     prose_tag["v"] = "SECOND"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
-        lambda repo, sha, sub: (
-            ["packages/pkg-a/x.py"] if str(sub).endswith("pkg-a") else []
-        ),
+        scan_mod,
+        "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/x.py"] if str(sub).endswith("pkg-a") else [],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
@@ -425,7 +399,8 @@ def test_commit_dirty_includes_test_suite(tmp_path, monkeypatch) -> None:
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        scan_mod, "_kind_list_fns",
+        scan_mod,
+        "_kind_list_fns",
         lambda: {
             "package": lambda conn: [],
             "app": lambda conn: [],
@@ -433,12 +408,11 @@ def test_commit_dirty_includes_test_suite(tmp_path, monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
     )
-    dirty = scan_mod._commit_dirty_changes(
-        wiki, tmp_path / "repo", object(), "head_sha", frozenset()
-    )
+    dirty = scan_mod._commit_dirty_changes(wiki, tmp_path / "repo", object(), "head_sha", frozenset())
     assert dirty == {uri: ["packages/pkg-a/tests/test_mod.py"]}
 
 
@@ -461,27 +435,19 @@ def m2a_workspace_gitrepo(tmp_path, monkeypatch):
 
     # Real git repo with one commit (so `git rev-parse --short <full>` resolves).
     (repo / "packages" / "pkg-a").mkdir(parents=True)
-    (repo / "packages" / "pkg-a" / "pyproject.toml").write_text(
-        "[project]\n", encoding="utf-8"
-    )
+    (repo / "packages" / "pkg-a" / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     for args in (
         ["init"],
         ["add", "-A"],
         ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"],
     ):
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-    full = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True
-    ).stdout.strip()
+    full = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout.strip()
 
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(
-        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
-    )
-    monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
-    )
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "build_file_map",
@@ -513,15 +479,11 @@ def test_stamped_commit_is_short_form(m2a_workspace_gitrepo, monkeypatch) -> Non
         _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
     )
 
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     stamped = str(_fm.load(_page_for(wiki)).metadata.get("last_updated_commit"))
-    assert stamped != full           # abbreviated, not the full 40-char SHA
+    assert stamped != full  # abbreviated, not the full 40-char SHA
     assert len(stamped) < 40
     assert full.startswith(stamped)  # git's canonical prefix
-    resolved = subprocess.run(
-        ["git", "rev-parse", stamped], cwd=repo, capture_output=True, text=True
-    ).stdout.strip()
-    assert resolved == full          # short form still resolves to HEAD
+    resolved = subprocess.run(["git", "rev-parse", stamped], cwd=repo, capture_output=True, text=True).stdout.strip()
+    assert resolved == full  # short form still resolves to HEAD

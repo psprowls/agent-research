@@ -26,7 +26,6 @@ from typing import NoReturn
 
 from workspace_io.paths import work_dir
 
-from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.update_index import update_index
 

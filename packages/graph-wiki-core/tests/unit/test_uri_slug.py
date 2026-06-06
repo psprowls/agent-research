@@ -1,13 +1,12 @@
-from __future__ import annotations
-
 """Unit tests for graph_wiki_core.uri_slug.slug_from_uri (Phase 40).
 
 The helper is pure: given a URI, return its last segment as the canonical slug.
 These tests pin the deterministic invariants in PLAN.md.
 """
 
-import pytest
+from __future__ import annotations
 
+import pytest
 from graph_wiki_core.uri_slug import slug_from_uri
 
 

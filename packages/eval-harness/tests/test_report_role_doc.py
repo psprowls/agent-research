@@ -10,9 +10,7 @@ All tests are deterministic (no Bedrock calls).
 
 from __future__ import annotations
 
-import pytest
 from eval_harness.sweep import SweepResult
-
 
 # ---------------------------------------------------------------------------
 # Helper: minimal SweepResult for unit testing

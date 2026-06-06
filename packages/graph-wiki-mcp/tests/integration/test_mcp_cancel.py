@@ -1,11 +1,11 @@
-from __future__ import annotations
+"""Cancel-mid-fan-out test (direct asyncio; no subprocess). Requirements covered: MCP-10, MCP-11."""
 
 # integration-gate-allow: mock-only test (stub LLM, zero Bedrock cost). Lives
 # under tests/integration/ for organizational grouping with related cancel
 # tests; runs unconditionally by design (see test docstring "No INTEGRATION_GATE").
 # Phase 16 D-10 allowlists this file from the canonical-gate grep gate.
 
-"""Cancel-mid-fan-out test (direct asyncio; no subprocess). Requirements covered: MCP-10, MCP-11."""
+from __future__ import annotations
 
 import asyncio
 import json
@@ -13,9 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from graph_wiki_core.commands.query import run_query
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -37,15 +35,9 @@ def _seed_minimal_vault(vault: Path) -> list[str]:
     # the wiki is the `wiki/` subdir, with the index at the workspace-level .graph-wiki.
     pages_dir = vault / "wiki" / "pages"
     pages_dir.mkdir(parents=True)
-    (pages_dir / "alpha.md").write_text(
-        "---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n"
-    )
-    (pages_dir / "beta.md").write_text(
-        "---\ntitle: Beta\n---\n\n# Beta\n\nBeta depends on alpha.\n"
-    )
-    (pages_dir / "gamma.md").write_text(
-        "---\ntitle: Gamma\n---\n\n# Gamma\n\nGamma provides utilities.\n"
-    )
+    (pages_dir / "alpha.md").write_text("---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n")
+    (pages_dir / "beta.md").write_text("---\ntitle: Beta\n---\n\n# Beta\n\nBeta depends on alpha.\n")
+    (pages_dir / "gamma.md").write_text("---\ntitle: Gamma\n---\n\n# Gamma\n\nGamma provides utilities.\n")
 
     return ["pages/alpha.md", "pages/beta.md", "pages/gamma.md"]
 
@@ -121,9 +113,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
 
     # --- Cancel sequence ---
     # asyncio.ensure_future schedules run_query on the running event loop.
-    task = asyncio.ensure_future(
-        run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3)
-    )
+    task = asyncio.ensure_future(run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3))
 
     # Yield control long enough for asyncio.gather to start _run_one coroutines and
     # for each _run_one to reach its "await asyncio.sleep(3)" in _slow_ainvoke.
@@ -147,11 +137,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     trace_files = list(trace_dir.glob("*.jsonl"))
     assert trace_files, f"No trace files found in {trace_dir}"
 
-    lines = [
-        json.loads(line)
-        for line in trace_files[0].read_text().splitlines()
-        if line.strip()
-    ]
+    lines = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert lines, "Trace file is empty"
 
     # (a) At least one per-item record with status: cancelled
@@ -160,9 +146,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
 
     # (b) Exactly one batch terminal record with event: batch_cancelled
     batch = [line for line in lines if line.get("event") == "batch_cancelled"]
-    assert len(batch) == 1, (
-        f"Expected exactly one batch_cancelled record, got {len(batch)}; lines: {lines}"
-    )
+    assert len(batch) == 1, f"Expected exactly one batch_cancelled record, got {len(batch)}; lines: {lines}"
 
     # (c) The batch_cancelled record is the LAST line in the trace file (Invariant 5)
     assert lines[-1].get("event") == "batch_cancelled", (
@@ -170,6 +154,4 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
     )
 
     # (d) Per-item cancelled records have NO event key (D-07 discriminator)
-    assert all("event" not in line for line in cancelled), (
-        "Per-item cancelled records must not carry an 'event' key"
-    )
+    assert all("event" not in line for line in cancelled), "Per-item cancelled records must not carry an 'event' key"

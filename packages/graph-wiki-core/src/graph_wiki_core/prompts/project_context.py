@@ -48,16 +48,12 @@ def _render(schema_path: Path) -> str:
     # Project style — heading-walk extraction; omitted if no ## Style.
     style_body = _extract_section(schema_path, "Style")
     if style_body:
-        sections.append(
-            f"## Project style (wiki/{filename} §Style)\n\n{style_body}"
-        )
+        sections.append(f"## Project style (wiki/{filename} §Style)\n\n{style_body}")
 
     # Log format — same approach.
     log_body = _extract_section(schema_path, "Log format")
     if log_body:
-        sections.append(
-            f"## Log format (wiki/{filename} §Log format)\n\n{log_body}"
-        )
+        sections.append(f"## Log format (wiki/{filename} §Log format)\n\n{log_body}")
 
     return "\n\n".join(sections).rstrip()
 
@@ -84,13 +80,9 @@ def _extract_section(schema_path: Path, heading: str) -> str:
         stripped = line.lstrip()
         if in_section:
             # Track fenced code blocks so headings inside them don't terminate.
-            if not in_fence and (
-                stripped.startswith("```") or stripped.startswith("~~~")
-            ):
+            if not in_fence and (stripped.startswith("```") or stripped.startswith("~~~")):
                 in_fence = True
-            elif in_fence and (
-                stripped.startswith("```") or stripped.startswith("~~~")
-            ):
+            elif in_fence and (stripped.startswith("```") or stripped.startswith("~~~")):
                 in_fence = False
             elif not in_fence and line.startswith("## "):
                 break

@@ -1,8 +1,7 @@
 import pytest
-from tree_sitter import Language, Parser
-
 from source_parser import UnsupportedLanguageError
 from source_parser.grammars import get_language
+from tree_sitter import Language, Parser
 
 
 def test_python_loads():

@@ -90,10 +90,7 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
 
     pkg_rows: list[import_scan.PkgRow] = [
         (r[0], r[1], r[2])
-        for r in conn.execute(
-            "SELECT name, path, attrs_json FROM nodes "
-            "WHERE kind IN ('package', 'app')"
-        ).fetchall()
+        for r in conn.execute("SELECT name, path, attrs_json FROM nodes WHERE kind IN ('package', 'app')").fetchall()
     ]
 
     stub_ids: set[int] = set()
@@ -111,13 +108,9 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
         stub_ids.add(stub_id)
         importing_file = repo_root / importing_path
         if Path(importing_path).suffix in _JS_EXTENSIONS:
-            rel = import_scan.resolve_js_import_file(
-                specifier, importing_file, repo_root
-            )
+            rel = import_scan.resolve_js_import_file(specifier, importing_file, repo_root)
         else:
-            rel = import_scan.resolve_python_import_file(
-                specifier, repo_root, pkg_rows
-            )
+            rel = import_scan.resolve_python_import_file(specifier, repo_root, pkg_rows)
 
         if rel is None:
             # External / third-party / stdlib specifier with no in-repo file.
@@ -153,9 +146,7 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
         resolution = "exact" if len(real) == 1 else "ambiguous"
         # Preserve the imported symbol (the old stub's name) on the edge — the
         # real file node carries no per-symbol info.
-        repoint_attrs: dict[str, object] = (
-            json.loads(attrs_json) if attrs_json else {}
-        )
+        repoint_attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
         repoint_attrs["resolution"] = resolution
         if symbol is not None:
             repoint_attrs.setdefault("symbol", symbol)
@@ -183,8 +174,7 @@ def resolve_file_imports(conn: sqlite3.Connection, repo_root: Path) -> None:
             list(stub_ids),
         )
         conn.execute(
-            f"DELETE FROM nodes WHERE id IN ({placeholders}) "
-            "AND uri IS NULL AND id NOT IN (SELECT dst FROM edges)",
+            f"DELETE FROM nodes WHERE id IN ({placeholders}) AND uri IS NULL AND id NOT IN (SELECT dst FROM edges)",
             list(stub_ids),
         )
 
@@ -199,11 +189,7 @@ def sweep(conn: sqlite3.Connection) -> None:
 
     for src, old_dst, edge_kind, attrs_json, node_kind, node_name in placeholder_edges:
         edge_attrs: dict[str, object] = json.loads(attrs_json) if attrs_json else {}
-        symbol_kind = (
-            edge_attrs.get("symbol_kind")
-            if node_kind == _UNRESOLVED_SYMBOL_KIND
-            else node_kind
-        )
+        symbol_kind = edge_attrs.get("symbol_kind") if node_kind == _UNRESOLVED_SYMBOL_KIND else node_kind
         if not isinstance(symbol_kind, str):
             symbol_kind = node_kind
 
@@ -276,11 +262,7 @@ def sweep_skip_dir_files(conn: sqlite3.Connection, skip_dirs: frozenset[str]) ->
         "SELECT id, path FROM nodes WHERE kind = 'file' AND uri IS NULL AND path IS NOT NULL"
     ).fetchall()
 
-    to_delete = [
-        node_id
-        for node_id, path in candidates
-        if should_skip(path, skip_dirs)
-    ]
+    to_delete = [node_id for node_id, path in candidates if should_skip(path, skip_dirs)]
 
     if not to_delete:
         return
@@ -290,7 +272,4 @@ def sweep_skip_dir_files(conn: sqlite3.Connection, skip_dirs: frozenset[str]) ->
 
     # Remove edges orphaned by the node deletions (ON DELETE CASCADE is not
     # guaranteed to fire for all SQLite builds, so we do this explicitly).
-    conn.execute(
-        "DELETE FROM edges "
-        "WHERE src NOT IN (SELECT id FROM nodes) OR dst NOT IN (SELECT id FROM nodes)"
-    )
+    conn.execute("DELETE FROM edges WHERE src NOT IN (SELECT id FROM nodes) OR dst NOT IN (SELECT id FROM nodes)")

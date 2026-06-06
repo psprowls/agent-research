@@ -64,9 +64,7 @@ def post_phase33_fixture(tmp_path_factory) -> FixtureRefs:
                 # (no [project.scripts]) so post-Phase-50 classification
                 # holds it as kind="package" — the same describe-package
                 # contract pre-existing tests covered.
-                "[project]\n"
-                'name = "sample-pkg"\n'
-                'version = "0.1.1"\n'
+                '[project]\nname = "sample-pkg"\nversion = "0.1.1"\n'
             ),
             "src/sample_pkg/__init__.py": "",
             "src/sample_pkg/cli.py": "def main():\n    return 0\n",
@@ -112,9 +110,7 @@ def post_phase33_fixture(tmp_path_factory) -> FixtureRefs:
         "callees",
     ],
 )
-def test_pre_existing_subcommand_exits_zero(
-    post_phase33_fixture: FixtureRefs, kind: str
-) -> None:
+def test_pre_existing_subcommand_exits_zero(post_phase33_fixture: FixtureRefs, kind: str) -> None:
     refs = post_phase33_fixture
     args_by_cmd: dict[str, list[str]] = {
         "update": ["update", "--full"],
@@ -126,9 +122,7 @@ def test_pre_existing_subcommand_exits_zero(
         "callees": ["callees", refs.symbol_id],
     }
     result = _run_cli(args_by_cmd[kind], refs.repo_dir)
-    assert result.returncode == 0, (
-        f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
-    )
+    assert result.returncode == 0, f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
 
 
 def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
@@ -140,9 +134,7 @@ def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
     """
     refs = post_phase33_fixture
     result = _run_cli(["find", "foo.py"], refs.repo_dir)
-    assert result.returncode != 0, (
-        f"positional `gw graph find foo.py` should error, got rc=0: {result.stdout}"
-    )
+    assert result.returncode != 0, f"positional `gw graph find foo.py` should error, got rc=0: {result.stdout}"
     assert "unexpected extra argument" in result.stderr.lower(), result.stderr
 
 
@@ -153,9 +145,7 @@ def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
     "kind",
     ["imports", "imported-by", "exports", "exported-by", "dump", "sync-wiki"],
 )
-def test_unlisted_pre_existing_subcommand_exits_zero(
-    post_phase33_fixture: FixtureRefs, kind: str
-) -> None:
+def test_unlisted_pre_existing_subcommand_exits_zero(post_phase33_fixture: FixtureRefs, kind: str) -> None:
     refs = post_phase33_fixture
     if kind == "sync-wiki":
         pytest.xfail("sync-wiki requires a configured wiki target; see Phase 14")
@@ -168,6 +158,4 @@ def test_unlisted_pre_existing_subcommand_exits_zero(
         "sync-wiki": ["sync-wiki"],
     }
     result = _run_cli(args_by_cmd[kind], refs.repo_dir)
-    assert result.returncode == 0, (
-        f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"
-    )
+    assert result.returncode == 0, f"gw graph {' '.join(args_by_cmd[kind])} regressed: stderr={result.stderr}"

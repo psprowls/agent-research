@@ -8,9 +8,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -122,9 +119,7 @@ def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
     names = {w["name"] for w in workspaces}
 
     assert "pkg-a" in names, f"Expected 'pkg-a' in default results, got: {names}"
-    assert "stray-pkg" in names, (
-        f"Without workspace_dir, 'stray-pkg' must appear (additive default). Got: {names}"
-    )
+    assert "stray-pkg" in names, f"Without workspace_dir, 'stray-pkg' must appear (additive default). Got: {names}"
 
 
 # ---------------------------------------------------------------------------
@@ -192,17 +187,15 @@ class TestBuildFileMap:
         assert "|---|---|---|" in result
         assert "| `README.md` | file | — TODO |" in result
         # No other H3 sections
-        h3_lines = [l for l in result.splitlines() if l.startswith("### ")]
+        h3_lines = [line for line in result.splitlines() if line.startswith("### ")]
         assert h3_lines == ["### mypkg/"], f"Expected only root H3, got: {h3_lines}"
 
     def test_root_plus_subdir_produces_two_h3_sections(self) -> None:
         """Package with root files + src/ subdir produces exactly two H3 sections."""
         result = _bfm("mypkg", ["README.md", "src/index.ts"])
         assert result is not None
-        h3_lines = [l for l in result.splitlines() if l.startswith("### ")]
-        assert h3_lines == ["### mypkg/", "### mypkg/src/"], (
-            f"Expected [root, src] H3 sections, got: {h3_lines}"
-        )
+        h3_lines = [line for line in result.splitlines() if line.startswith("### ")]
+        assert h3_lines == ["### mypkg/", "### mypkg/src/"], f"Expected [root, src] H3 sections, got: {h3_lines}"
         # Root section has README.md
         assert "| `README.md` | file | — TODO |" in result
         # src section has index.ts
@@ -228,7 +221,7 @@ class TestBuildFileMap:
         result = _bfm("mypkg", ["a/b/c/deep.ts"], max_depth=1)
         assert result is not None
         # Should NOT have ### mypkg/a/b/ or ### mypkg/a/b/c/
-        h3_lines = [l for l in result.splitlines() if l.startswith("### ")]
+        h3_lines = [line for line in result.splitlines() if line.startswith("### ")]
         # Only root and 'a' at depth 1
         assert "### mypkg/a/" in h3_lines
         # No deeper H3 sections
@@ -260,14 +253,17 @@ class TestBuildFileMap:
 
     def test_h3_section_ordering_root_first_then_alphabetical(self) -> None:
         """Root section comes first; depth-1 subdirs sorted alphabetically."""
-        result = _bfm("mypkg", [
-            "README.md",
-            "zebra/z.ts",
-            "apple/a.ts",
-            "mango/m.ts",
-        ])
+        result = _bfm(
+            "mypkg",
+            [
+                "README.md",
+                "zebra/z.ts",
+                "apple/a.ts",
+                "mango/m.ts",
+            ],
+        )
         assert result is not None
-        h3_lines = [l for l in result.splitlines() if l.startswith("### ")]
+        h3_lines = [line for line in result.splitlines() if line.startswith("### ")]
         assert h3_lines == [
             "### mypkg/",
             "### mypkg/apple/",
@@ -286,13 +282,11 @@ class TestBuildFileMap:
 
     def test_build_file_map_regression_returns_prod_block_only(self) -> None:
         """build_file_map() == build_file_maps()[0] — legacy API returns prod block only."""
-        from wiki_io.scan_monorepo import build_file_maps
+
         files = ["README.md", "src/index.ts", "tests/test_main.py", "conftest.py"]
         prod, _test = _bfms("mypkg", files)
         legacy = _bfm("mypkg", files)
-        assert legacy == prod, (
-            "build_file_map() must return the prod block (same as build_file_maps()[0])"
-        )
+        assert legacy == prod, "build_file_map() must return the prod block (same as build_file_maps()[0])"
 
 
 # ---------------------------------------------------------------------------
@@ -361,39 +355,46 @@ class TestIsTestPath:
     def test_tests_dir_component_is_test(self) -> None:
         """tests/ directory component classifies as test."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("tests/handlers.test.ts") is True
         assert _is_test_path("src/index.ts") is False
 
     def test_nested_tests_dir_component_is_test(self) -> None:
         """__tests__/ anywhere in path classifies as test."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("src/__tests__/foo.spec.ts") is True
 
     def test_test_and_spec_dir_components(self) -> None:
         """test/ and spec/ directory components classify as test."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("test/a.py") is True
         assert _is_test_path("spec/login.cy.ts") is True
 
     def test_conftest_at_root_is_test(self) -> None:
         """conftest.py at root (and any depth) is a test config file."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("conftest.py") is True
         assert _is_test_path("src/conftest.py") is True
 
     def test_jest_config_is_test(self) -> None:
         """jest.config.ts at package root is a test config file."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("jest.config.ts") is True
 
     def test_tested_ts_is_not_test(self) -> None:
         """tested.ts does not match — directory name match is exact."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("tested.ts") is False
 
     def test_various_test_config_basenames(self) -> None:
         """Test-config basenames at any path depth classify as test."""
         from wiki_io.scan_monorepo import _is_test_path
+
         assert _is_test_path("pytest.ini") is True
         assert _is_test_path("tox.ini") is True
         assert _is_test_path("jest.config.js") is True
@@ -411,18 +412,21 @@ class TestIsCompiledArtifact:
     def test_pycache_dir_component_is_artifact(self) -> None:
         """Any __pycache__ path component classifies as a compiled artifact."""
         from wiki_io.scan_monorepo import _is_compiled_artifact
+
         assert _is_compiled_artifact("__pycache__/foo.cpython-311.pyc") is True
         assert _is_compiled_artifact("tests/__pycache__/test_x.cpython-311-pytest-9.0.3.pyc") is True
 
     def test_pyc_and_pyo_basenames_are_artifacts(self) -> None:
         """.pyc / .pyo basenames classify as artifacts even without __pycache__."""
         from wiki_io.scan_monorepo import _is_compiled_artifact
+
         assert _is_compiled_artifact("legacy/module.pyc") is True
         assert _is_compiled_artifact("module.pyo") is True
 
     def test_source_python_is_not_artifact(self) -> None:
         """Plain .py source files are not compiled artifacts."""
         from wiki_io.scan_monorepo import _is_compiled_artifact
+
         assert _is_compiled_artifact("src/pkg/module.py") is False
         assert _is_compiled_artifact("conftest.py") is False
 
@@ -455,6 +459,7 @@ class TestIsCompiledArtifact:
 def _bfms(pkg_name: str, files: list[str] | None, **kwargs) -> tuple[str, str] | None:
     """Helper: run build_file_maps with a mocked _git_ls_files return value."""
     from wiki_io.scan_monorepo import build_file_maps
+
     pkg_path = Path(f"/fake/{pkg_name}")
     with patch("wiki_io.scan_monorepo._git_ls_files", return_value=files):
         return build_file_maps(pkg_path, **kwargs)
@@ -513,8 +518,8 @@ class TestBuildFileMaps:
         assert result is not None
         prod, test = result
         # Prod has src; test has spec + tests
-        prod_h3 = [l for l in prod.splitlines() if l.startswith("### ")]
-        test_h3 = [l for l in test.splitlines() if l.startswith("### ")]
+        prod_h3 = [line for line in prod.splitlines() if line.startswith("### ")]
+        test_h3 = [line for line in test.splitlines() if line.startswith("### ")]
         assert "### mypkg/src/" in prod_h3
         assert "### mypkg/spec/" not in prod_h3
         assert "### mypkg/tests/" not in prod_h3

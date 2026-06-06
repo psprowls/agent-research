@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import frontmatter
-
 from wiki_io.entity_writer import (
     SCANNER_DATA_HEADINGS,
     _is_scanner_owned_heading,
@@ -52,24 +51,18 @@ def test_merge_pto_preserves_scanner_section_body_and_human_section() -> None:
     """PTO: a scanner-owned section's EXISTING body survives the merge (it is
     overwritten later only by the inject steps that regenerate it). Human
     sections are still preserved; the template placeholder is NOT re-imposed."""
-    template = (
-        "# T\n\n## Narrative\n_(placeholder)_\n\n## Purpose\n> TODO: fill me\n"
-    )
-    existing = (
-        "# T\n\n## Narrative\nOLD NARRATIVE PROSE\n\n## Purpose\nReal human purpose.\n"
-    )
+    template = "# T\n\n## Narrative\n_(placeholder)_\n\n## Purpose\n> TODO: fill me\n"
+    existing = "# T\n\n## Narrative\nOLD NARRATIVE PROSE\n\n## Purpose\nReal human purpose.\n"
     out = _merge_preserved_sections(template, existing)
-    assert "Real human purpose." in out          # human section preserved
-    assert "OLD NARRATIVE PROSE" in out           # PTO: existing scanner body kept
-    assert "_(placeholder)_" not in out           # PTO: template placeholder NOT re-imposed
-    assert "> TODO: fill me" not in out           # template Purpose overwritten by human
+    assert "Real human purpose." in out  # human section preserved
+    assert "OLD NARRATIVE PROSE" in out  # PTO: existing scanner body kept
+    assert "_(placeholder)_" not in out  # PTO: template placeholder NOT re-imposed
+    assert "> TODO: fill me" not in out  # template Purpose overwritten by human
 
 
 def test_merge_appends_user_added_custom_section() -> None:
     template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
-    existing = (
-        "# T\n\n## Narrative\n_p_\n\n## Purpose\nKept.\n\n## My Notes\ncustom stuff\n"
-    )
+    existing = "# T\n\n## Narrative\n_p_\n\n## Purpose\nKept.\n\n## My Notes\ncustom stuff\n"
     out = _merge_preserved_sections(template, existing)
     assert "## My Notes" in out
     assert "custom stuff" in out
@@ -80,8 +73,8 @@ def test_merge_pto_preserves_file_map_body() -> None:
     template = "# T\n\n## File map - foo\n> TODO\n\n## Purpose\n> TODO\n"
     existing = "# T\n\n## File map - foo\n| a | b | c |\n\n## Purpose\nKeep me.\n"
     out = _merge_preserved_sections(template, existing)
-    assert "Keep me." in out                       # human Purpose preserved
-    assert "| a | b | c |" in out                  # PTO: existing file map preserved
+    assert "Keep me." in out  # human Purpose preserved
+    assert "| a | b | c |" in out  # PTO: existing file map preserved
 
 
 def test_merge_pto_matches_file_map_by_type_despite_heading_suffix() -> None:
@@ -95,14 +88,13 @@ def test_merge_pto_matches_file_map_by_type_despite_heading_suffix() -> None:
         "### pkg_pkg-a/\n| `<file>` | file | — TODO |\n"
     )
     existing = (
-        "# T\n\n## Narrative\nreal prose\n\n"
-        "## File map - pkg-a\n### pkg-a/\n| `mod.py` | file | does a thing |\n"
+        "# T\n\n## Narrative\nreal prose\n\n## File map - pkg-a\n### pkg-a/\n| `mod.py` | file | does a thing |\n"
     )
     out = _merge_preserved_sections(template, existing)
-    assert "## File map - pkg-a" in out            # existing (basename) heading kept
-    assert "## File map - pkg_pkg-a" not in out     # slug-suffixed template slot dropped
-    assert "does a thing" in out                    # filled rows preserved
-    assert "— TODO" not in out                       # template placeholder rows discarded
+    assert "## File map - pkg-a" in out  # existing (basename) heading kept
+    assert "## File map - pkg_pkg-a" not in out  # slug-suffixed template slot dropped
+    assert "does a thing" in out  # filled rows preserved
+    assert "— TODO" not in out  # template placeholder rows discarded
 
 
 def test_merge_with_empty_existing_returns_template() -> None:
@@ -113,24 +105,19 @@ def test_merge_with_empty_existing_returns_template() -> None:
 def test_reconcile_template_adds_h2() -> None:
     """A new human-owned H2 added to the template appears on the merged page."""
     existing = "# T\n\n## Narrative\nprose\n\n## Purpose\nkept\n"
-    template = (
-        "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n\n## Public API\n> TODO\n"
-    )
+    template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n\n## Public API\n> TODO\n"
     out = _merge_preserved_sections(template, existing)
-    assert "## Public API" in out                 # new template section added
-    assert "kept" in out                          # existing human section preserved
+    assert "## Public API" in out  # new template section added
+    assert "kept" in out  # existing human section preserved
 
 
 def test_reconcile_template_drops_scanner_h2() -> None:
     """A scanner-owned H2 dropped from the template is removed from the page
     (scanner sections are template-driven; they do not linger)."""
-    existing = (
-        "# T\n\n## Narrative\nprose\n\n## File map - foo\n| a | b | c |\n\n"
-        "## Purpose\nkept\n"
-    )
+    existing = "# T\n\n## Narrative\nprose\n\n## File map - foo\n| a | b | c |\n\n## Purpose\nkept\n"
     template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
     out = _merge_preserved_sections(template, existing)
-    assert "## File map" not in out               # dropped scanner section removed
+    assert "## File map" not in out  # dropped scanner section removed
     assert "kept" in out
 
 
@@ -138,7 +125,7 @@ def test_reconcile_template_drops_human_h2_is_preserved() -> None:
     """A human-owned H2 the template no longer defines is preserved (appended as
     a user section) — human content is never silently dropped."""
     existing = "# T\n\n## Narrative\nprose\n\n## Purpose\nkept human content\n"
-    template = "# T\n\n## Narrative\n_p_\n"   # template dropped ## Purpose
+    template = "# T\n\n## Narrative\n_p_\n"  # template dropped ## Purpose
     out = _merge_preserved_sections(template, existing)
     assert "## Purpose" in out
     assert "kept human content" in out
@@ -155,14 +142,12 @@ def test_reconcile_template_reorders_sections() -> None:
 def test_reconcile_user_added_section_trails() -> None:
     """A user-added H2 absent from the template is preserved and trails the
     template-defined sections."""
-    existing = (
-        "# T\n\n## Narrative\nprose\n\n## Purpose\np\n\n## My Notes\ncustom\n"
-    )
+    existing = "# T\n\n## Narrative\nprose\n\n## Purpose\np\n\n## My Notes\ncustom\n"
     template = "# T\n\n## Narrative\n_p_\n\n## Purpose\n> TODO\n"
     out = _merge_preserved_sections(template, existing)
     assert "## My Notes" in out
     assert "custom" in out
-    assert out.index("## Purpose") < out.index("## My Notes")   # trails template
+    assert out.index("## Purpose") < out.index("## My Notes")  # trails template
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +161,8 @@ _AGENT_PLUGIN_TEMPLATE = (
     "## Referenced in wiki\n_(scanner will populate on next scan)_\n\n"
     "## Purpose\n> TODO: fill me\n\n"
     "## Commands\n| Command | Description |\n| --- | --- |\n| cmd-A | desc-A |\n| cmd-B | desc-B |\n\n"
-    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n| agent-1 | sonnet | t1 | Agent one |\n\n"
+    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n"
+    "| agent-1 | sonnet | t1 | Agent one |\n\n"
     "## Skills\n| Skill | Description |\n| --- | --- |\n| skill-X | Skill X desc |\n\n"
     "## Scripts\n| Script | Language |\n| --- | --- |\n| run.sh | bash |\n\n"
     "## Hooks\n| Event | Matchers |\n| --- | --- |\n| PostToolUse | foo |\n\n"
@@ -191,7 +177,8 @@ _AGENT_PLUGIN_EXISTING_STALE = (
     "## Referenced in wiki\n- [[some-page]]\n\n"
     "## Purpose\nHuman-written purpose.\n\n"
     "## Commands\n| Command | Description |\n| --- | --- |\n| cmd-X | desc-X |\n| cmd-Y | desc-Y |\n\n"
-    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n| agent-old | haiku | t0 | Old agent |\n\n"
+    "## Agents\n| Agent | Model | Tools | Description |\n| --- | --- | --- | --- |\n"
+    "| agent-old | haiku | t0 | Old agent |\n\n"
     "## Skills\n| Skill | Description |\n| --- | --- |\n| skill-OLD | stale |\n\n"
     "## Scripts\n| Script | Language |\n| --- | --- |\n| old.sh | bash |\n\n"
     "## Hooks\n| Event | Matchers |\n| --- | --- |\n| OldEvent | bar |\n\n"
@@ -240,18 +227,20 @@ def test_scanner_data_idempotent() -> None:
 def test_scanner_data_headings_constant_and_in_template() -> None:
     """D1 test 5: SCANNER_DATA_HEADINGS covers exactly the six table headings,
     and every member is present as an H2 in the real agent_plugin template."""
-    assert SCANNER_DATA_HEADINGS == frozenset({
-        "## Commands", "## Agents", "## Skills",
-        "## Scripts", "## Hooks", "## MCP servers",
-    })
+    assert SCANNER_DATA_HEADINGS == frozenset(
+        {
+            "## Commands",
+            "## Agents",
+            "## Skills",
+            "## Scripts",
+            "## Hooks",
+            "## MCP servers",
+        }
+    )
     # Cross-check against the real template on disk.
     template_path = _template_path_for_kind("agent_plugin")
     template_body = frontmatter.load(template_path).content
-    template_h2s = {
-        line.strip()
-        for line in template_body.splitlines()
-        if line.startswith("## ")
-    }
+    template_h2s = {line.strip() for line in template_body.splitlines() if line.startswith("## ")}
     for heading in SCANNER_DATA_HEADINGS:
         assert heading in template_h2s, (
             f"{heading!r} is in SCANNER_DATA_HEADINGS but not found as an H2 "

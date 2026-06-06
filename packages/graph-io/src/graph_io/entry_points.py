@@ -29,10 +29,18 @@ from graph_io.uri import RepoContext, entry_point_uri
 
 # Conditional-export keys per the Node.js exports spec — any key inside
 # `exports` matching this set is a condition selector, not a sub-path.
-_EXPORT_CONDITION_KEYS: frozenset[str] = frozenset({
-    "import", "require", "default", "node", "browser", "types",
-    "deno", "worker",
-})
+_EXPORT_CONDITION_KEYS: frozenset[str] = frozenset(
+    {
+        "import",
+        "require",
+        "default",
+        "node",
+        "browser",
+        "types",
+        "deno",
+        "worker",
+    }
+)
 
 
 # --- Helpers (stubs at this task; filled in subsequent tasks) ---
@@ -158,9 +166,7 @@ def _emit_pyproject_entries(
     if isinstance(scripts, dict):
         for ep_name, value in scripts.items():
             if isinstance(value, str):
-                _emit_entry(
-                    ep_name, value, kind="executable", source="pyproject.scripts"
-                )
+                _emit_entry(ep_name, value, kind="executable", source="pyproject.scripts")
 
     # [project.entry-points.<group>]
     entry_points_table = project.get("entry-points", {}) or {}
@@ -351,9 +357,7 @@ def _emit_packagejson_entries(
         _emit_entry("main", main_val, entry_kind="library", source="package.json.main")
     module_val = data.get("module")
     if isinstance(module_val, str):
-        _emit_entry(
-            "module", module_val, entry_kind="library", source="package.json.module"
-        )
+        _emit_entry("module", module_val, entry_kind="library", source="package.json.module")
 
     # bin (string or object)
     bin_val = data.get("bin")
@@ -393,7 +397,6 @@ def _emit_packagejson_entries(
 # _SHEBANG_NOT_ENTRY_POINT = True
 
 
-
 # --- Public emit() ---
 
 
@@ -414,8 +417,7 @@ def emit(
     # Phase 50 D-04: include both Package and App nodes; apps still declare
     # entry points via the same pyproject.toml / package.json manifest fields.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes "
-        "WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
     ).fetchall()
 
     for pkg_name, pkg_rel, pkg_attrs_json, pkg_kind in pkg_rows:

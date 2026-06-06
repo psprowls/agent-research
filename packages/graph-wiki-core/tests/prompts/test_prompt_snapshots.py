@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Snapshot tests for every *_SYSTEM prompt constant exported from graph_wiki_core.prompts.
 
 Each test imports its target lazily (inside the function body) so the file
@@ -17,11 +15,12 @@ groups) plus a missing-CLAUDE.md degradation test that enforces the
 "empty string + non-empty prompt" contract (CTX-04 LOCKED).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
 from syrupy.assertion import SnapshotAssertion
-
 
 # Module-level fixture: a minimal but realistic CLAUDE.md body.
 # Mirrors FIXTURE_CLAUDE_MD in test_project_context.py — duplication is
@@ -150,9 +149,7 @@ def test_extractor_system_snapshot(snapshot: SnapshotAssertion) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_scanner_system_with_project_context(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_scanner_system_with_project_context(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """build_scanner_system with rendered project-context matches snapshot."""
     try:
         from graph_wiki_core.prompts.scanner import build_scanner_system
@@ -161,9 +158,7 @@ def test_scanner_system_with_project_context(
     assert build_scanner_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
 
 
-def test_ingestor_system_with_project_context(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_ingestor_system_with_project_context(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """build_ingestor_system with rendered project-context matches snapshot."""
     try:
         from graph_wiki_core.prompts.ingestor import build_ingestor_system
@@ -172,46 +167,31 @@ def test_ingestor_system_with_project_context(
     assert build_ingestor_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
 
 
-def test_linter_page_quality_system_with_project_context(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_linter_page_quality_system_with_project_context(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """build_linter_page_quality_system with project-context matches snapshot."""
     try:
         from graph_wiki_core.prompts.linter import build_linter_page_quality_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    assert (
-        build_linter_page_quality_system(project_context=_render_ctx_from_tmp(tmp_path))
-        == snapshot
-    )
+    assert build_linter_page_quality_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
 
 
-def test_linter_adr_chain_system_with_project_context(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_linter_adr_chain_system_with_project_context(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """build_linter_adr_chain_system with project-context matches snapshot."""
     try:
         from graph_wiki_core.prompts.linter import build_linter_adr_chain_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    assert (
-        build_linter_adr_chain_system(project_context=_render_ctx_from_tmp(tmp_path))
-        == snapshot
-    )
+    assert build_linter_adr_chain_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
 
 
-def test_linter_stale_claims_system_with_project_context(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_linter_stale_claims_system_with_project_context(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """build_linter_stale_claims_system with project-context matches snapshot."""
     try:
         from graph_wiki_core.prompts.linter import build_linter_stale_claims_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    assert (
-        build_linter_stale_claims_system(project_context=_render_ctx_from_tmp(tmp_path))
-        == snapshot
-    )
+    assert build_linter_stale_claims_system(project_context=_render_ctx_from_tmp(tmp_path)) == snapshot
 
 
 def test_all_builders_degrade_without_project_context(tmp_path: Path) -> None:

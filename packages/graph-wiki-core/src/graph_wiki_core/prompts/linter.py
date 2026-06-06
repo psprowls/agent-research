@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Linter system prompts for the 3-group semantic lint fan-out.
 
 Each group prompt is assembled via a `build_linter_*_system` function that
@@ -16,6 +14,8 @@ Exports:
 
 Source: plugins/graph-wiki/agents/linter.md §Pass 2 — Semantic (read and think), §Rules
 """
+
+from __future__ import annotations
 
 from graph_wiki_core.prompts._fragments.claude_md_disambiguation import CLAUDE_MD_DISAMBIGUATION
 from graph_wiki_core.prompts._fragments.iron_rules import IRON_RULES

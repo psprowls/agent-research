@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """LIBRARIAN_SYSTEM prompt — composed from shared fragments + librarian-local prose.
 
 Composed at import time (no runtime templating per D-02). Sections:
@@ -19,6 +17,8 @@ Exports:
     build_librarian_system() -> str — assembles the librarian system prompt.
     LIBRARIAN_SYSTEM — backward-compat constant, equals build_librarian_system().
 """
+
+from __future__ import annotations
 
 from graph_wiki_core.prompts._fragments.citation_rules import CITATION_RULES
 from graph_wiki_core.prompts._fragments.iron_rules import IRON_RULES

@@ -5,14 +5,12 @@ Also covers `gw graph describe-builtin` (Phase 49 BUILTIN-06).
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 import json
-import shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-
 from graph_io import exit_codes
 from graph_wiki_cli.graph_cli import (
     q_describe_agent_plugin,
@@ -35,8 +33,7 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
     repo_root.mkdir()
     # Single python package with one dep.
     (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.1"\n'
-        'dependencies = ["boto3>=1.38"]\n'
+        '[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = ["boto3>=1.38"]\n'
     )
     (repo_root / "src" / "demo").mkdir(parents=True)
     (repo_root / "src" / "demo" / "__init__.py").write_text("")
@@ -44,29 +41,26 @@ def workspace_with_deps_and_plugin(tmp_path: Path) -> Path:
     workspace_dir = repo_root / "graph-wiki"
     workspace_dir.mkdir()
     (workspace_dir / ".graph-wiki.yaml").write_text(
-        'version: 2\n'
+        "version: 2\n"
         'initialized_at: "2026-05-27"\n'
-        'plugins:\n'
-        '  - name: graph-wiki\n'
+        "plugins:\n"
+        "  - name: graph-wiki\n"
         '    installed_version: "0.1.1"\n'
         '    applied_version: "0.1.1"\n'
     )
 
     # agent_plugin entity: build walks repo_root rglob(".claude-plugin/plugin.json")
     import json as _json
+
     pdir = repo_root / "plugins" / "graph-wiki" / ".claude-plugin"
     pdir.mkdir(parents=True, exist_ok=True)
     (pdir / "plugin.json").write_text(_json.dumps({"name": "graph-wiki", "version": "0.1.1"}))
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
 
     update.run(repo_root, full=True)
     return resolve_workspace(repo_root, require_manifest=False).workspace
@@ -116,6 +110,7 @@ def test_cg_describe_dependency_json(workspace_with_deps_and_plugin, capsys):
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
     import json
+
     parsed = json.loads(captured.out)
     assert parsed["name"] == "boto3"
     assert parsed["ecosystem"] == "pypi"
@@ -171,20 +166,15 @@ def workspace_with_internal_dep(tmp_path: Path) -> Path:
     repo_root.mkdir()
     # Internal target package.
     (repo_root / "alpha").mkdir()
-    (repo_root / "alpha" / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
-    )
+    (repo_root / "alpha" / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.1"\n')
     # Consumer declares alpha (separator mismatch exercises normalization too).
     (repo_root / "beta").mkdir()
     (repo_root / "beta" / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.1"\n'
-        'dependencies = ["alpha>=0.1"]\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\ndependencies = ["alpha>=0.1"]\n'
     )
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
@@ -217,9 +207,7 @@ def test_cg_describe_package_internal_deps_json(workspace_with_internal_dep, cap
     assert parsed["internal_dependents"] == []
 
 
-def test_cg_describe_package_internal_dependents_json(
-    workspace_with_internal_dep, capsys
-):
+def test_cg_describe_package_internal_dependents_json(workspace_with_internal_dep, capsys):
     """JSON output exposes internal_dependents (incoming) on the target — SC#3."""
     args = _ns_package(workspace_with_internal_dep, name="alpha", fmt="json")
     exit_code = q_describe_package.run(args)
@@ -257,18 +245,12 @@ def workspace_with_builtins(tmp_path: Path) -> Path:
 
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
-    (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = []\n'
-    )
+    (repo_root / "pyproject.toml").write_text('[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = []\n')
     (repo_root / "src" / "demo").mkdir(parents=True)
-    (repo_root / "src" / "demo" / "__init__.py").write_text(
-        "from pathlib import Path\nimport os\n"
-    )
+    (repo_root / "src" / "demo" / "__init__.py").write_text("from pathlib import Path\nimport os\n")
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
@@ -357,19 +339,14 @@ def workspace_with_app(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     (repo_root / "pyproject.toml").write_text(
-        '[project]\nname = "my-cli"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
+        '[project]\nname = "my-cli"\nversion = "0.1.1"\n[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
     )
     (repo_root / "src" / "my_cli").mkdir(parents=True)
     (repo_root / "src" / "my_cli" / "__init__.py").write_text("")
-    (repo_root / "src" / "my_cli" / "cli.py").write_text(
-        "def main():\n    return 0\n"
-    )
+    (repo_root / "src" / "my_cli" / "cli.py").write_text("def main():\n    return 0\n")
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
@@ -426,7 +403,15 @@ def test_cg_describe_app_json(workspace_with_app, capsys):
     assert "cli" in parsed["app_signals"]
     # Ensure full AppDescription field set is present.
     expected_keys = {
-        "name", "language", "version", "app_kind", "app_signals",
-        "files", "counts", "domains", "entry_points", "test_suites",
+        "name",
+        "language",
+        "version",
+        "app_kind",
+        "app_signals",
+        "files",
+        "counts",
+        "domains",
+        "entry_points",
+        "test_suites",
     }
     assert expected_keys.issubset(set(parsed.keys()))

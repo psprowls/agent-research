@@ -20,13 +20,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from syrupy.assertion import SnapshotAssertion
-from typer.testing import CliRunner
-
 from graph_io import exit_codes, update
-from graph_io.store import GraphNotInitializedError, SchemaMismatchError
 from graph_wiki_core.commands import graph as graph_module
 from graph_wiki_core.commands.graph import graph_app as app
+from syrupy.assertion import SnapshotAssertion
+from typer.testing import CliRunner
 
 
 @pytest.fixture
@@ -91,7 +89,8 @@ def test_graph_build_invokes_update_run(runner, tmp_workspace):
     """graph build calls update.run; --full propagates."""
     with patch.object(update, "run", return_value=None) as mock_run:
         result = runner.invoke(
-            app, ["build"],
+            app,
+            ["build"],
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
         assert result.exit_code == 0, result.output
@@ -102,7 +101,8 @@ def test_graph_build_invokes_update_run(runner, tmp_workspace):
 
     with patch.object(update, "run", return_value=None) as mock_run:
         result = runner.invoke(
-            app, ["build", "--full"],
+            app,
+            ["build", "--full"],
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
         assert result.exit_code == 0, result.output
@@ -114,7 +114,8 @@ def test_graph_build_writes_trace(runner, tmp_workspace):
     """--trace writes JSONL with start+complete events, schema_version=1, exit_code=0."""
     with patch.object(update, "run", return_value=None):
         result = runner.invoke(
-            app, ["build", "--trace"],
+            app,
+            ["build", "--trace"],
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
         assert result.exit_code == 0, result.output
@@ -122,11 +123,7 @@ def test_graph_build_writes_trace(runner, tmp_workspace):
     trace_files = list((tmp_workspace / ".graph-wiki" / "traces").glob("*-graph-build.jsonl"))
     assert len(trace_files) == 1, [p.name for p in trace_files]
 
-    records = [
-        json.loads(line)
-        for line in trace_files[0].read_text().splitlines()
-        if line.strip()
-    ]
+    records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     events = [r.get("event") for r in records]
     assert "graph_build_start" in events
     assert "graph_build_complete" in events
@@ -141,18 +138,15 @@ def test_graph_build_model_recorded_not_invoked(runner, tmp_workspace):
     """--model is recorded in trace; stderr note 'not invoked in v1.7' is emitted."""
     with patch.object(update, "run", return_value=None):
         result = runner.invoke(
-            app, ["build", "--trace", "--model", "my-model-id"],
+            app,
+            ["build", "--trace", "--model", "my-model-id"],
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
         assert result.exit_code == 0, result.output
         assert "not invoked in v1.7" in result.stderr
 
     trace_files = list((tmp_workspace / ".graph-wiki" / "traces").glob("*-graph-build.jsonl"))
-    records = [
-        json.loads(line)
-        for line in trace_files[0].read_text().splitlines()
-        if line.strip()
-    ]
+    records = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     complete = next(r for r in records if r["event"] == "graph_build_complete")
     assert complete.get("model_id") == "my-model-id"
 
@@ -161,7 +155,8 @@ def test_graph_build_not_in_git_repo(runner, tmp_workspace):
     """update.run raising NotInGitRepoError → exit NOT_IN_GIT_REPO."""
     with patch.object(update, "run", side_effect=update.NotInGitRepoError("not a repo")):
         result = runner.invoke(
-            app, ["build"],
+            app,
+            ["build"],
             env={"GRAPH_WIKI_WORKSPACE": str(tmp_workspace)},
         )
     assert result.exit_code == exit_codes.NOT_IN_GIT_REPO
@@ -303,15 +298,9 @@ def test_graph_describe_trace_omits_cost_fields(
     )
     assert result.exit_code == 0, result.output
 
-    trace_files = list(
-        (seeded_graph_workspace / ".graph-wiki" / "traces").glob("*-graph-describe.jsonl")
-    )
+    trace_files = list((seeded_graph_workspace / ".graph-wiki" / "traces").glob("*-graph-describe.jsonl"))
     assert len(trace_files) >= 1, "no trace file found"
-    records = [
-        json.loads(line)
-        for line in trace_files[-1].read_text().splitlines()
-        if line.strip()
-    ]
+    records = [json.loads(line) for line in trace_files[-1].read_text().splitlines() if line.strip()]
     assert len(records) == 1
     rec = records[0]
     assert rec["event"] == "graph_describe"

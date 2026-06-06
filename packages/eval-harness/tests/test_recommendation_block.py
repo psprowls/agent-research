@@ -10,9 +10,6 @@ All tests are deterministic (no Bedrock calls).
 
 from __future__ import annotations
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # render_recommendation_block tests (SWEEP-04 / D-11)
 # ---------------------------------------------------------------------------

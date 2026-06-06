@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Unit tests for eval_harness.pricing.
 
 All tests are deterministic and require no Bedrock access.
 """
+
+from __future__ import annotations
 
 import pytest
 from eval_harness.pricing import PRICES, UnknownModelError, cost_for_usage

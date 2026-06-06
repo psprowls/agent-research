@@ -6,9 +6,8 @@ import dataclasses
 import json as _json
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:
@@ -22,9 +21,7 @@ def run(args: object) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        desc = queries.describe_dependency(
-            conn, ecosystem=args.ecosystem, name=args.name
-        )
+        desc = queries.describe_dependency(conn, ecosystem=args.ecosystem, name=args.name)
     finally:
         conn.close()
     if desc is None:

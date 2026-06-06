@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Package-local pytest fixtures for graph-wiki-cli tests.
 
 Only CLI presentation fixtures live here. In particular, this conftest does not
@@ -7,13 +5,14 @@ import MCP fixtures from the agent package; moved CLI tests should exercise the
 new ``graph_wiki_cli`` package boundary directly.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
-
 
 PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 

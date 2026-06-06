@@ -1,28 +1,25 @@
-from __future__ import annotations
-
 """Unit tests for the hybrid search layer (Plan 02).
 
 Covers: SEARCH-01 through SEARCH-05.
 All tests use tmp_path fixture; no real Bedrock calls.
 """
 
+from __future__ import annotations
+
+import hashlib
 import sqlite3
 import struct
-import math
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from graph_wiki_core.commands.query import (
     _build_tokenizer,
+    _cosine_search_sqlite,
     _discover_pages,
     _rrf_fuse,
-    _cosine_search_sqlite,
-    build_index,
     bm25_query,
+    build_index,
 )
-
 
 # ---------------------------------------------------------------------------
 # Task 1 tests: tokenizer, page discovery, RRF, cosine scan
@@ -86,9 +83,7 @@ def test_rrf_fuse_combines_ranks() -> None:
     scores = _rrf_fuse({"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 2, "c": 1}, k=60)
     assert set(scores.keys()) == {"a", "b", "c"}
     # a and c should have equal scores (symmetric rank assignment)
-    assert abs(scores["a"] - scores["c"]) < 1e-9, (
-        f"Expected scores[a] == scores[c], got {scores['a']} vs {scores['c']}"
-    )
+    assert abs(scores["a"] - scores["c"]) < 1e-9, f"Expected scores[a] == scores[c], got {scores['a']} vs {scores['c']}"
     # b gets rank 2 in both signals: score = 2 * 1/(60+2) = 2/62
     # a/c get: 1/61 + 1/63 -- which is > 2/62 because 1/61 > 1/62 and 1/63 < 1/62
     # Actually let's just check b is different from a
@@ -107,9 +102,7 @@ def test_rrf_fuse_missing_in_one_map() -> None:
     assert "both" in scores
     assert "bm25_only" in scores
     # "both" appears in both maps -> higher score
-    assert scores["both"] > scores["bm25_only"], (
-        f"Expected both({scores['both']}) > bm25_only({scores['bm25_only']})"
-    )
+    assert scores["both"] > scores["bm25_only"], f"Expected both({scores['both']}) > bm25_only({scores['bm25_only']})"
 
 
 def _make_vec(dim: int, hot_index: int, value: float = 1.0) -> list[float]:
@@ -124,8 +117,7 @@ def _write_page_to_db(db_path: Path, path: str, vec: list[float], content_hash: 
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS pages "
-        "(path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, embedding BLOB NOT NULL)"
+        "CREATE TABLE IF NOT EXISTS pages (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, embedding BLOB NOT NULL)"
     )
     blob = struct.pack(f"{len(vec)}f", *vec)
     conn.execute(
@@ -171,8 +163,10 @@ def _make_fake_embed(text_to_vec_map: dict[str, list[float]] | None = None):
         if text_to_vec_map and text in text_to_vec_map:
             return text_to_vec_map[text]
         # Hash-derived: vary first float by hash so each text gets a unique vector
-        h = int(hashlib.sha256_of_text(text) % 1000) if hasattr(hashlib, "sha256_of_text") else (
-            int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "big") % 1000
+        h = (
+            int(hashlib.sha256_of_text(text) % 1000)
+            if hasattr(hashlib, "sha256_of_text")
+            else (int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "big") % 1000)
         )
         vec = [0.1] * dim
         vec[0] = float(h) / 1000.0
@@ -181,13 +175,10 @@ def _make_fake_embed(text_to_vec_map: dict[str, list[float]] | None = None):
     return fake_embed
 
 
-import hashlib as _hashlib
-
-
 def _fake_embed_deterministic(self: object, text: str) -> list[float]:
     """Deterministic fake embed: varies first two elements by content hash."""
     dim = 1024
-    h = int.from_bytes(_hashlib.sha256(text.encode()).digest()[:4], "big") % 1000
+    h = int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "big") % 1000
     vec = [0.1] * dim
     vec[0] = float(h) / 1000.0
     vec[1] = float(h % 100) / 100.0
@@ -207,17 +198,22 @@ def _setup_vault(tmp_path: Path, pages: dict[str, str]) -> Path:
 
 def test_build_index_creates_bm25_and_sqlite(tmp_path: Path) -> None:
     """build_index creates .graph-wiki/bm25/ (non-empty) and .graph-wiki/search.db (WAL mode)."""
-    vault = _setup_vault(tmp_path, {
-        "concepts/alpha.md": "Alpha is the first letter",
-        "concepts/beta.md": "Beta is the second letter",
-        "concepts/gamma.md": "Gamma is the third letter",
-    })
+    vault = _setup_vault(
+        tmp_path,
+        {
+            "concepts/alpha.md": "Alpha is the first letter",
+            "concepts/beta.md": "Beta is the second letter",
+            "concepts/gamma.md": "Gamma is the third letter",
+        },
+    )
 
     with patch("graph_wiki_core.commands.query.BedrockEmbeddings") as MockEmbed:
         instance = MockEmbed.return_value
-        instance.embed_query.side_effect = _fake_embed_deterministic.__func__ if hasattr(
-            _fake_embed_deterministic, "__func__"
-        ) else lambda text: _fake_embed_deterministic(None, text)
+        instance.embed_query.side_effect = (
+            _fake_embed_deterministic.__func__
+            if hasattr(_fake_embed_deterministic, "__func__")
+            else lambda text: _fake_embed_deterministic(None, text)
+        )
         # Simpler: just return a list directly
         instance.embed_query.side_effect = None
         instance.embed_query.return_value = [0.1] * 1024
@@ -240,10 +236,13 @@ def test_build_index_creates_bm25_and_sqlite(tmp_path: Path) -> None:
 
 def test_incremental_skip_unchanged_hash(tmp_path: Path) -> None:
     """Second build_index call with unchanged pages invokes embed_query zero additional times."""
-    vault = _setup_vault(tmp_path, {
-        "concepts/a.md": "Content of page A",
-        "concepts/b.md": "Content of page B",
-    })
+    vault = _setup_vault(
+        tmp_path,
+        {
+            "concepts/a.md": "Content of page A",
+            "concepts/b.md": "Content of page B",
+        },
+    )
 
     call_count = 0
 
@@ -271,11 +270,14 @@ def test_incremental_skip_unchanged_hash(tmp_path: Path) -> None:
 
 def test_one_page_changed_reembeds_only_that_page(tmp_path: Path) -> None:
     """When one page changes, only that page is re-embedded on the second build."""
-    vault = _setup_vault(tmp_path, {
-        "concepts/a.md": "Content of page A — original",
-        "concepts/b.md": "Content of page B — never changes",
-        "concepts/c.md": "Content of page C — original",
-    })
+    vault = _setup_vault(
+        tmp_path,
+        {
+            "concepts/a.md": "Content of page A — original",
+            "concepts/b.md": "Content of page B — never changes",
+            "concepts/c.md": "Content of page C — original",
+        },
+    )
 
     call_count = 0
 
@@ -305,11 +307,14 @@ def test_one_page_changed_reembeds_only_that_page(tmp_path: Path) -> None:
 
 def test_bm25_query_ranks_target_page_first(tmp_path: Path) -> None:
     """Page with unique term appears at top of bm25_query results."""
-    vault = _setup_vault(tmp_path, {
-        "concepts/kafka.md": "This page is about kafkaesque bureaucratic processes",
-        "concepts/lambda.md": "Lambda functions are anonymous function literals",
-        "concepts/monad.md": "Monads are a design pattern from category theory",
-    })
+    vault = _setup_vault(
+        tmp_path,
+        {
+            "concepts/kafka.md": "This page is about kafkaesque bureaucratic processes",
+            "concepts/lambda.md": "Lambda functions are anonymous function literals",
+            "concepts/monad.md": "Monads are a design pattern from category theory",
+        },
+    )
 
     with patch("graph_wiki_core.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.return_value = [0.1] * 1024
@@ -318,17 +323,18 @@ def test_bm25_query_ranks_target_page_first(tmp_path: Path) -> None:
     paths, scores = bm25_query("kafkaesque", vault, top_k=3)
 
     assert len(paths) >= 1, "Expected at least one result"
-    assert paths[0] == "concepts/kafka.md", (
-        f"Expected concepts/kafka.md first, got {paths[0]}"
-    )
+    assert paths[0] == "concepts/kafka.md", f"Expected concepts/kafka.md first, got {paths[0]}"
 
 
 def test_bm25_query_vocab_frozen_handles_unseen_term(tmp_path: Path) -> None:
     """Query with a word never seen at index time returns normally without raising."""
-    vault = _setup_vault(tmp_path, {
-        "concepts/alpha.md": "Alpha is the first letter of the Greek alphabet",
-        "concepts/beta.md": "Beta is the second letter of the Greek alphabet",
-    })
+    vault = _setup_vault(
+        tmp_path,
+        {
+            "concepts/alpha.md": "Alpha is the first letter of the Greek alphabet",
+            "concepts/beta.md": "Beta is the second letter of the Greek alphabet",
+        },
+    )
 
     with patch("graph_wiki_core.commands.query.BedrockEmbeddings") as MockEmbed:
         MockEmbed.return_value.embed_query.return_value = [0.1] * 1024

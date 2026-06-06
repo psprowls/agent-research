@@ -1,4 +1,5 @@
 """Tests for wiki_io.git_state.short_commit (Item 1 — short commit hashes)."""
+
 from __future__ import annotations
 
 import subprocess
@@ -31,9 +32,7 @@ def test_short_commit_returns_resolvable_prefix(tmp_path):
     assert len(short) < 40
     assert full.startswith(short)
     # git still resolves the short form back to the full SHA
-    out = subprocess.run(
-        ["git", "rev-parse", short], cwd=repo, capture_output=True, text=True
-    )
+    out = subprocess.run(["git", "rev-parse", short], cwd=repo, capture_output=True, text=True)
     assert out.stdout.strip() == full
 
 

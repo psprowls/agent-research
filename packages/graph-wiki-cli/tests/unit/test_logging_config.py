@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Unit tests for graph_wiki_cli.logging_config.configure_verbose_logging."""
+
+from __future__ import annotations
 
 import logging
 import sys

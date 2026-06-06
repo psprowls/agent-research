@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Verify run_scan calls regenerate_referenced_in_wiki(wiki) after index regen."""
+
+from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -18,7 +18,8 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
     (wiki / "log.md").write_text("", encoding="utf-8")
     (wiki / "packages").mkdir(exist_ok=True)
     (wiki / "CLAUDE.md").write_text(
-        "# wiki\n\n```yaml\nversion: 1\ncontainers:\n  - source: .\n    vault_dir: packages\n    classification: single-package\n    children_count: 1\n```\n",
+        "# wiki\n\n```yaml\nversion: 1\ncontainers:\n  - source: .\n"
+        "    vault_dir: packages\n    classification: single-package\n    children_count: 1\n```\n",
         encoding="utf-8",
     )
     (wiki / "index.md").write_text("# Index\n", encoding="utf-8")
@@ -26,9 +27,7 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
     fake_state_gate = {"allowed": True, "reason": "test-mode", "head_commit": "abc123"}
 
     pool_mock = AsyncMock()
-    pool_mock.run_all = AsyncMock(
-        return_value=scan_mod.FanOutResult() if scan_mod.FanOutResult is not None else None
-    )
+    pool_mock.run_all = AsyncMock(return_value=scan_mod.FanOutResult() if scan_mod.FanOutResult is not None else None)
 
     with (
         patch.object(scan_mod, "resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
@@ -43,9 +42,7 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
             side_effect=scan_mod.GraphNotInitializedError("test stub"),
         ),
         patch.object(scan_mod, "append_log"),
-        patch.object(
-            scan_mod, "regenerate_referenced_in_wiki", return_value=["pkg_foo"]
-        ) as mock_regen,
+        patch.object(scan_mod, "regenerate_referenced_in_wiki", return_value=["pkg_foo"]) as mock_regen,
     ):
         await scan_mod.run_scan(workspace_path=tmp_path, narrate=False)
 

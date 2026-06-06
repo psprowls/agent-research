@@ -3,7 +3,6 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PACKAGE_ROOT.parents[1]
 SOURCE_ROOT = PACKAGE_ROOT / "src" / "graph_wiki_core"
@@ -23,9 +22,7 @@ def test_core_source_and_tests_do_not_contain_copied_bytecode_files() -> None:
         # running. The package-split boundary only forbids copied/checked-in
         # bytecode artifacts that sit outside Python's runtime cache dirs.
         stale_artifacts.extend(
-            path.relative_to(PACKAGE_ROOT)
-            for path in root.rglob("*.pyc")
-            if "__pycache__" not in path.parts
+            path.relative_to(PACKAGE_ROOT) for path in root.rglob("*.pyc") if "__pycache__" not in path.parts
         )
 
     assert sorted(stale_artifacts) == []
@@ -43,9 +40,7 @@ def test_migrated_core_python_source_uses_core_namespace() -> None:
         rel_path = path.relative_to(PACKAGE_ROOT)
         has_old_namespace = old_import_namespace in text
         has_old_distribution_name = old_distribution_name in text
-        if has_old_namespace or (
-            has_old_distribution_name and rel_path not in allowed_plugin_identity_paths
-        ):
+        if has_old_namespace or (has_old_distribution_name and rel_path not in allowed_plugin_identity_paths):
             stale_references.append(rel_path)
 
     assert stale_references == []

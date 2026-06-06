@@ -4,9 +4,9 @@ import json
 import os
 import subprocess
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 from syrupy.assertion import SnapshotAssertion
 
 # Disable Rich's ANSI rendering so `trace --help` output is plain text — the
@@ -17,6 +17,7 @@ _PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "20
 # ---------------------------------------------------------------------------
 # Shared JSONL fixture factory
 # ---------------------------------------------------------------------------
+
 
 def _write_trace_fixture(tmp_path: Path) -> Path:
     """Write a 2-record JSONL trace file: 1 success, 1 error."""
@@ -83,7 +84,7 @@ def test_trace_command_renders_per_record_lines(tmp_path: Path) -> None:
     assert result.returncode == 0, f"trace exited {result.returncode}\n{result.stderr}"
     # Both records should produce lines with the role name
     lines = result.stdout.splitlines()
-    role_lines = [l for l in lines if "scanner" in l]
+    role_lines = [line for line in lines if "scanner" in line]
     assert len(role_lines) >= 2, f"Expected >=2 lines with 'scanner'; got: {lines}"
     # Status indicators should appear
     assert "success" in result.stdout
@@ -118,9 +119,7 @@ def test_trace_command_missing_file_exits_nonzero() -> None:
 
     assert result.returncode != 0, f"Expected non-zero exit; got 0\nstdout: {result.stdout}"
     # Stderr should mention the path
-    assert "/nonexistent/path.jsonl" in result.stderr, (
-        f"Expected path in stderr; stderr was: {result.stderr}"
-    )
+    assert "/nonexistent/path.jsonl" in result.stderr, f"Expected path in stderr; stderr was: {result.stderr}"
 
 
 def test_render_trace_record_pure_function() -> None:
@@ -150,9 +149,9 @@ def test_live_render_matches_trace_expand(tmp_path: Path) -> None:
     """The string the pool emits live equals what `gw trace --expand` prints
     for the same record — both go through subagent_runtime.trace_io.render_trace_record.
     """
-    from typer.testing import CliRunner
-    from subagent_runtime.trace_io import render_trace_record
     from graph_wiki_cli.cli import app
+    from subagent_runtime.trace_io import render_trace_record
+    from typer.testing import CliRunner
 
     record = {
         "schema_version": 1,
@@ -291,9 +290,7 @@ def test_aggregate_trace_by_role_model_groups_and_costs() -> None:
     assert haiku["cost_usd_sum"] == pytest.approx(0.0015), (
         f"haiku cost sum expected 0.0015; got {haiku['cost_usd_sum']}"
     )
-    assert haiku["unknown_cost_count"] == 1, (
-        f"haiku unknown_cost_count expected 1; got {haiku['unknown_cost_count']}"
-    )
+    assert haiku["unknown_cost_count"] == 1, f"haiku unknown_cost_count expected 1; got {haiku['unknown_cost_count']}"
 
     assert sonnet["count"] == 1, f"sonnet count expected 1; got {sonnet['count']}"
     assert sonnet["cost_usd_sum"] == pytest.approx(0.002), (
@@ -337,11 +334,7 @@ def test_trace_command_skips_malformed_lines(tmp_path: Path) -> None:
         "cost_usd": None,
         "timestamp": "2026-05-13T10:00:01Z",
     }
-    trace_file.write_text(
-        json.dumps(valid_a) + "\n"
-        + "not a valid {json line\n"
-        + json.dumps(valid_b) + "\n"
-    )
+    trace_file.write_text(json.dumps(valid_a) + "\n" + "not a valid {json line\n" + json.dumps(valid_b) + "\n")
 
     # --expand keeps per-item lines visible across plan 09-04's default collapse.
     result = _run_trace_cmd([str(trace_file), "--expand"])
@@ -459,24 +452,14 @@ def test_cost_rollup_format_six_decimals(tmp_path: Path) -> None:
     fixture_file = _write_cost_rollup_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
 
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
     stdout = result.stdout
 
     # D-09 numerics
-    assert "$0.001500" in stdout, (
-        f"Expected haiku group sum $0.001500 (0.0005 + 0.0010); stdout:\n{stdout}"
-    )
-    assert "$0.002000" in stdout, (
-        f"Expected sonnet group sum $0.002000; stdout:\n{stdout}"
-    )
-    assert "(+1 unknown)" in stdout, (
-        f"Expected '(+1 unknown)' suffix on haiku group; stdout:\n{stdout}"
-    )
-    assert "n/a" in stdout, (
-        f"Expected fully-null librarian group to render 'n/a'; stdout:\n{stdout}"
-    )
+    assert "$0.001500" in stdout, f"Expected haiku group sum $0.001500 (0.0005 + 0.0010); stdout:\n{stdout}"
+    assert "$0.002000" in stdout, f"Expected sonnet group sum $0.002000; stdout:\n{stdout}"
+    assert "(+1 unknown)" in stdout, f"Expected '(+1 unknown)' suffix on haiku group; stdout:\n{stdout}"
+    assert "n/a" in stdout, f"Expected fully-null librarian group to render 'n/a'; stdout:\n{stdout}"
 
     # D-15 ordering: fully-null librarian group sorts LAST in the rollup.
     # Anchor on the n/a marker (unique to the librarian rollup line in this
@@ -500,8 +483,7 @@ def _trace_supports_expand_flag() -> bool:
     """
     try:
         help_result = subprocess.run(
-            ["uv", "run", "--package", "graph-wiki-cli",
-             "gw", "trace", "--help"],
+            ["uv", "run", "--package", "graph-wiki-cli", "gw", "trace", "--help"],
             capture_output=True,
             text=True,
             cwd=_PROJECT_ROOT,
@@ -521,9 +503,7 @@ def test_cost_rollup_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> No
     """Snapshot the --expand-mode rendering so the timeline is invariant to 09-04's collapse."""
     fixture_file = _write_cost_rollup_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file), "--expand"])
-    assert result.returncode == 0, (
-        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
     assert result.stdout == snapshot
 
 
@@ -547,19 +527,21 @@ def _write_fan_out_fixture(
     trace_file = tmp_path / "fan_out_trace.jsonl"
     records = []
     for i in range(n):
-        records.append({
-            "schema_version": 1,
-            "role": role,
-            "model_id": model_id,
-            "prompt_hash": None,
-            "item_id": f"page-{i}",
-            "status": "success",
-            "latency_ms": 100 + i,
-            "tokens_in": 10,
-            "tokens_out": 5,
-            "cost_usd": 0.0001,
-            "timestamp": f"2026-05-17T10:00:{i:02d}Z",
-        })
+        records.append(
+            {
+                "schema_version": 1,
+                "role": role,
+                "model_id": model_id,
+                "prompt_hash": None,
+                "item_id": f"page-{i}",
+                "status": "success",
+                "latency_ms": 100 + i,
+                "tokens_in": 10,
+                "tokens_out": 5,
+                "cost_usd": 0.0001,
+                "timestamp": f"2026-05-17T10:00:{i:02d}Z",
+            }
+        )
     with trace_file.open("w") as f:
         for record in records:
             f.write(json.dumps(record) + "\n")
@@ -569,8 +551,7 @@ def _write_fan_out_fixture(
 def test_trace_command_has_expand_flag() -> None:
     """`gw trace --help` advertises the --expand flag (Task 1, D-14)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli",
-         "gw", "trace", "--help"],
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "trace", "--help"],
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
@@ -578,9 +559,7 @@ def test_trace_command_has_expand_flag() -> None:
         env=_PLAIN_HELP_ENV,
     )
     assert result.returncode == 0, f"trace --help exited {result.returncode}: {result.stderr}"
-    assert "--expand" in result.stdout, (
-        f"Expected '--expand' in trace --help output:\n{result.stdout}"
-    )
+    assert "--expand" in result.stdout, f"Expected '--expand' in trace --help output:\n{result.stdout}"
 
 
 def test_default_mode_collapses_consecutive_same_role(tmp_path: Path) -> None:
@@ -591,28 +570,19 @@ def test_default_mode_collapses_consecutive_same_role(tmp_path: Path) -> None:
     """
     fixture_file = _write_fan_out_fixture(tmp_path, n=4)
     result = _run_trace_cmd([str(fixture_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
     stdout = result.stdout
 
     # Exactly ONE collapsed group line for the 4 records. The collapsed-group
     # header surfaces both role and model_id (per CR-01 fix in plan 09-06), so
     # we assert each substring separately and pin them to the same line.
     timeline_for_marker = stdout.split("=== Summary ===")[0]
-    marker_lines = [
-        ln for ln in timeline_for_marker.splitlines()
-        if "scanner" in ln and "x4:" in ln
-    ]
-    assert marker_lines, (
-        f"Expected one collapsed-group line with 'scanner' and 'x4:' in default mode output:\n{stdout}"
-    )
+    marker_lines = [ln for ln in timeline_for_marker.splitlines() if "scanner" in ln and "x4:" in ln]
+    assert marker_lines, f"Expected one collapsed-group line with 'scanner' and 'x4:' in default mode output:\n{stdout}"
     # Per-item item_id substrings must not appear in the timeline portion
     # (Summary block contains aggregate counts only.)
     timeline = stdout.split("=== Summary ===")[0]
-    assert "page-0" not in timeline, (
-        f"Expected NO per-item 'page-0' line in collapsed timeline:\n{timeline}"
-    )
+    assert "page-0" not in timeline, f"Expected NO per-item 'page-0' line in collapsed timeline:\n{timeline}"
     # ISO-8601 first/last timestamps in the summary line
     assert "2026-05-17T10:00:00Z" in stdout and "2026-05-17T10:00:03Z" in stdout, (
         f"Expected first/last timestamps in collapsed line:\n{stdout}"
@@ -627,21 +597,15 @@ def test_expand_mode_renders_every_record_full_line(tmp_path: Path) -> None:
     """--expand disables collapsing; every record renders full-line (D-14)."""
     fixture_file = _write_fan_out_fixture(tmp_path, n=4)
     result = _run_trace_cmd([str(fixture_file), "--expand"])
-    assert result.returncode == 0, (
-        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
     stdout = result.stdout
     timeline = stdout.split("=== Summary ===")[0]
     # All 4 item_ids appear as separate lines
     for i in range(4):
-        assert f"page-{i}" in timeline, (
-            f"Expected per-item 'page-{i}' line in --expand timeline:\n{timeline}"
-        )
+        assert f"page-{i}" in timeline, f"Expected per-item 'page-{i}' line in --expand timeline:\n{timeline}"
     # No collapsed-group marker (e.g. ` x4:` token); per-record lines never
     # carry the ` x<N>:` marker, only collapsed-group headers do.
-    assert "x4:" not in stdout, (
-        f"Did NOT expect ' x4:' collapse marker in --expand mode:\n{stdout}"
-    )
+    assert "x4:" not in stdout, f"Did NOT expect ' x4:' collapse marker in --expand mode:\n{stdout}"
 
 
 # ---------------------------------------------------------------------------
@@ -874,9 +838,7 @@ def test_collapsed_default_snapshot(snapshot: SnapshotAssertion, tmp_path: Path)
     """4 consecutive same-role records, default mode, snapshot ONE collapsed line + Summary."""
     fixture_file = _write_fan_out_fixture(tmp_path, n=4)
     result = _run_trace_cmd([str(fixture_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstderr: {result.stderr}"
     assert result.stdout == snapshot
 
 
@@ -884,9 +846,7 @@ def test_expand_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """Same 4-record fixture as collapsed_default but with --expand: FOUR full-line records."""
     fixture_file = _write_fan_out_fixture(tmp_path, n=4)
     result = _run_trace_cmd([str(fixture_file), "--expand"])
-    assert result.returncode == 0, (
-        f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace --expand exited {result.returncode}\nstderr: {result.stderr}"
     assert result.stdout == snapshot
 
 
@@ -899,15 +859,11 @@ def test_mixed_status_in_run_snapshot(snapshot: SnapshotAssertion, tmp_path: Pat
     """
     fixture_file = _write_mixed_status_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstderr: {result.stderr}"
     assert result.stdout == snapshot
 
 
-def test_query_summary_interleaved_breaks_group_snapshot(
-    snapshot: SnapshotAssertion, tmp_path: Path
-) -> None:
+def test_query_summary_interleaved_breaks_group_snapshot(snapshot: SnapshotAssertion, tmp_path: Path) -> None:
     """3 scanner -> kind:query_summary -> 2 scanner -> event:batch_cancelled.
 
     Snapshot must show: first collapsed group (`scanner x3:`), then full-line
@@ -916,9 +872,7 @@ def test_query_summary_interleaved_breaks_group_snapshot(
     """
     fixture_file = _write_interleaved_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstderr: {result.stderr}"
     assert result.stdout == snapshot
 
 
@@ -965,9 +919,7 @@ def test_aggregate_excludes_event_kind_from_by_role(tmp_path: Path) -> None:
             f.write(json.dumps(record) + "\n")
 
     result = _run_trace_cmd([str(trace_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     # Per-role section sits between 'Per-role breakdown:' and the next blank-line section.
     per_role_section = result.stdout.split("Per-role breakdown:")[1].split("Cost rollup")[0]
@@ -1009,18 +961,12 @@ def test_collapsed_group_surfaces_unknown_status_in_other_bucket(tmp_path: Path)
             f.write(json.dumps(record) + "\n")
 
     result = _run_trace_cmd([str(trace_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     timeline = result.stdout.split("=== Summary ===")[0]
     assert "x3" in timeline, f"Expected collapsed-group marker 'x3' in timeline:\n{timeline}"
-    assert "3 other" in timeline, (
-        f"Expected '3 other' in collapsed-group breakdown:\n{timeline}"
-    )
-    assert "0 success" not in timeline, (
-        f"Did NOT expect misleading '0 success' fallback:\n{timeline}"
-    )
+    assert "3 other" in timeline, f"Expected '3 other' in collapsed-group breakdown:\n{timeline}"
+    assert "0 success" not in timeline, f"Did NOT expect misleading '0 success' fallback:\n{timeline}"
 
 
 def test_mixed_model_same_role_breaks_collapse(tmp_path: Path) -> None:
@@ -1065,9 +1011,7 @@ def test_mixed_model_same_role_breaks_collapse(tmp_path: Path) -> None:
             f.write(json.dumps(record) + "\n")
 
     result = _run_trace_cmd([str(trace_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     timeline = result.stdout.split("=== Summary ===")[0]
     assert "haiku-4-5" in timeline, f"expected haiku substring in timeline; got:\n{timeline}"
@@ -1091,22 +1035,14 @@ def test_isolated_record_renders_full_line(tmp_path: Path) -> None:
     """
     fixture_file = _write_two_roles_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstderr: {result.stderr}"
     stdout = result.stdout
     timeline = stdout.split("=== Summary ===")[0]
     # Each role's item_id appears as a per-item full line
-    assert "scanner-page" in timeline, (
-        f"Expected 'scanner-page' full-line in timeline:\n{timeline}"
-    )
-    assert "librarian-page" in timeline, (
-        f"Expected 'librarian-page' full-line in timeline:\n{timeline}"
-    )
+    assert "scanner-page" in timeline, f"Expected 'scanner-page' full-line in timeline:\n{timeline}"
+    assert "librarian-page" in timeline, f"Expected 'librarian-page' full-line in timeline:\n{timeline}"
     # No collapsed-group marker — runs of length 1 are NOT collapsed
-    assert "x1:" not in stdout, (
-        f"Did NOT expect 'x1:' collapse marker (isolated records render full-line):\n{stdout}"
-    )
+    assert "x1:" not in stdout, f"Did NOT expect 'x1:' collapse marker (isolated records render full-line):\n{stdout}"
 
 
 # ---------------------------------------------------------------------------
@@ -1217,29 +1153,17 @@ def test_v0_real_fixture_renders_and_warns_once(tmp_path: Path) -> None:
 
     result = _run_trace_cmd([str(fixture)])
 
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     # Exactly one stderr line carries a v0 marker, and that line mentions the file path.
     v0_markers = ("unversioned", "schema_version=0", "pre-Phase-9")
-    v0_lines = [
-        line
-        for line in result.stderr.splitlines()
-        if any(marker in line for marker in v0_markers)
-    ]
-    assert len(v0_lines) == 1, (
-        f"Expected exactly one v0 warning line; found {len(v0_lines)}:\n{result.stderr}"
-    )
-    assert str(fixture) in v0_lines[0], (
-        f"Expected v0 warning to mention file path {fixture}; got:\n{v0_lines[0]}"
-    )
+    v0_lines = [line for line in result.stderr.splitlines() if any(marker in line for marker in v0_markers)]
+    assert len(v0_lines) == 1, f"Expected exactly one v0 warning line; found {len(v0_lines)}:\n{result.stderr}"
+    assert str(fixture) in v0_lines[0], f"Expected v0 warning to mention file path {fixture}; got:\n{v0_lines[0]}"
 
     # Stdout still rendered: contains the per-item Summary block at minimum.
     assert result.stdout, "Expected non-empty stdout from successful v0 render"
-    assert "=== Summary ===" in result.stdout, (
-        f"Expected Summary block in stdout:\n{result.stdout}"
-    )
+    assert "=== Summary ===" in result.stdout, f"Expected Summary block in stdout:\n{result.stdout}"
 
 
 def test_newer_version_warns_lenient(tmp_path: Path) -> None:
@@ -1252,22 +1176,16 @@ def test_newer_version_warns_lenient(tmp_path: Path) -> None:
     fixture_file = _write_newer_version_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
 
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
     assert "schema_version 99 is newer than supported (1)" in result.stderr, (
         f"Expected D-03 lenient-consumer wording in stderr:\n{result.stderr}"
     )
-    assert "rendering best-effort" in result.stderr, (
-        f"Expected 'rendering best-effort' in stderr:\n{result.stderr}"
-    )
+    assert "rendering best-effort" in result.stderr, f"Expected 'rendering best-effort' in stderr:\n{result.stderr}"
     assert result.stderr.count("is newer than supported") == 1, (
         f"Expected exactly ONE 'is newer than supported' occurrence (one-shot per file):\n{result.stderr}"
     )
     # Records still flow through to the timeline.
-    assert "scanner" in result.stdout, (
-        f"Expected records to render in timeline despite newer version:\n{result.stdout}"
-    )
+    assert "scanner" in result.stdout, f"Expected records to render in timeline despite newer version:\n{result.stdout}"
 
 
 def test_versioned_clean_emits_no_version_warning(tmp_path: Path) -> None:
@@ -1275,9 +1193,7 @@ def test_versioned_clean_emits_no_version_warning(tmp_path: Path) -> None:
     fixture_file = _write_fan_out_fixture(tmp_path, n=2)
     result = _run_trace_cmd([str(fixture_file)])
 
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
     assert "newer than supported" not in result.stderr, (
         f"Did NOT expect 'newer than supported' in stderr for clean v1 file:\n{result.stderr}"
     )
@@ -1298,15 +1214,11 @@ def test_v0_warning_emitted_once_per_file(tmp_path: Path) -> None:
     fixture_file = _write_unversioned_inline_fixture(tmp_path)
     result = _run_trace_cmd([str(fixture_file)])
 
-    assert result.returncode == 0, (
-        f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert result.returncode == 0, f"trace exited {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     v0_markers = ("unversioned", "schema_version=0", "pre-Phase-9")
     v0_line_indices = {
-        idx
-        for idx, line in enumerate(result.stderr.splitlines())
-        if any(marker in line for marker in v0_markers)
+        idx for idx, line in enumerate(result.stderr.splitlines()) if any(marker in line for marker in v0_markers)
     }
     assert len(v0_line_indices) == 1, (
         f"Expected exactly one stderr line carrying a v0 marker; "

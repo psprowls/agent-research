@@ -9,6 +9,7 @@ Layout:
   generated-files exclusion, plus a syrupy snapshot against the live
   agent-research graph (skipped when no live graph is present).
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -18,14 +19,12 @@ import time
 from pathlib import Path
 
 import pytest
-
 from wiki_io.index_generator import (
     BY_KIND_ORDER,
     CURATED_LANES,
     GENERATED_FILES,
     KIND_LABELS,
     IndexWriteResult,
-    PlacedEntity,
     _compute_qualifying_domains,
     _consumer_pkgs,
     _consumer_pkgs_in_domain,
@@ -45,9 +44,7 @@ def _place(conn):
     only care about buckets/by_kind; with no entity pages on disk all summaries
     degrade to "". Returns the (buckets, by_kind) pair the old tests expect.
     """
-    buckets, by_kind, _name_to_entity = _place_entities(
-        conn, Path("/nonexistent-wiki-root"), frozenset()
-    )
+    buckets, by_kind, _name_to_entity = _place_entities(conn, Path("/nonexistent-wiki-root"), frozenset())
     return buckets, by_kind
 
 
@@ -153,9 +150,7 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="package", name="pkg-a"
-        ) == {"core", "billing"}
+        assert _compute_qualifying_domains(conn, kind="package", name="pkg-a") == {"core", "billing"}
 
     def test_test_suite_one_hop(self, make_index_fixture_graph):
         spec = {
@@ -170,9 +165,9 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite-a", uri="test_suite:suite-a"
-        ) == {"core"}
+        assert _compute_qualifying_domains(conn, kind="test_suite", name="suite-a", uri="test_suite:suite-a") == {
+            "core"
+        }
 
     def test_test_suite_multi_package_multi_domain(self, make_index_fixture_graph):
         spec = {
@@ -191,9 +186,10 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="test_suite", name="suite", uri="test_suite:suite"
-        ) == {"d1", "d2"}
+        assert _compute_qualifying_domains(conn, kind="test_suite", name="suite", uri="test_suite:suite") == {
+            "d1",
+            "d2",
+        }
 
     def test_dependency_one_hop(self, make_index_fixture_graph):
         spec = {
@@ -208,9 +204,7 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="dependency", name="boto3"
-        ) == {"core"}
+        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"core"}
 
     def test_dependency_multi_consumer_same_domain(self, make_index_fixture_graph):
         spec = {
@@ -228,9 +222,7 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="dependency", name="boto3"
-        ) == {"core"}
+        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"core"}
 
     def test_dependency_multi_consumer_multi_domain(self, make_index_fixture_graph):
         spec = {
@@ -249,9 +241,7 @@ class TestQualifyingDomains:
             ],
         }
         conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(
-            conn, kind="dependency", name="boto3"
-        ) == {"d1", "d2"}
+        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"d1", "d2"}
 
     def test_agent_plugin_always_empty(self, make_index_fixture_graph):
         spec = {
@@ -401,9 +391,7 @@ class TestCuratedScan:
         assert _scan_curated_lane(tmp_path, "nonexistent") == []
 
     def test_basic_scan_with_frontmatter(self, tmp_path):
-        _write_curated_page(
-            tmp_path / "concepts" / "foo.md", title="Foo Page", summary="Test summary"
-        )
+        _write_curated_page(tmp_path / "concepts" / "foo.md", title="Foo Page", summary="Test summary")
         entries = _scan_curated_lane(tmp_path, "concepts")
         assert len(entries) == 1
         assert entries[0]["title"] == "Foo Page"
@@ -443,9 +431,7 @@ class TestWorkScan:
         assert _scan_work(tmp_path) == []
 
     def test_basic_work_scan(self, tmp_path):
-        _write_curated_page(
-            tmp_path / "wiki" / "work" / "2026-05-03-foo.md", title="Foo work item"
-        )
+        _write_curated_page(tmp_path / "wiki" / "work" / "2026-05-03-foo.md", title="Foo work item")
         entries = _scan_work(tmp_path)
         assert len(entries) == 1
         assert entries[0]["path"] == "work/2026-05-03-foo.md"
@@ -567,9 +553,7 @@ class TestRenderByKind:
         assert "  - Dependencies" in text
         assert "[[entities/dep_boto3|boto3]]" in text
 
-    def test_by_kind_entity_summary_renders_before_open_page_link(
-        self, tmp_path, make_index_fixture_graph
-    ):
+    def test_by_kind_entity_summary_renders_before_open_page_link(self, tmp_path, make_index_fixture_graph):
         """A by-kind entity with a `summary:` renders `{summary} — [[…|open page]]`
         on the line beneath its `#### {name}` header (summary-first ordering)."""
         spec = {
@@ -834,12 +818,8 @@ def test_write_if_changed_writes_when_graph_mutates(tmp_path, make_index_fixture
     r1 = generate_index(conn, wiki_root)
     assert r1.changed is True
 
-    spec["nodes"].append(
-        ("package", "pkg-new", {"uri": "pkg:agent-research/pkg-new"})
-    )
-    spec["edges"].append(
-        ("package", "pkg-new", "domain", "core", "belongs_to_domain", {})
-    )
+    spec["nodes"].append(("package", "pkg-new", {"uri": "pkg:agent-research/pkg-new"}))
+    spec["edges"].append(("package", "pkg-new", "domain", "core", "belongs_to_domain", {}))
     conn2 = make_index_fixture_graph(spec)
 
     r2 = generate_index(conn2, wiki_root)
@@ -958,7 +938,7 @@ def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
     assert "[[entities/pkg_pkg-solo|pkg-solo]]" in text
     active_start = text.find("## Domain: active-domain")
     next_section = text.find("##", active_start + len("## Domain: active-domain"))
-    active_section = text[active_start:next_section if next_section > -1 else None]
+    active_section = text[active_start : next_section if next_section > -1 else None]
     assert "Test Suites" not in active_section
     assert "Dependencies" not in active_section
     assert "## Domain: empty-domain" not in text
@@ -1018,7 +998,7 @@ def test_curated_lanes_consolidated(tmp_path, make_index_fixture_graph):
 
     adr_start = text.find("## ADRs")
     next_h2 = text.find("\n## ", adr_start + 1)
-    adr_section = text[adr_start: next_h2 if next_h2 > -1 else len(text)]
+    adr_section = text[adr_start : next_h2 if next_h2 > -1 else len(text)]
     alpha_idx = adr_section.find("Alpha ADR")
     mu_idx = adr_section.find("Mu ADR")
     zeta_idx = adr_section.find("Zeta ADR")
@@ -1058,15 +1038,12 @@ def test_generated_files_excluded(tmp_path, make_index_fixture_graph):
 # ============================================================================
 
 
-def test_app_zero_domain_renders_in_by_kind_apps_first(
-    tmp_path, make_index_fixture_graph
-):
+def test_app_zero_domain_renders_in_by_kind_apps_first(tmp_path, make_index_fixture_graph):
     """IDX-01/D-03/D-04 — a zero-domain app renders in `### Apps`, before
     `### Packages`."""
     spec = {
         "nodes": [
-            ("app", "myapp", {"uri": "app:agent-research/myapp",
-                              "app_kind": "cli", "app_signals": []}),
+            ("app", "myapp", {"uri": "app:agent-research/myapp", "app_kind": "cli", "app_signals": []}),
             ("package", "pkg-cross", {"uri": "pkg:agent-research/pkg-cross"}),
         ],
         "edges": [],
@@ -1084,9 +1061,7 @@ def test_app_zero_domain_renders_in_by_kind_apps_first(
     assert "[[entities/app_myapp|open page]]" in text
 
 
-def test_app_single_domain_renders_under_its_domain(
-    tmp_path, make_index_fixture_graph
-):
+def test_app_single_domain_renders_under_its_domain(tmp_path, make_index_fixture_graph):
     """IDX-01/D-04 — a single-domain app renders under its `## Domain: X`
     section (same routing as packages), not in By-Kind."""
     spec = {
@@ -1109,9 +1084,7 @@ def test_app_single_domain_renders_under_its_domain(
     assert "### Apps" not in text
 
 
-def test_internal_dependencies_subsection_distinct_from_dependencies(
-    tmp_path, make_index_fixture_graph
-):
+def test_internal_dependencies_subsection_distinct_from_dependencies(tmp_path, make_index_fixture_graph):
     """IDX-05/D-09 — a `depends_on_package` edge renders a separate
     `Internal dependencies` sub-list linking to the internal PACKAGE entity
     page, kept distinct from the external `Dependencies` sub-list."""
@@ -1150,9 +1123,7 @@ def test_internal_dependencies_subsection_distinct_from_dependencies(
     assert dep_idx < internal_idx
 
 
-def test_inline_summary_from_entity_page_frontmatter(
-    tmp_path, make_index_fixture_graph
-):
+def test_inline_summary_from_entity_page_frontmatter(tmp_path, make_index_fixture_graph):
     """IDX-03/D-06/D-07 — an entity entry shows ` — {summary}` read from the
     entity page's own `summary:` frontmatter; no suffix when absent."""
     spec = {
@@ -1285,31 +1256,17 @@ def test_consumer_pkgs_fanout_regression_guard():
     # _consumer_pkgs: each suite resolves to exactly its own consumer package
     pkgs_for_alpha = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_alpha)
     pkgs_for_beta = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_beta)
-    assert pkgs_for_alpha == ("pkg-alpha",), (
-        f"expected ('pkg-alpha',), got {pkgs_for_alpha!r} — fan-out detected"
-    )
-    assert pkgs_for_beta == ("pkg-beta",), (
-        f"expected ('pkg-beta',), got {pkgs_for_beta!r} — fan-out detected"
-    )
+    assert pkgs_for_alpha == ("pkg-alpha",), f"expected ('pkg-alpha',), got {pkgs_for_alpha!r} — fan-out detected"
+    assert pkgs_for_beta == ("pkg-beta",), f"expected ('pkg-beta',), got {pkgs_for_beta!r} — fan-out detected"
 
     # _consumer_pkgs_in_domain: same correctness within a domain
-    pkgs_alpha_d1 = _consumer_pkgs_in_domain(
-        conn, kind="test_suite", entity_uri=uri_alpha, domain_name="d1"
-    )
-    pkgs_beta_d1 = _consumer_pkgs_in_domain(
-        conn, kind="test_suite", entity_uri=uri_beta, domain_name="d1"
-    )
-    assert pkgs_alpha_d1 == ("pkg-alpha",), (
-        f"expected ('pkg-alpha',), got {pkgs_alpha_d1!r} — domain fan-out detected"
-    )
-    assert pkgs_beta_d1 == ("pkg-beta",), (
-        f"expected ('pkg-beta',), got {pkgs_beta_d1!r} — domain fan-out detected"
-    )
+    pkgs_alpha_d1 = _consumer_pkgs_in_domain(conn, kind="test_suite", entity_uri=uri_alpha, domain_name="d1")
+    pkgs_beta_d1 = _consumer_pkgs_in_domain(conn, kind="test_suite", entity_uri=uri_beta, domain_name="d1")
+    assert pkgs_alpha_d1 == ("pkg-alpha",), f"expected ('pkg-alpha',), got {pkgs_alpha_d1!r} — domain fan-out detected"
+    assert pkgs_beta_d1 == ("pkg-beta",), f"expected ('pkg-beta',), got {pkgs_beta_d1!r} — domain fan-out detected"
 
     # A URI matching no suite returns empty (no name-fallback)
-    no_match = _consumer_pkgs(
-        conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite"
-    )
+    no_match = _consumer_pkgs(conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite")
     assert no_match == (), f"expected () for unmatched URI, got {no_match!r}"
 
 

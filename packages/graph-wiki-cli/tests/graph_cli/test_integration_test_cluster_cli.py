@@ -71,9 +71,7 @@ def test_subcommand_help_exit_zero() -> None:
 def test_run_against_agent_research_graph() -> None:
     """CLUSTER-04: command runs against the actual agent-research graph."""
     if not _agent_research_graph_available():
-        pytest.skip(
-            "agent-research code.db not initialised; run `gw graph update` from repo root"
-        )
+        pytest.skip("agent-research code.db not initialised; run `gw graph update` from repo root")
     repo = _repo_root()
     result = subprocess.run(
         [*_cg_cmd(), "--repo", str(repo), "--fmt", "json", "domain-clusters"],
@@ -83,10 +81,9 @@ def test_run_against_agent_research_graph() -> None:
     assert result.returncode == 0, f"stderr={result.stderr}"
     payload = json.loads(result.stdout)
     # Must contain either at least one cluster OR a degenerate_warning explaining why.
-    assert (
-        len(payload["clusters"]) >= 1
-        or payload["degenerate_warning"] is not None
-    ), f"Expected clusters or a warning; got {payload}"
+    assert len(payload["clusters"]) >= 1 or payload["degenerate_warning"] is not None, (
+        f"Expected clusters or a warning; got {payload}"
+    )
     # JSON shape locked by D-20.
     assert list(payload.keys()) == [
         "hub_threshold",
@@ -101,9 +98,7 @@ def test_run_against_agent_research_graph() -> None:
 def test_byte_identical_repeated_invocation() -> None:
     """CLUSTER-05: two invocations produce byte-identical stdout."""
     if not _agent_research_graph_available():
-        pytest.skip(
-            "agent-research code.db not initialised; run `gw graph update` from repo root"
-        )
+        pytest.skip("agent-research code.db not initialised; run `gw graph update` from repo root")
     repo = _repo_root()
     cmd = [*_cg_cmd(), "--repo", str(repo), "--fmt", "json", "domain-clusters"]
     out1 = subprocess.check_output(cmd)

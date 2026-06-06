@@ -19,7 +19,7 @@ _REPO_ROOT = Path(__file__).parent.parent
 # Canonical pattern. Tolerates whitespace and newlines between tokens because
 # auto-formatters (ruff, black) may reflow the argument list.
 _CANONICAL_PATTERN = re.compile(
-    r'pytest\.mark\.skipif\s*\(\s*'
+    r"pytest\.mark\.skipif\s*\(\s*"
     r'(?:not\s+)?os\.environ\.get\(\s*["\']GRAPH_WIKI_RUN_INTEGRATION["\']\s*\)',
     re.MULTILINE,
 )

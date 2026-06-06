@@ -59,7 +59,10 @@ class TestHumanMessage:
 
     def test_includes_file_map_for_package(self):
         _, human = build_entity_narrative_prompt(
-            _node(), "package", "src/\n  foo.py\n  bar.py\n", {},
+            _node(),
+            "package",
+            "src/\n  foo.py\n  bar.py\n",
+            {},
         )
         assert "File listing" in human
         assert "src/" in human
@@ -123,16 +126,17 @@ class TestAgentPluginGrounding:
             _node(), "package", "src/\n  foo.py\n", {"depends_on": ["pkg:bar"]}
         )
         _, human_empty_param = build_entity_narrative_prompt(
-            _node(), "package", "src/\n  foo.py\n", {"depends_on": ["pkg:bar"]},
+            _node(),
+            "package",
+            "src/\n  foo.py\n",
+            {"depends_on": ["pkg:bar"]},
             components_text="",
         )
         assert human_no_param == human_empty_param
 
     def test_package_ignores_components_text(self):
         """components_text must be silently ignored for non-agent_plugin kinds."""
-        _, human_without = build_entity_narrative_prompt(
-            _node(), "package", "", {}
-        )
+        _, human_without = build_entity_narrative_prompt(_node(), "package", "", {})
         _, human_with = build_entity_narrative_prompt(
             _node(), "package", "", {}, components_text="## Commands\nsome text"
         )

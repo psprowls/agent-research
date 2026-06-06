@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Unit tests for commands/lint.py — LintResult shape, run_lint orchestration, and
 mechanical pass behavior (placeholder filter, stale threshold, module calls).
 
 Requirements: CMD-05
 """
+
+from __future__ import annotations
 
 import dataclasses
 import hashlib
@@ -79,9 +79,7 @@ async def test_run_lint_mechanical_finds_orphans_in_fixture(tmp_path) -> None:
     with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
-        mock_pool.run_all = AsyncMock(
-            return_value=FanOutResult(successes=[], errors=[])
-        )
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
         result = await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     assert isinstance(result.orphans, list)
@@ -123,9 +121,7 @@ async def test_run_lint_broken_links_skip_placeholder_targets(tmp_path: Path) ->
     with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
-        mock_pool.run_all = AsyncMock(
-            return_value=FanOutResult(successes=[], errors=[])
-        )
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
         # resolve_wiki_and_repo appends /wiki, so pass the parent.
         result = await run_lint(workspace_path=tmp_path)
 
@@ -258,9 +254,7 @@ async def test_run_lint_semantic_fanout_3_groups(tmp_path: Path) -> None:
 
     assert len(captured_calls) == 1, f"Expected 1 run_all call, got {len(captured_calls)}"
     assert captured_calls[0]["role"] == "linter"
-    assert len(captured_calls[0]["items"]) == 3, (
-        f"Expected 3 semantic groups, got {len(captured_calls[0]['items'])}"
-    )
+    assert len(captured_calls[0]["items"]) == 3, f"Expected 3 semantic groups, got {len(captured_calls[0]['items'])}"
 
 
 # ---------------------------------------------------------------------------
@@ -363,25 +357,41 @@ async def test_run_lint_reports_open_proposals_count(tmp_path: Path) -> None:
     workspace.mkdir()
     wiki = workspace / "wiki"
     wiki.mkdir()
-    (workspace / "CLAUDE.md").write_text(
-        "# wiki\n\n```yaml\nversion: 1\ncontainers: []\n```\n", encoding="utf-8"
-    )
+    (workspace / "CLAUDE.md").write_text("# wiki\n\n```yaml\nversion: 1\ncontainers: []\n```\n", encoding="utf-8")
     (workspace / "index.md").write_text("# Index\n", encoding="utf-8")
 
     # Two proposed + one approved → open count is 2.
     # proposals must be written into the resolved wiki dir (workspace/wiki/).
-    upsert_proposal(wiki, {
-        "kind": "concept", "mode": "create_new", "target_slug": "a", "title": "A",
-        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
-    })
-    upsert_proposal(wiki, {
-        "kind": "adr", "mode": "create_new", "target_slug": "b", "title": "B",
-        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
-    })
-    upsert_proposal(wiki, {
-        "kind": "concept", "mode": "create_new", "target_slug": "c", "title": "C",
-        "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
-    })
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "concept",
+            "mode": "create_new",
+            "target_slug": "a",
+            "title": "A",
+            "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+        },
+    )
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "adr",
+            "mode": "create_new",
+            "target_slug": "b",
+            "title": "B",
+            "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+        },
+    )
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "concept",
+            "mode": "create_new",
+            "target_slug": "c",
+            "title": "C",
+            "origin": {"ref": "sources/s", "source": "ingest", "rationale": "r"},
+        },
+    )
     set_proposal_status(wiki, "concept", "c", "approved")
 
     with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
@@ -419,12 +429,9 @@ async def test_run_lint_wiki_rooted_links_not_broken(tmp_path) -> None:
     (wiki / "concepts" / "y.md").write_text(
         "---\ntitle: Y\ncategory: concept\nsummary: s\n---\n\nbody\n", encoding="utf-8"
     )
-    (wiki / "work" / "z.md").write_text(
-        "---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8"
-    )
+    (wiki / "work" / "z.md").write_text("---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8")
     (wiki / "concepts" / "hub.md").write_text(
-        "---\ntitle: Hub\ncategory: concept\nsummary: s\n---\n\n"
-        "[[entities/x]] [[concepts/y]] [[work/z]]\n",
+        "---\ntitle: Hub\ncategory: concept\nsummary: s\n---\n\n[[entities/x]] [[concepts/y]] [[work/z]]\n",
         encoding="utf-8",
     )
 

@@ -1,7 +1,12 @@
 """Tests for workspace_io.paths — pure path arithmetic over a workspace path."""
+
 from workspace_io.paths import (
-    manifest_path, wiki_dir, raw_dir,
-    work_dir, knowledge_dir, graph_dir,
+    graph_dir,
+    knowledge_dir,
+    manifest_path,
+    raw_dir,
+    wiki_dir,
+    work_dir,
 )
 
 

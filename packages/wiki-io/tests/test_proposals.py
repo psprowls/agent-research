@@ -1,7 +1,7 @@
-from __future__ import annotations
-
 """Unit tests for wiki_io.proposals — the curated-page proposal ledger.
 Pure Python, no Bedrock, no graph."""
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -65,9 +65,7 @@ def test_read_proposal_round_trips_a_written_note(tmp_path: Path) -> None:
     assert rec["target_slug"] == "section-ownership"
     assert rec["title"] == "Section Ownership"
     assert rec["status"] == "proposed"
-    assert rec["origins"] == [
-        {"ref": "sources/spec", "source": "ingest", "rationale": "A reusable split."}
-    ]
+    assert rec["origins"] == [{"ref": "sources/spec", "source": "ingest", "rationale": "A reusable split."}]
 
 
 def test_split_proposal_id_parses_kind_prefix() -> None:
@@ -80,7 +78,6 @@ def test_split_proposal_id_parses_kind_prefix() -> None:
 
 def test_split_proposal_id_rejects_unknown_kind() -> None:
     import pytest
-
     from wiki_io.proposals import split_proposal_id
 
     with pytest.raises(ValueError):
@@ -125,9 +122,7 @@ def test_upsert_leaves_human_decided_untouched(tmp_path: Path) -> None:
     path.write_text(text.replace("status: proposed", "status: approved"), encoding="utf-8")
     before = path.read_text(encoding="utf-8")
 
-    rec = upsert_proposal(
-        wiki, _proposal(target_slug="a", title="NEW", origin=_origin(rationale="new evidence"))
-    )
+    rec = upsert_proposal(wiki, _proposal(target_slug="a", title="NEW", origin=_origin(rationale="new evidence")))
 
     assert rec["status"] == "approved"
     assert rec["title"] == "Orig"  # not overwritten
@@ -162,9 +157,7 @@ def test_upsert_refresh_accumulates_origins_by_ref(tmp_path: Path) -> None:
     assert [o["ref"] for o in rec["origins"]] == ["sources/one", "sources/two"]
 
     # The SAME ref re-firing updates in place (no duplicate); status stays proposed.
-    upsert_proposal(
-        wiki, _proposal(target_slug="a", origin=_origin(ref="sources/two", rationale="changed"))
-    )
+    upsert_proposal(wiki, _proposal(target_slug="a", origin=_origin(ref="sources/two", rationale="changed")))
     rec = read_proposal(proposal_path(wiki, "concept", "a"))
     assert [o["ref"] for o in rec["origins"]] == ["sources/one", "sources/two"]
     assert rec["origins"][1]["rationale"] == "changed"
@@ -299,10 +292,16 @@ def test_update_index_ignores_proposals(tmp_path: Path) -> None:
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
-    upsert_proposal(tmp_path / "wiki", {  # writes wiki/proposals/concept-xyz.md
-        "kind": "concept", "mode": "create_new", "target_slug": "xyz",
-        "title": "XYZ", "origin": _origin(),
-    })
+    upsert_proposal(
+        tmp_path / "wiki",
+        {  # writes wiki/proposals/concept-xyz.md
+            "kind": "concept",
+            "mode": "create_new",
+            "target_slug": "xyz",
+            "title": "XYZ",
+            "origin": _origin(),
+        },
+    )
     update_index(wiki)
     assert not (wiki / "proposals" / "index.md").exists()
     # No category sub-index mentions the proposal slug.

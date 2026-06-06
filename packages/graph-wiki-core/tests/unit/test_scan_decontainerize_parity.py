@@ -1,11 +1,11 @@
 """Characterization harness: the entities/ tree must not change as containers are removed."""
+
 from __future__ import annotations
 
 import asyncio
 from pathlib import Path
 
 import pytest
-
 from graph_wiki_core.commands.init import run_init
 from graph_wiki_core.commands.scan import run_scan
 
@@ -15,10 +15,7 @@ def _snapshot_entities(wiki: Path) -> dict[str, str]:
     ents = wiki / "entities"
     if not ents.exists():
         return {}
-    return {
-        str(p.relative_to(ents)): p.read_text(encoding="utf-8")
-        for p in sorted(ents.rglob("*.md"))
-    }
+    return {str(p.relative_to(ents)): p.read_text(encoding="utf-8") for p in sorted(ents.rglob("*.md"))}
 
 
 # Deliberately function-scoped (the underlying seeded_graph_workspace is

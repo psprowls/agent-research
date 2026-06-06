@@ -36,8 +36,7 @@ def test_cli_help_lists_bootstrap_subcommand() -> None:
     assert result.returncode == 0, f"--help exited {result.returncode}\n{result.stderr}"
     # Match `bootstrap` as a word-boundary subcommand entry (e.g. "  bootstrap   ...").
     assert re.search(r"\bbootstrap\b", result.stdout), (
-        f"`bootstrap` must appear in --help output after Phase 18 rename.\n"
-        f"stdout:\n{result.stdout}"
+        f"`bootstrap` must appear in --help output after Phase 18 rename.\nstdout:\n{result.stdout}"
     )
 
 

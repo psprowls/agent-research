@@ -5,11 +5,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from _git_repo import init_repo, write_and_commit
+from graph_io import schema, update
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
-
-from graph_io import schema, update
-from _git_repo import init_repo, write_and_commit
 
 
 def _open_ro(repo: Path) -> sqlite3.Connection:
@@ -76,15 +75,11 @@ def test_update_skips_default_skip_dirs(tmp_path: Path) -> None:
 
     conn = _open_ro(tmp_path)
     try:
-        names = {row[0] for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='function'"
-        ).fetchall()}
+        names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='function'").fetchall()}
         assert "keep_me" in names
         assert "skip_me" not in names
 
-        paths = {row[0] for row in conn.execute(
-            "SELECT path FROM nodes WHERE kind='file'"
-        ).fetchall()}
+        paths = {row[0] for row in conn.execute("SELECT path FROM nodes WHERE kind='file'").fetchall()}
         assert "src/a.py" in paths
         assert "dist/junk.py" not in paths
     finally:
@@ -112,9 +107,7 @@ def test_deriver_version_bump_forces_rebuild(tmp_path: Path) -> None:
 
     conn = _open_ro(tmp_path)
     try:
-        dv = conn.execute(
-            "SELECT value FROM metadata WHERE key='deriver_version'"
-        ).fetchone()
+        dv = conn.execute("SELECT value FROM metadata WHERE key='deriver_version'").fetchone()
         assert dv == (str(schema.DERIVER_VERSION),)
     finally:
         conn.close()
@@ -125,12 +118,8 @@ def test_deriver_version_bump_forces_rebuild(tmp_path: Path) -> None:
     db = _db_path(tmp_path)
     wconn = sqlite3.connect(str(db))
     try:
-        wconn.execute(
-            "UPDATE metadata SET value='0' WHERE key='deriver_version'"
-        )
-        wconn.execute(
-            "DELETE FROM nodes WHERE kind='function'"
-        )
+        wconn.execute("UPDATE metadata SET value='0' WHERE key='deriver_version'")
+        wconn.execute("DELETE FROM nodes WHERE kind='function'")
         wconn.commit()
     finally:
         wconn.close()
@@ -138,9 +127,7 @@ def test_deriver_version_bump_forces_rebuild(tmp_path: Path) -> None:
     # Verify function node is gone before re-run.
     conn = _open_ro(tmp_path)
     try:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='function'"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='function'").fetchone()[0]
         assert count == 0
     finally:
         conn.close()
@@ -150,18 +137,11 @@ def test_deriver_version_bump_forces_rebuild(tmp_path: Path) -> None:
 
     conn = _open_ro(tmp_path)
     try:
-        names = {
-            r[0]
-            for r in conn.execute(
-                "SELECT name FROM nodes WHERE kind='function'"
-            ).fetchall()
-        }
+        names = {r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='function'").fetchall()}
         # Full rebuild re-derived the function node.
         assert "real_func" in names
         # deriver_version stamp updated.
-        dv = conn.execute(
-            "SELECT value FROM metadata WHERE key='deriver_version'"
-        ).fetchone()
+        dv = conn.execute("SELECT value FROM metadata WHERE key='deriver_version'").fetchone()
         assert dv == (str(schema.DERIVER_VERSION),)
     finally:
         conn.close()
@@ -195,9 +175,7 @@ def test_unchanged_deriver_version_still_short_circuits(tmp_path: Path) -> None:
 
     conn = _open_ro(tmp_path)
     try:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='function'"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='function'").fetchone()[0]
         # Short-circuit returned early — function node not re-derived.
         assert count == 0
     finally:
@@ -221,9 +199,7 @@ def test_update_honors_graphignore(tmp_path: Path) -> None:
 
     conn = _open_ro(tmp_path)
     try:
-        names = {row[0] for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='function'"
-        ).fetchall()}
+        names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='function'").fetchall()}
         assert "keep_me" in names
         assert "skip_me" not in names
     finally:

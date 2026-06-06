@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from source_parser.projections.graph import GraphNode, GraphRecords
 
 from graph_io import _ignore, upsert
@@ -80,11 +79,13 @@ def _parse_commands(plugin_dir: Path, id_for) -> list[dict]:
     for p in sorted(plugin_dir.glob("commands/*.md")):
         fm = _read_frontmatter(p)
         name = str(fm.get("name") or p.stem)
-        out.append({
-            "id": id_for("command", name),
-            "name": name,
-            "description": str(fm.get("description") or ""),
-        })
+        out.append(
+            {
+                "id": id_for("command", name),
+                "name": name,
+                "description": str(fm.get("description") or ""),
+            }
+        )
     return out
 
 
@@ -93,13 +94,15 @@ def _parse_agents(plugin_dir: Path, id_for) -> list[dict]:
     for p in sorted(plugin_dir.glob("agents/*.md")):
         fm = _read_frontmatter(p)
         name = str(fm.get("name") or p.stem)
-        out.append({
-            "id": id_for("agent", name),
-            "name": name,
-            "description": str(fm.get("description") or ""),
-            "model": str(fm.get("model") or ""),
-            "tools": _as_str_list(fm.get("tools")),
-        })
+        out.append(
+            {
+                "id": id_for("agent", name),
+                "name": name,
+                "description": str(fm.get("description") or ""),
+                "model": str(fm.get("model") or ""),
+                "tools": _as_str_list(fm.get("tools")),
+            }
+        )
     return out
 
 
@@ -108,11 +111,13 @@ def _parse_skills(plugin_dir: Path, id_for) -> list[dict]:
     for p in sorted(plugin_dir.glob("skills/*/SKILL.md")):
         fm = _read_frontmatter(p)
         name = str(fm.get("name") or p.parent.name)
-        out.append({
-            "id": id_for("skill", name),
-            "name": name,
-            "description": str(fm.get("description") or ""),
-        })
+        out.append(
+            {
+                "id": id_for("skill", name),
+                "name": name,
+                "description": str(fm.get("description") or ""),
+            }
+        )
     return out
 
 
@@ -127,11 +132,13 @@ def _parse_scripts(plugin_dir: Path, id_for) -> list[dict]:
         if "__pycache__" in p.parts:
             continue
         rel = p.relative_to(plugin_dir).as_posix()
-        out.append({
-            "id": id_for("script", rel),
-            "path": rel,
-            "lang": _LANG_BY_SUFFIX.get(p.suffix, ""),
-        })
+        out.append(
+            {
+                "id": id_for("script", rel),
+                "path": rel,
+                "lang": _LANG_BY_SUFFIX.get(p.suffix, ""),
+            }
+        )
     return out
 
 
@@ -149,11 +156,13 @@ def _parse_hooks(plugin_dir: Path, id_for) -> list[dict]:
             for entry in entries:
                 if isinstance(entry, dict) and entry.get("matcher") is not None:
                     matchers.append(str(entry["matcher"]))
-        out.append({
-            "id": id_for("hook", str(event)),
-            "event": str(event),
-            "matchers": matchers,
-        })
+        out.append(
+            {
+                "id": id_for("hook", str(event)),
+                "event": str(event),
+                "matchers": matchers,
+            }
+        )
     return out
 
 
@@ -167,11 +176,13 @@ def _parse_mcp_servers(plugin_dir: Path, id_for) -> list[dict]:
         command = ""
         if isinstance(cfg, dict):
             command = str(cfg.get("command") or "")
-        out.append({
-            "id": id_for("mcp_server", str(srv_name)),
-            "name": str(srv_name),
-            "command": command,
-        })
+        out.append(
+            {
+                "id": id_for("mcp_server", str(srv_name)),
+                "name": str(srv_name),
+                "command": command,
+            }
+        )
     return out
 
 

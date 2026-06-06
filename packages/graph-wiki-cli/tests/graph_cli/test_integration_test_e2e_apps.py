@@ -10,12 +10,10 @@ flip behaviour.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 import json
 import subprocess
 from pathlib import Path
-
-import pytest
+from types import SimpleNamespace
 
 from graph_io import exit_codes, update
 from graph_wiki_cli.graph_cli import q_describe_app, q_list_apps, q_list_packages
@@ -23,22 +21,16 @@ from workspace_io.config import resolve as resolve_workspace
 
 
 def _ns_list(workspace: Path, fmt: str = "human") -> SimpleNamespace:
-    return SimpleNamespace(
-        workspace=workspace, repo=None, fmt=fmt, mode="workspace"
-    )
+    return SimpleNamespace(workspace=workspace, repo=None, fmt=fmt, mode="workspace")
 
 
 def _ns_describe(workspace: Path, name: str, fmt: str = "human") -> SimpleNamespace:
-    return SimpleNamespace(
-        workspace=workspace, repo=None, fmt=fmt, mode="workspace", name=name
-    )
+    return SimpleNamespace(workspace=workspace, repo=None, fmt=fmt, mode="workspace", name=name)
 
 
 def _git_init(repo: Path) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo, check=True)
 
 
@@ -52,8 +44,7 @@ def test_e2e_python_cli_app_reclassified(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "my-cli"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
+        '[project]\nname = "my-cli"\nversion = "0.1.1"\n[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
     )
     (repo / "src" / "my_cli").mkdir(parents=True)
     (repo / "src" / "my_cli" / "__init__.py").write_text("")
@@ -82,9 +73,7 @@ def test_e2e_pure_library_stays_package(tmp_path: Path, capsys) -> None:
     """ROADMAP SC #5: pyproject WITHOUT scripts → stays kind='package'; not in list-apps."""
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
-    )
+    (repo / "pyproject.toml").write_text('[project]\nname = "purelib"\nversion = "0.1.1"\n')
     (repo / "src" / "purelib").mkdir(parents=True)
     (repo / "src" / "purelib" / "__init__.py").write_text("")
     _git_init(repo)
@@ -142,6 +131,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     """ROADMAP SC #4 / APP-06: gw graph update on the same repo with manifest mutations flips
     kind in place. Verifies the D-06 in-place UPDATE preserves row id end-to-end."""
     import sqlite3
+
     from workspace_io.paths import graph_dir
 
     repo = tmp_path / "repo"
@@ -157,9 +147,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     db = graph_dir(workspace) / "code.db"
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
-        row = conn.execute(
-            "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
-        ).fetchone()
+        row = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='myapp'").fetchone()
     finally:
         conn.close()
     assert row is not None
@@ -168,16 +156,11 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     assert uri1.startswith("pkg:")
 
     # Add [project.scripts] → second update should flip to kind='app'.
-    pyp.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
-    )
+    pyp.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n[project.scripts]\nmyapp = "myapp.cli:main"\n')
     update.run(repo, full=True)
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
-        row = conn.execute(
-            "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
-        ).fetchone()
+        row = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='myapp'").fetchone()
     finally:
         conn.close()
     assert row is not None
@@ -191,9 +174,7 @@ def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
     update.run(repo, full=True)
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
-        row = conn.execute(
-            "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
-        ).fetchone()
+        row = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='myapp'").fetchone()
     finally:
         conn.close()
     assert row is not None
@@ -215,9 +196,7 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     )
     (repo / "src" / "graph_wiki_agent").mkdir(parents=True)
     (repo / "src" / "graph_wiki_agent" / "__init__.py").write_text("")
-    (repo / "src" / "graph_wiki_agent" / "cli.py").write_text(
-        "def main():\n    return 0\n"
-    )
+    (repo / "src" / "graph_wiki_agent" / "cli.py").write_text("def main():\n    return 0\n")
     _git_init(repo)
     _git_commit_all(repo, "seed")
 
@@ -235,18 +214,23 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     assert "graph-wiki-agent" in names
 
     # describe-app --fmt json: assert full AppDescription field set is present.
-    rc2 = q_describe_app.run(
-        _ns_describe(workspace, name="graph-wiki-agent", fmt="json")
-    )
+    rc2 = q_describe_app.run(_ns_describe(workspace, name="graph-wiki-agent", fmt="json"))
     assert rc2 == exit_codes.SUCCESS
     parsed = json.loads(capsys.readouterr().out)
     expected_keys = {
-        "name", "language", "version", "app_kind", "app_signals",
-        "files", "counts", "domains", "entry_points", "test_suites",
+        "name",
+        "language",
+        "version",
+        "app_kind",
+        "app_signals",
+        "files",
+        "counts",
+        "domains",
+        "entry_points",
+        "test_suites",
     }
     assert expected_keys == set(parsed.keys()), (
-        f"AppDescription field set mismatch: expected={expected_keys}, "
-        f"got={set(parsed.keys())}"
+        f"AppDescription field set mismatch: expected={expected_keys}, got={set(parsed.keys())}"
     )
     assert parsed["name"] == "graph-wiki-agent"
     assert parsed["app_kind"] == "cli"
@@ -258,11 +242,13 @@ def test_e2e_electron_app_from_dev_deps(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "package.json").write_text(
-        json.dumps({
-            "name": "my-electron-app",
-            "version": "1.0.0",
-            "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "my-electron-app",
+                "version": "1.0.0",
+                "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
+            }
+        )
     )
     (repo / "index.html").write_text("<!doctype html><html></html>")
     _git_init(repo)

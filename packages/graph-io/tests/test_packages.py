@@ -7,11 +7,9 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from graph_io import packages, store, upsert
 from graph_io.uri import RepoContext
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
-
 
 _CTX = RepoContext(org="test", repo="repo")
 
@@ -45,16 +43,12 @@ def _seed_file_node(conn: sqlite3.Connection, path: str) -> None:
 def test_refresh_pyproject(tmp_path: Path, conn: sqlite3.Connection) -> None:
     pkg_dir = tmp_path / "packages" / "alpha"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\ndependencies = ["beta"]\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.1"\ndependencies = ["beta"]\n')
     _seed_file_node(conn, "packages/alpha/src/a.py")
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT name, attrs_json FROM nodes WHERE kind='package'"
-    ).fetchone()
+    row = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='package'").fetchone()
     assert row[0] == "alpha"
     attrs = json.loads(row[1])
     assert attrs["version"] == "0.1.1"
@@ -71,50 +65,37 @@ def test_refresh_package_json(tmp_path: Path, conn: sqlite3.Connection) -> None:
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT name, attrs_json FROM nodes WHERE kind='package'"
-    ).fetchone()
+    row = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='package'").fetchone()
     assert row[0] == "frontend"
     attrs = json.loads(row[1])
     assert attrs["language"] == "javascript"
     assert attrs["dependencies"] == ["x"]
 
 
-def test_refresh_pyproject_stores_description(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_pyproject_stores_description(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """Phase 56 D-06/SCAN-02: pyproject [project].description lands in attrs_json."""
     pkg_dir = tmp_path / "packages" / "alpha"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
-        'description = "A test package."\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\ndescription = "A test package."\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("alpha",)
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("alpha",)).fetchone()
     attrs = json.loads(row[0])
     assert attrs["description"] == "A test package."
 
 
-def test_refresh_pyproject_absent_description_is_empty(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_pyproject_absent_description_is_empty(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """Phase 56 D-06: no [project].description -> empty string, not a placeholder."""
     pkg_dir = tmp_path / "packages" / "beta"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.1"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "beta"\nversion = "0.1.1"\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("beta",)
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='package' AND name=?", ("beta",)).fetchone()
     attrs = json.loads(row[0])
     assert attrs["description"] == ""
 
@@ -145,9 +126,7 @@ def test_refresh_does_not_contain_import_specifier_stubs(
 ) -> None:
     pkg_dir = tmp_path / "alpha"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.1"\n')
     _seed_file_node(conn, "alpha/src/real.ts")
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
@@ -216,9 +195,7 @@ def test_refresh_skips_broken_pyproject(tmp_path: Path, conn: sqlite3.Connection
     assert count == 0
 
 
-def test_refresh_writes_pkg_uri_on_package_nodes(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_writes_pkg_uri_on_package_nodes(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """SC#1: every Package node has a non-NULL pkg:org/repo/name uri."""
     pkg_dir = tmp_path / "foo_pkg"
     pkg_dir.mkdir(parents=True)
@@ -226,9 +203,7 @@ def test_refresh_writes_pkg_uri_on_package_nodes(
 
     packages.refresh(conn, repo_root=tmp_path, ctx=RepoContext("myorg", "myrepo"))
 
-    row = conn.execute(
-        "SELECT uri, attrs_json FROM nodes WHERE kind='package' AND name='foo'"
-    ).fetchone()
+    row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE kind='package' AND name='foo'").fetchone()
     assert row is not None
     uri, attrs_json = row
     assert uri == "pkg:myorg/myrepo/foo"
@@ -243,7 +218,7 @@ def test_refresh_writes_pkg_uri_on_package_nodes(
 # ============================================================================
 
 
-import pytest as _pytest
+import pytest as _pytest  # noqa: E402
 
 
 @_pytest.mark.parametrize(
@@ -267,8 +242,7 @@ def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Conne
     pkg_a = tmp_path / "pkg-a"
     pkg_a.mkdir()
     (pkg_a / "pyproject.toml").write_text(
-        '[project]\nname = "pkg-a"\nversion = "0.1.1"\n'
-        'dependencies = ["boto3>=1.38", "langchain-aws>=1.4"]\n'
+        '[project]\nname = "pkg-a"\nversion = "0.1.1"\ndependencies = ["boto3>=1.38", "langchain-aws>=1.4"]\n'
     )
     pkg_b = tmp_path / "pkg-b"
     pkg_b.mkdir()
@@ -281,9 +255,7 @@ def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Conne
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     # 3 distinct deps emitted as nodes: boto3, langchain-aws, pytest
-    dep_rows = conn.execute(
-        "SELECT name, attrs_json, uri FROM nodes WHERE kind='dependency' ORDER BY name"
-    ).fetchall()
+    dep_rows = conn.execute("SELECT name, attrs_json, uri FROM nodes WHERE kind='dependency' ORDER BY name").fetchall()
     names = [r[0] for r in dep_rows]
     assert names == ["boto3", "langchain-aws", "pytest"]
     # boto3 attrs.versions_in_use collects both PEP 508 strings (sorted)
@@ -291,9 +263,7 @@ def test_dependency_ingestion_from_workspace(tmp_path: Path, conn: sqlite3.Conne
     boto3_attrs = json.loads(boto3_row[1])
     assert boto3_attrs["ecosystem"] == "pypi"
     assert boto3_attrs["url"] == "https://pypi.org/project/boto3/"
-    assert boto3_attrs["versions_in_use"] == sorted(
-        ["boto3>=1.38", "boto3==1.40.0"]
-    )
+    assert boto3_attrs["versions_in_use"] == sorted(["boto3>=1.38", "boto3==1.40.0"])
     assert boto3_row[2] == "dependency:pypi/boto3"
     # used_by edges from both consumer packages to boto3
     boto3_used_by = conn.execute(
@@ -338,9 +308,7 @@ def test_used_by_edge_dedupes_per_consumer(tmp_path: Path, conn: sqlite3.Connect
 # ============================================================================
 
 
-def test_workspace_dep_suppressed_and_depends_on_package_emitted(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_workspace_dep_suppressed_and_depends_on_package_emitted(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """CLASS-01 + CLASS-02 / D-02/D-04/D-07.
 
     `beta` declares workspace package `graph-io` (hyphen) whose own manifest
@@ -349,14 +317,11 @@ def test_workspace_dep_suppressed_and_depends_on_package_emitted(
     """
     internal = tmp_path / "graph_io"
     internal.mkdir()
-    (internal / "pyproject.toml").write_text(
-        '[project]\nname = "graph_io"\nversion = "0.1.1"\n'
-    )
+    (internal / "pyproject.toml").write_text('[project]\nname = "graph_io"\nversion = "0.1.1"\n')
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.1"\n'
-        'dependencies = ["graph-io>=0.1", "boto3>=1.38"]\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\ndependencies = ["graph-io>=0.1", "boto3>=1.38"]\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -371,9 +336,7 @@ def test_workspace_dep_suppressed_and_depends_on_package_emitted(
         assert count == 0, f"workspace dep should be suppressed, found {candidate!r}"
 
     # CLASS-01 regression: the external dep STILL has a `dependency` node + used_by.
-    boto3_node = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='boto3'"
-    ).fetchone()[0]
+    boto3_node = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='boto3'").fetchone()[0]
     assert boto3_node == 1
     boto3_used_by = conn.execute(
         "SELECT COUNT(*) FROM edges e "
@@ -407,18 +370,14 @@ def test_workspace_dep_suppressed_and_depends_on_package_emitted(
     assert internal_used_by[0][0] in ("package", "app")
 
 
-def test_internal_dep_edges_dedupe_per_consumer(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_internal_dep_edges_dedupe_per_consumer(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-07 dedupe: an internal package declared in both [project.dependencies]
     and a [dependency-groups] group yields exactly ONE used_by and ONE
     depends_on_package edge for that pair.
     """
     internal = tmp_path / "alpha"
     internal.mkdir()
-    (internal / "pyproject.toml").write_text(
-        '[project]\nname = "alpha"\nversion = "0.1.1"\n'
-    )
+    (internal / "pyproject.toml").write_text('[project]\nname = "alpha"\nversion = "0.1.1"\n')
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
@@ -445,23 +404,19 @@ def test_internal_dep_edges_dedupe_per_consumer(
     assert dop_count == 1
 
 
-def test_internal_dep_on_app_target_resolves_app_kind(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_internal_dep_on_app_target_resolves_app_kind(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-07 stored-kind resolution: when the internal target is classified as an
     `app` (has [project.scripts]), both edges' dst resolve to kind='app'.
     """
     app_target = tmp_path / "mytool"
     app_target.mkdir()
     (app_target / "pyproject.toml").write_text(
-        '[project]\nname = "mytool"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmytool = "mytool.cli:main"\n'
+        '[project]\nname = "mytool"\nversion = "0.1.1"\n[project.scripts]\nmytool = "mytool.cli:main"\n'
     )
     consumer = tmp_path / "beta"
     consumer.mkdir()
     (consumer / "pyproject.toml").write_text(
-        '[project]\nname = "beta"\nversion = "0.1.1"\n'
-        'dependencies = ["mytool>=0.1"]\n'
+        '[project]\nname = "beta"\nversion = "0.1.1"\ndependencies = ["mytool>=0.1"]\n'
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -487,11 +442,7 @@ def test_read_pyproject_scripts_present_true_when_section_nonempty(tmp_path: Pat
     """Phase 50 D-03: [project.scripts] with at least one entry → scripts_present=True."""
     manifest = tmp_path / "pyproject.toml"
     manifest.write_text(
-        '[project]\n'
-        'name = "alpha"\n'
-        'version = "0.1.1"\n'
-        '[project.scripts]\n'
-        'alpha-cli = "alpha.cli:main"\n'
+        '[project]\nname = "alpha"\nversion = "0.1.1"\n[project.scripts]\nalpha-cli = "alpha.cli:main"\n'
     )
     info = packages._read_pyproject(manifest)
     assert info is not None
@@ -517,9 +468,7 @@ def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Pat
     # Empty table.
     empty = tmp_path / "empty" / "pyproject.toml"
     empty.parent.mkdir()
-    empty.write_text(
-        '[project]\nname = "beta"\nversion = "0.1.1"\n[project.scripts]\n'
-    )
+    empty.write_text('[project]\nname = "beta"\nversion = "0.1.1"\n[project.scripts]\n')
     info_empty = packages._read_pyproject(empty)
     assert info_empty is not None
     assert info_empty["scripts_present"] is False
@@ -528,9 +477,7 @@ def test_read_pyproject_scripts_present_false_for_empty_or_missing(tmp_path: Pat
 def test_read_package_json_bin_present_for_string(tmp_path: Path) -> None:
     """Phase 50 D-03: bin as non-empty string → bin_present=True."""
     manifest = tmp_path / "package.json"
-    manifest.write_text(
-        json.dumps({"name": "myapp", "version": "1.0.0", "bin": "cli.js"})
-    )
+    manifest.write_text(json.dumps({"name": "myapp", "version": "1.0.0", "bin": "cli.js"}))
     info = packages._read_package_json(manifest)
     assert info is not None
     assert info["bin_present"] is True
@@ -541,11 +488,7 @@ def test_read_package_json_bin_present_for_string(tmp_path: Path) -> None:
 def test_read_package_json_bin_present_for_dict(tmp_path: Path) -> None:
     """Phase 50 D-03: bin as dict with at least one truthy value → bin_present=True."""
     manifest = tmp_path / "package.json"
-    manifest.write_text(
-        json.dumps(
-            {"name": "myapp", "version": "1.0.0", "bin": {"foo": "bin/foo.js"}}
-        )
-    )
+    manifest.write_text(json.dumps({"name": "myapp", "version": "1.0.0", "bin": {"foo": "bin/foo.js"}}))
     info = packages._read_package_json(manifest)
     assert info is not None
     assert info["bin_present"] is True
@@ -554,9 +497,7 @@ def test_read_package_json_bin_present_for_dict(tmp_path: Path) -> None:
 def test_read_package_json_bin_present_false_for_empty_dict(tmp_path: Path) -> None:
     """Phase 50 D-03: bin as empty dict → bin_present=False."""
     manifest = tmp_path / "package.json"
-    manifest.write_text(
-        json.dumps({"name": "myapp", "version": "1.0.0", "bin": {}})
-    )
+    manifest.write_text(json.dumps({"name": "myapp", "version": "1.0.0", "bin": {}}))
     info = packages._read_package_json(manifest)
     assert info is not None
     assert info["bin_present"] is False
@@ -565,9 +506,7 @@ def test_read_package_json_bin_present_false_for_empty_dict(tmp_path: Path) -> N
 def test_read_package_json_bin_present_false_when_missing(tmp_path: Path) -> None:
     """Phase 50 D-03: no bin key → bin_present=False."""
     manifest = tmp_path / "package.json"
-    manifest.write_text(
-        json.dumps({"name": "myapp", "version": "1.0.0"})
-    )
+    manifest.write_text(json.dumps({"name": "myapp", "version": "1.0.0"}))
     info = packages._read_package_json(manifest)
     assert info is not None
     assert info["bin_present"] is False
@@ -589,28 +528,19 @@ def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
     pkg_dir.mkdir(parents=True)
     manifest = pkg_dir / "pyproject.toml"
     # First refresh: no scripts → kind="package".
-    manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-    )
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    row = conn.execute(
-        "SELECT id, kind, uri FROM nodes WHERE name='myapp'"
-    ).fetchone()
+    row = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='myapp'").fetchone()
     assert row is not None, "first refresh did not create the row"
     pkg_id, pkg_kind, pkg_uri_val = row
     assert pkg_kind == "package"
     assert pkg_uri_val.startswith("pkg:")
 
     # Second refresh after adding [project.scripts] → expect kind flip to "app".
-    manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
-    )
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n[project.scripts]\nmyapp = "myapp.cli:main"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    rows = conn.execute(
-        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
-    ).fetchall()
+    rows = conn.execute("SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'").fetchall()
     assert len(rows) == 1, f"expected exactly one row after flip; got {rows!r}"
     app_id, app_kind_db, app_uri_val, attrs_json = rows[0]
     assert app_id == pkg_id, "D-06: row id must be preserved across kind flip"
@@ -621,35 +551,24 @@ def test_kind_flip_pkg_to_app(tmp_path: Path, conn: sqlite3.Connection) -> None:
     assert attrs["app_signals"] == ["cli"]
 
 
-def test_kind_flip_app_to_pkg_reverts(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_kind_flip_app_to_pkg_reverts(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-06: app losing [project.scripts] on re-run reverts to package with id preserved."""
     pkg_dir = tmp_path / "myapp"
     pkg_dir.mkdir(parents=True)
     manifest = pkg_dir / "pyproject.toml"
     # First refresh with scripts → kind="app".
-    manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
-    )
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n[project.scripts]\nmyapp = "myapp.cli:main"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    row = conn.execute(
-        "SELECT id, kind FROM nodes WHERE name='myapp'"
-    ).fetchone()
+    row = conn.execute("SELECT id, kind FROM nodes WHERE name='myapp'").fetchone()
     assert row is not None
     app_id, app_kind_db = row
     assert app_kind_db == "app"
 
     # Remove [project.scripts] → expect revert to kind="package".
-    manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-    )
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    rows = conn.execute(
-        "SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'"
-    ).fetchall()
+    rows = conn.execute("SELECT id, kind, uri, attrs_json FROM nodes WHERE name='myapp'").fetchall()
     assert len(rows) == 1, f"expected exactly one row after revert; got {rows!r}"
     pkg_id, pkg_kind_db, pkg_uri_val, attrs_json = rows[0]
     assert pkg_id == app_id, "D-06: row id must be preserved across kind revert"
@@ -661,18 +580,14 @@ def test_kind_flip_app_to_pkg_reverts(
     assert "app_signals" not in attrs
 
 
-def test_kind_flip_preserves_inbound_edge_fk(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_kind_flip_preserves_inbound_edge_fk(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-06: inbound edges against the flipped row survive because dst id is preserved."""
     pkg_dir = tmp_path / "myapp"
     pkg_dir.mkdir(parents=True)
     manifest = pkg_dir / "pyproject.toml"
     manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    pkg_row = conn.execute(
-        "SELECT id FROM nodes WHERE name='myapp' AND kind='package'"
-    ).fetchone()
+    pkg_row = conn.execute("SELECT id FROM nodes WHERE name='myapp' AND kind='package'").fetchone()
     assert pkg_row is not None
     pkg_id = pkg_row[0]
 
@@ -687,53 +602,34 @@ def test_kind_flip_preserves_inbound_edge_fk(
             attrs={},
         ),
     )
-    inbound_before = conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
-    ).fetchone()[0]
+    inbound_before = conn.execute("SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)).fetchone()[0]
     assert inbound_before >= 1
 
     # Flip pkg → app.
-    manifest.write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
-    )
+    manifest.write_text('[project]\nname = "myapp"\nversion = "0.1.1"\n[project.scripts]\nmyapp = "myapp.cli:main"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    app_row = conn.execute(
-        "SELECT id FROM nodes WHERE name='myapp' AND kind='app'"
-    ).fetchone()
+    app_row = conn.execute("SELECT id FROM nodes WHERE name='myapp' AND kind='app'").fetchone()
     assert app_row is not None
     assert app_row[0] == pkg_id, "row id must survive the flip"
-    inbound_after = conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)
-    ).fetchone()[0]
-    assert inbound_after == inbound_before, (
-        "D-06: inbound edges must survive the kind flip because dst FK is preserved"
-    )
+    inbound_after = conn.execute("SELECT COUNT(*) FROM edges WHERE dst=?", (pkg_id,)).fetchone()[0]
+    assert inbound_after == inbound_before, "D-06: inbound edges must survive the kind flip because dst FK is preserved"
 
 
-def test_no_kind_flip_for_zero_signal_manifest(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_no_kind_flip_for_zero_signal_manifest(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-06: zero-signal pure library re-run does not duplicate or flip the row."""
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "purelib"\nversion = "0.1.1"\n')
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    rows_before = conn.execute(
-        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
-    ).fetchall()
+    rows_before = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='purelib'").fetchall()
     assert len(rows_before) == 1
     pkg_id, kind_before, uri_before = rows_before[0]
     assert kind_before == "package"
 
     # Re-run with identical manifest — no flip should occur.
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    rows_after = conn.execute(
-        "SELECT id, kind, uri FROM nodes WHERE name='purelib'"
-    ).fetchall()
+    rows_after = conn.execute("SELECT id, kind, uri FROM nodes WHERE name='purelib'").fetchall()
     assert len(rows_after) == 1, "zero-signal re-run must not duplicate the row"
     assert rows_after[0] == (pkg_id, kind_before, uri_before)
 
@@ -743,27 +639,19 @@ def test_no_kind_flip_for_zero_signal_manifest(
 # ============================================================================
 
 
-def _refresh_and_fetch(
-    tmp_path: Path, conn: sqlite3.Connection, name: str
-) -> tuple[str, str, dict]:
+def _refresh_and_fetch(tmp_path: Path, conn: sqlite3.Connection, name: str) -> tuple[str, str, dict]:
     """Run packages.refresh and return (kind, uri, attrs) for the named row."""
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-    row = conn.execute(
-        "SELECT kind, uri, attrs_json FROM nodes WHERE name=?", (name,)
-    ).fetchone()
+    row = conn.execute("SELECT kind, uri, attrs_json FROM nodes WHERE name=?", (name,)).fetchone()
     assert row is not None, f"no row named {name!r} after refresh"
     return row[0], row[1], json.loads(row[2]) if row[2] else {}
 
 
-def test_refresh_js_bin_string_classifies_app_cli(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_bin_string_classifies_app_cli(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-02: package.json bin as non-empty string → app/cli."""
     pkg_dir = tmp_path / "tool"
     pkg_dir.mkdir()
-    (pkg_dir / "package.json").write_text(
-        json.dumps({"name": "tool", "version": "1.0.0", "bin": "cli.js"})
-    )
+    (pkg_dir / "package.json").write_text(json.dumps({"name": "tool", "version": "1.0.0", "bin": "cli.js"}))
     kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "tool")
     assert kind == "app"
     assert uri.startswith("app:")
@@ -771,9 +659,7 @@ def test_refresh_js_bin_string_classifies_app_cli(
     assert attrs["app_signals"] == ["cli"]
 
 
-def test_refresh_js_bin_dict_classifies_app_cli(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_bin_dict_classifies_app_cli(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-02: package.json bin as dict with truthy value → app/cli."""
     pkg_dir = tmp_path / "tool"
     pkg_dir.mkdir()
@@ -793,9 +679,7 @@ def test_refresh_js_bin_dict_classifies_app_cli(
     assert attrs["app_signals"] == ["cli"]
 
 
-def test_refresh_js_next_classifies_app_nextjs(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_next_classifies_app_nextjs(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-02: dependencies.next present → app/nextjs."""
     pkg_dir = tmp_path / "site"
     pkg_dir.mkdir()
@@ -815,9 +699,7 @@ def test_refresh_js_next_classifies_app_nextjs(
     assert "nextjs" in attrs["app_signals"]
 
 
-def test_refresh_js_expo_classifies_app_expo(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_expo_classifies_app_expo(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-02: dependencies.expo present → app/expo."""
     pkg_dir = tmp_path / "mobile"
     pkg_dir.mkdir()
@@ -836,9 +718,7 @@ def test_refresh_js_expo_classifies_app_expo(
     assert "expo" in attrs["app_signals"]
 
 
-def test_refresh_js_vite_with_index_html_classifies_app_spa(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_vite_with_index_html_classifies_app_spa(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-02: vite dep AND index.html on disk → app/spa."""
     pkg_dir = tmp_path / "spa-app"
     pkg_dir.mkdir()
@@ -858,9 +738,7 @@ def test_refresh_js_vite_with_index_html_classifies_app_spa(
     assert "spa" in attrs["app_signals"]
 
 
-def test_refresh_js_vite_without_index_html_stays_package(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_vite_without_index_html_stays_package(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-03: vite dep WITHOUT index.html → no spa signal → stays package."""
     pkg_dir = tmp_path / "lib"
     pkg_dir.mkdir()
@@ -880,9 +758,7 @@ def test_refresh_js_vite_without_index_html_stays_package(
     assert "app_signals" not in attrs
 
 
-def test_refresh_js_multi_signal_nextjs_wins(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_multi_signal_nextjs_wins(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-04: multi-signal precedence — bin + next → app_kind=nextjs, sorted signals."""
     pkg_dir = tmp_path / "site"
     pkg_dir.mkdir()
@@ -902,15 +778,11 @@ def test_refresh_js_multi_signal_nextjs_wins(
     assert attrs["app_signals"] == sorted(["cli", "nextjs"])
 
 
-def test_refresh_python_pure_library_stays_package(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_python_pure_library_stays_package(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """D-03 / APP-03: pyproject without [project.scripts] → kind=package, no app keys."""
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir()
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "purelib"\nversion = "0.1.1"\n')
     kind, uri, attrs = _refresh_and_fetch(tmp_path, conn, "purelib")
     assert kind == "package"
     assert uri.startswith("pkg:")
@@ -918,23 +790,18 @@ def test_refresh_python_pure_library_stays_package(
     assert "app_signals" not in attrs
 
 
-def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_app_node_attrs_json_contains_app_kind_and_signals(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """app rows expose app_kind/app_signals via json_extract; package rows expose NULL."""
     # App: pyproject with scripts.
     app_dir = tmp_path / "myapp"
     app_dir.mkdir()
     (app_dir / "pyproject.toml").write_text(
-        '[project]\nname = "myapp"\nversion = "0.1.1"\n'
-        '[project.scripts]\nmyapp = "myapp.cli:main"\n'
+        '[project]\nname = "myapp"\nversion = "0.1.1"\n[project.scripts]\nmyapp = "myapp.cli:main"\n'
     )
     # Package: pyproject without scripts.
     pkg_dir = tmp_path / "purelib"
     pkg_dir.mkdir()
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "purelib"\nversion = "0.1.1"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "purelib"\nversion = "0.1.1"\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
@@ -966,19 +833,19 @@ def test_refresh_electron_app_from_dev_deps(tmp_path: Path, conn: sqlite3.Connec
     app_dir = tmp_path / "apps" / "app-electron-ts"
     app_dir.mkdir(parents=True)
     (app_dir / "package.json").write_text(
-        json.dumps({
-            "name": "app-electron-ts",
-            "version": "1.0.0",
-            "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "app-electron-ts",
+                "version": "1.0.0",
+                "devDependencies": {"electron": "^30.0.0", "vite": "^5.0.0"},
+            }
+        )
     )
     (app_dir / "index.html").write_text("<!doctype html><html></html>")
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT kind, attrs_json FROM nodes WHERE name='app-electron-ts'"
-    ).fetchone()
+    row = conn.execute("SELECT kind, attrs_json FROM nodes WHERE name='app-electron-ts'").fetchone()
     assert row is not None
     kind, attrs_json = row
     assert kind == "app"
@@ -990,27 +857,25 @@ def test_refresh_electron_app_from_dev_deps(tmp_path: Path, conn: sqlite3.Connec
     assert attrs["dev_dependencies"] == ["electron", "vite"]
 
 
-def test_refresh_js_dev_dep_marker_splits_runtime_vs_dev(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_js_dev_dep_marker_splits_runtime_vs_dev(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """GQP-01: runtime dep + dev-only dep → merged list contains both,
     dev_dependencies contains only the dev one."""
     pkg_dir = tmp_path / "myapp"
     pkg_dir.mkdir()
     (pkg_dir / "package.json").write_text(
-        json.dumps({
-            "name": "myapp",
-            "version": "1.0.0",
-            "dependencies": {"react": "^18"},
-            "devDependencies": {"vite": "^5.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "myapp",
+                "version": "1.0.0",
+                "dependencies": {"react": "^18"},
+                "devDependencies": {"vite": "^5.0.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE name='myapp'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE name='myapp'").fetchone()
     assert row is not None
     attrs = json.loads(row[0])
     # merged: both react (runtime) and vite (dev), sorted
@@ -1019,21 +884,15 @@ def test_refresh_js_dev_dep_marker_splits_runtime_vs_dev(
     assert attrs["dev_dependencies"] == ["vite"]
 
 
-def test_refresh_python_package_dev_dependencies_empty(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_refresh_python_package_dev_dependencies_empty(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """GQP-01: Python manifests have no devDependencies → dev_dependencies attr is []."""
     pkg_dir = tmp_path / "pypkg"
     pkg_dir.mkdir()
-    (pkg_dir / "pyproject.toml").write_text(
-        '[project]\nname = "pypkg"\nversion = "0.1.1"\ndependencies = ["boto3"]\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "pypkg"\nversion = "0.1.1"\ndependencies = ["boto3"]\n')
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE name='pypkg'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE name='pypkg'").fetchone()
     assert row is not None
     attrs = json.loads(row[0])
     assert attrs["dev_dependencies"] == []
@@ -1045,9 +904,7 @@ def test_refresh_python_package_dev_dependencies_empty(
 # ============================================================================
 
 
-def test_js_npm_dependency_parity_full_monorepo(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_js_npm_dependency_parity_full_monorepo(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """k5y T3: full JS dep-parity integration — external runtime/dev deps + internal workspace.
 
     Monorepo layout:
@@ -1057,19 +914,19 @@ def test_js_npm_dependency_parity_full_monorepo(
     # Internal sibling package
     lib_dir = tmp_path / "jslib"
     lib_dir.mkdir()
-    (lib_dir / "package.json").write_text(
-        json.dumps({"name": "jslib", "version": "1.0.0"})
-    )
+    (lib_dir / "package.json").write_text(json.dumps({"name": "jslib", "version": "1.0.0"}))
     # Consumer package
     app_dir = tmp_path / "jspkg"
     app_dir.mkdir()
     (app_dir / "package.json").write_text(
-        json.dumps({
-            "name": "jspkg",
-            "version": "2.0.0",
-            "dependencies": {"react": "^18.2.0", "jslib": "workspace:*"},
-            "devDependencies": {"vitest": "^1.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "jspkg",
+                "version": "2.0.0",
+                "dependencies": {"react": "^18.2.0", "jslib": "workspace:*"},
+                "devDependencies": {"vitest": "^1.0.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -1096,9 +953,7 @@ def test_js_npm_dependency_parity_full_monorepo(
     react_edge_attrs = json.loads(react_edge[0]) if react_edge[0] else {}
 
     # vitest → dependency node + used_by edge with dev marker
-    vitest_row = conn.execute(
-        "SELECT name, attrs_json FROM nodes WHERE kind='dependency' AND name='vitest'"
-    ).fetchone()
+    vitest_row = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='dependency' AND name='vitest'").fetchone()
     assert vitest_row is not None, "vitest dependency node should be emitted"
 
     vitest_edge = conn.execute(
@@ -1115,9 +970,7 @@ def test_js_npm_dependency_parity_full_monorepo(
     assert not react_edge_attrs.get("dev"), "react (runtime) must not carry dev=True"
 
     # 3. jslib (internal) → depends_on_package, NO dependency node
-    jslib_dep_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='jslib'"
-    ).fetchone()[0]
+    jslib_dep_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='jslib'").fetchone()[0]
     assert jslib_dep_count == 0, "internal workspace package jslib must not produce a dependency node"
 
     dop_rows = conn.execute(
@@ -1130,34 +983,36 @@ def test_js_npm_dependency_parity_full_monorepo(
     assert dop_rows[0] == ("jspkg", "jslib")
 
 
-def test_js_versions_in_use_aggregates_across_consumers(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_js_versions_in_use_aggregates_across_consumers(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """k5y T3: multiple JS consumers of the same dep → versions_in_use collects all specs."""
     pkg_a = tmp_path / "pkg-a"
     pkg_a.mkdir()
     (pkg_a / "package.json").write_text(
-        json.dumps({
-            "name": "pkg-a",
-            "version": "1.0.0",
-            "dependencies": {"react": "^17.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "pkg-a",
+                "version": "1.0.0",
+                "dependencies": {"react": "^17.0.0"},
+            }
+        )
     )
     pkg_b = tmp_path / "pkg-b"
     pkg_b.mkdir()
     (pkg_b / "package.json").write_text(
-        json.dumps({
-            "name": "pkg-b",
-            "version": "1.0.0",
-            "dependencies": {"react": "^18.2.0"},
-        })
+        json.dumps(
+            {
+                "name": "pkg-b",
+                "version": "1.0.0",
+                "dependencies": {"react": "^18.2.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
-    react_attrs_json = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='dependency' AND name='react'"
-    ).fetchone()[0]
+    react_attrs_json = conn.execute("SELECT attrs_json FROM nodes WHERE kind='dependency' AND name='react'").fetchone()[
+        0
+    ]
     react_attrs = json.loads(react_attrs_json)
     versions = react_attrs["versions_in_use"]
     assert "^17.0.0" in versions
@@ -1165,9 +1020,7 @@ def test_js_versions_in_use_aggregates_across_consumers(
 
     # Two used_by edges (one per consumer)
     react_used_by = conn.execute(
-        "SELECT COUNT(*) FROM edges e "
-        "JOIN nodes dst ON e.dst = dst.id "
-        "WHERE e.kind='used_by' AND dst.name='react'"
+        "SELECT COUNT(*) FROM edges e JOIN nodes dst ON e.dst = dst.id WHERE e.kind='used_by' AND dst.name='react'"
     ).fetchone()[0]
     assert react_used_by == 2
 
@@ -1182,11 +1035,13 @@ def test_js_runtime_dep_emits_npm_dependency_node(tmp_path: Path, conn: sqlite3.
     pkg_dir = tmp_path / "jspkg"
     pkg_dir.mkdir()
     (pkg_dir / "package.json").write_text(
-        json.dumps({
-            "name": "jspkg",
-            "version": "1.0.0",
-            "dependencies": {"react": "^18.2.0"},
-        })
+        json.dumps(
+            {
+                "name": "jspkg",
+                "version": "1.0.0",
+                "dependencies": {"react": "^18.2.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -1218,12 +1073,14 @@ def test_js_dev_dep_edge_carries_dev_marker(tmp_path: Path, conn: sqlite3.Connec
     pkg_dir = tmp_path / "jspkg"
     pkg_dir.mkdir()
     (pkg_dir / "package.json").write_text(
-        json.dumps({
-            "name": "jspkg",
-            "version": "1.0.0",
-            "dependencies": {"react": "^18.2.0"},
-            "devDependencies": {"vitest": "^1.0.0"},
-        })
+        json.dumps(
+            {
+                "name": "jspkg",
+                "version": "1.0.0",
+                "dependencies": {"react": "^18.2.0"},
+                "devDependencies": {"vitest": "^1.0.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
@@ -1245,31 +1102,27 @@ def test_js_dev_dep_edge_carries_dev_marker(tmp_path: Path, conn: sqlite3.Connec
     assert not react_attrs.get("dev"), "runtime dep should not carry dev=True"
 
 
-def test_js_internal_workspace_dep_becomes_depends_on_package(
-    tmp_path: Path, conn: sqlite3.Connection
-) -> None:
+def test_js_internal_workspace_dep_becomes_depends_on_package(tmp_path: Path, conn: sqlite3.Connection) -> None:
     """k5y T2: JS dep naming a workspace package → depends_on_package edge, no dependency node."""
     lib_dir = tmp_path / "jslib"
     lib_dir.mkdir()
-    (lib_dir / "package.json").write_text(
-        json.dumps({"name": "jslib", "version": "1.0.0"})
-    )
+    (lib_dir / "package.json").write_text(json.dumps({"name": "jslib", "version": "1.0.0"}))
     app_dir = tmp_path / "jspkg"
     app_dir.mkdir()
     (app_dir / "package.json").write_text(
-        json.dumps({
-            "name": "jspkg",
-            "version": "1.0.0",
-            "dependencies": {"jslib": "workspace:*", "react": "^18.2.0"},
-        })
+        json.dumps(
+            {
+                "name": "jspkg",
+                "version": "1.0.0",
+                "dependencies": {"jslib": "workspace:*", "react": "^18.2.0"},
+            }
+        )
     )
 
     packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
 
     # jslib must NOT become a dependency node
-    dep_node_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='jslib'"
-    ).fetchone()[0]
+    dep_node_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='jslib'").fetchone()[0]
     assert dep_node_count == 0, "internal workspace package must not produce a dependency node"
 
     # depends_on_package edge must exist
@@ -1283,9 +1136,7 @@ def test_js_internal_workspace_dep_becomes_depends_on_package(
     assert dop[0] == ("jspkg", "jslib")
 
     # react still gets a dependency node (external dep regression)
-    react_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='react'"
-    ).fetchone()[0]
+    react_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='react'").fetchone()[0]
     assert react_count == 1
 
 
@@ -1298,12 +1149,14 @@ def test_read_package_json_dep_specs_runtime_and_dev(tmp_path: Path) -> None:
     """k5y T1: dep_specs covers runtime + dev deps; runtime version wins on name collision."""
     manifest = tmp_path / "package.json"
     manifest.write_text(
-        json.dumps({
-            "name": "mypkg",
-            "version": "1.0.0",
-            "dependencies": {"react": "^18.2.0", "lodash": "^4.17.21"},
-            "devDependencies": {"vitest": "^1.0.0", "react": "^17.0.0"},  # react in both — runtime wins
-        })
+        json.dumps(
+            {
+                "name": "mypkg",
+                "version": "1.0.0",
+                "dependencies": {"react": "^18.2.0", "lodash": "^4.17.21"},
+                "devDependencies": {"vitest": "^1.0.0", "react": "^17.0.0"},  # react in both — runtime wins
+            }
+        )
     )
     info = packages._read_package_json(manifest)
     assert info is not None
@@ -1334,11 +1187,13 @@ def test_read_package_json_dep_specs_coerces_non_string_spec(tmp_path: Path) -> 
     """k5y T1: non-string spec values are coerced to '' rather than raising."""
     manifest = tmp_path / "package.json"
     manifest.write_text(
-        json.dumps({
-            "name": "mypkg",
-            "version": "1.0.0",
-            "dependencies": {"react": 18, "lodash": None},
-        })
+        json.dumps(
+            {
+                "name": "mypkg",
+                "version": "1.0.0",
+                "dependencies": {"react": 18, "lodash": None},
+            }
+        )
     )
     info = packages._read_package_json(manifest)
     assert info is not None

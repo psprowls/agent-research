@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for subagent_runtime.trace_io.write_trace_record (Phase 16 D-04).
 
 Asserts the three invariants that pool.py previously embedded inline:
@@ -8,11 +6,11 @@ Asserts the three invariants that pool.py previously embedded inline:
 3. OSError on file open/write is caught and swallowed (never raises).
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from subagent_runtime.trace_io import write_trace_record
 
@@ -105,19 +103,25 @@ def test_write_trace_record_swallows_oserror(tmp_path, monkeypatch, caplog):
     # A WARNING-level record was emitted with the trace_io warning fragment.
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert any("Trace write failed" in r.getMessage() for r in warnings), (
-        f"expected WARNING log containing 'Trace write failed'; got: "
-        f"{[r.getMessage() for r in caplog.records]}"
+        f"expected WARNING log containing 'Trace write failed'; got: {[r.getMessage() for r in caplog.records]}"
     )
 
 
 def test_write_trace_record_returns_record(tmp_path):
     """write_trace_record returns the dict it built AND writes the same record to disk."""
     import json
+
     from subagent_runtime.trace_io import write_trace_record
 
     path = tmp_path / "t.jsonl"
     returned = write_trace_record(
-        path, "scanner", "model-x", "page-a", "success", 100, None,
+        path,
+        "scanner",
+        "model-x",
+        "page-a",
+        "success",
+        100,
+        None,
     )
     assert isinstance(returned, dict)
     assert returned["role"] == "scanner"

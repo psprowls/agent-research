@@ -7,7 +7,6 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from graph_io import agent_plugins, store
 from graph_io.uri import RepoContext
 
@@ -26,17 +25,20 @@ def _make_plugin(root: Path) -> Path:
     """Lay down a minimal but complete plugin tree under root/plugins/demo."""
     pdir = root / "plugins" / "demo"
     (pdir / ".claude-plugin").mkdir(parents=True)
-    (pdir / ".claude-plugin" / "plugin.json").write_text(json.dumps({
-        "name": "demo", "version": "1.2.3", "description": "A demo plugin.",
-    }))
-    (pdir / "commands").mkdir()
-    (pdir / "commands" / "scan.md").write_text(
-        "---\nname: scan\ndescription: Walk the monorepo.\n---\n# /demo:scan\n"
+    (pdir / ".claude-plugin" / "plugin.json").write_text(
+        json.dumps(
+            {
+                "name": "demo",
+                "version": "1.2.3",
+                "description": "A demo plugin.",
+            }
+        )
     )
+    (pdir / "commands").mkdir()
+    (pdir / "commands" / "scan.md").write_text("---\nname: scan\ndescription: Walk the monorepo.\n---\n# /demo:scan\n")
     (pdir / "agents").mkdir()
     (pdir / "agents" / "scanner.md").write_text(
-        "---\nname: scanner\ndescription: Sub-agent.\nmodel: sonnet\n"
-        "tools: [Read, Write]\n---\nbody\n"
+        "---\nname: scanner\ndescription: Sub-agent.\nmodel: sonnet\ntools: [Read, Write]\n---\nbody\n"
     )
     (pdir / "skills" / "demo-skill").mkdir(parents=True)
     (pdir / "skills" / "demo-skill" / "SKILL.md").write_text(
@@ -45,12 +47,10 @@ def _make_plugin(root: Path) -> Path:
     (pdir / "scripts").mkdir()
     (pdir / "scripts" / "lint.py").write_text("print('hi')\n")
     (pdir / "hooks").mkdir()
-    (pdir / "hooks" / "hooks.json").write_text(json.dumps({
-        "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command"}]}]}
-    }))
-    (pdir / ".mcp.json").write_text(json.dumps({
-        "mcpServers": {"demo-server": {"command": "uv run demo-mcp"}}
-    }))
+    (pdir / "hooks" / "hooks.json").write_text(
+        json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command"}]}]}})
+    )
+    (pdir / ".mcp.json").write_text(json.dumps({"mcpServers": {"demo-server": {"command": "uv run demo-mcp"}}}))
     return pdir
 
 
@@ -63,9 +63,7 @@ def test_emit_no_plugins_is_silent(tmp_path: Path, conn: sqlite3.Connection) -> 
 def test_emit_creates_one_node_with_manifest_fields(tmp_path: Path, conn: sqlite3.Connection) -> None:
     _make_plugin(tmp_path)
     agent_plugins.emit(conn, repo_root=tmp_path, ctx=_CTX)
-    rows = conn.execute(
-        "SELECT name, attrs_json, uri, path FROM nodes WHERE kind='agent_plugin'"
-    ).fetchall()
+    rows = conn.execute("SELECT name, attrs_json, uri, path FROM nodes WHERE kind='agent_plugin'").fetchall()
     assert len(rows) == 1
     name, attrs_json, uri, path = rows[0]
     attrs = json.loads(attrs_json)
@@ -80,34 +78,26 @@ def test_emit_creates_one_node_with_manifest_fields(tmp_path: Path, conn: sqlite
 def test_emit_parses_all_component_types(tmp_path: Path, conn: sqlite3.Connection) -> None:
     _make_plugin(tmp_path)
     agent_plugins.emit(conn, repo_root=tmp_path, ctx=_CTX)
-    attrs = json.loads(conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='agent_plugin'"
-    ).fetchone()[0])
+    attrs = json.loads(conn.execute("SELECT attrs_json FROM nodes WHERE kind='agent_plugin'").fetchone()[0])
     c = attrs["components"]
 
-    assert c["commands"] == [
-        {"id": "command:test/repo/demo/scan", "name": "scan",
-         "description": "Walk the monorepo."}
-    ]
+    assert c["commands"] == [{"id": "command:test/repo/demo/scan", "name": "scan", "description": "Walk the monorepo."}]
     assert c["agents"] == [
-        {"id": "agent:test/repo/demo/scanner", "name": "scanner",
-         "description": "Sub-agent.", "model": "sonnet", "tools": ["Read", "Write"]}
+        {
+            "id": "agent:test/repo/demo/scanner",
+            "name": "scanner",
+            "description": "Sub-agent.",
+            "model": "sonnet",
+            "tools": ["Read", "Write"],
+        }
     ]
-    assert c["skills"] == [
-        {"id": "skill:test/repo/demo/demo-skill", "name": "demo-skill",
-         "description": "A skill."}
-    ]
+    assert c["skills"] == [{"id": "skill:test/repo/demo/demo-skill", "name": "demo-skill", "description": "A skill."}]
     assert c["scripts"] == [
-        {"id": "script:test/repo/demo/scripts/lint.py",
-         "path": "scripts/lint.py", "lang": "python"}
+        {"id": "script:test/repo/demo/scripts/lint.py", "path": "scripts/lint.py", "lang": "python"}
     ]
-    assert c["hooks"] == [
-        {"id": "hook:test/repo/demo/PreToolUse", "event": "PreToolUse",
-         "matchers": ["Bash"]}
-    ]
+    assert c["hooks"] == [{"id": "hook:test/repo/demo/PreToolUse", "event": "PreToolUse", "matchers": ["Bash"]}]
     assert c["mcp_servers"] == [
-        {"id": "mcp_server:test/repo/demo/demo-server", "name": "demo-server",
-         "command": "uv run demo-mcp"}
+        {"id": "mcp_server:test/repo/demo/demo-server", "name": "demo-server", "command": "uv run demo-mcp"}
     ]
 
 
@@ -117,13 +107,15 @@ def test_emit_tolerates_missing_components(tmp_path: Path, conn: sqlite3.Connect
     pdir.mkdir(parents=True)
     (pdir / "plugin.json").write_text(json.dumps({"name": "bare"}))
     agent_plugins.emit(conn, repo_root=tmp_path, ctx=_CTX)
-    attrs = json.loads(conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='agent_plugin'"
-    ).fetchone()[0])
+    attrs = json.loads(conn.execute("SELECT attrs_json FROM nodes WHERE kind='agent_plugin'").fetchone()[0])
     assert attrs["version"] == ""
     assert attrs["components"] == {
-        "commands": [], "agents": [], "skills": [],
-        "scripts": [], "hooks": [], "mcp_servers": [],
+        "commands": [],
+        "agents": [],
+        "skills": [],
+        "scripts": [],
+        "hooks": [],
+        "mcp_servers": [],
     }
 
 

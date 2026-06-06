@@ -11,9 +11,8 @@ import json as _json
 import sys
 from collections import defaultdict
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:
@@ -70,10 +69,7 @@ def run(args: object) -> int:
     if args.fmt == "json":
         out = []
         for path in all_paths:
-            declared = [
-                {"package": pkg, "callable": call}
-                for pkg, call in declared_lookup.get(path, [])
-            ]
+            declared = [{"package": pkg, "callable": call} for pkg, call in declared_lookup.get(path, [])]
             out.append(
                 {
                     "path": path,
@@ -88,8 +84,7 @@ def run(args: object) -> int:
             annotations: list[str] = []
             if path in declared_paths:
                 declared_strs = [
-                    f"{pkg}={call}" if call else f"{pkg}=(unresolved)"
-                    for pkg, call in declared_lookup.get(path, [])
+                    f"{pkg}={call}" if call else f"{pkg}=(unresolved)" for pkg, call in declared_lookup.get(path, [])
                 ]
                 annotations.append("declared: " + ", ".join(declared_strs))
             if path in conventional_paths:

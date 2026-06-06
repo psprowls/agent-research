@@ -15,7 +15,8 @@ from ._git_repo import init_repo, write_and_commit
 def _cg(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--repo", str(cwd), "--mode", "test", *args],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -269,11 +270,7 @@ def app_repo(tmp_path: Path) -> Path:
         tmp_path,
         {
             "pyproject.toml": (
-                '[project]\n'
-                'name = "my-cli"\n'
-                'version = "0.1.1"\n'
-                '[project.scripts]\n'
-                'my-cli = "my_cli.cli:main"\n'
+                '[project]\nname = "my-cli"\nversion = "0.1.1"\n[project.scripts]\nmy-cli = "my_cli.cli:main"\n'
             ),
             "src/my_cli/__init__.py": "",
             "src/my_cli/cli.py": "def main():\n    return 0\n",

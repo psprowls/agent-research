@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Provenance gate (D-08): whitelist + resolution + semantic-drift checks.
 
 Three independent checks per `# Source:` comment in `prompts/_fragments/*.py`
@@ -28,6 +26,8 @@ widen the fragment's keyword pool (the canonical citation), NOT to relax the
 threshold. The threshold stays 0.70 in this module.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 
@@ -45,24 +45,9 @@ import pytest
 #   parents[4] → workspace root
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
-FRAGMENT_DIR = (
-    REPO_ROOT
-    / "agents"
-    / "graph-wiki-core"
-    / "src"
-    / "graph_wiki_core"
-    / "prompts"
-    / "_fragments"
-)
+FRAGMENT_DIR = REPO_ROOT / "agents" / "graph-wiki-core" / "src" / "graph_wiki_core" / "prompts" / "_fragments"
 
-PROMPTS_DIR = (
-    REPO_ROOT
-    / "agents"
-    / "graph-wiki-core"
-    / "src"
-    / "graph_wiki_core"
-    / "prompts"
-)
+PROMPTS_DIR = REPO_ROOT / "agents" / "graph-wiki-core" / "src" / "graph_wiki_core" / "prompts"
 
 # Per D-08 step 1 — exact set of allowed source-path prefixes.
 # The CLAUDE.md.template entry is the FULL literal path (only that one file is
@@ -98,59 +83,81 @@ SEMANTIC_OVERLAP_THRESHOLD = 0.70
 # Adding to this list is a deliberate D-09 acknowledgement; removing requires
 # either widening the fragment or re-pointing the comment to a narrower
 # section in the canonical source.
-KNOWN_D09_FINDINGS: frozenset[tuple[str, str]] = frozenset({
-    # CITATION_RULES is a faithful port of the citation-related bullets of
-    # librarian.md §Rules, but §Rules also opens with an obsidian-markdown
-    # invocation rule that's intentionally not in this fragment (it belongs
-    # in any fragment that touches the file-writing surface, not the citation
-    # surface). Score: 0.67 with substring matching; only `obsidian` missing.
-    (
-        "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/citation_rules.py",
-        "Rules",
-    ),
-    # CLAUDE_MD_DISAMBIGUATION captures only the disambiguation paragraph
-    # from SKILL.md §Cross-tool compatibility — the section's first paragraph
-    # (schema-living-in-CLAUDE-or-AGENTS, codex/cursor/antigravity/opencode)
-    # is intentionally omitted here. The fragment is named for what it does
-    # (claude.md vs wiki claude.md disambiguation), not for the whole section.
-    (
-        "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/claude_md_disambiguation.py",
-        "Cross-tool compatibility",
-    ),
-    # FRONTMATTER_RULES collapses scanner-stub + ingestor-source-summary
-    # frontmatter requirements into one fragment; the §4. Write the source
-    # summary section additionally describes last_sync_commit / state_gate /
-    # raw/-staged source semantics which live in the ingestor prompt's own
-    # workflow narrative, not in the shared frontmatter-fields fragment.
-    (
-        "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/frontmatter_rules.py",
-        "4. Write the source summary",
-    ),
-    # linter.py L26 LINT_PRIORITY_ORDER is exactly the "Prioritize by
-    # impact" line from linter.md §Rules — the rest of §Rules (invoke
-    # obsidian-markdown, report-don't-fix, suggest actions, log the pass)
-    # appears elsewhere in linter.py's role intros / output blocks, not in
-    # LINT_PRIORITY_ORDER itself.
-    ("agents/graph-wiki-core/src/graph_wiki_core/prompts/linter.py", "Rules"),
-    # scanner.py L15 module-level Source comment references all three of
-    # §Role, §Rules, §Red flags — the scanner.py prompt covers them via
-    # _ROLE_INTRO + _SCANNER_RULES + _RED_FLAGS, but uses workspace-level
-    # vocabulary ("workspace package", "manifest") rather than the role's
-    # repo-tree vocabulary ("apps", "domains", "<workspace>/wiki/packages/").
-    # §Role and §Rules trip the gate; §Red flags is the empty-token-pool
-    # case (a short bullet list with no qualifying capitalized phrases).
-    ("agents/graph-wiki-core/src/graph_wiki_core/prompts/scanner.py", "Role"),
-    ("agents/graph-wiki-core/src/graph_wiki_core/prompts/scanner.py", "Rules"),
-})
+KNOWN_D09_FINDINGS: frozenset[tuple[str, str]] = frozenset(
+    {
+        # CITATION_RULES is a faithful port of the citation-related bullets of
+        # librarian.md §Rules, but §Rules also opens with an obsidian-markdown
+        # invocation rule that's intentionally not in this fragment (it belongs
+        # in any fragment that touches the file-writing surface, not the citation
+        # surface). Score: 0.67 with substring matching; only `obsidian` missing.
+        (
+            "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/citation_rules.py",
+            "Rules",
+        ),
+        # CLAUDE_MD_DISAMBIGUATION captures only the disambiguation paragraph
+        # from SKILL.md §Cross-tool compatibility — the section's first paragraph
+        # (schema-living-in-CLAUDE-or-AGENTS, codex/cursor/antigravity/opencode)
+        # is intentionally omitted here. The fragment is named for what it does
+        # (claude.md vs wiki claude.md disambiguation), not for the whole section.
+        (
+            "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/claude_md_disambiguation.py",
+            "Cross-tool compatibility",
+        ),
+        # FRONTMATTER_RULES collapses scanner-stub + ingestor-source-summary
+        # frontmatter requirements into one fragment; the §4. Write the source
+        # summary section additionally describes last_sync_commit / state_gate /
+        # raw/-staged source semantics which live in the ingestor prompt's own
+        # workflow narrative, not in the shared frontmatter-fields fragment.
+        (
+            "agents/graph-wiki-core/src/graph_wiki_core/prompts/_fragments/frontmatter_rules.py",
+            "4. Write the source summary",
+        ),
+        # linter.py L26 LINT_PRIORITY_ORDER is exactly the "Prioritize by
+        # impact" line from linter.md §Rules — the rest of §Rules (invoke
+        # obsidian-markdown, report-don't-fix, suggest actions, log the pass)
+        # appears elsewhere in linter.py's role intros / output blocks, not in
+        # LINT_PRIORITY_ORDER itself.
+        ("agents/graph-wiki-core/src/graph_wiki_core/prompts/linter.py", "Rules"),
+        # scanner.py L15 module-level Source comment references all three of
+        # §Role, §Rules, §Red flags — the scanner.py prompt covers them via
+        # _ROLE_INTRO + _SCANNER_RULES + _RED_FLAGS, but uses workspace-level
+        # vocabulary ("workspace package", "manifest") rather than the role's
+        # repo-tree vocabulary ("apps", "domains", "<workspace>/wiki/packages/").
+        # §Role and §Rules trip the gate; §Red flags is the empty-token-pool
+        # case (a short bullet list with no qualifying capitalized phrases).
+        ("agents/graph-wiki-core/src/graph_wiki_core/prompts/scanner.py", "Role"),
+        ("agents/graph-wiki-core/src/graph_wiki_core/prompts/scanner.py", "Rules"),
+    }
+)
 
 # English stoplist (per the plan's <interfaces> spec). Applied case-sensitively
 # to the capitalized-word extractor — pure stopwords starting with a capital
 # letter (sentence-initial position) are dropped so they don't pad the section
 # token pool.
 _STOPLIST = {
-    "The", "When", "If", "A", "An", "Or", "And", "Not", "In", "On", "Of",
-    "To", "For", "By", "With", "As", "Is", "Are", "Be", "This", "That",
-    "These", "Those",
+    "The",
+    "When",
+    "If",
+    "A",
+    "An",
+    "Or",
+    "And",
+    "Not",
+    "In",
+    "On",
+    "Of",
+    "To",
+    "For",
+    "By",
+    "With",
+    "As",
+    "Is",
+    "Are",
+    "Be",
+    "This",
+    "That",
+    "These",
+    "Those",
 }
 
 # ---------------------------------------------------------------------------
@@ -196,6 +203,7 @@ def slugify(heading: str) -> str:
 # ---------------------------------------------------------------------------
 # Heading extraction
 # ---------------------------------------------------------------------------
+
 
 def _is_heading_line(line: str) -> bool:
     """Return True for an ATX-style `^#+ ` heading line."""
@@ -510,10 +518,7 @@ def test_every_source_path_uses_allowed_prefix() -> None:
         pytest.skip("no in-scope files yet")
 
     captures = list(_provenance_iter(files))
-    assert captures, (
-        "No `# Source:` comments found in the scan scope — the regex or the "
-        "scope is wrong."
-    )
+    assert captures, "No `# Source:` comments found in the scan scope — the regex or the scope is wrong."
 
     failures: list[str] = []
     for fpath, line_idx, source, _sections in captures:
@@ -539,8 +544,7 @@ def test_every_source_section_resolves_to_a_heading() -> None:
         target = _resolve_source_path(source)
         if not target.exists():
             failures.append(
-                f"{fpath.relative_to(REPO_ROOT)}:{line_idx + 1}: "
-                f"target file {source!r} does not exist at {target}"
+                f"{fpath.relative_to(REPO_ROOT)}:{line_idx + 1}: target file {source!r} does not exist at {target}"
             )
             continue
         headings = extract_headings(target)
@@ -590,9 +594,7 @@ def test_semantic_overlap_meets_threshold() -> None:
             section_slug = slugify("# " + section_name)
             section_tokens = extract_section_tokens(target, section_slug)
             if not section_tokens:
-                skipped_empty.append(
-                    f"{rel}:{line_idx + 1} §{section_name}"
-                )
+                skipped_empty.append(f"{rel}:{line_idx + 1} §{section_name}")
                 continue
             matched = {t for t in section_tokens if t in constant_blob}
             fraction = len(matched) / len(section_tokens)
@@ -616,6 +618,7 @@ def test_semantic_overlap_meets_threshold() -> None:
 
     # Print diagnostics so the run output makes the gate state legible.
     import sys
+
     if skipped_empty:
         print(
             "INFO: semantic-overlap gate skipped sections with empty token "
@@ -628,8 +631,7 @@ def test_semantic_overlap_meets_threshold() -> None:
             "INFO: semantic-overlap gate identified "
             f"{len(known_d09_handled)} known D-09 finding(s) — these are "
             "documented narrow ports tracked in deferred-items.md for "
-            "widening in a follow-up plan, not regressions:\n  - "
-            + "\n  - ".join(known_d09_handled),
+            "widening in a follow-up plan, not regressions:\n  - " + "\n  - ".join(known_d09_handled),
             file=sys.stderr,
         )
 
@@ -638,8 +640,7 @@ def test_semantic_overlap_meets_threshold() -> None:
         "Per D-09 the remediation is to widen the cited Python string "
         "constant's keyword pool — do NOT relax the threshold. If the new "
         "finding is genuinely a narrow-by-design port, add the "
-        "(file, section) tuple to KNOWN_D09_FINDINGS with a rationale.\n"
-        + "\n".join(failures)
+        "(file, section) tuple to KNOWN_D09_FINDINGS with a rationale.\n" + "\n".join(failures)
     )
 
 
@@ -665,12 +666,8 @@ def test_disallowed_prefix_rejected() -> None:
     )
     # Positive cases — sanity-check the helper accepts the allowed prefixes.
     assert _starts_with_allowed_prefix("plugins/graph-wiki/agents/scanner.md")
-    assert _starts_with_allowed_prefix(
-        "packages/workspace-io/src/workspace_io/assets/CLAUDE.md.template"
-    )
-    assert _starts_with_allowed_prefix(
-        "agents/graph-wiki-core/src/graph_wiki_core/prompts/sources/code_reader.md"
-    )
+    assert _starts_with_allowed_prefix("packages/workspace-io/src/workspace_io/assets/CLAUDE.md.template")
+    assert _starts_with_allowed_prefix("agents/graph-wiki-core/src/graph_wiki_core/prompts/sources/code_reader.md")
 
 
 def test_slugify_known_cases() -> None:
@@ -678,10 +675,7 @@ def test_slugify_known_cases() -> None:
     assert slugify("### 4. Write the source summary") == "4-write-the-source-summary"
     # Em-dash (U+2014) is stripped without replacement; adjacent spaces remain,
     # so each becomes a hyphen → double-hyphen.
-    assert (
-        slugify("### Pass 2 — Semantic (read and think)")
-        == "pass-2--semantic-read-and-think"
-    )
+    assert slugify("### Pass 2 — Semantic (read and think)") == "pass-2--semantic-read-and-think"
     assert slugify("### Pass 3 — Report") == "pass-3--report"
     assert slugify("## Iron rules") == "iron-rules"
     assert slugify("## Log format") == "log-format"

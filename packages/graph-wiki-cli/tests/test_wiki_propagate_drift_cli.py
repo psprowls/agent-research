@@ -17,10 +17,15 @@ _ConnStub = type("ConnStub", (), {"close": lambda self: None})
 
 def _fake_result(**over):
     base = dict(
-        pages_judged=2, entities_considered=3, notes_written=1, pages_stale=1,
-        pages_skipped_settled=1, dry_run=False,
-        proposals=[{"kind": "concept", "target_slug": "fanout",
-                    "origins": [{"ref": "entities/pkg_a", "source": "drift"}]}],
+        pages_judged=2,
+        entities_considered=3,
+        notes_written=1,
+        pages_stale=1,
+        pages_skipped_settled=1,
+        dry_run=False,
+        proposals=[
+            {"kind": "concept", "target_slug": "fanout", "origins": [{"ref": "entities/pkg_a", "source": "drift"}]}
+        ],
     )
     base.update(over)
     return PropagateDriftResult(**base)
@@ -28,10 +33,11 @@ def _fake_result(**over):
 
 def test_propagate_drift_json_output():
     fake = AsyncMock(return_value=_fake_result())
-    with patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake), \
-         patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo",
-               return_value=(Path("/w/wiki"), Path("/w/repo"))), \
-         patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()):
+    with (
+        patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake),
+        patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo", return_value=(Path("/w/wiki"), Path("/w/repo"))),
+        patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()),
+    ):
         result = runner.invoke(wiki_app, ["propagate-drift", "--json"])
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
@@ -43,10 +49,11 @@ def test_propagate_drift_json_output():
 
 def test_propagate_drift_dry_run_flag_threads_through():
     fake = AsyncMock(return_value=_fake_result(dry_run=True, notes_written=0))
-    with patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake), \
-         patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo",
-               return_value=(Path("/w/wiki"), Path("/w/repo"))), \
-         patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()):
+    with (
+        patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake),
+        patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo", return_value=(Path("/w/wiki"), Path("/w/repo"))),
+        patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()),
+    ):
         result = runner.invoke(wiki_app, ["propagate-drift", "--dry-run", "--only", "pkg_a"])
     assert result.exit_code == 0, result.stdout
     assert fake.await_args.kwargs["dry_run"] is True

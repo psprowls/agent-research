@@ -159,9 +159,7 @@ def test_invoke_passes_through_string_content_unchanged(monkeypatch):
     from model_adapter.loader import make_llm
 
     llm = make_llm("preflight")
-    monkeypatch.setattr(
-        llm, "_original_invoke", lambda *a, **kw: AIMessage("plain text")
-    )
+    monkeypatch.setattr(llm, "_original_invoke", lambda *a, **kw: AIMessage("plain text"))
 
     result = llm.invoke("ping")
     assert result.content == "plain text"
@@ -222,9 +220,7 @@ def test_domain_proposer_role():
     # other config intact.
     llm_override = make_llm(DOMAIN_PROPOSER_ROLE, model_override=NOVA_LITE_ARN)
     assert isinstance(llm_override, ChatBedrockConverse)
-    actual_override = (
-        getattr(llm_override, "model_id", None) or getattr(llm_override, "model", None)
-    )
+    actual_override = getattr(llm_override, "model_id", None) or getattr(llm_override, "model", None)
     assert actual_override == NOVA_LITE_ARN
 
 
@@ -331,9 +327,7 @@ def _write_synthetic_workspace(tmp_path, roles):
     return workspace
 
 
-def test_make_llm_uses_workspace_role_when_present(
-    tmp_path, monkeypatch, real_workspace_role_override
-):
+def test_make_llm_uses_workspace_role_when_present(tmp_path, monkeypatch, real_workspace_role_override):
     """Workspace-defined role config wins over packaged defaults."""
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm
@@ -386,9 +380,7 @@ def test_make_llm_falls_back_to_packaged_when_role_absent_in_workspace(
     assert actual == "openai.gpt-oss-20b-1:0"
 
 
-def test_make_llm_falls_back_to_packaged_when_resolve_raises(
-    monkeypatch, real_workspace_role_override
-):
+def test_make_llm_falls_back_to_packaged_when_resolve_raises(monkeypatch, real_workspace_role_override):
     """Production path: `workspace_io.resolve()` raises RuntimeError →
     `_workspace_role_override` catches it → `make_llm` falls back to packaged
     `models.toml`. Drives the real try/except, not a stub (BLOCKER fix from
@@ -432,4 +424,3 @@ def test_make_llm_falls_back_when_helper_returns_none(monkeypatch):
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
     # Preflight default per models.toml [roles.preflight] (2026-05-30: qwen3-32b after Haiku purge)
     assert actual == PREFLIGHT_ARN
-

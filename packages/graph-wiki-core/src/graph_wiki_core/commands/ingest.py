@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Ingest command — route a source file or work item into the wiki vault.
 
 Public API:
@@ -20,6 +18,8 @@ Cross-ref update scope (CONTEXT.md deferred decision):
     down to index-only for v1". This is the scope-down path.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import time
@@ -28,7 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-
+from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
+from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.trace_io import write_trace_record
@@ -43,9 +44,6 @@ from wiki_io.ingest_source import PREVIEW_CHARS, extract, guess_source_type, slu
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
 from wiki_io.wikilinks import vault_wikilink
-
-from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
-from graph_io.store import GraphNotInitializedError, read_only_connect
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
@@ -81,6 +79,7 @@ class IngestorGraphNotInitializedError(RuntimeError):
             "error: graph-io not initialized for this workspace. "
             "Run 'gw graph build' (or 'cg update') to initialize, then retry."
         )
+
 
 # Matches YAML list items with any indentation (2-space, 4-space, tab)
 _LIST_ITEM_RE = re.compile(r"^[ \t]+- ")
@@ -305,9 +304,7 @@ def _set_source_kind_in_body(text: str, source_kind: str) -> str:
     return f"{leading_ws}---\n{new_fm}{body_and_close}"
 
 
-def _synthesize_frontmatter_block(
-    body: str, source_kind: str, target_slug: str, entity_uri: str | None
-) -> str:
+def _synthesize_frontmatter_block(body: str, source_kind: str, target_slug: str, entity_uri: str | None) -> str:
     """Prepend a minimal YAML frontmatter block to a body that has none.
 
     D3 synthesize-frontmatter rule (spec §3.3): the body-mutation helpers
@@ -320,14 +317,7 @@ def _synthesize_frontmatter_block(
     _set_entity_uri_in_body).
     """
     uri_val = "null" if entity_uri is None else entity_uri
-    return (
-        "---\n"
-        f"source_kind: {source_kind}\n"
-        f"target_slug: {target_slug}\n"
-        f"entity_uri: {uri_val}\n"
-        "---\n\n"
-        f"{body}"
-    )
+    return f"---\nsource_kind: {source_kind}\ntarget_slug: {target_slug}\nentity_uri: {uri_val}\n---\n\n{body}"
 
 
 # ---------------------------------------------------------------------------
@@ -499,7 +489,7 @@ def _parse_ingestor_response(text: str) -> tuple[dict, str]:
         return {}, text
 
     yaml_block = rest[:closing_idx].strip()
-    body = rest[closing_idx + 4:].lstrip("\n")
+    body = rest[closing_idx + 4 :].lstrip("\n")
 
     # D3 (spec §3.3): prefer yaml.safe_load. If it raises YAMLError or returns
     # a non-dict, fall back to the hand-rolled scalar/list parser below — it
@@ -657,25 +647,19 @@ async def run_ingest_source(
         #
         # Surfaces: grep -r "entity_uri: pkg:" wiki/ will find all entity-backed
         # pages; a v1.8 tool may parse + reconcile against the live graph.
-        canonical: tuple[str, str] | None = lookup_entity_by_path(
-            conn, repo, source_path
-        )
+        canonical: tuple[str, str] | None = lookup_entity_by_path(conn, repo, source_path)
         if canonical is None:
             canonical = lookup_entity_by_name(conn, title_guess)
         canonical_uri: str | None = canonical[0] if canonical else None
         # Slice 4: the matched entity drives a [[entities/<stem>]] forward-link
         # whose target equals the scanner's on-disk filename. None when the
         # match has no entity page (cls:/fn:/method:) — no link is written.
-        entity_stem: str | None = (
-            entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
-        )
+        entity_stem: str | None = entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
 
         # Step 4: vault structure for context
         vault_structure: list[str] = []
         try:
-            vault_structure = sorted(
-                d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith(".")
-            )
+            vault_structure = sorted(d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith("."))
         except OSError:
             pass
 
@@ -692,7 +676,9 @@ async def run_ingest_source(
         trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
         t0 = time.monotonic()
         try:
-            resp = await llm.ainvoke([SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)])
+            resp = await llm.ainvoke(
+                [SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)]
+            )
         except Exception as exc:
             latency_ms = int((time.monotonic() - t0) * 1000)
             write_trace_record(
@@ -740,9 +726,7 @@ async def run_ingest_source(
         # all, the body-mutation helpers below would no-op — prepend a minimal
         # block so the unknown-kind Source page lands with its metadata.
         if not frontmatter_parsed and not llm_output.lstrip().startswith("---"):
-            llm_output = _synthesize_frontmatter_block(
-                llm_output, source_kind, canonical_slug, canonical_uri
-            )
+            llm_output = _synthesize_frontmatter_block(llm_output, source_kind, canonical_slug, canonical_uri)
 
         # Reconcile target_slug in the body with the on-disk filename slug, write
         # entity_uri (null when no graph match), and stamp source_kind. All three
@@ -773,9 +757,7 @@ async def run_ingest_source(
         # concept/adr/architecture pages from the just-written Source page.
         # Best-effort: a failure here never fails the ingest (spec §3.1).
         try:
-            suggested_pages, suggestions_parsed = await run_suggest_phase(
-                wiki=wiki, page_path=target_path
-            )
+            suggested_pages, suggestions_parsed = await run_suggest_phase(wiki=wiki, page_path=target_path)
         except Exception:
             logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
             suggested_pages, suggestions_parsed = [], False
@@ -786,10 +768,7 @@ async def run_ingest_source(
         # Step 9: append log (record stripped-wikilink count for hallucination audit)
         detail = f"source: {source_path}"
         if stripped_wikilinks:
-            detail += (
-                f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): "
-                f"{stripped_wikilinks[:5]}"
-            )
+            detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
         append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
 
         # Step 10: return result

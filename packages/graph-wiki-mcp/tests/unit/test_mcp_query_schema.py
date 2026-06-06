@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Unit tests for the wiki_query MCP tool schema, validation, and progress behavior.
 
 Requirements covered: MCP-02, MCP-04, MCP-06.
 """
+
+from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -61,16 +61,14 @@ def test_wiki_query_input_rejects_missing_query() -> None:
 
 async def test_wiki_query_calls_run_query_and_returns_output() -> None:
     """wiki_query calls run_query and returns WikiQueryOutput (CLI-03 single source of truth)."""
-    from graph_wiki_mcp.server import WikiQueryInput, WikiQueryOutput, wiki_query
     from graph_wiki_core.commands.query import QueryResult
+    from graph_wiki_mcp.server import WikiQueryInput, WikiQueryOutput, wiki_query
 
     mock_result = QueryResult(
         answer="The SubagentPool manages concurrent fan-out.",
         citations=["SubagentPool"],
         pages_drilled=3,
-        search_scores={
-            "concepts/subagent-pool.md": {"bm25": 0.9, "embed": 0.85, "rrf": 0.03}
-        },
+        search_scores={"concepts/subagent-pool.md": {"bm25": 0.9, "embed": 0.85, "rrf": 0.03}},
     )
 
     mock_ctx = MagicMock()
@@ -91,8 +89,8 @@ async def test_wiki_query_calls_run_query_and_returns_output() -> None:
 
 async def test_progress_called_at_start_and_end() -> None:
     """ctx.report_progress called at least twice (start + end) during wiki_query (MCP-06)."""
-    from graph_wiki_mcp.server import WikiQueryInput, wiki_query
     from graph_wiki_core.commands.query import QueryResult
+    from graph_wiki_mcp.server import WikiQueryInput, wiki_query
 
     mock_result = QueryResult(
         answer="Answer text.",

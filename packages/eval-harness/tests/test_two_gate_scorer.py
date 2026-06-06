@@ -18,8 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
 from eval_harness.divergence.check import AgentOutputProxy
-from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate
-
+from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, score_two_gate
 
 # ---------------------------------------------------------------------------
 # Gate 1: divergence programmatic check
@@ -30,9 +29,7 @@ def test_two_gate_librarian_pass(fixture_wiki_path: Path) -> None:
     """Both gates pass for a well-formed librarian answer; result is qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
-    baselines_dir = (
-        Path(__file__).parent.parent / "baselines"
-    )
+    baselines_dir = Path(__file__).parent.parent / "baselines"
 
     metric = DivergenceMetric(
         role="librarian",
@@ -45,9 +42,7 @@ def test_two_gate_librarian_pass(fixture_wiki_path: Path) -> None:
     outputs = [
         (
             "case-01",
-            AgentOutputProxy(
-                answer="See [[packages/lattice-wiki-core]] for details. Also `src/main.py:10`."
-            ),
+            AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for details. Also `src/main.py:10`."),
         )
     ]
 
@@ -79,9 +74,7 @@ def test_two_gate_librarian_divergence_fail(fixture_wiki_path: Path) -> None:
     """Gate 1 fails when hard-rule failures exceed baseline; result is not qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
-    baselines_dir = (
-        Path(__file__).parent.parent / "baselines"
-    )
+    baselines_dir = Path(__file__).parent.parent / "baselines"
 
     metric = DivergenceMetric(
         role="librarian",
@@ -125,9 +118,7 @@ def test_two_gate_librarian_quality_fail(fixture_wiki_path: Path) -> None:
     """Gate 1 passes but Gate 2 (judge score) fails threshold; result is not qualified."""
     from eval_harness.divergence.metric import DivergenceMetric
 
-    baselines_dir = (
-        Path(__file__).parent.parent / "baselines"
-    )
+    baselines_dir = Path(__file__).parent.parent / "baselines"
 
     metric = DivergenceMetric(
         role="librarian",
@@ -152,9 +143,9 @@ def test_two_gate_librarian_quality_fail(fixture_wiki_path: Path) -> None:
             divergence_metric_or_none=metric,
             agent_outputs_by_case=[("case-01", AgentOutputProxy(answer="ok"))],
             baselines_dir=baselines_dir,
-            panel_mean=0.50,       # very low quality
+            panel_mean=0.50,  # very low quality
             default_panel_mean=0.80,
-            threshold=0.95,        # requires >= 0.80 * 0.95 = 0.76
+            threshold=0.95,  # requires >= 0.80 * 0.95 = 0.76
         )
 
     assert outcome.gate1_passed is True
@@ -188,9 +179,7 @@ def test_no_quality_signal_is_unqualified(fixture_wiki_path: Path) -> None:
     nothing — but more directly, we simulate an unknown role (not in
     ROLES_WITH_DIVERGENCE) which still produces both gates as None.
     """
-    baselines_dir = (
-        Path(__file__).parent.parent / "baselines"
-    )
+    baselines_dir = Path(__file__).parent.parent / "baselines"
 
     # "unknown-role" is not in ROLES_WITH_DIVERGENCE -> Gate 1 stays None.
     # No panel inputs -> Gate 2 stays None. Together: "no quality signal".

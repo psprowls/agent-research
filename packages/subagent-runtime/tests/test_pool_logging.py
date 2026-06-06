@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Fan-out lifecycle logging tests for SubagentPool (gw --verbose).
 
 The pool logs unconditionally; these tests use caplog (which captures via the
 root logger by propagation) to assert what is emitted at INFO vs DEBUG.
 """
+
+from __future__ import annotations
 
 import logging
 
@@ -27,12 +27,12 @@ async def test_fanout_emits_start_completions_and_summary(tmp_path, make_task, c
     assert len(result.successes) == 2
 
     starts = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.name == "subagent_runtime.pool" and r.getMessage().startswith("-> fan-out start:")
     ]
     summaries = [
-        r for r in caplog.records
-        if r.name == "subagent_runtime.pool" and r.getMessage().startswith("ok fan-out done:")
+        r for r in caplog.records if r.name == "subagent_runtime.pool" and r.getMessage().startswith("ok fan-out done:")
     ]
     completions = [r for r in caplog.records if r.name == "subagent_runtime.pool.trace"]
 
@@ -56,24 +56,16 @@ async def test_per_item_start_only_at_debug(tmp_path, make_task, caplog):
 
     # At INFO: per-item start lines (DEBUG) are NOT emitted.
     with caplog.at_level(logging.INFO):
-        await pool.run_all(
-            items=["a"], task=task, role="librarian", model_id="m", max_concurrency=1
-        )
-    info_item_starts = [
-        r for r in caplog.records if r.getMessage().startswith("-> item start:")
-    ]
+        await pool.run_all(items=["a"], task=task, role="librarian", model_id="m", max_concurrency=1)
+    info_item_starts = [r for r in caplog.records if r.getMessage().startswith("-> item start:")]
     assert info_item_starts == []
 
     caplog.clear()
 
     # At DEBUG: one per-item start line per item.
     with caplog.at_level(logging.DEBUG):
-        await pool.run_all(
-            items=["a", "b"], task=task, role="librarian", model_id="m", max_concurrency=1
-        )
-    debug_item_starts = [
-        r for r in caplog.records if r.getMessage().startswith("-> item start:")
-    ]
+        await pool.run_all(items=["a", "b"], task=task, role="librarian", model_id="m", max_concurrency=1)
+    debug_item_starts = [r for r in caplog.records if r.getMessage().startswith("-> item start:")]
     assert len(debug_item_starts) == 2
 
 
@@ -84,9 +76,7 @@ async def test_error_completion_line_is_logged(tmp_path, make_task, caplog):
     task = make_task(raise_for={"b"})
 
     with caplog.at_level(logging.INFO):
-        result = await pool.run_all(
-            items=["a", "b"], task=task, role="librarian", model_id="m", max_concurrency=2
-        )
+        result = await pool.run_all(items=["a", "b"], task=task, role="librarian", model_id="m", max_concurrency=2)
 
     assert len(result.successes) == 1
     assert len(result.errors) == 1
@@ -96,7 +86,6 @@ async def test_error_completion_line_is_logged(tmp_path, make_task, caplog):
     assert any("error" in r.getMessage() for r in completions)
 
     summaries = [
-        r for r in caplog.records
-        if r.name == "subagent_runtime.pool" and r.getMessage().startswith("ok fan-out done:")
+        r for r in caplog.records if r.name == "subagent_runtime.pool" and r.getMessage().startswith("ok fan-out done:")
     ]
     assert "1 ok / 1 err" in summaries[0].getMessage()

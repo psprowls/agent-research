@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from graph_io.queries import _VALID_KINDS
 from graph_io.uri import (
     RepoContext,
@@ -54,17 +53,11 @@ def test_subpkg_uri_preserves_dotted_path() -> None:
 
 
 def test_file_uri_preserves_forward_slashes() -> None:
-    assert (
-        file_uri(RepoContext("org", "repo"), "src/foo/bar.py")
-        == "file:org/repo/src/foo/bar.py"
-    )
+    assert file_uri(RepoContext("org", "repo"), "src/foo/bar.py") == "file:org/repo/src/foo/bar.py"
 
 
 def test_entry_point_uri() -> None:
-    assert (
-        entry_point_uri(RepoContext("org", "repo"), "pkg", "cli")
-        == "entry_point:org/repo/pkg/cli"
-    )
+    assert entry_point_uri(RepoContext("org", "repo"), "pkg", "cli") == "entry_point:org/repo/pkg/cli"
 
 
 def test_test_suite_uri() -> None:

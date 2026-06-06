@@ -9,27 +9,28 @@ Requirements: D-13 (conservative per-tier token constants), SWEEP-02 (BED-01 pin
 
 from __future__ import annotations
 
+from model_adapter.exceptions import BedrockAccessDenied
+from model_adapter.loader import make_llm
+
+from eval_harness.pricing import UnknownModelError, cost_for_usage
+
 HARD_CAP_USD = 25.0  # $25: 4x headroom over ~$6.19 estimated 24-cell matrix (RESEARCH.md §Tension 2)
 
 # Conservative per-tier token constants (from RESEARCH.md §Tension 6)
 _TIER_TOKENS: dict[str, tuple[int, int]] = {
     "cheap-fast": (3000, 500),  # scanner, code_reader
-    "mid": (5000, 1000),        # linter, ingestor
-    "quality": (8000, 2000),    # librarian, synthesizer
+    "mid": (5000, 1000),  # linter, ingestor
+    "quality": (8000, 2000),  # librarian, synthesizer
 }
 
 _ROLE_TIER: dict[str, str] = {
-    "scanner":     "cheap-fast",
+    "scanner": "cheap-fast",
     "code_reader": "cheap-fast",
-    "linter":      "mid",
-    "ingestor":    "mid",
-    "librarian":   "quality",
+    "linter": "mid",
+    "ingestor": "mid",
+    "librarian": "quality",
     "synthesizer": "quality",
 }
-
-from eval_harness.pricing import UnknownModelError, cost_for_usage
-from model_adapter.exceptions import BedrockAccessDenied
-from model_adapter.loader import make_llm
 
 
 def estimate_sweep_cost(

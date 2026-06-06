@@ -18,9 +18,7 @@ from graph_wiki_core.commands.query import QueryResult
 from workspace_io.paths import wiki_dir
 
 # Pattern for code path detection in answer text.
-_CODE_PATH_RE = re.compile(
-    r"(src/|tests/|packages/|agents/|[a-zA-Z0-9_/.-]+\.py|[a-zA-Z0-9_/.-]+\.ts)"
-)
+_CODE_PATH_RE = re.compile(r"(src/|tests/|packages/|agents/|[a-zA-Z0-9_/.-]+\.py|[a-zA-Z0-9_/.-]+\.ts)")
 
 
 def _resolve_citation(slug: str, workspace_path: Path) -> Path | None:
@@ -76,9 +74,7 @@ def check_structural(result: Any, workspace_path: Path) -> dict[str, Any]:
         FileNotFoundError: if workspace_path / "wiki" does not exist.
     """
     if not isinstance(result, QueryResult):
-        raise TypeError(
-            f"check_structural expects QueryResult, got {type(result).__name__!r}"
-        )
+        raise TypeError(f"check_structural expects QueryResult, got {type(result).__name__!r}")
 
     # Fail-fast guard (D-01 / D-09): the wiki dir must exist before any
     # citation lookup runs. Without this guard, a caller that mistakenly
@@ -91,9 +87,7 @@ def check_structural(result: Any, workspace_path: Path) -> dict[str, Any]:
     wiki = wiki_dir(workspace_path)
     if not wiki.is_dir():
         raise FileNotFoundError(
-            f"wiki dir not found: {wiki} "
-            f"(workspace_path={workspace_path!r}; "
-            "expected workspace_path/'wiki' to exist)"
+            f"wiki dir not found: {wiki} (workspace_path={workspace_path!r}; expected workspace_path/'wiki' to exist)"
         )
 
     # --- has_citation ---

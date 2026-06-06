@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Integration test for the full DivergenceMetric pipeline (EVAL-12, EVAL-13).
 
 Gated behind GRAPH_WIKI_RUN_EVAL=1 so it does not run in quick CI. Parametrized
@@ -20,11 +18,12 @@ Security:
   T-06-26: _current_agent_commit() writes git SHA into every accepted baseline.
 """
 
+from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 
 import pytest
-
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
 from eval_harness.divergence.metric import (
     DivergenceMetric,
@@ -34,7 +33,8 @@ from eval_harness.divergence.metric import (
 )
 
 # Eval gate and helpers — imported from eval_helpers (WR-05, WR-06)
-from eval_helpers import EVAL_GATE, produce_outputs as _produce_outputs
+from eval_helpers import EVAL_GATE
+from eval_helpers import produce_outputs as _produce_outputs
 
 # Baselines directory: packages/eval-harness/baselines/
 # packages/eval-harness/tests/test_divergence.py
@@ -58,8 +58,6 @@ def _current_agent_commit() -> str:
         ).strip()
     except Exception:
         return "unknown"
-
-
 
 
 # ---------------------------------------------------------------------------

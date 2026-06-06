@@ -16,7 +16,6 @@ validated (isinstance check on "query" field) before reaching test parametrizati
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import sys
@@ -38,14 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
-FIXTURE_VAULT = (
-    _WORKSPACE_ROOT
-    / "packages"
-    / "wiki-io"
-    / "tests"
-    / "fixtures"
-    / "round-trip-vault"
-)
+FIXTURE_VAULT = _WORKSPACE_ROOT / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
 
 SWEEP_MODELS: list[str] = [
     "us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -87,12 +79,14 @@ def _make_case_model_params() -> list[dict]:
     params = []
     for case in cases:
         for model_id in SWEEP_MODELS:
-            params.append({
-                "case_id": case.get("case_id", case["query"][:20]),
-                "query": case["query"],
-                "expected_answer": case["expected_answer"],
-                "model_id": model_id,
-            })
+            params.append(
+                {
+                    "case_id": case.get("case_id", case["query"][:20]),
+                    "query": case["query"],
+                    "expected_answer": case["expected_answer"],
+                    "model_id": model_id,
+                }
+            )
     return params
 
 
@@ -129,10 +123,11 @@ def fixture_workspace(tmp_path: Path) -> Path:
 
 
 @pytest.mark.eval(name="query_sweep")
-@pytest.mark.parametrize("case_and_model", CASE_MODEL_PARAMS, ids=[
-    f"{p['case_id']}::{p['model_id'].split('.')[-1]}"
-    for p in CASE_MODEL_PARAMS
-])
+@pytest.mark.parametrize(
+    "case_and_model",
+    CASE_MODEL_PARAMS,
+    ids=[f"{p['case_id']}::{p['model_id'].split('.')[-1]}" for p in CASE_MODEL_PARAMS],
+)
 @EVAL_GATE
 async def test_query_sweep_case(case_and_model: dict, eval_bag, fixture_workspace: Path) -> None:  # type: ignore[no-untyped-def]
     """Run a single (case, model) combination and store metrics in eval_bag.
@@ -209,8 +204,7 @@ def test_query_sweep_analysis(eval_results) -> None:  # type: ignore[no-untyped-
 
     # Reconstruct SweepResult list for cost_frontier_table (from eval_results)
     sweep_results: list[SweepResult] = [
-        r.sweep_result for r in eval_results
-        if hasattr(r, "sweep_result") and r.sweep_result is not None
+        r.sweep_result for r in eval_results if hasattr(r, "sweep_result") and r.sweep_result is not None
     ]
 
     if sweep_results:
@@ -235,13 +229,12 @@ async def test_position_bias_check() -> None:
 
     Both marks ensure this skips in normal CI (requires --run-eval AND GRAPH_WIKI_RUN_EVAL=1).
     """
-    from eval_harness.judge import panel_score, position_bias_check
+    from eval_harness.judge import position_bias_check
 
     # Use a simple synthetic query with two plausible answers
     query = "What does lattice-wiki-core do?"
     answer_a = "lattice-wiki-core provides the core wiki maintenance logic. See [[lattice-wiki-core]]."
     answer_b = "The lattice-wiki-core package is responsible for core wiki operations."
-    expected = "lattice-wiki-core provides the core wiki maintenance logic"
 
     # Measure position bias
     delta = position_bias_check(query, answer_a, answer_b)
@@ -271,6 +264,8 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
     from eval_harness.two_gate import (
         ROLES_WITH_DIVERGENCE,
         TwoGateOutcome,
+    )
+    from eval_harness.two_gate import (
         score_two_gate as original_score_two_gate,
     )
     from model_adapter.loader import load_role_config
@@ -324,15 +319,10 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
         for r in role_results:
             if isinstance(r, SweepResult) and r.cost_usd is not None:
                 total_cost += r.cost_usd
-    assert total_cost < HARD_CAP_USD, (
-        f"Total cost ${total_cost:.4f} exceeds HARD_CAP_USD ${HARD_CAP_USD}"
-    )
+    assert total_cost < HARD_CAP_USD, f"Total cost ${total_cost:.4f} exceeds HARD_CAP_USD ${HARD_CAP_USD}"
 
     cr_results = result.get("code_reader", [])
-    code_reader_queries = {
-        c["query"]
-        for c in json.loads(code_reader_cases_path.read_text(encoding="utf-8"))
-    }
+    code_reader_queries = {c["query"] for c in json.loads(code_reader_cases_path.read_text(encoding="utf-8"))}
     for r in cr_results:
         if r.status == "ok":
             assert r.query in code_reader_queries, (

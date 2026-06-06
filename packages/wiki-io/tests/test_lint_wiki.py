@@ -290,12 +290,9 @@ def test_wiki_rooted_links_not_broken(tmp_path):
     (wiki / "concepts" / "y.md").write_text(
         "---\ntitle: Y\ncategory: concept\nsummary: s\ntokens: 1\n---\n\nbody\n", encoding="utf-8"
     )
-    (wiki / "work" / "z.md").write_text(
-        "---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8"
-    )
+    (wiki / "work" / "z.md").write_text("---\ntitle: Z\ncategory: work\nsummary: s\n---\n\nbody\n", encoding="utf-8")
     (wiki / "concepts" / "hub.md").write_text(
-        "---\ntitle: Hub\ncategory: concept\nsummary: s\ntokens: 1\n---\n\n"
-        "[[entities/x]] [[concepts/y]] [[work/z]]\n",
+        "---\ntitle: Hub\ncategory: concept\nsummary: s\ntokens: 1\n---\n\n[[entities/x]] [[concepts/y]] [[work/z]]\n",
         encoding="utf-8",
     )
 
@@ -318,9 +315,7 @@ def test_all_vault_categories_are_linted(tmp_path):
         (wiki / top / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")
     # entities/ page missing uri → flagged under the entity contract
     (wiki / "entities").mkdir(parents=True)
-    (wiki / "entities" / "bad.md").write_text(
-        "---\ntitle: B\nkind: package\n---\n\nbody\n", encoding="utf-8"
-    )
+    (wiki / "entities" / "bad.md").write_text("---\ntitle: B\nkind: package\n---\n\nbody\n", encoding="utf-8")
     # work/ page missing category + summary → flagged (work is linted)
     (wiki / "work").mkdir(parents=True)
     (wiki / "work" / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")

@@ -45,7 +45,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from graph_io.queries import (
-    NodeRecord,
     internal_dependencies_of,
     list_agent_plugins,
     list_apps,
@@ -58,8 +57,12 @@ from workspace_io.paths import wiki_dir, work_dir
 
 from wiki_io.entity_writer import (
     ADMITTED_KINDS as _ADMITTED_KINDS,
+)
+from wiki_io.entity_writer import (
     _compute_collision_set,
     _kind_list_fns,
+)
+from wiki_io.entity_writer import (
     short_filename as _short_filename,
 )
 from wiki_io.wikilinks import vault_wikilink
@@ -78,7 +81,11 @@ from wiki_io.wikilinks import vault_wikilink
 # (in both domain and By-Kind contexts per D-01), so removing them from the flat
 # render order is safe precisely because every package/app now nests its own items.
 _PLACEABLE_KINDS: tuple[str, ...] = (
-    "app", "package", "test_suite", "dependency", "agent_plugin",
+    "app",
+    "package",
+    "test_suite",
+    "dependency",
+    "agent_plugin",
 )
 
 BY_KIND_ORDER: tuple[str, ...] = ("app", "package", "agent_plugin")
@@ -97,16 +104,21 @@ KIND_LABELS: dict[str, str] = {
 # double-prefixing. The decision intent (4 lanes, this order) is preserved.
 CURATED_LANES: tuple[tuple[str, str, str], ...] = (
     ("architecture", "architecture", "Architecture"),
-    ("adrs",         "adrs",         "ADRs"),
-    ("concepts",     "concepts",     "Concepts"),
-    ("sources",      "sources",      "Sources"),
+    ("adrs", "adrs", "ADRs"),
+    ("concepts", "concepts", "Concepts"),
+    ("sources", "sources", "Sources"),
 )
 
-GENERATED_FILES: frozenset[str] = frozenset({
-    "index.md", "log.md",
-    "concepts/index.md", "adrs/index.md", "sources/index.md",
-    "architecture/index.md",
-})
+GENERATED_FILES: frozenset[str] = frozenset(
+    {
+        "index.md",
+        "log.md",
+        "concepts/index.md",
+        "adrs/index.md",
+        "sources/index.md",
+        "architecture/index.md",
+    }
+)
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -162,9 +174,7 @@ class PlacedEntity:
 # ============================================================================
 
 
-def _compute_qualifying_domains(
-    conn: sqlite3.Connection, *, kind: str, name: str, uri: str = ""
-) -> set[str]:
+def _compute_qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: str, uri: str = "") -> set[str]:
     """Return the set of domain names that qualify for this entity (D-04).
 
     - package:    direct `belongs_to_domain` edges.
@@ -219,9 +229,7 @@ def _compute_qualifying_domains(
         return {r[0] for r in rows}
     if kind == "agent_plugin":
         return set()
-    raise ValueError(
-        f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}"
-    )
+    raise ValueError(f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}")
 
 
 def _consumer_pkgs_in_domain(
@@ -311,9 +319,7 @@ def _consumer_pkgs(
     return ()
 
 
-def _read_entity_summary(
-    wiki_root: Path, entity: PlacedEntity, collision_set: frozenset[str]
-) -> str:
+def _read_entity_summary(wiki_root: Path, entity: PlacedEntity, collision_set: frozenset[str]) -> str:
     """Read the `summary:` frontmatter from the entity's own page (D-06).
 
     The stem is derived with the SAME `_short_filename` call `_entity_wikilink`
@@ -359,19 +365,17 @@ def _place_entities(
     name_to_entity: dict[str, PlacedEntity] = {}
 
     kind_to_list_fn = {
-        "app":          list_apps,
-        "package":      list_packages,
-        "test_suite":   list_test_suites,
-        "dependency":   list_dependencies,
+        "app": list_apps,
+        "package": list_packages,
+        "test_suite": list_test_suites,
+        "dependency": list_dependencies,
         "agent_plugin": list_agent_plugins,
     }
     for kind in _PLACEABLE_KINDS:
         list_fn = kind_to_list_fn[kind]
         for node in list_fn(conn):
             uri = node.attrs.get("uri") or ""
-            qualifying = _compute_qualifying_domains(
-                conn, kind=kind, name=node.name, uri=uri
-            )
+            qualifying = _compute_qualifying_domains(conn, kind=kind, name=node.name, uri=uri)
             # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
             # set for every dep/test_suite (not only single-domain ones), so a
             # by-kind-placed dep/suite still nests under its consumer packages.
@@ -379,13 +383,9 @@ def _place_entities(
             # pass entity_name (D-08).
             parent_pkgs: tuple[str, ...] = ()
             if kind == "test_suite":
-                parent_pkgs = _consumer_pkgs(
-                    conn, kind=kind, entity_uri=uri
-                )
+                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_uri=uri)
             elif kind == "dependency":
-                parent_pkgs = _consumer_pkgs(
-                    conn, kind=kind, entity_name=node.name
-                )
+                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_name=node.name)
             suite_kind: str | None = None
             pkg_for_suite: str | None = None
             if kind == "test_suite":
@@ -465,11 +465,13 @@ def _scan_curated_lane(wiki_root: Path, lane_dir_rel: str) -> list[dict[str, str
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
         fm = _parse_frontmatter(text)
-        entries.append({
-            "path": rel_str,
-            "title": _infer_title(md, fm),
-            "summary": fm.get("summary", ""),
-        })
+        entries.append(
+            {
+                "path": rel_str,
+                "title": _infer_title(md, fm),
+                "summary": fm.get("summary", ""),
+            }
+        )
     entries.sort(key=lambda e: e["title"].lower())
     return entries
 
@@ -495,11 +497,13 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
         fm = _parse_frontmatter(text)
-        entries.append({
-            "path": str(rel).replace("\\", "/"),
-            "title": _infer_title(md, fm),
-            "summary": fm.get("summary", ""),
-        })
+        entries.append(
+            {
+                "path": str(rel).replace("\\", "/"),
+                "title": _infer_title(md, fm),
+                "summary": fm.get("summary", ""),
+            }
+        )
     entries.sort(key=lambda e: e["title"].lower())
     return entries
 
@@ -537,9 +541,7 @@ def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
     return row is None
 
 
-def _entity_wikilink(
-    entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None
-) -> str:
+def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None) -> str:
     """Forward-derive the piped `[[entities/<stem>|<text>]]` wikilink.
 
     Phase 53 D-05: uses `short_filename` from Phase 52 with the precomputed
@@ -607,9 +609,7 @@ def _render_pkg_nested(
     # Internal dependencies (D-09/D-11): resolve names → internal package/app
     # entities; skip any name with no matching placed entity (defensive).
     internal_names = internal_dependencies_of(conn, name=pkg.name)
-    internal_entities = [
-        name_to_entity[n] for n in internal_names if n in name_to_entity
-    ]
+    internal_entities = [name_to_entity[n] for n in internal_names if n in name_to_entity]
     if internal_entities:
         lines.append("  - Internal dependencies")
         for ie in sorted(internal_entities, key=lambda x: x.name):
@@ -663,16 +663,18 @@ def _render_domain_section(
     lines_pkg: list[str] = []
     for pkg in packages:
         lines_pkg.append(_entity_bullet(pkg, collision_set, ""))
-        lines_pkg.extend(
-            _render_pkg_nested(conn, pkg, sub_for_pkg, name_to_entity, collision_set)
-        )
+        lines_pkg.extend(_render_pkg_nested(conn, pkg, sub_for_pkg, name_to_entity, collision_set))
 
     # Sub-domain recursion (D-07)
     sub_domain_blocks: list[str] = []
     for sub_name in _list_subdomains(conn, domain_name):
         sub_lines = _render_domain_section(
-            conn, domain_buckets, domain_name=sub_name, depth=depth + 1,
-            collision_set=collision_set, name_to_entity=name_to_entity,
+            conn,
+            domain_buckets,
+            domain_name=sub_name,
+            depth=depth + 1,
+            collision_set=collision_set,
+            name_to_entity=name_to_entity,
             sub_for_pkg=sub_for_pkg,
         )
         if sub_lines:
@@ -699,16 +701,18 @@ def _render_domains(
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
 ) -> tuple[list[str], int]:
     """Render the full `## Domains` block. Returns (lines, domain_count)."""
-    all_domains = sorted(
-        {n.name for n in list_domains(conn)} | set(domain_buckets.keys())
-    )
+    all_domains = sorted({n.name for n in list_domains(conn)} | set(domain_buckets.keys()))
     top_level_domains = [d for d in all_domains if _is_top_level_domain(conn, d)]
     lines: list[str] = []
     rendered_count = 0
     for d in top_level_domains:
         section = _render_domain_section(
-            conn, domain_buckets, domain_name=d, depth=0,
-            collision_set=collision_set, name_to_entity=name_to_entity,
+            conn,
+            domain_buckets,
+            domain_name=d,
+            depth=0,
+            collision_set=collision_set,
+            name_to_entity=name_to_entity,
             sub_for_pkg=sub_for_pkg,
         )
         if section:
@@ -716,9 +720,7 @@ def _render_domains(
             rendered_count += 1
     if not lines:
         return [], 0
-    repo_row = conn.execute(
-        "SELECT name FROM nodes WHERE kind='repository' ORDER BY name LIMIT 1"
-    ).fetchone()
+    repo_row = conn.execute("SELECT name FROM nodes WHERE kind='repository' ORDER BY name LIMIT 1").fetchone()
     repo_label = f" — {repo_row[0]}" if repo_row else ""
     header = [f"## Domains{repo_label}", ""]
     return header + lines, rendered_count
@@ -763,11 +765,7 @@ def _render_by_kind(
             lines.append(f"{summary}{link}")
             total += 1
             if e.kind in ("package", "app"):
-                lines.extend(
-                    _render_pkg_nested(
-                        conn, e, sub_for_pkg, name_to_entity, collision_set
-                    )
-                )
+                lines.extend(_render_pkg_nested(conn, e, sub_for_pkg, name_to_entity, collision_set))
             lines.append("")
         lines.append("")
     if total == 0:
@@ -807,9 +805,7 @@ def _render(
     # entity-link derivation so the index agrees with `write_entities`.
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
 
-    domain_buckets, by_kind, name_to_entity = _place_entities(
-        conn, wiki_root, collision_set
-    )
+    domain_buckets, by_kind, name_to_entity = _place_entities(conn, wiki_root, collision_set)
     entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
 
     # D-01/D-10: one global dep/suite-under-package grouping over ALL placed
@@ -824,45 +820,44 @@ def _render(
     for stable_id, lane_dir, _label in CURATED_LANES:
         curated_entries_by_lane[stable_id] = _scan_curated_lane(wiki_root, lane_dir)
     work_entries = _scan_work(workspace_root)
-    curated_count = (
-        sum(len(v) for v in curated_entries_by_lane.values()) + len(work_entries)
-    )
+    curated_count = sum(len(v) for v in curated_entries_by_lane.values()) + len(work_entries)
 
     today = datetime.date.today().isoformat()
     lines: list[str] = [
         f"# Index — {display_name or wiki_root.name}",
         "",
-        f"_Auto-generated {today} • {entity_count} entities • "
-        f"{curated_count} curated pages_",
+        f"_Auto-generated {today} • {entity_count} entities • {curated_count} curated pages_",
         "",
     ]
 
     domains_lines, domain_count = _render_domains(
-        conn, domain_buckets, wiki_root, collision_set, name_to_entity,
+        conn,
+        domain_buckets,
+        wiki_root,
+        collision_set,
+        name_to_entity,
         sub_for_pkg,
     )
     lines.extend(domains_lines)
 
     by_kind_lines, by_kind_count = _render_by_kind(
-        conn, by_kind, collision_set, name_to_entity, sub_for_pkg,
+        conn,
+        by_kind,
+        collision_set,
+        name_to_entity,
+        sub_for_pkg,
     )
     lines.extend(by_kind_lines)
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
-        lines.extend(
-            _render_curated_section(
-                section_label, curated_entries_by_lane[stable_id]
-            )
-        )
+        lines.extend(_render_curated_section(section_label, curated_entries_by_lane[stable_id]))
     lines.extend(_render_curated_section("Work", work_entries))
 
     text = "\n".join(lines).rstrip("\n") + "\n"  # POSIX trailing newline
     return text, entity_count, curated_count, domain_count, by_kind_count
 
 
-def generate_index(
-    conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None
-) -> IndexWriteResult:
+def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
     """Render `wiki/index.md` and write-if-changed. Atomic on POSIX.
 
     `display_name` titles the index (the wiki's human topic); falls back to the
@@ -872,9 +867,7 @@ def generate_index(
     bytes differ. D-19: all-or-nothing — exceptions in render/place
     propagate out untouched.
     """
-    text, entity_count, curated_count, domain_count, by_kind_count = _render(
-        conn, wiki_root, display_name
-    )
+    text, entity_count, curated_count, domain_count, by_kind_count = _render(conn, wiki_root, display_name)
     path = wiki_root / "index.md"
     new_bytes = text.encode("utf-8")
     existing_bytes: bytes | None

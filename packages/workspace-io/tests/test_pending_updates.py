@@ -1,4 +1,5 @@
 """pending_updates: pure read; only mismatched entries returned."""
+
 from workspace_io import PendingUpdate, pending_updates
 from workspace_io.manifest import write
 
@@ -40,8 +41,10 @@ def test_pending_updates_does_not_mutate(tmp_path):
 def test_pendingupdate_is_frozen():
     pu = PendingUpdate(plugin="x", applied_version="1.0", installed_version="2.0")
     import dataclasses
+
     assert dataclasses.is_dataclass(pu)
     import pytest
+
     with pytest.raises(dataclasses.FrozenInstanceError):
         pu.plugin = "y"  # type: ignore[misc]
 

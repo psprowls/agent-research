@@ -6,8 +6,6 @@ They will fail until preflight.py is created.
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_preflight_module_importable() -> None:
     """preflight module must be importable with its four public names."""

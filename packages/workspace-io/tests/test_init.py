@@ -1,13 +1,14 @@
 """Tests for workspace_io.init — idempotent workspace bootstrapping."""
+
 import importlib
 import subprocess
 from pathlib import Path
 
 from workspace_io.init import init
+from workspace_io.manifest import read
+from workspace_io.paths import manifest_path
 
 _init_mod = importlib.import_module("workspace_io.init")
-from workspace_io.manifest import read
-from workspace_io.paths import manifest_path, work_dir
 
 
 def _git_init(path: Path) -> None:

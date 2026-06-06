@@ -46,14 +46,13 @@ def _resolve_in_wiki(slug: str, wiki: Path) -> Path | None:
         return matches[0]
     return None
 
+
 # Matches [[any content]] wikilinks.
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 
 # Matches bare code paths outside backticks: lines containing path:line patterns
 # where the path is not preceded by a backtick.
-_BARE_CODE_PATH_RE = re.compile(
-    r"(?<!`)(?:src|tests|packages|agents)/[A-Za-z0-9_/.-]+\.(?:py|ts|js|go|rs):\d+"
-)
+_BARE_CODE_PATH_RE = re.compile(r"(?<!`)(?:src|tests|packages|agents)/[A-Za-z0-9_/.-]+\.(?:py|ts|js|go|rs):\d+")
 
 # Matches any citation: wikilink OR backtick-quoted code path.
 _BACKTICK_CODE_RE = re.compile(r"`[^`]+:[0-9]+(?:-[0-9]+)?`")

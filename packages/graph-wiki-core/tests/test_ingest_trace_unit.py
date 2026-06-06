@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Fast unit tests for ingest.py trace-record writing (TRACE-FU-01 D-03).
 
 Asserts the per-call trace record helper-routing change in isolation: ingest
@@ -7,6 +5,8 @@ must emit a JSONL trace under ``<wiki>/.graph-wiki/traces/`` with role="ingestor
 and tokens populated from the mocked ChatBedrockConverse response's
 usage_metadata. No real Bedrock calls.
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -37,14 +37,7 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
     source.write_text("def foo():\n    pass\n")
 
     fake_resp = MagicMock()
-    fake_resp.content = (
-        "---\n"
-        "page_type: source\n"
-        "title: Source\n"
-        "target_slug: src\n"
-        "---\n"
-        "body\n"
-    )
+    fake_resp.content = "---\npage_type: source\ntitle: Source\ntarget_slug: src\n---\nbody\n"
     fake_resp.usage_metadata = {
         "input_tokens": 100,
         "output_tokens": 50,
@@ -80,7 +73,6 @@ async def test_ingest_writes_trace_record_with_tokens(tmp_path: Path) -> None:
 async def test_ingest_traces_error_path_with_none_tokens(tmp_path: Path) -> None:
     """ingest must still emit a trace record when llm.ainvoke raises."""
     from botocore.exceptions import BotoCoreError
-
     from graph_wiki_core.commands.ingest import run_ingest_source
 
     wiki = tmp_path / "wiki"

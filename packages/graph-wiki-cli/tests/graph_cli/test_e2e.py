@@ -13,7 +13,8 @@ from ._git_repo import init_repo, write_and_commit
 def _cg(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--repo", str(cwd), "--mode", "test", *args],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
 
 

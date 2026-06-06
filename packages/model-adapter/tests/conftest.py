@@ -12,6 +12,7 @@ Tests that exercise the workspace-override path opt in by requesting the
 `real_workspace_role_override` fixture, which restores the production helper
 AFTER the autouse stub has run.
 """
+
 from __future__ import annotations
 
 import pytest

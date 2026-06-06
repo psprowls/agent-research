@@ -8,9 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, schema, store
+from workspace_io.paths import graph_dir
 
 
 def _git_head(repo: Path) -> str | None:
@@ -27,16 +26,10 @@ def _git_head(repo: Path) -> str | None:
 
 
 def _collect(conn: sqlite3.Connection) -> dict:
-    last = conn.execute(
-        "SELECT value FROM metadata WHERE key='last_indexed_commit'"
-    ).fetchone()
+    last = conn.execute("SELECT value FROM metadata WHERE key='last_indexed_commit'").fetchone()
     last_commit = last[0] if last else None
-    node_counts = dict(
-        conn.execute("SELECT kind, COUNT(*) FROM nodes GROUP BY kind").fetchall()
-    )
-    edge_counts = dict(
-        conn.execute("SELECT kind, COUNT(*) FROM edges GROUP BY kind").fetchall()
-    )
+    node_counts = dict(conn.execute("SELECT kind, COUNT(*) FROM nodes GROUP BY kind").fetchall())
+    edge_counts = dict(conn.execute("SELECT kind, COUNT(*) FROM edges GROUP BY kind").fetchall())
     languages = sorted(
         row[0]
         for row in conn.execute(

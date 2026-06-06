@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import typer
-
 from graph_wiki_cli.graph_cli.main import graph_app
 
 

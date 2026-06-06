@@ -221,9 +221,7 @@ def short_filename(
     if not uri:
         raise ValueError("short_filename: empty uri")
     if ":" not in uri:
-        raise ValueError(
-            f"short_filename: malformed uri {uri!r}: missing `:` prefix separator"
-        )
+        raise ValueError(f"short_filename: malformed uri {uri!r}: missing `:` prefix separator")
     uri_prefix, path = uri.split(":", 1)
 
     if uri_prefix == "test_suite":
@@ -243,9 +241,7 @@ def short_filename(
     else:
         kind_prefix = _FILENAME_PREFIX_BY_URI_PREFIX.get(uri_prefix)
         if kind_prefix is None:
-            raise ValueError(
-                f"short_filename: unknown uri prefix {uri_prefix!r}"
-            )
+            raise ValueError(f"short_filename: unknown uri prefix {uri_prefix!r}")
         name = path.split("/")[-1]
         plain_stem = f"{kind_prefix}_{name}"
 
@@ -278,9 +274,9 @@ import yaml  # noqa: E402
 
 _logger = logging.getLogger(__name__)
 
-from graph_io import queries as _queries
-from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table
+from graph_io import queries as _queries  # noqa: E402
 
+from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table  # noqa: E402
 
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
 # Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
@@ -300,8 +296,7 @@ STRUCTURAL_KEYS: frozenset[str] = frozenset(
 )
 
 # Defence-in-depth: enforce the STRUCTURAL_KEYS ⊂ SCANNER_OWNED_KEYS invariant at import.
-assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS), \
-    "STRUCTURAL_KEYS must be a subset of SCANNER_OWNED_KEYS (D-10)"
+assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS), "STRUCTURAL_KEYS must be a subset of SCANNER_OWNED_KEYS (D-10)"
 
 
 class WriteLockHeldError(RuntimeError):
@@ -311,6 +306,7 @@ class WriteLockHeldError(RuntimeError):
 @dataclass(frozen=True)
 class EntityWriteError:
     """A per-page failure during `write_entities` (D-09 / D-21)."""
+
     uri: str
     slug: str
     exception: str  # repr() of the caught exception
@@ -324,6 +320,7 @@ class EntityWriteResult:
     `needs_narrative` is a `set` of URIs requiring LLM prose generation
     (new pages OR pages whose STRUCTURAL_KEYS changed since last write).
     """
+
     created: list[str] = field(default_factory=list)
     updated: list[str] = field(default_factory=list)
     deleted: list[str] = field(default_factory=list)
@@ -426,9 +423,7 @@ def _acquire_scan_lock(workspace_root: Path) -> Iterator[None]:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise WriteLockHeldError(
-                f"another scan in progress for this workspace: {workspace_root}"
-            ) from exc
+            raise WriteLockHeldError(f"another scan in progress for this workspace: {workspace_root}") from exc
         try:
             yield
         finally:
@@ -538,11 +533,7 @@ def _is_scanner_owned_heading(heading: str) -> bool:
     is human-owned and preserved across re-scan.
     """
     h = heading.strip()
-    return (
-        h == "## Narrative"
-        or h.startswith("## File map")
-        or h == "## Referenced in wiki"
-    )
+    return h == "## Narrative" or h.startswith("## File map") or h == "## Referenced in wiki"
 
 
 # Living Wiki agent-plugin parity (D1): scanner-DATA sections — deterministic
@@ -551,10 +542,16 @@ def _is_scanner_owned_heading(heading: str) -> bool:
 # are template-authoritative: the merge keeps the freshly-rendered template body
 # and never sources them from disk, so they can never freeze. These headings
 # appear only on the agent_plugin template.
-SCANNER_DATA_HEADINGS: frozenset[str] = frozenset({
-    "## Commands", "## Agents", "## Skills",
-    "## Scripts", "## Hooks", "## MCP servers",
-})
+SCANNER_DATA_HEADINGS: frozenset[str] = frozenset(
+    {
+        "## Commands",
+        "## Agents",
+        "## Skills",
+        "## Scripts",
+        "## Hooks",
+        "## MCP servers",
+    }
+)
 
 
 def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -628,9 +625,7 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
     existing_scanner_by_token: dict[str, str] = {}
     for heading, chunk in secs_e:
         if _is_scanner_owned_heading(heading):
-            existing_scanner_by_token.setdefault(
-                _scanner_section_token(heading), chunk
-            )  # first occurrence wins
+            existing_scanner_by_token.setdefault(_scanner_section_token(heading), chunk)  # first occurrence wins
         elif heading in SCANNER_DATA_HEADINGS:
             continue  # template-authoritative; never sourced from the on-disk page
         else:
@@ -696,9 +691,7 @@ def _render_entity_page(
     # D-03: rewrite any residual (unmapped) data token to a visible TODO marker.
     # Strip the braces from the token name so the marker itself carries NO `{{`
     # (else SCAN-01's "no {{ survives" guarantee would be defeated).
-    body = _RESIDUAL_TOKEN_RE.sub(
-        lambda m: f"> TODO: <add value for {m.group(0).strip('{}')}>", body
-    )
+    body = _RESIDUAL_TOKEN_RE.sub(lambda m: f"> TODO: <add value for {m.group(0).strip('{}')}>", body)
     # Living Wiki M1: preserve human-owned sections from the existing page.
     if existing_body is not None:
         body = _merge_preserved_sections(body, existing_body)
@@ -914,12 +907,7 @@ def _compute_collision_set(
             else:
                 stem = short_filename(uri, frozenset())
             stem_to_uris.setdefault(stem, []).append(uri)
-    return frozenset(
-        uri
-        for uris in stem_to_uris.values()
-        if len(uris) > 1
-        for uri in uris
-    )
+    return frozenset(uri for uris in stem_to_uris.values() if len(uris) > 1 for uri in uris)
 
 
 def _md_escape(cell: str) -> str:
@@ -935,9 +923,7 @@ def _md_table(headers: list[str], rows: list[list[str]]) -> str:
         return "_None._"
     head = "| " + " | ".join(headers) + " |"
     sep = "| " + " | ".join("---" for _ in headers) + " |"
-    body = "\n".join(
-        "| " + " | ".join(_md_escape(c) for c in row) + " |" for row in rows
-    )
+    body = "\n".join("| " + " | ".join(_md_escape(c) for c in row) + " |" for row in rows)
     return f"{head}\n{sep}\n{body}"
 
 
@@ -948,8 +934,12 @@ def _agent_plugin_table_variables(conn: Any, node: Any) -> dict[str, str]:
     if d is None:
         empty = "_None._"
         return {
-            "commands_table": empty, "agents_table": empty, "skills_table": empty,
-            "scripts_table": empty, "hooks_table": empty, "mcp_servers_table": empty,
+            "commands_table": empty,
+            "agents_table": empty,
+            "skills_table": empty,
+            "scripts_table": empty,
+            "hooks_table": empty,
+            "mcp_servers_table": empty,
         }
     return {
         "commands_table": _md_table(
@@ -958,9 +948,10 @@ def _agent_plugin_table_variables(conn: Any, node: Any) -> dict[str, str]:
         ),
         "agents_table": _md_table(
             ["Agent", "Model", "Tools", "Description"],
-            [[a.get("name", ""), a.get("model", ""),
-              ", ".join(a.get("tools", []) or []), a.get("description", "")]
-             for a in d.agents],
+            [
+                [a.get("name", ""), a.get("model", ""), ", ".join(a.get("tools", []) or []), a.get("description", "")]
+                for a in d.agents
+            ],
         ),
         "skills_table": _md_table(
             ["Skill", "Description"],
@@ -1020,11 +1011,13 @@ def write_entities(
                 continue  # unknown admitted kind without a list_fn — skip
             template_path = _template_path_for_kind(kind)
             if not template_path.exists():
-                errors.append(EntityWriteError(
-                    uri=f"<missing-template:{kind}>",
-                    slug="",
-                    exception=repr(FileNotFoundError(str(template_path))),
-                ))
+                errors.append(
+                    EntityWriteError(
+                        uri=f"<missing-template:{kind}>",
+                        slug="",
+                        exception=repr(FileNotFoundError(str(template_path))),
+                    )
+                )
                 continue
             for node in list_fn(conn):
                 uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
@@ -1080,7 +1073,9 @@ def write_entities(
                     if kind == "agent_plugin":
                         variables.update(_agent_plugin_table_variables(conn, node))
                     new_content = _render_entity_page(
-                        template_path, merged_fm, variables,
+                        template_path,
+                        merged_fm,
+                        variables,
                         existing_body=existing_body,
                     )
                     new_bytes = new_content.encode("utf-8")
@@ -1106,9 +1101,13 @@ def write_entities(
                         created.append(uri)
                         needs_narrative.add(uri)
                 except Exception as exc:  # noqa: BLE001 — D-21 partial-failure isolation
-                    errors.append(EntityWriteError(
-                        uri=uri, slug=slug, exception=repr(exc),
-                    ))
+                    errors.append(
+                        EntityWriteError(
+                            uri=uri,
+                            slug=slug,
+                            exception=repr(exc),
+                        )
+                    )
 
         # --- Deletion sweep ---
         for page_path in sorted(entities_dir.glob("*.md")):
@@ -1125,7 +1124,8 @@ def write_entities(
                 body_was_empty = _is_template_body_default(post.content, template_body)
                 record = {
                     "timestamp": _dt.datetime.now(_dt.timezone.utc)
-                                  .isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    .isoformat(timespec="seconds")
+                    .replace("+00:00", "Z"),
                     "uri": uri,
                     "slug": page_path.stem,
                     "path": str(page_path.relative_to(workspace_root)),
@@ -1136,9 +1136,13 @@ def write_entities(
                 page_path.unlink()
                 deleted.append(uri)
             except Exception as exc:  # noqa: BLE001
-                errors.append(EntityWriteError(
-                    uri=str(page_path.name), slug=page_path.stem, exception=repr(exc),
-                ))
+                errors.append(
+                    EntityWriteError(
+                        uri=str(page_path.name),
+                        slug=page_path.stem,
+                        exception=repr(exc),
+                    )
+                )
 
         # --- Placeholder self-heal (runs after create/merge + deletion sweep,
         # so it reflects post-sweep state). Keep entities/ committable when
@@ -1219,9 +1223,7 @@ def inject_narrative(page_path: Path, prose: str) -> None:
 
     match = _NARRATIVE_HEADING_RE.search(text)
     if match is None:
-        _logger.warning(
-            "inject_narrative: no `## Narrative` heading found at %s", page_path
-        )
+        _logger.warning("inject_narrative: no `## Narrative` heading found at %s", page_path)
         return
 
     body_start = match.end()  # index immediately after the heading's newline
@@ -1329,7 +1331,7 @@ def _extract_file_map_descriptions(section_text: str, pkg_name: str) -> dict[str
             if len(row) < 3:
                 continue
             bm = _FILE_MAP_PATH_CELL_RE.match(row[0])
-            token = (bm.group(1) if bm else row[0].strip())
+            token = bm.group(1) if bm else row[0].strip()
             if not token.strip("/"):
                 continue
             if _is_filled_description(row[2]):
@@ -1337,9 +1339,7 @@ def _extract_file_map_descriptions(section_text: str, pkg_name: str) -> dict[str
     return descs
 
 
-def _merge_preserved_descriptions(
-    block: str, pkg_name: str, preserved: dict[str, str]
-) -> str:
+def _merge_preserved_descriptions(block: str, pkg_name: str, preserved: dict[str, str]) -> str:
     """Rewrite the Description cell of any row in ``block`` whose package-root
     path has a preserved (filled) description.
 
@@ -1412,9 +1412,7 @@ def inject_file_map(
 
     match = _FILE_MAP_HEADING_RE.search(text)
     if match is None:
-        _logger.warning(
-            "inject_file_map: no `## File map` heading found at %s", page_path
-        )
+        _logger.warning("inject_file_map: no `## File map` heading found at %s", page_path)
         return
 
     section_start = match.start()
@@ -1484,7 +1482,7 @@ def file_map_todo_paths(page_path: Path) -> list[str]:
                 continue
             kind = row[1].strip().lower()
             bm = _FILE_MAP_PATH_CELL_RE.match(row[0])
-            token = (bm.group(1) if bm else row[0].strip())
+            token = bm.group(1) if bm else row[0].strip()
             if kind == "dir" or token.endswith("/") or not token.strip("/"):
                 continue
             if not _is_filled_description(row[2]):

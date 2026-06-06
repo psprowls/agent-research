@@ -7,9 +7,8 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
-
 from graph_io import resolve, store, upsert
+from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 
 @pytest.fixture()
@@ -153,9 +152,7 @@ def test_sweep_keeps_unresolved_symbol_placeholders(conn: sqlite3.Connection) ->
 
     resolve.sweep(conn)
 
-    row = conn.execute(
-        "SELECT kind, COUNT(*) FROM nodes WHERE path IS NULL GROUP BY kind"
-    ).fetchone()
+    row = conn.execute("SELECT kind, COUNT(*) FROM nodes WHERE path IS NULL GROUP BY kind").fetchone()
     assert row == ("unresolved_symbol", 1)
 
 
@@ -167,11 +164,18 @@ def test_sweep_preserves_uri_bearing_structural_nodes(conn: sqlite3.Connection) 
         GraphRecords(
             nodes=[
                 GraphNode(
-                    kind="repository", name="x", path=None, line=None,
+                    kind="repository",
+                    name="x",
+                    path=None,
+                    line=None,
                     attrs={"uri": "repo:test/x"},
                 ),
                 GraphNode(
-                    kind="function", name="orphan", path=None, line=None, attrs={},
+                    kind="function",
+                    name="orphan",
+                    path=None,
+                    line=None,
+                    attrs={},
                 ),
             ],
             edges=[],
@@ -221,18 +225,14 @@ def test_sweep_skip_dir_files_deletes_target_and_edge(conn: sqlite3.Connection) 
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
         "VALUES ('file', 'src/index.ts', 'pkg/src/index.ts', 1, '{}', 'repo:org/pkg/blob/abc/pkg/src/index.ts')"
     )
-    src_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='pkg/src/index.ts'"
-    ).fetchone()[0]
+    src_id = conn.execute("SELECT id FROM nodes WHERE path='pkg/src/index.ts'").fetchone()[0]
 
     # Insert a dist file node with uri=NULL (the skip-dir target)
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
         "VALUES ('file', 'pkg/dist/index.js', 'pkg/dist/index.js', NULL, '{}', NULL)"
     )
-    dst_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='pkg/dist/index.js'"
-    ).fetchone()[0]
+    dst_id = conn.execute("SELECT id FROM nodes WHERE path='pkg/dist/index.js'").fetchone()[0]
 
     # Insert an imports edge from src -> dist
     conn.execute(
@@ -243,21 +243,15 @@ def test_sweep_skip_dir_files_deletes_target_and_edge(conn: sqlite3.Connection) 
     resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
 
     # dist node is gone
-    dist_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='pkg/dist/index.js'"
-    ).fetchone()[0]
+    dist_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='pkg/dist/index.js'").fetchone()[0]
     assert dist_count == 0, "dist file node should have been deleted"
 
     # imports edge is gone (orphaned)
-    edge_count = conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE src=? OR dst=?", (dst_id, dst_id)
-    ).fetchone()[0]
+    edge_count = conn.execute("SELECT COUNT(*) FROM edges WHERE src=? OR dst=?", (dst_id, dst_id)).fetchone()[0]
     assert edge_count == 0, "imports edge targeting dist node should have been deleted"
 
     # src node still there
-    src_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'"
-    ).fetchone()[0]
+    src_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'").fetchone()[0]
     assert src_count == 1, "real src file node should survive"
 
 
@@ -270,9 +264,7 @@ def test_sweep_skip_dir_files_spares_uri_bearing_src_file(conn: sqlite3.Connecti
 
     resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
 
-    count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'"
-    ).fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='pkg/src/index.ts'").fetchone()[0]
     assert count == 1, "uri-bearing src file should survive sweep"
 
 
@@ -332,9 +324,7 @@ def test_sweep_skip_dir_files_spares_non_skip_dir_null_uri_file(conn: sqlite3.Co
 
     resolve.sweep_skip_dir_files(conn, _SKIP_DIRS)
 
-    count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='pkg/src/generated.ts'"
-    ).fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='pkg/src/generated.ts'").fetchone()[0]
     assert count == 1, "non-skip-dir NULL-uri file should survive sweep"
 
 
@@ -352,9 +342,7 @@ def _make_js_repo(tmp_path: Path) -> Path:
     a = tmp_path / "packages" / "jspkg-a" / "src"
     a.mkdir(parents=True, exist_ok=True)
     (a / "index.js").write_text('import { x } from "../../jspkg-b/foo";\n')
-    (tmp_path / "packages" / "jspkg-a" / "package.json").write_text(
-        json.dumps({"name": "jspkg-a"})
-    )
+    (tmp_path / "packages" / "jspkg-a" / "package.json").write_text(json.dumps({"name": "jspkg-a"}))
     b = tmp_path / "packages" / "jspkg-b"
     b.mkdir(parents=True, exist_ok=True)
     (b / "foo.js").write_text("export const x = 1;\n")
@@ -371,14 +359,10 @@ def _make_py_repo(tmp_path: Path) -> Path:
     pkg = tmp_path / "pypkg" / "src" / "pypkg"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "__init__.py").write_text("")
-    (pkg / "app.py").write_text(
-        "import os\nfrom pypkg.helper import helper_fn\n"
-    )
+    (pkg / "app.py").write_text("import os\nfrom pypkg.helper import helper_fn\n")
     (pkg / "helper.py").write_text("def helper_fn():\n    return 1\n")
     (pkg / "orphan.py").write_text("x = 1\n")
-    (tmp_path / "pypkg" / "pyproject.toml").write_text(
-        '[project]\nname = "pypkg"\n'
-    )
+    (tmp_path / "pypkg" / "pyproject.toml").write_text('[project]\nname = "pypkg"\n')
     return tmp_path
 
 
@@ -397,18 +381,26 @@ def _seed_file_import(
     imported symbol, path == specifier, and uri IS NULL.
     """
     nodes = [
-        GraphNode(kind="file", name=importing_path, path=importing_path, line=None,
-                  attrs={"uri": "repo:org/x/blob/abc/" + importing_path}),
+        GraphNode(
+            kind="file",
+            name=importing_path,
+            path=importing_path,
+            line=None,
+            attrs={"uri": "repo:org/x/blob/abc/" + importing_path},
+        ),
     ]
     if target_path is not None:
         nodes.append(
-            GraphNode(kind="file", name=target_path, path=target_path, line=None,
-                      attrs={"uri": "repo:org/x/blob/abc/" + target_path})
+            GraphNode(
+                kind="file",
+                name=target_path,
+                path=target_path,
+                line=None,
+                attrs={"uri": "repo:org/x/blob/abc/" + target_path},
+            )
         )
     _seed(conn, nodes=nodes)
-    src_id = conn.execute(
-        "SELECT id FROM nodes WHERE kind='file' AND path=?", (importing_path,)
-    ).fetchone()[0]
+    src_id = conn.execute("SELECT id FROM nodes WHERE kind='file' AND path=?", (importing_path,)).fetchone()[0]
     # Stub: name = imported symbol ("imported_sym"), path = raw specifier.
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
@@ -420,8 +412,7 @@ def _seed_file_import(
         (specifier,),
     ).fetchone()[0]
     conn.execute(
-        "INSERT INTO edges(src, dst, kind, attrs_json) "
-        "VALUES (?, ?, 'imports', ?)",
+        "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'imports', ?)",
         (src_id, stub_id, json.dumps({"resolution": "unresolved"})),
     )
 
@@ -447,9 +438,7 @@ def test_resolve_file_imports_exact(conn: sqlite3.Connection, tmp_path: Path) ->
     assert path == "packages/jspkg-b/foo.js"
     assert uri is not None  # repointed to the real (uri-bearing) file node
     assert json.loads(attrs_json)["resolution"] == "exact"
-    stub_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='../../jspkg-b/foo'"
-    ).fetchone()[0]
+    stub_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='../../jspkg-b/foo'").fetchone()[0]
     assert stub_count == 0
 
 
@@ -462,9 +451,7 @@ def test_resolve_file_imports_js_specifier_to_ts_target_removes_contains_stub(
     src.mkdir(parents=True)
     (src / "index.ts").write_text('import { Foo } from "./foo.js";\n')
     (src / "foo.ts").write_text("export class Foo {}\n")
-    (repo / "packages" / "jspkg-a" / "package.json").write_text(
-        json.dumps({"name": "jspkg-a", "type": "module"})
-    )
+    (repo / "packages" / "jspkg-a" / "package.json").write_text(json.dumps({"name": "jspkg-a", "type": "module"}))
     _seed_file_import(
         conn,
         importing_path="packages/jspkg-a/src/index.ts",
@@ -475,12 +462,8 @@ def test_resolve_file_imports_js_specifier_to_ts_target_removes_contains_stub(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
         "VALUES ('package', 'jspkg-a', 'packages/jspkg-a', NULL, '{}', NULL)"
     )
-    stub_id = conn.execute(
-        "SELECT id FROM nodes WHERE kind='file' AND path='./foo.js' AND uri IS NULL"
-    ).fetchone()[0]
-    pkg_id = conn.execute(
-        "SELECT id FROM nodes WHERE kind='package' AND name='jspkg-a'"
-    ).fetchone()[0]
+    stub_id = conn.execute("SELECT id FROM nodes WHERE kind='file' AND path='./foo.js' AND uri IS NULL").fetchone()[0]
+    pkg_id = conn.execute("SELECT id FROM nodes WHERE kind='package' AND name='jspkg-a'").fetchone()[0]
     conn.execute(
         "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'contains', NULL)",
         (pkg_id, stub_id),
@@ -489,24 +472,21 @@ def test_resolve_file_imports_js_specifier_to_ts_target_removes_contains_stub(
     resolve.resolve_file_imports(conn, repo)
 
     imports = conn.execute(
-        "SELECT d.path, e.attrs_json FROM edges e "
-        "JOIN nodes d ON e.dst=d.id WHERE e.kind='imports'"
+        "SELECT d.path, e.attrs_json FROM edges e JOIN nodes d ON e.dst=d.id WHERE e.kind='imports'"
     ).fetchall()
     assert len(imports) == 1
     assert imports[0][0] == "packages/jspkg-a/src/foo.ts"
     assert json.loads(imports[0][1])["resolution"] == "exact"
-    assert conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='./foo.js'"
-    ).fetchone()[0] == 0
-    assert conn.execute(
-        "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
-        "WHERE e.kind='contains' AND d.path='./foo.js'"
-    ).fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='./foo.js'").fetchone()[0] == 0
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id WHERE e.kind='contains' AND d.path='./foo.js'"
+        ).fetchone()[0]
+        == 0
+    )
 
 
-def test_resolve_file_imports_external_dropped(
-    conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_resolve_file_imports_external_dropped(conn: sqlite3.Connection, tmp_path: Path) -> None:
     """Option A: an external (third-party) import edge and its specifier stub are
     DELETED, not parked on the stub as resolution='unresolved'."""
     repo = _make_js_repo(tmp_path)
@@ -520,25 +500,19 @@ def test_resolve_file_imports_external_dropped(
     resolve.resolve_file_imports(conn, repo)
 
     # The unresolvable edge is gone entirely.
-    edge_count = conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE kind='imports'"
-    ).fetchone()[0]
+    edge_count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='imports'").fetchone()[0]
     assert edge_count == 0
 
     # The orphaned specifier stub is gone too.
-    stub_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='react'"
-    ).fetchone()[0]
+    stub_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE path='react'").fetchone()[0]
     assert stub_count == 0
 
 
-def test_resolve_file_imports_drops_plain_import_stubs(
-    conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_resolve_file_imports_drops_plain_import_stubs(conn: sqlite3.Connection, tmp_path: Path) -> None:
     """Plain `import X` stubs (name == path) are processed too:
-      - external plain import (os)        -> edge + stub deleted
-      - first-party plain import (pypkg)  -> edge repointed to the real __init__.py
-      - a real file with uri IS NULL      -> SPARED (is_file() discriminator)
+    - external plain import (os)        -> edge + stub deleted
+    - first-party plain import (pypkg)  -> edge repointed to the real __init__.py
+    - a real file with uri IS NULL      -> SPARED (is_file() discriminator)
     """
     repo = _make_py_repo(tmp_path)
 
@@ -567,46 +541,33 @@ def test_resolve_file_imports_drops_plain_import_stubs(
         "VALUES ('file', 'pypkg/src/pypkg/orphan.py', "
         "'pypkg/src/pypkg/orphan.py', NULL, '{}', NULL)"
     )
-    app_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='pypkg/src/pypkg/app.py'"
-    ).fetchone()[0]
+    app_id = conn.execute("SELECT id FROM nodes WHERE path='pypkg/src/pypkg/app.py'").fetchone()[0]
 
     # Plain external stub: ('file','os','os')  (name == path)
     conn.execute(
-        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
-        "VALUES ('file', 'os', 'os', NULL, '{}', NULL)"
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES ('file', 'os', 'os', NULL, '{}', NULL)"
     )
-    os_id = conn.execute(
-        "SELECT id FROM nodes WHERE kind='file' AND path='os'"
-    ).fetchone()[0]
+    os_id = conn.execute("SELECT id FROM nodes WHERE kind='file' AND path='os'").fetchone()[0]
     # Plain first-party stub: ('file','pypkg','pypkg')  (name == path)
     conn.execute(
-        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
-        "VALUES ('file', 'pypkg', 'pypkg', NULL, '{}', NULL)"
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES ('file', 'pypkg', 'pypkg', NULL, '{}', NULL)"
     )
-    fp_id = conn.execute(
-        "SELECT id FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL"
-    ).fetchone()[0]
-    orphan_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'"
-    ).fetchone()[0]
+    fp_id = conn.execute("SELECT id FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL").fetchone()[0]
+    orphan_id = conn.execute("SELECT id FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'").fetchone()[0]
     for dst in (os_id, fp_id, orphan_id):
         conn.execute(
-            "INSERT INTO edges(src, dst, kind, attrs_json) "
-            "VALUES (?, ?, 'imports', NULL)",
+            "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'imports', NULL)",
             (app_id, dst),
         )
 
     resolve.resolve_file_imports(conn, repo)
 
     # External plain stub deleted.
-    assert conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='os'"
-    ).fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='os'").fetchone()[0] == 0
     # First-party plain stub deleted...
-    assert conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL"
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='pypkg' AND uri IS NULL").fetchone()[0] == 0
+    )
     # ...and its edge repointed to the real __init__.py file node (exact).
     repointed = conn.execute(
         "SELECT e.attrs_json FROM edges e JOIN nodes d ON e.dst=d.id "
@@ -615,18 +576,17 @@ def test_resolve_file_imports_drops_plain_import_stubs(
     assert len(repointed) == 1
     assert json.loads(repointed[0][0])["resolution"] == "exact"
     # Real NULL-uri orphan file is SPARED, and its edge is untouched.
-    assert conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'"
-    ).fetchone()[0] == 1
-    assert conn.execute(
-        "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
-        "WHERE e.kind='imports' AND d.path='pypkg/src/pypkg/orphan.py'"
-    ).fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM nodes WHERE path='pypkg/src/pypkg/orphan.py'").fetchone()[0] == 1
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
+            "WHERE e.kind='imports' AND d.path='pypkg/src/pypkg/orphan.py'"
+        ).fetchone()[0]
+        == 1
+    )
 
 
-def test_resolve_file_imports_absolute_specifier_not_spared(
-    conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_resolve_file_imports_absolute_specifier_not_spared(conn: sqlite3.Connection, tmp_path: Path) -> None:
     """An absolute specifier pointing at a real host file must NOT be mistaken for
     a repo file (pathlib drops repo_root when joining an absolute path). Its edge
     is dropped like any other external import."""
@@ -642,32 +602,28 @@ def test_resolve_file_imports_absolute_specifier_not_spared(
     resolve.resolve_file_imports(conn, tmp_path)
 
     # Edge dropped (not spared as a "real file").
-    assert conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE kind='imports'"
-    ).fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM edges WHERE kind='imports'").fetchone()[0] == 0
     # Orphaned stub removed.
-    assert conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE path=?", (str(abs_target),)
-    ).fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM nodes WHERE path=?", (str(abs_target),)).fetchone()[0] == 0
 
 
-def test_resolve_file_imports_ambiguous(
-    conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_resolve_file_imports_ambiguous(conn: sqlite3.Connection, tmp_path: Path) -> None:
     """If the resolved repo-relative path has >1 real file-node row, fan out as
     ambiguous (do not drop the edge)."""
     repo = _make_js_repo(tmp_path)
     _seed(
         conn,
         nodes=[
-            GraphNode(kind="file", name="packages/jspkg-a/src/index.js",
-                      path="packages/jspkg-a/src/index.js", line=None,
-                      attrs={"uri": "repo:org/x/blob/abc/a"}),
+            GraphNode(
+                kind="file",
+                name="packages/jspkg-a/src/index.js",
+                path="packages/jspkg-a/src/index.js",
+                line=None,
+                attrs={"uri": "repo:org/x/blob/abc/a"},
+            ),
         ],
     )
-    src_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='packages/jspkg-a/src/index.js'"
-    ).fetchone()[0]
+    src_id = conn.execute("SELECT id FROM nodes WHERE path='packages/jspkg-a/src/index.js'").fetchone()[0]
     for i in range(2):
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
@@ -679,9 +635,7 @@ def test_resolve_file_imports_ambiguous(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) "
         "VALUES ('file', 'imported_sym', '../../jspkg-b/foo', NULL, '{}', NULL)"
     )
-    stub_id = conn.execute(
-        "SELECT id FROM nodes WHERE path='../../jspkg-b/foo'"
-    ).fetchone()[0]
+    stub_id = conn.execute("SELECT id FROM nodes WHERE path='../../jspkg-b/foo'").fetchone()[0]
     conn.execute(
         "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'imports', ?)",
         (src_id, stub_id, json.dumps({"resolution": "unresolved"})),
@@ -725,8 +679,7 @@ def test_sweep_cross_kind_single_candidate(conn: sqlite3.Connection) -> None:
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
     ).fetchall()
     assert len(rows) == 1
     path, kind, attrs_json = rows[0]
@@ -753,8 +706,7 @@ def test_sweep_cross_kind_zero_candidates(conn: sqlite3.Connection) -> None:
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
     ).fetchall()
     assert len(rows) == 1
     path, kind, attrs_json = rows[0]
@@ -786,8 +738,7 @@ def test_sweep_cross_kind_collision_stays_unresolved(conn: sqlite3.Connection) -
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
     ).fetchall()
     # the unresolved_symbol placeholder stays (no real-kind match), edge unresolved
     assert len(rows) == 1
@@ -836,8 +787,7 @@ def test_sweep_type_placeholder_resolves_to_real_type_node(conn: sqlite3.Connect
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
     ).fetchall()
     assert len(rows) == 1
     path, kind, attrs_json = rows[0]
@@ -880,8 +830,7 @@ def test_sweep_function_placeholder_resolves_to_type_node_cross_kind(conn: sqlit
     resolve.sweep(conn)
 
     rows = conn.execute(
-        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e "
-        "JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
+        "SELECT n2.path, n2.kind, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='exports'"
     ).fetchall()
     assert len(rows) == 1
     path, kind, attrs_json = rows[0]

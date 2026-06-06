@@ -91,9 +91,7 @@ class TestCostFrontierTable:
 
         table = cost_frontier_table([result_low, result_high, result_mid])
         keys = list(table.keys())
-        assert keys == ["model-high", "model-mid", "model-low"], (
-            f"Expected descending quality order, got: {keys}"
-        )
+        assert keys == ["model-high", "model-mid", "model-low"], f"Expected descending quality order, got: {keys}"
 
     def test_cost_frontier_structural_fallback(self) -> None:
         """When judge_scores is None, quality_score falls back to structural has_citation."""

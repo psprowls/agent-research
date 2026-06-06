@@ -144,10 +144,7 @@ def regenerate_referenced_in_wiki(wiki: Path) -> list[str]:
         entries = refs.get(stem, [])
         if entries:
             entries_sorted = sorted(entries, key=lambda e: (e[0], e[1]))
-            body = "\n".join(
-                _format_bullet(cat, slug, frontmatter.load(pp))
-                for cat, slug, pp in entries_sorted
-            )
+            body = "\n".join(_format_bullet(cat, slug, frontmatter.load(pp)) for cat, slug, pp in entries_sorted)
         else:
             body = _EMPTY_BODY
         inject_referenced_in_wiki(page_path, body)

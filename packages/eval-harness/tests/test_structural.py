@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for eval_harness.structural.
 
 All tests are deterministic and require no Bedrock access.
@@ -7,11 +5,13 @@ Uses fixture_wiki_path + fixture_workspace_path from conftest.py
 (the workspace fixture wraps the round-trip-vault wiki under <tmp>/wiki).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
-from graph_wiki_core.commands.query import QueryResult
 from eval_harness.structural import check_structural
+from graph_wiki_core.commands.query import QueryResult
 
 # The 7 keys that check_structural must always return.
 EXPECTED_KEYS = {

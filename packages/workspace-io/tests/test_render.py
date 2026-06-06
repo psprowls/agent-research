@@ -1,9 +1,8 @@
 """Tests for workspace_io.render — workspace-level CLAUDE.md rendering."""
+
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from workspace_io.render import (
     AUTO_END,
@@ -16,11 +15,7 @@ def _write_manifest(workspace: Path, plugins: list[str]) -> None:
     workspace.mkdir(parents=True, exist_ok=True)
     body = "version: 2\ninitialized_at: 2026-05-09\nplugins:\n"
     for p in plugins:
-        body += (
-            f"  - name: {p}\n"
-            f"    installed_version: null\n"
-            f"    applied_version: null\n"
-        )
+        body += f"  - name: {p}\n    installed_version: null\n    applied_version: null\n"
     (workspace / ".graph-wiki.yaml").write_text(body, encoding="utf-8")
 
 

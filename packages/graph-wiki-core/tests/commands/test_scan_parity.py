@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Parity tests for the scan command (Plan 05-04).
 
 These tests build a minimal in-process vault using tmp_path so they run
@@ -9,13 +7,14 @@ deterministic stub body.
 Requirements: CMD-02
 """
 
+from __future__ import annotations
+
 import dataclasses
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixture: minimal vault with log.md + packages dir (self-contained)
@@ -32,7 +31,8 @@ def minimal_vault(tmp_path: Path) -> Path:
 
     # Minimal CLAUDE.md with a layout block so discover_workspaces works
     (wiki / "CLAUDE.md").write_text(
-        "# wiki\n\n```yaml\nversion: 1\ncontainers:\n  - source: .\n    vault_dir: packages\n    classification: single-package\n    children_count: 1\n```\n",
+        "# wiki\n\n```yaml\nversion: 1\ncontainers:\n  - source: .\n"
+        "    vault_dir: packages\n    classification: single-package\n    children_count: 1\n```\n",
         encoding="utf-8",
     )
 
@@ -64,7 +64,6 @@ def _scan_patches(wiki: Path, repo: Path):
     Also patches resolve_wiki_and_repo so the scan doesn't need a real git repo.
     """
     from contextlib import ExitStack
-    from unittest.mock import patch
 
     fake_state_gate = {"allowed": True, "reason": "test-mode", "head_commit": "abc123"}
 
@@ -78,7 +77,14 @@ def _scan_patches(wiki: Path, repo: Path):
     pool_patch.return_value = pool_mock
     stack.enter_context(patch("graph_wiki_core.commands.scan.update_index"))
     stack.enter_context(patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")))
-    stack.enter_context(patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")))
+    stack.enter_context(
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        )
+    )
     stack.enter_context(patch("graph_wiki_core.commands.scan.append_log"))
     return stack
 

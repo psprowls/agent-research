@@ -15,11 +15,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-DEFAULT_SKIP_DIRS: frozenset[str] = frozenset({
-    ".git", "node_modules", ".worktrees",
-    ".venv", "venv", "dist", "build", "__pycache__",
-    ".tox", ".nox",
-})
+DEFAULT_SKIP_DIRS: frozenset[str] = frozenset(
+    {
+        ".git",
+        "node_modules",
+        ".worktrees",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        "__pycache__",
+        ".tox",
+        ".nox",
+    }
+)
 
 GRAPHIGNORE_FILENAME = ".graphignore"
 

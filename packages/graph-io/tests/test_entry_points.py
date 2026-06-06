@@ -7,7 +7,6 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from graph_io import entry_points, packages, store
 from graph_io.uri import RepoContext
 
@@ -120,9 +119,7 @@ def test_pyproject_scripts_emits_entry_point(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    row = conn.execute(
-        "SELECT name, attrs_json FROM nodes WHERE kind='entry_point' AND name='foo-cli'"
-    ).fetchone()
+    row = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='entry_point' AND name='foo-cli'").fetchone()
     assert row is not None, "EntryPoint(name='foo-cli') not emitted"
     attrs = json.loads(row[1])
     assert attrs["entry_kind"] == "executable"
@@ -146,9 +143,7 @@ def test_pyproject_entry_points_console_scripts(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='bar'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='bar'").fetchone()
     assert row is not None
     attrs = json.loads(row[0])
     assert attrs["entry_kind"] == "executable"
@@ -169,9 +164,7 @@ def test_pyproject_entry_points_library_group(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='jsonfmt'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='jsonfmt'").fetchone()
     assert row is not None
     attrs = json.loads(row[0])
     assert attrs["entry_kind"] == "library"
@@ -191,9 +184,7 @@ def test_implemented_by_null_on_missing_file(tmp_path: Path, capsys: pytest.Capt
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    row = conn.execute(
-        "SELECT 1 FROM nodes WHERE kind='entry_point' AND name='ghost-cli'"
-    ).fetchone()
+    row = conn.execute("SELECT 1 FROM nodes WHERE kind='entry_point' AND name='ghost-cli'").fetchone()
     assert row is not None, "EntryPoint must still be emitted on miss"
     assert _impl_target(conn, "ghost-cli") is None
     captured = capsys.readouterr()
@@ -214,9 +205,7 @@ def test_packagejson_bin_string_form(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='jspkg'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='jspkg'").fetchone()
     assert row is not None
     attrs = json.loads(row[0])
     assert attrs["entry_kind"] == "executable"
@@ -270,12 +259,8 @@ def test_packagejson_main_and_module(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    main_row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='main'"
-    ).fetchone()
-    mod_row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='module'"
-    ).fetchone()
+    main_row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='main'").fetchone()
+    mod_row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='entry_point' AND name='module'").fetchone()
     assert main_row is not None and mod_row is not None
     main_attrs = json.loads(main_row[0])
     mod_attrs = json.loads(mod_row[0])
@@ -310,9 +295,7 @@ def test_packagejson_exports_recursive_walk(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    rows = conn.execute(
-        "SELECT name, attrs_json FROM nodes WHERE kind='entry_point'"
-    ).fetchall()
+    rows = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='entry_point'").fetchall()
     by_name_cond: dict[tuple[str, str | None], dict] = {}
     for name, attrs_json in rows:
         attrs = json.loads(attrs_json)
@@ -340,24 +323,15 @@ def test_declares_entry_point_edge_present(tmp_path: Path) -> None:
     pkg_dir = tmp_path / "packages" / "edgepkg"
     (pkg_dir / "src").mkdir(parents=True)
     (pkg_dir / "src" / "main.js").write_text("")
-    _write_package_json(
-        pkg_dir, {"name": "edgepkg", "main": "./src/main.js", "bin": "./src/main.js"}
-    )
+    _write_package_json(pkg_dir, {"name": "edgepkg", "main": "./src/main.js", "bin": "./src/main.js"})
     conn = _setup_db(tmp_path)
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    ep_names = [
-        r[0]
-        for r in conn.execute(
-            "SELECT name FROM nodes WHERE kind='entry_point'"
-        ).fetchall()
-    ]
+    ep_names = [r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='entry_point'").fetchall()]
     assert ep_names, "no EntryPoint emitted"
     for name in ep_names:
-        assert _declares_edge_exists(
-            conn, "edgepkg", name
-        ), f"declares_entry_point edge missing for {name}"
+        assert _declares_edge_exists(conn, "edgepkg", name), f"declares_entry_point edge missing for {name}"
 
 
 def test_shebang_script_does_not_emit_entry_point(tmp_path: Path) -> None:
@@ -372,15 +346,11 @@ def test_shebang_script_does_not_emit_entry_point(tmp_path: Path) -> None:
     packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
-    cnt = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='entry_point'"
-    ).fetchone()[0]
+    cnt = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='entry_point'").fetchone()[0]
     assert cnt == 0
 
 
-def test_malformed_pyproject_does_not_crash(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_malformed_pyproject_does_not_crash(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Defensive: malformed pyproject.toml inside a Package directory is skipped."""
     pkg_dir = tmp_path / "packages" / "okpkg"
     # Write a VALID manifest so packages.refresh sees this Package row first.
@@ -394,9 +364,7 @@ def test_malformed_pyproject_does_not_crash(
     entry_points.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
     # No EntryPoint emitted from the corrupted manifest.
-    cnt = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='entry_point'"
-    ).fetchone()[0]
+    cnt = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='entry_point'").fetchone()[0]
     assert cnt == 0
     captured = capsys.readouterr()
     assert "failed to parse" in captured.err

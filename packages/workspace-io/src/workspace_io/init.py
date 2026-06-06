@@ -8,6 +8,7 @@ the entry entirely when the workspace is outside the source repo. Never
 mutates the host repo-root `.gitignore`. If the workspace is outside any git
 repo, runs `git init` before writing the manifest.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -16,8 +17,8 @@ from pathlib import Path
 
 from workspace_io import manifest
 from workspace_io import paths as _paths
-from workspace_io.render import render_workspace_claude_md
 from workspace_io.config import resolve_workspace
+from workspace_io.render import render_workspace_claude_md
 
 _GITIGNORE_ENTRY = ".graph-wiki.local.yaml"
 
@@ -59,15 +60,10 @@ def init(
 
     entry = next((p for p in data["plugins"] if p["name"] == plugin), None)
     if entry is None:
-        data["plugins"].append(
-            {"name": plugin, "installed_version": version, "applied_version": version}
-        )
+        data["plugins"].append({"name": plugin, "installed_version": version, "applied_version": version})
         changed = True
     else:
-        changed = (
-            entry.get("installed_version") != version
-            or entry.get("applied_version") != version
-        )
+        changed = entry.get("installed_version") != version or entry.get("applied_version") != version
         entry["installed_version"] = version
         entry["applied_version"] = version
 
@@ -78,7 +74,7 @@ def init(
     if changed or not mpath.exists():
         manifest.write(mpath, data)
 
-    render_workspace_claude_md(workspace)   # render <workspace>/CLAUDE.md
+    render_workspace_claude_md(workspace)  # render <workspace>/CLAUDE.md
 
     # NOTE: D-06 — work-layer schema bootstrap intentionally not ported.
     # Write .graph-wiki.local.yaml into <workspace>/.gitignore when workspace

@@ -165,7 +165,6 @@ def scan_work(workspace):
     return entries
 
 
-
 def render_index(pages, wiki_name, vault_name):
     today = dt.date.today().isoformat()
     nav_total = sum(

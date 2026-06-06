@@ -10,6 +10,7 @@ that case and re-execs the current script under
 import resolves. A `GRAPH_WIKI_SHIM_REEXEC=1` env-var guard prevents infinite
 re-exec loops if re-execing still does not satisfy the import.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ def ensure() -> None:
     # If wiki_io is already importable, we are inside the uv workspace; bail out.
     try:
         import wiki_io  # noqa: F401
+
         return
     except ImportError:
         pass

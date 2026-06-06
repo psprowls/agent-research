@@ -80,8 +80,7 @@ def classify(
     # D-04 write-time gate: catch typos before the value reaches the DB.
     if app_kind not in _VALID_APP_KINDS:
         raise ValueError(
-            f"classify produced app_kind={app_kind!r} which is not in "
-            f"_VALID_APP_KINDS={sorted(_VALID_APP_KINDS)}"
+            f"classify produced app_kind={app_kind!r} which is not in _VALID_APP_KINDS={sorted(_VALID_APP_KINDS)}"
         )
 
     return "app", app_kind, signals

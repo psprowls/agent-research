@@ -6,11 +6,10 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+from _git_repo import init_repo, remove_and_commit, write_and_commit
+from graph_io import update
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
-
-from graph_io import update
-from _git_repo import init_repo, remove_and_commit, write_and_commit
 
 
 def _ro(repo: Path) -> sqlite3.Connection:
@@ -73,9 +72,7 @@ def test_incremental_handles_rename(tmp_path: Path) -> None:
     try:
         files = {row[0] for row in conn.execute("SELECT path FROM nodes WHERE kind='file'").fetchall()}
         assert files == {"b.py"}
-        rows = conn.execute(
-            "SELECT path FROM nodes WHERE kind='function' AND name='foo'"
-        ).fetchall()
+        rows = conn.execute("SELECT path FROM nodes WHERE kind='function' AND name='foo'").fetchall()
         assert rows == [("b.py",)]
     finally:
         conn.close()
@@ -100,10 +97,7 @@ def test_incremental_scan_leaves_no_external_import_stubs(tmp_path: Path) -> Non
             "mypkg/pyproject.toml": '[project]\nname = "mypkg"\n',
             "mypkg/src/mypkg/__init__.py": "",
             "mypkg/src/mypkg/app.py": (
-                "import os\n"
-                "import json\n"
-                "from contextlib import contextmanager\n"
-                "from mypkg.helper import helper_fn\n"
+                "import os\nimport json\nfrom contextlib import contextmanager\nfrom mypkg.helper import helper_fn\n"
             ),
             "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 1\n",
         },
@@ -116,9 +110,7 @@ def test_incremental_scan_leaves_no_external_import_stubs(tmp_path: Path) -> Non
     try:
         # No external/stdlib import stub file nodes survive.
         stubs = conn.execute(
-            "SELECT name, path FROM nodes "
-            "WHERE kind='file' AND uri IS NULL "
-            "AND path IN ('os', 'json', 'contextlib')"
+            "SELECT name, path FROM nodes WHERE kind='file' AND uri IS NULL AND path IN ('os', 'json', 'contextlib')"
         ).fetchall()
         assert stubs == [], f"external import stubs survived: {stubs}"
 
@@ -149,9 +141,7 @@ def test_incremental_scan_stub_cleanup_is_idempotent(tmp_path: Path) -> None:
         {
             "mypkg/pyproject.toml": '[project]\nname = "mypkg"\n',
             "mypkg/src/mypkg/__init__.py": "",
-            "mypkg/src/mypkg/app.py": (
-                "import os\nfrom mypkg.helper import helper_fn\n"
-            ),
+            "mypkg/src/mypkg/app.py": ("import os\nfrom mypkg.helper import helper_fn\n"),
             "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 1\n",
         },
         "init",
@@ -163,9 +153,7 @@ def test_incremental_scan_stub_cleanup_is_idempotent(tmp_path: Path) -> None:
     write_and_commit(
         tmp_path,
         {
-            "mypkg/src/mypkg/app.py": (
-                "import os\nfrom mypkg.helper import helper_fn\n# touch\n"
-            ),
+            "mypkg/src/mypkg/app.py": ("import os\nfrom mypkg.helper import helper_fn\n# touch\n"),
             "mypkg/src/mypkg/helper.py": "def helper_fn():\n    return 2\n",
         },
         "touch both",
@@ -175,19 +163,25 @@ def test_incremental_scan_stub_cleanup_is_idempotent(tmp_path: Path) -> None:
     conn = _ro(tmp_path)
     try:
         # No external stub resurrected.
-        assert conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='file' AND uri IS NULL AND path='os'"
-        ).fetchone()[0] == 0
+        assert (
+            conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='file' AND uri IS NULL AND path='os'").fetchone()[0]
+            == 0
+        )
         # First-party edge still resolved to the real (uri-bearing) helper.py.
-        assert conn.execute(
-            "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
-            "WHERE e.kind='imports' AND d.path='mypkg/src/mypkg/helper.py' "
-            "AND d.uri IS NOT NULL"
-        ).fetchone()[0] == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM edges e JOIN nodes d ON e.dst=d.id "
+                "WHERE e.kind='imports' AND d.path='mypkg/src/mypkg/helper.py' "
+                "AND d.uri IS NOT NULL"
+            ).fetchone()[0]
+            == 1
+        )
         # The real target file was NOT deleted by the stub cleanup.
-        assert conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='file' "
-            "AND path='mypkg/src/mypkg/helper.py'"
-        ).fetchone()[0] == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM nodes WHERE kind='file' AND path='mypkg/src/mypkg/helper.py'"
+            ).fetchone()[0]
+            == 1
+        )
     finally:
         conn.close()

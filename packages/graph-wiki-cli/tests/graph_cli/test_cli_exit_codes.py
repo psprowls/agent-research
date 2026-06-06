@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import io
 import sqlite3
 import subprocess
 import sys
-from contextlib import redirect_stderr
 from pathlib import Path
 
 import pytest
@@ -17,7 +15,8 @@ from ._git_repo import init_repo, write_and_commit
 def _cg(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--repo", str(cwd), "--mode", "test", *args],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -126,7 +125,7 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
 
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
-    
+
     # Initialize the DB
     assert _cg(["update", "--full"], tmp_path).returncode == 0
 
@@ -149,9 +148,10 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
         env = {**os.environ, "GRAPH_WIKI_LOCK_TIMEOUT_MS": "200"}
         started = time.monotonic()
         res = subprocess.run(
-            [sys.executable, "-m", "graph_wiki_cli.graph_cli.main",
-             "--repo", str(tmp_path), "update"],
-            capture_output=True, text=True, env=env,
+            [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--repo", str(tmp_path), "update"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
         elapsed_ms = (time.monotonic() - started) * 1000
     finally:
@@ -163,9 +163,7 @@ def test_exit_6_update_in_progress(tmp_path: Path) -> None:
     assert elapsed_ms < 5_000, f"update waited {elapsed_ms:.0f}ms — busy_timeout not honored"
 
 
-def test_cg_update_on_v1_db_exits_schema_mismatch(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cg_update_on_v1_db_exits_schema_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """`gw graph update` (no --full) on a v1 DB exits 4 with `gw graph update --full` in stderr.
 
     The handler is wired defensively in Plan 28-04. Plan 28-05 will add the actual
@@ -175,10 +173,9 @@ def test_cg_update_on_v1_db_exits_schema_mismatch(
     """
     _make_v1_db(tmp_path)
 
-    from typer.testing import CliRunner
-
     from graph_io import store, update
     from graph_wiki_cli.graph_cli.main import graph_app
+    from typer.testing import CliRunner
 
     def _raise_schema_mismatch(*args, **kwargs):
         raise store.SchemaMismatchError(found="1", expected=2)

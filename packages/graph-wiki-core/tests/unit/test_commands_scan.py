@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for the scan command (Plan 05-04).
 
 Requirements covered: CMD-02, MCP-03.
@@ -15,8 +13,10 @@ equivalents live in `tests/integration/test_scan_entity_integration.py`
 (Plan 45-03 Task 4).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -112,11 +112,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         }
     ]
     fake_state_gate = {"allowed": True, "reason": "clean", "head_commit": "abc"}
-    fake_fan_result = _make_fan_out_result(
-        successes=[
-            (fake_workspaces[0], "# Brand New Pkg\n\nA stub body.")
-        ]
-    )
+    fake_fan_result = _make_fan_out_result(successes=[(fake_workspaces[0], "# Brand New Pkg\n\nA stub body.")])
 
     with (
         patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
@@ -130,10 +126,18 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
         patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
         patch("graph_wiki_core.commands.scan.make_llm"),
-        patch("graph_wiki_core.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch(
+            "graph_wiki_core.commands.scan.load_role_config",
+            return_value={"model_id": "fake-model", "max_concurrency": 2},
+        ),
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        ),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
@@ -174,9 +178,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
         "changed_files": None,
     }
     fake_diff = {"new": ["new-pkg"], "unchanged": [], "deleted": [], "renamed": []}
-    fake_fan_result = _make_fan_out_result(
-        successes=[(fake_pkg, "stub body")]
-    )
+    fake_fan_result = _make_fan_out_result(successes=[(fake_pkg, "stub body")])
 
     with (
         patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
@@ -185,15 +187,26 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan._load_existing_pages", return_value={}),
         patch("graph_wiki_core.commands.scan.attach_changed_files"),
         patch("graph_wiki_core.commands.scan.compute_diff", return_value=fake_diff),
-        patch("graph_wiki_core.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch(
+            "graph_wiki_core.commands.scan.compute_state_gate",
+            return_value={"allowed": True, "reason": "", "head_commit": "x"},
+        ),
         patch("graph_wiki_core.commands.scan.build_file_map", return_value=None),
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
         patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
         patch("graph_wiki_core.commands.scan.make_llm"),
-        patch("graph_wiki_core.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch(
+            "graph_wiki_core.commands.scan.load_role_config",
+            return_value={"model_id": "fake-model", "max_concurrency": 2},
+        ),
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        ),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
@@ -235,9 +248,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
     fake_diff = {"new": ["test-pkg"], "unchanged": [], "deleted": [], "renamed": []}
     llm_body = "# Test stub\n\nbody text here"
     fake_file_map = "## File map - test-pkg\nFAKEFILEMAP\n"
-    fan_result = _make_fan_out_result(
-        successes=[(fake_pkg, llm_body)]
-    )
+    fan_result = _make_fan_out_result(successes=[(fake_pkg, llm_body)])
 
     with (
         patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
@@ -246,15 +257,26 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan._load_existing_pages", return_value={}),
         patch("graph_wiki_core.commands.scan.attach_changed_files"),
         patch("graph_wiki_core.commands.scan.compute_diff", return_value=fake_diff),
-        patch("graph_wiki_core.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch(
+            "graph_wiki_core.commands.scan.compute_state_gate",
+            return_value={"allowed": True, "reason": "", "head_commit": "x"},
+        ),
         patch("graph_wiki_core.commands.scan.build_file_map", return_value=fake_file_map),
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
         patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
         patch("graph_wiki_core.commands.scan.make_llm"),
-        patch("graph_wiki_core.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch(
+            "graph_wiki_core.commands.scan.load_role_config",
+            return_value={"model_id": "fake-model", "max_concurrency": 2},
+        ),
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        ),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
@@ -327,15 +349,26 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan._load_existing_pages", return_value={}),
         patch("graph_wiki_core.commands.scan.attach_changed_files"),
         patch("graph_wiki_core.commands.scan.compute_diff", return_value=fake_diff),
-        patch("graph_wiki_core.commands.scan.compute_state_gate", return_value={"allowed": True, "reason": "", "head_commit": "x"}),
+        patch(
+            "graph_wiki_core.commands.scan.compute_state_gate",
+            return_value={"allowed": True, "reason": "", "head_commit": "x"},
+        ),
         patch("graph_wiki_core.commands.scan.build_file_map", return_value=None),
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
         patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
         patch("graph_wiki_core.commands.scan.make_llm"),
-        patch("graph_wiki_core.commands.scan.load_role_config", return_value={"model_id": "fake-model", "max_concurrency": 2}),
+        patch(
+            "graph_wiki_core.commands.scan.load_role_config",
+            return_value={"model_id": "fake-model", "max_concurrency": 2},
+        ),
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        ),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_pool_instance = AsyncMock()
@@ -377,7 +410,12 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
         ),
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")) as mock_build,
-        patch("graph_wiki_core.commands.scan.read_only_connect", side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError("test stub")),
+        patch(
+            "graph_wiki_core.commands.scan.read_only_connect",
+            side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
+                "test stub"
+            ),
+        ),
         patch("graph_wiki_core.commands.scan.append_log"),
     ):
         mock_resolve.return_value = (wiki, None)  # repo=None forces fallback

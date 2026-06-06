@@ -9,7 +9,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from graph_io import packages, store, structural_nodes, test_suites
 from graph_io.uri import RepoContext
 
@@ -53,9 +52,7 @@ def _write_package_json(pkg_dir: Path, data: dict) -> None:
 def _suite_rows(conn: sqlite3.Connection) -> list[tuple[str, str]]:
     return [
         (r[0], r[1])
-        for r in conn.execute(
-            "SELECT name, path FROM nodes WHERE kind='test_suite' ORDER BY path"
-        ).fetchall()
+        for r in conn.execute("SELECT name, path FROM nodes WHERE kind='test_suite' ORDER BY path").fetchall()
     ]
 
 
@@ -182,9 +179,7 @@ def test_tests_edge_python_imports(tmp_path: Path) -> None:
     _write_python_pkg(bar_dir, "bar")
 
     (tmp_path / "tests" / "integration").mkdir(parents=True)
-    (tmp_path / "tests" / "integration" / "test_x.py").write_text(
-        "from foo import baz\nimport bar\n"
-    )
+    (tmp_path / "tests" / "integration" / "test_x.py").write_text("from foo import baz\nimport bar\n")
 
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
@@ -202,9 +197,7 @@ def test_tests_edge_js_bare_imports(tmp_path: Path) -> None:
     _write_package_json(other_dir, {"name": "other"})
 
     (pkg_dir / "__tests__").mkdir()
-    (pkg_dir / "__tests__" / "index.test.js").write_text(
-        'import { x } from "other";\n'
-    )
+    (pkg_dir / "__tests__" / "index.test.js").write_text('import { x } from "other";\n')
 
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
@@ -221,9 +214,7 @@ def test_tests_edge_js_relative_imports(tmp_path: Path) -> None:
     (pkg_dir / "src" / "foo.js").write_text("export const x = 1;\n")
 
     (pkg_dir / "__tests__").mkdir()
-    (pkg_dir / "__tests__" / "rel.test.js").write_text(
-        'import { x } from "../src/foo";\n'
-    )
+    (pkg_dir / "__tests__" / "rel.test.js").write_text('import { x } from "../src/foo";\n')
 
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
@@ -241,9 +232,7 @@ def test_tests_edge_repository_threshold(tmp_path: Path) -> None:
         _write_python_pkg(pkg_dir, n)
 
     (tmp_path / "tests" / "wide").mkdir(parents=True)
-    (tmp_path / "tests" / "wide" / "test_x.py").write_text(
-        "import p1\nimport p2\nimport p3\nimport p4\nimport p5\n"
-    )
+    (tmp_path / "tests" / "wide" / "test_x.py").write_text("import p1\nimport p2\nimport p3\nimport p4\nimport p5\n")
 
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
@@ -280,9 +269,7 @@ def test_test_file_re_parented_from_repository_to_suite(tmp_path: Path) -> None:
         (test_path,),
     ).fetchall()
     parent_kinds = {r[0] for r in parents}
-    assert parent_kinds == {"test_suite"}, (
-        f"expected only TestSuite parent, got {parent_kinds}"
-    )
+    assert parent_kinds == {"test_suite"}, f"expected only TestSuite parent, got {parent_kinds}"
 
 
 # ---------- Task 4: kind classification, config, malformed, idempotency ----------
@@ -327,10 +314,7 @@ def test_suite_kind_classification(tmp_path: Path) -> None:
 def test_framework_config_testpaths_adds_root(tmp_path: Path) -> None:
     """D-18: pyproject [tool.pytest.ini_options] testpaths adds extra roots."""
     pkg_dir = tmp_path / "packages" / "foo"
-    body = (
-        '[tool.pytest.ini_options]\n'
-        'testpaths = ["spec"]\n'
-    )
+    body = '[tool.pytest.ini_options]\ntestpaths = ["spec"]\n'
     _write_pyproject(pkg_dir, name="foo", body=body)
     _write_python_pkg(pkg_dir, "foo")
     (pkg_dir / "spec").mkdir()
@@ -340,14 +324,10 @@ def test_framework_config_testpaths_adds_root(tmp_path: Path) -> None:
     _run_emit_pipeline(conn, tmp_path)
 
     rows = _suite_rows(conn)
-    assert any(p == "packages/foo/spec" for _, p in rows), (
-        f"testpaths spec/ not discovered as suite root; rows={rows}"
-    )
+    assert any(p == "packages/foo/spec" for _, p in rows), f"testpaths spec/ not discovered as suite root; rows={rows}"
 
 
-def test_malformed_pyproject_does_not_crash(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_malformed_pyproject_does_not_crash(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """D-18: malformed config -> stderr warning + fall back to filesystem-only."""
     pkg_dir = tmp_path / "packages" / "foo"
     _write_pyproject(pkg_dir, name="foo")
@@ -359,15 +339,11 @@ def test_malformed_pyproject_does_not_crash(
     # Run a clean pass first so packages.refresh writes the row.
     with store.transaction(conn):
         packages.refresh(conn, repo_root=tmp_path, ctx=CTX)
-        structural_nodes.emit(
-            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
-        )
+        structural_nodes.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
     # Now corrupt pyproject before test_suites.emit reads it for testpaths.
     (pkg_dir / "pyproject.toml").write_text("[tool.pytest.ini_options\nbad")
     with store.transaction(conn):
-        test_suites.emit(
-            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
-        )
+        test_suites.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
 
     # Suite still discovered via conventional FS walk.
     rows = _suite_rows(conn)
@@ -388,23 +364,17 @@ def test_idempotency_two_runs_identical_edges(tmp_path: Path) -> None:
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
     snap1 = conn.execute(
-        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') "
-        "ORDER BY src, dst, kind"
+        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') ORDER BY src, dst, kind"
     ).fetchall()
 
     # Second run inside a new transaction (emit() is independently invocable).
     with store.transaction(conn):
-        test_suites.emit(
-            conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset()
-        )
+        test_suites.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
     snap2 = conn.execute(
-        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') "
-        "ORDER BY src, dst, kind"
+        "SELECT src, dst, kind FROM edges WHERE kind IN ('physically_contains','tests') ORDER BY src, dst, kind"
     ).fetchall()
 
-    assert snap1 == snap2, (
-        f"emit() not idempotent — first run {len(snap1)} edges, second {len(snap2)}"
-    )
+    assert snap1 == snap2, f"emit() not idempotent — first run {len(snap1)} edges, second {len(snap2)}"
 
 
 # ============================================================================
@@ -445,8 +415,7 @@ def test_update_run_calls_emitters_in_correct_order() -> None:
     i_resolve = src.index("resolve.sweep")
     i_inv = src.index("_enforce_strict_tree_invariant")
     assert i_struct < i_entry < i_test < i_resolve < i_inv, (
-        f"wrong order in update.run: struct={i_struct} entry={i_entry} "
-        f"test={i_test} resolve={i_resolve} inv={i_inv}"
+        f"wrong order in update.run: struct={i_struct} entry={i_entry} test={i_test} resolve={i_resolve} inv={i_inv}"
     )
 
 
@@ -460,16 +429,10 @@ def fixture_repo(tmp_path: Path) -> Path:
     """Copy sample_monorepo to tmp_path and initialize as a git repo + commit."""
     shutil.copytree(FIXTURE_SRC, tmp_path, dirs_exist_ok=True)
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "test"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=tmp_path, check=True)
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
     return tmp_path
 
 
@@ -533,9 +496,7 @@ def test_call_order_pitfall(fixture_repo: Path) -> None:
               AND f.path LIKE '%tests/test_foo.py'
             """
         ).fetchone()
-        assert row is None, (
-            "Package(mypkg) still has a physically_contains edge to its test file"
-        )
+        assert row is None, "Package(mypkg) still has a physically_contains edge to its test file"
 
         # Assertion 4: integration suite has suite_kind='integration'
         row = conn.execute(
@@ -548,12 +509,8 @@ def test_call_order_pitfall(fixture_repo: Path) -> None:
         assert row is not None, "tests/integration TestSuite not emitted"
         assert row[0] == "integration"
 
-        pc_count_1 = conn.execute(
-            "SELECT COUNT(*) FROM edges WHERE kind='physically_contains'"
-        ).fetchone()[0]
-        tests_count_1 = conn.execute(
-            "SELECT COUNT(*) FROM edges WHERE kind='tests'"
-        ).fetchone()[0]
+        pc_count_1 = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='physically_contains'").fetchone()[0]
+        tests_count_1 = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='tests'").fetchone()[0]
     finally:
         conn.close()
 
@@ -561,15 +518,10 @@ def test_call_order_pitfall(fixture_repo: Path) -> None:
     update.run(fixture_repo, full=True)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        pc_count_2 = conn.execute(
-            "SELECT COUNT(*) FROM edges WHERE kind='physically_contains'"
-        ).fetchone()[0]
-        tests_count_2 = conn.execute(
-            "SELECT COUNT(*) FROM edges WHERE kind='tests'"
-        ).fetchone()[0]
+        pc_count_2 = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='physically_contains'").fetchone()[0]
+        tests_count_2 = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='tests'").fetchone()[0]
         assert pc_count_1 == pc_count_2, (
-            f"physically_contains edge count changed across runs: "
-            f"{pc_count_1} -> {pc_count_2}"
+            f"physically_contains edge count changed across runs: {pc_count_1} -> {pc_count_2}"
         )
         assert tests_count_1 == tests_count_2, (
             f"tests edge count changed across runs: {tests_count_1} -> {tests_count_2}"
@@ -602,23 +554,18 @@ def test_strict_tree_invariant_raises_on_duplicate_parent(fixture_repo: Path) ->
         assert file_row is not None
         file_id, existing_parent = file_row
 
-        repo_row = conn.execute(
-            "SELECT id FROM nodes WHERE kind='repository' LIMIT 1"
-        ).fetchone()
+        repo_row = conn.execute("SELECT id FROM nodes WHERE kind='repository' LIMIT 1").fetchone()
         assert repo_row is not None
         repo_id = repo_row[0]
         if repo_id == existing_parent:
-            pkg_row = conn.execute(
-                "SELECT id FROM nodes WHERE kind='package' LIMIT 1"
-            ).fetchone()
+            pkg_row = conn.execute("SELECT id FROM nodes WHERE kind='package' LIMIT 1").fetchone()
             assert pkg_row is not None
             fake_parent = pkg_row[0]
         else:
             fake_parent = repo_id
 
         conn.execute(
-            "INSERT INTO edges (src, dst, kind, attrs_json) "
-            "VALUES (?, ?, 'physically_contains', NULL)",
+            "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, 'physically_contains', NULL)",
             (fake_parent, file_id),
         )
         conn.commit()
@@ -643,10 +590,7 @@ def test_anti_regression_describe_package_smoke(fixture_repo: Path) -> None:
     db_path = _db_path(fixture_repo)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        n = conn.execute(
-            "SELECT COUNT(*) FROM nodes "
-            "WHERE kind IN ('package', 'app') AND name='mypkg'"
-        ).fetchone()[0]
+        n = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind IN ('package', 'app') AND name='mypkg'").fetchone()[0]
         assert n == 1
     finally:
         conn.close()
@@ -672,9 +616,7 @@ def test_shebang_script_in_fixture_does_not_emit_entry_point(
               AND f.path LIKE '%/scripts/run.sh'
             """
         ).fetchone()
-        assert row is None, (
-            "shebang script run.sh has an implemented_by EntryPoint — ENTRY-05 violated"
-        )
+        assert row is None, "shebang script run.sh has an implemented_by EntryPoint — ENTRY-05 violated"
     finally:
         conn.close()
 
@@ -699,10 +641,7 @@ def test_pyproject_scripts_entry_point_resolves_to_file(fixture_repo: Path) -> N
             """
         ).fetchone()
         if row is None:
-            pytest.skip(
-                "sample_monorepo pyproject has no [project.scripts] — "
-                "fixture-dependent assertion skipped"
-            )
+            pytest.skip("sample_monorepo pyproject has no [project.scripts] — fixture-dependent assertion skipped")
         _ep_name, file_path = row
         assert "mypkg" in file_path, (
             f"implemented_by file '{file_path}' outside mypkg's tree — strict resolution failed"
@@ -738,9 +677,7 @@ def test_suite_names_unique_after_multi_package_emit(tmp_path: Path) -> None:
         _write_pyproject(pkg_dir, name=pkg_name)
         _write_python_pkg(pkg_dir, pkg_name)
         (pkg_dir / "tests").mkdir()
-        (pkg_dir / "tests" / "test_something.py").write_text(
-            f"import {pkg_name}\n"
-        )
+        (pkg_dir / "tests" / "test_something.py").write_text(f"import {pkg_name}\n")
 
     conn = _setup(tmp_path)
     _run_emit_pipeline(conn, tmp_path)
@@ -755,9 +692,7 @@ def test_suite_names_unique_after_multi_package_emit(tmp_path: Path) -> None:
         HAVING COUNT(*) > 1
         """
     ).fetchall()
-    assert duplicates == [], (
-        f"SC#3b violated: test_suite nodes share names after emit: {duplicates}"
-    )
+    assert duplicates == [], f"SC#3b violated: test_suite nodes share names after emit: {duplicates}"
 
     # Confirm both suites exist under their qualified names.
     rows = _suite_rows(conn)

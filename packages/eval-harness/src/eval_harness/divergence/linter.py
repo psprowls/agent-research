@@ -34,11 +34,7 @@ def _check_code_drift_first(output: AgentOutputProxy, wiki: Path) -> Verdict:
         if first_orphan_stale is None and _ORPHAN_STALE_RE.search(line):
             first_orphan_stale = i
     # Only flag if both appear and orphan/stale comes first.
-    if (
-        first_code_drift is not None
-        and first_orphan_stale is not None
-        and first_orphan_stale < first_code_drift
-    ):
+    if first_code_drift is not None and first_orphan_stale is not None and first_orphan_stale < first_code_drift:
         return Verdict(
             passed=False,
             excerpt="Code-drift finding should appear before orphan/stale finding",

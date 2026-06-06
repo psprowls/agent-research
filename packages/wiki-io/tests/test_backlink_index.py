@@ -1,7 +1,7 @@
-from __future__ import annotations
-
 """Unit tests for wiki_io.backlink_index — scanner-derived `## Referenced in
 wiki` regeneration (Slice 4). Pure Python, no Bedrock."""
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -34,8 +34,7 @@ def _source_page(wiki: Path, slug: str, links: list[str], **fm) -> Path:
     meta = "".join(f"{k}: {v}\n" for k, v in fm.items())
     link_block = "\n".join(f"- {lnk}" for lnk in links)
     p.write_text(
-        f"---\ntitle: {fm.get('title', slug)}\ncategory: source\n{meta}---\n\n"
-        f"# {slug}\n\n## Touches\n{link_block}\n",
+        f"---\ntitle: {fm.get('title', slug)}\ncategory: source\n{meta}---\n\n# {slug}\n\n## Touches\n{link_block}\n",
         encoding="utf-8",
     )
     return p
@@ -60,8 +59,12 @@ def test_regenerate_builds_sorted_backlinks(tmp_path: Path) -> None:
     _entity_page(wiki / "entities", "pkg_foo")
     # `|alias` must be stripped so the link resolves to stem `pkg_foo`.
     _source_page(
-        wiki, "2026-06-spec", ["[[entities/pkg_foo|Foo Package]]"],
-        title="Auth Spec", source_type="spec", source_date="2026-06",
+        wiki,
+        "2026-06-spec",
+        ["[[entities/pkg_foo|Foo Package]]"],
+        title="Auth Spec",
+        source_type="spec",
+        source_date="2026-06",
     )
     updated = regenerate_referenced_in_wiki(wiki)
     assert "pkg_foo" in updated
@@ -78,9 +81,11 @@ def test_regenerate_multi_entity_source_backlinks_from_all(tmp_path: Path) -> No
     _entity_page(wiki / "entities", "pkg_foo")
     _entity_page(wiki / "entities", "pkg_bar")
     _source_page(
-        wiki, "2026-06-multi",
+        wiki,
+        "2026-06-multi",
         ["[[entities/pkg_foo]]", "[[entities/pkg_bar]]"],
-        title="Multi", source_type="spec",
+        title="Multi",
+        source_type="spec",
     )
     regenerate_referenced_in_wiki(wiki)
     foo = (wiki / "entities" / "pkg_foo.md").read_text(encoding="utf-8")
@@ -129,9 +134,7 @@ def test_build_entity_backlink_map_returns_category_slug_path(tmp_path):
         "---\ntitle: Async fan-out\n---\nSee [[entities/pkg_a]] for detail.\n",
         encoding="utf-8",
     )
-    (wiki / "sources" / "spec-1.md").write_text(
-        "---\ntitle: Spec 1\n---\nAlso [[entities/pkg_a]].\n", encoding="utf-8"
-    )
+    (wiki / "sources" / "spec-1.md").write_text("---\ntitle: Spec 1\n---\nAlso [[entities/pkg_a]].\n", encoding="utf-8")
 
     mapping = build_entity_backlink_map(wiki)
 
@@ -150,7 +153,8 @@ def test_regenerate_preserves_other_h2s(tmp_path: Path) -> None:
 
     wiki = tmp_path / "wiki"
     _entity_page(
-        wiki / "entities", "pkg_foo",
+        wiki / "entities",
+        "pkg_foo",
         extra_h2="## Custom Notes\nHand-written, keep me.\n\n",
     )
     _source_page(wiki, "2026-06-spec", ["[[entities/pkg_foo]]"], title="Spec")

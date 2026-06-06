@@ -3,11 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import typer
-from typer.testing import CliRunner
-
 from graph_wiki_cli.cli import app
+from typer.testing import CliRunner
 
 runner = CliRunner()
 
@@ -140,8 +138,15 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
         stripped_wikilinks=[],
         frontmatter_parsed=True,
         suggested_pages=[
-            {"kind": "concept", "title": "Idea", "slug": "idea", "mode": "create_new",
-             "existing_slug": None, "rationale": "r", "status": "proposed"},
+            {
+                "kind": "concept",
+                "title": "Idea",
+                "slug": "idea",
+                "mode": "create_new",
+                "existing_slug": None,
+                "rationale": "r",
+                "status": "proposed",
+            },
         ],
         suggestions_parsed=False,
     )
@@ -176,8 +181,14 @@ def test_proposals_list_prints_open_records(tmp_path: Path) -> None:
     from graph_wiki_cli.cli import app
 
     records = [
-        {"kind": "concept", "mode": "create_new", "target_slug": "a", "title": "A",
-         "status": "proposed", "origins": [{"ref": "sources/s", "source": "ingest"}]},
+        {
+            "kind": "concept",
+            "mode": "create_new",
+            "target_slug": "a",
+            "title": "A",
+            "status": "proposed",
+            "origins": [{"ref": "sources/s", "source": "ingest"}],
+        },
     ]
     with patch("graph_wiki_cli.wiki_cli.main.run_list_proposals", return_value=records) as mock_fn:
         result = runner.invoke(app, ["wiki", "proposals", "--workspace", str(tmp_path)])
@@ -194,9 +205,7 @@ def test_proposal_approve_flips_and_exits_zero(tmp_path: Path) -> None:
 
     fake = ProposalDecision(proposal_id="adr-0007-md", status="approved")
     with patch("graph_wiki_cli.wiki_cli.main.run_set_proposal_status", return_value=fake) as mock_fn:
-        result = runner.invoke(
-            app, ["wiki", "proposal", "approve", "adr-0007-md", "--workspace", str(tmp_path)]
-        )
+        result = runner.invoke(app, ["wiki", "proposal", "approve", "adr-0007-md", "--workspace", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
     assert "approved" in result.output

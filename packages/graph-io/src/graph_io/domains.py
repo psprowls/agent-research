@@ -35,6 +35,7 @@ class DomainYamlError(Exception):
     The CLI surface maps this exception to exit code 4 (D-06,
     consistent with the Phase 28 schema-mismatch exit-code reuse).
     """
+
     exit_code: int = 4
 
 
@@ -50,14 +51,9 @@ def _load_domains_yaml(repo_root: Path) -> dict | None:
         with path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except yaml.YAMLError as exc:
-        raise DomainYamlError(
-            f"domains.yaml: YAML parse error: {exc}"
-        ) from exc
+        raise DomainYamlError(f"domains.yaml: YAML parse error: {exc}") from exc
     if not isinstance(data, dict):
-        raise DomainYamlError(
-            f"domains.yaml: top-level must be a mapping, got "
-            f"{type(data).__name__}"
-        )
+        raise DomainYamlError(f"domains.yaml: top-level must be a mapping, got {type(data).__name__}")
     return data
 
 
@@ -68,10 +64,7 @@ def _known_packages(conn: sqlite3.Connection) -> list[tuple[str, str | None, str
     apps are semantically packages that also satisfy app-classification
     signals, so they participate in domain membership identically.
     """
-    rows = conn.execute(
-        "SELECT name, path, kind FROM nodes "
-        "WHERE kind IN ('package', 'app') ORDER BY name"
-    ).fetchall()
+    rows = conn.execute("SELECT name, path, kind FROM nodes WHERE kind IN ('package', 'app') ORDER BY name").fetchall()
     return [(name, path, kind) for name, path, kind in rows]
 
 
@@ -84,9 +77,7 @@ def _detect_cycles(
     sccs_size_gt_1 is a list of SCCs each containing > 1 distinct nodes.
     Singleton SCCs (the acyclic case) are NOT returned.
     """
-    self_loops: set[str] = {
-        n for n, p in parent_map.items() if n == p
-    }
+    self_loops: set[str] = {n for n, p in parent_map.items() if n == p}
     # Build adjacency: child -> [parent] (excluding self-loops to keep
     # Tarjan focused on multi-node cycles; self-loops handled separately)
     nodes: set[str] = set()
@@ -129,7 +120,7 @@ def _detect_cycles(
             if len(component) > 1:
                 sccs.append(component)
 
-    for n in sorted(nodes):   # deterministic iteration
+    for n in sorted(nodes):  # deterministic iteration
         if n not in index:
             strongconnect(n)
 
@@ -156,14 +147,14 @@ def _emit_containment_edges(
     # Emit one warning per SCC of size > 1
     for scc in sccs:
         intra_count = sum(
-            1 for child, parent in parent_map.items()
-            if child in scc and parent in scc and child != parent
+            1 for child, parent in parent_map.items() if child in scc and parent in scc and child != parent
         )
         members_csv = ", ".join(sorted(scc))
         _LOG.warning(
             "domains.yaml: cycle detected involving domains: %s. "
             "Skipping %d domain_contains_domain edge(s); the acyclic remainder is preserved.",
-            members_csv, intra_count,
+            members_csv,
+            intra_count,
         )
 
     # Emit one warning per self-loop
@@ -176,21 +167,24 @@ def _emit_containment_edges(
     # Emit containment edges, skipping cycle-participating ones
     for child, parent in parent_map.items():
         if child == parent:
-            continue   # self-loop: warned above, edge skipped
+            continue  # self-loop: warned above, edge skipped
         if child in scc_of and parent in scc_of and scc_of[child] == scc_of[parent]:
-            continue   # intra-SCC edge: warned above, edge skipped
+            continue  # intra-SCC edge: warned above, edge skipped
         if parent not in all_domain_names:
             _LOG.warning(
                 "domains.yaml: domain '%s' has parent '%s' which is not a declared domain — skipping containment edge",
-                child, parent,
+                child,
+                parent,
             )
             continue
-        edges_out.append(GraphEdge(
-            src=(_DOMAIN_KIND, parent, None),
-            dst=(_DOMAIN_KIND, child, None),
-            kind=_DOMAIN_CONTAINS_DOMAIN_KIND,
-            attrs={},
-        ))
+        edges_out.append(
+            GraphEdge(
+                src=(_DOMAIN_KIND, parent, None),
+                dst=(_DOMAIN_KIND, child, None),
+                kind=_DOMAIN_CONTAINS_DOMAIN_KIND,
+                attrs={},
+            )
+        )
 
 
 def emit(
@@ -221,14 +215,15 @@ def emit(
 
     nodes_out: list[GraphNode] = []
     edges_out: list[GraphEdge] = []
-    parent_map: dict[str, str] = {}    # child -> parent
+    parent_map: dict[str, str] = {}  # child -> parent
     all_domain_names: set[str] = set()
 
     for dom_name, dom_attrs in data.items():
         if not isinstance(dom_attrs, dict):
             _LOG.warning(
                 "domains.yaml: domain '%s' must be a mapping, got %s — skipping",
-                dom_name, type(dom_attrs).__name__,
+                dom_name,
+                type(dom_attrs).__name__,
             )
             continue
         pkgs = dom_attrs.get("packages")
@@ -248,7 +243,8 @@ def emit(
         for key in sorted(set(dom_attrs.keys()) - _KNOWN_KEYS):
             _LOG.warning(
                 "domains.yaml: domain '%s' has unknown key '%s' — ignored",
-                dom_name, key,
+                dom_name,
+                key,
             )
 
         all_domain_names.add(dom_name)
@@ -259,36 +255,43 @@ def emit(
             dom_attrs_for_node["description"] = dom_attrs["description"]
         if "owner" in dom_attrs:
             dom_attrs_for_node["owner"] = dom_attrs["owner"]
-        nodes_out.append(GraphNode(
-            kind=_DOMAIN_KIND,
-            name=dom_name,
-            path=None,
-            line=None,
-            attrs=dom_attrs_for_node,
-        ))
+        nodes_out.append(
+            GraphNode(
+                kind=_DOMAIN_KIND,
+                name=dom_name,
+                path=None,
+                line=None,
+                attrs=dom_attrs_for_node,
+            )
+        )
 
         # belongs_to_domain edges
         for pkg_name in pkgs:
             if not isinstance(pkg_name, str):
                 _LOG.warning(
                     "domains.yaml: domain '%s' has non-string entry in packages: %r — skipping",
-                    dom_name, pkg_name,
+                    dom_name,
+                    pkg_name,
                 )
                 continue
             if pkg_name not in known_names:
                 _LOG.warning(
                     "domains.yaml: package '%s' (in domain '%s') is not a known package. Known packages: %s",
-                    pkg_name, dom_name, known_sorted_csv,
+                    pkg_name,
+                    dom_name,
+                    known_sorted_csv,
                 )
                 continue
             pkg_rel = known_name_to_rel.get(pkg_name)
             pkg_kind = known_name_to_kind.get(pkg_name, "package")
-            edges_out.append(GraphEdge(
-                src=(pkg_kind, pkg_name, pkg_rel),
-                dst=(_DOMAIN_KIND, dom_name, None),
-                kind=_BELONGS_TO_DOMAIN_KIND,
-                attrs={},
-            ))
+            edges_out.append(
+                GraphEdge(
+                    src=(pkg_kind, pkg_name, pkg_rel),
+                    dst=(_DOMAIN_KIND, dom_name, None),
+                    kind=_BELONGS_TO_DOMAIN_KIND,
+                    attrs={},
+                )
+            )
 
         # Queue parent for cycle-detection pass
         parent = dom_attrs.get("parent")
@@ -296,7 +299,8 @@ def emit(
             if not isinstance(parent, str):
                 _LOG.warning(
                     "domains.yaml: domain '%s' has non-string parent: %r — skipping containment edge",
-                    dom_name, parent,
+                    dom_name,
+                    parent,
                 )
             else:
                 parent_map[dom_name] = parent
@@ -307,5 +311,6 @@ def emit(
     # Single-transaction write
     with conn:
         upsert.upsert_records(
-            conn, GraphRecords(nodes=nodes_out, edges=edges_out),
+            conn,
+            GraphRecords(nodes=nodes_out, edges=edges_out),
         )

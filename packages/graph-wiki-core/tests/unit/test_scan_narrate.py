@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import frontmatter
 import pytest
-
 from graph_io import exit_codes
 from graph_wiki_core.commands import scan as scan_module
 
@@ -51,15 +50,14 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     repo = workspace / "repo"
 
     _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
 
     run_all_calls: list = []
 
     async def _spy_run_all(self, *, items, task, role, model_id, max_concurrency):
         run_all_calls.append(role)
         from subagent_runtime.pool import FanOutResult
+
         return FanOutResult()
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _spy_run_all)
@@ -76,7 +74,8 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
         "| `pyproject.toml` | file | — TODO |\n"
     )
     monkeypatch.setattr(
-        scan_module, "compute_state_gate",
+        scan_module,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(
@@ -94,8 +93,7 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     assert result.entities_narrated == []
 
     page = next(
-        p for p in (wiki / "entities").glob("*.md")
-        if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+        p for p in (wiki / "entities").glob("*.md") if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
     )
     text = page.read_text(encoding="utf-8")
     # Structural parity: Narrative placeholder intact, file-map rows still — TODO.
@@ -111,7 +109,7 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
     import sys
 
     workspace = tmp_workspace
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
     _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
 
@@ -128,7 +126,8 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
         reloaded_setattr = monkeypatch.setattr
         reloaded_setattr(reloaded, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
         reloaded_setattr(
-            reloaded, "compute_state_gate",
+            reloaded,
+            "compute_state_gate",
             lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
         )
 

@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Unit tests for graph_wiki_core.commands.ingest (Plan 05-05).
 
 Requirements: CMD-03
 Tests all public behaviors of run_ingest_source and run_ingest_work_item.
 """
+
+from __future__ import annotations
 
 import dataclasses
 import json
@@ -13,7 +13,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # M3 autouse: defang the extractor LLM for the whole module so existing tests
@@ -85,15 +84,13 @@ def _seed_graph_db_for_ingest_tests(
                     (file_id, Path(rel_path).name, rel_path),
                 )
                 conn.execute(
-                    "INSERT INTO edges (src, dst, kind, attrs_json) "
-                    "VALUES (?, ?, 'contains', NULL)",
+                    "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, 'contains', NULL)",
                     (pkg_id, file_id),
                 )
         for entry in extra_nodes or []:
             kind, name, path, uri = entry
             conn.execute(
-                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) "
-                "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, NULL, NULL, ?)",
                 (next_id, kind, name, path, uri),
             )
             next_id += 1
@@ -121,7 +118,9 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     wiki.mkdir()
     (wiki / "log.md").write_text("", encoding="utf-8")
 
-    fake_llm_response = "---\nsource_kind: source\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
+    fake_llm_response = (
+        "---\nsource_kind: source\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
+    )
 
     _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
@@ -215,12 +214,7 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
 
     # Missing 'affects' field
     frontmatter_text = (
-        "title: Fix Auth Bug\n"
-        "category: work\n"
-        "kind: bug\n"
-        "status: open\n"
-        "summary: Fix the auth bug\n"
-        "opened: 2026-05-14\n"
+        "title: Fix Auth Bug\ncategory: work\nkind: bug\nstatus: open\nsummary: Fix the auth bug\nopened: 2026-05-14\n"
     )
 
     wiki = tmp_path / "wiki"
@@ -329,9 +323,9 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
 
     # Verify force=True was passed to file_work_item
     call_kwargs = mock_file_work_item.call_args
-    assert call_kwargs.kwargs.get("force") is True or (
-        len(call_kwargs.args) > 3 and call_kwargs.args[3] is True
-    ), f"force=True not found in call: {call_kwargs}"
+    assert call_kwargs.kwargs.get("force") is True or (len(call_kwargs.args) > 3 and call_kwargs.args[3] is True), (
+        f"force=True not found in call: {call_kwargs}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -399,9 +393,7 @@ def test_ingest_result_round_trips_to_json() -> None:
         ),
     ],
 )
-def test_parse_ingestor_response_handles_fenced_and_unfenced(
-    raw: str, expected_fm: dict, expected_body: str
-) -> None:
+def test_parse_ingestor_response_handles_fenced_and_unfenced(raw: str, expected_fm: dict, expected_body: str) -> None:
     from graph_wiki_core.commands.ingest import _parse_ingestor_response
 
     fm, body = _parse_ingestor_response(raw)
@@ -474,9 +466,9 @@ async def test_run_ingest_source_routes_source_to_sources_dir(tmp_path: Path) ->
 
     expected_page = wiki / "sources" / "an-article.md"
     assert expected_page.exists(), f"expected page at {expected_page}, got result={result}"
-    assert (wiki / "concepts").exists() is False or not any(
-        (wiki / "concepts").iterdir()
-    ), "concepts/ should be empty for page_type=source"
+    assert (wiki / "concepts").exists() is False or not any((wiki / "concepts").iterdir()), (
+        "concepts/ should be empty for page_type=source"
+    )
     assert result.page_type == "source"
     assert "sources/an-article.md" in result.page_path
     assert result.slug == "an-article"
@@ -530,8 +522,7 @@ async def test_run_ingest_source_target_slug_matches_filename(tmp_path: Path) ->
     assert written_path.exists(), f"expected page at {written_path}"
     written_body = written_path.read_text(encoding="utf-8")
     assert f"target_slug: {result.slug}" in written_body, (
-        f"target_slug in body must equal filename stem '{result.slug}'; "
-        f"body excerpt:\n{written_body[:300]}"
+        f"target_slug in body must equal filename stem '{result.slug}'; body excerpt:\n{written_body[:300]}"
     )
     # And the original LLM slug (pre-slugify) should NOT survive verbatim
     assert "target_slug: weird_slug_with_underscores" not in written_body
@@ -650,14 +641,7 @@ async def test_run_ingest_source_strips_unresolved_wikilinks(tmp_path: Path) -> 
 # ===========================================================================
 
 _FM_TEMPLATE = (
-    "---\n"
-    "title: {title}\n"
-    "category: {category}\n"
-    "page_type: {page_type}\n"
-    "target_slug: {slug}\n"
-    "summary: x\n"
-    "---\n"
-    "Body."
+    "---\ntitle: {title}\ncategory: {category}\npage_type: {page_type}\ntarget_slug: {slug}\nsummary: x\n---\nBody."
 )
 
 
@@ -734,9 +718,8 @@ async def test_run_ingest_source_path_match_links_entity_never_packages(
     """Slice 4: a path-matched package routes to sources/ (never packages/),
     sets entity_uri, and embeds a [[entities/pkg_<name>]] wikilink whose target
     equals short_filename for the URI. The slug is NOT forced from the URI."""
-    from wiki_io.entity_writer import short_filename
-
     from graph_wiki_core.commands.ingest import run_ingest_source
+    from wiki_io.entity_writer import short_filename
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
     rel_path = "packages/graph-io/src/graph_io/store.py"
@@ -745,9 +728,7 @@ async def test_run_ingest_source_path_match_links_entity_never_packages(
     source_file.write_text("# store\n\nBody.", encoding="utf-8")
 
     canonical_uri = "pkg:agent-research/agent-research/graph-io"
-    _seed_graph_db_for_ingest_tests(
-        workspace, packages=[("graph-io", canonical_uri, rel_path)]
-    )
+    _seed_graph_db_for_ingest_tests(workspace, packages=[("graph-io", canonical_uri, rel_path)])
 
     # LLM picks page_type=source with a clean slug; entity match must NOT
     # override it (decoupled).
@@ -780,7 +761,7 @@ async def test_run_ingest_source_path_match_links_entity_never_packages(
     assert f"entity_uri: {canonical_uri}" in body
     assert f"[[entities/{stem}]]" in body
     assert result.page_type == "source"
-    assert result.slug == "2026-06-store"   # LLM slug preserved, not URI tail
+    assert result.slug == "2026-06-store"  # LLM slug preserved, not URI tail
     assert result.entity_uri == canonical_uri
 
 
@@ -1013,12 +994,7 @@ def test_set_entity_uri_in_body_inserts_after_target_slug() -> None:
 def test_ensure_entity_touch_link_inserts_under_existing_heading() -> None:
     from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
 
-    text = (
-        "---\ntitle: Foo\n---\n\n"
-        "Body text.\n\n"
-        "## Touches\n"
-        "- [[entities/pkg_other]]\n"
-    )
+    text = "---\ntitle: Foo\n---\n\nBody text.\n\n## Touches\n- [[entities/pkg_other]]\n"
     out = _ensure_entity_touch_link(text, "pkg_graph-io")
     # New bullet inserted immediately under the heading.
     assert "## Touches\n- [[entities/pkg_graph-io]]\n" in out
@@ -1040,10 +1016,7 @@ def test_ensure_entity_touch_link_appends_section_when_absent() -> None:
 def test_ensure_entity_touch_link_idempotent() -> None:
     from graph_wiki_core.commands.ingest import _ensure_entity_touch_link
 
-    text = (
-        "---\ntitle: Foo\n---\n\n"
-        "Refers to [[entities/pkg_graph-io]] inline.\n"
-    )
+    text = "---\ntitle: Foo\n---\n\nRefers to [[entities/pkg_graph-io]] inline.\n"
     out = _ensure_entity_touch_link(text, "pkg_graph-io")
     # Link already present anywhere → text returned unchanged.
     assert out == text
@@ -1073,14 +1046,7 @@ def test_parse_ingestor_response_falls_back_to_handrolled_on_yaml_error() -> Non
 
     # `summary: foo: bar baz` -> safe_load raises ScannerError (a YAMLError);
     # hand-rolled partition-on-first-colon recovers val="foo: bar baz".
-    raw = (
-        "---\n"
-        "source_kind: source\n"
-        "target_slug: foo\n"
-        "summary: foo: bar baz\n"
-        "---\n"
-        "Body."
-    )
+    raw = "---\nsource_kind: source\ntarget_slug: foo\nsummary: foo: bar baz\n---\nBody."
     fm, body = _parse_ingestor_response(raw)
     assert fm["source_kind"] == "source"
     assert fm["target_slug"] == "foo"
@@ -1135,14 +1101,7 @@ async def test_run_ingest_source_always_routes_to_sources_even_if_llm_says_adr(
 
     # LLM claims adr AND emits a descriptive source_kind.
     fake_llm_response = (
-        "---\n"
-        "title: A Decision\n"
-        "page_type: adr\n"
-        "source_kind: source\n"
-        "target_slug: a-decision\n"
-        "summary: x\n"
-        "---\n"
-        "Body."
+        "---\ntitle: A Decision\npage_type: adr\nsource_kind: source\ntarget_slug: a-decision\nsummary: x\n---\nBody."
     )
 
     with (
@@ -1266,9 +1225,7 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = (
-        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
-    )
+    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1361,9 +1318,7 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = (
-        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
-    )
+    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1390,9 +1345,7 @@ async def test_run_ingest_source_reingest_preserves_human_decision(tmp_path: Pat
     ):
         first = await run_ingest_source(source_file, workspace)
 
-    assert [(s["slug"], s["status"]) for s in first.suggested_pages] == [
-        ("cross-cutting-idea", "proposed")
-    ]
+    assert [(s["slug"], s["status"]) for s in first.suggested_pages] == [("cross-cutting-idea", "proposed")]
 
     # Human approves via the ledger API.
     set_proposal_status(wiki, "concept", "cross-cutting-idea", "approved")
@@ -1427,9 +1380,7 @@ async def test_run_ingest_source_degraded_reingest_preserves_ledger_decision(tmp
     source_file.write_text("# Spec\n\nA cross-cutting idea.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
-    ingestor_response = (
-        "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
-    )
+    ingestor_response = "---\nsource_kind: source\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody."
     extractor_response = (
         "suggestions:\n"
         "  - kind: concept\n"
@@ -1460,9 +1411,7 @@ async def test_run_ingest_source_degraded_reingest_preserves_ledger_decision(tmp
     ingestor_llm2 = MagicMock()
     ingestor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content=ingestor_response))
     extractor_llm2 = MagicMock()
-    extractor_llm2.ainvoke = AsyncMock(
-        return_value=MagicMock(content="this is not valid yaml: : [")
-    )
+    extractor_llm2.ainvoke = AsyncMock(return_value=MagicMock(content="this is not valid yaml: : ["))
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, repo)),

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """WikiConfig — shared configuration module for graph-wiki-core.
 
 Provides:
@@ -13,6 +11,8 @@ Provides:
   removed in Phase 20 / WMC-03; per-workspace config now lives in
   `<workspace>/.graph-wiki.yaml`).
 """
+
+from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass

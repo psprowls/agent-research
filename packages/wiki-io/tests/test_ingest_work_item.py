@@ -1,15 +1,14 @@
-from __future__ import annotations
-
 """Tests for wiki_io.ingest_work_item — ported from lattice-wiki-core.
 
 Requirements: CMD-03 (ingest_work_item port from lattice-wiki-core)
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # _slugify
@@ -164,8 +163,8 @@ def test_file_work_item_creates_page(tmp_path: Path) -> None:
     body = "## Details\n\nSome body text.\n"
 
     with (
-        patch("wiki_io.ingest_work_item.update_index") as mock_ui,
-        patch("wiki_io.ingest_work_item.append_log") as mock_al,
+        patch("wiki_io.ingest_work_item.update_index"),
+        patch("wiki_io.ingest_work_item.append_log"),
     ):
         result = file_work_item(wiki, fm, body)
 
@@ -188,7 +187,7 @@ def test_file_work_item_calls_update_index_and_append_log(tmp_path: Path) -> Non
         patch("wiki_io.ingest_work_item.update_index") as mock_ui,
         patch("wiki_io.ingest_work_item.append_log") as mock_al,
     ):
-        result = file_work_item(wiki, fm, body)
+        file_work_item(wiki, fm, body)
 
     # update_index must be called with (wiki,)
     mock_ui.assert_called_once_with(wiki)

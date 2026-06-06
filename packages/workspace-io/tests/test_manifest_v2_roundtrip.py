@@ -1,4 +1,5 @@
 """v2 manifest write → read preserves all fields and structure."""
+
 from workspace_io.manifest import read, write
 
 

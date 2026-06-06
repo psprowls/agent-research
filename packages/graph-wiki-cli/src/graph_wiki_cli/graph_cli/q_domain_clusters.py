@@ -6,9 +6,8 @@ import dataclasses
 import json as _json
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import cluster, exit_codes, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:
@@ -56,10 +55,7 @@ def _render_human(result: cluster.ClusterResult) -> None:
 
     print("# gw graph domain-clusters")
     print()
-    print(
-        f"Hub threshold: {result.hub_threshold:g}  ·  "
-        f"{result.n_packages_total} packages total"
-    )
+    print(f"Hub threshold: {result.hub_threshold:g}  ·  {result.n_packages_total} packages total")
     print()
 
     if result.cross_cutting:

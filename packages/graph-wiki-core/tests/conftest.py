@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Shared pytest fixtures for graph-wiki-core tests.
 
 Provides:
@@ -11,6 +9,8 @@ Provides:
   Mirrors packages/graph-io/tests/conftest.py::seeded_db so Phase 37 tests
   exercise build_graph_tools(conn) without standing up the librarian fan-out.
 """
+
+from __future__ import annotations
 
 import os
 import shutil
@@ -55,17 +55,11 @@ def fixture_vault_path() -> Path:
     no user-supplied input is involved.
     """
     vault = (
-        Path(__file__).parent.parent.parent.parent
-        / "packages"
-        / "wiki-io"
-        / "tests"
-        / "fixtures"
-        / "round-trip-vault"
+        Path(__file__).parent.parent.parent.parent / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
     )
     if not vault.exists():
         pytest.skip(
-            f"round-trip-vault fixture not found at {vault}; "
-            "check that packages/wiki-io is present in the workspace."
+            f"round-trip-vault fixture not found at {vault}; check that packages/wiki-io is present in the workspace."
         )
     return vault
 

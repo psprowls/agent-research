@@ -14,12 +14,10 @@ covered by `test_short_filename.py`.
 from __future__ import annotations
 
 import pytest
-
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     SCANNER_OWNED_KEYS,
 )
-
 
 # ----------------------------------------------------------------------------
 # Unit tests
@@ -65,15 +63,14 @@ def test_scanner_owned_keys_disjoint_from_human() -> None:
 # Phase 43 Plan 02: write_entities + supporting helpers
 # ============================================================================
 
-import threading
-import time
+import threading  # noqa: E402
+import time  # noqa: E402
 
-from hypothesis import given, strategies as st, settings
-
-from wiki_io.entity_writer import (
-    EntityWriteError,
-    EntityWriteResult,
+from hypothesis import given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
+from wiki_io.entity_writer import (  # noqa: E402
     STRUCTURAL_KEYS,
+    EntityWriteResult,
     WriteLockHeldError,
     _acquire_scan_lock,
     _append_deletion,
@@ -84,7 +81,6 @@ from wiki_io.entity_writer import (
     write_entities,
 )
 
-
 # ----------------------------------------------------------------------------
 # Task 1 sanity: constants + result dataclass shape
 # ----------------------------------------------------------------------------
@@ -92,6 +88,7 @@ from wiki_io.entity_writer import (
 
 def test_structural_keys_subset_invariant() -> None:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS)
     # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
     assert len(STRUCTURAL_KEYS) == 9
@@ -143,23 +140,23 @@ def test_merge_key_order_uri_kind_first() -> None:
 
 def test_merge_scanner_keys_alphabetical() -> None:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     existing = {"uri": "x", "kind": "package"}
     scanner_update = {
-        "uri": "x", "kind": "package",
-        "test_suites": ["t1"], "depends_on": ["d1"], "domains": ["x"],
+        "uri": "x",
+        "kind": "package",
+        "test_suites": ["t1"],
+        "depends_on": ["d1"],
+        "domains": ["x"],
     }
     out = merge_frontmatter(existing, scanner_update)
-    scanner_keys_emitted = [
-        k for k in out.keys()
-        if k in SCANNER_OWNED_KEYS - {"uri", "kind"}
-    ]
+    scanner_keys_emitted = [k for k in out.keys() if k in SCANNER_OWNED_KEYS - {"uri", "kind"}]
     assert scanner_keys_emitted == sorted(scanner_keys_emitted)
 
 
 def test_merge_drops_empty_scanner_values() -> None:
     existing = {"uri": "x", "kind": "package"}
-    scanner_update = {"uri": "x", "kind": "package",
-                      "depends_on": [], "domains": ["d"]}
+    scanner_update = {"uri": "x", "kind": "package", "depends_on": [], "domains": ["d"]}
     out = merge_frontmatter(existing, scanner_update)
     assert "depends_on" not in out
     assert out["domains"] == ["d"]
@@ -174,9 +171,13 @@ def test_merge_sorts_and_dedupes_collection_values() -> None:
 
 def test_merge_preserves_human_key_order() -> None:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     existing = {
-        "uri": "x", "kind": "package",
-        "owner": "alice", "status": "live", "notes": "see ADR-12",
+        "uri": "x",
+        "kind": "package",
+        "owner": "alice",
+        "status": "live",
+        "notes": "see ADR-12",
     }
     scanner_update = {"uri": "x", "kind": "package"}
     out = merge_frontmatter(existing, scanner_update)
@@ -189,12 +190,11 @@ def test_merge_preserves_human_key_order() -> None:
 
 def _scanner_owned_minus_uri_kind() -> list[str]:
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     return sorted(SCANNER_OWNED_KEYS - {"uri", "kind"})
 
 
-_HUMAN_KEY_NAMES = st.sampled_from(
-    ["status", "owner", "notes", "last_reviewed", "tags", "custom_x"]
-)
+_HUMAN_KEY_NAMES = st.sampled_from(["status", "owner", "notes", "last_reviewed", "tags", "custom_x"])
 _SCANNER_KEY_NAMES = st.sampled_from(_scanner_owned_minus_uri_kind())
 _VALUES = st.one_of(
     st.text(min_size=0, max_size=20),
@@ -225,6 +225,7 @@ def scanner_dict(draw):
 @settings(max_examples=500, deadline=None)
 def test_merge_property_non_whitelist_preserved(existing, scanner):
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     out = merge_frontmatter(existing, scanner)
     for k, v in existing.items():
         if k not in SCANNER_OWNED_KEYS:
@@ -236,6 +237,7 @@ def test_merge_property_non_whitelist_preserved(existing, scanner):
 @settings(max_examples=500, deadline=None)
 def test_merge_property_scanner_keys_taken_from_scanner(existing, scanner):
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     out = merge_frontmatter(existing, scanner)
     for k in SCANNER_OWNED_KEYS - {"uri", "kind"}:
         if k in scanner:
@@ -325,9 +327,7 @@ def test_append_deletion_writes_jsonl(tmp_path):
         "kind": "package",
         "body_was_empty": True,
     }
-    record2 = {**record1,
-               "uri": "pkg:agent-research/bar",
-               "slug": "pkg__agent-research__bar"}
+    record2 = {**record1, "uri": "pkg:agent-research/bar", "slug": "pkg__agent-research__bar"}
     _append_deletion(log_path, record1)
     _append_deletion(log_path, record2)
     lines = log_path.read_text().strip().splitlines()
@@ -428,10 +428,7 @@ def test_render_entity_page_byte_stable_across_runs(tmp_path):
 def test_render_substitutes_data_token_keeps_instruction_angle(tmp_path) -> None:
     """SCAN-01/D-01: {{...}} data tokens are substituted; <...> instruction left intact."""
     template_path = tmp_path / "tpl.md"
-    template_path.write_text(
-        "---\nkind: package\n---\n# {{package_name}}\n\n"
-        "> TODO: <add the package purpose>\n"
-    )
+    template_path.write_text("---\nkind: package\n---\n# {{package_name}}\n\n> TODO: <add the package purpose>\n")
     fm = {"uri": "pkg:x", "kind": "package"}
     out = _render_entity_page(template_path, fm, {"package_name": "wiki-io"})
     assert "# wiki-io" in out
@@ -443,9 +440,7 @@ def test_render_substitutes_data_token_keeps_instruction_angle(tmp_path) -> None
 def test_render_unmapped_token_becomes_todo_marker(tmp_path) -> None:
     """D-03: an unmapped {{...}} token resolves to a TODO marker, never raw {{...}}."""
     template_path = tmp_path / "tpl.md"
-    template_path.write_text(
-        "---\nkind: package\n---\n# {{package_name}}\n\nVersion: {{version}}\n"
-    )
+    template_path.write_text("---\nkind: package\n---\n# {{package_name}}\n\nVersion: {{version}}\n")
     fm = {"uri": "pkg:x", "kind": "package"}
     # version is intentionally NOT in the variable map.
     out = _render_entity_page(template_path, fm, {"package_name": "wiki-io"})
@@ -490,6 +485,7 @@ def test_merge_summary_todo_marker_when_description_empty() -> None:
 def test_summary_not_in_scanner_owned_keys() -> None:
     """D-07: summary must NOT be a scanner-owned key (else it clobbers human edits)."""
     from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+
     assert "summary" not in SCANNER_OWNED_KEYS
 
 
@@ -507,26 +503,28 @@ def _wire_mock_queries(monkeypatch, q_module):
     monkeypatch.setattr(q_module, "list_test_suites", lambda c: c.list_nodes("test_suite"))
     monkeypatch.setattr(q_module, "list_dependencies", lambda c: c.list_nodes("dependency"))
     monkeypatch.setattr(q_module, "list_agent_plugins", lambda c: c.list_nodes("agent_plugin"))
-    monkeypatch.setattr(q_module, "describe_repository",
-                        lambda c: c.get_description("repository", None))
-    monkeypatch.setattr(q_module, "describe_package",
-                        lambda c, *, name: c.get_description("package", name))
-    monkeypatch.setattr(q_module, "describe_app",
-                        lambda c, *, name: c.get_description("app", name))
-    monkeypatch.setattr(q_module, "describe_domain",
-                        lambda c, *, name: c.get_description("domain", name))
-    monkeypatch.setattr(q_module, "describe_test_suite",
-                        lambda c, *, suite_name: c.get_description("test_suite", suite_name))
-    monkeypatch.setattr(q_module, "describe_dependency",
-                        lambda c, *, ecosystem, name: c.get_description("dependency", (ecosystem, name)))
-    monkeypatch.setattr(q_module, "describe_agent_plugin",
-                        lambda c, *, name: c.get_description("agent_plugin", name))
+    monkeypatch.setattr(q_module, "describe_repository", lambda c: c.get_description("repository", None))
+    monkeypatch.setattr(q_module, "describe_package", lambda c, *, name: c.get_description("package", name))
+    monkeypatch.setattr(q_module, "describe_app", lambda c, *, name: c.get_description("app", name))
+    monkeypatch.setattr(q_module, "describe_domain", lambda c, *, name: c.get_description("domain", name))
+    monkeypatch.setattr(
+        q_module, "describe_test_suite", lambda c, *, suite_name: c.get_description("test_suite", suite_name)
+    )
+    monkeypatch.setattr(
+        q_module,
+        "describe_dependency",
+        lambda c, *, ecosystem, name: c.get_description("dependency", (ecosystem, name)),
+    )
+    monkeypatch.setattr(q_module, "describe_agent_plugin", lambda c, *, name: c.get_description("agent_plugin", name))
 
 
 def test_write_entities_creates_pages_per_admitted_kind(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
 
     wiki_root = tmp_path / "wiki"
@@ -544,9 +542,12 @@ def test_write_entities_creates_pages_per_admitted_kind(
 
 
 def test_write_entities_second_run_all_unchanged(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -557,9 +558,12 @@ def test_write_entities_second_run_all_unchanged(
 
 
 def test_write_entities_deletes_pages_for_disappeared_nodes(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -576,9 +580,12 @@ def test_write_entities_deletes_pages_for_disappeared_nodes(
 
 
 def test_write_entities_preserves_human_authored_status(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -592,18 +599,26 @@ def test_write_entities_preserves_human_authored_status(
 
 
 def test_write_entities_needs_narrative_on_structural_change(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     from graph_io import queries as q
     from graph_io.queries import PackageDescription
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     # Mutate package description so domains list changes — should trigger needs_narrative
     new_desc = PackageDescription(
-        name="graph-io", language="python", version="0.2.1",
-        files=["x"], counts={}, domains=["storage", "new-domain"],
-        entry_points=[], test_suites=[],
+        name="graph-io",
+        language="python",
+        version="0.2.1",
+        files=["x"],
+        counts={},
+        domains=["storage", "new-domain"],
+        entry_points=[],
+        test_suites=[],
     )
     mock_graph_conn.set_description("package", "graph-io", new_desc)
     r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -612,10 +627,13 @@ def test_write_entities_needs_narrative_on_structural_change(
 
 
 def test_write_entities_preserves_human_body_section_across_rescan(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     """A hand-filled ## Purpose section survives a second write_entities run."""
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -629,15 +647,18 @@ def test_write_entities_preserves_human_body_section_across_rescan(
 
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
     final = page_path.read_text()
-    assert human_prose in final            # human ## Purpose preserved
-    assert "## Public API" in final        # sibling sections intact
+    assert human_prose in final  # human ## Purpose preserved
+    assert "## Public API" in final  # sibling sections intact
 
 
 def test_write_entities_preserves_custom_h2_across_rescan(
-    tmp_path, mock_graph_conn, monkeypatch,
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
 ):
     """A user-added H2 section (not in the template) survives a re-scan."""
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -656,9 +677,9 @@ def test_write_entities_preserves_custom_h2_across_rescan(
 # Phase 52 Plan 02: short_filename integration in write_entities
 # ============================================================================
 
-import hashlib as _hashlib_phase52
+import hashlib as _hashlib_phase52  # noqa: E402
 
-from graph_io.queries import NodeRecord as _NodeRecord_phase52
+from graph_io.queries import NodeRecord as _NodeRecord_phase52  # noqa: E402
 
 
 def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
@@ -669,55 +690,105 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
     file lands at the expected short stem.
     """
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
 
     # Override the default fixture's test_suite node to set suite_kind="unit"
     # and a path whose parent.name is the package name. Also overwrite the
     # default packages to predictable single-pkg shape for this test.
-    mock_graph_conn.set_nodes("repository", [
-        _NodeRecord_phase52(
-            kind="repository", name="test-repo", path=None, line=None,
-            attrs={"uri": "repo:test-org/test-repo", "owner": "test-org"},
-        ),
-    ])
-    mock_graph_conn.set_nodes("package", [
-        _NodeRecord_phase52(
-            kind="package", name="widget", path="packages/widget", line=None,
-            attrs={"uri": "pkg:test-org/test-repo/widget",
-                   "language": "python", "version": "0.1.1"},
-        ),
-    ])
-    mock_graph_conn.set_nodes("domain", [
-        _NodeRecord_phase52(
-            kind="domain", name="observability", path=None, line=None,
-            attrs={"uri": "domain:test-org/test-repo/observability"},
-        ),
-    ])
-    mock_graph_conn.set_nodes("agent_plugin", [
-        _NodeRecord_phase52(
-            kind="agent_plugin", name="demo-plugin", path=None, line=None,
-            attrs={"uri": "agent_plugin:local/agent-research/demo-plugin",
-                   "ecosystem": "claude-code", "version": "", "description": "",
-                   "components": {"commands": [], "agents": [], "skills": [],
-                                  "scripts": [], "hooks": [], "mcp_servers": []}},
-        ),
-    ])
-    mock_graph_conn.set_nodes("dependency", [
-        _NodeRecord_phase52(
-            kind="dependency", name="example-lib", path=None, line=None,
-            attrs={"uri": "dependency:pypi/example-lib",
-                   "ecosystem": "pypi",
-                   "versions_in_use": ["example-lib>=1.0"]},
-        ),
-    ])
-    mock_graph_conn.set_nodes("test_suite", [
-        _NodeRecord_phase52(
-            kind="test_suite", name="widget-tests",
-            path="packages/widget/tests", line=None,
-            attrs={"uri": "test_suite:test-org/test-repo/packages/widget/tests",
-                   "suite_kind": "unit", "file_count": 5},
-        ),
-    ])
+    mock_graph_conn.set_nodes(
+        "repository",
+        [
+            _NodeRecord_phase52(
+                kind="repository",
+                name="test-repo",
+                path=None,
+                line=None,
+                attrs={"uri": "repo:test-org/test-repo", "owner": "test-org"},
+            ),
+        ],
+    )
+    mock_graph_conn.set_nodes(
+        "package",
+        [
+            _NodeRecord_phase52(
+                kind="package",
+                name="widget",
+                path="packages/widget",
+                line=None,
+                attrs={"uri": "pkg:test-org/test-repo/widget", "language": "python", "version": "0.1.1"},
+            ),
+        ],
+    )
+    mock_graph_conn.set_nodes(
+        "domain",
+        [
+            _NodeRecord_phase52(
+                kind="domain",
+                name="observability",
+                path=None,
+                line=None,
+                attrs={"uri": "domain:test-org/test-repo/observability"},
+            ),
+        ],
+    )
+    mock_graph_conn.set_nodes(
+        "agent_plugin",
+        [
+            _NodeRecord_phase52(
+                kind="agent_plugin",
+                name="demo-plugin",
+                path=None,
+                line=None,
+                attrs={
+                    "uri": "agent_plugin:local/agent-research/demo-plugin",
+                    "ecosystem": "claude-code",
+                    "version": "",
+                    "description": "",
+                    "components": {
+                        "commands": [],
+                        "agents": [],
+                        "skills": [],
+                        "scripts": [],
+                        "hooks": [],
+                        "mcp_servers": [],
+                    },
+                },
+            ),
+        ],
+    )
+    mock_graph_conn.set_nodes(
+        "dependency",
+        [
+            _NodeRecord_phase52(
+                kind="dependency",
+                name="example-lib",
+                path=None,
+                line=None,
+                attrs={
+                    "uri": "dependency:pypi/example-lib",
+                    "ecosystem": "pypi",
+                    "versions_in_use": ["example-lib>=1.0"],
+                },
+            ),
+        ],
+    )
+    mock_graph_conn.set_nodes(
+        "test_suite",
+        [
+            _NodeRecord_phase52(
+                kind="test_suite",
+                name="widget-tests",
+                path="packages/widget/tests",
+                line=None,
+                attrs={
+                    "uri": "test_suite:test-org/test-repo/packages/widget/tests",
+                    "suite_kind": "unit",
+                    "file_count": 5,
+                },
+            ),
+        ],
+    )
     # Descriptions: only the package one is strictly required (existing
     # `_wire_mock_queries` wires describe_* to read from set_description).
     # Without it, scanner_frontmatter_for_node sees `d is None` and skips
@@ -738,8 +809,7 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
     ]
     for fname in expected_files:
         assert (entities / fname).exists(), (
-            f"expected {fname} on disk; "
-            f"got: {sorted(p.name for p in entities.iterdir())}"
+            f"expected {fname} on disk; got: {sorted(p.name for p in entities.iterdir())}"
         )
     assert result.errors == [], f"unexpected errors: {result.errors}"
 
@@ -753,6 +823,7 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
     symmetric suffixes.
     """
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
 
     mock_graph_conn.set_nodes("repository", [])
@@ -760,18 +831,25 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])
-    mock_graph_conn.set_nodes("package", [
-        _NodeRecord_phase52(
-            kind="package", name="utils", path="org-a/repo/utils", line=None,
-            attrs={"uri": "pkg:org-a/repo/utils",
-                   "language": "python", "version": "0.1.1"},
-        ),
-        _NodeRecord_phase52(
-            kind="package", name="utils", path="org-b/repo/utils", line=None,
-            attrs={"uri": "pkg:org-b/repo/utils",
-                   "language": "python", "version": "0.1.1"},
-        ),
-    ])
+    mock_graph_conn.set_nodes(
+        "package",
+        [
+            _NodeRecord_phase52(
+                kind="package",
+                name="utils",
+                path="org-a/repo/utils",
+                line=None,
+                attrs={"uri": "pkg:org-a/repo/utils", "language": "python", "version": "0.1.1"},
+            ),
+            _NodeRecord_phase52(
+                kind="package",
+                name="utils",
+                path="org-b/repo/utils",
+                line=None,
+                attrs={"uri": "pkg:org-b/repo/utils", "language": "python", "version": "0.1.1"},
+            ),
+        ],
+    )
 
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -788,6 +866,7 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
 def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
     """Phase 52 D-05: `dependency:` URIs produce `dep_<name>.md`, not `dependency_<name>.md`."""
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
 
     mock_graph_conn.set_nodes("repository", [])
@@ -795,14 +874,22 @@ def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
     mock_graph_conn.set_nodes("domain", [])
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("test_suite", [])
-    mock_graph_conn.set_nodes("dependency", [
-        _NodeRecord_phase52(
-            kind="dependency", name="sample-pkg", path=None, line=None,
-            attrs={"uri": "dependency:pypi/sample-pkg",
-                   "ecosystem": "pypi",
-                   "versions_in_use": ["sample-pkg>=1.0"]},
-        ),
-    ])
+    mock_graph_conn.set_nodes(
+        "dependency",
+        [
+            _NodeRecord_phase52(
+                kind="dependency",
+                name="sample-pkg",
+                path=None,
+                line=None,
+                attrs={
+                    "uri": "dependency:pypi/sample-pkg",
+                    "ecosystem": "pypi",
+                    "versions_in_use": ["sample-pkg>=1.0"],
+                },
+            ),
+        ],
+    )
 
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -820,7 +907,6 @@ def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
 def test_entity_app_template_exists() -> None:
     """Phase 52 D-06: entity-app.md template exists and is loadable as `kind: app`."""
     import frontmatter as _fm
-
     from wiki_io.entity_writer import _template_path_for_kind
 
     path = _template_path_for_kind("app")
@@ -839,6 +925,7 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
     fully verified.
     """
     from graph_io import queries as q
+
     _wire_mock_queries(monkeypatch, q)
 
     # Override fixture: only an app node, plus the default required template kinds.
@@ -848,14 +935,18 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])
-    mock_graph_conn.set_nodes("app", [
-        _NodeRecord_phase52(
-            kind="app", name="demo-app",
-            path="apps/demo-app", line=None,
-            attrs={"uri": "app:test-org/test-repo/demo-app",
-                   "language": "python", "version": "0.1.1"},
-        ),
-    ])
+    mock_graph_conn.set_nodes(
+        "app",
+        [
+            _NodeRecord_phase52(
+                kind="app",
+                name="demo-app",
+                path="apps/demo-app",
+                line=None,
+                attrs={"uri": "app:test-org/test-repo/demo-app", "language": "python", "version": "0.1.1"},
+            ),
+        ],
+    )
 
     wiki_root = tmp_path / "wiki"
     result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -863,11 +954,11 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
 
     page_path = wiki_root / "entities" / "app_demo-app.md"
     assert page_path.exists(), (
-        f"expected app_demo-app.md at {page_path}; "
-        f"got: {sorted(p.name for p in (wiki_root / 'entities').iterdir())}"
+        f"expected app_demo-app.md at {page_path}; got: {sorted(p.name for p in (wiki_root / 'entities').iterdir())}"
     )
 
     import frontmatter as _fm
+
     post = _fm.load(page_path)
     assert post.metadata.get("kind") == "app"
     assert post.metadata.get("uri") == "app:test-org/test-repo/demo-app"

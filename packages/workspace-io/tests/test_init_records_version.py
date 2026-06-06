@@ -1,4 +1,5 @@
 """init() writes installed_version and applied_version."""
+
 from workspace_io.init import init
 from workspace_io.manifest import read
 from workspace_io.paths import manifest_path
@@ -24,5 +25,6 @@ def test_idempotent_same_version_no_rewrite(tmp_path):
 
 def test_missing_version_kwarg_raises(tmp_path):
     import pytest
+
     with pytest.raises(TypeError):
         init(tmp_path, plugin="graph-wiki-agent")  # type: ignore[call-arg]

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """log command — append timestamped events to wiki/log.md.
 
 Public API:
@@ -9,6 +7,8 @@ Public API:
 State gate: intentionally not applied to log — log is the recording mechanism itself.
 Applying a state gate to the recording mechanism would be circular (RESEARCH §log Command).
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

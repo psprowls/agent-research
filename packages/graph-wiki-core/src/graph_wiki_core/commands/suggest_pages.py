@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Living Wiki M3 — inline page-suggestion pass for run_ingest_source.
 
 After a Source page lands, propose which concept/adr/architecture pages the
@@ -15,6 +13,8 @@ Public API:
     build_extract_suggestions_prompt(source_text, vault_index) -> str
     run_suggest_phase(*, wiki, page_path) -> (list[dict], bool)
 """
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path
@@ -159,8 +159,7 @@ def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) 
 
     if vault_index:
         index_lines = "\n".join(
-            f"  - {e['kind']}/{e['slug']} — {e.get('title', '')}"
-            + (f" — {e['summary']}" if e.get("summary") else "")
+            f"  - {e['kind']}/{e['slug']} — {e.get('title', '')}" + (f" — {e['summary']}" if e.get("summary") else "")
             for e in vault_index
         )
     else:

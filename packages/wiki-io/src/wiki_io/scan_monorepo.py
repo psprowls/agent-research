@@ -114,11 +114,8 @@ def _parse_pyproject_deps(text: str) -> tuple[list[str], dict[str, str]]:
     except Exception:  # noqa: BLE001 — malformed pyproject, skip silently
         return [], {}
 
-    sources = (data.get("tool", {}).get("uv", {}).get("sources") or {})
-    workspace_names = {
-        name for name, src in sources.items()
-        if isinstance(src, dict) and src.get("workspace") is True
-    }
+    sources = data.get("tool", {}).get("uv", {}).get("sources") or {}
+    workspace_names = {name for name, src in sources.items() if isinstance(src, dict) and src.get("workspace") is True}
 
     raw_deps = data.get("project", {}).get("dependencies") or []
     workspace_deps: list[str] = []
@@ -132,7 +129,7 @@ def _parse_pyproject_deps(text: str) -> tuple[list[str], dict[str, str]]:
         if name in workspace_names:
             workspace_deps.append(name)
             continue
-        spec = req.strip()[len(name):].strip()
+        spec = req.strip()[len(name) :].strip()
         external[name] = spec
     return sorted(workspace_deps), external
 
@@ -349,9 +346,7 @@ def _git_ls_files(pkg_path: Path) -> list[str] | None:
     if result.returncode != 0:
         return None
     return sorted(
-        rel
-        for line in result.stdout.splitlines()
-        if (rel := line.strip()) and not _is_compiled_artifact(rel)
+        rel for line in result.stdout.splitlines() if (rel := line.strip()) and not _is_compiled_artifact(rel)
     )
 
 
@@ -376,10 +371,16 @@ def _is_compiled_artifact(rel: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _TEST_DIR_NAMES = frozenset({"tests", "__tests__", "test", "spec"})
-_TEST_CONFIG_NAMES = frozenset({
-    "conftest.py", "pytest.ini", "tox.ini", "pyproject-tests.toml",
-    "karma.conf.js", "karma.conf.ts",
-})
+_TEST_CONFIG_NAMES = frozenset(
+    {
+        "conftest.py",
+        "pytest.ini",
+        "tox.ini",
+        "pyproject-tests.toml",
+        "karma.conf.js",
+        "karma.conf.ts",
+    }
+)
 # Matches names like jest.config.{js,ts,mjs,cjs,json}, vitest.config.{js,ts,mjs},
 # playwright.config.{js,ts}, cypress.config.{js,ts}, mocha.config.js,
 # .mocharc.{js,json,yaml,yml}, ava.config.{js,cjs,mjs}
@@ -422,6 +423,7 @@ def _is_test_path(rel: str) -> bool:
 # ---------------------------------------------------------------------------
 # File map emitter
 # ---------------------------------------------------------------------------
+
 
 def _emit_file_map_block(
     pkg_name: str,

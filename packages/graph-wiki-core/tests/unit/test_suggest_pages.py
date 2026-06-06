@@ -63,15 +63,15 @@ def test_parse_extractor_response_unparseable_returns_false() -> None:
 def test_parse_extractor_response_drops_invalid_kind_and_normalizes() -> None:
     raw = (
         "suggestions:\n"
-        "  - kind: package\n"          # invalid kind -> dropped
+        "  - kind: package\n"  # invalid kind -> dropped
         "    title: Bad\n"
         "    slug: bad\n"
         "    mode: create_new\n"
         "    rationale: r\n"
         "  - kind: architecture\n"
         "    title: Good\n"
-        "    slug: 'Good Slug!'\n"      # slugified
-        "    mode: bogus\n"            # invalid mode -> create_new
+        "    slug: 'Good Slug!'\n"  # slugified
+        "    mode: bogus\n"  # invalid mode -> create_new
         "    rationale: r2\n"
     )
     entries, parsed = parse_extractor_response(raw)
@@ -171,9 +171,7 @@ async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
     note = proposal_path(wiki, "concept", "a-concept")
     assert note.exists()
     rec = list_proposals(wiki)[0]
-    assert rec["origins"] == [
-        {"ref": "sources/doc", "source": "ingest", "rationale": "justified"}
-    ]
+    assert rec["origins"] == [{"ref": "sources/doc", "source": "ingest", "rationale": "justified"}]
     # The Source page is NOT touched — no suggested_pages, no section.
     assert page.read_text(encoding="utf-8") == original
     assert "suggested_pages" not in original

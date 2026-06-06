@@ -82,11 +82,7 @@ def _run_server(payload_objs: list[dict]) -> tuple[str, str]:
     stdout = stdout_bytes.decode()
     stderr = stderr_bytes.decode()
     if proc.returncode not in (0, None):
-        pytest.fail(
-            f"MCP server exited with code {proc.returncode}.\n"
-            f"stdout: {stdout[:500]}\n"
-            f"stderr: {stderr[:500]}"
-        )
+        pytest.fail(f"MCP server exited with code {proc.returncode}.\nstdout: {stdout[:500]}\nstderr: {stderr[:500]}")
     return stdout, stderr
 
 
@@ -148,8 +144,7 @@ def test_mcp_wiki_ping_returns_pong():
     assert tool_resp["result"].get("isError") is False, f"tools/call result flagged as error: {tool_resp!r}"
 
 
-import os
-
+import os  # noqa: E402
 
 INTEGRATION_GATE = pytest.mark.skipif(
     not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),

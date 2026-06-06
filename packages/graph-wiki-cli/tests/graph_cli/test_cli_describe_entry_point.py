@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from graph_io import exit_codes
 from graph_wiki_cli.graph_cli import q_describe_entry_point
 
@@ -45,14 +44,10 @@ def workspace_path(tmp_path_factory):
     shutil.copytree(fixture_src, repo_root)
 
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=repo_root, check=True)
 
     update.run(repo_root, full=True)
 
@@ -68,9 +63,7 @@ def test_describe_entry_point_with_known_name(workspace_path, capsys):
 
 
 def test_describe_entry_point_unknown_name_returns_generic(workspace_path, capsys):
-    args = _build_namespace(
-        workspace_path, name="definitely-not-a-real-entry-point-9999"
-    )
+    args = _build_namespace(workspace_path, name="definitely-not-a-real-entry-point-9999")
     exit_code = q_describe_entry_point.run(args)
     assert exit_code == exit_codes.GENERIC
     captured = capsys.readouterr()

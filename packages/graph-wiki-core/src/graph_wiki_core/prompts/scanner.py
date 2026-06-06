@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Scanner system prompt for graph-wiki-core.
 
 Composes shared fragments (IRON_RULES, FRONTMATTER_RULES, ARCHITECTURE_OVERVIEW,
@@ -12,8 +10,9 @@ Exports:
     SCANNER_SYSTEM — backward-compat constant, equals build_scanner_system().
 """
 
-# Source: plugins/graph-wiki/agents/scanner.md §Role, §Rules, §Red flags
+from __future__ import annotations
 
+# Source: plugins/graph-wiki/agents/scanner.md §Role, §Rules, §Red flags
 from graph_wiki_core.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
 from graph_wiki_core.prompts._fragments.frontmatter_rules import FRONTMATTER_RULES
 from graph_wiki_core.prompts._fragments.iron_rules import IRON_RULES

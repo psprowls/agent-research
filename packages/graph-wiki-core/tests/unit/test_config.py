@@ -1,9 +1,9 @@
+"""Unit tests for graph_wiki_core.config module — exercises load_config TOML parsing and the
+_active_config singleton. (CLI-05 / --config plumbing was removed in Phase 20 / WMC-03.)"""
+
 from __future__ import annotations
 
-"""Unit tests for graph_wiki_core.config module — exercises load_config TOML parsing and the _active_config singleton. (CLI-05 / --config plumbing was removed in Phase 20 / WMC-03.)"""
-
 from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Helper

@@ -6,6 +6,7 @@ narrate=False (structural-only — writes entity pages + indexes deterministical
 no Bedrock fan-out, no model_adapter/subagent_runtime needed). Bedrock branch:
 shells out to `gw scan` (narrated), preserving the user's trailing argv.
 """
+
 import argparse
 import asyncio
 import dataclasses
@@ -32,6 +33,7 @@ def main() -> None:
     try:
         from _config import backend_for
     except ImportError:
+
         def backend_for(cmd: str, repo: object = None) -> str:  # type: ignore[misc]
             return "claude"
 

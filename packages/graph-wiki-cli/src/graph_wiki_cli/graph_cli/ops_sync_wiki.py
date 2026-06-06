@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, store, sync_wiki
+from workspace_io.paths import graph_dir
 
 
 def _format_report(report: sync_wiki.DriftReport) -> str:

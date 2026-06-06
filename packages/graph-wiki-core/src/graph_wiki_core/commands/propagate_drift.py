@@ -74,9 +74,9 @@ class PropagationCandidate:
 class PropagateDriftResult:
     pages_judged: int
     entities_considered: int
-    notes_written: int          # target notes created or refreshed this run
+    notes_written: int  # target notes created or refreshed this run
     pages_stale: int
-    pages_skipped_settled: int   # dropped by the ledger pre-filter
+    pages_skipped_settled: int  # dropped by the ledger pre-filter
     dry_run: bool
     proposals: list[dict] = field(default_factory=list)  # report rows for --json
 
@@ -160,9 +160,7 @@ def _page_title(page_path: Path, fallback: str) -> str:
         return fallback
 
 
-def _build_targets(
-    candidates: list[PropagationCandidate], backlink_map: dict
-) -> dict[Path, dict]:
+def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict) -> dict[Path, dict]:
     """page_path -> {kind, target_slug, page_path, candidates[]} for curated
     pages backlinked by a candidate (sources/work filtered out)."""
     targets: dict[Path, dict] = {}
@@ -213,18 +211,10 @@ async def run_propagate_drift(
 
     targets = _build_targets(candidates, build_entity_backlink_map(wiki))
     if only_target is not None:
-        targets = {
-            p: e
-            for p, e in targets.items()
-            if e["target_slug"] == only_target or p.stem == only_target
-        }
+        targets = {p: e for p, e in targets.items() if e["target_slug"] == only_target or p.stem == only_target}
 
     # Ledger pre-filter: drop targets the human already disposed of (§3.3).
-    settled = {
-        (rec["kind"], rec["target_slug"])
-        for rec in list_proposals(wiki)
-        if rec["status"] in HUMAN_DECIDED
-    }
+    settled = {(rec["kind"], rec["target_slug"]) for rec in list_proposals(wiki) if rec["status"] in HUMAN_DECIDED}
     pages_skipped_settled = 0
     judge_targets: list[dict] = []
     for entry in targets.values():
@@ -253,9 +243,7 @@ async def run_propagate_drift(
         body = entry["page_path"].read_text(encoding="utf-8")
         title = _page_title(entry["page_path"], entry["target_slug"])
         entity_tuples = [(c.stem, c.narrative, c.changed_files) for c in entry["candidates"]]
-        items.append(
-            (entry["kind"], entry["target_slug"], title, body, entity_tuples, entry)
-        )
+        items.append((entry["kind"], entry["target_slug"], title, body, entity_tuples, entry))
 
     verdicts: list[tuple] = []
     if items:
@@ -266,9 +254,7 @@ async def run_propagate_drift(
         async def judge(item: tuple) -> "TaskResult":
             kind, _slug, title, body, entity_tuples, _entry = item
             system_msg, human_msg = build_drift_propagator_prompt(kind, title, body, entity_tuples)
-            resp = await llm.ainvoke(
-                [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
-            )
+            resp = await llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
             return TaskResult(value=parse_drift_propagator_verdict(resp.content), response=resp)
 
         fan = await pool.run_all(

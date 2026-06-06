@@ -26,14 +26,10 @@ from wiki_io.entity_writer import (
 
 # Entity-kind nodes worth a name-fallback match (file names are noisy).
 # Mirrors the former `_ENTITY_KINDS` in graph_wiki_core.commands.ingest.
-ENTITY_KINDS: frozenset[str] = frozenset(
-    {"package", "class", "function", "method", "domain"}
-)
+ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
 
 
-def lookup_entity_by_path(
-    conn: sqlite3.Connection, repo_root: Path, source_path: Path
-) -> tuple[str, str] | None:
+def lookup_entity_by_path(conn: sqlite3.Connection, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
     """Return (uri, name) for the package CONTAINING the source file, or None.
 
     Resolves source_path relative to repo_root (POSIX-style), then joins
@@ -61,9 +57,7 @@ def lookup_entity_by_path(
     return uri, name
 
 
-def lookup_entity_by_name(
-    conn: sqlite3.Connection, name: str
-) -> tuple[str, str] | None:
+def lookup_entity_by_name(conn: sqlite3.Connection, name: str) -> tuple[str, str] | None:
     """Return (uri, name) for the unique entity-kind match by name, or None.
 
     When more than one entity-kind node shares the name, emit one stderr
@@ -72,10 +66,7 @@ def lookup_entity_by_name(
     if not name:
         return None
     placeholders = ",".join("?" for _ in ENTITY_KINDS)
-    sql = (
-        f"SELECT name, uri, kind FROM nodes "
-        f"WHERE name = ? AND kind IN ({placeholders}) AND uri IS NOT NULL"
-    )
+    sql = f"SELECT name, uri, kind FROM nodes WHERE name = ? AND kind IN ({placeholders}) AND uri IS NOT NULL"
     rows = conn.execute(sql, [name, *sorted(ENTITY_KINDS)]).fetchall()
     if not rows:
         return None
@@ -90,9 +81,7 @@ def lookup_entity_by_name(
     return matched_uri, matched_name
 
 
-def entity_filename_for_uri(
-    uri: str, conn: sqlite3.Connection | None = None
-) -> str | None:
+def entity_filename_for_uri(uri: str, conn: sqlite3.Connection | None = None) -> str | None:
     """Return the scanner's on-disk entity filename stem for a graph URI, or
     None when the URI maps to no admitted entity page.
 
@@ -111,9 +100,7 @@ def entity_filename_for_uri(
     collision_set: frozenset[str] = frozenset()
     if conn is not None:
         try:
-            collision_set = _compute_collision_set(
-                conn, ADMITTED_KINDS, _kind_list_fns()
-            )
+            collision_set = _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns())
         except Exception:  # noqa: BLE001 — collision precompute is best-effort
             collision_set = frozenset()
     try:

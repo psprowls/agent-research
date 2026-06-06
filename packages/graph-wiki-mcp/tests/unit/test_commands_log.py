@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Package-local MCP tests for the log tool.
 
 CLI presentation coverage moved to packages/graph-wiki-cli/tests/unit/test_commands_log.py.
 """
+
+from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,9 +26,8 @@ def _make_log_result():
 
 def test_wiki_log_input_rejects_missing_required_fields() -> None:
     """WikiLogInput raises ValidationError when op or title are missing."""
-    from pydantic import ValidationError
-
     from graph_wiki_mcp.server import WikiLogInput
+    from pydantic import ValidationError
 
     with pytest.raises(ValidationError):
         WikiLogInput()  # type: ignore[call-arg]

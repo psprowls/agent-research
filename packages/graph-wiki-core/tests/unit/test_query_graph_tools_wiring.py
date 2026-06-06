@@ -13,17 +13,15 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from graph_io.store import GraphNotInitializedError
 from graph_wiki_core.commands.query import (
-    BUDGET_EXCEEDED_EXIT_CODE,
-    LIBRARIAN_BUDGET_FRACTION,
-    LIBRARIAN_CONTEXT_WINDOW,
     _GRAPH_UNAVAILABLE_STDERR,
     _LIBRARIAN_FALLBACK_ADDENDUM,
     _LIBRARIAN_MAX_ITERS,
+    BUDGET_EXCEEDED_EXIT_CODE,
+    LIBRARIAN_BUDGET_FRACTION,
+    LIBRARIAN_CONTEXT_WINDOW,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -89,10 +87,9 @@ def _mock_llm_for(librarian_llm, synth_llm):
 @pytest.mark.asyncio
 async def test_single_connection_open_close(tmp_path: Path) -> None:
     """Successful run opens read_only_connect once, closes the returned conn once."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = _make_vault(tmp_path)
     fake_conn = MagicMock()
@@ -108,9 +105,7 @@ async def test_single_connection_open_close(tmp_path: Path) -> None:
     librarian_llm.bind_tools = MagicMock(return_value=librarian_llm)
     synth_llm = MagicMock()
     synth_llm.ainvoke = AsyncMock(return_value=AIMessage(content="answer"))
-    fan_result = FanOutResult(
-        successes=[("page1.md", "useful excerpt content here")], errors=[]
-    )
+    fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     extra = [
         patch("graph_wiki_core.commands.query.read_only_connect", side_effect=_fake_open),
@@ -120,7 +115,12 @@ async def test_single_connection_open_close(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.query.SubagentPool"),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, mock_make_llm, mock_pool_cls = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -136,10 +136,9 @@ async def test_single_connection_open_close(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_not_initialized_fallback(tmp_path: Path, capsys) -> None:
     """GraphNotInitializedError → one stderr line, addendum in system prompt, no bind_tools."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = _make_vault(tmp_path)
     librarian_resp = MagicMock(content="excerpt", tool_calls=[])
@@ -148,9 +147,7 @@ async def test_not_initialized_fallback(tmp_path: Path, capsys) -> None:
     librarian_llm.bind_tools = MagicMock(return_value=librarian_llm)
     synth_llm = MagicMock()
     synth_llm.ainvoke = AsyncMock(return_value=AIMessage(content="answer"))
-    fan_result = FanOutResult(
-        successes=[("page1.md", "useful excerpt content here")], errors=[]
-    )
+    fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     def _raise(_):
         raise GraphNotInitializedError("missing")
@@ -163,7 +160,12 @@ async def test_not_initialized_fallback(tmp_path: Path, capsys) -> None:
         patch("graph_wiki_core.commands.query.SubagentPool"),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, mock_make_llm, mock_pool_cls = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -207,9 +209,7 @@ async def test_budget_overflow_hard_aborts(tmp_path: Path, capsys) -> None:
             return_value=MagicMock(),
         ),
         patch("graph_wiki_core.commands.query.build_graph_tools", return_value=[]),
-        patch(
-            "graph_wiki_core.commands.query.count_tokens", return_value=9_999_999
-        ),
+        patch("graph_wiki_core.commands.query.count_tokens", return_value=9_999_999),
         patch(
             "graph_wiki_core.commands.query._estimate_tool_schema_tokens",
             return_value=0,
@@ -218,7 +218,12 @@ async def test_budget_overflow_hard_aborts(tmp_path: Path, capsys) -> None:
         patch("graph_wiki_core.commands.query.SubagentPool"),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, _et, mock_make_llm, mock_pool_cls = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -240,10 +245,9 @@ async def test_budget_overflow_hard_aborts(tmp_path: Path, capsys) -> None:
 @pytest.mark.asyncio
 async def test_budget_under_proceeds(tmp_path: Path) -> None:
     """measured < budget → run_query completes, pool.run_all called exactly once."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = _make_vault(tmp_path)
     librarian_resp = MagicMock(content="excerpt", tool_calls=[])
@@ -252,9 +256,7 @@ async def test_budget_under_proceeds(tmp_path: Path) -> None:
     librarian_llm.bind_tools = MagicMock(return_value=librarian_llm)
     synth_llm = MagicMock()
     synth_llm.ainvoke = AsyncMock(return_value=AIMessage(content="answer"))
-    fan_result = FanOutResult(
-        successes=[("page1.md", "useful excerpt content here")], errors=[]
-    )
+    fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     extra = [
         patch(
@@ -271,7 +273,12 @@ async def test_budget_under_proceeds(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.query.SubagentPool"),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=fan_result, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, _et, mock_make_llm, mock_pool_cls = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -287,17 +294,14 @@ async def test_budget_under_proceeds(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_librarian_tool_call_loop(tmp_path: Path) -> None:
     """ainvoke returns tool_calls → tool.invoke runs → second ainvoke sees ToolMessage."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage, ToolMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = _make_vault(tmp_path)
     first = MagicMock(
         content="",
-        tool_calls=[
-            {"name": "cg_find", "args": {"name": "foo"}, "id": "call_001"}
-        ],
+        tool_calls=[{"name": "cg_find", "args": {"name": "foo"}, "id": "call_001"}],
     )
     second = MagicMock(content="excerpt", tool_calls=[])
     librarian_llm = MagicMock()
@@ -324,7 +328,12 @@ async def test_librarian_tool_call_loop(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.query.SubagentPool"),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, mock_make_llm, mock_pool_cls = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -353,10 +362,9 @@ async def test_librarian_tool_call_loop(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
     """ainvoke always returns tool_calls → loop exits at _LIBRARIAN_MAX_ITERS."""
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = _make_vault(tmp_path)
     looping_resp = MagicMock(
@@ -394,7 +402,12 @@ async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
         ),
     ]
     with ExitStack() as stack:
-        mocks = [stack.enter_context(p) for p in _patches(vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra)]
+        mocks = [
+            stack.enter_context(p)
+            for p in _patches(
+                vault, fan_result=None, librarian_llm=librarian_llm, synth_llm=synth_llm, extra_patches=extra
+            )
+        ]
         _r, _b, _c, _e, _ro, _bt, _ct, mock_make_llm, mock_pool_cls, _cf = mocks
         mock_make_llm.side_effect = _mock_llm_for(librarian_llm, synth_llm)
         mock_pool_inst = MagicMock()
@@ -420,9 +433,7 @@ async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
 def test_pyproject_has_graph_io_and_langchain_aws_floor() -> None:
     """Sanity check that Plan 01's pyproject edits landed before Plan 02 ships."""
     here = Path(__file__).resolve()
-    pyproject = (
-        here.parent.parent.parent / "pyproject.toml"
-    )  # agents/graph-wiki-core/pyproject.toml
+    pyproject = here.parent.parent.parent / "pyproject.toml"  # agents/graph-wiki-core/pyproject.toml
     text = pyproject.read_text()
     assert '"graph-io"' in text
     assert "langchain-aws>=1.4.7" in text

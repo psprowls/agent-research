@@ -35,10 +35,10 @@ import sys
 from pathlib import Path
 
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+from workspace_io.paths import graph_dir
 
 from graph_io import _ignore, upsert
 from graph_io.uri import RepoContext, builtin_uri
-from workspace_io.paths import graph_dir
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -52,20 +52,14 @@ _NODE_SUBPROCESS_TIMEOUT_S = 5
 # Regex for Python `from X import a, b` — captures the post-import clause (D-08).
 # Only matches single-line `from X import ...`; multi-line paren imports are
 # captured partially (Assumption A2 — accepted for Phase 49).
-_PYTHON_FROM_IMPORT_RE = re.compile(
-    r"^\s*from\s+[\w\.]+\s+import\s+([^#\n\\(]+)", re.MULTILINE
-)
+_PYTHON_FROM_IMPORT_RE = re.compile(r"^\s*from\s+[\w\.]+\s+import\s+([^#\n\\(]+)", re.MULTILINE)
 # Module spec capture — same as import_scan._PYTHON_IMPORT_RE
 _PYTHON_IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([\w\.]+)", re.MULTILINE)
 
 # JS import capture — same as import_scan._JS_IMPORT_RE
-_JS_IMPORT_RE = re.compile(
-    r"""(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]"""
-)
+_JS_IMPORT_RE = re.compile(r"""(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]""")
 # JS named import capture: `import { a, b } from "x"` — captures the brace clause.
-_JS_NAMED_IMPORT_RE = re.compile(
-    r"""import\s*\{([^}]+)\}\s+from\s*['"][^'"]+['"]"""
-)
+_JS_NAMED_IMPORT_RE = re.compile(r"""import\s*\{([^}]+)\}\s+from\s*['"][^'"]+['"]""")
 
 # JS file extensions — mirrors import_scan._SCAN_EXTENSIONS_JS.
 # Defined inline to avoid the circular import chain:
@@ -333,8 +327,7 @@ def refresh(
     # Load all Package/App rows from the graph (written by packages.refresh before us).
     # Phase 50 D-04: apps also import builtins; include them.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes "
-        "WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
     ).fetchall()
     if not pkg_rows:
         return
@@ -362,9 +355,7 @@ def refresh(
                 (like,),
             ).fetchall()
         else:
-            file_rows = conn.execute(
-                "SELECT path, attrs_json FROM nodes WHERE kind='file'"
-            ).fetchall()
+            file_rows = conn.execute("SELECT path, attrs_json FROM nodes WHERE kind='file'").fetchall()
 
         file_rels: list[str] = []
         for file_path, file_attrs_json in file_rows:

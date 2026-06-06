@@ -57,8 +57,7 @@ def compute(
             (_REFERENCES_KIND, _DEPENDS_ON_KIND),
         )
         conn.execute(
-            "DELETE FROM edges WHERE kind=? AND dst IN "
-            "(SELECT id FROM nodes WHERE kind=?)",
+            "DELETE FROM edges WHERE kind=? AND dst IN (SELECT id FROM nodes WHERE kind=?)",
             (_TESTS_KIND, _DOMAIN_KIND),
         )
 
@@ -74,24 +73,19 @@ def _compute_references_and_depends_on(
 ) -> None:
     # Load all Domain names
     domain_rows = conn.execute(
-        "SELECT name FROM nodes WHERE kind=?", (_DOMAIN_KIND,),
+        "SELECT name FROM nodes WHERE kind=?",
+        (_DOMAIN_KIND,),
     ).fetchall()
     domain_names = [row[0] for row in domain_rows]
     if not domain_names:
-        return   # zero-domain mode — nothing to derive
+        return  # zero-domain mode — nothing to derive
 
     # Load all Package/App rows (name, path, kind). Phase 50 D-04: apps count too.
-    pkg_rows = conn.execute(
-        "SELECT name, path, kind FROM nodes WHERE kind IN ('package', 'app')"
-    ).fetchall()
-    all_pkg_keys: list[tuple[str, str | None]] = [
-        (name, path) for name, path, _kind in pkg_rows
-    ]
+    pkg_rows = conn.execute("SELECT name, path, kind FROM nodes WHERE kind IN ('package', 'app')").fetchall()
+    all_pkg_keys: list[tuple[str, str | None]] = [(name, path) for name, path, _kind in pkg_rows]
     # Phase 50 D-04: (name, path) -> actual kind so dst tuples of derived edges
     # (e.g. references) resolve to the existing row instead of inserting a stub.
-    pkg_key_to_kind: dict[tuple[str, str | None], str] = {
-        (name, path): kind for name, path, kind in pkg_rows
-    }
+    pkg_key_to_kind: dict[tuple[str, str | None], str] = {(name, path): kind for name, path, kind in pkg_rows}
 
     # domain_pkgs: Domain.name -> set of Package keys directly in it
     domain_pkgs: dict[str, set[tuple[str, str | None]]] = defaultdict(set)
@@ -118,16 +112,22 @@ def _compute_references_and_depends_on(
         if (pkg_name, pkg_path) not in pkg_domains:
             continue
         pkg_imports[(pkg_name, pkg_path)] = scan_package_imports(
-            conn, repo_root, pkg_name, pkg_path, include_test_files=False,
+            conn,
+            repo_root,
+            pkg_name,
+            pkg_path,
+            include_test_files=False,
         )
 
     # Single traversal
     ref_buckets: dict[
-        tuple[str, tuple[str, str | None]], set[tuple[str, str | None]],
-    ] = defaultdict(set)   # (D, tgt_pkg_key) -> {src_pkg_keys}
+        tuple[str, tuple[str, str | None]],
+        set[tuple[str, str | None]],
+    ] = defaultdict(set)  # (D, tgt_pkg_key) -> {src_pkg_keys}
     dep_buckets: dict[
-        tuple[str, str], set[tuple[tuple[str, str | None], tuple[str, str | None]]],
-    ] = defaultdict(set)   # (A, B) -> {(src_pkg_key, tgt_pkg_key)}
+        tuple[str, str],
+        set[tuple[tuple[str, str | None], tuple[str, str | None]]],
+    ] = defaultdict(set)  # (A, B) -> {(src_pkg_key, tgt_pkg_key)}
 
     for d_name, src_pkgs in domain_pkgs.items():
         for src_key in src_pkgs:
@@ -148,23 +148,28 @@ def _compute_references_and_depends_on(
         # Phase 50 D-04: use actual stored kind so the references-edge dst
         # resolves to the existing Package or App row.
         tgt_kind = pkg_key_to_kind.get(tgt_key, _PACKAGE_KIND)
-        edges_out.append(GraphEdge(
-            src=(_DOMAIN_KIND, d_name, None),
-            dst=(tgt_kind, tgt_name, tgt_path),
-            kind=_REFERENCES_KIND,
-            attrs={"usage_count": len(src_set)},
-        ))
+        edges_out.append(
+            GraphEdge(
+                src=(_DOMAIN_KIND, d_name, None),
+                dst=(tgt_kind, tgt_name, tgt_path),
+                kind=_REFERENCES_KIND,
+                attrs={"usage_count": len(src_set)},
+            )
+        )
     for (a_name, b_name), pair_set in dep_buckets.items():
-        edges_out.append(GraphEdge(
-            src=(_DOMAIN_KIND, a_name, None),
-            dst=(_DOMAIN_KIND, b_name, None),
-            kind=_DEPENDS_ON_KIND,
-            attrs={"usage_count": len(pair_set)},
-        ))
+        edges_out.append(
+            GraphEdge(
+                src=(_DOMAIN_KIND, a_name, None),
+                dst=(_DOMAIN_KIND, b_name, None),
+                kind=_DEPENDS_ON_KIND,
+                attrs={"usage_count": len(pair_set)},
+            )
+        )
 
     if edges_out:
         upsert.upsert_records(
-            conn, GraphRecords(nodes=[], edges=edges_out),
+            conn,
+            GraphRecords(nodes=[], edges=edges_out),
         )
 
 
@@ -202,28 +207,31 @@ def _compute_testsuite_domain(
     edges_out: list[GraphEdge] = []
     for (ts_id, ts_name, ts_path), pkg_keys in suite_pkgs.items():
         if len(pkg_keys) < 2:
-            continue   # D-12: single-package suites get no Domain edge
+            continue  # D-12: single-package suites get no Domain edge
 
         domain_sets = [pkg_domains.get(p, set()) for p in pkg_keys]
         if not all(domain_sets):
-            continue   # any package with zero Domains -> skip
+            continue  # any package with zero Domains -> skip
 
         intersection = set.intersection(*domain_sets)
         if len(intersection) != 1:
-            continue   # D-13: multi-domain spans get no Domain edge
+            continue  # D-13: multi-domain spans get no Domain edge
         # All packages must belong to EXACTLY the intersection set
         if any(ds != intersection for ds in domain_sets):
-            continue   # some package has additional Domain memberships beyond the intersection
+            continue  # some package has additional Domain memberships beyond the intersection
 
         (target_domain,) = intersection
-        edges_out.append(GraphEdge(
-            src=(_TEST_SUITE_KIND, ts_name, ts_path),
-            dst=(_DOMAIN_KIND, target_domain, None),
-            kind=_TESTS_KIND,
-            attrs={},
-        ))
+        edges_out.append(
+            GraphEdge(
+                src=(_TEST_SUITE_KIND, ts_name, ts_path),
+                dst=(_DOMAIN_KIND, target_domain, None),
+                kind=_TESTS_KIND,
+                attrs={},
+            )
+        )
 
     if edges_out:
         upsert.upsert_records(
-            conn, GraphRecords(nodes=[], edges=edges_out),
+            conn,
+            GraphRecords(nodes=[], edges=edges_out),
         )

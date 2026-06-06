@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for DivergenceMetric (EVAL-11, EVAL-12) — programmatic path only.
 
 Judge path (run_judge / run) is tested separately under the eval gate in 06-11
@@ -7,13 +5,13 @@ because it requires live Bedrock access. All tests here are deterministic and
 require no AWS credentials.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
-
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
 from eval_harness.divergence.check import AgentOutputProxy
-
 
 # ---------------------------------------------------------------------------
 # DivergenceMetric construction
@@ -148,16 +146,12 @@ def test_run_programmatic_zero_failures_on_valid_output(fixture_wiki_path: Path)
     outputs = [
         (
             "fix-good",
-            AgentOutputProxy(
-                answer="See [[packages/lattice-wiki-core]] for the entry. Also `src/main.py:10`."
-            ),
+            AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for the entry. Also `src/main.py:10`."),
         )
     ]
     results = m.run_programmatic(outputs)
     for check in ROLE_CHECKS["librarian"]:
-        assert results[check.id]["failures"] == 0, (
-            f"{check.id}: expected 0 failures on well-formed output"
-        )
+        assert results[check.id]["failures"] == 0, f"{check.id}: expected 0 failures on well-formed output"
 
 
 def test_run_programmatic_all_four_roles(fixture_wiki_path: Path) -> None:
@@ -197,9 +191,7 @@ def test_summarize_returns_d11_envelope(fixture_wiki_path: Path) -> None:
     envelope = summarize("librarian", results, "abc1234")
 
     required_keys = {"role", "recorded_at", "agent_commit", "checks"}
-    assert required_keys <= envelope.keys(), (
-        f"Missing keys: {required_keys - envelope.keys()}"
-    )
+    assert required_keys <= envelope.keys(), f"Missing keys: {required_keys - envelope.keys()}"
     assert envelope["role"] == "librarian"
     assert envelope["agent_commit"] == "abc1234"
     assert envelope["checks"] is results
@@ -231,17 +223,10 @@ def test_summarize_recorded_at_is_iso_timestamp(fixture_wiki_path: Path) -> None
 
 def test_geval_model_explicit_in_source() -> None:
     """metric.py passes model=judge explicitly to every GEval instantiation (T-06-18)."""
-    metric_src = (
-        Path(__file__).parent.parent
-        / "src"
-        / "eval_harness"
-        / "divergence"
-        / "metric.py"
-    ).read_text()
+    metric_src = (Path(__file__).parent.parent / "src" / "eval_harness" / "divergence" / "metric.py").read_text()
     count = metric_src.count("model=judge")
     assert count >= 1, (
-        "GEval in metric.py must pass model=judge explicitly (T-06-18 invariant). "
-        f"Found {count} occurrences."
+        f"GEval in metric.py must pass model=judge explicitly (T-06-18 invariant). Found {count} occurrences."
     )
 
 

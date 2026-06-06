@@ -61,9 +61,7 @@ def test_render_project_context_missing_file(tmp_path: Path) -> None:
     assert render_project_context(tmp_path / "does-not-exist") == ""
 
 
-def test_render_project_context_with_claude_md(
-    tmp_path: Path, snapshot: SnapshotAssertion
-) -> None:
+def test_render_project_context_with_claude_md(tmp_path: Path, snapshot: SnapshotAssertion) -> None:
     """CLAUDE.md present → rendered block contains style/log."""
     try:
         from graph_wiki_core.prompts.project_context import render_project_context

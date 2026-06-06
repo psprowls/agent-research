@@ -1,21 +1,18 @@
-from __future__ import annotations
-
 """Unit tests for the CLI query subcommand (Plan 03).
 
 Requirements covered: CLI-01, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CMD-08.
 """
 
-import dataclasses
+from __future__ import annotations
+
 import inspect
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -85,9 +82,7 @@ def test_shared_impl_is_imported_from_commands() -> None:
     # The import should be from graph_wiki_core.commands.query
     import graph_wiki_cli.wiki_cli.main as wiki_module
 
-    assert hasattr(wiki_module, "run_query"), (
-        "run_query must be imported at module level in wiki_cli/main.py"
-    )
+    assert hasattr(wiki_module, "run_query"), "run_query must be imported at module level in wiki_cli/main.py"
 
 
 def test_state_gate_flag_present() -> None:
@@ -136,9 +131,7 @@ def test_exit_code_1_on_unresolved_vault() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_headless_mode_progress_to_stderr(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_headless_mode_progress_to_stderr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Non-TTY: answer on stdout, Pages-drilled NOT in stdout (CLI-07).
 
     The CliRunner simulates a non-TTY environment (sys.stdout.isatty() returns
@@ -146,9 +139,8 @@ def test_headless_mode_progress_to_stderr(
     We verify this by checking that stdout does NOT contain 'Pages drilled:'
     (since CliRunner captures stdout only in its result.stdout).
     """
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
@@ -162,19 +154,14 @@ def test_headless_mode_progress_to_stderr(
         app,
         ["wiki", "query", "test", "--workspace", str(tmp_path)],
     )
-    assert result.exit_code in (0, 3), (
-        f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
-    )
+    assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
     assert "Test answer [[Foo]]" in result.output
 
 
-def test_json_flag_emits_valid_json(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_json_flag_emits_valid_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """--json flag outputs valid JSON with required keys (CLI-04, CMD-07)."""
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
@@ -187,9 +174,7 @@ def test_json_flag_emits_valid_json(
         app,
         ["wiki", "query", "test", "--workspace", str(tmp_path), "--json"],
     )
-    assert result.exit_code in (0, 3), (
-        f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
-    )
+    assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
     parsed = json.loads(result.output)
     assert set(parsed.keys()) >= {"answer", "citations", "pages_drilled", "search_scores"}
     assert parsed["answer"] == "Test answer [[Foo]]"
@@ -197,13 +182,10 @@ def test_json_flag_emits_valid_json(
     assert parsed["pages_drilled"] == 5
 
 
-def test_no_state_gate_flag_accepted(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_no_state_gate_flag_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """--no-state-gate flag accepted with no behavior change (D-08 no-op)."""
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
@@ -217,6 +199,4 @@ def test_no_state_gate_flag_accepted(
         ["wiki", "query", "test", "--workspace", str(tmp_path), "--no-state-gate"],
     )
     # Should not error just because --no-state-gate is set
-    assert result.exit_code in (0, 3), (
-        f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
-    )
+    assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"

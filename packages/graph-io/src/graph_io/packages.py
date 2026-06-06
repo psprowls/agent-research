@@ -125,8 +125,7 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     # Truthy when bin is a non-empty string OR a dict with at least one truthy value.
     bin_val = data.get("bin")
     bin_present = bool(bin_val) and (
-        (isinstance(bin_val, str) and bool(bin_val))
-        or (isinstance(bin_val, dict) and any(bin_val.values()))
+        (isinstance(bin_val, str) and bool(bin_val)) or (isinstance(bin_val, dict) and any(bin_val.values()))
     )
     # GQP-01: merge devDependencies into the classify() input list so tools like
     # electron/vite declared as dev-only are visible to signal detection.
@@ -158,9 +157,7 @@ def _read_package_json(path: Path) -> dict[str, Any] | None:
     }
 
 
-def _discover_manifests(
-    repo_root: Path, skip_dirs: frozenset[str]
-) -> list[tuple[Path, dict[str, Any]]]:
+def _discover_manifests(repo_root: Path, skip_dirs: frozenset[str]) -> list[tuple[Path, dict[str, Any]]]:
     found: list[tuple[Path, dict[str, Any]]] = []
     for manifest_path in repo_root.rglob("pyproject.toml"):
         if _should_skip(manifest_path, repo_root, skip_dirs):
@@ -183,8 +180,7 @@ def _discover_manifests(
 
 def _file_nodes_under(conn: sqlite3.Connection, prefix: str) -> list[str]:
     rows = conn.execute(
-        "SELECT path FROM nodes "
-        "WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL",
+        "SELECT path FROM nodes WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL",
         (f"{prefix}%",),
     ).fetchall()
     return [row[0] for row in rows]
@@ -244,10 +240,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
 
         # Phase 50 D-04/D-07: derive kind, URI, and attrs in one inline pass.
         new_kind, app_kind, app_signals = classify(info, pkg_dir)
-        new_uri = (
-            app_uri(ctx, info["name"]) if new_kind == "app"
-            else pkg_uri(ctx, info["name"])
-        )
+        new_uri = app_uri(ctx, info["name"]) if new_kind == "app" else pkg_uri(ctx, info["name"])
         attrs: dict[str, Any] = {
             "version": info["version"],
             # Phase 56 D-06: SCAN-02 source — stored in attrs_json so wiki-io can
@@ -273,9 +266,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         # gives this UPDATE read-your-own-writes semantics for the subsequent
         # upsert_records call.
         other_kind = "package" if new_kind == "app" else "app"
-        other_id = upsert._node_id(
-            conn, (other_kind, info["name"], rel_prefix or None)
-        )
+        other_id = upsert._node_id(conn, (other_kind, info["name"], rel_prefix or None))
         if other_id is not None:
             # Mirror _upsert_node's convention: the "uri" key lives in the
             # nodes.uri column, not attrs_json.
@@ -335,9 +326,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 # Record it as an internal package→package relationship instead;
                 # skip self-dependencies.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_kind, target_name, target_rel_path = workspace_kinds[
-                        dep_norm
-                    ]
+                    target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
                     internal_pkg_edges.append(
                         (
                             consumer_name,
@@ -354,9 +343,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 if s not in bucket["versions_in_use"]:
                     bucket["versions_in_use"].append(s)
                 # Python deps are never dev in this model (dep_groups treated as runtime).
-                used_by_pairs.append(
-                    (consumer_name, consumer_rel_path, consumer_kind, dep_name, False)
-                )
+                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, dep_name, False))
         elif info["language"] == "javascript":
             # k5y T2: iterate dep_specs (name->spec, runtime wins on collision).
             # is_dev = name came ONLY from devDependencies (not in runtime set).
@@ -366,9 +353,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 dep_norm = _normalize_name(dep_name)
                 # Internal workspace package → depends_on_package; skip self-deps.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_kind, target_name, target_rel_path = workspace_kinds[
-                        dep_norm
-                    ]
+                    target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
                     internal_pkg_edges.append(
                         (
                             consumer_name,
@@ -386,9 +371,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                     bucket["versions_in_use"].append(raw_spec)
                 # is_dev: name is in devDependencies AND NOT in runtime dependencies.
                 is_dev = dep_name in dev_set and dep_name not in runtime_set
-                used_by_pairs.append(
-                    (consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev)
-                )
+                used_by_pairs.append((consumer_name, consumer_rel_path, consumer_kind, dep_name, is_dev))
 
     # Emit dependency nodes (one per (ecosystem, name)) + used_by edges.
     dep_nodes: list[GraphNode] = []
@@ -452,8 +435,6 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         src = (consumer_kind, consumer_name, consumer_rel_path)
         dst = (target_kind, target_name, target_rel_path)
         dep_edges.append(GraphEdge(src=src, dst=dst, kind="used_by", attrs={}))
-        dep_edges.append(
-            GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={})
-        )
+        dep_edges.append(GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={}))
     if dep_nodes or dep_edges:
         upsert.upsert_records(conn, GraphRecords(nodes=dep_nodes, edges=dep_edges))

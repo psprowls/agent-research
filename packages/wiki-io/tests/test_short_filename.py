@@ -12,9 +12,7 @@ import hashlib
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-
 from wiki_io.entity_writer import short_filename
-
 
 # ----------------------------------------------------------------------------
 # Parametrized unit cases
@@ -150,10 +148,7 @@ def _uri_strategy(draw: st.DrawFn) -> str:
     if template == "dependency":
         return f"dependency:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     # test_suite
-    return (
-        f"test_suite:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/"
-        f"{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
-    )
+    return f"test_suite:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
 
 
 # ----------------------------------------------------------------------------

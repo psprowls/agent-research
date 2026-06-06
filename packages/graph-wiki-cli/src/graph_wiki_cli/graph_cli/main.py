@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 import typer
+from graph_io.queries import _VALID_KINDS
 from workspace_io.config import resolve
 
 from graph_wiki_cli.graph_cli import (
@@ -34,7 +35,6 @@ from graph_wiki_cli.graph_cli import (
     q_list_entry_points,
     q_what_tests,
 )
-from graph_io.queries import _VALID_KINDS
 
 OUTPUT_FORMATS = ["human", "json"]
 RUN_MODES = ["workspace", "test"]
@@ -86,7 +86,9 @@ def graph_options(
 
 
 @graph_app.command(name="update")
-def update_cmd(ctx: typer.Context, full: bool = typer.Option(False, "--full", help="Full rebuild from scratch.")) -> None:
+def update_cmd(
+    ctx: typer.Context, full: bool = typer.Option(False, "--full", help="Full rebuild from scratch.")
+) -> None:
     """Refresh the code graph."""
     _run(ops_update, ctx, full=full)
 
@@ -171,7 +173,9 @@ def describe_cmd(
     ctx: typer.Context,
     selector: Optional[str] = typer.Argument(None, help="Name / path / URI of the entity (omit only for --kind repo)."),
     kind: Optional[str] = typer.Option(
-        None, "--kind", "-k",
+        None,
+        "--kind",
+        "-k",
         help=f"Entity kind: {', '.join(q_describe.DESCRIBE_KINDS)}. Inferred from the selector when omitted.",
     ),
     ecosystem: Optional[str] = typer.Option(

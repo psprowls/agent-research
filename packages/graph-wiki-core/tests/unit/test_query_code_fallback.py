@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for Plan 03-09 code-fallback layer.
 
 Covers the bounded read_file tool, repo-root resolution, CODE_READER_SYSTEM
@@ -9,10 +7,11 @@ fan-out branch.
 These tests pin behavior described in `03-09-PLAN.md` <task>1 and 2.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Task 1: role config + prompt + read_file helpers
@@ -46,9 +45,7 @@ def test_code_reader_system_constant_defined() -> None:
     assert "NO_RELEVANT_CONTENT" in CODE_READER_SYSTEM
     # No-invention rule (substring assertion — exact wording flexible)
     lower = CODE_READER_SYSTEM.lower()
-    assert "invent" in lower or "fabricat" in lower, (
-        "CODE_READER_SYSTEM must encode the no-invention contract"
-    )
+    assert "invent" in lower or "fabricat" in lower, "CODE_READER_SYSTEM must encode the no-invention contract"
     # Tool name reference — model must know it can call read_file
     assert "read_file" in CODE_READER_SYSTEM
 
@@ -221,10 +218,9 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -247,9 +243,7 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
     )
     synth_resp = AIMessage(content="The pool creates the semaphore at `pool.py:115`.")
 
-    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
-        vault, librarian_fan, [synth_resp]
-    )
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(vault, librarian_fan, [synth_resp])
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
@@ -292,10 +286,9 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -311,9 +304,7 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
     )
     synth_resp = AIMessage(content="Synth output without any unresolved links.")
 
-    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
-        vault, librarian_fan, [synth_resp]
-    )
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(vault, librarian_fan, [synth_resp])
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
@@ -350,10 +341,9 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
+    from graph_wiki_core.commands.query import run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -370,9 +360,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
     )
     synth_resp = AIMessage(content="Source-derived answer about `foo.py:10`.")
 
-    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
-        vault, librarian_fan, [synth_resp]
-    )
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(vault, librarian_fan, [synth_resp])
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
@@ -397,9 +385,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
 
         result = await run_query("test query", workspace_path=vault, top_k=3)
 
-    assert result.answer.startswith(
-        "[vault-thin: answer derived from source code]"
-    )
+    assert result.answer.startswith("[vault-thin: answer derived from source code]")
     # The synthesizer output should still appear after the marker
     assert "Source-derived answer about `foo.py:10`." in result.answer
 
@@ -410,9 +396,8 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import run_query
+    from subagent_runtime.pool import FanOutResult
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -430,9 +415,7 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
     # No synth response expected on the double-empty path — the disclaimer is
     # returned directly without calling the synthesizer. If a synth call is
     # made, side_effect=[] will raise StopAsyncIteration loudly.
-    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(
-        vault, librarian_fan, []
-    )
+    patches, mock_synth, mock_lib, mock_code = _setup_run_query_mocks(vault, librarian_fan, [])
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]

@@ -83,17 +83,15 @@ def m2b_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
-        scan_mod, "_cg_run_build",
+        scan_mod,
+        "_cg_run_build",
         lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
     )
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
-    )
-    monkeypatch.setattr(
-        scan_mod, "build_file_map",
-        lambda path, **kw: (
-            _FILE_MAP_TWO_ROWS if str(path).endswith("pkg-a") else None
-        ),
+        scan_mod,
+        "build_file_map",
+        lambda path, **kw: _FILE_MAP_TWO_ROWS if str(path).endswith("pkg-a") else None,
     )
     return workspace
 
@@ -131,11 +129,7 @@ def _descs_tagged(tag: dict):
 
 
 def _page(wiki: Path, uri: str = _PKG_A) -> Path:
-    return next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == uri
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == uri)
 
 
 def test_redescribe_changed_row_preserves_unchanged(m2b_workspace, monkeypatch) -> None:
@@ -146,12 +140,14 @@ def test_redescribe_changed_row_preserves_unchanged(m2b_workspace, monkeypatch) 
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
 
@@ -165,14 +161,15 @@ def test_redescribe_changed_row_preserves_unchanged(m2b_workspace, monkeypatch) 
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D2:mod.py" in t2       # changed row re-described
-    assert "D1:mod.py" not in t2   # stale description gone
-    assert "D1:util.py" in t2      # unchanged row preserved (cost cache)
+    assert "D2:mod.py" in t2  # changed row re-described
+    assert "D1:mod.py" not in t2  # stale description gone
+    assert "D1:util.py" in t2  # unchanged row preserved (cost cache)
 
 
 def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> None:
@@ -185,12 +182,14 @@ def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> N
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -203,11 +202,13 @@ def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> N
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "write_entities",
+        scan_mod,
+        "write_entities",
         lambda conn, wiki_arg, kinds: EntityWriteResult(unchanged=[_PKG_A]),
     )
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -225,12 +226,14 @@ def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatc
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -240,7 +243,8 @@ def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatc
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -253,8 +257,8 @@ def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatc
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t3 = _page(wiki).read_text(encoding="utf-8")
-    assert "D2:mod.py" in t3        # untouched
-    assert "D3:mod.py" not in t3    # describer never re-ran for it
+    assert "D2:mod.py" in t3  # untouched
+    assert "D3:mod.py" not in t3  # describer never re-ran for it
     assert "D1:util.py" in t3
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
 
@@ -266,20 +270,20 @@ def test_empty_narration_alone_does_not_stamp(m2b_workspace, monkeypatch) -> Non
     wiki = workspace / "wiki"
     repo = workspace / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: "", descs=_descs_tagged({"v": "D1"})),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") is None
 
 
-def test_redescription_advances_anchor_despite_empty_narration(
-    m2b_workspace, monkeypatch
-) -> None:
+def test_redescription_advances_anchor_despite_empty_narration(m2b_workspace, monkeypatch) -> None:
     """A scan that re-describes file-map rows advances the anchor even when
     narration returns empty. [spec test 5, part B]"""
     workspace = m2b_workspace
@@ -287,13 +291,15 @@ def test_redescription_advances_anchor_despite_empty_narration(
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     prose_tag = {"v": "real prose"}
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: prose_tag["v"], descs=_descs_tagged(desc_tag)),
     )
     # Scan 1: real prose stamps head1.
@@ -306,7 +312,8 @@ def test_redescription_advances_anchor_despite_empty_narration(
     prose_tag["v"] = ""
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -322,12 +329,14 @@ def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) 
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -340,7 +349,7 @@ def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
     assert "D2:mod.py" in t2
-    assert "D2:util.py" in t2       # both rows re-described
+    assert "D2:util.py" in t2  # both rows re-described
     assert "D1:util.py" not in t2
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
 
@@ -353,12 +362,14 @@ def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> N
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     # Scan 1 (narrate) fills rows + stamps head1.
@@ -369,12 +380,13 @@ def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> N
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D1:mod.py" in t2        # NOT re-described (cost cache intact)
+    assert "D1:mod.py" in t2  # NOT re-described (cost cache intact)
     assert "D2:mod.py" not in t2
     assert "D1:util.py" in t2
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
@@ -395,12 +407,14 @@ def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     # Scan 1: good prose + describer fills both rows, stamps head1.
@@ -413,25 +427,25 @@ def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -
     # row is never refilled.
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: "", descs=_descs_empty),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D1:mod.py" not in t2        # the stale row WAS dropped
+    assert "D1:mod.py" not in t2  # the stale row WAS dropped
     assert "| `mod.py` | file | — TODO |" in t2  # and left unfilled (describe failed)
-    assert "D1:util.py" in t2           # untouched row preserved
+    assert "D1:util.py" in t2  # untouched row preserved
     # The anchor must stay at head1 so the next scan retries the failed describe.
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
 
 
-def test_good_prose_with_failed_describe_does_not_strand_todo(
-    m2b_workspace, monkeypatch
-) -> None:
+def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, monkeypatch) -> None:
     """[spec test 9] A commit-dirty page that re-narrates with GOOD prose AND
     drops a row whose describer then returns nothing must NOT advance its anchor
     — the page stays commit-dirty so the next scan retries. Fails on current
@@ -441,12 +455,14 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     # Scan 1: good prose + both rows filled → anchor head1.
@@ -457,17 +473,19 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(
     # prose, but the describer returns NOTHING, so the row is never refilled.
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_empty),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "| `mod.py` | file | — TODO |" in t2     # row dropped, left unfilled
-    assert "D1:util.py" in t2                         # untouched row preserved
+    assert "| `mod.py` | file | — TODO |" in t2  # row dropped, left unfilled
+    assert "D1:util.py" in t2  # untouched row preserved
     # The anchor must stay at head1 despite the good prose (refill-gate).
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
 
@@ -475,11 +493,13 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(
     heads["v"] = "head3"
     desc_tag["v"] = "D3"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -496,11 +516,13 @@ def test_narrated_only_page_still_stamps(m2b_workspace, monkeypatch) -> None:
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged({"v": "D1"})),
     )
     # Scan 1: rows filled, anchor head1.
@@ -511,11 +533,13 @@ def test_narrated_only_page_still_stamps(m2b_workspace, monkeypatch) -> None:
     # row is refilled (describer succeeds) so no TODO remains → anchor advances.
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged({"v": "D2"})),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))

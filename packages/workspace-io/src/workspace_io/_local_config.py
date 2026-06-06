@@ -4,6 +4,7 @@ No PyYAML dependency. Same style as manifest.py — recognizes flat
 `key: value` pairs at the top level. Skips blanks, comments, and
 malformed lines silently.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

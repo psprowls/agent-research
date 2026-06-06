@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from source_parser import (
     Reference,
     SourceNode,

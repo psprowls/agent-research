@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from source_parser import parse_bytes, parse_file
 from source_parser.parsers import EXTENSIONS, PARSERS
 

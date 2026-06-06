@@ -11,16 +11,10 @@ import sys
 from pathlib import Path
 
 import pytest
-
-from graph_io import cluster
 from graph_io.cluster import (
-    Cluster,
-    ClusterResult,
-    CrossCuttingHub,
     _UnionFind,
     compute_clusters,
 )
-
 
 # ---------------------------------------------------------------------------
 # Seeding helpers
@@ -56,12 +50,8 @@ def _seed_references(
     if insert_order_seed is not None:
         random.Random(insert_order_seed).shuffle(to_insert)
     for src, dst in to_insert:
-        src_id = conn.execute(
-            "SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (src,)
-        ).fetchone()[0]
-        dst_id = conn.execute(
-            "SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (dst,)
-        ).fetchone()[0]
+        src_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (src,)).fetchone()[0]
+        dst_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (dst,)).fetchone()[0]
         conn.execute(
             "INSERT INTO edges (src, dst, kind) VALUES (?, ?, ?)",
             (src_id, dst_id, "references"),
@@ -387,9 +377,7 @@ def _seed_workspace(
 
 def test_cli_subcommand_registered() -> None:
     """CLUSTER-04: `gw graph --help` lists domain-clusters."""
-    result = subprocess.run(
-        [*_cg_cmd(), "--help"], capture_output=True, text=True
-    )
+    result = subprocess.run([*_cg_cmd(), "--help"], capture_output=True, text=True)
     assert result.returncode == 0
     assert "domain-clusters" in result.stdout
 

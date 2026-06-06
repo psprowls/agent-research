@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for the bootstrap command (Plan 05-01; renamed in Phase 18 / CMD-02).
 
 The Typer subcommand was renamed `init` → `bootstrap` in Phase 18 so Claude Code's
@@ -10,14 +8,14 @@ unchanged per Phase 18 D-02 (internal, machine-facing, not user-typed).
 Requirements covered: CMD-01, CMD-02.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from workspace_io.manifest import read as read_manifest
 from workspace_io.paths import manifest_path
-
 
 # ---------------------------------------------------------------------------
 # Helper

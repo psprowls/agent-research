@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 """Schema unit tests for WikiScanInput.repo_path field.
 
 Requirements covered: DACLI-02 (precondition).
 """
 
-import pytest
+from __future__ import annotations
 
 
 def test_wiki_scan_input_default_repo_path_is_empty() -> None:
@@ -25,7 +23,8 @@ def test_wiki_scan_input_accepts_repo_path() -> None:
 
 
 def test_wiki_scan_input_preserves_existing_defaults() -> None:
-    """Adding repo_path does not regress existing workspace_path / no_file_map / max_depth defaults (regression guard)."""
+    """Adding repo_path does not regress existing workspace_path / no_file_map / max_depth
+    defaults (regression guard)."""
     from graph_wiki_mcp.server import WikiScanInput
 
     inp = WikiScanInput()

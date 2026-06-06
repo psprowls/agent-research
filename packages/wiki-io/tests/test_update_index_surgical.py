@@ -41,9 +41,7 @@ def test_update_index_does_not_create_main_index_when_absent(tmp_path: Path):
 
     update_index(wiki)
 
-    assert not (wiki / "index.md").exists(), (
-        "update_index must NOT create wiki/index.md (Phase 45 D-02)"
-    )
+    assert not (wiki / "index.md").exists(), "update_index must NOT create wiki/index.md (Phase 45 D-02)"
 
 
 def test_update_index_still_writes_per_folder_subindexes(tmp_path: Path):
@@ -74,9 +72,7 @@ def test_scan_work_reads_work_under_wiki(tmp_path):
     workspace = tmp_path
     work = workspace / "wiki" / "work"
     work.mkdir(parents=True)
-    (work / "2026-05-03-foo.md").write_text(
-        "---\ntitle: Foo\nsummary: s\n---\n\nBody.\n", encoding="utf-8"
-    )
+    (work / "2026-05-03-foo.md").write_text("---\ntitle: Foo\nsummary: s\n---\n\nBody.\n", encoding="utf-8")
 
     entries = scan_work(workspace)
 

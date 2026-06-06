@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import sys
 
+from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
-
-from graph_io import exit_codes, queries, render as _render, store
 
 
 def run(args: object) -> int:

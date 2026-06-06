@@ -26,12 +26,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from graph_wiki_core.commands.query import (
     _GRAPH_UNAVAILABLE_STDERR,
     _LIBRARIAN_FALLBACK_ADDENDUM,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers (mirrors _FakeLLM pattern from wiring tests)
@@ -97,9 +95,8 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
     Baseline: confirms that when the graph DB has nodes, the normal
     grounding-tools path fires (the fix must not break the happy path).
     """
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import run_query
+    from subagent_runtime.pool import FanOutResult
 
     vault = _make_vault(tmp_path)
     librarian_llm = _make_librarian_llm()
@@ -112,9 +109,7 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
     fake_tool = MagicMock()
     fake_tool.name = "cg_find"
 
-    fan_result = FanOutResult(
-        successes=[("page1.md", "useful excerpt content here")], errors=[]
-    )
+    fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     def _make_llm_side_effect(role: str, *, model_override=None):
         if role == "librarian":
@@ -156,18 +151,15 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
 
 
 @pytest.mark.asyncio
-async def test_run_query_skips_graph_tools_when_db_empty(
-    tmp_path: Path, capsys
-) -> None:
+async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys) -> None:
     """Empty DB (node_count == 0): build_graph_tools NOT called, bind_tools NOT called.
 
     Regression test for jc1 fix: EvalWorktree provisions an empty schema-valid
     code.db. This test verifies that a zero-node DB is treated as uninitialized,
     preventing the code-fallback loop that collapsed eval quality scores.
     """
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import run_query
+    from subagent_runtime.pool import FanOutResult
 
     vault = _make_vault(tmp_path)
     librarian_llm = _make_librarian_llm()
@@ -177,9 +169,7 @@ async def test_run_query_skips_graph_tools_when_db_empty(
     # Simulate empty DB: COUNT(*) returns 0 nodes.
     fake_conn.execute.return_value.fetchone.return_value = (0,)
 
-    fan_result = FanOutResult(
-        successes=[("page1.md", "useful excerpt content here")], errors=[]
-    )
+    FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     def _make_llm_side_effect(role: str, *, model_override=None):
         if role == "librarian":

@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """End-to-end test launching graph-wiki-mcp as a stdio subprocess and exercising all six MCP tools.
 
 Requirements covered: DACLI-01, DACLI-02, DACLI-03.
 """
+
+from __future__ import annotations
 
 import io
 import json
@@ -15,7 +15,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 
 INTEGRATION_GATE = pytest.mark.skipif(
     not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
@@ -169,11 +168,13 @@ def _send_wiki_bootstrap(request_id: int, workspace_path: str) -> dict:
         "method": "tools/call",
         "params": {
             "name": "wiki_bootstrap",
-            "arguments": {"input": {
-                "topic": "test repo",
-                "tool": "claude-code",
-                "workspace_path": workspace_path,
-            }},
+            "arguments": {
+                "input": {
+                    "topic": "test repo",
+                    "tool": "claude-code",
+                    "workspace_path": workspace_path,
+                }
+            },
         },
     }
 
@@ -185,11 +186,13 @@ def _send_wiki_scan(request_id: int, workspace_path: str, repo_path: str) -> dic
         "method": "tools/call",
         "params": {
             "name": "wiki_scan",
-            "arguments": {"input": {
-                "workspace_path": workspace_path,
-                "repo_path": repo_path,
-                "max_depth": 2,
-            }},
+            "arguments": {
+                "input": {
+                    "workspace_path": workspace_path,
+                    "repo_path": repo_path,
+                    "max_depth": 2,
+                }
+            },
         },
     }
 
@@ -202,11 +205,13 @@ def _send_wiki_ingest(request_id: int, source_path: str, workspace_path: str) ->
         "method": "tools/call",
         "params": {
             "name": "wiki_ingest",
-            "arguments": {"input": {
-                "type": "source",
-                "source_path": source_path,
-                "workspace_path": workspace_path,
-            }},
+            "arguments": {
+                "input": {
+                    "type": "source",
+                    "source_path": source_path,
+                    "workspace_path": workspace_path,
+                }
+            },
         },
     }
 
@@ -218,11 +223,13 @@ def _send_wiki_query(request_id: int, query: str, workspace_path: str) -> dict:
         "method": "tools/call",
         "params": {
             "name": "wiki_query",
-            "arguments": {"input": {
-                "query": query,
-                "workspace_path": workspace_path,
-                "top_k": 3,
-            }},
+            "arguments": {
+                "input": {
+                    "query": query,
+                    "workspace_path": workspace_path,
+                    "top_k": 3,
+                }
+            },
         },
     }
 
@@ -234,9 +241,11 @@ def _send_wiki_lint(request_id: int, workspace_path: str) -> dict:
         "method": "tools/call",
         "params": {
             "name": "wiki_lint",
-            "arguments": {"input": {
-                "workspace_path": workspace_path,
-            }},
+            "arguments": {
+                "input": {
+                    "workspace_path": workspace_path,
+                }
+            },
         },
     }
 
@@ -248,12 +257,14 @@ def _send_wiki_log(request_id: int, workspace_path: str) -> dict:
         "method": "tools/call",
         "params": {
             "name": "wiki_log",
-            "arguments": {"input": {
-                "op": "note",
-                "title": "e2e test entry",
-                "detail": "smoke",
-                "workspace_path": workspace_path,
-            }},
+            "arguments": {
+                "input": {
+                    "op": "note",
+                    "title": "e2e test entry",
+                    "detail": "smoke",
+                    "workspace_path": workspace_path,
+                }
+            },
         },
     }
 
@@ -266,8 +277,7 @@ def _send_wiki_log(request_id: int, workspace_path: str) -> dict:
 def _seed_minimal_workspace(tmp_path: Path) -> Path:
     """Seed tmp_path with a minimal uv workspace + one source file so wiki_scan/wiki_ingest have material."""
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "e2e-test-root"\nversion = "0.0.1"\n'
-        '[tool.uv.workspace]\nmembers = ["packages/alpha"]\n'
+        '[project]\nname = "e2e-test-root"\nversion = "0.0.1"\n[tool.uv.workspace]\nmembers = ["packages/alpha"]\n'
     )
     pkg = tmp_path / "packages" / "alpha"
     (pkg / "src" / "alpha").mkdir(parents=True)
@@ -301,7 +311,7 @@ def test_all_six_tools_end_to_end(tmp_path: Path) -> None:
     # response guarantees ordering.
     tool_calls = [
         _send_wiki_bootstrap(2, str(vault)),
-        _send_wiki_scan(3, str(vault), str(tmp_path)),         # repo_path = tmp_path (NEW FIELD)
+        _send_wiki_scan(3, str(vault), str(tmp_path)),  # repo_path = tmp_path (NEW FIELD)
         _send_wiki_ingest(4, str(sample), str(vault)),
         _send_wiki_query(5, "What is alpha?", str(vault)),
         _send_wiki_lint(6, str(vault)),

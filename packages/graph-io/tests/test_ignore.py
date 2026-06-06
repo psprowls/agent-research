@@ -8,11 +8,20 @@ from graph_io import _ignore
 
 
 def test_default_skip_dirs_contents() -> None:
-    assert _ignore.DEFAULT_SKIP_DIRS == frozenset({
-        ".git", "node_modules", ".worktrees",
-        ".venv", "venv", "dist", "build", "__pycache__",
-        ".tox", ".nox",
-    })
+    assert _ignore.DEFAULT_SKIP_DIRS == frozenset(
+        {
+            ".git",
+            "node_modules",
+            ".worktrees",
+            ".venv",
+            "venv",
+            "dist",
+            "build",
+            "__pycache__",
+            ".tox",
+            ".nox",
+        }
+    )
 
 
 def test_load_returns_defaults_when_no_graphignore(tmp_path: Path) -> None:
@@ -28,9 +37,7 @@ def test_load_merges_graphignore_entries(tmp_path: Path) -> None:
 
 
 def test_load_ignores_blanks_and_comments(tmp_path: Path) -> None:
-    (tmp_path / ".graphignore").write_text(
-        "# a comment\n\ngenerated\n   \n# another\nvendor\n"
-    )
+    (tmp_path / ".graphignore").write_text("# a comment\n\ngenerated\n   \n# another\nvendor\n")
     result = _ignore.load_skip_dirs(tmp_path)
     assert "generated" in result
     assert "vendor" in result

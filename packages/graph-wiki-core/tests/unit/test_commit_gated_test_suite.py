@@ -36,8 +36,8 @@ def _seed_one_suite(db_path: Path) -> None:
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
-            "'{\"suite_kind\": \"unit\", \"path\": \"packages/pkg-a/tests\", "
-            "\"owner_kind\": \"package\"}', 'test_suite:org/repo/pkg-a/tests')"
+            '\'{"suite_kind": "unit", "path": "packages/pkg-a/tests", '
+            '"owner_kind": "package"}\', \'test_suite:org/repo/pkg-a/tests\')'
         )
         conn.commit()
     finally:
@@ -77,27 +77,22 @@ def suite_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_suite(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
-        scan_mod, "_cg_run_build",
+        scan_mod,
+        "_cg_run_build",
         lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
     )
-    monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
-    )
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     # Step 10b-ts uses build_dir_file_map for suites (not build_file_map).
     monkeypatch.setattr(
-        scan_mod, "build_dir_file_map",
-        lambda path, **kw: (
-            _SUITE_MAP_TWO_ROWS if str(path).endswith("tests") else None
-        ),
+        scan_mod,
+        "build_dir_file_map",
+        lambda path, **kw: _SUITE_MAP_TWO_ROWS if str(path).endswith("tests") else None,
     )
     return workspace
 
 
 def _page(wiki: Path, uri: str = _SUITE) -> Path:
-    return next(
-        p for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == uri
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == uri)
 
 
 def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
@@ -108,12 +103,14 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -124,14 +121,15 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D2:test_mod.py" in t2        # changed row re-described
+    assert "D2:test_mod.py" in t2  # changed row re-described
     assert "D1:test_mod.py" not in t2
-    assert "D1:test_util.py" in t2       # unchanged row preserved
+    assert "D1:test_util.py" in t2  # unchanged row preserved
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
 
 
@@ -145,12 +143,14 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -159,11 +159,13 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "write_entities",
+        scan_mod,
+        "write_entities",
         lambda conn, wiki_arg, kinds: EntityWriteResult(unchanged=[_SUITE]),
     )
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -181,7 +183,8 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     # Suite map with a NESTED row so the transform must strip the suite root.
@@ -192,12 +195,14 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
         "| `test_util.py` | file | — TODO |\n"
     )
     monkeypatch.setattr(
-        scan_mod, "build_dir_file_map",
-        lambda path, **kw: (nested_map if str(path).endswith("tests") else None),
+        scan_mod,
+        "build_dir_file_map",
+        lambda path, **kw: nested_map if str(path).endswith("tests") else None,
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -206,13 +211,14 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/tests/sub/test_deep.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D2:sub/test_deep.py" in t2     # nested changed row re-described
-    assert "D1:test_util.py" in t2         # sibling preserved
+    assert "D2:sub/test_deep.py" in t2  # nested changed row re-described
+    assert "D1:test_util.py" in t2  # sibling preserved
 
 
 def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypatch) -> None:
@@ -223,12 +229,14 @@ def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypat
     repo = workspace / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -237,11 +245,12 @@ def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypat
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
     t2 = _page(wiki).read_text(encoding="utf-8")
-    assert "D1:test_mod.py" in t2          # NOT re-described (cost cache intact)
+    assert "D1:test_mod.py" in t2  # NOT re-described (cost cache intact)
     assert "D2:test_mod.py" not in t2
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for the bootstrap CLI's --interactive flag (HYGIENE-11).
 
 Covers:
@@ -8,13 +6,14 @@ Covers:
   `non_interactive=not interactive` (default behaviour preserved when absent).
 """
 
+from __future__ import annotations
+
 import asyncio
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
-
 
 _PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
@@ -28,14 +27,12 @@ def test_bootstrap_help_lists_interactive_flag() -> None:
     )
     assert result.returncode == 0, f"bootstrap --help exited {result.returncode}\n{result.stderr}"
     assert "--interactive" in result.stdout, (
-        f"`--interactive` must appear in `bootstrap --help` after HYGIENE-11.\n"
-        f"stdout:\n{result.stdout}"
+        f"`--interactive` must appear in `bootstrap --help` after HYGIENE-11.\nstdout:\n{result.stdout}"
     )
     # Regression guard: all existing options still present.
     for flag in ("--topic", "--tool", "--force", "--workspace", "--repo", "--json"):
         assert flag in result.stdout, (
-            f"`{flag}` missing from `bootstrap --help` — HYGIENE-11 must be purely additive.\n"
-            f"stdout:\n{result.stdout}"
+            f"`{flag}` missing from `bootstrap --help` — HYGIENE-11 must be purely additive.\nstdout:\n{result.stdout}"
         )
 
 
@@ -72,9 +69,7 @@ def test_run_init_forwards_interactive_flag(
 
     monkeypatch.setattr(init_mod, "init_wiki", fake_init_wiki)
     monkeypatch.setattr(init_mod, "_ws_init", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        init_mod, "resolve_wiki_and_repo", lambda ws, repo: (tmp_path / "wiki", tmp_path)
-    )
+    monkeypatch.setattr(init_mod, "resolve_wiki_and_repo", lambda ws, repo: (tmp_path / "wiki", tmp_path))
 
     asyncio.run(
         init_mod.run_init(

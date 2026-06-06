@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for the bootstrap command (Plan 05-01; renamed in Phase 18 / CMD-02).
 
 The Typer subcommand was renamed `init` → `bootstrap` in Phase 18 so Claude Code's
@@ -10,12 +8,13 @@ unchanged per Phase 18 D-02 (internal, machine-facing, not user-typed).
 Requirements covered: CMD-01, CMD-02.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helper
@@ -84,9 +83,7 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
     ):
         from graph_wiki_core.commands.init import run_init
 
-        result = await run_init(
-            topic="my-topic", tool="claude-code", force=True, workspace_path=None
-        )
+        result = await run_init(topic="my-topic", tool="claude-code", force=True, workspace_path=None)
 
     assert result.status == "ok"
     assert Path(result.raw_path).name == "raw"
@@ -102,9 +99,8 @@ async def test_run_init_returns_init_result_with_raw_work(tmp_path: Path) -> Non
 
 def test_bootstrap_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """CLI `bootstrap --json` emits valid JSON with required keys."""
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -140,9 +136,8 @@ def test_bootstrap_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     command" error after Phase 18's hard cut (D-04). The new `bootstrap` subcommand
     is the only entry point.
     """
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     runner = CliRunner()
     result = runner.invoke(
@@ -151,6 +146,5 @@ def test_bootstrap_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     # Typer returns exit code 2 for "no such command".
     assert result.exit_code != 0, (
-        f"`gw init ...` must NOT be a valid subcommand "
-        f"after Phase 18 rename; got exit_code={result.exit_code}"
+        f"`gw init ...` must NOT be a valid subcommand after Phase 18 rename; got exit_code={result.exit_code}"
     )

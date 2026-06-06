@@ -39,11 +39,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 import typer
-
-from graph_io import exit_codes, queries, render as _render, update
+from graph_io import exit_codes, queries, update
+from graph_io import render as _render
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
-from graph_wiki_core.commands._paths import _resolve_paths
 from workspace_io.paths import graph_dir
+
+from graph_wiki_core.commands._paths import _resolve_paths
 
 _SCHEMA_VERSION = 1  # Phase 9 OBS-04 — D-02: do NOT bump
 
@@ -183,9 +184,7 @@ def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str
     return exit_codes.SUCCESS, "", ""
 
 
-def run_describe(
-    kind: str, identifier: str | None, repo: Path, workspace: Path
-) -> tuple[int, str, str]:
+def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path) -> tuple[int, str, str]:
     """Describe a graph entity (all 6 kinds), printing-free (D-04).
 
     Returns (exit_code, stdout, stderr). On success stdout is exactly the
@@ -256,9 +255,7 @@ def run_describe(
             raw = identifier
             if ":" in raw:
                 package_name, entry_name = raw.split(":", 1)
-                desc = queries.describe_entry_point(
-                    conn, package_name=package_name, entry_name=entry_name
-                )
+                desc = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
             else:
                 # Bare entry name: scan all packages that declare an EntryPoint by this name.
                 rows = conn.execute(
@@ -282,9 +279,7 @@ def run_describe(
                         f"(ambiguous across packages: {packages}; use 'package:entry')",
                     )
                 else:
-                    desc = queries.describe_entry_point(
-                        conn, package_name=rows[0][0], entry_name=raw
-                    )
+                    desc = queries.describe_entry_point(conn, package_name=rows[0][0], entry_name=raw)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: entry point not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_entry_point(desc, fmt="human"), ""
@@ -418,9 +413,7 @@ def graph_build_cmd(
         "--model",
         help="Model ID — recorded in trace; NOT invoked in v1.7 (graph build does not call an LLM).",
     ),
-    workspace: str = typer.Option(
-        "", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"
-    ),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
 ) -> None:
     """Build or refresh the code graph."""
     repo, workspace_path = _resolve_paths(workspace)
@@ -600,9 +593,7 @@ def graph_query_cmd(
         trace_file = _trace_path(workspace_path, "graph-query", shared_stamp)
 
     t0 = time.monotonic()
-    exit_code, stdout, stderr = run_query(
-        repo, workspace_path, name=name, kind=kind, in_package=in_package
-    )
+    exit_code, stdout, stderr = run_query(repo, workspace_path, name=name, kind=kind, in_package=in_package)
     dur_ms = int((time.monotonic() - t0) * 1000)
 
     # Echo render output (stdout) on success; truncation notice / store-error

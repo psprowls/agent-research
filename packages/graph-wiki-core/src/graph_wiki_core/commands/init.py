@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """init command — bootstrap a wiki vault structure.
 
 Public API:
@@ -10,9 +8,11 @@ Creates <workspace>/wiki/ vault structure plus <workspace>/raw/ and <workspace>/
 sibling directories (Phase 5 workspace init, formerly pending).
 """
 
+from __future__ import annotations
+
 import importlib.metadata
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo

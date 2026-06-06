@@ -39,11 +39,7 @@ def iter_human_sections(body: str) -> list[tuple[str, str]]:
     ``_split_h2_sections``).
     """
     _preamble, sections = _split_h2_sections(body)
-    return [
-        (heading, chunk)
-        for heading, chunk in sections
-        if not _is_scanner_owned_heading(heading)
-    ]
+    return [(heading, chunk) for heading, chunk in sections if not _is_scanner_owned_heading(heading)]
 
 
 def section_hash(chunk: str) -> str:
@@ -60,9 +56,8 @@ def extract_file_map(body: str) -> str | None:
     """
     _preamble, sections = _split_h2_sections(body)
     for heading, chunk in sections:
-        if (
-            _is_scanner_owned_heading(heading)
-            and _scanner_section_token(heading) == _scanner_section_token("## File map")
+        if _is_scanner_owned_heading(heading) and _scanner_section_token(heading) == _scanner_section_token(
+            "## File map"
         ):
             return chunk.strip()
     return None
@@ -77,8 +72,7 @@ def clear_resolved_flags(entries: list[dict], body: str) -> list[dict]:
     was removed — both drop the entry. Pure: no I/O, no side effects.
     """
     current: dict[str, str] = {
-        heading.removeprefix("## ").strip(): section_hash(chunk)
-        for heading, chunk in iter_human_sections(body)
+        heading.removeprefix("## ").strip(): section_hash(chunk) for heading, chunk in iter_human_sections(body)
     }
     survivors: list[dict] = []
     for entry in entries:

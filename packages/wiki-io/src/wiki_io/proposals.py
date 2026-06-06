@@ -64,10 +64,9 @@ def split_proposal_id(proposal_id: str) -> tuple[str, str]:
     for kind in SUGGESTION_KINDS:
         prefix = f"{kind}-"
         if proposal_id.startswith(prefix):
-            return kind, proposal_id[len(prefix):]
+            return kind, proposal_id[len(prefix) :]
     raise ValueError(
-        f"invalid proposal id {proposal_id!r}: expected <kind>-<target_slug> "
-        f"with kind in {sorted(SUGGESTION_KINDS)}"
+        f"invalid proposal id {proposal_id!r}: expected <kind>-<target_slug> with kind in {sorted(SUGGESTION_KINDS)}"
     )
 
 

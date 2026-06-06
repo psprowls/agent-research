@@ -15,13 +15,9 @@ from pathlib import Path
 
 import frontmatter
 import pytest
-
 from wiki_io.entity_writer import ADMITTED_KINDS
 
-TEMPLATE_DIR = (
-    Path(__file__).resolve().parent.parent
-    / "src" / "wiki_io" / "assets" / "page-templates"
-)
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "src" / "wiki_io" / "assets" / "page-templates"
 ENTITY_TEMPLATES = sorted(TEMPLATE_DIR.glob("entity-*.md"))
 
 
@@ -32,8 +28,7 @@ def test_six_entity_templates_exist() -> None:
     Phase 52 D-06: now 7 with the addition of `entity-app.md`.
     """
     assert len(ENTITY_TEMPLATES) == 7, (
-        f"expected 7 entity templates, got {len(ENTITY_TEMPLATES)}: "
-        f"{[p.name for p in ENTITY_TEMPLATES]}"
+        f"expected 7 entity templates, got {len(ENTITY_TEMPLATES)}: {[p.name for p in ENTITY_TEMPLATES]}"
     )
 
 
@@ -47,8 +42,7 @@ def test_each_template_kind_in_admitted_kinds(template_path: Path) -> None:
     fm = frontmatter.load(template_path)
     kind = fm.get("kind")
     assert kind in ADMITTED_KINDS, (
-        f"{template_path.name}: kind {kind!r} not in ADMITTED_KINDS "
-        f"({sorted(ADMITTED_KINDS)})"
+        f"{template_path.name}: kind {kind!r} not in ADMITTED_KINDS ({sorted(ADMITTED_KINDS)})"
     )
 
 
@@ -60,9 +54,7 @@ def test_each_template_kind_in_admitted_kinds(template_path: Path) -> None:
 def test_each_template_has_narrative_h2(template_path: Path) -> None:
     """Each template body contains the literal `## Narrative` H2 section (D-16)."""
     fm = frontmatter.load(template_path)
-    assert "\n## Narrative\n" in fm.content, (
-        f"{template_path.name}: missing `## Narrative` H2 section"
-    )
+    assert "\n## Narrative\n" in fm.content, f"{template_path.name}: missing `## Narrative` H2 section"
 
 
 def test_templates_cover_all_admitted_kinds() -> None:
@@ -74,8 +66,7 @@ def test_templates_cover_all_admitted_kinds() -> None:
         assert isinstance(kind, str), f"{tpl.name}: kind is not a string: {kind!r}"
         kinds_in_templates.add(kind)
     assert kinds_in_templates == ADMITTED_KINDS, (
-        f"template kinds {sorted(kinds_in_templates)} != ADMITTED_KINDS "
-        f"{sorted(ADMITTED_KINDS)}"
+        f"template kinds {sorted(kinds_in_templates)} != ADMITTED_KINDS {sorted(ADMITTED_KINDS)}"
     )
 
 
@@ -95,9 +86,7 @@ _BODY_H1_TOKEN_RE = re.compile(r"^# \{\{[a-z_]+\}\}$", re.MULTILINE)
 def test_each_template_body_h1_is_data_token(template_path: Path) -> None:
     """Each template body H1 is a `# {{..._name}}` data token (D-01, SCAN-01 anchor)."""
     body = frontmatter.load(template_path).content
-    assert _BODY_H1_TOKEN_RE.search(body), (
-        f"{template_path.name}: body H1 is not a `# {{{{..._name}}}}` data token"
-    )
+    assert _BODY_H1_TOKEN_RE.search(body), f"{template_path.name}: body H1 is not a `# {{{{..._name}}}}` data token"
     # No data-bearing `# <...>` angle H1 may survive in the body.
     assert not re.search(r"^# <", body, re.MULTILINE), (
         f"{template_path.name}: a data-bearing `# <...>` angle H1 still survives"
@@ -117,9 +106,7 @@ def test_entity_package_migrated_sections() -> None:
 def test_entity_app_migrated_sections() -> None:
     """entity-app.md carries the migrated Platform & runtime section (D-08)."""
     body = _body("entity-app.md")
-    assert "## Platform & runtime" in body, (
-        "entity-app.md: missing migrated `## Platform & runtime`"
-    )
+    assert "## Platform & runtime" in body, "entity-app.md: missing migrated `## Platform & runtime`"
 
 
 def test_entity_test_suite_owns_testing_prose() -> None:
@@ -134,9 +121,7 @@ def test_no_testing_section_leaked_into_package_or_app(name: str) -> None:
     """Testing prose stays in entity-test-suite.md, not entity-package/app (D-09)."""
     body = _body(name).lower()
     assert "## how to run" not in body, f"{name}: testing `## How to run` leaked in"
-    assert "## test conventions" not in body, (
-        f"{name}: testing `## Test conventions` leaked in"
-    )
+    assert "## test conventions" not in body, f"{name}: testing `## Test conventions` leaked in"
 
 
 # --- Phase 58 (SC#1, D-01/D-02/D-03) ----------------------------------------
@@ -144,9 +129,7 @@ def test_no_testing_section_leaked_into_package_or_app(name: str) -> None:
 # Obsidian-safe — no `<...>` placeholder text, no leading `>` (blockquote),
 # no `:` character on any body line.
 
-_RELATED_BLOCK_RE = re.compile(
-    r"^## Related\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL
-)
+_RELATED_BLOCK_RE = re.compile(r"^## Related\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL)
 
 
 def _related_block_body(template_name: str) -> str | None:
@@ -168,8 +151,13 @@ def test_all_entity_templates_have_referenced_in_wiki_section() -> None:
 
     tdir = files("wiki_io.assets.page-templates")
     kinds = [
-        "package", "app", "domain", "repository",
-        "dependency", "test-suite", "agent-plugin",
+        "package",
+        "app",
+        "domain",
+        "repository",
+        "dependency",
+        "test-suite",
+        "agent-plugin",
     ]
     for kind in kinds:
         body = (tdir / f"entity-{kind}.md").read_text(encoding="utf-8")
@@ -177,8 +165,10 @@ def test_all_entity_templates_have_referenced_in_wiki_section() -> None:
         # Placeholder mirrors the ## Narrative convention.
         idx = body.index("## Referenced in wiki")
         after = body[idx:]
-        assert "_(scanner will populate on next scan)_" in after.split("\n\n", 1)[0] \
-            or "_(scanner will populate" in after[:120], f"no placeholder in entity-{kind}.md"
+        assert (
+            "_(scanner will populate on next scan)_" in after.split("\n\n", 1)[0]
+            or "_(scanner will populate" in after[:120]
+        ), f"no placeholder in entity-{kind}.md"
 
 
 @pytest.mark.parametrize(
@@ -197,15 +187,11 @@ def test_related_block_is_obsidian_safe(template_path: Path) -> None:
         pytest.skip(f"{template_path.name}: no ## Related section — skip")
 
     for line in related_body.splitlines():
-        assert "<" not in line, (
-            f"{template_path.name}: ## Related body contains `<` placeholder text: {line!r}"
-        )
+        assert "<" not in line, f"{template_path.name}: ## Related body contains `<` placeholder text: {line!r}"
         assert not line.startswith(">"), (
             f"{template_path.name}: ## Related body line starts with `>` (Obsidian blockquote): {line!r}"
         )
-        assert ":" not in line, (
-            f"{template_path.name}: ## Related body line contains `:`: {line!r}"
-        )
+        assert ":" not in line, f"{template_path.name}: ## Related body line contains `:`: {line!r}"
 
 
 # --- Task 8 (slice4-ingest-entities-parity) ----------------------------------
@@ -243,6 +229,6 @@ def test_no_forward_link_stub_sections(template_path: Path) -> None:
     `## Referenced in wiki` (backlinks) supersedes them (Living Wiki M1)."""
     text = template_path.read_text(encoding="utf-8")
     for heading in _FORWARD_LINK_HEADINGS:
-        assert not re.search(
-            rf"^{re.escape(heading)}\s*$", text, re.MULTILINE
-        ), f"{template_path.name} still carries `{heading}`"
+        assert not re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE), (
+            f"{template_path.name} still carries `{heading}`"
+        )

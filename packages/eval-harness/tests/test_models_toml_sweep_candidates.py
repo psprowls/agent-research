@@ -2,7 +2,8 @@
 
 Verifies:
 - All six in-scope agent roles have non-empty sweep_candidates arrays (bespoke per-role lengths)
-- global.anthropic.claude-haiku-4-5-20251001-v1:0 is absent from every in-scope role's list after the 2026-05-30 Haiku quota purge
+- global.anthropic.claude-haiku-4-5-20251001-v1:0 is absent from every in-scope role's list
+  after the 2026-05-30 Haiku quota purge
 - Judges (judge_a, judge_b) do NOT have sweep_candidates (D-01)
 - Every candidate model_id is priced in eval_harness.pricing (key_links constraint)
 - make_llm() still works for all six roles after the new key is added
@@ -44,9 +45,7 @@ def test_sweep_candidates_present_for_all_six_roles():
         candidates = cfg.get("sweep_candidates")
         assert candidates is not None, f"[{role}] missing sweep_candidates key"
         assert isinstance(candidates, list), f"[{role}] sweep_candidates must be a list"
-        assert len(candidates) >= 1, (
-            f"[{role}] sweep_candidates must not be empty; got: {candidates}"
-        )
+        assert len(candidates) >= 1, f"[{role}] sweep_candidates must not be empty; got: {candidates}"
 
 
 def test_haiku_absent_from_every_in_scope_role_after_quota_purge():
@@ -78,9 +77,7 @@ def test_all_candidates_have_pricing():
                 # Use 1 token each — just checking the model is known, not computing real cost
                 cost_for_usage(model_id, {"input": 1, "output": 1})
             except UnknownModelError as e:
-                pytest.fail(
-                    f"[{role}] candidate {model_id!r} is not priced in eval_harness.pricing: {e}"
-                )
+                pytest.fail(f"[{role}] candidate {model_id!r} is not priced in eval_harness.pricing: {e}")
 
 
 def test_make_llm_still_works_for_all_roles():
@@ -107,14 +104,11 @@ def test_code_reader_cases_json_loads():
     """
     if not CODE_READER_CASES_PATH.exists():
         pytest.fail(
-            f"code_reader_cases.json not found at {CODE_READER_CASES_PATH}; "
-            "Task 2 must create it before Task 3 runs."
+            f"code_reader_cases.json not found at {CODE_READER_CASES_PATH}; Task 2 must create it before Task 3 runs."
         )
 
     cases = json.loads(CODE_READER_CASES_PATH.read_text())
-    assert 5 <= len(cases) <= 6, (
-        f"expected 5–6 code_reader cases after Phase 16 expansion, got {len(cases)}"
-    )
+    assert 5 <= len(cases) <= 6, f"expected 5–6 code_reader cases after Phase 16 expansion, got {len(cases)}"
 
     for case in cases:
         assert "vault-thin" in case["tags"], (

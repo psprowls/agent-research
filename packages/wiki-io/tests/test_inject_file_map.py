@@ -7,11 +7,10 @@ from pathlib import Path
 
 import frontmatter
 import pytest
-
 from wiki_io.entity_writer import (
     _extract_file_map_descriptions,
-    fill_file_map_descriptions,
     file_map_todo_paths,
+    fill_file_map_descriptions,
     inject_file_map,
 )
 
@@ -145,14 +144,8 @@ def test_inject_file_map_replaces_through_eof_when_last_section(tmp_path: Path):
     assert text.rstrip().endswith("| `__init__.py` | file | — TODO |")
 
 
-def test_inject_file_map_missing_heading_logs_warning_no_write(
-    tmp_path: Path, caplog
-):
-    page = (
-        "---\nuri: pkg:x\nkind: package\n---\n"
-        "\n## Purpose\n\nfoo\n"
-        "\n## Public API\n\napi\n"
-    )
+def test_inject_file_map_missing_heading_logs_warning_no_write(tmp_path: Path, caplog):
+    page = "---\nuri: pkg:x\nkind: package\n---\n\n## Purpose\n\nfoo\n\n## Public API\n\napi\n"
     p = tmp_path / "page.md"
     p.write_text(page, encoding="utf-8")
 
@@ -160,10 +153,9 @@ def test_inject_file_map_missing_heading_logs_warning_no_write(
         inject_file_map(p, _BLOCK)
 
     assert p.read_text(encoding="utf-8") == page  # untouched
-    assert any(
-        "File map" in record.getMessage() and record.levelno == logging.WARNING
-        for record in caplog.records
-    ), f"No WARNING about File map; saw: {[r.getMessage() for r in caplog.records]}"
+    assert any("File map" in record.getMessage() and record.levelno == logging.WARNING for record in caplog.records), (
+        f"No WARNING about File map; saw: {[r.getMessage() for r in caplog.records]}"
+    )
 
 
 def test_inject_file_map_missing_file_raises(tmp_path: Path):
@@ -250,9 +242,7 @@ def test_inject_file_map_preserved_handles_pipe_in_description(tmp_path: Path):
     p = tmp_path / "page.md"
     p.write_text(_template_page(), encoding="utf-8")
 
-    inject_file_map(
-        p, _BLOCK_MULTI, preserved={"src/core.py": "handles a | b routing"}
-    )
+    inject_file_map(p, _BLOCK_MULTI, preserved={"src/core.py": "handles a | b routing"})
 
     text = p.read_text(encoding="utf-8")
     # Pipe is escaped in the cell so the table stays well-formed, and a
@@ -287,9 +277,7 @@ def test_file_map_todo_paths_lists_unfilled_file_rows(tmp_path: Path):
 def test_file_map_todo_paths_excludes_filled_rows(tmp_path: Path):
     p = tmp_path / "page.md"
     p.write_text(_template_page(), encoding="utf-8")
-    inject_file_map(
-        p, _BLOCK_MULTI, preserved={"src/core.py": "the core engine"}
-    )
+    inject_file_map(p, _BLOCK_MULTI, preserved={"src/core.py": "the core engine"})
 
     # src/core.py now filled → only the other two remain TODO.
     assert file_map_todo_paths(p) == ["pyproject.toml", "src/__init__.py"]
@@ -297,9 +285,7 @@ def test_file_map_todo_paths_excludes_filled_rows(tmp_path: Path):
 
 def test_file_map_todo_paths_no_section_returns_empty(tmp_path: Path):
     p = tmp_path / "page.md"
-    p.write_text(
-        "---\nuri: pkg:x\n---\n\n## Purpose\n\nx\n", encoding="utf-8"
-    )
+    p.write_text("---\nuri: pkg:x\n---\n\n## Purpose\n\nx\n", encoding="utf-8")
     assert file_map_todo_paths(p) == []
 
 
@@ -331,9 +317,7 @@ def test_fill_file_map_descriptions_never_overwrites_filled(tmp_path: Path):
     inject_file_map(p, _BLOCK_MULTI, preserved={"src/core.py": "human-written"})
 
     # Try to overwrite the already-filled cell + fill a real TODO.
-    n = fill_file_map_descriptions(
-        p, {"src/core.py": "llm guess", "pyproject.toml": "package manifest"}
-    )
+    n = fill_file_map_descriptions(p, {"src/core.py": "llm guess", "pyproject.toml": "package manifest"})
     assert n == 1  # only the TODO row counted
 
     text = p.read_text(encoding="utf-8")

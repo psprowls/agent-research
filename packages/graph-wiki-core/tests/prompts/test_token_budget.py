@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Token-budget regression test (CTX-05 LOCKED).
 
 Enforces the +1500-tokens-per-role ceiling documented in
@@ -38,6 +36,8 @@ test_project_context.py.
 # returns no output — so re-execing the historical prompt source against the
 # current fragments yields the exact pre-Phase-10 baseline.
 """
+
+from __future__ import annotations
 
 import pytest
 
@@ -92,9 +92,7 @@ def test_linter_page_quality_token_budget() -> None:
         from graph_wiki_core.prompts.linter import build_linter_page_quality_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    _assert_within_budget(
-        "linter_page_quality", build_linter_page_quality_system(project_context="")
-    )
+    _assert_within_budget("linter_page_quality", build_linter_page_quality_system(project_context=""))
 
 
 def test_linter_adr_chain_token_budget() -> None:
@@ -102,9 +100,7 @@ def test_linter_adr_chain_token_budget() -> None:
         from graph_wiki_core.prompts.linter import build_linter_adr_chain_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    _assert_within_budget(
-        "linter_adr_chain", build_linter_adr_chain_system(project_context="")
-    )
+    _assert_within_budget("linter_adr_chain", build_linter_adr_chain_system(project_context=""))
 
 
 def test_linter_stale_claims_token_budget() -> None:
@@ -112,9 +108,7 @@ def test_linter_stale_claims_token_budget() -> None:
         from graph_wiki_core.prompts.linter import build_linter_stale_claims_system
     except ImportError:
         pytest.skip("prompts module not yet implemented")
-    _assert_within_budget(
-        "linter_stale_claims", build_linter_stale_claims_system(project_context="")
-    )
+    _assert_within_budget("linter_stale_claims", build_linter_stale_claims_system(project_context=""))
 
 
 def test_librarian_token_budget() -> None:

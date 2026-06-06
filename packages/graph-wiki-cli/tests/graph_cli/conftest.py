@@ -1,4 +1,5 @@
 """Add tests/ to sys.path so _git_repo helpers are importable without a package prefix."""
+
 from __future__ import annotations
 
 import shutil
@@ -39,13 +40,9 @@ def seeded_db(tmp_path_factory):
         cwd=repo_root,
         check=True,
     )
-    subprocess.run(
-        ["git", "config", "user.name", "test"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "seeded_db init"], cwd=repo_root, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "seeded_db init"], cwd=repo_root, check=True)
 
     update.run(repo_root, full=True)
 

@@ -34,7 +34,7 @@ def _parse_workflow_hints(text: str) -> dict[str, list[str]]:
                 if colon == -1:
                     continue
                 phase = stripped[:colon].strip()
-                rest = stripped[colon + 1:].strip()
+                rest = stripped[colon + 1 :].strip()
                 items = parse_inline_list(rest)
                 if items:
                     hints[phase] = items
@@ -52,7 +52,5 @@ def check(pages: dict, vault: Path) -> list[str]:
             for sp in sub_pages:
                 sub_path = vault / Path(key).parent / sp
                 if not sub_path.exists():
-                    issues.append(
-                        f"{key}: workflow_hints.{phase} references missing sub-page '{sp}'"
-                    )
+                    issues.append(f"{key}: workflow_hints.{phase} references missing sub-page '{sp}'")
     return issues

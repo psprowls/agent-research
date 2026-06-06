@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Headless baseline recorder: spawn `claude -p` and snapshot the output.
 
 Ported from lattice-evals/runner_headless.py with the following sections
@@ -25,6 +23,8 @@ via re.sub(r"[^a-zA-Z0-9._-]", "_", case_id).
 Security (T-4-05): workspace_path is caller-provided and is not user-input;
 case_id sanitization is the only filename-construction security control.
 """
+
+from __future__ import annotations
 
 import asyncio
 import hashlib

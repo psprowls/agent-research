@@ -4,13 +4,12 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-
 from graph_io import exit_codes, update
 from graph_wiki_cli.graph_cli import q_describe_builtin, q_describe_dependency, q_list_builtins
 from workspace_io.config import resolve as resolve_workspace
@@ -22,21 +21,17 @@ def mixed_workspace(tmp_path: Path) -> Path:
     repo.mkdir()
     # Python pkg importing pathlib + os + boto3
     (repo / "pyproject.toml").write_text(
-        '[project]\nname = "demo"\nversion = "0.1.1"\n'
-        'dependencies = ["boto3>=1.38"]\n'
+        '[project]\nname = "demo"\nversion = "0.1.1"\ndependencies = ["boto3>=1.38"]\n'
     )
     (repo / "src" / "demo").mkdir(parents=True)
-    (repo / "src" / "demo" / "__init__.py").write_text(
-        "from pathlib import Path\nimport os\nimport boto3\n"
-    )
+    (repo / "src" / "demo" / "__init__.py").write_text("from pathlib import Path\nimport os\nimport boto3\n")
     # JS pkg importing fs + node:path + express
     (repo / "js-app").mkdir()
     (repo / "js-app" / "package.json").write_text(
         '{"name": "js-demo", "version": "0.1.1", "dependencies": {"express": "^4.0.0"}}'
     )
     (repo / "js-app" / "index.js").write_text(
-        "const fs = require('fs');\nconst path = require('node:path');\n"
-        "const express = require('express');\n"
+        "const fs = require('fs');\nconst path = require('node:path');\nconst express = require('express');\n"
     )
     # git init + commit
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
@@ -58,8 +53,12 @@ def _ns_describe_builtin(ws, uri, fmt="human"):
 
 def _ns_describe_dep(ws, name, ecosystem="pypi", fmt="human"):
     return SimpleNamespace(
-        workspace=ws, repo=None, fmt=fmt, mode="workspace",
-        name=name, ecosystem=ecosystem,
+        workspace=ws,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        name=name,
+        ecosystem=ecosystem,
     )
 
 

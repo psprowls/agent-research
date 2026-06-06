@@ -20,17 +20,13 @@ def test_update_frontmatter_sets_structured_value(tmp_path):
         page,
         {
             "drift_checked_commit": "abc123",
-            "drift_review": [
-                {"section": "Purpose", "detected_commit": "abc123",
-                 "hash": "9f2c", "reason": "stale"}
-            ],
+            "drift_review": [{"section": "Purpose", "detected_commit": "abc123", "hash": "9f2c", "reason": "stale"}],
         },
     )
     meta = _fm.load(page).metadata
     assert meta["drift_checked_commit"] == "abc123"
     assert meta["drift_review"] == [
-        {"section": "Purpose", "detected_commit": "abc123",
-         "hash": "9f2c", "reason": "stale"}
+        {"section": "Purpose", "detected_commit": "abc123", "hash": "9f2c", "reason": "stale"}
     ]
 
 
@@ -60,7 +56,7 @@ def test_update_frontmatter_missing_file_raises(tmp_path):
 # Task 2: pure drift helpers (wiki_io.drift)
 # ---------------------------------------------------------------------------
 
-from wiki_io.drift import (
+from wiki_io.drift import (  # noqa: E402
     clear_resolved_flags,
     extract_file_map,
     iter_human_sections,
@@ -102,12 +98,14 @@ def test_extract_file_map_returns_section_or_none():
 def test_clear_resolved_flags_drops_edited_and_missing():
     purpose_chunk = "## Purpose\nProcesses items synchronously.\n\n"
     entries = [
-        {"section": "Purpose", "detected_commit": "c1",
-         "hash": section_hash(purpose_chunk), "reason": "r1"},
-        {"section": "Public API", "detected_commit": "c1",
-         "hash": "STALEHASH", "reason": "r2"},      # hash mismatch -> edited -> drop
-        {"section": "Gone", "detected_commit": "c1",
-         "hash": "whatever", "reason": "r3"},        # section absent -> drop
+        {"section": "Purpose", "detected_commit": "c1", "hash": section_hash(purpose_chunk), "reason": "r1"},
+        {
+            "section": "Public API",
+            "detected_commit": "c1",
+            "hash": "STALEHASH",
+            "reason": "r2",
+        },  # hash mismatch -> edited -> drop
+        {"section": "Gone", "detected_commit": "c1", "hash": "whatever", "reason": "r3"},  # section absent -> drop
     ]
     survivors = clear_resolved_flags(entries, _BODY)
     assert [e["section"] for e in survivors] == ["Purpose"]
@@ -115,8 +113,7 @@ def test_clear_resolved_flags_drops_edited_and_missing():
 
 def test_clear_resolved_flags_keeps_all_when_unchanged():
     entries = [
-        {"section": h.removeprefix("## "), "detected_commit": "c1",
-         "hash": section_hash(chunk), "reason": "r"}
+        {"section": h.removeprefix("## "), "detected_commit": "c1", "hash": section_hash(chunk), "reason": "r"}
         for h, chunk in iter_human_sections(_BODY)
     ]
     assert clear_resolved_flags(entries, _BODY) == entries
@@ -138,7 +135,8 @@ def test_merge_frontmatter_preserves_drift_keys():
     from wiki_io.entity_writer import merge_frontmatter
 
     existing = {
-        "uri": "pkg:a", "kind": "package",
+        "uri": "pkg:a",
+        "kind": "package",
         "drift_checked_commit": "abc",
         "drift_review": [{"section": "Purpose", "hash": "h", "detected_commit": "abc", "reason": "r"}],
     }

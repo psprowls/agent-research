@@ -1,5 +1,4 @@
 import pytest
-
 from _fixture_loader import (
     diff,
     fixtures_for,

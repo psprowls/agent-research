@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for subagent_runtime.pool.SubagentPool.
 
 Covers partial failure isolation, semaphore concurrency cap, JSONL trace
@@ -10,14 +8,15 @@ limit propagation.
 No real Bedrock calls — all LLM paths are mocked via conftest fixtures.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
-import os
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Test 1: FanOutResult dataclass returned on empty input
@@ -25,7 +24,7 @@ from unittest.mock import MagicMock
 
 
 async def test_fanout_returns_fanout_result_dataclass(tmp_path, make_task):
-    from subagent_runtime.pool import SubagentPool, FanOutResult, PerItemError
+    from subagent_runtime.pool import FanOutResult, SubagentPool
 
     pool = SubagentPool(trace_dir=tmp_path / "traces")
     task = make_task()
@@ -47,7 +46,7 @@ async def test_fanout_returns_fanout_result_dataclass(tmp_path, make_task):
 
 
 async def test_partial_failure_isolation(tmp_path, make_task):
-    from subagent_runtime.pool import SubagentPool, FanOutResult, PerItemError
+    from subagent_runtime.pool import SubagentPool
 
     task = make_task(raise_for={"bad"})
     pool = SubagentPool(trace_dir=tmp_path / "traces")
@@ -70,7 +69,7 @@ async def test_partial_failure_isolation(tmp_path, make_task):
 
 
 async def test_first_task_failure_does_not_cancel_siblings(tmp_path, make_task):
-    from subagent_runtime.pool import SubagentPool, FanOutResult, PerItemError
+    from subagent_runtime.pool import SubagentPool
 
     task = make_task(raise_for={"bad"})
     pool = SubagentPool(trace_dir=tmp_path / "traces")
@@ -91,7 +90,7 @@ async def test_first_task_failure_does_not_cancel_siblings(tmp_path, make_task):
 
 
 async def test_all_tasks_fail(tmp_path, make_task):
-    from subagent_runtime.pool import SubagentPool, FanOutResult, PerItemError
+    from subagent_runtime.pool import SubagentPool
 
     task = make_task(raise_for={"a", "b", "c", "d"})
     pool = SubagentPool(trace_dir=tmp_path / "traces")
@@ -203,9 +202,16 @@ async def test_trace_record_completeness_success_path(tmp_path, fake_llm_respons
     record = json.loads(lines[0])
     required_keys = {
         "schema_version",
-        "role", "model_id", "prompt_hash", "item_id",
-        "status", "latency_ms", "tokens_in", "tokens_out",
-        "cost_usd", "timestamp",
+        "role",
+        "model_id",
+        "prompt_hash",
+        "item_id",
+        "status",
+        "latency_ms",
+        "tokens_in",
+        "tokens_out",
+        "cost_usd",
+        "timestamp",
     }
     assert required_keys.issubset(record.keys())
     assert record["schema_version"] == 1
@@ -369,7 +375,8 @@ async def test_separate_trace_files_per_run_all(tmp_path, make_task):
 
 
 async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatch):
-    from unittest.mock import MagicMock, call
+    from unittest.mock import MagicMock
+
     import subagent_runtime.pool as pool_module
 
     traces_dir = tmp_path / "traces"
@@ -432,7 +439,9 @@ async def test_recursion_limit_propagated_to_runnableconfig(tmp_path, monkeypatc
 
     # Config must have been DELIVERED to the task callable (CR-01 fix)
     assert len(received_configs_b) == 1, f"Expected 1 config delivered; got {len(received_configs_b)}"
-    assert received_configs_b[0].get("recursion_limit") == 99, f"Expected recursion_limit=99; got {received_configs_b[0]}"
+    assert received_configs_b[0].get("recursion_limit") == 99, (
+        f"Expected recursion_limit=99; got {received_configs_b[0]}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -452,9 +461,7 @@ async def test_batch_terminal_includes_schema_version(tmp_path):
 
     async def slow_task(item):
         await asyncio.sleep(3)  # long enough that cancel always arrives in-flight
-        return MagicMock(
-            usage_metadata={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
-        )
+        return MagicMock(usage_metadata={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2})
 
     task = asyncio.ensure_future(
         pool.run_all(
@@ -478,15 +485,10 @@ async def test_batch_terminal_includes_schema_version(tmp_path):
     trace_files = list(traces_dir.glob("*.jsonl"))
     assert len(trace_files) == 1, f"Expected one trace file, got {len(trace_files)}"
 
-    lines = [
-        json.loads(line)
-        for line in trace_files[0].read_text().splitlines()
-        if line.strip()
-    ]
+    lines = [json.loads(line) for line in trace_files[0].read_text().splitlines() if line.strip()]
     batch_records = [line for line in lines if line.get("event") == "batch_cancelled"]
     assert len(batch_records) == 1, (
-        f"Expected exactly one batch_cancelled record, got {len(batch_records)}; "
-        f"lines: {lines}"
+        f"Expected exactly one batch_cancelled record, got {len(batch_records)}; lines: {lines}"
     )
     assert batch_records[0]["schema_version"] == 1
 
@@ -524,9 +526,7 @@ async def test_pool_writes_tokens_when_callback_returns_taskresult(tmp_path):
 
     traces_dir = tmp_path / "traces"
     pool = SubagentPool(trace_dir=traces_dir)
-    stub = _StubResponseWithUsage(
-        usage_metadata={"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}
-    )
+    stub = _StubResponseWithUsage(usage_metadata={"input_tokens": 5, "output_tokens": 7, "total_tokens": 12})
 
     async def task(item):
         return TaskResult(value="hello", response=stub)

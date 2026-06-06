@@ -51,9 +51,7 @@ def cost_frontier_table(results: list[SweepResult]) -> dict[str, dict]:
             quality_score = 1.0 if result.structural.get("has_citation") else 0.0
 
         # structural_pass: True if all bool values in structural dict are True
-        structural_pass = all(
-            v for v in result.structural.values() if isinstance(v, bool)
-        )
+        structural_pass = all(v for v in result.structural.values() if isinstance(v, bool))
 
         row = {
             "quality_score": quality_score,
@@ -85,9 +83,7 @@ def regression_check(score: float, threshold: float = 0.5) -> None:
                         "below threshold" for test matching.
     """
     if score < threshold:
-        raise AssertionError(
-            f"Quality score {score:.3f} below threshold {threshold:.3f}"
-        )
+        raise AssertionError(f"Quality score {score:.3f} below threshold {threshold:.3f}")
 
 
 def print_frontier(table: dict[str, dict]) -> str:
@@ -296,7 +292,7 @@ def render_role_doc(
             q_mean = sum(qualities) / len(qualities) if qualities else 0.0
             if len(qualities) > 1:
                 variance = sum((q - q_mean) ** 2 for q in qualities) / len(qualities)
-                q_std = variance ** 0.5
+                q_std = variance**0.5
                 q_std_str = f"{q_std:.3f}"
             else:
                 q_std_str = "n/a"

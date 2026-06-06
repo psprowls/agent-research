@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from graph_wiki_core.graph_tools import build_graph_tools
 
 
@@ -58,9 +57,7 @@ def test_cg_describe_dispatch(seeded_graph_conn, kind, identifier):
 
 def test_cg_describe_missing_entity_returns_error_string(seeded_graph_conn):
     tools = _by_name(build_graph_tools(seeded_graph_conn))
-    out = tools["cg_describe"].invoke(
-        {"kind": "package", "identifier": "definitely-not-real-9999"}
-    )
+    out = tools["cg_describe"].invoke({"kind": "package", "identifier": "definitely-not-real-9999"})
     assert "error: no package named" in out
     assert "definitely-not-real-9999" in out
 
@@ -69,16 +66,12 @@ def test_tools_return_string_with_row_cap(seeded_graph_conn):
     tools = _by_name(build_graph_tools(seeded_graph_conn))
     out_find = tools["cg_find"].invoke({"kind": "function"})
     assert isinstance(out_find, str)
-    out_imports = tools["cg_imports"].invoke(
-        {"path": "packages/mypkg/src/mypkg/foo.py"}
-    )
+    out_imports = tools["cg_imports"].invoke({"path": "packages/mypkg/src/mypkg/foo.py"})
     assert isinstance(out_imports, str)
 
 
 def test_closure_shares_single_connection(seeded_graph_conn):
-    real_find = __import__(
-        "graph_wiki_core.graph_tools", fromlist=["queries"]
-    ).queries.find
+    real_find = __import__("graph_wiki_core.graph_tools", fromlist=["queries"]).queries.find
     seen_ids: list[int] = []
 
     def _recorder(conn, **kwargs):
@@ -101,7 +94,5 @@ def test_cg_callers_callees_imports_smoke(seeded_graph_conn):
     assert isinstance(out_callers, str)
     out_callees = tools["cg_callees"].invoke({"name": "foo"})
     assert isinstance(out_callees, str)
-    out_imports = tools["cg_imports"].invoke(
-        {"path": "packages/mypkg/src/mypkg/foo.py"}
-    )
+    out_imports = tools["cg_imports"].invoke({"path": "packages/mypkg/src/mypkg/foo.py"})
     assert isinstance(out_imports, str)

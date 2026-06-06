@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DOC_PATHS = [
     REPO_ROOT / "README.md",

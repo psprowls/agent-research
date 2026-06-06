@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for Phase 39 scan→graph integration.
 
 Covers D-01..D-08 of the scanner-consumes-graph-io plan:
@@ -18,21 +16,18 @@ The scanner fan-out (LLM dispatch) is short-circuited in every test via a
 stubbed SubagentPool.run_all that returns an empty FanOutResult — no Bedrock.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import re
 import sqlite3
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 from graph_io import exit_codes
-from graph_io.store import GraphNotInitializedError
-from graph_wiki_core.commands import graph as graph_module
 from graph_wiki_core.commands import scan as scan_module
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -77,9 +72,7 @@ def _seed_minimal_graph(db_path: Path) -> None:
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('domain', 'my-domain', NULL, NULL, '{}', 'domain:org/repo/my-domain')"
         )
-        dom_id = conn.execute(
-            "SELECT id FROM nodes WHERE kind='domain' AND name='my-domain'"
-        ).fetchone()[0]
+        dom_id = conn.execute("SELECT id FROM nodes WHERE kind='domain' AND name='my-domain'").fetchone()[0]
         # belongs_to_domain edge: pkg-a -> my-domain
         conn.execute(
             "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'belongs_to_domain', NULL)",
@@ -151,9 +144,7 @@ def tmp_workspace_with_packages(tmp_workspace):
         pdir = repo / "packages" / name / "src" / name.replace("-", "_")
         pdir.mkdir(parents=True)
         (pdir / "__init__.py").write_text('"""pkg."""\n')
-        (repo / "packages" / name / "pyproject.toml").write_text(
-            f'[project]\nname = "{name}"\nversion = "0.1.1"\n'
-        )
+        (repo / "packages" / name / "pyproject.toml").write_text(f'[project]\nname = "{name}"\nversion = "0.1.1"\n')
     return tmp_workspace
 
 
@@ -198,7 +189,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
     onto the typed run_build core (scan binds it as `_cg_run_build`).
     """
     workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
 
     order: list[str] = []
@@ -231,9 +222,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
     # which run_build writes `.graph-wiki/code.db` under. Mirrors commands/graph.py
     # and the librarian's read path (commands/query.py uses graph_dir(wiki.parent)).
     assert captured_call["full"] is False, f"expected full=False; got {captured_call['full']}"
-    assert captured_call["workspace"] == workspace, (
-        f"expected workspace root; got {captured_call['workspace']}"
-    )
+    assert captured_call["workspace"] == workspace, f"expected workspace root; got {captured_call['workspace']}"
     assert captured_call["repo"] == repo
 
 
@@ -243,9 +232,7 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
@@ -264,19 +251,15 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
         (exit_codes.GENERIC, "sqlite3.OperationalError: database is locked"),
     ],
 )
-def test_hard_abort_on_runtime_failure(
-    tmp_workspace_with_packages, monkeypatch, capsys, exit_code, stderr
-):
+def test_hard_abort_on_runtime_failure(tmp_workspace_with_packages, monkeypatch, capsys, exit_code, stderr):
     """D-07: non-recoverable runtime failures hard-abort with ScanAbortedError;
     fan-out NEVER runs; no NOT_INITIALIZED fallback line is emitted.
     """
     workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_code, "", stderr)
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_code, "", stderr))
 
     # Stub the pool with a recorder that proves it was NEVER called.
     pool_calls: list[int] = []
@@ -304,7 +287,7 @@ def test_hard_abort_on_runtime_failure(
 def test_hard_abort_on_generic_runtime_failure(tmp_workspace_with_packages, monkeypatch, capsys):
     """D-07: GENERIC exit with non-init-pattern stderr is a hard abort (no fallback)."""
     workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
 
     monkeypatch.setattr(
@@ -333,14 +316,12 @@ def test_hard_abort_on_generic_runtime_failure(tmp_workspace_with_packages, monk
         "Permission denied: cannot create .graph-wiki/graph/",
     ],
 )
-def test_graceful_fallback_on_init_failure(
-    tmp_workspace_with_packages, monkeypatch, capsys, init_stderr
-):
+def test_graceful_fallback_on_init_failure(tmp_workspace_with_packages, monkeypatch, capsys, init_stderr):
     """D-08: GENERIC exit with init-pattern stderr emits exactly one fallback line,
     skips decoration, and lets the scan complete without raising.
     """
     workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
 
     monkeypatch.setattr(
@@ -360,18 +341,14 @@ def test_graceful_fallback_on_init_failure(
     monkeypatch.setattr(scan_module, "read_only_connect", _record_conn)
 
     # Scan should complete without raising.
-    result = asyncio.run(
-        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True)
-    )
+    result = asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
     assert result is not None  # ScanResult returned
 
     captured = capsys.readouterr()
     assert _has_not_initialized_fallback_line(captured.err), (
         f"expected exactly one NOT_INITIALIZED fallback line in stderr; got: {captured.err!r}"
     )
-    assert conn_calls == [], (
-        f"read_only_connect should not be called on init fallback; calls={conn_calls}"
-    )
+    assert conn_calls == [], f"read_only_connect should not be called on init fallback; calls={conn_calls}"
 
 
 def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
@@ -379,15 +356,13 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     closed in finally even when fan-out raises.
     """
     workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
+    workspace / "wiki"
     repo = workspace / "repo"
 
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     # Substitute read_only_connect with a MagicMock so we can assert close().
     mock_conn = MagicMock()
@@ -419,9 +394,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     mock_conn.close.assert_called(), "read-only conn must be closed in finally"
 
 
-def test_file_map_injected_into_package_entity_page(
-    tmp_workspace_with_packages, monkeypatch
-):
+def test_file_map_injected_into_package_entity_page(tmp_workspace_with_packages, monkeypatch):
     """File-map injection: after write_entities creates a package entity page,
     run_scan replaces its `## File map` section with the deterministic
     `w["file_map"]` block (path + kind rows). Verified end-to-end against the
@@ -434,9 +407,7 @@ def test_file_map_injected_into_package_entity_page(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     # Deterministic file-map block as build_file_map would emit it for pkg-a.
     pkg_a_block = (
@@ -452,25 +423,6 @@ def test_file_map_injected_into_package_entity_page(
         "| `src/pkg_a/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "pkg-a",
-            "path": "packages/pkg-a",
-            "wiki_relative_path": "packages/pkg-a/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-        },
-        {
-            "name": "pkg-b",
-            "path": "packages/pkg-b",
-            "wiki_relative_path": "packages/pkg-b/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-            # No file_map → injection is skipped for pkg-b.
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -485,9 +437,7 @@ def test_file_map_injected_into_package_entity_page(
         lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
     )
 
-    result = asyncio.run(
-        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
-    )
+    result = asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False))
 
     # pkg-a was created this scan → its file map should be injected.
     assert "pkg:org/repo/pkg-a" in result.entities_created
@@ -497,9 +447,7 @@ def test_file_map_injected_into_package_entity_page(
 
     entities = sorted((wiki / "entities").glob("*.md"))
     assert entities, "no entity pages written"
-    pkg_a_page = next(
-        p for p in entities if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
-    )
+    pkg_a_page = next(p for p in entities if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a")
     text = pkg_a_page.read_text(encoding="utf-8")
 
     # Deterministic rows landed; the empty template placeholder rows are gone.
@@ -513,9 +461,7 @@ def test_file_map_injected_into_package_entity_page(
 
 
 @pytest.mark.asyncio
-async def test_file_map_injected_into_app_entity_page(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_file_map_injected_into_app_entity_page(tmp_workspace_with_packages, monkeypatch):
     """File-map injection (apps): after write_entities creates an app entity
     page, run_scan replaces its `## File map` section with the deterministic
     `w["file_map"]` block (path + kind rows). Verified end-to-end against the
@@ -529,9 +475,7 @@ async def test_file_map_injected_into_app_entity_page(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     # Deterministic file-map block as build_file_map would emit it for app-x.
     app_x_block = (
@@ -547,16 +491,6 @@ async def test_file_map_injected_into_app_entity_page(
         "| `src/app_x/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "app-x",
-            "path": "apps/app-x",
-            "wiki_relative_path": "apps/app-x/overview.md",
-            "type": "app",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -570,9 +504,7 @@ async def test_file_map_injected_into_app_entity_page(
         lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
     )
 
-    result = await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    result = await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     # app-x was created this scan → its file map should be injected.
     assert "app:org/repo/app-x" in result.entities_created
@@ -582,9 +514,7 @@ async def test_file_map_injected_into_app_entity_page(
 
     entities = sorted((wiki / "entities").glob("*.md"))
     assert entities, "no entity pages written"
-    app_x_page = next(
-        p for p in entities if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
-    )
+    app_x_page = next(p for p in entities if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x")
     text = app_x_page.read_text(encoding="utf-8")
 
     # Deterministic rows landed; the empty template placeholder rows are gone.
@@ -598,9 +528,7 @@ async def test_file_map_injected_into_app_entity_page(
     assert "## Provider chain" in text
 
 
-def test_file_map_descriptions_survive_rescan(
-    tmp_workspace_with_packages, monkeypatch
-):
+def test_file_map_descriptions_survive_rescan(tmp_workspace_with_packages, monkeypatch):
     """Durability: a Description filled into a package's File-map table survives
     a rescan, even though write_entities re-renders the page body from template.
 
@@ -615,9 +543,7 @@ def test_file_map_descriptions_survive_rescan(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     pkg_a_block = (
         "## File map - pkg-a\n"
@@ -632,16 +558,6 @@ def test_file_map_descriptions_survive_rescan(
         "| `src/pkg_a/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "pkg-a",
-            "path": "packages/pkg-a",
-            "wiki_relative_path": "packages/pkg-a/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -658,13 +574,9 @@ def test_file_map_descriptions_survive_rescan(
     import frontmatter
 
     # Scan 1: page created, File map injected with — TODO rows.
-    asyncio.run(
-        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
-    )
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False))
     pkg_a_page = next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+        p for p in (wiki / "entities").glob("*.md") if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
     )
 
     # Human/ingest fills one description (the other stays — TODO).
@@ -676,9 +588,7 @@ def test_file_map_descriptions_survive_rescan(
 
     # Scan 2: write_entities re-renders the page body from template (wiping the
     # injected File map); the snapshot+merge must restore the filled cell.
-    asyncio.run(
-        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
-    )
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False))
 
     text2 = pkg_a_page.read_text(encoding="utf-8")
     assert "| `src/pkg_a/__init__.py` | file | the package entrypoint |" in text2, (
@@ -688,9 +598,7 @@ def test_file_map_descriptions_survive_rescan(
     assert "| `pyproject.toml` | file | — TODO |" in text2
 
 
-def test_code_reader_fanout_fills_todo_descriptions(
-    tmp_workspace_with_packages, monkeypatch
-):
+def test_code_reader_fanout_fills_todo_descriptions(tmp_workspace_with_packages, monkeypatch):
     """Step 10c: after the deterministic File map is injected with — TODO rows,
     the code_reader fan-out fills the Description cells from the model's
     {path: description} JSON. Verified end-to-end with a stubbed describer pool.
@@ -702,9 +610,7 @@ def test_code_reader_fanout_fills_todo_descriptions(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     pkg_a_block = (
         "## File map - pkg-a\n"
@@ -719,16 +625,6 @@ def test_code_reader_fanout_fills_todo_descriptions(
         "| `src/pkg_a/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "pkg-a",
-            "path": "packages/pkg-a",
-            "wiki_relative_path": "packages/pkg-a/overview.md",
-            "type": "library",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -760,30 +656,21 @@ def test_code_reader_fanout_fills_todo_descriptions(
 
     import frontmatter
 
-    asyncio.run(
-        scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
-    )
+    asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False))
 
     pkg_a_page = next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
+        p for p in (wiki / "entities").glob("*.md") if frontmatter.load(p).metadata.get("uri") == "pkg:org/repo/pkg-a"
     )
     text = pkg_a_page.read_text(encoding="utf-8")
 
     # The — TODO placeholders were replaced by the model's descriptions.
     assert "| `pyproject.toml` | file | desc for pyproject.toml |" in text
-    assert (
-        "| `src/pkg_a/__init__.py` | file | desc for src/pkg_a/__init__.py |"
-        in text
-    )
+    assert "| `src/pkg_a/__init__.py` | file | desc for src/pkg_a/__init__.py |" in text
     assert "— TODO" not in text
 
 
 @pytest.mark.asyncio
-async def test_code_reader_fanout_fills_app_todo_descriptions(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_code_reader_fanout_fills_app_todo_descriptions(tmp_workspace_with_packages, monkeypatch):
     """Step 10c (apps): after the deterministic File map is injected with — TODO
     rows on an app page, the code_reader fan-out fills the Description cells from
     the model's {path: description} JSON. Proves Step 10c is kind-agnostic once
@@ -796,9 +683,7 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     app_x_block = (
         "## File map - app-x\n"
@@ -813,16 +698,6 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
         "| `src/app_x/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "app-x",
-            "path": "apps/app-x",
-            "wiki_relative_path": "apps/app-x/overview.md",
-            "type": "app",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -854,30 +729,21 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(
 
     import frontmatter
 
-    await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     app_x_page = next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
+        p for p in (wiki / "entities").glob("*.md") if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
     )
     text = app_x_page.read_text(encoding="utf-8")
 
     # The — TODO placeholders were replaced by the model's descriptions.
     assert "| `pyproject.toml` | file | desc for pyproject.toml |" in text
-    assert (
-        "| `src/app_x/__init__.py` | file | desc for src/app_x/__init__.py |"
-        in text
-    )
+    assert "| `src/app_x/__init__.py` | file | desc for src/app_x/__init__.py |" in text
     assert "— TODO" not in text
 
 
 @pytest.mark.asyncio
-async def test_app_file_map_descriptions_survive_rescan(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_app_file_map_descriptions_survive_rescan(tmp_workspace_with_packages, monkeypatch):
     """Durability (apps): a Description filled into an app's File-map table
     survives a rescan, even though write_entities re-renders the page body from
     template. The snapshot-before-write_entities pass captures the filled cell;
@@ -891,9 +757,7 @@ async def test_app_file_map_descriptions_survive_rescan(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     app_x_block = (
         "## File map - app-x\n"
@@ -908,16 +772,6 @@ async def test_app_file_map_descriptions_survive_rescan(
         "| `src/app_x/__init__.py` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "app-x",
-            "path": "apps/app-x",
-            "wiki_relative_path": "apps/app-x/overview.md",
-            "type": "app",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -934,13 +788,9 @@ async def test_app_file_map_descriptions_survive_rescan(
     import frontmatter
 
     # Scan 1: page created, File map injected with — TODO rows.
-    await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
     app_x_page = next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
+        p for p in (wiki / "entities").glob("*.md") if frontmatter.load(p).metadata.get("uri") == "app:org/repo/app-x"
     )
 
     # Human/ingest fills one description (the other stays — TODO).
@@ -952,9 +802,7 @@ async def test_app_file_map_descriptions_survive_rescan(
 
     # Scan 2: write_entities re-renders the page body from template (wiping the
     # injected File map); the snapshot+merge must restore the filled cell.
-    await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     text2 = app_x_page.read_text(encoding="utf-8")
     assert "| `src/app_x/__init__.py` | file | the app entrypoint |" in text2, (
@@ -965,9 +813,7 @@ async def test_app_file_map_descriptions_survive_rescan(
 
 
 @pytest.mark.asyncio
-async def test_description_fill_log_uses_entity_noun(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_description_fill_log_uses_entity_noun(tmp_workspace_with_packages, monkeypatch):
     """Step 10c log wording: the `file descriptions filled` line must read
     `entity(s)`, not `package(s)`, now that apps share the path. Asserts against
     the real log.md (append_log is unpatched in this module).
@@ -979,9 +825,7 @@ async def test_description_fill_log_uses_entity_noun(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     app_x_block = (
         "## File map - app-x\n"
@@ -995,16 +839,6 @@ async def test_description_fill_log_uses_entity_noun(
         "| `pyproject.toml` | file | — TODO |\n"
     )
 
-    fake_workspaces = [
-        {
-            "name": "app-x",
-            "path": "apps/app-x",
-            "wiki_relative_path": "apps/app-x/overview.md",
-            "type": "app",
-            "language": "python",
-            "changed_files": None,
-        },
-    ]
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -1031,17 +865,11 @@ async def test_description_fill_log_uses_entity_noun(
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
 
-    await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     log_text = (wiki / "log.md").read_text(encoding="utf-8")
-    assert "file descriptions filled:" in log_text, (
-        f"description-fill log line missing; log:\n{log_text}"
-    )
-    fill_line = next(
-        line for line in log_text.splitlines() if "file descriptions filled:" in line
-    )
+    assert "file descriptions filled:" in log_text, f"description-fill log line missing; log:\n{log_text}"
+    fill_line = next(line for line in log_text.splitlines() if "file descriptions filled:" in line)
     assert "entity(s)" in fill_line, f"expected 'entity(s)' noun; got: {fill_line!r}"
     assert "package(s)" not in fill_line, f"stale 'package(s)' noun; got: {fill_line!r}"
 
@@ -1053,16 +881,8 @@ def test_phase35_regression_test_path_exists():
     disk is the structural pre-condition for SC#3 — Task 5 actually re-runs it.
     """
     repo_root = Path(__file__).resolve().parents[4]
-    bootstrap_test = (
-        repo_root
-        / "packages"
-        / "wiki-io"
-        / "tests"
-        / "test_bootstrap_e2e_no_broken_links.py"
-    )
-    assert bootstrap_test.exists(), (
-        f"Phase 35 regression test missing at {bootstrap_test}; SC#3 cannot be evaluated."
-    )
+    bootstrap_test = repo_root / "packages" / "wiki-io" / "tests" / "test_bootstrap_e2e_no_broken_links.py"
+    assert bootstrap_test.exists(), f"Phase 35 regression test missing at {bootstrap_test}; SC#3 cannot be evaluated."
 
 
 def _seed_test_suite_graph(db_path: Path) -> None:
@@ -1082,7 +902,7 @@ def _seed_test_suite_graph(db_path: Path) -> None:
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
-            "'{\"suite_kind\": \"unit\", \"path\": \"packages/pkg-a/tests\", \"language\": \"python\"}', "
+            '\'{"suite_kind": "unit", "path": "packages/pkg-a/tests", "language": "python"}\', '
             "'test_suite:org/repo/pkg-a/tests')"
         )
         conn.commit()
@@ -1105,25 +925,17 @@ def test_entity_page_path_suite_aware_slug():
             "path": "packages/pkg-a/tests",
         },
     )
-    page = scan_module._entity_page_path(
-        wiki, "test_suite", node, "test_suite:org/repo/pkg-a/tests", frozenset()
-    )
+    page = scan_module._entity_page_path(wiki, "test_suite", node, "test_suite:org/repo/pkg-a/tests", frozenset())
     assert page == wiki / "entities" / "unit_tests_pkg-a.md"
 
     # A package node uses the plain kind prefix (no suite logic).
-    pkg_node = SimpleNamespace(
-        kind="package", name="pkg-a", attrs={"uri": "pkg:org/repo/pkg-a"}
-    )
-    pkg_page = scan_module._entity_page_path(
-        wiki, "package", pkg_node, "pkg:org/repo/pkg-a", frozenset()
-    )
+    pkg_node = SimpleNamespace(kind="package", name="pkg-a", attrs={"uri": "pkg:org/repo/pkg-a"})
+    pkg_page = scan_module._entity_page_path(wiki, "package", pkg_node, "pkg:org/repo/pkg-a", frozenset())
     assert pkg_page == wiki / "entities" / "pkg_pkg-a.md"
 
 
 @pytest.mark.asyncio
-async def test_file_map_injected_into_test_suite_entity_page(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_file_map_injected_into_test_suite_entity_page(tmp_workspace_with_packages, monkeypatch):
     """Step 10b-ts: after write_entities creates a test_suite entity page,
     run_scan replaces its `## File map` section with the deterministic
     build_dir_file_map block rooted at the suite path (path + kind rows)."""
@@ -1134,9 +946,7 @@ async def test_file_map_injected_into_test_suite_entity_page(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     # Deterministic suite block as build_dir_file_map would emit it. The heading
     # label is the suite-root basename ("tests").
@@ -1152,9 +962,7 @@ async def test_file_map_injected_into_test_suite_entity_page(
         "| `conftest.py` | file | — TODO |\n"
         "| `test_pkg_a.py` | file | — TODO |\n"
     )
-    monkeypatch.setattr(
-        scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
-    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
     # No package/app workspaces — only the seeded test_suite drives this scan.
     monkeypatch.setattr(
         scan_module,
@@ -1163,9 +971,7 @@ async def test_file_map_injected_into_test_suite_entity_page(
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
-    result = await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    result = await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     # The test_suite page was created this scan → file map injected.
     assert "test_suite:org/repo/pkg-a/tests" in result.entities_created
@@ -1184,9 +990,7 @@ async def test_file_map_injected_into_test_suite_entity_page(
 
 
 @pytest.mark.asyncio
-async def test_code_reader_fills_test_suite_todo_descriptions(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_code_reader_fills_test_suite_todo_descriptions(tmp_workspace_with_packages, monkeypatch):
     """Step 10c: after the suite File map is injected with — TODO rows, the
     code_reader fan-out fills the Description cells from the model's
     {path: description} JSON. Proves the synthesized test_suite describer dict
@@ -1198,9 +1002,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     suite_block = (
         "## File map - tests\n"
@@ -1238,9 +1040,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
 
-    await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=False
-    )
+    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
     # The suite was routed into the code_reader pool with a synthesized dict.
     suite_uri = "test_suite:org/repo/pkg-a/tests"
@@ -1259,9 +1059,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(
 
 
 @pytest.mark.asyncio
-async def test_test_suite_file_map_descriptions_survive_rescan(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_with_packages, monkeypatch):
     """Durability: descriptions filled into a suite's File map survive a rescan
     (write_entities re-renders the body; snapshot+merge restores them). A fully
     described suite triggers NO code_reader call on the second scan."""
@@ -1272,9 +1070,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     suite_block = (
         "## File map - tests\n"
@@ -1350,9 +1146,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(
 
 
 @pytest.mark.asyncio
-async def test_suite_filemap_skipped_under_no_file_map(
-    tmp_workspace_with_packages, monkeypatch
-):
+async def test_suite_filemap_skipped_under_no_file_map(tmp_workspace_with_packages, monkeypatch):
     """D4 / Test 12: test-suite File-map branch honors --no-file-map.
 
     Before D4, the suite branch guard was `if fm_targets:` (ignoring
@@ -1373,9 +1167,7 @@ async def test_suite_filemap_skipped_under_no_file_map(
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
 
     # build_dir_file_map would inject deterministic rows if the branch fires.
     suite_block = (
@@ -1390,9 +1182,7 @@ async def test_suite_filemap_skipped_under_no_file_map(
         "| `conftest.py` | file | — TODO |\n"
         "| `test_pkg_a.py` | file | — TODO |\n"
     )
-    monkeypatch.setattr(
-        scan_module, "build_dir_file_map", lambda *a, **kw: suite_block
-    )
+    monkeypatch.setattr(scan_module, "build_dir_file_map", lambda *a, **kw: suite_block)
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -1400,9 +1190,7 @@ async def test_suite_filemap_skipped_under_no_file_map(
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
-    result = await scan_module.run_scan(
-        workspace_path=workspace, repo_path=repo, no_file_map=True
-    )
+    result = await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True)
 
     # The test_suite entity page should have been created.
     assert "test_suite:org/repo/pkg-a/tests" in result.entities_created

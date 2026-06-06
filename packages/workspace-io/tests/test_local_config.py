@@ -1,4 +1,5 @@
 """Tests for workspace_io._local_config — .graph-wiki.local.yaml parser."""
+
 from workspace_io._local_config import read
 
 

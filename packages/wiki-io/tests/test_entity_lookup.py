@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 """Unit tests for wiki_io.entity_lookup — Bedrock-free graph lookups + the
 URI→entity-filename mapping shared by run_ingest_source and the plugin prep
 (Slice 4)."""
 
-from pathlib import Path
+from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 
 def _seed_db(workspace: Path, packages, extra_nodes=None) -> Path:
@@ -41,14 +39,12 @@ def _seed_db(workspace: Path, packages, extra_nodes=None) -> Path:
                     (file_id, Path(rel_path).name, rel_path),
                 )
                 conn.execute(
-                    "INSERT INTO edges (src, dst, kind, attrs_json) "
-                    "VALUES (?, ?, 'contains', NULL)",
+                    "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, 'contains', NULL)",
                     (pkg_id, file_id),
                 )
         for kind, name, path, uri in extra_nodes or []:
             conn.execute(
-                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) "
-                "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, NULL, NULL, ?)",
                 (nid, kind, name, path, uri),
             )
             nid += 1

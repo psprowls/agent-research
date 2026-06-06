@@ -33,10 +33,7 @@ def _seed_one_package(db_path: Path) -> None:
 
 
 def _page_for(wiki: Path, uri: str = _PKG_A):
-    return next(
-        p for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == uri
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == uri)
 
 
 @pytest.fixture
@@ -50,17 +47,17 @@ def ws(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(
-        scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", "")
-    )
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
     monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
-        scan_mod, "build_file_map",
+        scan_mod,
+        "build_file_map",
         lambda path, **kw: (
             "## File map - pkg-a\nTODO\n\n### pkg-a/\nTODO\n\n"
             "| Path | Kind | Description |\n|---|---|---|\n"
             "| `pyproject.toml` | file | — TODO |\n"
-            if str(path).endswith("pkg-a") else None
+            if str(path).endswith("pkg-a")
+            else None
         ),
     )
     return workspace
@@ -73,6 +70,7 @@ def _spy(verdict_fn, *, recorder: dict | None = None):
     verdict_fn(item). When `recorder` is given, records the drift_judge items so a
     test can assert the judge was (not) called.
     """
+
     async def _run_all(self, *, items, task, role, model_id, max_concurrency):
         from subagent_runtime.pool import FanOutResult
 
@@ -81,9 +79,8 @@ def _spy(verdict_fn, *, recorder: dict | None = None):
             result.successes = [(it, f"PROSE for {it[0]}") for it in items]
         elif role == "code_reader":
             import json as _json
-            result.successes = [
-                (it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+
+            result.successes = [(it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         elif role == "drift_judge":
             if recorder is not None:
                 recorder.setdefault("drift_items", []).extend(items)
@@ -105,11 +102,11 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
     repo = ws / "repo"
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
 
     # Scan 1: page created + narrated + anchored at head1.
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -121,10 +118,10 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
 
     # Scan 2: code changed (head2) -> re-narrate -> judge says stale.
     heads["v"] = "head2"
-    monkeypatch.setattr(scan_mod, "changed_files_since",
-                        lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _spy(lambda it: {"stale": True, "reason": "now async"}),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -151,19 +148,18 @@ def test_already_checked_entity_skips_judge(ws, monkeypatch):
     wiki = ws / "wiki"
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     _add_human_section(_page_for(wiki), "## Purpose", "p")
 
     # Re-scan, no code change -> narrative not regenerated.
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     rec: dict = {}
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     assert rec.get("drift_items", []) == []  # judge never ran
@@ -178,11 +174,11 @@ def test_fresh_verdict_no_flag_but_checked_advances(ws, monkeypatch):
     wiki = ws / "wiki"
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     meta = _fm.load(_page_for(wiki)).metadata
     assert "drift_review" not in meta
@@ -195,11 +191,11 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     wiki = ws / "wiki"
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     page = _page_for(wiki)
     _add_human_section(page, "## Behavior", "Processes items synchronously.")
@@ -207,15 +203,19 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     # Code change -> re-narrate -> stale flag written at head2. Flag ONLY the
     # appended Behavior section (the template also seeds Purpose/Public API).
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since",
-                        lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
-        _spy(lambda it: {"stale": True, "reason": "now async"}
-             if it[2] == "## Behavior" else {"stale": False, "reason": ""}),
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(
+            lambda it: (
+                {"stale": True, "reason": "now async"} if it[2] == "## Behavior" else {"stale": False, "reason": ""}
+            )
+        ),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     review = _fm.load(_page_for(wiki)).metadata.get("drift_review")
@@ -229,8 +229,7 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     page.write_text(text, encoding="utf-8")
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     rec: dict = {}
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     assert rec.get("drift_items", []) == []  # clear pass is free; no judge
@@ -252,8 +251,7 @@ def test_dependency_and_narrativeless_never_flagged(ws, monkeypatch):
     """
     wiki = ws / "wiki"
     rec: dict = {}
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
 
     # A hand-written dependency page (non-target kind) + a narrative-less package.
     (wiki / "entities").mkdir(parents=True, exist_ok=True)
@@ -272,7 +270,7 @@ def test_dependency_and_narrativeless_never_flagged(ws, monkeypatch):
 
     # Neither hand-written page qualifies as a drift candidate.
     candidate_paths = [c[0] for c in scan_mod._drift_candidates(wiki)]
-    assert dep not in candidate_paths          # non-target kind
+    assert dep not in candidate_paths  # non-target kind
     assert narrativeless not in candidate_paths  # no `## Narrative`
 
     # The flag pass judges no items for them and writes no drift keys.
@@ -285,8 +283,7 @@ def test_dependency_and_narrativeless_never_flagged(ws, monkeypatch):
     assert "drift_review" not in nl_meta
     assert "drift_checked_commit" not in nl_meta
     # Neither page ever produced a judge item.
-    assert all(it[0] not in (dep, narrativeless)
-               for it in rec.get("drift_items", []))
+    assert all(it[0] not in (dep, narrativeless) for it in rec.get("drift_items", []))
 
 
 def test_ack_drift_clears_without_edit(ws, monkeypatch):
@@ -297,24 +294,28 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     wiki = ws / "wiki"
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     page = _page_for(wiki)
     _add_human_section(page, "## Behavior", "Processes items synchronously.")
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since",
-                        lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
-        _spy(lambda it: {"stale": True, "reason": "now async"}
-             if it[2] == "## Behavior" else {"stale": False, "reason": ""}),
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(
+            lambda it: (
+                {"stale": True, "reason": "now async"} if it[2] == "## Behavior" else {"stale": False, "reason": ""}
+            )
+        ),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert _fm.load(_page_for(wiki)).metadata.get("drift_review")
@@ -328,8 +329,7 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
 
     # No-change re-scan -> not re-flagged (checked-commit already == anchor).
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": True, "reason": "x"}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert "drift_review" not in _fm.load(_page_for(wiki)).metadata
 
@@ -367,7 +367,7 @@ def test_agent_plugin_judged_without_file_map(ws, monkeypatch):
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(_verdict))
     asyncio.run(scan_mod._drift_flag_pass(wiki, None))
 
-    assert captured["file_map"] is None      # agent_plugin has no File map
+    assert captured["file_map"] is None  # agent_plugin has no File map
     assert captured["heading"] == "## Commands"
     meta = _fm.load(page).metadata
     assert meta["drift_checked_commit"] == "head1"
@@ -378,16 +378,17 @@ def test_scan_propagate_drift_off_by_default(ws, monkeypatch):
     """[M4 §3.7 / §5 test 15] without the flag, scan never runs the M4 producer."""
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     calls = {"n": 0}
 
     async def _pd(**kwargs):
         calls["n"] += 1
         from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+
         return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
 
     monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
@@ -400,20 +401,20 @@ def test_scan_propagate_drift_on_runs_producer(ws, monkeypatch):
     called with the open conn + resolved wiki/repo."""
     repo = ws / "repo"
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all",
-                        _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     captured: dict = {}
 
     async def _pd(**kwargs):
         captured.update(kwargs)
         from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+
         return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
 
     monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
-    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo,
-                                  narrate=True, propagate_drift=True))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True, propagate_drift=True))
     assert set(captured) >= {"wiki", "repo", "conn"}  # producer invoked with state
     assert captured["conn"] is not None

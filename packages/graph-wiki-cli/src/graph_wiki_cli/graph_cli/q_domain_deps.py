@@ -5,9 +5,8 @@ from __future__ import annotations
 import json as _json
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:
@@ -34,11 +33,7 @@ def run(args: object) -> int:
             )
         return exit_codes.SUCCESS
     if args.fmt == "json":
-        print(
-            _json.dumps(
-                [{"domain": d, "total_usage_count": u} for d, u in records]
-            )
-        )
+        print(_json.dumps([{"domain": d, "total_usage_count": u} for d, u in records]))
     else:
         rows = [(d, str(u)) for d, u in records]
         keys = ["domain", "usage"]

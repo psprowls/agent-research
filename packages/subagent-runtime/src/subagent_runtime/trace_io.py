@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Trace I/O helper extracted from SubagentPool (Phase 16 D-04).
 
 Houses the shared JSONL trace-record writer (`write_trace_record`) and the
@@ -16,6 +14,8 @@ Key invariants preserved from pool.py (TRACE-FU-01 / SC#1):
   eval_harness.pricing import; subagent-runtime does NOT hard-depend on
   eval-harness
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -112,10 +112,7 @@ def render_trace_record(record: dict) -> str:
     tokens_in = record.get("tokens_in", "-")
     tokens_out = record.get("tokens_out", "-")
 
-    line = (
-        f"[{timestamp}] {role} {model_short} {item_short} "
-        f"{status} {latency_ms}ms {tokens_in}->{tokens_out}"
-    )
+    line = f"[{timestamp}] {role} {model_short} {item_short} {status} {latency_ms}ms {tokens_in}->{tokens_out}"
     if record.get("status") == "error":
         line += f"  ERROR: {record.get('error', '')}"
     return line

@@ -29,51 +29,97 @@ from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 from graph_io import _ignore, upsert
 from graph_io.update import NotInGitRepoError, _git
-from graph_io.uri import RepoContext, file_uri, pkg_uri, repo_uri, subpkg_uri
+from graph_io.uri import RepoContext, file_uri, repo_uri, subpkg_uri
 
 # --- Module-private constants (role-flag heuristics, D-09..D-12, D-15) ---
 
-_CONFIG_FILENAMES: frozenset[str] = frozenset({
-    # Python ecosystem
-    "pyproject.toml", "setup.cfg", "setup.py", "tox.ini", "pytest.ini",
-    "mypy.ini", ".flake8", "ruff.toml", "uv.toml",
-    # JS/TS ecosystem (exact-match common manifests)
-    "package.json",
-    # Other
-    "Cargo.toml", "go.mod", "Makefile", "Justfile", ".editorconfig",
-})
+_CONFIG_FILENAMES: frozenset[str] = frozenset(
+    {
+        # Python ecosystem
+        "pyproject.toml",
+        "setup.cfg",
+        "setup.py",
+        "tox.ini",
+        "pytest.ini",
+        "mypy.ini",
+        ".flake8",
+        "ruff.toml",
+        "uv.toml",
+        # JS/TS ecosystem (exact-match common manifests)
+        "package.json",
+        # Other
+        "Cargo.toml",
+        "go.mod",
+        "Makefile",
+        "Justfile",
+        ".editorconfig",
+    }
+)
 
 _CONFIG_GLOBS: tuple[str, ...] = (
     "tsconfig*.json",
-    "*.config.js", "*.config.ts", "*.config.mjs", "*.config.cjs",
-    ".eslintrc", ".eslintrc.*",
-    ".prettierrc", ".prettierrc.*",
+    "*.config.js",
+    "*.config.ts",
+    "*.config.mjs",
+    "*.config.cjs",
+    ".eslintrc",
+    ".eslintrc.*",
+    ".prettierrc",
+    ".prettierrc.*",
     "babel.config.*",
 )
 
 _GENERATED_FILENAME_PATTERNS: tuple[str, ...] = (
-    "*_pb2.py", "*_pb2_grpc.py", "*.pb.go",
-    "*.gen.ts", "*.gen.go",
-    "*.generated.ts", "*.generated.go",
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+    "*.pb.go",
+    "*.gen.ts",
+    "*.gen.go",
+    "*.generated.ts",
+    "*.generated.go",
 )
 
 _GENERATED_DIRS: frozenset[str] = frozenset({"__generated__", "generated"})
 
-_SHEBANG_EXTENSIONS: frozenset[str] = frozenset({
-    ".py", ".sh", ".bash", ".zsh", ".js", ".ts", ".rb", ".pl", "",
-})
+_SHEBANG_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".py",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".js",
+        ".ts",
+        ".rb",
+        ".pl",
+        "",
+    }
+)
 
 _TEST_DIR_NAMES: frozenset[str] = frozenset({"tests", "__tests__", "test"})
 
 _TEST_FILENAME_GLOBS: tuple[str, ...] = (
-    "test_*.py", "*_test.py",
-    "*.test.js", "*.test.ts", "*.test.tsx", "*.test.jsx",
-    "*.spec.js", "*.spec.ts", "*.spec.tsx", "*.spec.jsx",
+    "test_*.py",
+    "*_test.py",
+    "*.test.js",
+    "*.test.ts",
+    "*.test.tsx",
+    "*.test.jsx",
+    "*.spec.js",
+    "*.spec.ts",
+    "*.spec.tsx",
+    "*.spec.jsx",
 )
 
-_GENERIC_CONTAINER_DIRS: frozenset[str] = frozenset({
-    "packages", "libs", "tests", "apps", "shared", "common",
-})
+_GENERIC_CONTAINER_DIRS: frozenset[str] = frozenset(
+    {
+        "packages",
+        "libs",
+        "tests",
+        "apps",
+        "shared",
+        "common",
+    }
+)
 
 _JSTS_EXTENSIONS: frozenset[str] = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 
@@ -89,9 +135,7 @@ def _detect_default_branch(repo_root: Path) -> str | None:
     (detached HEAD or not a git repo).
     """
     try:
-        out = _git(
-            ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=repo_root
-        ).strip()
+        out = _git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=repo_root).strip()
     except NotInGitRepoError:
         try:
             out = _git(["symbolic-ref", "--short", "HEAD"], cwd=repo_root).strip()
@@ -199,9 +243,7 @@ def _is_test_path(
                 import_root_rel = import_root.relative_to(repo_root).as_posix()
             except ValueError:
                 return True
-            if rel_path == import_root_rel or rel_path.startswith(
-                import_root_rel + "/"
-            ):
+            if rel_path == import_root_rel or rel_path.startswith(import_root_rel + "/"):
                 return False
             # Inside the Package but outside its import root: keep filename
             # verdict (still is_test).
@@ -323,9 +365,7 @@ def _owning_package(
     return None
 
 
-def _walk_subpackages(
-    import_root: Path, skip_dirs: frozenset[str], repo_root: Path
-) -> Iterator[Path]:
+def _walk_subpackages(import_root: Path, skip_dirs: frozenset[str], repo_root: Path) -> Iterator[Path]:
     """Yield each __init__.py-containing subdirectory STRICTLY UNDER `import_root`.
 
     Excludes `import_root` itself (Phase 43 folded todo: the import root is
@@ -339,10 +379,7 @@ def _walk_subpackages(
     for dirpath, dirnames, filenames in os.walk(import_root, followlinks=False):
         d = Path(dirpath)
         # Skip filtered dirs in-place so os.walk doesn't descend into them
-        dirnames[:] = [
-            name for name in dirnames
-            if not _ignore.should_skip(name, skip_dirs)
-        ]
+        dirnames[:] = [name for name in dirnames if not _ignore.should_skip(name, skip_dirs)]
         # Skip the import root itself, but still descend into its children.
         if d.resolve() == import_root_resolved:
             continue
@@ -416,8 +453,7 @@ def emit(
     # Phase 50 D-04: apps are physically contained by the repository the same
     # way packages are.
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes "
-        "WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
     ).fetchall()
 
     # Repository -> Package/App edges (D-03)
@@ -440,10 +476,7 @@ def emit(
         tracked = []
         for dirpath, dirnames, filenames in os.walk(repo_root, followlinks=False):
             d = Path(dirpath)
-            dirnames[:] = [
-                name for name in dirnames
-                if not _ignore.should_skip(name, skip_dirs)
-            ]
+            dirnames[:] = [name for name in dirnames if not _ignore.should_skip(name, skip_dirs)]
             try:
                 d_rel = d.relative_to(repo_root).as_posix()
             except ValueError:
@@ -466,10 +499,7 @@ def emit(
     # Build a fast lookup: pkg sorted by path-depth desc so we can find the
     # most-specific (deepest) package containing each file.
     pkg_index = sorted(
-        (
-            (pkg_rel or "", pkg_name, pkg_rel)
-            for pkg_name, pkg_rel, _, _ in pkg_rows
-        ),
+        ((pkg_rel or "", pkg_name, pkg_rel) for pkg_name, pkg_rel, _, _ in pkg_rows),
         key=lambda t: len(t[0]),
         reverse=True,
     )
@@ -493,11 +523,7 @@ def emit(
         # from app nodes resolve to the existing row.
         pkg_key = (pkg_kind, pkg_name, pkg_rel_path)
 
-        pkg_dir = (
-            repo_root / pkg_rel_path
-            if pkg_rel_path
-            else repo_root
-        ).resolve()
+        pkg_dir = (repo_root / pkg_rel_path if pkg_rel_path else repo_root).resolve()
 
         # SubPackage emission (Python only, D-18)
         subpkg_dirs: list[Path] = []
@@ -603,9 +629,13 @@ def emit(
         ext = Path(filename).suffix
         is_python = ext == ".py"
         is_jsts = ext in _JSTS_EXTENSIONS
-        file_language = "python" if is_python else (
-            "javascript" if ext in {".js", ".jsx", ".mjs", ".cjs"} else (
-                "typescript" if ext in {".ts", ".tsx"} else None
+        file_language = (
+            "python"
+            if is_python
+            else (
+                "javascript"
+                if ext in {".js", ".jsx", ".mjs", ".cjs"}
+                else ("typescript" if ext in {".ts", ".tsx"} else None)
             )
         )
 
@@ -619,9 +649,7 @@ def emit(
             if row and row[0]:
                 sparser_attrs = json.loads(row[0])
                 has_main = bool(sparser_attrs.get("_has_main_block", False))
-                is_importable = bool(
-                    sparser_attrs.get("_has_importable_symbols", False)
-                )
+                is_importable = bool(sparser_attrs.get("_has_importable_symbols", False))
         elif is_jsts:
             has_main = False
             is_importable = True

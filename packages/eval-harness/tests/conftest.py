@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Shared pytest fixtures for eval-harness tests.
 
 Provides:
@@ -18,6 +16,8 @@ Provides:
 Output-producer helpers have been moved to eval_helpers.py (WR-05).
 Import produce_outputs from there directly in test files.
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -68,17 +68,11 @@ def fixture_wiki_path() -> Path:
     no user-supplied input is involved.
     """
     wiki = (
-        Path(__file__).parent.parent.parent.parent
-        / "packages"
-        / "wiki-io"
-        / "tests"
-        / "fixtures"
-        / "round-trip-vault"
+        Path(__file__).parent.parent.parent.parent / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
     )
     if not wiki.exists():
         pytest.skip(
-            f"round-trip-vault fixture not found at {wiki}; "
-            "check that packages/wiki-io is present in the workspace."
+            f"round-trip-vault fixture not found at {wiki}; check that packages/wiki-io is present in the workspace."
         )
     return wiki
 
@@ -100,5 +94,3 @@ def fixture_workspace_path(tmp_path: Path, fixture_wiki_path: Path) -> Path:
     if not wiki_link.exists():
         wiki_link.symlink_to(fixture_wiki_path, target_is_directory=True)
     return tmp_path
-
-

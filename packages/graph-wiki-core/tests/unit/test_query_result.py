@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Unit tests for QueryResult dataclass, guardrails, and run_query pipeline (Plan 03).
 
 Requirements covered: SEARCH-06, CMD-04, CMD-07.
 """
+
+from __future__ import annotations
 
 import dataclasses
 import json
@@ -11,7 +11,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # QueryResult shape tests
@@ -114,9 +113,8 @@ def test_apply_guardrails_g4_clears_citations_on_empty_successes(
     tmp_path: Path,
 ) -> None:
     """G4: empty successes + non-empty citations -> citations cleared + warning prepended."""
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -140,9 +138,8 @@ def test_apply_guardrails_skip_g4_preserves_citations_on_empty_successes(
     or returned zero successes, but the code-reader fan-out produced a real
     answer with real citations. G4 must NOT strip those.
     """
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     (tmp_path / "concepts").mkdir()
     (tmp_path / "concepts" / "pool.md").write_text("# Pool\n")
@@ -156,19 +153,14 @@ def test_apply_guardrails_skip_g4_preserves_citations_on_empty_successes(
     )
     guarded = apply_guardrails(result, tmp_path, fan_result, skip_g4=True)
 
-    assert guarded.citations == ["concepts/pool"], (
-        "skip_g4 must preserve citations on code-fallback path"
-    )
-    assert "no librarian excerpts" not in guarded.answer, (
-        "skip_g4 must suppress the unsupported-answer warning"
-    )
+    assert guarded.citations == ["concepts/pool"], "skip_g4 must preserve citations on code-fallback path"
+    assert "no librarian excerpts" not in guarded.answer, "skip_g4 must suppress the unsupported-answer warning"
 
 
 def test_apply_guardrails_skip_g4_still_runs_g1(tmp_path: Path) -> None:
     """skip_g4=True does NOT disable G1 — unresolved wikilinks still get flagged."""
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -187,9 +179,8 @@ def test_apply_guardrails_skip_g4_still_runs_g1(tmp_path: Path) -> None:
 
 def test_apply_guardrails_g4_no_change_when_no_citations(tmp_path: Path) -> None:
     """G4: empty successes with no citations -> no warning added."""
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     fan_result = FanOutResult(successes=[], errors=[])
     result = QueryResult(
@@ -205,13 +196,10 @@ def test_apply_guardrails_g4_no_change_when_no_citations(tmp_path: Path) -> None
 
 def test_apply_guardrails_g1_flags_unresolved(tmp_path: Path) -> None:
     """G1: citation pointing to non-existent page -> warning appended to answer."""
+    from graph_wiki_core.commands.query import QueryResult, apply_guardrails
     from subagent_runtime.pool import FanOutResult
 
-    from graph_wiki_core.commands.query import QueryResult, apply_guardrails
-
-    fan_result = FanOutResult(
-        successes=[("page1.md", "excerpt")], errors=[]
-    )
+    fan_result = FanOutResult(successes=[("page1.md", "excerpt")], errors=[])
     result = QueryResult(
         answer="see [[NonExistentPage]] for info",
         citations=["NonExistentPage"],
@@ -226,9 +214,8 @@ def test_apply_guardrails_g1_flags_unresolved(tmp_path: Path) -> None:
 
 def test_apply_guardrails_g1_no_warning_when_page_exists(tmp_path: Path) -> None:
     """G1: citation pointing to existing page -> no warning."""
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     # Create the page file so it resolves
     (tmp_path / "ExistingPage.md").write_text("content")
@@ -250,9 +237,8 @@ def test_apply_guardrails_g1_no_double_md_extension(tmp_path: Path) -> None:
     Regression: prior implementation appended .md unconditionally, producing
     'concepts/foo.md.md' which never existed even for valid drilled pages.
     """
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, apply_guardrails
+    from subagent_runtime.pool import FanOutResult
 
     # Create the page at its actual path (as returned by the search layer)
     (tmp_path / "concepts").mkdir()
@@ -301,9 +287,7 @@ def test_librarian_prompt_contains_no_invention_rule() -> None:
 
     lowered = LIBRARIAN_SYSTEM.lower()
     assert "verbatim" in lowered, "Librarian prompt must require verbatim quoting"
-    assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM, (
-        "Librarian prompt must keep the sentinel literal"
-    )
+    assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM, "Librarian prompt must keep the sentinel literal"
     # No-invention phrase — accept any of several common phrasings
     no_invention_tokens = ["never invent", "do not invent", "don't invent", "no-invention"]
     assert any(tok in lowered for tok in no_invention_tokens), (
@@ -341,12 +325,8 @@ def test_synthesizer_prompt_requires_code_path_line_citations() -> None:
     """SYNTHESIZER_SYSTEM must instruct the model to preserve `path:line` code refs."""
     from graph_wiki_core.commands.query import SYNTHESIZER_SYSTEM
 
-    assert "path:line" in SYNTHESIZER_SYSTEM, (
-        "Synthesizer prompt must reference the path:line citation format"
-    )
-    assert "`" in SYNTHESIZER_SYSTEM, (
-        "Synthesizer prompt must show backticks for code-path citations"
-    )
+    assert "path:line" in SYNTHESIZER_SYSTEM, "Synthesizer prompt must reference the path:line citation format"
+    assert "`" in SYNTHESIZER_SYSTEM, "Synthesizer prompt must show backticks for code-path citations"
 
 
 def test_synthesizer_prompt_forbids_invention() -> None:
@@ -373,10 +353,9 @@ def test_synthesizer_prompt_forbids_invention() -> None:
 @pytest.mark.asyncio
 async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
     """run_query returns QueryResult with correct search_scores shape when all deps mocked."""
+    from graph_wiki_core.commands.query import QueryResult, run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import QueryResult, run_query
 
     # Build a mock vault with a .graph-wiki dir (so auto-build check passes)
     vault = tmp_path / "vault"
@@ -498,10 +477,9 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
     Retry HumanMessage must literally contain the unresolved token (e.g. "[[ghost]]")
     so the model is told which tokens to repair/drop, not just "any unresolved ones".
     """
+    from graph_wiki_core.commands.query import QueryResult, run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import QueryResult, run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -516,9 +494,7 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
     first_resp = AIMessage(content="Answer with [[ghost]] unresolved.")
     retry_resp = AIMessage(content="Answer without unresolved links.")
 
-    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
-        vault, fan_result, [first_resp, retry_resp]
-    )
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(vault, fan_result, [first_resp, retry_resp])
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
@@ -560,10 +536,9 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> None:
     """If retry also returns unresolved wikilinks, warning footer is preserved."""
+    from graph_wiki_core.commands.query import QueryResult, run_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
-
-    from graph_wiki_core.commands.query import QueryResult, run_query
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -578,9 +553,7 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
     first_resp = AIMessage(content="Answer with [[ghost]] unresolved.")
     retry_resp = AIMessage(content="Still mentions [[ghost]] somehow.")
 
-    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
-        vault, fan_result, [first_resp, retry_resp]
-    )
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(vault, fan_result, [first_resp, retry_resp])
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
@@ -605,9 +578,7 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
     assert isinstance(result, QueryResult)
     # Retry was tried (call count == 2) but failed; warning footer present
     assert mock_synth_llm.ainvoke.call_count == 2, "Retry must be attempted once"
-    assert "did not resolve" in result.answer, (
-        "After failed retry, warning footer must be appended as fallback"
-    )
+    assert "did not resolve" in result.answer, "After failed retry, warning footer must be appended as fallback"
     # Final answer is the retry's answer (the latest synth output), not the first
     assert "Still mentions" in result.answer
 
@@ -624,9 +595,8 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
     through the code-reader fan-out; when the code-reader ALSO returns nothing,
     the disclaimer is returned without invoking the synthesizer.
     """
-    from subagent_runtime.pool import FanOutResult
-
     from graph_wiki_core.commands.query import QueryResult, run_query
+    from subagent_runtime.pool import FanOutResult
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -638,9 +608,7 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
     code_fan = FanOutResult(successes=[], errors=[])
 
     # No synth responses staged — the disclaimer path should not call synth.
-    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(
-        vault, librarian_fan, []
-    )
+    patches, mock_synth_llm, mock_librarian_llm = _patches_for_run_query(vault, librarian_fan, [])
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
@@ -674,9 +642,7 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
     assert isinstance(result, QueryResult)
     # Synthesizer was NOT called on the disclaimer path (no synth response staged
     # — StopAsyncIteration would have been raised if it had been called)
-    assert mock_synth_llm.ainvoke.call_count == 0, (
-        "Code-fallback disclaimer path must not invoke the synthesizer"
-    )
+    assert mock_synth_llm.ainvoke.call_count == 0, "Code-fallback disclaimer path must not invoke the synthesizer"
     # Disclaimer line, no fabrication
     assert "vault does not document this" in result.answer
     assert result.citations == []

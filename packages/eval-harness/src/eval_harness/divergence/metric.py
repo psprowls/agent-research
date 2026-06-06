@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """DivergenceMetric: wraps programmatic check pass + GEval LLM-judge pass.
 
 Implements the running mechanism for EVAL-11 + EVAL-12. Returns per-role
@@ -24,6 +22,8 @@ Exports:
     make_judge        — re-exported from eval_harness.judge (for test import verification)
     JUDGE_PANEL_CONFIG — re-exported from eval_harness.judge (for test import verification)
 """
+
+from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
@@ -100,10 +100,7 @@ class DivergenceMetric:
             Dict keyed by rule_id, each value shaped per D-11:
             {"runs": int, "failures": int, "accepted_failures": [{"fixture": str, "excerpt": str}]}.
         """
-        results: dict[str, dict] = {
-            c.id: {"runs": 0, "failures": 0, "accepted_failures": []}
-            for c in self.checks
-        }
+        results: dict[str, dict] = {c.id: {"runs": 0, "failures": 0, "accepted_failures": []} for c in self.checks}
         for fixture_id, output in outputs:
             for check in self.checks:
                 results[check.id]["runs"] += 1
@@ -144,9 +141,7 @@ class DivergenceMetric:
         from deepeval.test_case import LLMTestCase, SingleTurnParams  # noqa: PLC0415
 
         judge_id = _ROLE_JUDGE_ID.get(self.role, f"{self.role[:3].upper()}-JUDGE")
-        results: dict[str, dict] = {
-            judge_id: {"runs": 0, "failures": 0, "accepted_failures": []}
-        }
+        results: dict[str, dict] = {judge_id: {"runs": 0, "failures": 0, "accepted_failures": []}}
 
         for fixture_id, output, query in outputs:
             scores: list[float] = []
@@ -273,9 +268,7 @@ def check_regression(role: str, current: dict, baseline: dict) -> None:
     """
     from eval_harness.divergence import ROLE_CHECKS  # lazy import to avoid circularity
 
-    severity_lookup: dict[str, str] = {
-        c.id: c.severity for c in ROLE_CHECKS.get(role, [])
-    }
+    severity_lookup: dict[str, str] = {c.id: c.severity for c in ROLE_CHECKS.get(role, [])}
 
     baseline_checks = baseline.get("checks", {})
 

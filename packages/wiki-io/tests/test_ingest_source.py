@@ -1,15 +1,12 @@
-from __future__ import annotations
-
 """Tests for wiki_io.ingest_source — ported from lattice-wiki-core.
 
 Requirements: CMD-03 (ingest_source port from lattice-wiki-core)
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # slugify

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 from ._git_repo import init_repo, write_and_commit
 
 

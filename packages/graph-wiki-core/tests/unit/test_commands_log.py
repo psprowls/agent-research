@@ -1,16 +1,15 @@
-from __future__ import annotations
-
 """Unit tests for the log command (Plan 05-01).
 
 Requirements covered: CMD-06, CLI-06.
 """
+
+from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helper: build a minimal wiki fixture under tmp_path

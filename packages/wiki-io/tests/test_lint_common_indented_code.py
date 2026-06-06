@@ -1,4 +1,5 @@
 """Phase 46 Plan 01: indented_code_spans helper for the link rewriter."""
+
 from wiki_io.lint.common import indented_code_spans
 
 
@@ -46,27 +47,16 @@ def test_indented_code_spans_block_at_document_start():
 
 
 def test_indented_code_spans_multiple_blocks():
-    text = (
-        "Prose A.\n\n"
-        "    block 1 line 1\n"
-        "    block 1 line 2\n\n"
-        "Prose B.\n\n"
-        "    block 2\n"
-    )
+    text = "Prose A.\n\n    block 1 line 1\n    block 1 line 2\n\nProse B.\n\n    block 2\n"
     spans = indented_code_spans(text)
     assert len(spans) == 2
     # Both spans cover their respective indented runs.
-    assert text[spans[0][0]:spans[0][1]] == "    block 1 line 1\n    block 1 line 2\n"
-    assert text[spans[1][0]:spans[1][1]] == "    block 2\n"
+    assert text[spans[0][0] : spans[0][1]] == "    block 1 line 1\n    block 1 line 2\n"
+    assert text[spans[1][0] : spans[1][1]] == "    block 2\n"
 
 
 def test_indented_code_spans_sorted_non_overlapping():
-    text = (
-        "Prose.\n\n"
-        "    A\n\n"
-        "Mid.\n\n"
-        "    B\n"
-    )
+    text = "Prose.\n\n    A\n\nMid.\n\n    B\n"
     spans = indented_code_spans(text)
     assert spans == sorted(spans)
     for (s1, e1), (s2, e2) in zip(spans, spans[1:]):

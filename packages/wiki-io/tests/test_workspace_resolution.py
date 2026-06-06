@@ -6,11 +6,10 @@ Covers:
   3. Explicit repo_path arg overrides the pin (explicit arg wins over manifest)
   4. repo-directory: with ~ expansion is honored
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from wiki_io._workspace import resolve_wiki_and_repo
 

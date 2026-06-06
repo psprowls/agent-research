@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """EXTRACTOR_SYSTEM prompt — Living Wiki M3 inline page-suggestion pass.
 
 Given a just-landed Source page and a listing of existing curated pages, the
@@ -7,6 +5,8 @@ extractor proposes which concept / adr / architecture pages the source justifies
 It is deliberately conservative (roadmap open-q #3: avoid low-quality
 auto-generated concepts) and PROPOSES ONLY — no page is written by this pass.
 """
+
+from __future__ import annotations
 
 EXTRACTOR_SYSTEM = """You analyze a Source wiki page and propose which curated knowledge pages it justifies.
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for eval_harness.baseline.
 
 All tests are pure unit — no subprocess spawned, no Bedrock calls.
@@ -10,20 +8,17 @@ Tests cover:
 - _prompt_hash(): determinism
 """
 
-from pathlib import Path
-from unittest.mock import MagicMock
+from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 from eval_harness.baseline import (
-    EVAL_SYSTEM_PROMPT_QA,
     BaselineRecorder,
     RunResult,
     _build_cmd,
     _prompt_hash,
     _wiki_content_hash,
 )
-
 
 # ---------------------------------------------------------------------------
 # _build_cmd() tests
@@ -121,9 +116,7 @@ def test_baseline_schema(tmp_path: Path, fixture_workspace_path: Path) -> None:
         wall_seconds=1.5,
         turns=2,
     )
-    snapshot = recorder._make_snapshot(
-        case, run_result, answer="The answer.", wiki_content_hash="deadbeef"
-    )
+    snapshot = recorder._make_snapshot(case, run_result, answer="The answer.", wiki_content_hash="deadbeef")
     required_keys = {
         "case_id",
         "query",
@@ -151,9 +144,7 @@ def test_baseline_seed_is_none(tmp_path: Path, fixture_workspace_path: Path) -> 
         wall_seconds=2.0,
         turns=1,
     )
-    snapshot = recorder._make_snapshot(
-        case, run_result, answer="Another answer.", wiki_content_hash="deadbeef"
-    )
+    snapshot = recorder._make_snapshot(case, run_result, answer="Another answer.", wiki_content_hash="deadbeef")
     assert snapshot["seed"] is None
 
 

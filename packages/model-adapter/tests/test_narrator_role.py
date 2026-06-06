@@ -12,17 +12,11 @@ def test_narrator_role_in_models_toml():
     from model_adapter.loader import _load_models_config
 
     config = _load_models_config()
-    assert "narrator" in config["roles"], (
-        "Phase 45 D-06 requires a [roles.narrator] section in models.toml"
-    )
+    assert "narrator" in config["roles"], "Phase 45 D-06 requires a [roles.narrator] section in models.toml"
     narrator = config["roles"]["narrator"]
-    assert narrator["model_id"] == KIMI_MODEL_ID, (
-        "narrator default must match the post-Haiku-purge models.toml config"
-    )
+    assert narrator["model_id"] == KIMI_MODEL_ID, "narrator default must match the post-Haiku-purge models.toml config"
     assert narrator["region"] == "us-east-1"
-    assert narrator["max_tokens"] == 600, (
-        "narrator emits prose only — max_tokens lower than scanner"
-    )
+    assert narrator["max_tokens"] == 600, "narrator emits prose only — max_tokens lower than scanner"
     assert narrator["max_concurrency"] == 10
 
 

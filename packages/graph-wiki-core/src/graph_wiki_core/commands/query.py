@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Hybrid BM25 + embedding search layer and query pipeline for graph-wiki-core.
 
 Public API (Plan 02):
@@ -12,17 +10,22 @@ Public API (Plan 02):
 
 Public API (Plan 03):
     QueryResult                      -- Dataclass: answer, citations, pages_drilled, search_scores
-    LIBRARIAN_SYSTEM                 -- System prompt for librarian role (re-exported from graph_wiki_core.prompts.librarian)
-    SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role (re-exported from graph_wiki_core.prompts.synthesizer)
+    LIBRARIAN_SYSTEM                 -- System prompt for librarian role
+                                        (re-exported from graph_wiki_core.prompts.librarian)
+    SYNTHESIZER_SYSTEM               -- System prompt for synthesizer role
+                                        (re-exported from graph_wiki_core.prompts.synthesizer)
     run_query(query, workspace_path, top_k) -- End-to-end query pipeline
     apply_guardrails(result, workspace_path, fan_result) -- G1 + G4 online guardrails
     _extract_wikilinks(text)         -- Extract [[wikilink]] targets from text
 
 Public API (Plan 09 — vault-thin code-fallback):
-    CODE_READER_SYSTEM               -- System prompt for code_reader role (re-exported from graph_wiki_core.prompts.code_reader)
+    CODE_READER_SYSTEM               -- System prompt for code_reader role
+                                        (re-exported from graph_wiki_core.prompts.code_reader)
     _resolve_repo_root(vault_path)   -- Repo-root heuristic (.git / pyproject.toml sibling)
     _read_file_bounded(repo_root, requested_path, max_bytes) -- Allow-list bounded file reader
 """
+
+from __future__ import annotations
 
 import datetime
 import hashlib
@@ -41,7 +44,7 @@ from pathlib import Path
 import bm25s
 from bm25s.tokenization import Tokenizer
 from graph_io.store import GraphNotInitializedError, read_only_connect
-from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
+from langchain_aws import BedrockEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from model_adapter.loader import load_role_config, make_llm
@@ -50,10 +53,11 @@ from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.update_tokens import count_tokens
 from workspace_io.paths import graph_dir
+
 from graph_wiki_core.graph_tools import build_graph_tools
+from graph_wiki_core.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
 from graph_wiki_core.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 from graph_wiki_core.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
-from graph_wiki_core.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -65,69 +69,71 @@ _TOKEN_RE_PATTERN = r"[a-zA-Z0-9][a-zA-Z0-9_\-']+"
 
 # Full stopword set copied verbatim from lattice-wiki-core wiki_search.py
 # (Open Question 3 from RESEARCH.md — use the full ~60-word set)
-_STOPWORDS: frozenset[str] = frozenset({
-    "the",
-    "a",
-    "an",
-    "and",
-    "or",
-    "but",
-    "if",
-    "then",
-    "so",
-    "to",
-    "of",
-    "in",
-    "on",
-    "at",
-    "for",
-    "by",
-    "with",
-    "from",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "this",
-    "that",
-    "these",
-    "those",
-    "it",
-    "its",
-    "as",
-    "we",
-    "you",
-    "they",
-    "their",
-    "our",
-    "us",
-    "i",
-    "not",
-    "no",
-    "yes",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "can",
-    "could",
-    "should",
-    "about",
-    "into",
-    "than",
-    "out",
-    "up",
-    "down",
-    "over",
-    "under",
-    "also",
-})
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "then",
+        "so",
+        "to",
+        "of",
+        "in",
+        "on",
+        "at",
+        "for",
+        "by",
+        "with",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "as",
+        "we",
+        "you",
+        "they",
+        "their",
+        "our",
+        "us",
+        "i",
+        "not",
+        "no",
+        "yes",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "can",
+        "could",
+        "should",
+        "about",
+        "into",
+        "than",
+        "out",
+        "up",
+        "down",
+        "over",
+        "under",
+        "also",
+    }
+)
 
-_BM25_SUBDIR = "bm25"          # relative to .graph-wiki/
+_BM25_SUBDIR = "bm25"  # relative to .graph-wiki/
 _SEARCH_DB_NAME = "search.db"  # filename under .graph-wiki/
 
 # SQLite DDL — used by build_index; defined here for reuse
@@ -147,9 +153,7 @@ CODE_FALLBACK_MARKER = "[vault-thin: answer derived from source code]"
 
 # Plan 09: disclaimer line used when both the librarian fan-out and the
 # code-reader fan-out return nothing useful. Never fabricate content.
-CODE_FALLBACK_DISCLAIMER = (
-    "The vault does not document this and source code did not yield a relevant match."
-)
+CODE_FALLBACK_DISCLAIMER = "The vault does not document this and source code did not yield a relevant match."
 
 
 # ---------------------------------------------------------------------------
@@ -231,10 +235,7 @@ def _rrf_fuse(
     """
     all_pages = set(bm25_ranks) | set(embed_ranks)
     n = len(all_pages)
-    return {
-        p: 1.0 / (k + bm25_ranks.get(p, n + k)) + 1.0 / (k + embed_ranks.get(p, n + k))
-        for p in all_pages
-    }
+    return {p: 1.0 / (k + bm25_ranks.get(p, n + k)) + 1.0 / (k + embed_ranks.get(p, n + k)) for p in all_pages}
 
 
 # ---------------------------------------------------------------------------
@@ -359,17 +360,11 @@ def _read_file_bounded(
     candidate = (repo_root / requested_path).resolve(strict=False)
 
     if not candidate.is_relative_to(root):
-        raise PermissionError(
-            f"refusing to read {requested_path!r}: resolves outside repo root {root}"
-        )
+        raise PermissionError(f"refusing to read {requested_path!r}: resolves outside repo root {root}")
     if ".graph-wiki" in candidate.parts:
-        raise PermissionError(
-            f"refusing to read {requested_path!r}: path is inside .graph-wiki/"
-        )
+        raise PermissionError(f"refusing to read {requested_path!r}: path is inside .graph-wiki/")
     if not candidate.is_file():
-        raise PermissionError(
-            f"refusing to read {requested_path!r}: not a regular file"
-        )
+        raise PermissionError(f"refusing to read {requested_path!r}: not a regular file")
 
     with candidate.open("rb") as f:
         raw = f.read(max_bytes + 1)
@@ -386,15 +381,12 @@ _CODE_READER_MAX_ITERS = 5
 _LIBRARIAN_MAX_ITERS = 5  # mirrors _CODE_READER_MAX_ITERS
 
 LIBRARIAN_CONTEXT_WINDOW = 200_000  # Claude Haiku 4.5 input window (37-RESEARCH.md §3)
-LIBRARIAN_BUDGET_FRACTION = 0.90    # D-05 — 10% headroom for tool-call back-and-forth
-BUDGET_EXCEEDED_EXIT_CODE = 3       # D-04
+LIBRARIAN_BUDGET_FRACTION = 0.90  # D-05 — 10% headroom for tool-call back-and-forth
+BUDGET_EXCEEDED_EXIT_CODE = 3  # D-04
 
-_GRAPH_UNAVAILABLE_STDERR = (
-    "[graph unavailable: run 'cg update' to enable code-graph grounding tools]"
-)
+_GRAPH_UNAVAILABLE_STDERR = "[graph unavailable: run 'cg update' to enable code-graph grounding tools]"
 _LIBRARIAN_FALLBACK_ADDENDUM = (
-    "\nNOTE: code graph tools are unavailable in this workspace; "
-    "rely on vault excerpts only."
+    "\nNOTE: code graph tools are unavailable in this workspace; rely on vault excerpts only."
 )
 _BUDGET_EXCEEDED_TEMPLATE = (
     "librarian: token budget exceeded ({measured} of {budget} tokens). "
@@ -525,9 +517,7 @@ async def _run_code_fallback(
                     tool_output = f"ERROR: {exc}"
                 except OSError as exc:
                     tool_output = f"ERROR: {exc}"
-                msgs.append(
-                    ToolMessage(content=tool_output, tool_call_id=call_id)
-                )
+                msgs.append(ToolMessage(content=tool_output, tool_call_id=call_id))
         logger.warning(
             "code-reader hit max iteration cap (%d) on page %s (query_id=%s)",
             _CODE_READER_MAX_ITERS,
@@ -535,7 +525,8 @@ async def _run_code_fallback(
             query_id,
         )
         # Stop without invention; treat as no content.
-        # iteration-cap exit: no terminal AIMessage; tokens were already accounted by per-iteration calls if logged elsewhere
+        # iteration-cap exit: no terminal AIMessage; tokens were already accounted
+        # by per-iteration calls if logged elsewhere
         return TaskResult(value="NO_RELEVANT_CONTENT", response=None)
 
     code_fan: FanOutResult = await pool.run_all(
@@ -556,9 +547,7 @@ async def _run_code_fallback(
         # Both pathways empty — no fabrication.
         return CODE_FALLBACK_DISCLAIMER, None, None
 
-    code_excerpts_text = "\n\n---\n\n".join(
-        f"[{item}]\n{result}" for item, result in code_useful
-    )
+    code_excerpts_text = "\n\n---\n\n".join(f"[{item}]\n{result}" for item, result in code_useful)
     if len(code_excerpts_text) > 60000:
         code_excerpts_text = code_excerpts_text[:60000]
 
@@ -653,13 +642,7 @@ async def _retry_synthesis_drop_unresolved(
     )
     msgs = [
         SystemMessage(content=SYNTHESIZER_SYSTEM),
-        HumanMessage(
-            content=(
-                f"Query: {query}\n\n"
-                f"Librarian excerpts:\n{excerpts_text}\n\n"
-                f"{retry_instruction}"
-            )
-        ),
+        HumanMessage(content=(f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}\n\n{retry_instruction}")),
     ]
     resp = await synth_llm.ainvoke(msgs)
     return resp.content
@@ -698,9 +681,7 @@ def apply_guardrails(
 
     # G4: empty excerpts + confident citations
     if not skip_g4 and not fan_result.successes and result.citations:
-        flags.append(
-            "[warning: no librarian excerpts; answer is unsupported by retrieved pages]"
-        )
+        flags.append("[warning: no librarian excerpts; answer is unsupported by retrieved pages]")
         result = QueryResult(
             answer=result.answer,
             citations=[],  # clear to avoid G1 false-positives
@@ -713,9 +694,7 @@ def apply_guardrails(
     unresolved = _compute_unresolved_wikilinks(result.answer, vault_path)
 
     if unresolved:
-        flags.append(
-            f"[warning: {len(unresolved)} citation(s) did not resolve: {unresolved}]"
-        )
+        flags.append(f"[warning: {len(unresolved)} citation(s) did not resolve: {unresolved}]")
 
     if flags:
         flagged_answer = result.answer + "\n" + "\n".join(flags)
@@ -789,9 +768,7 @@ def build_index(vault_path: Path) -> None:
                     len(text),
                 )
             content_hash = hashlib.sha256(text.encode()).hexdigest()
-            row = conn.execute(
-                "SELECT content_hash FROM pages WHERE path = ?", (path,)
-            ).fetchone()
+            row = conn.execute("SELECT content_hash FROM pages WHERE path = ?", (path,)).fetchone()
             if row is not None and row[0] == content_hash:
                 continue  # unchanged — skip re-embedding (SEARCH-05 / D-02)
 
@@ -889,9 +866,7 @@ async def run_query(
         RuntimeError: If top_k out of range or vault not resolvable.
     """
     if not (3 <= top_k <= 10):
-        raise RuntimeError(
-            f"top_k must be between 3 and 10 (got {top_k})"
-        )
+        raise RuntimeError(f"top_k must be between 3 and 10 (got {top_k})")
 
     query_id = uuid.uuid4().hex[:12]
     started_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
@@ -903,9 +878,7 @@ async def run_query(
     bm25_dir = graph_dir(wiki.parent) / _BM25_SUBDIR
     db_path = graph_dir(wiki.parent) / _SEARCH_DB_NAME
     if not bm25_dir.exists() or not db_path.exists():
-        logger.warning(
-            "First-time index build — may take a moment. query_id=%s", query_id
-        )
+        logger.warning("First-time index build — may take a moment. query_id=%s", query_id)
         build_index(wiki)
 
     # Step 3: BM25 search (over-retrieve: top_k * 3)
@@ -987,9 +960,7 @@ async def run_query(
         # CountTokens API failure → permissive (RESEARCH.md §2). Set measured=0.
         measured = 0
     if measured > budget:
-        sys.stderr.write(
-            _BUDGET_EXCEEDED_TEMPLATE.format(measured=measured, budget=budget) + "\n"
-        )
+        sys.stderr.write(_BUDGET_EXCEEDED_TEMPLATE.format(measured=measured, budget=budget) + "\n")
         if conn is not None:
             conn.close()
         sys.exit(BUDGET_EXCEEDED_EXIT_CODE)
@@ -1003,9 +974,7 @@ async def run_query(
         pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
 
         async def drill_page(page_path: str) -> TaskResult:
-            page_text = _page_texts.get(page_path) or (wiki / page_path).read_text(
-                encoding="utf-8", errors="replace"
-            )
+            page_text = _page_texts.get(page_path) or (wiki / page_path).read_text(encoding="utf-8", errors="replace")
             # Truncation guard per AI-SPEC §4b.4: cap at 24000 chars
             if len(page_text) > 24000:
                 page_text = page_text[:24000] + "\n[TRUNCATED]"
@@ -1029,9 +998,7 @@ async def run_query(
                     call_name = call.get("name", "") if isinstance(call, dict) else ""
                     call_args = call.get("args", {}) if isinstance(call, dict) else {}
                     call_id = call.get("id", "") if isinstance(call, dict) else ""
-                    tool_obj = next(
-                        (t for t in graph_tools if t.name == call_name), None
-                    )
+                    tool_obj = next((t for t in graph_tools if t.name == call_name), None)
                     if tool_obj is None:
                         tool_output = f"ERROR: unknown tool {call_name!r}"
                     else:
@@ -1070,9 +1037,7 @@ async def run_query(
 
         if useful_excerpts:
             # ---- Regular path (vault-rich): synth on librarian excerpts ----
-            excerpts_text = "\n\n---\n\n".join(
-                f"[{item}]\n{result}" for item, result in useful_excerpts
-            )
+            excerpts_text = "\n\n---\n\n".join(f"[{item}]\n{result}" for item, result in useful_excerpts)
             # Optional safety truncation per AI-SPEC §4b.4
             if len(excerpts_text) > 60000:
                 logger.warning(
@@ -1087,9 +1052,7 @@ async def run_query(
             resolved_synth_model_id = synth_override or synth_cfg["model_id"]
             synth_msgs = [
                 SystemMessage(content=SYNTHESIZER_SYSTEM),
-                HumanMessage(
-                    content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"
-                ),
+                HumanMessage(content=f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}"),
             ]
             # TRACE-FU-01 (D-03): trace per-call synthesizer invocation; tokens also
             # feed the summary_record so the query summary reports usage.
@@ -1121,9 +1084,7 @@ async def run_query(
                     len(unresolved),
                     unresolved,
                 )
-                answer = await _retry_synthesis_drop_unresolved(
-                    synth_llm, query, excerpts_text, unresolved
-                )
+                answer = await _retry_synthesis_drop_unresolved(synth_llm, query, excerpts_text, unresolved)
         else:
             # ---- Plan 09 vault-thin code-fallback branch ----
             logger.info(
@@ -1161,9 +1122,7 @@ async def run_query(
         # all) — G4 would then falsely flag the code-derived answer as
         # unsupported. Skip G4 on the code-fallback path; G1 still runs so
         # unresolved wikilinks emitted by the synthesizer are caught either way.
-        query_result = apply_guardrails(
-            query_result, wiki, fan_result, skip_g4=code_fallback_used
-        )
+        query_result = apply_guardrails(query_result, wiki, fan_result, skip_g4=code_fallback_used)
 
         # Write query summary trace record (RESEARCH Open Question 1 — write directly)
         ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()

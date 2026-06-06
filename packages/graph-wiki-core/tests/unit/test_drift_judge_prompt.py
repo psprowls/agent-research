@@ -24,8 +24,10 @@ def test_build_prompt_includes_section_and_narrative():
 
 def test_build_prompt_omits_file_map_when_none():
     _system, human = build_drift_judge_prompt(
-        heading="## Commands", section_body="## Commands\n/foo\n",
-        narrative="An agent plugin.", file_map=None,
+        heading="## Commands",
+        section_body="## Commands\n/foo\n",
+        narrative="An agent plugin.",
+        file_map=None,
     )
     assert "File map" not in human
 

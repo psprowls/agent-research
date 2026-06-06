@@ -21,7 +21,8 @@ class SchemaMismatchError(Exception):
         self.found = found
         self.expected = expected
         super().__init__(
-            f"graph schema version mismatch: found {found!r}, expected {expected}; run `gw graph update --full` to rebuild"
+            f"graph schema version mismatch: found {found!r}, expected {expected}; "
+            "run `gw graph update --full` to rebuild"
         )
 
 
@@ -48,7 +49,9 @@ def connect(db_path: Path, *, create: bool = False, busy_timeout_ms: int | None 
     db_path = Path(db_path)
     if not db_path.exists():
         if not create:
-            raise GraphNotInitializedError(f"graph DB not found at {db_path}; run `gw graph update --full` to initialize")
+            raise GraphNotInitializedError(
+                f"graph DB not found at {db_path}; run `gw graph update --full` to initialize"
+            )
         db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, isolation_level=None)
     if busy_timeout_ms is not None:

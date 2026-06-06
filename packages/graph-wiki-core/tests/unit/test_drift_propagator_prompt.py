@@ -29,10 +29,7 @@ def test_adr_rubric_is_annotate_only():
 
 
 def test_parse_valid_stale_verdict_keeps_findings_with_entity_stem():
-    text = (
-        '{"stale": true, "findings": ['
-        '{"entity_stem": "pkg_a", "stale_claim": "sync", "rationale": "now async"}]}'
-    )
+    text = '{"stale": true, "findings": [{"entity_stem": "pkg_a", "stale_claim": "sync", "rationale": "now async"}]}'
     v = parse_drift_propagator_verdict(text)
     assert v["stale"] is True
     assert v["findings"][0]["entity_stem"] == "pkg_a"

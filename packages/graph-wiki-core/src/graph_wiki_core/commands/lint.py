@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Lint command — mechanical + semantic health-check of a Code Wiki.
 
 Public API:
@@ -25,6 +23,8 @@ Semantic checks (3 parallel linter subagents via SubagentPool):
 Per D-10: NO write-back to vault. run_lint is read-only.
 """
 
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from collections import defaultdict
@@ -33,10 +33,8 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
-from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
+from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.proposals import list_proposals
-from workspace_io.paths import graph_dir
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
@@ -51,6 +49,8 @@ from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.package_sync import check as check_package_sync_drift
 from wiki_io.lint.scanner_heading import check as check_scanner_heading
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
+from wiki_io.proposals import list_proposals
+from workspace_io.paths import graph_dir
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +66,12 @@ _SKIPPED: dict = {"skipped": True}
 # Semantic linter prompt builders (wired with project_context per CTX-03)
 # ---------------------------------------------------------------------------
 
-from graph_wiki_core.prompts.linter import (
+from graph_wiki_core.prompts.linter import (  # noqa: E402
     build_linter_adr_chain_system,
     build_linter_page_quality_system,
     build_linter_stale_claims_system,
 )
-from graph_wiki_core.prompts.project_context import render_project_context
-
+from graph_wiki_core.prompts.project_context import render_project_context  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # LintResult dataclass
@@ -224,10 +223,7 @@ def _mechanical_pass(
     today = dt.date.today()
     stale_cutoff = today - dt.timedelta(days=stale_days)
 
-    orphans = sorted(
-        k for k, p in pages.items()
-        if p["linted"] and not p["is_work"] and not inbound.get(k)
-    )
+    orphans = sorted(k for k, p in pages.items() if p["linted"] and not p["is_work"] and not inbound.get(k))
     broken_links = []
     for src, targets in outbound.items():
         for t in targets:
@@ -323,15 +319,10 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
             vault_pkg_pages = {
                 k: p
                 for k, p in pages.items()
-                if p["fm"].get("category") in ("package", "app")
-                and Path(k).parent.name == Path(k).name
+                if p["fm"].get("category") in ("package", "app") and Path(k).parent.name == Path(k).name
             }
             vault_names = {Path(k).name for k in vault_pkg_pages}
-            planned_names = {
-                Path(k).name
-                for k, p in vault_pkg_pages.items()
-                if p["fm"].get("status") == "planned"
-            }
+            planned_names = {Path(k).name for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
             code_drift = {
                 "packages_on_disk": len(disk_names),
                 "packages_in_vault": len(vault_names),
@@ -409,10 +400,7 @@ async def _semantic_pass(
     adr_pages = [pg for pg in all_page_list if pg["key"].startswith("adrs/")]
 
     # stale_claims: pages with source_path or package_path frontmatter
-    pages_with_source = [
-        pg for pg in all_page_list
-        if pg["fm"].get("source_path") or pg["fm"].get("package_path")
-    ]
+    pages_with_source = [pg for pg in all_page_list if pg["fm"].get("source_path") or pg["fm"].get("package_path")]
 
     semantic_groups = [
         (

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from pathlib import Path
 
 from graph_io.structural_nodes import _owning_package, _resolve_import_root  # noqa: F401
@@ -18,9 +19,7 @@ PkgRow = tuple[str, str | None, str | None]
 """(pkg_name, pkg_rel, pkg_attrs_json) — the tuple shape callers pass in."""
 
 _PYTHON_IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([\w\.]+)", re.MULTILINE)
-_JS_IMPORT_RE = re.compile(
-    r"""(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]"""
-)
+_JS_IMPORT_RE = re.compile(r"""(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]""")
 
 _JS_EXTENSIONS = (".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs")
 _JS_INDEX_SUFFIXES = ("index.ts", "index.js", "index.tsx", "index.jsx")
@@ -75,9 +74,7 @@ def _match_python_import(
     return py_map.get(top)
 
 
-def _js_relative_candidates(
-    spec: str, importing_file: Path
-) -> list[Path] | None:
+def _js_relative_candidates(spec: str, importing_file: Path) -> list[Path] | None:
     """Build the ordered candidate Paths for a relative/absolute JS specifier.
 
     Returns the candidate list (exact path, then each _JS_EXTENSIONS suffix,
@@ -97,9 +94,7 @@ def _js_relative_candidates(
     return candidates
 
 
-def _first_existing_rel(
-    candidates: list[Path], repo_root: Path
-) -> str | None:
+def _first_existing_rel(candidates: list[Path], repo_root: Path) -> str | None:
     """Return the repo-relative posix path of the first existing candidate FILE
     inside repo_root, or None.
 
@@ -139,9 +134,7 @@ def _match_js_import(
     return js_map.get(key)
 
 
-def resolve_js_import_file(
-    spec: str, importing_file: Path, repo_root: Path
-) -> str | None:
+def resolve_js_import_file(spec: str, importing_file: Path, repo_root: Path) -> str | None:
     """Resolve a relative/absolute JS/TS specifier to a repo-relative FILE path.
 
     Returns the repo-relative posix path of the first existing candidate
@@ -201,9 +194,6 @@ def resolve_python_import_file(
         return None
 
 
-import sqlite3
-
-
 def scan_files_imports(
     repo_root: Path,
     file_rel_paths: list[str],
@@ -234,7 +224,11 @@ def scan_files_imports(
         elif ext in _SCAN_EXTENSIONS_JS:
             for m in _JS_IMPORT_RE.finditer(content):
                 hit = _match_js_import(
-                    m.group(1), fpath, repo_root, js_map, pkg_index,
+                    m.group(1),
+                    fpath,
+                    repo_root,
+                    js_map,
+                    pkg_index,
                 )
                 if hit is not None:
                     matched.add(hit)
@@ -260,10 +254,7 @@ def scan_package_imports(
     # Phase 50 D-04: apps participate in import resolution the same way.
     pkg_rows: list[PkgRow] = [
         (row[0], row[1], row[2])
-        for row in conn.execute(
-            "SELECT name, path, attrs_json FROM nodes "
-            "WHERE kind IN ('package', 'app')"
-        ).fetchall()
+        for row in conn.execute("SELECT name, path, attrs_json FROM nodes WHERE kind IN ('package', 'app')").fetchall()
     ]
 
     # Query File rows scoped to the Package
@@ -274,9 +265,7 @@ def scan_package_imports(
             (like,),
         ).fetchall()
     else:
-        rows = conn.execute(
-            "SELECT path, attrs_json FROM nodes WHERE kind='file'"
-        ).fetchall()
+        rows = conn.execute("SELECT path, attrs_json FROM nodes WHERE kind='file'").fetchall()
 
     file_paths: list[str] = []
     for path, attrs_json in rows:

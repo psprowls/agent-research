@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Shared helpers for eval-harness integration tests.
 
 This module exists so that both conftest.py (pytest fixtures) and
@@ -11,6 +9,8 @@ Public API:
     EVAL_GATE     — pytest.mark.skipif decorator gating eval tests.
     produce_outputs(role, workspace) — produce agent outputs for the given role.
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -108,10 +108,7 @@ def _produce_librarian_outputs(workspace: Path) -> "list[tuple[str, AgentOutputP
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
 
     if not _QUERY_CASES_PATH.exists():
-        pytest.skip(
-            f"librarian corpus not found: {_QUERY_CASES_PATH}; "
-            "add query cases to eval/cases/query_cases.json"
-        )
+        pytest.skip(f"librarian corpus not found: {_QUERY_CASES_PATH}; add query cases to eval/cases/query_cases.json")
 
     with _QUERY_CASES_PATH.open(encoding="utf-8") as f:
         cases: list[dict] = json.load(f)
@@ -211,8 +208,7 @@ def _produce_linter_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProx
 
     if not outputs:
         pytest.skip(
-            f"linter corpus produced no outputs from workspace {workspace}; "
-            "check that semantic findings are reachable."
+            f"linter corpus produced no outputs from workspace {workspace}; check that semantic findings are reachable."
         )
 
     return outputs
@@ -236,10 +232,7 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
 
     eval_harness_dir = _WORKSPACE_ROOT / "packages" / "eval-harness"
     if not eval_harness_dir.exists():
-        pytest.skip(
-            f"scanner corpus not found: {eval_harness_dir}; "
-            "packages/eval-harness must exist in the workspace."
-        )
+        pytest.skip(f"scanner corpus not found: {eval_harness_dir}; packages/eval-harness must exist in the workspace.")
 
     # repo_path override (Plan 06-15 / UAT G5): point the scanner at the
     # eval-harness package as a known-good uv workspace member so it has
@@ -277,8 +270,6 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
             )
 
     if not outputs:
-        pytest.skip(
-            f"scanner: no readable stub pages found for packages {added_or_updated}"
-        )
+        pytest.skip(f"scanner: no readable stub pages found for packages {added_or_updated}")
 
     return outputs

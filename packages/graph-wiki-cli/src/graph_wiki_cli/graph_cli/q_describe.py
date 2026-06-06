@@ -105,8 +105,7 @@ def _resolve_kind(args: object) -> "str | int":
         return "path"
     if len(cli_kinds) > 1:
         print(
-            f"error: ambiguous selector {selector!r} matches kinds: "
-            f"{', '.join(cli_kinds)}; disambiguate with --kind",
+            f"error: ambiguous selector {selector!r} matches kinds: {', '.join(cli_kinds)}; disambiguate with --kind",
             file=sys.stderr,
         )
         return exit_codes.AMBIGUOUS

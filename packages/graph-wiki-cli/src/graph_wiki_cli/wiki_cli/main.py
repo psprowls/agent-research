@@ -15,16 +15,9 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-
 from graph_io import exit_codes as _gio_exit_codes
-
 from graph_io.store import read_only_connect
-from wiki_io._workspace import resolve_wiki_and_repo
-from workspace_io.paths import graph_dir
-
 from graph_wiki_core.commands.ack_drift import run_ack_drift
-from graph_wiki_core.commands.propagate_drift import run_propagate_drift
-from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
     run_ingest_source,
@@ -32,7 +25,11 @@ from graph_wiki_core.commands.ingest import (
 )
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.log import run_log
+from graph_wiki_core.commands.propagate_drift import run_propagate_drift
+from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.query import run_query
+from wiki_io._workspace import resolve_wiki_and_repo
+from workspace_io.paths import graph_dir
 
 wiki_app = typer.Typer(
     name="wiki",
@@ -117,6 +114,7 @@ def lint(
 
     if json_output:
         import dataclasses as _dc
+
         typer.echo(json.dumps(_dc.asdict(result), indent=2, default=list))
     else:
         # Human-readable multi-section report
@@ -197,21 +195,15 @@ def proposals(
         "--status",
         help="proposed|approved|rejected|created|all (default: proposed)",
     ),
-    kind: Optional[str] = typer.Option(
-        None, "--kind", help="concept|adr|architecture (default: all kinds)"
-    ),
-    workspace: str = typer.Option(
-        "", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"
-    ),
+    kind: Optional[str] = typer.Option(None, "--kind", help="concept|adr|architecture (default: all kinds)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     json_output: bool = typer.Option(False, "--json", help="Emit records as JSON"),
 ) -> None:
     """List curated-page proposals from the ledger (defaults to open ones)."""
     workspace_path = Path(workspace) if workspace else None
     status_filter = None if status == "all" else status
     try:
-        records = run_list_proposals(
-            workspace_path=workspace_path, status=status_filter, kind=kind
-        )
+        records = run_list_proposals(workspace_path=workspace_path, status=status_filter, kind=kind)
     except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
@@ -224,10 +216,7 @@ def proposals(
         return
     for r in records:
         proposal_id = f"{r['kind']}-{r['target_slug']}"
-        typer.echo(
-            f"{proposal_id}  [{r['status']}]  mode={r['mode']}  "
-            f"origins={len(r['origins'])}  — {r['title']}"
-        )
+        typer.echo(f"{proposal_id}  [{r['status']}]  mode={r['mode']}  origins={len(r['origins'])}  — {r['title']}")
 
 
 proposal_app = typer.Typer(help="Approve or reject a curated-page proposal.")
@@ -283,9 +272,7 @@ def propagate_drift(
         raise typer.Exit(code=1)
     conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
     try:
-        result = asyncio.run(
-            run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=dry_run, only=only)
-        )
+        result = asyncio.run(run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=dry_run, only=only))
     finally:
         conn.close()
 
@@ -339,14 +326,12 @@ def ingest_source(
         typer.echo(f"     source_kind: {result.source_kind}, slug: {result.slug}")
         if not result.frontmatter_parsed:
             typer.echo(
-                "⚠ frontmatter did not parse — wrote Source page with "
-                "source_kind: unknown",
+                "⚠ frontmatter did not parse — wrote Source page with source_kind: unknown",
                 err=True,
             )
         if result.stripped_wikilinks:
             typer.echo(
-                f"⚠ stripped {len(result.stripped_wikilinks)} unresolved "
-                f"wikilink(s): {result.stripped_wikilinks}",
+                f"⚠ stripped {len(result.stripped_wikilinks)} unresolved wikilink(s): {result.stripped_wikilinks}",
                 err=True,
             )
         if result.suggested_pages:
@@ -354,8 +339,7 @@ def ingest_source(
             for s in result.suggested_pages:
                 mode = "update" if s.get("mode") == "update_existing" else "new"
                 typer.echo(
-                    f"       - {s.get('kind')} \"{s.get('title')}\" "
-                    f"({mode}, {s.get('status')}) -> {s.get('slug')}"
+                    f'       - {s.get("kind")} "{s.get("title")}" ({mode}, {s.get("status")}) -> {s.get("slug")}'
                 )
         if not result.suggestions_parsed:
             typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)

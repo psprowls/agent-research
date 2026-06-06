@@ -7,9 +7,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from workspace_io.config import resolve as resolve_workspace
-from workspace_io.paths import graph_dir
-
+from _git_repo import init_repo
 from graph_io import (
     derived_edges,
     domains,
@@ -19,8 +17,8 @@ from graph_io import (
     update,
 )
 from graph_io.uri import RepoContext
-
-from _git_repo import init_repo, write_and_commit
+from workspace_io.config import resolve as resolve_workspace
+from workspace_io.paths import graph_dir
 
 CTX = RepoContext(org="testorg", repo="testrepo")
 
@@ -55,22 +53,30 @@ def _emit_phase_29(conn: sqlite3.Connection, root: Path) -> None:
     with store.transaction(conn):
         packages.refresh(conn, repo_root=root, ctx=CTX)
         structural_nodes.emit(
-            conn, repo_root=root, ctx=CTX, skip_dirs=frozenset(),
+            conn,
+            repo_root=root,
+            ctx=CTX,
+            skip_dirs=frozenset(),
         )
 
 
 def _two_domain_setup(tmp_path: Path) -> sqlite3.Connection:
-    _write_pkg_py(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "from pkg_b import bar\n",
-    })
-    _write_pkg_py(tmp_path, "pkg-b", {
-        "src/pkg_b/__init__.py": "",
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
-    (tmp_path / "domains.yaml").write_text(
-        "D:\n  packages: [pkg-a]\n"
-        "E:\n  packages: [pkg-b]\n"
+    _write_pkg_py(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "from pkg_b import bar\n",
+        },
     )
+    _write_pkg_py(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/__init__.py": "",
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
+    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\nE:\n  packages: [pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
@@ -115,15 +121,21 @@ def test_depends_on_emitted(tmp_path: Path) -> None:
 
 def test_no_self_loops_in_depends_on(tmp_path: Path) -> None:
     # pkg-a in domain D imports pkg-a-helper (also in D)
-    _write_pkg_py(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "from pkg_a_helper import x\n",
-    })
-    _write_pkg_py(tmp_path, "pkg-a-helper", {
-        "src/pkg_a_helper/__init__.py": "x = 1\n",
-    })
-    (tmp_path / "domains.yaml").write_text(
-        "D:\n  packages: [pkg-a, pkg-a-helper]\n"
+    _write_pkg_py(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "from pkg_a_helper import x\n",
+        },
     )
+    _write_pkg_py(
+        tmp_path,
+        "pkg-a-helper",
+        {
+            "src/pkg_a_helper/__init__.py": "x = 1\n",
+        },
+    )
+    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a, pkg-a-helper]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
@@ -149,13 +161,13 @@ def test_no_self_loops_in_depends_on(tmp_path: Path) -> None:
 
 def test_idempotency(tmp_path: Path) -> None:
     conn = _two_domain_setup(tmp_path)
-    edges_first = sorted(conn.execute(
-        "SELECT src, dst, kind FROM edges WHERE kind IN ('references', 'depends_on')"
-    ).fetchall())
+    edges_first = sorted(
+        conn.execute("SELECT src, dst, kind FROM edges WHERE kind IN ('references', 'depends_on')").fetchall()
+    )
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
-    edges_second = sorted(conn.execute(
-        "SELECT src, dst, kind FROM edges WHERE kind IN ('references', 'depends_on')"
-    ).fetchall())
+    edges_second = sorted(
+        conn.execute("SELECT src, dst, kind FROM edges WHERE kind IN ('references', 'depends_on')").fetchall()
+    )
     assert edges_first == edges_second
 
 
@@ -164,16 +176,22 @@ def test_idempotency(tmp_path: Path) -> None:
 
 def test_no_transitive_storage(tmp_path: Path) -> None:
     # parent contains child; child has pkg-a importing pkg-x in OUTSIDE
-    _write_pkg_py(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "from pkg_x import y\n",
-    })
-    _write_pkg_py(tmp_path, "pkg-x", {
-        "src/pkg_x/__init__.py": "y = 1\n",
-    })
+    _write_pkg_py(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "from pkg_x import y\n",
+        },
+    )
+    _write_pkg_py(
+        tmp_path,
+        "pkg-x",
+        {
+            "src/pkg_x/__init__.py": "y = 1\n",
+        },
+    )
     (tmp_path / "domains.yaml").write_text(
-        "parent:\n  packages: []\n"
-        "child:\n  packages: [pkg-a]\n  parent: parent\n"
-        "outside:\n  packages: [pkg-x]\n"
+        "parent:\n  packages: []\nchild:\n  packages: [pkg-a]\n  parent: parent\noutside:\n  packages: [pkg-x]\n"
     )
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
@@ -226,8 +244,7 @@ def _seed_testsuite(
                 (pkg_name, pkg_path),
             ).fetchone()[0]
         conn.execute(
-            "INSERT OR IGNORE INTO edges(src, dst, kind, attrs_json) "
-            "VALUES (?, ?, 'tests', NULL)",
+            "INSERT OR IGNORE INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'tests', NULL)",
             (suite_id, pkg_id),
         )
 
@@ -238,15 +255,13 @@ def _seed_testsuite(
 def test_testsuite_domain_emitted(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
     _write_pkg_py(tmp_path, "pkg-b", {})
-    (tmp_path / "domains.yaml").write_text(
-        "D:\n  packages: [pkg-a, pkg-b]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a, pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    _seed_testsuite(conn, "integration", "tests/integration",
-                    [("pkg-a", "packages/pkg-a"),
-                     ("pkg-b", "packages/pkg-b")])
+    _seed_testsuite(
+        conn, "integration", "tests/integration", [("pkg-a", "packages/pkg-a"), ("pkg-b", "packages/pkg-b")]
+    )
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     row = conn.execute(
         "SELECT 1 FROM edges e JOIN nodes s ON e.src=s.id "
@@ -262,16 +277,13 @@ def test_testsuite_domain_emitted(tmp_path: Path) -> None:
 def test_testsuite_no_domain_on_multi_domain_span(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
     _write_pkg_py(tmp_path, "pkg-b", {})
-    (tmp_path / "domains.yaml").write_text(
-        "D:\n  packages: [pkg-a]\n"
-        "E:\n  packages: [pkg-b]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\nE:\n  packages: [pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    _seed_testsuite(conn, "integration", "tests/integration",
-                    [("pkg-a", "packages/pkg-a"),
-                     ("pkg-b", "packages/pkg-b")])
+    _seed_testsuite(
+        conn, "integration", "tests/integration", [("pkg-a", "packages/pkg-a"), ("pkg-b", "packages/pkg-b")]
+    )
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     row = conn.execute(
         "SELECT 1 FROM edges e JOIN nodes s ON e.src=s.id "
@@ -286,14 +298,11 @@ def test_testsuite_no_domain_on_multi_domain_span(tmp_path: Path) -> None:
 
 def test_testsuite_no_domain_for_single_package_suite(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
-    (tmp_path / "domains.yaml").write_text(
-        "D:\n  packages: [pkg-a]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    _seed_testsuite(conn, "unit", "tests/unit",
-                    [("pkg-a", "packages/pkg-a")])
+    _seed_testsuite(conn, "unit", "tests/unit", [("pkg-a", "packages/pkg-a")])
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     row = conn.execute(
         "SELECT 1 FROM edges e JOIN nodes s ON e.src=s.id "
@@ -314,6 +323,7 @@ def test_update_run_end_to_end(tmp_path: Path) -> None:
     # write_and_commit handles git add + commit; here all fixture files
     # already exist, so add them all in one commit:
     import subprocess
+
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=repo, check=True)
 
@@ -324,15 +334,11 @@ def test_update_run_end_to_end(tmp_path: Path) -> None:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         # 3 Domain nodes
-        count = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='domain'"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='domain'").fetchone()[0]
         assert count == 3
         # belongs_to_domain edges
-        count = conn.execute(
-            "SELECT COUNT(*) FROM edges WHERE kind='belongs_to_domain'"
-        ).fetchone()[0]
-        assert count >= 2   # mypkg -> core, jspkg -> web
+        count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='belongs_to_domain'").fetchone()[0]
+        assert count >= 2  # mypkg -> core, jspkg -> web
         # domain_contains_domain edge presentation -> web
         row = conn.execute(
             "SELECT 1 FROM edges e JOIN nodes s ON e.src=s.id "
@@ -340,18 +346,14 @@ def test_update_run_end_to_end(tmp_path: Path) -> None:
             "WHERE e.kind='domain_contains_domain' AND s.name='presentation' AND d.name='web'"
         ).fetchone()
         assert row is not None
-        edges_first = sorted(conn.execute(
-            "SELECT src, dst, kind FROM edges"
-        ).fetchall())
+        edges_first = sorted(conn.execute("SELECT src, dst, kind FROM edges").fetchall())
     finally:
         conn.close()
     # SC#3: second update.run produces unchanged edges
     update.run(repo, full=False)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        edges_second = sorted(conn.execute(
-            "SELECT src, dst, kind FROM edges"
-        ).fetchall())
+        edges_second = sorted(conn.execute("SELECT src, dst, kind FROM edges").fetchall())
     finally:
         conn.close()
     assert edges_first == edges_second

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """INGESTOR_SYSTEM prompt composed from shared fragments + ingestor-local prose.
 
 Ports plugins/graph-wiki/agents/ingestor.md per PORT-03 (Phase 6).
@@ -14,6 +12,8 @@ Exports:
         position 1 (after the role intro, before IRON_RULES).
     INGESTOR_SYSTEM — backward-compat constant, equals build_ingestor_system().
 """
+
+from __future__ import annotations
 
 from graph_wiki_core.prompts._fragments.architecture_overview import ARCHITECTURE_OVERVIEW
 from graph_wiki_core.prompts._fragments.citation_rules import CITATION_RULES
@@ -61,7 +61,7 @@ _INGESTOR_RULES = (
     "DO NOT emit `[[wikilink]]` targets that do not already exist in the vault. "
     "Examples of forbidden output observed in past runs:\n"
     "- `[[Person Name]]` for an author/speaker/contributor who has no vault page — "
-    "use prose (\"Person Name\") instead.\n"
+    'use prose ("Person Name") instead.\n'
     "- `[[subdir/some-slug]]` for a path that does not exist on disk — "
     "either omit the link entirely or use the `NO_RELEVANT_CONTENT` sentinel from the citation rules.\n\n"
     "The command layer post-processes the body and STRIPS any `[[…]]` that "

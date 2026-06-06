@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
-import stat
 from pathlib import Path
 
 import pytest
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
-
 from graph_io import store, structural_nodes, upsert
 from graph_io.structural_nodes import _is_test_path
 from graph_io.uri import RepoContext
+from source_parser.projections.graph import GraphNode, GraphRecords
 
 _CTX = RepoContext(org="test", repo="repo")
 
@@ -29,6 +26,7 @@ def conn(tmp_path: Path) -> sqlite3.Connection:
 @pytest.fixture()
 def patched_git(monkeypatch):
     """Stub graph_io.update._git to return canned output instead of running git."""
+
     def fake_git(args, *, cwd):
         joined = " ".join(args)
         if joined == "symbolic-ref --short refs/remotes/origin/HEAD":
@@ -70,12 +68,8 @@ def _seed_package(
 # ============================================================================
 
 
-def test_emit_repository_node_single(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+def test_emit_repository_node_single(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
     rows = conn.execute("SELECT name, path, uri FROM nodes WHERE kind='repository'").fetchall()
     assert len(rows) == 1
     name, path, uri = rows[0]
@@ -84,25 +78,15 @@ def test_emit_repository_node_single(
     assert uri == "repo:test/repo"
 
 
-def test_emit_repository_path_is_null(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+def test_emit_repository_path_is_null(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
     row = conn.execute("SELECT path FROM nodes WHERE kind='repository'").fetchone()
     assert row[0] is None
 
 
-def test_emit_repository_attrs_include_owner_name_url(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='repository'"
-    ).fetchone()
+def test_emit_repository_attrs_include_owner_name_url(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='repository'").fetchone()
     attrs = json.loads(row[0])
     assert attrs.get("owner") == "test"
     assert attrs.get("name") == "repo"
@@ -110,9 +94,7 @@ def test_emit_repository_attrs_include_owner_name_url(
     assert attrs.get("default_branch") == "main"
 
 
-def test_emit_repository_default_branch_null_on_detached(
-    conn: sqlite3.Connection, tmp_path: Path, monkeypatch
-) -> None:
+def test_emit_repository_default_branch_null_on_detached(conn: sqlite3.Connection, tmp_path: Path, monkeypatch) -> None:
     from graph_io.update import NotInGitRepoError
 
     def fake_git(args, *, cwd):
@@ -126,9 +108,7 @@ def test_emit_repository_default_branch_null_on_detached(
         ctx=RepoContext(org="local", repo="x"),
         skip_dirs=frozenset(),
     )
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='repository'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='repository'").fetchone()
     attrs = json.loads(row[0])
     assert attrs.get("default_branch") is None
 
@@ -149,20 +129,14 @@ def test_emit_repository_local_mode_url_is_filesystem_path(
         ctx=RepoContext(org="local", repo=tmp_path.name),
         skip_dirs=frozenset(),
     )
-    row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='repository'"
-    ).fetchone()
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='repository'").fetchone()
     attrs = json.loads(row[0])
     assert attrs.get("url") == str(tmp_path.absolute())
 
 
-def test_emit_creates_repo_to_package_edge(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_emit_creates_repo_to_package_edge(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     _seed_package(conn, name="mypkg", path="packages/mypkg")
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
     rows = conn.execute(
         "SELECT n1.kind, n2.kind FROM edges e "
         "JOIN nodes n1 ON e.src=n1.id "
@@ -205,21 +179,27 @@ def test_is_test_path_filename_inside_import_root_is_not_test(tmp_path: Path) ->
     (tmp_path / "packages/foo/src/foo").mkdir(parents=True)
     (tmp_path / "packages/foo/src/foo/__init__.py").write_text("")
     (tmp_path / "packages/foo/pyproject.toml").write_text("[project]\nname='foo'\n")
-    assert _is_test_path(
-        "packages/foo/src/foo/test_helpers.py",
-        package_dirs=[("foo", "packages/foo")],
-        repo_root=tmp_path,
-    ) is False
+    assert (
+        _is_test_path(
+            "packages/foo/src/foo/test_helpers.py",
+            package_dirs=[("foo", "packages/foo")],
+            repo_root=tmp_path,
+        )
+        is False
+    )
 
 
 def test_is_test_path_tests_dir_branch_unchanged(tmp_path: Path) -> None:
     """D-01: tests/ ancestor is still authoritative — filename match
     irrelevant when a tests/ dir is above the file."""
-    assert _is_test_path(
-        "packages/foo/tests/test_x.py",
-        package_dirs=[("foo", "packages/foo")],
-        repo_root=tmp_path,
-    ) is True
+    assert (
+        _is_test_path(
+            "packages/foo/tests/test_x.py",
+            package_dirs=[("foo", "packages/foo")],
+            repo_root=tmp_path,
+        )
+        is True
+    )
 
 
 def test_is_test_path_jsts_inside_package_root_is_not_test(tmp_path: Path) -> None:
@@ -227,11 +207,14 @@ def test_is_test_path_jsts_inside_package_root_is_not_test(tmp_path: Path) -> No
     a test file."""
     (tmp_path / "packages/jspkg").mkdir(parents=True)
     (tmp_path / "packages/jspkg/package.json").write_text('{"name":"jspkg"}')
-    assert _is_test_path(
-        "packages/jspkg/src/foo.test.ts",
-        package_dirs=[("jspkg", "packages/jspkg")],
-        repo_root=tmp_path,
-    ) is False
+    assert (
+        _is_test_path(
+            "packages/jspkg/src/foo.test.ts",
+            package_dirs=[("jspkg", "packages/jspkg")],
+            repo_root=tmp_path,
+        )
+        is False
+    )
 
 
 def test_owning_package_is_module_level_callable() -> None:
@@ -343,9 +326,7 @@ def test_is_executable_negative(tmp_path: Path) -> None:
 # ============================================================================
 
 
-def test_subpackage_python_src_layout(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_python_src_layout(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     # Set up a src-layout package
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
@@ -358,24 +339,15 @@ def test_subpackage_python_src_layout(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    names = sorted(
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='subpackage'"
-        ).fetchall()
-    )
+    names = sorted(row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='subpackage'").fetchall())
     # Phase 43 folded-todo fix: import root (`mypkg`) is no longer yielded
     # as a subpackage — only strictly-nested __init__.py dirs are.
     assert names == ["mypkg.sub", "mypkg.sub.deep"]
 
 
-def test_subpackage_python_flat_layout(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_python_flat_layout(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     flat_root = pkg_dir / "mypkg"
     flat_root.mkdir(parents=True)
@@ -383,62 +355,41 @@ def test_subpackage_python_flat_layout(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    names = sorted(
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='subpackage'"
-        ).fetchall()
-    )
+    names = sorted(row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='subpackage'").fetchall())
     # Phase 43 folded-todo fix: flat-layout package with only the import
     # root and no nested __init__.py emits ZERO subpackages.
     assert names == []
 
 
-def test_subpackage_no_init_emits_none(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_no_init_emits_none(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     pkg_dir.mkdir(parents=True)
     # No __init__.py anywhere — neither src nor flat layout
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    n = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
-    ).fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='subpackage'").fetchone()[0]
     assert n == 0
 
 
-def test_subpackage_jsts_package_emits_zero(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_jsts_package_emits_zero(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "jspkg"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "index.js").write_text("module.exports = {};")
 
     _seed_package(conn, name="jspkg", path="packages/jspkg", language="javascript")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    n = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
-    ).fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='subpackage'").fetchone()[0]
     assert n == 0
 
 
-def test_subpackage_dotted_path_includes_importable(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_dotted_path_includes_importable(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
@@ -448,24 +399,15 @@ def test_subpackage_dotted_path_includes_importable(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    names = {
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='subpackage'"
-        ).fetchall()
-    }
+    names = {row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='subpackage'").fetchall()}
     assert "mypkg.cli" in names
     # NOT just "cli"
     assert "cli" not in names
 
 
-def test_subpackage_parent_is_package_for_top_level(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_subpackage_parent_is_package_for_top_level(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     """Phase 43: the first non-import-root subpackage is parented by the package.
 
     Previously the import root itself was emitted as a subpackage with
@@ -482,9 +424,7 @@ def test_subpackage_parent_is_package_for_top_level(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     # The first nested subpackage's parent should be the package node
     rows = conn.execute(
@@ -512,9 +452,7 @@ def test_subpackage_parent_is_enclosing_subpackage_for_nested(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     # mypkg.sub.deep is parented by its enclosing subpackage mypkg.sub
     rows = conn.execute(
@@ -532,16 +470,12 @@ def test_subpackage_parent_is_enclosing_subpackage_for_nested(
 # ============================================================================
 
 
-def test_file_python_reads_sparser_has_main(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_file_python_reads_sparser_has_main(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
     (src_root / "__init__.py").write_text("")
-    (src_root / "main.py").write_text(
-        "def main(): pass\n\nif __name__ == '__main__':\n    main()\n"
-    )
+    (src_root / "main.py").write_text("def main(): pass\n\nif __name__ == '__main__':\n    main()\n")
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
     # Pre-seed source-parser attrs on the File node (as _process_files would).
@@ -567,9 +501,7 @@ def test_file_python_reads_sparser_has_main(
         ),
     )
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     row = conn.execute(
         "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
@@ -580,9 +512,7 @@ def test_file_python_reads_sparser_has_main(
     assert attrs.get("is_importable") is True
 
 
-def test_file_python_defaults_when_sparser_attrs_missing(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_file_python_defaults_when_sparser_attrs_missing(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
@@ -592,9 +522,7 @@ def test_file_python_defaults_when_sparser_attrs_missing(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     row = conn.execute(
         "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
@@ -614,9 +542,7 @@ def test_file_jsts_default_has_main_false_is_importable_true(
 
     _seed_package(conn, name="jspkg", path="packages/jspkg", language="javascript")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     row = conn.execute(
         "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
@@ -627,9 +553,7 @@ def test_file_jsts_default_has_main_false_is_importable_true(
     assert attrs.get("is_importable") is True
 
 
-def test_test_file_parented_by_repository_not_package(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_test_file_parented_by_repository_not_package(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
@@ -640,9 +564,7 @@ def test_test_file_parented_by_repository_not_package(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     rows = conn.execute(
         "SELECT n_src.kind FROM edges e "
@@ -656,9 +578,7 @@ def test_test_file_parented_by_repository_not_package(
     assert parent_kinds == {"repository"}
 
 
-def test_non_test_python_file_parented_by_subpackage(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_non_test_python_file_parented_by_subpackage(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     """Phase 43: a file directly under the import root is parented by the package
     (the import root is no longer emitted as a subpackage); a file inside a
     nested subpackage is parented by that subpackage.
@@ -676,9 +596,7 @@ def test_non_test_python_file_parented_by_subpackage(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     # foo.py is now parented by the package (import root is no longer a subpkg)
     foo_rows = conn.execute(
@@ -724,16 +642,10 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
     fixture_src = Path(__file__).parent / "fixtures" / "sample_monorepo"
     shutil.copytree(fixture_src, tmp_path, dirs_exist_ok=True)
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "test"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=tmp_path, check=True)
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
 
     update.run(tmp_path, full=True)
 
@@ -742,15 +654,12 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
     with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as probe:
         # Assertion 1: strict tree — no child has >1 structural parent
         dupes = probe.execute(
-            "SELECT dst, COUNT(*) FROM edges WHERE kind='physically_contains' "
-            "GROUP BY dst HAVING COUNT(*) > 1"
+            "SELECT dst, COUNT(*) FROM edges WHERE kind='physically_contains' GROUP BY dst HAVING COUNT(*) > 1"
         ).fetchall()
         assert dupes == [], f"Nodes with multiple structural parents: {dupes}"
 
         # Assertion 2: exactly one Repository node
-        n_repos = probe.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='repository'"
-        ).fetchone()[0]
+        n_repos = probe.execute("SELECT COUNT(*) FROM nodes WHERE kind='repository'").fetchone()[0]
         assert n_repos == 1, f"Expected 1 Repository node, got {n_repos}"
 
         # Assertion 3: Repository → Package edges only (no Package parented by anything else)
@@ -761,9 +670,7 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
             "AND e.dst IN (SELECT id FROM nodes WHERE kind='package')"
         ).fetchall()
         kinds = {row[0] for row in pkg_parents}
-        assert kinds == {"repository"} or kinds == set(), (
-            f"Packages have non-Repository parents: {kinds}"
-        )
+        assert kinds == {"repository"} or kinds == set(), f"Packages have non-Repository parents: {kinds}"
 
         # Assertion 4: test files parented by TestSuite, not Package/SubPackage/Repository (D-14)
         # Phase 29 placed test files under Repository; Phase 30's test_suites.emit
@@ -788,20 +695,14 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
         # subpackages. The sample_monorepo fixture has TWO strictly-nested
         # __init__.py dirs (mypkg.sub, mypkg.sub.deep); the four import
         # roots (mypkg, pyutil, commonlib, webutil) are no longer counted.
-        n_subpkgs = probe.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
-        ).fetchone()[0]
-        assert n_subpkgs >= 2, (
-            f"Expected >=2 SubPackage nodes (mypkg.sub, mypkg.sub.deep), got {n_subpkgs}"
-        )
+        n_subpkgs = probe.execute("SELECT COUNT(*) FROM nodes WHERE kind='subpackage'").fetchone()[0]
+        assert n_subpkgs >= 2, f"Expected >=2 SubPackage nodes (mypkg.sub, mypkg.sub.deep), got {n_subpkgs}"
 
         # Assertion 6: D-18 — no SubPackage for jspkg
         jspkg_subpkgs = probe.execute(
             "SELECT name FROM nodes WHERE kind='subpackage' AND name LIKE 'jspkg%'"
         ).fetchall()
-        assert jspkg_subpkgs == [], (
-            f"JS package should not produce SubPackages: {jspkg_subpkgs}"
-        )
+        assert jspkg_subpkgs == [], f"JS package should not produce SubPackages: {jspkg_subpkgs}"
 
         # Assertion 7: D-15 — generic container dirs are never used as
         # Package / SubPackage / File node names. Phase 30 D-16 explicitly
@@ -816,9 +717,7 @@ def test_physically_contains_is_strict_tree(tmp_path: Path) -> None:
         assert bad == [], f"Generic container dirs leaked into structural nodes: {bad}"
 
 
-def test_generic_container_dirs_never_emitted_as_nodes(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_generic_container_dirs_never_emitted_as_nodes(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     pkg_dir = tmp_path / "packages" / "mypkg"
     src_root = pkg_dir / "src" / "mypkg"
     src_root.mkdir(parents=True)
@@ -828,13 +727,10 @@ def test_generic_container_dirs_never_emitted_as_nodes(
 
     _seed_package(conn, name="mypkg", path="packages/mypkg", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
     rows = conn.execute(
-        "SELECT kind, name FROM nodes "
-        "WHERE name IN ('packages', 'tests', 'libs', 'apps', 'shared', 'common')"
+        "SELECT kind, name FROM nodes WHERE name IN ('packages', 'tests', 'libs', 'apps', 'shared', 'common')"
     ).fetchall()
     assert rows == []
 
@@ -844,9 +740,7 @@ def test_generic_container_dirs_never_emitted_as_nodes(
 # ============================================================================
 
 
-def test_no_subpackage_node_at_import_root(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_no_subpackage_node_at_import_root(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     """Phase 43 folded todo: _walk_subpackages must not yield the import root.
 
     Build a package with one nested __init__.py-bearing directory and assert
@@ -862,24 +756,15 @@ def test_no_subpackage_node_at_import_root(
 
     _seed_package(conn, name="foo", path="packages/foo", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    names = sorted(
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM nodes WHERE kind='subpackage'"
-        ).fetchall()
-    )
+    names = sorted(row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='subpackage'").fetchall())
     assert names == ["foo.sub"]
     # Explicit: no subpackage with name equal to the import root
     assert "foo" not in names
 
 
-def test_no_subpackages_when_only_import_root(
-    conn: sqlite3.Connection, tmp_path: Path, patched_git
-) -> None:
+def test_no_subpackages_when_only_import_root(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     """A package with only its import root and no nested __init__.py emits zero subpackages."""
     pkg_dir = tmp_path / "packages" / "foo"
     src_root = pkg_dir / "src" / "foo"
@@ -888,11 +773,7 @@ def test_no_subpackages_when_only_import_root(
 
     _seed_package(conn, name="foo", path="packages/foo", language="python")
 
-    structural_nodes.emit(
-        conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset()
-    )
+    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
 
-    n = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='subpackage'"
-    ).fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='subpackage'").fetchone()[0]
     assert n == 0

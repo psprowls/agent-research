@@ -31,9 +31,7 @@ from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 from graph_io import _ignore, upsert
 from graph_io.import_scan import scan_files_imports
 from graph_io.structural_nodes import (
-    _TEST_DIR_NAMES,
     _owning_package,
-    _resolve_import_root,
 )
 from graph_io.uri import RepoContext, test_suite_uri
 
@@ -43,9 +41,14 @@ _REPOSITORY_EDGE_THRESHOLD = 5  # D-12: K=5 for whole-system tests edge
 
 _SPEC_FILENAME_GLOBS = ("*_spec.py", "*_spec.js", "*_spec.ts")  # D-17 contract
 _UNIT_FILENAME_GLOBS = (
-    "test_*.py", "*_test.py",
-    "*.test.js", "*.test.ts", "*.test.jsx", "*.test.tsx",
-    "*_test.js", "*_test.ts",
+    "test_*.py",
+    "*_test.py",
+    "*.test.js",
+    "*.test.ts",
+    "*.test.jsx",
+    "*.test.tsx",
+    "*_test.js",
+    "*_test.ts",
 )
 
 _PYTEST_INI_FILENAMES = frozenset({"pytest.ini"})
@@ -54,11 +57,11 @@ _JS_TEST_CONFIG_GLOBS = ("jest.config.*", "vitest.config.*")
 
 @dataclass(frozen=True)
 class _TestRoot:
-    rel_path: str                              # e.g. "tests/integration" or "packages/foo/tests"
-    owner_kind: str                            # "repository" or "package"
-    owner_name: str | None                     # pkg_name when owner_kind=='package'
-    owner_pkg_rel: str | None                  # pkg_rel when owner_kind=='package'
-    language: str | None                       # 'python'|'javascript'|'typescript'|None
+    rel_path: str  # e.g. "tests/integration" or "packages/foo/tests"
+    owner_kind: str  # "repository" or "package"
+    owner_name: str | None  # pkg_name when owner_kind=='package'
+    owner_pkg_rel: str | None  # pkg_rel when owner_kind=='package'
+    language: str | None  # 'python'|'javascript'|'typescript'|None
 
 
 # --- Helpers ---
@@ -70,10 +73,7 @@ def _build_pkg_index(
     """Build the (pkg_prefix, pkg_name, pkg_rel) index sorted deepest-first
     for _owning_package consumption."""
     return sorted(
-        (
-            (pkg_rel or "", pkg_name, pkg_rel)
-            for pkg_name, pkg_rel, _ in pkg_rows
-        ),
+        ((pkg_rel or "", pkg_name, pkg_rel) for pkg_name, pkg_rel, _ in pkg_rows),
         key=lambda t: len(t[0]),
         reverse=True,
     )
@@ -85,12 +85,7 @@ def _read_pytest_testpaths(pkg_dir: Path) -> Iterable[list[str]]:
     if pp.exists():
         try:
             data = tomllib.loads(pp.read_text(encoding="utf-8"))
-            testpaths = (
-                data.get("tool", {})
-                    .get("pytest", {})
-                    .get("ini_options", {})
-                    .get("testpaths")
-            )
+            testpaths = data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("testpaths")
             if isinstance(testpaths, list):
                 yield [str(x) for x in testpaths if isinstance(x, str)]
             elif isinstance(testpaths, str):
@@ -120,19 +115,11 @@ def _classify_suite_kind(suite_rel: str, file_rels: list[str]) -> str:
         if "contract" in p:
             return "contract"
 
-    has_spec = any(
-        fnmatch.fnmatch(Path(f).name, g)
-        for f in file_rels
-        for g in _SPEC_FILENAME_GLOBS
-    )
+    has_spec = any(fnmatch.fnmatch(Path(f).name, g) for f in file_rels for g in _SPEC_FILENAME_GLOBS)
     if has_spec:
         return "contract"
 
-    has_unit = any(
-        fnmatch.fnmatch(Path(f).name, g)
-        for f in file_rels
-        for g in _UNIT_FILENAME_GLOBS
-    )
+    has_unit = any(fnmatch.fnmatch(Path(f).name, g) for f in file_rels for g in _UNIT_FILENAME_GLOBS)
     if has_unit:
         return "unit"
     return "unknown"
@@ -184,11 +171,7 @@ def _discover_test_roots(
     # Repo-root tests/ (TEST-02)
     repo_tests = repo_root / "tests"
     if repo_tests.is_dir():
-        subdirs = [
-            d
-            for d in repo_tests.iterdir()
-            if d.is_dir() and not _ignore.should_skip(d.name, skip_dirs)
-        ]
+        subdirs = [d for d in repo_tests.iterdir() if d.is_dir() and not _ignore.should_skip(d.name, skip_dirs)]
         if subdirs:
             for sub in sorted(subdirs):
                 rel = sub.relative_to(repo_root).as_posix()
@@ -267,12 +250,9 @@ def emit(
     # Phase 50 D-04: include both package and app nodes — apps are tested
     # the same way packages are.
     pkg_rows_raw = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes "
-        "WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
     ).fetchall()
-    pkg_rows: list[tuple[str, str | None, str | None]] = [
-        (r[0], r[1], r[2]) for r in pkg_rows_raw
-    ]
+    pkg_rows: list[tuple[str, str | None, str | None]] = [(r[0], r[1], r[2]) for r in pkg_rows_raw]
     # Side-table mapping pkg name -> kind so the tests-edge dst tuple uses
     # the right kind.
     pkg_kind_map: dict[str, str] = {r[0]: r[3] for r in pkg_rows_raw}
@@ -283,8 +263,7 @@ def emit(
     root_files: dict[str, list[str]] = {r.rel_path: [] for r in roots}
 
     test_file_rows = conn.execute(
-        "SELECT id, path FROM nodes "
-        "WHERE kind='file' AND json_extract(attrs_json, '$.is_test') = 1"
+        "SELECT id, path FROM nodes WHERE kind='file' AND json_extract(attrs_json, '$.is_test') = 1"
     ).fetchall()
 
     def _assign_root(file_rel: str) -> _TestRoot | None:
@@ -315,9 +294,7 @@ def emit(
         root_files[r.rel_path].append(file_rel)
 
     # Find Repository node id (parent for repo-owned suites).
-    repo_row = conn.execute(
-        "SELECT id, name FROM nodes WHERE kind='repository'"
-    ).fetchone()
+    repo_row = conn.execute("SELECT id, name FROM nodes WHERE kind='repository'").fetchone()
     if repo_row is None:
         # Defensive: structural_nodes.emit hasn't run yet — abort.
         return
@@ -410,14 +387,19 @@ def emit(
                 (file_id,),
             )
             conn.execute(
-                "INSERT INTO edges (src, dst, kind, attrs_json) "
-                "VALUES (?, ?, 'physically_contains', NULL)",
+                "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, 'physically_contains', NULL)",
                 (suite_id, file_id),
             )
 
     # tests-edge derivation (TestSuite -> Package, TestSuite -> Repository).
     _emit_tests_edges(
-        conn, repo_root, ctx, pkg_rows, roots, root_files, repo_key,
+        conn,
+        repo_root,
+        ctx,
+        pkg_rows,
+        roots,
+        root_files,
+        repo_key,
         pkg_kind_map=pkg_kind_map,
     )
 
@@ -460,9 +442,7 @@ def _emit_tests_edges(
         for pkg_name, pkg_rel in matched_pkgs:
             # Phase 50 D-04: use the actual kind so tests-edges from a suite
             # to an App node resolve correctly.
-            pkg_kind_value = (
-                pkg_kind_map.get(pkg_name, "package") if pkg_kind_map else "package"
-            )
+            pkg_kind_value = pkg_kind_map.get(pkg_name, "package") if pkg_kind_map else "package"
             edges_out.append(
                 GraphEdge(
                     src=suite_key,

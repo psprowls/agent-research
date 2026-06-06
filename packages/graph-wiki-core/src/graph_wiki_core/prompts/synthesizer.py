@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """SYNTHESIZER_SYSTEM prompt constant (relocated from commands/query.py per D-14)."""
+
+from __future__ import annotations
 
 # Source: agents/graph-wiki-core/src/graph_wiki_core/prompts/sources/synthesizer.md §Rules
 

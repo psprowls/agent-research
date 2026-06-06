@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from _fixture_loader import FIXTURES_ROOT
 from source_parser import parse_file, to_graph_records
 

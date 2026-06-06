@@ -159,8 +159,12 @@ def verify_requirements_text(text: str) -> None:
             fail(f"{req.id} must stay in the deferred bucket")
         assert_no_active_owner(req)
         deferred_label_text = f"{req.field('Validation')}\n{req.field('Notes')}"
-        require_regex(deferred_label_text, r"\b(deferred|future-only|future/deferred)\b", f"{req.id} deferred/future label")
-    require_regex(r006.body, r"cost-frontier.*(sweep|rerun|re-run).*winner", "R006 sweep rerun and winner-selection handoff")
+        require_regex(
+            deferred_label_text, r"\b(deferred|future-only|future/deferred)\b", f"{req.id} deferred/future label"
+        )
+    require_regex(
+        r006.body, r"cost-frontier.*(sweep|rerun|re-run).*winner", "R006 sweep rerun and winner-selection handoff"
+    )
     require_regex(r006.body, r"no active M001 execution owner", "R006 no active M001 owner")
     require_regex(r007.body, r"optional archive.*index|structured archive index", "R007 optional archive index")
     require_regex(r007.body, r"no active M001 execution owner", "R007 no active M001 owner")
@@ -210,8 +214,7 @@ def expect_failure(text: str, expected_message_part: str) -> None:
     except AssertionError as exc:
         if expected_message_part not in str(exc):
             fail(
-                "negative self-check failed for unexpected reason: "
-                f"wanted {expected_message_part!r}, got {str(exc)!r}"
+                f"negative self-check failed for unexpected reason: wanted {expected_message_part!r}, got {str(exc)!r}"
             )
         return
     fail(f"negative self-check unexpectedly passed: {expected_message_part}")
@@ -220,10 +223,17 @@ def expect_failure(text: str, expected_message_part: str) -> None:
 def run_negative_self_checks(text: str) -> None:
     """Exercise requested Q7 failure classes with inline mutated fixtures."""
 
-    expect_failure(text.replace("- Primary owning slice: M001/S03", "- Primary owning slice: none", 1), "R004 primary owner mismatch")
-    missing_deferred_labels = text.replace("Deferred/future-only", "Reference-only").replace("Future/deferred", "Reference-only")
+    expect_failure(
+        text.replace("- Primary owning slice: M001/S03", "- Primary owning slice: none", 1),
+        "R004 primary owner mismatch",
+    )
+    missing_deferred_labels = text.replace("Deferred/future-only", "Reference-only").replace(
+        "Future/deferred", "Reference-only"
+    )
     expect_failure(missing_deferred_labels, "deferred/future label")
-    expect_failure(text.replace(".planning/deferred-items.md", ".planning/deferred-items-MISSING.md"), "missing required text")
+    expect_failure(
+        text.replace(".planning/deferred-items.md", ".planning/deferred-items-MISSING.md"), "missing required text"
+    )
     expect_failure(text + "\nM001 completed wholesale .planning conversion.\n", "wholesale conversion completed")
     expect_failure(text + "\nM001 ran the sweep.\n", "M001 ran the sweep")
     expect_failure(text + "\nAuthoritative cost-frontier winners selected.\n", "authoritative winners selected")

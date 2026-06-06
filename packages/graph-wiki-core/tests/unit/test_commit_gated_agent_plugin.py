@@ -29,7 +29,6 @@ from graph_io import exit_codes, schema
 from graph_io.agent_plugins import emit as _ap_emit
 from graph_io.uri import RepoContext
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -42,15 +41,19 @@ def _make_plugin(repo: Path, *, commands: list[str]) -> Path:
     """Lay down a plugin tree under repo/plugins/demo with the given commands."""
     pdir = repo / "plugins" / "demo"
     (pdir / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-    (pdir / ".claude-plugin" / "plugin.json").write_text(json.dumps({
-        "name": "demo", "version": "1.0.0", "description": "Demo plugin.",
-    }))
+    (pdir / ".claude-plugin" / "plugin.json").write_text(
+        json.dumps(
+            {
+                "name": "demo",
+                "version": "1.0.0",
+                "description": "Demo plugin.",
+            }
+        )
+    )
     cmds_dir = pdir / "commands"
     cmds_dir.mkdir(exist_ok=True)
     for cmd in commands:
-        (cmds_dir / f"{cmd}.md").write_text(
-            f"---\nname: {cmd}\ndescription: Command {cmd}.\n---\n# /demo:{cmd}\n"
-        )
+        (cmds_dir / f"{cmd}.md").write_text(f"---\nname: {cmd}\ndescription: Command {cmd}.\n---\n# /demo:{cmd}\n")
     return pdir
 
 
@@ -68,11 +71,7 @@ def _emit_plugin(db_path: Path, repo: Path) -> None:
 
 def _page(wiki: Path, uri: str = _PLUGIN_URI) -> Path:
     """Return the entity page Path for uri (searches entities/ by frontmatter)."""
-    return next(
-        p
-        for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == uri
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == uri)
 
 
 def _narrate_spy(heads: dict):
@@ -90,14 +89,10 @@ def _narrate_spy(heads: dict):
 
         result = FanOutResult()
         if role == "narrator":
-            result.successes = [
-                (it, f"PROSE {it[0]} @ {heads['v']}") for it in items
-            ]
+            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
         else:
             # code_reader — item == (uri, ws_dict, page_path, todo_paths)
-            result.successes = [
-                (it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         return result
 
     return _run_all
@@ -119,11 +114,13 @@ def plugin_workspace(tmp_path, monkeypatch):
     _emit_plugin(workspace / ".graph-wiki" / "code.db", repo)
 
     monkeypatch.setattr(
-        scan_mod, "_cg_run_build",
+        scan_mod,
+        "_cg_run_build",
         lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
     )
     monkeypatch.setattr(
-        scan_mod, "make_llm",
+        scan_mod,
+        "make_llm",
         lambda role, *, model_override=None: MagicMock(),
     )
     return workspace
@@ -134,9 +131,7 @@ def plugin_workspace(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_command_added_refreshes_table_and_renarrates(
-    plugin_workspace, monkeypatch
-) -> None:
+def test_command_added_refreshes_table_and_renarrates(plugin_workspace, monkeypatch) -> None:
     """[Test 8] Scan 1 (head1): plugin has command 'alpha'.
     Add command 'beta'; re-emit graph; head2; changed_files_since non-empty.
     Scan 2: '## Commands' table refreshed (Gap A / D1), prose updated to
@@ -149,18 +144,18 @@ def test_command_added_refreshes_table_and_renarrates(
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_spy(heads),
     )
 
     # --- Scan 1 ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     text1 = _page(wiki).read_text(encoding="utf-8")
     assert "alpha" in text1, "alpha command should appear in ## Commands"
     assert "beta" not in text1
@@ -172,14 +167,13 @@ def test_command_added_refreshes_table_and_renarrates(
     _emit_plugin(db_path, repo)
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["plugins/demo/commands/beta.md"],
     )
 
     # --- Scan 2 ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     text2 = _page(wiki).read_text(encoding="utf-8")
 
     # Gap A / D1: table refreshed
@@ -207,7 +201,8 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     narrator_calls: list = []
@@ -218,21 +213,15 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
         result = FanOutResult()
         if role == "narrator":
             narrator_calls.append([it[0] for it in items])
-            result.successes = [
-                (it, f"PROSE {it[0]} @ {heads['v']}") for it in items
-            ]
+            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
         else:
-            result.successes = [
-                (it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         return result
 
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy_run_all)
 
     # --- Scan 1 ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     page_bytes_after_scan1 = _page(wiki).read_bytes()
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
     calls_after_scan1 = len(narrator_calls)
@@ -243,23 +232,19 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
 
     # --- Scan 2: same HEAD, no file changes ---
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: [],
     )
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     # Page bytes must be byte-identical
     assert _page(wiki).read_bytes() == page_bytes_after_scan1
 
     # Narrator must NOT have been called for the plugin URI in scan 2
-    plugin_uris_narrated_scan2 = [
-        uri for call in narrator_calls for uri in call if _PLUGIN_URI in uri
-    ]
+    plugin_uris_narrated_scan2 = [uri for call in narrator_calls for uri in call if _PLUGIN_URI in uri]
     assert plugin_uris_narrated_scan2 == [], (
-        f"narrator should not re-narrate {_PLUGIN_URI} on a no-op scan; "
-        f"got calls: {narrator_calls}"
+        f"narrator should not re-narrate {_PLUGIN_URI} on a no-op scan; got calls: {narrator_calls}"
     )
 
     # Anchor unchanged
@@ -271,9 +256,7 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_no_narrate_refreshes_tables_not_narrative(
-    plugin_workspace, monkeypatch
-) -> None:
+def test_no_narrate_refreshes_tables_not_narrative(plugin_workspace, monkeypatch) -> None:
     """[Test 10] Scan 1 (narrate=True, head1): establishes prose + anchor.
     Add a command; re-emit. Scan 2 (narrate=False): ## Commands table refreshed
     (tables come from write_entities regardless of narrate flag), but
@@ -286,18 +269,18 @@ def test_no_narrate_refreshes_tables_not_narrative(
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_spy(heads),
     )
 
     # --- Scan 1 ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert f"PROSE {_PLUGIN_URI} @ head1" in _page(wiki).read_text(encoding="utf-8")
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
 
@@ -306,14 +289,13 @@ def test_no_narrate_refreshes_tables_not_narrative(
     _emit_plugin(db_path, repo)
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["plugins/demo/commands/gamma.md"],
     )
 
     # --- Scan 2: narrate=False ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
     text2 = _page(wiki).read_text(encoding="utf-8")
 
     # Tables refresh from write_entities regardless of narrate
@@ -346,17 +328,17 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool, "run_all",
+        scan_mod.SubagentPool,
+        "run_all",
         _narrate_spy(heads),
     )
 
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     page = _page(wiki)
     text = page.read_text(encoding="utf-8")
@@ -372,9 +354,7 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
 # ---------------------------------------------------------------------------
 
 
-def test_agent_plugin_commit_advance_activates_drift_flagging(
-    plugin_workspace, monkeypatch
-) -> None:
+def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, monkeypatch) -> None:
     """[Test 13] Advancing an agent_plugin's last_updated_commit (now possible
     after Task 4 / commit-gate parity) activates M2e drift flagging for the
     page's human sections.
@@ -396,11 +376,12 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
     workspace = plugin_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"
-    db_path = workspace / ".graph-wiki" / "code.db"
+    workspace / ".graph-wiki" / "code.db"
 
     heads = {"v": "head1"}
     monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
 
@@ -413,13 +394,9 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
 
         result = FanOutResult()
         if role == "narrator":
-            result.successes = [
-                (it, f"PROSE {it[0]} @ {heads['v']}") for it in items
-            ]
+            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
         elif role == "code_reader":
-            result.successes = [
-                (it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         elif role == "drift_judge":
             recorder.setdefault("items", []).extend(items)
             result.successes = [(it, verdict_fn["fn"](it)) for it in items]
@@ -428,9 +405,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _full_spy)
 
     # --- Scan 1: plugin created, narrated, stamped at head1; judge runs ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     page = _page(wiki)
     meta1 = _fm.load(page).metadata
     assert meta1.get("last_updated_commit") == "head1"
@@ -448,16 +423,15 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
     # --- Setup for scan 2: code changed; judge marks the new section stale ---
     heads["v"] = "head2"
     monkeypatch.setattr(
-        scan_mod, "changed_files_since",
+        scan_mod,
+        "changed_files_since",
         lambda repo, sha, sub: ["plugins/demo/commands/alpha.md"],
     )
     verdict_fn["fn"] = lambda it: {"stale": True, "reason": "command semantics changed"}
     recorder.clear()
 
     # --- Scan 2: re-narrate advances last_updated_commit → drift gate fires ---
-    asyncio.run(
-        scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     page = _page(wiki)
     meta2 = _fm.load(page).metadata
 
@@ -468,9 +442,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
     # because drift_checked_commit was head1 but last_updated_commit is now head2).
     drift_items = recorder.get("items", [])
     plugin_items = [it for it in drift_items if it[0] == page]
-    assert plugin_items, (
-        f"drift judge was not called for agent_plugin page; drift_items={drift_items}"
-    )
+    assert plugin_items, f"drift judge was not called for agent_plugin page; drift_items={drift_items}"
 
     # The curated section (## How it fits together) was judged.
     judged_headings = {it[2] for it in plugin_items}
@@ -483,11 +455,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(
 
     # drift_review was written because the stale verdict fired.
     review = meta2.get("drift_review", [])
-    how_entry = next(
-        (e for e in review if e.get("section") == "How it fits together"), None
-    )
-    assert how_entry is not None, (
-        f"drift_review entry missing for 'How it fits together'; review={review}"
-    )
+    how_entry = next((e for e in review if e.get("section") == "How it fits together"), None)
+    assert how_entry is not None, f"drift_review entry missing for 'How it fits together'; review={review}"
     assert how_entry["detected_commit"] == "head2"
     assert how_entry["reason"] == "command semantics changed"

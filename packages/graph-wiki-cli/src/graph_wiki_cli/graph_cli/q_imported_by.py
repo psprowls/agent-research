@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import sys
 
+from graph_io import exit_codes, queries, store
 from workspace_io.paths import graph_dir
 
-from graph_io import exit_codes, queries, store
 from graph_wiki_cli.graph_cli import _format
 
 
@@ -21,9 +21,7 @@ def run(args: object) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        records = queries.imported_by(
-            conn, path=args.path, symbol=args.symbol, depth=args.depth
-        )
+        records = queries.imported_by(conn, path=args.path, symbol=args.symbol, depth=args.depth)
     finally:
         conn.close()
     print(_format.render(records, fmt=args.fmt))

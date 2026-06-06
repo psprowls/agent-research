@@ -6,12 +6,10 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
+from _git_repo import init_repo, write_and_commit
+from graph_io import update
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
-
-from graph_io import update
-from _git_repo import init_repo, write_and_commit
 
 
 def _ro(repo: Path) -> sqlite3.Connection:
@@ -26,8 +24,10 @@ def test_interrupted_update_rolls_back(tmp_path: Path, monkeypatch: pytest.Monke
     head2 = write_and_commit(tmp_path, {"b.py": "def bar():\n    return 2\n"}, "add b")
 
     real_sweep = update.resolve.sweep
+
     def boom(_conn: sqlite3.Connection) -> None:
         raise RuntimeError("simulated crash")
+
     monkeypatch.setattr(update.resolve, "sweep", boom)
 
     with pytest.raises(RuntimeError):

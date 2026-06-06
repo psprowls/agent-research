@@ -79,11 +79,7 @@ def _symbol_placeholder_key(edge: GraphEdge, attrs: dict[str, Any]) -> NodeKey:
     edge for the later resolver sweep.
     """
     dst_kind, dst_name, dst_path = edge.dst
-    if (
-        dst_path is None
-        and dst_kind in _SYMBOL_PLACEHOLDER_KINDS
-        and edge.kind in _SYMBOL_PLACEHOLDER_EDGE_KINDS
-    ):
+    if dst_path is None and dst_kind in _SYMBOL_PLACEHOLDER_KINDS and edge.kind in _SYMBOL_PLACEHOLDER_EDGE_KINDS:
         attrs.setdefault("symbol_kind", dst_kind)
         return (_UNRESOLVED_SYMBOL_KIND, dst_name, None)
     return edge.dst

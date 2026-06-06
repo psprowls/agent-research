@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from wiki_io.wikilinks import vault_wikilink
 
 

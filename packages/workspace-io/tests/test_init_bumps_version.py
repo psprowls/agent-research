@@ -1,4 +1,5 @@
 """Second init() with a newer version bumps installed and applied versions."""
+
 from workspace_io.init import init
 from workspace_io.manifest import read
 from workspace_io.paths import manifest_path

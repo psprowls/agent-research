@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Unit tests for per-role DivergenceCheck callables (EVAL-11).
 
 All tests are deterministic and require no Bedrock access. They exercise
@@ -7,21 +5,20 @@ the DivergenceCheck.check callables against synthetic in-memory
 AgentOutputProxy and tiny vault fixtures.
 """
 
-from pathlib import Path
+from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck
 from eval_harness.divergence.code_reader import (
     _GRAPH_WIKI_PREFIX_RE,
     _PATH_LINE_RE,
 )
-from eval_harness.divergence.librarian import LIBRARIAN_CHECKS
 from eval_harness.divergence.ingestor import INGESTOR_CHECKS
+from eval_harness.divergence.librarian import LIBRARIAN_CHECKS
 from eval_harness.divergence.linter import LINTER_CHECKS
 from eval_harness.divergence.scanner import SCANNER_CHECKS
 from eval_harness.divergence.synthesizer import SYNTHESIZER_CHECKS
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -286,10 +283,7 @@ def test_lnt001_passes_code_drift_before_orphan(fixture_wiki_path: Path) -> None
 def test_lnt001_fails_orphan_before_code_drift(fixture_wiki_path: Path) -> None:
     """LNT-001 fails when orphan finding precedes code-drift finding."""
     check = _get_check(LINTER_CHECKS, "LNT-001-code-drift-first")
-    answer = (
-        "1. Stale reference detected in adrs/0001.md\n"
-        "2. Code drift in packages/foo — outdated claim.\n"
-    )
+    answer = "1. Stale reference detected in adrs/0001.md\n2. Code drift in packages/foo — outdated claim.\n"
     verdict = check.check(AgentOutputProxy(answer=answer), fixture_wiki_path)
     assert verdict.passed is False
     assert "Code-drift" in verdict.excerpt
@@ -515,10 +509,5 @@ def test_path_line_re_matches_bare_filename_citation() -> None:
 
 def test_path_line_re_still_matches_qualified_paths() -> None:
     """WR-03: qualified `path:line` citations continue to match."""
-    assert (
-        _PATH_LINE_RE.search("packages/subagent-runtime/src/foo/pool.py:115")
-        is not None
-    )
+    assert _PATH_LINE_RE.search("packages/subagent-runtime/src/foo/pool.py:115") is not None
     assert _PATH_LINE_RE.search("src/baz.py:10-15") is not None
-
-

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 from eval_harness.divergence.metric import check_regression, load_baseline
 
@@ -113,22 +112,15 @@ def score_two_gate(
             logger.debug("[%s] Gate 1: divergence_metric not provided — gate1=FAIL", role)
         else:
             try:
-                prog_results = divergence_metric_or_none.run_programmatic(
-                    agent_outputs_by_case
-                )
-                divergence_failures = {
-                    rule_id: data["failures"]
-                    for rule_id, data in prog_results.items()
-                }
+                prog_results = divergence_metric_or_none.run_programmatic(agent_outputs_by_case)
+                divergence_failures = {rule_id: data["failures"] for rule_id, data in prog_results.items()}
                 baseline = load_baseline(role, baselines_dir)
                 check_regression(role, prog_results, baseline)
                 gate1_passed = True
                 logger.debug("[%s] Gate 1: divergence regression check PASS", role)
             except AssertionError as exc:
                 gate1_passed = False
-                logger.debug(
-                    "[%s] Gate 1: divergence regression check FAIL — %s", role, exc
-                )
+                logger.debug("[%s] Gate 1: divergence regression check FAIL — %s", role, exc)
     else:
         # D-08: no Gate 1 for synthesizer / code_reader
         logger.debug("[%s] Gate 1: skipped (D-08 role — no divergence rubric)", role)

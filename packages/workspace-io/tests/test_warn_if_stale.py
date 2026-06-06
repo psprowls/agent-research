@@ -1,4 +1,5 @@
 """warn_if_stale: side-effecting comparison of stored applied_version vs current."""
+
 from workspace_io import warn_if_stale
 from workspace_io.init import init
 from workspace_io.manifest import read

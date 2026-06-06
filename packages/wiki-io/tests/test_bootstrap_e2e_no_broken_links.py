@@ -41,9 +41,7 @@ def _extract_broken_wikilinks(report: dict) -> list:
     )
 
 
-def test_bootstrap_then_render_overviews_zero_broken_links(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bootstrap_then_render_overviews_zero_broken_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Bootstrap a wiki + render package/app/plugin overview templates + lint.
 
     Asserts zero broken wikilinks across all three container types in a single
@@ -63,9 +61,7 @@ def test_bootstrap_then_render_overviews_zero_broken_links(
 
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "pyproject.toml").write_text(
-        '[project]\nname = "tmp-repo"\nversion = "0.0.0"\n', encoding="utf-8"
-    )
+    (repo / "pyproject.toml").write_text('[project]\nname = "tmp-repo"\nversion = "0.0.0"\n', encoding="utf-8")
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -86,9 +82,7 @@ def test_bootstrap_then_render_overviews_zero_broken_links(
     assets = Path(init_vault.__file__).resolve().parent / "assets" / "page-templates"
     today = dt.date.today().isoformat()
 
-    def render_container(
-        container: str, slug: str, title_var: str, slug_var: str, tmpl_subdir: str
-    ) -> None:
+    def render_container(container: str, slug: str, title_var: str, slug_var: str, tmpl_subdir: str) -> None:
         target_dir = wiki / container / slug
         target_dir.mkdir(parents=True, exist_ok=True)
         render_template(
@@ -120,7 +114,8 @@ def test_bootstrap_then_render_overviews_zero_broken_links(
     # rendered — index.md / log.md and other init-wiki-generated pages have
     # their own placeholder/TODO links that are out of scope for HYGIENE-01..06.
     container_broken = [
-        (src, tgt) for (src, tgt) in broken
+        (src, tgt)
+        for (src, tgt) in broken
         if src.startswith("wiki/packages/test-pkg")
         or src.startswith("wiki/apps/test-app")
         or src.startswith("wiki/plugins/test-plugin")

@@ -48,9 +48,7 @@ def _fanout_spy():
         if role == "narrator":
             result.successes = [(it, f"PROSE for {it[0]}") for it in items]
         else:
-            result.successes = [
-                (it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items
-            ]
+            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
         return result
 
     return _run_all
@@ -68,18 +66,19 @@ def crash_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
     monkeypatch.setattr(
-        scan_mod, "_cg_run_build",
+        scan_mod,
+        "_cg_run_build",
         lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
     )
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
-        scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock()
+        scan_mod,
+        "build_file_map",
+        lambda path, **kw: _FILE_MAP if str(path).endswith("pkg-a") else None,
     )
     monkeypatch.setattr(
-        scan_mod, "build_file_map",
-        lambda path, **kw: (_FILE_MAP if str(path).endswith("pkg-a") else None),
-    )
-    monkeypatch.setattr(
-        scan_mod, "compute_state_gate",
+        scan_mod,
+        "compute_state_gate",
         lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _fanout_spy())
@@ -87,10 +86,7 @@ def crash_workspace(tmp_path, monkeypatch):
 
 
 def _page(wiki: Path) -> Path:
-    return next(
-        p for p in (wiki / "entities").glob("*.md")
-        if _fm.load(p).metadata.get("uri") == _PKG_A
-    )
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == _PKG_A)
 
 
 def test_mid_pipeline_inject_failure_leaves_real_content(crash_workspace, monkeypatch):
@@ -109,9 +105,7 @@ def test_mid_pipeline_inject_failure_leaves_real_content(crash_workspace, monkey
 
     # Scan 2: force the page commit-dirty (so the inject steps run) and make
     # BOTH inject steps raise mid-pipeline.
-    monkeypatch.setattr(
-        scan_mod, "changed_files_since", lambda *a: ["packages/pkg-a/mod.py"]
-    )
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: ["packages/pkg-a/mod.py"])
 
     def _boom(*a, **k):
         raise RuntimeError("simulated mid-pipeline failure")
@@ -123,6 +117,6 @@ def test_mid_pipeline_inject_failure_leaves_real_content(crash_workspace, monkey
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     text2 = _page(wiki).read_text(encoding="utf-8")
-    assert "PROSE for pkg:org/repo/pkg-a" in text2          # prose survived
-    assert "desc mod.py" in text2                            # description survived
+    assert "PROSE for pkg:org/repo/pkg-a" in text2  # prose survived
+    assert "desc mod.py" in text2  # description survived
     assert "_(scanner will populate on next scan)_" not in text2  # no placeholder exposed

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """SubagentPool: async fan-out primitive for role-bound Bedrock model dispatch.
 
 Dispatches N items in parallel through a caller-supplied async task function,
@@ -23,6 +21,8 @@ item identifiers. _write_trace reads item_id (str(item)), error=str(exc),
 and structured usage_metadata fields only — no secrets unless the caller
 leaks them into item repr or exception messages.
 """
+
+from __future__ import annotations
 
 import asyncio
 import inspect
@@ -184,21 +184,15 @@ class SubagentPool:
                     else:
                         trace_response = result
                         success_value = result
-                    self._write_trace(
-                        trace_file, role, model_id, item, "success", latency_ms, trace_response
-                    )
+                    self._write_trace(trace_file, role, model_id, item, "success", latency_ms, trace_response)
                     return (item, success_value)
                 except asyncio.CancelledError:
                     latency_ms = int((time.monotonic() - t0) * 1000)
-                    self._write_trace(
-                        trace_file, role, model_id, item, "cancelled", latency_ms, None
-                    )
+                    self._write_trace(trace_file, role, model_id, item, "cancelled", latency_ms, None)
                     raise  # MUST re-raise — outer cancel must propagate
                 except Exception as exc:
                     latency_ms = int((time.monotonic() - t0) * 1000)
-                    self._write_trace(
-                        trace_file, role, model_id, item, "error", latency_ms, None, error=str(exc)
-                    )
+                    self._write_trace(trace_file, role, model_id, item, "error", latency_ms, None, error=str(exc))
                     return PerItemError(item=item, exception=exc)
 
         logger.info(
@@ -262,9 +256,7 @@ class SubagentPool:
         ignorant of verbosity — it always logs; the installed handler decides
         what shows.
         """
-        record = write_trace_record(
-            path, role, model_id, item, status, latency_ms, response, error=error
-        )
+        record = write_trace_record(path, role, model_id, item, status, latency_ms, response, error=error)
         _trace_logger.info(render_trace_record(record))
 
     def _write_batch_terminal(

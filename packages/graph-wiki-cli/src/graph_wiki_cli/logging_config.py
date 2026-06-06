@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Verbose-logging configuration for the `gw` CLI.
 
 Installs stderr logging handlers gated by the root `-v/-vv` flag. Absent the
@@ -10,6 +8,8 @@ The fan-out trace logger (``subagent_runtime.pool.trace``) gets a DEDICATED
 handler with a bare ``%(message)s`` formatter and ``propagate=False``, so live
 per-item completion lines stay byte-identical to ``gw trace`` output.
 """
+
+from __future__ import annotations
 
 import logging
 import sys

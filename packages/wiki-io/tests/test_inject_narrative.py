@@ -7,7 +7,6 @@ from pathlib import Path
 
 import frontmatter
 import pytest
-
 from wiki_io.entity_writer import inject_narrative
 
 
@@ -117,11 +116,7 @@ def test_inject_narrative_preserves_other_h2_sections(tmp_path: Path):
 
 
 def test_inject_narrative_last_h2_replaces_through_eof(tmp_path: Path):
-    page = (
-        "---\nuri: pkg:x\nkind: package\n---\n"
-        "\n## Overview\n\nover\n"
-        "\n## Narrative\n\nOLD\n"
-    )
+    page = "---\nuri: pkg:x\nkind: package\n---\n\n## Overview\n\nover\n\n## Narrative\n\nOLD\n"
     p = tmp_path / "page.md"
     p.write_text(page, encoding="utf-8")
 
@@ -132,11 +127,7 @@ def test_inject_narrative_last_h2_replaces_through_eof(tmp_path: Path):
 
 
 def test_inject_narrative_missing_heading_logs_warning_no_write(tmp_path: Path, caplog):
-    page = (
-        "---\nuri: pkg:x\nkind: package\n---\n"
-        "\n## Overview\n\nover\n"
-        "\n## See also\n\nsee\n"
-    )
+    page = "---\nuri: pkg:x\nkind: package\n---\n\n## Overview\n\nover\n\n## See also\n\nsee\n"
     p = tmp_path / "page.md"
     p.write_text(page, encoding="utf-8")
 
@@ -144,10 +135,9 @@ def test_inject_narrative_missing_heading_logs_warning_no_write(tmp_path: Path, 
         inject_narrative(p, "X")
 
     assert p.read_text(encoding="utf-8") == page  # untouched
-    assert any(
-        "Narrative" in record.getMessage() and record.levelno == logging.WARNING
-        for record in caplog.records
-    ), f"No WARNING about Narrative; saw: {[r.getMessage() for r in caplog.records]}"
+    assert any("Narrative" in record.getMessage() and record.levelno == logging.WARNING for record in caplog.records), (
+        f"No WARNING about Narrative; saw: {[r.getMessage() for r in caplog.records]}"
+    )
 
 
 def test_inject_narrative_missing_file_raises(tmp_path: Path):

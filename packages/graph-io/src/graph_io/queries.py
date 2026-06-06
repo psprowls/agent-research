@@ -22,7 +22,8 @@ _VALID_KINDS = frozenset(
         "dependency",
         # agent-plugin entity: a claude-code plugin under development in this repo.
         "agent_plugin",
-        # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names; Node via require('module').builtinModules)
+        # Phase 49 D-14: stdlib module imports (Python via sys.stdlib_module_names;
+        # Node via require('module').builtinModules)
         "builtin",
         # Phase 50 D-12: app-classified packages (scanner-derived kind)
         "app",
@@ -38,9 +39,7 @@ _VALID_KINDS = frozenset(
 # graph_io/classification.py.
 _VALID_APP_KINDS = frozenset({"cli", "electron", "expo", "nextjs", "spa"})
 
-_RESOLVED_FILTER = (
-    "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
-)
+_RESOLVED_FILTER = "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
 
 # Recursive CTE: yields the id of the named Domain and every descendant
 # reachable via `domain_contains_domain` edges. The first ?-parameter is the
@@ -140,6 +139,7 @@ class AppDescription:
     `app_kind` (one of `_VALID_APP_KINDS`) and `app_signals` (the sorted
     list of signals that triggered classification).
     """
+
     name: str
     language: str
     version: str
@@ -163,6 +163,7 @@ class PathDescription:
 @dataclass(frozen=True)
 class DependencyDescription:
     """Description of a `dependency` node (Phase 43 D-02 + D-05)."""
+
     ecosystem: str
     name: str
     uri: str
@@ -173,6 +174,7 @@ class DependencyDescription:
 @dataclass(frozen=True)
 class BuiltinDescription:
     """Description of a `builtin` node (Phase 49 D-13 / D-15 / BUILTIN-04 / BUILTIN-06)."""
+
     language: str
     module_name: str
     uri: str
@@ -187,6 +189,7 @@ class AgentPluginDescription:
     graph-build time (commands/agents/skills/scripts/hooks/mcp_servers). Each
     component is a plain dict with a stable `id`; they are NOT graph nodes.
     """
+
     name: str
     uri: str
     ecosystem: str
@@ -280,13 +283,9 @@ def find(
             or when all of `name`, `kind`, and `in_package` are None.
     """
     if kind is not None and kind not in _VALID_KINDS:
-        raise ValueError(
-            f"unknown kind {kind!r}; valid: {sorted(_VALID_KINDS)}"
-        )
+        raise ValueError(f"unknown kind {kind!r}; valid: {sorted(_VALID_KINDS)}")
     if name is None and kind is None and in_package is None:
-        raise ValueError(
-            "find requires at least one of name, kind, or in_package"
-        )
+        raise ValueError("find requires at least one of name, kind, or in_package")
 
     where_parts: list[str] = []
     params: list = []
@@ -307,10 +306,7 @@ def find(
         )
         params.append(in_package)
 
-    sql = (
-        "SELECT kind, name, path, line, attrs_json FROM nodes n WHERE "
-        + " AND ".join(where_parts)
-    )
+    sql = "SELECT kind, name, path, line, attrs_json FROM nodes n WHERE " + " AND ".join(where_parts)
     # Preserve historical ORDER BY for kind-only queries — existing callers
     # (e.g. test_find_per_kind) rely on alphabetical ordering.
     if name is None and in_package is None and kind is not None:
@@ -402,8 +398,7 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
     if file_paths:
         placeholders = ",".join("?" for _ in file_paths)
         rows = conn.execute(
-            f"SELECT kind, COUNT(*) FROM nodes WHERE path IN ({placeholders}) "
-            "AND kind != 'file' GROUP BY kind",
+            f"SELECT kind, COUNT(*) FROM nodes WHERE path IN ({placeholders}) AND kind != 'file' GROUP BY kind",
             file_paths,
         ).fetchall()
         counts = {kind: count for kind, count in rows}
@@ -546,8 +541,7 @@ def describe_app(conn: sqlite3.Connection, *, name: str) -> AppDescription | Non
     if file_paths:
         placeholders = ",".join("?" for _ in file_paths)
         rows = conn.execute(
-            f"SELECT kind, COUNT(*) FROM nodes WHERE path IN ({placeholders}) "
-            "AND kind != 'file' GROUP BY kind",
+            f"SELECT kind, COUNT(*) FROM nodes WHERE path IN ({placeholders}) AND kind != 'file' GROUP BY kind",
             file_paths,
         ).fetchall()
         counts = {kind: count for kind, count in rows}
@@ -664,17 +658,12 @@ def describe_repository(conn: sqlite3.Connection) -> RepoDescription | None:
     Phase 29 D-01 guarantees exactly one Repository per DB. `conn` must
     be a `sqlite3.Connection` opened with `mode=ro`.
     """
-    row = conn.execute(
-        "SELECT name, uri, attrs_json FROM nodes "
-        "WHERE kind='repository' LIMIT 1"
-    ).fetchone()
+    row = conn.execute("SELECT name, uri, attrs_json FROM nodes WHERE kind='repository' LIMIT 1").fetchone()
     if not row:
         return None
     name, uri, attrs_json = row
     attrs = json.loads(attrs_json) if attrs_json else {}
-    pkg_count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='package'"
-    ).fetchone()[0]
+    pkg_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='package'").fetchone()[0]
     return RepoDescription(
         name=name,
         uri=uri or "",
@@ -685,16 +674,13 @@ def describe_repository(conn: sqlite3.Connection) -> RepoDescription | None:
     )
 
 
-def describe_domain(
-    conn: sqlite3.Connection, *, name: str
-) -> DomainDescription | None:
+def describe_domain(conn: sqlite3.Connection, *, name: str) -> DomainDescription | None:
     """Return the named Domain's description, or None if not found.
 
     `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
     """
     row = conn.execute(
-        "SELECT id, name, uri, attrs_json FROM nodes "
-        "WHERE kind='domain' AND name = ?",
+        "SELECT id, name, uri, attrs_json FROM nodes WHERE kind='domain' AND name = ?",
         (name,),
     ).fetchone()
     if not row:
@@ -742,16 +728,13 @@ def describe_entry_point(
     return _load_entry_point_description(row)
 
 
-def describe_test_suite(
-    conn: sqlite3.Connection, *, suite_name: str
-) -> SuiteDescription | None:
+def describe_test_suite(conn: sqlite3.Connection, *, suite_name: str) -> SuiteDescription | None:
     """Return the named TestSuite description, or None.
 
     `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
     """
     row = conn.execute(
-        "SELECT id, name, uri, attrs_json FROM nodes "
-        "WHERE kind='test_suite' AND name = ?",
+        "SELECT id, name, uri, attrs_json FROM nodes WHERE kind='test_suite' AND name = ?",
         (suite_name,),
     ).fetchone()
     if not row:
@@ -764,9 +747,7 @@ def describe_test_suite(
     return _load_suite_description((name, uri, attrs_json, fc))
 
 
-def describe_dependency(
-    conn: sqlite3.Connection, *, ecosystem: str, name: str
-) -> DependencyDescription | None:
+def describe_dependency(conn: sqlite3.Connection, *, ecosystem: str, name: str) -> DependencyDescription | None:
     """Return the description of a dependency node identified by (ecosystem, name).
 
     Reads `versions_in_use` from the node's attrs, and populates `used_by`
@@ -804,9 +785,7 @@ def describe_dependency(
     )
 
 
-def describe_builtin(
-    conn: sqlite3.Connection, *, language: str, module_name: str
-) -> BuiltinDescription | None:
+def describe_builtin(conn: sqlite3.Connection, *, language: str, module_name: str) -> BuiltinDescription | None:
     """Return the description of a Builtin node identified by (language, module_name).
 
     Populates `used_by` from inbound `used_by` edges originating from `package`
@@ -817,8 +796,7 @@ def describe_builtin(
     `module_name` substituting for `ecosystem` / `name`.
     """
     row = conn.execute(
-        "SELECT id, name, attrs_json, uri FROM nodes "
-        "WHERE kind='builtin' AND name = ? AND path = ?",
+        "SELECT id, name, attrs_json, uri FROM nodes WHERE kind='builtin' AND name = ? AND path = ?",
         (module_name, language),
     ).fetchone()
     if not row:
@@ -841,16 +819,13 @@ def describe_builtin(
     )
 
 
-def describe_agent_plugin(
-    conn: sqlite3.Connection, *, name: str
-) -> AgentPluginDescription | None:
+def describe_agent_plugin(conn: sqlite3.Connection, *, name: str) -> AgentPluginDescription | None:
     """Return the description of an agent_plugin node, or None.
 
     `conn` must be opened read-only.
     """
     row = conn.execute(
-        "SELECT name, attrs_json, uri FROM nodes "
-        "WHERE kind='agent_plugin' AND name = ?",
+        "SELECT name, attrs_json, uri FROM nodes WHERE kind='agent_plugin' AND name = ?",
         (name,),
     ).fetchone()
     if not row:
@@ -875,8 +850,7 @@ def describe_agent_plugin(
 
 def _list_by_kind(conn: sqlite3.Connection, kind: str) -> list[NodeRecord]:
     rows = conn.execute(
-        "SELECT kind, name, path, line, attrs_json, uri FROM nodes "
-        "WHERE kind = ? ORDER BY name",
+        "SELECT kind, name, path, line, attrs_json, uri FROM nodes WHERE kind = ? ORDER BY name",
         (kind,),
     ).fetchall()
     return [_row_to_node(r) for r in rows]
@@ -999,10 +973,7 @@ def imported_by(
         grouped: dict[str, list[str]] = {}
         for src_path, sym in rows:
             grouped.setdefault(src_path, []).append(sym)
-        return [
-            ImporterRecord(path=p, symbols=tuple(sorted(syms)), depth=1)
-            for p, syms in sorted(grouped.items())
-        ]
+        return [ImporterRecord(path=p, symbols=tuple(sorted(syms)), depth=1) for p, syms in sorted(grouped.items())]
 
     rows = conn.execute(
         f"""
@@ -1093,9 +1064,7 @@ def exported_by(conn: sqlite3.Connection, *, name: str) -> list[ExporterRecord]:
 # ============================================================================
 
 
-def tests_for_package(
-    conn: sqlite3.Connection, *, package_name: str
-) -> list[SuiteDescription]:
+def tests_for_package(conn: sqlite3.Connection, *, package_name: str) -> list[SuiteDescription]:
     """Return TestSuites that cover the package via `tests` edges.
 
     Returns [] when the package has no matching edges. Honors
@@ -1122,9 +1091,7 @@ def tests_for_package(
     return [_load_suite_description(r) for r in rows]
 
 
-def entry_points_for_package(
-    conn: sqlite3.Connection, *, package_name: str
-) -> list[EntryPointDescription]:
+def entry_points_for_package(conn: sqlite3.Connection, *, package_name: str) -> list[EntryPointDescription]:
     """Return EntryPoints declared by the package, sorted by name.
 
     `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
@@ -1143,9 +1110,7 @@ def entry_points_for_package(
     return [_load_entry_point_description(r) for r in rows]
 
 
-def tests_for_domain(
-    conn: sqlite3.Connection, *, domain_name: str
-) -> list[SuiteDescription]:
+def tests_for_domain(conn: sqlite3.Connection, *, domain_name: str) -> list[SuiteDescription]:
     """Return TestSuites covering the domain or any descendant.
 
     D-09 UNION:
@@ -1155,7 +1120,9 @@ def tests_for_domain(
 
     `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
     """
-    sql = _DOMAIN_DESCENDANTS_CTE + """
+    sql = (
+        _DOMAIN_DESCENDANTS_CTE
+        + """
         SELECT ts_name, ts_uri, ts_attrs, fc FROM (
             SELECT ts.id AS ts_id, ts.name AS ts_name, ts.uri AS ts_uri,
                    ts.attrs_json AS ts_attrs,
@@ -1179,20 +1146,21 @@ def tests_for_domain(
         )
         ORDER BY ts_name
     """
+    )
     rows = conn.execute(sql, (domain_name,)).fetchall()
     return [_load_suite_description(r) for r in rows]
 
 
-def domain_references(
-    conn: sqlite3.Connection, *, domain_name: str
-) -> list[tuple[str, int, int]]:
+def domain_references(conn: sqlite3.Connection, *, domain_name: str) -> list[tuple[str, int, int]]:
     """Bubble-up package references from the domain + its descendants.
 
     Returns rows of `(package_name, total_usage_count, distinct_domain_count)`
     ordered by total_usage_count DESC then package_name ASC. `conn` must be
     a `sqlite3.Connection` opened with `mode=ro`.
     """
-    sql = _DOMAIN_DESCENDANTS_CTE + """
+    sql = (
+        _DOMAIN_DESCENDANTS_CTE
+        + """
         SELECT n.name,
                COALESCE(SUM(CAST(
                  json_extract(e.attrs_json, '$.usage_count') AS INTEGER
@@ -1205,13 +1173,12 @@ def domain_references(
         GROUP BY n.name
         ORDER BY total_usage DESC, n.name ASC
     """
+    )
     rows = conn.execute(sql, (domain_name,)).fetchall()
     return [(r[0], int(r[1] or 0), int(r[2] or 0)) for r in rows]
 
 
-def domain_depends_on(
-    conn: sqlite3.Connection, *, domain_name: str
-) -> list[tuple[str, int]]:
+def domain_depends_on(conn: sqlite3.Connection, *, domain_name: str) -> list[tuple[str, int]]:
     """Bubble-up domain dependencies from the domain + its descendants.
 
     Excludes self-loops (any descendant depending on any other descendant
@@ -1219,7 +1186,9 @@ def domain_depends_on(
     rows of `(target_domain_name, total_usage_count)` ordered by usage
     DESC then name ASC. `conn` must be opened with `mode=ro`.
     """
-    sql = _DOMAIN_DESCENDANTS_CTE + """
+    sql = (
+        _DOMAIN_DESCENDANTS_CTE
+        + """
         SELECT n.name,
                COALESCE(SUM(CAST(
                  json_extract(e.attrs_json, '$.usage_count') AS INTEGER
@@ -1232,6 +1201,7 @@ def domain_depends_on(
         GROUP BY n.name
         ORDER BY total_usage DESC, n.name ASC
     """
+    )
     rows = conn.execute(sql, (domain_name,)).fetchall()
     return [(r[0], int(r[1] or 0)) for r in rows]
 

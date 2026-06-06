@@ -33,13 +33,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from langchain_aws import ChatBedrockConverse
-
 from graph_wiki_core.commands.ingest import run_ingest_source
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.query import QueryResult, run_query
 from graph_wiki_core.commands.scan import run_scan
-
+from langchain_aws import ChatBedrockConverse
 from workspace_io.paths import graph_dir, wiki_dir
 
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
@@ -76,11 +74,13 @@ async def _capturing_ainvoke(self, *args, **kwargs):
     if bucket is not None:
         meta = getattr(result, "usage_metadata", None)
         if meta:
-            bucket.append({
-                "model_id": getattr(self, "model_id", None),
-                "tokens_in": meta.get("input_tokens"),
-                "tokens_out": meta.get("output_tokens"),
-            })
+            bucket.append(
+                {
+                    "model_id": getattr(self, "model_id", None),
+                    "tokens_in": meta.get("input_tokens"),
+                    "tokens_out": meta.get("output_tokens"),
+                }
+            )
     return result
 
 
@@ -224,14 +224,10 @@ def _load_and_validate_cases(cases_path: Path) -> list[dict]:
     valid: list[dict] = []
     for i, case in enumerate(raw_cases):
         if not isinstance(case.get("query"), str):
-            logger.warning(
-                "cases[%d] missing required 'query' string key — skipped (T-4-01)", i
-            )
+            logger.warning("cases[%d] missing required 'query' string key — skipped (T-4-01)", i)
             continue
         if not isinstance(case.get("expected_answer"), str):
-            logger.warning(
-                "cases[%d] missing required 'expected_answer' string key — skipped (T-4-01)", i
-            )
+            logger.warning("cases[%d] missing required 'expected_answer' string key — skipped (T-4-01)", i)
             continue
         valid.append(case)
 
@@ -290,9 +286,7 @@ async def run_sweep(
                 cost_usd: float | None = None
                 if tokens_in is not None and tokens_out is not None:
                     try:
-                        cost_usd = cost_for_usage(
-                            model_id, {"input": tokens_in, "output": tokens_out}
-                        )
+                        cost_usd = cost_for_usage(model_id, {"input": tokens_in, "output": tokens_out})
                     except (UnknownModelError, KeyError):
                         cost_usd = None
 
@@ -363,12 +357,12 @@ async def run_sweep(
 # librarian/synthesizer/code_reader go through run_query with role_model_overrides.
 # scanner/linter/ingestor each have their own run_* entry point with model_override.
 ROLE_COMMAND_MAP: dict[str, str] = {
-    "librarian":   "_sweep_query_role",
+    "librarian": "_sweep_query_role",
     "synthesizer": "_sweep_query_role",
     "code_reader": "_sweep_query_role",
-    "scanner":     "_sweep_scan_role",
-    "linter":      "_sweep_lint_role",
-    "ingestor":    "_sweep_ingest_role",
+    "scanner": "_sweep_scan_role",
+    "linter": "_sweep_lint_role",
+    "ingestor": "_sweep_ingest_role",
 }
 
 
@@ -411,7 +405,6 @@ async def _sweep_scan_role(
     Returns:
         (ScanResult, summary_string) tuple.
     """
-    from graph_wiki_core.commands.scan import ScanResult  # noqa: PLC0415
 
     result = await run_scan(
         workspace_path=workspace_path,
@@ -528,9 +521,7 @@ async def run_role_sweep(
         List of SweepResult — one per (case, repeat_idx) that was attempted.
     """
     if role not in ROLE_COMMAND_MAP:
-        raise ValueError(
-            f"Unknown role {role!r} — must be one of {sorted(ROLE_COMMAND_MAP)}"
-        )
+        raise ValueError(f"Unknown role {role!r} — must be one of {sorted(ROLE_COMMAND_MAP)}")
 
     sem = semaphore or asyncio.Semaphore(8)
     cases = _load_and_validate_cases(cases_path)
@@ -540,9 +531,9 @@ async def run_role_sweep(
 
     # Map dispatch name string to actual function (module-level callables)
     _dispatch: dict[str, object] = {
-        "_sweep_query_role":  _sweep_query_role,
-        "_sweep_scan_role":   _sweep_scan_role,
-        "_sweep_lint_role":   _sweep_lint_role,
+        "_sweep_query_role": _sweep_query_role,
+        "_sweep_scan_role": _sweep_scan_role,
+        "_sweep_lint_role": _sweep_lint_role,
         "_sweep_ingest_role": _sweep_ingest_role,
     }
     cmd_fn = _dispatch[dispatch_name]
@@ -555,9 +546,7 @@ async def run_role_sweep(
                 bucket: list = []
                 token = _USAGE_CAPTURE.set(bucket)
                 try:
-                    _result, _answer = await cmd_fn(
-                        role, candidate_model_id, case, wt.path
-                    )
+                    _result, _answer = await cmd_fn(role, candidate_model_id, case, wt.path)
                     wall_seconds = time.monotonic() - t0
 
                     # Aggregate usage from THIS task's contextvar bucket
@@ -568,16 +557,22 @@ async def run_role_sweep(
                     # model's cost only — used for the per-role Pareto frontier.
                     # When tokens are mixed-model in the cell, attribute usage
                     # for the candidate model_id specifically.
-                    cand_in = sum(
-                        b["tokens_in"] for b in bucket
-                        if b.get("model_id") == candidate_model_id
-                        and b.get("tokens_in") is not None
-                    ) or None
-                    cand_out = sum(
-                        b["tokens_out"] for b in bucket
-                        if b.get("model_id") == candidate_model_id
-                        and b.get("tokens_out") is not None
-                    ) or None
+                    cand_in = (
+                        sum(
+                            b["tokens_in"]
+                            for b in bucket
+                            if b.get("model_id") == candidate_model_id and b.get("tokens_in") is not None
+                        )
+                        or None
+                    )
+                    cand_out = (
+                        sum(
+                            b["tokens_out"]
+                            for b in bucket
+                            if b.get("model_id") == candidate_model_id and b.get("tokens_out") is not None
+                        )
+                        or None
+                    )
                     cost_usd: float | None = None
                     if cand_in is not None and cand_out is not None:
                         try:
@@ -648,11 +643,7 @@ async def run_role_sweep(
                 finally:
                     _USAGE_CAPTURE.reset(token)
 
-    coros = [
-        _run_role_one(case, repeat_idx)
-        for case in cases
-        for repeat_idx in range(repeats)
-    ]
+    coros = [_run_role_one(case, repeat_idx) for case in cases for repeat_idx in range(repeats)]
 
     raw = await asyncio.gather(*coros, return_exceptions=True)
 
@@ -669,11 +660,11 @@ async def run_role_sweep(
 _QUALITY_ROLES: frozenset[str] = frozenset({"librarian", "synthesizer"})
 
 _TIER_LABEL: dict[str, str] = {
-    "librarian":   "quality",
+    "librarian": "quality",
     "synthesizer": "quality",
-    "linter":      "mid",
-    "ingestor":    "mid",
-    "scanner":     "cheap-fast",
+    "linter": "mid",
+    "ingestor": "mid",
+    "scanner": "cheap-fast",
     "code_reader": "cheap-fast",
 }
 
@@ -843,8 +834,9 @@ async def run_full_matrix(
     import subprocess
     import tempfile
 
-    from eval_harness.report import render_index_md, render_recommendation_block, render_role_doc
     from model_adapter.loader import load_role_config
+
+    from eval_harness.report import render_index_md, render_recommendation_block, render_role_doc
 
     n_query = len(_load_and_validate_cases(query_cases_path))
     n_code_reader = len(_load_and_validate_cases(code_reader_cases_path))
@@ -859,18 +851,16 @@ async def run_full_matrix(
     )
 
     cases_path_for_role: dict[str, Path] = {
-        "librarian":   query_cases_path,
+        "librarian": query_cases_path,
         "synthesizer": query_cases_path,
         "code_reader": code_reader_cases_path,
-        "scanner":     query_cases_path,
-        "linter":      query_cases_path,
+        "scanner": query_cases_path,
+        "linter": query_cases_path,
     }
 
     ingestor_cases_tmp: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
-        ) as tf:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tf:
             json.dump(
                 [
                     {
@@ -893,17 +883,13 @@ async def run_full_matrix(
             for candidate in candidates:
                 if dry_run:
                     continue
-                cell_results = await run_role_sweep(
-                    role, candidate, cases_path, workspace_path, repeats=repeats
-                )
+                cell_results = await run_role_sweep(role, candidate, cases_path, workspace_path, repeats=repeats)
                 role_results.extend(cell_results)
             all_results[role] = role_results
 
         run_date = datetime.date.today().isoformat()
         try:
-            commit_sha = subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"], text=True
-            ).strip()
+            commit_sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
         except (subprocess.CalledProcessError, FileNotFoundError):
             commit_sha = "unknown"
 
@@ -926,9 +912,7 @@ async def run_full_matrix(
             for r in role_results:
                 results_by_candidate.setdefault(r.model_id, []).append(r)
 
-            threshold = (
-                threshold_quality if role in _QUALITY_ROLES else threshold_other
-            )
+            threshold = threshold_quality if role in _QUALITY_ROLES else threshold_other
 
             # Wire Gate 1 per role: a divergence-eligible role gets a real
             # DivergenceMetric + the package baselines dir; any role NOT in
@@ -959,22 +943,13 @@ async def run_full_matrix(
             for candidate in candidates:
                 candidate_results = results_by_candidate.get(candidate, [])
                 if role in _QUALITY_ROLES:
-                    panel_means[candidate] = _score_and_writeback_judgeable(
-                        role, candidate_results, cases_path
-                    )
+                    panel_means[candidate] = _score_and_writeback_judgeable(role, candidate_results, cases_path)
                 else:
                     panel_means[candidate] = None
-                    if (
-                        role in ROLES_WITH_DIVERGENCE
-                        and divergence_metric is not None
-                    ):
-                        _writeback_structural_quality(
-                            divergence_metric, candidate_results
-                        )
+                    if role in ROLES_WITH_DIVERGENCE and divergence_metric is not None:
+                        _writeback_structural_quality(divergence_metric, candidate_results)
 
-            default_panel_mean = (
-                panel_means.get(default_model_id) if default_model_id else None
-            )
+            default_panel_mean = panel_means.get(default_model_id) if default_model_id else None
 
             two_gate_outcomes: dict[str, TwoGateOutcome] = {}
             for candidate in candidates:
@@ -994,10 +969,7 @@ async def run_full_matrix(
                 )
                 two_gate_outcomes[candidate] = outcome
 
-            role_total_cost = sum(
-                r.cost_usd for r in role_results
-                if r.cost_usd is not None
-            )
+            role_total_cost = sum(r.cost_usd for r in role_results if r.cost_usd is not None)
             total_cost_run += role_total_cost
 
             doc_text = render_role_doc(
@@ -1017,6 +989,7 @@ async def run_full_matrix(
             role_doc_paths.append(doc_path)
 
             from eval_harness.report import cost_frontier_table, pareto_frontier  # noqa: PLC0415
+
             table = cost_frontier_table(role_results)
             frontier = pareto_frontier(table)
             rec_block = render_recommendation_block(

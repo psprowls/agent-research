@@ -5,11 +5,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from _git_repo import init_repo, write_and_commit
+from graph_io import update
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
-
-from graph_io import update
-from _git_repo import init_repo, write_and_commit
 
 
 def _db_path(repo: Path) -> Path:
@@ -32,10 +31,7 @@ def _structural_snapshot(db_path: Path) -> tuple[list, list]:
     """
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        nodes = conn.execute(
-            "SELECT kind, name, path, uri, attrs_json FROM nodes "
-            "ORDER BY kind, name, path"
-        ).fetchall()
+        nodes = conn.execute("SELECT kind, name, path, uri, attrs_json FROM nodes ORDER BY kind, name, path").fetchall()
         edges = conn.execute(
             "SELECT n1.kind, n1.name, n1.path, "
             "       n2.kind, n2.name, n2.path, "
@@ -110,9 +106,7 @@ def test_update_full_twice_produces_byte_identical_db(tmp_path: Path) -> None:
     # And confirm last_indexed_commit (which IS deterministic) round-trips.
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
-        head_row = conn.execute(
-            "SELECT value FROM metadata WHERE key='last_indexed_commit'"
-        ).fetchone()
+        head_row = conn.execute("SELECT value FROM metadata WHERE key='last_indexed_commit'").fetchone()
     finally:
         conn.close()
     assert head_row is not None

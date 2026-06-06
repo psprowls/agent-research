@@ -11,9 +11,8 @@ import dataclasses
 import json as _json
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:

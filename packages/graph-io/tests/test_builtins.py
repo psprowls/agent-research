@@ -19,25 +19,20 @@ import json
 import shutil
 import sqlite3
 from pathlib import Path
-from unittest.mock import call, patch
 from typing import Any
+from unittest.mock import patch
 
 import pytest
-
-from graph_io import builtins, store, upsert, update
+from _git_repo import init_repo, write_and_commit
+from graph_io import store, update, upsert
 from graph_io.builtins import (
-    _is_python_stdlib,
     _load_node_builtins,
     _normalize_node_spec,
-    _PYTHON_STDLIB,
 )
 from graph_io.uri import RepoContext
 from source_parser.projections.graph import GraphNode, GraphRecords
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
-
-from _git_repo import init_repo, write_and_commit
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -70,9 +65,7 @@ def _build_git_python_repo(root: Path, py_files: dict[str, str]) -> None:
 
 
 def _builtin_nodes(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    rows = conn.execute(
-        "SELECT name, uri, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name"
-    ).fetchall()
+    rows = conn.execute("SELECT name, uri, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name").fetchall()
     result = []
     for name, uri, attrs_json in rows:
         attrs = json.loads(attrs_json) if attrs_json else {}
@@ -192,8 +185,10 @@ def test_node_builtins_cache_lifecycle(tmp_path: Path) -> None:
 
     def _fake_run_v20(cmd: list[str], **kwargs: Any):
         """Fake subprocess for node v20."""
+
         class _Res:
             returncode = 0
+
         if "--version" in cmd:
             _Res.stdout = "v20.11.0\n"
         else:
@@ -220,9 +215,7 @@ def test_node_builtins_cache_lifecycle(tmp_path: Path) -> None:
 
     assert result2 == frozenset(sample_builtins)
     # Only the --version call should happen (cache hit prevents JSON harvest)
-    assert call_count_2 == 1, (
-        f"Expected 1 subprocess call (--version only) on cache hit, got {call_count_2}"
-    )
+    assert call_count_2 == 1, f"Expected 1 subprocess call (--version only) on cache hit, got {call_count_2}"
 
     # --- Third call with different major → re-harvest ---
     sample_builtins_22 = sample_builtins + ["sqlite"]
@@ -230,6 +223,7 @@ def test_node_builtins_cache_lifecycle(tmp_path: Path) -> None:
     def _fake_run_v22(cmd: list[str], **kwargs: Any):
         class _Res:
             returncode = 0
+
         if "--version" in cmd:
             _Res.stdout = "v22.0.0\n"
         else:
@@ -279,9 +273,7 @@ def test_node_stdlib_emits_builtin_nodes(tmp_path: Path) -> None:
         ).fetchall()
         js_builtin_names = [r[0] for r in rows]
         # Must have exactly ONE fs node (D-06 collapse)
-        assert js_builtin_names.count("fs") == 1, (
-            f"Expected exactly 1 'fs' builtin node, got: {js_builtin_names}"
-        )
+        assert js_builtin_names.count("fs") == 1, f"Expected exactly 1 'fs' builtin node, got: {js_builtin_names}"
     finally:
         conn.close()
 
@@ -302,11 +294,13 @@ def test_node_dependency_vs_builtin_classification(tmp_path: Path) -> None:
     write_and_commit(
         repo,
         {
-            "package.json": json.dumps({
-                "name": "demo-js",
-                "version": "0.1.1",
-                "dependencies": {"express": "^4.0.0"},
-            }),
+            "package.json": json.dumps(
+                {
+                    "name": "demo-js",
+                    "version": "0.1.1",
+                    "dependencies": {"express": "^4.0.0"},
+                }
+            ),
             "src/app.js": "const fs = require('fs');\nconst express = require('express');\n",
         },
         "init",
@@ -316,15 +310,13 @@ def test_node_dependency_vs_builtin_classification(tmp_path: Path) -> None:
     conn = _open_ro(repo)
     try:
         # fs should be builtin
-        fs_builtin = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='builtin' AND name='fs'"
-        ).fetchone()[0]
+        fs_builtin = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='builtin' AND name='fs'").fetchone()[0]
         assert fs_builtin >= 1, "fs should be classified as builtin"
 
         # express must NOT appear as a builtin
-        express_builtin = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='builtin' AND name='express'"
-        ).fetchone()[0]
+        express_builtin = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='builtin' AND name='express'").fetchone()[
+            0
+        ]
         assert express_builtin == 0, "express should NOT be classified as builtin"
     finally:
         conn.close()
@@ -360,6 +352,7 @@ def test_builtin_node_attrs_and_uri(tmp_path: Path) -> None:
         # Call builtins.refresh directly on an empty file set (no files → no edges)
         # To test node attrs, upsert a builtin node directly.
         from graph_io.uri import builtin_uri as _builtin_uri
+
         with store.transaction(conn):
             upsert.upsert_records(
                 conn,
@@ -381,9 +374,7 @@ def test_builtin_node_attrs_and_uri(tmp_path: Path) -> None:
                 ),
             )
 
-        row = conn.execute(
-            "SELECT uri, attrs_json FROM nodes WHERE kind='builtin' AND name='pathlib'"
-        ).fetchone()
+        row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE kind='builtin' AND name='pathlib'").fetchone()
         assert row is not None, "Builtin node not found"
         uri, attrs_json = row
         assert uri == "builtin:python/pathlib"
@@ -455,13 +446,12 @@ def test_emit_is_idempotent(tmp_path: Path) -> None:
     update.run(repo, full=True)
     conn = _open_ro(repo)
     try:
-        nodes_after_1 = {r[0]: r[1] for r in conn.execute(
-            "SELECT name, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name"
-        ).fetchall()}
+        nodes_after_1 = {
+            r[0]: r[1]
+            for r in conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name").fetchall()
+        }
         edges_after_1 = conn.execute(
-            "SELECT e.attrs_json FROM edges e "
-            "JOIN nodes b ON e.dst = b.id "
-            "WHERE e.kind='used_by' AND b.kind='builtin'"
+            "SELECT e.attrs_json FROM edges e JOIN nodes b ON e.dst = b.id WHERE e.kind='used_by' AND b.kind='builtin'"
         ).fetchall()
     finally:
         conn.close()
@@ -469,21 +459,18 @@ def test_emit_is_idempotent(tmp_path: Path) -> None:
     update.run(repo, full=True)
     conn2 = _open_ro(repo)
     try:
-        nodes_after_2 = {r[0]: r[1] for r in conn2.execute(
-            "SELECT name, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name"
-        ).fetchall()}
+        nodes_after_2 = {
+            r[0]: r[1]
+            for r in conn2.execute("SELECT name, attrs_json FROM nodes WHERE kind='builtin' ORDER BY name").fetchall()
+        }
         edges_after_2 = conn2.execute(
-            "SELECT e.attrs_json FROM edges e "
-            "JOIN nodes b ON e.dst = b.id "
-            "WHERE e.kind='used_by' AND b.kind='builtin'"
+            "SELECT e.attrs_json FROM edges e JOIN nodes b ON e.dst = b.id WHERE e.kind='used_by' AND b.kind='builtin'"
         ).fetchall()
     finally:
         conn2.close()
 
     assert nodes_after_1 == nodes_after_2, "Builtin nodes differ between first and second run"
-    assert len(edges_after_1) == len(edges_after_2), (
-        f"Edge count differs: {len(edges_after_1)} vs {len(edges_after_2)}"
-    )
+    assert len(edges_after_1) == len(edges_after_2), f"Edge count differs: {len(edges_after_1)} vs {len(edges_after_2)}"
 
 
 # ---------------------------------------------------------------------------
@@ -503,14 +490,10 @@ def test_update_run_invokes_builtins_refresh(tmp_path: Path) -> None:
 
     conn = _open_ro(repo)
     try:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM nodes WHERE kind='builtin'"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='builtin'").fetchone()[0]
         assert count > 0, "Expected at least one Builtin node after update.run"
 
-        names = {r[0] for r in conn.execute(
-            "SELECT name FROM nodes WHERE kind='builtin'"
-        ).fetchall()}
+        names = {r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='builtin'").fetchall()}
         # All three stdlib imports must have produced Builtin nodes
         assert "sys" in names, f"sys not in {names}"
         assert "json" in names, f"json not in {names}"

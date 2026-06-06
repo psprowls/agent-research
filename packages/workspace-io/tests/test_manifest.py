@@ -1,6 +1,6 @@
 """Tests for workspace_io.manifest — .graph-wiki.yaml read/write."""
-import pytest
 
+import pytest
 from workspace_io.manifest import read, read_roles, write
 
 
@@ -8,10 +8,7 @@ def _v2(plugins):
     return {
         "version": 2,
         "initialized_at": "2026-05-08",
-        "plugins": [
-            {"name": p, "installed_version": None, "applied_version": None}
-            for p in plugins
-        ],
+        "plugins": [{"name": p, "installed_version": None, "applied_version": None} for p in plugins],
     }
 
 
@@ -88,8 +85,7 @@ def test_plugin_block_raises_on_unknown_key(tmp_path):
     """D-02: unknown keys in plugin block raise RuntimeError."""
     mpath = tmp_path / ".graph-wiki.yaml"
     mpath.write_text(
-        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
-        "plugin:\n  foo: bar\n",
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nplugin:\n  foo: bar\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError, match="unknown keys"):
@@ -101,16 +97,14 @@ def test_plugin_block_raises_on_invalid_backend(tmp_path):
     mpath = tmp_path / ".graph-wiki.yaml"
     # backend_default with invalid value
     mpath.write_text(
-        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
-        "plugin:\n  backend_default: aws\n",
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nplugin:\n  backend_default: aws\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError, match="must be one of"):
         read(mpath)
     # backend_overrides with invalid value
     mpath.write_text(
-        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
-        "plugin:\n  backend_overrides:\n    lint: gpt\n",
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nplugin:\n  backend_overrides:\n    lint: gpt\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError, match="must be one of"):
@@ -121,8 +115,7 @@ def test_plugin_block_raises_when_not_mapping(tmp_path):
     """D-02: plugin value that is not a mapping raises RuntimeError."""
     mpath = tmp_path / ".graph-wiki.yaml"
     mpath.write_text(
-        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n"
-        "plugin: claude\n",
+        "version: 2\ninitialized_at: 2026-05-08\nplugins: []\nplugin: claude\n",
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError, match="must be a mapping"):
@@ -175,9 +168,7 @@ def test_read_roles_returns_empty_when_plugin_has_no_roles_key(tmp_path):
         {
             "version": 2,
             "initialized_at": "2026-05-19",
-            "plugins": [
-                {"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}
-            ],
+            "plugins": [{"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}],
         },
     )
     assert read_roles("graph-wiki-agent", mpath) == []

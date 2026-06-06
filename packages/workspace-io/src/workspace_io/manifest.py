@@ -1,4 +1,5 @@
 """Read/write `.graph-wiki.yaml`. v2 only — raises on v1 format (D-14)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,19 +32,14 @@ def read(path: Path) -> dict:
         raw["plugin"] = {"backend_default": "claude", "backend_overrides": {}}
     else:
         if not isinstance(plugin, dict):
-            raise RuntimeError(
-                f"{path}: 'plugin' must be a mapping, got {type(plugin).__name__}"
-            )
+            raise RuntimeError(f"{path}: 'plugin' must be a mapping, got {type(plugin).__name__}")
         unknown = set(plugin.keys()) - _KNOWN_PLUGIN_KEYS
         if unknown:
-            raise RuntimeError(
-                f"{path}: unknown keys in plugin block: {sorted(unknown)}"
-            )
+            raise RuntimeError(f"{path}: unknown keys in plugin block: {sorted(unknown)}")
         backend_default = plugin.get("backend_default", "claude")
         if backend_default not in _VALID_BACKENDS:
             raise RuntimeError(
-                f"{path}: plugin.backend_default must be one of {sorted(_VALID_BACKENDS)}, "
-                f"got {backend_default!r}"
+                f"{path}: plugin.backend_default must be one of {sorted(_VALID_BACKENDS)}, got {backend_default!r}"
             )
         overrides = plugin.get("backend_overrides", {}) or {}
         if not isinstance(overrides, dict):
@@ -51,8 +47,7 @@ def read(path: Path) -> dict:
         for cmd, val in overrides.items():
             if val not in _VALID_BACKENDS:
                 raise RuntimeError(
-                    f"{path}: plugin.backend_overrides[{cmd!r}] must be one of "
-                    f"{sorted(_VALID_BACKENDS)}, got {val!r}"
+                    f"{path}: plugin.backend_overrides[{cmd!r}] must be one of {sorted(_VALID_BACKENDS)}, got {val!r}"
                 )
         plugin["backend_default"] = backend_default
         plugin["backend_overrides"] = overrides

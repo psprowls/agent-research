@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-import pytest
+from eval_harness.sweep import ROLE_COMMAND_MAP, run_role_sweep
 from graph_wiki_core.commands.ingest import IngestResult
 from graph_wiki_core.commands.lint import LintResult
 from graph_wiki_core.commands.query import QueryResult
 from graph_wiki_core.commands.scan import ScanResult
-from eval_harness.sweep import ROLE_COMMAND_MAP, SweepResult, run_role_sweep
-
 
 # ---------------------------------------------------------------------------
 # Helper: minimal result factories for mocking
@@ -98,9 +96,7 @@ def test_role_command_map_covers_all_roles() -> None:
 def test_role_command_map_query_roles() -> None:
     """librarian, synthesizer, and code_reader all map to _sweep_query_role."""
     for role in ("librarian", "synthesizer", "code_reader"):
-        assert ROLE_COMMAND_MAP[role] == "_sweep_query_role", (
-            f"{role} should map to _sweep_query_role"
-        )
+        assert ROLE_COMMAND_MAP[role] == "_sweep_query_role", f"{role} should map to _sweep_query_role"
 
 
 def test_role_command_map_non_query_roles() -> None:

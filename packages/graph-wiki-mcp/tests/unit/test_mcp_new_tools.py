@@ -1,14 +1,13 @@
-from __future__ import annotations
-
 """MCP tool registration tests for wiki_scan (Plan 05-04), wiki_ingest (Plan 05-05), and wiki_bootstrap (Phase 18-02).
 
 Requirements: MCP-01, MCP-03, CMD-02.
 """
 
+from __future__ import annotations
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # wiki_scan tool registration
@@ -135,8 +134,8 @@ def test_wiki_ingest_tool_registered() -> None:
 
 def test_wiki_ingest_input_type_discriminator() -> None:
     """WikiIngestInput has a type field with Literal['source','work-item'] (D-04)."""
+
     from graph_wiki_mcp.server import WikiIngestInput
-    import typing
 
     inp_source = WikiIngestInput(type="source", source_path="/some/file.md")
     assert inp_source.type == "source"
@@ -248,9 +247,8 @@ def test_wiki_bootstrap_tool_registered() -> None:
 
 def test_wiki_bootstrap_input_rejects_missing_required_fields() -> None:
     """WikiBootstrapInput raises ValidationError when topic or tool are missing."""
-    from pydantic import ValidationError
-
     from graph_wiki_mcp.server import WikiBootstrapInput
+    from pydantic import ValidationError
 
     with pytest.raises(ValidationError):
         WikiBootstrapInput()  # type: ignore[call-arg]
@@ -285,9 +283,7 @@ async def test_wiki_bootstrap_calls_run_init() -> None:
 
     with patch("graph_wiki_mcp.server.run_init", new_callable=AsyncMock) as mock_fn:
         mock_fn.return_value = mock_result
-        result = await wiki_bootstrap(
-            WikiBootstrapInput(topic="test", tool="claude-code"), mock_ctx
-        )
+        result = await wiki_bootstrap(WikiBootstrapInput(topic="test", tool="claude-code"), mock_ctx)
 
     mock_fn.assert_awaited_once()
     assert result.status == "ok"
@@ -373,12 +369,8 @@ async def test_wiki_ingest_source_passes_through_m3_fields() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch(
-        "graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake
-    ):
-        out = await wiki_ingest(
-            WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx
-        )
+    with patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake):
+        out = await wiki_ingest(WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx)
 
     assert out.source_kind == "unknown"
     assert out.stripped_wikilinks == ["ghost"]
@@ -405,8 +397,15 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
         stripped_wikilinks=[],
         frontmatter_parsed=True,
         suggested_pages=[
-            {"kind": "adr", "title": "T", "slug": "t", "mode": "create_new",
-             "existing_slug": None, "rationale": "r", "status": "proposed"},
+            {
+                "kind": "adr",
+                "title": "T",
+                "slug": "t",
+                "mode": "create_new",
+                "existing_slug": None,
+                "rationale": "r",
+                "status": "proposed",
+            },
         ],
         suggestions_parsed=True,
     )
@@ -414,12 +413,8 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
     mock_ctx = MagicMock()
     mock_ctx.report_progress = AsyncMock()
 
-    with patch(
-        "graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake
-    ):
-        out = await wiki_ingest(
-            WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx
-        )
+    with patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock, return_value=fake):
+        out = await wiki_ingest(WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx)
 
     assert out.suggestions_parsed is True
     assert out.suggested_pages[0]["slug"] == "t"
@@ -433,7 +428,6 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
 async def test_wiki_propagate_drift_returns_summary(monkeypatch):
     """wiki_propagate_drift calls run_propagate_drift and returns summary fields (M4 §3.7)."""
     from pathlib import Path
-
     from unittest.mock import MagicMock
 
     import graph_wiki_mcp.server as srv
@@ -445,14 +439,10 @@ async def test_wiki_propagate_drift_returns_summary(monkeypatch):
         return PropagateDriftResult(1, 2, 0, 1, 0, True, [])
 
     monkeypatch.setattr(srv, "run_propagate_drift", _fake)
-    monkeypatch.setattr(srv, "resolve_wiki_and_repo",
-                        lambda p: (Path("/w/wiki"), Path("/w/repo")))
-    monkeypatch.setattr(srv, "read_only_connect",
-                        lambda p: type("C", (), {"close": lambda self: None})())
+    monkeypatch.setattr(srv, "resolve_wiki_and_repo", lambda p: (Path("/w/wiki"), Path("/w/repo")))
+    monkeypatch.setattr(srv, "read_only_connect", lambda p: type("C", (), {"close": lambda self: None})())
 
-    out = await srv.wiki_propagate_drift(
-        srv.WikiPropagateDriftInput(dry_run=True), MagicMock()
-    )
+    out = await srv.wiki_propagate_drift(srv.WikiPropagateDriftInput(dry_run=True), MagicMock())
     assert out.pages_judged == 1
     assert out.entities_considered == 2
     assert out.dry_run is True

@@ -22,7 +22,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
+from graph_io import exit_codes
+from graph_wiki_core.commands import graph as graph_module
 
 # Importing the server module installs _StdoutGuard at module-init time.
 from graph_wiki_mcp.server import (  # noqa: F401  (mcp imported for tool registry inspection)
@@ -35,8 +36,7 @@ from graph_wiki_mcp.server import (  # noqa: F401  (mcp imported for tool regist
     graph_query,
     mcp,
 )
-from graph_wiki_core.commands import graph as graph_module
-from graph_io import exit_codes
+from pydantic import ValidationError
 
 
 @pytest.fixture
@@ -84,6 +84,7 @@ def test_wiki_tools_still_registered():
         wiki_query,
         wiki_scan,
     )
+
     for tool in [wiki_ping, wiki_query, wiki_log, wiki_bootstrap, wiki_scan, wiki_ingest, wiki_lint]:
         assert callable(tool)
 
@@ -169,9 +170,7 @@ async def test_stdout_guard_not_tripped(tmp_workspace, fake_ctx):
 
 async def test_output_shape_per_tool(tmp_workspace, fake_ctx):
     # update.run is silent on success → run_build returns ("", ...) stdout.
-    with patch.object(
-        graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
-    ):
+    with patch.object(graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))):
         out = await graph_build(GraphBuildInput(), fake_ctx)
     assert out.status == "success"
     assert out.exit_code == 0
@@ -179,16 +178,12 @@ async def test_output_shape_per_tool(tmp_workspace, fake_ctx):
     assert out.stderr == ""
     assert out.trace_path is None
 
-    with patch.object(
-        graph_module, "run_describe", MagicMock(return_value=(exit_codes.SUCCESS, "rendered", ""))
-    ):
+    with patch.object(graph_module, "run_describe", MagicMock(return_value=(exit_codes.SUCCESS, "rendered", ""))):
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="foo"), fake_ctx)
     assert out.status == "success"
     assert "rendered" in out.stdout
 
-    with patch.object(
-        graph_module, "run_query", MagicMock(return_value=(exit_codes.SUCCESS, "rows", ""))
-    ):
+    with patch.object(graph_module, "run_query", MagicMock(return_value=(exit_codes.SUCCESS, "rows", ""))):
         out = await graph_query(GraphQueryInput(name="x"), fake_ctx)
     assert out.status == "success"
     assert "rows" in out.stdout
@@ -200,9 +195,7 @@ async def test_output_shape_per_tool(tmp_workspace, fake_ctx):
 
 
 async def test_describe_missing_entity(tmp_workspace, fake_ctx):
-    recorder = MagicMock(
-        return_value=(exit_codes.GENERIC, "", "error: package not found: nonexistent")
-    )
+    recorder = MagicMock(return_value=(exit_codes.GENERIC, "", "error: package not found: nonexistent"))
     with patch.object(graph_module, "run_describe", recorder):
         out = await graph_describe(GraphDescribeInput(kind="package", identifier="nonexistent"), fake_ctx)
 
@@ -238,9 +231,7 @@ async def test_graph_query_no_filters_returns_error(tmp_workspace, fake_ctx):
 
 
 async def test_graph_build_trace_writes_file(tmp_workspace, fake_ctx):
-    with patch.object(
-        graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))
-    ):
+    with patch.object(graph_module, "run_build", MagicMock(return_value=(exit_codes.SUCCESS, "", ""))):
         out = await graph_build(GraphBuildInput(trace=True), fake_ctx)
     assert out.trace_path is not None
     p = Path(out.trace_path)

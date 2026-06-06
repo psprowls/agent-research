@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """FILE_DESCRIBER_SYSTEM prompt constant.
 
 Used by the scan-side code-reader fan-out (run_scan Step 10c) to fill the
@@ -9,6 +7,8 @@ loop), this is a one-shot describer: it receives package metadata, the list of
 paths needing a description, and a few representative source snippets inline, and
 returns a compact JSON object mapping path -> one-line description.
 """
+
+from __future__ import annotations
 
 FILE_DESCRIBER_SYSTEM = """You write one-line descriptions for the files in a software package's file map. You are given the package's metadata, the list of file paths that still need a description, and the contents of a few representative files for context.
 

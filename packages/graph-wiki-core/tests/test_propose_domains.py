@@ -22,7 +22,6 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-
 # ---------------------------------------------------------------------------
 # Tool-call parsing (D-05)
 # ---------------------------------------------------------------------------
@@ -182,7 +181,6 @@ def test_build_cross_cutting_domain_aggregates_hubs():
     """Given 2 hubs, builds ONE ProposedDomain named 'cross-cutting' with
     packages = sorted hub names, confidence=1.0, llm_origin='cross_cutting'."""
     from graph_io.cluster import CrossCuttingHub
-
     from graph_wiki_core.commands.propose_domains import (
         ProposedDomain,
         _build_cross_cutting_domain,
@@ -190,11 +188,15 @@ def test_build_cross_cutting_domain_aggregates_hubs():
 
     hubs = (
         CrossCuttingHub(
-            name="pytest", imported_by_count=10, imported_by_fraction=0.86,
+            name="pytest",
+            imported_by_count=10,
+            imported_by_fraction=0.86,
             connects_clusters=(0, 1),
         ),
         CrossCuttingHub(
-            name="click", imported_by_count=8, imported_by_fraction=0.57,
+            name="click",
+            imported_by_count=8,
+            imported_by_fraction=0.57,
             connects_clusters=(0,),
         ),
     )
@@ -219,9 +221,9 @@ def test_build_cross_cutting_domain_empty_returns_none():
 # ---------------------------------------------------------------------------
 
 
-def _make_proposed_result(*, domains, stripped_unknown=(), stripped_cycle=(),
-                          llm_failures=(), total_cost=0.0):
+def _make_proposed_result(*, domains, stripped_unknown=(), stripped_cycle=(), llm_failures=(), total_cost=0.0):
     from graph_wiki_core.commands.propose_domains import ProposeResult
+
     return ProposeResult(
         proposed_domains=tuple(domains),
         stripped_unknown_packages=tuple(stripped_unknown),
@@ -331,13 +333,9 @@ def test_write_proposed_yaml_no_domains_key(tmp_path):
         ],
     )
     out = tmp_path / "domains.proposed.yaml"
-    _write_proposed_yaml(
-        result, out, cluster_command="cg domain-clusters", model="haiku"
-    )
+    _write_proposed_yaml(result, out, cluster_command="cg domain-clusters", model="haiku")
     data = yaml.safe_load(out.read_text(encoding="utf-8"))
-    assert "domains" not in data, (
-        "top-level `domains:` key would risk accidental ingestion (PROPOSE-04)"
-    )
+    assert "domains" not in data, "top-level `domains:` key would risk accidental ingestion (PROPOSE-04)"
 
 
 # ---------------------------------------------------------------------------

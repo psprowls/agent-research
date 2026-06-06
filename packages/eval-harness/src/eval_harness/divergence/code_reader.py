@@ -41,7 +41,8 @@ def _check_sentinel_or_path_line(output: AgentOutputProxy, wiki: Path) -> Verdic
     """CR-001 (hard): Output is either the bare sentinel OR contains at least one
     `path:line` annotation.
 
-    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs (rule 6 + output format).
+    Anchors agents/graph-wiki-agent/src/graph_wiki_agent/prompts/sources/code_reader.md#outputs
+    (rule 6 + output format).
     """
     text = output.answer or ""
     if _is_sentinel_only(text):

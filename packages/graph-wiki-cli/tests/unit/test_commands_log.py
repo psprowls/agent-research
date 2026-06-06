@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Unit tests for the log command (Plan 05-01).
 
 Requirements covered: CMD-06, CLI-06.
 """
+
+from __future__ import annotations
 
 import dataclasses
 import json
@@ -11,7 +11,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helper: build a minimal wiki fixture under tmp_path
@@ -88,9 +87,8 @@ def test_log_result_fields_match_append_log_keys() -> None:
 
 def test_cli_log_json_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """CLI log --json emits valid JSON with required keys."""
-    from typer.testing import CliRunner
-
     from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
 
     mock_result = _make_log_result()
     monkeypatch.setattr(

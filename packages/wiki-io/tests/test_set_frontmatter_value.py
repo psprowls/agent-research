@@ -18,7 +18,7 @@ def test_appends_new_key_last_preserving_body(tmp_path: Path) -> None:
     set_frontmatter_value(page, LAST_UPDATED_COMMIT_KEY, "abc123")
     post = frontmatter.load(page)
     assert post.metadata[LAST_UPDATED_COMMIT_KEY] == "abc123"
-    assert post.metadata["title"] == "A"            # existing keys preserved
+    assert post.metadata["title"] == "A"  # existing keys preserved
     assert "## Narrative\nprose here" in post.content  # body preserved
     assert list(post.metadata.keys())[-1] == LAST_UPDATED_COMMIT_KEY  # appended last
 
@@ -47,5 +47,6 @@ def test_resetting_same_value_is_byte_stable(tmp_path: Path) -> None:
 
 def test_missing_file_raises(tmp_path: Path) -> None:
     import pytest
+
     with pytest.raises(FileNotFoundError):
         set_frontmatter_value(tmp_path / "nonexistent.md", "x", "y")

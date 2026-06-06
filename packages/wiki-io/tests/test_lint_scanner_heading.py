@@ -54,10 +54,7 @@ def test_renamed_narrative_is_flagged() -> None:
 def test_missing_file_map_on_package_is_flagged() -> None:
     page = {
         "fm": {"kind": "package"},
-        "text": (
-            "---\nkind: package\n---\n# foo\n\n## Narrative\np\n\n"
-            "## Referenced in wiki\n- x\n"
-        ),
+        "text": ("---\nkind: package\n---\n# foo\n\n## Narrative\np\n\n## Referenced in wiki\n- x\n"),
     }
     issues = check({"wiki/entities/foo": page})
     assert any("## File map" in i for i in issues)
@@ -83,10 +80,7 @@ def test_missing_narrative_on_app_is_flagged() -> None:
     """An `app` page missing `## Narrative` is flagged."""
     page = {
         "fm": {"kind": "app"},
-        "text": (
-            "---\nkind: app\n---\n# svc\n\n## Referenced in wiki\n- x\n\n"
-            "## File map - svc\n| a | b | c |\n"
-        ),
+        "text": ("---\nkind: app\n---\n# svc\n\n## Referenced in wiki\n- x\n\n## File map - svc\n| a | b | c |\n"),
     }
     issues = check({"wiki/entities/svc": page})
     assert any("## Narrative" in i for i in issues)

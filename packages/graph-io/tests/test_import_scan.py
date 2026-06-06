@@ -29,9 +29,7 @@ def _emit_pipeline(conn: sqlite3.Connection, repo_root: Path) -> None:
     """packages.refresh + structural_nodes.emit (populates File.attrs.is_test)."""
     with store.transaction(conn):
         packages.refresh(conn, repo_root=repo_root, ctx=CTX)
-        structural_nodes.emit(
-            conn, repo_root=repo_root, ctx=CTX, skip_dirs=frozenset()
-        )
+        structural_nodes.emit(conn, repo_root=repo_root, ctx=CTX, skip_dirs=frozenset())
 
 
 def _write_python_pkg(root: Path, name: str, files: dict[str, str]) -> None:
@@ -41,9 +39,7 @@ def _write_python_pkg(root: Path, name: str, files: dict[str, str]) -> None:
     src_dir = pkg_dir / "src" / importable
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
-    (pkg_dir / "pyproject.toml").write_text(
-        f'[project]\nname = "{name}"\n'
-    )
+    (pkg_dir / "pyproject.toml").write_text(f'[project]\nname = "{name}"\n')
     for rel, content in files.items():
         (pkg_dir / rel).parent.mkdir(parents=True, exist_ok=True)
         (pkg_dir / rel).write_text(content)
@@ -62,9 +58,7 @@ def _write_js_pkg(root: Path, dir_name: str, pkg_name: str, files: dict[str, str
 def _pkg_rows(conn: sqlite3.Connection) -> list[tuple[str, str | None, str | None]]:
     return [
         (r[0], r[1], r[2])
-        for r in conn.execute(
-            "SELECT name, path, attrs_json FROM nodes WHERE kind='package'"
-        ).fetchall()
+        for r in conn.execute("SELECT name, path, attrs_json FROM nodes WHERE kind='package'").fetchall()
     ]
 
 
@@ -72,17 +66,29 @@ def _pkg_rows(conn: sqlite3.Connection) -> list[tuple[str, str | None, str | Non
 
 
 def test_scan_package_imports_python(tmp_path: Path) -> None:
-    _write_python_pkg(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "from pkg_b import bar\n",
-    })
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "from pkg_b import bar\n",
+        },
+    )
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "pkg-a", "packages/pkg-a", include_test_files=False,
+        conn,
+        tmp_path,
+        "pkg-a",
+        "packages/pkg-a",
+        include_test_files=False,
     )
     assert ("pkg-b", "packages/pkg-b") in result
 
@@ -91,17 +97,31 @@ def test_scan_package_imports_python(tmp_path: Path) -> None:
 
 
 def test_scan_js_bare_spec_resolved(tmp_path: Path) -> None:
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import { x } from "jspkg-b";\n',
-    })
-    _write_js_pkg(tmp_path, "jspkg-b", "jspkg-b", {
-        "src/index.js": "export const x = 1;\n",
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import { x } from "jspkg-b";\n',
+        },
+    )
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-b",
+        "jspkg-b",
+        {
+            "src/index.js": "export const x = 1;\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "jspkg-a", "packages/jspkg-a", include_test_files=False,
+        conn,
+        tmp_path,
+        "jspkg-a",
+        "packages/jspkg-a",
+        include_test_files=False,
     )
     assert ("jspkg-b", "packages/jspkg-b") in result
 
@@ -110,17 +130,31 @@ def test_scan_js_bare_spec_resolved(tmp_path: Path) -> None:
 
 
 def test_scan_js_relative_import_resolved(tmp_path: Path) -> None:
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import { x } from "../../jspkg-b/src/foo";\n',
-    })
-    _write_js_pkg(tmp_path, "jspkg-b", "jspkg-b", {
-        "src/foo.js": "export const x = 1;\n",
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import { x } from "../../jspkg-b/src/foo";\n',
+        },
+    )
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-b",
+        "jspkg-b",
+        {
+            "src/foo.js": "export const x = 1;\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "jspkg-a", "packages/jspkg-a", include_test_files=False,
+        conn,
+        tmp_path,
+        "jspkg-a",
+        "packages/jspkg-a",
+        include_test_files=False,
     )
     assert ("jspkg-b", "packages/jspkg-b") in result
 
@@ -129,17 +163,31 @@ def test_scan_js_relative_import_resolved(tmp_path: Path) -> None:
 
 
 def test_scan_js_scoped_package(tmp_path: Path) -> None:
-    _write_js_pkg(tmp_path, "consumer", "consumer", {
-        "src/index.js": 'import { x } from "@scope/foo";\n',
-    })
-    _write_js_pkg(tmp_path, "scope__foo", "@scope/foo", {
-        "src/index.js": "export const x = 1;\n",
-    })
+    _write_js_pkg(
+        tmp_path,
+        "consumer",
+        "consumer",
+        {
+            "src/index.js": 'import { x } from "@scope/foo";\n',
+        },
+    )
+    _write_js_pkg(
+        tmp_path,
+        "scope__foo",
+        "@scope/foo",
+        {
+            "src/index.js": "export const x = 1;\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "consumer", "packages/consumer", include_test_files=False,
+        conn,
+        tmp_path,
+        "consumer",
+        "packages/consumer",
+        include_test_files=False,
     )
     assert ("@scope/foo", "packages/scope__foo") in result
 
@@ -149,18 +197,30 @@ def test_scan_js_scoped_package(tmp_path: Path) -> None:
 
 def test_scan_excludes_test_files_by_default(tmp_path: Path) -> None:
     # pkg-a has a test file that imports pkg-b; non-test files do NOT import pkg-b.
-    _write_python_pkg(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "x = 1\n",  # non-test file, no imports
-        "tests/test_x.py": "from pkg_b import bar\n",  # test file imports pkg-b
-    })
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "x = 1\n",  # non-test file, no imports
+            "tests/test_x.py": "from pkg_b import bar\n",  # test file imports pkg-b
+        },
+    )
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "pkg-a", "packages/pkg-a", include_test_files=False,
+        conn,
+        tmp_path,
+        "pkg-a",
+        "packages/pkg-a",
+        include_test_files=False,
     )
     assert ("pkg-b", "packages/pkg-b") not in result
 
@@ -169,18 +229,30 @@ def test_scan_excludes_test_files_by_default(tmp_path: Path) -> None:
 
 
 def test_scan_includes_test_files_when_flag_set(tmp_path: Path) -> None:
-    _write_python_pkg(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "x = 1\n",
-        "tests/test_x.py": "from pkg_b import bar\n",
-    })
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "x = 1\n",
+            "tests/test_x.py": "from pkg_b import bar\n",
+        },
+    )
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "pkg-a", "packages/pkg-a", include_test_files=True,
+        conn,
+        tmp_path,
+        "pkg-a",
+        "packages/pkg-a",
+        include_test_files=True,
     )
     assert ("pkg-b", "packages/pkg-b") in result
 
@@ -190,12 +262,20 @@ def test_scan_includes_test_files_when_flag_set(tmp_path: Path) -> None:
 
 def test_scan_unreadable_file_silently_skipped(tmp_path: Path) -> None:
     # scan_files_imports directly with a list including a non-existent path.
-    _write_python_pkg(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "from pkg_b import bar\n",
-    })
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "from pkg_b import bar\n",
+        },
+    )
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
     pkg_rows = _pkg_rows(conn)
@@ -212,14 +292,22 @@ def test_scan_unreadable_file_silently_skipped(tmp_path: Path) -> None:
 
 
 def test_scan_stdlib_imports_ignored(tmp_path: Path) -> None:
-    _write_python_pkg(tmp_path, "pkg-a", {
-        "src/pkg_a/foo.py": "import json\nimport typing\nfrom os import path\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-a",
+        {
+            "src/pkg_a/foo.py": "import json\nimport typing\nfrom os import path\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
 
     result = scan_package_imports(
-        conn, tmp_path, "pkg-a", "packages/pkg-a", include_test_files=False,
+        conn,
+        tmp_path,
+        "pkg-a",
+        "packages/pkg-a",
+        include_test_files=False,
     )
     # Only pkg-a is a registered Package; stdlib names aren't in py_map.
     # pkg-a may appear (it imports itself transitively via __init__.py?) — assert
@@ -235,25 +323,42 @@ def test_scan_stdlib_imports_ignored(tmp_path: Path) -> None:
 
 def test_resolve_js_import_file_relative(tmp_path: Path) -> None:
     """A relative JS specifier resolving to a sibling file returns its repo-relative path."""
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import { x } from "../../jspkg-b/src/foo";\n',
-    })
-    _write_js_pkg(tmp_path, "jspkg-b", "jspkg-b", {
-        "src/foo.js": "export const x = 1;\n",
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import { x } from "../../jspkg-b/src/foo";\n',
+        },
+    )
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-b",
+        "jspkg-b",
+        {
+            "src/foo.js": "export const x = 1;\n",
+        },
+    )
     importing = tmp_path / "packages" / "jspkg-a" / "src" / "index.js"
     result = resolve_js_import_file(
-        "../../jspkg-b/src/foo", importing, tmp_path,
+        "../../jspkg-b/src/foo",
+        importing,
+        tmp_path,
     )
     assert result == "packages/jspkg-b/src/foo.js"
 
 
 def test_resolve_js_import_file_index_suffix(tmp_path: Path) -> None:
     """A relative directory specifier resolves to its index.* file."""
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import { x } from "./sub";\n',
-        "src/sub/index.js": "export const x = 1;\n",
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import { x } from "./sub";\n',
+            "src/sub/index.js": "export const x = 1;\n",
+        },
+    )
     importing = tmp_path / "packages" / "jspkg-a" / "src" / "index.js"
     result = resolve_js_import_file("./sub", importing, tmp_path)
     assert result == "packages/jspkg-a/src/sub/index.js"
@@ -261,18 +366,28 @@ def test_resolve_js_import_file_index_suffix(tmp_path: Path) -> None:
 
 def test_resolve_js_import_file_bare_returns_none(tmp_path: Path) -> None:
     """A bare/third-party specifier (no in-repo file) returns None."""
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import x from "react";\n',
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import x from "react";\n',
+        },
+    )
     importing = tmp_path / "packages" / "jspkg-a" / "src" / "index.js"
     assert resolve_js_import_file("react", importing, tmp_path) is None
 
 
 def test_resolve_js_import_file_missing_relative_returns_none(tmp_path: Path) -> None:
     """A relative specifier pointing at a non-existent file returns None."""
-    _write_js_pkg(tmp_path, "jspkg-a", "jspkg-a", {
-        "src/index.js": 'import x from "./nope";\n',
-    })
+    _write_js_pkg(
+        tmp_path,
+        "jspkg-a",
+        "jspkg-a",
+        {
+            "src/index.js": 'import x from "./nope";\n',
+        },
+    )
     importing = tmp_path / "packages" / "jspkg-a" / "src" / "index.js"
     assert resolve_js_import_file("./nope", importing, tmp_path) is None
 
@@ -282,9 +397,13 @@ def test_resolve_js_import_file_missing_relative_returns_none(tmp_path: Path) ->
 
 def test_resolve_python_import_file_module(tmp_path: Path) -> None:
     """A first-party dotted module resolves to its module file."""
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
     pkg_rows = _pkg_rows(conn)
@@ -295,9 +414,13 @@ def test_resolve_python_import_file_module(tmp_path: Path) -> None:
 
 def test_resolve_python_import_file_package_init(tmp_path: Path) -> None:
     """A first-party top-level package resolves to its __init__.py."""
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
     pkg_rows = _pkg_rows(conn)
@@ -308,9 +431,13 @@ def test_resolve_python_import_file_package_init(tmp_path: Path) -> None:
 
 def test_resolve_python_import_file_third_party_returns_none(tmp_path: Path) -> None:
     """A stdlib/third-party module (not a first-party package) returns None."""
-    _write_python_pkg(tmp_path, "pkg-b", {
-        "src/pkg_b/bar.py": "x = 1\n",
-    })
+    _write_python_pkg(
+        tmp_path,
+        "pkg-b",
+        {
+            "src/pkg_b/bar.py": "x = 1\n",
+        },
+    )
     conn = _setup(tmp_path)
     _emit_pipeline(conn, tmp_path)
     pkg_rows = _pkg_rows(conn)

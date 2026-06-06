@@ -7,6 +7,7 @@ asserts that a payload carrying the legacy ``vault_path`` key now raises
 default is ``extra='ignore'``). Runs in the default ``uv run pytest`` pass —
 no Bedrock / no subprocess / no integration gate.
 """
+
 from __future__ import annotations
 
 import pytest

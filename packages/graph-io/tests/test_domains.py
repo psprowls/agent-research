@@ -8,7 +8,6 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from graph_io import domains, packages, store
 from graph_io.domains import DomainYamlError
 from graph_io.uri import RepoContext
@@ -36,9 +35,7 @@ def _write_pkg(root: Path, name: str, lang: str = "python") -> None:
         )
     else:
         pkg_dir.mkdir(parents=True, exist_ok=True)
-        (pkg_dir / "package.json").write_text(
-            '{"name": "' + name + '", "version": "0.0.0"}'
-        )
+        (pkg_dir / "package.json").write_text('{"name": "' + name + '", "version": "0.0.0"}')
 
 
 def _refresh_packages(conn: sqlite3.Connection, repo_root: Path) -> None:
@@ -47,14 +44,13 @@ def _refresh_packages(conn: sqlite3.Connection, repo_root: Path) -> None:
 
 
 def _count_domains(conn: sqlite3.Connection) -> int:
-    return conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='domain'"
-    ).fetchone()[0]
+    return conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='domain'").fetchone()[0]
 
 
 def _count_edges(conn: sqlite3.Connection, kind: str) -> int:
     return conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE kind=?", (kind,),
+        "SELECT COUNT(*) FROM edges WHERE kind=?",
+        (kind,),
     ).fetchone()[0]
 
 
@@ -74,17 +70,13 @@ def test_missing_yaml_zero_domain(tmp_path: Path) -> None:
 
 def test_emit_domain_nodes(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "core:\n  packages: [mypkg]\n  description: 'Core domain'\n"
-    )
+    (tmp_path / "domains.yaml").write_text("core:\n  packages: [mypkg]\n  description: 'Core domain'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
     assert _count_domains(conn) == 1
     assert _count_edges(conn, "belongs_to_domain") == 1
-    row = conn.execute(
-        "SELECT uri, attrs_json FROM nodes WHERE kind='domain' AND name='core'"
-    ).fetchone()
+    row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE kind='domain' AND name='core'").fetchone()
     assert row[0] == "domain:testorg/testrepo/core"
     attrs = json.loads(row[1])
     assert attrs.get("description") == "Core domain"
@@ -95,10 +87,7 @@ def test_emit_domain_nodes(tmp_path: Path) -> None:
 
 def test_multi_domain_membership(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n"
-        "b:\n  packages: [mypkg]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\nb:\n  packages: [mypkg]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
@@ -140,9 +129,7 @@ def test_cycle_skip_only_intra_scc(tmp_path: Path, caplog: pytest.LogCaptureFixt
 def test_cycle_length_3_intra_scc_only_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
     (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n  parent: b\n"
-        "b:\n  packages: []\n  parent: c\n"
-        "c:\n  packages: []\n  parent: a\n"
+        "a:\n  packages: [mypkg]\n  parent: b\nb:\n  packages: []\n  parent: c\nc:\n  packages: []\n  parent: a\n"
     )
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
@@ -158,9 +145,7 @@ def test_cycle_length_3_intra_scc_only_skipped(tmp_path: Path, caplog: pytest.Lo
 
 def test_self_loop_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n  parent: a\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  parent: a\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -175,9 +160,7 @@ def test_self_loop_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> Non
 
 def test_orphan_parent_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n  parent: nonexistent\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  parent: nonexistent\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -193,9 +176,7 @@ def test_orphan_parent_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) ->
 def test_unknown_package_warns_with_known_list(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
     _write_pkg(tmp_path, "otherpkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [bogus]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: [bogus]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -214,9 +195,7 @@ def test_unknown_package_warns_with_known_list(tmp_path: Path, caplog: pytest.Lo
 
 def test_unknown_top_level_key_logged_and_ignored(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n  weird_extra: yes\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  weird_extra: yes\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -230,9 +209,7 @@ def test_unknown_top_level_key_logged_and_ignored(tmp_path: Path, caplog: pytest
 
 def test_missing_packages_field_skips_domain(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  description: 'no packages'\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  description: 'no packages'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -246,9 +223,7 @@ def test_missing_packages_field_skips_domain(tmp_path: Path, caplog: pytest.LogC
 
 def test_non_list_packages_skips_domain(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: 'mypkg'\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a:\n  packages: 'mypkg'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
@@ -262,9 +237,7 @@ def test_non_list_packages_skips_domain(tmp_path: Path, caplog: pytest.LogCaptur
 
 def test_yaml_parse_error_raises_domain_yaml_error(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a: { invalid: yaml: payload\n"
-    )
+    (tmp_path / "domains.yaml").write_text("a: { invalid: yaml: payload\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with pytest.raises(DomainYamlError) as exc_info:
@@ -286,9 +259,7 @@ def test_no_convention_inference_from_test_dir(tmp_path: Path) -> None:
     _refresh_packages(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
     # SC#5: no Domain node named 'billing' should exist
-    row = conn.execute(
-        "SELECT id FROM nodes WHERE kind='domain' AND name='billing'"
-    ).fetchone()
+    row = conn.execute("SELECT id FROM nodes WHERE kind='domain' AND name='billing'").fetchone()
     assert row is None
     assert _count_domains(conn) == 0
 
@@ -298,18 +269,12 @@ def test_no_convention_inference_from_test_dir(tmp_path: Path) -> None:
 
 def test_idempotent_emit(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "core:\n  packages: [mypkg]\n"
-    )
+    (tmp_path / "domains.yaml").write_text("core:\n  packages: [mypkg]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    edges_first = conn.execute(
-        "SELECT src, dst, kind FROM edges ORDER BY src, dst, kind"
-    ).fetchall()
+    edges_first = conn.execute("SELECT src, dst, kind FROM edges ORDER BY src, dst, kind").fetchall()
     domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    edges_second = conn.execute(
-        "SELECT src, dst, kind FROM edges ORDER BY src, dst, kind"
-    ).fetchall()
+    edges_second = conn.execute("SELECT src, dst, kind FROM edges ORDER BY src, dst, kind").fetchall()
     assert edges_first == edges_second
-    assert _count_domains(conn) == 1   # not duplicated
+    assert _count_domains(conn) == 1  # not duplicated

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Tests for the gw root --verbose/-v/-vv callback."""
+
+from __future__ import annotations
 
 import os
 import subprocess
@@ -21,8 +21,8 @@ _PLAIN_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 )
 def test_callback_passes_verbosity_count(monkeypatch, argv, expected):
     """The root callback calls configure_verbose_logging with the counted -v value."""
-    from typer.testing import CliRunner
     import graph_wiki_cli.cli as cli
+    from typer.testing import CliRunner
 
     calls: list[int] = []
     monkeypatch.setattr(cli, "configure_verbose_logging", lambda v: calls.append(v))

@@ -20,14 +20,12 @@ GROUP = "scanner_heading"
 _BASE_SECTIONS = ("## Narrative", "## Referenced in wiki")
 _FILE_MAP_KINDS = frozenset({"package", "app", "test_suite"})
 _EXPECTED_SCANNER_HEADINGS: dict[str, tuple[str, ...]] = {
-    kind: (_BASE_SECTIONS + ("## File map",) if kind in _FILE_MAP_KINDS else _BASE_SECTIONS)
-    for kind in ADMITTED_KINDS
+    kind: (_BASE_SECTIONS + ("## File map",) if kind in _FILE_MAP_KINDS else _BASE_SECTIONS) for kind in ADMITTED_KINDS
 }
 
 # Defence-in-depth: if this dict is ever rewritten as a literal (instead of the
 # ADMITTED_KINDS comprehension), this guards against a kind being omitted.
-assert set(_EXPECTED_SCANNER_HEADINGS) == set(ADMITTED_KINDS), \
-    "scanner-heading lint map must cover every admitted kind"
+assert set(_EXPECTED_SCANNER_HEADINGS) == set(ADMITTED_KINDS), "scanner-heading lint map must cover every admitted kind"
 
 _FILE_MAP_PREFIX_RE = re.compile(r"^## File map\b", re.MULTILINE)
 
@@ -63,8 +61,5 @@ def check(pages: dict) -> list[str]:
         text = page.get("text") or ""
         for heading in expected:
             if not _heading_present(text, heading):
-                issues.append(
-                    f"{key}: missing scanner section '{heading}' "
-                    f"(renamed or dropped?)"
-                )
+                issues.append(f"{key}: missing scanner section '{heading}' (renamed or dropped?)")
     return sorted(issues)

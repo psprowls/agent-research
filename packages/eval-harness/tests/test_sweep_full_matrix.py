@@ -13,9 +13,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 import eval_harness.sweep as sweep_mod
+import pytest
 from eval_harness.divergence.metric import DivergenceMetric
 from eval_harness.two_gate import TwoGateOutcome
 from eval_harness.two_gate import score_two_gate as original  # noqa: F401
@@ -99,12 +98,8 @@ async def test_run_full_matrix_wires_divergence_metric_and_baselines(
     assert isinstance(call["divergence_metric_or_none"], DivergenceMetric), (
         "librarian must receive a real DivergenceMetric, not None"
     )
-    assert isinstance(call["baselines_dir"], Path), (
-        "librarian must receive a Path baselines_dir, not None"
-    )
-    assert call["baselines_dir"].is_dir(), (
-        f"baselines_dir {call['baselines_dir']} must be an existing directory"
-    )
+    assert isinstance(call["baselines_dir"], Path), "librarian must receive a Path baselines_dir, not None"
+    assert call["baselines_dir"].is_dir(), f"baselines_dir {call['baselines_dir']} must be an existing directory"
 
 
 # ---------------------------------------------------------------------------
@@ -155,9 +150,7 @@ def test_judgeable_writeback_sets_panel_mean(tmp_path: Path, monkeypatch: pytest
     assert mean == 0.8
 
 
-def test_judgeable_writeback_judges_off_leaves_none(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_judgeable_writeback_judges_off_leaves_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """With GRAPH_WIKI_RUN_JUDGES unset, judge_scores stays None and helper returns None."""
     monkeypatch.delenv("GRAPH_WIKI_RUN_JUDGES", raising=False)
 

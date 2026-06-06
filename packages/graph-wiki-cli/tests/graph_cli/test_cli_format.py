@@ -8,8 +8,8 @@ import sys
 from dataclasses import dataclass
 
 import pytest
-from graph_wiki_cli.graph_cli import _format
 from graph_io.queries import ExporterRecord, ExportRecord, ImporterRecord
+from graph_wiki_cli.graph_cli import _format
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,8 @@ def test_render_invalid_format() -> None:
 def test_cli_rejects_invalid_fmt() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--fmt", "xml", "status"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 2
     assert "invalid value" in result.stderr.lower()

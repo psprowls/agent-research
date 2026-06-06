@@ -5,9 +5,8 @@ from __future__ import annotations
 import json as _json
 import sys
 
-from workspace_io.paths import graph_dir
-
 from graph_io import exit_codes, queries, store
+from workspace_io.paths import graph_dir
 
 
 def run(args: object) -> int:
@@ -56,9 +55,5 @@ def run(args: object) -> int:
         }
         print("  ".join(k.ljust(widths[k]) for k in keys))
         for pkg, usage, doms in rows:
-            print(
-                f"{pkg.ljust(widths['package'])}  "
-                f"{usage.ljust(widths['usage'])}  "
-                f"{doms.ljust(widths['domains'])}"
-            )
+            print(f"{pkg.ljust(widths['package'])}  {usage.ljust(widths['usage'])}  {doms.ljust(widths['domains'])}")
     return exit_codes.SUCCESS

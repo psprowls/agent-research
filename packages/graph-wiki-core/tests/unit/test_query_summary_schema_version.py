@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Phase 9 OBS-04 (Plan 09-01 Task 2): query.py query_summary writer test.
 
 Decision rule per plan: no existing test in agents/graph-wiki-core/tests/unit/
@@ -15,11 +13,11 @@ the JSONL line written to .graph-wiki/traces/query_{query_id}.jsonl — that rec
 must carry schema_version: 1 (D-01 / D-02) AND still carry every pre-existing key.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 from graph_wiki_core.commands.query import run_query
 
@@ -36,22 +34,14 @@ def _seed_minimal_vault(vault: Path) -> list[str]:
 
     pages_dir = vault / "wiki" / "pages"
     pages_dir.mkdir(parents=True)
-    (pages_dir / "alpha.md").write_text(
-        "---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n"
-    )
-    (pages_dir / "beta.md").write_text(
-        "---\ntitle: Beta\n---\n\n# Beta\n\nBeta depends on alpha.\n"
-    )
-    (pages_dir / "gamma.md").write_text(
-        "---\ntitle: Gamma\n---\n\n# Gamma\n\nGamma provides utilities.\n"
-    )
+    (pages_dir / "alpha.md").write_text("---\ntitle: Alpha\n---\n\n# Alpha\n\nAlpha is a package.\n")
+    (pages_dir / "beta.md").write_text("---\ntitle: Beta\n---\n\n# Beta\n\nBeta depends on alpha.\n")
+    (pages_dir / "gamma.md").write_text("---\ntitle: Gamma\n---\n\n# Gamma\n\nGamma provides utilities.\n")
 
     return ["pages/alpha.md", "pages/beta.md", "pages/gamma.md"]
 
 
-async def test_query_summary_record_has_schema_version_one(
-    tmp_path: Path, monkeypatch
-) -> None:
+async def test_query_summary_record_has_schema_version_one(tmp_path: Path, monkeypatch) -> None:
     """Per Phase 9 OBS-04 D-01/D-02: the query_summary record written by
     query.py at the tail of run_query must contain schema_version: 1 in
     addition to every pre-existing key (kind, query_id, query, top_k,
@@ -90,9 +80,7 @@ async def test_query_summary_record_has_schema_version_one(
     )
     monkeypatch.setattr(
         "graph_wiki_core.commands.query._cosine_search_sqlite",
-        lambda vault_path, query_vec, top_k: [
-            (p, 0.9 - i * 0.1) for i, p in enumerate(page_paths)
-        ],
+        lambda vault_path, query_vec, top_k: [(p, 0.9 - i * 0.1) for i, p in enumerate(page_paths)],
     )
     mock_embeddings_inst = MagicMock()
     mock_embeddings_inst.embed_query.return_value = [0.1] * 1024
@@ -107,8 +95,7 @@ async def test_query_summary_record_has_schema_version_one(
     trace_dir = tmp_path.resolve() / ".graph-wiki" / "traces"
     summary_files = list(trace_dir.glob("query_*.jsonl"))
     assert len(summary_files) == 1, (
-        f"Expected exactly one query_*.jsonl summary file in {trace_dir}; "
-        f"found {summary_files}"
+        f"Expected exactly one query_*.jsonl summary file in {trace_dir}; found {summary_files}"
     )
 
     # The summary writer opens with "w" and writes one JSON line, so the file
@@ -117,9 +104,7 @@ async def test_query_summary_record_has_schema_version_one(
     record = json.loads(raw)
 
     # Primary assertion — Phase 9 OBS-04
-    assert record["schema_version"] == 1, (
-        f"query_summary record missing schema_version: 1; got {record!r}"
-    )
+    assert record["schema_version"] == 1, f"query_summary record missing schema_version: 1; got {record!r}"
     # Pre-existing keys all still present (additive change rule, Phase 8 D-06/D-07)
     expected_keys = {
         "schema_version",
@@ -134,7 +119,6 @@ async def test_query_summary_record_has_schema_version_one(
         "ended_at",
     }
     assert expected_keys.issubset(record.keys()), (
-        f"query_summary record missing pre-existing keys; "
-        f"have {sorted(record.keys())} expected {sorted(expected_keys)}"
+        f"query_summary record missing pre-existing keys; have {sorted(record.keys())} expected {sorted(expected_keys)}"
     )
     assert record["kind"] == "query_summary"

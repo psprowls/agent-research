@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Real-Bedrock integration tests for SubagentPool.
 
 These tests dispatch actual LLM calls to AWS Bedrock and verify that the
@@ -17,6 +15,8 @@ To run:
 Estimated cost per full run: <<$0.05 against Haiku (short prompts only).
 Estimated runtime: well under 120 seconds.
 """
+
+from __future__ import annotations
 
 import json
 import os
@@ -68,11 +68,11 @@ async def test_partial_failure_real_bedrock(tmp_path: Path) -> None:
     # Verify the trace file has 4 records (1 per item)
     trace_files = list(trace_dir.glob("*.jsonl"))
     assert len(trace_files) == 1, f"Expected 1 trace file; found {len(trace_files)}"
-    lines = [l for l in trace_files[0].read_text().splitlines() if l.strip()]
+    lines = [line for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(lines) == 4, f"Expected 4 JSONL records; got {len(lines)}"
 
     # Confirm status values
-    statuses = [json.loads(l)["status"] for l in lines]
+    statuses = [json.loads(line)["status"] for line in lines]
     success_count = statuses.count("success")
     error_count = statuses.count("error")
     assert success_count == 3, f"Expected 3 success records; got {success_count}"
@@ -163,7 +163,7 @@ async def test_recursion_limit_propagated_real_bedrock(tmp_path: Path) -> None:
     # Verify the trace file has 1 record with status=success
     trace_files = list(trace_dir.glob("*.jsonl"))
     assert len(trace_files) == 1, f"Expected 1 trace file; found {len(trace_files)}"
-    lines = [l for l in trace_files[0].read_text().splitlines() if l.strip()]
+    lines = [line for line in trace_files[0].read_text().splitlines() if line.strip()]
     assert len(lines) == 1, f"Expected 1 JSONL record; got {len(lines)}"
     record = json.loads(lines[0])
     assert record["status"] == "success", f"Expected status=success; got {record['status']}"

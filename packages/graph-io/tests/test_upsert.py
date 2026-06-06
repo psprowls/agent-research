@@ -7,9 +7,8 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
-
 from graph_io import store, upsert
+from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 
 @pytest.fixture()
@@ -51,7 +50,9 @@ def test_upsert_is_idempotent_on_tuple_key(conn: sqlite3.Connection) -> None:
 
 def test_upsert_attrs_json_round_trip(conn: sqlite3.Connection) -> None:
     records = _records(
-        nodes=[GraphNode(kind="function", name="foo", path="a.py", line=10, attrs={"is_async": True, "decorators": ["x"]})],
+        nodes=[
+            GraphNode(kind="function", name="foo", path="a.py", line=10, attrs={"is_async": True, "decorators": ["x"]})
+        ],
     )
     upsert.upsert_records(conn, records)
     row = conn.execute("SELECT attrs_json FROM nodes WHERE name='foo'").fetchone()
@@ -75,8 +76,7 @@ def test_upsert_creates_edges(conn: sqlite3.Connection) -> None:
     )
     upsert.upsert_records(conn, records)
     edges = conn.execute(
-        "SELECT n1.name, n2.name, e.kind FROM edges e "
-        "JOIN nodes n1 ON e.src=n1.id JOIN nodes n2 ON e.dst=n2.id"
+        "SELECT n1.name, n2.name, e.kind FROM edges e JOIN nodes n1 ON e.src=n1.id JOIN nodes n2 ON e.dst=n2.id"
     ).fetchall()
     assert edges == [("a.py", "foo", "contains")]
 
@@ -94,13 +94,9 @@ def test_upsert_unresolved_edge_creates_placeholder(conn: sqlite3.Connection) ->
         ],
     )
     upsert.upsert_records(conn, records)
-    placeholder = conn.execute(
-        "SELECT kind, name, path FROM nodes WHERE name='missing'"
-    ).fetchone()
+    placeholder = conn.execute("SELECT kind, name, path FROM nodes WHERE name='missing'").fetchone()
     assert placeholder == ("unresolved_symbol", "missing", None)
-    edge = conn.execute(
-        "SELECT attrs_json FROM edges WHERE kind='calls'"
-    ).fetchone()
+    edge = conn.execute("SELECT attrs_json FROM edges WHERE kind='calls'").fetchone()
     assert json.loads(edge[0]) == {
         "resolution": "unresolved",
         "symbol_kind": "function",
@@ -121,13 +117,9 @@ def test_upsert_uri_lands_in_column(conn: sqlite3.Connection) -> None:
         ],
     )
     upsert.upsert_records(conn, records)
-    uri_row = conn.execute(
-        "SELECT uri FROM nodes WHERE kind='package' AND name='auth'"
-    ).fetchone()
+    uri_row = conn.execute("SELECT uri FROM nodes WHERE kind='package' AND name='auth'").fetchone()
     assert uri_row == ("pkg:org/repo/auth",)
-    attrs_row = conn.execute(
-        "SELECT attrs_json FROM nodes WHERE kind='package' AND name='auth'"
-    ).fetchone()
+    attrs_row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='package' AND name='auth'").fetchone()
     parsed = json.loads(attrs_row[0])
     assert "uri" not in parsed
     assert parsed == {"version": "1.0", "language": "python"}
@@ -147,9 +139,7 @@ def test_upsert_node_without_uri_has_null_uri_column(conn: sqlite3.Connection) -
         ],
     )
     upsert.upsert_records(conn, records)
-    row = conn.execute(
-        "SELECT uri, attrs_json FROM nodes WHERE name='bar'"
-    ).fetchone()
+    row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE name='bar'").fetchone()
     assert row[0] is None
     assert json.loads(row[1]) == {"is_async": False}
 
@@ -169,11 +159,7 @@ def test_upsert_uri_idempotent(conn: sqlite3.Connection) -> None:
     )
     upsert.upsert_records(conn, records)
     upsert.upsert_records(conn, records)
-    count = conn.execute(
-        "SELECT COUNT(*) FROM nodes WHERE kind='package' AND name='auth'"
-    ).fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='package' AND name='auth'").fetchone()[0]
     assert count == 1
-    uri_row = conn.execute(
-        "SELECT uri FROM nodes WHERE kind='package' AND name='auth'"
-    ).fetchone()
+    uri_row = conn.execute("SELECT uri FROM nodes WHERE kind='package' AND name='auth'").fetchone()
     assert uri_row == ("pkg:org/repo/auth",)

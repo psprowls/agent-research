@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import sys
 
+from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
-
-from graph_io import exit_codes, queries, render as _render, store
 
 
 def run(args: object) -> int:
@@ -35,9 +35,7 @@ def run(args: object) -> int:
         raw = args.name
         if ":" in raw:
             package_name, entry_name = raw.split(":", 1)
-            desc = queries.describe_entry_point(
-                conn, package_name=package_name, entry_name=entry_name
-            )
+            desc = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
         else:
             # Bare entry name: scan all packages that declare an EntryPoint by this name.
             rows = conn.execute(
@@ -60,9 +58,7 @@ def run(args: object) -> int:
                 )
                 return exit_codes.AMBIGUOUS
             else:
-                desc = queries.describe_entry_point(
-                    conn, package_name=rows[0][0], entry_name=raw
-                )
+                desc = queries.describe_entry_point(conn, package_name=rows[0][0], entry_name=raw)
     finally:
         conn.close()
     if desc is None:
