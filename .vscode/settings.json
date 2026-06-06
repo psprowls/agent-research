@@ -1,0 +1,24 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.analysis.typeCheckingMode": "standard",
+  "python.analysis.include": [
+    "packages/*/src/**/*.py",
+    "plugins/graph-wiki/skills/graph-wiki/scripts/**/*.py"
+  ],
+  "python.analysis.exclude": [
+    "**/tests/**",
+    "**/fixtures/**",
+    ".venv/**",
+    ".worktrees/**",
+    ".git/**",
+    ".hypothesis/**",
+    ".claude/**",
+    ".gsd/**",
+    ".agents/**",
+    "graph-wiki/**",
+    "**/__pycache__/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/node_modules/**"
+  ]
+}
