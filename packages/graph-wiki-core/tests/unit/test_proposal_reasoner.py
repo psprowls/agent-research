@@ -87,16 +87,27 @@ def test_build_source_chunks_splits_when_over_budget() -> None:
 
 
 def test_build_reasoner_tools_read_wiki_page_is_bounded(tmp_path: Path) -> None:
-    from graph_wiki_core.commands.proposal_reasoner import build_reasoner_tools
+    from graph_wiki_core.commands.proposal_reasoner import MAX_WIKI_PAGE_CHARS, build_reasoner_tools
 
     wiki = tmp_path / "wiki"
-    _page(wiki / "concepts" / "ownership.md", "Ownership", "concept")
+    page = wiki / "concepts" / "ownership.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "---\ntitle: Ownership\nkind: concept\n---\n\n"
+        + ("x" * (MAX_WIKI_PAGE_CHARS + 100))
+        + "beyond-boundary-marker",
+        encoding="utf-8",
+    )
     tools = {tool.name: tool for tool in build_reasoner_tools(wiki=wiki, chunks=[], graph_tools=[])}
 
     out = tools["read_wiki_page"].invoke({"path": "concepts/ownership.md"})
+    bounded_content = out.split("\n\n[TRUNCATED after", 1)[0]
 
     assert "# Ownership" in out
     assert "ERROR" not in out
+    assert len(bounded_content) == MAX_WIKI_PAGE_CHARS
+    assert f"[TRUNCATED after {MAX_WIKI_PAGE_CHARS} chars]" in out
+    assert "beyond-boundary-marker" not in out
     assert "outside wiki" in tools["read_wiki_page"].invoke({"path": "../secret.md"})
 
 
