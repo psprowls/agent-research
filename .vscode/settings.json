@@ -1,5 +1,6 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "mypy-type-checker.ignorePatterns": ["**/*.py"],
   "python.analysis.typeCheckingMode": "standard",
   "python.analysis.include": [
     "packages/*/src/**/*.py",
