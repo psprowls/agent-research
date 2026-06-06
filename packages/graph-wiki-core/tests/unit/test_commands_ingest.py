@@ -1565,3 +1565,35 @@ def test_synthesize_frontmatter_block_prepends_all_fields() -> None:
     # entity_uri carried through when present.
     out_uri = _synthesize_frontmatter_block(body, "source", "s", "pkg:x/y/z")
     assert "entity_uri: pkg:x/y/z" in out_uri
+
+
+def test_parse_extractor_response_accepts_rich_fields_and_limits_to_five() -> None:
+    from graph_wiki_core.commands.suggest_pages import parse_extractor_response
+
+    items = "\n".join(
+        f"""  - kind: concept
+    title: Candidate {i}
+    slug: candidate-{i}
+    mode: create_new
+    existing_slug:
+    rank: {i}
+    confidence: medium
+    rationale: Candidate {i} rationale.
+    evidence:
+      - Evidence {i}
+    existing_pages_considered:
+      - concepts/existing
+    reasoning_summary: Reasoning {i}
+    potential_conflicts:
+      - Conflict {i}
+    implementation_notes:
+      - Note {i}"""
+        for i in range(1, 7)
+    )
+    proposals, parsed = parse_extractor_response(f"suggestions:\n{items}")
+
+    assert parsed is True
+    assert len(proposals) == 5
+    assert proposals[0]["rank"] == 1
+    assert proposals[0]["confidence"] == "medium"
+    assert proposals[0]["evidence"] == ["Evidence 1"]

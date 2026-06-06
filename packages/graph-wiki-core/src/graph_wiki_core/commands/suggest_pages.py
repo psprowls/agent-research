@@ -34,12 +34,36 @@ SUGGESTION_KINDS = frozenset({"concept", "adr", "architecture"})
 EXTRACT_PREVIEW_CHARS = 4000
 
 # Canonical key order for a validated proposal dict (cosmetic; the ledger owns serialization).
-_ENTRY_KEY_ORDER = ("kind", "title", "slug", "mode", "existing_slug", "rationale", "status")
+_ENTRY_KEY_ORDER = (
+    "kind",
+    "title",
+    "slug",
+    "mode",
+    "existing_slug",
+    "rank",
+    "confidence",
+    "rationale",
+    "evidence",
+    "existing_pages_considered",
+    "reasoning_summary",
+    "potential_conflicts",
+    "implementation_notes",
+    "status",
+)
 
 
 def _ordered_entry(d: dict) -> dict:
     """Return a new dict with the canonical key order (omitting absent keys)."""
     return {k: d[k] for k in _ENTRY_KEY_ORDER if k in d}
+
+
+def _string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
 
 
 def _validate_proposal(raw: object) -> dict | None:
@@ -64,7 +88,15 @@ def _validate_proposal(raw: object) -> dict | None:
         mode = "create_new"
     existing_raw = raw.get("existing_slug")
     existing_slug = slugify(str(existing_raw).strip()) if existing_raw else None
+    try:
+        rank = int(raw.get("rank", 999))
+    except (TypeError, ValueError):
+        rank = 999
+    confidence = str(raw.get("confidence", "medium")).strip().lower()
+    if confidence not in {"high", "medium", "low"}:
+        confidence = "medium"
     rationale = str(raw.get("rationale", "")).strip()
+    reasoning_summary = str(raw.get("reasoning_summary", "")).strip()
     return _ordered_entry(
         {
             "kind": kind,
@@ -72,7 +104,14 @@ def _validate_proposal(raw: object) -> dict | None:
             "slug": slug,
             "mode": mode,
             "existing_slug": existing_slug,
+            "rank": rank,
+            "confidence": confidence,
             "rationale": rationale,
+            "evidence": _string_list(raw.get("evidence")),
+            "existing_pages_considered": _string_list(raw.get("existing_pages_considered")),
+            "reasoning_summary": reasoning_summary,
+            "potential_conflicts": _string_list(raw.get("potential_conflicts")),
+            "implementation_notes": _string_list(raw.get("implementation_notes")),
         }
     )
 
@@ -117,7 +156,8 @@ def parse_extractor_response(text: str) -> tuple[list[dict], bool]:
         norm = _validate_proposal(item)
         if norm is not None:
             proposals.append(norm)
-    return proposals, True
+    proposals.sort(key=lambda proposal: int(proposal.get("rank", 999)))
+    return proposals[:5], True
 
 
 # Directory name -> curated page kind.
@@ -223,6 +263,21 @@ async def run_suggest_phase(
             target_slug = p["existing_slug"]
         else:
             target_slug = p["slug"]
+        origin = {
+            "ref": source_ref,
+            "source": "ingest",
+            "rationale": p.get("rationale", ""),
+        }
+        for key in (
+            "evidence",
+            "existing_pages_considered",
+            "potential_conflicts",
+            "implementation_notes",
+        ):
+            if p.get(key):
+                origin[key] = p[key]
+        if p.get("reasoning_summary"):
+            origin["reasoning_summary"] = p["reasoning_summary"]
         record = upsert_proposal(
             wiki,
             {
@@ -230,11 +285,9 @@ async def run_suggest_phase(
                 "mode": p["mode"],
                 "target_slug": target_slug,
                 "title": p["title"],
-                "origin": {
-                    "ref": source_ref,
-                    "source": "ingest",
-                    "rationale": p.get("rationale", ""),
-                },
+                "rank": p["rank"],
+                "confidence": p["confidence"],
+                "origin": origin,
             },
         )
         reports.append(
@@ -243,6 +296,8 @@ async def run_suggest_phase(
                 "title": record["title"],
                 "slug": record["target_slug"],
                 "mode": record["mode"],
+                "rank": record.get("rank", p["rank"]),
+                "confidence": record.get("confidence", p["confidence"]),
                 "status": record["status"],
             }
         )
