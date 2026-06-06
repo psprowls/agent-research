@@ -917,7 +917,7 @@ async def run_scan(
                 conn = None
 
         # Step 8: compute state gate
-        state_gate = compute_state_gate(repo)
+        state_gate = compute_state_gate(repo, workspace=wiki.parent)
         head = state_gate.get("head_commit")
         # Item 1: abbreviate to git's canonical short form ONCE per scan (HEAD is
         # the same for every page stamped this run). Falls back to the full SHA on

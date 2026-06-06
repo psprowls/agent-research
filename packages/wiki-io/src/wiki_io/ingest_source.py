@@ -253,7 +253,7 @@ def build_folder_ingest_brief(source_path: Path, wiki: Path, repo: Path) -> dict
     brief: dict = {
         "is_folder": True,
         **folder_brief(source_path, rel_to_wiki),
-        "state_gate": compute_state_gate(repo),
+        "state_gate": compute_state_gate(repo, workspace=wiki.parent),
     }
     return brief
 
@@ -304,7 +304,7 @@ def build_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root
         "merge_mode": page_exists,
         "in_repo_doc": in_repo_doc,
         "entity_match": _build_entity_match(workspace_root, repo, source_path, title_guess),
-        "state_gate": compute_state_gate(repo),
+        "state_gate": compute_state_gate(repo, workspace=workspace_root),
     }
 
 

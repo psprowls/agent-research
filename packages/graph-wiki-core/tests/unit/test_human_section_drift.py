@@ -104,7 +104,7 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
 
@@ -150,7 +150,7 @@ def test_already_checked_entity_skips_judge(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -176,7 +176,7 @@ def test_fresh_verdict_no_flag_but_checked_advances(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -193,7 +193,7 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -205,7 +205,7 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
@@ -296,7 +296,7 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -305,7 +305,7 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head2"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
@@ -380,7 +380,7 @@ def test_scan_propagate_drift_off_by_default(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     calls = {"n": 0}
@@ -403,7 +403,7 @@ def test_scan_propagate_drift_on_runs_producer(ws, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     captured: dict = {}

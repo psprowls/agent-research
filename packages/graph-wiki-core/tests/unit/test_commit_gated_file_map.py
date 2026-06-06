@@ -142,7 +142,7 @@ def test_redescribe_changed_row_preserves_unchanged(m2b_workspace, monkeypatch) 
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -184,7 +184,7 @@ def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> N
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -228,7 +228,7 @@ def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatc
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -272,7 +272,7 @@ def test_empty_narration_alone_does_not_stamp(m2b_workspace, monkeypatch) -> Non
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -293,7 +293,7 @@ def test_redescription_advances_anchor_despite_empty_narration(m2b_workspace, mo
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     prose_tag = {"v": "real prose"}
     desc_tag = {"v": "D1"}
@@ -331,7 +331,7 @@ def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) 
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -364,7 +364,7 @@ def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> N
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -409,7 +409,7 @@ def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -457,7 +457,7 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, mon
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -518,7 +518,7 @@ def test_narrated_only_page_still_stamps(m2b_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,

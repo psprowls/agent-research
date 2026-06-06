@@ -76,7 +76,7 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
     )
     monkeypatch.setattr(
         scan_module,
@@ -128,7 +128,7 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
         reloaded_setattr(
             reloaded,
             "compute_state_gate",
-            lambda repo: {"allowed": True, "reason": "clean", "head_commit": "x"},
+            lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
         )
 
         result = asyncio.run(

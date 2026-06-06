@@ -82,7 +82,7 @@ def churn_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
         scan_mod.SubagentPool,

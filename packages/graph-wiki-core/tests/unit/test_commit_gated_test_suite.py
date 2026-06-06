@@ -105,7 +105,7 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -145,7 +145,7 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
@@ -185,7 +185,7 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     # Suite map with a NESTED row so the transform must strip the suite root.
     nested_map = (
@@ -231,7 +231,7 @@ def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
