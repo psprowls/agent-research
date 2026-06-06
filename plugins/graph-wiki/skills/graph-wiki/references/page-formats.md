@@ -281,7 +281,7 @@ title: "Auth Migration Spec"
 category: source
 summary: Move from opaque session tokens to JWTs; driven by compliance, affects 4 packages
 source_path: raw/specs/auth-migration.md
-source_type: spec
+source_type: spec                # spec | article | pr | ticket | transcript | example | doc | note
 source_date: 2026-04-01
 last_sync_commit:                # set only for in-repo docs (source_type: doc) — full SHA at last ingest, used by /graph-wiki:lint to detect changes
 last_sync_at:                    # YYYY-MM-DD when sync state was recorded

@@ -24,7 +24,7 @@ Run `python scripts/ingest_source.py --source <path> --json` to get (wiki and re
 - title guess
 - word count
 - preview (first 1200 chars)
-- source_type guess (spec / article / pr / ticket / transcript / doc)
+- source_type guess (spec / article / pr / ticket / transcript / example / doc / note — raw/<type>/ folders are authoritative; in-repo docs default to `doc`, loose files to `note`)
 - suggested summary-page path (`<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`)
 - whether a summary page already exists (→ **merge mode**)
 - `last_sync_commit`, `in_repo_doc` flag, and `state_gate` (`allowed`, `reason`, `head_commit`) — use `state_gate.allowed` to decide whether to write drift-detection frontmatter; use `state_gate.head_commit` as the value for `last_sync_commit`

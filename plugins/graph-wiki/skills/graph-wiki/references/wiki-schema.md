@@ -240,7 +240,7 @@ title: "Auth Migration Spec"
 category: source
 summary: Spec for moving from session tokens to JWTs; addresses compliance flags
 source_path: raw/specs/auth-migration.md   # raw/<...> for staged sources, repo-relative (e.g. docs/auth.md) for in-repo docs
-source_type: spec                # spec | article | pr | ticket | transcript | rfc | doc | example
+source_type: spec                # spec | article | pr | ticket | transcript | example | doc | note
 source_date: 2026-04-01
 last_sync_commit:                # set only for in-repo docs (source_type: doc) — full SHA at last ingest, used by /graph-wiki:lint to detect changes
 last_sync_at:                    # YYYY-MM-DD when sync state was recorded
