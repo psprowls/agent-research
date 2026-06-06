@@ -130,3 +130,15 @@ def read_roles(plugin_name: str, manifest_path: Path) -> list[dict]:
         if plugin.get("name") == plugin_name:
             return plugin.get("roles") or []
     return []
+
+
+def read_state_gate(manifest_path: Path) -> tuple[bool, list[str]]:
+    """Return the (enabled, branches) state-gate config for the workspace.
+
+    Reads the manifest and returns the normalized `state_gate` block as a typed
+    tuple. Defaults to (True, ["main"]) — today's behavior — when the manifest
+    is missing or carries no `state_gate` block. Mirrors `read_roles()`: a thin
+    read-only accessor that does not mutate disk.
+    """
+    block = read(manifest_path).get("state_gate") or {"enabled": True, "branches": ["main"]}
+    return block["enabled"], block["branches"]
