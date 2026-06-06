@@ -49,18 +49,19 @@ def short_commit(repo: Path, sha: str) -> str:
     return out[1].strip()
 
 
-def is_clean_main(repo: Path) -> tuple[bool, str]:
-    """Return (True, "") iff working tree is clean AND HEAD is on `main`.
+def is_clean_on_branches(repo: Path, branches: list[str]) -> tuple[bool, str]:
+    """Return (True, "") iff working tree is clean AND HEAD is on a listed branch.
 
-    Otherwise (False, "<reason>"). Used by /graph-wiki:scan and /graph-wiki:ingest to
-    decide whether to write new sync-state to vault frontmatter.
+    Otherwise (False, "<reason>"). Used by /graph-wiki:scan and /graph-wiki:ingest
+    (via compute_state_gate) to decide whether to write new sync-state to vault
+    frontmatter. `branches` is the configured allow-list from .graph-wiki.yaml.
     """
     branch_out = _run(repo, "rev-parse", "--abbrev-ref", "HEAD")
     if branch_out is None or branch_out[0] != 0:
         return False, "not a git repo"
     branch = branch_out[1].strip()
-    if branch != "main":
-        return False, f"branch is {branch!r}, not 'main'"
+    if branch not in branches:
+        return False, f"branch is {branch!r}, not in {branches}"
     status_out = _run(repo, "status", "--porcelain")
     if status_out is None or status_out[0] != 0:
         return False, "git status failed"
