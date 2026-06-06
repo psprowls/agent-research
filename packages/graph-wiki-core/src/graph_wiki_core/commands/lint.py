@@ -434,6 +434,8 @@ async def _semantic_pass(
         ]
         response = await linter_llm.ainvoke(msgs)
         content = response.content if hasattr(response, "content") else str(response)
+        if not isinstance(content, str):
+            raise RuntimeError(f"linter {name} returned non-text content")
         # Parse response: one finding per non-empty line
         findings = [line.strip() for line in content.splitlines() if line.strip()]
         # Phase 16-02 G-01: surface response.usage_metadata to pool trace.

@@ -109,7 +109,7 @@ def build_entity_backlink_map(wiki: Path) -> dict[str, list[tuple[str, str, Path
     refs: dict[str, list[tuple[str, str, Path]]] = {}
     for category, page_path in _iter_preserved_pages(wiki):
         try:
-            post = frontmatter.load(page_path)
+            post = frontmatter.load(str(page_path))
         except Exception:  # noqa: BLE001 — a malformed page must not abort the map
             continue
         slug = page_path.stem
@@ -144,7 +144,7 @@ def regenerate_referenced_in_wiki(wiki: Path) -> list[str]:
         entries = refs.get(stem, [])
         if entries:
             entries_sorted = sorted(entries, key=lambda e: (e[0], e[1]))
-            body = "\n".join(_format_bullet(cat, slug, frontmatter.load(pp)) for cat, slug, pp in entries_sorted)
+            body = "\n".join(_format_bullet(cat, slug, frontmatter.load(str(pp))) for cat, slug, pp in entries_sorted)
         else:
             body = _EMPTY_BODY
         inject_referenced_in_wiki(page_path, body)

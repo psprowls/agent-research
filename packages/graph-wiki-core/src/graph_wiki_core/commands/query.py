@@ -40,9 +40,10 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import bm25s
-from bm25s.tokenization import Tokenizer
+from bm25s.tokenization import Tokenized, Tokenizer
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_aws import BedrockEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
@@ -645,6 +646,8 @@ async def _retry_synthesis_drop_unresolved(
         HumanMessage(content=(f"Query: {query}\n\nLibrarian excerpts:\n{excerpts_text}\n\n{retry_instruction}")),
     ]
     resp = await synth_llm.ainvoke(msgs)
+    if not isinstance(resp.content, str):
+        raise RuntimeError("synthesizer retry returned non-text content")
     return resp.content
 
 
@@ -806,7 +809,7 @@ def bm25_query(
     tokenizer.load_stopwords(str(bm25_dir))
 
     # update_vocab=False: prevents expanding the frozen index vocabulary (Pitfall 1)
-    query_tokens = tokenizer.tokenize([query_text], update_vocab=False)
+    query_tokens = cast(list[list[str]] | Tokenized, tokenizer.tokenize([query_text], update_vocab=False))
     num_docs = retriever.scores["num_docs"]
     results, scores = retriever.retrieve(query_tokens, k=min(top_k, num_docs))
 
@@ -1072,6 +1075,8 @@ async def run_query(
                 response=synth_resp,
             )
             tokens_in, tokens_out = _extract_usage_tokens(synth_resp)
+            if not isinstance(synth_resp.content, str):
+                raise RuntimeError("synthesizer returned non-text content")
             answer = synth_resp.content
 
             # Plan 03-08: One-shot retry if the synthesizer emitted unresolved

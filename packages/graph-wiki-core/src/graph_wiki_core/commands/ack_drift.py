@@ -31,7 +31,7 @@ def _resolve_entity_page(wiki: Path, entity: str) -> Path:
     if entities_dir.is_dir():
         for page_path in sorted(entities_dir.glob("*.md")):
             try:
-                meta = frontmatter.load(page_path).metadata
+                meta = frontmatter.load(str(page_path)).metadata
             except Exception:  # noqa: BLE001
                 continue
             if meta.get("uri") == entity:
@@ -50,7 +50,8 @@ def run_ack_drift(entity: str, workspace_path: Path | None = None) -> AckDriftRe
     """Clear all `drift_review` flags for `entity`. Returns the page + count cleared."""
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
     page_path = _resolve_entity_page(wiki, entity)
-    entries = frontmatter.load(page_path).metadata.get("drift_review") or []
+    drift_review = frontmatter.load(str(page_path)).metadata.get("drift_review")
+    entries = drift_review if isinstance(drift_review, list) else []
     cleared = len(entries)
     if cleared:
         update_frontmatter(page_path, delete=["drift_review"])

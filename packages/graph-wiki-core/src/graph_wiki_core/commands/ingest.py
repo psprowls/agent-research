@@ -702,7 +702,9 @@ async def run_ingest_source(
             latency_ms=latency_ms,
             response=resp,
         )
-        llm_output: str = resp.content
+        if not isinstance(resp.content, str):
+            raise RuntimeError("ingestor returned non-text content")
+        llm_output = resp.content
 
         # Step 6: parse response to get source_kind and target_slug.
         # M3 Part A: classification is DECOUPLED from routing. Every ingested

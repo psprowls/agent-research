@@ -287,13 +287,17 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
                 return _entity_pkg_slug(p["fm"])
 
             vault_pkg_pages = {k: p for k, p in pages.items() if _slug_for(k, p) is not None}
-            vault_names = {_slug_for(k, p) for k, p in vault_pkg_pages.items()}
+            vault_names = {slug for k, p in vault_pkg_pages.items() if (slug := _slug_for(k, p)) is not None}
             # Pages declaring ``status: planned`` are deliberately seeded
             # before the workspace exists on disk (e.g. ``graph-graph``).
             # Surface them
             # separately under ``planned_in_vault`` instead of drowning real
             # drift under false positives.
-            planned_names = {_slug_for(k, p) for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
+            planned_names = {
+                slug
+                for k, p in vault_pkg_pages.items()
+                if p["fm"].get("status") == "planned" and (slug := _slug_for(k, p)) is not None
+            }
             code_drift = {
                 "packages_on_disk": len(disk_names),
                 "packages_in_vault": len(vault_names),
