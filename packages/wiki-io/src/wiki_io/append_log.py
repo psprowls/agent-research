@@ -73,6 +73,7 @@ def append_log(wiki, op, title, detail, as_json=False, silent=False, raise_excep
         log_path = validate_wiki(wiki)
     except FileNotFoundError as e:
         _error(str(e), as_json, raise_exception=raise_exception)
+        raise AssertionError("unreachable after _error")
 
     today, header, entry_text = format_entry(op, title, detail)
 
@@ -85,6 +86,7 @@ def append_log(wiki, op, title, detail, as_json=False, silent=False, raise_excep
             as_json,
             raise_exception=raise_exception,
         )
+        raise AssertionError("unreachable after _error")
 
     result = {
         "status": "ok",

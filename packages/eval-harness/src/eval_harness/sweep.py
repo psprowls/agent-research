@@ -30,6 +30,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +42,7 @@ from langchain_aws import ChatBedrockConverse
 from workspace_io.paths import graph_dir, wiki_dir
 
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
+from eval_harness.divergence.check import AgentOutputProxy
 from eval_harness.divergence.metric import DivergenceMetric
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
@@ -277,6 +279,8 @@ async def run_sweep(
                     librarian_model_override=model_id,
                 )
                 wall_seconds = time.monotonic() - t0
+                if wt.path is None:
+                    raise RuntimeError("eval worktree did not provide a workspace path")
 
                 # Extract token counts from trace JSONL
                 trace_dir = graph_dir(wt.path) / "traces"
@@ -530,7 +534,7 @@ async def run_role_sweep(
     wiki = wiki_dir(workspace_path)
 
     # Map dispatch name string to actual function (module-level callables)
-    _dispatch: dict[str, object] = {
+    _dispatch: dict[str, Callable[[str, str, dict, Path], Awaitable[tuple[object, str]]]] = {
         "_sweep_query_role": _sweep_query_role,
         "_sweep_scan_role": _sweep_scan_role,
         "_sweep_lint_role": _sweep_lint_role,
@@ -546,6 +550,8 @@ async def run_role_sweep(
                 bucket: list = []
                 token = _USAGE_CAPTURE.set(bucket)
                 try:
+                    if wt.path is None:
+                        raise RuntimeError("eval worktree did not provide a workspace path")
                     _result, _answer = await cmd_fn(role, candidate_model_id, case, wt.path)
                     wall_seconds = time.monotonic() - t0
 
@@ -776,7 +782,7 @@ def _writeback_structural_quality(
     for r in candidate_results:
         if r.status != "ok" or not r.answer:
             continue
-        proxy_pair = (r.query, type("AgentOutputProxy", (), {"answer": r.answer})())
+        proxy_pair = (r.query, AgentOutputProxy(answer=r.answer))
         results = divergence_metric.run_programmatic([proxy_pair])
         total_failures = sum(d["failures"] for d in results.values())
         total_runs = sum(d["runs"] for d in results.values())
@@ -954,7 +960,7 @@ async def run_full_matrix(
             two_gate_outcomes: dict[str, TwoGateOutcome] = {}
             for candidate in candidates:
                 outputs_by_case: list[tuple[str, object]] = [
-                    (r.query, type("AgentOutputProxy", (), {"answer": r.answer})())
+                    (r.query, AgentOutputProxy(answer=r.answer))
                     for r in results_by_candidate.get(candidate, [])
                     if r.status == "ok"
                 ]

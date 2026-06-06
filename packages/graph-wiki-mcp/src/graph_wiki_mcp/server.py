@@ -491,6 +491,8 @@ class WikiPropagateDriftOutput(BaseModel):
 async def wiki_propagate_drift(input: WikiPropagateDriftInput, ctx: Context) -> WikiPropagateDriftOutput:
     workspace = Path(input.workspace_path) if input.workspace_path else None
     wiki, repo = resolve_wiki_and_repo(workspace)
+    if repo is None:
+        raise RuntimeError("repo path is required to propagate drift")
     conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
     try:
         result: PropagateDriftResult = await run_propagate_drift(

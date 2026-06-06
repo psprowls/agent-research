@@ -231,7 +231,7 @@ def short_filename(
             "e2e": "e2e_tests",
             "contract": "contract_tests",
         }
-        kind_prefix = kind_prefix_by_suite.get(suite_kind, "tests")
+        kind_prefix = kind_prefix_by_suite.get(suite_kind or "", "tests")
         if pkg_for_suite is not None:
             pkg_part = pkg_for_suite
         else:
@@ -273,6 +273,11 @@ import frontmatter  # noqa: E402
 import yaml  # noqa: E402
 
 _logger = logging.getLogger(__name__)
+
+
+def _load_frontmatter(path: Path) -> frontmatter.Post:
+    return frontmatter.load(str(path))
+
 
 from graph_io import queries as _queries  # noqa: E402
 
@@ -684,7 +689,7 @@ def _render_entity_page(
     (D-03) so no raw `{{...}}` survives. Frontmatter is built from the dict, so
     only the body needs substituting.
     """
-    template = frontmatter.load(template_path)
+    template = _load_frontmatter(template_path)
     body = template.content
     for k, v in variables.items():
         body = body.replace("{{" + k + "}}", v)
@@ -710,7 +715,7 @@ def set_frontmatter_value(page_path: Path, key: str, value: str) -> None:
     Raises:
         FileNotFoundError: when `page_path` does not exist.
     """
-    post = frontmatter.load(page_path)  # raises FileNotFoundError naturally
+    post = _load_frontmatter(page_path)  # raises FileNotFoundError naturally
     fm = dict(post.metadata)
     fm[key] = value
     new_content = _render_page_text(fm, post.content)
@@ -738,7 +743,7 @@ def update_frontmatter(
     Raises:
         FileNotFoundError: when `page_path` does not exist.
     """
-    post = frontmatter.load(page_path)  # raises FileNotFoundError naturally
+    post = _load_frontmatter(page_path)  # raises FileNotFoundError naturally
     fm = dict(post.metadata)
     for key, value in (updates or {}).items():
         fm[key] = value
@@ -1052,7 +1057,7 @@ def write_entities(
                     existing_body: str | None = None
                     existed = page_path.exists()
                     if existed:
-                        post = frontmatter.load(page_path)
+                        post = _load_frontmatter(page_path)
                         existing_fm = dict(post.metadata)
                         existing_body = post.content
                     merged_fm = merge_frontmatter(existing_fm, scanner_fm)
@@ -1112,15 +1117,16 @@ def write_entities(
         # --- Deletion sweep ---
         for page_path in sorted(entities_dir.glob("*.md")):
             try:
-                post = frontmatter.load(page_path)
+                post = _load_frontmatter(page_path)
                 uri = post.metadata.get("uri")
-                if not uri or uri in admitted_uris:
+                if not isinstance(uri, str) or uri in admitted_uris:
                     continue
-                kind_from_fm = post.metadata.get("kind") or uri.split(":", 1)[0]
+                kind_metadata = post.metadata.get("kind")
+                kind_from_fm = kind_metadata if isinstance(kind_metadata, str) else uri.split(":", 1)[0]
                 template_path = _template_path_for_kind(kind_from_fm)
                 template_body = ""
                 if template_path.exists():
-                    template_body = frontmatter.load(template_path).content
+                    template_body = _load_frontmatter(template_path).content
                 body_was_empty = _is_template_body_default(post.content, template_body)
                 record = {
                     "timestamp": _dt.datetime.now(_dt.timezone.utc)
@@ -1363,8 +1369,11 @@ def _merge_preserved_descriptions(block: str, pkg_name: str, preserved: dict[str
         stripped = line.strip()
         if stripped.startswith("|"):
             cells = _split_pipes(stripped)
-            if len(cells) >= 3 and _FILE_MAP_PATH_CELL_RE.match(cells[0]):
+            if len(cells) >= 3:
                 bm = _FILE_MAP_PATH_CELL_RE.match(cells[0])
+                if bm is None:
+                    out.append(line)
+                    continue
                 full = _file_map_full_path(current_path, bm.group(1))
                 preserved_desc = preserved.get(full)
                 if preserved_desc and not _is_filled_description(cells[2]):
