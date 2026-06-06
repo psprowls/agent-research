@@ -266,6 +266,7 @@ def build_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root
 
     rel_to_wiki = None
     rel_to_repo = None
+    rel_to_workspace = None
     try:
         rel_to_wiki = source_path.relative_to(wiki)
     except ValueError:
@@ -274,7 +275,14 @@ def build_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root
         rel_to_repo = source_path.relative_to(repo)
     except ValueError:
         pass
-    source_type = guess_source_type(rel_to_wiki, rel_to_repo)
+    try:
+        rel_to_workspace = source_path.relative_to(workspace_root)
+    except ValueError:
+        pass
+    # raw/<type>/ folders are authoritative; guess from the WORKSPACE-relative
+    # path because raw/ is a sibling of wiki/ (not under it). `in_repo_doc`
+    # keeps its wiki-relative semantics below — drift behavior is unchanged.
+    source_type = guess_source_type(rel_to_workspace, rel_to_repo)
 
     preview = text[:PREVIEW_CHARS]
     if len(text) > PREVIEW_CHARS:
