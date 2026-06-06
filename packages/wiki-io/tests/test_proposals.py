@@ -81,6 +81,46 @@ def test_rich_proposal_body_renders_review_sections() -> None:
     assert "## Origins" in body
 
 
+def test_proposal_body_origins_wikilinks_only_page_refs() -> None:
+    from wiki_io.proposals import render_proposal_body
+
+    record = {
+        "kind": "concept",
+        "mode": "create_new",
+        "target_slug": "section-ownership",
+        "title": "Section ownership",
+        "status": "proposed",
+        "origins": [
+            {"ref": "sources/spec", "source": "ingest", "rationale": "Page ref."},
+            {"ref": "external-ticket", "source": "ingest", "rationale": "Plain ref."},
+        ],
+    }
+
+    body = render_proposal_body(record)
+
+    assert "**ingest · [[sources/spec]]**" in body
+    assert "**ingest · external-ticket**" in body
+    assert "[[external-ticket]]" not in body
+
+
+def test_proposal_body_origins_has_fallback_when_empty() -> None:
+    from wiki_io.proposals import render_proposal_body
+
+    record = {
+        "kind": "concept",
+        "mode": "create_new",
+        "target_slug": "section-ownership",
+        "title": "Section ownership",
+        "status": "proposed",
+        "origins": [],
+    }
+
+    body = render_proposal_body(record)
+
+    assert "## Origins" in body
+    assert "No origins were captured." in body
+
+
 def test_read_proposal_round_trips_a_written_note(tmp_path: Path) -> None:
     from wiki_io.proposals import read_proposal
 

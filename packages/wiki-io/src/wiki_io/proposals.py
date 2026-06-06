@@ -160,11 +160,14 @@ def render_proposal_body(record: dict) -> str:
         lines.append("- No implementation notes captured.")
     lines.extend(["", "## Origins", ""])
     for origin in origins:
-        lines.append(f"**{origin.get('source', '')} · [[{origin.get('ref', '')}]]**")
+        ref = _wikilink_if_page(origin.get("ref", ""))
+        lines.append(f"**{origin.get('source', '')} · {ref}**")
         rationale = (origin.get("rationale") or "").strip()
         if rationale:
             lines.append(rationale)
         lines.append("")
+    if not origins:
+        lines.append("No origins were captured.")
     return "\n".join(lines).rstrip("\n")
 
 
