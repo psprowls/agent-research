@@ -779,7 +779,7 @@ async def run_scan(
 
     Steps:
         1. Resolve wiki and repo from workspace_path; run `cg update`, open conn.
-        8. compute_state_gate(repo) → {allowed, reason, head_commit}.
+        8. compute_state_gate(repo, workspace=wiki.parent) → {allowed, reason, head_commit}.
         9a. write_entities — graph-driven entity pages.
         9b. narrator fan-out gated on needs_narrative.
         10. inject narrator prose + deterministic file maps + code-reader fan-out.
