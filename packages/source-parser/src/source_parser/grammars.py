@@ -6,7 +6,8 @@ from functools import lru_cache
 from typing import cast
 
 import tree_sitter
-from tree_sitter_language_pack import SupportedLanguage, get_language as _pack_get_language
+from tree_sitter_language_pack import SupportedLanguage
+from tree_sitter_language_pack import get_language as _pack_get_language
 
 from source_parser.errors import UnsupportedLanguageError
 
