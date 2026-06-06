@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import sqlite3
 from pathlib import Path
-from typing import cast
 
 import yaml
 from source_parser.projections.graph import GraphEdge, GraphNode
@@ -29,6 +28,11 @@ _KNOWN_KEYS = frozenset({"packages", "parent", "description", "owner"})
 _DOMAIN_KIND = "domain"
 _BELONGS_TO_DOMAIN_KIND = "belongs_to_domain"
 _DOMAIN_CONTAINS_DOMAIN_KIND = "domain_contains_domain"
+_DOMAINS_SOURCE_PATH = "domains.yaml"
+
+
+def _domain_key(name: str) -> tuple[str, str, str]:
+    return (_DOMAIN_KIND, name, _DOMAINS_SOURCE_PATH)
 
 
 class DomainYamlError(Exception):
@@ -181,8 +185,8 @@ def _emit_containment_edges(
             continue
         edges_out.append(
             GraphEdge(
-                src=(_DOMAIN_KIND, parent, None),
-                dst=(_DOMAIN_KIND, child, None),
+                src=_domain_key(parent),
+                dst=_domain_key(child),
                 kind=_DOMAIN_CONTAINS_DOMAIN_KIND,
                 attrs={},
             )
@@ -261,7 +265,7 @@ def emit(
             GraphNode(
                 kind=_DOMAIN_KIND,
                 name=dom_name,
-                path=cast(str, None),
+                path=_DOMAINS_SOURCE_PATH,
                 line=None,
                 attrs=dom_attrs_for_node,
             )
@@ -289,7 +293,7 @@ def emit(
             edges_out.append(
                 GraphEdge(
                     src=(pkg_kind, pkg_name, pkg_rel),
-                    dst=(_DOMAIN_KIND, dom_name, None),
+                    dst=_domain_key(dom_name),
                     kind=_BELONGS_TO_DOMAIN_KIND,
                     attrs={},
                 )

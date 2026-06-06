@@ -295,12 +295,15 @@ def emit(
         root_files[r.rel_path].append(file_rel)
 
     # Find Repository node id (parent for repo-owned suites).
-    repo_row = conn.execute("SELECT id, name FROM nodes WHERE kind='repository'").fetchone()
+    repo_row = conn.execute("SELECT id, name, path FROM nodes WHERE kind='repository'").fetchone()
     if repo_row is None:
         # Defensive: structural_nodes.emit hasn't run yet — abort.
         return
     repo_name = repo_row[1]
-    repo_key = ("repository", repo_name, None)
+    repo_path = repo_row[2]
+    if repo_path is None:
+        raise ValueError("graph node path is required for this projection")
+    repo_key = ("repository", repo_name, repo_path)
 
     # Build TestSuite nodes + physically_contains parent edges.
     nodes: list[GraphNode] = []

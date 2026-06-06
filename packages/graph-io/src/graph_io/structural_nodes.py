@@ -23,7 +23,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Iterator, cast
+from typing import Iterator
 
 from source_parser.projections.graph import GraphEdge, GraphNode
 
@@ -433,10 +433,11 @@ def emit(
 
     # --- Repository node (D-01, D-02, D-03) ---
 
+    repo_path = ""
     repo_node = GraphNode(
         kind="repository",
         name=ctx.repo,
-        path=cast(str, None),
+        path=repo_path,
         line=None,
         attrs={
             "uri": repo_uri(ctx),
@@ -448,7 +449,7 @@ def emit(
     )
     nodes.append(repo_node)
 
-    repo_key = ("repository", ctx.repo, None)
+    repo_key = ("repository", ctx.repo, repo_path)
 
     # --- Read existing Package/App rows ---
     # Phase 50 D-04: apps are physically contained by the repository the same

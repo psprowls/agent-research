@@ -290,13 +290,14 @@ def run(
                     if tracked_paths:
                         placeholders = ",".join("?" for _ in tracked_paths)
                         conn.execute(
-                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin') "
+                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin', 'dependency') "
                             f"AND path IS NOT NULL AND path NOT IN ({placeholders})",
                             tracked_paths,
                         )
                     else:
                         conn.execute(
-                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin') AND path IS NOT NULL"
+                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin', 'dependency') "
+                            "AND path IS NOT NULL"
                         )
                 # Deferred imports to avoid the structural_nodes / entry_points /
                 # test_suites -> update -> ... cycle (each reuses

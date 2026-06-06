@@ -18,7 +18,6 @@ import sqlite3
 import sys
 import tomllib
 from pathlib import Path
-from typing import cast
 
 from source_parser.projections.graph import GraphEdge, GraphNode
 
@@ -71,6 +70,10 @@ def _emit_pyproject_entries(
     pyproject = pkg_dir / "pyproject.toml"
     if not pyproject.exists():
         return [], []
+    try:
+        entry_source_path = pyproject.resolve().relative_to(repo_root).as_posix()
+    except ValueError as exc:
+        raise ValueError("graph node path is required for this projection") from exc
 
     try:
         data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
@@ -132,12 +135,12 @@ def _emit_pyproject_entries(
             GraphNode(
                 kind="entry_point",
                 name=ep_name,
-                path=cast(str, None),
+                path=entry_source_path,
                 line=None,
                 attrs=attrs,
             )
         )
-        ep_key = ("entry_point", ep_name, None)
+        ep_key = ("entry_point", ep_name, entry_source_path)
         edges.append(
             GraphEdge(
                 src=pkg_key,
@@ -260,6 +263,10 @@ def _emit_packagejson_entries(
     pjson = pkg_dir / "package.json"
     if not pjson.exists():
         return [], []
+    try:
+        package_json_source_path = pjson.resolve().relative_to(repo_root).as_posix()
+    except ValueError as exc:
+        raise ValueError("graph node path is required for this projection") from exc
 
     try:
         data = json.loads(pjson.read_text(encoding="utf-8"))
@@ -303,7 +310,7 @@ def _emit_packagejson_entries(
         # EntryPoint nodes with the same export key ("." for example) and
         # different conditions ("import" vs "require") must be distinct
         # rows. The condition is also stored in attrs for queries.
-        node_path = f"condition:{condition}" if condition else None
+        node_path = f"{package_json_source_path}#condition:{condition}" if condition else package_json_source_path
         attrs = {
             "uri": entry_point_uri(ctx, pkg_name, ep_name),
             "entry_kind": entry_kind,
@@ -317,7 +324,7 @@ def _emit_packagejson_entries(
             GraphNode(
                 kind="entry_point",
                 name=ep_name,
-                path=cast(str, node_path),
+                path=node_path,
                 line=None,
                 attrs=attrs,
             )
