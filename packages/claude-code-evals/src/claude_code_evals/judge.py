@@ -77,7 +77,7 @@ class ClaudeCodeJudge(DeepEvalBaseLLM):
         return _run_claude_judge(prompt, model=self._model_name).stdout
 
     async def a_generate(self, prompt: str) -> str:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.generate, prompt)
 
     def get_model_name(self) -> str:
