@@ -56,6 +56,18 @@ def test_build_wiki_catalog_lists_curated_sources_entities_and_proposals(tmp_pat
     assert [entry["target_slug"] for entry in catalog["proposals"]] == ["fanout"]
 
 
+def test_build_wiki_catalog_rejects_bucket_paths_outside_wiki(tmp_path: Path) -> None:
+    from graph_wiki_core.agent_tools import build_wiki_catalog
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    _page(tmp_path / "outside" / "leaked.md", title="Leaked", summary="outside")
+
+    catalog = build_wiki_catalog(wiki, buckets=("../outside",))
+
+    assert catalog["../outside"] == []
+
+
 def test_read_bounded_wiki_page_includes_title_body_and_truncates(tmp_path: Path) -> None:
     from graph_wiki_core.agent_tools import read_bounded_wiki_page
 

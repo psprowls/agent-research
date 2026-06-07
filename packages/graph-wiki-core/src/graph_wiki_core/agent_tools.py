@@ -67,24 +67,29 @@ def build_wiki_catalog(
     catalog: dict[str, list[dict[str, Any]]] = {name: [] for name in buckets}
     catalog["entities"] = []
     catalog["proposals"] = list_proposals(wiki)
+    wiki_root = wiki.resolve()
 
     for dirname in buckets:
-        directory = wiki / dirname
+        try:
+            directory = (wiki_root / dirname).resolve()
+            directory.relative_to(wiki_root)
+        except (OSError, ValueError):
+            continue
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob("*.md")):
             if path.name == "index.md":
                 continue
-            entry = _frontmatter_entry(path, wiki, dirname.rstrip("s"), excerpt_chars=excerpt_chars)
+            entry = _frontmatter_entry(path, wiki_root, dirname.rstrip("s"), excerpt_chars=excerpt_chars)
             if entry is not None:
                 catalog[dirname].append(entry)
 
-    entities = wiki / "entities"
+    entities = wiki_root / "entities"
     if entities.is_dir():
         for path in sorted(entities.rglob("*.md")):
             if path.name == "index.md":
                 continue
-            entry = _frontmatter_entry(path, wiki, "entity", excerpt_chars=excerpt_chars)
+            entry = _frontmatter_entry(path, wiki_root, "entity", excerpt_chars=excerpt_chars)
             if entry is not None:
                 catalog["entities"].append(entry)
 
