@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool
+
+_VALID_TOOL_NAME = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 @dataclass(frozen=True)
@@ -14,6 +17,26 @@ class ToolLoopResult:
     status: str
     final_text: str
     error: str | None = None
+
+
+def coerce_tool_name(raw_name: str, known_names: set[str]) -> str:
+    """Coerce a model-emitted tool name to satisfy Bedrock's ``[a-zA-Z0-9_-]+`` rule.
+
+    gpt-oss-class models occasionally echo a namespaced or malformed tool name
+    (e.g. ``functions.read_repo_file``). Bedrock *accepts* such a name in a
+    response but *rejects* it on the next request, so an un-coerced name poisons
+    the replayed conversation history and aborts the whole loop. We first try to
+    recover the intended tool by stripping a leading namespace; failing that we
+    just make the name charset-valid so the existing unknown-tool path can guide
+    the model.
+    """
+    if raw_name in known_names or _VALID_TOOL_NAME.match(raw_name):
+        return raw_name
+    candidate = re.split(r"[./:]", raw_name)[-1]
+    candidate = re.sub(r"[^a-zA-Z0-9_-]", "_", candidate)
+    if candidate in known_names:
+        return candidate
+    return candidate or "unknown_tool"
 
 
 def tool_call_parts(call: Any) -> tuple[str, dict[str, Any], str]:
@@ -52,8 +75,14 @@ async def run_tool_loop(
             return ToolLoopResult(status="ok", final_text=str(text))
 
         loop_messages.append(response)
+        known_names = set(tool_by_name)
         for call in tool_calls:
-            call_name, call_args, call_id = tool_call_parts(call)
+            raw_name, call_args, call_id = tool_call_parts(call)
+            call_name = coerce_tool_name(raw_name, known_names)
+            if call_name != raw_name and isinstance(call, dict):
+                # Repair the replayed history so Bedrock won't reject the next
+                # request on a malformed toolUse.name (gpt-oss namespacing, etc.).
+                call["name"] = call_name
             agent_tool = tool_by_name.get(call_name)
             if agent_tool is None:
                 tool_output = f"ERROR: unknown tool {call_name!r}"

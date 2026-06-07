@@ -180,6 +180,71 @@ async def test_run_tool_loop_whitespace_content_no_tool_calls_returns_failed() -
 
 
 @pytest.mark.asyncio
+async def test_run_tool_loop_coerces_namespaced_tool_name_and_routes() -> None:
+    # gpt-oss-class models sometimes echo a namespaced name like "functions.echo".
+    # Strip the namespace, route to the real tool, and repair the replayed history.
+    from graph_wiki_core.agent_loop import run_tool_loop
+
+    @tool
+    def echo(value: str) -> str:
+        """Echo a value."""
+        return f"tool:{value}"
+
+    first = MagicMock(content="", tool_calls=[{"name": "functions.echo", "args": {"value": "one"}, "id": "call_1"}])
+    second = MagicMock(content="done", tool_calls=[])
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(side_effect=[first, second])
+
+    result = await run_tool_loop(
+        llm=llm,
+        tools=[echo],
+        messages=[HumanMessage(content="hello")],
+        max_iterations=3,
+    )
+
+    assert result.status == "ok"
+    assert result.final_text == "done"
+    second_messages = llm.ainvoke.call_args_list[1].args[0]
+    tool_message = second_messages[-1]
+    assert isinstance(tool_message, ToolMessage)
+    assert tool_message.content == "tool:one"
+    # The replayed assistant message must carry a charset-valid (recovered) name.
+    assert first.tool_calls[0]["name"] == "echo"
+
+
+@pytest.mark.asyncio
+async def test_run_tool_loop_coerces_unrecoverable_tool_name_in_replayed_history() -> None:
+    # An unrecoverable malformed name must still be made charset-valid so the
+    # replayed history doesn't get rejected by Bedrock; it falls to unknown-tool.
+    import re
+
+    from graph_wiki_core.agent_loop import run_tool_loop
+
+    first = MagicMock(content="", tool_calls=[{"name": "weird name!", "args": {}, "id": "call_1"}])
+    second = MagicMock(content="recovered", tool_calls=[])
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(side_effect=[first, second])
+
+    result = await run_tool_loop(
+        llm=llm,
+        tools=[],
+        messages=[HumanMessage(content="hello")],
+        max_iterations=3,
+    )
+
+    assert result.status == "ok"
+    assert result.final_text == "recovered"
+    coerced_name = first.tool_calls[0]["name"]
+    assert re.fullmatch(r"[a-zA-Z0-9_-]+", coerced_name)
+    second_messages = llm.ainvoke.call_args_list[1].args[0]
+    tool_message = second_messages[-1]
+    assert isinstance(tool_message, ToolMessage)
+    assert str(tool_message.content).startswith("ERROR: unknown tool")
+
+
+@pytest.mark.asyncio
 async def test_run_tool_loop_iteration_cap_without_prior_text_returns_failed() -> None:
     from graph_wiki_core.agent_loop import run_tool_loop
 

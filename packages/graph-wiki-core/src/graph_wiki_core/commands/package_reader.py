@@ -18,7 +18,7 @@ from graph_wiki_core.agent_tools import (
 )
 from graph_wiki_core.prompts.package_reader import PACKAGE_READER_SYSTEM
 
-MAX_PACKAGE_READER_ITERS = 20
+MAX_PACKAGE_READER_ITERS = 50
 MAX_REPO_FILE_CHARS = 40_000
 MAX_WIKI_PAGE_CHARS = 40_000
 MAX_TREE_ENTRIES = 200

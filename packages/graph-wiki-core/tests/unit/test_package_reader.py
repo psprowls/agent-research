@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from graph_wiki_core.commands.package_reader import (
+    MAX_PACKAGE_READER_ITERS,
     PackageReaderItem,
     build_package_reader_prompt,
     build_package_reader_tools,
@@ -185,7 +186,7 @@ async def test_run_package_reader_uses_shared_tool_loop(monkeypatch, tmp_path: P
 
     async def fake_loop(**kwargs):
         assert kwargs["llm"] is fake_llm
-        assert kwargs["max_iterations"] == 5
+        assert kwargs["max_iterations"] == MAX_PACKAGE_READER_ITERS
         assert kwargs["cap_label"] == "package_reader"
         return MagicMock(
             status="ok",
