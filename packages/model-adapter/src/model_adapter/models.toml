@@ -109,6 +109,18 @@ sweep_candidates = [
   "moonshotai.kimi-k2.5",
 ]
 
+[roles.package_reader]
+# Narrated scan pass that initializes TODO-like human-owned entity-page sections.
+# Separate from code_reader because it writes multi-section markdown and uses a
+# page-initialization JSON contract rather than one-line file-map descriptions.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+]
+
 [roles.extractor]
 # Normalizes proposal_reasoner analysis into strict proposal YAML.
 model_id        = "moonshotai.kimi-k2.5"
