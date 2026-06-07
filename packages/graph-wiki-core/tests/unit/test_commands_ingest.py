@@ -1388,6 +1388,7 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
     """A clean ingest records proposals in proposals/ + in IngestResult; the
     Source page carries no suggested_pages and no ## Suggested pages section."""
     from graph_wiki_core.commands.ingest import run_ingest_source
+    from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult
     from wiki_io.proposals import proposal_path
 
     workspace, wiki, repo = _build_workspace_with_repo(tmp_path)
@@ -1414,6 +1415,10 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
         patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor_llm),
         patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor_llm),
+        patch(
+            "graph_wiki_core.commands.suggest_pages.run_proposal_reasoner",
+            return_value=ProposalReasonerResult(status="ok", analysis="reasoned candidates"),
+        ),
         patch("graph_wiki_core.commands.ingest.update_index"),
         patch("graph_wiki_core.commands.ingest.append_log"),
     ):
@@ -1434,6 +1439,11 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
     written = (wiki / "sources" / "spec.md").read_text(encoding="utf-8")
     assert "suggested_pages" not in written
     assert "## Suggested pages" not in written
+    assert "proposal_status:" in written
+    assert "  reasoner: ok" in written
+    assert "  extractor: ok" in written
+    assert result.proposal_reasoner_status == "ok"
+    assert result.proposal_extractor_status == "ok"
 
 
 @pytest.mark.asyncio
@@ -1468,6 +1478,44 @@ async def test_run_ingest_source_suggest_degraded_is_nonfatal(tmp_path: Path) ->
     assert result.suggestions_parsed is False
     assert result.suggested_pages == []
     assert not any((wiki / "proposals").glob("*.md"))
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_records_reasoner_failure(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.ingest import run_ingest_source
+    from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult
+
+    source_file = tmp_path / "spec.md"
+    source_file.write_text("# Spec\n\nContent.", encoding="utf-8")
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    _seed_graph_db_for_ingest_tests(wiki, packages=[])
+
+    ingestor = MagicMock()
+    ingestor.ainvoke = AsyncMock(
+        return_value=MagicMock(content="---\ntarget_slug: spec\ntitle: Spec\nsummary: x\n---\nBody.")
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_core.commands.ingest.make_llm", return_value=ingestor),
+        patch("graph_wiki_core.commands.ingest.update_index"),
+        patch("graph_wiki_core.commands.ingest.append_log"),
+        patch("graph_wiki_core.commands.ingest.render_project_context", return_value=""),
+        patch(
+            "graph_wiki_core.commands.suggest_pages.run_proposal_reasoner",
+            return_value=ProposalReasonerResult(status="failed", analysis="", error="reasoner failed"),
+        ),
+    ):
+        result = await run_ingest_source(source_file, wiki)
+
+    written = (wiki / result.page_path).read_text(encoding="utf-8")
+    assert "  reasoner: failed" in written
+    assert "  extractor: skipped" in written
+    assert "  error: reasoner failed" in written
+    assert result.proposal_reasoner_status == "failed"
+    assert result.proposal_extractor_status == "skipped"
 
 
 # ---------------------------------------------------------------------------
