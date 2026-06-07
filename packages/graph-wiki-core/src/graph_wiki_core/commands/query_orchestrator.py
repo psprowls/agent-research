@@ -174,6 +174,7 @@ async def run_query_orchestrator(
         "graph_tools_available": context.graph_tools_available,
         "graph_tool_names": list(context.graph_tool_names),
     }
+    accumulated_worker_results: list[Mapping[str, Any]] = []
 
     for batch_index in range(MAX_ORCHESTRATOR_WORKER_BATCHES + 1):
         try:
@@ -220,16 +221,22 @@ async def run_query_orchestrator(
             trace_metadata["status"] = "ok"
             if loop_result.error:
                 trace_metadata["tool_loop_error"] = loop_result.error
-            return QueryOrchestratorResult(output=output, trace_metadata=MappingProxyType(trace_metadata))
+            return QueryOrchestratorResult(
+                output=_output_with_authoritative_worker_results(output, accumulated_worker_results),
+                trace_metadata=MappingProxyType(trace_metadata),
+            )
 
         if batch_index >= MAX_ORCHESTRATOR_WORKER_BATCHES:
-            return _degraded_result(
-                query=query,
-                status="capped",
-                error=f"worker batch cap reached ({MAX_ORCHESTRATOR_WORKER_BATCHES})",
-                worker_batches=trace_metadata["worker_batches"],
-                graph_tools_available=context.graph_tools_available,
-                graph_tool_names=context.graph_tool_names,
+            trace_metadata["status"] = "capped"
+            trace_metadata["error"] = f"worker batch cap reached ({MAX_ORCHESTRATOR_WORKER_BATCHES})"
+            return QueryOrchestratorResult(
+                output=_capped_output(
+                    output,
+                    query=query,
+                    worker_results=accumulated_worker_results,
+                    reason=trace_metadata["error"],
+                ),
+                trace_metadata=MappingProxyType(trace_metadata),
             )
 
         try:
@@ -244,15 +251,27 @@ async def run_query_orchestrator(
                 graph_tool_names=context.graph_tool_names,
             )
 
-        worker_results = await run_worker_batch(
-            worker_tasks,
-            query=query,
-            wiki_root=wiki_root,
-            repo_root=repo_root,
-            trace_dir=trace_dir,
-            role_model_overrides=role_model_overrides,
-        )
+        try:
+            worker_results = await run_worker_batch(
+                worker_tasks,
+                query=query,
+                wiki_root=wiki_root,
+                repo_root=repo_root,
+                trace_dir=trace_dir,
+                role_model_overrides=role_model_overrides,
+            )
+        except Exception as exc:
+            return _degraded_result(
+                query=query,
+                status="worker_batch_error",
+                error=f"{type(exc).__name__}: {exc}",
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+                worker_results=accumulated_worker_results,
+            )
         trace_metadata["worker_batches"] += 1
+        accumulated_worker_results.extend(worker_results)
         messages.append(AIMessage(content=loop_result.final_text))
         messages.append(
             HumanMessage(
@@ -271,6 +290,7 @@ async def run_query_orchestrator(
         worker_batches=trace_metadata["worker_batches"],
         graph_tools_available=context.graph_tools_available,
         graph_tool_names=context.graph_tool_names,
+        worker_results=accumulated_worker_results,
     )
 
 
@@ -302,9 +322,10 @@ def _degraded_result(
     worker_batches: int,
     graph_tools_available: bool,
     graph_tool_names: tuple[str, ...],
+    worker_results: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] = (),
 ) -> QueryOrchestratorResult:
     return QueryOrchestratorResult(
-        output=degraded_output(query, reason=error),
+        output=_output_with_authoritative_worker_results(degraded_output(query, reason=error), worker_results),
         trace_metadata=MappingProxyType(
             {
                 "status": status,
@@ -321,6 +342,55 @@ def _degradation_status_for_validation_error(exc: OrchestratorValidationError) -
     if str(exc).startswith("Invalid JSON"):
         return "invalid_json"
     return "validation_error"
+
+
+def _output_with_authoritative_worker_results(
+    output: OrchestratorOutput,
+    worker_results: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+) -> OrchestratorOutput:
+    if not worker_results:
+        return output
+    return OrchestratorOutput(
+        answer_markdown=output.answer_markdown,
+        citations=list(output.citations),
+        evidence=list(output.evidence),
+        answer_evidence_map=list(output.answer_evidence_map),
+        worker_plan=output.worker_plan,
+        worker_results=_freeze_worker_result_rows(worker_results),
+        gaps=list(output.gaps),
+        confidence=output.confidence,
+    )
+
+
+def _capped_output(
+    output: OrchestratorOutput,
+    *,
+    query: str,
+    worker_results: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+    reason: str,
+) -> OrchestratorOutput:
+    return OrchestratorOutput(
+        answer_markdown=output.answer_markdown,
+        citations=list(output.citations),
+        evidence=list(output.evidence),
+        answer_evidence_map=list(output.answer_evidence_map),
+        worker_plan=(),
+        worker_results=_freeze_worker_result_rows(worker_results),
+        gaps=[
+            *output.gaps,
+            EvidenceGap(
+                question=query,
+                reason=reason,
+            ),
+        ],
+        confidence="low",
+    )
+
+
+def _freeze_worker_result_rows(
+    rows: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    return tuple(_freeze_mapping(dict(_jsonable(row))) for row in rows)
 
 
 def _orchestrator_context_prompt(context: OrchestratorContext) -> str:

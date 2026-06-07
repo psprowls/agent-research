@@ -103,7 +103,7 @@ async def test_run_query_orchestrator_runs_worker_batches_until_final_answer(
         ],
         worker_results=[],
     )
-    second_payload = _final_payload(worker_results=[{"task_id": "lib-1", "status": "complete"}])
+    second_payload = _final_payload(worker_results=[])
     loop_outputs = [first_payload, second_payload]
     observed_messages: list[list[Any]] = []
     worker_calls: list[tuple[str, ...]] = []
@@ -132,6 +132,7 @@ async def test_run_query_orchestrator_runs_worker_batches_until_final_answer(
 
     assert worker_calls == [("lib-1",)]
     assert result.output.worker_results[0]["task_id"] == "lib-1"
+    assert result.output.worker_results[0]["result"] == "Scanner evidence."
     assert result.trace_metadata["status"] == "ok"
     assert result.trace_metadata["worker_batches"] == 1
     second_turn_text = "\n".join(
@@ -139,6 +140,54 @@ async def test_run_query_orchestrator_runs_worker_batches_until_final_answer(
     )
     assert "Worker batch 1 results" in second_turn_text
     assert "Scanner evidence." in second_turn_text
+
+
+@pytest.mark.asyncio
+async def test_run_query_orchestrator_degrades_when_worker_batch_raises(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_wiki_core.agent_loop import ToolLoopResult
+    from graph_wiki_core.commands import query_orchestrator as mod
+    from graph_wiki_core.commands.query_orchestrator import run_query_orchestrator
+
+    first_payload = _final_payload(
+        answer_markdown="Need worker evidence.",
+        confidence="low",
+        worker_plan=[
+            {
+                "worker": "librarian",
+                "task_id": "lib-1",
+                "page_path": "entities/scanner.md",
+                "query_focus": "entity ownership",
+                "expected_evidence": "who writes entity pages",
+            }
+        ],
+    )
+
+    async def fake_run_tool_loop(**kwargs: Any) -> ToolLoopResult:
+        return ToolLoopResult(status="ok", final_text=first_payload)
+
+    async def fake_run_worker_batch(worker_tasks: Any, **kwargs: Any) -> tuple[dict[str, str], ...]:
+        raise RuntimeError("bedrock unavailable")
+
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: SimpleNamespace())
+    monkeypatch.setattr(mod, "run_tool_loop", fake_run_tool_loop)
+    monkeypatch.setattr(mod, "run_worker_batch", fake_run_worker_batch)
+
+    result = await run_query_orchestrator(
+        query="Who owns entity page writes?",
+        wiki_root=tmp_path,
+        repo_root=tmp_path,
+        initial_candidates=[],
+        graph_tools=[],
+        trace_dir=tmp_path / "traces",
+    )
+
+    assert result.output.confidence == "low"
+    assert result.output.worker_plan == ()
+    assert result.trace_metadata["status"] == "worker_batch_error"
+    assert "bedrock unavailable" in str(result.trace_metadata["error"])
 
 
 @pytest.mark.asyncio
@@ -219,6 +268,17 @@ async def test_run_query_orchestrator_caps_worker_batches_at_five(
     )
 
     assert worker_calls == 5
+    assert result.output.answer_markdown == "Need more worker evidence."
     assert result.output.confidence == "low"
+    assert result.output.worker_plan == ()
+    assert [row["task_id"] for row in result.output.worker_results] == [
+        "lib-1",
+        "lib-2",
+        "lib-3",
+        "lib-4",
+        "lib-5",
+    ]
+    assert result.output.gaps[0].question == "Who owns entity page writes?"
+    assert "worker batch cap" in result.output.gaps[0].reason
     assert result.trace_metadata["status"] == "capped"
     assert result.trace_metadata["worker_batches"] == 5
