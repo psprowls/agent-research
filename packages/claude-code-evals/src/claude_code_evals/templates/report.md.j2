@@ -1,0 +1,9 @@
+# Eval Report: {{ runset_name }}
+
+**Results:** {{ passed }}/{{ total }} passed ({{ failed }} failed)
+
+| Scenario | Config | Passed | Wall (s) | In tokens | Out tokens |
+|----------|--------|--------|----------|-----------|------------|
+{% for r in records -%}
+| {{ r.scenario }} | {{ r.config }} | {{ "✓" if r.passed else "✗" }} | {{ "%.1f"|format(r.wall_seconds) }} | {{ r.input_tokens }} | {{ r.output_tokens }} |
+{% endfor %}
