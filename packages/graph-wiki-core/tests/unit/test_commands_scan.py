@@ -790,3 +790,59 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
 
     candidate = captured_candidates[uri]
     assert candidate.graph_path == "packages/pkg-a"
+
+
+def test_package_reader_errors_join_scan_result(monkeypatch, tmp_path: Path) -> None:
+    import asyncio
+    import sqlite3
+
+    import graph_wiki_core.commands.scan as scan_mod
+    from graph_io import exit_codes, schema
+    from workspace_io.paths import graph_dir
+
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    graph_path = graph_dir(workspace) / "code.db"
+    graph_path.parent.mkdir(parents=True)
+    conn = sqlite3.connect(graph_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\":\"python\"}', 'pkg:org/repo/pkg-a')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "abc"},
+    )
+    monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
+
+    async def fake_run_all(self, *, items, task, role, model_id, max_concurrency):
+        from subagent_runtime.pool import FanOutResult
+
+        result = FanOutResult()
+        if role == "narrator":
+            result.successes = [(it, f"PROSE for {it[0]}") for it in items]
+        elif role == "drift_judge":
+            result.successes = [(it, {"stale": False, "reason": ""}) for it in items]
+        return result
+
+    async def fake_package_reader_pass(**kwargs):
+        return set(), ["pkg:org/repo/pkg-a: invalid JSON"]
+
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", fake_run_all)
+    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
+
+    result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+
+    assert "pkg:org/repo/pkg-a: invalid JSON" in result.entity_errors

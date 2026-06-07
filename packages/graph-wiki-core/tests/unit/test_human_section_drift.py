@@ -95,6 +95,43 @@ def _add_human_section(page: Path, heading: str, body: str) -> None:
     page.write_text(text.rstrip("\n") + f"\n\n{heading}\n{body}\n", encoding="utf-8")
 
 
+def test_package_reader_fill_stamps_and_skips_on_rescan(ws, monkeypatch):
+    wiki = ws / "wiki"
+    repo = ws / "repo"
+    heads = {"v": "head1"}
+    calls = {"package_reader": 0}
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+
+    async def fake_package_reader_pass(**kwargs):
+        calls["package_reader"] += 1
+        page = _page_for(wiki)
+        from wiki_io.human_sections import replace_todo_human_sections
+
+        changed = replace_todo_human_sections(page, {"Purpose": "Owns package-level scan orchestration."})
+        return ({_PKG_A} if changed else set(), [])
+
+    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
+    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
+
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    page = _page_for(wiki)
+    text = page.read_text(encoding="utf-8")
+    meta = _fm.load(page).metadata
+
+    assert "## Purpose\nOwns package-level scan orchestration." in text
+    assert meta["last_updated_commit"] == "head1"
+    assert calls["package_reader"] == 1
+
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+
+    assert calls["package_reader"] == 2
+    assert "## Purpose\nOwns package-level scan orchestration." in _page_for(wiki).read_text(encoding="utf-8")
+
+
 def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
     """[§5.1] commit-dirty entity + stale human section -> drift_review entry;
     drift_checked_commit advances to last_updated_commit."""
