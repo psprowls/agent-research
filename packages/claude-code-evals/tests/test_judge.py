@@ -22,7 +22,7 @@ def test_generate_returns_stdout():
     assert result == "score: 4"
 
 
-def test_run_claude_judge_parses_text(tmp_path):
+def test_run_claude_judge_parses_text():
     """_run_claude_judge parses stream-json and returns text."""
     assistant_event = json.dumps(
         {
