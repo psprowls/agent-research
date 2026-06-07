@@ -76,7 +76,7 @@ def test_fixture_isolation_writes_meta_json(tmp_path: Path):
 
 def test_fixture_isolation_extra_env_in_settings(tmp_path: Path):
     """FixtureIsolation includes extra_env in settings.json."""
-    s, c = _fixture_scenario(tmp_path)
+    s, _ = _fixture_scenario(tmp_path)
     c2 = Config.model_validate({"name": "base", "extra_env": {"MY_VAR": "hello"}})
     with FixtureIsolation(s, c2) as iso:
         settings = json.loads((iso.cfg_dir / "settings.json").read_text())

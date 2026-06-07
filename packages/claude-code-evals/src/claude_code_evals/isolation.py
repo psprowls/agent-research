@@ -141,7 +141,7 @@ class WorktreeIsolation(_BaseIsolation):
         self._setup_cfg_dir()
         return self
 
-    def __exit__(self, *exc: object) -> None:
+    def __exit__(self, *_: object) -> None:
         """Remove git worktree and clean up tmpdir."""
         if self._wt and self._wt.exists():
             target_repo = Path(self._scenario.target_repo).expanduser()  # type: ignore[arg-type]
@@ -165,6 +165,6 @@ class FixtureIsolation(_BaseIsolation):
         self._setup_cfg_dir()
         return self
 
-    def __exit__(self, *exc: object) -> None:
+    def __exit__(self, *_: object) -> None:
         """Clean up tmpdir (unless keep=True)."""
         self._cleanup()
