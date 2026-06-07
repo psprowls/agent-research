@@ -83,6 +83,67 @@ def test_json_output_valid_schema() -> None:
     assert "foo.md" in parsed["search_scores"]
 
 
+@pytest.mark.asyncio
+async def test_run_query_routes_default_path_through_orchestrator(tmp_path: Path) -> None:
+    from contextlib import ExitStack
+
+    from graph_wiki_core.commands.query import QueryResult, run_query
+    from graph_wiki_core.commands.query_orchestrator import (
+        OrchestratorEvidence,
+        OrchestratorOutput,
+        QueryOrchestratorResult,
+    )
+
+    wiki = tmp_path / "workspace" / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "alpha.md").write_text("# Alpha\n\nAlpha body")
+    (wiki.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (wiki.parent / ".graph-wiki" / "search.db").touch()
+
+    orch_result = QueryOrchestratorResult(
+        output=OrchestratorOutput(
+            answer_markdown="Alpha answer from [[alpha.md]].",
+            citations=["alpha.md"],
+            evidence=[
+                OrchestratorEvidence(
+                    id="E1",
+                    source_type="wiki",
+                    path="alpha.md",
+                    freshness="fresh",
+                    staleness_reason=None,
+                    excerpt="Alpha body",
+                    line_refs=[],
+                )
+            ],
+            answer_evidence_map=[],
+            worker_plan=(),
+            worker_results=(),
+            gaps=[],
+            confidence="high",
+        ),
+        trace_metadata={"status": "ok", "worker_batches": 0},
+    )
+
+    patches = [
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(wiki, tmp_path / "repo")),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [2.0])),
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.9)]),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(return_value=orch_result)),
+    ]
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        result = await run_query("What is Alpha?", workspace_path=wiki.parent, top_k=3)
+
+    assert isinstance(result, QueryResult)
+    assert result.answer == "Alpha answer from [[alpha.md]]."
+    assert result.citations == ["alpha.md"]
+    assert result.pages_drilled == 1
+    assert result.search_scores["alpha.md"]["bm25"] == 2.0
+
+
 # ---------------------------------------------------------------------------
 # _extract_wikilinks tests
 # ---------------------------------------------------------------------------
@@ -416,7 +477,7 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fake_fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert isinstance(result, QueryResult)
     # The synthesizer answer is present (guardrails may append warnings)
@@ -514,7 +575,7 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert isinstance(result, QueryResult)
     # Retry answer was used (no warning footer because retry succeeded)
@@ -573,7 +634,7 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert isinstance(result, QueryResult)
     # Retry was tried (call count == 2) but failed; warning footer present
@@ -637,7 +698,7 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await run_query("test query", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert isinstance(result, QueryResult)
     # Synthesizer was NOT called on the disclaimer path (no synth response staged

@@ -142,7 +142,7 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     # build_graph_tools must have been called (non-empty DB path).
     mock_build_graph.assert_called_once()
@@ -210,7 +210,7 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
         mock_pool_inst.run_all = AsyncMock(side_effect=_fake_run_all)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     # build_graph_tools must NOT be called (empty DB treated as uninitialized).
     mock_build_graph.assert_not_called()

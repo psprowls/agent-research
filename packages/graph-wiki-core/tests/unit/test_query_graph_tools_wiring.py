@@ -127,7 +127,7 @@ async def test_single_connection_open_close(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert len(open_calls) == 1
     assert fake_conn.close.call_count == 1
@@ -181,7 +181,7 @@ async def test_not_initialized_fallback(tmp_path: Path, capsys) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=_fake_run_all)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     err = capsys.readouterr().err
     assert err.count(_GRAPH_UNAVAILABLE_STDERR) == 1
@@ -231,7 +231,7 @@ async def test_budget_overflow_hard_aborts(tmp_path: Path, capsys) -> None:
         mock_pool_cls.return_value = mock_pool_inst
 
         with pytest.raises(SystemExit) as excinfo:
-            await run_query("q", workspace_path=vault, top_k=3)
+            await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert excinfo.value.code == BUDGET_EXCEEDED_EXIT_CODE
     err = capsys.readouterr().err
@@ -285,7 +285,7 @@ async def test_budget_under_proceeds(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("q", workspace_path=vault, top_k=3)
+        result = await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert mock_pool_inst.run_all.await_count == 1
     assert result.answer == "answer"
@@ -348,7 +348,7 @@ async def test_librarian_tool_call_loop(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=_fake_run_all)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     assert librarian_llm.ainvoke.await_count == 2
     fake_tool.invoke.assert_called_once_with({"name": "foo"})
@@ -422,7 +422,7 @@ async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=_fake_run_all)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     # 1 page * _LIBRARIAN_MAX_ITERS iterations
     assert librarian_llm.ainvoke.await_count == _LIBRARIAN_MAX_ITERS

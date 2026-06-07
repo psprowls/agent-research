@@ -116,6 +116,7 @@ async def test_run_query_synthesizer_override(tmp_path: Path) -> None:
             workspace_path=vault,
             top_k=3,
             role_model_overrides={"synthesizer": candidate},
+            use_legacy=True,
         )
 
     # synthesizer went through make_llm with the candidate override.
@@ -189,6 +190,7 @@ async def test_run_query_code_reader_override(tmp_path: Path) -> None:
             workspace_path=vault,
             top_k=3,
             role_model_overrides={"code_reader": candidate},
+            use_legacy=True,
         )
 
     assert ("code_reader", candidate) in make_llm_calls, (
@@ -249,6 +251,7 @@ async def test_run_query_librarian_back_compat(tmp_path: Path) -> None:
             workspace_path=vault,
             top_k=3,
             librarian_model_override=candidate,
+            use_legacy=True,
         )
 
     assert ("librarian", candidate) in make_llm_calls, (
@@ -312,6 +315,7 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
             workspace_path=vault,
             top_k=3,
             role_model_overrides={"librarian": librarian_candidate},
+            use_legacy=True,
         )
 
     # librarian got the candidate.
@@ -327,6 +331,57 @@ async def test_run_query_other_roles_unaffected(tmp_path: Path) -> None:
     assert candidate_overrides == [("librarian", librarian_candidate)], (
         f"Librarian candidate bled into another role (D-06 violation); all make_llm calls: {make_llm_calls}"
     )
+
+
+async def test_run_query_passes_query_orchestrator_role_override(tmp_path: Path) -> None:
+    """Default run_query path forwards query_orchestrator overrides to the orchestrator."""
+    from contextlib import ExitStack
+
+    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query_orchestrator import OrchestratorOutput, QueryOrchestratorResult
+
+    wiki = tmp_path / "workspace" / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "alpha.md").write_text("# Alpha")
+    (wiki.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (wiki.parent / ".graph-wiki" / "search.db").touch()
+    captured = {}
+
+    async def _fake_orchestrator(**kwargs):
+        captured.update(kwargs["role_model_overrides"])
+        return QueryOrchestratorResult(
+            output=OrchestratorOutput(
+                answer_markdown="No evidence.",
+                citations=[],
+                evidence=[],
+                answer_evidence_map=[],
+                worker_plan=(),
+                worker_results=(),
+                gaps=[],
+                confidence="low",
+            ),
+            trace_metadata={"status": "ok"},
+        )
+
+    patches = [
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(wiki, tmp_path / "repo")),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(side_effect=_fake_orchestrator)),
+    ]
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        await run_query(
+            "q",
+            workspace_path=wiki.parent,
+            top_k=3,
+            role_model_overrides={"query_orchestrator": "override-model"},
+        )
+
+    assert captured["query_orchestrator"] == "override-model"
 
 
 # ---------------------------------------------------------------------------

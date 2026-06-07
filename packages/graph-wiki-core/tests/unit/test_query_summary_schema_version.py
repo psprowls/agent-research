@@ -89,7 +89,7 @@ async def test_query_summary_record_has_schema_version_one(tmp_path: Path, monke
         lambda **kw: mock_embeddings_inst,
     )
 
-    await run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3)
+    await run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3, use_legacy=True)
 
     # Locate the per-query summary file. Filename pattern: query_{query_id}.jsonl
     trace_dir = tmp_path.resolve() / ".graph-wiki" / "traces"

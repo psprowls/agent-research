@@ -179,6 +179,14 @@ class QueryResult:
     search_scores: dict  # {page_path: {"bm25": float, "embed": float, "rrf": float}}
 
 
+@dataclass(frozen=True)
+class PreparedQueryRetrieval:
+    wiki: Path
+    repo_root: Path | None
+    top_pages: list[str]
+    search_scores: dict[str, dict[str, float]]
+
+
 # ---------------------------------------------------------------------------
 # Helper: tokenizer
 # ---------------------------------------------------------------------------
@@ -651,6 +659,81 @@ async def _retry_synthesis_drop_unresolved(
     return resp.content
 
 
+def _read_candidate_excerpt(wiki: Path, page_path: str, *, max_chars: int = 1500) -> str:
+    try:
+        text = (wiki / page_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "\n[TRUNCATED]"
+
+
+def _prepare_query_retrieval(query: str, workspace_path: Path | None, top_k: int) -> PreparedQueryRetrieval:
+    wiki, repo_root = resolve_wiki_and_repo(workspace_path)
+    bm25_dir = graph_dir(wiki.parent) / _BM25_SUBDIR
+    db_path = graph_dir(wiki.parent) / _SEARCH_DB_NAME
+    if not bm25_dir.exists() or not db_path.exists():
+        logger.warning("First-time index build — may take a moment.")
+        build_index(wiki)
+
+    bm25_paths, bm25_raw = bm25_query(query, wiki, top_k * 3)
+    bm25_rank_map = {p: i + 1 for i, p in enumerate(bm25_paths)}
+    bm25_score_map = {p: s for p, s in zip(bm25_paths, bm25_raw)}
+
+    embeddings = BedrockEmbeddings(
+        model_id="amazon.titan-embed-text-v2:0",
+        region_name="us-east-1",
+        normalize=True,
+    )
+    query_vec = embeddings.embed_query(query)
+    embed_hits = _cosine_search_sqlite(wiki, query_vec, top_k * 3)
+    embed_rank_map = {path: i + 1 for i, (path, _) in enumerate(embed_hits)}
+    embed_score_map = {path: score for path, score in embed_hits}
+
+    fused = _rrf_fuse(bm25_rank_map, embed_rank_map)
+    top_pages = sorted(fused, key=fused.get, reverse=True)[:top_k]  # type: ignore[arg-type]
+    search_scores = {
+        p: {
+            "bm25": bm25_score_map.get(p, 0.0),
+            "embed": embed_score_map.get(p, 0.0),
+            "rrf": fused.get(p, 0.0),
+        }
+        for p in top_pages
+    }
+    return PreparedQueryRetrieval(
+        wiki=wiki,
+        repo_root=repo_root,
+        top_pages=top_pages,
+        search_scores=search_scores,
+    )
+
+
+def _load_query_graph_tools(workspace: Path) -> tuple[sqlite3.Connection | None, list]:
+    db_path = graph_dir(workspace) / "code.db"
+    try:
+        conn = read_only_connect(db_path)
+        node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        if node_count == 0:
+            conn.close()
+            sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
+            return None, []
+        return conn, build_graph_tools(conn)
+    except GraphNotInitializedError:
+        sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
+        return None, []
+    except Exception as exc:  # noqa: BLE001 - graph tools are optional planning aids.
+        logger.debug("query graph tools unavailable: %s", exc)
+        return None, []
+
+
+async def run_query_orchestrator(**kwargs):
+    """Patchable import seam for the query-orchestrator implementation."""
+    from graph_wiki_core.commands.query_orchestrator import run_query_orchestrator as _run_query_orchestrator
+
+    return await _run_query_orchestrator(**kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Plan 03: Online guardrails (G1 + G4)
 # ---------------------------------------------------------------------------
@@ -829,14 +912,14 @@ def bm25_query(
 # ---------------------------------------------------------------------------
 
 
-async def run_query(
+async def _run_legacy_query(
     query: str,
     workspace_path: Path | None = None,
     top_k: int = 5,
     librarian_model_override: str | None = None,  # deprecated; prefer role_model_overrides
     role_model_overrides: dict[str, str] | None = None,
 ) -> QueryResult:
-    """End-to-end query: hybrid search -> librarian fan-out -> synthesis -> guardrails.
+    """Legacy fixed query pipeline: hybrid search -> librarian fan-out -> synthesis/code fallback.
 
     Steps:
         1. Resolve workspace path via resolve_wiki_and_repo().
@@ -1158,3 +1241,82 @@ async def run_query(
     finally:
         if conn is not None:
             conn.close()
+
+
+async def run_query(
+    query: str,
+    workspace_path: Path | None = None,
+    top_k: int = 5,
+    librarian_model_override: str | None = None,
+    role_model_overrides: dict[str, str] | None = None,
+    *,
+    use_legacy: bool = False,
+) -> QueryResult:
+    """End-to-end query entry point. Defaults to agentic query orchestration."""
+
+    if use_legacy:
+        return await _run_legacy_query(
+            query,
+            workspace_path=workspace_path,
+            top_k=top_k,
+            librarian_model_override=librarian_model_override,
+            role_model_overrides=role_model_overrides,
+        )
+    if not (3 <= top_k <= 10):
+        raise RuntimeError(f"top_k must be between 3 and 10 (got {top_k})")
+
+    from graph_wiki_core.commands.query_orchestrator import InitialCandidate
+
+    prepared = _prepare_query_retrieval(query, workspace_path, top_k)
+    repo_root = prepared.repo_root or _resolve_repo_root(prepared.wiki)
+    graph_conn, graph_tools = _load_query_graph_tools(prepared.wiki.parent)
+    try:
+        orchestrated = await run_query_orchestrator(
+            query=query,
+            wiki_root=prepared.wiki,
+            repo_root=repo_root,
+            initial_candidates=[
+                InitialCandidate(
+                    path=page,
+                    score=prepared.search_scores[page]["rrf"],
+                    excerpt=_read_candidate_excerpt(prepared.wiki, page),
+                )
+                for page in prepared.top_pages
+            ],
+            graph_tools=graph_tools,
+            trace_dir=graph_dir(prepared.wiki.parent) / "traces",
+            role_model_overrides={
+                **(role_model_overrides or {}),
+                **({"librarian": librarian_model_override} if librarian_model_override else {}),
+            },
+        )
+    except Exception as exc:
+        logger.warning("query orchestrator failed; falling back to legacy query: %s", exc)
+        return await _run_legacy_query(
+            query,
+            workspace_path=workspace_path,
+            top_k=top_k,
+            librarian_model_override=librarian_model_override,
+            role_model_overrides=role_model_overrides,
+        )
+    finally:
+        if graph_conn is not None:
+            graph_conn.close()
+
+    useful_evidence = [evidence for evidence in orchestrated.output.evidence if evidence.excerpt.strip()]
+    citations = list(
+        dict.fromkeys(
+            [
+                *_extract_wikilinks(orchestrated.output.answer_markdown),
+                *orchestrated.output.citations,
+            ]
+        )
+    )
+    query_result = QueryResult(
+        answer=orchestrated.output.answer_markdown,
+        citations=citations,
+        pages_drilled=len(useful_evidence),
+        search_scores=prepared.search_scores,
+    )
+    fan_result = FanOutResult(successes=[(item.id, item.excerpt) for item in useful_evidence], errors=[])
+    return apply_guardrails(query_result, prepared.wiki, fan_result, skip_g4=False)
