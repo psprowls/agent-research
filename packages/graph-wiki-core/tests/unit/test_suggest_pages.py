@@ -157,13 +157,15 @@ async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
         reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
 
     assert parsed is True
-    # Report shape preserved (kind/title/slug/mode/status; slug == target_slug).
+    # Report shape includes Task 5 reasoner metadata; slug == target_slug.
     assert reports == [
         {
             "kind": "concept",
             "title": "A Concept",
             "slug": "a-concept",
             "mode": "create_new",
+            "rank": 999,
+            "confidence": "medium",
             "status": "proposed",
         }
     ]
