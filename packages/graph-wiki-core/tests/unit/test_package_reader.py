@@ -218,3 +218,41 @@ async def test_run_package_reader_allows_valid_empty_sections(monkeypatch, tmp_p
 
     assert result.replacements == {}
     assert result.error is None
+
+
+@pytest.mark.asyncio
+async def test_run_package_reader_rejects_malformed_section_schema(monkeypatch, tmp_path: Path) -> None:
+    item = PackageReaderItem(
+        uri="pkg:org/repo/pkg-a",
+        kind="package",
+        name="pkg-a",
+        graph_path="packages/pkg-a",
+        language="python",
+        frontmatter={"uri": "pkg:org/repo/pkg-a", "kind": "package"},
+        page_content="# pkg-a\n\n## Purpose\n> TODO: explain.\n",
+        requested_sections={"Purpose": "> TODO: explain."},
+        narrative="Scanner prose.",
+        file_map="## File map - pkg-a\n...",
+        graph_context="package pkg-a",
+        entity_root="packages/pkg-a",
+    )
+
+    async def fake_loop(**_kwargs):
+        return MagicMock(
+            status="ok",
+            final_text='{"sections":[{"heading":1,"replacement_markdown":"Owns scan."}]}',
+            error=None,
+        )
+
+    monkeypatch.setattr("graph_wiki_core.commands.package_reader.run_tool_loop", fake_loop)
+
+    result = await run_package_reader(
+        llm=MagicMock(),
+        item=item,
+        repo=tmp_path / "repo",
+        wiki=tmp_path / "wiki",
+        graph_tools=[],
+    )
+
+    assert result.replacements == {}
+    assert result.error is not None

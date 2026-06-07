@@ -89,10 +89,18 @@ def _parse_package_reader_output(raw: str, *, requested_headings: list[str]) -> 
                 replacements={},
                 error=f"package_reader section at index {index} must be an object",
             )
-        heading = section.get("heading")
-        body = section.get("replacement_markdown")
+        if "heading" not in section or "replacement_markdown" not in section:
+            return _PackageReaderParseResult(
+                replacements={},
+                error=f"package_reader section at index {index} must include heading and replacement_markdown",
+            )
+        heading = section["heading"]
+        body = section["replacement_markdown"]
         if not isinstance(heading, str) or not isinstance(body, str):
-            continue
+            return _PackageReaderParseResult(
+                replacements={},
+                error=f"package_reader section at index {index} must use string heading and replacement_markdown",
+            )
         normalized_heading = heading.strip()
         normalized_body = body.strip()
         if (
