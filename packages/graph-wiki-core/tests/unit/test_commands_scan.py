@@ -515,8 +515,8 @@ async def test_run_package_reader_pass_keeps_page_load_errors_best_effort(monkey
         conn=None,
         model_override=None,
         candidate_pages={
-            "package:missing": missing_page,
-            "package:valid": valid_page,
+            "package:missing": scan_mod._PackageReaderCandidate(page_path=missing_page),
+            "package:valid": scan_mod._PackageReaderCandidate(page_path=valid_page),
         },
     )
 
@@ -525,3 +525,94 @@ async def test_run_package_reader_pass_keeps_page_load_errors_best_effort(monkey
     assert errors == [
         "package:missing: package_reader page load failed: FileNotFoundError(2, 'No such file or directory')"
     ]
+
+
+async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypatch, tmp_path: Path) -> None:
+    import graph_wiki_core.commands.scan as scan_mod
+    from graph_wiki_core.commands.package_reader import PackageReaderResult
+
+    wiki = tmp_path / "workspace" / "wiki"
+    repo = tmp_path / "workspace" / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+
+    page = wiki / "entities" / "pkg-a.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "---\n"
+        "kind: package\n"
+        "uri: pkg:org/repo/pkg-a\n"
+        "title: pkg-a\n"
+        "language: python\n"
+        "---\n\n"
+        "# pkg-a\n\n"
+        "## Purpose\n"
+        "> TODO: explain why this package exists.\n\n"
+        "## Narrative\n"
+        "Scanner prose.\n",
+        encoding="utf-8",
+    )
+    captured_entity_roots: list[str] = []
+
+    async def fake_run_package_reader(*, llm, item, repo, wiki, graph_tools):
+        captured_entity_roots.append(item.entity_root)
+        return PackageReaderResult(
+            status="ok",
+            replacements={"Purpose": "Owns package-level scan orchestration."},
+            error=None,
+        )
+
+    class _FakeTaskResult:
+        def __init__(self, value, response) -> None:
+            self.value = value
+            self.response = response
+
+    class _FakePool:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def run_all(self, *, items, task, role, model_id, max_concurrency):
+            class _Result:
+                def __init__(self, successes, errors) -> None:
+                    self.successes = successes
+                    self.errors = errors
+
+            successes = []
+            for item in items:
+                task_result = await task(item)
+                payload = getattr(task_result, "value", task_result)
+                successes.append((item, payload))
+            return _Result(successes=successes, errors=[])
+
+    monkeypatch.setattr(scan_mod, "run_package_reader", fake_run_package_reader)
+    monkeypatch.setattr(
+        scan_mod,
+        "_bedrock_stack",
+        lambda: (
+            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
+            lambda role, model_override=None: object(),
+            _FakePool,
+            _FakeTaskResult,
+        ),
+    )
+
+    filled, errors = await scan_mod._run_package_reader_pass(
+        wiki=wiki,
+        repo=repo,
+        conn=None,
+        model_override=None,
+        candidate_pages={
+            "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(
+                page_path=page,
+                graph_path="packages/pkg-a",
+                kind="package",
+                name="pkg-a",
+                language="python",
+            )
+        },
+    )
+
+    assert captured_entity_roots == ["packages/pkg-a"]
+    assert filled == {"pkg:org/repo/pkg-a"}
+    assert errors == []
+    assert "## Purpose\nOwns package-level scan orchestration.\n" in page.read_text(encoding="utf-8")

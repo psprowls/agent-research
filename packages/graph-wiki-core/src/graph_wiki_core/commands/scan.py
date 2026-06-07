@@ -166,11 +166,13 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
     return _extract_file_map_descriptions(section.group(2), pkg_name)
 
 
-def _entity_root_from_frontmatter(metadata: dict[str, Any]) -> str:
-    uri = str(metadata.get("uri") or "")
-    if ":" not in uri:
-        return ""
-    return uri.split(":", 1)[1]
+@dataclass(frozen=True)
+class _PackageReaderCandidate:
+    page_path: Path
+    graph_path: str | None = None
+    kind: str | None = None
+    name: str | None = None
+    language: str | None = None
 
 
 async def _run_package_reader_pass(
@@ -179,7 +181,7 @@ async def _run_package_reader_pass(
     repo: Path,
     conn: Any | None,
     model_override: str | None,
-    candidate_pages: dict[str, Path],
+    candidate_pages: dict[str, _PackageReaderCandidate],
 ) -> tuple[set[str], list[str]]:
     stack = _bedrock_stack()
     if stack is None:
@@ -189,13 +191,14 @@ async def _run_package_reader_pass(
     graph_tools = build_graph_tools(conn) if conn is not None else []
     errors: list[str] = []
     items: list[tuple[str, Path, PackageReaderItem]] = []
-    for uri, page_path in sorted(candidate_pages.items()):
+    for uri, candidate in sorted(candidate_pages.items()):
+        page_path = candidate.page_path
         try:
             post = frontmatter.load(page_path)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{uri}: package_reader page load failed: {exc!r}")
             continue
-        kind = str(post.metadata.get("kind") or "")
+        kind = str(candidate.kind or post.metadata.get("kind") or "")
         if kind not in PACKAGE_READER_TARGET_KINDS:
             continue
         try:
@@ -206,16 +209,17 @@ async def _run_package_reader_pass(
         todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
         if not todo_sections:
             continue
-        graph_path = str(post.metadata.get("graph_path") or post.metadata.get("path") or "")
+        graph_path = str(candidate.graph_path or post.metadata.get("graph_path") or post.metadata.get("path") or "")
         if not graph_path:
-            graph_path = _entity_root_from_frontmatter(post.metadata)
+            errors.append(f"{uri}: package_reader missing graph path")
+            continue
         item = PackageReaderItem(
             uri=uri,
             kind=kind,
-            name=str(post.metadata.get("graph_name") or post.metadata.get("title") or page_path.stem),
+            name=str(candidate.name or post.metadata.get("graph_name") or post.metadata.get("title") or page_path.stem),
             graph_path=graph_path,
-            language=str(post.metadata.get("language") or "unknown"),
-            frontmatter={str(k): str(v) for k, v in post.metadata.items()},
+            language=str(candidate.language or post.metadata.get("language") or "unknown"),
+            frontmatter=cast(Any, dict(post.metadata)),
             page_content=page_text,
             requested_sections={section.heading: section.body for section in todo_sections},
             narrative=extract_narrative(page_text) or "",
@@ -262,6 +266,17 @@ async def _run_package_reader_pass(
         uri = err.item[0]
         errors.append(f"{uri}: {err.exception!r}")
     return filled, errors
+
+
+def _record_package_reader_candidate(
+    candidates: dict[str, _PackageReaderCandidate],
+    *,
+    uri: str,
+    candidate: _PackageReaderCandidate,
+) -> None:
+    existing = candidates.get(uri)
+    if existing is None or (not existing.graph_path and candidate.graph_path):
+        candidates[uri] = candidate
 
 
 # ---------------------------------------------------------------------------
@@ -1158,6 +1173,7 @@ async def run_scan(
         # a dropped file-map row was never refilled.
         good_prose_uris: set[str] = set()
         narrated_page_paths: dict[str, Path] = {}
+        narrated_page_candidates: dict[str, _PackageReaderCandidate] = {}
         if narrator_result is not None:
             assert conn is not None
             inject_collision_set = _compute_collision_set(
@@ -1178,6 +1194,14 @@ async def run_scan(
                 try:
                     inject_narrative(entity_page_path, prose)
                     narrated_page_paths[uri_inner] = entity_page_path
+                    attrs = node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
+                    narrated_page_candidates[uri_inner] = _PackageReaderCandidate(
+                        page_path=entity_page_path,
+                        graph_path=node_inner.path,
+                        kind=kind_inner,
+                        name=node_inner.name,
+                        language=str(attrs.get("language") or "unknown"),
+                    )
                     # Empty-prose guard (M2b §3.4): empty narration records
                     # nothing, so it can never mint an anchor on its own.
                     if head and prose.strip():
@@ -1417,10 +1441,20 @@ async def run_scan(
         package_reader_filled_uris: set[str] = set()
         package_reader_errors: list[str] = []
         if narrate:
-            package_reader_candidates: dict[str, Path] = {}
-            package_reader_candidates.update(narrated_page_paths)
-            for uri_inner, _node, page_path in file_mapped_pages:
-                package_reader_candidates.setdefault(uri_inner, page_path)
+            package_reader_candidates: dict[str, _PackageReaderCandidate] = dict(narrated_page_candidates)
+            for uri_inner, node, page_path in file_mapped_pages:
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                _record_package_reader_candidate(
+                    package_reader_candidates,
+                    uri=uri_inner,
+                    candidate=_PackageReaderCandidate(
+                        page_path=page_path,
+                        graph_path=node.path,
+                        kind=node.kind,
+                        name=node.name,
+                        language=str(attrs.get("language") or "unknown"),
+                    ),
+                )
             if package_reader_candidates:
                 package_reader_filled_uris, package_reader_errors = await _run_package_reader_pass(
                     wiki=wiki,
