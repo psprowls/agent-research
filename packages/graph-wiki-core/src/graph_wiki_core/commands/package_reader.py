@@ -125,13 +125,26 @@ def _resolve_under_entity_root(root: Path, rel_path: str) -> Path | None:
     return resolved_path
 
 
+def _resolved_entity_root_within_repo(repo: Path, entity_root_path: Path) -> Path | None:
+    try:
+        resolved_repo = repo.resolve()
+        resolved_entity_root = entity_root_path.resolve()
+        resolved_entity_root.relative_to(resolved_repo)
+    except (OSError, ValueError):
+        return None
+    return resolved_entity_root
+
+
 def build_package_reader_tools(repo: Path, entity_root: str, wiki: Path, graph_tools: list[BaseTool]) -> list[BaseTool]:
     entity_root_path = repo / entity_root
 
     @tool
     def read_repo_file(path: str) -> str:
         """Read one repo file under the entity root, bounded to a safe size."""
-        target = _resolve_under_entity_root(entity_root_path, path)
+        resolved_entity_root = _resolved_entity_root_within_repo(repo, entity_root_path)
+        if resolved_entity_root is None:
+            return "ERROR: entity root is outside repo"
+        target = _resolve_under_entity_root(resolved_entity_root, path)
         if target is None:
             return "ERROR: path is outside entity root"
         if not target.is_file():
@@ -145,7 +158,10 @@ def build_package_reader_tools(repo: Path, entity_root: str, wiki: Path, graph_t
     @tool
     def list_repo_tree(path: str = ".") -> str:
         """List shallow sorted children under the entity root, bounded to 200 entries."""
-        target = _resolve_under_entity_root(entity_root_path, path)
+        resolved_entity_root = _resolved_entity_root_within_repo(repo, entity_root_path)
+        if resolved_entity_root is None:
+            return "ERROR: entity root is outside repo"
+        target = _resolve_under_entity_root(resolved_entity_root, path)
         if target is None:
             return "ERROR: path is outside entity root"
         if not target.exists():
