@@ -47,6 +47,8 @@ async def run_tool_loop(
             last_text = str(text)
         tool_calls = getattr(response, "tool_calls", None) or []
         if not tool_calls:
+            if not text:
+                return ToolLoopResult(status="failed", final_text="", error=f"{cap_label} returned empty response")
             return ToolLoopResult(status="ok", final_text=str(text))
 
         loop_messages.append(response)
