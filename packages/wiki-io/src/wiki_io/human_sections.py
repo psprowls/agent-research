@@ -15,7 +15,7 @@ from pathlib import Path
 
 from wiki_io.entity_writer import SCANNER_DATA_HEADINGS, _is_scanner_owned_heading, _split_h2_sections
 
-_TODO_HEAD_RE = re.compile(r"^(?:TODO\b|>\s*TODO\b|-+\s*TODO\b|—\s*TODO\b)")
+_TODO_HEAD_RE = re.compile(r"^(?:>\s*)?(?:[-*]\s*)?(?:TODO\b|[-\u2014]\s*TODO\b)", re.IGNORECASE)
 _FRONTMATTER_KIND_RE = re.compile(r"^kind:\s*(.+?)\s*$")
 
 
@@ -31,8 +31,13 @@ def is_todo_like_body(body: str) -> bool:
     cleaned = body.strip()
     if not cleaned:
         return True
-    first_line = cleaned.splitlines()[0].strip()
-    return bool(_TODO_HEAD_RE.match(first_line))
+    for line in cleaned.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not _TODO_HEAD_RE.match(stripped):
+            return False
+    return True
 
 
 def find_todo_human_sections(text: str, *, entity_kind: str) -> list[HumanTodoSection]:
