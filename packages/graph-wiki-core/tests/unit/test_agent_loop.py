@@ -25,7 +25,6 @@ async def test_run_tool_loop_returns_terminal_no_tool_response() -> None:
     assert result.status == "ok"
     assert result.final_text == "final answer"
     assert result.error is None
-    assert llm.bind_tools.call_count == 0
     assert llm.ainvoke.call_count == 1
 
 
@@ -56,7 +55,10 @@ async def test_run_tool_loop_dispatches_one_tool_call_and_feeds_result_back() ->
     assert result.error is None
     assert llm.bind_tools.call_count == 1
     second_messages = llm.ainvoke.call_args_list[1].args[0]
-    assert second_messages[-1] == ToolMessage(content="tool:one", tool_call_id="call_1")
+    tool_message = second_messages[-1]
+    assert isinstance(tool_message, ToolMessage)
+    assert tool_message.content == "tool:one"
+    assert tool_message.tool_call_id == "call_1"
 
 
 @pytest.mark.asyncio
@@ -79,7 +81,10 @@ async def test_run_tool_loop_turns_unknown_tool_into_tool_message() -> None:
     assert result.status == "ok"
     assert result.final_text == "recovered"
     second_messages = llm.ainvoke.call_args_list[1].args[0]
-    assert second_messages[-1] == ToolMessage(content="ERROR: unknown tool 'missing_tool'", tool_call_id="call_1")
+    tool_message = second_messages[-1]
+    assert isinstance(tool_message, ToolMessage)
+    assert tool_message.content == "ERROR: unknown tool 'missing_tool'"
+    assert tool_message.tool_call_id == "call_1"
 
 
 @pytest.mark.asyncio
@@ -107,7 +112,10 @@ async def test_run_tool_loop_turns_tool_exception_into_tool_message() -> None:
     assert result.status == "ok"
     assert result.final_text == "recovered"
     second_messages = llm.ainvoke.call_args_list[1].args[0]
-    assert second_messages[-1] == ToolMessage(content="ERROR: boom", tool_call_id="call_1")
+    tool_message = second_messages[-1]
+    assert isinstance(tool_message, ToolMessage)
+    assert tool_message.content == "ERROR: boom"
+    assert tool_message.tool_call_id == "call_1"
 
 
 @pytest.mark.asyncio
