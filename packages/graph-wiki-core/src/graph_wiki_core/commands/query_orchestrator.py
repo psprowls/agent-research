@@ -5,12 +5,21 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
+
+from wiki_io.update_index import parse_frontmatter
+
+from graph_wiki_core.agent_tools import body_without_frontmatter
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
+DEGRADED_STATUS_VALUES = {"degraded", "failed", "error", "blocked", "stale"}
+DEGRADED_STATUS_KEYS = ("ingest_status", "proposal_status", "status")
+PLACEHOLDER_MARKERS = ("todo", "placeholder", "no narrative available", "needs review")
+MIN_MEANINGFUL_BODY_CHARS = 40
 REQUIRED_TOP_LEVEL_KEYS = {
     "answer_markdown",
     "citations",
@@ -53,6 +62,12 @@ class EvidenceGap:
 
 
 @dataclass(frozen=True)
+class FreshnessClassification:
+    freshness: str
+    reason: str | None
+
+
+@dataclass(frozen=True)
 class OrchestratorOutput:
     answer_markdown: str
     citations: list[str]
@@ -62,6 +77,36 @@ class OrchestratorOutput:
     worker_results: tuple[Mapping[str, Any], ...]
     gaps: list[EvidenceGap]
     confidence: str
+
+
+def classify_wiki_freshness(page_path: Path, *, repo_head: str | None) -> FreshnessClassification:
+    """Classify whether wiki evidence is fresh enough to use as current evidence."""
+
+    try:
+        text = page_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return FreshnessClassification(freshness="unknown", reason="wiki page not found")
+
+    metadata = parse_frontmatter(text)
+    body = body_without_frontmatter(text)
+
+    if _has_drift_review(metadata.get("drift_review")):
+        return FreshnessClassification(freshness="stale", reason="drift_review")
+
+    last_updated_commit = metadata.get("last_updated_commit")
+    if repo_head and last_updated_commit and str(last_updated_commit) != repo_head:
+        return FreshnessClassification(freshness="stale", reason="last_updated_commit mismatch")
+
+    if _has_placeholder_content(body):
+        return FreshnessClassification(freshness="stale", reason="placeholder content")
+
+    if _has_degraded_status(metadata):
+        return FreshnessClassification(freshness="stale", reason="degraded status")
+
+    if repo_head and last_updated_commit and str(last_updated_commit) == repo_head:
+        return FreshnessClassification(freshness="fresh", reason=None)
+
+    return FreshnessClassification(freshness="unknown", reason=None)
 
 
 def parse_orchestrator_output(
@@ -100,6 +145,47 @@ def parse_orchestrator_output(
     )
     validate_orchestrator_output(output, require_stale_claim_gaps=require_stale_claim_gaps)
     return output
+
+
+def _has_drift_review(value: Any) -> bool:
+    if not value:
+        return False
+    if isinstance(value, dict):
+        status = value.get("status")
+        if status is not None:
+            return _status_value_is_stale(status)
+        return bool(value)
+    if isinstance(value, list | tuple | set):
+        return any(_has_drift_review(item) for item in value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"", "false", "none", "null", "[]", "{}"}:
+            return False
+        if "status:" in normalized or "status=" in normalized:
+            return "status: stale" in normalized or "status=stale" in normalized
+        return True
+    return True
+
+
+def _has_placeholder_content(body: str) -> bool:
+    normalized = " ".join(body.split()).lower()
+    if len(normalized) < MIN_MEANINGFUL_BODY_CHARS:
+        return True
+    return any(marker in normalized for marker in PLACEHOLDER_MARKERS)
+
+
+def _has_degraded_status(metadata: Mapping[str, Any]) -> bool:
+    return any(_status_value_is_stale(metadata.get(key)) for key in DEGRADED_STATUS_KEYS)
+
+
+def _status_value_is_stale(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(_status_value_is_stale(item) for item in value.values())
+    if isinstance(value, list | tuple | set):
+        return any(_status_value_is_stale(item) for item in value)
+    if value is None:
+        return False
+    return str(value).strip().lower() in DEGRADED_STATUS_VALUES
 
 
 def _validate_top_level_keys(payload: dict[str, Any]) -> None:
