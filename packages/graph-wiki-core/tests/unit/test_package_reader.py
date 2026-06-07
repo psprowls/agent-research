@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from graph_wiki_core.commands.package_reader import (
     PackageReaderItem,
+    build_package_reader_prompt,
     build_package_reader_tools,
     parse_package_reader_output,
     run_package_reader,
@@ -86,6 +87,29 @@ def test_build_package_reader_tools_includes_bounded_wiki_and_allowed_graph_tool
     assert names == ["read_repo_file", "list_repo_tree", "read_wiki_page", "cg_find"]
 
 
+def test_build_package_reader_prompt_includes_requested_bodies_and_frontmatter() -> None:
+    item = PackageReaderItem(
+        uri="pkg:org/repo/pkg-a",
+        kind="package",
+        name="pkg-a",
+        graph_path="packages/pkg-a",
+        language="python",
+        frontmatter={"uri": "pkg:org/repo/pkg-a", "kind": "package"},
+        page_content="# pkg-a\n\n## Purpose\n> TODO: explain.\n",
+        requested_sections={"Purpose": "> TODO: explain."},
+        narrative="Scanner prose.",
+        file_map="## File map - pkg-a\n...",
+        graph_context="package pkg-a",
+        entity_root="packages/pkg-a",
+    )
+
+    prompt = build_package_reader_prompt(item)
+
+    assert "Purpose: > TODO: explain." in prompt
+    assert '"kind": "package"' in prompt
+    assert '"uri": "pkg:org/repo/pkg-a"' in prompt
+
+
 @pytest.mark.asyncio
 async def test_run_package_reader_uses_shared_tool_loop(monkeypatch, tmp_path: Path) -> None:
     item = PackageReaderItem(
@@ -125,4 +149,72 @@ async def test_run_package_reader_uses_shared_tool_loop(monkeypatch, tmp_path: P
     )
 
     assert result.replacements == {"Purpose": "Owns scan."}
+    assert result.error is None
+
+
+@pytest.mark.asyncio
+async def test_run_package_reader_reports_invalid_model_output(monkeypatch, tmp_path: Path) -> None:
+    item = PackageReaderItem(
+        uri="pkg:org/repo/pkg-a",
+        kind="package",
+        name="pkg-a",
+        graph_path="packages/pkg-a",
+        language="python",
+        frontmatter={"uri": "pkg:org/repo/pkg-a", "kind": "package"},
+        page_content="# pkg-a\n\n## Purpose\n> TODO: explain.\n",
+        requested_sections={"Purpose": "> TODO: explain."},
+        narrative="Scanner prose.",
+        file_map="## File map - pkg-a\n...",
+        graph_context="package pkg-a",
+        entity_root="packages/pkg-a",
+    )
+
+    async def fake_loop(**_kwargs):
+        return MagicMock(status="ok", final_text="not json", error=None)
+
+    monkeypatch.setattr("graph_wiki_core.commands.package_reader.run_tool_loop", fake_loop)
+
+    result = await run_package_reader(
+        llm=MagicMock(),
+        item=item,
+        repo=tmp_path / "repo",
+        wiki=tmp_path / "wiki",
+        graph_tools=[],
+    )
+
+    assert result.replacements == {}
+    assert result.error is not None
+
+
+@pytest.mark.asyncio
+async def test_run_package_reader_allows_valid_empty_sections(monkeypatch, tmp_path: Path) -> None:
+    item = PackageReaderItem(
+        uri="pkg:org/repo/pkg-a",
+        kind="package",
+        name="pkg-a",
+        graph_path="packages/pkg-a",
+        language="python",
+        frontmatter={"uri": "pkg:org/repo/pkg-a", "kind": "package"},
+        page_content="# pkg-a\n\n## Purpose\n> TODO: explain.\n",
+        requested_sections={"Purpose": "> TODO: explain."},
+        narrative="Scanner prose.",
+        file_map="## File map - pkg-a\n...",
+        graph_context="package pkg-a",
+        entity_root="packages/pkg-a",
+    )
+
+    async def fake_loop(**_kwargs):
+        return MagicMock(status="ok", final_text='{"sections":[]}', error=None)
+
+    monkeypatch.setattr("graph_wiki_core.commands.package_reader.run_tool_loop", fake_loop)
+
+    result = await run_package_reader(
+        llm=MagicMock(),
+        item=item,
+        repo=tmp_path / "repo",
+        wiki=tmp_path / "wiki",
+        graph_tools=[],
+    )
+
+    assert result.replacements == {}
     assert result.error is None

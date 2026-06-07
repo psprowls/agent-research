@@ -48,29 +48,47 @@ class PackageReaderResult:
     error: str | None = None
 
 
-def parse_package_reader_output(raw: str, *, requested_headings: list[str]) -> dict[str, str]:
-    text = raw.strip()
-    if text.startswith("```"):
-        lines = text.splitlines()
-        if len(lines) >= 2 and lines[-1].strip() == "```":
-            text = "\n".join(lines[1:-1]).strip()
+@dataclass(frozen=True)
+class _PackageReaderParseResult:
+    replacements: dict[str, str]
+    error: str | None = None
 
+
+def parse_package_reader_output(raw: str, *, requested_headings: list[str]) -> dict[str, str]:
+    return _parse_package_reader_output(raw, requested_headings=requested_headings).replacements
+
+
+def _strip_json_fence(raw: str) -> str:
+    text = raw.strip()
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    if len(lines) >= 2 and lines[-1].strip() == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return text
+
+
+def _parse_package_reader_output(raw: str, *, requested_headings: list[str]) -> _PackageReaderParseResult:
     try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        return {}
+        payload = json.loads(_strip_json_fence(raw))
+    except json.JSONDecodeError as exc:
+        return _PackageReaderParseResult(replacements={}, error=f"package_reader returned invalid JSON: {exc.msg}")
 
     if not isinstance(payload, dict):
-        return {}
+        return _PackageReaderParseResult(replacements={}, error="package_reader output must be a JSON object")
+
     sections = payload.get("sections")
     if not isinstance(sections, list):
-        return {}
+        return _PackageReaderParseResult(replacements={}, error='package_reader output must contain a "sections" list')
 
     allowed = set(requested_headings)
     parsed: dict[str, str] = {}
-    for section in sections:
+    for index, section in enumerate(sections):
         if not isinstance(section, dict):
-            continue
+            return _PackageReaderParseResult(
+                replacements={},
+                error=f"package_reader section at index {index} must be an object",
+            )
         heading = section.get("heading")
         body = section.get("replacement_markdown")
         if not isinstance(heading, str) or not isinstance(body, str):
@@ -86,7 +104,7 @@ def parse_package_reader_output(raw: str, *, requested_headings: list[str]) -> d
         ):
             continue
         parsed[normalized_heading] = normalized_body
-    return parsed
+    return _PackageReaderParseResult(replacements=parsed, error=None)
 
 
 def _resolve_under_entity_root(root: Path, rel_path: str) -> Path | None:
@@ -143,7 +161,8 @@ def build_package_reader_tools(repo: Path, entity_root: str, wiki: Path, graph_t
 
 
 def build_package_reader_prompt(item: PackageReaderItem) -> str:
-    requested = "\n".join(f"- {heading}" for heading in item.requested_sections)
+    requested = "\n".join(f"- {heading}: {body}" for heading, body in item.requested_sections.items())
+    frontmatter_json = json.dumps(item.frontmatter, sort_keys=True)
     return (
         f"Entity URI: {item.uri}\n"
         f"Kind: {item.kind}\n"
@@ -151,6 +170,8 @@ def build_package_reader_prompt(item: PackageReaderItem) -> str:
         f"Graph path: {item.graph_path}\n"
         f"Language: {item.language}\n"
         f"Entity root: {item.entity_root}\n\n"
+        "Frontmatter JSON:\n"
+        f"{frontmatter_json}\n\n"
         "Requested H2 sections:\n"
         f"{requested or '(none)'}\n\n"
         "Scanner narrative:\n"
@@ -185,11 +206,12 @@ async def run_package_reader(
     )
     if loop_result.status != "ok":
         return PackageReaderResult(status=loop_result.status, replacements={}, error=loop_result.error)
+    parse_result = _parse_package_reader_output(
+        loop_result.final_text,
+        requested_headings=list(item.requested_sections),
+    )
     return PackageReaderResult(
         status=loop_result.status,
-        replacements=parse_package_reader_output(
-            loop_result.final_text,
-            requested_headings=list(item.requested_sections),
-        ),
-        error=loop_result.error,
+        replacements=parse_result.replacements,
+        error=parse_result.error or loop_result.error,
     )
