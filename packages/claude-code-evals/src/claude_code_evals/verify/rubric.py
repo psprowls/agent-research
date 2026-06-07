@@ -56,7 +56,7 @@ class RubricVerifier(VerifierBase):
         metric = GEval(
             name="rubric",
             criteria=rubric_text,
-            evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+            evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],  # type: ignore[attr-defined]
             model=judge,  # ALWAYS explicit — deepeval defaults to OpenAI when omitted
             threshold=self.threshold,
         )

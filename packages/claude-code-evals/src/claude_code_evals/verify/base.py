@@ -21,28 +21,12 @@ class VerifierBase(BaseMetric):
 
     def __init__(self, *, threshold: float = 0.5) -> None:
         self.threshold = threshold
-        self._score: float = 0.0
-        self._reason: str = ""
+        self.score: float = 0.0  # type: ignore[assignment]
+        self.reason: str = ""  # type: ignore[assignment]
 
     @property
-    def score(self) -> float:
-        return self._score
-
-    @score.setter
-    def score(self, value: float) -> None:
-        self._score = value
-
-    @property
-    def reason(self) -> str:
-        return self._reason
-
-    @reason.setter
-    def reason(self, value: str) -> None:
-        self._reason = value
-
-    @property
-    def success(self) -> bool:
-        return self._score >= self.threshold
+    def success(self) -> bool:  # type: ignore[override]
+        return (self.score or 0.0) >= self.threshold
 
     @abstractmethod
     def measure(self, test_case: LLMTestCase) -> float: ...  # type: ignore[override]
