@@ -82,6 +82,23 @@ def test_parse_extractor_response_drops_invalid_kind_and_normalizes() -> None:
     assert SUGGESTION_KINDS == frozenset({"concept", "adr", "architecture"})
 
 
+def test_parse_extractor_response_defaults_infinite_rank() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Infinite Rank\n"
+        "    slug: infinite-rank\n"
+        "    mode: create_new\n"
+        "    rank: .inf\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries[0]["rank"] == 999
+
+
 def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     from graph_wiki_core.commands.suggest_pages import build_curated_vault_index
 

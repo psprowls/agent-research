@@ -90,7 +90,7 @@ def _validate_proposal(raw: object) -> dict | None:
     existing_slug = slugify(str(existing_raw).strip()) if existing_raw else None
     try:
         rank = int(raw.get("rank", 999))
-    except (TypeError, ValueError):
+    except (OverflowError, TypeError, ValueError):
         rank = 999
     confidence = str(raw.get("confidence", "medium")).strip().lower()
     if confidence not in {"high", "medium", "low"}:
