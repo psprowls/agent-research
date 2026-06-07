@@ -49,9 +49,11 @@ class EvalWorktree:
         self._tmp = tempfile.mkdtemp(prefix="eval-wt-")
         self.path = Path(self._tmp)
         shutil.copytree(self._source, self.path / "wiki", dirs_exist_ok=False)
-        # Source vaults store their index/traces under <wiki>/.graph-wiki (legacy
-        # layout); relocate to the workspace-level .graph-wiki so the consolidated
-        # resolver (graph_dir(wiki.parent)) finds them — no rebuild at sweep time.
+        # Current fixtures store machine state at <workspace>/.graph-wiki. Keep
+        # the legacy <wiki>/.graph-wiki fallback for older external eval corpora.
+        source_ws_meta = graph_dir(self._source.parent)
+        if source_ws_meta.exists():
+            shutil.copytree(source_ws_meta, graph_dir(self.path), dirs_exist_ok=True)
         wiki_meta = self.path / "wiki" / ".graph-wiki"
         ws_meta = graph_dir(self.path)
         if wiki_meta.exists():

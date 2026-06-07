@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
-FIXTURE_VAULT = _WORKSPACE_ROOT / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
+FIXTURE_WORKSPACE = _WORKSPACE_ROOT / "packages" / "eval-harness" / "tests" / "fixtures" / "post-rebrand-workspace"
 
 # The six agent roles under test (D-01)
 ROLES = ["librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor"]

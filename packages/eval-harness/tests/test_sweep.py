@@ -69,7 +69,7 @@ async def test_run_query_accepts_tmpdir_workspace(
 
     async with EvalWorktree(fixture_wiki_path) as wt:
         result = await run_query(
-            "What does lattice-wiki-core do?",
+            "What does eval-harness do?",
             workspace_path=wt.path,
             top_k=3,
         )

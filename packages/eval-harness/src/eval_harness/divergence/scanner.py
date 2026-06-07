@@ -12,8 +12,8 @@ import frontmatter
 
 from eval_harness.divergence.check import AgentOutputProxy, DivergenceCheck, Verdict
 
-# Required frontmatter fields per RESEARCH §Divergence Check Inventory SCN-002.
-_REQUIRED_FIELDS = ["title", "category", "summary", "package_path", "language"]
+# Required scanner-owned entity frontmatter fields.
+_REQUIRED_FIELDS = ["title", "uri", "kind", "summary", "updated"]
 
 # Section markers the scanner must/must not include.
 _FILE_MAP_SECTION = "## File map"
@@ -32,7 +32,7 @@ def _check_frontmatter_present(output: AgentOutputProxy, wiki: Path) -> Verdict:
 
 
 def _check_required_fields(output: AgentOutputProxy, wiki: Path) -> Verdict:
-    """SCN-002: title, category, summary, package_path, language all present."""
+    """SCN-002: current entity frontmatter fields are present."""
     try:
         post = frontmatter.loads(output.answer)
     except Exception as exc:

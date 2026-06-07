@@ -63,7 +63,7 @@ def produce_outputs(
     Corpus assumptions (per EVAL plan):
         - librarian: eval/cases/query_cases.json in the workspace root.
           Missing → pytest.skip with path.
-        - ingestor:  .md files from wiki/packages/* or wiki/concepts/*.
+        - ingestor:  .md files from wiki/entities/* or wiki/concepts/*.
           Uses existing wiki pages as "source documents" to re-ingest.
           Missing → pytest.skip with path.
         - linter:    The wiki dir (derived from workspace).
@@ -132,18 +132,18 @@ def _produce_librarian_outputs(workspace: Path) -> "list[tuple[str, AgentOutputP
 def _produce_ingestor_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
     """Run ingest command against existing wiki pages as source documents.
 
-    Corpus: up to 2 .md files from wiki/packages/*/ or wiki/concepts/*.
+    Corpus: up to 2 .md files from wiki/entities/ or wiki/concepts/*.
     Uses run_ingest_source() so the LLM processes real source content.
     The "query" slot (third tuple element) is the source file path string.
 
-    Corpus path: {wiki}/packages/**/*.md or {wiki}/concepts/*.md
+    Corpus path: {wiki}/entities/*.md or {wiki}/concepts/*.md
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
 
     wiki = wiki_dir(workspace)
     # Collect candidate source files from the wiki fixture itself
     candidates: list[Path] = []
-    for subdir in ("packages", "concepts"):
+    for subdir in ("entities", "concepts"):
         subdir_path = wiki / subdir
         if subdir_path.exists():
             for md in sorted(subdir_path.rglob("*.md")):
@@ -154,7 +154,7 @@ def _produce_ingestor_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPr
 
     if not candidates:
         pytest.skip(
-            f"ingestor corpus not found: no .md files under {wiki}/packages/ or "
+            f"ingestor corpus not found: no .md files under {wiki}/entities/ or "
             f"{wiki}/concepts/; add source documents for ingest eval."
         )
 
@@ -183,9 +183,9 @@ def _produce_ingestor_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPr
 
 
 def _produce_linter_outputs(workspace: Path) -> "list[tuple[str, AgentOutputProxy, str]]":
-    """Run lint command against the round-trip-vault and return per-group outputs.
+    """Run lint command against the post-rebrand fixture and return per-group outputs.
 
-    Corpus: the round-trip-vault fixture (derived as wiki_dir(workspace)).
+    Corpus: the post-rebrand fixture (derived as wiki_dir(workspace)).
     Returns one output per semantic group (page_quality, adr_chain, stale_claims).
     The "query" slot is the group name.
     """
@@ -225,7 +225,7 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
     Passes repo_path=packages/eval-harness explicitly so workspace discovery
     does not depend on pytest cwd. (Plan 06-15 / UAT G5 — without this, the
     scanner falls back to Path.cwd() and may find nothing resolvable from
-    the round-trip-vault fixture.)
+    the post-rebrand fixture.)
     """
     from eval_harness.divergence.check import AgentOutputProxy  # noqa: PLC0415
     from graph_wiki_core.commands.scan import run_scan  # noqa: PLC0415
@@ -252,14 +252,17 @@ def _produce_scanner_outputs(workspace: Path) -> "list[tuple[str, AgentOutputPro
 
     outputs: list[tuple[str, AgentOutputProxy, str]] = []
     for pkg_name in added_or_updated:
-        # Read the written stub page back from the wiki
-        stub_path = wiki / "packages" / pkg_name / f"{pkg_name}.md"
-        if stub_path.exists():
-            stub_text = stub_path.read_text(encoding="utf-8")
-        else:
-            # Try flat path
-            stub_path = wiki / f"packages/{pkg_name}.md"
-            stub_text = stub_path.read_text(encoding="utf-8") if stub_path.exists() else ""
+        # Read the written entity page back from the wiki.
+        candidate_paths = [
+            wiki / "entities" / f"pkg_{pkg_name}.md",
+            wiki / "entities" / f"app_{pkg_name}.md",
+            wiki / "entities" / f"repo_{pkg_name}.md",
+        ]
+        stub_text = ""
+        for stub_path in candidate_paths:
+            if stub_path.exists():
+                stub_text = stub_path.read_text(encoding="utf-8")
+                break
         if stub_text:
             outputs.append(
                 (

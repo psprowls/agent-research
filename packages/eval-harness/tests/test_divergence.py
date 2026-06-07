@@ -4,7 +4,7 @@ Gated behind GRAPH_WIKI_RUN_EVAL=1 so it does not run in quick CI. Parametrized
 over all four roles: librarian, ingestor, linter, scanner.
 
 This test exercises the full programmatic + LLM-judge divergence check against
-the round-trip-vault fixture and either:
+the post-rebrand workspace fixture and either:
   - Writes the per-role baseline JSON when --accept-divergence-baseline is passed.
   - Compares current results against the stored baseline otherwise, asserting that
     no hard-severity rule regresses (EVAL-13 regression gate).

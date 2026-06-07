@@ -1,15 +1,8 @@
 ---
 title: model-adapter
-category: package
+uri: pkg:agent-research/model-adapter
+kind: package
 summary: ChatBedrockConverse role-config loader; reads models.toml and produces per-role LLM instances with the bundled defaults (Qwen synthesizer, Haiku librarian, etc).
-status: active
-package_path: packages/model-adapter
-package_type: library
-domain:
-language: Python
-depends_on: []
-tags: [python, bedrock, config]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -27,4 +20,4 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed everywhere: [[packages/subagent-runtime/subagent-runtime]], [[agents/graph-wiki-agent/graph-wiki-agent]]
+- Consumed everywhere: [[entities/pkg_subagent-runtime]], [[entities/app_graph-wiki-cli]]

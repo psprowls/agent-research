@@ -42,7 +42,7 @@ def test_two_gate_librarian_pass(fixture_wiki_path: Path) -> None:
     outputs = [
         (
             "case-01",
-            AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for details. Also `src/main.py:10`."),
+            AgentOutputProxy(answer="See [[entities/pkg_eval-harness]] for details. Also `src/main.py:10`."),
         )
     ]
 

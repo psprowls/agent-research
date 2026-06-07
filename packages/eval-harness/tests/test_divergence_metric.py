@@ -71,7 +71,7 @@ def test_run_programmatic_returns_d11_shape(fixture_wiki_path: Path) -> None:
         rubric_path=ROLE_RUBRICS["librarian"],
         wiki=fixture_wiki_path,
     )
-    outputs = [("fix1", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]]."))]
+    outputs = [("fix1", AgentOutputProxy(answer="See [[entities/pkg_eval-harness]]."))]
     results = m.run_programmatic(outputs)
 
     # Every check id appears as a key
@@ -98,9 +98,9 @@ def test_run_programmatic_counts_runs_correctly(fixture_wiki_path: Path) -> None
     )
     # 3 fixtures -> each check should have runs == 3
     outputs = [
-        ("fix1", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]].")),
-        ("fix2", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]].")),
-        ("fix3", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]].")),
+        ("fix1", AgentOutputProxy(answer="See [[entities/pkg_eval-harness]].")),
+        ("fix2", AgentOutputProxy(answer="See [[entities/pkg_eval-harness]].")),
+        ("fix3", AgentOutputProxy(answer="See [[entities/pkg_eval-harness]].")),
     ]
     results = m.run_programmatic(outputs)
     for check in ROLE_CHECKS["librarian"]:
@@ -146,7 +146,7 @@ def test_run_programmatic_zero_failures_on_valid_output(fixture_wiki_path: Path)
     outputs = [
         (
             "fix-good",
-            AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for the entry. Also `src/main.py:10`."),
+            AgentOutputProxy(answer="See [[entities/pkg_eval-harness]] for the entry. Also `src/main.py:10`."),
         )
     ]
     results = m.run_programmatic(outputs)
@@ -186,7 +186,7 @@ def test_summarize_returns_d11_envelope(fixture_wiki_path: Path) -> None:
         rubric_path=ROLE_RUBRICS["librarian"],
         wiki=fixture_wiki_path,
     )
-    outputs = [("fix1", AgentOutputProxy(answer="See [[packages/lattice-wiki-core]]."))]
+    outputs = [("fix1", AgentOutputProxy(answer="See [[entities/pkg_eval-harness]]."))]
     results = m.run_programmatic(outputs)
     envelope = summarize("librarian", results, "abc1234")
 

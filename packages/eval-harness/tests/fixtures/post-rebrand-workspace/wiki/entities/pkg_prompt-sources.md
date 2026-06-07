@@ -1,15 +1,8 @@
 ---
 title: prompt-sources
-category: package
+uri: pkg:agent-research/prompt-sources
+kind: package
 summary: Canonical agent role definitions (librarian, ingestor, linter, scanner, code_reader, synthesizer) used by both the Bedrock CLI and the divergence rubrics.
-status: active
-package_path: packages/prompt-sources
-package_type: assets
-domain:
-language: Markdown
-depends_on: []
-tags: [prompts, agents]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -30,5 +23,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Anchored by [[packages/eval-harness/eval-harness]] divergence rules
-- Consumed by [[agents/graph-wiki-agent/graph-wiki-agent]] command prompts
+- Anchored by [[entities/pkg_eval-harness]] divergence rules
+- Consumed by [[entities/app_graph-wiki-cli]] command prompts

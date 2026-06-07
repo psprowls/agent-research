@@ -1,15 +1,8 @@
 ---
 title: eval-harness
-category: package
+uri: pkg:agent-research/eval-harness
+kind: package
 summary: Divergence checks (per-role programmatic + judge rubrics), two-gate scoring protocol, and the model-sweep runner that explores the cost frontier.
-status: active
-package_path: packages/eval-harness
-package_type: library
-domain:
-language: Python
-depends_on: [subagent-runtime, model-adapter]
-tags: [python, eval, sweep, divergence]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -30,5 +23,5 @@ Phase 16 D-06 extended `ROLES_WITH_DIVERGENCE` to the full set of six in-scope r
 
 ## Cross-refs
 
-- Reads canonical role definitions from [[packages/prompt-sources/prompt-sources]]
-- Uses [[packages/subagent-runtime/subagent-runtime]] trace records for token accounting
+- Reads canonical role definitions from [[entities/pkg_prompt-sources]]
+- Uses [[entities/pkg_subagent-runtime]] trace records for token accounting

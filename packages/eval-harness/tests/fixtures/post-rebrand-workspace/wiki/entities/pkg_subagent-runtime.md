@@ -1,15 +1,8 @@
 ---
 title: subagent-runtime
-category: package
+uri: pkg:agent-research/subagent-runtime
+kind: package
 summary: Async fan-out pool (SubagentPool) with per-call JSONL trace records (schema_version 1) and the shared write_trace_record helper used across commands.
-status: active
-package_path: packages/subagent-runtime
-package_type: library
-domain:
-language: Python
-depends_on: []
-tags: [python, async, fan-out, tracing]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -27,4 +20,4 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed by [[agents/graph-wiki-agent/graph-wiki-agent]] commands.query for librarian + code-reader fan-outs
+- Consumed by [[entities/app_graph-wiki-cli]] commands.query for librarian + code-reader fan-outs

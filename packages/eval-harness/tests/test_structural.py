@@ -2,7 +2,7 @@
 
 All tests are deterministic and require no Bedrock access.
 Uses fixture_wiki_path + fixture_workspace_path from conftest.py
-(the workspace fixture wraps the round-trip-vault wiki under <tmp>/wiki).
+(the workspace fixture wraps the post-rebrand workspace fixture wiki under <tmp>/wiki).
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ def test_fixture_wiki_has_pages(fixture_wiki_path: Path) -> None:
 def test_known_good(fixture_workspace_path: Path) -> None:
     """A well-formed QueryResult with a valid citation resolves cleanly."""
     result = QueryResult(
-        answer="See [[packages/lattice-wiki-core]].",
-        citations=["packages/lattice-wiki-core"],
+        answer="See [[entities/pkg_eval-harness]].",
+        citations=["entities/pkg_eval-harness"],
         pages_drilled=3,
         search_scores={},
     )
@@ -110,7 +110,7 @@ def test_json_schema_valid(fixture_workspace_path: Path) -> None:
     """json_schema_valid is True for a properly typed QueryResult."""
     result = QueryResult(
         answer="Valid answer",
-        citations=["packages/lattice-wiki-core"],
+        citations=["entities/pkg_eval-harness"],
         pages_drilled=2,
         search_scores={"page": 0.9},
     )

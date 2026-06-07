@@ -1,14 +1,10 @@
 """Shared pytest fixtures for eval-harness tests.
 
 Provides:
-- fixture_wiki_path: resolves the cross-package round-trip-vault fixture so
-  unit and integration tests can read real wiki pages without committing
-  duplicate data. (The on-disk directory is still ``round-trip-vault`` per
-  Phase 22 D-10 / Phase 24 D-10 — only the eval-harness nomenclature changed.)
-- fixture_workspace_path: a tmp_path-rooted workspace that contains a
-  ``wiki`` symlink to fixture_wiki_path. Tests that call public functions
-  taking ``workspace_path`` (Phase 24 D-01) pass this fixture; the wiki dir
-  is then resolved via ``workspace_io.paths.wiki_dir(workspace_path)``.
+- fixture_workspace_path: resolves the workspace-shaped post-rebrand fixture.
+  Tests that call public functions taking ``workspace_path`` pass this fixture;
+  the wiki dir is then resolved via ``workspace_io.paths.wiki_dir(workspace_path)``.
+- fixture_wiki_path: resolves the fixture wiki at ``fixture_workspace_path / "wiki"``.
 - accept_baseline: returns the value of --accept-divergence-baseline CLI option
   so divergence tests can overwrite baseline files when requested (EVAL-13).
 - EVAL_GATE: pytest.mark.skipif decorator gating eval tests on GRAPH_WIKI_RUN_EVAL=1.
@@ -52,45 +48,26 @@ def accept_baseline(request: pytest.FixtureRequest) -> bool:
 
 @pytest.fixture
 def fixture_wiki_path() -> Path:
-    """Return the Path to packages/wiki-io/tests/fixtures/round-trip-vault.
+    """Return the Path to the post-rebrand fixture wiki.
 
-    The path is computed relative to this conftest file so it works regardless
-    of the cwd from which pytest is invoked. The fixture asserts the path
-    exists so a misconfigured repo fails fast with a clear message rather than
-    confusing FileNotFoundError in downstream tests.
-
-    Note: the on-disk fixture directory is named ``round-trip-vault`` and
-    lives under ``packages/wiki-io/`` — those paths are milestone-locked
-    (Phase 22 D-10 / Phase 24 D-10). Only the eval-harness fixture name
-    changed (vault → wiki) per Phase 24's nomenclature rename.
-
-    Threat mitigation T-4-01: path is anchored to this file's location;
-    no user-supplied input is involved.
+    Threat mitigation T-4-01: path is anchored to this file's location; no
+    user-supplied input is involved.
     """
-    wiki = (
-        Path(__file__).parent.parent.parent.parent / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
-    )
+    wiki = Path(__file__).parent / "fixtures" / "post-rebrand-workspace" / "wiki"
     if not wiki.exists():
-        pytest.skip(
-            f"round-trip-vault fixture not found at {wiki}; check that packages/wiki-io is present in the workspace."
-        )
+        pytest.skip(f"post-rebrand fixture wiki not found at {wiki}; check that eval-harness fixtures are present.")
     return wiki
 
 
 @pytest.fixture
-def fixture_workspace_path(tmp_path: Path, fixture_wiki_path: Path) -> Path:
-    """Build a workspace-shaped tmp dir that points to the round-trip wiki.
+def fixture_workspace_path(fixture_wiki_path: Path) -> Path:
+    """Return the post-rebrand workspace fixture root.
 
-    Returns ``tmp_path`` after symlinking ``tmp_path / "wiki"`` to
-    ``fixture_wiki_path``. Tests that exercise public functions taking
-    ``workspace_path`` (post-Phase-24 D-01) pass this fixture; the wiki dir
-    is derived internally via ``workspace_io.paths.wiki_dir(workspace_path)``,
-    which lands back on the round-trip-vault fixture.
+    Tests that exercise public functions taking ``workspace_path`` pass this
+    fixture; the wiki dir is derived internally via
+    ``workspace_io.paths.wiki_dir(workspace_path)``.
 
     Threat mitigation T-4-01: both ends of the symlink are anchored to
     test-machine-local Paths; no user-supplied input is involved.
     """
-    wiki_link = tmp_path / "wiki"
-    if not wiki_link.exists():
-        wiki_link.symlink_to(fixture_wiki_path, target_is_directory=True)
-    return tmp_path
+    return fixture_wiki_path.parent

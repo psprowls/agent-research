@@ -41,8 +41,7 @@ def _get_check(checks: list[DivergenceCheck], rule_id: str) -> DivergenceCheck:
 def test_lib001_passes_on_resolved_wikilink(fixture_wiki_path: Path) -> None:
     """LIB-001 passes when all wikilinks in the answer resolve to existing vault pages."""
     check = _get_check(LIBRARIAN_CHECKS, "LIB-001-wikilink-resolves")
-    # packages/lattice-wiki-core.md exists in the round-trip-vault fixture.
-    output = AgentOutputProxy(answer="See [[packages/lattice-wiki-core]].")
+    output = AgentOutputProxy(answer="See [[entities/pkg_eval-harness]].")
     verdict = check.check(output, fixture_wiki_path)
     assert verdict.passed is True
     assert verdict.excerpt == ""
@@ -69,7 +68,7 @@ def test_lib001_passes_when_no_wikilinks(fixture_wiki_path: Path) -> None:
 def test_lib002_passes_with_wikilink(fixture_wiki_path: Path) -> None:
     """LIB-002 passes when answer contains at least one wikilink citation."""
     check = _get_check(LIBRARIAN_CHECKS, "LIB-002-citation-present")
-    output = AgentOutputProxy(answer="See [[packages/lattice-wiki-core]] for details.")
+    output = AgentOutputProxy(answer="See [[entities/pkg_eval-harness]] for details.")
     verdict = check.check(output, fixture_wiki_path)
     assert verdict.passed is True
 
@@ -346,16 +345,16 @@ def test_lnt003_fails_on_created_verb(fixture_wiki_path: Path) -> None:
 
 _FULL_SCANNER_OUTPUT = """\
 ---
-title: Lattice Wiki Core
-category: package
-summary: Core wiki maintenance package.
-package_path: packages/lattice-wiki-core
-language: python
+title: eval-harness
+uri: pkg:agent-research/eval-harness
+kind: package
+summary: Divergence checks and model sweep runner.
+updated: 2026-06-07
 ---
 
 ## Overview
 
-The lattice-wiki-core package implements the wiki maintenance workflows.
+The eval-harness package implements divergence checks and model sweeps.
 
 ## Notable files
 
@@ -380,21 +379,21 @@ def test_scn001_fails_without_frontmatter(fixture_wiki_path: Path) -> None:
 
 
 def test_scn002_passes_with_all_required_fields(fixture_wiki_path: Path) -> None:
-    """SCN-002 passes when all 5 required frontmatter fields are present."""
+    """SCN-002 passes when all current entity frontmatter fields are present."""
     check = _get_check(SCANNER_CHECKS, "SCN-002-required-fields")
     verdict = check.check(AgentOutputProxy(answer=_FULL_SCANNER_OUTPUT), fixture_wiki_path)
     assert verdict.passed is True
 
 
-def test_scn002_fails_missing_language_field(fixture_wiki_path: Path) -> None:
-    """SCN-002 fails and names 'language' when that field is absent."""
+def test_scn002_fails_missing_uri_field(fixture_wiki_path: Path) -> None:
+    """SCN-002 fails and names 'uri' when that field is absent."""
     check = _get_check(SCANNER_CHECKS, "SCN-002-required-fields")
     answer = """\
 ---
 title: Foo Package
-category: package
+kind: package
 summary: A package.
-package_path: packages/foo
+updated: 2026-06-07
 ---
 
 ## Overview
@@ -403,7 +402,7 @@ Stuff.
 """
     verdict = check.check(AgentOutputProxy(answer=answer), fixture_wiki_path)
     assert verdict.passed is False
-    assert "language" in verdict.excerpt
+    assert "uri" in verdict.excerpt
 
 
 def test_scn003_passes_without_file_map_section(fixture_wiki_path: Path) -> None:
@@ -435,10 +434,10 @@ def test_scn004_fails_without_overview_section(fixture_wiki_path: Path) -> None:
     answer = """\
 ---
 title: Foo
-category: package
+uri: pkg:agent-research/foo
+kind: package
 summary: A package.
-package_path: packages/foo
-language: python
+updated: 2026-06-07
 ---
 
 No overview section here.
@@ -474,7 +473,7 @@ def test_syn002_fails_on_lowercase_and_hyphenated_slug_only_wikilinks(
 def test_syn002_passes_on_path_prefixed_wikilink(fixture_wiki_path: Path) -> None:
     """SYN-002 passes when the wikilink target contains a path separator."""
     check = _get_check(SYNTHESIZER_CHECKS, "SYN-002-no-slug-only-wikilinks")
-    output = AgentOutputProxy(answer="See [[wiki/bedrock]] and [[packages/foo|alias]].")
+    output = AgentOutputProxy(answer="See [[wiki/bedrock]] and [[entities/pkg_foo|alias]].")
     verdict = check.check(output, fixture_wiki_path)
     assert verdict.passed is True
 

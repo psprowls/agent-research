@@ -1,15 +1,8 @@
 ---
 title: wiki-io
-category: package
+uri: pkg:agent-research/wiki-io
+kind: package
 summary: Vault read/write, frontmatter parsing, layout IO, BM25 search, lint, and update_index.
-status: active
-package_path: packages/wiki-io
-package_type: library
-domain:
-language: Python
-depends_on: [workspace-io]
-tags: [python, vault, frontmatter, bm25]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -29,5 +22,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Consumed by [[agents/graph-wiki-agent/graph-wiki-agent]] for every vault-mutating command
-- Path resolution is delegated to [[packages/workspace-io/workspace-io]]
+- Consumed by [[entities/app_graph-wiki-cli]] for every vault-mutating command
+- Path resolution is delegated to [[entities/pkg_workspace-io]]

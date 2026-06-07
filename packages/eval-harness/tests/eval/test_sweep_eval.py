@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 _WORKSPACE_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "query_cases.json"
-FIXTURE_VAULT = _WORKSPACE_ROOT / "packages" / "wiki-io" / "tests" / "fixtures" / "round-trip-vault"
+FIXTURE_WORKSPACE = _WORKSPACE_ROOT / "packages" / "eval-harness" / "tests" / "fixtures" / "post-rebrand-workspace"
 
 SWEEP_MODELS: list[str] = [
     "us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -90,15 +90,15 @@ def _make_case_model_params() -> list[dict]:
     return params
 
 
-# Skip module if CASES_PATH or FIXTURE_VAULT is missing
+# Skip module if CASES_PATH or FIXTURE_WORKSPACE is missing
 if not CASES_PATH.exists():
     pytest.skip(
         f"query_cases.json not found at {CASES_PATH}; skipping sweep eval tests",
         allow_module_level=True,
     )
-if not FIXTURE_VAULT.exists():
+if not FIXTURE_WORKSPACE.exists():
     pytest.skip(
-        f"round-trip-vault not found at {FIXTURE_VAULT}; skipping sweep eval tests",
+        f"post-rebrand workspace fixture not found at {FIXTURE_WORKSPACE}; skipping sweep eval tests",
         allow_module_level=True,
     )
 
@@ -106,20 +106,9 @@ CASE_MODEL_PARAMS = _make_case_model_params()
 
 
 @pytest.fixture
-def fixture_workspace(tmp_path: Path) -> Path:
-    """Build a workspace-shaped tmp dir whose ``wiki/`` symlinks to FIXTURE_VAULT.
-
-    Post-Phase-24, sweep entrypoints accept ``workspace_path`` and derive the
-    wiki via ``workspace_io.paths.wiki_dir(workspace_path) = workspace_path / "wiki"``.
-    FIXTURE_VAULT itself is the wiki content (no ``wiki/`` subdir of its own),
-    so passing it directly as ``workspace_path`` would resolve the wiki at
-    ``FIXTURE_VAULT/"wiki"`` — which does not exist. This fixture wraps it
-    correctly so ``EvalWorktree`` can locate the wiki on copytree.
-    """
-    wiki_link = tmp_path / "wiki"
-    if not wiki_link.exists():
-        wiki_link.symlink_to(FIXTURE_VAULT, target_is_directory=True)
-    return tmp_path
+def fixture_workspace() -> Path:
+    """Return the workspace-shaped post-rebrand fixture."""
+    return FIXTURE_WORKSPACE
 
 
 @pytest.mark.eval(name="query_sweep")
@@ -232,9 +221,9 @@ async def test_position_bias_check() -> None:
     from eval_harness.judge import position_bias_check
 
     # Use a simple synthetic query with two plausible answers
-    query = "What does lattice-wiki-core do?"
-    answer_a = "lattice-wiki-core provides the core wiki maintenance logic. See [[lattice-wiki-core]]."
-    answer_b = "The lattice-wiki-core package is responsible for core wiki operations."
+    query = "What does eval-harness do?"
+    answer_a = "eval-harness provides divergence checks and sweep tooling. See [[entities/pkg_eval-harness]]."
+    answer_b = "The eval-harness package is responsible for model evaluation workflows."
 
     # Measure position bias
     delta = position_bias_check(query, answer_a, answer_b)
@@ -285,9 +274,10 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
     monkeypatch.setattr(sweep_mod, "score_two_gate", score_two_gate_wrapper)
 
     code_reader_cases_path = _WORKSPACE_ROOT / "eval" / "cases" / "code_reader_cases.json"
-    ingestor_source = FIXTURE_VAULT / "README.md"
+    fixture_wiki = FIXTURE_WORKSPACE / "wiki"
+    ingestor_source = fixture_wiki / "README.md"
     if not ingestor_source.exists():
-        ingestor_source = next(FIXTURE_VAULT.glob("*.md"))
+        ingestor_source = next(fixture_wiki.glob("*.md"))
 
     result = await run_full_matrix(
         role_candidates=role_candidates,

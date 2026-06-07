@@ -1,15 +1,8 @@
 ---
 title: workspace-io
-category: package
+uri: pkg:agent-research/workspace-io
+kind: package
 summary: Workspace path resolution, GraphWikiConfig loading from .graph-wiki.yaml, and manifest authoring helpers.
-status: active
-package_path: packages/workspace-io
-package_type: library
-domain:
-language: Python
-depends_on: []
-tags: [python, workspace, config]
-sources: 0
 updated: 2026-05-19
 ---
 
@@ -27,5 +20,5 @@ updated: 2026-05-19
 
 ## Cross-refs
 
-- Used by [[agents/graph-wiki-agent/graph-wiki-agent]] for vault resolution
-- Initialised by [[packages/wiki-io/wiki-io]] when bootstrapping the wiki
+- Used by [[entities/app_graph-wiki-cli]] for vault resolution
+- Initialised by [[entities/pkg_wiki-io]] when bootstrapping the wiki

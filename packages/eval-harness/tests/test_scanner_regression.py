@@ -1,4 +1,4 @@
-"""Scanner regression check against the synthetic post-rebrand fixture vault.
+"""Scanner regression check against the synthetic post-rebrand fixture workspace.
 
 CI-runnable forward-regression check (no Bedrock — uses deterministic
 SCANNER_CHECKS programmatic rules against pinned fixture pages). SWEEP-FU-04 (a)
@@ -21,9 +21,10 @@ import pytest
 from eval_harness.divergence.check import AgentOutputProxy
 from eval_harness.divergence.scanner import SCANNER_CHECKS
 
-# Cross-package fixture vault path, precomputed at import time (mirrors
-# the FIXTURE_VAULT pattern from test_query_e2e.py:27-34).
-FIXTURE_VAULT: Path = Path(__file__).parent / "fixtures" / "post-rebrand-vault"
+# Workspace-shaped fixture path. The wiki lives under <workspace>/wiki and
+# scanner-owned pages live under wiki/entities/.
+FIXTURE_WORKSPACE: Path = Path(__file__).parent / "fixtures" / "post-rebrand-workspace"
+FIXTURE_WIKI: Path = FIXTURE_WORKSPACE / "wiki"
 
 # Pinned baseline: every package page must pass every hard SCANNER_CHECKS rule.
 # The first Phase-16 run seeded this baseline; future drift trips the assertion.
@@ -38,7 +39,7 @@ _EXPECTED_PACKAGE_FILES: tuple[str, ...] = (
 
 
 def _package_page_for(name: str) -> Path:
-    return FIXTURE_VAULT / "packages" / name / f"{name}.md"
+    return FIXTURE_WIKI / "entities" / f"pkg_{name}.md"
 
 
 def test_fixture_vault_contains_every_post_rebrand_package() -> None:
@@ -49,10 +50,10 @@ def test_fixture_vault_contains_every_post_rebrand_package() -> None:
 
 def test_fixture_vault_contains_no_lattice_symbols() -> None:
     """Fixture is post-rebrand by construction — no lattice* names anywhere."""
-    for md in FIXTURE_VAULT.rglob("*.md"):
+    for md in FIXTURE_WIKI.rglob("*.md"):
         text = md.read_text()
         lowered = text.lower()
-        assert "lattice" not in lowered, f"fixture page {md.relative_to(FIXTURE_VAULT)} still contains 'lattice'"
+        assert "lattice" not in lowered, f"fixture page {md.relative_to(FIXTURE_WIKI)} still contains 'lattice'"
 
 
 @pytest.mark.parametrize("package", _EXPECTED_PACKAGE_FILES)
@@ -69,7 +70,7 @@ def test_scanner_hard_checks_pass_on_fixture_page(package: str) -> None:
     for check in SCANNER_CHECKS:
         if check.severity != "hard":
             continue
-        verdict = check.check(proxy, FIXTURE_VAULT)
+        verdict = check.check(proxy, FIXTURE_WIKI)
         if not verdict.passed:
             hard_failures.append((check.id, verdict.excerpt))
     assert not hard_failures, f"scanner regression on {package}: {hard_failures}"
