@@ -10,8 +10,17 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 import frontmatter
+from langchain_core.tools import BaseTool, tool
 
-from graph_wiki_core.agent_tools import body_without_frontmatter
+from graph_wiki_core.agent_tools import (
+    body_without_frontmatter,
+    build_wiki_catalog,
+    filter_graph_tools,
+    read_bounded_wiki_page,
+)
+from graph_wiki_core.agent_tools import (
+    search_wiki_catalog as search_catalog_rows,
+)
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
@@ -21,6 +30,9 @@ DEGRADED_STATUS_KEYS = ("ingest_status", "proposal_status", "status")
 PLACEHOLDER_MARKERS = ("todo", "placeholder", "no narrative available", "needs review")
 STALE_DRIFT_VALUES = {"stale", "degraded", "failed", "error", "blocked", "outdated"}
 MIN_MEANINGFUL_BODY_CHARS = 40
+MAX_ORCHESTRATOR_WIKI_PAGE_CHARS = 40_000
+MAX_ORCHESTRATOR_SEARCH_ROWS = 20
+ALLOWED_ORCHESTRATOR_GRAPH_TOOL_NAMES = {"cg_find", "cg_describe"}
 REQUIRED_TOP_LEVEL_KEYS = {
     "answer_markdown",
     "citations",
@@ -37,6 +49,27 @@ FrozenValue = Mapping[str, Any] | tuple[Any, ...] | str | int | float | bool | N
 
 class OrchestratorValidationError(ValueError):
     """Raised when orchestrator output does not match the structured contract."""
+
+
+@dataclass(frozen=True)
+class InitialCandidate:
+    path: str
+    score: float
+    excerpt: str
+    freshness: str = "unknown"
+    staleness_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class OrchestratorContext:
+    query: str
+    wiki_root: Path
+    repo_root: Path | None
+    initial_candidates: tuple[InitialCandidate, ...]
+    graph_tools_available: bool
+    graph_tool_names: tuple[str, ...]
+    worker_capabilities: Mapping[str, Mapping[str, Any]]
+    answer_contract: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -78,6 +111,96 @@ class OrchestratorOutput:
     worker_results: tuple[Mapping[str, Any], ...]
     gaps: list[EvidenceGap]
     confidence: str
+
+
+def build_orchestrator_context(
+    *,
+    query: str,
+    wiki: Path,
+    repo_root: Path | None,
+    initial_candidates: list[InitialCandidate] | tuple[InitialCandidate, ...],
+    graph_tools: list[BaseTool],
+) -> OrchestratorContext:
+    """Build the bounded context packet supplied to the query orchestrator."""
+
+    allowed_graph_tools = filter_graph_tools(graph_tools, ALLOWED_ORCHESTRATOR_GRAPH_TOOL_NAMES)
+    return OrchestratorContext(
+        query=query,
+        wiki_root=wiki.resolve(),
+        repo_root=repo_root.resolve() if repo_root is not None else None,
+        initial_candidates=tuple(initial_candidates),
+        graph_tools_available=bool(allowed_graph_tools),
+        graph_tool_names=tuple(graph_tool.name for graph_tool in allowed_graph_tools),
+        worker_capabilities=_worker_capabilities(),
+        answer_contract=_answer_contract(),
+    )
+
+
+def build_orchestrator_tools(*, wiki: Path, graph_tools: list[BaseTool]) -> list[BaseTool]:
+    """Build direct planning tools for the query orchestrator.
+
+    These tools are intentionally limited to bounded wiki reads, wiki catalog
+    search, worker capability discovery, and read-only graph planning tools.
+    Source-code reads stay behind code_reader worker tasks.
+    """
+
+    catalog = build_wiki_catalog(wiki)
+
+    @tool
+    def read_wiki_page(path: str) -> str:
+        """Read one markdown page under the wiki root, bounded to a safe size."""
+        return read_bounded_wiki_page(wiki, path, max_chars=MAX_ORCHESTRATOR_WIKI_PAGE_CHARS)
+
+    @tool
+    def search_wiki(query: str, kind: str | None = None, top_k: int = MAX_ORCHESTRATOR_SEARCH_ROWS) -> str:
+        """Search the wiki catalog by title, summary, or slug and return JSON rows."""
+        bounded_top_k = max(1, min(top_k, MAX_ORCHESTRATOR_SEARCH_ROWS))
+        rows = search_catalog_rows(catalog, query, kind=kind, limit=bounded_top_k)
+        return json.dumps(rows, indent=2, sort_keys=True)
+
+    @tool
+    def list_worker_capabilities() -> str:
+        """Return the valid worker task shapes and limits as JSON."""
+        return json.dumps(_worker_capabilities(), indent=2, sort_keys=True)
+
+    allowed_graph_tools = filter_graph_tools(graph_tools, ALLOWED_ORCHESTRATOR_GRAPH_TOOL_NAMES)
+    return [read_wiki_page, search_wiki, list_worker_capabilities, *allowed_graph_tools]
+
+
+def _worker_capabilities() -> Mapping[str, Mapping[str, Any]]:
+    return {
+        "librarian": {
+            "description": "Extract relevant evidence from one wiki page.",
+            "required_fields": ("page_path", "query_focus", "expected_evidence"),
+            "limits": {"page_path": "relative markdown path under wiki root"},
+        },
+        "code_reader": {
+            "description": "Verify source-backed claims through bounded source-reading worker tasks.",
+            "required_fields": ("target_paths_or_hints", "query_focus", "expected_evidence"),
+            "limits": {
+                "target_paths_or_hints": "repo-relative paths or search hints; no direct repo files are read by "
+                "orchestrator planning tools"
+            },
+        },
+    }
+
+
+def _answer_contract() -> Mapping[str, Any]:
+    return MappingProxyType(
+        {
+            "answer_markdown": "Markdown final answer.",
+            "citations": "List of cited wiki/code paths.",
+            "evidence": (
+                "Rows with id, source_type, path, freshness, staleness_reason, excerpt, and line_refs. "
+                "source_type must be wiki or code."
+            ),
+            "answer_evidence_map": "Claim-to-evidence id mapping.",
+            "worker_plan": "Worker tasks requested by the orchestrator.",
+            "worker_results": "Worker result summaries considered by the orchestrator.",
+            "gaps": "Explicit unanswered questions or stale-only evidence gaps.",
+            "confidence": "One of high, medium, or low.",
+        }
+    )
 
 
 def classify_wiki_freshness(page_path: Path, *, repo_head: str | None) -> FreshnessClassification:
