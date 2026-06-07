@@ -1513,7 +1513,7 @@ async def test_run_ingest_source_records_reasoner_failure(tmp_path: Path) -> Non
     written = (wiki / result.page_path).read_text(encoding="utf-8")
     assert "  reasoner: failed" in written
     assert "  extractor: skipped" in written
-    assert "  error: reasoner failed" in written
+    assert '  error: "reasoner failed"' in written
     assert result.proposal_reasoner_status == "failed"
     assert result.proposal_extractor_status == "skipped"
 
@@ -1773,9 +1773,24 @@ def test_set_proposal_status_in_body_quotes_error_scalar() -> None:
     text = "---\ntitle: Spec\ntarget_slug: spec\n---\n\nBody"
     out = _set_proposal_status_in_body(
         text,
+        {"reasoner": "failed", "extractor": "skipped", "proposals": 0, "error": "reasoner failed"},
+        today="2026-06-06",
+    )
+
+    assert 'error: "reasoner failed"' in out
+    assert "\n...\n" not in out
+    assert "proposal_status:" in out
+
+
+def test_set_proposal_status_in_body_quotes_colon_error_scalar() -> None:
+    from graph_wiki_core.commands.ingest import _set_proposal_status_in_body
+
+    text = "---\ntitle: Spec\ntarget_slug: spec\n---\n\nBody"
+    out = _set_proposal_status_in_body(
+        text,
         {"reasoner": "failed", "extractor": "skipped", "proposals": 0, "error": "bedrock: access denied"},
         today="2026-06-06",
     )
 
-    assert "error: 'bedrock: access denied'" in out
-    assert "proposal_status:" in out
+    assert 'error: "bedrock: access denied"' in out
+    assert "\n...\n" not in out

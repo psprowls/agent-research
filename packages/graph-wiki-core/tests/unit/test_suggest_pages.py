@@ -144,6 +144,27 @@ def test_parse_extractor_response_coerces_update_existing_without_existing_slug(
     assert entries[0]["existing_slug"] is None
 
 
+def test_parse_extractor_response_drops_missing_required_fields() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title:\n"
+        "    slug: missing-title\n"
+        "    mode: create_new\n"
+        "    rationale: r\n"
+        "  - kind: concept\n"
+        "    title: Missing Slug\n"
+        "    slug:\n"
+        "    mode: create_new\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries == []
+
+
 def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     from graph_wiki_core.commands.suggest_pages import build_curated_vault_index
 

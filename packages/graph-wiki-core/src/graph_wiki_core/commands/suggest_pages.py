@@ -79,8 +79,12 @@ def _validate_proposal(raw: object) -> dict | None:
     kind = str(raw.get("kind", "")).strip().lower()
     if kind not in SUGGESTION_KINDS:
         return None
-    title = str(raw.get("title", "")).strip()
-    slug_src = str(raw.get("slug", "")).strip()
+    title_raw = raw.get("title")
+    slug_raw = raw.get("slug")
+    if title_raw is None or slug_raw is None:
+        return None
+    title = str(title_raw).strip()
+    slug_src = str(slug_raw).strip()
     if not title or not slug_src:
         return None
     slug = slugify(slug_src)

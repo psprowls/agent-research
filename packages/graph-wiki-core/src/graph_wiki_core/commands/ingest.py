@@ -325,6 +325,10 @@ def _sanitize_proposal_error(error: object) -> str | None:
     return text[:160]
 
 
+def _yaml_quoted_scalar(value: str) -> str:
+    return yaml.safe_dump(value, default_style='"', width=1000).splitlines()[0]
+
+
 def _set_proposal_status_in_body(text: str, status: dict, *, today: str | None = None) -> str:
     """Insert or replace proposal_status in Source frontmatter."""
     stripped = text.lstrip()
@@ -354,8 +358,7 @@ def _set_proposal_status_in_body(text: str, status: dict, *, today: str | None =
     ]
     error = _sanitize_proposal_error(status.get("error"))
     if error:
-        dumped_error = yaml.safe_dump(error, default_flow_style=True).strip()
-        proposal_lines.append(f"  error: {dumped_error}")
+        proposal_lines.append(f"  error: {_yaml_quoted_scalar(error)}")
 
     new_lines: list[str] = []
     skipping = False
