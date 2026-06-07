@@ -36,9 +36,11 @@ Return exactly one JSON object with this contract:
     {
       "id": "string; unique evidence id",
       "source_type": "wiki | code",
-      "source": "string; page path or code path reference",
-      "summary": "string; what this evidence supports",
-      "freshness": "fresh | stale | unknown"
+      "path": "string; page path or code path",
+      "freshness": "fresh | stale | unknown",
+      "staleness_reason": "string or null; why evidence is stale when known",
+      "excerpt": "string; exact bounded evidence excerpt",
+      "line_refs": ["string; path:line or path:line-range references"]
     }
   ],
   "answer_evidence_map": [

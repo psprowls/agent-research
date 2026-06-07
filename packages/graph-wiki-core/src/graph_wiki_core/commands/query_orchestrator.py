@@ -32,9 +32,11 @@ class OrchestratorValidationError(ValueError):
 class OrchestratorEvidence:
     id: str
     source_type: str
-    source: str
-    summary: str
+    path: str
     freshness: str
+    staleness_reason: str | None
+    excerpt: str
+    line_refs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -129,10 +131,12 @@ def validate_orchestrator_output(
             raise OrchestratorValidationError(
                 f"freshness must be one of {sorted(ALLOWED_FRESHNESS)}; got {row.freshness!r}"
             )
-        if not row.source.strip():
-            raise OrchestratorValidationError("evidence source must be non-empty")
-        if not row.summary.strip():
-            raise OrchestratorValidationError("evidence summary must be non-empty")
+        if not row.path.strip():
+            raise OrchestratorValidationError("evidence path must be non-empty")
+        if row.staleness_reason is not None and not row.staleness_reason.strip():
+            raise OrchestratorValidationError("evidence staleness_reason must be non-empty when present")
+        if not row.excerpt.strip():
+            raise OrchestratorValidationError("evidence excerpt must be non-empty")
 
     for row in output.answer_evidence_map:
         if not row.claim.strip():
@@ -194,12 +198,25 @@ def _parse_evidence_rows(value: Any) -> list[OrchestratorEvidence]:
             OrchestratorEvidence(
                 id=_required_non_empty_str(item, "id"),
                 source_type=_required_non_empty_str(item, "source_type"),
-                source=_required_non_empty_str(item, "source"),
-                summary=_required_non_empty_str(item, "summary"),
+                path=_required_non_empty_str(item, "path"),
                 freshness=_required_non_empty_str(item, "freshness"),
+                staleness_reason=_optional_non_empty_str(item, "staleness_reason"),
+                excerpt=_required_non_empty_str(item, "excerpt"),
+                line_refs=_str_tuple(item.get("line_refs"), "line_refs"),
             )
         )
     return rows
+
+
+def _optional_non_empty_str(payload: dict[str, Any], field: str) -> str | None:
+    if field not in payload:
+        raise OrchestratorValidationError(f"{field} must be present")
+    value = payload[field]
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise OrchestratorValidationError(f"{field} must be a string or null")
+    return value
 
 
 def _parse_answer_evidence_map(value: Any) -> list[AnswerEvidenceMap]:

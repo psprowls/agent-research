@@ -19,9 +19,11 @@ def _valid_payload() -> dict[str, object]:
             {
                 "id": "ev1",
                 "source_type": "wiki",
-                "source": "wiki/entities/scanner.md",
-                "summary": "Scanner-owned entity pages are refreshed during scan.",
+                "path": "wiki/entities/scanner.md",
                 "freshness": "fresh",
+                "staleness_reason": None,
+                "excerpt": "Scanner-owned entity pages are refreshed during scan.",
+                "line_refs": ["wiki/entities/scanner.md:12"],
             }
         ],
         "answer_evidence_map": [
@@ -46,9 +48,11 @@ def test_parse_orchestrator_output_accepts_valid_payload() -> None:
         OrchestratorEvidence(
             id="ev1",
             source_type="wiki",
-            source="wiki/entities/scanner.md",
-            summary="Scanner-owned entity pages are refreshed during scan.",
+            path="wiki/entities/scanner.md",
             freshness="fresh",
+            staleness_reason=None,
+            excerpt="Scanner-owned entity pages are refreshed during scan.",
+            line_refs=("wiki/entities/scanner.md:12",),
         ),
     )
 
@@ -62,9 +66,11 @@ def test_parse_orchestrator_output_accepts_valid_payload() -> None:
                 {
                     "id": "ev1",
                     "source_type": "code",
-                    "source": "packages/graph-wiki-core/src/graph_wiki_core/commands/scan.py",
-                    "summary": "Duplicate evidence id.",
+                    "path": "packages/graph-wiki-core/src/graph_wiki_core/commands/scan.py",
                     "freshness": "fresh",
+                    "staleness_reason": None,
+                    "excerpt": "Duplicate evidence id.",
+                    "line_refs": ["packages/graph-wiki-core/src/graph_wiki_core/commands/scan.py:1"],
                 }
             ),
             "unique",
@@ -85,6 +91,23 @@ def test_parse_orchestrator_output_accepts_valid_payload() -> None:
 def test_parse_orchestrator_output_rejects_invalid_payloads(mutation, message: str) -> None:
     payload = _valid_payload()
     mutation(payload)
+
+    with pytest.raises(OrchestratorValidationError, match=message):
+        parse_orchestrator_output(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda row: row.pop("path"), "path"),
+        (lambda row: row.pop("excerpt"), "excerpt"),
+        (lambda row: row.update(line_refs="wiki/entities/scanner.md:12"), "line_refs"),
+        (lambda row: row.update(staleness_reason=123), "staleness_reason"),
+    ],
+)
+def test_parse_orchestrator_output_rejects_invalid_evidence_schema(mutation, message: str) -> None:
+    payload = _valid_payload()
+    mutation(payload["evidence"][0])  # type: ignore[index]
 
     with pytest.raises(OrchestratorValidationError, match=message):
         parse_orchestrator_output(payload)
@@ -182,9 +205,11 @@ def test_stale_only_claim_support_requires_gap_or_uncertainty_note() -> None:
         {
             "id": "ev1",
             "source_type": "wiki",
-            "source": "wiki/entities/scanner.md",
-            "summary": "Scanner-owned entity pages are refreshed during scan.",
+            "path": "wiki/entities/scanner.md",
             "freshness": "stale",
+            "staleness_reason": "Wiki page predates current HEAD.",
+            "excerpt": "Scanner-owned entity pages are refreshed during scan.",
+            "line_refs": ["wiki/entities/scanner.md:12"],
         }
     ]
     output = parse_orchestrator_output(payload)
@@ -202,9 +227,11 @@ def test_stale_only_claim_support_allows_uncertainty_wording_without_gap() -> No
         {
             "id": "ev1",
             "source_type": "wiki",
-            "source": "wiki/entities/scanner.md",
-            "summary": "Scanner-owned entity pages are refreshed during scan.",
+            "path": "wiki/entities/scanner.md",
             "freshness": "stale",
+            "staleness_reason": "Wiki page predates current HEAD.",
+            "excerpt": "Scanner-owned entity pages are refreshed during scan.",
+            "line_refs": ["wiki/entities/scanner.md:12"],
         }
     ]
     output_with_uncertainty = parse_orchestrator_output(
