@@ -7,6 +7,33 @@ from graph_wiki_core.commands.suggest_pages import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _stub_reasoner():
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult
+
+    with patch(
+        "graph_wiki_core.commands.suggest_pages.run_proposal_reasoner",
+        return_value=ProposalReasonerResult(status="ok", analysis="test reasoner analysis"),
+    ):
+        yield
+
+
+async def _run_suggest_phase_for_test(wiki, page):
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    return await run_suggest_phase(
+        wiki=wiki,
+        page_path=page,
+        source_path=page,
+        source_text=page.read_text(encoding="utf-8"),
+        entity_uri=None,
+        entity_stem=None,
+        graph_tools=[],
+    )
+
+
 def test_parse_extractor_response_valid_mapping() -> None:
     raw = (
         "suggestions:\n"
@@ -82,6 +109,62 @@ def test_parse_extractor_response_drops_invalid_kind_and_normalizes() -> None:
     assert SUGGESTION_KINDS == frozenset({"concept", "adr", "architecture"})
 
 
+def test_parse_extractor_response_defaults_infinite_rank() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Infinite Rank\n"
+        "    slug: infinite-rank\n"
+        "    mode: create_new\n"
+        "    rank: .inf\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries[0]["rank"] == 999
+
+
+def test_parse_extractor_response_coerces_update_existing_without_existing_slug() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Missing Existing Slug\n"
+        "    slug: missing-existing-slug\n"
+        "    mode: update_existing\n"
+        "    existing_slug:\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries[0]["mode"] == "create_new"
+    assert entries[0]["existing_slug"] is None
+
+
+def test_parse_extractor_response_drops_missing_required_fields() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title:\n"
+        "    slug: missing-title\n"
+        "    mode: create_new\n"
+        "    rationale: r\n"
+        "  - kind: concept\n"
+        "    title: Missing Slug\n"
+        "    slug:\n"
+        "    mode: create_new\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries == []
+
+
 def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     from graph_wiki_core.commands.suggest_pages import build_curated_vault_index
 
@@ -130,7 +213,6 @@ def test_build_curated_vault_index_missing_dirs_returns_empty(tmp_path):
 async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
     from wiki_io.proposals import list_proposals, proposal_path
 
     wiki = tmp_path / "wiki"
@@ -154,16 +236,20 @@ async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
     fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, status = await _run_suggest_phase_for_test(wiki, page)
 
-    assert parsed is True
-    # Report shape preserved (kind/title/slug/mode/status; slug == target_slug).
+    assert status["reasoner"] == "ok"
+    assert status["extractor"] == "ok"
+    assert status["proposals"] == 1
+    # Report shape includes Task 5 reasoner metadata; slug == target_slug.
     assert reports == [
         {
             "kind": "concept",
             "title": "A Concept",
             "slug": "a-concept",
             "mode": "create_new",
+            "rank": 999,
+            "confidence": "medium",
             "status": "proposed",
         }
     ]
@@ -182,7 +268,6 @@ async def test_run_suggest_phase_writes_ledger_notes_not_page(tmp_path):
 async def test_run_suggest_phase_update_existing_targets_existing_slug(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
     from wiki_io.proposals import proposal_path
 
     wiki = tmp_path / "wiki"
@@ -204,9 +289,10 @@ async def test_run_suggest_phase_update_existing_targets_existing_slug(tmp_path)
     fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content=llm_yaml))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, status = await _run_suggest_phase_for_test(wiki, page)
 
     # The note is keyed by the EXISTING slug (the update target), not the proposal slug.
+    assert status["extractor"] == "ok"
     assert proposal_path(wiki, "adr", "0007-md").exists()
     assert reports[0]["slug"] == "0007-md"
     assert reports[0]["mode"] == "update_existing"
@@ -215,8 +301,6 @@ async def test_run_suggest_phase_update_existing_targets_existing_slug(tmp_path)
 @pytest.mark.asyncio
 async def test_run_suggest_phase_llm_error_writes_zero_notes(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
-
-    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
@@ -227,10 +311,12 @@ async def test_run_suggest_phase_llm_error_writes_zero_notes(tmp_path):
     fake_llm.ainvoke = AsyncMock(side_effect=RuntimeError("bedrock boom"))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, status = await _run_suggest_phase_for_test(wiki, page)
 
     assert reports == []
-    assert parsed is False
+    assert status["reasoner"] == "ok"
+    assert status["extractor"] == "failed"
+    assert status["error"] == "extractor failed"
     # No notes written; the dir may not even exist.
     assert not list((wiki / "proposals").glob("*.md")) if (wiki / "proposals").is_dir() else True
 
@@ -238,8 +324,6 @@ async def test_run_suggest_phase_llm_error_writes_zero_notes(tmp_path):
 @pytest.mark.asyncio
 async def test_run_suggest_phase_parse_miss_writes_zero_notes(tmp_path):
     from unittest.mock import AsyncMock, MagicMock, patch
-
-    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 
     wiki = tmp_path / "wiki"
     (wiki / "sources").mkdir(parents=True)
@@ -250,7 +334,9 @@ async def test_run_suggest_phase_parse_miss_writes_zero_notes(tmp_path):
     fake_llm.ainvoke = AsyncMock(return_value=MagicMock(content="not valid yaml: : ["))
 
     with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake_llm):
-        reports, parsed = await run_suggest_phase(wiki=wiki, page_path=page)
+        reports, status = await _run_suggest_phase_for_test(wiki, page)
 
     assert reports == []
-    assert parsed is False
+    assert status["reasoner"] == "ok"
+    assert status["extractor"] == "failed"
+    assert status["error"] == "extractor output did not parse"

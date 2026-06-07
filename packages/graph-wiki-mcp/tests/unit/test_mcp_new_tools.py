@@ -408,6 +408,9 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
             },
         ],
         suggestions_parsed=True,
+        proposal_reasoner_status="ok",
+        proposal_extractor_status="ok",
+        proposal_error=None,
     )
 
     mock_ctx = MagicMock()
@@ -417,6 +420,9 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
         out = await wiki_ingest(WikiIngestInput(type="source", source_path="/x/doc.md"), mock_ctx)
 
     assert out.suggestions_parsed is True
+    assert out.proposal_reasoner_status == "ok"
+    assert out.proposal_extractor_status == "ok"
+    assert out.proposal_error is None
     assert out.suggested_pages[0]["slug"] == "t"
 
 

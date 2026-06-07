@@ -141,6 +141,12 @@ def test_extractor_system_snapshot(snapshot: SnapshotAssertion) -> None:
     assert EXTRACTOR_SYSTEM == snapshot
 
 
+def test_proposal_reasoner_system_snapshot(snapshot: SnapshotAssertion) -> None:
+    from graph_wiki_core.prompts.proposal_reasoner import PROPOSAL_REASONER_SYSTEM
+
+    assert PROPOSAL_REASONER_SYSTEM == snapshot
+
+
 # ---------------------------------------------------------------------------
 # Plan 10-07: with-project-context snapshots (CTX-04 §Snapshot coverage)
 #

@@ -10,8 +10,8 @@ Public API:
     SUGGESTION_KINDS, EXTRACT_PREVIEW_CHARS
     parse_extractor_response(text) -> (list[dict], bool)
     build_curated_vault_index(wiki) -> list[dict]
-    build_extract_suggestions_prompt(source_text, vault_index) -> str
-    run_suggest_phase(*, wiki, page_path) -> (list[dict], bool)
+    build_extract_suggestions_prompt(reasoner_analysis, vault_index) -> str
+    run_suggest_phase(...) -> (list[dict], dict)
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from wiki_io.ingest_source import slugify
 from wiki_io.proposals import upsert_proposal
 from wiki_io.update_index import parse_frontmatter
 
+from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult, run_proposal_reasoner
 from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -34,12 +35,36 @@ SUGGESTION_KINDS = frozenset({"concept", "adr", "architecture"})
 EXTRACT_PREVIEW_CHARS = 4000
 
 # Canonical key order for a validated proposal dict (cosmetic; the ledger owns serialization).
-_ENTRY_KEY_ORDER = ("kind", "title", "slug", "mode", "existing_slug", "rationale", "status")
+_ENTRY_KEY_ORDER = (
+    "kind",
+    "title",
+    "slug",
+    "mode",
+    "existing_slug",
+    "rank",
+    "confidence",
+    "rationale",
+    "evidence",
+    "existing_pages_considered",
+    "reasoning_summary",
+    "potential_conflicts",
+    "implementation_notes",
+    "status",
+)
 
 
 def _ordered_entry(d: dict) -> dict:
     """Return a new dict with the canonical key order (omitting absent keys)."""
     return {k: d[k] for k in _ENTRY_KEY_ORDER if k in d}
+
+
+def _string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
 
 
 def _validate_proposal(raw: object) -> dict | None:
@@ -54,8 +79,12 @@ def _validate_proposal(raw: object) -> dict | None:
     kind = str(raw.get("kind", "")).strip().lower()
     if kind not in SUGGESTION_KINDS:
         return None
-    title = str(raw.get("title", "")).strip()
-    slug_src = str(raw.get("slug", "")).strip()
+    title_raw = raw.get("title")
+    slug_raw = raw.get("slug")
+    if title_raw is None or slug_raw is None:
+        return None
+    title = str(title_raw).strip()
+    slug_src = str(slug_raw).strip()
     if not title or not slug_src:
         return None
     slug = slugify(slug_src)
@@ -64,7 +93,17 @@ def _validate_proposal(raw: object) -> dict | None:
         mode = "create_new"
     existing_raw = raw.get("existing_slug")
     existing_slug = slugify(str(existing_raw).strip()) if existing_raw else None
+    if mode == "update_existing" and not existing_slug:
+        mode = "create_new"
+    try:
+        rank = int(raw.get("rank", 999))
+    except (OverflowError, TypeError, ValueError):
+        rank = 999
+    confidence = str(raw.get("confidence", "medium")).strip().lower()
+    if confidence not in {"high", "medium", "low"}:
+        confidence = "medium"
     rationale = str(raw.get("rationale", "")).strip()
+    reasoning_summary = str(raw.get("reasoning_summary", "")).strip()
     return _ordered_entry(
         {
             "kind": kind,
@@ -72,7 +111,14 @@ def _validate_proposal(raw: object) -> dict | None:
             "slug": slug,
             "mode": mode,
             "existing_slug": existing_slug,
+            "rank": rank,
+            "confidence": confidence,
             "rationale": rationale,
+            "evidence": _string_list(raw.get("evidence")),
+            "existing_pages_considered": _string_list(raw.get("existing_pages_considered")),
+            "reasoning_summary": reasoning_summary,
+            "potential_conflicts": _string_list(raw.get("potential_conflicts")),
+            "implementation_notes": _string_list(raw.get("implementation_notes")),
         }
     )
 
@@ -117,7 +163,8 @@ def parse_extractor_response(text: str) -> tuple[list[dict], bool]:
         norm = _validate_proposal(item)
         if norm is not None:
             proposals.append(norm)
-    return proposals, True
+    proposals.sort(key=lambda proposal: int(proposal.get("rank", 999)))
+    return proposals[:5], True
 
 
 # Directory name -> curated page kind.
@@ -151,12 +198,8 @@ def build_curated_vault_index(wiki: Path) -> list[dict]:
     return index
 
 
-def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) -> str:
-    """Human message for the extractor: the Source page + the curated-vault index."""
-    preview = source_text[:EXTRACT_PREVIEW_CHARS]
-    if len(source_text) > EXTRACT_PREVIEW_CHARS:
-        preview += "\n[TRUNCATED]"
-
+def build_extract_suggestions_prompt(reasoner_analysis: str, vault_index: list[dict]) -> str:
+    """Human message for the extractor: reasoner analysis + curated-vault index."""
     if vault_index:
         index_lines = "\n".join(
             f"  - {e['kind']}/{e['slug']} — {e.get('title', '')}" + (f" — {e['summary']}" if e.get("summary") else "")
@@ -169,11 +212,11 @@ def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) 
         "Existing curated pages (propose update_existing when your idea is "
         "already covered by one of these; otherwise create_new):\n"
         f"{index_lines}\n\n"
-        "--- Source page ---\n"
-        f"{preview}\n"
-        "--- End source page ---\n\n"
-        "Propose the concept/adr/architecture pages this source justifies, as a "
-        "YAML `suggestions:` list. Return `suggestions: []` if none are warranted."
+        "--- Proposal reasoner analysis ---\n"
+        f"{reasoner_analysis}\n"
+        "--- End proposal reasoner analysis ---\n\n"
+        "Normalize the reasoner analysis into at most 5 YAML suggestions: entries. "
+        "Return suggestions: [] if none are warranted."
     )
 
 
@@ -181,7 +224,12 @@ async def run_suggest_phase(
     *,
     wiki: Path,
     page_path: Path,
-) -> tuple[list[dict], bool]:
+    source_path: Path,
+    source_text: str,
+    entity_uri: str | None,
+    entity_stem: str | None,
+    graph_tools: list,
+) -> tuple[list[dict], dict]:
     """Inline suggest phase: propose derived pages into the proposal ledger.
 
     For each validated extractor proposal, upsert a `proposals/` note keyed by
@@ -190,31 +238,63 @@ async def run_suggest_phase(
     ledger owns the per-note merge (human decisions survive re-ingest because a
     decided note is left untouched), so no prior-state capture is needed.
 
-    Best-effort (spec §3.5): on an extractor error or parse miss, write ZERO
-    notes and return ([], False). The suggest phase never fails an ingest.
+    Best-effort (spec §3.5): on a reasoner/extractor error or parse miss, write
+    ZERO notes and return ([], status). The suggest phase never fails an ingest.
 
-    Returns (reports, parsed) where each report is a dict shaped
+    Returns (reports, status) where each report is a dict shaped
     {kind, title, slug, mode, status} (slug == target_slug) — the report shape
     the CLI/MCP already consume (spec §3.6).
     """
     page_text = page_path.read_text(encoding="utf-8")
+    status = {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    try:
+        reasoner_result: ProposalReasonerResult = await run_proposal_reasoner(
+            wiki=wiki,
+            source_path=source_path,
+            source_text=source_text,
+            source_page_path=page_path,
+            source_page_text=page_text,
+            entity_uri=entity_uri,
+            entity_stem=entity_stem,
+            graph_tools=graph_tools,
+        )
+    except Exception:
+        logger.warning("proposal reasoner failed; skipping suggestions", exc_info=True)
+        reasoner_result = ProposalReasonerResult(
+            status="failed",
+            analysis="",
+            error="proposal_reasoner failed",
+        )
+
+    status["reasoner"] = reasoner_result.status
+    if reasoner_result.status != "ok":
+        status["error"] = reasoner_result.error or "proposal_reasoner failed"
+        return [], status
+
     vault_index = build_curated_vault_index(wiki)
-    prompt = build_extract_suggestions_prompt(page_text, vault_index)
+    prompt = build_extract_suggestions_prompt(reasoner_result.analysis, vault_index)
 
     try:
         llm = make_llm("extractor")
         resp = await llm.ainvoke([SystemMessage(EXTRACTOR_SYSTEM), HumanMessage(prompt)])
     except Exception:
         logger.warning("extractor LLM call failed; skipping suggestions", exc_info=True)
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor failed"
+        return [], status
 
     if not isinstance(resp.content, str):
         logger.warning("extractor LLM returned non-text content; skipping suggestions")
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor output did not parse"
+        return [], status
 
     proposals, parsed = parse_extractor_response(resp.content)
     if not parsed:
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor output did not parse"
+        return [], status
 
     source_ref = f"sources/{page_path.stem}"
     reports: list[dict] = []
@@ -223,6 +303,21 @@ async def run_suggest_phase(
             target_slug = p["existing_slug"]
         else:
             target_slug = p["slug"]
+        origin = {
+            "ref": source_ref,
+            "source": "ingest",
+            "rationale": p.get("rationale", ""),
+        }
+        for key in (
+            "evidence",
+            "existing_pages_considered",
+            "potential_conflicts",
+            "implementation_notes",
+        ):
+            if p.get(key):
+                origin[key] = p[key]
+        if p.get("reasoning_summary"):
+            origin["reasoning_summary"] = p["reasoning_summary"]
         record = upsert_proposal(
             wiki,
             {
@@ -230,11 +325,9 @@ async def run_suggest_phase(
                 "mode": p["mode"],
                 "target_slug": target_slug,
                 "title": p["title"],
-                "origin": {
-                    "ref": source_ref,
-                    "source": "ingest",
-                    "rationale": p.get("rationale", ""),
-                },
+                "rank": p["rank"],
+                "confidence": p["confidence"],
+                "origin": origin,
             },
         )
         reports.append(
@@ -243,7 +336,11 @@ async def run_suggest_phase(
                 "title": record["title"],
                 "slug": record["target_slug"],
                 "mode": record["mode"],
+                "rank": record.get("rank", p["rank"]),
+                "confidence": record.get("confidence", p["confidence"]),
                 "status": record["status"],
             }
         )
-    return reports, True
+    status["extractor"] = "ok"
+    status["proposals"] = len(reports)
+    return reports, status

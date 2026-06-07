@@ -246,6 +246,22 @@ def test_load_role_config_librarian_values():
     assert cfg["max_concurrency"] == 5
 
 
+def test_ingest_proposal_roles_use_kimi_k25() -> None:
+    from model_adapter.loader import load_role_config
+
+    expected = {
+        "ingestor": 4096,
+        "proposal_reasoner": 4096,
+        "extractor": 2048,
+    }
+    for role, max_tokens in expected.items():
+        cfg = load_role_config(role)
+        assert cfg["model_id"] == "moonshotai.kimi-k2.5"
+        assert cfg["region"] == "us-east-1"
+        assert cfg["max_tokens"] == max_tokens
+        assert "moonshotai.kimi-k2.5" in cfg["sweep_candidates"]
+
+
 def test_load_role_config_synthesizer_limits():
     from model_adapter.loader import load_role_config
 

@@ -41,6 +41,86 @@ def test_render_body_lists_one_block_per_origin() -> None:
     assert "Async fan-out now." in body
 
 
+def test_rich_proposal_body_renders_review_sections() -> None:
+    from wiki_io.proposals import render_proposal_body
+
+    record = {
+        "kind": "concept",
+        "mode": "create_new",
+        "target_slug": "section-ownership",
+        "title": "Section ownership",
+        "status": "proposed",
+        "rank": 1,
+        "confidence": "high",
+        "origins": [
+            {
+                "ref": "sources/spec",
+                "source": "ingest",
+                "rationale": "The source defines ownership boundaries.",
+                "evidence": ["Scanner owns narrative sections.", "Humans own notes."],
+                "existing_pages_considered": ["concepts/human-owned-sections"],
+                "reasoning_summary": "This is reusable across scanner and ingest pages.",
+                "potential_conflicts": ["May overlap with existing page ownership docs."],
+                "implementation_notes": ["Create a concept page and link scanner docs."],
+            }
+        ],
+    }
+
+    body = render_proposal_body(record)
+
+    assert "## Suggested Action" in body
+    assert "Create new concept page `concepts/section-ownership.md`." in body
+    assert "## Evidence From Source" in body
+    assert "- Scanner owns narrative sections." in body
+    assert "## Existing Pages Considered" in body
+    assert "- [[concepts/human-owned-sections]]" in body
+    assert "## Reasoning Summary" in body
+    assert "This is reusable across scanner and ingest pages." in body
+    assert "## Potential Conflicts" in body
+    assert "## Implementation Notes" in body
+    assert "## Origins" in body
+
+
+def test_proposal_body_origins_wikilinks_only_page_refs() -> None:
+    from wiki_io.proposals import render_proposal_body
+
+    record = {
+        "kind": "concept",
+        "mode": "create_new",
+        "target_slug": "section-ownership",
+        "title": "Section ownership",
+        "status": "proposed",
+        "origins": [
+            {"ref": "sources/spec", "source": "ingest", "rationale": "Page ref."},
+            {"ref": "external-ticket", "source": "ingest", "rationale": "Plain ref."},
+        ],
+    }
+
+    body = render_proposal_body(record)
+
+    assert "**ingest · [[sources/spec]]**" in body
+    assert "**ingest · external-ticket**" in body
+    assert "[[external-ticket]]" not in body
+
+
+def test_proposal_body_origins_has_fallback_when_empty() -> None:
+    from wiki_io.proposals import render_proposal_body
+
+    record = {
+        "kind": "concept",
+        "mode": "create_new",
+        "target_slug": "section-ownership",
+        "title": "Section ownership",
+        "status": "proposed",
+        "origins": [],
+    }
+
+    body = render_proposal_body(record)
+
+    assert "## Origins" in body
+    assert "No origins were captured." in body
+
+
 def test_read_proposal_round_trips_a_written_note(tmp_path: Path) -> None:
     from wiki_io.proposals import read_proposal
 
@@ -109,6 +189,38 @@ def test_upsert_creates_note_on_empty_dir(tmp_path: Path) -> None:
     assert on_disk["origins"][0]["ref"] == "sources/spec"
     # Body renders the origin.
     assert "**ingest · [[sources/spec]]**" in path.read_text(encoding="utf-8")
+
+
+def test_upsert_persists_rank_confidence_and_rich_origin(tmp_path: Path) -> None:
+    from wiki_io.proposals import proposal_path, read_proposal, upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "architecture",
+            "mode": "update_existing",
+            "target_slug": "runtime-flow",
+            "title": "Runtime flow",
+            "rank": 2,
+            "confidence": "medium",
+            "origin": {
+                "ref": "sources/runtime",
+                "source": "ingest",
+                "rationale": "The source changes the runtime-flow thesis.",
+                "evidence": ["Pipeline adds a reasoner stage."],
+                "existing_pages_considered": ["architecture/runtime-flow"],
+                "reasoning_summary": "Update the existing architecture page.",
+                "potential_conflicts": [],
+                "implementation_notes": ["Append to How this synthesis has changed."],
+            },
+        },
+    )
+
+    rec = read_proposal(proposal_path(wiki, "architecture", "runtime-flow"))
+    assert rec["rank"] == 2
+    assert rec["confidence"] == "medium"
+    assert rec["origins"][0]["evidence"] == ["Pipeline adds a reasoner stage."]
 
 
 def test_upsert_leaves_human_decided_untouched(tmp_path: Path) -> None:

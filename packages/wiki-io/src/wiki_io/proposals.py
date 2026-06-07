@@ -33,9 +33,20 @@ SUGGESTION_KINDS = frozenset({"concept", "adr", "architecture"})
 HUMAN_DECIDED = frozenset({"approved", "rejected", "created"})
 
 # Fixed key order so yaml.safe_dump(..., sort_keys=False) is deterministic.
-_RECORD_KEY_ORDER = ("kind", "mode", "target_slug", "title", "status", "origins")
+_RECORD_KEY_ORDER = ("kind", "mode", "target_slug", "title", "status", "rank", "confidence", "origins")
 # `detected_commit`/`hash` are M4-reserved (the ingest producer never sets them).
-_ORIGIN_KEY_ORDER = ("ref", "source", "rationale", "detected_commit", "hash")
+_ORIGIN_KEY_ORDER = (
+    "ref",
+    "source",
+    "rationale",
+    "evidence",
+    "existing_pages_considered",
+    "reasoning_summary",
+    "potential_conflicts",
+    "implementation_notes",
+    "detected_commit",
+    "hash",
+)
 
 
 def _load_frontmatter(path: Path) -> frontmatter.Post:
@@ -74,11 +85,33 @@ def split_proposal_id(proposal_id: str) -> tuple[str, str]:
     )
 
 
-def render_proposal_body(record: dict) -> str:
-    """Render `origins[]` into the human-readable evidence body.
+def _as_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    text = str(value).strip()
+    return [text] if text else []
 
-    One block per origin: a `**<source> · [[<ref>]]**` heading line followed by
-    the rationale. Regenerated on every upsert while `status: proposed`.
+
+def _wikilink_if_page(ref: str) -> str:
+    return f"[[{ref}]]" if "/" in ref else ref
+
+
+def _suggested_action(record: dict) -> str:
+    kind = record["kind"]
+    target = record["target_slug"]
+    mode = record.get("mode", "create_new")
+    dirname = {"concept": "concepts", "adr": "adrs", "architecture": "architecture"}[kind]
+    verb = "Update existing" if mode == "update_existing" else "Create new"
+    return f"{verb} {kind} page `{dirname}/{target}.md`."
+
+
+def render_proposal_body(record: dict) -> str:
+    """Render a proposed note into a review artifact.
+
+    The body is regenerated while status is proposed. Human-decided notes keep
+    their current body through set_proposal_status().
     """
     proposal_id = f"{record['kind']}-{record['target_slug']}"
     comment = (
@@ -86,20 +119,62 @@ def render_proposal_body(record: dict) -> str:
         "edit here;\n"
         f"     approve via `gw wiki proposal approve {proposal_id}`. -->"
     )
-    lines = [comment, ""]
-    for o in record.get("origins", []):
-        lines.append(f"**{o.get('source', '')} · [[{o.get('ref', '')}]]**")
-        rationale = (o.get("rationale") or "").strip()
+    origins = record.get("origins", [])
+    lines = [
+        comment,
+        "",
+        "## Suggested Action",
+        "",
+        _suggested_action(record),
+        "",
+        "## Evidence From Source",
+        "",
+    ]
+    evidence: list[str] = []
+    considered: list[str] = []
+    conflicts: list[str] = []
+    notes: list[str] = []
+    summaries: list[str] = []
+    for origin in origins:
+        evidence.extend(_as_list(origin.get("evidence")))
+        considered.extend(_as_list(origin.get("existing_pages_considered")))
+        conflicts.extend(_as_list(origin.get("potential_conflicts")))
+        notes.extend(_as_list(origin.get("implementation_notes")))
+        summaries.extend(_as_list(origin.get("reasoning_summary")))
+    lines.extend(f"- {item}" for item in evidence)
+    if not evidence:
+        lines.append("- No source evidence was captured.")
+    lines.extend(["", "## Existing Pages Considered", ""])
+    lines.extend(f"- {_wikilink_if_page(item)}" for item in considered)
+    if not considered:
+        lines.append("- No existing pages were cited by the proposal reasoner.")
+    lines.extend(["", "## Reasoning Summary", ""])
+    lines.extend(summaries or ["No reasoning summary was captured."])
+    lines.extend(["", "## Potential Conflicts", ""])
+    lines.extend(f"- {item}" for item in conflicts)
+    if not conflicts:
+        lines.append("- No conflicts identified.")
+    lines.extend(["", "## Implementation Notes", ""])
+    lines.extend(f"- {item}" for item in notes)
+    if not notes:
+        lines.append("- No implementation notes captured.")
+    lines.extend(["", "## Origins", ""])
+    for origin in origins:
+        ref = _wikilink_if_page(origin.get("ref", ""))
+        lines.append(f"**{origin.get('source', '')} · {ref}**")
+        rationale = (origin.get("rationale") or "").strip()
         if rationale:
             lines.append(rationale)
         lines.append("")
+    if not origins:
+        lines.append("No origins were captured.")
     return "\n".join(lines).rstrip("\n")
 
 
 def _record_from_metadata(metadata: dict, stem: str) -> dict:
     """Build a proposal record dict from parsed frontmatter metadata."""
     origins = metadata.get("origins") or []
-    return {
+    record = {
         "kind": metadata.get("kind", ""),
         "mode": metadata.get("mode", "create_new"),
         "target_slug": metadata.get("target_slug", stem),
@@ -107,6 +182,11 @@ def _record_from_metadata(metadata: dict, stem: str) -> dict:
         "status": metadata.get("status", "proposed"),
         "origins": [dict(o) for o in origins if isinstance(o, dict)],
     }
+    if "rank" in metadata:
+        record["rank"] = metadata["rank"]
+    if "confidence" in metadata:
+        record["confidence"] = metadata["confidence"]
+    return record
 
 
 def read_proposal(path: Path) -> dict:
@@ -171,6 +251,10 @@ def upsert_proposal(wiki: Path, proposal: dict) -> dict:
             origins.append(origin)
         record["title"] = proposal.get("title", record["title"])
         record["mode"] = proposal.get("mode", record["mode"])
+        if "rank" in proposal:
+            record["rank"] = proposal["rank"]
+        if "confidence" in proposal:
+            record["confidence"] = proposal["confidence"]
         record["origins"] = origins
     else:
         record = {
@@ -181,6 +265,10 @@ def upsert_proposal(wiki: Path, proposal: dict) -> dict:
             "status": "proposed",
             "origins": [origin],
         }
+        if "rank" in proposal:
+            record["rank"] = proposal["rank"]
+        if "confidence" in proposal:
+            record["confidence"] = proposal["confidence"]
 
     record = _ordered_record(record)
     text = _serialize(record, render_proposal_body(record))

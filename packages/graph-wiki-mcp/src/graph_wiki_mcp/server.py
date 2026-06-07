@@ -330,6 +330,9 @@ class WikiIngestOutput(BaseModel):
     # Living Wiki M3 (suggestion step):
     suggested_pages: list[dict] = Field(default_factory=list)
     suggestions_parsed: bool = True
+    proposal_reasoner_status: str = "skipped"
+    proposal_extractor_status: str = "skipped"
+    proposal_error: str | None = None
 
 
 @mcp.tool(
@@ -381,6 +384,9 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         frontmatter_parsed=result.frontmatter_parsed,
         suggested_pages=result.suggested_pages,
         suggestions_parsed=result.suggestions_parsed,
+        proposal_reasoner_status=result.proposal_reasoner_status,
+        proposal_extractor_status=result.proposal_extractor_status,
+        proposal_error=result.proposal_error,
     )
 
 

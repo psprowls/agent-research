@@ -25,6 +25,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -54,6 +55,7 @@ from wiki_io.wikilinks import vault_wikilink
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
 
@@ -149,6 +151,9 @@ class IngestResult:
     # Living Wiki M3 (suggestion step):
     suggested_pages: list[dict] = field(default_factory=list)  # proposals upserted by this run (empty on degraded path)
     suggestions_parsed: bool = True  # False when the extractor call errored or its output didn't parse
+    proposal_reasoner_status: str = "skipped"
+    proposal_extractor_status: str = "skipped"
+    proposal_error: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +316,63 @@ def _set_source_type_in_body(text: str, source_type: str) -> str:
     new_lines.insert(0, f"source_type: {source_type}")
     new_fm = "\n".join(new_lines)
     return f"{leading_ws}---\n{new_fm}{body_and_close}"
+
+
+def _sanitize_proposal_error(error: object) -> str | None:
+    if not error:
+        return None
+    text = str(error).replace("\n", " ").strip()
+    return text[:160]
+
+
+def _yaml_quoted_scalar(value: str) -> str:
+    return yaml.safe_dump(value, default_style='"', width=1000).splitlines()[0]
+
+
+def _set_proposal_status_in_body(text: str, status: dict, *, today: str | None = None) -> str:
+    """Insert or replace proposal_status in Source frontmatter."""
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+    try:
+        parsed_frontmatter = yaml.safe_load(fm_block)
+    except yaml.YAMLError:
+        return text
+    if not isinstance(parsed_frontmatter, dict):
+        return text
+
+    updated = today or date.today().isoformat()
+    proposal_lines = [
+        "proposal_status:",
+        f"  reasoner: {status.get('reasoner', 'skipped')}",
+        f"  extractor: {status.get('extractor', 'skipped')}",
+        f"  proposals: {int(status.get('proposals', 0) or 0)}",
+        f"  updated: {updated}",
+    ]
+    error = _sanitize_proposal_error(status.get("error"))
+    if error:
+        proposal_lines.append(f"  error: {_yaml_quoted_scalar(error)}")
+
+    new_lines: list[str] = []
+    skipping = False
+    for line in fm_block.splitlines():
+        if line.startswith("proposal_status:"):
+            skipping = True
+            continue
+        if skipping:
+            if line.startswith(" ") or line.startswith("\t") or not line.strip():
+                continue
+            skipping = False
+        new_lines.append(line)
+    new_lines.extend(proposal_lines)
+    return f"{leading_ws}---\n" + "\n".join(new_lines) + body_and_close
 
 
 def _synthesize_frontmatter_block(body: str, source_type: str, target_slug: str, entity_uri: str | None) -> str:
@@ -779,10 +841,31 @@ async def run_ingest_source(
         # concept/adr/architecture pages from the just-written Source page.
         # Best-effort: a failure here never fails the ingest (spec §3.1).
         try:
-            suggested_pages, suggestions_parsed = await run_suggest_phase(wiki=wiki, page_path=target_path)
+            graph_tools = build_graph_tools(conn)
+            suggested_pages, proposal_status = await run_suggest_phase(
+                wiki=wiki,
+                page_path=target_path,
+                source_path=source_path,
+                source_text=text,
+                entity_uri=canonical_uri,
+                entity_stem=entity_stem,
+                graph_tools=graph_tools,
+            )
         except Exception:
             logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
-            suggested_pages, suggestions_parsed = [], False
+            suggested_pages = []
+            proposal_status = {
+                "reasoner": "failed",
+                "extractor": "skipped",
+                "proposals": 0,
+                "error": "suggest phase failed",
+            }
+        suggestions_parsed = proposal_status["extractor"] == "ok"
+
+        current_text = target_path.read_text(encoding="utf-8")
+        stamped_text = _set_proposal_status_in_body(current_text, proposal_status)
+        if stamped_text != current_text:
+            target_path.write_text(stamped_text, encoding="utf-8")
 
         # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
         update_index(wiki)
@@ -809,6 +892,9 @@ async def run_ingest_source(
             frontmatter_parsed=frontmatter_parsed,
             suggested_pages=suggested_pages,
             suggestions_parsed=suggestions_parsed,
+            proposal_reasoner_status=str(proposal_status.get("reasoner", "skipped")),
+            proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
+            proposal_error=proposal_status.get("error"),
         )
     finally:
         try:
