@@ -54,6 +54,7 @@ from wiki_io.wikilinks import vault_wikilink
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
 
@@ -779,10 +780,26 @@ async def run_ingest_source(
         # concept/adr/architecture pages from the just-written Source page.
         # Best-effort: a failure here never fails the ingest (spec §3.1).
         try:
-            suggested_pages, suggestions_parsed = await run_suggest_phase(wiki=wiki, page_path=target_path)
+            graph_tools = build_graph_tools(conn)
+            suggested_pages, proposal_status = await run_suggest_phase(
+                wiki=wiki,
+                page_path=target_path,
+                source_path=source_path,
+                source_text=text,
+                entity_uri=canonical_uri,
+                entity_stem=entity_stem,
+                graph_tools=graph_tools,
+            )
         except Exception:
             logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
-            suggested_pages, suggestions_parsed = [], False
+            suggested_pages = []
+            proposal_status = {
+                "reasoner": "failed",
+                "extractor": "skipped",
+                "proposals": 0,
+                "error": "suggest phase failed",
+            }
+        suggestions_parsed = proposal_status["extractor"] == "ok"
 
         # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
         update_index(wiki)

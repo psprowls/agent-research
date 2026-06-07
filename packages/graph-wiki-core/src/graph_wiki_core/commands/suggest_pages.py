@@ -10,8 +10,8 @@ Public API:
     SUGGESTION_KINDS, EXTRACT_PREVIEW_CHARS
     parse_extractor_response(text) -> (list[dict], bool)
     build_curated_vault_index(wiki) -> list[dict]
-    build_extract_suggestions_prompt(source_text, vault_index) -> str
-    run_suggest_phase(*, wiki, page_path) -> (list[dict], bool)
+    build_extract_suggestions_prompt(reasoner_analysis, vault_index) -> str
+    run_suggest_phase(...) -> (list[dict], dict)
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from wiki_io.ingest_source import slugify
 from wiki_io.proposals import upsert_proposal
 from wiki_io.update_index import parse_frontmatter
 
+from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult, run_proposal_reasoner
 from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -191,12 +192,8 @@ def build_curated_vault_index(wiki: Path) -> list[dict]:
     return index
 
 
-def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) -> str:
-    """Human message for the extractor: source-backed proposal context + curated-vault index."""
-    preview = source_text[:EXTRACT_PREVIEW_CHARS]
-    if len(source_text) > EXTRACT_PREVIEW_CHARS:
-        preview += "\n[TRUNCATED]"
-
+def build_extract_suggestions_prompt(reasoner_analysis: str, vault_index: list[dict]) -> str:
+    """Human message for the extractor: reasoner analysis + curated-vault index."""
     if vault_index:
         index_lines = "\n".join(
             f"  - {e['kind']}/{e['slug']} — {e.get('title', '')}" + (f" — {e['summary']}" if e.get("summary") else "")
@@ -209,11 +206,11 @@ def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) 
         "Existing curated pages (propose update_existing when your idea is "
         "already covered by one of these; otherwise create_new):\n"
         f"{index_lines}\n\n"
-        "--- Source-backed proposal context ---\n"
-        f"{preview}\n"
-        "--- End source-backed proposal context ---\n\n"
-        "Normalize this context into the concept/adr/architecture page proposals it justifies, as a "
-        "YAML `suggestions:` list. Return `suggestions: []` if none are warranted."
+        "--- Proposal reasoner analysis ---\n"
+        f"{reasoner_analysis}\n"
+        "--- End proposal reasoner analysis ---\n\n"
+        "Normalize the reasoner analysis into at most 5 YAML suggestions: entries. "
+        "Return suggestions: [] if none are warranted."
     )
 
 
@@ -221,7 +218,12 @@ async def run_suggest_phase(
     *,
     wiki: Path,
     page_path: Path,
-) -> tuple[list[dict], bool]:
+    source_path: Path,
+    source_text: str,
+    entity_uri: str | None,
+    entity_stem: str | None,
+    graph_tools: list,
+) -> tuple[list[dict], dict]:
     """Inline suggest phase: propose derived pages into the proposal ledger.
 
     For each validated extractor proposal, upsert a `proposals/` note keyed by
@@ -230,31 +232,63 @@ async def run_suggest_phase(
     ledger owns the per-note merge (human decisions survive re-ingest because a
     decided note is left untouched), so no prior-state capture is needed.
 
-    Best-effort (spec §3.5): on an extractor error or parse miss, write ZERO
-    notes and return ([], False). The suggest phase never fails an ingest.
+    Best-effort (spec §3.5): on a reasoner/extractor error or parse miss, write
+    ZERO notes and return ([], status). The suggest phase never fails an ingest.
 
-    Returns (reports, parsed) where each report is a dict shaped
+    Returns (reports, status) where each report is a dict shaped
     {kind, title, slug, mode, status} (slug == target_slug) — the report shape
     the CLI/MCP already consume (spec §3.6).
     """
     page_text = page_path.read_text(encoding="utf-8")
+    status = {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    try:
+        reasoner_result: ProposalReasonerResult = await run_proposal_reasoner(
+            wiki=wiki,
+            source_path=source_path,
+            source_text=source_text,
+            source_page_path=page_path,
+            source_page_text=page_text,
+            entity_uri=entity_uri,
+            entity_stem=entity_stem,
+            graph_tools=graph_tools,
+        )
+    except Exception:
+        logger.warning("proposal reasoner failed; skipping suggestions", exc_info=True)
+        reasoner_result = ProposalReasonerResult(
+            status="failed",
+            analysis="",
+            error="proposal_reasoner failed",
+        )
+
+    status["reasoner"] = reasoner_result.status
+    if reasoner_result.status != "ok":
+        status["error"] = reasoner_result.error or "proposal_reasoner failed"
+        return [], status
+
     vault_index = build_curated_vault_index(wiki)
-    prompt = build_extract_suggestions_prompt(page_text, vault_index)
+    prompt = build_extract_suggestions_prompt(reasoner_result.analysis, vault_index)
 
     try:
         llm = make_llm("extractor")
         resp = await llm.ainvoke([SystemMessage(EXTRACTOR_SYSTEM), HumanMessage(prompt)])
     except Exception:
         logger.warning("extractor LLM call failed; skipping suggestions", exc_info=True)
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor failed"
+        return [], status
 
     if not isinstance(resp.content, str):
         logger.warning("extractor LLM returned non-text content; skipping suggestions")
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor output did not parse"
+        return [], status
 
     proposals, parsed = parse_extractor_response(resp.content)
     if not parsed:
-        return [], False
+        status["extractor"] = "failed"
+        status["error"] = "extractor output did not parse"
+        return [], status
 
     source_ref = f"sources/{page_path.stem}"
     reports: list[dict] = []
@@ -301,4 +335,6 @@ async def run_suggest_phase(
                 "status": record["status"],
             }
         )
-    return reports, True
+    status["extractor"] = "ok"
+    status["proposals"] = len(reports)
+    return reports, status

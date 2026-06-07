@@ -31,9 +31,17 @@ def _stub_extractor_llm():
     `patch("graph_wiki_core.commands.suggest_pages.make_llm", ...)` inside this
     one, which wins for their duration.
     """
+    from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult
+
     fake = MagicMock()
     fake.ainvoke = AsyncMock(return_value=MagicMock(content="suggestions: []"))
-    with patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake):
+    with (
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=fake),
+        patch(
+            "graph_wiki_core.commands.suggest_pages.run_proposal_reasoner",
+            return_value=ProposalReasonerResult(status="ok", analysis="test reasoner analysis"),
+        ),
+    ):
         yield
 
 
@@ -418,6 +426,63 @@ def test_parse_ingestor_response_fence_without_dashes_returns_empty() -> None:
     raw = "```yaml\nkey: value\nno_dashes: here\n```"
     fm, body = _parse_ingestor_response(raw)
     assert fm == {}, f"expected empty dict, got {fm}"
+
+
+@pytest.mark.asyncio
+async def test_run_suggest_phase_uses_reasoner_analysis(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult
+    from graph_wiki_core.commands.suggest_pages import run_suggest_phase
+
+    wiki = tmp_path / "wiki"
+    page = wiki / "sources" / "spec.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("---\ntitle: Spec\ncategory: source\n---\n\nSummary.", encoding="utf-8")
+
+    extractor = MagicMock()
+    extractor.ainvoke = AsyncMock(
+        return_value=MagicMock(
+            content=(
+                "suggestions:\n"
+                "  - kind: concept\n"
+                "    title: Better Ingest\n"
+                "    slug: better-ingest\n"
+                "    mode: create_new\n"
+                "    existing_slug:\n"
+                "    rank: 1\n"
+                "    confidence: high\n"
+                "    rationale: The reasoner found a durable ingest pattern.\n"
+                "    evidence:\n"
+                "      - Full document evidence.\n"
+                "    existing_pages_considered: []\n"
+                "    reasoning_summary: Create a focused concept.\n"
+                "    potential_conflicts: []\n"
+                "    implementation_notes:\n"
+                "      - Link to the source page.\n"
+            )
+        )
+    )
+
+    with (
+        patch(
+            "graph_wiki_core.commands.suggest_pages.run_proposal_reasoner",
+            return_value=ProposalReasonerResult(status="ok", analysis="rich reasoner analysis"),
+        ) as reasoner,
+        patch("graph_wiki_core.commands.suggest_pages.make_llm", return_value=extractor),
+    ):
+        reports, status = await run_suggest_phase(
+            wiki=wiki,
+            page_path=page,
+            source_path=tmp_path / "raw.md",
+            source_text="full raw document",
+            entity_uri=None,
+            entity_stem=None,
+            graph_tools=[],
+        )
+
+    reasoner.assert_called_once()
+    assert status["reasoner"] == "ok"
+    assert status["extractor"] == "ok"
+    assert reports[0]["slug"] == "better-ingest"
 
 
 # ---------------------------------------------------------------------------
