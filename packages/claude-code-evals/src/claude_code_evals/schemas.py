@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class VerifyEntry(BaseModel):
@@ -94,8 +94,8 @@ class Config(BaseModel):
     plugin_dirs: list[str] = []
     model: str = "claude-sonnet-4-6"
     temperature: float = 0.0
-    extra_env: dict[str, str] = {}
-    extra_settings: dict = {}
+    extra_env: dict[str, str] = Field(default_factory=dict)
+    extra_settings: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_path(cls, path: Path) -> "Config":
