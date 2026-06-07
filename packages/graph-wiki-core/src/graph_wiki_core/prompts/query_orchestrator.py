@@ -12,8 +12,8 @@ Evidence rules:
 - Final answer evidence may use only source_type `wiki` or `code`.
 - Graph tool observations are planning context only; never emit graph evidence.
 - Treat stale wiki content as a clue; prefer code or fresh linked wiki evidence.
-- If a claim is supported only by stale wiki evidence, label uncertainty in
-  `answer_markdown` and include a matching `gaps` entry.
+- If a claim is supported only by stale wiki evidence, either label uncertainty
+  in `answer_markdown` or include an explicit `gaps` entry.
 - Do not invent facts, paths, citations, or line numbers.
 - If the evidence is insufficient, produce a partial answer with explicit gaps.
 
@@ -49,12 +49,7 @@ Return exactly one JSON object with this contract:
   ],
   "worker_plan": ["object; bounded tasks requested or planned"],
   "worker_results": ["object; concise records of returned worker evidence"],
-  "gaps": [
-    {
-      "claim": "string; unsupported, stale-only, or partially answered point",
-      "note": "string; what is missing or uncertain"
-    }
-  ],
+  "gaps": ["object; explicit unsupported, stale-only, or partially answered gap"],
   "confidence": "high | medium | low"
 }
 """

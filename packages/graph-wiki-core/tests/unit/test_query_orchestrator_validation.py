@@ -90,6 +90,41 @@ def test_parse_orchestrator_output_rejects_invalid_payloads(mutation, message: s
         parse_orchestrator_output(payload)
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "answer_markdown",
+        "citations",
+        "evidence",
+        "answer_evidence_map",
+        "worker_plan",
+        "worker_results",
+        "gaps",
+        "confidence",
+    ],
+)
+def test_parse_orchestrator_output_rejects_missing_required_top_level_keys(field: str) -> None:
+    payload = _valid_payload()
+    del payload[field]
+
+    with pytest.raises(OrchestratorValidationError, match=field):
+        parse_orchestrator_output(payload)
+
+
+@pytest.mark.parametrize("field", ["worker_plan", "worker_results"])
+def test_parse_orchestrator_output_rejects_worker_fields_that_are_not_object_arrays(field: str) -> None:
+    payload = _valid_payload()
+    payload[field] = ["not an object row"]
+
+    with pytest.raises(OrchestratorValidationError, match=field):
+        parse_orchestrator_output(payload)
+
+
+def test_parse_orchestrator_output_rejects_invalid_json_string() -> None:
+    with pytest.raises(OrchestratorValidationError, match="Invalid JSON"):
+        parse_orchestrator_output("{not-json")
+
+
 def test_stale_only_claim_support_requires_gap_or_uncertainty_note() -> None:
     payload = _valid_payload()
     payload["evidence"] = [
@@ -106,9 +141,21 @@ def test_stale_only_claim_support_requires_gap_or_uncertainty_note() -> None:
     with pytest.raises(OrchestratorValidationError, match="stale"):
         validate_orchestrator_output(output, require_stale_claim_gaps=True)
 
-    output_with_gap = parse_orchestrator_output({**payload, "gaps": [{"claim": "The scanner writes entity pages."}]})
+    output_with_gap = parse_orchestrator_output({**payload, "gaps": [{"note": "Needs fresh code verification."}]})
     validate_orchestrator_output(output_with_gap, require_stale_claim_gaps=True)
 
+
+def test_stale_only_claim_support_allows_uncertainty_wording_without_gap() -> None:
+    payload = _valid_payload()
+    payload["evidence"] = [
+        {
+            "id": "ev1",
+            "source_type": "wiki",
+            "source": "wiki/entities/scanner.md",
+            "summary": "Scanner-owned entity pages are refreshed during scan.",
+            "freshness": "stale",
+        }
+    ]
     output_with_uncertainty = parse_orchestrator_output(
         {**payload, "answer_markdown": "Uncertain: stale wiki evidence suggests the scanner writes entity pages."}
     )

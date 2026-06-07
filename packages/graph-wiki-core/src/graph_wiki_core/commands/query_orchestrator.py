@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
+REQUIRED_TOP_LEVEL_KEYS = {
+    "answer_markdown",
+    "citations",
+    "evidence",
+    "answer_evidence_map",
+    "worker_plan",
+    "worker_results",
+    "gaps",
+    "confidence",
+}
 UNCERTAINTY_WORDS = ("uncertain", "uncertainty", "stale", "may", "might", "appears", "suggests", "possibly")
 
 
@@ -33,8 +44,7 @@ class AnswerEvidenceMap:
 
 @dataclass(frozen=True)
 class EvidenceGap:
-    claim: str
-    note: str = ""
+    detail: MappingProxyType[str, Any]
 
 
 @dataclass(frozen=True)
@@ -43,8 +53,8 @@ class OrchestratorOutput:
     citations: tuple[str, ...]
     evidence: tuple[OrchestratorEvidence, ...]
     answer_evidence_map: tuple[AnswerEvidenceMap, ...]
-    worker_plan: tuple[Any, ...]
-    worker_results: tuple[Any, ...]
+    worker_plan: tuple[dict[str, Any], ...]
+    worker_results: tuple[dict[str, Any], ...]
     gaps: tuple[EvidenceGap, ...]
     confidence: str
 
@@ -62,19 +72,26 @@ def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
 
     if not isinstance(payload, dict):
         raise OrchestratorValidationError("Orchestrator output must be a JSON object")
+    _require_top_level_keys(payload)
 
     output = OrchestratorOutput(
         answer_markdown=_required_non_empty_str(payload, "answer_markdown"),
-        citations=_str_tuple(payload.get("citations", ()), "citations"),
-        evidence=tuple(_parse_evidence_rows(payload.get("evidence", ()))),
-        answer_evidence_map=tuple(_parse_answer_evidence_map(payload.get("answer_evidence_map", ()))),
-        worker_plan=_tuple_field(payload.get("worker_plan", ()), "worker_plan"),
-        worker_results=_tuple_field(payload.get("worker_results", ()), "worker_results"),
-        gaps=tuple(_parse_gaps(payload.get("gaps", ()))),
+        citations=_str_tuple(payload["citations"], "citations"),
+        evidence=tuple(_parse_evidence_rows(payload["evidence"])),
+        answer_evidence_map=tuple(_parse_answer_evidence_map(payload["answer_evidence_map"])),
+        worker_plan=_object_tuple(payload["worker_plan"], "worker_plan"),
+        worker_results=_object_tuple(payload["worker_results"], "worker_results"),
+        gaps=tuple(_parse_gaps(payload["gaps"])),
         confidence=_required_non_empty_str(payload, "confidence"),
     )
     validate_orchestrator_output(output, require_stale_claim_gaps=False)
     return output
+
+
+def _require_top_level_keys(payload: dict[str, Any]) -> None:
+    missing = sorted(REQUIRED_TOP_LEVEL_KEYS - payload.keys())
+    if missing:
+        raise OrchestratorValidationError(f"Missing required top-level orchestrator output keys: {missing}")
 
 
 def validate_orchestrator_output(
@@ -142,9 +159,11 @@ def _str_tuple(value: Any, field: str) -> tuple[str, ...]:
     return tuple(value)
 
 
-def _tuple_field(value: Any, field: str) -> tuple[Any, ...]:
+def _object_tuple(value: Any, field: str) -> tuple[dict[str, Any], ...]:
     if not isinstance(value, list | tuple):
-        raise OrchestratorValidationError(f"{field} must be a list")
+        raise OrchestratorValidationError(f"{field} must be a list of objects")
+    if not all(isinstance(item, dict) for item in value):
+        raise OrchestratorValidationError(f"{field} must be a list of objects")
     return tuple(value)
 
 
@@ -190,7 +209,7 @@ def _parse_gaps(value: Any) -> list[EvidenceGap]:
     for item in value:
         if not isinstance(item, dict):
             raise OrchestratorValidationError("gaps rows must be objects")
-        gaps.append(EvidenceGap(claim=_required_non_empty_str(item, "claim"), note=str(item.get("note", ""))))
+        gaps.append(EvidenceGap(detail=MappingProxyType(dict(item))))
     return gaps
 
 
