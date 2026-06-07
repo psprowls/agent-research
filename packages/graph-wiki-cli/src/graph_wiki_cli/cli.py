@@ -71,6 +71,7 @@ from subagent_runtime.trace_io import render_trace_record  # noqa: E402
 from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
 from graph_wiki_cli.logging_config import configure_verbose_logging  # noqa: E402
 from graph_wiki_cli.wiki_cli.main import wiki_app  # noqa: E402
+from graph_wiki_cli.work_cli.main import work_app  # noqa: E402
 
 app = typer.Typer(
     name="gw",
@@ -604,6 +605,9 @@ app.add_typer(graph_app, name="graph")
 
 # wiki command namespace: native Typer subapp for wiki-maintenance operations.
 app.add_typer(wiki_app, name="wiki")
+
+# work command namespace: native Typer subapp for work item management.
+app.add_typer(work_app, name="work")
 
 
 if __name__ == "__main__":

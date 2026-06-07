@@ -783,6 +783,7 @@ dependencies = [
     { name = "subagent-runtime" },
     { name = "typer" },
     { name = "wiki-io" },
+    { name = "work-io" },
 ]
 
 [package.metadata]
@@ -793,6 +794,7 @@ requires-dist = [
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
+    { name = "work-io", editable = "packages/work-io" },
 ]
 
 [[package]]
