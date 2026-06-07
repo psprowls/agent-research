@@ -162,6 +162,14 @@ def lint(
         for group, findings in result.semantic_findings.items():
             _section(f"Semantic: {group}", findings)
 
+        if result.work_lint_findings:
+            work_items = [
+                f"[{f['severity']}] {f['slug']}: {f['rule_id']} — {f['message']}" for f in result.work_lint_findings
+            ]
+            _section("Work lifecycle", work_items)
+        else:
+            typer.echo("[OK] Work lifecycle: 0\n")
+
     if result.errors:
         for err in result.errors:
             typer.echo(f"  error: {err}", err=True)

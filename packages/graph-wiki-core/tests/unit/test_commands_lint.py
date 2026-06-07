@@ -59,6 +59,7 @@ def test_lint_result_dataclass_shape() -> None:
         "semantic_findings",
         "errors",
         "dependency_layer",
+        "work_lint_findings",
     }
     field_names = {f.name for f in dataclasses.fields(LintResult)}
     for name in required_fields:

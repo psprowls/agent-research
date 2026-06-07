@@ -1,0 +1,19 @@
+[project]
+name = "work-io"
+version = "0.1.0"
+description = "Deterministic lifecycle logic for graph-wiki work items."
+requires-python = ">=3.11"
+dependencies = ["workspace-io", "pyyaml>=6.0"]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+workspace-io = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]

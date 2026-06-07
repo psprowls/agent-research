@@ -1,6 +1,6 @@
 ---
 name: lint
-description: Run a health check on the Code Wiki — mechanical (orphans, broken links, stale pages, missing frontmatter, duplicates, log gap), semantic (contradictions, cross-reference gaps, stale claims, roadmap staleness, ADR chain), and code-drift (packages on disk vs. in vault, exports mismatch). Workspace and repo discovered automatically. Outputs a markdown report grouped under "## Wiki lint" header. Usage /graph-wiki:lint [--stale-days N]
+description: Run a health check on the Code Wiki — mechanical (orphans, broken links, stale pages, missing frontmatter, duplicates, log gap), semantic (contradictions, cross-reference gaps, stale claims, roadmap staleness, ADR chain), code-drift (packages on disk vs. in vault, exports mismatch), and work lifecycle (19 rules for work item lifecycle state). Workspace and repo discovered automatically. Usage /graph-wiki:lint [--stale-days N]
 ---
 
 # /graph-wiki:lint
@@ -27,6 +27,7 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 - `scripts/lint_wiki.py` — orphans, broken links, stale, missing frontmatter, duplicate titles, log gap, **+ code drift** (packages missing from vault, vault pages for deleted packages, exports drift), **+ sync drift** (`package_sync_drift` for package/app pages whose source changed since `last_sync_commit`; never-synced stubs flagged separately)
 - `scripts/graph_analyzer.py` — hubs, sinks, components
+- Work lifecycle — all 19 rules from `lifecycle-rules.md` run against every `wiki/work/*.md` file. Findings appear under a **Work lifecycle** section in the output.
 
 ### Pass 2 — Semantic (LLM)
 

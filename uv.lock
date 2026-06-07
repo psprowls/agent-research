@@ -13,6 +13,7 @@ members = [
     "source-parser",
     "subagent-runtime",
     "wiki-io",
+    "work-io",
     "workspace-io",
 ]
 
@@ -782,6 +783,7 @@ dependencies = [
     { name = "subagent-runtime" },
     { name = "typer" },
     { name = "wiki-io" },
+    { name = "work-io" },
 ]
 
 [package.metadata]
@@ -792,6 +794,7 @@ requires-dist = [
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
+    { name = "work-io", editable = "packages/work-io" },
 ]
 
 [[package]]
@@ -810,6 +813,7 @@ dependencies = [
     { name = "subagent-runtime" },
     { name = "typer" },
     { name = "wiki-io" },
+    { name = "work-io" },
     { name = "workspace-io" },
 ]
 
@@ -826,6 +830,7 @@ requires-dist = [
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
+    { name = "work-io", editable = "packages/work-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
@@ -2911,6 +2916,21 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.38" },
     { name = "graph-io", editable = "packages/graph-io" },
     { name = "python-frontmatter", specifier = ">=1.1" },
+    { name = "workspace-io", editable = "packages/workspace-io" },
+]
+
+[[package]]
+name = "work-io"
+version = "0.1.0"
+source = { editable = "packages/work-io" }
+dependencies = [
+    { name = "pyyaml" },
+    { name = "workspace-io" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
