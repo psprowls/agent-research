@@ -1,0 +1,34 @@
+[project]
+name = "claude-code-evals"
+version = "0.1.0"
+description = "Generic harness for evaluating Claude Code behavior across plugin configurations"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "click>=8.1",
+    "jinja2>=3.1",
+    "rich>=13.7",
+    "pyyaml>=6.0",
+    "deepeval>=4.0.0",
+    "pytest-evals>=0.3.4",
+    "pytest>=8.0",
+]
+
+[project.scripts]
+cc-eval = "claude_code_evals.cli:app"
+
+[project.entry-points."pytest11"]
+claude-code-evals = "claude_code_evals.pytest_plugin"
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = [
+    "eval: requires CLAUDE_CODE_RUN_EVALS=1",
+    "integration: requires subprocess/real claude binary",
+]
