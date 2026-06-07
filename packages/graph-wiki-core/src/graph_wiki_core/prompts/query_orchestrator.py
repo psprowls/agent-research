@@ -51,7 +51,12 @@ Return exactly one JSON object with this contract:
   ],
   "worker_plan": ["object; bounded tasks requested or planned"],
   "worker_results": ["object; concise records of returned worker evidence"],
-  "gaps": ["object; explicit unsupported, stale-only, or partially answered gap"],
+  "gaps": [
+    {
+      "question": "string; unresolved question or stale-only claim",
+      "reason": "string; why the evidence is missing, stale-only, or insufficient"
+    }
+  ],
   "confidence": "high | medium | low"
 }
 """

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from graph_wiki_core.commands.query_orchestrator import (
+    EvidenceGap,
     OrchestratorEvidence,
     OrchestratorValidationError,
     parse_orchestrator_output,
@@ -44,7 +45,8 @@ def test_parse_orchestrator_output_accepts_valid_payload() -> None:
 
     assert output.answer_markdown == "The scanner writes entity pages from code evidence."
     assert output.confidence == "medium"
-    assert output.evidence == (
+    assert output.citations == ["wiki/entities/scanner.md"]
+    assert output.evidence == [
         OrchestratorEvidence(
             id="ev1",
             source_type="wiki",
@@ -52,9 +54,10 @@ def test_parse_orchestrator_output_accepts_valid_payload() -> None:
             freshness="fresh",
             staleness_reason=None,
             excerpt="Scanner-owned entity pages are refreshed during scan.",
-            line_refs=("wiki/entities/scanner.md:12",),
+            line_refs=["wiki/entities/scanner.md:12"],
         ),
-    )
+    ]
+    assert output.gaps == []
 
 
 @pytest.mark.parametrize(
@@ -167,6 +170,23 @@ def test_parse_orchestrator_output_rejects_answer_map_empty_evidence_ids() -> No
         parse_orchestrator_output(payload)
 
 
+@pytest.mark.parametrize(
+    ("gap", "message"),
+    [
+        ({"reason": "Needs fresh code verification."}, "question"),
+        ({"question": "Is this still true?"}, "reason"),
+        ({"question": "", "reason": "Needs fresh code verification."}, "question"),
+        ({"question": "Is this still true?", "reason": ""}, "reason"),
+    ],
+)
+def test_parse_orchestrator_output_rejects_invalid_gaps(gap: dict[str, str], message: str) -> None:
+    payload = _valid_payload()
+    payload["gaps"] = [gap]
+
+    with pytest.raises(OrchestratorValidationError, match=message):
+        parse_orchestrator_output(payload)
+
+
 def test_parse_orchestrator_output_returns_immutable_worker_rows() -> None:
     output = parse_orchestrator_output(_valid_payload())
 
@@ -217,7 +237,23 @@ def test_stale_only_claim_support_requires_gap_or_uncertainty_note() -> None:
     with pytest.raises(OrchestratorValidationError, match="stale"):
         validate_orchestrator_output(output, require_stale_claim_gaps=True)
 
-    output_with_gap = parse_orchestrator_output({**payload, "gaps": [{"note": "Needs fresh code verification."}]})
+    output_with_gap = parse_orchestrator_output(
+        {
+            **payload,
+            "gaps": [
+                {
+                    "question": "Does fresh code confirm the scanner still writes entity pages?",
+                    "reason": "Only stale wiki evidence supports this claim.",
+                }
+            ],
+        }
+    )
+    assert output_with_gap.gaps == [
+        EvidenceGap(
+            question="Does fresh code confirm the scanner still writes entity pages?",
+            reason="Only stale wiki evidence supports this claim.",
+        )
+    ]
     validate_orchestrator_output(output_with_gap, require_stale_claim_gaps=True)
 
 

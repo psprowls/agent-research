@@ -36,29 +36,30 @@ class OrchestratorEvidence:
     freshness: str
     staleness_reason: str | None
     excerpt: str
-    line_refs: tuple[str, ...]
+    line_refs: list[str]
 
 
 @dataclass(frozen=True)
 class AnswerEvidenceMap:
     claim: str
-    evidence_ids: tuple[str, ...]
+    evidence_ids: list[str]
 
 
 @dataclass(frozen=True)
 class EvidenceGap:
-    detail: MappingProxyType[str, Any]
+    question: str
+    reason: str
 
 
 @dataclass(frozen=True)
 class OrchestratorOutput:
     answer_markdown: str
-    citations: tuple[str, ...]
-    evidence: tuple[OrchestratorEvidence, ...]
-    answer_evidence_map: tuple[AnswerEvidenceMap, ...]
+    citations: list[str]
+    evidence: list[OrchestratorEvidence]
+    answer_evidence_map: list[AnswerEvidenceMap]
     worker_plan: tuple[Mapping[str, Any], ...]
     worker_results: tuple[Mapping[str, Any], ...]
-    gaps: tuple[EvidenceGap, ...]
+    gaps: list[EvidenceGap]
     confidence: str
 
 
@@ -79,12 +80,12 @@ def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
 
     output = OrchestratorOutput(
         answer_markdown=_required_non_empty_str(payload, "answer_markdown"),
-        citations=_str_tuple(payload["citations"], "citations"),
-        evidence=tuple(_parse_evidence_rows(payload["evidence"])),
-        answer_evidence_map=tuple(_parse_answer_evidence_map(payload["answer_evidence_map"])),
+        citations=_str_list(payload["citations"], "citations"),
+        evidence=_parse_evidence_rows(payload["evidence"]),
+        answer_evidence_map=_parse_answer_evidence_map(payload["answer_evidence_map"]),
         worker_plan=_object_tuple(payload["worker_plan"], "worker_plan"),
         worker_results=_object_tuple(payload["worker_results"], "worker_results"),
-        gaps=tuple(_parse_gaps(payload["gaps"])),
+        gaps=_parse_gaps(payload["gaps"]),
         confidence=_required_non_empty_str(payload, "confidence"),
     )
     validate_orchestrator_output(output, require_stale_claim_gaps=False)
@@ -159,12 +160,12 @@ def _required_non_empty_str(payload: dict[str, Any], field: str) -> str:
     return value
 
 
-def _str_tuple(value: Any, field: str) -> tuple[str, ...]:
+def _str_list(value: Any, field: str) -> list[str]:
     if not isinstance(value, list | tuple):
         raise OrchestratorValidationError(f"{field} must be a list of strings")
     if not all(isinstance(item, str) for item in value):
         raise OrchestratorValidationError(f"{field} must be a list of strings")
-    return tuple(value)
+    return list(value)
 
 
 def _object_tuple(value: Any, field: str) -> tuple[Mapping[str, Any], ...]:
@@ -202,7 +203,7 @@ def _parse_evidence_rows(value: Any) -> list[OrchestratorEvidence]:
                 freshness=_required_non_empty_str(item, "freshness"),
                 staleness_reason=_optional_non_empty_str(item, "staleness_reason"),
                 excerpt=_required_non_empty_str(item, "excerpt"),
-                line_refs=_str_tuple(item.get("line_refs"), "line_refs"),
+                line_refs=_str_list(item.get("line_refs"), "line_refs"),
             )
         )
     return rows
@@ -228,7 +229,7 @@ def _parse_answer_evidence_map(value: Any) -> list[AnswerEvidenceMap]:
             raise OrchestratorValidationError("answer_evidence_map rows must be objects")
         if "evidence_ids" not in item:
             raise OrchestratorValidationError("answer_evidence_map rows must include evidence_ids")
-        evidence_ids = _str_tuple(item["evidence_ids"], "evidence_ids")
+        evidence_ids = _str_list(item["evidence_ids"], "evidence_ids")
         if not evidence_ids:
             raise OrchestratorValidationError("answer_evidence_map evidence_ids must be non-empty")
         rows.append(
@@ -247,7 +248,12 @@ def _parse_gaps(value: Any) -> list[EvidenceGap]:
     for item in value:
         if not isinstance(item, dict):
             raise OrchestratorValidationError("gaps rows must be objects")
-        gaps.append(EvidenceGap(detail=MappingProxyType(dict(item))))
+        gaps.append(
+            EvidenceGap(
+                question=_required_non_empty_str(item, "question"),
+                reason=_required_non_empty_str(item, "reason"),
+            )
+        )
     return gaps
 
 
