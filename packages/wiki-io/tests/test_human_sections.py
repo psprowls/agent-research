@@ -36,6 +36,8 @@ def _page_text(kind: str = "package") -> str:
 def test_is_todo_like_body_accepts_existing_template_shapes() -> None:
     assert is_todo_like_body("")
     assert is_todo_like_body("> TODO: explain why this exists.")
+    assert is_todo_like_body("> ToDo: explain this.")
+    assert is_todo_like_body("todo later")
     assert is_todo_like_body("TODO list exported functions.")
     assert is_todo_like_body("- TODO")
     assert is_todo_like_body("* TODO")
