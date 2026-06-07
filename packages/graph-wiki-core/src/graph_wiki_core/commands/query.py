@@ -1295,7 +1295,18 @@ async def run_query(
     *,
     use_legacy: bool = False,
 ) -> QueryResult:
-    """End-to-end query entry point. Defaults to agentic query orchestration."""
+    """End-to-end query entry point.
+
+    Default path:
+        1. Resolve workspace and wiki.
+        2. Ensure BM25 and embedding indexes exist.
+        3. Run initial hybrid retrieval and RRF.
+        4. Run query_orchestrator over bounded planning tools and worker batches.
+        5. Convert validated orchestrator output to QueryResult.
+        6. Apply existing citation guardrails and write query trace summary.
+
+    Pass use_legacy=True for the previous fixed pipeline test seam.
+    """
 
     if use_legacy:
         return await _run_legacy_query(

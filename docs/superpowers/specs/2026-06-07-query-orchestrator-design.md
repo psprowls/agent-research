@@ -1,7 +1,7 @@
 # Query Orchestrator Design
 
 Date: 2026-06-07
-Status: approved for spec review
+Status: implemented
 
 ## Goal
 

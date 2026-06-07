@@ -116,8 +116,8 @@ class WikiQueryOutput(BaseModel):
 @mcp.tool(
     name="wiki_query",
     description=(
-        "Query the code wiki using hybrid BM25+embedding search with parallel librarian "
-        "analysis. Returns an answer with [[wikilink]] citations. "
+        "Query the code wiki using hybrid retrieval plus agentic evidence orchestration "
+        "over wiki pages and source-reading workers. "
         "workspace_path defaults to GRAPH_WIKI_WORKSPACE env var."
     ),
 )
