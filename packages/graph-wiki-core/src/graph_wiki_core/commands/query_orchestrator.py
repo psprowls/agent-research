@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Mapping
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
@@ -53,8 +53,8 @@ class OrchestratorOutput:
     citations: tuple[str, ...]
     evidence: tuple[OrchestratorEvidence, ...]
     answer_evidence_map: tuple[AnswerEvidenceMap, ...]
-    worker_plan: tuple[dict[str, Any], ...]
-    worker_results: tuple[dict[str, Any], ...]
+    worker_plan: tuple[Mapping[str, Any], ...]
+    worker_results: tuple[Mapping[str, Any], ...]
     gaps: tuple[EvidenceGap, ...]
     confidence: str
 
@@ -159,12 +159,12 @@ def _str_tuple(value: Any, field: str) -> tuple[str, ...]:
     return tuple(value)
 
 
-def _object_tuple(value: Any, field: str) -> tuple[dict[str, Any], ...]:
+def _object_tuple(value: Any, field: str) -> tuple[Mapping[str, Any], ...]:
     if not isinstance(value, list | tuple):
         raise OrchestratorValidationError(f"{field} must be a list of objects")
     if not all(isinstance(item, dict) for item in value):
         raise OrchestratorValidationError(f"{field} must be a list of objects")
-    return tuple(value)
+    return tuple(MappingProxyType(dict(item)) for item in value)
 
 
 def _parse_evidence_rows(value: Any) -> list[OrchestratorEvidence]:
@@ -193,10 +193,12 @@ def _parse_answer_evidence_map(value: Any) -> list[AnswerEvidenceMap]:
     for item in value:
         if not isinstance(item, dict):
             raise OrchestratorValidationError("answer_evidence_map rows must be objects")
+        if "evidence_ids" not in item:
+            raise OrchestratorValidationError("answer_evidence_map rows must include evidence_ids")
         rows.append(
             AnswerEvidenceMap(
                 claim=_required_non_empty_str(item, "claim"),
-                evidence_ids=_str_tuple(item.get("evidence_ids", ()), "evidence_ids"),
+                evidence_ids=_str_tuple(item["evidence_ids"], "evidence_ids"),
             )
         )
     return rows

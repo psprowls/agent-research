@@ -120,6 +120,21 @@ def test_parse_orchestrator_output_rejects_worker_fields_that_are_not_object_arr
         parse_orchestrator_output(payload)
 
 
+def test_parse_orchestrator_output_rejects_answer_map_missing_evidence_ids() -> None:
+    payload = _valid_payload()
+    payload["answer_evidence_map"] = [{"claim": "The scanner writes entity pages."}]
+
+    with pytest.raises(OrchestratorValidationError, match="evidence_ids"):
+        parse_orchestrator_output(payload)
+
+
+def test_parse_orchestrator_output_returns_immutable_worker_rows() -> None:
+    output = parse_orchestrator_output(_valid_payload())
+
+    with pytest.raises(TypeError):
+        output.worker_plan[0]["worker"] = "code_reader"
+
+
 def test_parse_orchestrator_output_rejects_invalid_json_string() -> None:
     with pytest.raises(OrchestratorValidationError, match="Invalid JSON"):
         parse_orchestrator_output("{not-json")
