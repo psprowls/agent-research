@@ -711,6 +711,7 @@ def _prepare_query_retrieval(query: str, workspace_path: Path | None, top_k: int
 
 def _load_query_graph_tools(workspace: Path) -> tuple[sqlite3.Connection | None, list]:
     db_path = graph_dir(workspace) / "code.db"
+    conn: sqlite3.Connection | None = None
     try:
         conn = read_only_connect(db_path)
         node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
@@ -718,11 +719,14 @@ def _load_query_graph_tools(workspace: Path) -> tuple[sqlite3.Connection | None,
             conn.close()
             sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
             return None, []
-        return conn, build_graph_tools(conn)
+        graph_tools = build_graph_tools(conn)
+        return conn, graph_tools
     except GraphNotInitializedError:
         sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
         return None, []
     except Exception as exc:  # noqa: BLE001 - graph tools are optional planning aids.
+        if conn is not None:
+            conn.close()
         logger.debug("query graph tools unavailable: %s", exc)
         return None, []
 
@@ -732,6 +736,45 @@ async def run_query_orchestrator(**kwargs):
     from graph_wiki_core.commands.query_orchestrator import run_query_orchestrator as _run_query_orchestrator
 
     return await _run_query_orchestrator(**kwargs)
+
+
+def _write_orchestrated_query_summary(
+    *,
+    wiki: Path,
+    query_id: str,
+    query: str,
+    top_k: int,
+    pages_retrieved: int,
+    pages_drilled: int,
+    started_at: str,
+    orchestrator_result,
+) -> None:
+    ended_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
+    trace_dir = graph_dir(wiki.parent) / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    summary_file = trace_dir / f"query_{query_id}.jsonl"
+    trace_metadata = dict(orchestrator_result.trace_metadata)
+    record = {
+        "schema_version": 1,
+        "kind": "query_summary",
+        "query_id": query_id,
+        "query": query,
+        "top_k": top_k,
+        "pages_retrieved": pages_retrieved,
+        "pages_drilled": pages_drilled,
+        "code_fallback": False,
+        "orchestrated": True,
+        "orchestrator_batch_iterations": trace_metadata.get("worker_batches", 0),
+        "orchestrator_status": trace_metadata.get("status"),
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "tokens_in": None,
+        "tokens_out": None,
+    }
+    try:
+        summary_file.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.warning("Could not write orchestrated query summary trace: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -1267,9 +1310,14 @@ async def run_query(
 
     from graph_wiki_core.commands.query_orchestrator import InitialCandidate
 
+    query_id = uuid.uuid4().hex[:12]
+    started_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
     prepared = _prepare_query_retrieval(query, workspace_path, top_k)
     repo_root = prepared.repo_root or _resolve_repo_root(prepared.wiki)
     graph_conn, graph_tools = _load_query_graph_tools(prepared.wiki.parent)
+    merged_overrides = dict(role_model_overrides or {})
+    if librarian_model_override and "librarian" not in merged_overrides:
+        merged_overrides["librarian"] = librarian_model_override
     try:
         orchestrated = await run_query_orchestrator(
             query=query,
@@ -1285,10 +1333,7 @@ async def run_query(
             ],
             graph_tools=graph_tools,
             trace_dir=graph_dir(prepared.wiki.parent) / "traces",
-            role_model_overrides={
-                **(role_model_overrides or {}),
-                **({"librarian": librarian_model_override} if librarian_model_override else {}),
-            },
+            role_model_overrides=merged_overrides,
         )
     except Exception as exc:
         logger.warning("query orchestrator failed; falling back to legacy query: %s", exc)
@@ -1319,4 +1364,15 @@ async def run_query(
         search_scores=prepared.search_scores,
     )
     fan_result = FanOutResult(successes=[(item.id, item.excerpt) for item in useful_evidence], errors=[])
-    return apply_guardrails(query_result, prepared.wiki, fan_result, skip_g4=False)
+    query_result = apply_guardrails(query_result, prepared.wiki, fan_result, skip_g4=False)
+    _write_orchestrated_query_summary(
+        wiki=prepared.wiki,
+        query_id=query_id,
+        query=query,
+        top_k=top_k,
+        pages_retrieved=len(prepared.top_pages),
+        pages_drilled=query_result.pages_drilled,
+        started_at=started_at,
+        orchestrator_result=orchestrated,
+    )
+    return query_result

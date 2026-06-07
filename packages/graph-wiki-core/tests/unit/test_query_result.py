@@ -144,6 +144,47 @@ async def test_run_query_routes_default_path_through_orchestrator(tmp_path: Path
     assert result.search_scores["alpha.md"]["bm25"] == 2.0
 
 
+@pytest.mark.asyncio
+async def test_orchestrated_query_still_applies_unresolved_wikilink_guardrail(tmp_path: Path) -> None:
+    from contextlib import ExitStack
+
+    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query_orchestrator import OrchestratorOutput, QueryOrchestratorResult
+
+    wiki = tmp_path / "workspace" / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "alpha.md").write_text("# Alpha")
+    (wiki.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (wiki.parent / ".graph-wiki" / "search.db").touch()
+    orch = QueryOrchestratorResult(
+        output=OrchestratorOutput(
+            answer_markdown="See [[missing]].",
+            citations=["missing"],
+            evidence=[],
+            answer_evidence_map=[],
+            worker_plan=(),
+            worker_results=(),
+            gaps=[],
+            confidence="low",
+        ),
+        trace_metadata={"status": "ok", "worker_batches": 0},
+    )
+    patches = [
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(wiki, tmp_path / "repo")),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(return_value=orch)),
+    ]
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        result = await run_query("q", workspace_path=wiki.parent, top_k=3)
+
+    assert "[warning: 1 citation(s) did not resolve" in result.answer
+
+
 # ---------------------------------------------------------------------------
 # _extract_wikilinks tests
 # ---------------------------------------------------------------------------

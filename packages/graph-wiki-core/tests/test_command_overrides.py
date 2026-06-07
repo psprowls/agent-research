@@ -384,6 +384,58 @@ async def test_run_query_passes_query_orchestrator_role_override(tmp_path: Path)
     assert captured["query_orchestrator"] == "override-model"
 
 
+async def test_run_query_default_path_preserves_librarian_override_precedence(tmp_path: Path) -> None:
+    """role_model_overrides['librarian'] wins over deprecated librarian_model_override."""
+    from contextlib import ExitStack
+
+    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query_orchestrator import OrchestratorOutput, QueryOrchestratorResult
+
+    wiki = tmp_path / "workspace" / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "alpha.md").write_text("# Alpha")
+    (wiki.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (wiki.parent / ".graph-wiki" / "search.db").touch()
+    captured = {}
+
+    async def _fake_orchestrator(**kwargs):
+        captured.update(kwargs["role_model_overrides"])
+        return QueryOrchestratorResult(
+            output=OrchestratorOutput(
+                answer_markdown="No evidence.",
+                citations=[],
+                evidence=[],
+                answer_evidence_map=[],
+                worker_plan=(),
+                worker_results=(),
+                gaps=[],
+                confidence="low",
+            ),
+            trace_metadata={"status": "ok", "worker_batches": 0},
+        )
+
+    patches = [
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(wiki, tmp_path / "repo")),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(side_effect=_fake_orchestrator)),
+    ]
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        await run_query(
+            "q",
+            workspace_path=wiki.parent,
+            top_k=3,
+            librarian_model_override="deprecated-model",
+            role_model_overrides={"librarian": "explicit-model"},
+        )
+
+    assert captured["librarian"] == "explicit-model"
+
+
 # ---------------------------------------------------------------------------
 # Task 2: scan, lint, ingest model_override
 # ---------------------------------------------------------------------------
