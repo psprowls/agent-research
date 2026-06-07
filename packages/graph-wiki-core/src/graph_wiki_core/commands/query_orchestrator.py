@@ -9,7 +9,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from wiki_io.update_index import parse_frontmatter
+import frontmatter
 
 from graph_wiki_core.agent_tools import body_without_frontmatter
 
@@ -19,6 +19,7 @@ ALLOWED_CONFIDENCE = {"high", "medium", "low"}
 DEGRADED_STATUS_VALUES = {"degraded", "failed", "error", "blocked", "stale"}
 DEGRADED_STATUS_KEYS = ("ingest_status", "proposal_status", "status")
 PLACEHOLDER_MARKERS = ("todo", "placeholder", "no narrative available", "needs review")
+STALE_DRIFT_VALUES = {"stale", "degraded", "failed", "error", "blocked", "outdated"}
 MIN_MEANINGFUL_BODY_CHARS = 40
 REQUIRED_TOP_LEVEL_KEYS = {
     "answer_markdown",
@@ -87,10 +88,10 @@ def classify_wiki_freshness(page_path: Path, *, repo_head: str | None) -> Freshn
     except OSError:
         return FreshnessClassification(freshness="unknown", reason="wiki page not found")
 
-    metadata = parse_frontmatter(text)
+    metadata = frontmatter.loads(text).metadata
     body = body_without_frontmatter(text)
 
-    if _has_drift_review(metadata.get("drift_review")):
+    if _drift_review_is_stale(metadata.get("drift_review")):
         return FreshnessClassification(freshness="stale", reason="drift_review")
 
     last_updated_commit = metadata.get("last_updated_commit")
@@ -147,24 +148,31 @@ def parse_orchestrator_output(
     return output
 
 
-def _has_drift_review(value: Any) -> bool:
+def _drift_review_is_stale(value: Any) -> bool:
     if not value:
         return False
     if isinstance(value, dict):
-        status = value.get("status")
-        if status is not None:
-            return _status_value_is_stale(status)
-        return bool(value)
+        return any(
+            _stale_drift_value(value.get(key)) for key in ("status", "reason", "verdict", "state") if key in value
+        )
     if isinstance(value, list | tuple | set):
-        return any(_has_drift_review(item) for item in value)
+        return any(_drift_review_is_stale(item) for item in value)
+    return _stale_drift_value(value)
+
+
+def _stale_drift_value(value: Any) -> bool:
+    if isinstance(value, dict):
+        return _drift_review_is_stale(value)
+    if isinstance(value, list | tuple | set):
+        return any(_stale_drift_value(item) for item in value)
     if isinstance(value, str):
         normalized = value.strip().lower()
         if normalized in {"", "false", "none", "null", "[]", "{}"}:
             return False
-        if "status:" in normalized or "status=" in normalized:
-            return "status: stale" in normalized or "status=stale" in normalized
-        return True
-    return True
+        return normalized in STALE_DRIFT_VALUES
+    if value is None:
+        return False
+    return str(value).strip().lower() in STALE_DRIFT_VALUES
 
 
 def _has_placeholder_content(body: str) -> bool:

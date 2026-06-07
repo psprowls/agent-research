@@ -32,6 +32,41 @@ def test_drift_review_status_stale_marks_page_stale(tmp_path: Path) -> None:
     assert result.reason == "drift_review"
 
 
+def test_multiline_drift_review_status_stale_marks_page_stale_even_when_commit_matches(tmp_path: Path) -> None:
+    page = _write_page(
+        tmp_path,
+        "kind: package\n"
+        "last_updated_commit: head1\n"
+        "drift_review:\n"
+        "  - section: Narrative\n"
+        "    status: stale\n"
+        "    reason: Source changed\n",
+    )
+
+    result = classify_wiki_freshness(page, repo_head="head1")
+
+    assert result.freshness == "stale"
+    assert result.reason == "drift_review"
+
+
+@pytest.mark.parametrize(
+    "drift_review",
+    [
+        "drift_review: []\n",
+        "drift_review: {status: fresh}\n",
+        "drift_review:\n  - section: Narrative\n    status: fresh\n    reason: Verified current\n",
+        "drift_review: awaiting reviewer acknowledgement\n",
+    ],
+)
+def test_benign_drift_review_metadata_does_not_mark_page_stale(tmp_path: Path, drift_review: str) -> None:
+    page = _write_page(tmp_path, f"kind: package\nlast_updated_commit: head1\n{drift_review}")
+
+    result = classify_wiki_freshness(page, repo_head="head1")
+
+    assert result.freshness == "fresh"
+    assert result.reason is None
+
+
 def test_last_updated_commit_mismatch_marks_source_backed_entity_stale(tmp_path: Path) -> None:
     page = _write_page(tmp_path, "kind: package\nlast_updated_commit: oldhead\n")
 
