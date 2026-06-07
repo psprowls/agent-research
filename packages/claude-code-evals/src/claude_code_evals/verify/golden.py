@@ -18,7 +18,7 @@ class GoldenVerifier(VerifierBase):
         self._patch_path = patch_path
         self._worktree_path = worktree_path
 
-    def measure(self, _test_case: LLMTestCase) -> float:
+    def measure(self, test_case: LLMTestCase) -> float:  # noqa: ARG002
         patch_content = self._patch_path.read_text()
         if patch_content.strip():
             subprocess.run(

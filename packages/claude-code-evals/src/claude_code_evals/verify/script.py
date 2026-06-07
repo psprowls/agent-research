@@ -16,7 +16,7 @@ class ScriptVerifier(VerifierBase):
         self._script_path = script_path
         self._worktree_path = worktree_path
 
-    def measure(self, _test_case: LLMTestCase) -> float:
+    def measure(self, test_case: LLMTestCase) -> float:  # noqa: ARG002
         result = subprocess.run(
             [str(self._script_path)],
             cwd=str(self._worktree_path),

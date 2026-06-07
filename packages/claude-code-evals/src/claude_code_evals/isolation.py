@@ -130,6 +130,8 @@ class WorktreeIsolation(_BaseIsolation):
 
         target_repo = Path(self._scenario.target_repo).expanduser()  # type: ignore[arg-type]
         sha = self._scenario.baseline_sha
+        if sha is None:
+            raise ValueError("WorktreeIsolation requires baseline_sha to be set")
 
         subprocess.run(
             ["git", "worktree", "add", "--detach", str(self._wt), sha],

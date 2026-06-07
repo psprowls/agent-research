@@ -38,7 +38,7 @@ class RubricVerifier(VerifierBase):
         self._transcript = transcript
         self._judge_model = judge_model
 
-    def measure(self, _test_case: LLMTestCase) -> float:
+    def measure(self, test_case: LLMTestCase) -> float:
         rubric_text = self._rubric_path.read_text()
         assistant_text = self._transcript.final_assistant_text[:_MAX_CHARS]
         tool_summary = self._build_tool_summary()
@@ -48,7 +48,7 @@ class RubricVerifier(VerifierBase):
             f"{assistant_text}\n\n<tool_summary>\n{tool_summary}\n</tool_summary>\n\n<diff>\n{diff_text}\n</diff>"
         )
         augmented_tc = LLMTestCase(
-            input=_test_case.input,
+            input=test_case.input,
             actual_output=augmented_output,
         )
 
