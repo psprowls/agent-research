@@ -10,15 +10,12 @@ auto-generated concepts) and PROPOSES ONLY — no page is written by this pass.
 from __future__ import annotations
 
 EXTRACTOR_SYSTEM = """You normalize source-backed proposal context into strict YAML.
-
 You do NOT create wiki pages. You select at most 5 strongest proposals from the provided context.
 Output one YAML mapping with a single `suggestions:` list. No prose and no code fence.
-
 Allowed kinds:
 - concept
 - adr
 - architecture
-
 Each suggestion requires:
 - kind
 - title
@@ -33,7 +30,6 @@ Each suggestion requires:
 - reasoning_summary: one short paragraph
 - potential_conflicts: list, empty if none
 - implementation_notes: list, empty if none
-
 Rules:
 - Return at most 5 suggestions.
 - Prefer update_existing when the context supports an existing page match.

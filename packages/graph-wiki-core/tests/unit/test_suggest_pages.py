@@ -126,6 +126,24 @@ def test_parse_extractor_response_defaults_infinite_rank() -> None:
     assert entries[0]["rank"] == 999
 
 
+def test_parse_extractor_response_coerces_update_existing_without_existing_slug() -> None:
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Missing Existing Slug\n"
+        "    slug: missing-existing-slug\n"
+        "    mode: update_existing\n"
+        "    existing_slug:\n"
+        "    rationale: r\n"
+    )
+
+    entries, parsed = parse_extractor_response(raw)
+
+    assert parsed is True
+    assert entries[0]["mode"] == "create_new"
+    assert entries[0]["existing_slug"] is None
+
+
 def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     from graph_wiki_core.commands.suggest_pages import build_curated_vault_index
 

@@ -354,7 +354,8 @@ def _set_proposal_status_in_body(text: str, status: dict, *, today: str | None =
     ]
     error = _sanitize_proposal_error(status.get("error"))
     if error:
-        proposal_lines.append(f"  error: {error}")
+        dumped_error = yaml.safe_dump(error, default_flow_style=True).strip()
+        proposal_lines.append(f"  error: {dumped_error}")
 
     new_lines: list[str] = []
     skipping = False

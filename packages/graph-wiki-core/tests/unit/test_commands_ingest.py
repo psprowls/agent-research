@@ -1765,3 +1765,17 @@ def test_set_proposal_status_in_body_leaves_invalid_frontmatter_unchanged() -> N
     )
 
     assert out == text
+
+
+def test_set_proposal_status_in_body_quotes_error_scalar() -> None:
+    from graph_wiki_core.commands.ingest import _set_proposal_status_in_body
+
+    text = "---\ntitle: Spec\ntarget_slug: spec\n---\n\nBody"
+    out = _set_proposal_status_in_body(
+        text,
+        {"reasoner": "failed", "extractor": "skipped", "proposals": 0, "error": "bedrock: access denied"},
+        today="2026-06-06",
+    )
+
+    assert "error: 'bedrock: access denied'" in out
+    assert "proposal_status:" in out

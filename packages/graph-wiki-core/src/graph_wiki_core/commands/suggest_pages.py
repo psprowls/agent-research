@@ -89,6 +89,8 @@ def _validate_proposal(raw: object) -> dict | None:
         mode = "create_new"
     existing_raw = raw.get("existing_slug")
     existing_slug = slugify(str(existing_raw).strip()) if existing_raw else None
+    if mode == "update_existing" and not existing_slug:
+        mode = "create_new"
     try:
         rank = int(raw.get("rank", 999))
     except (OverflowError, TypeError, ValueError):
