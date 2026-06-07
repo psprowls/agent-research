@@ -1,0 +1,3 @@
+name: smoke
+scenarios: [smoke-readme]
+default_configs: [base]

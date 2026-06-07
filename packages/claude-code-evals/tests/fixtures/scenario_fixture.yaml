@@ -1,0 +1,10 @@
+name: smoke-fixture
+description: Agent works in a fixture directory
+isolation_mode: fixture
+fixture_dir: fixtures/
+configs: [base]
+mode: headless
+eval_mode: implement
+verify:
+  - kind: golden
+    path: golden.patch
