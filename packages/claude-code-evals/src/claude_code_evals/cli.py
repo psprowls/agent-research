@@ -99,7 +99,17 @@ def run_cmd(
         result = run_one(s, c, evals_root=root, dry_run=dry_run, keep_worktree=keep_worktree)
         passed = result.verify_result.get("success", False)
         status = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
-        console.print(f"  {status}  {result.run_dir}")
+        console.print(f"  {status}  ({result.final_status})  {result.run_dir}")
+        if not passed:
+            reason = result.error_reason or result.verify_result.get("error")
+            if not reason:
+                # Pull the first failing verifier's reason for a human-readable summary.
+                for o in result.verify_result.get("verifiers", []):
+                    if not o.get("passed"):
+                        reason = f"{o.get('kind')}: {o.get('reason')}"
+                        break
+            if reason:
+                console.print(f"    [yellow]reason:[/yellow] {reason}")
         results.append(result)
 
     if runset:

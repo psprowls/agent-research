@@ -81,3 +81,30 @@ def test_fixture_isolation_extra_env_in_settings(tmp_path: Path):
     with FixtureIsolation(s, c2) as iso:
         settings = json.loads((iso.cfg_dir / "settings.json").read_text())
         assert settings["env"]["MY_VAR"] == "hello"
+
+
+def test_isolation_oauth_token_reads_claude_code_oauth_token(tmp_path: Path, monkeypatch):
+    """The subscription token env var is CLAUDE_CODE_OAUTH_TOKEN (what the claude CLI reads)."""
+    monkeypatch.delenv("CLAUDE_OAUTH_TOKEN", raising=False)
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-resolved")
+    s, c = _fixture_scenario(tmp_path)
+    with FixtureIsolation(s, c) as iso:
+        assert iso.oauth_token == "sk-ant-oat01-resolved"
+
+
+def test_isolation_writes_v2_plugin_registry(tmp_path: Path):
+    """Plugins are registered in CLAUDE_CONFIG_DIR via the v2 installed_plugins.json + a marketplace."""
+    plugin_src = tmp_path / "myplugin"
+    (plugin_src / ".claude-plugin").mkdir(parents=True)
+    (plugin_src / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "myplugin", "version": "9.9.9"}))
+    s, _ = _fixture_scenario(tmp_path)
+    c = Config.model_validate({"name": "base", "plugin_dirs": [str(plugin_src)]})
+    with FixtureIsolation(s, c) as iso:
+        reg = json.loads((iso.cfg_dir / "plugins" / "installed_plugins.json").read_text())
+        assert reg["version"] == 2
+        key = next(k for k in reg["plugins"] if k.startswith("myplugin@"))
+        entry = reg["plugins"][key][0]
+        assert entry["installPath"] == str(plugin_src)
+        assert entry["version"] == "9.9.9"
+        markets = json.loads((iso.cfg_dir / "plugins" / "known_marketplaces.json").read_text())
+        assert markets  # non-empty mapping

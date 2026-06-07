@@ -36,7 +36,18 @@ class ScenarioRunResult:
     transcript: Transcript
     metrics: dict
     verify_result: dict
+    final_status: str = "success"
+    error_reason: str | None = None
     verifier_instances: list[BaseMetric] = field(default_factory=list)
+
+
+def _resolve_plugin_dirs(plugin_dirs: list[str]) -> list[Path]:
+    """Resolve config plugin_dirs to absolute paths (relative ones resolve against cwd)."""
+    out: list[Path] = []
+    for p in plugin_dirs:
+        pd = Path(p)
+        out.append(pd if pd.is_absolute() else (Path.cwd() / pd).resolve())
+    return out
 
 
 def run_one(
@@ -81,55 +92,75 @@ def run_one(
             run_result = RunResult(final_status="dry_run", budget_exceeded=False, wall_seconds=0.0)
             raw_jsonl = ""
         else:
+            if not iso.oauth_token:
+                raise RuntimeError(
+                    "CLAUDE_CODE_OAUTH_TOKEN is not set. Run `claude setup-token` to mint a "
+                    "long-lived subscription token and export it as CLAUDE_CODE_OAUTH_TOKEN "
+                    "(this bills your subscription, not API credits)."
+                )
             run_result, raw_jsonl = run_one_shot(
                 prompt=scenario_prompt,
                 worktree_path=iso.worktree_path,
                 cfg_dir=iso.cfg_dir,
                 system_prompt=system_prompt,
                 model=config.model,
+                oauth_token=iso.oauth_token,
+                plugin_dirs=_resolve_plugin_dirs(config.plugin_dirs),
                 extra_env=config.extra_env or None,
                 max_wall_seconds=float(scenario.budgets.max_wall_seconds),
             )
 
         transcript = parse_transcript(raw_jsonl)
 
-        # Build verifiers
-        verifiers: list[VerifierBase] = []
-        for ve in scenario.verify:
-            vpath = scenario_dir / ve.path
-            if ve.kind == "script":
-                verifiers.append(ScriptVerifier(script_path=vpath, worktree_path=iso.worktree_path))
-            elif ve.kind == "golden":
-                verifiers.append(GoldenVerifier(patch_path=vpath, worktree_path=iso.worktree_path))
-            elif ve.kind == "rubric":
-                verifiers.append(
-                    RubricVerifier(
-                        rubric_path=vpath,
-                        worktree_path=iso.worktree_path,
-                        transcript=transcript,
-                        judge_model=ve.judge or "claude-haiku-4-5-20251001",
-                        pass_threshold=ve.pass_threshold or 4.0,
+        # An infra-level failure (auth, CLI crash, no result event) means there's nothing the agent
+        # produced to verify — running the LLM judge on an empty transcript only yields a misleading
+        # "reason". Skip verifiers and surface the real failure reason instead.
+        run_errored = run_result.final_status not in ("success", "budget_exceeded", "dry_run")
+        if run_errored:
+            verifiers: list[VerifierBase] = []
+            verify_result = {
+                "success": False,
+                "error": run_result.error_reason,
+                "verifiers": [],
+            }
+        else:
+            # Build verifiers
+            verifiers = []
+            for ve in scenario.verify:
+                vpath = scenario_dir / ve.path
+                if ve.kind == "script":
+                    verifiers.append(ScriptVerifier(script_path=vpath, worktree_path=iso.worktree_path))
+                elif ve.kind == "golden":
+                    verifiers.append(GoldenVerifier(patch_path=vpath, worktree_path=iso.worktree_path))
+                elif ve.kind == "rubric":
+                    verifiers.append(
+                        RubricVerifier(
+                            rubric_path=vpath,
+                            worktree_path=iso.worktree_path,
+                            transcript=transcript,
+                            judge_model=ve.judge or "claude-haiku-4-5-20251001",
+                            pass_threshold=ve.pass_threshold or 4.0,
+                        )
                     )
+
+            # Run verifiers
+            test_case = LLMTestCase(input=scenario_prompt, actual_output=transcript.final_assistant_text)
+            verifier_outcomes = []
+            for v in verifiers:
+                v.measure(test_case)
+                verifier_outcomes.append(
+                    {
+                        "kind": type(v).__name__,
+                        "score": v.score,
+                        "passed": v.success,
+                        "reason": v.reason,
+                    }
                 )
 
-        # Run verifiers
-        test_case = LLMTestCase(input=scenario_prompt, actual_output=transcript.final_assistant_text)
-        verifier_outcomes = []
-        for v in verifiers:
-            v.measure(test_case)
-            verifier_outcomes.append(
-                {
-                    "kind": type(v).__name__,
-                    "score": v.score,
-                    "passed": v.success,
-                    "reason": v.reason,
-                }
-            )
-
-        verify_result = {
-            "success": all(o["passed"] for o in verifier_outcomes) if verifier_outcomes else True,
-            "verifiers": verifier_outcomes,
-        }
+            verify_result = {
+                "success": all(o["passed"] for o in verifier_outcomes) if verifier_outcomes else True,
+                "verifiers": verifier_outcomes,
+            }
 
         metrics = compute_metrics(transcript, verify_result)
 
@@ -159,6 +190,8 @@ def run_one(
                     "scenario": scenario.name,
                     "config": config.name,
                     "final_status": run_result.final_status,
+                    "error_reason": run_result.error_reason,
+                    "exit_code": run_result.exit_code,
                     "wall_seconds": run_result.wall_seconds,
                 },
                 indent=2,
@@ -175,5 +208,7 @@ def run_one(
             transcript=transcript,
             metrics=metrics,
             verify_result=verify_result,
+            final_status=run_result.final_status,
+            error_reason=run_result.error_reason,
             verifier_instances=list(verifiers),
         )

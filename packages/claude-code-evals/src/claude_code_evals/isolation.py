@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -67,8 +68,12 @@ class _BaseIsolation:
 
     @property
     def oauth_token(self) -> str | None:
-        """OAuth token from environment, or None."""
-        return os.environ.get("CLAUDE_OAUTH_TOKEN")
+        """Subscription OAuth token from environment, or None.
+
+        ``CLAUDE_CODE_OAUTH_TOKEN`` (minted via ``claude setup-token``) is what the claude CLI
+        reads and what bills the subscription rather than API credits.
+        """
+        return os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
 
     @property
     def meta_path(self) -> Path:
@@ -81,21 +86,20 @@ class _BaseIsolation:
         self._cfg = Path(self._tmp) / "cfg"
         self._cfg.mkdir(parents=True)
 
-        # Symlink each plugin_dir into cfg/plugins/
+        # Register each plugin_dir under cfg/plugins/ (CLAUDE_CONFIG_DIR fully replaces ~/.claude,
+        # so any marketplace/registry that lives there is invisible — recreate the minimal one).
         plugins_dir = self._cfg / "plugins"
         plugins_dir.mkdir()
         evals_root = Path.cwd()
+        resolved_dirs: list[Path] = []
         for plugin_dir_str in self._config.plugin_dirs:
             pd = Path(plugin_dir_str)
             if not pd.is_absolute():
                 pd = (evals_root / pd).resolve()
+            resolved_dirs.append(pd)
             link = plugins_dir / pd.name
             link.symlink_to(pd)
-
-        # Write installed_plugins.json + known_marketplaces.json
-        installed = [Path(pd_str).name for pd_str in self._config.plugin_dirs]
-        (self._cfg / "installed_plugins.json").write_text(json.dumps({"plugins": installed}, indent=2))
-        (self._cfg / "known_marketplaces.json").write_text(json.dumps([]))
+        self._write_plugin_registry(plugins_dir, resolved_dirs)
 
         # Build settings.json
         settings: dict = {
@@ -113,6 +117,40 @@ class _BaseIsolation:
             "model": self._config.model,
         }
         self.meta_path.write_text(json.dumps(meta, indent=2))
+
+    def _write_plugin_registry(self, plugins_dir: Path, resolved_dirs: list[Path]) -> None:
+        """Write v2 installed_plugins.json + known_marketplaces.json pointing at the live plugin trees.
+
+        Each plugin is registered under a synthetic ``local`` marketplace; ``installPath`` points at
+        the resolved source dir so Claude Code loads it directly (no marketplace fetch needed).
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        installed: dict = {"version": 2, "plugins": {}}
+        for pd in resolved_dirs:
+            plugin_json = pd / ".claude-plugin" / "plugin.json"
+            try:
+                version = json.loads(plugin_json.read_text()).get("version", "local")
+            except Exception:
+                version = "local"
+            installed["plugins"][f"{pd.name}@local"] = [
+                {
+                    "scope": "user",
+                    "installPath": str(pd),
+                    "version": version,
+                    "installedAt": now,
+                    "lastUpdated": now,
+                }
+            ]
+        (plugins_dir / "installed_plugins.json").write_text(json.dumps(installed, indent=2))
+
+        known_marketplaces = {
+            "local": {
+                "source": {"source": "directory", "path": str(Path.cwd())},
+                "installLocation": str(Path.cwd()),
+                "lastUpdated": now,
+            }
+        }
+        (plugins_dir / "known_marketplaces.json").write_text(json.dumps(known_marketplaces, indent=2))
 
     def _cleanup(self) -> None:
         """Clean up temporary directory (unless keep=True)."""

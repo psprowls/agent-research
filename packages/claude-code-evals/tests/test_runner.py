@@ -7,14 +7,28 @@ from unittest.mock import MagicMock, patch
 from claude_code_evals.runner import EVAL_SYSTEM_PROMPT_IMPLEMENT, EVAL_SYSTEM_PROMPT_QA, run_one_shot
 
 
-def _make_fake_proc(events: list[dict]) -> MagicMock:
-    jsonl = "\n".join(json.dumps(e) for e in events) + "\n"
+def _make_fake_proc(events: list[dict], *, returncode: int = 0, extra_lines: list[str] | None = None) -> MagicMock:
+    lines = [json.dumps(e) for e in events] + list(extra_lines or [])
+    jsonl = ("\n".join(lines) + "\n") if lines else ""
     mock = MagicMock()
     mock.stdout = iter(jsonl.splitlines(keepends=True))
-    mock.returncode = 0
+    mock.returncode = returncode
     mock.terminate = MagicMock()
     mock.wait = MagicMock()
     return mock
+
+
+def _capture_popen(proc: MagicMock):
+    """Return (captured, patched_fn). captured holds the cmd/env/kwargs of the Popen call."""
+    captured: dict = {}
+
+    def _fake(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env")
+        captured["kwargs"] = kwargs
+        return proc
+
+    return captured, _fake
 
 
 RESULT_EVENT = {
@@ -78,6 +92,94 @@ def test_run_one_shot_error_status(tmp_path: Path):
             system_prompt=EVAL_SYSTEM_PROMPT_QA,
         )
     assert result.final_status == "error_max_turns"
+
+
+def test_run_one_shot_threads_oauth_token_and_strips_api_key(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-should-be-stripped")
+    proc = _make_fake_proc([RESULT_EVENT])
+    captured, fake = _capture_popen(proc)
+    cfg = tmp_path / "cfg"
+    with patch("subprocess.Popen", side_effect=fake):
+        run_one_shot(
+            prompt="Do something",
+            worktree_path=tmp_path,
+            cfg_dir=cfg,
+            system_prompt=EVAL_SYSTEM_PROMPT_QA,
+            oauth_token="sk-ant-oat01-resolved",
+        )
+    env = captured["env"]
+    assert env["CLAUDE_CONFIG_DIR"] == str(cfg)
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "sk-ant-oat01-resolved"
+    assert "ANTHROPIC_API_KEY" not in env
+
+
+def test_run_one_shot_cmd_uses_append_system_prompt_not_config_dir(tmp_path: Path):
+    proc = _make_fake_proc([RESULT_EVENT])
+    captured, fake = _capture_popen(proc)
+    with patch("subprocess.Popen", side_effect=fake):
+        run_one_shot(
+            prompt="Do something",
+            worktree_path=tmp_path,
+            cfg_dir=tmp_path / "cfg",
+            system_prompt=EVAL_SYSTEM_PROMPT_QA,
+        )
+    cmd = captured["cmd"]
+    assert "--config-dir" not in cmd
+    assert "--append-system-prompt" in cmd
+    assert "--add-dir" in cmd
+    # stderr is merged into stdout so error text is captured
+    assert captured["kwargs"].get("stderr") is not None
+
+
+def test_run_one_shot_threads_plugin_dirs(tmp_path: Path):
+    proc = _make_fake_proc([RESULT_EVENT])
+    captured, fake = _capture_popen(proc)
+    with patch("subprocess.Popen", side_effect=fake):
+        run_one_shot(
+            prompt="x",
+            worktree_path=tmp_path,
+            cfg_dir=tmp_path / "cfg",
+            system_prompt=EVAL_SYSTEM_PROMPT_QA,
+            plugin_dirs=[tmp_path / "p1", tmp_path / "p2"],
+        )
+    cmd = captured["cmd"]
+    assert cmd.count("--plugin-dir") == 2
+    assert str(tmp_path / "p1") in cmd
+    assert str(tmp_path / "p2") in cmd
+
+
+def test_run_one_shot_is_error_result_captures_reason(tmp_path: Path):
+    """An is_error result event (e.g. 'Not logged in') must surface as failure with a reason."""
+    err_event = {
+        "type": "result",
+        "subtype": "success",
+        "is_error": True,
+        "result": "Not logged in · Please run /login",
+        "usage": {"input_tokens": 0, "output_tokens": 0},
+    }
+    proc = _make_fake_proc([err_event])
+    captured, fake = _capture_popen(proc)
+    with patch("subprocess.Popen", side_effect=fake):
+        result, _ = run_one_shot(
+            prompt="x", worktree_path=tmp_path, cfg_dir=tmp_path, system_prompt=EVAL_SYSTEM_PROMPT_QA
+        )
+    assert result.final_status != "success"
+    assert result.error_reason is not None
+    assert "Not logged in" in result.error_reason
+
+
+def test_run_one_shot_no_result_nonzero_exit_is_error_with_stderr(tmp_path: Path):
+    """The dead-flag crash: claude exits non-zero, no result event, stderr in the merged stream."""
+    proc = _make_fake_proc([], returncode=1, extra_lines=["error: unknown option '--config-dir'"])
+    captured, fake = _capture_popen(proc)
+    with patch("subprocess.Popen", side_effect=fake):
+        result, _ = run_one_shot(
+            prompt="x", worktree_path=tmp_path, cfg_dir=tmp_path, system_prompt=EVAL_SYSTEM_PROMPT_QA
+        )
+    assert result.final_status == "error_no_result"
+    assert result.exit_code == 1
+    assert result.error_reason is not None
+    assert "unknown option" in result.error_reason
 
 
 def test_system_prompt_constants():
