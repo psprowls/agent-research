@@ -52,10 +52,16 @@ RESULT_EVENT = json.dumps(
 FAKE_JSONL = f"{ASSISTANT_EVENT}\n{RESULT_EVENT}\n"
 
 
-def _mock_popen():
+@pytest.fixture(autouse=True)
+def _oauth_token(monkeypatch):
+    """Real runs require a subscription token; provide a fake one for the mocked-subprocess tests."""
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-fake")
+
+
+def _mock_popen(jsonl: str = FAKE_JSONL, returncode: int = 0):
     proc = MagicMock()
-    proc.stdout = iter(FAKE_JSONL.splitlines(keepends=True))
-    proc.returncode = 0
+    proc.stdout = iter(jsonl.splitlines(keepends=True))
+    proc.returncode = returncode
     proc.terminate = MagicMock()
     proc.wait = MagicMock()
     return proc
@@ -92,6 +98,42 @@ def test_run_one_writes_run_dir(tmp_path: Path):
     assert result.run_dir.exists()
     assert (result.run_dir / "transcript.json").exists()
     assert (result.run_dir / "metrics.json").exists()
+
+
+def test_run_one_missing_oauth_token_fails_fast(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    s, c, evals_root = _make_fixture_scenario(tmp_path)
+    with pytest.raises(RuntimeError, match="setup-token"):
+        run_one(s, c, evals_root=evals_root)
+
+
+def test_run_one_infra_error_surfaces_reason_and_skips_judge(tmp_path: Path):
+    """A crashed run (no result event) is recorded as failure with a reason; the LLM judge is skipped."""
+    scenario_dir = tmp_path / "evals" / "scenarios" / "test-scenario"
+    scenario_dir.mkdir(parents=True)
+    s = Scenario.model_validate(
+        {
+            "name": "test-scenario",
+            "isolation_mode": "fixture",
+            "fixture_dir": str(tmp_path / "fixture_src"),
+            "verify": [{"kind": "rubric", "path": "rubric.md"}],
+        }
+    )
+    (scenario_dir / "rubric.md").write_text("score it")
+    (tmp_path / "fixture_src").mkdir(exist_ok=True)
+    c = Config.model_validate({"name": "base"})
+    evals_root = tmp_path / "evals"
+
+    crash_proc = _mock_popen(jsonl="error: unknown option '--config-dir'\n", returncode=1)
+    with patch("subprocess.Popen", return_value=crash_proc):
+        result = run_one(s, c, evals_root=evals_root)
+
+    assert result.verify_result["success"] is False
+    meta = json.loads((result.run_dir / "meta.json").read_text())
+    assert meta["final_status"] == "error_no_result"
+    assert "unknown option" in (meta["error_reason"] or "")
+    # judge must not run on a crashed transcript
+    assert result.verify_result.get("verifiers") == []
 
 
 def test_run_one_golden_fixture_raises(tmp_path: Path):

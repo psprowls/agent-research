@@ -18,6 +18,8 @@ class RunRecord:
     input_tokens: int
     output_tokens: int
     run_dir: Path
+    final_status: str = "success"
+    error_reason: str | None = None
 
 
 def _load_run_record(run_dir: Path) -> RunRecord | None:
@@ -37,6 +39,8 @@ def _load_run_record(run_dir: Path) -> RunRecord | None:
         input_tokens=metrics.get("input_tokens", 0),
         output_tokens=metrics.get("output_tokens", 0),
         run_dir=run_dir,
+        final_status=meta.get("final_status", "success"),
+        error_reason=meta.get("error_reason"),
     )
 
 
@@ -67,6 +71,8 @@ def build_report(*, runs_dir: Path, runset_name: str) -> tuple[str, list[dict]]:
             "scenario": r.scenario,
             "config": r.config,
             "verify_passed": r.passed,
+            "final_status": r.final_status,
+            "error_reason": r.error_reason,
             "wall_seconds": round(r.wall_seconds, 2),
             "input_tokens": r.input_tokens,
             "output_tokens": r.output_tokens,

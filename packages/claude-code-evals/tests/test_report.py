@@ -39,6 +39,32 @@ def _write_run(run_dir: Path, scenario: str, config: str, passed: bool) -> None:
     )
 
 
+def test_build_report_surfaces_failure_reason(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    run_dir = runs_dir / "crashed" / "base" / "1000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "meta.json").write_text(
+        json.dumps(
+            {
+                "scenario": "crashed",
+                "config": "base",
+                "final_status": "error_no_result",
+                "error_reason": "error: unknown option '--config-dir'",
+                "wall_seconds": 0.3,
+            }
+        )
+    )
+    (run_dir / "metrics.json").write_text(json.dumps({"input_tokens": 0, "output_tokens": 0, "verify_passed": False}))
+    (run_dir / "verify.json").write_text(json.dumps({"success": False, "verifiers": []}))
+
+    md, data = build_report(runs_dir=runs_dir, runset_name="smoke")
+
+    assert "error_no_result" in md
+    assert "unknown option" in md
+    assert data[0]["final_status"] == "error_no_result"
+    assert data[0]["error_reason"] == "error: unknown option '--config-dir'"
+
+
 def test_build_report_markdown(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     _write_run(runs_dir / "scenario-a" / "base" / "1000", "scenario-a", "base", True)

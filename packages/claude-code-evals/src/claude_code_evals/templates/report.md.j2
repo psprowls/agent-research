@@ -2,8 +2,14 @@
 
 **Results:** {{ passed }}/{{ total }} passed ({{ failed }} failed)
 
-| Scenario | Config | Passed | Wall (s) | In tokens | Out tokens |
-|----------|--------|--------|----------|-----------|------------|
+| Scenario | Config | Passed | Status | Wall (s) | In tokens | Out tokens |
+|----------|--------|--------|--------|----------|-----------|------------|
 {% for r in records -%}
-| {{ r.scenario }} | {{ r.config }} | {{ "✓" if r.passed else "✗" }} | {{ "%.1f"|format(r.wall_seconds) }} | {{ r.input_tokens }} | {{ r.output_tokens }} |
+| {{ r.scenario }} | {{ r.config }} | {{ "✓" if r.passed else "✗" }} | {{ r.final_status }} | {{ "%.1f"|format(r.wall_seconds) }} | {{ r.input_tokens }} | {{ r.output_tokens }} |
 {% endfor %}
+{% if records|selectattr("error_reason")|list %}
+## Failure reasons
+{% for r in records if r.error_reason %}
+- **{{ r.scenario }} / {{ r.config }}** ({{ r.final_status }}): {{ r.error_reason }}
+{% endfor %}
+{% endif %}
