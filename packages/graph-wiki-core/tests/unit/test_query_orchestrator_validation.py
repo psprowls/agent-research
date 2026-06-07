@@ -111,6 +111,14 @@ def test_parse_orchestrator_output_rejects_missing_required_top_level_keys(field
         parse_orchestrator_output(payload)
 
 
+def test_parse_orchestrator_output_rejects_extra_top_level_keys() -> None:
+    payload = _valid_payload()
+    payload["unexpected"] = "extra"
+
+    with pytest.raises(OrchestratorValidationError, match="unexpected"):
+        parse_orchestrator_output(payload)
+
+
 @pytest.mark.parametrize("field", ["worker_plan", "worker_results"])
 def test_parse_orchestrator_output_rejects_worker_fields_that_are_not_object_arrays(field: str) -> None:
     payload = _valid_payload()
@@ -128,11 +136,39 @@ def test_parse_orchestrator_output_rejects_answer_map_missing_evidence_ids() -> 
         parse_orchestrator_output(payload)
 
 
+def test_parse_orchestrator_output_rejects_answer_map_empty_evidence_ids() -> None:
+    payload = _valid_payload()
+    payload["answer_evidence_map"] = [{"claim": "The scanner writes entity pages.", "evidence_ids": []}]
+
+    with pytest.raises(OrchestratorValidationError, match="evidence_ids"):
+        parse_orchestrator_output(payload)
+
+
 def test_parse_orchestrator_output_returns_immutable_worker_rows() -> None:
     output = parse_orchestrator_output(_valid_payload())
 
     with pytest.raises(TypeError):
         output.worker_plan[0]["worker"] = "code_reader"
+
+
+def test_parse_orchestrator_output_returns_recursively_immutable_worker_rows() -> None:
+    payload = _valid_payload()
+    payload["worker_plan"] = [{"worker": "librarian", "args": {"pages": ["wiki/entities/scanner.md"]}}]
+
+    output = parse_orchestrator_output(payload)
+
+    with pytest.raises(TypeError):
+        output.worker_plan[0]["args"]["pages"][0] = "changed"
+
+
+def test_parse_orchestrator_output_copies_worker_rows() -> None:
+    payload = _valid_payload()
+    payload["worker_plan"] = [{"worker": "librarian", "args": {"pages": ["wiki/entities/scanner.md"]}}]
+
+    output = parse_orchestrator_output(payload)
+    payload["worker_plan"][0]["args"]["pages"][0] = "changed"  # type: ignore[index]
+
+    assert output.worker_plan[0]["args"]["pages"][0] == "wiki/entities/scanner.md"
 
 
 def test_parse_orchestrator_output_rejects_invalid_json_string() -> None:

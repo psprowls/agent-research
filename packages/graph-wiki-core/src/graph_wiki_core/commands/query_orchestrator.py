@@ -21,6 +21,7 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "confidence",
 }
 UNCERTAINTY_WORDS = ("uncertain", "uncertainty", "stale", "may", "might", "appears", "suggests", "possibly")
+FrozenValue = Mapping[str, Any] | tuple[Any, ...] | str | int | float | bool | None
 
 
 class OrchestratorValidationError(ValueError):
@@ -72,7 +73,7 @@ def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
 
     if not isinstance(payload, dict):
         raise OrchestratorValidationError("Orchestrator output must be a JSON object")
-    _require_top_level_keys(payload)
+    _validate_top_level_keys(payload)
 
     output = OrchestratorOutput(
         answer_markdown=_required_non_empty_str(payload, "answer_markdown"),
@@ -88,10 +89,13 @@ def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
     return output
 
 
-def _require_top_level_keys(payload: dict[str, Any]) -> None:
+def _validate_top_level_keys(payload: dict[str, Any]) -> None:
     missing = sorted(REQUIRED_TOP_LEVEL_KEYS - payload.keys())
     if missing:
         raise OrchestratorValidationError(f"Missing required top-level orchestrator output keys: {missing}")
+    extra = sorted(payload.keys() - REQUIRED_TOP_LEVEL_KEYS)
+    if extra:
+        raise OrchestratorValidationError(f"Unexpected top-level orchestrator output keys: {extra}")
 
 
 def validate_orchestrator_output(
@@ -164,7 +168,19 @@ def _object_tuple(value: Any, field: str) -> tuple[Mapping[str, Any], ...]:
         raise OrchestratorValidationError(f"{field} must be a list of objects")
     if not all(isinstance(item, dict) for item in value):
         raise OrchestratorValidationError(f"{field} must be a list of objects")
-    return tuple(MappingProxyType(dict(item)) for item in value)
+    return tuple(_freeze_mapping(item) for item in value)
+
+
+def _freeze_mapping(value: dict[str, Any]) -> Mapping[str, Any]:
+    return MappingProxyType({key: _freeze_value(item) for key, item in value.items()})
+
+
+def _freeze_value(value: Any) -> FrozenValue:
+    if isinstance(value, dict):
+        return _freeze_mapping(value)
+    if isinstance(value, list | tuple):
+        return tuple(_freeze_value(item) for item in value)
+    return value
 
 
 def _parse_evidence_rows(value: Any) -> list[OrchestratorEvidence]:
@@ -195,10 +211,13 @@ def _parse_answer_evidence_map(value: Any) -> list[AnswerEvidenceMap]:
             raise OrchestratorValidationError("answer_evidence_map rows must be objects")
         if "evidence_ids" not in item:
             raise OrchestratorValidationError("answer_evidence_map rows must include evidence_ids")
+        evidence_ids = _str_tuple(item["evidence_ids"], "evidence_ids")
+        if not evidence_ids:
+            raise OrchestratorValidationError("answer_evidence_map evidence_ids must be non-empty")
         rows.append(
             AnswerEvidenceMap(
                 claim=_required_non_empty_str(item, "claim"),
-                evidence_ids=_str_tuple(item["evidence_ids"], "evidence_ids"),
+                evidence_ids=evidence_ids,
             )
         )
     return rows
