@@ -185,7 +185,18 @@ async def test_ainvoke_wraps_access_denied_with_arn(monkeypatch):
     assert PREFLIGHT_ARN in str(exc_info.value)
 
 
-ALL_ROLES = ["preflight", "librarian", "scanner", "linter", "ingestor", "synthesizer", "judge_a", "judge_b"]
+ALL_ROLES = [
+    "preflight",
+    "librarian",
+    "scanner",
+    "linter",
+    "ingestor",
+    "package_reader",
+    "synthesizer",
+    "judge_a",
+    "judge_b",
+    "query_orchestrator",
+]
 
 # Phase 48 D-19 / PROPOSE-06: dedicated role for `graph propose-domains` so
 # per-LLM-call cost is trackable under a distinct trace tag and the model can
@@ -225,7 +236,7 @@ def test_domain_proposer_role():
 
 
 @pytest.mark.parametrize("role", ALL_ROLES)
-def test_load_role_config_returns_dict_for_all_seven_roles(role):
+def test_load_role_config_returns_dict_for_core_roles(role):
     from model_adapter.loader import load_role_config
 
     cfg = load_role_config(role)
@@ -260,6 +271,23 @@ def test_ingest_proposal_roles_use_kimi_k25() -> None:
         assert cfg["region"] == "us-east-1"
         assert cfg["max_tokens"] == max_tokens
         assert "moonshotai.kimi-k2.5" in cfg["sweep_candidates"]
+
+
+def test_query_orchestrator_role_uses_kimi_k25() -> None:
+    from langchain_aws import ChatBedrockConverse
+    from model_adapter.loader import load_role_config, make_llm
+
+    cfg = load_role_config("query_orchestrator")
+    assert cfg["model_id"] == "moonshotai.kimi-k2.5"
+    assert cfg["region"] == "us-east-1"
+    assert cfg["max_tokens"] == 4096
+    assert cfg["max_concurrency"] == 1
+    assert cfg["sweep_candidates"] == ["moonshotai.kimi-k2.5"]
+
+    llm = make_llm("query_orchestrator")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual == "moonshotai.kimi-k2.5"
 
 
 def test_load_role_config_synthesizer_limits():

@@ -23,6 +23,50 @@ def _read_summary(wiki: Path) -> dict:
     return json.loads(raw)
 
 
+@pytest.mark.asyncio
+async def test_orchestrated_query_summary_records_batch_iterations(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query_orchestrator import OrchestratorOutput, QueryOrchestratorResult
+
+    wiki = tmp_path / "workspace" / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "alpha.md").write_text("# Alpha")
+    (wiki.parent / ".graph-wiki" / "bm25").mkdir(parents=True)
+    (wiki.parent / ".graph-wiki" / "search.db").touch()
+    orch = QueryOrchestratorResult(
+        output=OrchestratorOutput(
+            answer_markdown="Alpha.",
+            citations=[],
+            evidence=[],
+            answer_evidence_map=[],
+            worker_plan=(),
+            worker_results=(),
+            gaps=[],
+            confidence="low",
+        ),
+        trace_metadata={"status": "ok", "worker_batches": 2},
+    )
+    patches = [
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(wiki, tmp_path / "repo")),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
+        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(return_value=orch)),
+    ]
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        await run_query("q", workspace_path=wiki.parent, top_k=3)
+
+    summary = _read_summary(wiki)
+    assert summary["kind"] == "query_summary"
+    assert summary["schema_version"] == 1
+    assert summary["orchestrated"] is True
+    assert summary["orchestrator_batch_iterations"] == 2
+    assert summary["orchestrator_status"] == "ok"
+
+
 def _setup_query_patches(vault: Path):
     """Patch the same surface as the existing test_query_code_fallback fixtures."""
     return [
@@ -82,7 +126,7 @@ async def test_query_summary_record_includes_synthesizer_tokens(tmp_path: Path) 
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", workspace_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3, use_legacy=True)
 
     summary = _read_summary(vault)
     assert summary["tokens_in"] == 200
@@ -125,7 +169,7 @@ async def test_query_summary_record_handles_none_usage_metadata(tmp_path: Path) 
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", workspace_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3, use_legacy=True)
 
     summary = _read_summary(vault)
     assert summary["tokens_in"] is None
@@ -181,7 +225,7 @@ async def test_code_fallback_path_threads_synth_tokens_into_summary(tmp_path: Pa
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("what?", workspace_path=vault, top_k=3)
+        await run_query("what?", workspace_path=vault, top_k=3, use_legacy=True)
 
     summary = _read_summary(vault)
     assert summary["code_fallback"] is True

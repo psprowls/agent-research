@@ -142,7 +142,7 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
         mock_pool_inst.run_all = AsyncMock(return_value=fan_result)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     # build_graph_tools must have been called (non-empty DB path).
     mock_build_graph.assert_called_once()
@@ -210,7 +210,7 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
         mock_pool_inst.run_all = AsyncMock(side_effect=_fake_run_all)
         mock_pool_cls.return_value = mock_pool_inst
 
-        await run_query("q", workspace_path=vault, top_k=3)
+        await run_query("q", workspace_path=vault, top_k=3, use_legacy=True)
 
     # build_graph_tools must NOT be called (empty DB treated as uninitialized).
     mock_build_graph.assert_not_called()
@@ -224,4 +224,22 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
     sys_msg = invoke_msgs[0]
     assert _LIBRARIAN_FALLBACK_ADDENDUM.strip() in sys_msg.content
     # The conn must be closed (not leaked).
+    fake_conn.close.assert_called_once()
+
+
+def test_load_query_graph_tools_closes_connection_when_tool_build_fails(tmp_path: Path) -> None:
+    """Default orchestrator graph-tool loading must not leak conn on build failure."""
+    from graph_wiki_core.commands import query as mod
+
+    fake_conn = MagicMock()
+    fake_conn.execute.return_value.fetchone.return_value = (1,)
+
+    with (
+        patch("graph_wiki_core.commands.query.read_only_connect", return_value=fake_conn),
+        patch("graph_wiki_core.commands.query.build_graph_tools", side_effect=RuntimeError("boom")),
+    ):
+        conn, tools = mod._load_query_graph_tools(tmp_path)
+
+    assert conn is None
+    assert tools == []
     fake_conn.close.assert_called_once()

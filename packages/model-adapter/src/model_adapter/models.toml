@@ -121,6 +121,17 @@ sweep_candidates = [
   "moonshotai.kimi-k2.5",
 ]
 
+[roles.query_orchestrator]
+# Default planner/synthesizer for agentic `gw query`. One orchestrator owns
+# each query session; worker parallelism is controlled by librarian/code_reader.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 1
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+]
+
 [roles.extractor]
 # Normalizes proposal_reasoner analysis into strict proposal YAML.
 model_id        = "moonshotai.kimi-k2.5"

@@ -47,7 +47,7 @@ def query(
     no_state_gate: bool = typer.Option(False, "--no-state-gate", help="No-op; query is read-only"),
     quiet: bool = typer.Option(False, "--quiet", help="Suppress progress output (headless mode)"),
 ) -> None:
-    """Query the wiki using hybrid BM25+embedding search with librarian fan-out."""
+    """Query the wiki with agentic retrieval orchestration over wiki and code evidence."""
     # state gate is a no-op for query (read-only) — D-08
     workspace_path = Path(workspace) if workspace else None
     try:

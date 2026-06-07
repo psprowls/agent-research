@@ -218,7 +218,7 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
-    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query import _run_legacy_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
@@ -267,7 +267,7 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("how does pool work?", workspace_path=vault, top_k=3)
+        result = await _run_legacy_query("how does pool work?", workspace_path=vault, top_k=3)
 
     # Two fan-out calls = code-fallback fired
     assert mock_pool_inst.run_all.await_count == 2, (
@@ -286,7 +286,7 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
-    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query import _run_legacy_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
@@ -327,7 +327,7 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
         mock_pool_inst.run_all = AsyncMock(return_value=librarian_fan)
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await _run_legacy_query("test query", workspace_path=vault, top_k=3)
 
     # Only one fan-out call: librarian. No code-fallback.
     assert mock_pool_inst.run_all.await_count == 1
@@ -341,7 +341,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
-    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query import _run_legacy_query
     from langchain_core.messages import AIMessage
     from subagent_runtime.pool import FanOutResult
 
@@ -383,7 +383,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await _run_legacy_query("test query", workspace_path=vault, top_k=3)
 
     assert result.answer.startswith("[vault-thin: answer derived from source code]")
     # The synthesizer output should still appear after the marker
@@ -396,7 +396,7 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
     from contextlib import ExitStack
     from unittest.mock import AsyncMock, MagicMock
 
-    from graph_wiki_core.commands.query import run_query
+    from graph_wiki_core.commands.query import _run_legacy_query
     from subagent_runtime.pool import FanOutResult
 
     vault = tmp_path / "vault"
@@ -438,7 +438,7 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
         mock_pool_inst.run_all = AsyncMock(side_effect=[librarian_fan, code_fan])
         mock_pool_cls.return_value = mock_pool_inst
 
-        result = await run_query("test query", workspace_path=vault, top_k=3)
+        result = await _run_legacy_query("test query", workspace_path=vault, top_k=3)
 
     # Disclaimer line, no fabrication
     assert "vault does not document this" in result.answer
