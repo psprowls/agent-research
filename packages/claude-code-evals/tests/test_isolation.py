@@ -1,4 +1,4 @@
-"""Tests for workspace isolation (WorktreeIsolation, FixtureIsolation)."""
+"""Tests for workspace isolation (FixtureIsolation)."""
 
 from __future__ import annotations
 

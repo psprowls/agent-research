@@ -77,6 +77,7 @@ class _BaseIsolation:
 
     def _setup_cfg_dir(self) -> None:
         """Create and populate .claude/ config directory."""
+        assert self._tmp is not None
         self._cfg = Path(self._tmp) / "cfg"
         self._cfg.mkdir(parents=True)
 
