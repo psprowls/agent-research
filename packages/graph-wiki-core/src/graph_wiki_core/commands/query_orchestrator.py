@@ -10,7 +10,10 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 import frontmatter
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
+from model_adapter.loader import load_role_config, make_llm
+from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 
 from graph_wiki_core.agent_tools import (
     body_without_frontmatter,
@@ -21,10 +24,14 @@ from graph_wiki_core.agent_tools import (
 from graph_wiki_core.agent_tools import (
     search_wiki_catalog as search_catalog_rows,
 )
+from graph_wiki_core.commands.query import _read_file_bounded
+from graph_wiki_core.prompts.code_reader import ORCHESTRATED_CODE_READER_SYSTEM
+from graph_wiki_core.prompts.librarian import LIBRARIAN_SYSTEM
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
+ALLOWED_WORKERS = ("librarian", "code_reader")
 DEGRADED_STATUS_VALUES = {"degraded", "failed", "error", "blocked", "stale"}
 DEGRADED_STATUS_KEYS = ("ingest_status", "proposal_status", "status")
 PLACEHOLDER_MARKERS = ("todo", "placeholder", "no narrative available", "needs review")
@@ -32,6 +39,8 @@ STALE_DRIFT_VALUES = {"stale", "degraded", "failed", "error", "blocked", "outdat
 MIN_MEANINGFUL_BODY_CHARS = 40
 MAX_ORCHESTRATOR_WIKI_PAGE_CHARS = 40_000
 MAX_ORCHESTRATOR_SEARCH_ROWS = 20
+MAX_WORKER_WIKI_PAGE_CHARS = 80_000
+ORCHESTRATED_CODE_READER_MAX_ITERS = 5
 ALLOWED_ORCHESTRATOR_GRAPH_TOOL_NAMES = {"cg_find", "cg_describe"}
 REQUIRED_TOP_LEVEL_KEYS = {
     "answer_markdown",
@@ -102,6 +111,16 @@ class FreshnessClassification:
 
 
 @dataclass(frozen=True)
+class WorkerTask:
+    worker: str
+    task_id: str
+    query_focus: str
+    expected_evidence: str
+    page_path: str | None = None
+    target_paths_or_hints: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class OrchestratorOutput:
     answer_markdown: str
     citations: list[str]
@@ -167,6 +186,81 @@ def build_orchestrator_tools(*, wiki: Path, graph_tools: list[BaseTool]) -> list
     return [read_wiki_page, search_wiki, list_worker_capabilities, *allowed_graph_tools]
 
 
+def parse_worker_tasks(rows: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...]) -> tuple[WorkerTask, ...]:
+    """Parse and validate orchestrator worker-plan rows."""
+
+    if not isinstance(rows, list | tuple):
+        raise OrchestratorValidationError("worker_plan must be a list of objects")
+
+    tasks = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise OrchestratorValidationError("worker_plan rows must be objects")
+
+        worker = _required_non_empty_mapping_str(row, "worker")
+        if worker not in ALLOWED_WORKERS:
+            raise OrchestratorValidationError(f"worker must be one of {list(ALLOWED_WORKERS)}; got {worker!r}")
+
+        task = WorkerTask(
+            worker=worker,
+            task_id=_required_non_empty_mapping_str(row, "task_id"),
+            query_focus=_required_non_empty_mapping_str(row, "query_focus"),
+            expected_evidence=_required_non_empty_mapping_str(row, "expected_evidence"),
+            page_path=_parse_worker_page_path(row, worker),
+            target_paths_or_hints=_parse_worker_target_hints(row, worker),
+        )
+        tasks.append(task)
+    return tuple(tasks)
+
+
+async def run_worker_batch(
+    worker_tasks: list[WorkerTask] | tuple[WorkerTask, ...],
+    *,
+    query: str,
+    wiki_root: Path,
+    repo_root: Path | None,
+    trace_dir: Path,
+    role_model_overrides: Mapping[str, str] | None = None,
+) -> tuple[Mapping[str, Any], ...]:
+    """Dispatch orchestrated librarian/code-reader tasks and record partial failures."""
+
+    if not worker_tasks:
+        return ()
+
+    pool = SubagentPool(trace_dir)
+    results: list[Mapping[str, Any]] = []
+    overrides = role_model_overrides or {}
+
+    for role in ALLOWED_WORKERS:
+        role_tasks = [task for task in worker_tasks if task.worker == role]
+        if not role_tasks:
+            continue
+
+        cfg = load_role_config(role)
+        llm = make_llm(role, model_override=overrides.get(role))
+        if role == "librarian":
+            task_runner = _build_librarian_task_runner(llm, query=query, wiki_root=wiki_root)
+        else:
+            if repo_root is None:
+                results.extend(
+                    _worker_error_row(task, "repo_root is required for code_reader workers") for task in role_tasks
+                )
+                continue
+            task_runner = _build_code_reader_task_runner(llm, query=query, repo_root=repo_root)
+
+        fan_result: FanOutResult = await pool.run_all(
+            items=role_tasks,
+            task=task_runner,
+            role=role,
+            model_id=str(cfg["model_id"]),
+            max_concurrency=int(cfg["max_concurrency"]),
+        )
+        results.extend(_worker_success_row(item, result) for item, result in fan_result.successes)
+        results.extend(_worker_failure_from_error(error) for error in fan_result.errors)
+
+    return tuple(results)
+
+
 def _worker_capabilities() -> Mapping[str, Mapping[str, Any]]:
     return {
         "librarian": {
@@ -183,6 +277,140 @@ def _worker_capabilities() -> Mapping[str, Mapping[str, Any]]:
             },
         },
     }
+
+
+def _required_non_empty_mapping_str(row: Mapping[str, Any], field: str) -> str:
+    value = row.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise OrchestratorValidationError(f"{field} must be a non-empty string")
+    return value
+
+
+def _parse_worker_page_path(row: Mapping[str, Any], worker: str) -> str | None:
+    if worker != "librarian":
+        return None
+    return _required_non_empty_mapping_str(row, "page_path")
+
+
+def _parse_worker_target_hints(row: Mapping[str, Any], worker: str) -> tuple[str, ...]:
+    if worker != "code_reader":
+        return ()
+    value = row.get("target_paths_or_hints")
+    if not isinstance(value, list | tuple) or not value:
+        raise OrchestratorValidationError("target_paths_or_hints must be a non-empty list of strings")
+    if not all(isinstance(item, str) and item.strip() for item in value):
+        raise OrchestratorValidationError("target_paths_or_hints must be a non-empty list of strings")
+    return tuple(value)
+
+
+def _build_librarian_task_runner(llm: Any, *, query: str, wiki_root: Path):
+    async def librarian_worker(task: WorkerTask) -> TaskResult:
+        page_path = task.page_path or ""
+        page_text = read_bounded_wiki_page(wiki_root, page_path, max_chars=MAX_WORKER_WIKI_PAGE_CHARS)
+        response = await llm.ainvoke(
+            [
+                SystemMessage(content=LIBRARIAN_SYSTEM),
+                HumanMessage(
+                    content=(
+                        f"Query: {query}\n\n"
+                        f"Worker task: {task.task_id}\n"
+                        f"Query focus: {task.query_focus}\n"
+                        f"Expected evidence: {task.expected_evidence}\n\n"
+                        f"Page ({page_path}):\n{page_text}"
+                    )
+                ),
+            ]
+        )
+        return TaskResult(value=getattr(response, "content", "") or "", response=response)
+
+    return librarian_worker
+
+
+def _build_code_reader_task_runner(llm_raw: Any, *, query: str, repo_root: Path):
+    @tool
+    def read_file(path: str) -> str:
+        """Read one repo-relative source file through the bounded source reader."""
+        try:
+            return _read_file_bounded(repo_root, path)
+        except PermissionError as exc:
+            return f"ERROR: {exc}"
+        except OSError as exc:
+            return f"ERROR: {exc}"
+
+    llm = llm_raw.bind_tools([read_file])
+
+    async def code_reader_worker(task: WorkerTask) -> TaskResult:
+        hints = "\n".join(f"- {hint}" for hint in task.target_paths_or_hints)
+        messages: list[Any] = [
+            SystemMessage(content=ORCHESTRATED_CODE_READER_SYSTEM),
+            HumanMessage(
+                content=(
+                    f"Query: {query}\n\n"
+                    f"Worker task: {task.task_id}\n"
+                    f"Query focus: {task.query_focus}\n"
+                    f"Expected evidence: {task.expected_evidence}\n\n"
+                    "Target paths or hints:\n"
+                    f"{hints}\n\n"
+                    "Read only plausible repo-relative source paths through the read_file tool."
+                )
+            ),
+        ]
+        for _ in range(ORCHESTRATED_CODE_READER_MAX_ITERS):
+            response = await llm.ainvoke(messages)
+            tool_calls = getattr(response, "tool_calls", None) or []
+            if not tool_calls:
+                return TaskResult(value=getattr(response, "content", "") or "", response=response)
+            messages.append(response)
+            for call in tool_calls:
+                call_args = call.get("args", {}) if isinstance(call, dict) else {}
+                call_id = call.get("id", "") if isinstance(call, dict) else ""
+                requested = call_args.get("path", "")
+                try:
+                    tool_output = _read_file_bounded(repo_root, requested)
+                except PermissionError as exc:
+                    tool_output = f"ERROR: {exc}"
+                except OSError as exc:
+                    tool_output = f"ERROR: {exc}"
+                messages.append(ToolMessage(content=tool_output, tool_call_id=call_id))
+        return TaskResult(value="NO_RELEVANT_CONTENT", response=None)
+
+    return code_reader_worker
+
+
+def _worker_success_row(task: WorkerTask, result: Any) -> Mapping[str, Any]:
+    return _freeze_mapping(
+        {
+            "task_id": task.task_id,
+            "worker": task.worker,
+            "status": "complete",
+            "result": str(result or ""),
+        }
+    )
+
+
+def _worker_failure_from_error(error: PerItemError) -> Mapping[str, Any]:
+    task = error.item
+    if isinstance(task, WorkerTask):
+        return _worker_error_row(task, str(error.exception))
+    return _freeze_mapping(
+        {
+            "task_id": "",
+            "worker": "",
+            "status": "error",
+            "error": str(error.exception),
+        }
+    )
+
+
+def _worker_error_row(task: WorkerTask, error: str) -> Mapping[str, Any]:
+    return _freeze_mapping(
+        {
+            "task_id": task.task_id,
+            "worker": task.worker,
+            "status": "error",
+            "error": error,
+        }
+    )
 
 
 def _answer_contract() -> Mapping[str, Any]:
