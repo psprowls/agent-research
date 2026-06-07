@@ -1664,3 +1664,46 @@ def test_parse_extractor_response_accepts_rich_fields_and_limits_to_five() -> No
     assert proposals[0]["rank"] == 1
     assert proposals[0]["confidence"] == "medium"
     assert proposals[0]["evidence"] == ["Evidence 1"]
+
+
+def test_set_proposal_status_in_body_inserts_nested_block() -> None:
+    from graph_wiki_core.commands.ingest import _set_proposal_status_in_body
+
+    text = "---\ntitle: Spec\ntarget_slug: spec\n---\n\nBody"
+    out = _set_proposal_status_in_body(
+        text,
+        {"reasoner": "ok", "extractor": "ok", "proposals": 2, "error": None},
+        today="2026-06-06",
+    )
+
+    assert "proposal_status:" in out
+    assert "  reasoner: ok" in out
+    assert "  extractor: ok" in out
+    assert "  proposals: 2" in out
+    assert "  updated: 2026-06-06" in out
+    assert "error:" not in out
+
+
+def test_set_proposal_status_in_body_replaces_existing_block() -> None:
+    from graph_wiki_core.commands.ingest import _set_proposal_status_in_body
+
+    text = (
+        "---\n"
+        "title: Spec\n"
+        "proposal_status:\n"
+        "  reasoner: failed\n"
+        "  extractor: skipped\n"
+        "  proposals: 0\n"
+        "  updated: 2026-06-05\n"
+        "  error: old\n"
+        "---\n\nBody"
+    )
+    out = _set_proposal_status_in_body(
+        text,
+        {"reasoner": "ok", "extractor": "ok", "proposals": 1, "error": None},
+        today="2026-06-06",
+    )
+
+    assert out.count("proposal_status:") == 1
+    assert "old" not in out
+    assert "  proposals: 1" in out
