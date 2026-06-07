@@ -140,6 +140,46 @@ async def test_run_tool_loop_iteration_cap_with_prior_text_returns_ok_with_error
 
 
 @pytest.mark.asyncio
+async def test_run_tool_loop_empty_content_no_tool_calls_returns_failed() -> None:
+    from graph_wiki_core.agent_loop import run_tool_loop
+
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(return_value=MagicMock(content="", tool_calls=[]))
+
+    result = await run_tool_loop(
+        llm=llm,
+        tools=[],
+        messages=[HumanMessage(content="hello")],
+        max_iterations=3,
+    )
+
+    assert result.status == "failed"
+    assert result.final_text == ""
+    assert "empty response" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_run_tool_loop_whitespace_content_no_tool_calls_returns_failed() -> None:
+    from graph_wiki_core.agent_loop import run_tool_loop
+
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(return_value=MagicMock(content=" \n ", tool_calls=[]))
+
+    result = await run_tool_loop(
+        llm=llm,
+        tools=[],
+        messages=[HumanMessage(content="hello")],
+        max_iterations=3,
+    )
+
+    assert result.status == "failed"
+    assert result.final_text == ""
+    assert "empty response" in (result.error or "")
+
+
+@pytest.mark.asyncio
 async def test_run_tool_loop_iteration_cap_without_prior_text_returns_failed() -> None:
     from graph_wiki_core.agent_loop import run_tool_loop
 

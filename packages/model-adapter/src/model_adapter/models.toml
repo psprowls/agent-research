@@ -113,11 +113,17 @@ sweep_candidates = [
 # Narrated scan pass that initializes TODO-like human-owned entity-page sections.
 # Separate from code_reader because it writes multi-section markdown and uses a
 # page-initialization JSON contract rather than one-line file-map descriptions.
-model_id        = "moonshotai.kimi-k2.5"
+# Switched from kimi-k2.5 (2026-06-07): extended thinking consumed the 4096-token
+# budget on large packages (graph-wiki-core), leaving only whitespace in the text
+# block and causing "invalid JSON: Expecting value" on the downstream JSON parse.
+model_id        = "openai.gpt-oss-120b-1:0"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
 sweep_candidates = [
+  "openai.gpt-oss-120b-1:0",
+  "qwen.qwen3-32b-v1:0",
+  "minimax.minimax-m2.5",
   "moonshotai.kimi-k2.5",
 ]
 

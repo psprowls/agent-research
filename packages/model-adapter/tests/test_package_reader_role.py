@@ -6,8 +6,9 @@ def test_package_reader_role_in_models_toml() -> None:
 
     cfg = load_role_config("package_reader")
 
-    assert cfg["model_id"] == "moonshotai.kimi-k2.5"
+    assert cfg["model_id"] == "openai.gpt-oss-120b-1:0"
     assert cfg["region"] == "us-east-1"
     assert cfg["max_tokens"] == 4096
     assert cfg["max_concurrency"] == 3
-    assert cfg["sweep_candidates"] == ["moonshotai.kimi-k2.5"]
+    assert "openai.gpt-oss-120b-1:0" in cfg["sweep_candidates"]
+    assert "moonshotai.kimi-k2.5" in cfg["sweep_candidates"]
