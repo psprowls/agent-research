@@ -58,6 +58,15 @@ def _frontmatter_entry(path: Path, wiki: Path, kind: str, *, excerpt_chars: int)
     }
 
 
+def _resolved_path_under_wiki(path: Path, wiki_root: Path) -> Path | None:
+    try:
+        resolved = path.resolve()
+        resolved.relative_to(wiki_root)
+    except (OSError, ValueError):
+        return None
+    return resolved
+
+
 def build_wiki_catalog(
     wiki: Path,
     buckets: tuple[str, ...] = CURATED_CATALOG_BUCKETS,
@@ -80,7 +89,10 @@ def build_wiki_catalog(
         for path in sorted(directory.glob("*.md")):
             if path.name == "index.md":
                 continue
-            entry = _frontmatter_entry(path, wiki_root, dirname.rstrip("s"), excerpt_chars=excerpt_chars)
+            page = _resolved_path_under_wiki(path, wiki_root)
+            if page is None:
+                continue
+            entry = _frontmatter_entry(page, wiki_root, dirname.rstrip("s"), excerpt_chars=excerpt_chars)
             if entry is not None:
                 catalog[dirname].append(entry)
 
@@ -89,7 +101,10 @@ def build_wiki_catalog(
         for path in sorted(entities.rglob("*.md")):
             if path.name == "index.md":
                 continue
-            entry = _frontmatter_entry(path, wiki_root, "entity", excerpt_chars=excerpt_chars)
+            page = _resolved_path_under_wiki(path, wiki_root)
+            if page is None:
+                continue
+            entry = _frontmatter_entry(page, wiki_root, "entity", excerpt_chars=excerpt_chars)
             if entry is not None:
                 catalog["entities"].append(entry)
 

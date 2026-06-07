@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from langchain_core.tools import tool
 
 
@@ -66,6 +67,24 @@ def test_build_wiki_catalog_rejects_bucket_paths_outside_wiki(tmp_path: Path) ->
     catalog = build_wiki_catalog(wiki, buckets=("../outside",))
 
     assert catalog["../outside"] == []
+
+
+def test_build_wiki_catalog_rejects_symlinked_pages_outside_wiki(tmp_path: Path) -> None:
+    from graph_wiki_core.agent_tools import build_wiki_catalog
+
+    wiki = tmp_path / "wiki"
+    concepts = wiki / "concepts"
+    concepts.mkdir(parents=True)
+    outside = _page(tmp_path / "outside.md", title="Leaked", summary="outside")
+    link = concepts / "leaked.md"
+    try:
+        link.symlink_to(outside)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are unsupported: {exc}")
+
+    catalog = build_wiki_catalog(wiki)
+
+    assert {entry["slug"] for entry in catalog["concepts"]} == set()
 
 
 def test_read_bounded_wiki_page_includes_title_body_and_truncates(tmp_path: Path) -> None:
