@@ -49,6 +49,12 @@ Add a post-file-map package-reader pass inside `run_scan()` when `narrate=True`.
 The pass runs after file-map descriptions are filled and before
 `last_updated_commit` stamping, drift flagging, and optional drift propagation.
 
+This pass depends on the shared low-level agent tooling extraction described in
+`2026-06-07-agent-tooling-extraction-design.md`. It should reuse those helpers
+for bounded wiki reads, graph-tool filtering, text chunking where useful, and
+the capped LangChain tool-call loop rather than reimplementing them inside the
+package-reader command module.
+
 The pass:
 
 1. Collects entity pages whose kind is `package`, `app`, `agent_plugin`, or
@@ -123,6 +129,11 @@ The model can use a bounded tool loop. Initial tools:
 - `cg_describe`: existing graph grounding tool when the graph DB is available
 - `read_wiki_page(path)`: bounded read under `<workspace>/wiki`, intended for
   nearby entity pages only
+
+`read_wiki_page`, graph-tool filtering, and the capped tool-loop runner come
+from the shared `agent_tools` and `agent_loop` modules. `read_repo_file` and
+`list_repo_tree` stay package-reader-specific because their access boundary is
+the entity root, not the whole repo or wiki.
 
 The v1 tool surface intentionally excludes broad wiki search. The job is to
 fill placeholders on this entity from source-backed context, not discover new
@@ -263,10 +274,13 @@ Focused tests should cover:
 - A no-op rescan skips package-reader once human TODO sections have real
   content.
 - Tool context refuses reads outside the repo and outside the entity root.
+- Package-reader uses the shared bounded wiki-read, graph-tool filtering, and
+  tool-loop helpers instead of duplicating proposal-reasoner mechanics.
 
 Scoped verification:
 
 ```bash
+uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/unit/test_agent_tools.py packages/graph-wiki-core/tests/unit/test_agent_loop.py
 uv run --package model-adapter pytest packages/model-adapter/tests/test_loader.py
 uv run --package wiki-io pytest packages/wiki-io/tests/test_entity_human_sections.py
 uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/unit/test_package_reader.py packages/graph-wiki-core/tests/unit/test_commands_scan.py

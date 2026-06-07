@@ -30,8 +30,9 @@ helper and test seam, but it is no longer the default CLI or MCP behavior.
 - Do not replace the BM25 or embedding indexes.
 - Do not give the orchestrator direct repo-file read tools in v1.
 - Do not make graph rows final answer evidence by themselves.
-- Do not introduce a general-purpose agent runtime shared by ingest, scan, and
-  query in this pass.
+- Do not introduce shared worker-batch or final-answer orchestration runtime in
+  this pass. The low-level `agent_tools` and `agent_loop` helpers from
+  `2026-06-07-agent-tooling-extraction-design.md` should be reused.
 - Do not remove existing query guardrails or trace records.
 
 ## Current Behavior
@@ -56,6 +57,12 @@ should be treated as a clue that needs source verification.
 
 Add a focused `graph_wiki_core.commands.query_orchestrator` module, modeled
 after the role-specific boundary used by `proposal_reasoner`.
+
+The module should build on the shared low-level agent tooling extraction rather
+than duplicating bounded wiki reads, catalog search, graph-tool filtering, or
+basic LangChain tool-call loop mechanics. Query-specific planning, worker
+batches, evidence validation, and `QueryResult` compatibility stay local to
+`commands.query_orchestrator`.
 
 The module owns:
 
@@ -129,8 +136,9 @@ The orchestrator can use bounded tools for planning:
 
 - `search_wiki(query, kind?, top_k?)`: find candidate wiki pages. This can reuse
   current BM25 plus embedding search where practical, or a bounded catalog
-  search when a full query-index pass is not appropriate.
-- `read_wiki_page(path)`: bounded markdown read under `<workspace>/wiki`.
+  search from `agent_tools` when a full query-index pass is not appropriate.
+- `read_wiki_page(path)`: bounded markdown read under `<workspace>/wiki`, using
+  the shared wiki-read helper.
 - `cg_find`: existing graph grounding tool when the graph DB is available.
 - `cg_describe`: existing graph grounding tool when the graph DB is available.
 - `list_worker_capabilities()`: optional static tool describing valid worker
@@ -334,6 +342,8 @@ Focused tests should cover:
 - default `run_query()` routes through the orchestrator path.
 - initial BM25/embedding candidates are passed into orchestrator context.
 - direct planning tools are bounded to the wiki and graph surfaces.
+- direct planning tools reuse shared bounded wiki-read, catalog search,
+  graph-tool filtering, and tool-loop helpers.
 - graph tools are omitted when graph DB is unavailable or empty.
 - graph observations cannot become final answer evidence.
 - librarian and code-reader worker batches run through `SubagentPool` in
@@ -354,6 +364,7 @@ Focused tests should cover:
 Scoped verification should use package tests:
 
 ```bash
+uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/unit/test_agent_tools.py packages/graph-wiki-core/tests/unit/test_agent_loop.py
 uv run --package model-adapter pytest packages/model-adapter/tests/test_loader.py
 uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/test_query_graph_tools.py
 uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/test_query_code_fallback.py
@@ -363,8 +374,8 @@ uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/test_comm
 ## Deferred
 
 - Dedicated `query_code_reader` role.
-- A shared agentic runtime for proposal reasoner, package reader, and query
-  orchestrator.
+- Shared worker-batch orchestration runtime for query and future multi-worker
+  commands.
 - Graph facts as first-class final answer evidence with their own citation
   semantics.
 - Streaming intermediate query plans to CLI/MCP users.
