@@ -65,6 +65,7 @@ from wiki_io.entity_writer import (
     write_entities,
 )
 from wiki_io.git_state import changed_files_since, short_commit
+from wiki_io.human_sections import find_todo_human_sections, replace_todo_human_sections
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.scan_monorepo import (
@@ -77,7 +78,9 @@ from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
+from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
+from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
@@ -133,6 +136,8 @@ _INIT_FAILURE_STDERR_PATTERNS = (
     "Errno 30",
 )
 
+PACKAGE_READER_TARGET_KINDS = frozenset({"package", "app", "agent_plugin", "test_suite"})
+
 
 def _is_init_failure_stderr(stderr: str) -> bool:
     """Return True if `stderr` matches a known init-failure pattern (D-08)."""
@@ -159,6 +164,119 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
         return {}
     pkg_name = section.group(1).strip()
     return _extract_file_map_descriptions(section.group(2), pkg_name)
+
+
+@dataclass(frozen=True)
+class _PackageReaderCandidate:
+    page_path: Path
+    graph_path: str | None = None
+    kind: str | None = None
+    name: str | None = None
+    language: str | None = None
+
+
+async def _run_package_reader_pass(
+    *,
+    wiki: Path,
+    repo: Path,
+    conn: Any | None,
+    model_override: str | None,
+    candidate_pages: dict[str, _PackageReaderCandidate],
+) -> tuple[set[str], list[str]]:
+    stack = _bedrock_stack()
+    if stack is None:
+        return set(), []
+    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+
+    graph_tools = build_graph_tools(conn) if conn is not None else []
+    errors: list[str] = []
+    items: list[tuple[str, Path, PackageReaderItem]] = []
+    for uri, candidate in sorted(candidate_pages.items()):
+        page_path = candidate.page_path
+        try:
+            post = frontmatter.load(page_path)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{uri}: package_reader page load failed: {exc!r}")
+            continue
+        kind = str(candidate.kind or post.metadata.get("kind") or "")
+        if kind not in PACKAGE_READER_TARGET_KINDS:
+            continue
+        try:
+            page_text = page_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{uri}: package_reader page read failed: {exc!r}")
+            continue
+        todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
+        if not todo_sections:
+            continue
+        graph_path = str(candidate.graph_path or "")
+        if not graph_path:
+            errors.append(f"{uri}: package_reader missing graph path")
+            continue
+        item = PackageReaderItem(
+            uri=uri,
+            kind=kind,
+            name=str(candidate.name or post.metadata.get("graph_name") or post.metadata.get("title") or page_path.stem),
+            graph_path=graph_path,
+            language=str(candidate.language or post.metadata.get("language") or "unknown"),
+            frontmatter=cast(Any, dict(post.metadata)),
+            page_content=page_text,
+            requested_sections={section.heading: section.body for section in todo_sections},
+            narrative=extract_narrative(page_text) or "",
+            file_map=extract_file_map(page_text) or "",
+            graph_context="",
+            entity_root=graph_path,
+        )
+        items.append((uri, page_path, item))
+
+    if not items:
+        return set(), errors
+
+    cfg = load_role_config_fn("package_reader")
+    llm = make_llm_fn("package_reader", model_override=model_override)
+    pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+    async def fill_sections(item_tuple: tuple[str, Path, PackageReaderItem]) -> Any:
+        _uri, _page_path, reader_item = item_tuple
+        result = await run_package_reader(llm=llm, item=reader_item, repo=repo, wiki=wiki, graph_tools=graph_tools)
+        return task_result_type(value=result, response=result)
+
+    fanout = await pool.run_all(
+        items=items,
+        task=fill_sections,
+        role="package_reader",
+        model_id=cfg["model_id"],
+        max_concurrency=cfg["max_concurrency"],
+    )
+    filled: set[str] = set()
+    for item_tuple, result in fanout.successes:
+        uri, page_path, _reader_item = item_tuple
+        if result.error:
+            errors.append(f"{uri}: {result.error}")
+        if not result.replacements:
+            continue
+        try:
+            changed = replace_todo_human_sections(page_path, result.replacements)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{uri}: replace_todo_human_sections failed: {exc!r}")
+            continue
+        if changed:
+            filled.add(uri)
+    for err in fanout.errors:
+        uri = err.item[0]
+        errors.append(f"{uri}: {err.exception!r}")
+    return filled, errors
+
+
+def _record_package_reader_candidate(
+    candidates: dict[str, _PackageReaderCandidate],
+    *,
+    uri: str,
+    candidate: _PackageReaderCandidate,
+) -> None:
+    existing = candidates.get(uri)
+    if existing is None or (not existing.graph_path and candidate.graph_path):
+        candidates[uri] = candidate
 
 
 # ---------------------------------------------------------------------------
@@ -1055,6 +1173,7 @@ async def run_scan(
         # a dropped file-map row was never refilled.
         good_prose_uris: set[str] = set()
         narrated_page_paths: dict[str, Path] = {}
+        narrated_page_candidates: dict[str, _PackageReaderCandidate] = {}
         if narrator_result is not None:
             assert conn is not None
             inject_collision_set = _compute_collision_set(
@@ -1075,6 +1194,14 @@ async def run_scan(
                 try:
                     inject_narrative(entity_page_path, prose)
                     narrated_page_paths[uri_inner] = entity_page_path
+                    attrs = node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
+                    narrated_page_candidates[uri_inner] = _PackageReaderCandidate(
+                        page_path=entity_page_path,
+                        graph_path=node_inner.path,
+                        kind=kind_inner,
+                        name=node_inner.name,
+                        language=str(attrs.get("language") or "unknown"),
+                    )
                     # Empty-prose guard (M2b §3.4): empty narration records
                     # nothing, so it can never mint an anchor on its own.
                     if head and prose.strip():
@@ -1311,6 +1438,44 @@ async def run_scan(
                         raise_exception=True,
                     )
 
+        package_reader_filled_uris: set[str] = set()
+        package_reader_errors: list[str] = []
+        if narrate:
+            package_reader_candidates: dict[str, _PackageReaderCandidate] = dict(narrated_page_candidates)
+            for uri_inner, node, page_path in file_mapped_pages:
+                attrs = node.attrs if isinstance(node.attrs, dict) else {}
+                _record_package_reader_candidate(
+                    package_reader_candidates,
+                    uri=uri_inner,
+                    candidate=_PackageReaderCandidate(
+                        page_path=page_path,
+                        graph_path=node.path,
+                        kind=node.kind,
+                        name=node.name,
+                        language=str(attrs.get("language") or "unknown"),
+                    ),
+                )
+            if package_reader_candidates:
+                package_reader_filled_uris, package_reader_errors = await _run_package_reader_pass(
+                    wiki=wiki,
+                    repo=repo,
+                    conn=conn,
+                    model_override=model_override,
+                    candidate_pages=package_reader_candidates,
+                )
+                if package_reader_filled_uris or package_reader_errors:
+                    append_log(
+                        wiki,
+                        "scan",
+                        (
+                            f"package-reader sections filled: {len(package_reader_filled_uris)} "
+                            f"entity(s) (errors: {len(package_reader_errors)})"
+                        ),
+                        detail=None,
+                        silent=True,
+                        raise_exception=True,
+                    )
+
         # M2c Part 3 (§3.3 D4): unified, refill-gated anchor stamping. A page
         # advances last_updated_commit to HEAD iff it was re-narrated with good
         # prose OR had a file-map row re-described this scan, AND no file-map
@@ -1326,7 +1491,7 @@ async def run_scan(
             stamp_page_paths: dict[str, Path] = dict(narrated_page_paths)
             for uri_inner, _node, page_path in file_mapped_pages:
                 stamp_page_paths.setdefault(uri_inner, page_path)
-            for uri_inner in good_prose_uris | redescribed_uris:
+            for uri_inner in good_prose_uris | redescribed_uris | package_reader_filled_uris:
                 page_path = stamp_page_paths.get(uri_inner)
                 if page_path is None:
                     continue
@@ -1425,7 +1590,9 @@ async def run_scan(
             entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
-            entity_errors=(entity_write_errors + narrator_errors + file_map_errors + describer_errors),
+            entity_errors=(
+                entity_write_errors + narrator_errors + file_map_errors + describer_errors + package_reader_errors
+            ),
         )
     finally:
         if conn is not None:

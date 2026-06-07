@@ -90,9 +90,13 @@ def _narrate_spy(heads: dict):
         result = FanOutResult()
         if role == "narrator":
             result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
-        else:
+        elif role == "code_reader":
             # code_reader — item == (uri, ws_dict, page_path, todo_paths)
             result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
+        elif role == "package_reader":
+            result.successes = []
+        else:
+            result.successes = []
         return result
 
     return _run_all
@@ -214,8 +218,12 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
         if role == "narrator":
             narrator_calls.append([it[0] for it in items])
             result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
-        else:
+        elif role == "code_reader":
             result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
+        elif role == "package_reader":
+            result.successes = []
+        else:
+            result.successes = []
         return result
 
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy_run_all)
@@ -397,9 +405,13 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
             result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
         elif role == "code_reader":
             result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
+        elif role == "package_reader":
+            result.successes = []
         elif role == "drift_judge":
             recorder.setdefault("items", []).extend(items)
             result.successes = [(it, verdict_fn["fn"](it)) for it in items]
+        else:
+            result.successes = []
         return result
 
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _full_spy)

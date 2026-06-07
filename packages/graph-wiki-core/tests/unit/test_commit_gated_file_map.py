@@ -110,8 +110,12 @@ def _fanout_spy(*, prose, descs):
         result = FanOutResult()
         if role == "narrator":
             result.successes = [(it, prose(it)) for it in items]
-        else:  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
+        elif role == "code_reader":  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
             result.successes = [(it, json.dumps(descs(it))) for it in items]
+        elif role == "package_reader":
+            result.successes = []
+        else:
+            result.successes = []
         return result
 
     return _run_all

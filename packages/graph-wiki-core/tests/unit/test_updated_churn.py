@@ -50,8 +50,12 @@ def _fanout_spy(*, prose):
         result = FanOutResult()
         if role == "narrator":
             result.successes = [(it, prose(it)) for it in items]
-        else:
+        elif role == "code_reader":
             result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
+        elif role == "package_reader":
+            result.successes = []
+        else:
+            result.successes = []
         return result
 
     return _run_all

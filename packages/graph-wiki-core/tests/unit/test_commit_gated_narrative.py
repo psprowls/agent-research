@@ -175,10 +175,14 @@ def _narrate_all_spy(prose_fn):
         result = FanOutResult()
         if role == "narrator":
             result.successes = [(it, prose_fn(it)) for it in items]
-        else:  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
+        elif role == "code_reader":  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
             import json as _json
 
             result.successes = [(it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
+        elif role == "package_reader":
+            result.successes = []
+        else:
+            result.successes = []
         return result
 
     return _run_all
