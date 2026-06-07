@@ -430,3 +430,42 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     assert mock_gate.call_args.args[0] == fake_repo.resolve()
     # the graph build's repo argument (1st positional) is the override repo
     assert mock_build.call_args.args[0] == fake_repo.resolve()
+
+
+def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path: Path) -> None:
+    import asyncio
+
+    import graph_wiki_core.commands.scan as scan_mod
+    from graph_io import exit_codes
+    from graph_io.store import GraphNotInitializedError
+
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod,
+        "read_only_connect",
+        lambda path: (_ for _ in ()).throw(GraphNotInitializedError("no db")),
+    )
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "abc"},
+    )
+    monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
+    monkeypatch.setattr(scan_mod, "generate_index", lambda wiki, conn: None)
+    monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: None)
+    monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
+    assert hasattr(scan_mod, "_run_package_reader_pass")
+
+    def explode_package_reader(*args, **kwargs):
+        raise AssertionError("package_reader must not run when narrate=False")
+
+    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", explode_package_reader)
+
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
