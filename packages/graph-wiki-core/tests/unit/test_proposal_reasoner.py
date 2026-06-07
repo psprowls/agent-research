@@ -84,3 +84,64 @@ async def test_run_proposal_reasoner_handles_one_tool_call(tmp_path: Path) -> No
     assert result.analysis == "Candidate: update Ownership"
     assert llm.ainvoke.call_count == 2
     assert llm.bind_tools.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_proposal_reasoner_iteration_cap_with_prior_text_returns_ok(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import MAX_REASONER_ITERS, run_proposal_reasoner
+
+    wiki = tmp_path / "wiki"
+    source_page = wiki / "sources" / "spec.md"
+    _page(source_page, "Spec", "source")
+    response = MagicMock(
+        content="Partial candidate analysis",
+        tool_calls=[{"name": "missing_tool", "args": {}, "id": "call_1"}],
+    )
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(return_value=response)
+
+    with patch("graph_wiki_core.commands.proposal_reasoner.make_llm", return_value=llm):
+        result = await run_proposal_reasoner(
+            wiki=wiki,
+            source_path=tmp_path / "source.md",
+            source_text="Full source text",
+            source_page_path=source_page,
+            source_page_text=source_page.read_text(encoding="utf-8"),
+            entity_uri=None,
+            entity_stem=None,
+            graph_tools=[],
+        )
+
+    assert result.status == "ok"
+    assert result.analysis == "Partial candidate analysis"
+    assert result.error == f"reasoner hit iteration cap ({MAX_REASONER_ITERS}) after producing text"
+
+
+@pytest.mark.asyncio
+async def test_run_proposal_reasoner_iteration_cap_without_text_returns_failed(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.proposal_reasoner import MAX_REASONER_ITERS, run_proposal_reasoner
+
+    wiki = tmp_path / "wiki"
+    source_page = wiki / "sources" / "spec.md"
+    _page(source_page, "Spec", "source")
+    response = MagicMock(content="", tool_calls=[{"name": "missing_tool", "args": {}, "id": "call_1"}])
+    llm = MagicMock()
+    llm.bind_tools = MagicMock(return_value=llm)
+    llm.ainvoke = AsyncMock(return_value=response)
+
+    with patch("graph_wiki_core.commands.proposal_reasoner.make_llm", return_value=llm):
+        result = await run_proposal_reasoner(
+            wiki=wiki,
+            source_path=tmp_path / "source.md",
+            source_text="Full source text",
+            source_page_path=source_page,
+            source_page_text=source_page.read_text(encoding="utf-8"),
+            entity_uri=None,
+            entity_stem=None,
+            graph_tools=[],
+        )
+
+    assert result.status == "failed"
+    assert result.analysis == ""
+    assert result.error == f"reasoner hit iteration cap ({MAX_REASONER_ITERS})"
