@@ -616,3 +616,177 @@ async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypat
     assert filled == {"pkg:org/repo/pkg-a"}
     assert errors == []
     assert "## Purpose\nOwns package-level scan orchestration.\n" in page.read_text(encoding="utf-8")
+
+
+async def test_run_package_reader_pass_requires_candidate_graph_path(monkeypatch, tmp_path: Path) -> None:
+    import graph_wiki_core.commands.scan as scan_mod
+
+    wiki = tmp_path / "workspace" / "wiki"
+    repo = tmp_path / "workspace" / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+
+    page = wiki / "entities" / "pkg-a.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "---\n"
+        "kind: package\n"
+        "uri: pkg:org/repo/pkg-a\n"
+        "path: wiki/entities/wrong.md\n"
+        "graph_path: wrong/frontmatter/value\n"
+        "---\n\n"
+        "# pkg-a\n\n"
+        "## Purpose\n"
+        "> TODO: explain why this package exists.\n\n"
+        "## Narrative\n"
+        "Scanner prose.\n",
+        encoding="utf-8",
+    )
+
+    class _UnusedPool:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("pool should not be constructed when candidate graph_path is missing")
+
+    monkeypatch.setattr(
+        scan_mod,
+        "_bedrock_stack",
+        lambda: (
+            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
+            lambda role, model_override=None: object(),
+            _UnusedPool,
+            object,
+        ),
+    )
+
+    filled, errors = await scan_mod._run_package_reader_pass(
+        wiki=wiki,
+        repo=repo,
+        conn=None,
+        model_override=None,
+        candidate_pages={
+            "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(page_path=page),
+        },
+    )
+
+    assert filled == set()
+    assert errors == ["pkg:org/repo/pkg-a: package_reader missing graph path"]
+
+
+async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatch, tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    import graph_wiki_core.commands.scan as scan_mod
+
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    uri = "pkg:org/repo/pkg-a"
+    node = SimpleNamespace(
+        name="pkg-a",
+        path="packages/pkg-a",
+        kind="package",
+        attrs={"uri": uri, "language": "python"},
+    )
+    captured_candidates: dict[str, object] = {}
+
+    class _FakeConn:
+        def close(self) -> None:
+            return None
+
+    class _FakePool:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def run_all(self, *, items, task, role, model_id, max_concurrency):
+            class _Result:
+                def __init__(self, successes, errors) -> None:
+                    self.successes = successes
+                    self.errors = errors
+
+            if role == "narrator":
+                return _Result(successes=[(items[0], "Narrated prose.")], errors=[])
+            raise AssertionError(f"unexpected role: {role}")
+
+    class _FakeTaskResult:
+        def __init__(self, value, response) -> None:
+            self.value = value
+            self.response = response
+
+    def fake_inject_narrative(page_path: Path, prose: str) -> None:
+        page_path.parent.mkdir(parents=True, exist_ok=True)
+        page_path.write_text(
+            "---\n"
+            f"uri: {uri}\n"
+            "kind: package\n"
+            "path: wiki/entities/wrong.md\n"
+            "graph_path: wrong/frontmatter/value\n"
+            "---\n\n"
+            "# pkg-a\n\n"
+            "## Purpose\n"
+            "> TODO: explain why this package exists.\n\n"
+            "## Narrative\n"
+            f"{prose}\n",
+            encoding="utf-8",
+        )
+
+    async def fake_package_reader_pass(*, wiki, repo, conn, model_override, candidate_pages):
+        captured_candidates.update(candidate_pages)
+        return set(), []
+
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (0, "", ""))
+    monkeypatch.setattr(scan_mod, "read_only_connect", lambda path: _FakeConn())
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "abc"},
+    )
+    monkeypatch.setattr(
+        scan_mod,
+        "write_entities",
+        lambda conn, wiki, admitted_kinds: SimpleNamespace(
+            created={uri},
+            updated=set(),
+            deleted=set(),
+            needs_narrative={uri},
+            errors=[],
+        ),
+    )
+    monkeypatch.setattr(scan_mod, "_commit_dirty_changes", lambda *args, **kwargs: {})
+    monkeypatch.setattr(scan_mod, "_kind_list_fns", lambda: {"package": lambda conn: [node]})
+    monkeypatch.setattr(scan_mod, "scanner_frontmatter_for_node", lambda conn, kind, node: {"uri": uri, "kind": kind})
+    monkeypatch.setattr(scan_mod, "_compute_collision_set", lambda *args, **kwargs: frozenset())
+    monkeypatch.setattr(scan_mod, "inject_narrative", fake_inject_narrative)
+    monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
+    monkeypatch.setattr(scan_mod.queries, "list_test_suites", lambda conn: [])
+    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
+    monkeypatch.setattr(scan_mod, "_drift_flag_pass", AsyncMock())
+    monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)
+    monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
+    monkeypatch.setattr(
+        scan_mod,
+        "generate_index",
+        lambda conn, wiki, display_name: SimpleNamespace(changed=False, bytes_written=0),
+    )
+    monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: [])
+    monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(scan_mod, "file_map_todo_paths", lambda page_path: [])
+    monkeypatch.setattr(
+        scan_mod,
+        "_bedrock_stack",
+        lambda: (
+            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
+            lambda role, model_override=None: object(),
+            _FakePool,
+            _FakeTaskResult,
+        ),
+    )
+
+    await scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
+
+    candidate = captured_candidates[uri]
+    assert candidate.graph_path == "packages/pkg-a"

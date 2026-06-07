@@ -209,7 +209,7 @@ async def _run_package_reader_pass(
         todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
         if not todo_sections:
             continue
-        graph_path = str(candidate.graph_path or post.metadata.get("graph_path") or post.metadata.get("path") or "")
+        graph_path = str(candidate.graph_path or "")
         if not graph_path:
             errors.append(f"{uri}: package_reader missing graph path")
             continue
