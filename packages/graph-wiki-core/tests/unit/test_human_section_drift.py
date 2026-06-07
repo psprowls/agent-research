@@ -124,12 +124,28 @@ def test_package_reader_fill_stamps_and_skips_on_rescan(ws, monkeypatch):
 
     assert "## Purpose\nOwns package-level scan orchestration." in text
     assert meta["last_updated_commit"] == "head1"
+    assert meta["drift_checked_commit"] == "head1"
+    assert "drift_review" not in meta
     assert calls["package_reader"] == 1
+
+    _add_human_section(page, "## Behavior", "Curated behavior notes stay human-owned.")
+    stable_text = page.read_text(encoding="utf-8")
+    stable_meta = {
+        "last_updated_commit": _fm.load(page).metadata["last_updated_commit"],
+        "drift_checked_commit": _fm.load(page).metadata["drift_checked_commit"],
+    }
 
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
+    page = _page_for(wiki)
+    rescan_meta = _fm.load(page).metadata
     assert calls["package_reader"] == 2
-    assert "## Purpose\nOwns package-level scan orchestration." in _page_for(wiki).read_text(encoding="utf-8")
+    assert page.read_text(encoding="utf-8") == stable_text
+    assert {
+        "last_updated_commit": rescan_meta["last_updated_commit"],
+        "drift_checked_commit": rescan_meta["drift_checked_commit"],
+    } == stable_meta
+    assert "drift_review" not in rescan_meta
 
 
 def test_renarrated_stale_section_is_flagged(ws, monkeypatch):

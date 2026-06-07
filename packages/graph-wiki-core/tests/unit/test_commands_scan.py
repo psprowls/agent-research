@@ -845,4 +845,4 @@ def test_package_reader_errors_join_scan_result(monkeypatch, tmp_path: Path) -> 
 
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
-    assert "pkg:org/repo/pkg-a: invalid JSON" in result.entity_errors
+    assert result.entity_errors == ["pkg:org/repo/pkg-a: invalid JSON"]
