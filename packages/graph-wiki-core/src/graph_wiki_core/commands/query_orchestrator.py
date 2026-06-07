@@ -327,19 +327,13 @@ def _build_librarian_task_runner(llm: Any, *, query: str, wiki_root: Path):
 
 
 def _build_code_reader_task_runner(llm_raw: Any, *, query: str, repo_root: Path):
-    @tool
-    def read_file(path: str) -> str:
-        """Read one repo-relative source file through the bounded source reader."""
-        try:
-            return _read_file_bounded(repo_root, path)
-        except PermissionError as exc:
-            return f"ERROR: {exc}"
-        except OSError as exc:
-            return f"ERROR: {exc}"
-
-    llm = llm_raw.bind_tools([read_file])
-
     async def code_reader_worker(task: WorkerTask) -> TaskResult:
+        @tool
+        def read_file(path: str) -> str:
+            """Read one source file allowed by this worker task's target hints."""
+            return _read_worker_scoped_file(repo_root, path, task.target_paths_or_hints)
+
+        llm = llm_raw.bind_tools([read_file])
         hints = "\n".join(f"- {hint}" for hint in task.target_paths_or_hints)
         messages: list[Any] = [
             SystemMessage(content=ORCHESTRATED_CODE_READER_SYSTEM),
@@ -365,16 +359,48 @@ def _build_code_reader_task_runner(llm_raw: Any, *, query: str, repo_root: Path)
                 call_args = call.get("args", {}) if isinstance(call, dict) else {}
                 call_id = call.get("id", "") if isinstance(call, dict) else ""
                 requested = call_args.get("path", "")
-                try:
-                    tool_output = _read_file_bounded(repo_root, requested)
-                except PermissionError as exc:
-                    tool_output = f"ERROR: {exc}"
-                except OSError as exc:
-                    tool_output = f"ERROR: {exc}"
+                tool_output = _read_worker_scoped_file(repo_root, requested, task.target_paths_or_hints)
                 messages.append(ToolMessage(content=tool_output, tool_call_id=call_id))
         return TaskResult(value="NO_RELEVANT_CONTENT", response=None)
 
     return code_reader_worker
+
+
+def _read_worker_scoped_file(repo_root: Path, requested_path: str, hints: tuple[str, ...]) -> str:
+    if not _path_allowed_by_worker_hints(repo_root, requested_path, hints):
+        return f"ERROR: refusing to read {requested_path!r}: outside this worker task's target_paths_or_hints"
+    try:
+        return _read_file_bounded(repo_root, requested_path)
+    except PermissionError as exc:
+        return f"ERROR: {exc}"
+    except OSError as exc:
+        return f"ERROR: {exc}"
+
+
+def _path_allowed_by_worker_hints(repo_root: Path, requested_path: str, hints: tuple[str, ...]) -> bool:
+    requested = _repo_relative_posix(repo_root, requested_path)
+    if requested is None:
+        return False
+    for hint in hints:
+        normalized_hint = _repo_relative_posix(repo_root, hint)
+        if normalized_hint is None:
+            continue
+        if requested == normalized_hint:
+            return True
+        hint_is_directoryish = hint.endswith("/") or not Path(normalized_hint).suffix
+        if hint_is_directoryish and requested.startswith(normalized_hint.rstrip("/") + "/"):
+            return True
+    return False
+
+
+def _repo_relative_posix(repo_root: Path, path: str) -> str | None:
+    if not isinstance(path, str) or not path.strip():
+        return None
+    root = repo_root.resolve(strict=False)
+    candidate = (repo_root / path).resolve(strict=False)
+    if not candidate.is_relative_to(root):
+        return None
+    return candidate.relative_to(root).as_posix()
 
 
 def _worker_success_row(task: WorkerTask, result: Any) -> Mapping[str, Any]:

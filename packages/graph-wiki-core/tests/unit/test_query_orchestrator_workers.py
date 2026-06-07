@@ -248,3 +248,90 @@ async def test_code_reader_tool_uses_existing_bounded_reader(
     assert reads == [(repo, "packages/example.py")]
     assert results[0]["status"] == "complete"
     assert results[0]["result"] == "bounded excerpt"
+
+
+@pytest.mark.asyncio
+async def test_code_reader_rejects_out_of_scope_tool_path_before_bounded_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_wiki_core.commands import query_orchestrator as mod
+    from graph_wiki_core.commands.query_orchestrator import WorkerTask, run_worker_batch
+
+    repo = tmp_path / "repo"
+    wiki = tmp_path / "wiki"
+    repo.mkdir()
+    wiki.mkdir()
+    reads = []
+    first = SimpleNamespace(tool_calls=[{"id": "call-1", "args": {"path": "packages/secret.py"}}], content="")
+    llm = _FakeLLM("NO_RELEVANT_CONTENT", tool_responses=[first])
+
+    def fake_read_file_bounded(repo_root: Path, path: str) -> str:
+        reads.append((repo_root, path))
+        return "secret = True\n"
+
+    monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 1})
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: llm)
+    monkeypatch.setattr(mod, "_read_file_bounded", fake_read_file_bounded)
+
+    await run_worker_batch(
+        (
+            WorkerTask(
+                worker="code_reader",
+                task_id="code-1",
+                target_paths_or_hints=("packages/allowed.py",),
+                query_focus="example",
+                expected_evidence="example implementation",
+            ),
+        ),
+        query="How does example work?",
+        wiki_root=wiki,
+        repo_root=repo,
+        trace_dir=tmp_path / "traces",
+    )
+
+    assert reads == []
+
+
+@pytest.mark.asyncio
+async def test_code_reader_allows_directoryish_hint_prefix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_wiki_core.commands import query_orchestrator as mod
+    from graph_wiki_core.commands.query_orchestrator import WorkerTask, run_worker_batch
+
+    repo = tmp_path / "repo"
+    wiki = tmp_path / "wiki"
+    repo.mkdir()
+    wiki.mkdir()
+    reads = []
+    first = SimpleNamespace(tool_calls=[{"id": "call-1", "args": {"path": "packages/allowed/example.py"}}], content="")
+    llm = _FakeLLM("bounded excerpt", tool_responses=[first])
+
+    def fake_read_file_bounded(repo_root: Path, path: str) -> str:
+        reads.append((repo_root, path))
+        return "def example():\n    return 1\n"
+
+    monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 1})
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: llm)
+    monkeypatch.setattr(mod, "_read_file_bounded", fake_read_file_bounded)
+
+    results = await run_worker_batch(
+        (
+            WorkerTask(
+                worker="code_reader",
+                task_id="code-1",
+                target_paths_or_hints=("packages/allowed",),
+                query_focus="example",
+                expected_evidence="example implementation",
+            ),
+        ),
+        query="How does example work?",
+        wiki_root=wiki,
+        repo_root=repo,
+        trace_dir=tmp_path / "traces",
+    )
+
+    assert reads == [(repo, "packages/allowed/example.py")]
+    assert results[0]["status"] == "complete"
