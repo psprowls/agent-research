@@ -337,6 +337,13 @@ def _set_proposal_status_in_body(text: str, status: dict, *, today: str | None =
     leading_ws = text[: len(text) - len(stripped)]
     fm_block = after_open[:close_idx]
     body_and_close = after_open[close_idx:]
+    try:
+        parsed_frontmatter = yaml.safe_load(fm_block)
+    except yaml.YAMLError:
+        return text
+    if not isinstance(parsed_frontmatter, dict):
+        return text
+
     updated = today or date.today().isoformat()
     proposal_lines = [
         "proposal_status:",
