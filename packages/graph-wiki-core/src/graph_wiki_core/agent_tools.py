@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import BaseTool
-from wiki_io.proposals import list_proposals
+from wiki_io.proposals import read_proposal
 from wiki_io.update_index import parse_frontmatter
 
 CURATED_CATALOG_BUCKETS = ("concepts", "adrs", "architecture", "sources")
@@ -67,6 +67,22 @@ def _resolved_path_under_wiki(path: Path, wiki_root: Path) -> Path | None:
     return resolved
 
 
+def _list_safe_proposals(wiki_root: Path) -> list[dict[str, Any]]:
+    proposal_dir = wiki_root / "proposals"
+    if not proposal_dir.is_dir():
+        return []
+    proposals: list[dict[str, Any]] = []
+    for path in sorted(proposal_dir.glob("*.md")):
+        proposal_path = _resolved_path_under_wiki(path, wiki_root)
+        if proposal_path is None:
+            continue
+        try:
+            proposals.append(read_proposal(proposal_path))
+        except Exception:  # noqa: BLE001 - match list_proposals() malformed-note behavior.
+            continue
+    return proposals
+
+
 def build_wiki_catalog(
     wiki: Path,
     buckets: tuple[str, ...] = CURATED_CATALOG_BUCKETS,
@@ -75,8 +91,8 @@ def build_wiki_catalog(
 ) -> dict[str, list[dict[str, Any]]]:
     catalog: dict[str, list[dict[str, Any]]] = {name: [] for name in buckets}
     catalog["entities"] = []
-    catalog["proposals"] = list_proposals(wiki)
     wiki_root = wiki.resolve()
+    catalog["proposals"] = _list_safe_proposals(wiki_root)
 
     for dirname in buckets:
         try:

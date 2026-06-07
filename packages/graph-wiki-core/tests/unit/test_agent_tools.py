@@ -87,6 +87,38 @@ def test_build_wiki_catalog_rejects_symlinked_pages_outside_wiki(tmp_path: Path)
     assert {entry["slug"] for entry in catalog["concepts"]} == set()
 
 
+def test_build_wiki_catalog_rejects_symlinked_proposals_outside_wiki(tmp_path: Path) -> None:
+    from graph_wiki_core.agent_tools import build_wiki_catalog
+
+    wiki = tmp_path / "wiki"
+    proposals = wiki / "proposals"
+    proposals.mkdir(parents=True)
+    outside = tmp_path / "outside.md"
+    outside.write_text(
+        "---\n"
+        "kind: concept\n"
+        "mode: create_new\n"
+        "target_slug: leaked\n"
+        "title: Leaked\n"
+        "status: proposed\n"
+        "origins:\n"
+        "  - ref: outside\n"
+        "    source: test\n"
+        "    rationale: outside wiki\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    link = proposals / "concept-leak.md"
+    try:
+        link.symlink_to(outside)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are unsupported: {exc}")
+
+    catalog = build_wiki_catalog(wiki)
+
+    assert [entry["target_slug"] for entry in catalog["proposals"]] == []
+
+
 def test_read_bounded_wiki_page_includes_title_body_and_truncates(tmp_path: Path) -> None:
     from graph_wiki_core.agent_tools import read_bounded_wiki_page
 
