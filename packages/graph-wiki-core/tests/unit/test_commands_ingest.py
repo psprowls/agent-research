@@ -1359,12 +1359,14 @@ async def test_run_ingest_source_writes_ledger_notes(tmp_path: Path) -> None:
         mock_resolve.return_value = (wiki, repo)
         result = await run_ingest_source(source_file, workspace)
 
-    # Report shape preserved (kind/title/slug/mode/status).
+    # Report shape includes the Task 5 rank/confidence proposal contract.
     assert result.suggestions_parsed is True
     assert [(s["kind"], s["slug"], s["status"]) for s in result.suggested_pages] == [
         ("concept", "cross-cutting-idea", "proposed")
     ]
-    assert set(result.suggested_pages[0]) == {"kind", "title", "slug", "mode", "status"}
+    assert set(result.suggested_pages[0]) == {"kind", "title", "slug", "mode", "rank", "confidence", "status"}
+    assert result.suggested_pages[0]["rank"] == 999
+    assert result.suggested_pages[0]["confidence"] == "medium"
     # Storage moved to the ledger.
     assert proposal_path(wiki, "concept", "cross-cutting-idea").exists()
     # The Source page is clean.

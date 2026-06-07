@@ -192,7 +192,7 @@ def build_curated_vault_index(wiki: Path) -> list[dict]:
 
 
 def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) -> str:
-    """Human message for the extractor: the Source page + the curated-vault index."""
+    """Human message for the extractor: source-backed proposal context + curated-vault index."""
     preview = source_text[:EXTRACT_PREVIEW_CHARS]
     if len(source_text) > EXTRACT_PREVIEW_CHARS:
         preview += "\n[TRUNCATED]"
@@ -209,10 +209,10 @@ def build_extract_suggestions_prompt(source_text: str, vault_index: list[dict]) 
         "Existing curated pages (propose update_existing when your idea is "
         "already covered by one of these; otherwise create_new):\n"
         f"{index_lines}\n\n"
-        "--- Source page ---\n"
+        "--- Source-backed proposal context ---\n"
         f"{preview}\n"
-        "--- End source page ---\n\n"
-        "Propose the concept/adr/architecture pages this source justifies, as a "
+        "--- End source-backed proposal context ---\n\n"
+        "Normalize this context into the concept/adr/architecture page proposals it justifies, as a "
         "YAML `suggestions:` list. Return `suggestions: []` if none are warranted."
     )
 

@@ -1,16 +1,16 @@
 """EXTRACTOR_SYSTEM prompt — Living Wiki M3 inline page-suggestion pass.
 
-Given a just-landed Source page and a listing of existing curated pages, the
-extractor proposes which concept / adr / architecture pages the source justifies.
+Given proposal analysis and a listing of existing curated pages, the extractor
+proposes which concept / adr / architecture pages the analysis justifies.
 It is deliberately conservative (roadmap open-q #3: avoid low-quality
 auto-generated concepts) and PROPOSES ONLY — no page is written by this pass.
 """
 
 from __future__ import annotations
 
-EXTRACTOR_SYSTEM = """You normalize proposal-reasoner analysis into strict YAML.
+EXTRACTOR_SYSTEM = """You normalize proposal analysis into strict YAML.
 
-You do NOT create wiki pages. You select at most 5 strongest proposals from the reasoner's candidates.
+You do NOT create wiki pages. You select at most 5 strongest proposals from the provided analysis.
 Output one YAML mapping with a single `suggestions:` list. No prose and no code fence.
 
 Allowed kinds:
@@ -35,7 +35,7 @@ Each suggestion requires:
 
 Rules:
 - Return at most 5 suggestions.
-- Prefer update_existing when the reasoner found an existing page match.
+- Prefer update_existing when the analysis found an existing page match.
 - Drop weak, duplicate, or unsupported candidates.
 - Return `suggestions: []` when no durable page is justified.
 """
