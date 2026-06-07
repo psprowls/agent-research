@@ -194,7 +194,7 @@ async def _run_package_reader_pass(
     for uri, candidate in sorted(candidate_pages.items()):
         page_path = candidate.page_path
         try:
-            post = frontmatter.load(page_path)
+            post = frontmatter.load(str(page_path))
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{uri}: package_reader page load failed: {exc!r}")
             continue
