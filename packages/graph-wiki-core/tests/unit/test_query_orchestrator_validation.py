@@ -257,6 +257,43 @@ def test_stale_only_claim_support_requires_gap_or_uncertainty_note() -> None:
     validate_orchestrator_output(output_with_gap, require_stale_claim_gaps=True)
 
 
+def test_parse_orchestrator_output_can_require_stale_claim_gaps() -> None:
+    payload = _valid_payload()
+    payload["evidence"] = [
+        {
+            "id": "ev1",
+            "source_type": "wiki",
+            "path": "wiki/entities/scanner.md",
+            "freshness": "stale",
+            "staleness_reason": "Wiki page predates current HEAD.",
+            "excerpt": "Scanner-owned entity pages are refreshed during scan.",
+            "line_refs": ["wiki/entities/scanner.md:12"],
+        }
+    ]
+
+    with pytest.raises(OrchestratorValidationError, match="stale"):
+        parse_orchestrator_output(payload, require_stale_claim_gaps=True)
+
+
+def test_stale_only_claim_support_does_not_treat_month_name_as_uncertainty() -> None:
+    payload = _valid_payload()
+    payload["answer_markdown"] = "May 2026: stale wiki evidence says the scanner writes entity pages."
+    payload["evidence"] = [
+        {
+            "id": "ev1",
+            "source_type": "wiki",
+            "path": "wiki/entities/scanner.md",
+            "freshness": "stale",
+            "staleness_reason": "Wiki page predates current HEAD.",
+            "excerpt": "Scanner-owned entity pages are refreshed during scan.",
+            "line_refs": ["wiki/entities/scanner.md:12"],
+        }
+    ]
+
+    with pytest.raises(OrchestratorValidationError, match="stale"):
+        parse_orchestrator_output(payload, require_stale_claim_gaps=True)
+
+
 def test_stale_only_claim_support_allows_uncertainty_wording_without_gap() -> None:
     payload = _valid_payload()
     payload["evidence"] = [

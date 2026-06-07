@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -20,7 +21,7 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "gaps",
     "confidence",
 }
-UNCERTAINTY_WORDS = ("uncertain", "uncertainty", "stale", "may", "might", "appears", "suggests", "possibly")
+UNCERTAINTY_WORDS = ("uncertain", "uncertainty", "may", "might", "appears", "suggests", "possibly")
 FrozenValue = Mapping[str, Any] | tuple[Any, ...] | str | int | float | bool | None
 
 
@@ -63,8 +64,17 @@ class OrchestratorOutput:
     confidence: str
 
 
-def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
-    """Parse a raw model payload into an OrchestratorOutput and validate it."""
+def parse_orchestrator_output(
+    raw: str | dict[str, Any],
+    *,
+    require_stale_claim_gaps: bool = False,
+) -> OrchestratorOutput:
+    """Parse raw orchestrator output and validate its structured contract.
+
+    Parsing always performs structural and cross-reference validation. Pass
+    require_stale_claim_gaps=True to also require stale-only claim support to
+    include an explicit gap or uncertainty wording.
+    """
 
     if isinstance(raw, str):
         try:
@@ -88,7 +98,7 @@ def parse_orchestrator_output(raw: str | dict[str, Any]) -> OrchestratorOutput:
         gaps=_parse_gaps(payload["gaps"]),
         confidence=_required_non_empty_str(payload, "confidence"),
     )
-    validate_orchestrator_output(output, require_stale_claim_gaps=False)
+    validate_orchestrator_output(output, require_stale_claim_gaps=require_stale_claim_gaps)
     return output
 
 
@@ -266,4 +276,10 @@ def _is_stale_only_claim(row: AnswerEvidenceMap, evidence_by_id: dict[str, Orche
 
 def _contains_uncertainty_note(answer_markdown: str) -> bool:
     answer_lower = answer_markdown.lower()
-    return any(word in answer_lower for word in UNCERTAINTY_WORDS)
+    return any(_contains_uncertainty_word(answer_lower, word) for word in UNCERTAINTY_WORDS)
+
+
+def _contains_uncertainty_word(answer_lower: str, word: str) -> bool:
+    if word == "may":
+        return re.search(r"\bmay\b(?!\s+\d{4}\b)", answer_lower) is not None
+    return re.search(rf"\b{re.escape(word)}\b", answer_lower) is not None
