@@ -10,11 +10,12 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 import frontmatter
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 
+from graph_wiki_core.agent_loop import run_tool_loop
 from graph_wiki_core.agent_tools import (
     body_without_frontmatter,
     build_wiki_catalog,
@@ -27,6 +28,7 @@ from graph_wiki_core.agent_tools import (
 from graph_wiki_core.commands.query import _read_file_bounded
 from graph_wiki_core.prompts.code_reader import ORCHESTRATED_CODE_READER_SYSTEM
 from graph_wiki_core.prompts.librarian import LIBRARIAN_SYSTEM
+from graph_wiki_core.prompts.query_orchestrator import QUERY_ORCHESTRATOR_SYSTEM
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}
@@ -41,6 +43,8 @@ MAX_ORCHESTRATOR_WIKI_PAGE_CHARS = 40_000
 MAX_ORCHESTRATOR_SEARCH_ROWS = 20
 MAX_WORKER_WIKI_PAGE_CHARS = 80_000
 ORCHESTRATED_CODE_READER_MAX_ITERS = 5
+MAX_ORCHESTRATOR_TOOL_ITERS = 5
+MAX_ORCHESTRATOR_WORKER_BATCHES = 5
 ALLOWED_ORCHESTRATOR_GRAPH_TOOL_NAMES = {"cg_find", "cg_describe"}
 REQUIRED_TOP_LEVEL_KEYS = {
     "answer_markdown",
@@ -130,6 +134,231 @@ class OrchestratorOutput:
     worker_results: tuple[Mapping[str, Any], ...]
     gaps: list[EvidenceGap]
     confidence: str
+
+
+@dataclass(frozen=True)
+class QueryOrchestratorResult:
+    output: OrchestratorOutput
+    trace_metadata: Mapping[str, Any]
+
+
+async def run_query_orchestrator(
+    *,
+    query: str,
+    wiki_root: Path,
+    repo_root: Path | None,
+    initial_candidates: list[InitialCandidate] | tuple[InitialCandidate, ...],
+    graph_tools: list[BaseTool],
+    trace_dir: Path,
+    role_model_overrides: Mapping[str, str] | None = None,
+) -> QueryOrchestratorResult:
+    """Run the bounded query-orchestration loop with safe degradation."""
+
+    overrides = role_model_overrides or {}
+    context = build_orchestrator_context(
+        query=query,
+        wiki=wiki_root,
+        repo_root=repo_root,
+        initial_candidates=initial_candidates,
+        graph_tools=graph_tools,
+    )
+    tools = build_orchestrator_tools(wiki=wiki_root, graph_tools=graph_tools)
+    llm = make_llm("query_orchestrator", model_override=overrides.get("query_orchestrator"))
+    messages: list[Any] = [
+        SystemMessage(content=QUERY_ORCHESTRATOR_SYSTEM),
+        HumanMessage(content=_orchestrator_context_prompt(context)),
+    ]
+    trace_metadata: dict[str, Any] = {
+        "status": "ok",
+        "worker_batches": 0,
+        "graph_tools_available": context.graph_tools_available,
+        "graph_tool_names": list(context.graph_tool_names),
+    }
+
+    for batch_index in range(MAX_ORCHESTRATOR_WORKER_BATCHES + 1):
+        try:
+            loop_result = await run_tool_loop(
+                llm=llm,
+                tools=tools,
+                messages=messages,
+                max_iterations=MAX_ORCHESTRATOR_TOOL_ITERS,
+                cap_label="query orchestrator",
+            )
+        except Exception as exc:
+            return _degraded_result(
+                query=query,
+                status="tool_loop_error",
+                error=f"{type(exc).__name__}: {exc}",
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+            )
+
+        if loop_result.status != "ok":
+            return _degraded_result(
+                query=query,
+                status="tool_loop_failed",
+                error=loop_result.error or loop_result.status,
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+            )
+
+        try:
+            output = parse_orchestrator_output(loop_result.final_text, require_stale_claim_gaps=True)
+        except OrchestratorValidationError as exc:
+            return _degraded_result(
+                query=query,
+                status=_degradation_status_for_validation_error(exc),
+                error=str(exc),
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+            )
+
+        if not output.worker_plan:
+            trace_metadata["status"] = "ok"
+            if loop_result.error:
+                trace_metadata["tool_loop_error"] = loop_result.error
+            return QueryOrchestratorResult(output=output, trace_metadata=MappingProxyType(trace_metadata))
+
+        if batch_index >= MAX_ORCHESTRATOR_WORKER_BATCHES:
+            return _degraded_result(
+                query=query,
+                status="capped",
+                error=f"worker batch cap reached ({MAX_ORCHESTRATOR_WORKER_BATCHES})",
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+            )
+
+        try:
+            worker_tasks = parse_worker_tasks(output.worker_plan)
+        except OrchestratorValidationError as exc:
+            return _degraded_result(
+                query=query,
+                status="validation_error",
+                error=str(exc),
+                worker_batches=trace_metadata["worker_batches"],
+                graph_tools_available=context.graph_tools_available,
+                graph_tool_names=context.graph_tool_names,
+            )
+
+        worker_results = await run_worker_batch(
+            worker_tasks,
+            query=query,
+            wiki_root=wiki_root,
+            repo_root=repo_root,
+            trace_dir=trace_dir,
+            role_model_overrides=role_model_overrides,
+        )
+        trace_metadata["worker_batches"] += 1
+        messages.append(AIMessage(content=loop_result.final_text))
+        messages.append(
+            HumanMessage(
+                content=(
+                    f"Worker batch {trace_metadata['worker_batches']} results:\n"
+                    f"{json.dumps(_jsonable(worker_results), indent=2, sort_keys=True)}\n\n"
+                    "Use these results to continue. Return final JSON with an empty worker_plan when sufficient."
+                )
+            )
+        )
+
+    return _degraded_result(
+        query=query,
+        status="capped",
+        error=f"worker batch cap reached ({MAX_ORCHESTRATOR_WORKER_BATCHES})",
+        worker_batches=trace_metadata["worker_batches"],
+        graph_tools_available=context.graph_tools_available,
+        graph_tool_names=context.graph_tool_names,
+    )
+
+
+def degraded_output(query: str, *, reason: str) -> OrchestratorOutput:
+    """Build a valid low-confidence output for orchestrator failure paths."""
+
+    return OrchestratorOutput(
+        answer_markdown=f"Insufficient evidence to answer safely. {reason}",
+        citations=[],
+        evidence=[],
+        answer_evidence_map=[],
+        worker_plan=(),
+        worker_results=(),
+        gaps=[
+            EvidenceGap(
+                question=query,
+                reason=reason,
+            )
+        ],
+        confidence="low",
+    )
+
+
+def _degraded_result(
+    *,
+    query: str,
+    status: str,
+    error: str,
+    worker_batches: int,
+    graph_tools_available: bool,
+    graph_tool_names: tuple[str, ...],
+) -> QueryOrchestratorResult:
+    return QueryOrchestratorResult(
+        output=degraded_output(query, reason=error),
+        trace_metadata=MappingProxyType(
+            {
+                "status": status,
+                "error": error,
+                "worker_batches": worker_batches,
+                "graph_tools_available": graph_tools_available,
+                "graph_tool_names": list(graph_tool_names),
+            }
+        ),
+    )
+
+
+def _degradation_status_for_validation_error(exc: OrchestratorValidationError) -> str:
+    if str(exc).startswith("Invalid JSON"):
+        return "invalid_json"
+    return "validation_error"
+
+
+def _orchestrator_context_prompt(context: OrchestratorContext) -> str:
+    payload = {
+        "query": context.query,
+        "wiki_root": context.wiki_root.as_posix(),
+        "repo_root": context.repo_root.as_posix() if context.repo_root is not None else None,
+        "initial_candidates": [
+            {
+                "path": candidate.path,
+                "score": candidate.score,
+                "excerpt": candidate.excerpt,
+                "freshness": candidate.freshness,
+                "staleness_reason": candidate.staleness_reason,
+            }
+            for candidate in context.initial_candidates
+        ],
+        "graph_tools_available": context.graph_tools_available,
+        "graph_tool_names": list(context.graph_tool_names),
+        "worker_capabilities": _jsonable(context.worker_capabilities),
+        "answer_contract": _jsonable(context.answer_contract),
+        "worker_batch_cap": MAX_ORCHESTRATOR_WORKER_BATCHES,
+    }
+    return (
+        "Answer the user query using the supplied context and tools. "
+        "Return exactly one JSON object matching the contract.\n\n"
+        f"{json.dumps(payload, indent=2, sort_keys=True)}"
+    )
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Path):
+        return value.as_posix()
+    return value
 
 
 def build_orchestrator_context(
