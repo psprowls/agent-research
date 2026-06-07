@@ -59,7 +59,7 @@ def test_build_report_pass_fail_counts(tmp_path: Path):
     _write_run(runs_dir / "s2" / "base" / "101", "s2", "base", True)
     _write_run(runs_dir / "s3" / "base" / "102", "s3", "base", False)
 
-    md, data = build_report(runs_dir=runs_dir, runset_name="test")
+    _, data = build_report(runs_dir=runs_dir, runset_name="test")
     passed = sum(1 for r in data if r.get("verify_passed"))
     assert passed == 2
 
