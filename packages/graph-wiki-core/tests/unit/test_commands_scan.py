@@ -469,3 +469,59 @@ def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path:
     monkeypatch.setattr(scan_mod, "_run_package_reader_pass", explode_package_reader)
 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
+
+
+async def test_run_package_reader_pass_keeps_page_load_errors_best_effort(monkeypatch, tmp_path: Path) -> None:
+    import graph_wiki_core.commands.scan as scan_mod
+
+    wiki = tmp_path / "workspace" / "wiki"
+    repo = tmp_path / "workspace" / "repo"
+    wiki.mkdir(parents=True)
+    repo.mkdir()
+
+    missing_page = wiki / "entities" / "missing.md"
+    valid_page = wiki / "entities" / "valid.md"
+    valid_page.parent.mkdir(parents=True, exist_ok=True)
+    valid_page.write_text(
+        "---\nkind: package\nuri: package:valid\ntitle: Valid Package\n---\n\n## Narrative\nAlready filled prose.\n",
+        encoding="utf-8",
+    )
+    seen_paths: list[Path] = []
+    real_frontmatter_load = scan_mod.frontmatter.load
+
+    def tracking_frontmatter_load(path):
+        seen_paths.append(Path(path))
+        return real_frontmatter_load(path)
+
+    class _UnusedPool:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("pool should not be constructed when there are no valid TODO items")
+
+    monkeypatch.setattr(scan_mod.frontmatter, "load", tracking_frontmatter_load)
+    monkeypatch.setattr(
+        scan_mod,
+        "_bedrock_stack",
+        lambda: (
+            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
+            lambda role, model_override=None: object(),
+            _UnusedPool,
+            object,
+        ),
+    )
+
+    filled, errors = await scan_mod._run_package_reader_pass(
+        wiki=wiki,
+        repo=repo,
+        conn=None,
+        model_override=None,
+        candidate_pages={
+            "package:missing": missing_page,
+            "package:valid": valid_page,
+        },
+    )
+
+    assert filled == set()
+    assert seen_paths == [missing_page, valid_page]
+    assert errors == [
+        "package:missing: package_reader page load failed: FileNotFoundError(2, 'No such file or directory')"
+    ]

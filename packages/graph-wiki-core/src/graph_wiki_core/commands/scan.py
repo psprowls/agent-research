@@ -187,16 +187,22 @@ async def _run_package_reader_pass(
     load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
 
     graph_tools = build_graph_tools(conn) if conn is not None else []
+    errors: list[str] = []
     items: list[tuple[str, Path, PackageReaderItem]] = []
     for uri, page_path in sorted(candidate_pages.items()):
         try:
             post = frontmatter.load(page_path)
         except Exception as exc:  # noqa: BLE001
-            return set(), [f"{uri}: package_reader page load failed: {exc!r}"]
+            errors.append(f"{uri}: package_reader page load failed: {exc!r}")
+            continue
         kind = str(post.metadata.get("kind") or "")
         if kind not in PACKAGE_READER_TARGET_KINDS:
             continue
-        page_text = page_path.read_text(encoding="utf-8", errors="replace")
+        try:
+            page_text = page_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{uri}: package_reader page read failed: {exc!r}")
+            continue
         todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
         if not todo_sections:
             continue
@@ -220,7 +226,7 @@ async def _run_package_reader_pass(
         items.append((uri, page_path, item))
 
     if not items:
-        return set(), []
+        return set(), errors
 
     cfg = load_role_config_fn("package_reader")
     llm = make_llm_fn("package_reader", model_override=model_override)
@@ -239,7 +245,6 @@ async def _run_package_reader_pass(
         max_concurrency=cfg["max_concurrency"],
     )
     filled: set[str] = set()
-    errors: list[str] = []
     for item_tuple, result in fanout.successes:
         uri, page_path, _reader_item = item_tuple
         if result.error:
