@@ -1,6 +1,6 @@
 {
     "name": "graph-wiki",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Build and maintain a persistent, cross-referenced markdown wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Builds a code graph and renders one page per entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into a single entities/ folder, then keeps it current as the code evolves. This is the Claude Code host path; gw from graph-wiki-cli is the parallel Bedrock CLI companion over the same wiki-io surface.",
     "author": {
         "name": "Patrick Sprowls"
