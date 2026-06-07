@@ -1,0 +1,15 @@
+name: smoke-readme
+description: Agent reads README and answers a question
+isolation_mode: worktree
+target_repo: ~/Personal/my-repo
+baseline_sha: abc1234
+configs: [base]
+mode: headless
+eval_mode: qa
+verify:
+  - kind: script
+    path: verify.sh
+budgets:
+  max_turns: 10
+  max_input_tokens: 50000
+  max_wall_seconds: 120
