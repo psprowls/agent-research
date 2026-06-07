@@ -1,0 +1,25 @@
+name: wiki-api-client
+description: >
+  Agent must use the project's sanctioned domain HTTP client (TimelineApiClient)
+  to fetch timeline data. Without wiki context the agent copies the raw-axios
+  pattern visible in nextauth-api.ts and fails the rubric.
+isolation_mode: worktree
+target_repo: ~/Personal/mono-repo
+baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652
+configs: [base]
+mode: headless
+eval_mode: implement
+preflight: preflight.sh
+verify:
+  - kind: script
+    path: verify.sh
+  - kind: rubric
+    path: rubric.md
+    pass_threshold: 4.0
+budgets:
+  max_turns: 40
+  max_input_tokens: 4000000
+  max_wall_seconds: 300
+metrics:
+  tool_shape: true
+  judge_qualitative: false
