@@ -32,7 +32,7 @@ ASSISTANT_EVENT = {
 def test_run_one_shot_success(tmp_path: Path):
     proc = _make_fake_proc([ASSISTANT_EVENT, RESULT_EVENT])
     with patch("subprocess.Popen", return_value=proc):
-        result, jsonl = run_one_shot(
+        result, _ = run_one_shot(
             prompt="Do something",
             worktree_path=tmp_path,
             cfg_dir=tmp_path,

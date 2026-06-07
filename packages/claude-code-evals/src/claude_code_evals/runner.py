@@ -41,11 +41,9 @@ class RunResult:
 def _build_cmd(
     *,
     prompt: str,
-    worktree_path: Path,
     cfg_dir: Path,
     system_prompt: str,
     model: str,
-    extra_env: dict[str, str] | None,
     multi_turn: bool = False,
 ) -> list[str]:
     """Build subprocess command list. Security: always a list, prompt is final element."""
@@ -77,17 +75,15 @@ def run_one_shot(
     model: str = "claude-sonnet-4-6",
     extra_env: dict[str, str] | None = None,
     max_wall_seconds: float = 300.0,
-    max_input_tokens: int = 100_000,
+    _max_input_tokens: int = 100_000,
 ) -> tuple[RunResult, str]:
     """Run claude -p one-shot. Returns (RunResult, raw_jsonl_string)."""
     env = _build_env(extra_env)
     cmd = _build_cmd(
         prompt=prompt,
-        worktree_path=worktree_path,
         cfg_dir=cfg_dir,
         system_prompt=system_prompt,
         model=model,
-        extra_env=extra_env,
     )
 
     proc = subprocess.Popen(
@@ -144,19 +140,17 @@ def run_multi_turn(
     simulator: AutoUserSimulator,
     model: str = "claude-sonnet-4-6",
     extra_env: dict[str, str] | None = None,
-    max_turns: int = 20,
+    _max_turns: int = 20,
     max_wall_seconds: float = 300.0,
-    max_input_tokens: int = 100_000,
+    _max_input_tokens: int = 100_000,
 ) -> tuple[RunResult, str]:
     """Run claude -p in multi-turn mode driven by AutoUserSimulator."""
     env = _build_env(extra_env)
     cmd = _build_cmd(
         prompt=prompt,
-        worktree_path=worktree_path,
         cfg_dir=cfg_dir,
         system_prompt=system_prompt,
         model=model,
-        extra_env=extra_env,
         multi_turn=True,
     )
 
