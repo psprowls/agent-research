@@ -48,7 +48,7 @@ def test_assert_scenario_with_passing_verifier(tmp_path: Path):
     class AlwaysPass(VerifierBase):
         """A simple verifier that always passes."""
 
-        def measure(self, tc: LLMTestCase) -> float:
+        def measure(self, _tc: LLMTestCase) -> float:
             self.score = 1.0
             self.reason = "ok"
             return 1.0
