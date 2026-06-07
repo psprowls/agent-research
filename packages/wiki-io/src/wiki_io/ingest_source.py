@@ -134,9 +134,7 @@ def extract(path: Path) -> tuple[str, str | None]:
 
 # Source-type model (source-type-consolidation design 2026-06-05). One closed
 # enum on every Source page; `note` is the catch-all (no `unknown`, no `rfc`).
-SOURCE_TYPE_ENUM = frozenset(
-    {"spec", "article", "pr", "ticket", "transcript", "example", "doc", "note"}
-)
+SOURCE_TYPE_ENUM = frozenset({"spec", "article", "pr", "ticket", "transcript", "example", "doc", "note"})
 # The subset a `raw/<type>/` folder produces authoritatively. The LLM cannot
 # override these — see run_ingest_source / build_ingest_brief.
 RAW_FOLDER_TYPES = frozenset({"spec", "article", "pr", "ticket", "transcript", "example"})

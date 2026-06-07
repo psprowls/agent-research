@@ -83,5 +83,4 @@ class DomainArgs(FormatArgs, Protocol):
 
 
 class AnyRunModule(Protocol):
-    def run(self, args: Any) -> int:
-        ...
+    def run(self, args: Any) -> int: ...

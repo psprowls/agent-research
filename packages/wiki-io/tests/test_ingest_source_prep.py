@@ -117,9 +117,7 @@ def test_build_ingest_brief_no_entity_match_has_null_fields(tmp_path: Path, monk
     assert brief["entity_match"] == {"uri": None, "entity_filename": None}
 
 
-def test_build_ingest_brief_raw_folder_is_authoritative(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_ingest_brief_raw_folder_is_authoritative(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A source under <workspace>/raw/specs/ resolves to source_type 'spec'
     (raw/ is a sibling of wiki/, so the guess is measured from the workspace
     root, not the wiki dir)."""

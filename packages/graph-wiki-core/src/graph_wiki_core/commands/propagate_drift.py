@@ -61,6 +61,7 @@ def _bedrock_stack() -> tuple[Any, Any, type["SubagentPoolType"], type["TaskResu
         cast(type["TaskResultType"], TaskResult),
     )
 
+
 # M4's per-entity provenance anchor (new key; preserved across re-scan; NOT in
 # SCANNER_OWNED_KEYS — see .claude/rules/backward-compatibility.md, Task 10).
 DRIFT_PROPAGATED_COMMIT_KEY = "drift_propagated_commit"

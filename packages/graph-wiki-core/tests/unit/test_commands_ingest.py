@@ -118,9 +118,7 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
     wiki.mkdir()
     (wiki / "log.md").write_text("", encoding="utf-8")
 
-    fake_llm_response = (
-        "---\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
-    )
+    fake_llm_response = "---\ntarget_slug: foo\ntitle: My Source\nsummary: A test concept\n---\n\nBody text here."
 
     _seed_graph_db_for_ingest_tests(wiki, packages=[])
 
@@ -1098,9 +1096,7 @@ async def test_run_ingest_source_always_routes_to_sources_even_if_llm_says_adr(
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
     # LLM claims adr (page_type ignored — every ingest lands under sources/).
-    fake_llm_response = (
-        "---\ntitle: A Decision\npage_type: adr\ntarget_slug: a-decision\nsummary: x\n---\nBody."
-    )
+    fake_llm_response = "---\ntitle: A Decision\npage_type: adr\ntarget_slug: a-decision\nsummary: x\n---\nBody."
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
