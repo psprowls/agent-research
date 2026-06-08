@@ -20,6 +20,7 @@ from claude_code_evals.runner import (
     run_one_shot,
 )
 from claude_code_evals.schemas import Config, Scenario
+from claude_code_evals.stderr_logger import EvalLogger
 from claude_code_evals.transcript import Transcript, parse_transcript
 from claude_code_evals.verify.base import VerifierBase
 from claude_code_evals.verify.golden import GoldenVerifier
@@ -59,6 +60,18 @@ def run_one(
     keep_worktree: bool = False,
 ) -> ScenarioRunResult:
     """Execute one (scenario × config) run and return results."""
+    logger = EvalLogger("orchestrator_scenario_start")
+    logger.log_dict(
+        "Scenario execution starting",
+        {
+            "scenario": scenario.name,
+            "config": config.name,
+            "model": config.model,
+            "eval_mode": scenario.eval_mode,
+            "isolation_mode": scenario.isolation_mode,
+        },
+    )
+
     # Fail fast: GoldenVerifier is incompatible with fixture isolation
     for ve in scenario.verify:
         if ve.kind == "golden" and scenario.isolation_mode == "fixture":
@@ -76,6 +89,9 @@ def run_one(
     IsoClass = WorktreeIsolation if scenario.isolation_mode == "worktree" else FixtureIsolation
 
     with IsoClass(scenario, config, keep=keep_worktree) as iso:
+        logger = EvalLogger("orchestrator_isolation_entered")
+        logger.log("Isolation context entered", scenario=scenario.name)
+
         # Preflight
         preflight_log = ""
         if scenario.preflight:
@@ -88,6 +104,12 @@ def run_one(
             )
             preflight_log = result.stdout + result.stderr
 
+            logger = EvalLogger("orchestrator_preflight")
+            if result.returncode == 0:
+                logger.log("Preflight script passed", preflight=scenario.preflight)
+            else:
+                logger.log("Preflight script failed", preflight=scenario.preflight, return_code=result.returncode)
+
         if dry_run:
             run_result = RunResult(final_status="dry_run", budget_exceeded=False, wall_seconds=0.0)
             raw_jsonl = ""
@@ -98,6 +120,9 @@ def run_one(
                     "long-lived subscription token and export it as CLAUDE_CODE_OAUTH_TOKEN "
                     "(this bills your subscription, not API credits)."
                 )
+            logger = EvalLogger("orchestrator_runner_start")
+            logger.log("Invoking runner", model=config.model)
+
             run_result, raw_jsonl = run_one_shot(
                 prompt=scenario_prompt,
                 worktree_path=iso.worktree_path,
@@ -199,6 +224,18 @@ def run_one(
         )
         if preflight_log:
             (run_dir / "preflight.log").write_text(preflight_log)
+
+        logger = EvalLogger("orchestrator_scenario_complete")
+        logger.log_dict(
+            "Scenario execution complete",
+            {
+                "scenario": scenario.name,
+                "config": config.name,
+                "final_status": run_result.final_status,
+                "error_reason": run_result.error_reason,
+                "wall_seconds": run_result.wall_seconds,
+            },
+        )
 
         return ScenarioRunResult(
             scenario=scenario,
