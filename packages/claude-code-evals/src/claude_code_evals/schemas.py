@@ -6,7 +6,23 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class Discriminator(BaseModel):
+    """Per-scenario verdict type for three-arm eval.
+
+    Attributes:
+        type: One of 'correctness-gated', 'efficiency-gated', 'impossible-without-wiki'.
+        metric: For efficiency-gated only; metric to compare (e.g. 'files_read_count').
+        min_improvement_pct: For efficiency-gated only; wiki arm must beat base by this %.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["correctness-gated", "efficiency-gated", "impossible-without-wiki"]
+    metric: str | None = None
+    min_improvement_pct: float | None = None
 
 
 class VerifyEntry(BaseModel):
@@ -58,6 +74,18 @@ class Scenario(BaseModel):
     verify: list[VerifyEntry] = []
     metrics: MetricsConfig = MetricsConfig()
     budgets: Budgets = Budgets()
+    discriminator: Discriminator | None = None
+    inject: list[str] = Field(default_factory=list)
+
+    @field_validator("discriminator", mode="before")
+    @classmethod
+    def validate_discriminator(cls, v: Any) -> Discriminator | None:
+        """Convert dict to Discriminator using Pydantic validation."""
+        if v is None:
+            return None
+        if isinstance(v, Discriminator):
+            return v
+        return Discriminator.model_validate(v)
 
     @model_validator(mode="after")
     def _check_isolation(self) -> "Scenario":
