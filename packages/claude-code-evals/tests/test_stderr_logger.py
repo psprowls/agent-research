@@ -1,3 +1,5 @@
+import json
+
 from claude_code_evals.stderr_logger import EvalLogger, set_logger_enabled
 
 
@@ -47,3 +49,55 @@ def test_logger_with_enabled_false_no_output(monkeypatch, capsys):
 
     # Restore for other tests
     set_logger_enabled(True)
+
+
+def test_logger_with_non_serializable_kwargs(capsys):
+    """Verify logger handles non-JSON-serializable kwargs gracefully.
+
+    When logger.log() is called with a non-serializable object, the logger should not crash
+    and should output valid JSON with an error message instead.
+    """
+    set_logger_enabled(True)
+    logger = EvalLogger("test_context")
+
+    # Log with a non-serializable object (function)
+    logger.log("message with non-serializable", obj=lambda x: x)
+
+    captured = capsys.readouterr()
+    # Verify output is present and valid JSON
+    assert len(captured.err) > 0
+    lines = captured.err.strip().split("\n")
+    assert len(lines) > 0
+
+    # Parse the JSON to verify it's valid
+    parsed = json.loads(lines[0])
+    assert "context" in parsed
+    assert "timestamp" in parsed
+    # Should have either the error message or the original message
+    assert "error" in parsed or "message" in parsed
+
+
+def test_logger_dict_with_non_serializable_data(capsys):
+    """Verify logger_dict handles non-JSON-serializable data gracefully.
+
+    When log_dict() is called with a dict containing non-serializable values,
+    the logger should not crash and should output valid JSON with an error message.
+    """
+    set_logger_enabled(True)
+    logger = EvalLogger("test_context")
+
+    # Log a dict with a non-serializable value
+    logger.log_dict("Data with function", {"key": "value", "func": lambda x: x})
+
+    captured = capsys.readouterr()
+    # Verify output is present and valid JSON
+    assert len(captured.err) > 0
+    lines = captured.err.strip().split("\n")
+    assert len(lines) > 0
+
+    # Parse the JSON to verify it's valid
+    parsed = json.loads(lines[0])
+    assert "context" in parsed
+    assert "timestamp" in parsed
+    # Should indicate an error occurred
+    assert "error" in parsed or "title" in parsed

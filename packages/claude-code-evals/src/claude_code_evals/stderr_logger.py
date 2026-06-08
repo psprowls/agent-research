@@ -1,4 +1,9 @@
-"""Structured stderr logging for eval instrumentation."""
+"""Structured stderr logging for eval instrumentation.
+
+Thread-safety note: This module is not thread-safe and should only be used in single-threaded
+contexts (which is the case for pytest-based eval runs). The global _ENABLED state is accessed
+without synchronization.
+"""
 
 import json
 import os
@@ -27,7 +32,11 @@ class EvalLogger:
         self.context = context
 
     def _should_log(self) -> bool:
-        """Check if logging is enabled, respecting both global state and env var."""
+        """Check if logging is enabled, respecting both global state and env var.
+
+        Returns:
+            bool: True if logging should proceed, False otherwise.
+        """
         # Check if global state says logging is disabled
         if not _ENABLED:
             return False
@@ -40,13 +49,35 @@ class EvalLogger:
         return True
 
     def _write_log(self, log_entry: dict) -> None:
-        """Write a single log entry as JSON to stderr."""
+        """Write a single log entry as JSON to stderr.
+
+        If the log entry contains non-JSON-serializable data, a fallback error entry is written
+        instead to ensure some output is always produced.
+        """
         try:
-            json.dump(log_entry, sys.stderr)
+            # Pre-validate serialization before writing to stderr
+            json_str = json.dumps(log_entry)
+            sys.stderr.write(json_str)
             sys.stderr.write("\n")
             sys.stderr.flush()
-        except Exception:
-            # Silently ignore logging errors to avoid disrupting eval flow
+        except TypeError:
+            # Handle non-serializable objects in log_entry
+            fallback_entry = {
+                "timestamp": log_entry.get("timestamp", "unknown"),
+                "context": log_entry.get("context", "unknown"),
+                "error": "Log entry contained non-JSON-serializable data; check kwargs for objects",
+                "message": str(log_entry.get("message", "")),
+            }
+            try:
+                sys.stderr.write(json.dumps(fallback_entry))
+                sys.stderr.write("\n")
+                sys.stderr.flush()
+            except Exception:
+                # Last resort: write a minimal safe message
+                sys.stderr.write('{"error":"Failed to serialize log entry"}\n')
+                sys.stderr.flush()
+        except OSError:
+            # Ignore I/O errors to avoid disrupting eval flow
             pass
 
     def log(self, message: str, **kwargs) -> None:
