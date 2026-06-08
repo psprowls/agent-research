@@ -65,7 +65,7 @@ unfair (wiki describing different code than the agent sees).
 
 - The finished wiki is **rsynced to a separate frozen directory**
   `~/Personal/graph-wiki/mono-repo-eval-551f7ed8/` with its own git repo and tag
-  `eval-baseline-551f7ed8` (commit `227fc939f93e62d7bbd9a9fe1960e58ea72a9d69`).
+  `eval-baseline-551f7ed8` (commit `a91fad06dbaa341c6469895c45b1431c2f81e710`).
   Built at mono-repo HEAD `4f57eed5`, whose source tree is byte-identical to `551f7ed8`
   (only `graph-wiki/`, `.claude/settings.json`, `.code-workspace` differ — no source changed).
   The `plugin` arm passes `--add-dir ~/Personal/graph-wiki/mono-repo-eval-551f7ed8` and
