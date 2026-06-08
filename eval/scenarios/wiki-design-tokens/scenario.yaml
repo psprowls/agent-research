@@ -20,6 +20,10 @@ budgets:
   max_turns: 40
   max_input_tokens: 4000000
   max_wall_seconds: 300
+discriminator:
+  type: correctness-gated
+inject:
+  - concepts/design-tokens.md
 metrics:
   tool_shape: true
   judge_qualitative: false

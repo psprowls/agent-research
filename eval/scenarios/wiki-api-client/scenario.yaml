@@ -20,6 +20,12 @@ budgets:
   max_turns: 40
   max_input_tokens: 4000000
   max_wall_seconds: 300
+discriminator:
+  type: efficiency-gated
+  metric: files_read_count
+  min_improvement_pct: 40
+inject:
+  - concepts/shared-api-client.md
 metrics:
   tool_shape: true
   judge_qualitative: false
