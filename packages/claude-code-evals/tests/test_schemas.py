@@ -113,3 +113,57 @@ def test_verify_entry_rubric_fields():
     )
     assert v.pass_threshold == 4
     assert v.judge == "claude-haiku-4-5-20251001"
+
+
+def test_scenario_discriminator_correctness_gated():
+    """Test scenario with correctness-gated discriminator (no metric/min_improvement_pct)."""
+    s = Scenario.model_validate(
+        {
+            "name": "correctness-test",
+            "isolation_mode": "worktree",
+            "target_repo": "~/repo",
+            "baseline_sha": "abc1234",
+            "discriminator": {
+                "type": "correctness-gated",
+            },
+        }
+    )
+    assert s.discriminator is not None
+    assert s.discriminator.type == "correctness-gated"
+    assert s.discriminator.metric is None
+    assert s.discriminator.min_improvement_pct is None
+
+
+def test_scenario_discriminator_efficiency_gated():
+    """Test scenario with efficiency-gated discriminator (includes metric and min_improvement_pct)."""
+    s = Scenario.model_validate(
+        {
+            "name": "efficiency-test",
+            "isolation_mode": "worktree",
+            "target_repo": "~/repo",
+            "baseline_sha": "abc1234",
+            "discriminator": {
+                "type": "efficiency-gated",
+                "metric": "tokens_used",
+                "min_improvement_pct": 5.0,
+            },
+        }
+    )
+    assert s.discriminator is not None
+    assert s.discriminator.type == "efficiency-gated"
+    assert s.discriminator.metric == "tokens_used"
+    assert s.discriminator.min_improvement_pct == 5.0
+
+
+def test_scenario_with_inject():
+    """Test scenario with inject list."""
+    s = Scenario.model_validate(
+        {
+            "name": "inject-test",
+            "isolation_mode": "worktree",
+            "target_repo": "~/repo",
+            "baseline_sha": "abc1234",
+            "inject": ["file1.txt", "file2.txt"],
+        }
+    )
+    assert s.inject == ["file1.txt", "file2.txt"]
