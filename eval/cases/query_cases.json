@@ -1,26 +1,30 @@
 [
   {
-    "case_id": "pkg-lookup-01",
-    "query": "What does lattice-wiki-core do?",
-    "expected_answer": "lattice-wiki-core provides the core wiki maintenance logic",
-    "tags": ["package-lookup"]
+    "case_id": "librarian-eval-harness-01",
+    "query": "What does eval-harness do?",
+    "expected_answer": "eval-harness owns the per-role divergence checks, judge rubrics, two-gate scoring protocol, and model-sweep runner; it reads prompt-sources role definitions and uses subagent-runtime trace records for token accounting.",
+    "expected_citations": ["entities/pkg_eval-harness", "entities/pkg_prompt-sources", "entities/pkg_subagent-runtime"],
+    "tags": ["package-lookup", "post-rebrand", "librarian"]
   },
   {
-    "case_id": "concept-01",
-    "query": "How does the wiki index work?",
-    "expected_answer": "the wiki index tracks package pages and enables BM25 search",
-    "tags": ["concept"]
+    "case_id": "librarian-wiki-io-01",
+    "query": "How does wiki-io support the wiki index, search, and write layer?",
+    "expected_answer": "wiki-io is the on-disk vault layer: it parses YAML frontmatter, writes canonical pages through layout IO, maintains BM25 search support, runs wiki lint checks, and regenerates index.md with update_index while delegating path resolution to workspace-io.",
+    "expected_citations": ["entities/pkg_wiki-io", "entities/pkg_workspace-io"],
+    "tags": ["concept", "post-rebrand", "librarian"]
   },
   {
-    "case_id": "cross-ref-01",
-    "query": "Which packages use lattice-source-parser?",
-    "expected_answer": "lattice-wiki-core uses lattice-source-parser for source ingestion",
-    "tags": ["cross-reference"]
+    "case_id": "librarian-subagent-consumers-01",
+    "query": "Which packages consume subagent-runtime, and for what?",
+    "expected_answer": "graph-wiki-core consumes subagent-runtime for bounded Bedrock fan-out in shared scan and query orchestration, and eval-harness consumes subagent-runtime trace records for token accounting.",
+    "expected_citations": ["entities/pkg_graph-wiki-core", "entities/pkg_subagent-runtime", "entities/pkg_eval-harness"],
+    "tags": ["cross-reference", "post-rebrand", "librarian"]
   },
   {
-    "case_id": "format-01",
-    "query": "What is the log.md format?",
-    "expected_answer": "log.md uses append-only entries with op and title headers",
-    "tags": ["log", "format"]
+    "case_id": "librarian-model-adapter-01",
+    "query": "What is model-adapter responsible for?",
+    "expected_answer": "model-adapter is the Bedrock model configuration layer: it loads per-role settings from models.toml, applies workspace overrides, exposes load_role_config and make_llm, and returns guarded ChatBedrockConverse instances that translate Bedrock access denials into BedrockAccessDenied.",
+    "expected_citations": ["entities/pkg_model-adapter", "entities/pkg_subagent-runtime"],
+    "tags": ["package-lookup", "post-rebrand", "librarian"]
   }
 ]
