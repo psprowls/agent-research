@@ -68,8 +68,11 @@ unfair (wiki describing different code than the agent sees).
 - Freeze it (snapshot/commit) so re-runs are reproducible; it must not drift like the
   `-live` workspace would.
 - The empty `mono-repo-live` workspace is **not** used.
-- This step is operational (a runbook), not code — but it must be written down to be
-  reproducible. See "Artifacts" below.
+- **This step is its own sub-project** (decomposed out on 2026-06-07): "build a usable
+  mono-repo wiki" gets its own spec → plan → implementation cycle and is built **first**.
+  Its success bar (accurate, injectable knowledge for the 3 scenarios; a decision on
+  whether TS/TSX parser gaps must be fixed) is defined there. This eval spec *consumes*
+  the frozen wiki it produces.
 
 ---
 
