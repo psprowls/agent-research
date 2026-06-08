@@ -1,0 +1,38 @@
+# Template: Use this as a skeleton for new scenarios
+#
+# Instructions:
+# 1. Copy this entire directory and rename to your scenario name (kebab-case)
+# 2. Edit the fields below:
+#    - name: scenario identifier (matches directory name)
+#    - description: one sentence about what the scenario tests
+#    - prompt: path to prompt.md (edit that file with your scenario)
+#    - rubric: path to rubric.md (define scoring criteria)
+#    - discriminator.type: choose one:
+#        * correctness-gated: base fails, wiki arm passes rubric
+#        * efficiency-gated: both pass, wiki arm beats declared metric threshold
+#        * impossible-without-wiki: base cannot pass; knowledge only in wiki
+#    - inject: list of wiki page paths (relative to wiki/ root) to inject for injected arm
+# 3. Update prompt.md and rubric.md with your scenario specifics
+# 4. Run: `uv run --package claude-code-evals pytest` to verify scenario loads
+
+name: TEMPLATE_SCENARIO_NAME
+description: |
+  One-sentence description of what this scenario tests.
+
+prompt: eval/scenarios/TEMPLATE/prompt.md
+rubric: eval/scenarios/TEMPLATE/rubric.md
+config: base  # Will be parameterized by orchestrator
+
+expected_pass_rate: 0.5
+
+discriminator:
+  type: correctness-gated
+  # For efficiency-gated, add:
+  # metric: files_read_count  # or turn_count, output_tokens, tool_calls_before_first_edit
+  # min_improvement_pct: 40
+
+inject:
+  # List wiki pages relevant to this scenario, e.g.:
+  # - concepts/some-concept.md
+  # - adrs/0001-some-decision.md
+  - concepts/TEMPLATE.md
