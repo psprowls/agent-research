@@ -63,9 +63,14 @@ All arms require a wiki that describes the **same commit** the worktrees check o
 (`baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652`). Otherwise the comparison is
 unfair (wiki describing different code than the agent sees).
 
-- The wiki is built and frozen **in place** at `~/Personal/mono-repo/graph-wiki/` (the
-  live workspace), pinned via a git commit/tag; the eval references that exact ref. mono-repo
-  HEAD is already at `551f7ed8`, so a scan there captures the right commit.
+- The finished wiki is **rsynced to a separate frozen directory**
+  `~/Personal/graph-wiki/mono-repo-eval-551f7ed8/` with its own git repo and tag
+  `eval-baseline-551f7ed8` (commit `227fc939f93e62d7bbd9a9fe1960e58ea72a9d69`).
+  Built at mono-repo HEAD `4f57eed5`, whose source tree is byte-identical to `551f7ed8`
+  (only `graph-wiki/`, `.claude/settings.json`, `.code-workspace` differ — no source changed).
+  The `plugin` arm passes `--add-dir ~/Personal/graph-wiki/mono-repo-eval-551f7ed8` and
+  sets `GRAPH_WIKI_WORKSPACE=~/Personal/graph-wiki/mono-repo-eval-551f7ed8`; the
+  `injected` arm reads pages from `~/Personal/graph-wiki/mono-repo-eval-551f7ed8/wiki/`.
 - The configured-but-empty `~/Personal/graph-wiki/mono-repo-live` workspace is **not** used.
 - **This step is its own sub-project** (decomposed out on 2026-06-07): see
   [`2026-06-07-mono-repo-wiki-build-design.md`](./2026-06-07-mono-repo-wiki-build-design.md).
@@ -114,9 +119,9 @@ metrics are **already recorded** by `metrics.py` — no new instrumentation need
 3. **One new `impossible-without-wiki` scenario** — the highest-value kind. Requires
    knowledge living **only** in the wiki: a tribal decision / deprecation / "we do X not
    Y because Z" that the code itself does not disambiguate (ideally the repo shows *both*
-   competing patterns, so reading code cannot pick the sanctioned one). The concrete
-   scenario is chosen **after** step zero, grounded in what the frozen wiki actually
-   contains (ADR/concept pages), rather than guessed up front.
+   competing patterns, so reading code cannot pick the sanctioned one). **Resolved (step
+   zero complete):** grounded in
+   `adrs/0006-auto-create-activities-from-presence-events.md` from the frozen wiki.
 4. **`eval/scenarios/TEMPLATE/`** — skeleton `scenario.yaml` + `prompt.md` + `rubric.md`
    + `verify.sh` + `preflight.sh`, including the `discriminator` block and authoring
    notes, so the portfolio grows cheaply.
@@ -165,8 +170,11 @@ wiki-api-client     v 29f/80t  v 8f/22t    v 11f/31t  WIKI HELPED (efficiency -6
      `min_improvement_pct`).
    - Injected context: add a **per-scenario** `inject:` list of wiki page paths (which
      page is relevant is scenario-specific, so it belongs on the scenario, not the
-     config). Paths resolve relative to the frozen wiki workspace's `wiki/` dir (e.g.
-     `entities/...md`, `adrs/...md`). The `injected` arm consumes it; other arms ignore it.
+     config). Paths resolve relative to the frozen wiki workspace's `wiki/` dir. Resolved
+     sources from the verified frozen wiki: `wiki-api-client` →
+     `concepts/shared-api-client.md`; `wiki-design-tokens` → `concepts/design-tokens.md`;
+     `impossible-without-wiki` scenario → `adrs/0006-auto-create-activities-from-presence-events.md`.
+     The `injected` arm consumes it; other arms ignore it.
 2. **`runner.py` / `orchestrator.py`**
    - `injected` arm: prepend the resolved wiki page text to context via
      `--append-system-prompt` concatenation (guarantees in-context — the clean ceiling).
