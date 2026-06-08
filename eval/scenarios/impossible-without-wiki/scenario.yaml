@@ -1,0 +1,16 @@
+name: impossible-without-wiki
+description: |
+  Knowledge required only from wiki: a design decision (auto-create activities)
+  that is not derivable from reading the code.
+
+prompt: eval/scenarios/impossible-without-wiki/prompt.md
+rubric: eval/scenarios/impossible-without-wiki/rubric.md
+config: base  # Will be parameterized by orchestrator
+
+expected_pass_rate: 0.5
+
+discriminator:
+  type: impossible-without-wiki
+
+inject:
+  - adrs/0006-auto-create-activities-from-presence-events.md
