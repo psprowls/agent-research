@@ -12,6 +12,68 @@ from pathlib import Path
 from claude_code_evals.user_simulator import AutoUserSimulator
 
 
+def load_oauth_token(token_file_path: str | None = None) -> str:
+    """Load OAuth token from env var, file, or standard locations.
+
+    Priority order:
+    1. CLAUDE_CODE_OAUTH_TOKEN env var
+    2. token_file_path (if provided)
+    3. eval/.secrets (project-local, relative to cwd)
+    4. ~/.config/cc-eval/token (user home)
+
+    Args:
+        token_file_path: Optional explicit path to token file. If provided, this is checked
+                         after the env var but before the default locations.
+
+    Returns:
+        The OAuth token string.
+
+    Raises:
+        ValueError: If token not found in any location.
+    """
+    # Priority 1: env var
+    token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if token:
+        return token.strip()
+
+    # Priority 2: explicit file path
+    if token_file_path:
+        try:
+            with open(token_file_path, "r") as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except (FileNotFoundError, IOError):
+            pass
+
+    # Priority 3: project-local eval/.secrets
+    eval_secrets = Path("eval/.secrets")
+    if eval_secrets.exists():
+        try:
+            with open(eval_secrets, "r") as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except (FileNotFoundError, IOError):
+            pass
+
+    # Priority 4: user home config
+    home_token = Path.home() / ".config" / "cc-eval" / "token"
+    if home_token.exists():
+        try:
+            with open(home_token, "r") as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except (FileNotFoundError, IOError):
+            pass
+
+    raise ValueError(
+        "OAuth token not found. Set CLAUDE_CODE_OAUTH_TOKEN env var, "
+        "create eval/.secrets or ~/.config/cc-eval/token, or pass token_file_path."
+    )
+
+
 def prepare_injected_context(
     base_prompt: str,
     wiki_root: str,

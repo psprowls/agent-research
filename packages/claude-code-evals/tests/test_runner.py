@@ -5,9 +5,11 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from claude_code_evals.runner import (
     EVAL_SYSTEM_PROMPT_IMPLEMENT,
     EVAL_SYSTEM_PROMPT_QA,
+    load_oauth_token,
     prepare_injected_context,
     prepare_plugin_env,
     run_one_shot,
@@ -230,3 +232,95 @@ def test_plugin_arm_sets_wiki_workspace_env():
     assert "GRAPH_WIKI_WORKSPACE" in env
     expanded = os.path.expanduser("~/Personal/graph-wiki/mono-repo-eval-551f7ed8")
     assert env["GRAPH_WIKI_WORKSPACE"] == expanded
+
+
+def test_load_oauth_token_from_env_var(monkeypatch):
+    """Load token from CLAUDE_CODE_OAUTH_TOKEN env var (priority 1)."""
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-env-token")
+    token = load_oauth_token()
+    assert token == "sk-ant-oat01-env-token"
+
+
+def test_load_oauth_token_from_git_ignored_file(tmp_path: Path, monkeypatch):
+    """Load token from eval/.secrets file (priority 3, when env not set)."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    # Create eval/.secrets
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    secrets_file = eval_dir / ".secrets"
+    secrets_file.write_text("sk-ant-oat01-file-token\n")
+
+    token = load_oauth_token()
+    assert token == "sk-ant-oat01-file-token"
+
+
+def test_load_oauth_token_from_explicit_path(tmp_path: Path, monkeypatch):
+    """Load token from explicit file path (priority 2)."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+    # Create a custom token file
+    token_file = tmp_path / "my-token"
+    token_file.write_text("sk-ant-oat01-explicit-token\n")
+
+    token = load_oauth_token(token_file_path=str(token_file))
+    assert token == "sk-ant-oat01-explicit-token"
+
+
+def test_load_oauth_token_from_home_config(tmp_path: Path, monkeypatch):
+    """Load token from ~/.config/cc-eval/token (priority 4)."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+    # Mock home directory
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+
+    # Create ~/.config/cc-eval/token
+    config_dir = home / ".config" / "cc-eval"
+    config_dir.mkdir(parents=True)
+    token_file = config_dir / "token"
+    token_file.write_text("sk-ant-oat01-home-token\n")
+
+    token = load_oauth_token()
+    assert token == "sk-ant-oat01-home-token"
+
+
+def test_load_oauth_token_missing_raises(monkeypatch):
+    """Raise ValueError if token not found anywhere."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.delenv("HOME", raising=False)
+
+    with pytest.raises(ValueError, match="OAuth token not found"):
+        load_oauth_token()
+
+
+def test_load_oauth_token_env_precedence(tmp_path: Path, monkeypatch):
+    """Verify env var takes precedence over file locations."""
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-env")
+    monkeypatch.chdir(tmp_path)
+
+    # Create eval/.secrets with different token
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    secrets_file = eval_dir / ".secrets"
+    secrets_file.write_text("sk-ant-oat01-file\n")
+
+    token = load_oauth_token()
+    # Should return env var, not file
+    assert token == "sk-ant-oat01-env"
+
+
+def test_load_oauth_token_strips_whitespace(tmp_path: Path, monkeypatch):
+    """Token is stripped of leading/trailing whitespace."""
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    secrets_file = eval_dir / ".secrets"
+    secrets_file.write_text("  sk-ant-oat01-token-with-whitespace  \n")
+
+    token = load_oauth_token()
+    assert token == "sk-ant-oat01-token-with-whitespace"
