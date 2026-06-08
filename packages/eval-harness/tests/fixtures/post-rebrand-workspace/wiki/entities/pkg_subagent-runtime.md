@@ -12,6 +12,10 @@ updated: 2026-05-19
 
 `subagent-runtime` is the async fan-out primitive of the post-rebrand `agent-research` monorepo. `SubagentPool.run_all` dispatches N items in parallel through a caller-supplied async task, enforces a per-role semaphore, isolates per-item failures, and writes a JSONL trace record per invocation (success / cancelled / error). The trace-writing logic was extracted in Phase 16 D-04 into the `trace_io.write_trace_record` helper so command-level callers (ingest, query) can emit identically-shaped records without duplicating the construction logic.
 
+## Consumers
+
+[[entities/pkg_graph-wiki-core]] consumes `SubagentPool` for bounded Bedrock fan-out in scan and query workflows. [[entities/pkg_eval-harness]] consumes subagent trace records for token accounting and divergence/sweep reporting. [[entities/pkg_model-adapter]] supplies the role-scoped Bedrock models used by the fan-out tasks.
+
 ## API
 
 - `SubagentPool(trace_dir: Path, *, default_recursion_limit: int = 100)`

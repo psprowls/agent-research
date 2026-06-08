@@ -14,6 +14,10 @@ updated: 2026-05-19
 
 Phase 16 D-06 extended `ROLES_WITH_DIVERGENCE` to the full set of six in-scope roles (librarian, ingestor, linter, scanner, code_reader, synthesizer); the prior D-08 skip for code_reader + synthesizer is superseded.
 
+## Purpose
+
+`eval-harness` provides deterministic and judge-backed evaluation for Graph Wiki agent roles. It loads query cases, runs role outputs against an isolated fixture workspace, applies structural and divergence checks, calculates token/cost data, and renders reports for model selection.
+
 ## API
 
 - `divergence.ROLE_CHECKS: dict[role, list[DivergenceCheck]]`

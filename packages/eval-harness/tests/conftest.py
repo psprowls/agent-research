@@ -16,9 +16,12 @@ Import produce_outputs from there directly in test files.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import pytest
+from graph_io import store
+from workspace_io.paths import graph_dir
 
 # Eval gate: decorate eval tests so they are skipped unless GRAPH_WIKI_RUN_EVAL=1 is set.
 # Also defined in eval_helpers.EVAL_GATE (same condition) so test files can import it
@@ -71,3 +74,25 @@ def fixture_workspace_path(fixture_wiki_path: Path) -> Path:
     test-machine-local Paths; no user-supplied input is involved.
     """
     return fixture_wiki_path.parent
+
+
+@pytest.fixture
+def runtime_fixture_workspace_path(fixture_workspace_path: Path, tmp_path: Path) -> Path:
+    """Return a bootstrapped, disposable copy of the post-rebrand workspace fixture."""
+    runtime_workspace = tmp_path / "post-rebrand-workspace"
+    shutil.copytree(fixture_workspace_path, runtime_workspace)
+
+    runtime_wiki = runtime_workspace / "wiki"
+    (runtime_wiki / "log.md").write_text("# Log\n", encoding="utf-8")
+
+    db_path = graph_dir(runtime_workspace) / "code.db"
+    conn = store.connect(db_path, create=True)
+    conn.close()
+
+    return runtime_workspace
+
+
+@pytest.fixture
+def runtime_fixture_wiki_path(runtime_fixture_workspace_path: Path) -> Path:
+    """Return the wiki path inside the bootstrapped runtime fixture workspace."""
+    return runtime_fixture_workspace_path / "wiki"

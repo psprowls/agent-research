@@ -69,17 +69,18 @@ def _current_agent_commit() -> str:
 @pytest.mark.parametrize("role", ["librarian", "ingestor", "linter", "scanner"])
 def test_divergence_regression(
     role: str,
-    fixture_wiki_path: Path,
-    fixture_workspace_path: Path,
+    runtime_fixture_wiki_path: Path,
+    runtime_fixture_workspace_path: Path,
     accept_baseline: bool,
     capsys: pytest.CaptureFixture,
 ) -> None:
     """Full divergence eval pipeline passes without hard-severity regressions.
 
     Requires GRAPH_WIKI_RUN_EVAL=1 and a live Bedrock connection. Uses
-    fixture_workspace_path (for produce_outputs, which feeds agent commands
-    that expect a workspace_path post-Phase-24 D-01) and fixture_wiki_path
-    (for DivergenceMetric, whose check functions take a bare wiki: Path per D-03).
+    runtime_fixture_workspace_path (for produce_outputs, which feeds agent
+    commands that expect a workspace_path post-Phase-24 D-01) and
+    runtime_fixture_wiki_path (for DivergenceMetric, whose check functions take
+    a bare wiki: Path per D-03).
     accept_baseline comes from the --accept-divergence-baseline CLI option.
 
     When accept_baseline=True: writes current results to
@@ -93,14 +94,14 @@ def test_divergence_regression(
     # Produce real agent outputs for this role via the fixture corpus.
     # produce_outputs takes a workspace path (post-Phase-24 D-01); the agent
     # commands inside derive the wiki via wiki_dir(workspace_path).
-    outputs = _produce_outputs(role, fixture_workspace_path)
+    outputs = _produce_outputs(role, runtime_fixture_workspace_path)
 
     # Build and run the DivergenceMetric (programmatic + judge passes)
     metric = DivergenceMetric(
         role=role,
         checks=ROLE_CHECKS[role],
         rubric_path=ROLE_RUBRICS[role],
-        wiki=fixture_wiki_path,
+        wiki=runtime_fixture_wiki_path,
     )
     results = metric.run(outputs)
 
