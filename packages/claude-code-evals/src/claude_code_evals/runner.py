@@ -279,11 +279,11 @@ def run_one_shot(
                 continue
 
             # Log notable events from stream-json
-            if ev.get("type") == "message":
+            if ev.get("type") in ("message", "assistant"):
                 if ev.get("role") == "assistant":
-                    logger.log("Assistant message received", token_count=len(ev.get("content", "")))
+                    logger.log("Assistant message received", content_length=len(ev.get("content", "")))
                 elif ev.get("role") == "user":
-                    logger.log("User message received", token_count=len(ev.get("content", "")))
+                    logger.log("User message received", content_length=len(ev.get("content", "")))
             elif ev.get("type") == "tool_call":
                 logger.log("Tool called", tool_name=ev.get("tool_name"), tool_id=ev.get("id"))
             elif ev.get("type") == "tool_result":
@@ -381,6 +381,9 @@ def run_multi_turn(
         multi_turn=True,
     )
 
+    logger = EvalLogger("runner_multi_turn")
+    logger.log("Starting multi-turn run", model=model, max_wall_seconds=max_wall_seconds)
+
     proc = subprocess.Popen(
         cmd,
         cwd=str(worktree_path),
@@ -413,6 +416,18 @@ def run_multi_turn(
                 ev = json.loads(line_str)
             except json.JSONDecodeError:
                 continue
+
+            # Log notable events from stream-json
+            if ev.get("type") in ("message", "assistant"):
+                if ev.get("role") == "assistant":
+                    logger.log("Assistant message received", content_length=len(ev.get("content", "")))
+                elif ev.get("role") == "user":
+                    logger.log("User message received", content_length=len(ev.get("content", "")))
+            elif ev.get("type") == "tool_call":
+                logger.log("Tool called", tool_name=ev.get("tool_name"), tool_id=ev.get("id"))
+            elif ev.get("type") == "tool_result":
+                logger.log("Tool result received", tool_id=ev.get("id"), result_length=len(str(ev.get("result", ""))))
+
             if ev.get("type") == "assistant":
                 for block in (ev.get("message") or {}).get("content") or []:
                     if block.get("type") == "text":
@@ -429,11 +444,24 @@ def run_multi_turn(
         proc.terminate()
         proc.wait(timeout=5)
 
+    exit_code = proc.returncode
+    wall_seconds = time.monotonic() - start
+
+    logger.log_dict(
+        "Multi-turn run completed",
+        {
+            "final_status": final_status,
+            "budget_exceeded": budget_exceeded,
+            "wall_seconds": wall_seconds,
+            "exit_code": exit_code,
+        },
+    )
+
     return (
         RunResult(
             final_status=final_status,
             budget_exceeded=budget_exceeded,
-            wall_seconds=time.monotonic() - start,
+            wall_seconds=wall_seconds,
             simulator_input_tokens=simulator.input_tokens,
             simulator_output_tokens=simulator.output_tokens,
         ),
