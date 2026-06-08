@@ -63,16 +63,16 @@ All arms require a wiki that describes the **same commit** the worktrees check o
 (`baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652`). Otherwise the comparison is
 unfair (wiki describing different code than the agent sees).
 
-- Build the wiki (`gw scan` / graph build) against `~/Personal/mono-repo` **at that SHA**
-  into a **frozen** workspace dir, e.g. `~/Personal/graph-wiki/mono-repo-eval-551f7ed8/`.
-- Freeze it (snapshot/commit) so re-runs are reproducible; it must not drift like the
-  `-live` workspace would.
-- The empty `mono-repo-live` workspace is **not** used.
-- **This step is its own sub-project** (decomposed out on 2026-06-07): "build a usable
-  mono-repo wiki" gets its own spec → plan → implementation cycle and is built **first**.
-  Its success bar (accurate, injectable knowledge for the 3 scenarios; a decision on
-  whether TS/TSX parser gaps must be fixed) is defined there. This eval spec *consumes*
-  the frozen wiki it produces.
+- The wiki is built and frozen **in place** at `~/Personal/mono-repo/graph-wiki/` (the
+  live workspace), pinned via a git commit/tag; the eval references that exact ref. mono-repo
+  HEAD is already at `551f7ed8`, so a scan there captures the right commit.
+- The configured-but-empty `~/Personal/graph-wiki/mono-repo-live` workspace is **not** used.
+- **This step is its own sub-project** (decomposed out on 2026-06-07): see
+  [`2026-06-07-mono-repo-wiki-build-design.md`](./2026-06-07-mono-repo-wiki-build-design.md).
+  It is built **first** and covers entity-graph + curated-knowledge migration (from a
+  comprehensive version-compatible backup), wikilink migration, lint, and freeze. This eval
+  spec *consumes* the frozen wiki it produces. As of 2026-06-07 the entity graph is already
+  built and healthy; the curated layer migration is the remaining work there.
 
 ---
 
