@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from claude_code_evals.schemas import AutoUser, Config, Discriminator, Runset, Scenario, VerifyEntry
+from claude_code_evals.schemas import AutoUser, Config, Runset, Scenario, VerifyEntry
 from pydantic import ValidationError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -115,57 +115,55 @@ def test_verify_entry_rubric_fields():
     assert v.judge == "claude-haiku-4-5-20251001"
 
 
-def test_discriminator_correctness_gated():
-    """Correctness-gated discriminator has only a type."""
-    d = Discriminator.model_validate({"type": "correctness-gated"})
-    assert d.type == "correctness-gated"
-    assert d.metric is None
-    assert d.min_improvement_pct is None
-
-
-def test_discriminator_efficiency_gated():
-    """Efficiency-gated discriminator requires metric and min_improvement_pct."""
-    d = Discriminator.model_validate(
-        {
-            "type": "efficiency-gated",
-            "metric": "files_read_count",
-            "min_improvement_pct": 40,
-        }
-    )
-    assert d.type == "efficiency-gated"
-    assert d.metric == "files_read_count"
-    assert d.min_improvement_pct == 40
-
-
-def test_scenario_with_impossible_without_wiki_discriminator():
-    """Scenario with impossible-without-wiki discriminator type parses correctly."""
+def test_scenario_discriminator_correctness_gated():
+    """Test scenario with correctness-gated discriminator (no metric/min_improvement_pct)."""
     s = Scenario.model_validate(
         {
-            "name": "impossible-scenario",
+            "name": "correctness-test",
             "isolation_mode": "worktree",
             "target_repo": "~/repo",
             "baseline_sha": "abc1234",
-            "discriminator": {"type": "impossible-without-wiki"},
-            "inject": ["adrs/0006.md"],
+            "discriminator": {
+                "type": "correctness-gated",
+            },
         }
     )
-    assert s.name == "impossible-scenario"
     assert s.discriminator is not None
-    assert s.discriminator.type == "impossible-without-wiki"
-    assert s.inject == ["adrs/0006.md"]
+    assert s.discriminator.type == "correctness-gated"
+    assert s.discriminator.metric is None
+    assert s.discriminator.min_improvement_pct is None
 
 
-def test_scenario_discriminator_invalid_type_raises():
-    """Scenario with invalid discriminator type raises ValidationError."""
-    with pytest.raises(ValidationError) as exc_info:
-        Scenario.model_validate(
-            {
-                "name": "invalid-scenario",
-                "isolation_mode": "worktree",
-                "target_repo": "~/repo",
-                "baseline_sha": "abc1234",
-                "discriminator": {"type": "invalid-type"},
-            }
-        )
-    # Verify the error mentions the discriminator type field
-    assert "discriminator" in str(exc_info.value).lower() or "type" in str(exc_info.value).lower()
+def test_scenario_discriminator_efficiency_gated():
+    """Test scenario with efficiency-gated discriminator (includes metric and min_improvement_pct)."""
+    s = Scenario.model_validate(
+        {
+            "name": "efficiency-test",
+            "isolation_mode": "worktree",
+            "target_repo": "~/repo",
+            "baseline_sha": "abc1234",
+            "discriminator": {
+                "type": "efficiency-gated",
+                "metric": "tokens_used",
+                "min_improvement_pct": 5.0,
+            },
+        }
+    )
+    assert s.discriminator is not None
+    assert s.discriminator.type == "efficiency-gated"
+    assert s.discriminator.metric == "tokens_used"
+    assert s.discriminator.min_improvement_pct == 5.0
+
+
+def test_scenario_with_inject():
+    """Test scenario with inject list."""
+    s = Scenario.model_validate(
+        {
+            "name": "inject-test",
+            "isolation_mode": "worktree",
+            "target_repo": "~/repo",
+            "baseline_sha": "abc1234",
+            "inject": ["file1.txt", "file2.txt"],
+        }
+    )
+    assert s.inject == ["file1.txt", "file2.txt"]

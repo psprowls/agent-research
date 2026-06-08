@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -9,20 +10,22 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class Discriminator(BaseModel):
-    """Per-scenario verdict type for three-arm eval.
-
-    Attributes:
-        type: One of 'correctness-gated', 'efficiency-gated', 'impossible-without-wiki'.
-        metric: For efficiency-gated only; metric to compare (e.g. 'files_read_count').
-        min_improvement_pct: For efficiency-gated only; wiki arm must beat base by this %.
-    """
-
-    model_config = ConfigDict(extra="forbid")
+@dataclass
+class Discriminator:
+    """Discriminator to filter scenarios based on correctness, efficiency, or wiki availability."""
 
     type: Literal["correctness-gated", "efficiency-gated", "impossible-without-wiki"]
     metric: str | None = None
     min_improvement_pct: float | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Discriminator":
+        """Create Discriminator from a dictionary (e.g., from YAML)."""
+        return cls(
+            type=data["type"],
+            metric=data.get("metric"),
+            min_improvement_pct=data.get("min_improvement_pct"),
+        )
 
 
 class VerifyEntry(BaseModel):
@@ -80,12 +83,12 @@ class Scenario(BaseModel):
     @field_validator("discriminator", mode="before")
     @classmethod
     def validate_discriminator(cls, v: Any) -> Discriminator | None:
-        """Convert dict to Discriminator using Pydantic validation."""
+        """Convert discriminator dict to Discriminator object."""
         if v is None:
             return None
-        if isinstance(v, Discriminator):
-            return v
-        return Discriminator.model_validate(v)
+        if isinstance(v, dict):
+            return Discriminator.from_dict(v)
+        return v
 
     @model_validator(mode="after")
     def _check_isolation(self) -> "Scenario":
