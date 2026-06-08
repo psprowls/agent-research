@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
@@ -93,3 +94,26 @@ def build_report(*, runs_dir: Path, runset_name: str) -> tuple[str, list[dict]]:
         failed=total - passed,
     )
     return md, data
+
+
+def generate_matrix_report(results: dict, format: str = "markdown") -> str:
+    """Generate scenario × arm matrix report.
+
+    Args:
+        results: Dict of {scenario_name: {arm_name: metrics, verdict: ...}}
+        format: Output format ('markdown' or 'json')
+
+    Returns:
+        Rendered report string
+    """
+
+    if format == "json":
+        return json.dumps(results, indent=2)
+
+    # Markdown with Jinja2 template
+    env = Environment(loader=PackageLoader("claude_code_evals", "templates"))
+    template = env.get_template("report_matrix.md.j2")
+
+    report = template.render(timestamp=datetime.now().isoformat(), results=results)
+
+    return report

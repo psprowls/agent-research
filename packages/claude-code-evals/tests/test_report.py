@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from claude_code_evals.report import RunRecord, build_report
+from claude_code_evals.report import RunRecord, build_report, generate_matrix_report
 
 
 def _write_run(run_dir: Path, scenario: str, config: str, passed: bool) -> None:
@@ -101,3 +101,51 @@ def test_run_record_dataclass():
         run_dir=Path("/tmp/x"),
     )
     assert r.passed is True
+
+
+def test_report_generates_scenario_by_arm_matrix():
+    """Report includes a scenario × arm matrix with verdicts."""
+    results = {
+        "wiki-design-tokens": {
+            "base": {"score": 0.2, "files_read_count": 15},
+            "injected": {"score": 1.0, "files_read_count": 8},
+            "plugin": {"score": 0.8, "files_read_count": 12},
+            "verdict": {
+                "verdict": "WIKI_HELPED",
+                "reason": "correctness: base failed, injected passed",
+            },
+        },
+        "wiki-api-client": {
+            "base": {"score": 1.0, "files_read_count": 29},
+            "injected": {"score": 1.0, "files_read_count": 8},
+            "plugin": {"score": 1.0, "files_read_count": 11},
+            "verdict": {
+                "verdict": "WIKI_HELPED",
+                "reason": "efficiency: files_read_count improved 62%",
+            },
+        },
+    }
+
+    report = generate_matrix_report(results)
+
+    assert "scenario" in report.lower()
+    assert "base" in report
+    assert "injected" in report
+    assert "plugin" in report
+    assert "wiki_design_tokens" in report or "wiki-design-tokens" in report
+    assert "WIKI_HELPED" in report
+
+
+def test_report_generates_json_matrix():
+    """Report can be generated in JSON format for programmatic diffing."""
+    results = {
+        "wiki-design-tokens": {
+            "base": {"score": 0.2},
+            "verdict": {"verdict": "WIKI_HELPED"},
+        },
+    }
+
+    report_json = generate_matrix_report(results, format="json")
+    parsed = json.loads(report_json)
+
+    assert parsed["wiki-design-tokens"]["verdict"]["verdict"] == "WIKI_HELPED"

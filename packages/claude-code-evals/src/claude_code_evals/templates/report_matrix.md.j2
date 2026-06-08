@@ -1,0 +1,32 @@
+# Three-Arm Wiki Eval Report
+
+**Date:** {{ timestamp }}
+
+## Scenario × Arm Matrix
+
+| Scenario | Base | Injected | Plugin | Verdict |
+|----------|------|----------|--------|---------|
+{% for scenario_name, data in results.items() %}
+| {{ scenario_name }} | {{ data.base.score or data.base.files_read_count }} | {{ data.injected.score or data.injected.files_read_count }} | {{ data.plugin.score or data.plugin.files_read_count }} | {{ data.verdict.verdict }} |
+{% endfor %}
+
+## Verdicts
+
+{% for scenario_name, data in results.items() %}
+### {{ scenario_name }}
+
+- **Verdict:** {{ data.verdict.verdict }}
+- **Reason:** {{ data.verdict.reason }}
+{% if data.verdict.discovery_cost %}
+- **Agentic Discovery Cost:** {{ data.verdict.discovery_cost }}
+{% endif %}
+
+{% endfor %}
+
+## Derived Signals
+
+| Signal | Calculation |
+|--------|-------------|
+| Knowledge Value (Ceiling) | injected − base |
+| Product Value (Realistic) | plugin − base |
+| Agentic Discovery Cost | injected − plugin |
