@@ -11,6 +11,58 @@ from pathlib import Path
 
 from claude_code_evals.user_simulator import AutoUserSimulator
 
+
+def prepare_injected_context(
+    base_prompt: str,
+    wiki_root: str,
+    inject_paths: list[str],
+) -> str:
+    """Prepend wiki page contents to system prompt for injected arm.
+
+    Args:
+        base_prompt: The base system prompt from the config
+        wiki_root: Path to wiki root (e.g. ~/Personal/graph-wiki/mono-repo-eval-551f7ed8)
+        inject_paths: List of wiki page paths relative to wiki/
+
+    Returns:
+        Combined prompt with wiki pages prepended
+    """
+    wiki_sections = []
+
+    for inject_path in inject_paths:
+        full_path = os.path.join(wiki_root, "wiki", inject_path)
+        try:
+            with open(full_path, "r") as f:
+                content = f.read()
+                wiki_sections.append(content)
+        except FileNotFoundError:
+            raise ValueError(f"Wiki page not found: {inject_path}")
+
+    wiki_text = "\n\n---\n\n".join(wiki_sections)
+    return f"{wiki_text}\n\n{base_prompt}"
+
+
+def prepare_plugin_env(config: dict) -> dict:
+    """Prepare environment vars for plugin arm (includes GRAPH_WIKI_WORKSPACE).
+
+    Args:
+        config: The plugin config loaded from plugin.yaml
+
+    Returns:
+        Environment dict with GRAPH_WIKI_WORKSPACE set
+    """
+    env = os.environ.copy()
+
+    if "environment" in config:
+        for key, value in config["environment"].items():
+            # Expand ~ in paths
+            if isinstance(value, str) and value.startswith("~"):
+                value = os.path.expanduser(value)
+            env[key] = value
+
+    return env
+
+
 EVAL_SYSTEM_PROMPT_QA = (
     "EVAL MODE (Q&A): This session runs inside an automated headless evaluation of a "
     "question-and-answer task. Answer the user's question directly using only read-only "

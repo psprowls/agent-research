@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from claude_code_evals.runner import EVAL_SYSTEM_PROMPT_IMPLEMENT, EVAL_SYSTEM_PROMPT_QA, run_one_shot
+from claude_code_evals.runner import (
+    EVAL_SYSTEM_PROMPT_IMPLEMENT,
+    EVAL_SYSTEM_PROMPT_QA,
+    prepare_injected_context,
+    prepare_plugin_env,
+    run_one_shot,
+)
 
 
 def _make_fake_proc(events: list[dict], *, returncode: int = 0, extra_lines: list[str] | None = None) -> MagicMock:
@@ -187,3 +194,39 @@ def test_system_prompt_constants():
     assert "Q&A" in EVAL_SYSTEM_PROMPT_QA
     assert "EVAL MODE" in EVAL_SYSTEM_PROMPT_IMPLEMENT
     assert "IMPLEMENT" in EVAL_SYSTEM_PROMPT_IMPLEMENT
+
+
+def test_injected_arm_prepends_wiki_pages(tmp_path: Path):
+    """Injected arm prepends wiki page text to the system prompt."""
+    # Mock the wiki file system
+    wiki_root = tmp_path / "test-wiki"
+    (wiki_root / "wiki" / "concepts").mkdir(parents=True)
+    with open(wiki_root / "wiki" / "concepts" / "design-tokens.md", "w") as f:
+        f.write("# Design Tokens\n\nTokens are defined in config.ts")
+
+    base_prompt = "Use this knowledge:"
+    context = prepare_injected_context(
+        base_prompt=base_prompt,
+        wiki_root=str(wiki_root),
+        inject_paths=["concepts/design-tokens.md"],
+    )
+
+    assert "Design Tokens" in context
+    assert "Tokens are defined in config.ts" in context
+    assert base_prompt in context
+
+
+def test_plugin_arm_sets_wiki_workspace_env():
+    """Plugin arm sets GRAPH_WIKI_WORKSPACE env var for the subprocess."""
+    plugin_config = {
+        "model": "claude-opus-4-8",
+        "environment": {
+            "GRAPH_WIKI_WORKSPACE": "~/Personal/graph-wiki/mono-repo-eval-551f7ed8",
+        },
+    }
+
+    env = prepare_plugin_env(plugin_config)
+
+    assert "GRAPH_WIKI_WORKSPACE" in env
+    expanded = os.path.expanduser("~/Personal/graph-wiki/mono-repo-eval-551f7ed8")
+    assert env["GRAPH_WIKI_WORKSPACE"] == expanded
