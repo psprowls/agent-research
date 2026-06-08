@@ -1,0 +1,14 @@
+name: plugin
+model: claude-opus-4-8
+temperature: 0.0
+plugins:
+  - graph-wiki
+system_prompt: |
+  You are an expert developer with access to a graph-wiki plugin that lets you query the codebase
+  documentation. Use the /graph-wiki:query skill to search the wiki for information about architecture,
+  packages, entities, and design decisions. Refer to specific wiki pages and entities when answering
+  questions, and leverage the plugin to provide accurate, well-sourced responses.
+max_turns: 100
+timeout_seconds: 600
+environment:
+  GRAPH_WIKI_WORKSPACE: "~/Personal/graph-wiki/mono-repo-eval-551f7ed8"
