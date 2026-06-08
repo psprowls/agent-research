@@ -55,9 +55,9 @@ def compute_verdict(
 
 
 def _verdict_correctness_gated(
-    base_score: float,
-    injected_score: float,
-    plugin_score: float,
+    base_score: Optional[float],
+    injected_score: Optional[float],
+    plugin_score: Optional[float],
 ) -> Verdict:
     """Judge correctness-gated scenario.
 
@@ -65,6 +65,9 @@ def _verdict_correctness_gated(
     - Base fails (< 0.5)
     - Injected passes (>= 0.5)
     """
+    if base_score is None or injected_score is None or plugin_score is None:
+        return Verdict("INCOMPLETE", "missing score for correctness-gated scenario")
+
     base_passes = base_score >= 0.5
     injected_passes = injected_score >= 0.5
 
@@ -89,18 +92,18 @@ def _verdict_correctness_gated(
 
 
 def _verdict_efficiency_gated(
-    base_metric: float,
-    plugin_metric: float,
+    base_metric: Optional[float],
+    plugin_metric: Optional[float],
     injected_metric: Optional[float],
-    metric: str,
-    min_improvement_pct: float,
+    metric: Optional[str],
+    min_improvement_pct: Optional[float],
 ) -> Verdict:
     """Judge efficiency-gated scenario.
 
     Wiki helps if plugin beats base by min_improvement_pct.
     """
-    if plugin_metric is None:
-        return Verdict("INCOMPLETE", "plugin metric not recorded")
+    if base_metric is None or plugin_metric is None or metric is None or min_improvement_pct is None:
+        return Verdict("INCOMPLETE", "missing metric for efficiency-gated scenario")
 
     improvement_pct = (1.0 - plugin_metric / base_metric) * 100
 
@@ -118,9 +121,9 @@ def _verdict_efficiency_gated(
 
 
 def _verdict_impossible_without_wiki(
-    base_score: float,
-    injected_score: float,
-    plugin_score: float,
+    base_score: Optional[float],
+    injected_score: Optional[float],
+    plugin_score: Optional[float],
 ) -> Verdict:
     """Judge impossible-without-wiki scenario.
 
@@ -132,6 +135,9 @@ def _verdict_impossible_without_wiki(
     - Base passes (>= 0.5)
     - Plugin fails (< 0.5)
     """
+    if base_score is None or plugin_score is None:
+        return Verdict("INCOMPLETE", "missing score for impossible-without-wiki scenario")
+
     base_passes = base_score >= 0.5
     plugin_passes = plugin_score >= 0.5
 
