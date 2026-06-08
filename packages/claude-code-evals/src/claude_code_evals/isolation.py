@@ -187,7 +187,7 @@ class WorktreeIsolation(_BaseIsolation):
                 "scenario": self._scenario.name,
                 "config": self._config.name,
                 "worktree_path": str(self.worktree_path),
-                "git_shallow": self._scenario.git_shallow,
+                "baseline_sha": self._scenario.baseline_sha,
                 "isolation_mode": "worktree",
             },
         )
