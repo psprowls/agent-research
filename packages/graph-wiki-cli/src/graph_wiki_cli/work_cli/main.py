@@ -33,7 +33,7 @@ def file(
     status: str = typer.Option("open", "--status", help="open|accepted|in-progress|done|wont-fix|deferred"),
     affects: str = typer.Option("", "--affects", help="Comma-separated paths or package names"),
     severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/initiative/spike"),
-    effort: str = typer.Option("", "--effort", help="trivial|small|medium|large"),
+    effort: str = typer.Option("", "--effort", help="xs|s|m|l|xl"),
     blast_radius: str = typer.Option("", "--blast-radius", help="file|package|domain|system"),
     target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
     owner: str = typer.Option("", "--owner", help="Owner handle"),

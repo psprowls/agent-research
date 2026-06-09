@@ -513,7 +513,7 @@ kind: bug
 summary: cdk/location-service.ts:50 sets MONGO_DATABASE to a literal "dev-pat-location" — any prod deploy lands on the dev database.
 status: open
 severity: medium
-effort: small
+effort: s
 blast_radius: package
 affects:
   - packages/location-aws-node-ts
@@ -551,7 +551,7 @@ category: work
 kind: feature
 summary: Add Bedrock as a third provider behind getChatModel() so the agent can run against open-weight cloud-hosted models.
 status: accepted
-effort: large
+effort: l
 blast_radius: system
 target: 2026-Q2
 owner: pat

@@ -21,9 +21,10 @@ Gathers required fields conversationally, then invokes `gw work file`.
 2. Prompt for **kind** (required) — one of: `bug`, `tech-debt`, `test-gap`, `security`, `perf`, `feature`, `initiative`, `spike`.
 3. Prompt for **summary** (required) — one line, <=100 chars.
 4. Prompt for **affects** (required) — comma-separated paths or package names (e.g. `packages/graph-io, packages/wiki-io`).
-5. Optionally prompt for: `effort` (trivial|small|medium|large), `blast-radius` (file|package|domain|system), `target` (YYYY-QN or YYYY-MM), `owner`, `tags`.
-6. Auto-sets `status: open` and `opened: <today>`.
-7. Invoke:
+5. **Estimate effort** — based on the title, kind, and summary, propose an effort value (`xs|s|m|l|xl`) with a one-line rationale. Present it to the user: "I'd estimate this as **m** — multiple files across packages, likely one PR. Does that sound right?" The user can accept or name a different size.
+6. Optionally prompt for: `blast-radius` (file|package|domain|system), `target` (YYYY-QN or YYYY-MM), `owner`, `tags`.
+7. Auto-sets `status: open` and `opened: <today>`.
+8. Invoke:
 
 ```bash
 gw work file \
@@ -31,10 +32,21 @@ gw work file \
   --kind "..." \
   --summary "..." \
   --affects "..." \
-  [--effort ...] [--blast-radius ...] [--target ...] [--owner ...] [--tags ...]
+  --effort "..." \
+  [--blast-radius ...] [--target ...] [--owner ...] [--tags ...]
 ```
 
-8. Report the filed page path.
+9. Report the filed page path.
+
+## Effort scale
+
+| Value | Anchor |
+|---|---|
+| `xs` | minutes — one-line change, no test, no review needed |
+| `s` | hours — single file, tests, single PR |
+| `m` | days — multiple files, possibly cross-package, single PR |
+| `l` | weeks — multiple PRs, possibly an initiative |
+| `xl` | months — multi-initiative, large team or quarter-long scope |
 
 ## Skill Reference
 
