@@ -1936,6 +1936,42 @@ async def test_synthesize_guidance_pages_writes_validated_pages(tmp_path, monkey
 
 
 @pytest.mark.asyncio
+async def test_synthesize_guidance_pages_strips_leading_whitespace(tmp_path, monkeypatch):
+    """Some synthesizer models (e.g. kimi-k2.5) prepend a space before the `---`
+    fence despite the prompt; the page must still parse and be written clean."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    workspace_root = tmp_path
+    (workspace_root / "wiki").mkdir()
+
+    # Note the leading " " before --- (and a trailing newline) — the defect.
+    valid_page = (
+        " ---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: s\napplies_when: a\nimpact: high\nupdated: 2026-06-08\ntokens: 0\n---\n\n"
+        "## Guidance\nUse a virtualizer.\n"
+    )
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = valid_page
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+
+    plan = [{"title": "Use a Virtualizer", "slug": "use-virtualizer", "topic": "react-native", "content": "x"}]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan, workspace_root=workspace_root, project_ctx="", model_override=None
+    )
+    assert written == ["wiki/guidance/react-native/use-virtualizer.md"]
+    page = workspace_root / "wiki" / "guidance" / "react-native" / "use-virtualizer.md"
+    # Written file must not carry the stray leading whitespace.
+    assert page.read_text(encoding="utf-8").startswith("---")
+
+
+@pytest.mark.asyncio
 async def test_synthesize_guidance_pages_skips_invalid(tmp_path, monkeypatch):
     from graph_wiki_core.commands import ingest as ingest_mod
 

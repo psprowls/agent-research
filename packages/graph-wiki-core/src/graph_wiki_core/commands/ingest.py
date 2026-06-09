@@ -802,6 +802,10 @@ async def _synthesize_guidance_pages(
         page_text = by_id.get(id(entry))
         if not page_text:
             continue
+        # Some synthesizer models (e.g. kimi-k2.5) prepend whitespace before the
+        # `---` fence despite the system prompt; strip it so the page parses and
+        # the written file doesn't start with a stray space.
+        page_text = page_text.strip()
         try:
             fm, _body = parse_guidance_fm(page_text)
         except ValueError:
