@@ -29,9 +29,6 @@ def test_root_app_mounts_wiki_group_with_subcommands() -> None:
     wiki_group = root_command.commands["wiki"]
     assert {"query", "log", "lint", "ingest"} <= set(wiki_group.commands)
 
-    ingest_group = wiki_group.commands["ingest"]
-    assert {"source", "work-item"} <= set(ingest_group.commands)
-
 
 def test_moved_commands_no_longer_top_level() -> None:
     """query/log/lint/ingest are no longer registered at the root."""
@@ -105,7 +102,7 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     # stdout carries the ok line + the source_type
@@ -156,7 +153,7 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     assert "suggested 1 page(s)" in result.stdout
