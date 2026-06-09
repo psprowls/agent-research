@@ -17,11 +17,14 @@ from claude_code_evals.runner import (
     EVAL_SYSTEM_PROMPT_IMPLEMENT,
     EVAL_SYSTEM_PROMPT_QA,
     RunResult,
+    run_interactive,
+    run_multi_turn,
     run_one_shot,
 )
-from claude_code_evals.schemas import Config, Scenario
+from claude_code_evals.schemas import AutoUser, Config, Scenario
 from claude_code_evals.stderr_logger import EvalLogger
 from claude_code_evals.transcript import Transcript, parse_transcript
+from claude_code_evals.user_simulator import AutoUserSimulator
 from claude_code_evals.verify.base import VerifierBase
 from claude_code_evals.verify.golden import GoldenVerifier
 from claude_code_evals.verify.rubric import RubricVerifier
@@ -123,17 +126,41 @@ def run_one(
             logger = EvalLogger("orchestrator_runner_start")
             logger.log("Invoking runner", model=config.model)
 
-            run_result, raw_jsonl = run_one_shot(
-                prompt=scenario_prompt,
-                worktree_path=iso.worktree_path,
-                cfg_dir=iso.cfg_dir,
-                system_prompt=system_prompt,
-                model=config.model,
-                oauth_token=iso.oauth_token,
-                plugin_dirs=_resolve_plugin_dirs(config.plugin_dirs),
-                extra_env=config.extra_env or None,
-                max_wall_seconds=float(scenario.budgets.max_wall_seconds),
-            )
+            # Load auto_user config if specified (headless multi-turn)
+            auto_user: AutoUser | None = None
+            if scenario.auto_user:
+                auto_user = AutoUser.from_path(Path(scenario.auto_user))
+
+            if scenario.mode == "interactive":
+                run_result, raw_jsonl = run_interactive(
+                    worktree_path=iso.worktree_path,
+                )
+            elif auto_user is not None:
+                simulator = AutoUserSimulator(auto_user)
+                run_result, raw_jsonl = run_multi_turn(
+                    prompt=scenario_prompt,
+                    worktree_path=iso.worktree_path,
+                    cfg_dir=iso.cfg_dir,
+                    system_prompt=system_prompt,
+                    simulator=simulator,
+                    model=config.model,
+                    oauth_token=iso.oauth_token,
+                    plugin_dirs=_resolve_plugin_dirs(config.plugin_dirs),
+                    extra_env=config.extra_env or None,
+                    max_wall_seconds=float(scenario.budgets.max_wall_seconds),
+                )
+            else:
+                run_result, raw_jsonl = run_one_shot(
+                    prompt=scenario_prompt,
+                    worktree_path=iso.worktree_path,
+                    cfg_dir=iso.cfg_dir,
+                    system_prompt=system_prompt,
+                    model=config.model,
+                    oauth_token=iso.oauth_token,
+                    plugin_dirs=_resolve_plugin_dirs(config.plugin_dirs),
+                    extra_env=config.extra_env or None,
+                    max_wall_seconds=float(scenario.budgets.max_wall_seconds),
+                )
 
         transcript = parse_transcript(raw_jsonl)
 
