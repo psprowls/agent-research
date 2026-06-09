@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 from wiki_io.update_index import (
+    render_guidance_root_index,
+    render_guidance_topic_index,
     scan_guidance_topics,
     topic_label,
 )
@@ -80,3 +83,77 @@ class TestScanGuidanceTopics:
         _write_guidance_page(wiki / "guidance" / "t" / "m.md", title="Mu")
         topics = scan_guidance_topics(wiki)
         assert [e["title"] for e in topics["t"]] == ["alpha", "Mu", "Zeta"]
+
+
+class TestRenderGuidanceTopicIndex:
+    def _entry(self, **overrides):
+        entry = {
+            "path": "guidance/deep-agents/skill-md-requires-yaml-frontmatter.md",
+            "title": "SKILL.md Requires YAML Frontmatter",
+            "summary": "Every SKILL.md must open with a YAML frontmatter block.",
+            "impact": "high",
+        }
+        entry.update(overrides)
+        return entry
+
+    def test_full_entry_with_summary_and_impact(self):
+        text = render_guidance_topic_index("deep-agents", [self._entry()], "wiki")
+        assert (
+            "- [[guidance/deep-agents/skill-md-requires-yaml-frontmatter|SKILL.md Requires YAML Frontmatter]]"
+            " — Every SKILL.md must open with a YAML frontmatter block. _(high)_" in text
+        )
+
+    def test_missing_summary_omits_dash_segment(self):
+        text = render_guidance_topic_index("deep-agents", [self._entry(summary="")], "wiki")
+        assert (
+            "- [[guidance/deep-agents/skill-md-requires-yaml-frontmatter|SKILL.md Requires YAML Frontmatter]]"
+            " _(high)_" in text
+        )
+        assert "]] —" not in text
+
+    def test_missing_impact_omits_suffix(self):
+        text = render_guidance_topic_index("deep-agents", [self._entry(impact="")], "wiki")
+        assert "_(" not in text
+
+    def test_frontmatter_and_banner(self):
+        today = dt.date.today().isoformat()
+        text = render_guidance_topic_index("deep-agents", [self._entry()], "wiki")
+        lines = text.splitlines()
+        assert lines[0] == "---"
+        assert "title: Deep Agents Guidance Index" in lines
+        assert "category: index" in lines
+        assert f"updated: {today}" in lines
+        assert "# Deep Agents Guidance Index" in lines
+        assert f"_Auto-generated {today} • 1 pages_" in lines
+
+
+class TestRenderGuidanceRootIndex:
+    def test_topics_sorted_alphabetically_with_counts(self):
+        topics = {
+            "expo": [{"path": "guidance/expo/a.md", "title": "A", "summary": "", "impact": ""}],
+            "deep-agents": [
+                {"path": f"guidance/deep-agents/p{i}.md", "title": f"P{i}", "summary": "", "impact": ""}
+                for i in range(9)
+            ],
+        }
+        text = render_guidance_root_index(topics, "wiki")
+        deep = text.index("- [[guidance/deep-agents/index|Deep Agents]] — 9 pages")
+        expo = text.index("- [[guidance/expo/index|Expo]] — 1 page")
+        assert deep < expo
+
+    def test_singular_page_count(self):
+        topics = {"expo": [{"path": "guidance/expo/a.md", "title": "A", "summary": "", "impact": ""}]}
+        text = render_guidance_root_index(topics, "wiki")
+        assert "— 1 page" in text
+        assert "— 1 pages" not in text
+
+    def test_frontmatter(self):
+        today = dt.date.today().isoformat()
+        topics = {"expo": [{"path": "guidance/expo/a.md", "title": "A", "summary": "", "impact": ""}]}
+        text = render_guidance_root_index(topics, "wiki")
+        lines = text.splitlines()
+        assert lines[0] == "---"
+        assert "title: Guidance Index" in lines
+        assert "category: index" in lines
+        assert f"updated: {today}" in lines
+        assert "# Guidance Index" in lines
