@@ -33,13 +33,13 @@ Code comments go stale. README files rot. Architecture diagrams drift from reali
 
 ## Architecture
 
-The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (immutable ingested sources) and `work/` (unified work tracker) are siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archived/`) and `work/` (unified work tracker) are siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
 
 ```
 <repo>/graph-wiki/              # workspace; Obsidian vault opens here
 ├── .graph-wiki.yaml            # workspace manifest
 ├── CLAUDE.md                   # workspace-level schema (owned by workspace_io)
-├── raw/                        # IMMUTABLE source of truth (owned by workspace_io)
+├── raw/                        # source inbox; ingested sources move to _archived/
 │   ├── articles/               # clipped articles, blog posts
 │   ├── specs/                  # design docs, specs, RFCs
 │   ├── prs/                    # PR summaries, review notes
@@ -185,8 +185,8 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 ## Iron rules
 
 1. **The code is the source of truth.** If the vault contradicts the code, the code wins — update the vault.
-2. **The LLM never edits files in `raw/`.** Sources are immutable.
-3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources stay in `<workspace>/raw/` (immutable). No exceptions.
+2. **The LLM never edits file contents in `raw/`.** The only permitted `raw/` write is the post-ingest move to `raw/_archived/<same relative path>`.
+3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archived/`.
 4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/architecture/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `title`, `uri`, `kind`, `updated` (the scanner owns their frontmatter).
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).

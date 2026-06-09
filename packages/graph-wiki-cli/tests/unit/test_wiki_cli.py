@@ -200,6 +200,39 @@ def test_ingest_source_cli_prints_guidance_pages(tmp_path):
     assert "wiki/guidance/react-native/use-virtualizer.md" in result.stdout
 
 
+def test_ingest_source_cli_prints_archived_to(tmp_path):
+    """Text-mode CLI reports the raw/_archived/ destination when set."""
+    from unittest.mock import AsyncMock
+
+    from graph_wiki_cli.wiki_cli.main import wiki_app
+    from graph_wiki_core.commands.ingest import IngestResult
+
+    src = tmp_path / "auth.md"
+    src.write_text("# Auth Spec\n\nBody.", encoding="utf-8")
+
+    fake_result = IngestResult(
+        status="ok",
+        page_path="sources/auth-spec.md",
+        slug="auth-spec",
+        title="Auth Spec",
+        page_type="source",
+        source_path=str(src),
+        cross_refs_updated=1,
+        source_type="spec",
+        archived_to="raw/_archived/specs/auth.md",
+    )
+
+    with patch(
+        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        new_callable=AsyncMock,
+        return_value=fake_result,
+    ):
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
+
+    assert result.exit_code == 0
+    assert "[ok] Archived source → raw/_archived/specs/auth.md" in result.stdout
+
+
 def test_proposals_and_proposal_subcommands_registered() -> None:
     """`gw wiki proposals` (list) and `gw wiki proposal approve|reject` exist."""
     from graph_wiki_cli.cli import app

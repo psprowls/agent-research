@@ -334,6 +334,9 @@ class WikiIngestOutput(BaseModel):
     proposal_extractor_status: str = "skipped"
     proposal_error: str | None = None
     guidance_pages_written: list[str] = Field(default_factory=list)
+    # Raw-source archive (design 2026-06-09): workspace-relative raw/_archived/
+    # destination, None when the source was outside raw/ or the move failed.
+    archived_to: str | None = None
 
 
 @mcp.tool(
@@ -389,6 +392,7 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         proposal_extractor_status=result.proposal_extractor_status,
         proposal_error=result.proposal_error,
         guidance_pages_written=result.guidance_pages_written,
+        archived_to=result.archived_to,
     )
 
 

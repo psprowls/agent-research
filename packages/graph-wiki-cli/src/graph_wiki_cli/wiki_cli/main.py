@@ -331,6 +331,8 @@ def ingest_source(
     else:
         typer.echo(f"[ok] Ingested: {result.page_path}")
         typer.echo(f"     source_type: {result.source_type}, slug: {result.slug}")
+        if result.archived_to:
+            typer.echo(f"[ok] Archived source → {result.archived_to}")
         if not result.frontmatter_parsed:
             typer.echo(
                 "⚠ frontmatter did not parse — wrote Source page using the path-guess source_type",

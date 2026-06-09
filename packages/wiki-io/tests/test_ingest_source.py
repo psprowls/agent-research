@@ -584,3 +584,45 @@ def test_gather_strips_fragment_before_resolving(tmp_path: Path) -> None:
 
     bundle = gather_skill_sources(skill_dir / "SKILL.md")
     assert bundle.included_files == ["SKILL.md", "a.md"]
+
+
+# ---------------------------------------------------------------------------
+# archive_destination (raw-source-archive design 2026-06-09)
+# ---------------------------------------------------------------------------
+
+
+def test_archive_destination_kind_file() -> None:
+    from wiki_io.ingest_source import archive_destination
+
+    raw = Path("/ws/raw")
+    assert archive_destination(raw, Path("/ws/raw/specs/x.md")) == Path("/ws/raw/_archived/specs/x.md")
+
+
+def test_archive_destination_nested_unit() -> None:
+    from wiki_io.ingest_source import archive_destination
+
+    raw = Path("/ws/raw")
+    # A directory unit (skill dir) maps wholesale to the mirrored path.
+    assert archive_destination(raw, Path("/ws/raw/skill/foo")) == Path("/ws/raw/_archived/skill/foo")
+
+
+def test_archive_destination_file_directly_in_raw() -> None:
+    from wiki_io.ingest_source import archive_destination
+
+    raw = Path("/ws/raw")
+    assert archive_destination(raw, Path("/ws/raw/x.md")) == Path("/ws/raw/_archived/x.md")
+
+
+def test_archive_destination_outside_raw_is_none() -> None:
+    from wiki_io.ingest_source import archive_destination
+
+    raw = Path("/ws/raw")
+    assert archive_destination(raw, Path("/ws/docs/x.md")) is None
+    assert archive_destination(raw, Path("/elsewhere/x.md")) is None
+
+
+def test_archive_destination_already_archived_is_none() -> None:
+    from wiki_io.ingest_source import archive_destination
+
+    raw = Path("/ws/raw")
+    assert archive_destination(raw, Path("/ws/raw/_archived/specs/x.md")) is None

@@ -2353,3 +2353,236 @@ async def test_run_ingest_source_raw_skill_single_file_still_works(tmp_path, mon
     assert result.guidance_pages_written == ["wiki/guidance/react-native/use-virtualizer.md"]
     src = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
     assert "## Excluded" not in src  # no bundle -> no excluded section
+
+
+# ---------------------------------------------------------------------------
+# Raw-source archive after ingest (design 2026-06-09)
+# ---------------------------------------------------------------------------
+
+
+def _setup_archive_test_workspace(tmp_path, monkeypatch):
+    """Workspace with a raw/ inbox; graph conn, entity lookups, and the suggest
+    phase stubbed so default-branch ingests run offline."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = tmp_path
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "log.md").write_text("", encoding="utf-8")
+    (ws / "raw").mkdir()
+
+    monkeypatch.setattr(ingest_mod, "resolve_wiki_and_repo", lambda wp: (ws / "wiki", ws))
+    monkeypatch.setattr(ingest_mod, "render_project_context", lambda wiki: "")
+
+    class _Conn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "build_graph_tools", lambda conn: [])
+
+    async def _fake_suggest(**kwargs):
+        return [], {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    monkeypatch.setattr(ingest_mod, "run_suggest_phase", _fake_suggest)
+    return ws
+
+
+def _patch_default_branch_llm(monkeypatch, target_slug="auth-spec"):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    response = f"---\ntarget_slug: {target_slug}\ntitle: Auth Spec\n---\n\nBody text.\n"
+
+    class _LLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = response
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _LLM())
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_archives_raw_source(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    src = ws / "raw" / "specs" / "auth.md"
+    src.parent.mkdir(parents=True)
+    src.write_text("# Auth Spec\n\nbody\n", encoding="utf-8")
+    _patch_default_branch_llm(monkeypatch)
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to == "raw/_archived/specs/auth.md"
+    # source_path keeps the ORIGINAL path (spec §3).
+    assert result.source_path == str(src)
+    assert not src.exists()
+    archived = ws / "raw" / "_archived" / "specs" / "auth.md"
+    assert archived.read_text(encoding="utf-8") == "# Auth Spec\n\nbody\n"
+    # The ingest log records the destination.
+    log_text = (ws / "wiki" / "log.md").read_text(encoding="utf-8")
+    assert "archived: raw/_archived/specs/auth.md" in log_text
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_archive_overwrites_existing_destination(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    stale = ws / "raw" / "_archived" / "specs" / "auth.md"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("old version", encoding="utf-8")
+    src = ws / "raw" / "specs" / "auth.md"
+    src.parent.mkdir(parents=True)
+    src.write_text("# Auth Spec v2\n", encoding="utf-8")
+    _patch_default_branch_llm(monkeypatch)
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.archived_to == "raw/_archived/specs/auth.md"
+    assert stale.read_text(encoding="utf-8") == "# Auth Spec v2\n"
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_leaves_sources_outside_raw_untouched(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    src = ws / "notes.md"
+    src.write_text("# Loose Note\n\nbody\n", encoding="utf-8")
+    _patch_default_branch_llm(monkeypatch, target_slug="loose-note")
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to is None
+    assert src.exists()
+    assert not (ws / "raw" / "_archived").exists()
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_move_failure_does_not_fail_ingest(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    src = ws / "raw" / "specs" / "auth.md"
+    src.parent.mkdir(parents=True)
+    src.write_text("# Auth Spec\n", encoding="utf-8")
+    _patch_default_branch_llm(monkeypatch)
+
+    def _boom(src_arg, dst_arg):
+        raise OSError("disk says no")
+
+    monkeypatch.setattr(ingest_mod.shutil, "move", _boom)
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to is None
+    assert src.exists()
+
+
+def test_ingest_result_archived_to_defaults_none_and_serializes():
+    from graph_wiki_core.commands.ingest import IngestResult
+
+    result = IngestResult(
+        status="ok",
+        page_path="sources/x.md",
+        slug="x",
+        title="X",
+        page_type="source",
+        source_path="/tmp/x.md",
+        cross_refs_updated=1,
+    )
+    assert result.archived_to is None
+    result.archived_to = "raw/_archived/specs/x.md"
+    parsed = json.loads(json.dumps(dataclasses.asdict(result)))
+    assert parsed["archived_to"] == "raw/_archived/specs/x.md"
+
+
+def _patch_skill_branch_llm(monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    planner_yaml = (
+        "- title: Use a Virtualizer\n"
+        "  slug: use-virtualizer\n"
+        "  topic: react-native\n"
+        "  summary: Use a virtualizer.\n"
+        "  applies_when: Rendering a list.\n"
+        "  impact: high\n"
+        "  triggers:\n    globs: []\n    keywords: []\n    entities: []\n"
+        "  content: Use a virtualizer instead of ScrollView.\n"
+    )
+    guidance_page = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: Use a virtualizer.\napplies_when: Rendering a list.\nimpact: high\n"
+        "updated: 2026-06-08\ntokens: 0\n---\n\n## Guidance\nUse a virtualizer.\n"
+    )
+
+    def _fake_make_llm(role, model_override=None):
+        out = planner_yaml if role == "skill_planner" else guidance_page
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_archives_skill_directory_wholesale(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    skill_dir = ws / "raw" / "skill" / "react-native"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# RN Skill\nUse a virtualizer.\n", encoding="utf-8")
+    (skill_dir / "extra.txt").write_text("companion\n", encoding="utf-8")
+    _patch_skill_branch_llm(monkeypatch)
+
+    # Pass the SKILL.md file — the anchor's PARENT directory must move wholesale.
+    result = await ingest_mod.run_ingest_source(skill_dir / "SKILL.md", workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to == "raw/_archived/skill/react-native"
+    assert not skill_dir.exists()
+    archived = ws / "raw" / "_archived" / "skill" / "react-native"
+    assert (archived / "SKILL.md").is_file()
+    assert (archived / "extra.txt").is_file()
+    # The kind folder itself stays put.
+    assert (ws / "raw" / "skill").is_dir()
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_skill_md_directly_in_kind_folder_moves_only_file(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    kind_dir = ws / "raw" / "skill"
+    kind_dir.mkdir(parents=True)
+    src = kind_dir / "SKILL.md"
+    src.write_text("# Bare Skill\nGuidance.\n", encoding="utf-8")
+    # A sibling awaiting ingestion must NOT be swept along.
+    sibling = kind_dir / "other-skill.md"
+    sibling.write_text("# Other\n", encoding="utf-8")
+    _patch_skill_branch_llm(monkeypatch)
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to == "raw/_archived/skill/SKILL.md"
+    assert not src.exists()
+    assert sibling.exists()
+    assert kind_dir.is_dir()
+    assert (ws / "raw" / "_archived" / "skill" / "SKILL.md").is_file()

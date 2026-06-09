@@ -8,7 +8,7 @@ Sources in a graph-wiki are one of: **spec**, **article**, **PR summary**, **tic
 
 Sources live in two places:
 
-- **`<workspace>/raw/<...>`** — clipped articles, specs, PRs, transcripts you've staged. Immutable; the LLM never edits. Owned by `workspace_io`.
+- **`<workspace>/raw/<...>`** — clipped articles, specs, PRs, transcripts you've staged. File contents are never edited; after a successful ingest the source is moved to `raw/_archived/<same relative path>`, so `raw/` (outside `_archived/`) only holds un-ingested material. Owned by `workspace_io`.
 - **`<repo>/<...>.md`** (in-repo design docs) — any `.md` that resolves under the repo but outside the wiki. Pass the repo-relative path straight to `/graph-wiki:ingest`; `ingest_source.py` detects it as an in-repo doc (`in_repo_doc`). The summary records `source_path` (repo-relative) and `last_sync_commit` so `/graph-wiki:lint` flags staleness when the file changes. The doc itself stays in the repo — the wiki does not duplicate it.
 
 ## Inputs
@@ -100,7 +100,10 @@ If you wrote guidance pages manually, also refresh `guidance/index.md` and the a
 
 Append a `## [YYYY-MM-DD] ingest | <title>` entry with the touched pages.
 
-### 12. Report back to the user
+### 12. Archive the raw source
+If the source lives under `<workspace>/raw/` (and not already under `raw/_archived/`), `mkdir -p` the mirrored `_archived` parent and `mv` the source there (`raw/specs/x.md` → `raw/_archived/specs/x.md`). Skill directories move wholesale; a bare `SKILL.md` directly in a kind folder moves alone. Replace an existing destination (re-ingest semantics). Sources outside `raw/` are never touched. A failed move is a warning, not a failed ingest.
+
+### 13. Report back to the user
 
 Summary the user sees in chat:
 - Source summary page created/updated

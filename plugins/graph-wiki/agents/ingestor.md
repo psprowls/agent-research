@@ -95,13 +95,26 @@ If you wrote guidance pages manually, also refresh `guidance/index.md` and the a
 ### 11. Log
 Append a `## [YYYY-MM-DD] ingest | <title>` entry to `log.md` with the touched pages and notable contradictions.
 
-### 12. Report
+### 12. Archive the source
+If the source lives under `<workspace>/raw/` (and not already under `raw/_archived/`), move it to the mirrored archive path so the inbox only holds un-ingested material:
+
+```bash
+mkdir -p "$(dirname "<workspace>/raw/_archived/<rel-path>")"
+mv "<workspace>/raw/<rel-path>" "<workspace>/raw/_archived/<rel-path>"
+```
+
+- Skill directories move wholesale (e.g. `raw/skill/foo/` → `raw/_archived/skill/foo/`). A bare `SKILL.md` sitting directly in a kind folder (`raw/skill/SKILL.md`) moves alone — never move the kind folder itself.
+- If the destination already exists, replace it (re-ingest semantics; old versions are recoverable via workspace git).
+- Sources outside `raw/` (in-repo docs, loose notes) are never touched.
+- If the move fails, note the warning and continue — the ingest still succeeded.
+
+### 13. Report
 Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs created.
 
 ## Rules
 
 - **Use Obsidian syntax** when writing the source summary or editing any vault page — the vault is an Obsidian vault, so use wikilinks (`[[Note]]`), embeds (`![[file]]`), callouts (`> [!warning]`), proper YAML frontmatter, and `==highlight==` syntax. Plain Markdown links between vault pages are wrong; use wikilinks so Obsidian tracks renames.
-- **`raw/` is immutable.** Read only.
+- **`raw/` is an inbox.** Never edit file contents under `raw/` — the only permitted write is the post-ingest archive move into `raw/_archived/` (step 12). Anything under `raw/` outside `_archived/` is un-ingested.
 - **In-repo docs are also read-only.** The doc lives in the repo and the LLM never edits it through this skill — the canonical version stays where it is.
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
 - **Discuss before writing.**
