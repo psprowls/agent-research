@@ -469,6 +469,57 @@ def run_multi_turn(
     )
 
 
+def run_interactive(
+    *,
+    worktree_path: Path,
+    poll_interval: float = 1.0,
+    max_wait_seconds: float = 3600.0,
+) -> tuple[RunResult, str]:
+    """Wait for a manual interactive session to complete.
+
+    Prints the worktree path and polls for a .eval-done sentinel file.
+    Returns a RunResult with final_status="completed_interactive" on success
+    or final_status="budget_exceeded" if max_wait_seconds is exceeded.
+    """
+    done_file = worktree_path / ".eval-done"
+    start = time.monotonic()
+
+    print(
+        f"\n[INTERACTIVE MODE]\n"
+        f"  Worktree: {worktree_path}\n"
+        f"  Run claude in the worktree, then signal completion with:\n"
+        f"    touch {done_file}\n"
+    )
+
+    logger = EvalLogger("runner_interactive")
+    logger.log("Waiting for interactive session", done_file=str(done_file))
+
+    while not done_file.exists():
+        elapsed = time.monotonic() - start
+        if elapsed > max_wait_seconds:
+            logger.log("Interactive wait timed out", elapsed=elapsed)
+            return (
+                RunResult(
+                    final_status="budget_exceeded",
+                    budget_exceeded=True,
+                    wall_seconds=elapsed,
+                ),
+                "",
+            )
+        time.sleep(poll_interval)
+
+    wall_seconds = time.monotonic() - start
+    logger.log("Interactive session complete", wall_seconds=wall_seconds)
+    return (
+        RunResult(
+            final_status="completed_interactive",
+            budget_exceeded=False,
+            wall_seconds=wall_seconds,
+        ),
+        "",
+    )
+
+
 def _build_env(
     *,
     cfg_dir: Path,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +13,7 @@ from claude_code_evals.runner import (
     load_oauth_token,
     prepare_injected_context,
     prepare_plugin_env,
+    run_interactive,
     run_one_shot,
 )
 
@@ -324,3 +326,34 @@ def test_load_oauth_token_strips_whitespace(tmp_path: Path, monkeypatch):
 
     token = load_oauth_token()
     assert token == "sk-ant-oat01-token-with-whitespace"
+
+
+def test_run_interactive_returns_completed_when_done_file_appears(tmp_path):
+    done_file = tmp_path / ".eval-done"
+
+    def _touch_after_short_delay():
+        import time
+
+        time.sleep(0.05)
+        done_file.touch()
+
+    t = threading.Thread(target=_touch_after_short_delay, daemon=True)
+    t.start()
+
+    result, jsonl = run_interactive(worktree_path=tmp_path, poll_interval=0.01)
+    t.join(timeout=1)
+
+    assert result.final_status == "completed_interactive"
+    assert result.budget_exceeded is False
+    assert jsonl == ""
+
+
+def test_run_interactive_budget_exceeded_when_timeout(tmp_path):
+    result, jsonl = run_interactive(
+        worktree_path=tmp_path,
+        poll_interval=0.01,
+        max_wait_seconds=0.05,
+    )
+    assert result.final_status == "budget_exceeded"
+    assert result.budget_exceeded is True
+    assert jsonl == ""
