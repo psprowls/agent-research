@@ -134,6 +134,9 @@ class IngestResult:
                             work items.
         suggestions_parsed: Living Wiki M3: False when the extractor LLM call
                             errored or its output did not parse (zero suggestions).
+        guidance_pages_written: Type-branched ingest: workspace-relative paths of
+                            guidance pages written by the skill branch (empty for
+                            all other source types).
     """
 
     status: str
@@ -154,6 +157,9 @@ class IngestResult:
     proposal_reasoner_status: str = "skipped"
     proposal_extractor_status: str = "skipped"
     proposal_error: str | None = None
+    # Type-branched ingest: workspace-relative paths of guidance pages created or
+    # updated by the skill branch. Empty list for every other source type.
+    guidance_pages_written: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

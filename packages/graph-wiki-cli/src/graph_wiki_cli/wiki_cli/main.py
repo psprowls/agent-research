@@ -348,6 +348,10 @@ def ingest_source(
                 typer.echo(
                     f'       - {s.get("kind")} "{s.get("title")}" ({mode}, {s.get("status")}) -> {s.get("slug")}'
                 )
+        if result.guidance_pages_written:
+            typer.echo(f"     wrote {len(result.guidance_pages_written)} guidance page(s):")
+            for g in result.guidance_pages_written:
+                typer.echo(f"       - {g}")
         if not result.suggestions_parsed:
             typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)
 

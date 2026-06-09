@@ -333,6 +333,7 @@ class WikiIngestOutput(BaseModel):
     proposal_reasoner_status: str = "skipped"
     proposal_extractor_status: str = "skipped"
     proposal_error: str | None = None
+    guidance_pages_written: list[str] = Field(default_factory=list)
 
 
 @mcp.tool(
@@ -387,6 +388,7 @@ async def wiki_ingest(input: WikiIngestInput, ctx: Context) -> WikiIngestOutput:
         proposal_reasoner_status=result.proposal_reasoner_status,
         proposal_extractor_status=result.proposal_extractor_status,
         proposal_error=result.proposal_error,
+        guidance_pages_written=result.guidance_pages_written,
     )
 
 

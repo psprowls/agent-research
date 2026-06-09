@@ -426,6 +426,35 @@ async def test_wiki_ingest_source_passes_through_suggestions() -> None:
     assert out.suggested_pages[0]["slug"] == "t"
 
 
+@pytest.mark.asyncio
+async def test_wiki_ingest_source_passes_through_guidance_pages(monkeypatch):
+    """wiki_ingest surfaces guidance_pages_written from IngestResult."""
+    from graph_wiki_core.commands.ingest import IngestResult
+    from graph_wiki_mcp import server
+
+    async def fake_ingest(path, vault):
+        return IngestResult(
+            status="ok",
+            page_path="sources/s.md",
+            slug="s",
+            title="S",
+            page_type="source",
+            source_path=str(path),
+            cross_refs_updated=1,
+            source_type="skill",
+            guidance_pages_written=["wiki/guidance/t/a.md"],
+        )
+
+    monkeypatch.setattr(server, "run_ingest_source", fake_ingest)
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    inp = server.WikiIngestInput(type="source", source_path="/tmp/s.md")
+    out = await server.wiki_ingest(inp, mock_ctx)
+    assert out.guidance_pages_written == ["wiki/guidance/t/a.md"]
+
+
 # ---------------------------------------------------------------------------
 # wiki_propagate_drift tool (Living Wiki M4)
 # ---------------------------------------------------------------------------
