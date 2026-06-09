@@ -165,6 +165,49 @@ def scan_work(workspace):
     return entries
 
 
+def topic_label(topic: str) -> str:
+    """Display name for a guidance topic dir: 'deep-agents' -> 'Deep Agents'.
+
+    Same derivation as infer_title's filename fallback.
+    """
+    return topic.replace("-", " ").replace("_", " ").title()
+
+
+def scan_guidance_topics(wiki):
+    """Scan wiki/guidance/<topic>/*.md into {topic: [entry, ...]}.
+
+    Skips dot-dirs, loose .md files directly under guidance/ (the ingest
+    writer always nests under a topic), generated index.md files, and topic
+    dirs with no content pages. Entries are sorted by title case-insensitively;
+    topics iterate in alphabetical topic-slug order.
+    """
+    guidance = wiki / "guidance"
+    if not guidance.is_dir():
+        return {}
+    topics = {}
+    for topic_dir in sorted(guidance.iterdir()):
+        if not topic_dir.is_dir() or topic_dir.name.startswith("."):
+            continue
+        entries = []
+        for md in sorted(topic_dir.glob("*.md")):
+            if md.name == "index.md":
+                continue
+            text = md.read_text(encoding="utf-8", errors="replace")
+            fm = parse_frontmatter(text)
+            entries.append(
+                {
+                    "path": f"guidance/{topic_dir.name}/{md.name}",
+                    "title": infer_title(md, fm),
+                    "summary": fm.get("summary", ""),
+                    "impact": fm.get("impact", ""),
+                }
+            )
+        if entries:
+            entries.sort(key=lambda e: e["title"].lower())
+            topics[topic_dir.name] = entries
+    return topics
+
+
 def render_index(pages, wiki_name, vault_name):
     today = dt.date.today().isoformat()
     nav_total = sum(
