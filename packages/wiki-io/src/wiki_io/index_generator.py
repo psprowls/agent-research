@@ -117,6 +117,9 @@ GENERATED_FILES: frozenset[str] = frozenset(
         "adrs/index.md",
         "sources/index.md",
         "architecture/index.md",
+        # Documentation value: guidance/<topic>/index.md paths are dynamic and
+        # rely on the rel.name check in _scan_curated_lane / scan_vault.
+        "guidance/index.md",
     }
 )
 
@@ -508,6 +511,26 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
     return entries
 
 
+def _scan_guidance_topics(wiki_root: Path) -> list[tuple[str, int]]:
+    """Topic dirs under wiki/guidance/ with their content-page counts.
+
+    Filesystem scan, no graph involvement (like the curated lanes). Skips
+    dot-dirs, generated index.md files, and topics with zero content pages.
+    Sorted alphabetically by topic slug.
+    """
+    guidance = wiki_root / "guidance"
+    if not guidance.is_dir():
+        return []
+    topics: list[tuple[str, int]] = []
+    for topic_dir in sorted(guidance.iterdir()):
+        if not topic_dir.is_dir() or topic_dir.name.startswith("."):
+            continue
+        count = sum(1 for md in topic_dir.glob("*.md") if md.name != "index.md")
+        if count:
+            topics.append((topic_dir.name, count))
+    return topics
+
+
 # ============================================================================
 # Rendering helpers (D-03, D-05..D-09)
 # ============================================================================
@@ -786,6 +809,23 @@ def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
     return lines
 
 
+def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
+    """Render the navigational `## Guidance` section (omitted when empty).
+
+    One lead link to guidance/index plus one link per topic with a page
+    count. Guidance pages do NOT count into the banner's curated total.
+    """
+    if not topics:
+        return []
+    lines = ["## Guidance", "", f"- {vault_wikilink('guidance/index', 'All guidance topics')}"]
+    for topic, count in topics:
+        label = topic.replace("-", " ").replace("_", " ").title()
+        noun = "page" if count == 1 else "pages"
+        lines.append(f"- {vault_wikilink(f'guidance/{topic}/index', label)} — {count} {noun}")
+    lines.append("")
+    return lines
+
+
 # ============================================================================
 # Orchestrators (D-03, D-16, D-19)
 # ============================================================================
@@ -851,6 +891,7 @@ def _render(
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
         lines.extend(_render_curated_section(section_label, curated_entries_by_lane[stable_id]))
+    lines.extend(_render_guidance_section(_scan_guidance_topics(wiki_root)))
     lines.extend(_render_curated_section("Work", work_entries))
 
     text = "\n".join(lines).rstrip("\n") + "\n"  # POSIX trailing newline
@@ -923,8 +964,10 @@ __all__ = [
     "_render_curated_section",
     "_render_domain_section",
     "_render_domains",
+    "_render_guidance_section",
     "_render_pkg_nested",
     "_scan_curated_lane",
+    "_scan_guidance_topics",
     "_scan_work",
     "generate_index",
     "dataclasses",  # exported so tests can do `from wiki_io.index_generator import dataclasses`

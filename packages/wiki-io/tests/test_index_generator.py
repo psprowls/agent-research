@@ -30,7 +30,9 @@ from wiki_io.index_generator import (
     _consumer_pkgs_in_domain,
     _place_entities,
     _render,
+    _render_guidance_section,
     _scan_curated_lane,
+    _scan_guidance_topics,
     _scan_work,
     generate_index,
 )
@@ -1296,3 +1298,84 @@ def test_snapshot_against_agent_research(snapshot):
         assert text == snapshot
     finally:
         conn.close()
+
+
+# ============================================================================
+# Guidance section
+# ============================================================================
+
+
+def _write_guidance_fixture_page(wiki_root: Path, topic: str, name: str, title: str):
+    """Guidance content page under wiki/guidance/<topic>/."""
+    _write_curated_page(wiki_root / "guidance" / topic / f"{name}.md", title=title)
+
+
+class TestGuidanceSection:
+    def test_scan_returns_sorted_topic_counts(self, tmp_path):
+        wiki_root = tmp_path / "wiki"
+        _write_guidance_fixture_page(wiki_root, "expo", "a", "A")
+        _write_guidance_fixture_page(wiki_root, "deep-agents", "b", "B")
+        _write_guidance_fixture_page(wiki_root, "deep-agents", "c", "C")
+        assert _scan_guidance_topics(wiki_root) == [("deep-agents", 2), ("expo", 1)]
+
+    def test_scan_missing_dir_and_index_only_topic(self, tmp_path):
+        wiki_root = tmp_path / "wiki"
+        wiki_root.mkdir(parents=True)
+        assert _scan_guidance_topics(wiki_root) == []
+        _write_curated_page(wiki_root / "guidance" / "empty" / "index.md", title="Idx")
+        assert _scan_guidance_topics(wiki_root) == []
+
+    def test_render_section_shape(self):
+        lines = _render_guidance_section([("deep-agents", 9), ("expo", 1)])
+        assert lines[0] == "## Guidance"
+        assert "- [[guidance/index|All guidance topics]]" in lines
+        assert "- [[guidance/deep-agents/index|Deep Agents]] — 9 pages" in lines
+        assert "- [[guidance/expo/index|Expo]] — 1 page" in lines
+
+    def test_render_section_empty_returns_nothing(self):
+        assert _render_guidance_section([]) == []
+
+    def test_generate_index_renders_guidance_after_sources_before_work(self, tmp_path, make_index_fixture_graph):
+        conn = make_index_fixture_graph(
+            {"nodes": [("repository", "agent-research", {"uri": "repo:agent-research"})], "edges": []}
+        )
+        wiki_root = tmp_path / "wiki"
+        wiki_root.mkdir(parents=True)
+        _write_curated_page(wiki_root / "sources" / "spec.md", title="A Spec")
+        _write_curated_page(wiki_root / "work" / "2026-06-09-item.md", title="An Item")
+        _write_guidance_fixture_page(wiki_root, "expo", "a", "A Guidance Page")
+
+        generate_index(conn, wiki_root)
+        text = (wiki_root / "index.md").read_text(encoding="utf-8")
+        assert "## Guidance" in text
+        assert "- [[guidance/index|All guidance topics]]" in text
+        assert "- [[guidance/expo/index|Expo]] — 1 page" in text
+        assert text.index("## Sources") < text.index("## Guidance") < text.index("## Work")
+
+    def test_generate_index_omits_guidance_when_none(self, tmp_path, make_index_fixture_graph):
+        conn = make_index_fixture_graph(
+            {"nodes": [("repository", "agent-research", {"uri": "repo:agent-research"})], "edges": []}
+        )
+        wiki_root = tmp_path / "wiki"
+        wiki_root.mkdir(parents=True)
+        generate_index(conn, wiki_root)
+        text = (wiki_root / "index.md").read_text(encoding="utf-8")
+        assert "## Guidance" not in text
+
+    def test_guidance_pages_not_in_curated_count(self, tmp_path, make_index_fixture_graph):
+        conn = make_index_fixture_graph(
+            {"nodes": [("repository", "agent-research", {"uri": "repo:agent-research"})], "edges": []}
+        )
+        wiki_root = tmp_path / "wiki"
+        wiki_root.mkdir(parents=True)
+        _write_curated_page(wiki_root / "concepts" / "foo.md", title="Foo")
+        _write_guidance_fixture_page(wiki_root, "expo", "a", "A")
+        _write_guidance_fixture_page(wiki_root, "expo", "b", "B")
+
+        result = generate_index(conn, wiki_root)
+        assert result.curated_count == 1  # the concept only; guidance is navigational
+
+    def test_guidance_index_in_generated_files(self):
+        from wiki_io.index_generator import GENERATED_FILES
+
+        assert "guidance/index.md" in GENERATED_FILES
