@@ -6,10 +6,13 @@ import datetime as dt
 from pathlib import Path
 
 from wiki_io.update_index import (
+    GENERATED_FILES,
     render_guidance_root_index,
     render_guidance_topic_index,
     scan_guidance_topics,
     topic_label,
+    update_guidance_indexes,
+    update_index,
 )
 
 
@@ -157,3 +160,76 @@ class TestRenderGuidanceRootIndex:
         assert "category: index" in lines
         assert f"updated: {today}" in lines
         assert "# Guidance Index" in lines
+
+
+class TestUpdateGuidanceIndexes:
+    def test_absent_guidance_writes_nothing(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        update_guidance_indexes(wiki)
+        assert not (wiki / "guidance").exists()
+
+    def test_empty_topic_dirs_write_nothing(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        (wiki / "guidance" / "empty-topic").mkdir(parents=True)
+        update_guidance_indexes(wiki)
+        assert not (wiki / "guidance" / "index.md").exists()
+        assert not (wiki / "guidance" / "empty-topic" / "index.md").exists()
+
+    def test_single_topic_writes_root_and_topic_index(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        _write_guidance_page(
+            wiki / "guidance" / "expo" / "use-eas.md",
+            title="Use EAS",
+            summary="Build with EAS.",
+            impact="high",
+        )
+        update_guidance_indexes(wiki)
+
+        root = (wiki / "guidance" / "index.md").read_text(encoding="utf-8")
+        assert "- [[guidance/expo/index|Expo]] — 1 page" in root
+
+        topic = (wiki / "guidance" / "expo" / "index.md").read_text(encoding="utf-8")
+        assert "- [[guidance/expo/use-eas|Use EAS]] — Build with EAS. _(high)_" in topic
+
+    def test_multiple_topics_alphabetical_in_root(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        _write_guidance_page(wiki / "guidance" / "expo" / "a.md", title="A")
+        _write_guidance_page(wiki / "guidance" / "deep-agents" / "b.md", title="B")
+        update_guidance_indexes(wiki)
+        root = (wiki / "guidance" / "index.md").read_text(encoding="utf-8")
+        assert root.index("Deep Agents") < root.index("Expo")
+        assert (wiki / "guidance" / "deep-agents" / "index.md").exists()
+        assert (wiki / "guidance" / "expo" / "index.md").exists()
+
+    def test_rerun_is_idempotent(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        _write_guidance_page(wiki / "guidance" / "expo" / "a.md", title="A", impact="low")
+        update_guidance_indexes(wiki)
+        first_root = (wiki / "guidance" / "index.md").read_bytes()
+        first_topic = (wiki / "guidance" / "expo" / "index.md").read_bytes()
+        update_guidance_indexes(wiki)
+        assert (wiki / "guidance" / "index.md").read_bytes() == first_root
+        assert (wiki / "guidance" / "expo" / "index.md").read_bytes() == first_topic
+
+    def test_generated_index_not_listed_as_content_on_rerun(self, tmp_path):
+        """The root index must not list itself or topic indexes after a re-run."""
+        wiki = tmp_path / "wiki"
+        _write_guidance_page(wiki / "guidance" / "expo" / "a.md", title="A")
+        update_guidance_indexes(wiki)
+        update_guidance_indexes(wiki)
+        root = (wiki / "guidance" / "index.md").read_text(encoding="utf-8")
+        assert "— 1 page" in root  # index.md not counted as a content page
+
+
+class TestUpdateIndexIntegration:
+    def test_update_index_regenerates_guidance_indexes(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        _write_guidance_page(wiki / "guidance" / "expo" / "a.md", title="A")
+        # update_index also needs the vault root to exist (it does) — no other seeding required.
+        update_index(wiki)
+        assert (wiki / "guidance" / "index.md").exists()
+        assert (wiki / "guidance" / "expo" / "index.md").exists()
+
+    def test_guidance_root_index_in_generated_files(self):
+        assert "guidance/index.md" in GENERATED_FILES

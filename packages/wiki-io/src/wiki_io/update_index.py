@@ -44,7 +44,10 @@ CATEGORY_INDEX_FILES = {
     "adr": "adrs/index.md",
     "architecture": "architecture/index.md",
 }
-GENERATED_FILES = {"index.md", "log.md"} | set(CATEGORY_INDEX_FILES.values())
+# guidance/index.md is listed for documentation value; the per-topic
+# guidance/<topic>/index.md paths are dynamic and rely on the rel.name
+# == "index.md" check that scan_vault applies to every file.
+GENERATED_FILES = {"index.md", "log.md", "guidance/index.md"} | set(CATEGORY_INDEX_FILES.values())
 
 # Filenames (without .md) that are sub-pages, not main navigation entries
 SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work", "testing"}
@@ -368,6 +371,24 @@ def render_guidance_root_index(topics, vault_name):
     return "\n".join(lines)
 
 
+def update_guidance_indexes(wiki: Path) -> None:
+    """Regenerate guidance/index.md and guidance/<topic>/index.md.
+
+    Writes nothing when guidance/ is absent or has no topic dirs with content
+    pages. Writes are unconditional write_text, matching the category-index
+    behavior. Stale indexes for deleted topics are NOT garbage-collected
+    (accepted gap — consistent with the rest of the system).
+    """
+    topics = scan_guidance_topics(wiki)
+    if not topics:
+        return
+    for topic, entries in topics.items():
+        content = render_guidance_topic_index(topic, entries, wiki.name)
+        (wiki / "guidance" / topic / "index.md").write_text(content, encoding="utf-8")
+    root_content = render_guidance_root_index(topics, wiki.name)
+    (wiki / "guidance" / "index.md").write_text(root_content, encoding="utf-8")
+
+
 def update_index(wiki: Path) -> None:
     """Regenerate per-folder category sub-indexes from vault frontmatter.
 
@@ -399,3 +420,4 @@ def update_index(wiki: Path) -> None:
         )
         work_index_path.parent.mkdir(parents=True, exist_ok=True)
         work_index_path.write_text(work_index_content, encoding="utf-8")
+    update_guidance_indexes(wiki)
