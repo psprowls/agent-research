@@ -35,8 +35,9 @@ def page_path(workspace: Path, topic: str, slug: str) -> Path:
 
 
 def list_pages(workspace: Path, topic: str) -> list[Path]:
-    """Sorted .md pages under a topic folder; empty list if the folder is absent."""
+    """Sorted .md pages under a topic folder (excluding the generated index.md);
+    empty list if the folder is absent."""
     topic_dir = guidance_dir(workspace) / topic
     if not topic_dir.is_dir():
         return []
-    return sorted(topic_dir.glob("*.md"))
+    return sorted(p for p in topic_dir.glob("*.md") if p.name != "index.md")

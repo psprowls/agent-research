@@ -41,3 +41,12 @@ def test_list_pages_returns_sorted_md(tmp_path: Path) -> None:
 
 def test_list_pages_absent_topic_returns_empty(tmp_path: Path) -> None:
     assert list_pages(tmp_path, "nonexistent") == []
+
+
+def test_list_pages_excludes_index_md(tmp_path: Path) -> None:
+    topic_dir = tmp_path / "wiki" / "guidance" / "react-native"
+    topic_dir.mkdir(parents=True)
+    (topic_dir / "a-page.md").write_text("---\n---\n", encoding="utf-8")
+    (topic_dir / "index.md").write_text("---\n---\n", encoding="utf-8")
+    pages = list_pages(tmp_path, "react-native")
+    assert [p.name for p in pages] == ["a-page.md"]
