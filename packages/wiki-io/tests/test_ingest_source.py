@@ -249,6 +249,7 @@ def test_source_type_enum_contents() -> None:
         "example",
         "doc",
         "note",
+        "skill",
     }
     # No legacy/removed values.
     assert "unknown" not in SOURCE_TYPE_ENUM
@@ -265,11 +266,44 @@ def test_raw_folder_types_is_authoritative_subset() -> None:
         "ticket",
         "transcript",
         "example",
+        "skill",
     }
     # The raw-folder subset never includes the path-default catch-alls.
     assert set(RAW_FOLDER_TYPES) <= set(SOURCE_TYPE_ENUM)
     assert "doc" not in RAW_FOLDER_TYPES
     assert "note" not in RAW_FOLDER_TYPES
+
+
+# ---------------------------------------------------------------------------
+# skill source type
+# ---------------------------------------------------------------------------
+
+
+def test_skill_is_in_source_type_enum():
+    from wiki_io.ingest_source import SOURCE_TYPE_ENUM
+
+    assert "skill" in SOURCE_TYPE_ENUM
+
+
+def test_skill_is_an_authoritative_raw_folder_type():
+    from wiki_io.ingest_source import RAW_FOLDER_TYPES
+
+    assert "skill" in RAW_FOLDER_TYPES
+
+
+def test_guess_source_type_detects_raw_skill_folder():
+    from wiki_io.ingest_source import guess_source_type
+
+    # raw/ is a sibling of wiki/, so the path is workspace-relative.
+    rel = Path("raw/skill/react-native/SKILL.md")
+    assert guess_source_type(rel, None) == "skill"
+
+
+def test_guess_source_type_unaffected_for_specs():
+    from wiki_io.ingest_source import guess_source_type
+
+    rel = Path("raw/specs/x.md")
+    assert guess_source_type(rel, None) == "spec"
 
 
 # ---------------------------------------------------------------------------
