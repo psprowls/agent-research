@@ -94,6 +94,7 @@ If the source meaningfully shifts an `architecture/` page's thesis, revise the "
 ### 10. Update `index.md`
 
 If you edited wiki pages manually, edit the relevant category sections inline. Command-layer ingest/scan flows update indexes automatically.
+If you wrote guidance pages manually, also refresh `guidance/index.md` and the affected `guidance/<topic>/index.md` (match the existing auto-generated bullet format).
 
 ### 11. Append to `log.md`
 
