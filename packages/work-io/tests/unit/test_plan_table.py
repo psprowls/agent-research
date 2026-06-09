@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from work_io.plan_table import parse_plan
+from work_io.plan_table import ensure_plan_row, parse_plan
 
 BODY_WITH_PLAN = """
 ## Plan
@@ -99,3 +99,79 @@ def test_parse_heading_case_insensitive() -> None:
     body = "## plan\n\n| Action | Done when | Rationale |\n|---|---|\n| x | y | z |\n"
     result = parse_plan(body)
     assert result.state == "ok"
+
+
+# --- ensure_plan_row ---
+
+
+def test_ensure_plan_row_appends_section_when_heading_missing() -> None:
+    body = "## Summary\nsome text\n"
+    out = ensure_plan_row(body, action="Do the thing", done_when="It is done", rationale="Because")
+    result = parse_plan(out)
+    assert result.state == "ok"
+    assert result.rows == [{"action": "Do the thing", "done_when": "It is done", "rationale": "Because"}]
+    assert "## Summary" in out  # existing content preserved
+
+
+def test_ensure_plan_row_appends_to_existing_table() -> None:
+    body = "## Plan\n\n| Action | Done when | Rationale |\n| --- | --- | --- |\n| First row | done | why |\n"
+    out = ensure_plan_row(body, action="Second row", done_when="later", rationale="more")
+    result = parse_plan(out)
+    assert [r["action"] for r in result.rows] == ["First row", "Second row"]
+
+
+def test_ensure_plan_row_fills_empty_table() -> None:
+    body = "## Plan\n\n| Action | Done when | Rationale |\n| --- | --- | --- |\n"
+    out = ensure_plan_row(body, action="Only row", done_when="d", rationale="r")
+    result = parse_plan(out)
+    assert result.state == "ok"
+    assert result.rows[0]["action"] == "Only row"
+
+
+def test_ensure_plan_row_repairs_malformed_section() -> None:
+    body = "## Plan\nfreeform prose, no table\n"
+    out = ensure_plan_row(body, action="Row", done_when="d", rationale="r")
+    result = parse_plan(out)
+    assert result.state == "ok"
+    assert "freeform prose, no table" in out  # prose preserved below the inserted table
+
+
+def test_ensure_plan_row_idempotent() -> None:
+    body = "## Summary\nx\n"
+    once = ensure_plan_row(body, action="Row", done_when="d", rationale="r")
+    twice = ensure_plan_row(once, action="Row", done_when="d", rationale="r")
+    assert once == twice
+
+
+def test_ensure_plan_row_escapes_pipe_and_stays_idempotent() -> None:
+    body = "## Summary\nx\n"
+    action = "tests pass | lint clean"
+    once = ensure_plan_row(body, action=action, done_when="d", rationale="r")
+    twice = ensure_plan_row(once, action=action, done_when="d", rationale="r")
+    assert once == twice
+    result = parse_plan(once)
+    assert result.state == "ok"
+    assert result.rows[0]["action"] == "tests pass | lint clean"
+
+
+def test_ensure_plan_row_malformed_pipe_table_not_absorbed() -> None:
+    body = "## Plan\n| Bad | Header |\n| --- | --- |\n| x | y |\n"
+    out = ensure_plan_row(body, action="Row", done_when="d", rationale="r")
+    result = parse_plan(out)
+    assert result.state == "ok"
+    assert result.rows == [{"action": "Row", "done_when": "d", "rationale": "r"}]
+    assert "| Bad | Header |" in out  # old content still present below
+
+
+def test_ensure_plan_row_inserts_before_following_section() -> None:
+    body = (
+        "## Plan\n\n"
+        "| Action | Done when | Rationale |\n"
+        "| --- | --- | --- |\n"
+        "| First row | done | why |\n\n"
+        "## Next\nprose\n"
+    )
+    out = ensure_plan_row(body, action="New row", done_when="d", rationale="r")
+    result = parse_plan(out)
+    assert [r["action"] for r in result.rows] == ["First row", "New row"]
+    assert out.index("## Next") > out.index("| New row |")

@@ -71,6 +71,57 @@ def parse_plan(body: str) -> PlanResult:
     return PlanResult(state="ok", rows=rows)
 
 
+_PLAN_TABLE_HEADER = ["| Action | Done when | Rationale |", "| --- | --- | --- |"]
+
+
+def ensure_plan_row(body: str, *, action: str, done_when: str, rationale: str) -> str:
+    """Return body with a ## Plan table containing the given row.
+
+    Creates the heading and table when absent; appends to an existing table;
+    inserts a fresh table under a malformed heading (prose preserved below).
+    Idempotent: a row whose action cell already matches is not duplicated.
+    """
+    existing = parse_plan(body)
+    normalized_action = action.strip().replace("\n", " ")
+    if existing.state == "ok" and any(r["action"] == normalized_action for r in existing.rows):
+        return body
+
+    row = f"| {_cell(action)} | {_cell(done_when)} | {_cell(rationale)} |"
+    lines = body.splitlines()
+
+    plan_idx = None
+    for i, line in enumerate(lines):
+        if re.match(r"^##\s+plan\s*$", line.strip(), re.IGNORECASE):
+            plan_idx = i
+            break
+
+    if plan_idx is None:
+        out = list(lines)
+        if out and out[-1].strip():
+            out.append("")
+        out += ["## Plan", "", *_PLAN_TABLE_HEADER, row]
+        return "\n".join(out) + "\n"
+
+    if existing.state in ("ok", "empty"):
+        # Insert the row after the last contiguous table line below the heading.
+        last_table = plan_idx
+        for j in range(plan_idx + 1, len(lines)):
+            if lines[j].strip().startswith("|"):
+                last_table = j
+            elif last_table != plan_idx:
+                break
+        return "\n".join(lines[: last_table + 1] + [row] + lines[last_table + 1 :]) + "\n"
+
+    # malformed: heading present, no table — insert a fresh table right below the heading.
+    # Trailing blank line keeps any old pipe-table content from merging into the fresh table.
+    return "\n".join(lines[: plan_idx + 1] + ["", *_PLAN_TABLE_HEADER, row, ""] + lines[plan_idx + 1 :]) + "\n"
+
+
+def _cell(value: str) -> str:
+    """Normalize a value for a markdown table cell: strip, flatten newlines, escape pipes."""
+    return value.strip().replace("\n", " ").replace("|", "\\|")
+
+
 def _split_row(row: str) -> list[str]:
     """Split a markdown table row into cells, unescaping \\| in cell content."""
     row = row.strip().strip("|")
