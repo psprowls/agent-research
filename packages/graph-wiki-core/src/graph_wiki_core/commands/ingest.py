@@ -63,6 +63,7 @@ from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
+from graph_wiki_core.prompts.skill_planner import build_skill_planner_system
 from graph_wiki_core.prompts.skill_synthesizer import build_skill_synthesizer_system
 
 logger = logging.getLogger(__name__)
@@ -810,6 +811,93 @@ async def _synthesize_guidance_pages(
     return written
 
 
+def _build_skill_planner_human(text: str, source_path: Path) -> str:
+    """Human message for the planner: the full skill text + its path."""
+    return f"Skill file: {source_path}\n\n--- Skill content ---\n{text}\n--- End skill ---\n"
+
+
+async def _run_skill_branch(
+    *,
+    text: str,
+    title_guess: str,
+    slug: str,
+    source_path: Path,
+    workspace_root: Path,
+    wiki: Path,
+    project_ctx: str,
+    canonical_uri: str | None,
+    entity_stem: str | None,
+    model_override: str | None,
+) -> _IngestBranchResult | None:
+    """Two-pass skill ingest. Returns None to signal fall-back to the default branch.
+
+    Pass 1 (planner): one skill_planner call → a YAML chunk plan.
+    Pass 2 (synthesizer): SubagentPool fan-out → written guidance pages.
+    The Source page body lists the generated pages under `## Generates`.
+    On planner failure / unparseable plan, returns None (caller falls back).
+    """
+    planner_cfg = load_role_config("skill_planner")
+    llm = make_llm("skill_planner", model_override=model_override)
+    resolved_model_id = model_override or planner_cfg["model_id"]
+    trace_dir = graph_dir(wiki.parent) / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"ingest_skill_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+    t0 = time.monotonic()
+    try:
+        resp = await llm.ainvoke(
+            [
+                SystemMessage(build_skill_planner_system(project_context=project_ctx)),
+                HumanMessage(_build_skill_planner_human(text, source_path)),
+            ]
+        )
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        write_trace_record(
+            trace_file,
+            role="skill_planner",
+            model_id=resolved_model_id,
+            item=str(source_path),
+            status="error",
+            latency_ms=latency_ms,
+            response=None,
+            error=str(exc),
+        )
+        logger.warning("skill planner call failed; falling back to default ingest branch", exc_info=True)
+        return None
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="skill_planner",
+        model_id=resolved_model_id,
+        item=str(source_path),
+        status="success",
+        latency_ms=latency_ms,
+        response=resp,
+    )
+
+    plan_text = resp.content if isinstance(resp.content, str) else ""
+    plan = _parse_skill_plan(plan_text)
+    if plan is None:
+        logger.warning("skill planner produced no usable chunk plan; falling back to default ingest branch")
+        return None
+
+    written = await _synthesize_guidance_pages(
+        plan, workspace_root=workspace_root, project_ctx=project_ctx, model_override=model_override
+    )
+
+    page_body = _compose_skill_source_body(title_guess, written)
+    return _IngestBranchResult(
+        page_body=page_body,
+        target_slug=slug,
+        source_type="skill",
+        entity_uri=canonical_uri,
+        entity_stem=entity_stem,
+        frontmatter_parsed=True,
+        run_suggest=False,  # guidance written directly — nothing to propose
+        guidance_pages_written=written,
+    )
+
+
 async def _run_common_tail(
     branch: _IngestBranchResult,
     *,
@@ -1086,18 +1174,35 @@ async def run_ingest_source(
         # match has no entity page (cls:/fn:/method:) — no link is written.
         entity_stem: str | None = entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
 
-        branch = await _run_default_branch(
-            text=text,
-            title_guess=title_guess,
-            slug=slug,
-            source_path=source_path,
-            path_guess=path_guess,
-            wiki=wiki,
-            project_ctx=project_ctx,
-            canonical_uri=canonical_uri,
-            entity_stem=entity_stem,
-            model_override=model_override,
-        )
+        # Dispatch on the path-guessed source_type. raw/skill/ → the skill branch
+        # (writes guidance pages directly); everything else → the default branch.
+        branch: _IngestBranchResult | None = None
+        if path_guess == "skill":
+            branch = await _run_skill_branch(
+                text=text,
+                title_guess=title_guess,
+                slug=slug,
+                source_path=source_path,
+                workspace_root=workspace_root,
+                wiki=wiki,
+                project_ctx=project_ctx,
+                canonical_uri=canonical_uri,
+                entity_stem=entity_stem,
+                model_override=model_override,
+            )
+        if branch is None:
+            branch = await _run_default_branch(
+                text=text,
+                title_guess=title_guess,
+                slug=slug,
+                source_path=source_path,
+                path_guess=path_guess,
+                wiki=wiki,
+                project_ctx=project_ctx,
+                canonical_uri=canonical_uri,
+                entity_stem=entity_stem,
+                model_override=model_override,
+            )
         return await _run_common_tail(
             branch,
             wiki=wiki,

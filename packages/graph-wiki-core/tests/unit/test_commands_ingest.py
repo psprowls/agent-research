@@ -1957,3 +1957,137 @@ async def test_synthesize_guidance_pages_skips_invalid(tmp_path, monkeypatch):
         plan, workspace_root=workspace_root, project_ctx="", model_override=None
     )
     assert written == []
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_skill_writes_guidance_and_skips_suggest(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    # --- workspace layout: <ws>/raw/skill/<file>, <ws>/wiki/ ---
+    ws = tmp_path
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "log.md").write_text("", encoding="utf-8")
+    skill_dir = ws / "raw" / "skill"
+    skill_dir.mkdir(parents=True)
+    skill_file = skill_dir / "react-native.md"
+    skill_file.write_text("# RN Skill\nAlways use a virtualizer for lists.\n", encoding="utf-8")
+
+    # resolve_wiki_and_repo -> (wiki, repo); point both into the tmp workspace.
+    monkeypatch.setattr(ingest_mod, "resolve_wiki_and_repo", lambda wp: (ws / "wiki", ws))
+    monkeypatch.setattr(ingest_mod, "render_project_context", lambda wiki: "")
+
+    # Graph conn + entity lookups: no graph, no match.
+    class _Conn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+
+    planner_yaml = (
+        "- title: Use a Virtualizer\n"
+        "  slug: use-virtualizer\n"
+        "  topic: react-native\n"
+        "  summary: Use a virtualizer.\n"
+        "  applies_when: Rendering a list.\n"
+        "  impact: high\n"
+        "  triggers:\n    globs: []\n    keywords: []\n    entities: []\n"
+        "  content: Use a virtualizer instead of ScrollView.\n"
+    )
+    guidance_page = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: Use a virtualizer.\napplies_when: Rendering a list.\nimpact: high\n"
+        "updated: 2026-06-08\ntokens: 0\n---\n\n## Guidance\nUse a virtualizer.\n"
+    )
+
+    def _fake_make_llm(role, model_override=None):
+        out = planner_yaml if role == "skill_planner" else guidance_page
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+    result = await ingest_mod.run_ingest_source(skill_file, workspace_path=ws)
+
+    # Source page filed under sources/, source_type skill.
+    assert result.source_type == "skill"
+    assert result.page_type == "source"
+    # Guidance page written (workspace-relative path).
+    assert result.guidance_pages_written == ["wiki/guidance/react-native/use-virtualizer.md"]
+    assert (ws / "wiki" / "guidance" / "react-native" / "use-virtualizer.md").is_file()
+    # Suggest phase skipped.
+    assert result.suggested_pages == []
+    assert result.proposal_reasoner_status == "skipped"
+    # Source page lists the generated page under ## Generates (link resolved, not stripped).
+    src = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
+    assert "## Generates" in src
+    assert "[[guidance/react-native/use-virtualizer]]" in src
+    assert result.stripped_wikilinks == []
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_skill_falls_back_when_plan_unparseable(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = tmp_path
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "log.md").write_text("", encoding="utf-8")
+    skill_dir = ws / "raw" / "skill"
+    skill_dir.mkdir(parents=True)
+    skill_file = skill_dir / "x.md"
+    skill_file.write_text("# X\nbody\n", encoding="utf-8")
+
+    monkeypatch.setattr(ingest_mod, "resolve_wiki_and_repo", lambda wp: (ws / "wiki", ws))
+    monkeypatch.setattr(ingest_mod, "render_project_context", lambda wiki: "")
+
+    class _Conn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    # Default branch's suggest phase: stub it out so no graph tools are needed.
+    monkeypatch.setattr(ingest_mod, "build_graph_tools", lambda conn: [])
+
+    async def _fake_suggest(**kwargs):
+        return [], {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    monkeypatch.setattr(ingest_mod, "run_suggest_phase", _fake_suggest)
+
+    def _fake_make_llm(role, model_override=None):
+        # Planner returns garbage (not a YAML list) → branch returns None → fallback.
+        out = (
+            "title: not-a-list"
+            if role == "skill_planner"
+            else ("---\nsource_type: skill\ntarget_slug: x\n---\n\n## Summary\nFallback source page.\n")
+        )
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+    result = await ingest_mod.run_ingest_source(skill_file, workspace_path=ws)
+
+    # Fell back to default branch: a Source page, no guidance pages.
+    assert result.guidance_pages_written == []
+    assert result.page_type == "source"
+    # raw/skill/ is authoritative for source_type even on the default branch.
+    assert result.source_type == "skill"
