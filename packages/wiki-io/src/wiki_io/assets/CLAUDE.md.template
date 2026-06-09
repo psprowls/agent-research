@@ -40,6 +40,7 @@ sources/                  → one summary per ingested source (cites files in ..
 architecture/             → high-level syntheses
 adrs/                     → architecture decision records
 work/                     → unified bug / tech-debt / feature / initiative / spike tracker
+guidance/                 → ingested skill content for injection 
 .templates/               → page templates (reference only)
 ```
 
