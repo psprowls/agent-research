@@ -20,12 +20,24 @@ from graph_wiki_core.commands.work import (
 work_app = typer.Typer(name="work", help="Work item management.", no_args_is_help=True)
 
 
+def _split_csv(value: str) -> list[str]:
+    """Split a comma-separated option value into a trimmed, non-empty list."""
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
 @work_app.command()
 def file(
     title: str = typer.Option(..., "--title", help="Work item title"),
     kind: str = typer.Option(..., "--kind", help="bug|tech-debt|test-gap|security|perf|feature|initiative|spike"),
     summary: str = typer.Option(..., "--summary", help="One-line summary (<=100 chars)"),
     status: str = typer.Option("open", "--status", help="open|accepted|in-progress|done|wont-fix|deferred"),
+    affects: str = typer.Option("", "--affects", help="Comma-separated paths or package names"),
+    severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/initiative/spike"),
+    effort: str = typer.Option("", "--effort", help="trivial|small|medium|large"),
+    blast_radius: str = typer.Option("", "--blast-radius", help="file|package|domain|system"),
+    target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
+    owner: str = typer.Option("", "--owner", help="Owner handle"),
+    tags: str = typer.Option("", "--tags", help="Comma-separated tags"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -40,6 +52,13 @@ def file(
                 kind=kind,
                 summary=summary,
                 status=status,
+                affects=_split_csv(affects),
+                severity=severity or None,
+                effort=effort or None,
+                blast_radius=blast_radius or None,
+                target=target or None,
+                owner=owner or None,
+                tags=_split_csv(tags),
             )
         )
     except (RuntimeError, ValueError, FileExistsError) as e:
