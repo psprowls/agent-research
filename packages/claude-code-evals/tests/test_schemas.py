@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from claude_code_evals.schemas import AutoUser, Config, Runset, Scenario, VerifyEntry
+from claude_code_evals.schemas import AutoUser, Config, Runset, Scenario, Trigger, TriggerMatch, VerifyEntry
 from pydantic import ValidationError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -167,3 +167,74 @@ def test_scenario_with_inject():
         }
     )
     assert s.inject == ["file1.txt", "file2.txt"]
+
+
+def test_trigger_match_contains():
+    t = TriggerMatch.model_validate({"contains": "hello"})
+    assert t.contains == "hello"
+    assert t.regex is None
+
+
+def test_trigger_match_regex():
+    t = TriggerMatch.model_validate({"regex": r"\d+"})
+    assert t.regex == r"\d+"
+    assert t.contains is None
+
+
+def test_trigger_match_requires_exactly_one():
+    with pytest.raises(ValidationError, match="exactly one"):
+        TriggerMatch.model_validate({})
+
+    with pytest.raises(ValidationError, match="exactly one"):
+        TriggerMatch.model_validate({"contains": "a", "regex": "b"})
+
+
+def test_trigger_has_match_and_reply():
+    t = Trigger.model_validate({"match": {"contains": "proceed"}, "reply": "yes"})
+    assert t.match.contains == "proceed"
+    assert t.reply == "yes"
+
+
+def test_auto_user_defaults():
+    a = AutoUser.model_validate({})
+    assert a.triggers == []
+    assert a.default_reply == "proceed"
+    assert a.abort_on_default_after == 2
+
+
+def test_auto_user_with_triggers():
+    a = AutoUser.model_validate(
+        {
+            "triggers": [
+                {"match": {"contains": "clarify"}, "reply": "Please go ahead."},
+                {"match": {"regex": r"question\?"}, "reply": "Yes."},
+            ],
+            "default_reply": "continue",
+            "abort_on_default_after": 3,
+        }
+    )
+    assert len(a.triggers) == 2
+    assert a.triggers[0].match.contains == "clarify"
+    assert a.triggers[1].match.regex == r"question\?"
+    assert a.default_reply == "continue"
+    assert a.abort_on_default_after == 3
+
+
+def test_auto_user_abort_on_default_after_min_1():
+    with pytest.raises(ValidationError):
+        AutoUser.model_validate({"abort_on_default_after": 0})
+
+
+def test_auto_user_backward_compat():
+    # Old-style YAML (no new fields) still loads cleanly
+    a = AutoUser.model_validate(
+        {
+            "model": "claude-haiku-4-5-20251001",
+            "max_replies": 3,
+            "stop_on": "<DONE>",
+            "system_prompt": "Drive the task.",
+        }
+    )
+    assert a.triggers == []
+    assert a.default_reply == "proceed"
+    assert a.abort_on_default_after == 2

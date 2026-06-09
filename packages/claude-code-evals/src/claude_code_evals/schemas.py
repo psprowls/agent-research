@@ -58,6 +58,30 @@ class MetricsConfig(BaseModel):
     judge_qualitative: bool = False
 
 
+class TriggerMatch(BaseModel):
+    """Pattern for a trigger: exactly one of contains or regex must be set."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contains: str | None = None
+    regex: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "TriggerMatch":
+        if (self.contains is None) == (self.regex is None):
+            raise ValueError("trigger match must set exactly one of contains/regex")
+        return self
+
+
+class Trigger(BaseModel):
+    """A rule-based trigger: if match fires, reply with the given text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    match: TriggerMatch
+    reply: str
+
+
 class Scenario(BaseModel):
     """A single evaluation scenario: environment, task, verification."""
 
@@ -158,6 +182,9 @@ class AutoUser(BaseModel):
     max_replies: int = 5
     stop_on: str = "<DONE>"
     system_prompt: str = "Drive the task forward. Say <DONE> when the task is complete."
+    triggers: list[Trigger] = Field(default_factory=list)
+    default_reply: str = "proceed"
+    abort_on_default_after: int = Field(default=2, ge=1)
 
     @classmethod
     def from_path(cls, path: Path) -> "AutoUser":

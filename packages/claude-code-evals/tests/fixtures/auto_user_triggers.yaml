@@ -1,0 +1,13 @@
+model: claude-haiku-4-5-20251001
+max_replies: 10
+stop_on: "<DONE>"
+system_prompt: "Drive the task. Say <DONE> when done."
+triggers:
+  - match:
+      contains: "clarify"
+    reply: "Please proceed without clarification."
+  - match:
+      regex: "question\\?"
+    reply: "Yes, go ahead."
+default_reply: continue
+abort_on_default_after: 3
