@@ -31,6 +31,7 @@ from pathlib import Path
 import yaml
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
+from guidance_io.frontmatter import emit as emit_guidance_fm
 from guidance_io.frontmatter import parse as parse_guidance_fm
 from guidance_io.frontmatter import validate as validate_guidance_fm
 from guidance_io.paths import page_path as guidance_page_path
@@ -764,6 +765,7 @@ async def _synthesize_guidance_pages(
     workspace_root: Path,
     project_ctx: str,
     model_override: str | None,
+    today: str | None = None,
 ) -> list[str]:
     """Pass 2: synthesize + write one guidance page per plan entry.
 
@@ -774,8 +776,12 @@ async def _synthesize_guidance_pages(
     the ingest). The on-disk path is derived from the planner entry's topic/slug
     (NOT the synthesizer's frontmatter), so the path is deterministic.
 
+    The `updated:` frontmatter is post-stamped with `today` (default: real
+    today) rather than trusted from the model, which otherwise hallucinates it.
+
     Returns workspace-relative paths of the pages written, in plan order.
     """
+    stamp = today or date.today().isoformat()
     synth_cfg = load_role_config("skill_synthesizer")
     system = build_skill_synthesizer_system(project_context=project_ctx)
 
@@ -807,7 +813,7 @@ async def _synthesize_guidance_pages(
         # the written file doesn't start with a stray space.
         page_text = page_text.strip()
         try:
-            fm, _body = parse_guidance_fm(page_text)
+            fm, body = parse_guidance_fm(page_text)
         except ValueError:
             logger.warning(
                 "skill synthesizer produced unparseable guidance page; skipping chunk %r", entry.get("title")
@@ -817,6 +823,9 @@ async def _synthesize_guidance_pages(
         if errors:
             logger.warning("skill guidance page failed validation (%s); skipping chunk %r", errors, entry.get("title"))
             continue
+        # Don't trust the model's `updated:` (it hallucinates dates); stamp the real one.
+        fm["updated"] = stamp
+        page_text = f"{emit_guidance_fm(fm)}\n{body}"
         topic = guidance_slugify(str(entry["topic"]))
         slug = guidance_slugify(str(entry.get("slug") or entry["title"]))
         page = guidance_page_path(workspace_root, topic, slug)

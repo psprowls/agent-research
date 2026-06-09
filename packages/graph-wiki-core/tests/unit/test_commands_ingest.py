@@ -1972,6 +1972,47 @@ async def test_synthesize_guidance_pages_strips_leading_whitespace(tmp_path, mon
 
 
 @pytest.mark.asyncio
+async def test_synthesize_guidance_pages_post_stamps_updated_date(tmp_path, monkeypatch):
+    """The model hallucinates `updated:`; the written page must carry the real
+    date (here injected via `today`), not whatever the synthesizer emitted."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    workspace_root = tmp_path
+    (workspace_root / "wiki").mkdir()
+
+    # Model emits a stale/wrong date.
+    page_with_wrong_date = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: s\napplies_when: a\nimpact: high\nupdated: 2025-01-16\ntokens: 0\n---\n\n"
+        "## Guidance\nUse a virtualizer.\n"
+    )
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = page_with_wrong_date
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+
+    plan = [{"title": "Use a Virtualizer", "slug": "use-virtualizer", "topic": "react-native", "content": "x"}]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan, workspace_root=workspace_root, project_ctx="", model_override=None, today="2026-06-09"
+    )
+    assert written == ["wiki/guidance/react-native/use-virtualizer.md"]
+    text = (workspace_root / "wiki" / "guidance" / "react-native" / "use-virtualizer.md").read_text(encoding="utf-8")
+    from guidance_io.frontmatter import parse as parse_guidance_fm
+
+    fm, _body = parse_guidance_fm(text)
+    assert fm["updated"] == "2026-06-09"
+    assert "2025-01-16" not in text
+    # Body content survives the re-emit round-trip.
+    assert "Use a virtualizer." in text
+
+
+@pytest.mark.asyncio
 async def test_synthesize_guidance_pages_skips_invalid(tmp_path, monkeypatch):
     from graph_wiki_core.commands import ingest as ingest_mod
 
