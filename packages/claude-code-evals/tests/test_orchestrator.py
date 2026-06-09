@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from claude_code_evals.orchestrator import ScenarioRunResult, run_one
+from claude_code_evals.runner import RunResult
 from claude_code_evals.schemas import Config, Scenario
 
 
@@ -153,8 +154,6 @@ def test_run_one_golden_fixture_raises(tmp_path: Path):
 
 
 # --- Mode dispatch tests ---
-
-from claude_code_evals.runner import RunResult  # noqa: E402
 
 
 def _base_scenario(**overrides) -> Scenario:
