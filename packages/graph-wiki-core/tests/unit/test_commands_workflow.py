@@ -130,3 +130,214 @@ def test_lint_passes_workspace_root_for_artifact_rule(tmp_path: Path) -> None:
     result = asyncio.run(run_work_lint(workspace_path=workspace))
 
     assert "artifact-doc-missing" in {f["rule_id"] for f in result.findings}
+
+
+# --- run_work_advance ---
+
+
+def _read_fm(wiki: Path, slug: str) -> dict:
+    from work_io import frontmatter
+
+    fm, _body = frontmatter.parse((wiki / "work" / f"{slug}.md").read_text())
+    return fm
+
+
+def test_advance_fresh_feature_enters_design(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "new-feature", kind="feature")
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["phase"] == "design"
+    assert fm["status"] == "open"
+    assert fm["updated"] == date.today().isoformat()  # `date` imported at module top
+    assert result.phase == "design"
+    assert (wiki / "work-index.json").exists()  # sidecar regenerated
+
+
+def test_advance_design_complete_without_effort_errors(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "sized-later", kind="bug", phase="design")
+
+    with pytest.raises(ValueError, match="effort"):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_advance_design_complete_small_bug_shortcuts_to_execute(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "small-bug", kind="bug", phase="design")
+    (workspace / "raw" / "specs").mkdir(parents=True)
+    (workspace / "raw" / "specs" / f"{slug}.md").write_text("# findings\n")
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, effort="s"))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["phase"] == "execute"
+    assert fm["status"] == "open"  # shortcut skips accepted
+    assert fm["effort"] == "s"
+    assert fm["spec_doc"] == f"raw/specs/{slug}.md"
+    assert result.stamped["spec_doc"] == f"raw/specs/{slug}.md"
+
+
+def test_advance_plan_complete_sets_accepted_and_syncs_plan_table(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+    from work_io import frontmatter, plan_table
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "big-feature", kind="feature", phase="plan")
+    (workspace / "raw" / "plans").mkdir(parents=True)
+    (workspace / "raw" / "plans" / f"{slug}.md").write_text("# plan\n")
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    fm, body = frontmatter.parse((wiki / "work" / f"{slug}.md").read_text())
+    assert fm["status"] == "accepted"
+    assert fm["phase"] == "execute"
+    assert fm["plan_doc"] == f"raw/plans/{slug}.md"
+    parsed = plan_table.parse_plan(body)
+    assert parsed.state == "ok"  # rule 4 passes by construction
+    assert any(f"raw/plans/{slug}.md" in row["action"] for row in parsed.rows)
+    assert "accepted-without-plan" not in {f["rule_id"] for f in result.findings}
+
+
+def test_advance_execute_dispatch_requires_owner(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="s")
+
+    with pytest.raises(ValueError, match="owner"):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_advance_execute_dispatch_sets_in_progress(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="s")
+
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, owner="pat"))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["status"] == "in-progress"
+    assert fm["owner"] == "pat"
+    assert fm["phase"] == "execute"  # phase unchanged by the dispatch transition
+
+
+def test_advance_execute_complete_moves_to_finish(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work", "executing", kind="bug", status="in-progress", phase="execute", effort="s", owner="pat"
+    )
+
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["phase"] == "finish"
+    assert fm["status"] == "in-progress"
+
+
+def test_advance_finish_requires_resolved_in(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="s", owner="pat"
+    )
+
+    with pytest.raises(ValueError, match="resolved"):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_advance_finish_complete_resolves(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="s", owner="pat"
+    )
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, resolved_in="pr#42"))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["status"] == "resolved"
+    assert fm["phase"] == "done"
+    assert fm["resolved_in"] == "pr#42"
+    assert result.status == "resolved"
+
+
+def test_advance_terminal_item_errors(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "done-item", kind="bug", status="resolved", resolved_in="pr#1")
+
+    with pytest.raises(ValueError):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_full_feature_pipeline_walk(tmp_path: Path) -> None:
+    """open/no-phase -> design -> plan -> execute(accepted) -> in-progress -> finish -> done."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance, run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "walk", kind="feature")
+    (workspace / "raw" / "specs").mkdir(parents=True)
+    (workspace / "raw" / "specs" / f"{slug}.md").write_text("# spec\n")
+    (workspace / "raw" / "plans").mkdir(parents=True)
+    (workspace / "raw" / "plans" / f"{slug}.md").write_text("# plan\n")
+
+    def next_skill() -> str | None:
+        r = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
+        return r.action["skill"] if r.action else None
+
+    assert next_skill() == "brainstorming"
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))  # -> design
+    assert next_skill() == "brainstorming"
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))  # design done -> plan
+    assert next_skill() == "writing-plans"
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))  # plan done -> execute/accepted
+    assert next_skill() == "subagent-driven-development"
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, owner="pat"))  # dispatch -> in-progress
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))  # execute done -> finish
+    assert next_skill() == "finishing-a-development-branch"
+    asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, resolved_in="pr#7"))  # -> done
+
+    fm = _read_fm(wiki, slug)
+    assert fm["phase"] == "done"
+    assert fm["status"] == "resolved"

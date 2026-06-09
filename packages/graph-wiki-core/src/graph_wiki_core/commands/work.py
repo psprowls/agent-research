@@ -100,6 +100,18 @@ class WorkNextResult:
     blockers: list[str] = field(default_factory=list)
 
 
+@dataclass
+class WorkAdvanceResult:
+    """Result of run_work_advance()."""
+
+    slug: str
+    phase: str | None = None  # phase after the transition
+    status: str | None = None  # status after the transition
+    applied: dict = field(default_factory=dict)  # {"phase": [before, after], "status": [before, after]}
+    stamped: dict = field(default_factory=dict)  # frontmatter keys written (effort/owner/resolved_in/spec_doc/plan_doc)
+    findings: list[dict] = field(default_factory=list)  # lint findings for this slug after the write
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -334,6 +346,95 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
         on_dispatch=_transition_dict(r.on_dispatch, state.status),
         on_complete=_transition_dict(r.on_complete, state.status),
         blockers=list(r.blockers),
+    )
+
+
+# ---------------------------------------------------------------------------
+# run_work_advance
+# ---------------------------------------------------------------------------
+
+
+async def run_work_advance(
+    workspace_path: Path | None = None,
+    *,
+    slug: str,
+    effort: str | None = None,
+    owner: str | None = None,
+    resolved_in: str | None = None,
+) -> WorkAdvanceResult:
+    """Apply the routing table's next transition for one work item.
+
+    The single mutation point of the workflow: applies on_dispatch when the
+    current state has an unmet dispatch precondition, otherwise on_complete.
+    Stamps `updated`, writes passed field flags, stamps spec_doc/plan_doc as
+    artifacts land, syncs the ## Plan table on acceptance, regenerates the
+    sidecar, and re-lints the item. Raises ValueError on blockers or missing
+    required flags.
+    """
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
+    workspace = wiki.parent
+    path, fm, body = _load_item(wiki, slug)
+
+    state = _state_from_fm(fm, effort_override=effort)
+    r = _workflow.route(state)
+    if r.blockers:
+        raise ValueError("; ".join(r.blockers))
+    t = r.on_dispatch or r.on_complete
+    if t is None:
+        raise ValueError(f"nothing to advance: {r.reason}")
+    if "effort" in t.requires:
+        raise ValueError("effort required to advance: pass --effort xs|s|m|l|xl")
+    if "owner" in t.requires and not (owner or fm.get("owner")):
+        raise ValueError("owner required to advance: pass --owner <handle>")
+    if "resolved_in" in t.requires and not (resolved_in or fm.get("resolved_in")):
+        raise ValueError("resolved-in required to advance: pass --resolved-in <pr/commit>")
+
+    applied: dict = {}
+    if t.phase:
+        applied["phase"] = [fm.get("phase"), t.phase]
+        fm["phase"] = t.phase
+    if t.status:
+        applied["status"] = [fm.get("status"), t.status]
+        fm["status"] = t.status
+
+    stamped: dict = {}
+    for key, value in (("effort", effort), ("owner", owner), ("resolved_in", resolved_in)):
+        if value:
+            fm[key] = value
+            stamped[key] = value
+    if t.stamp_doc:
+        slot = "specs" if t.stamp_doc == "spec_doc" else "plans"
+        rel = f"raw/{slot}/{slug}.md"
+        fm[t.stamp_doc] = rel
+        stamped[t.stamp_doc] = rel
+    fm["updated"] = date.today().isoformat()
+
+    if t.sync_plan_table:
+        body = _plan_table.ensure_plan_row(
+            body,
+            action=f"Execute implementation plan: raw/plans/{slug}.md",
+            done_when="Implementation lands and the item is resolved",
+            rationale="Workflow plan stage complete",
+        )
+
+    # parse() consumed the closing fence plus one newline; emit() + "\n" + body round-trips.
+    path.write_text(_frontmatter.emit(fm) + "\n" + body, encoding="utf-8")
+    await run_work_regen_index(workspace_path=workspace_path)
+
+    items = _load_items(wiki / "work")
+    sidecar = _sidecar.load_sidecar(wiki)
+    findings = _lint.run_lint(items, repo, sidecar, workspace_root=workspace)
+    return WorkAdvanceResult(
+        slug=slug,
+        phase=str(fm["phase"]) if fm.get("phase") else None,
+        status=str(fm.get("status")) if fm.get("status") else None,
+        applied=applied,
+        stamped=stamped,
+        findings=[
+            {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
+            for f in findings
+            if f.slug == slug
+        ],
     )
 
 
