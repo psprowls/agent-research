@@ -10,9 +10,11 @@ from typing import Optional
 
 import typer
 from graph_wiki_core.commands.work import (
+    run_work_advance,
     run_work_archive,
     run_work_file,
     run_work_lint,
+    run_work_next,
     run_work_regen_index,
     run_work_status,
 )
@@ -180,3 +182,69 @@ def regen_index(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"[ok] Rebuilt sidecar: {result.sidecar_path} ({result.item_count} items)")
+
+
+@work_app.command(name="next")
+def next_cmd(
+    slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Compute the next workflow action for a work item (read-only)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug))
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=3)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"{result.slug}: kind={result.kind} status={result.status} phase={result.phase}")
+        if result.action:
+            typer.echo(f"  dispatch: {result.action['skill']} — {result.action['reason']}")
+        if result.artifact:
+            typer.echo(f"  artifact: {result.artifact['path']}")
+        for b in result.blockers:
+            typer.echo(f"  blocked: {b}")
+
+    if result.blockers:
+        raise typer.Exit(code=1)
+
+
+@work_app.command()
+def advance(
+    slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
+    effort: str = typer.Option("", "--effort", help="xs|s|m|l|xl"),
+    owner: str = typer.Option("", "--owner", help="Owner handle"),
+    resolved_in: str = typer.Option("", "--resolved-in", help="PR/commit reference"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Apply the routing table's next transition for a work item (single mutation point)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = asyncio.run(
+            run_work_advance(
+                workspace_path=workspace_path,
+                slug=slug,
+                effort=effort or None,
+                owner=owner or None,
+                resolved_in=resolved_in or None,
+            )
+        )
+    except (RuntimeError, FileNotFoundError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=2)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[ok] {result.slug}: phase={result.phase} status={result.status}")
+        for key, change in result.applied.items():
+            typer.echo(f"  {key}: {change[0]} -> {change[1]}")
+        for key, value in result.stamped.items():
+            typer.echo(f"  stamped {key}: {value}")
+        for f in result.findings:
+            typer.echo(f"  [{f['severity']}] {f['rule_id']} — {f['message']}")
