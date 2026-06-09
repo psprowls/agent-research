@@ -319,6 +319,17 @@ def test_drift_propagator_role_is_configured():
     assert cfg.get("sweep_candidates")
 
 
+@pytest.mark.parametrize("role", ["skill_planner", "skill_synthesizer"])
+def test_skill_roles_are_registered(role):
+    from model_adapter.loader import load_role_config
+
+    cfg = load_role_config(role)
+    assert cfg["model_id"]
+    assert cfg["region"] == "us-east-1"
+    assert cfg["max_tokens"] > 0
+    assert cfg["max_concurrency"] >= 1
+
+
 def test_make_llm_librarian_sets_max_tokens():
     from langchain_aws import ChatBedrockConverse
     from model_adapter.loader import make_llm

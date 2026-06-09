@@ -36,6 +36,7 @@ FIXED_VAULT_DIRS = [
     "adrs",
     "entities",
     "sources",
+    "guidance",
     "proposals",
     ".templates",
 ]

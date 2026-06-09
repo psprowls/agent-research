@@ -152,6 +152,39 @@ sweep_candidates = [
   "moonshotai.kimi-k2.5",
 ]
 
+# Type-branched ingest — Pass 1. Reads a full agent skill and emits a YAML chunk
+# plan (one entry per guidance page). One call per ingest, so concurrency 1.
+# Initial config mirrors `ingestor` (the closest precedent — long structured
+# input, YAML output); revisit after a deepeval sweep.
+[roles.skill_planner]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 1
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+# Type-branched ingest — Pass 2. Synthesizes one guidance page from one chunk
+# plan entry; fanned out via SubagentPool. Mirrors `extractor` (structured
+# single-purpose generation); concurrency matches the synthesis fan-out.
+[roles.skill_synthesizer]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
 [roles.synthesizer]
 # Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
 # Haiku removed for quota exhaustion; per-role defaults chosen in that session.

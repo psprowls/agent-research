@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from graph_wiki_core.commands.suggest_pages import (
     SUGGESTION_KINDS,
     parse_extractor_response,
+)
+from graph_wiki_core.commands.suggest_pages import (
+    run_suggest_phase as _run_suggest_phase_sym,
 )
 
 
@@ -319,6 +324,12 @@ async def test_run_suggest_phase_llm_error_writes_zero_notes(tmp_path):
     assert status["error"] == "extractor failed"
     # No notes written; the dir may not even exist.
     assert not list((wiki / "proposals").glob("*.md")) if (wiki / "proposals").is_dir() else True
+
+
+def test_run_suggest_phase_accepts_allowed_kinds():
+    sig = inspect.signature(_run_suggest_phase_sym)
+    assert "allowed_kinds" in sig.parameters
+    assert sig.parameters["allowed_kinds"].default is None
 
 
 @pytest.mark.asyncio

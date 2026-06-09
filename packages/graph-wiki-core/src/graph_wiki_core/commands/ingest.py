@@ -31,8 +31,13 @@ from pathlib import Path
 import yaml
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
+from guidance_io.frontmatter import parse as parse_guidance_fm
+from guidance_io.frontmatter import validate as validate_guidance_fm
+from guidance_io.paths import page_path as guidance_page_path
+from guidance_io.paths import slugify as guidance_slugify
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
+from subagent_runtime.pool import SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
@@ -58,6 +63,8 @@ from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
+from graph_wiki_core.prompts.skill_planner import build_skill_planner_system
+from graph_wiki_core.prompts.skill_synthesizer import build_skill_synthesizer_system
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +141,9 @@ class IngestResult:
                             work items.
         suggestions_parsed: Living Wiki M3: False when the extractor LLM call
                             errored or its output did not parse (zero suggestions).
+        guidance_pages_written: Type-branched ingest: workspace-relative paths of
+                            guidance pages written by the skill branch (empty for
+                            all other source types).
     """
 
     status: str
@@ -154,6 +164,29 @@ class IngestResult:
     proposal_reasoner_status: str = "skipped"
     proposal_extractor_status: str = "skipped"
     proposal_error: str | None = None
+    # Type-branched ingest: workspace-relative paths of guidance pages created or
+    # updated by the skill branch. Empty list for every other source type.
+    guidance_pages_written: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _IngestBranchResult:
+    """Intermediate hand-off from a source-type branch to _run_common_tail.
+
+    Both branches produce a source-page body and the metadata the shared tail
+    needs to write + finalize it. The skill branch additionally populates
+    guidance_pages_written (written before the tail runs).
+    """
+
+    page_body: str
+    target_slug: str
+    source_type: str
+    entity_uri: str | None
+    entity_stem: str | None
+    frontmatter_parsed: bool
+    run_suggest: bool
+    allowed_kinds: frozenset[str] | None = None
+    guidance_pages_written: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -641,6 +674,416 @@ def build_ingest_source_prompt(
 
 
 # ---------------------------------------------------------------------------
+# Skill-branch helpers (Task 11) — plan parse, source body, synthesis fan-out
+# ---------------------------------------------------------------------------
+
+# Required keys a planner chunk-plan entry must carry to be usable.
+_SKILL_PLAN_REQUIRED = ("title", "topic", "content")
+
+
+def _parse_skill_plan(text: str) -> list[dict] | None:
+    """Parse the planner response (a YAML list of chunk entries).
+
+    Strips a leading ```yaml / ``` code fence defensively (same failure mode as
+    the ingestor). Returns None when the text is empty, not valid YAML, not a
+    list, or contains no usable entry (each usable entry has title/topic/content).
+    """
+    if not text or not text.strip():
+        return None
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        nl = stripped.find("\n")
+        if nl == -1:
+            return None
+        stripped = stripped[nl + 1 :]
+        fence = stripped.rfind("```")
+        if fence != -1:
+            stripped = stripped[:fence]
+        stripped = stripped.strip()
+    try:
+        loaded = yaml.safe_load(stripped)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    entries = [e for e in loaded if isinstance(e, dict) and all(e.get(k) for k in _SKILL_PLAN_REQUIRED)]
+    return entries or None
+
+
+def _guidance_wikilink_target(rel_path: str) -> str:
+    """Turn a workspace-relative guidance path into a wikilink target.
+
+    `wiki/guidance/<topic>/<slug>.md` -> `guidance/<topic>/<slug>`.
+    """
+    t = rel_path
+    if t.startswith("wiki/"):
+        t = t[len("wiki/") :]
+    if t.endswith(".md"):
+        t = t[: -len(".md")]
+    return t
+
+
+def _compose_skill_source_body(title: str, written_rel_paths: list[str]) -> str:
+    """Build the Source page body for a skill ingest.
+
+    Minimal frontmatter (title only — source_type/target_slug/entity_uri are
+    stamped by the common tail) plus a `## Generates` section linking every
+    guidance page the skill produced. Provenance: skill → guidance.
+    """
+    lines = [f"- [[{_guidance_wikilink_target(p)}]]" for p in written_rel_paths]
+    generates = "\n".join(lines) if lines else "_No guidance pages were generated._"
+    return (
+        f"---\ntitle: {title}\n---\n\n"
+        f"# {title}\n\n"
+        f"## Summary\n"
+        f"Agent skill ingested. Reusable guidance was synthesized into "
+        f"{len(written_rel_paths)} guidance page(s) under `wiki/guidance/`.\n\n"
+        f"## Generates\n{generates}\n"
+    )
+
+
+def _build_skill_synth_human(entry: dict) -> str:
+    """Human message for one synthesizer call: the chunk-plan entry as YAML."""
+    return "Chunk plan entry:\n```yaml\n" + yaml.safe_dump(entry, sort_keys=False, allow_unicode=True) + "```\n"
+
+
+async def _synthesize_guidance_pages(
+    plan: list[dict],
+    *,
+    workspace_root: Path,
+    project_ctx: str,
+    model_override: str | None,
+) -> list[str]:
+    """Pass 2: synthesize + write one guidance page per plan entry.
+
+    Fans out one skill_synthesizer call per entry via SubagentPool. Each result
+    is parsed + validated against the guidance-io schema; valid pages are written
+    to wiki/guidance/<topic>/<slug>.md (overwriting on re-ingest). Invalid or
+    failed chunks are logged and skipped (best-effort — a bad chunk never fails
+    the ingest). The on-disk path is derived from the planner entry's topic/slug
+    (NOT the synthesizer's frontmatter), so the path is deterministic.
+
+    Returns workspace-relative paths of the pages written, in plan order.
+    """
+    synth_cfg = load_role_config("skill_synthesizer")
+    system = build_skill_synthesizer_system(project_context=project_ctx)
+
+    async def synth_one(entry: dict) -> TaskResult:
+        llm = make_llm("skill_synthesizer", model_override=model_override)
+        resp = await llm.ainvoke([SystemMessage(system), HumanMessage(_build_skill_synth_human(entry))])
+        content = resp.content if isinstance(resp.content, str) else ""
+        return TaskResult(value=content, response=resp)
+
+    pool = SubagentPool(trace_dir=graph_dir(workspace_root) / "traces")
+    fan = await pool.run_all(
+        items=list(plan),
+        task=synth_one,
+        role="skill_synthesizer",
+        model_id=synth_cfg["model_id"],
+        max_concurrency=int(synth_cfg.get("max_concurrency", 5)),
+    )
+
+    # Map entries to their synthesized text (only successes).
+    by_id = {id(entry): page_text for entry, page_text in fan.successes}
+
+    written: list[str] = []
+    for entry in plan:  # preserve plan order, not fan-out completion order
+        page_text = by_id.get(id(entry))
+        if not page_text:
+            continue
+        try:
+            fm, _body = parse_guidance_fm(page_text)
+        except ValueError:
+            logger.warning(
+                "skill synthesizer produced unparseable guidance page; skipping chunk %r", entry.get("title")
+            )
+            continue
+        errors = validate_guidance_fm(fm)
+        if errors:
+            logger.warning("skill guidance page failed validation (%s); skipping chunk %r", errors, entry.get("title"))
+            continue
+        topic = guidance_slugify(str(entry["topic"]))
+        slug = guidance_slugify(str(entry.get("slug") or entry["title"]))
+        page = guidance_page_path(workspace_root, topic, slug)
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(page_text, encoding="utf-8")
+        written.append(page.relative_to(workspace_root).as_posix())
+    return written
+
+
+def _build_skill_planner_human(text: str, source_path: Path) -> str:
+    """Human message for the planner: the full skill text + its path."""
+    return f"Skill file: {source_path}\n\n--- Skill content ---\n{text}\n--- End skill ---\n"
+
+
+async def _run_skill_branch(
+    *,
+    text: str,
+    title_guess: str,
+    slug: str,
+    source_path: Path,
+    workspace_root: Path,
+    wiki: Path,
+    project_ctx: str,
+    canonical_uri: str | None,
+    entity_stem: str | None,
+    model_override: str | None,
+) -> _IngestBranchResult | None:
+    """Two-pass skill ingest. Returns None to signal fall-back to the default branch.
+
+    Pass 1 (planner): one skill_planner call → a YAML chunk plan.
+    Pass 2 (synthesizer): SubagentPool fan-out → written guidance pages.
+    The Source page body lists the generated pages under `## Generates`.
+    On planner failure / unparseable plan, returns None (caller falls back).
+    """
+    planner_cfg = load_role_config("skill_planner")
+    llm = make_llm("skill_planner", model_override=model_override)
+    resolved_model_id = model_override or planner_cfg["model_id"]
+    trace_dir = graph_dir(wiki.parent) / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"ingest_skill_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+    t0 = time.monotonic()
+    try:
+        resp = await llm.ainvoke(
+            [
+                SystemMessage(build_skill_planner_system(project_context=project_ctx)),
+                HumanMessage(_build_skill_planner_human(text, source_path)),
+            ]
+        )
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        write_trace_record(
+            trace_file,
+            role="skill_planner",
+            model_id=resolved_model_id,
+            item=str(source_path),
+            status="error",
+            latency_ms=latency_ms,
+            response=None,
+            error=str(exc),
+        )
+        logger.warning("skill planner call failed; falling back to default ingest branch", exc_info=True)
+        return None
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="skill_planner",
+        model_id=resolved_model_id,
+        item=str(source_path),
+        status="success",
+        latency_ms=latency_ms,
+        response=resp,
+    )
+
+    plan_text = resp.content if isinstance(resp.content, str) else ""
+    plan = _parse_skill_plan(plan_text)
+    if plan is None:
+        logger.warning("skill planner produced no usable chunk plan; falling back to default ingest branch")
+        return None
+
+    written = await _synthesize_guidance_pages(
+        plan, workspace_root=workspace_root, project_ctx=project_ctx, model_override=model_override
+    )
+
+    page_body = _compose_skill_source_body(title_guess, written)
+    return _IngestBranchResult(
+        page_body=page_body,
+        target_slug=slug,
+        source_type="skill",
+        entity_uri=canonical_uri,
+        entity_stem=entity_stem,
+        frontmatter_parsed=True,
+        run_suggest=False,  # guidance written directly — nothing to propose
+        guidance_pages_written=written,
+    )
+
+
+async def _run_common_tail(
+    branch: _IngestBranchResult,
+    *,
+    wiki: Path,
+    conn,
+    source_path: Path,
+    source_text: str,
+    title_guess: str,
+) -> IngestResult:
+    """Shared finalize path for every ingest branch.
+
+    Writes the source page (stamping source_type/target_slug/entity_uri),
+    resolves wikilinks, ensures the entity forward-link, optionally runs the
+    suggest phase (gated by branch.run_suggest), updates the index, and logs.
+    """
+    # Route + write the source page (D1: always under sources/).
+    target_path = _route_target_path(wiki, "source", branch.target_slug)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    canonical_slug = target_path.stem
+
+    body = branch.page_body
+    # D3 synthesize-frontmatter rule (only when the branch produced no frontmatter).
+    if not branch.frontmatter_parsed and not body.lstrip().startswith("---"):
+        body = _synthesize_frontmatter_block(body, branch.source_type, canonical_slug, branch.entity_uri)
+
+    body = _rewrite_target_slug_in_body(body, canonical_slug)
+    body = _set_entity_uri_in_body(body, branch.entity_uri)
+    body = _set_source_type_in_body(body, branch.source_type)
+    target_path.write_text(body, encoding="utf-8")
+
+    resolved_output, stripped_wikilinks = _resolve_wikilinks(body, wiki)
+    current_output = resolved_output if stripped_wikilinks else body
+    if stripped_wikilinks:
+        target_path.write_text(resolved_output, encoding="utf-8")
+
+    if branch.entity_stem:
+        linked_output = _ensure_entity_touch_link(current_output, branch.entity_stem)
+        if linked_output != current_output:
+            target_path.write_text(linked_output, encoding="utf-8")
+
+    # Suggest phase (gated). Best-effort: a failure never fails the ingest.
+    if branch.run_suggest:
+        try:
+            graph_tools = build_graph_tools(conn)
+            suggested_pages, proposal_status = await run_suggest_phase(
+                wiki=wiki,
+                page_path=target_path,
+                source_path=source_path,
+                source_text=source_text,
+                entity_uri=branch.entity_uri,
+                entity_stem=branch.entity_stem,
+                graph_tools=graph_tools,
+                allowed_kinds=branch.allowed_kinds,
+            )
+        except Exception:
+            logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
+            suggested_pages = []
+            proposal_status = {
+                "reasoner": "failed",
+                "extractor": "skipped",
+                "proposals": 0,
+                "error": "suggest phase failed",
+            }
+        suggestions_parsed = proposal_status["extractor"] == "ok"
+        current_text = target_path.read_text(encoding="utf-8")
+        stamped_text = _set_proposal_status_in_body(current_text, proposal_status)
+        if stamped_text != current_text:
+            target_path.write_text(stamped_text, encoding="utf-8")
+    else:
+        suggested_pages = []
+        suggestions_parsed = True
+        proposal_status = {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    update_index(wiki)
+
+    detail = f"source: {source_path}"
+    if stripped_wikilinks:
+        detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
+    append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
+
+    page_path_rel = str(target_path.relative_to(wiki))
+    return IngestResult(
+        status="ok",
+        page_path=page_path_rel,
+        slug=branch.target_slug,
+        title=title_guess,
+        page_type="source",
+        source_path=str(source_path),
+        cross_refs_updated=1,
+        entity_uri=branch.entity_uri,
+        source_type=branch.source_type,
+        stripped_wikilinks=stripped_wikilinks,
+        frontmatter_parsed=branch.frontmatter_parsed,
+        suggested_pages=suggested_pages,
+        suggestions_parsed=suggestions_parsed,
+        proposal_reasoner_status=str(proposal_status.get("reasoner", "skipped")),
+        proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
+        proposal_error=proposal_status.get("error"),
+        guidance_pages_written=branch.guidance_pages_written,
+    )
+
+
+async def _run_default_branch(
+    *,
+    text: str,
+    title_guess: str,
+    slug: str,
+    source_path: Path,
+    path_guess: str,
+    wiki: Path,
+    project_ctx: str,
+    canonical_uri: str | None,
+    entity_stem: str | None,
+    model_override: str | None,
+) -> _IngestBranchResult:
+    """The default ingest path: one ingestor LLM call → a Source page body."""
+    vault_structure: list[str] = []
+    try:
+        vault_structure = sorted(d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith("."))
+    except OSError:
+        pass
+
+    prompt = build_ingest_source_prompt(text, source_path, path_guess, vault_structure)
+
+    ingestor_cfg = load_role_config("ingestor")
+    llm = make_llm("ingestor", model_override=model_override)
+    resolved_model_id = model_override or ingestor_cfg["model_id"]
+    trace_dir = graph_dir(wiki.parent) / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+    t0 = time.monotonic()
+    try:
+        resp = await llm.ainvoke(
+            [SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)]
+        )
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        write_trace_record(
+            trace_file,
+            role="ingestor",
+            model_id=resolved_model_id,
+            item=str(source_path),
+            status="error",
+            latency_ms=latency_ms,
+            response=None,
+            error=str(exc),
+        )
+        raise
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="ingestor",
+        model_id=resolved_model_id,
+        item=str(source_path),
+        status="success",
+        latency_ms=latency_ms,
+        response=resp,
+    )
+    if not isinstance(resp.content, str):
+        raise RuntimeError("ingestor returned non-text content")
+    llm_output = resp.content
+
+    fm, _body = _parse_ingestor_response(llm_output)
+    frontmatter_parsed = bool(fm)
+    if path_guess in RAW_FOLDER_TYPES:
+        source_type = path_guess
+    else:
+        llm_value = str(fm.get("source_type", "")).strip().lower()
+        source_type = llm_value if llm_value in SOURCE_TYPE_ENUM else path_guess
+
+    target_slug = str(fm.get("target_slug", "")).strip()
+    target_slug = slugify(target_slug) if target_slug else slug
+
+    return _IngestBranchResult(
+        page_body=llm_output,
+        target_slug=target_slug,
+        source_type=source_type,
+        entity_uri=canonical_uri,
+        entity_stem=entity_stem,
+        frontmatter_parsed=frontmatter_parsed,
+        run_suggest=True,
+        allowed_kinds=None,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public: run_ingest_source
 # ---------------------------------------------------------------------------
 
@@ -652,16 +1095,25 @@ async def run_ingest_source(
 ) -> IngestResult:
     """Ingest a source file into the wiki via the ingestor LLM.
 
+    Shared setup resolves wiki/repo, extracts text, path-guesses source_type, and
+    looks up the matching entity (Steps 1–3 below). It then DISPATCHES on the
+    path-guess: a `raw/skill/` file runs `_run_skill_branch` (a two-pass
+    planner→synthesizer flow that writes `wiki/guidance/<topic>/<slug>.md` pages
+    directly and falls back to the default branch on planner failure); every other
+    type runs `_run_default_branch`. Both produce an `_IngestBranchResult` that
+    `_run_common_tail` finalizes (Steps 4–10).
+
     Steps:
         1. Resolve wiki and repo paths.
         2. Extract text and title from source file.
-        3. Guess source_type from path location.
-        4. Build ingestor prompt (vault structure + source preview).
-        5. Single LLM call to ingestor role (no fan-out needed for single source).
-        6. Parse YAML frontmatter from LLM response to read source_type + target_slug.
-        7. Write LLM output to sources/<target_slug>.md (routing is fixed — M3 Part A).
-        8. update_index(wiki) — cross-ref update (index-only scope per CONTEXT.md deferred).
-        9. append_log(wiki, "ingest", ...) — audit trail.
+        3. Guess source_type from path location; look up the matching entity.
+        4. Branch: default → single ingestor LLM call → Source body; skill →
+           two-pass guidance synthesis. Both yield an _IngestBranchResult.
+        5. Parse/stamp source_type + target_slug onto the page body.
+        6. Write the body to sources/<target_slug>.md (routing is fixed — M3 Part A).
+        7. Resolve wikilinks + ensure the entity forward-link.
+        8. Suggest phase (default branch only; skill branch skips it).
+        9. update_index(wiki) + append_log(wiki, "ingest", ...) — cross-ref + audit.
         10. Return IngestResult.
 
     Args:
@@ -731,170 +1183,42 @@ async def run_ingest_source(
         # match has no entity page (cls:/fn:/method:) — no link is written.
         entity_stem: str | None = entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
 
-        # Step 4: vault structure for context
-        vault_structure: list[str] = []
-        try:
-            vault_structure = sorted(d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith("."))
-        except OSError:
-            pass
-
-        prompt = build_ingest_source_prompt(text, source_path, path_guess, vault_structure)
-
-        # Step 5: single ingestor LLM call
-        ingestor_cfg = load_role_config("ingestor")
-        llm = make_llm("ingestor", model_override=model_override)
-        resolved_model_id = model_override or ingestor_cfg["model_id"]
-        # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
-        # to disk for every production ingest invocation, not just pool-driven calls.
-        trace_dir = graph_dir(wiki.parent) / "traces"
-        trace_dir.mkdir(parents=True, exist_ok=True)
-        trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
-        t0 = time.monotonic()
-        try:
-            resp = await llm.ainvoke(
-                [SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)]
-            )
-        except Exception as exc:
-            latency_ms = int((time.monotonic() - t0) * 1000)
-            write_trace_record(
-                trace_file,
-                role="ingestor",
-                model_id=resolved_model_id,
-                item=str(source_path),
-                status="error",
-                latency_ms=latency_ms,
-                response=None,
-                error=str(exc),
-            )
-            raise
-        latency_ms = int((time.monotonic() - t0) * 1000)
-        write_trace_record(
-            trace_file,
-            role="ingestor",
-            model_id=resolved_model_id,
-            item=str(source_path),
-            status="success",
-            latency_ms=latency_ms,
-            response=resp,
-        )
-        if not isinstance(resp.content, str):
-            raise RuntimeError("ingestor returned non-text content")
-        llm_output = resp.content
-
-        # Step 6: parse response to get source_type and target_slug.
-        # M3 Part A: classification is DECOUPLED from routing — every ingested
-        # doc becomes a Source page regardless of source_type.
-        fm, _body = _parse_ingestor_response(llm_output)
-        frontmatter_parsed = bool(fm)  # False ⟺ parse miss (spec §3.5)
-        # Source-type determination (source-type-consolidation design 2026-06-05):
-        # a raw/<type>/ folder is authoritative (LLM ignored); otherwise the LLM
-        # may override the path-guess (doc/note) with a more specific enum value,
-        # and an empty/out-of-enum value keeps the path-guess.
-        if path_guess in RAW_FOLDER_TYPES:
-            source_type = path_guess
-        else:
-            llm_value = str(fm.get("source_type", "")).strip().lower()
-            source_type = llm_value if llm_value in SOURCE_TYPE_ENUM else path_guess
-
-        target_slug = str(fm.get("target_slug", "")).strip()
-        # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
-        target_slug = slugify(target_slug) if target_slug else slug
-
-        # Step 7: write page. D1 — always route to sources/ (page_type fixed to
-        # "source"; _route_target_path keeps the path-traversal safety check).
-        target_path = _route_target_path(wiki, "source", target_slug)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        canonical_slug = target_path.stem
-
-        # D3 synthesize-frontmatter rule: when the LLM emitted NO frontmatter at
-        # all, the body-mutation helpers below would no-op — prepend a minimal
-        # block so the Source page lands with its metadata.
-        if not frontmatter_parsed and not llm_output.lstrip().startswith("---"):
-            llm_output = _synthesize_frontmatter_block(llm_output, source_type, canonical_slug, canonical_uri)
-
-        # Reconcile target_slug in the body with the on-disk filename slug, write
-        # entity_uri (null when no graph match), and stamp source_type. All three
-        # helpers are idempotent and preserve comments/order.
-        llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
-        llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
-        llm_output = _set_source_type_in_body(llm_output, source_type)
-        # Write the file first so it is part of the "known pages" set when
-        # resolving self-references in the body (e.g. an ADR linking to
-        # itself or a sibling created earlier in the same ingest).
-        target_path.write_text(llm_output, encoding="utf-8")
-        # Plan 06-14 / UAT G4: strip wikilinks the LLM fabricated for pages
-        # that do not exist in the vault. Two writes is acceptable — vaults
-        # are local-disk and writes are <1ms.
-        resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
-        current_output = resolved_output if stripped_wikilinks else llm_output
-        if stripped_wikilinks:
-            target_path.write_text(resolved_output, encoding="utf-8")
-        # Slice 4: ensure the matched entity's forward-link is present. Runs
-        # AFTER _resolve_wikilinks so it is never stripped (the entity page may
-        # not exist on disk yet at ingest time — the scanner backfills it).
-        if entity_stem:
-            linked_output = _ensure_entity_touch_link(current_output, entity_stem)
-            if linked_output != current_output:
-                target_path.write_text(linked_output, encoding="utf-8")
-
-        # Step 7.5 (Living Wiki M3): inline suggest phase — propose derived
-        # concept/adr/architecture pages from the just-written Source page.
-        # Best-effort: a failure here never fails the ingest (spec §3.1).
-        try:
-            graph_tools = build_graph_tools(conn)
-            suggested_pages, proposal_status = await run_suggest_phase(
-                wiki=wiki,
-                page_path=target_path,
+        # Dispatch on the path-guessed source_type. raw/skill/ → the skill branch
+        # (writes guidance pages directly); everything else → the default branch.
+        branch: _IngestBranchResult | None = None
+        if path_guess == "skill":
+            branch = await _run_skill_branch(
+                text=text,
+                title_guess=title_guess,
+                slug=slug,
                 source_path=source_path,
-                source_text=text,
-                entity_uri=canonical_uri,
+                workspace_root=workspace_root,
+                wiki=wiki,
+                project_ctx=project_ctx,
+                canonical_uri=canonical_uri,
                 entity_stem=entity_stem,
-                graph_tools=graph_tools,
+                model_override=model_override,
             )
-        except Exception:
-            logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
-            suggested_pages = []
-            proposal_status = {
-                "reasoner": "failed",
-                "extractor": "skipped",
-                "proposals": 0,
-                "error": "suggest phase failed",
-            }
-        suggestions_parsed = proposal_status["extractor"] == "ok"
-
-        current_text = target_path.read_text(encoding="utf-8")
-        stamped_text = _set_proposal_status_in_body(current_text, proposal_status)
-        if stamped_text != current_text:
-            target_path.write_text(stamped_text, encoding="utf-8")
-
-        # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
-        update_index(wiki)
-
-        # Step 9: append log (record stripped-wikilink count for hallucination audit)
-        detail = f"source: {source_path}"
-        if stripped_wikilinks:
-            detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
-        append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
-
-        # Step 10: return result
-        page_path_rel = str(target_path.relative_to(wiki))
-        return IngestResult(
-            status="ok",
-            page_path=page_path_rel,
-            slug=target_slug,
-            title=title_guess,
-            page_type="source",  # D1: run_ingest_source always files under sources/
-            source_path=str(source_path),
-            cross_refs_updated=1,
-            entity_uri=canonical_uri,
-            source_type=source_type,
-            stripped_wikilinks=stripped_wikilinks,
-            frontmatter_parsed=frontmatter_parsed,
-            suggested_pages=suggested_pages,
-            suggestions_parsed=suggestions_parsed,
-            proposal_reasoner_status=str(proposal_status.get("reasoner", "skipped")),
-            proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
-            proposal_error=proposal_status.get("error"),
+        if branch is None:
+            branch = await _run_default_branch(
+                text=text,
+                title_guess=title_guess,
+                slug=slug,
+                source_path=source_path,
+                path_guess=path_guess,
+                wiki=wiki,
+                project_ctx=project_ctx,
+                canonical_uri=canonical_uri,
+                entity_stem=entity_stem,
+                model_override=model_override,
+            )
+        return await _run_common_tail(
+            branch,
+            wiki=wiki,
+            conn=conn,
+            source_path=source_path,
+            source_text=text,
+            title_guess=title_guess,
         )
     finally:
         try:

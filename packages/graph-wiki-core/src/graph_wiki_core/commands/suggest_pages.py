@@ -229,6 +229,7 @@ async def run_suggest_phase(
     entity_uri: str | None,
     entity_stem: str | None,
     graph_tools: list,
+    allowed_kinds: frozenset[str] | None = None,
 ) -> tuple[list[dict], dict]:
     """Inline suggest phase: propose derived pages into the proposal ledger.
 
@@ -245,6 +246,7 @@ async def run_suggest_phase(
     {kind, title, slug, mode, status} (slug == target_slug) — the report shape
     the CLI/MCP already consume (spec §3.6).
     """
+    kinds = allowed_kinds if allowed_kinds is not None else SUGGESTION_KINDS
     page_text = page_path.read_text(encoding="utf-8")
     status = {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
 
@@ -273,6 +275,8 @@ async def run_suggest_phase(
         return [], status
 
     vault_index = build_curated_vault_index(wiki)
+    # build_extract_suggestions_prompt advertises the full SUGGESTION_KINDS set;
+    # post-filtering below enforces `kinds` for any restricted branch.
     prompt = build_extract_suggestions_prompt(reasoner_result.analysis, vault_index)
 
     try:
@@ -295,6 +299,9 @@ async def run_suggest_phase(
         status["extractor"] = "failed"
         status["error"] = "extractor output did not parse"
         return [], status
+
+    # Post-filter: enforce allowed kinds (no-op when kinds == SUGGESTION_KINDS).
+    proposals = [p for p in proposals if p["kind"] in kinds]
 
     source_ref = f"sources/{page_path.stem}"
     reports: list[dict] = []

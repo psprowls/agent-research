@@ -29,9 +29,6 @@ def test_root_app_mounts_wiki_group_with_subcommands() -> None:
     wiki_group = root_command.commands["wiki"]
     assert {"query", "log", "lint", "ingest"} <= set(wiki_group.commands)
 
-    ingest_group = wiki_group.commands["ingest"]
-    assert {"source", "work-item"} <= set(ingest_group.commands)
-
 
 def test_moved_commands_no_longer_top_level() -> None:
     """query/log/lint/ingest are no longer registered at the root."""
@@ -105,7 +102,7 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     # stdout carries the ok line + the source_type
@@ -156,7 +153,7 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", "source", str(src)])
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     assert "suggested 1 page(s)" in result.stdout
@@ -164,6 +161,43 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
     assert "idea" in result.stdout
     # degraded warning goes to stderr (err=True); Click 8.2+ keeps stderr separate
     assert "suggestion pass degraded" in result.stderr
+
+
+def test_ingest_source_cli_prints_guidance_pages(tmp_path):
+    """Text-mode CLI lists guidance pages when guidance_pages_written is non-empty."""
+    from unittest.mock import AsyncMock
+
+    from graph_wiki_cli.wiki_cli.main import wiki_app
+    from graph_wiki_core.commands.ingest import IngestResult
+
+    src = tmp_path / "skill.md"
+    src.write_text("# Skill\n\nBody.", encoding="utf-8")
+
+    fake_result = IngestResult(
+        status="ok",
+        page_path="sources/react-native-skill.md",
+        slug="react-native-skill",
+        title="React Native Skill",
+        page_type="source",
+        source_path=str(src),
+        cross_refs_updated=1,
+        source_type="skill",
+        guidance_pages_written=[
+            "wiki/guidance/react-native/use-virtualizer.md",
+            "wiki/guidance/react-native/avoid-inline-styles.md",
+        ],
+    )
+
+    with patch(
+        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        new_callable=AsyncMock,
+        return_value=fake_result,
+    ):
+        result = runner.invoke(wiki_app, ["ingest", str(src)])
+
+    assert result.exit_code == 0
+    assert "wrote 2 guidance page(s)" in result.stdout
+    assert "wiki/guidance/react-native/use-virtualizer.md" in result.stdout
 
 
 def test_proposals_and_proposal_subcommands_registered() -> None:
