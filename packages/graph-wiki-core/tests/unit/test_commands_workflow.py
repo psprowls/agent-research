@@ -157,6 +157,7 @@ def test_advance_fresh_feature_enters_design(tmp_path: Path) -> None:
     assert fm["status"] == "open"
     assert fm["updated"] == date.today().isoformat()  # `date` imported at module top
     assert result.phase == "design"
+    assert result.applied["phase"] == [None, "design"]
     assert (wiki / "work-index.json").exists()  # sidecar regenerated
 
 
@@ -341,3 +342,26 @@ def test_full_feature_pipeline_walk(tmp_path: Path) -> None:
     fm = _read_fm(wiki, slug)
     assert fm["phase"] == "done"
     assert fm["status"] == "resolved"
+
+
+def test_advance_with_bystander_item_succeeds_and_scopes_findings(tmp_path: Path) -> None:
+    """A hand-edited bystander with unquoted YAML dates (parsed as datetime.date)
+    and its own lint issue must not crash the post-write lint, and its findings
+    must not leak into the advanced item's result."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "advance-me", kind="feature")
+    # _write_item emits unquoted `opened:`/`updated:` dates — YAML parses them
+    # as datetime.date. The bystander is never re-written, so its dates stay
+    # date objects through the post-advance lint. Its ghost spec_doc produces
+    # an artifact-doc-missing finding of its own.
+    bystander = _write_item(wiki / "work", "bystander", kind="bug", spec_doc="raw/specs/ghost.md")
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    assert result.phase == "design"
+    assert all(f["slug"] == slug for f in result.findings)
+    assert bystander not in {f["slug"] for f in result.findings}

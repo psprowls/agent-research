@@ -178,6 +178,15 @@ def test_sidecar_fresh_not_stale() -> None:
     assert "sidecar-stale" not in _rule_ids(findings)
 
 
+def test_sidecar_stale_tolerates_date_object_updated() -> None:
+    # Unquoted YAML dates parse as datetime.date; rule 19 must not raise on them.
+    item = _item()
+    item["fm"]["updated"] = date.today()
+    sidecar = {"generated_at": "2026-01-01T00:00:00+00:00", "items": []}
+    findings = run_lint([item], None, sidecar)
+    assert "sidecar-stale" in _rule_ids(findings)
+
+
 # --- Finding shape ---
 
 
