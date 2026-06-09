@@ -768,6 +768,89 @@ async def _run_common_tail(
     )
 
 
+async def _run_default_branch(
+    *,
+    text: str,
+    title_guess: str,
+    slug: str,
+    source_path: Path,
+    path_guess: str,
+    wiki: Path,
+    project_ctx: str,
+    canonical_uri: str | None,
+    entity_stem: str | None,
+    model_override: str | None,
+) -> _IngestBranchResult:
+    """The default ingest path: one ingestor LLM call → a Source page body."""
+    vault_structure: list[str] = []
+    try:
+        vault_structure = sorted(d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith("."))
+    except OSError:
+        pass
+
+    prompt = build_ingest_source_prompt(text, source_path, path_guess, vault_structure)
+
+    ingestor_cfg = load_role_config("ingestor")
+    llm = make_llm("ingestor", model_override=model_override)
+    resolved_model_id = model_override or ingestor_cfg["model_id"]
+    trace_dir = graph_dir(wiki.parent) / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
+    t0 = time.monotonic()
+    try:
+        resp = await llm.ainvoke(
+            [SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)]
+        )
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        write_trace_record(
+            trace_file,
+            role="ingestor",
+            model_id=resolved_model_id,
+            item=str(source_path),
+            status="error",
+            latency_ms=latency_ms,
+            response=None,
+            error=str(exc),
+        )
+        raise
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    write_trace_record(
+        trace_file,
+        role="ingestor",
+        model_id=resolved_model_id,
+        item=str(source_path),
+        status="success",
+        latency_ms=latency_ms,
+        response=resp,
+    )
+    if not isinstance(resp.content, str):
+        raise RuntimeError("ingestor returned non-text content")
+    llm_output = resp.content
+
+    fm, _body = _parse_ingestor_response(llm_output)
+    frontmatter_parsed = bool(fm)
+    if path_guess in RAW_FOLDER_TYPES:
+        source_type = path_guess
+    else:
+        llm_value = str(fm.get("source_type", "")).strip().lower()
+        source_type = llm_value if llm_value in SOURCE_TYPE_ENUM else path_guess
+
+    target_slug = str(fm.get("target_slug", "")).strip()
+    target_slug = slugify(target_slug) if target_slug else slug
+
+    return _IngestBranchResult(
+        page_body=llm_output,
+        target_slug=target_slug,
+        source_type=source_type,
+        entity_uri=canonical_uri,
+        entity_stem=entity_stem,
+        frontmatter_parsed=frontmatter_parsed,
+        run_suggest=True,
+        allowed_kinds=None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public: run_ingest_source
 # ---------------------------------------------------------------------------
@@ -859,85 +942,17 @@ async def run_ingest_source(
         # match has no entity page (cls:/fn:/method:) — no link is written.
         entity_stem: str | None = entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
 
-        # Step 4: vault structure for context
-        vault_structure: list[str] = []
-        try:
-            vault_structure = sorted(d.name for d in wiki.iterdir() if d.is_dir() and not d.name.startswith("."))
-        except OSError:
-            pass
-
-        prompt = build_ingest_source_prompt(text, source_path, path_guess, vault_structure)
-
-        # Step 5: single ingestor LLM call
-        ingestor_cfg = load_role_config("ingestor")
-        llm = make_llm("ingestor", model_override=model_override)
-        resolved_model_id = model_override or ingestor_cfg["model_id"]
-        # TRACE-FU-01 (D-03): write per-call trace record so usage_metadata flows
-        # to disk for every production ingest invocation, not just pool-driven calls.
-        trace_dir = graph_dir(wiki.parent) / "traces"
-        trace_dir.mkdir(parents=True, exist_ok=True)
-        trace_file = trace_dir / f"ingest_{int(time.time())}_{uuid.uuid4().hex[:8]}.jsonl"
-        t0 = time.monotonic()
-        try:
-            resp = await llm.ainvoke(
-                [SystemMessage(build_ingestor_system(project_context=project_ctx)), HumanMessage(prompt)]
-            )
-        except Exception as exc:
-            latency_ms = int((time.monotonic() - t0) * 1000)
-            write_trace_record(
-                trace_file,
-                role="ingestor",
-                model_id=resolved_model_id,
-                item=str(source_path),
-                status="error",
-                latency_ms=latency_ms,
-                response=None,
-                error=str(exc),
-            )
-            raise
-        latency_ms = int((time.monotonic() - t0) * 1000)
-        write_trace_record(
-            trace_file,
-            role="ingestor",
-            model_id=resolved_model_id,
-            item=str(source_path),
-            status="success",
-            latency_ms=latency_ms,
-            response=resp,
-        )
-        if not isinstance(resp.content, str):
-            raise RuntimeError("ingestor returned non-text content")
-        llm_output = resp.content
-
-        # Step 6: parse response to get source_type and target_slug.
-        # M3 Part A: classification is DECOUPLED from routing — every ingested
-        # doc becomes a Source page regardless of source_type.
-        fm, _body = _parse_ingestor_response(llm_output)
-        frontmatter_parsed = bool(fm)  # False ⟺ parse miss (spec §3.5)
-        # Source-type determination (source-type-consolidation design 2026-06-05):
-        # a raw/<type>/ folder is authoritative (LLM ignored); otherwise the LLM
-        # may override the path-guess (doc/note) with a more specific enum value,
-        # and an empty/out-of-enum value keeps the path-guess.
-        if path_guess in RAW_FOLDER_TYPES:
-            source_type = path_guess
-        else:
-            llm_value = str(fm.get("source_type", "")).strip().lower()
-            source_type = llm_value if llm_value in SOURCE_TYPE_ENUM else path_guess
-
-        target_slug = str(fm.get("target_slug", "")).strip()
-        # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
-        target_slug = slugify(target_slug) if target_slug else slug
-
-        # Build the default-branch result and finalize via the shared tail.
-        branch = _IngestBranchResult(
-            page_body=llm_output,
-            target_slug=target_slug,
-            source_type=source_type,
-            entity_uri=canonical_uri,
+        branch = await _run_default_branch(
+            text=text,
+            title_guess=title_guess,
+            slug=slug,
+            source_path=source_path,
+            path_guess=path_guess,
+            wiki=wiki,
+            project_ctx=project_ctx,
+            canonical_uri=canonical_uri,
             entity_stem=entity_stem,
-            frontmatter_parsed=frontmatter_parsed,
-            run_suggest=True,
-            allowed_kinds=None,
+            model_override=model_override,
         )
         return await _run_common_tail(
             branch,
