@@ -10,6 +10,7 @@ Exports:
     slugify(text) -> str
     extract(path) -> tuple[str, str | None]
     guess_source_type(rel_to_workspace, rel_to_repo) -> str
+    archive_destination(raw, unit) -> Path | None   (raw/_archived/ mapping; None when not applicable)
     SOURCE_TYPE_ENUM, RAW_FOLDER_TYPES   (closed source_type enum + raw-folder subset)
     language_for(path) -> str
     list_folder_files(root) -> list[tuple[str, int]]
@@ -179,6 +180,22 @@ def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -
     if rel_to_repo is not None:
         return "doc"
     return "note"
+
+
+def archive_destination(raw: Path, unit: Path) -> Path | None:
+    """Return the `raw/_archived/` destination for an ingested move-unit, or None.
+
+    `raw/_archived/<unit relative to raw>` when `unit` is under `raw/` and not
+    already under `raw/_archived/`; otherwise None. Pure path math, no I/O —
+    the caller performs (or skips) the actual move.
+    """
+    try:
+        rel = unit.relative_to(raw)
+    except ValueError:
+        return None
+    if not rel.parts or rel.parts[0] == "_archived":
+        return None
+    return raw / "_archived" / rel
 
 
 def language_for(path: Path) -> str:
