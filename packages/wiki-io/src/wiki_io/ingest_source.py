@@ -20,6 +20,7 @@ Exports:
     resolve_skill_anchor(source_path) -> Path | None
     SkillBundle   (dataclass — directory-aware skill ingest)
     gather_skill_sources(anchor) -> SkillBundle
+    build_skill_ingest_brief(anchor, wiki, repo, workspace_root) -> dict
     _HTMLTextExtractor
 """
 
@@ -501,3 +502,45 @@ def gather_skill_sources(anchor: Path) -> SkillBundle:
         excluded_files=excluded_files,
         scripts_dominant=scripts_dominant,
     )
+
+
+def build_skill_ingest_brief(anchor: Path, wiki: Path, repo: Path, workspace_root: Path) -> dict:
+    """Build a skill-aware ingest brief for the plugin's Claude branch.
+
+    Pure / Bedrock-free, consistent with build_ingest_brief / build_folder_ingest_brief.
+    Reuses gather_skill_sources (gather SKILL.md + transitively-linked companion
+    markdown), _build_entity_match (graph entity hint), and compute_state_gate.
+
+    The agent Reads the returned `included_files` itself before chunking the skill
+    into wiki/guidance/<topic>/<slug>.md pages — Python only emits the manifest.
+    `warnings` carries "scripts_dominant" when the skill is mostly non-markdown
+    scripts (a weak guidance candidate the agent surfaces).
+    """
+    bundle = gather_skill_sources(anchor)
+    title_guess = bundle.title or bundle.skill_dir.stem.replace("-", " ").title()
+    slug = slugify(title_guess)
+
+    month = datetime.date.today().strftime("%Y-%m")
+    suggested = f"sources/{month}-{slug}.md"
+    merge_mode = (wiki / suggested).exists()
+
+    warnings: list[str] = []
+    if bundle.scripts_dominant:
+        warnings.append("scripts_dominant")
+
+    return {
+        "is_skill": True,
+        "source_path": str(bundle.skill_dir),
+        "title": title_guess,
+        "source_type": "skill",
+        "slug": slug,
+        "suggested_summary_path": suggested,
+        "merge_mode": merge_mode,
+        "guidance_dir": "guidance/",
+        "included_files": bundle.included_files,
+        "excluded_files": bundle.excluded_files,
+        "scripts_dominant": bundle.scripts_dominant,
+        "warnings": warnings,
+        "entity_match": _build_entity_match(workspace_root, repo, bundle.skill_dir, title_guess),
+        "state_gate": compute_state_gate(repo, workspace=workspace_root),
+    }
