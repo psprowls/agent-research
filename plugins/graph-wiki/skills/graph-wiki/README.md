@@ -108,7 +108,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
     └── AGENTS.md              # wiki-local schema (others)
 ```
 
-**Iron rule:** the code is the source of truth. The LLM never edits `<workspace>/raw/`; all wiki writes go under `<workspace>/wiki/`. Work items live at `<workspace>/work/` and are referenced from wiki pages via wikilinks (e.g. `[[../work/2026-04-21-flaky-healthkit-tests]]`).
+**Iron rule:** the code is the source of truth. The LLM never edits file contents under `<workspace>/raw/` (ingested sources are moved to `raw/_archived/`); all wiki writes go under `<workspace>/wiki/`. Work items live at `<workspace>/work/` and are referenced from wiki pages via wikilinks (e.g. `[[../work/2026-04-21-flaky-healthkit-tests]]`).
 
 ## Four operations
 

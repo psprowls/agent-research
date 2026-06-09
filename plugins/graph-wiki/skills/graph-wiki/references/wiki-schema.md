@@ -4,7 +4,7 @@ The wiki sits inside a graph-wiki workspace alongside other workspace-level dire
 
 ## Layout
 
-The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (immutable sources) and `work/` (work tracker) sit at the workspace root as siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archived/`) and `work/` (work tracker) sit at the workspace root as siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
 
 ```
 <repo>/graph-wiki/               # workspace; Obsidian vault opens here
@@ -40,7 +40,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 ## Iron rules
 
 1. **The code is the source of truth.** If the wiki disagrees with the code, update the wiki — never the other way around.
-2. **`<workspace>/raw/` is immutable.** The LLM reads from `raw/` but never writes to it. Never rename, never delete, never edit.
+2. **`<workspace>/raw/` contents are read-only.** The LLM never edits, renames within, or deletes staged sources — the single permitted operation is moving a successfully-ingested source to `raw/_archived/<same relative path>`.
 3. **All wiki writes go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`). No exceptions.
 4. **Every scan or ingest updates ≥3 files:** the touched page(s), `index.md`, `log.md`. A typical ingest touches 5-15.
 5. **Every wiki page carries YAML frontmatter.** Without frontmatter, index maintenance and `lint_wiki.py` can't see it.
