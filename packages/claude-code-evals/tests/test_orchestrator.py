@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from claude_code_evals.orchestrator import ScenarioRunResult, run_one
+from claude_code_evals.runner import RunResult
 from claude_code_evals.schemas import Config, Scenario
 
 
@@ -150,3 +151,110 @@ def test_run_one_golden_fixture_raises(tmp_path: Path):
     c = Config.model_validate({"name": "base"})
     with pytest.raises(ValueError, match="GoldenVerifier.*fixture"):
         run_one(s, c, evals_root=tmp_path)
+
+
+# --- Mode dispatch tests ---
+
+
+def _base_scenario(**overrides) -> Scenario:
+    base = {
+        "name": "test-scenario",
+        "isolation_mode": "fixture",
+        "fixture_dir": "fixtures/",
+        "verify": [],
+    }
+    base.update(overrides)
+    return Scenario.model_validate(base)
+
+
+def _base_config() -> Config:
+    return Config.model_validate({"name": "base", "model": "claude-sonnet-4-6"})
+
+
+def _empty_run_result(status: str = "success") -> RunResult:
+    return RunResult(final_status=status, budget_exceeded=False, wall_seconds=0.1)
+
+
+def test_orchestrator_calls_run_one_shot_for_headless_no_auto_user(tmp_path):
+    scenario = _base_scenario()
+    config = _base_config()
+    (tmp_path / "scenarios" / "test-scenario").mkdir(parents=True)
+    (tmp_path / "scenarios" / "test-scenario" / "prompt.md").write_text("Do X")
+
+    with (
+        patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.run_one_shot", return_value=(_empty_run_result(), "")) as mock_shot,
+        patch("claude_code_evals.orchestrator.run_multi_turn") as mock_multi,
+        patch("claude_code_evals.orchestrator.run_interactive") as mock_interactive,
+    ):
+        iso_instance = MagicMock()
+        iso_instance.__enter__ = MagicMock(return_value=iso_instance)
+        iso_instance.__exit__ = MagicMock(return_value=False)
+        iso_instance.worktree_path = tmp_path
+        iso_instance.cfg_dir = tmp_path
+        iso_instance.oauth_token = "tok"
+        MockIso.return_value = iso_instance
+
+        run_one(scenario, config, evals_root=tmp_path)
+
+    mock_shot.assert_called_once()
+    mock_multi.assert_not_called()
+    mock_interactive.assert_not_called()
+
+
+def test_orchestrator_calls_run_interactive_for_interactive_mode(tmp_path):
+    scenario = _base_scenario(mode="interactive")
+    config = _base_config()
+    (tmp_path / "scenarios" / "test-scenario").mkdir(parents=True)
+    (tmp_path / "scenarios" / "test-scenario" / "prompt.md").write_text("Do X")
+
+    with (
+        patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.run_one_shot") as mock_shot,
+        patch(
+            "claude_code_evals.orchestrator.run_interactive",
+            return_value=(_empty_run_result("completed_interactive"), ""),
+        ) as mock_interactive,
+    ):
+        iso_instance = MagicMock()
+        iso_instance.__enter__ = MagicMock(return_value=iso_instance)
+        iso_instance.__exit__ = MagicMock(return_value=False)
+        iso_instance.worktree_path = tmp_path
+        iso_instance.cfg_dir = tmp_path
+        iso_instance.oauth_token = "tok"
+        MockIso.return_value = iso_instance
+
+        result = run_one(scenario, config, evals_root=tmp_path)
+
+    mock_interactive.assert_called_once()
+    mock_shot.assert_not_called()
+    assert result.final_status == "completed_interactive"
+
+
+def test_orchestrator_calls_run_multi_turn_when_auto_user_set(tmp_path):
+    auto_user_yaml = tmp_path / "auto_user.yaml"
+    auto_user_yaml.write_text(
+        "model: claude-haiku-4-5-20251001\nmax_replies: 3\nstop_on: '<DONE>'\nsystem_prompt: Drive.\n"
+    )
+    scenario = _base_scenario(auto_user=str(auto_user_yaml))
+    config = _base_config()
+    (tmp_path / "scenarios" / "test-scenario").mkdir(parents=True)
+    (tmp_path / "scenarios" / "test-scenario" / "prompt.md").write_text("Do X")
+
+    with (
+        patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.run_one_shot") as mock_shot,
+        patch("claude_code_evals.orchestrator.run_multi_turn", return_value=(_empty_run_result(), "")) as mock_multi,
+    ):
+        iso_instance = MagicMock()
+        iso_instance.__enter__ = MagicMock(return_value=iso_instance)
+        iso_instance.__exit__ = MagicMock(return_value=False)
+        iso_instance.worktree_path = tmp_path
+        iso_instance.cfg_dir = tmp_path
+        iso_instance.oauth_token = "tok"
+        MockIso.return_value = iso_instance
+
+        run_one(scenario, config, evals_root=tmp_path)
+
+    mock_multi.assert_called_once()
+    mock_shot.assert_not_called()

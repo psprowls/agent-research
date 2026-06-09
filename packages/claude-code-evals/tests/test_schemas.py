@@ -50,6 +50,18 @@ def test_auto_user_from_path():
     assert a.model == "claude-haiku-4-5-20251001"
     assert a.max_replies == 3
     assert a.stop_on == "<DONE>"
+    assert a.triggers == []
+    assert a.default_reply == "proceed"
+    assert a.abort_on_default_after == 2
+
+
+def test_auto_user_from_path_with_triggers():
+    a = AutoUser.from_path(FIXTURES / "auto_user_triggers.yaml")
+    assert len(a.triggers) == 2
+    assert a.triggers[0].match.contains == "clarify"
+    assert a.triggers[1].match.regex == r"question\?"
+    assert a.default_reply == "continue"
+    assert a.abort_on_default_after == 3
 
 
 def test_worktree_mode_requires_target_repo():
