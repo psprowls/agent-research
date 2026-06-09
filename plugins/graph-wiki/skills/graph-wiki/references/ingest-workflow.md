@@ -244,11 +244,13 @@ Write one source page at the brief's `suggested_summary_path`
 
 This matches the Bedrock source-page shape (`## Summary`, `## Generates`, `## Excluded`).
 
-### Known gap
+### Entity backlinks
 
-`## Applies to` `[[entities/...]]` links do **not** yet produce entity backlinks (`guidance`
-is absent from the scanner's preserved-wiki-dirs list). Still write the links — the backlink
-wiring is a separate, out-of-scope change.
+`## Applies to` `[[entities/...]]` links **do** produce entity backlinks: `guidance` is in
+the scanner's preserved-wiki-dirs list, so the next `/graph-wiki:scan` derives the reciprocal
+`## Referenced in wiki` entry on each linked entity page from these forward links (the nested
+`guidance/<topic>/<slug>` slug is rendered correctly). Write the links — the scanner backfills
+the reciprocity, just as it does for source-page `## Touches` links.
 
 ## Future formats
 
