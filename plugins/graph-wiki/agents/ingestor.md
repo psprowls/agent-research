@@ -59,6 +59,16 @@ raw/-staged sources (specs, articles, PRs, transcripts, tickets) are immutable �
 
 Merge mode (page exists): append `## Re-ingest <date>` at bottom and bump `last_sync_commit` to `state_gate.head_commit` so drift detection resets (gate: `state_gate.allowed` must be true).
 
+### 4a. Skill sources → guidance pages
+
+If the brief reports `is_skill: true` (the source is an agent skill), do NOT write a single
+source summary. Instead break the skill into one or more guidance pages under
+`<workspace>/wiki/guidance/<topic>/<slug>.md`, then write a `source_type: skill` source page
+that links to them under `## Generates`. Read `included_files` from the brief and follow the
+"Skill → guidance pages" section of `references/ingest-workflow.md` for chunking rules, the
+guidance frontmatter schema, and the source-page shape. If `scripts_dominant` is true, warn
+the user first — a scripts-heavy skill is a weak guidance candidate.
+
 ### 5. Link the code entities (never edit entity pages)
 For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 

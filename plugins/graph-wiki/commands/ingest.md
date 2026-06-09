@@ -34,6 +34,7 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 | `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |
 | `raw/transcripts/` | `transcript` | ADRs + `[[entities/...]]` links for relevant domains |
 | `raw/examples/` | `example` | Concept pages (often pattern-flavored); `[[entities/...]]` `## Inspirations` bullets |
+| skill dir (`SKILL.md`) | `skill` | Guidance pages under `guidance/<topic>/`; a `## Generates` source page |
 
 ## What happens
 
@@ -41,7 +42,7 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 2. **Read** — reads the source directly
 3. **Discuss** — TL;DR, key claims, touched pages, contradictions with vault or code
 4. **Confirm** — waits for your go-ahead
-5. **Write** — creates the source summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`
+5. **Write** — creates the source summary at `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md` (for a **skill** directory: breaks it into guidance pages under `wiki/guidance/<topic>/`, plus a `## Generates` source page — see `references/ingest-workflow.md`)
 6. **Link entities** — add `[[entities/...]]` under `## Touches` on the source page; do not edit entity pages (scanner backfills `## Referenced in wiki`)
 7. **ADR** — if the source captures a decision, propose creating `<workspace>/wiki/adrs/<NNNN>-<slug>.md`
 8. **Contradictions** — flags vault↔vault and vault↔code contradictions
