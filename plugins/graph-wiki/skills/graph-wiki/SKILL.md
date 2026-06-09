@@ -39,7 +39,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 <repo>/graph-wiki/              # workspace; Obsidian vault opens here
 ├── .graph-wiki.yaml            # workspace manifest
 ├── CLAUDE.md                   # workspace-level schema (owned by workspace_io)
-├── raw/                        # IMMUTABLE source of truth (owned by workspace_io)
+├── raw/                        # source inbox; ingested sources move to _archived/
 │   ├── articles/               # clipped articles, blog posts
 │   ├── specs/                  # design docs, specs, RFCs
 │   ├── prs/                    # PR summaries, review notes

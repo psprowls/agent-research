@@ -88,7 +88,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 <repo>/graph-wiki/             # workspace; Obsidian vault opens here
 ├── .graph-wiki.yaml           # workspace manifest
 ├── CLAUDE.md                  # workspace-level schema (owned by workspace_io)
-├── raw/                       # IMMUTABLE ingested sources (owned by workspace_io)
+├── raw/                       # source inbox; ingested sources move to _archived/
 │   ├── articles/              # clipped web articles
 │   ├── specs/                 # design docs, RFCs
 │   ├── prs/                   # PR summaries
