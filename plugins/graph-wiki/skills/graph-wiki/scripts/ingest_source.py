@@ -39,7 +39,12 @@ def main() -> None:
         _run_bedrock()
 
     from wiki_io._workspace import resolve_wiki_and_repo
-    from wiki_io.ingest_source import build_folder_ingest_brief, build_ingest_brief
+    from wiki_io.ingest_source import (
+        build_folder_ingest_brief,
+        build_ingest_brief,
+        build_skill_ingest_brief,
+        resolve_skill_anchor,
+    )
 
     parser = argparse.ArgumentParser(description="Prepare a source for ingestion.")
     parser.add_argument("source", nargs="?", default=None, help="Path to the source file/folder")
@@ -60,7 +65,16 @@ def main() -> None:
     workspace_root = workspace_path if workspace_path is not None else wiki.parent
     source_path = Path(source_arg).expanduser()
 
-    if _source_for_branch(source_path, repo).is_dir():
+    resolved = _source_for_branch(source_path, repo)
+    anchor = resolve_skill_anchor(resolved)
+    if anchor is not None:
+        brief = build_skill_ingest_brief(
+            anchor=anchor,
+            wiki=wiki,
+            repo=repo,
+            workspace_root=workspace_root,
+        )
+    elif resolved.is_dir():
         brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
         if "_error" in brief:
             print(f"[error] {brief['_error']}", file=sys.stderr)
@@ -75,6 +89,19 @@ def main() -> None:
 
     if args.json_output:
         print(json.dumps(brief, indent=2))
+        return
+
+    if brief.get("is_skill"):
+        print(f"Title: {brief['title']}")
+        print(f"Source type: {brief['source_type']}")
+        print(f"{len(brief['included_files'])} included / {len(brief['excluded_files'])} excluded files")
+        if brief.get("scripts_dominant"):
+            print("Warning: scripts_dominant — mostly non-markdown scripts; weak guidance candidate")
+        print(f"Suggested summary: {brief['suggested_summary_path']}")
+        print(f"Target guidance dir: {brief['guidance_dir']}")
+        entity_match = brief["entity_match"]
+        if entity_match["uri"]:
+            print(f"Entity match: {entity_match['uri']} -> [[entities/{entity_match['entity_filename']}]]")
         return
 
     if brief.get("is_folder"):

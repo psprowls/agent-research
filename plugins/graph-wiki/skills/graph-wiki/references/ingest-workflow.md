@@ -151,6 +151,107 @@ Summary the user sees in chat:
 - Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept and architecture pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
 - Frontmatter contract: see `wiki-schema.md` for `origin_url`, `origin_repo`, `license`, `attribution` (`origin_url` or `origin_repo` should be set; lint warns if both are empty).
 
+## Skill → guidance pages
+
+When the brief carries `is_skill: true`, this source is an agent **skill** (behavioral
+guidance for an AI coding agent). Route it to this flow instead of the single
+source-summary flow above: a skill is broken into one or more **guidance pages** under
+`wiki/guidance/<topic>/<slug>.md`, plus one source page that links to them.
+
+### Detection
+
+The brief from `ingest_source.py --json` carries `is_skill: true`, `source_type: skill`,
+`included_files` (skill-dir-relative markdown — `SKILL.md` first, then transitively-linked
+companions in link order), `excluded_files` (non-markdown files under the skill dir),
+`scripts_dominant`, and a `warnings` list. **Read the `included_files` yourself** (Read
+tool, skill-dir-relative) before chunking — the brief is a manifest, not the content.
+
+If `scripts_dominant` is true (or `warnings` contains `"scripts_dominant"`), the skill is
+mostly non-markdown scripts — a weak guidance candidate. Surface this to the user and ask
+whether to proceed before writing pages.
+
+### Chunking rules
+
+Choose the chunking from the content (mirrors the Bedrock skill planner):
+
+- **Rules / atomic directives** — a skill that is a list of independent "do X" / "never Y"
+  rules: write ONE guidance page per rule.
+- **How-to / instructional flow** — a single coherent procedure or technique: write ONE
+  guidance page for the whole skill.
+- **Never split tightly-coupled steps** across pages. When in doubt, prefer fewer, larger
+  pages over many fragments.
+- Extract reusable TECHNICAL knowledge; drop skill-harness scaffolding (activation phrases,
+  tool-call mechanics, meta-instructions about being a skill).
+- Preserve content verbatim where practical — the goal is smaller, targetable chunks, not
+  rewrites.
+- Infer `topic` from the skill's DOMAIN, not its filename (a React Native skill →
+  `react-native`; a brainstorming skill → `brainstorming`). `topic` is a short kebab-case
+  slug and becomes the folder under `wiki/guidance/`.
+
+### Guidance page frontmatter (inline schema — no template file needed)
+
+Each guidance page begins with this frontmatter block, then the body. Emit exactly these
+keys:
+
+```yaml
+---
+title: <human-readable page title>
+category: guidance          # FIXED — always this literal value
+summary: <one-line summary for the wiki spine>
+topic: <kebab-case domain slug — the folder under guidance/>
+applies_when: <when this guidance applies, one line>
+triggers:                   # all sub-keys optional; emit empty lists when no signal
+  globs: []
+  keywords: []
+  entities: []              # [[entities/...]] targets, or []
+tags: []                    # optional coarse tags
+impact: high                # critical | high | medium | low (lowercase)
+source: "[[sources/<YYYY-MM>-<slug>]]"   # the skill's source page (see below)
+updated: <today, YYYY-MM-DD>
+tokens: 0
+---
+```
+
+`category` MUST be the literal `guidance`. `impact` MUST be lowercase and one of
+critical/high/medium/low. Use the `suggested_summary_path` from the brief (minus the
+`sources/` prefix and `.md` suffix) as the `source:` target.
+
+Body sections:
+
+1. `# <title>`
+2. `## Guidance` — the prescriptive content: how to do it correctly and why. No padding, no
+   restating the title.
+3. `## Incorrect` / `## Correct` — optional code examples, only when they sharpen the point.
+4. `## Applies to` — ONLY when `triggers.entities` is non-empty: one `- [[entities/...]]`
+   bullet per entity. Omit the section entirely when there are no entities.
+
+### Targets
+
+Write each page to `<workspace>/wiki/guidance/<topic>/<slug>.md`. `<topic>` is the
+kebab-case domain folder; `<slug>` is a kebab-case stem derived from the page title. Create
+the topic folder if it doesn't exist. On re-ingest, overwrite the page in place.
+
+### Source page
+
+Write one source page at the brief's `suggested_summary_path`
+(`<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`) with `source_type: skill`:
+
+- `## Summary` — one or two sentences: the skill was ingested into N guidance page(s).
+- `## Generates` — a bullet list of `[[guidance/<topic>/<slug>]]` wikilinks, one per
+  guidance page written.
+- `## Excluded` — only when the brief's `excluded_files` is non-empty: a bullet list of the
+  non-markdown files (as `` `path` ``) that were not ingested.
+
+This matches the Bedrock source-page shape (`## Summary`, `## Generates`, `## Excluded`).
+
+### Entity backlinks
+
+`## Applies to` `[[entities/...]]` links **do** produce entity backlinks: `guidance` is in
+the scanner's preserved-wiki-dirs list, so the next `/graph-wiki:scan` derives the reciprocal
+`## Referenced in wiki` entry on each linked entity page from these forward links (the nested
+`guidance/<topic>/<slug>` slug is rendered correctly). Write the links — the scanner backfills
+the reciprocity, just as it does for source-page `## Touches` links.
+
 ## Future formats
 
 Today, in-repo doc ingest is limited to `.md` files passed by path. Other formats are deferred:
