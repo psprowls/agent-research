@@ -90,6 +90,7 @@ If the source shifts an architecture thesis, revise and append to `## How this s
 
 ### 10. Update index
 If you edited wiki pages manually, update the relevant `index.md` category sections inline. Command-layer ingest/scan flows update indexes automatically.
+If you wrote guidance pages manually, also refresh `guidance/index.md` and the affected `guidance/<topic>/index.md` (match the existing auto-generated bullet format).
 
 ### 11. Log
 Append a `## [YYYY-MM-DD] ingest | <title>` entry to `log.md` with the touched pages and notable contradictions.
